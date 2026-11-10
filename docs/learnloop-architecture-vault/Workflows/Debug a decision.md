@@ -83,6 +83,8 @@ A field found only by ordering rows in time is listed in that answer's `inferred
 
 **Why pre-builds started.** `why --kind figure_prebuild --first-build --json` gives `first_build.last_skip` (`no_measured_latency`), `first_build.first_build` (`sampled_eu_positive`), `changed` (`waits_n: [0, 1]`, `wait_basis: ["none", "author_call"]`), `first_measurement` and `measurement_between: true`.
 
+**What a pre-build's wait was made of.** From mvp-0.58 (the figure wait estimate, `prefetch_decision_v2`) a `figure_prebuild` record's inputs carry `wait_estimate_by_tier`: per quick tier, the pressed builds' author calls (`pressed_n`, `pressed_min`), the prior from the other measured calls, the pre-builder's own (`prior_n`, `prior_min`, `prior_strength`: one measurement), and `posterior_min`, the W the draw read (`wait_min`). `blocked_basis` says what the pause cost counted: `refused` foreground failures inside a pause window, the pre-builder's own failures left out (`background_left_out`), the foreground calls behind the latency (`latency_calls`) and the `pauses`. A record under `prefetch_decision_v1` (the switch `figures.prefetch.pressed_waits` off, or a vault below the tag) has neither: its W read every author call alike.
+
 **A practice item's stored row is malformed.** `why item:pi_example --json` still answers: `source = "unavailable"` with `explanation_error` naming the exception class, where it was raised and the bad rows (`{"table": "followup_tasks", "id": "...", "column": "context_json"}`), never their content.
 
 ## Payloads, and the desktop's glass-box view

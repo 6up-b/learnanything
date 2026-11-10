@@ -76,9 +76,10 @@ def reader_report(
                                      skipped_section_los=skipped_section_los)
         if loaded.config.figures.enabled and loaded.config.figures.prefetch_enabled:
             # RW5d P5 (spec §10b.6): the prefetch block (absent with the switch off).
-            from learnloop.figures.prefetch_ledger import add_report_block
+            from learnloop.figures.prefetch_ledger import add_report_block, pressed_waits_on
 
-            add_report_block(report, path, since=_since(since, now), plan_providers=_plan_providers(loaded), now=now)
+            add_report_block(report, path, since=_since(since, now), plan_providers=_plan_providers(loaded), now=now,
+                             pressed_waits=pressed_waits_on(loaded))
         if loaded.config.figures.enabled and loaded.config.figures.checked_labels_enabled:
             # RW5c (spec §12): the source-check block (absent with the switch off: G23g).
             from learnloop.figures.source_check import add_report_block as add_source_checks

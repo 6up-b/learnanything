@@ -98,9 +98,9 @@ def test_the_successor_is_one_constant_after_rebuild_equivalence():
     # Built after RW7b's mvp-0.32 as mvp-0.34; the batch landing renumbered it after rebuild equivalence's mvp-0.34.
     # The kept replaced claims' mvp-0.36, mobile PR-4's mvp-0.37 and the cold-retry reschedule's mvp-0.38 (the
     # latest) follow it (and keep it).
-    assert SUCCESSOR_CHAIN[-23] == TAG == "mvp-0.35" and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.57"
-    assert SUCCESSOR_CHAIN[-24] == PREDECESSOR == REPLAY_LEDGER_ALGORITHM_VERSION == "mvp-0.34"
-    assert ONE_ASK_VERSIONS == frozenset({TAG, "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57"})
+    assert SUCCESSOR_CHAIN[-24] == TAG == "mvp-0.35" and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.58"
+    assert SUCCESSOR_CHAIN[-25] == PREDECESSOR == REPLAY_LEDGER_ALGORITHM_VERSION == "mvp-0.34"
+    assert ONE_ASK_VERSIONS == frozenset({TAG, "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58"})
     assert AskConfig().panel_enabled is True and AskConfig().cold_help_converts is True
     for key in ("ask.panel_enabled", "ask.cold_help_converts"):
         assert classify_config_path(key) is not None

@@ -6,7 +6,10 @@ Four kinds, each a :class:`learnloop.provenance.DecisionRecord` of ids, numbers 
 * ``figure_prebuild``: one per candidate the prefetch model decided (``figures.prefetch``):
   its verdict as the status, the model's rule (:data:`~.prefetch_model.RULE_NO_MEASURED_LATENCY`
   and its two siblings), EU, propensity, the measured-wait summary the draw read, and the pass's
-  RNG seed. ``detail`` is its ``figure_prefetch_decisions`` row.
+  RNG seed. ``detail`` is its ``figure_prefetch_decisions`` row. Under ``prefetch_decision_v2``
+  (mvp-0.58) also W's basis per quick tier (``wait_estimate_by_tier``: the pressed calls' count and
+  minutes, the prior's, its strength and the posterior) and what the blocked minutes counted
+  (``blocked_basis``).
 * ``figure_prefetch_filter``: one per filter pass that excluded anything: the count by rule and
   up to :data:`MAX_KEYS_PER_RULE` request keys per rule, protection exclusions included.
 * ``figure_prebuild_stop``: a build the queue stopped at or passed over (the in-memory notes'
@@ -176,6 +179,15 @@ def prebuild_record(row: Mapping[str, Any], decision: Any, model: Any, *, draw_i
         "pause_days": int(model.pause.days), "builds_left": int(builds_left), "render_left_min": number(render_left),
         "on_mains": bool(on_mains), "plan_waiting": bool(plan_waiting),
     }
+    if getattr(waits, "estimates", None):
+        # prefetch_decision_v2 (the figure wait estimate): W's basis, the presses, the prior and the posterior,
+        # per quick tier; v1's records stay exactly as they were.
+        facts["wait_estimate_by_tier"] = {str(tier): estimate.facts()
+                                          for tier, estimate in sorted(waits.estimates.items())}
+    basis = getattr(model, "blocked_basis", None)
+    if basis is not None:
+        facts["blocked_basis"] = {str(name): (int(value) if isinstance(value, int) else number(value))
+                                  for name, value in sorted(basis.items())}
     return provenance.DecisionRecord(
         kind=KIND_PREBUILD, status=status, subject_kind="decision", subject_id=str(row["id"]),
         chosen_ref=code(row.get("request_key")) if verdict == "build" else None,

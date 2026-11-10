@@ -737,6 +737,12 @@ _reg_const("figure_prefetch_model:POSTERIOR_DRAWS", "numerical", kind="structura
 _reg_const("figure_prefetch_model:P_CONTENT_CLIP", "numerical", kind="structural", owner="figure_prefetch_model",
            rationale="keep (numerical): the judge's stated 0 or 1 clipped before its logit so the feature stays "
                      "finite; resolution, not a weight.")
+_reg_const("figure_prefetch_model:WAIT_PRIOR_STRENGTH", "prior", owner="figure_prefetch_model",
+           rationale="treatment learn, prior_basis unit_information (Kass & Wasserman 1995), prior_scale 1 "
+                     "measurement (mvp-0.58, prefetch_decision_v2): the quick tiers' wait prior is centred on the "
+                     "pre-builder's own author calls (they time the same call, nobody waits on them) and worth one "
+                     "pressed call; one group of presses gives no between-group spread to fit a strength from, so the "
+                     "prior claims the least that still pins a centre, and the presses' weight n/(n+1) is learned.")
 _reg_const("figure_prefetch:PREFETCH_SECTION_CANDIDATES", "constraint", kind="structural", owner="figure_prefetch",
            rationale="keep (spec §15: 3): the section judge's output size, one idea per block.")
 _reg_const("figure_prefetch:PREFETCH_CONCURRENT_BUILDS", "operational", kind="structural", owner="figure_prefetch",
@@ -2569,6 +2575,10 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "keep (spec §15, Q24): plan headroom spent on speculation a day / wall-clock minutes of background "
         "Manim renders a day; guardrails that cut the prebuild queue in expected-utility order, never a weight, "
         "margin or threshold."),
+    _ConfigRule(_exact("figures.prefetch.pressed_waits"), "structural", "operational",
+        "kill switch for mvp-0.58 (the figure wait estimate): the prebuild's W from pressed builds with a prior and "
+        "the blocked minutes from foreground calls (prefetch_decision_v2); off (or below the tag) mvp-0.57's "
+        "decisions exactly. Which content exists sooner; no measurement, scheduling or serving authority."),
     _ConfigRule(_exact(
         "figures.max_daily_cost_usd",
         "figures.price_per_million",

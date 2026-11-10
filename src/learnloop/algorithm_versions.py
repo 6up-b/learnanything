@@ -909,6 +909,17 @@ UNEVIDENCED_RETURN_ALGORITHM_VERSION = "mvp-0.56"
 # fix (mvp-0.56) landed before it and became its predecessor when main was merged in.
 SLIP_GAP_ALGORITHM_VERSION = "mvp-0.57"
 
+# mvp-0.58 (the figure wait estimate; owner decision 2026-11-10, "W from pressed builds with a prior; cost from
+# foreground minutes only"; docs/reviews/figure-wait-estimate.md), on top of slip or gap's mvp-0.57. The figure
+# pre-builder's W (the minutes a press would wait, the quick tiers) read every figure author call, 20 of 22 of them its
+# own background builds on the owner's vault, and its blocked minutes counted its own failed calls as foreground: the
+# ``owner_kind`` filters meant to leave them out never matched a receipt. W is now the pressed builds' calls shrunk
+# toward the other calls by a prior worth one measurement, and the blocked minutes count foreground calls only (the
+# decision rows' ``prefetch_decision_v2``). Kill switch ``figures.prefetch.pressed_waits`` (off, or below the tag:
+# ``prefetch_decision_v1``, mvp-0.57's numbers exactly). Nothing recorded changes meaning and replay reads nothing new
+# (the decisions are a raw ledger, each row naming its model version). No migration. ONE constant.
+FIGURE_WAIT_ALGORITHM_VERSION = "mvp-0.58"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor appends its tag
@@ -964,6 +975,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     FAILURE_SHARE_ALGORITHM_VERSION,
     UNEVIDENCED_RETURN_ALGORITHM_VERSION,
     SLIP_GAP_ALGORITHM_VERSION,
+    FIGURE_WAIT_ALGORITHM_VERSION,
 )
 
 
@@ -1237,6 +1249,11 @@ UNEVIDENCED_RETURN_VERSIONS: frozenset[str] = successors_from(UNEVIDENCED_RETURN
 # and splits a lesson's and a repair's slope by the miss's cause (SG2, behind ``miss_cause_in_value``). Every later
 # successor keeps them; gates must use this set, never equality.
 SLIP_GAP_VERSIONS: frozenset[str] = successors_from(SLIP_GAP_ALGORITHM_VERSION)
+
+# Versions whose figure pre-builder reads W from pressed builds with a prior and the blocked minutes from foreground
+# calls (``prefetch_decision_v2``), behind ``figures.prefetch.pressed_waits``. Every later successor keeps it; gates
+# must use this set, never equality.
+FIGURE_WAIT_VERSIONS: frozenset[str] = successors_from(FIGURE_WAIT_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

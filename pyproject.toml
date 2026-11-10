@@ -715,6 +715,7 @@ source_modules = [
     "learnloop.failure_share_upgrade",
     "learnloop.unevidenced_return_upgrade",
     "learnloop.slip_gap_upgrade",
+    "learnloop.figure_wait_upgrade",
     "learnloop.route_rules_upgrade",
     "learnloop.scheduling",
     "learnloop.serve_eligibility",

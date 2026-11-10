@@ -2679,10 +2679,20 @@ class FiguresPrefetchConfig(BaseModel):
     day (plan headroom spent on speculation; a lesson alone is 15-25 calls).
     ``max_daily_render_minutes``: wall-clock minutes of background Manim
     renders a local day. The caps cut the queue in expected-utility order;
-    they never admit a candidate the decision refused."""
+    they never admit a candidate the decision refused.
+
+    From mvp-0.58 (the figure wait estimate): ``pressed_waits``: the wait a
+    prebuild saves (W, the quick tiers) is the pressed builds' author calls,
+    shrunk toward the pre-builder's own calls by a prior worth one
+    measurement, and the minutes a usage-limit pause blocked count
+    foreground calls only (``prefetch_decision_v2``). Off, or below the tag,
+    every measured call counts alike (``prefetch_decision_v1``, the
+    predecessor's numbers exactly)."""
 
     max_daily_builds: int = Field(default=10, ge=0, le=1000)
     max_daily_render_minutes: float = Field(default=30.0, ge=0, le=1440)
+    #: From mvp-0.58: W from pressed builds with a prior; the blocked minutes from foreground calls.
+    pressed_waits: bool = True
 
 
 class FiguresConfig(BaseModel):

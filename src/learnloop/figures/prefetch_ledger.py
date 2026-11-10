@@ -14,6 +14,15 @@ decision time; this module reads what it needs, by SQL, from a connection:
   latency);
 * the measured pressed build latencies by tier and the tier mixes (W_tier).
 
+Whose call a receipt was (:func:`call_build_modes`, :func:`background_call`):
+no receipt says it (a pre-build's figure calls carry a press's owner kind), so
+the build mode is read from the stored figure the receipt's owner names. Under
+``prefetch_decision_v1`` the ``owner_kind`` filters meant to leave the
+pre-builder's calls out never matched, so W and the blocked minutes read every
+call; ``prefetch_decision_v2`` (mvp-0.58, :func:`pressed_waits_on`) reads the
+quick tiers' W from pressed calls with the other calls as a prior and the
+blocked minutes from foreground calls only.
+
 :func:`report_block` is ``learnloop reader report``'s ``prefetch`` block:
 decisions and outcomes by trigger, the posteriors' contraction, the measured
 waits, the pauses with and without prebuilds before them, and the builds
@@ -50,6 +59,17 @@ def plan_providers(vault: Any) -> set[str]:
 
     return {name for name, profile in vault.config.ai.providers.items()
             if billing_for(getattr(profile, "type", None)) == "subscription"}
+
+
+def pressed_waits_on(vault: Any) -> bool:
+    """The figure wait estimate's successor (``FIGURE_WAIT_VERSIONS``) with its switch
+    ``figures.prefetch.pressed_waits`` on: decisions read ``prefetch_decision_v2`` (:func:`load_model`)."""
+
+    from learnloop.algorithm_versions import FIGURE_WAIT_VERSIONS
+
+    config = vault.config
+    return (getattr(config.algorithms, "algorithm_version", None) in FIGURE_WAIT_VERSIONS
+            and bool(config.figures.prefetch.pressed_waits))
 
 
 def has_tables(connection: Any) -> bool:
@@ -114,8 +134,74 @@ def plan_receipts(connection: Any, plan_providers: Iterable[str]) -> list[dict[s
         return []
     marks = ",".join("?" for _ in providers)
     return _dicts(connection.execute(
-        "SELECT owner_kind, purpose, provider, status, started_at, finished_at, input_tokens, output_tokens "
+        "SELECT owner_kind, owner_id, purpose, provider, status, started_at, finished_at, input_tokens, output_tokens "
         f"FROM model_call_receipts WHERE provider IN ({marks}) ORDER BY started_at", providers))
+
+
+# -- whose call a receipt was: a press's or the pre-builder's ------------------------------------------
+
+#: The figure calls' receipt purposes (``model_call_receipts.purpose``, the route's task).
+AUTHOR_PURPOSE = "figure_author"
+RICH_AUTHOR_PURPOSE = "figure_rich_author"
+#: The prefetch judge runs in the background only (spec §10b.2): every call of it is the pre-builder's.
+JUDGE_PURPOSE = "figure_prefetch_judge"
+
+
+def call_build_modes(connection: Any) -> dict[str, str]:
+    """``owner_id`` -> the build mode (``pressed`` or ``prefetch``) of the build whose figure calls
+    carry it, read from what the ledger records (no receipt says it: a pre-build's calls have the
+    same owner kind as a press's).
+
+    The figure author's receipts are owned by ``figure:<content_key(input_hash, generation)>``
+    (``service.build_figure``), the generation being how many figures of that input were stored
+    before the build (``store.builds_for_input`` over ``service.ALL_SPEC_VERSIONS``); the rich
+    author's by ``figure_rich:<rich.content_key_for(payload)>`` (the input, the quick figure it
+    follows, the quick build's generation). So each stored figure names its build's owner, and its
+    building request (``interactive_figures.request_id``, never a later reuse's row) the mode; a
+    figure older than the request ledger is a press's. A build that stored nothing (refused, or
+    crashed before its row) shares its owner with the next build of that input, when there is
+    one; otherwise its receipts are unowned here (:func:`background_call` reads them as foreground).
+    """
+
+    if not _table(connection, "interactive_figures") or not _table(connection, "figure_requests"):
+        return {}
+    from learnloop.ai.execution import content_key
+    from learnloop.figures.service import ALL_SPEC_VERSIONS
+
+    marks = ",".join("?" for _ in ALL_SPEC_VERSIONS)
+    rows = _dicts(connection.execute(
+        "SELECT f.id, f.input_hash, f.fuller_of_id, f.origin, f.tier, r.build_mode FROM interactive_figures f "
+        "LEFT JOIN figure_requests r ON r.id = f.request_id "
+        f"WHERE f.input_hash IS NOT NULL AND f.spec_version IN ({marks}) ORDER BY f.created_at, f.id",
+        tuple(ALL_SPEC_VERSIONS)))
+    generation: dict[str, int] = {}
+    seen: Counter[str] = Counter()
+    modes: dict[str, str] = {}
+    for row in rows:
+        generation[str(row["id"])] = seen[str(row["input_hash"])]
+        seen[str(row["input_hash"])] += 1
+    for row in rows:
+        mode = str(row["build_mode"] or ("prefetch" if row["origin"] == "prefetch" else "pressed"))
+        follows = row["fuller_of_id"]
+        built_at = generation.get(str(follows), generation[str(row["id"])]) if follows else generation[str(row["id"])]
+        if not follows:
+            # A quick figure, or a rich-only build's figure: the author's call that chose it.
+            modes.setdefault(f"figure:{content_key({'input_hash': row['input_hash'], 'generation': built_at})}", mode)
+        if row["tier"] in PM.RICH_TIERS:
+            rich = content_key({"input_hash": row["input_hash"], "fuller_of": follows, "generation": built_at})
+            modes.setdefault(f"figure_rich:{rich}", mode)
+    return modes
+
+
+def background_call(row: Mapping[str, Any], modes: Mapping[str, str]) -> bool:
+    """Whether a receipt is the pre-builder's own background call (``prefetch_decision_v2``): the
+    judge's, or a figure author's or rich author's call whose build was a pre-build
+    (:func:`call_build_modes`). Any other call, an unowned figure call included, is foreground."""
+
+    purpose = row.get("purpose")
+    if purpose == JUDGE_PURPOSE:
+        return True
+    return purpose in (AUTHOR_PURPOSE, RICH_AUTHOR_PURPOSE) and modes.get(str(row.get("owner_id"))) == "prefetch"
 
 
 def _tokens(row: Mapping[str, Any]) -> int | None:
@@ -174,29 +260,56 @@ def plan_days(connection: Any, plan_providers: Iterable[str], *, today: str,
             for day in sorted(set(requests) | (paused - {today})) if day < today]
 
 
-def blocked_minutes(connection: Any, plan_providers: Iterable[str]) -> float | None:
+def blocked_minutes(connection: Any, plan_providers: Iterable[str], *, pressed_only: bool = False) -> float | None:
     """Measured foreground minutes a pause blocked, per pause: the pressed (non-background) plan
     calls that failed inside a pause's window, times the mean measured plan call latency. None
-    with no pause or no measured latency."""
+    with no pause or no measured latency. ``pressed_only`` (``prefetch_decision_v2``,
+    :func:`blocked_basis`) leaves the pre-builder's own calls out of both."""
 
+    return blocked_basis(connection, plan_providers, pressed_only=pressed_only)["minutes"]
+
+
+def blocked_basis(connection: Any, plan_providers: Iterable[str], *, pressed_only: bool = False) -> dict[str, Any]:
+    """:func:`blocked_minutes` and what it counted: ``minutes`` (None: no pause or no measured
+    latency), ``refused`` (failed calls inside a pause window it counted), ``background_left_out``
+    (the pre-builder's own failed calls inside one, :func:`background_call`), ``latency_calls`` and
+    ``pauses``. Without ``pressed_only`` (``prefetch_decision_v1``) every call counts: its owner-kind
+    filter never matched a receipt (no figure call's owner kind starts with ``prefetch``)."""
+
+    found: dict[str, Any] = {"minutes": None, "refused": 0, "background_left_out": 0, "latency_calls": 0,
+                             "pauses": 0}
     windows = [(_when(row["hit_at"]), _when(row.get("reset_at"))) for row in pauses(connection)]
     windows = [(start, end) for start, end in windows if start is not None and end is not None]
+    found["pauses"] = len(windows)
     if not windows:
-        return None
+        return found
     receipts = plan_receipts(connection, plan_providers)
-    durations = [value for row in receipts if row["status"] == "completed"
+    modes = call_build_modes(connection) if pressed_only else {}
+
+    def background(row: Mapping[str, Any]) -> bool:
+        if pressed_only:
+            return background_call(row, modes)
+        return str(row.get("owner_kind") or "").startswith("prefetch")
+
+    durations = [value for row in receipts if row["status"] == "completed" and not (pressed_only and background(row))
                  and (value := _minutes(row["started_at"], row.get("finished_at"))) is not None and value > 0]
+    found["latency_calls"] = len(durations)
     if not durations:
-        return None
+        return found
     latency = sum(durations) / len(durations)
-    refused = 0
+    refused = left_out = 0
     for row in receipts:
-        if row["status"] != "failed" or str(row.get("owner_kind") or "").startswith("prefetch"):
+        if row["status"] != "failed":
             continue
         when = _when(row["started_at"])
-        if when is not None and any(start <= when <= end for start, end in windows):
+        if when is None or not any(start <= when <= end for start, end in windows):
+            continue
+        if background(row):
+            left_out += 1
+        else:
             refused += 1
-    return refused * latency / len(windows)
+    found.update(minutes=refused * latency / len(windows), refused=refused, background_left_out=left_out)
+    return found
 
 
 # -- W_tier --------------------------------------------------------------------------------------------
@@ -224,7 +337,13 @@ def _waited_tier(rows: list[dict[str, Any]]) -> str | None:
     return str(tiers[0]) if tiers else None
 
 
-def waits(connection: Any) -> PM.Waits:
+def waits(connection: Any, *, pressed_only: bool = False) -> PM.Waits:
+    """W_tier's measurements. The rich tiers: pressed requests to their stored rich figures. The quick
+    tiers: the figure author's completed calls; ``prefetch_decision_v1`` reads them all alike (its
+    ``owner_kind`` filter never matched: no figure call's owner kind starts with ``prefetch``), and
+    ``pressed_only`` (``prefetch_decision_v2``) takes the pressed builds' calls as the measurement and
+    every other call as its prior (:func:`learnloop.figures.prefetch_model.wait_estimate`)."""
+
     by_request = _figures_by_request(connection)
     latencies: dict[str, list[float]] = defaultdict(list)
     pressed_tiers: list[str] = []
@@ -237,8 +356,21 @@ def waits(connection: Any) -> PM.Waits:
         for row in rows:
             if row["tier"] in PM.RICH_TIERS and (value := _minutes(row["requested_at"], row["created_at"])):
                 latencies[str(row["tier"])].append(value)
-    if _table(connection, "model_call_receipts"):
-        # The quick tiers: the figure author's measured call duration (the wait a press saw).
+    estimates: dict[str, PM.WaitEstimate] = {}
+    if _table(connection, "model_call_receipts") and pressed_only:
+        modes = call_build_modes(connection)
+        pressed: list[float] = []
+        others: list[float] = []
+        for owner, start, end in connection.execute(
+                "SELECT owner_id, started_at, finished_at FROM model_call_receipts WHERE purpose = ? "
+                "AND status = 'completed'", (AUTHOR_PURPOSE,)):
+            value = _minutes(start, end)
+            if value:
+                (pressed if modes.get(str(owner)) == "pressed" else others).append(value)
+        estimate = PM.wait_estimate(pressed, others)
+        estimates = {tier: estimate for tier in PM.QUICK_TIERS}
+    elif _table(connection, "model_call_receipts"):
+        # prefetch_decision_v1: the quick tiers: the figure author's measured call duration.
         for row in connection.execute(
                 "SELECT started_at, finished_at FROM model_call_receipts WHERE purpose = 'figure_author' "
                 "AND status = 'completed' AND owner_kind NOT LIKE 'prefetch%'"):
@@ -252,7 +384,7 @@ def waits(connection: Any) -> PM.Waits:
         decision = rows[0].get("prefetch_decision_id")
         if rows[0]["build_mode"] == "prefetch" and decision in kinds and (tier := _waited_tier(rows)):
             by_kind[kinds[decision]].append(tier)
-    return PM.waits(latencies, pressed_tiers, by_kind)
+    return PM.waits(latencies, pressed_tiers, by_kind, estimates)
 
 
 def incremental(connection: Any) -> PM.Incremental:
@@ -273,18 +405,26 @@ def incremental(connection: Any) -> PM.Incremental:
 
 
 def load_model(connection: Any, plan_providers: Iterable[str], *, now: datetime,
-               offset: timedelta = timedelta(0)) -> PM.Model:
+               offset: timedelta = timedelta(0), pressed_waits: bool = True) -> PM.Model:
+    """The decision model from the ledger. ``pressed_waits`` (the figure wait estimate's successor,
+    :func:`pressed_waits_on`): W from pressed calls with a prior and the
+    blocked minutes from foreground calls (``prefetch_decision_v2``); off, ``prefetch_decision_v1``
+    exactly."""
+
     providers = list(plan_providers)
     today = (now + offset).date().isoformat()
     rows = decisions(connection)
     pause = PM.pause_posterior(plan_days(connection, providers, today=today, offset=offset))
+    blocked = blocked_basis(connection, providers, pressed_only=pressed_waits)
     return PM.Model(
         opening=PM.open_posterior(observations(rows)),
         pause=pause,
-        waits=waits(connection),
-        blocked_minutes=blocked_minutes(connection, providers),
+        waits=waits(connection, pressed_only=pressed_waits),
+        blocked_minutes=blocked["minutes"],
         load_today=pause.load(plan_day(connection, providers, today, offset=offset)),
         incremental=incremental(connection),
+        version=PM.MODEL_VERSION if pressed_waits else PM.MODEL_VERSION_V1,
+        blocked_basis={name: value for name, value in blocked.items() if name != "minutes"} if pressed_waits else None,
     )
 
 
@@ -365,8 +505,10 @@ def _built_at(connection: Any, row: Mapping[str, Any]) -> datetime | None:
 
 
 def report_block(connection: Any, *, since: datetime | None = None,
-                 plan_providers: Iterable[str] = (), now: datetime | None = None) -> dict[str, Any]:
-    """``learnloop reader report``'s ``prefetch`` block (spec §10b.6)."""
+                 plan_providers: Iterable[str] = (), now: datetime | None = None,
+                 pressed_waits: bool = True) -> dict[str, Any]:
+    """``learnloop reader report``'s ``prefetch`` block (spec §10b.6), read as the decisions read
+    the ledger now (``pressed_waits``, :func:`load_model`)."""
 
     current = now or datetime.now(UTC)
     rows = [row for row in decisions(connection)
@@ -383,7 +525,7 @@ def report_block(connection: Any, *, since: datetime | None = None,
             "open": sum(1 for row in mine if not row.get("outcome")),
         }
     providers = list(plan_providers)
-    model = load_model(connection, providers, now=current)
+    model = load_model(connection, providers, now=current, pressed_waits=pressed_waits)
     pause_rows = [row for row in pauses(connection)
                   if since is None or ((when := _when(row["hit_at"])) is not None and when >= since)]
     built_times = [when for row in decisions(connection) if row["decision"] in BUILD_DECISIONS and row.get("request_id")
@@ -396,9 +538,10 @@ def report_block(connection: Any, *, since: datetime | None = None,
     return {
         "decisions_by_trigger": by_trigger,
         "posterior": {"opening": model.opening.summary(), "pause": model.pause.summary(),
-                      "model_version": PM.MODEL_VERSION},
+                      "model_version": model.version},
         "measured_wait": model.waits.summary(),
         "blocked_minutes_per_pause": model.blocked_minutes,
+        **({"blocked_basis": dict(model.blocked_basis)} if model.blocked_basis is not None else {}),
         "pauses": {"count": len(pause_rows), "with_prebuilds_earlier_that_day": with_prebuilds,
                    "without_prebuilds": len(pause_rows) - with_prebuilds},
         # Follow-ups batch 7 (A): a deferred decision is built later or not at all, so it is one or
@@ -413,7 +556,8 @@ def report_block(connection: Any, *, since: datetime | None = None,
 
 
 def add_report_block(report: dict[str, Any], sqlite_path: Any, *, since: str | None = None,
-                     plan_providers: Iterable[str] = (), now: datetime | None = None) -> dict[str, Any]:
+                     plan_providers: Iterable[str] = (), now: datetime | None = None,
+                     pressed_waits: bool = True) -> dict[str, Any]:
     """Put :func:`report_block` under the reader report's ``figures`` (``learnloop reader report``
     calls it only with ``figures.prefetch_enabled`` on, so off the report is P2b's)."""
 
@@ -423,7 +567,7 @@ def add_report_block(report: dict[str, Any], sqlite_path: Any, *, since: str | N
 
     with closing(connect(sqlite_path, read_only=True)) as connection:
         block = report_block(connection, since=_when(since) if since else None, plan_providers=plan_providers,
-                             now=now)
+                             now=now, pressed_waits=pressed_waits)
     report.setdefault("figures", {})["prefetch"] = block
     return report
 
@@ -437,14 +581,20 @@ def anchor_of(row: Mapping[str, Any]) -> dict[str, Any] | None:
 
 
 __all__ = [
+    "AUTHOR_PURPOSE",
     "BUILD_DECISIONS",
     "DECISIONS_TABLE",
     "DEFERRALS",
+    "JUDGE_PURPOSE",
+    "RICH_AUTHOR_PURPOSE",
     "add_report_block",
     "PAUSES_TABLE",
     "anchor_of",
+    "background_call",
+    "blocked_basis",
     "blocked_minutes",
     "builds_today",
+    "call_build_modes",
     "capacity_left",
     "day_load",
     "decisions",
@@ -457,6 +607,7 @@ __all__ = [
     "plan_days",
     "plan_providers",
     "plan_receipts",
+    "pressed_waits_on",
     "render_minutes_left",
     "render_minutes_today",
     "report_block",

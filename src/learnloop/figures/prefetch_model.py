@@ -27,7 +27,12 @@ never a threshold. For a candidate ``i``::
   (else the pressed tier mix; with no mix measured yet, the author call's
   measured duration, the wait every press has at least). No measured
   tier: no estimate, and the candidate waits (structural: no data, no
-  prebuild).
+  prebuild). From :data:`MODEL_VERSION` (``prefetch_decision_v2``, the
+  figure wait estimate's successor) the quick tiers' W is
+  :func:`wait_estimate`: the pressed author calls' log-normal mean shrunk
+  toward the other measured calls' (the pre-builder's own background
+  calls, which time the same call but are nobody's wait) by a prior worth
+  one pressed measurement; ``prefetch_decision_v1`` read every call alike.
 * ``C_i``: what the build can take from foreground use. On the plan the money
   is zero; the cost is ``P(usage-limit pause | today's plan load + this
   build's expected requests) * E[foreground minutes blocked by a pause]``. The
@@ -40,7 +45,9 @@ never a threshold. For a candidate ``i``::
   calls per authored request, plus the rich calls per rich job times the
   trigger kind's measured rich share);
   the blocked minutes are measured (pressed requests that failed inside past
-  pauses, times the measured call latency). Nothing measured: no cost.
+  pauses, times the measured call latency; from ``prefetch_decision_v2`` both
+  read foreground calls only, the pre-builder's own judge and build calls
+  left out). Nothing measured: no cost.
 * ``u.minute``: one learner minute, the unit both terms are in (LP §6: an
   owner preference, not fitted). It scales both terms alike, so the sign of
   EU (the decision) never depends on it; stored values are minutes.
@@ -68,7 +75,13 @@ import numpy as np
 
 from learnloop.adf_numeric import adf_update, normalized_log_weights
 
-MODEL_VERSION = "prefetch_decision_v1"
+#: The decision model before the figure wait estimate's successor: W and the blocked minutes read
+#: every measured call, the pre-builder's own background calls included (its kill switch
+#: ``figures.prefetch.pressed_waits = false``, or a vault below the tag, keeps it exactly).
+MODEL_VERSION_V1 = "prefetch_decision_v1"
+#: From ``FIGURE_WAIT_ALGORITHM_VERSION``: the quick tiers' W from pressed calls with a prior
+#: (:func:`wait_estimate`), the blocked minutes from foreground calls only.
+MODEL_VERSION = "prefetch_decision_v2"
 TRIGGER_KINDS: tuple[str, ...] = ("plan", "section", "offer", "lesson", "gap")
 RICH_TIERS: tuple[str, ...] = ("js_animation", "manim")
 QUICK_TIERS: tuple[str, ...] = ("grammar", "sketch")
@@ -92,6 +105,13 @@ PAUSE_SLOPE_PRIOR_SD = 2.0
 POSTERIOR_DRAWS = 64
 #: Clip of the judge's probability before its logit (numerical: a stated 0 or 1 stays finite).
 P_CONTENT_CLIP = 1e-4
+#: The quick tiers' wait prior's strength, in pressed measurements (``prefetch_decision_v2``): the
+#: unit-information prior (Kass & Wasserman 1995). Background calls time the same author call, so
+#: they seed the prior's centre; how far a press's wait sits from them is not measured (one group
+#: of presses gives no between-group spread to fit a strength from), so the prior claims the
+#: least information that still pins a centre: one measurement's. The presses' weight is learned
+#: as they come, ``n / (n + 1)``.
+WAIT_PRIOR_STRENGTH = 1.0
 
 
 def _logit(p: float) -> float:
@@ -310,6 +330,62 @@ def pause_posterior(days: Sequence[PlanDay]) -> PausePosterior:
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
+class WaitEstimate:
+    """The quick tiers' W from pressed author calls with a prior (``prefetch_decision_v2``), and its basis.
+
+    ``prior_n``/``prior_minutes``: the other measured calls (the pre-builder's own, and any call no
+    pressed build owns) and their log-normal mean; ``pressed_n``/``pressed_minutes``: the presses'.
+    """
+
+    minutes: float | None
+    pressed_n: int
+    pressed_minutes: float | None
+    prior_n: int
+    prior_minutes: float | None
+    prior_strength: float
+
+    def facts(self) -> dict[str, Any]:
+        """Numbers only (a decision record's ``wait_estimate``, the report's ``estimate_by_tier``)."""
+
+        def rounded(value: float | None) -> float | None:
+            return None if value is None else round(float(value), 4)
+
+        return {"pressed_n": self.pressed_n, "pressed_min": rounded(self.pressed_minutes),
+                "prior_n": self.prior_n, "prior_min": rounded(self.prior_minutes),
+                "prior_strength": self.prior_strength, "posterior_min": rounded(self.minutes)}
+
+
+def wait_estimate(pressed: Sequence[float], others: Sequence[float], *,
+                  strength: float = WAIT_PRIOR_STRENGTH) -> WaitEstimate:
+    """W from pressed minutes with a prior seeded by the other measured minutes (pure).
+
+    On the log scale a press's latency is N(mu, s^2). The spread ``s^2`` is the duration's, which
+    every call measures: the within-group pooled variance of both groups (each about its own mean,
+    so a shift between them never widens it). The centre ``mu`` has the prior N(mean of the others'
+    logs, s^2 / strength), so its posterior mean is ``(strength * others' mean + n * pressed mean) /
+    (strength + n)``. W is the log-normal mean ``exp(mu + s^2 / 2)``. With no press it is the
+    others' log-normal mean (``prefetch_decision_v1``'s W on a vault with no press), with no other
+    call the presses' own; nothing measured, None.
+    """
+
+    mine = np.array([math.log(value) for value in pressed if value and value > 0], dtype=float)
+    rest = np.array([math.log(value) for value in others if value and value > 0], dtype=float)
+    n, m = len(mine), len(rest)
+    if not n and not m:
+        return WaitEstimate(None, 0, None, 0, None, float(strength))
+    if not n:
+        # Either limit computed exactly as lognormal_mean computes it, so it reproduces it bit for bit.
+        centre, variance = float(np.mean(rest)), float(np.var(rest))
+    elif not m:
+        centre, variance = float(np.mean(mine)), float(np.var(mine))
+    else:
+        centre = (float(strength) * float(np.mean(rest)) + n * float(np.mean(mine))) / (float(strength) + n)
+        variance = (m * float(np.var(rest)) + n * float(np.var(mine))) / (m + n)
+    return WaitEstimate(math.exp(centre + variance / 2.0), n, lognormal_mean(pressed), m, lognormal_mean(others),
+                        float(strength))
+
+
+@dataclass(frozen=True)
 class Waits:
     """Per tier, the log-normal mean of the measured pressed build latency (minutes), and the tier mixes."""
 
@@ -317,6 +393,8 @@ class Waits:
     counts: Mapping[str, int]
     pressed_mix: Mapping[str, float]
     mix_by_kind: Mapping[str, Mapping[str, float]] = field(default_factory=dict)
+    #: ``prefetch_decision_v2``: the quick tiers' :class:`WaitEstimate` (their ``minutes`` come from it).
+    estimates: Mapping[str, WaitEstimate] = field(default_factory=dict)
 
     def expected(self, trigger_kind: str) -> float | None:
         """The expected minutes a prebuild for this trigger kind saves, or None (no measured tier)."""
@@ -345,11 +423,15 @@ class Waits:
         return source if any(tier in self.minutes and share > 0 for tier, share in mix.items()) else "none"
 
     def summary(self) -> dict[str, Any]:
-        return {"minutes_by_tier": {tier: round(value, 3) for tier, value in sorted(self.minutes.items())},
-                "measured_builds_by_tier": dict(sorted(self.counts.items())),
-                "pressed_tier_mix": {tier: round(value, 4) for tier, value in sorted(self.pressed_mix.items())},
-                "tier_mix_by_trigger": {kind: {tier: round(value, 4) for tier, value in sorted(mix.items())}
-                                        for kind, mix in sorted(self.mix_by_kind.items())}}
+        found = {"minutes_by_tier": {tier: round(value, 3) for tier, value in sorted(self.minutes.items())},
+                 "measured_builds_by_tier": dict(sorted(self.counts.items())),
+                 "pressed_tier_mix": {tier: round(value, 4) for tier, value in sorted(self.pressed_mix.items())},
+                 "tier_mix_by_trigger": {kind: {tier: round(value, 4) for tier, value in sorted(mix.items())}
+                                         for kind, mix in sorted(self.mix_by_kind.items())}}
+        if self.estimates:
+            # prefetch_decision_v2 only: v1's summary (and so its posterior digest) stays as it was.
+            found["estimate_by_tier"] = {tier: estimate.facts() for tier, estimate in sorted(self.estimates.items())}
+        return found
 
 
 def lognormal_mean(minutes: Sequence[float]) -> float | None:
@@ -369,7 +451,12 @@ def _mix(tiers: Iterable[str]) -> dict[str, float]:
 
 
 def waits(latencies: Mapping[str, Sequence[float]], pressed_tiers: Sequence[str],
-          prefetch_tiers_by_kind: Mapping[str, Sequence[str]] | None = None) -> Waits:
+          prefetch_tiers_by_kind: Mapping[str, Sequence[str]] | None = None,
+          estimates: Mapping[str, WaitEstimate] | None = None) -> Waits:
+    """The measured waits. A tier in ``estimates`` (``prefetch_decision_v2``'s quick tiers) takes
+    its estimate's minutes and counts every call behind it; any other tier, its latencies'
+    log-normal mean."""
+
     minutes: dict[str, float] = {}
     counts: dict[str, int] = {}
     for tier, values in latencies.items():
@@ -377,8 +464,14 @@ def waits(latencies: Mapping[str, Sequence[float]], pressed_tiers: Sequence[str]
         if mean is not None:
             minutes[tier] = mean
             counts[tier] = len([value for value in values if value and value > 0])
+    kept: dict[str, WaitEstimate] = {}
+    for tier, estimate in (estimates or {}).items():
+        if estimate.minutes is not None:
+            minutes[tier] = estimate.minutes
+            counts[tier] = estimate.pressed_n + estimate.prior_n
+            kept[tier] = estimate
     by_kind = {kind: _mix(tiers) for kind, tiers in (prefetch_tiers_by_kind or {}).items() if tiers}
-    return Waits(minutes, counts, _mix(pressed_tiers), by_kind)
+    return Waits(minutes, counts, _mix(pressed_tiers), by_kind, kept)
 
 
 # ---------------------------------------------------------------------------
@@ -440,6 +533,12 @@ class Model:
     load_today: float
     #: What a prebuild adds to the load, measured.
     incremental: Incremental = field(default_factory=Incremental)
+    #: :data:`MODEL_VERSION_V1` or :data:`MODEL_VERSION` (what W and the blocked minutes read; the
+    #: decision row's ``model_version``). :func:`learnloop.figures.prefetch_ledger.load_model` sets it.
+    version: str = MODEL_VERSION_V1
+    #: ``prefetch_decision_v2``: what the blocked minutes counted (foreground failures, the
+    #: pre-builder's left out, the calls behind the latency); None under v1.
+    blocked_basis: Mapping[str, Any] | None = None
 
     def expected_requests(self, trigger_kind: str) -> float:
         """The plan requests a prebuild for this trigger kind is expected to make: the author's
@@ -453,7 +552,7 @@ class Model:
         """The posterior's identity, so an audit can recompute a decision."""
 
         payload = {
-            "version": MODEL_VERSION,
+            "version": self.version,
             "opening": {"sources": list(self.opening.sources), "weights": [round(float(w), 10) for w in self.opening.weights],
                         "means": [[round(float(v), 10) for v in mean] for mean in self.opening.means],
                         "observations": self.opening.observations},
@@ -463,6 +562,8 @@ class Model:
             "incremental": [self.incremental.author_calls, self.incremental.rich_calls],
             "per_request": self.pause.per_request,
         }
+        if self.blocked_basis is not None:
+            payload["blocked_basis"] = dict(self.blocked_basis)
         return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
 
     def _draw(self, rng: np.random.Generator, candidate: Candidate, wait: float) -> tuple[float, float, float]:
@@ -497,6 +598,7 @@ __all__ = [
     "KIND_PRIOR_MEAN",
     "KIND_PRIOR_SD",
     "MODEL_VERSION",
+    "MODEL_VERSION_V1",
     "PAUSE_INTERCEPT_PRIOR_MEAN",
     "PAUSE_INTERCEPT_PRIOR_SD",
     "PAUSE_SLOPE_PRIOR_MEAN",
@@ -510,6 +612,7 @@ __all__ = [
     "RULE_SAMPLED_EU_NOT_POSITIVE",
     "RULE_SAMPLED_EU_POSITIVE",
     "TRIGGER_KINDS",
+    "WAIT_PRIOR_STRENGTH",
     "Candidate",
     "Decision",
     "Incremental",
@@ -518,11 +621,13 @@ __all__ = [
     "OpenPosterior",
     "PausePosterior",
     "PlanDay",
+    "WaitEstimate",
     "Waits",
     "lognormal_mean",
     "open_posterior",
     "pause_posterior",
     "plan_load",
     "tokens_per_request",
+    "wait_estimate",
     "waits",
 ]

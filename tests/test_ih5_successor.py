@@ -50,8 +50,8 @@ IH5_KEYS = {"failure_share_to_other_policy": True, "lessons_compete_with_followu
 def test_the_successor_is_one_constant_after_phone_v3():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.54"
     # The placement hole's successor (mvp-0.56) follows it and keeps it, and slip or gap's (mvp-0.57) after that.
-    assert TAG == "mvp-0.55" == SUCCESSOR_CHAIN[-3] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.57"
-    assert FAILURE_SHARE_VERSIONS == frozenset({TAG, "mvp-0.56", "mvp-0.57"})
+    assert TAG == "mvp-0.55" == SUCCESSOR_CHAIN[-4] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.58"
+    assert FAILURE_SHARE_VERSIONS == frozenset({TAG, "mvp-0.56", "mvp-0.57", "mvp-0.58"})
 
 
 def test_the_switch_defaults_on_and_is_classified():
@@ -99,8 +99,8 @@ def test_the_openers_install_this_links_completion():
 
     # The placement hole's link (mvp-0.56) and slip or gap's (mvp-0.57) follow; the chain's latest completion hands
     # this link's journal down to the placement hole's, which hands it here.
-    assert "learnloop.slip_gap_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.slip_gap_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.figure_wait_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.figure_wait_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     assert "learnloop.unevidenced_return_upgrade import complete_interrupted_activation" in inspect.getsource(
         slip_gap_upgrade)
     assert "learnloop.failure_share_upgrade import complete_interrupted_activation" in inspect.getsource(

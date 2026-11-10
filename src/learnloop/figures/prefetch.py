@@ -1009,6 +1009,7 @@ def _filtered(env: PrefetchEnv, found: Sequence[Candidate], *, open_keys: set[st
 # ---------------------------------------------------------------------------
 
 plan_providers = PL.plan_providers
+pressed_waits_on = PL.pressed_waits_on
 
 
 def _pause_minutes(vault: Any) -> int:
@@ -1111,7 +1112,8 @@ def decide_and_log(env: PrefetchEnv, kept: Sequence[Candidate], *, on_mains: boo
         rng = np.random.default_rng(entropy)
     providers = plan_providers(vault)
     with closing(connect(env.repository.sqlite_path, read_only=True)) as connection:
-        model = PL.load_model(connection, providers, now=env.now(), offset=env.offset())
+        model = PL.load_model(connection, providers, now=env.now(), offset=env.offset(),
+                              pressed_waits=pressed_waits_on(vault))
         render_today = PL.render_minutes_today(connection, today=env.today(), offset=env.offset())
     built_today = len(started_today(env))
     digest = model.digest()
@@ -1148,7 +1150,7 @@ def decide_and_log(env: PrefetchEnv, kept: Sequence[Candidate], *, on_mains: boo
             "anchor_json": json.dumps(candidate.anchor, sort_keys=True), "goal_text": candidate.goal_text,
             "goal_author": candidate.goal_author if candidate.goal_text else None,
             "source_key": _source_key(env.repository, candidate.extraction_id),
-            "p_open_content": candidate.p_open_content, "model_version": PM.MODEL_VERSION,
+            "p_open_content": candidate.p_open_content, "model_version": model.version,
             "posterior_digest": digest, "sampled_eu": decision.sampled_eu, "propensity": decision.propensity,
             "w_minutes": decision.w_minutes, "cost_minutes": decision.cost_minutes, "decision": verdict,
             "request_id": None, "horizon_kind": candidate.horizon_kind, "outcome": None, "outcome_at": None,
@@ -1854,6 +1856,7 @@ __all__ = [
     "open_request_keys",
     "pending_builds",
     "plan_providers",
+    "pressed_waits_on",
     "run_builds",
     "run_trigger",
 ]
