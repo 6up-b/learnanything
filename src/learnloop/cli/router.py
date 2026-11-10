@@ -121,7 +121,7 @@ def router_log(
     """The newest logged router decisions, with their R_next / R_cold / S outcomes."""
 
     from learnloop.db.stores.router import router_decision_rows, router_payloads_present
-    from learnloop.router.outcomes_now import outcomes_now
+    from learnloop.why.outcomes_now import outcomes_now
 
     try:
         if not (vault / "learnloop.toml").is_file():
@@ -189,7 +189,7 @@ def router_report(
     arm propensity (read-only; no model call)."""
 
     from learnloop.db.stores import router_suggestions
-    from learnloop.router.outcomes_now import outcomes_now
+    from learnloop.why.outcomes_now import outcomes_now
     from learnloop.router.suggestion_report import itt_split, lines
 
     try:

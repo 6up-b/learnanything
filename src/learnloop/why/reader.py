@@ -39,7 +39,7 @@ OUTCOME_FIELDS = ("action_status", "action_attempt_id", "r_next_status", "r_next
 
 def outcome_reader(repository: Any, loaded: Any) -> R.OutcomeReader:
     """``outcome(connection, decision_id)``: a router decision's outcome as of now, derived from the ledgers at read
-    time once per answer (``router.outcomes_now``, the derivation ``learnloop router decisions`` shows). Not the
+    time once per answer (``why.outcomes_now``, the derivation ``learnloop router decisions`` shows). Not the
     ``router_outcomes`` table: that is a rebuild cache, stale for any decision made or answered since the last
     rebuild. Without the vault (its servable items and outcome version) nothing derives it, so the outcome is None,
     as it is when the derivation cannot run on an older schema."""
@@ -50,7 +50,7 @@ def outcome_reader(repository: Any, loaded: Any) -> R.OutcomeReader:
         if loaded is None:
             return None
         if "rows" not in derived:
-            from learnloop.router.outcomes_now import outcomes_now
+            from learnloop.why.outcomes_now import outcomes_now
 
             try:
                 derived["rows"] = outcomes_now(connection, loaded, repository.sqlite_path)
