@@ -4,7 +4,7 @@ Phase A, job 2. **Status: for the owner's review. No step starts until the owner
 
 ## Summary for the owner
 
-The refactor has 65 small steps in eleven arcs. It can stop cleanly after any arc. Nothing starts until phone V4, instruct/handoff (IH), RE0 and the test-suite branch have landed.
+The refactor has 66 small steps in eleven arcs. It can stop cleanly after any arc. Nothing starts until phone V4, instruct/handoff (IH), RE0 and the test-suite branch have landed.
 
 **What gets smaller**
 
@@ -58,7 +58,7 @@ When its step comes (recommendations and evidence in §2.13):
 
 Settled since the map: RE2 is a firm step (owner, Nov 9) and RE0 lands before step 1. Not settled: RE1's placement (§2.1).
 
-**Cost.** Roughly the size of RO0-RO6, TE2-TE3 and phone V1-V4 together: 65 implementer runs, one Codex review per arc rather than per step (owner, Nov 9), and about 20 full-suite landings, or about 3.5-6 weeks of queue if usage allows (revised from 5-8; uncalibrated). Arc D is the first committed goal (owner, Nov 9: "the biggest stepping stone"); the rest is decided there. This is an estimate, not a measurement (§2.15).
+**Cost.** Roughly the size of RO0-RO6, TE2-TE3 and phone V1-V4 together: 66 implementer runs, one Codex review per arc rather than per step (owner, Nov 9), and about 20 full-suite landings, or about 3.5-6 weeks of queue if usage allows (revised from 5-8; uncalibrated). Arc D is the first committed goal (owner, Nov 9: "the biggest stepping stone"); the rest is decided there. This is an estimate, not a measurement (§2.15).
 
 **Where to stop if you need to.** After arc A (4% of the cost; every later change is cheaper). After B4 (10%; your four cases are answerable). After arc C (27%; dead code gone). After arc D (47%; history gone, tests on the real path). §2.14 lists them all.
 
@@ -114,7 +114,7 @@ Ranked by what each costs a stage or a debugging session. Ids are the map's.
 - **Who:** an Opus implementer in a worktree, then the gate; a step's named proof and the gates are its check. At the end of each arc, one read-only Codex review (`gpt-6.1-sol`) of the arc's whole diff, with a fix round for what it finds, before the next arc starts (owner, Nov 9: per arc, not per step, because the reviews have caught meaningful gaps). Steps that change persisted meaning (G2, G4, H3-H6) still land alone. "Verify" names anything beyond that, and the owner only where stated. Nothing in this document is yet approved to run.
 - **Gate per step:** targeted tests under the memory cap, `lint-imports`, the vault validators, and the step's named proof.
 - **Gate per landing batch:** the full suite and durability once, on the merged tree (owner decision 1).
-- **Gate per arc:** one full `pytest --fresh-connections` run at each arc's close, about 55 minutes, because the fast lane reuses connections (`tests/connection_reuse.py`) and only this run shows what that hides.
+- **Gate per arc:** one full `pytest --fresh-connections` run at each arc's close, about 55 minutes, because the fast lane reuses connections (`tests/connection_reuse.py`) and only this run shows what that hides; and from A6 on, the `arc_close` tests (pre-registered sims and long journeys), which landing gates leave out (owner, Nov 9).
 - **Not in any gate (owner, Nov 9):** `openai_codex`. `test_the_real_sdk_has_the_seams_the_lockdown_replaces` keeps skipping there.
 - **Comments:** when a step touches a function, it follows the convention below, and only there. No sweep.
 - **Vault:** the step fixes each note it names, and any other note it finds it has made false. The large rewrite stays last (§5).
@@ -178,6 +178,12 @@ No behaviour changes, and every later step gets cheaper, so this comes first, ev
 - **Order:** (1) the `LOG` bug first, its own commit, with a test that fails before the fix, if it hasn't been fixed by then; (2) one mechanical commit of `ruff check --fix` (safe fixes only), with nothing else in it; (3) each remaining finding read and either fixed with a test, or kept with a `noqa` and a reason; `B023` and `B905` are read one by one, because each can be a real bug or deliberate; (4) `ruff check` joins every step's gate and every landing gate, beside `lint-imports`.
 - **Types, later and per file:** modules that arcs E and I create or rewrite get strict type checking (one checker, chosen at E1), enforced per file. No whole-codebase typing.
 - **Proof:** `ruff check` is clean on the tip; the mechanical commit changes no test outcome (targeted run of the files it touches, then the batch gate); every behaviour fix has its own test. **Vault:** Developer Map's commands.
+
+**A6. A shorter gate without losing what it catches** (M). Owner, Nov 9: "sims should run at each arc's close instead of every landing".
+- **Problem:** item 10. On main `a810f628d8` the full suite is 31,037 tests and 8,281 test seconds (about 17 min at `-n 8`). The slowest 1% (about 310 tests: simulations, multi-day journeys, router rollouts) take 3,617 s, 44%; `test_ad23_sim` alone 708 s. 20,289 tests take under 0.05 s each, 170 s in all, so deleting cheap tests saves nothing. The slowest single test (215 s) is the floor at any worker count, and workers are capped by memory (10 GB for 8 on a 30 GB machine), not by the 32 cores.
+- **Does:** (1) an `arc_close` marker for the pre-registered statistical sims and the long journeys whose size is the point (`test_ad23_sim` at its pre-registered size, `test_evsi_multisim`, and others the step names with their seconds); the landing gate runs `-m "not arc_close"`, and the arc-close gate (beside the Codex review and the `--fresh-connections` run) runs them; plain `uv run pytest` still runs everything. (2) Each of the slowest ~300 remaining tests is measured and either shrunk (a week where two prove nothing more), split (the 215 s and 168 s ones), or kept, with the reason recorded; every assertion is kept. (3) Per-step gates run the tests the change can affect, chosen from the import graph, with the full suite still at every landing. (4) Whether 10-12 workers fit in memory, measured.
+- **Files:** `pyproject.toml` (marker), `tests/conftest.py`, the tests it shrinks or splits, CLAUDE.md's commands, the stage and landing gate lists, `scripts/refactor_measures.py` if its timed lanes need the marker.
+- **Proof:** every test still runs in one of the two gates (a collection check that the union is the whole suite); no assertion removed (diff review); the landing gate's time before and after with the same command; the arc-close lane passes. **Target:** the landing gate at about 8-10 min at `-n 8`, the per-step gate in 1-2 min. Below about 5 min it would have to drop the end-to-end journeys or replay checks, which is not the aim.
 
 **Stopping point 1.**
 

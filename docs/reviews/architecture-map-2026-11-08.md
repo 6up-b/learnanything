@@ -1,6 +1,6 @@
 # LearnLoop architecture map (2026-11-08)
 
-Phase A, job 1 of the refactor. It names problems and recommends nothing. **Base: `refactor/map` at main `a525dbcef4`** (router speed 2 landed), with Phone V4 and instruct/handoff read as diffs and marked `V4:` and `IH:`.
+Phase A, job 1 of the refactor. It names problems and recommends nothing. **Base: `refactor/map` at main `a525dbcef4`** (router speed 2 landed), with Phone V4 and instruct/handoff read as diffs and marked `V4:` and `IH:`. Both have since landed. "Corrections at S0" below re-derives those rows on main `a810f628d8`, adds RE0's, and resolves §12's seed conflict.
 
 ## Summary for the owner
 
@@ -37,6 +37,90 @@ The strategy (`docs/specs/refactor_strategy_v3.md`) checked the claims its steps
 - the upgrade modules' importers, and S1 and D5's detail.
 
 Rows not listed were not re-checked unless the strategy's Appendix A says so.
+
+## Corrections at S0 (Nov 9, main `a810f628d8`)
+
+Refactor step S0 re-read this map on main `a810f628d8`, after phone V4, instruct/handoff (IH, mvp-0.55, migration 251), the test-suite audit, the placement fix (mvp-0.56), RE0 (migration 252) and slip or gap (mvp-0.57) had all landed. 213 commits separate it from this map's base `a525dbcef4` (100 `src` files, +9,322 / -514 lines). The before figures are in `docs/reviews/refactor-baseline.md`. This section corrects the rows below and leaves them as they were. Rows not listed weren't re-derived.
+
+**`IH:` and `V4:` citations are now on main.** Each row re-derived:
+
+| Row | Map said | At `a810f628d8` |
+|---|---|---|
+| §2.2 the router's wait | 8 s on main (`config/schema.py:4134`), 40 s on `IH:` `:4135` | **40 s at `src/learnloop/config/schema.py:4139`.** No 8 s default is left. IH0 added `prefetch_timeout_seconds`, 45 s, at `:4140`. |
+| §2.2 failure share; §4.1 "Failure share (IH5)" | staged on main (`mix.py:38`), the other policy under `IH:` `mix.py:54` | `effective_weights(..., to_other_policy=)` at `src/learnloop/router_objective/mix.py:54`. The rule names are `STAGED_RULE` and `OTHER_POLICY_RULE` (`:41`, `:42`). Live from mvp-0.55 behind `failure_share_to_other_policy`. The row's gap stands: `recompute` reads a missing `failure_rule` as staged's rule (`:149`, `:150`), so a row from before the tag can't be told from one with the switch off. |
+| §2.5 phone protection; §3.1 protection row | `V4:src/learnloop/reader/phone_media.py:64` | Unchanged: `phone_withheld` at `src/learnloop/reader/phone_media.py:64`. |
+| §3.1, §4.1 device eligibility; B3 | `V4:src/learnloop/scheduling/device_eligibility.py:330` | Unchanged: `PlanStepFilter` at `src/learnloop/scheduling/device_eligibility.py:330`, and `ineligibility_reason` at `:395`. B3's commit `b1b08138a6` is in main's history. The gap ("fails closed, with no log") wasn't re-read. |
+| §4.1 "Learner action (IH3)" | `IH:src/learnloop/daily_plan/learner_action.py:235` | The decision is written by `choose` at `src/learnloop/daily_plan/learner_action.py:390`, through `_decision_row` at `:343`. Options are built at `:268`. The gap stands: a failed lesson candidate leaves only a log line, in `_lesson_candidate` (`:176`, warning at `:191`). |
+| §9.1 the timeout preamble | `IH:tests/test_ro4_successor.py:90` | `tests/test_ro4_successor.py:97`, `:98` asserts 40.0 and then sets 8.0. 11 test files carry the preamble. |
+
+**§12's `numeric_seed` conflict was resolved at IH's landing, with no `src` change.** §2.2 can now be mapped on IH's paths.
+- Every objective path passes `numeric_seed(identity)` of its own boundary identity (`src/learnloop/daily_plan/objective_chooser.py:171`).
+- The block path computes one key and one seed (`:1439`). IH0's start-only prefetch and the serve both call `_start_objective(..., numeric_seed=seed)` (`:1443`, `:1448`), so the job runs once.
+- The interrupt path passes it at `:1798`, its lesson arm at `:1830`, and the workflow's probe path at `:2190`. `_mixed` still requires `seed` (`:1846`).
+- IH4's preference switch and mark are taken out of the seed (`SEED_NEUTRAL_OBJECTIVE_KEYS`, `SEED_NEUTRAL_IDENTITY_KEYS`, `src/learnloop/router_objective_switches.py:321`, `:322`). So are slip or gap's switches and sensor mark (`COMMON_DRAW_OBJECTIVE_KEYS`, `:330`; `_without_miss_cause`).
+- IH5's and IH2's switch names stay in the seed from the tag on, as does the version, so the seed changes at a new tag as it always did.
+- IH3's options and override draw nothing, so they have no seed.
+- Recorded in `docs/specs/spec_instruct_handoff_v1.md` ("As built (the seed...)") and pinned by `tests/test_ih_numeric_seed.py` (10 tests).
+
+**RE0 (new rows; the map had none).**
+- **§2.3, attempt persisted.**
+  - `practice_attempts.active_seconds` (migration 252) is a nullable column on a `RAW_LEDGER` table. Only reports read it, and replay never writes it.
+  - The value runs from `AttemptDraft.active_seconds` (`src/learnloop/attempts/attempts.py:181`, validated at `:2900`) to the row dict (`:4808`).
+  - After the insert, `fill_receipt` writes it in its own savepoint (`src/learnloop/db/stores/router_objective.py:106`, table entry at `:82`). A vault below 252 gets a no-op.
+- **`attempt_cue_v1`** is derived, with no table: `src/learnloop/recognition/cue.py:165`. It's built from existing tables by `recognition/ledger.py:135` and reported by `recognition/report.py` through `ops/capture_report.py` (`data-capture report`, `recognition_and_effort`). Nothing serving reads it.
+- **§1.** There's a new package, `learnloop.recognition`: 4 files, 498 lines. It's in the E0 isolation contract (`e7ad46f605`).
+- **§9.1, a new migration's cost, measured again.** RE0's head-fixture commit `f72b034551` changed **658 files**:
+  - 24 fixture files, 22 of them renamed unchanged;
+  - 70 test files;
+  - 1 script and `CLAUDE.md`;
+  - 1 `src` line;
+  - **561 generated notes**.
+  
+  That's the map's IH3 row again, larger.
+
+**§12's table: what landed after this map.**
+
+| Stage | Tag, migration | Where the map changes |
+|---|---|---|
+| Phone V4 | none | §2.5 and B3 as above |
+| Instruct hand-off (IH0-IH7) | mvp-0.55, 251 (`router_learner_preferences`) | §2.2, §3.3, §4.1 as above. Adds `failure_share_upgrade.py` |
+| Placement fix | mvp-0.56, none | Adds `unevidenced_return_upgrade.py` and the `UNEVIDENCED_RETURN_VERSIONS` gate (`src/learnloop/placement/state.py:227`) |
+| RE0 | none, 252 | §2.3 and §1 as above |
+| Slip or gap (SG1, SG2) | mvp-0.57, none | §2.2's numeric inputs (the miss-cause sensor and the cause-split slopes), the seed exclusions above. Adds `slip_gap_upgrade.py` |
+
+Between them, the three tags added three root upgrade modules and two successor tests (`test_ih5_successor.py`, `test_sg_successor.py`), and edited 35 existing upgrade and successor test files, nearly all of them pins.
+
+**Sizes (§1, §7.1) rerun with `scripts/refactor_measures.py`.**
+
+| Measure | Map | At `a810f628d8` |
+|---|---:|---:|
+| Python files, four packages | 1,268 | 1,285 |
+| Raw lines; code lines | 624,515; 436,042 | 632,055; 441,708 |
+| Functions over 200 lines | 81 | 83 |
+| Root `*_upgrade.py`; all upgrade modules | 40; 42 | 43; 45 (9,613 lines) |
+| `Repository` methods | 943 | 945 |
+| `mvp-0.N` literals: code / docstring / comment | 285 / 949 / 3,070 | 310 / 987 / 3,144 |
+| Tag gates: constant at mvp-0.43 / all | 79 / 90 | 79 / 94 (15 varying) |
+| Tags in the chain | 45 | 48 (latest mvp-0.57) |
+| Frozen defaults digests | 46 | 48 |
+| `config/template.py` lines | 4,203 | 4,255 |
+| Head fixture; files naming its path | 24; 68 tests + 3 scripts | 24; 70 tests + 3 scripts |
+| Default test vault's tag; files using it; naming no version | mvp-0.6; 437; 271 | mvp-0.6; 450; 269 |
+| Upgrade and successor test files (lines) | 34 (8,808) | 36 (9,535) |
+| Tables with a role | 396 | 396 (no new table; 252 adds a column) |
+| Import-linter contracts | 43 | 43 |
+
+**Other corrections.**
+- **§9.3 and §13, "a model route's change cost isn't measured."** It is now, from Decider v1.2's default move:
+  - `b8b25b8337`, 28 files: 4 `src` files (97 lines of `config/template.py` are the recomputed digests), 1 frontend test, 1 generated note, 7 specs, 15 test files and fakes;
+  - `60303f7d4f`, 12 frozen-digest test files;
+  - `8cdc296b4b` at IH's merge, 1 more file.
+  
+  41 files in all, 28 of them tests. A recent route change did land alone.
+- **§13, "all four real cases postdate the only permitted copy."** The Nov 9 backup (`~/learnloop-backups/20261109-copy`, migration 250, mvp-0.54) holds rows of the shape each case needs on `arxiv_v2`: the Nov 7 timeouts, the Nov 8 `expired` response naming `forced_items`, the Nov 8 failed figures, and the pre-build skip rows before the first build. The counts are private (`fixtures-local/refactor-map/table-counts-20261109.md`). Each copy has 395 tables, all in the role registry; the tip's 396th is 251's `router_learner_preferences`.
+- **§11, timing.** The S0 baseline (serial, `-n 8 --dist worksteal`, `-m durability`) is in `docs/reviews/refactor-baseline.md`. The Nov 7 figures (59:22, 27,650 test seconds) stay here as history. They're not the refactor's before, because the test-suite audit landed between.
+- **Line drift.** Main-cited lines in files that IH, V4, RE0 and slip or gap touched have moved. For example, the chooser crash's `<error: Type>` is now `src/learnloop/daily_plan/engine.py:2707` (was `:2671`), and the decision id is minted at `objective_chooser.py:1585` and `:1909` (was `:1371`). Steps re-derive what they rest on at their step 0.
+- **The vault's Developer Map,** found by S0's time-to-locate run. Its "A term of the router's objective" row named `_terms`, which only builds the trace's breakdown. The objective is `_Ledger.q` (`src/learnloop/router_objective/value.py:608`). Its digest count said 46; the tip has 48. Both are fixed in that note.
 
 ## How to read this
 

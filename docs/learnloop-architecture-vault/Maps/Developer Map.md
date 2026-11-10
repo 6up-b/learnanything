@@ -39,14 +39,14 @@ The sample changes from the refactor strategy's success measures (`docs/specs/re
 
 | Change | Where it lives today | Plumbing it also costs today |
 |---|---|---|
-| A threshold or default (the router's `timeout_seconds`) | its field in `config/schema.py` (`RouterConfig`) | 46 frozen digests in `config/template.py` (`DEFAULTS_SNAPSHOT_BY_ALGORITHM`), the test files that read them, one generated config note |
+| A threshold or default (the router's `timeout_seconds`) | its field in `config/schema.py` (`RouterConfig`) | 48 frozen digests (one per tag, mvp-0.57) in `config/template.py` (`DEFAULTS_SNAPSHOT_BY_ALGORITHM`), the test files that read them, one generated config note |
 | A seed or prior | as a default, in `config/schema.py` | the same digests |
 | A model route | `ai/routing.py` (task and operation names), the route's default in `config/schema.py` | the digests |
 | A prompt | its own module, with its prompt version bumped | a golden for each switch-off parity test |
 | A new table | a file in `migrations/`, its role in `db/table_roles.py` (a `DERIVED` table also needs a replayer in `substrate/rebuild_orchestrator.py`), its role in `adaptive_difficulty/protected_tables.py` (`ROLES`, `COLUMNS`) when an AD operation reads it, its store under `db/stores/` | the head fixture `fixtures/migration_head/` upgraded in place and its `README.md` (see `CLAUDE.md`), the generated database notes |
 | A new algorithm tag | `algorithm_versions.py` (`SUCCESSOR_CHAIN`), a root `*_upgrade.py` module, the upgrade dispatch in `cli/app.py`; follow `docs/algorithm-change-playbook.md` | frozen `*_VERSIONS` sets and "latest" pins in the successor tests, the digests |
 | What to serve next | `daily_plan/engine.py` (the plan), `daily_plan/objective_chooser.py` (`_decide_objective`: the draw, the coin, the trace) | |
-| A term of the router's objective | `router_objective/value.py` (`_terms`) | |
+| A term of the router's objective | `router_objective/value.py`: the objective is `_Ledger.q`, fed by the ledger's accumulators; `_terms` only reports the breakdown in the trace | a kill switch and a successor if the change moves a decision |
 | The rule that mixes the LLM and numeric policies | `router_objective/mix.py` | |
 | An action the router can choose | spread: `daily_plan/lesson_offer.py`, `daily_plan/types.py`, `records.py`, `view.py`, `daily_plan/objective_chooser.py` (its trace), `router/plan_log.py`, `requests.py`, `why.py` | about 20 files for a lesson-offer-shaped action |
 | A sensor the router reads | `daily_plan/objective_inputs.py`, `daily_plan/router_card.py`, `router/card.py`, `router_objective/trace.py`, `decision_state.py`, `tail_data.py` | two destinations with no shared definition |
