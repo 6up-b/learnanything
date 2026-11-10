@@ -22,7 +22,7 @@ source_paths:
   - "src/learnloop/db/stores/figure_prefetch.py"
   - "src/learnloop/figures/prefetch.py"
   - "src/learnloop/figures/prefetch_ledger.py"
-  - "src/learnloop/figures/service.py"
+  - "src/learnloop/figures/records.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -118,6 +118,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_figure_decision_records.py`
 - `tests/test_figure_prefetch_migration.py`
 - `tests/test_figures_prefetch.py`
 - `tests/test_figures_prefetch_boundary.py`

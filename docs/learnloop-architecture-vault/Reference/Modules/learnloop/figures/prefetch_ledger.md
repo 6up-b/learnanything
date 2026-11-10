@@ -161,6 +161,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_figure_decision_records.py](../../../../../../tests/test_figure_decision_records.py) — direct import
+  - `test_the_recorded_seed_redraws_the_pass_exactly`
 - [tests/test_figures_prefetch.py](../../../../../../tests/test_figures_prefetch.py) — direct import
   - `test_the_ledger_reads_nothing_before_migration_236`
   - `test_the_report_block_appears_only_with_the_switch`

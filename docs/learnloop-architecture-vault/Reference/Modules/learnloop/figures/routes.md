@@ -196,6 +196,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_codex_tool_lockdown.py](../../../../../../tests/test_codex_tool_lockdown.py) — direct import
 - [tests/test_figure_author_predictions.py](../../../../../../tests/test_figure_author_predictions.py) — direct import
   - `test_both_prompts_spell_the_shape_out_under_new_versions`
+- [tests/test_figure_decision_records.py](../../../../../../tests/test_figure_decision_records.py) — direct import
+  - `test_a_refused_build_leaves_a_refused_record`
 - [tests/test_figure_offers.py](../../../../../../tests/test_figure_offers.py) — direct import
   - `test_a_build_stops_when_the_advanced_panels_are_switched_off_mid_build`
   - `test_a_selection_build_does_not_stop_for_the_offers_switch`

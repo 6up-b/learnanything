@@ -111,6 +111,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/test_figure_decision_records.py](../../../../../../../tests/test_figure_decision_records.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
+- [tests/test_figure_prompts_golden.py](../../../../../../../tests/test_figure_prompts_golden.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
 - [tests/test_figures_prefetch.py](../../../../../../../tests/test_figures_prefetch.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
 - [tests/test_figures_prefetch_review_fixes.py](../../../../../../../tests/test_figures_prefetch_review_fixes.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
 - [tests/test_followups_batch6_prefetch_decided_once.py](../../../../../../../tests/test_followups_batch6_prefetch_decided_once.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
