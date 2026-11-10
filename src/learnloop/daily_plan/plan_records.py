@@ -31,7 +31,6 @@ from learnloop import provenance
 from learnloop.daily_plan.boundary_records import (
     IDS_KEPT, MODEL_ANSWER, component_records, forced_entry, forced_facts, ref, wall_now,
 )
-from learnloop.ids import new_ulid
 from learnloop.provenance import DecisionRecord
 
 OFFER_WITHDRAWN = "offer_withdrawn"
@@ -124,7 +123,7 @@ def children(records: Iterable[DecisionRecord], parent: DecisionRecord) -> list[
 
     return [replace(record, parent_id=parent.id, trace_id=parent.trace_id, subject_kind=parent.subject_kind,
                     subject_id=parent.subject_id, created_at=record.created_at or parent.created_at,
-                    id=record.id or new_ulid()) for record in records]
+                    id=record.id or provenance.new_record_id()) for record in records]
 
 
 def check_block(*, block_id: str, detail_id: str | None, forced: Sequence[Mapping[str, Any]], assignments: Sequence[Any],
@@ -151,7 +150,7 @@ def check_block(*, block_id: str, detail_id: str | None, forced: Sequence[Mappin
         detail_table="router_decisions" if detail_id else None,
         detail_id=detail_id,
         parent_id=parent_id,
-        id=new_ulid(),
+        id=provenance.new_record_id(),
         created_at=wall_now(),
     )
 
@@ -214,7 +213,7 @@ def plan_interrupt(*, outcome: Any, item_id: Any, block_id: Any, plan_id: Any, d
         }),
         detail_table="router_decisions" if detail_id else None,
         detail_id=detail_id,
-        id=new_ulid(),
+        id=provenance.new_record_id(),
         created_at=wall_now(),
     )
     answers = component_records(record, router, mixture, timeouts=timeouts, waited_ms=waited_ms, crashed=False)

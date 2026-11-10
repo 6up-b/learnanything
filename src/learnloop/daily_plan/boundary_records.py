@@ -30,7 +30,6 @@ import re
 from typing import Any
 
 from learnloop import provenance
-from learnloop.ids import new_ulid
 from learnloop.provenance import DecisionRecord
 
 PLAN_BLOCK = "plan_block"
@@ -239,7 +238,7 @@ def plan_block_records(decision: Any, *, block_id: str, detail_id: str | None, c
         error_where=_where(seen.get("error_where")) if crashed else None,
         parent_id=parent_id,
         trace_id=trace,
-        id=new_ulid(),
+        id=provenance.new_record_id(),
         created_at=decided_at,
     )
     records = [block]
@@ -249,7 +248,7 @@ def plan_block_records(decision: Any, *, block_id: str, detail_id: str | None, c
     # as its children.
     for failure in seen.get("failures") or ():
         records.append(replace(failure, parent_id=block.id, trace_id=block.trace_id, subject_kind=block.subject_kind,
-                               subject_id=block.subject_id, created_at=block.created_at, id=failure.id or new_ulid()))
+                               subject_id=block.subject_id, created_at=block.created_at, id=failure.id or provenance.new_record_id()))
     return records
 
 

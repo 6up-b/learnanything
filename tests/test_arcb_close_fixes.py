@@ -140,3 +140,50 @@ def test_a_refused_router_request_still_leaves_its_record_when_nothing_holds_a_l
         [record] = provenance.read(connection, "TRACE_FREE", kind="spend_admission")
     assert (record.status, record.rule) == ("refused", "router_daily_cap")
     assert record.facts["spent_usd"] == 0.0 and record.facts["request_usd"] == pytest.approx(0.45)
+
+
+# -- 3. records draw their ids from a stream of their own ---------------------------------------------------------
+
+
+def _seeded_day(tmp_path: Path, name: str, *, drop_records: bool) -> tuple[list[tuple], int]:
+    import random
+
+    from learnloop import ids
+    from tests.router_mixture_helpers import join_carried_valuations, mixture_env, rows, run
+    from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
+
+    with pytest.MonkeyPatch.context() as patch:
+        join_carried_valuations(patch)
+        patch.setattr(ids, "_wall_clock_ms", lambda: 1_760_000_000_000)  # every id in one millisecond
+        patch.setattr(ids, "_last_timestamp_ms", -1)
+        patch.setattr(ids, "_last_randomness", 0)
+        patch.setattr(ids.secrets, "randbits", random.Random(7).getrandbits)
+        if drop_records:
+            patch.setattr(provenance, "write", lambda *_a, **_k: None)
+        env = mixture_env(tmp_path / name, fake_runtime(decider=FakeDecider(), llm=FakeLLM()))
+        with provenance.trace_scope("TRACE_SEEDED"):
+            run(env, steps=4)
+        decided = [(row["id"], row["seed"], row["chosen_ref"], row["propensity"]) for row in rows(env)]
+    return decided, _count(env.repository.sqlite_path, "SELECT COUNT(*) FROM decision_records")
+
+
+def test_a_decisions_id_and_seed_are_the_same_whether_records_are_written_or_not(tmp_path: Path):
+    """Under a frozen clock every id of a process falls in one millisecond, so each id drawn from the shared stream
+    moves the next one. Before the fix every record (and every record a check refused) drew its id from that
+    stream, and so moved the next router decision's id, which seeds its draw."""
+
+    recorded, written = _seeded_day(tmp_path, "recorded", drop_records=False)
+    dropped, none = _seeded_day(tmp_path, "dropped", drop_records=True)
+    assert written > 0 and none == 0 and recorded
+    assert recorded == dropped
+
+
+def test_the_record_stream_is_monotonic_and_apart_from_the_shared_one(monkeypatch):
+    from learnloop import ids
+
+    monkeypatch.setattr(ids, "_wall_clock_ms", lambda: 1_760_000_000_000)
+    first = ids.new_ulid()
+    minted = [provenance.new_record_id() for _ in range(5)] + [provenance.new_trace_id()]
+    assert minted == sorted(minted) and len(set(minted)) == len(minted)
+    second = ids.new_ulid()
+    assert ids._decode_ulid(second)[1] == ids._decode_ulid(first)[1] + 1  # the shared stream moved by one only

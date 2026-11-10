@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import random
 import secrets
 import threading
 import time
+from collections.abc import Callable
 
 _CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
@@ -32,27 +34,57 @@ def _wall_clock_ms() -> int:
     return int(time.time() * 1000) & _TIMESTAMP_MASK
 
 
+def _next_ulid(last_ms: int, last_randomness: int, randbits: Callable[[int], int]) -> tuple[int, int]:
+    """The (timestamp ms, randomness) that follows ``(last_ms, last_randomness)`` under the monotonic rule."""
+
+    timestamp_ms = _wall_clock_ms()
+    if timestamp_ms <= last_ms:
+        # Same millisecond, or the wall clock stepped backwards: keep the
+        # previous timestamp so the id cannot sort before its predecessor.
+        timestamp_ms = last_ms
+        randomness = last_randomness + 1
+        if randomness > _RANDOMNESS_MAX:
+            # 2**80 ids in one millisecond cannot happen in practice; moving
+            # to the next millisecond keeps the order without raising.
+            timestamp_ms = (timestamp_ms + 1) & _TIMESTAMP_MASK
+            randomness = randbits(_RANDOMNESS_BITS - 1)
+    else:
+        randomness = randbits(_RANDOMNESS_BITS)
+    return timestamp_ms, randomness
+
+
 def new_ulid() -> str:
     """Generate a ULID that sorts after every ULID this process generated before it."""
 
     global _last_timestamp_ms, _last_randomness
     with _ulid_lock:
-        timestamp_ms = _wall_clock_ms()
-        if timestamp_ms <= _last_timestamp_ms:
-            # Same millisecond, or the wall clock stepped backwards: keep the
-            # previous timestamp so the id cannot sort before its predecessor.
-            timestamp_ms = _last_timestamp_ms
-            randomness = _last_randomness + 1
-            if randomness > _RANDOMNESS_MAX:
-                # 2**80 ids in one millisecond cannot happen in practice; moving
-                # to the next millisecond keeps the order without raising.
-                timestamp_ms = (timestamp_ms + 1) & _TIMESTAMP_MASK
-                randomness = secrets.randbits(_RANDOMNESS_BITS - 1)
-        else:
-            randomness = secrets.randbits(_RANDOMNESS_BITS)
-        _last_timestamp_ms = timestamp_ms
-        _last_randomness = randomness
+        _last_timestamp_ms, _last_randomness = _next_ulid(_last_timestamp_ms, _last_randomness, secrets.randbits)
+        timestamp_ms, randomness = _last_timestamp_ms, _last_randomness
     return _encode_crockford(timestamp_ms, 10) + _encode_crockford(randomness, 16)
+
+
+class UlidStream:
+    """A monotonic ULID stream with its own state and its own randomness, apart from :func:`new_ulid`'s.
+
+    Ids that must not move another stream's ids get one: the router's decision id (and so its draw seed) is the
+    next :func:`new_ulid`, and under a frozen clock, or two ids in one millisecond, every id drawn from that
+    stream in between shifts it. Decision records and traces draw from a stream of their own, so writing a
+    record never changes which id, seed or arm the next decision gets. Its randomness is a separate system
+    source too, so a test that seeds :func:`new_ulid`'s ``secrets.randbits`` seeds only that stream.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._last_ms = -1
+        self._last_randomness = 0
+        self._random = random.SystemRandom()
+
+    def __call__(self) -> str:
+        with self._lock:
+            self._last_ms, self._last_randomness = _next_ulid(self._last_ms, self._last_randomness,
+                                                              self._random.getrandbits)
+            timestamp_ms, randomness = self._last_ms, self._last_randomness
+        return _encode_crockford(timestamp_ms, 10) + _encode_crockford(randomness, 16)
 
 
 def _decode_ulid(value: str) -> tuple[int, int] | None:

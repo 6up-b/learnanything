@@ -252,15 +252,8 @@ def seed_ids(monkeypatch: Any, seed: int = 7) -> None:
     monkeypatch.setattr(ids, "_last_timestamp_ms", -1)
     monkeypatch.setattr(ids, "_last_randomness", 0)
     monkeypatch.setattr(ids.secrets, "randbits", random.Random(seed).getrandbits)
-    # Decision records (refactor B7's grade record, written by every live attempt) are receipts, like the
-    # forecasts below: they draw their ids and traces from a stream of their own, so the seeded stream the golden
-    # pinned stays the branch's. A record changes no decision, only which ids a seeded test draws.
-    import itertools
-
-    from learnloop import provenance
-
-    counter = itertools.count()
-    monkeypatch.setattr(provenance, "ids", SimpleNamespace(new_ulid=lambda: f"REC{next(counter):023d}"))
+    # Decision records draw their ids and traces from a stream of their own (``provenance.new_record_id``), so the
+    # seeded stream the golden pinned is untouched by them.
     # This golden pins the seeded id stream, schema ids included, so the lane's fixed schema ids (conftest) step aside.
     from learnloop.db.repositories import Repository
     from tests import conftest

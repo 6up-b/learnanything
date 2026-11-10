@@ -137,8 +137,19 @@ def current_trace() -> str | None:
     return _TRACE.get()
 
 
+#: Record and trace ids come from a stream of their own: :func:`ids.new_ulid` also mints the router's decision id,
+#: which seeds its draw, so a record drawn from it would shift the next decision's id, seed and arm.
+_RECORD_IDS = ids.UlidStream()
+
+
+def new_record_id() -> str:
+    """A new record id (a ULID), from the records' own stream; a builder that names its record's id ahead uses it."""
+
+    return _RECORD_IDS()
+
+
 def new_trace_id() -> str:
-    return ids.new_ulid()
+    return _RECORD_IDS()
 
 
 @contextmanager
@@ -267,7 +278,7 @@ def _completed(record: DecisionRecord) -> DecisionRecord:
         facts["alternatives_overflow"] = overflow
     return replace(
         record,
-        id=record.id or ids.new_ulid(),
+        id=record.id or new_record_id(),
         trace_id=record.trace_id or current_trace() or new_trace_id(),
         created_at=record.created_at or datetime.now(timezone.utc).isoformat(),
         alternatives=tuple(alternatives),
