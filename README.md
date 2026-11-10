@@ -564,7 +564,8 @@ the sidecar.
 
 ```bash
 uv sync --extra dev                    # install
-uv run pytest -n 8 --dist worksteal    # full suite (about 15 minutes; times in docs/reviews/test-suite-audit.md)
+uv run pytest -n 8 --dist worksteal -m "not arc_close"   # the landing gate (about 12 minutes; docs/reviews/refactor-a6.md)
+uv run pytest -n 8 --dist worksteal -m arc_close         # pre-registered simulations and long journeys
 uv run pytest tests/test_scheduler.py::test_name -x   # one test
 uv run learnloop --help                # CLI
 uv run python -m learnloop_sidecar     # sidecar directly, JSON-RPC over stdio

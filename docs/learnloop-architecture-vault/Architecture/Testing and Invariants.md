@@ -42,6 +42,7 @@ Tests are part of the architecture. LearnLoop uses example tests for local rules
 | attempt completion recovery | a committed grade keeps its provenance through recovery, and concurrent recoveries normalize an attempt once (`tests/test_attempt_completion.py`) |
 | ingest ownership fence | a replaced attempt cannot finish or publish, and the heartbeat survives transient database errors (`tests/test_ingest_ownership.py`) |
 | repository scopes | pinned/atomic transactions roll back on failure and publish nothing (`tests/test_repository_scopes.py`) |
+| gate lanes | `arc_close` marks the pre-registered simulations and the journeys whose size is the point; every `arc_close` test is also `slow`; `scripts/check_gate_partition.py` checks the landing gate (`not arc_close`) and the arc-close gate together run every test once |
 | durability lane | `@pytest.mark.durability` / `--durable-sqlite` run tests and fixtures of every scope with production SQLite pragmas and fresh vaults (`tests/test_sqlite_test_mode.py`) |
 | vault template equivalence | the per-session basic-vault copy equals a fresh build (`tests/test_vault_template.py`) |
 | desktop lifecycle tests | vitest + jsdom tests beside the React sources (`npm test`) |
@@ -49,7 +50,8 @@ Tests are part of the architecture. LearnLoop uses example tests for local rules
 ## Verification commands
 
 ```bash
-.venv/bin/pytest -q
+.venv/bin/pytest -q -n 8 --dist worksteal -m "not arc_close"   # the landing gate
+.venv/bin/pytest -q -n 8 --dist worksteal -m arc_close         # at each arc's close: pre-registered sims, long journeys
 .venv/bin/pytest -q -m durability
 .venv/bin/lint-imports --no-cache
 .venv/bin/python -m compileall -q src scripts tests
