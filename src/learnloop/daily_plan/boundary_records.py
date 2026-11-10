@@ -22,6 +22,7 @@ A late answer needs no write of its own: a plan_block's ``created_at`` is the wa
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import datetime, timezone
 import hashlib
 import math
@@ -99,12 +100,65 @@ def _favoured(distribution: Mapping[str, Any]) -> str | None:
     return leaders[0] if len(leaders) == 1 else None
 
 
+#: Ids kept in a list fact; the rest are only counted.
+IDS_KEPT = 10
+
+
+def forced_entry(item_id: Any, *, origin: Any, workflow: Mapping[str, Any] | None) -> dict[str, Any]:
+    """One forced item as a record names it: its id and origin, and its follow-up workflow, source attempt and state
+    when a workflow holds it (a follow-up from a recorded need has none)."""
+
+    workflow = workflow or {}
+    return _compact({
+        "ref": ref(item_id),
+        "origin": _code(origin),
+        "workflow": ref(workflow.get("id")),
+        "source_attempt": ref(workflow.get("source_attempt_id")),
+        "workflow_state": _code(workflow.get("state")),
+        "workflow_decision": ref(workflow.get("decision_id")),
+    })
+
+
+def forced_facts(entries: Any) -> dict[str, Any]:
+    """The forced items' ids, workflows and source attempts as lists (capped), and how many there were."""
+
+    entries = [dict(entry) for entry in entries or ()]
+    if not entries:
+        return {}
+    attempts = sorted({entry["source_attempt"] for entry in entries if entry.get("source_attempt")})
+    return _compact({
+        "forced_n": len(entries),
+        "forced": [entry["ref"] for entry in entries[:IDS_KEPT] if entry.get("ref")] or None,
+        "workflows": [entry["workflow"] for entry in entries[:IDS_KEPT] if entry.get("workflow")] or None,
+        "source_attempts": attempts[:IDS_KEPT] or None,
+        "forced_origin": next((entry["origin"] for entry in entries if entry.get("origin")), None),
+    })
+
+
+_forced = forced_facts
+
+
+def _superseding(value: Any) -> dict[str, Any]:
+    """IH2's contest: the open offer this decision replaces (its block and its decision)."""
+
+    if not isinstance(value, Mapping):
+        return {}
+    return _compact({"superseding_offer_block": ref(value.get("block_id")),
+                     "superseding_offer_decision": ref(value.get("decision_id"))})
+
+
 def plan_block_records(decision: Any, *, block_id: str, detail_id: str | None, config: Any, stop: bool,
-                       trace_id: str | None = None) -> list[DecisionRecord]:
-    """A boundary decision's plan_block record and its components' model_answer records, oldest first.
+                       trace_id: str | None = None, parent_id: str | None = None,
+                       trigger_attempt: str | None = None) -> list[DecisionRecord]:
+    """A boundary decision's plan_block record, its components' model_answer records and any failed step's record,
+    oldest first.
 
     ``decision`` is ``engine.Decision``; ``block_id`` the block (or a stop's receipt) it placed; ``detail_id`` the
     router's ``plan_block`` row, when one was logged. All records share one trace, the serving request's.
+    ``parent_id``: the record that caused this boundary (an offer taken back for forced items, or the triggering
+    attempt's record); ``trigger_attempt``: the newest attempt as of the decision, the one its boundary key names.
+    ``decision.seen`` may add the forced items (``forced``), an offer this decision replaces (``superseding``) and the
+    steps that failed before it (``failures``).
     """
 
     router = dict(decision.router_record or {})
@@ -166,6 +220,9 @@ def plan_block_records(decision: Any, *, block_id: str, detail_id: str | None, c
             "mix_fallback": _code(router.get("fallback")),
             "option_count": _number(router.get("option_count")),
             "card_error": _code(router.get("card_error")),
+            "trigger_attempt": ref(trigger_attempt),
+            **_forced(seen.get("forced") or ()),
+            **_superseding(seen.get("superseding")),
         }),
         versions=_compact({
             "algorithm_version": _code(getattr(config.algorithms, "algorithm_version", None)),
@@ -180,12 +237,30 @@ def plan_block_records(decision: Any, *, block_id: str, detail_id: str | None, c
         detail_id=detail_id,
         error_type=_code(seen.get("error_type")) if crashed else None,
         error_where=_where(seen.get("error_where")) if crashed else None,
+        parent_id=parent_id,
         trace_id=trace,
         id=new_ulid(),
         created_at=decided_at,
     )
     records = [block]
-    models: Mapping[str, Any] = mixture.get("models") or router.get("models") or seen.get("models") or {}
+    records += component_records(block, router, mixture, timeouts=timeouts, waited_ms=waited_ms, crashed=crashed,
+                                 models=seen.get("models"))
+    # Refactor B3: the boundary's steps that failed before its decision (the day's check, the lesson offer's builder),
+    # as its children.
+    for failure in seen.get("failures") or ():
+        records.append(replace(failure, parent_id=block.id, trace_id=block.trace_id, subject_kind=block.subject_kind,
+                               subject_id=block.subject_id, created_at=block.created_at, id=failure.id or new_ulid()))
+    return records
+
+
+def component_records(block: DecisionRecord, router: Mapping[str, Any], mixture: Mapping[str, Any], *,
+                      timeouts: Mapping[str, Any], waited_ms: Any, crashed: bool,
+                      models: Mapping[str, Any] | None = None) -> list[DecisionRecord]:
+    """One ``model_answer`` per component of ``block``'s decision (the Decider, the LLM, the numeric policy, the staged
+    rule), from the router's record of it: a plan block's (B2) or a follow-up's ``plan_interrupt`` (B3)."""
+
+    records: list[DecisionRecord] = []
+    models = mixture.get("models") or router.get("models") or models or {}
     distributions = dict(router.get("model_distributions") or {})
     drawn = mixture.get("drawn_component") or router.get("drawn_component")
     for name, summary in sorted(models.items()):
@@ -235,4 +310,5 @@ def _answer(name: str, *, status: str, raw: str, chosen_ref: Any, block: Decisio
     )
 
 
-__all__ = ["FAILURE_NOTE", "MODEL_ANSWER", "PLAN_BLOCK", "plan_block_records", "ref", "wall_now"]
+__all__ = ["FAILURE_NOTE", "IDS_KEPT", "MODEL_ANSWER", "PLAN_BLOCK", "component_records", "forced_entry",
+           "forced_facts", "plan_block_records", "ref", "wall_now"]

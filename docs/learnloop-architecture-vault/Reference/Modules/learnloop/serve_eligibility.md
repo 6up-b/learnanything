@@ -234,6 +234,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_help_on_a_due_cold_retry_schedules_one_fresh_retry_on_another_surface`
 - [tests/test_compare_methods.py](../../../../../tests/test_compare_methods.py) — direct import
   - `test_the_reveal_makes_the_cold_lane_treat_the_family_as_revealed_and_primes_the_next_attempt`
+- [tests/test_forced_withdrawal_records.py](../../../../../tests/test_forced_withdrawal_records.py) — direct import
+  - `test_a_cold_check_served_as_practice_or_displaced_leaves_a_record`
+  - `test_the_builders_keep_ids_numbers_and_codes_only`
 - [tests/test_intent_orchestrator_rulings.py](../../../../../tests/test_intent_orchestrator_rulings.py) — direct import
   - `test_r2_one_attributable_disclosure_function`
 - [tests/test_reader_ca2_one_ask.py](../../../../../tests/test_reader_ca2_one_ask.py) — direct import

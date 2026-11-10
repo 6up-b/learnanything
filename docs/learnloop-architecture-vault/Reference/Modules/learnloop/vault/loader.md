@@ -1568,6 +1568,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_hiding_a_read_notes_link_sets_its_gaps_aside_and_only_its_own`
   - `test_switched_off_nothing_is_read_and_nothing_is_set_aside`
   - `test_the_retraction_is_idempotent_and_keep_does_not_reopen_the_gap`
+- [tests/test_forced_withdrawal_records.py](../../../../../../tests/test_forced_withdrawal_records.py) — direct import
+  - `test_a_refused_follow_up_is_recorded_with_the_constraint_that_refused_it`
 - [tests/test_forecast_receipts.py](../../../../../../tests/test_forecast_receipts.py) — direct import
   - `test_f2_a_grade_that_cites_no_contract_is_never_read_against_todays_rubric`
   - `test_f2_editing_todays_rubric_never_rewrites_a_regraded_self_grade`

@@ -310,6 +310,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_manual_override_forces_followup_when_gate_silent`
   - `test_negative_surprise_followup_stops_forcing_after_followup_attempt`
   - `test_negative_surprise_inserts_followup_when_item_exists`
+- [tests/test_forced_withdrawal_records.py](../../../../../../tests/test_forced_withdrawal_records.py) — direct import
+  - `test_a_cold_check_served_as_practice_or_displaced_leaves_a_record`
 - [tests/test_goal_frontier.py](../../../../../../tests/test_goal_frontier.py) — direct import
   - `test_cold_start_lo_on_frontier_is_schedulable`
   - `test_goal_quota_guarantees_floor_share_at_top_of_queue`

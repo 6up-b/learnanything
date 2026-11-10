@@ -153,6 +153,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_v2_f2_a_report_without_the_lock_does_not_count_archives`
   - `test_v3_a_replace_that_fails_without_effect_still_cleans_up`
   - `test_v3_an_interrupt_after_the_replace_keeps_the_archive`
+- [tests/test_forced_withdrawal_records.py](../../../../../../tests/test_forced_withdrawal_records.py) — direct import
+  - `test_a_guard_denial_is_recorded_beside_the_jsonl_log_the_report_still_reads`
 - [tests/test_pr4_superseded_claims_landing.py](../../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
   - `test_landing_iii_upgrade_to_mvp037_archives_the_denial_log_exactly_once`
 

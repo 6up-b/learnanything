@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/queue.py](../../../../../../src/learnloop_sidecar/handlers/queue.py) |
-| Source lines | 783 |
+| Source lines | 809 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -85,8 +85,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class _TeachBackReadiness` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 516) — One teach-back readiness probe per published offer, run only if needed.
 - `class _OfferHeadRule` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 536) — Which item an offer shows first, for any composed order of the build.
 - `_in_progress_draft(repository: Any, session_id: str | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 596) — The session's saved, unsubmitted draft, if any (router R1's "continue").
-- `_offer_prefilter(vault: Any, repository: Any, decision: Mapping[str, Any], trace: Any, queue: Any) -> Callable[[Any], Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 716) — Data capture A1: the build's prefilter, ready to link in the transaction that commits the offer's decision (Codex review F8: apart from it, a crash between the two left the decision no receipt, and the build's trace is in memory only).
-- `_offer_state(vault: Any, repository: Any, decision: Mapping[str, Any], trace: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 749) — The offer's belief, with each item's authored minutes (an offer keeps no estimator of its own, and says so).
+- `_record_unlogged_offer(repository: Any, exc: BaseException, *, slate_id: str | None, surface: Any) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 721) — Refactor B3 (the map's S12): a Today offer published without its router decision leaves a ``today_offer`` record, ``failed``: a head mismatch names both heads, any other failure its type and where; its parent is the build's ``slate`` record.
+- `_offer_prefilter(vault: Any, repository: Any, decision: Mapping[str, Any], trace: Any, queue: Any) -> Callable[[Any], Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 742) — Data capture A1: the build's prefilter, ready to link in the transaction that commits the offer's decision (Codex review F8: apart from it, a crash between the two left the decision no receipt, and the build's trace is in memory only).
+- `_offer_state(vault: Any, repository: Any, decision: Mapping[str, Any], trace: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 775) — The offer's belief, with each item's authored minutes (an offer keeps no estimator of its own, and says so).
 
 ## Who imports or calls it
 
@@ -109,6 +110,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `module`; calls `settle`
 - [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `objective_receipts_on`, `receipts_on`; calls `objective_receipts_on`, `receipts_on`
 - [[Reference/Modules/learnloop/data_capture/prefilter|learnloop.data_capture.prefilter]] — imports `module`; calls `record`, `today_offer_material`
+- [[Reference/Modules/learnloop/db/stores/provenance|learnloop.db.stores.provenance]] — imports `write_decision`; calls `write_decision`
 - [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `session_diagnosis_availability`; calls `session_diagnosis_availability`
 - [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `FORECAST_VERSION`
 - [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `PHONE_SURFACE`, `SERVING_SURFACE`, `generate_and_serve_on`; calls `generate_and_serve_on`
@@ -116,7 +118,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `desktop_waiting_count`, `module`, `session_rows`; calls `desktop_waiting_count`, `session_rows`
 - [[Reference/Modules/learnloop/intent/checks|learnloop.intent.checks]] — imports `settle_answered_checks`; calls `settle_answered_checks`
 - [[Reference/Modules/learnloop/projects/capture|learnloop.projects.capture]] — imports `auto_sweep`; calls `auto_sweep`
-- [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] — imports `build_today_offer_decision`, `logging_enabled`, `record_decision`; calls `build_today_offer_decision`, `logging_enabled`, `record_decision`
+- [[Reference/Modules/learnloop/provenance|learnloop.provenance]] — imports `module`; calls `current_trace`, `read`
+- [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] — imports `build_today_offer_decision`, `logging_enabled`, `offer_failure_record`, `record_decision`; calls `build_today_offer_decision`, `logging_enabled`, `offer_failure_record`, `record_decision`
 - [[Reference/Modules/learnloop/router_objective/decision_state|learnloop.router_objective.decision_state]] — imports `module`; calls `candidate_ids`, `prepare`, `record`
 - [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `forgetting_curve`
 - [[Reference/Modules/learnloop/scheduling/reentry_summary|learnloop.scheduling.reentry_summary]] — imports `reentry_session_cap`; calls `reentry_session_cap`
@@ -158,6 +161,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_reentry_cap_is_applied_after_the_filter_too`
 - [tests/test_diagnosis_async_router.py](../../../../../../tests/test_diagnosis_async_router.py) — direct import
   - `test_a_failed_or_budget_skipped_diagnosis_is_unavailable_at_the_serve`
+- [tests/test_forced_withdrawal_records.py](../../../../../../tests/test_forced_withdrawal_records.py) — direct import
+  - `test_a_head_mismatch_publishes_the_offer_and_records_both_heads`
 - [tests/test_mobile_rpc.py](../../../../../../tests/test_mobile_rpc.py) — direct import
   - `test_a_desktop_only_item_is_refused_at_each_door_and_counted`
 - [tests/test_router_offer_log.py](../../../../../../tests/test_router_offer_log.py) — direct import

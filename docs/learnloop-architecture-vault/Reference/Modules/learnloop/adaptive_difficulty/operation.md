@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py) |
-| Source lines | 794 |
+| Source lines | 813 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -79,9 +79,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `own_write(table: str) -> Iterator[None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 477) — A store writer's own idempotency read of the AD table it writes (its existence check before the insert): allowed for that table only, and only around the writer's call.
 - `suspended() -> Iterator[None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 497) — Leave the operation for a deliberate egress (the AD23 redesign): the send guard re-reads the predicate afresh at each request by design, and a model call may run the incumbent's own work (a reload's maintenance), which never runs inside an operation.
 - `ad_operation(vault: Any, repository: Any, *, protected: Any=None, connections: tuple[Any, ...]=(), mode: str | None=None, name: str | None=None, savepoint: bool=False, read_only: bool=False) -> Iterator[Operation]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 538) — Open (or join) the operation for this database (see the module docstring).
-- `optional_operation(vault: Any, repository: Any, *, savepoint: bool=False, read_only: bool=False) -> Iterator[Operation | None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 681) — The operation, or None with adaptive difficulty off (then nothing opens).
-- `is_denial(exc: BaseException) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 695) — Whether an exception is the guard's refusal (SQLite's "not authorized" for a statement, "access to <table>.<column> is prohibited" for a column read), or an AD reader's refusal to read a withheld record it would otherwise reuse (:class:`GuardDenied`).
-- `entry(func: Callable[..., Any] | None=None, *, poisoned: Callable[[Mapping[str, Any]], Any] | None=None, savepoint: bool=False, read_only: bool=False, durable: str | None=None) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 712) — Run an AD entry point inside an operation: its ``vault`` and ``repository`` arguments are replaced by the operation's, its ``view`` (when it takes one and none was given) by the operation's view, and a ``connection`` it was handed carries the guard.
+- `take_denials() -> tuple[dict[str, Any], ...]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 673) — The guard's denials in this context since the last call (verb, table, reader, entry), and forget them.
+- `optional_operation(vault: Any, repository: Any, *, savepoint: bool=False, read_only: bool=False) -> Iterator[Operation | None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 700) — The operation, or None with adaptive difficulty off (then nothing opens).
+- `is_denial(exc: BaseException) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 714) — Whether an exception is the guard's refusal (SQLite's "not authorized" for a statement, "access to <table>.<column> is prohibited" for a column read), or an AD reader's refusal to read a withheld record it would otherwise reuse (:class:`GuardDenied`).
+- `entry(func: Callable[..., Any] | None=None, *, poisoned: Callable[[Mapping[str, Any]], Any] | None=None, savepoint: bool=False, read_only: bool=False, durable: str | None=None) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 731) — Run an AD entry point inside an operation: its ``vault`` and ``repository`` arguments are replaced by the operation's, its ``view`` (when it takes one and none was given) by the operation's view, and a ``connection`` it was handed carries the guard.
 
 ### Module constants
 
@@ -105,8 +106,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_MODE` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 646)
 - `DENIALS` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 656)
 - `OBSERVERS` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 662)
-- `WRITE_FORMS` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 708)
-- `_READ_ONLY` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 709)
+- `_TAKEN` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 669)
+- `_TAKEN_MAX` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 670)
+- `WRITE_FORMS` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 727)
+- `_READ_ONLY` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 728)
 
 ### Explicit exports
 
@@ -132,6 +135,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `own_write`
 - `rules`
 - `suspended`
+- `take_denials`
 
 ## Internal implementation anchors
 
@@ -144,8 +148,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_same_database(op: Operation, repository: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 530)
 - `_operation(vault: Any, repository: Any, *, protected: Any=None, connections: tuple[Any, ...]=(), mode: str | None=None, name: str | None=None) -> Iterator[Operation]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 577)
 - `_default_mode() -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 649)
-- `_record_denials(op: Operation) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 665)
-- `_is_protection(value: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 785)
+- `_record_denials(op: Operation) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 681)
+- `_is_protection(value: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 804)
 
 ## Who imports or calls it
 
@@ -178,7 +182,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/serving|learnloop.adaptive_difficulty.serving]] — imports `GuardDenied`, `entry`, `is_denial`; statically calls `GuardDenied`, `entry`, `is_denial`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `is_denial`; statically calls `is_denial`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `ad_operation`, `is_denial`; statically calls `ad_operation`, `is_denial`
-- [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]] — imports `ad_operation`, `is_denial`; statically calls `ad_operation`, `is_denial`
+- [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]] — imports `ad_operation`, `is_denial`, `take_denials`; statically calls `ad_operation`, `is_denial`, `take_denials`
 - [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]] — imports `is_denial`, `optional_operation`; statically calls `is_denial`, `optional_operation`
 
 ## Dependencies
@@ -282,6 +286,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_probe_markdown_level_two_fallback`
 - [tests/test_adaptive_difficulty_ad1.py](../../../../../../tests/test_adaptive_difficulty_ad1.py) — direct import
   - `test_feature_audit_ledgered_with_fallback`
+- [tests/test_forced_withdrawal_records.py](../../../../../../tests/test_forced_withdrawal_records.py) — direct import
+  - `test_a_guard_denial_is_recorded_beside_the_jsonl_log_the_report_still_reads`
 - [tests/test_learner_blindness_relax.py](../../../../../../tests/test_learner_blindness_relax.py) — direct import
   - `test_the_frozen_state_version_follows_the_switch`
 - [tests/test_pr4_superseded_claims_landing.py](../../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import

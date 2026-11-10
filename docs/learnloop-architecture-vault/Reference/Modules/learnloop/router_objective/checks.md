@@ -200,6 +200,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_forced_withdrawal_records.py](../../../../../../tests/test_forced_withdrawal_records.py) — direct import
+  - `test_a_failed_check_draw_placement_and_lesson_builder_are_the_boundarys_children`
+  - `test_the_days_check_block_writes_its_own_plan_block_record`
 - [tests/test_mobile_v2_checks.py](../../../../../../tests/test_mobile_v2_checks.py) — direct import
   - `test_j6_a_check_the_phone_can_show_is_served_on_the_phone_as_an_ordinary_item`
   - `test_j6_an_unanswered_deferred_check_resolves_device_deferred_at_the_days_end`
