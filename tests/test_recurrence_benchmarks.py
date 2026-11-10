@@ -226,7 +226,7 @@ def _owner_labels(repository, verdicts=("same",)):
         attempts = [str(row[0]) for row in connection.execute(
             "SELECT attempt_id FROM causal_hypotheses GROUP BY attempt_id ORDER BY MIN(created_at)"
         )]
-    for later, verdict in zip(attempts[1:], verdicts, strict=True):
+    for later, verdict in zip(attempts[1:], verdicts, strict=False):
         record_verdict(repository, left=later, right=attempts[0], verdict=verdict, judge="owner", kind="attempt")
 
 

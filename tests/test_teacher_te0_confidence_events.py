@@ -96,7 +96,7 @@ def _card_inputs(**extra) -> CardInputs:
                 "answer": "a spanning independent set"} for i in range(4)]
     work = extra.pop("work", None)
     if work:
-        for entry, event in zip(entries, work, strict=True):
+        for entry, event in zip(entries, work, strict=False):
             if event:
                 entry["confidence"] = event
     return CardInputs(

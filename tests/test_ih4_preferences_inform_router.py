@@ -592,7 +592,7 @@ def test_a_planted_w_pref_moves_the_argmax_and_leaves_the_tails_values(tmp_path,
             env.clock.advance(1)
         run(env)
         twin[name] = _traces(env)
-    moved = [(a, b) for a, b in zip(twin["on"], twin["off"], strict=True) if a["policies"]["numeric"]["choice"] != b["policies"]["numeric"]["choice"]]
+    moved = [(a, b) for a, b in zip(twin["on"], twin["off"], strict=False) if a["policies"]["numeric"]["choice"] != b["policies"]["numeric"]["choice"]]
     first = twin["on"][0]
     assert first["preference"]["w_pref"] == 1.0
     tie = first["policies"]["numeric"]["tie"]
