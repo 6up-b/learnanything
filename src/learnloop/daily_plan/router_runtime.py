@@ -450,10 +450,11 @@ class RouterSpend:
                 # waits: under contention it is dropped with a warning.
                 from learnloop.db.stores.provenance import write_decision_without_waiting
 
+                spent_usd, request_usd = refused.used or 0.0, refused.requested or 0.0
                 record = refusal_records.built(refusal_records.SPEND_ADMISSION,
                                                lambda: refusal_records.router_spend_record(
-                                                   cap_usd=float(cap), spent_usd=float(refused.used or 0.0),
-                                                   request_usd=float(refused.requested or 0.0),
+                                                   cap_usd=float(cap), spent_usd=float(spent_usd),
+                                                   request_usd=float(request_usd),
                                                    owner_kind=owner_kind, owner_id=owner_id, event=event))
                 if record is not None:
                     write_decision_without_waiting(repository, record)
