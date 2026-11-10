@@ -21,7 +21,7 @@ import hashlib
 import json
 import re
 import sqlite3
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any
 
@@ -235,14 +235,19 @@ def _alternatives(row: Mapping[str, Any], mixture: Mapping[str, Any]) -> list[di
     return kept
 
 
-def _decision_next(connection: Any, row: Mapping[str, Any], detail: Mapping[str, Any]) -> tuple[dict[str, Any], list[str]]:
-    """What came after a decision: its outcome row and responses (exact keys), and the plan's next decision (by time)."""
+#: Answers a router decision's outcome as of now (``why.reader``'s read-time derivation), or None.
+OutcomeReader = Callable[[Any, str], "dict[str, Any] | None"]
+
+
+def _decision_next(connection: Any, row: Mapping[str, Any], detail: Mapping[str, Any],
+                   outcome_now: OutcomeReader | None = None) -> tuple[dict[str, Any], list[str]]:
+    """What came after a decision: its outcome (derived now) and responses (exact keys), and the plan's next decision
+    (by time)."""
 
     out: dict[str, Any] = {}
-    outcome = select_one(connection, "SELECT action_status, action_attempt_id, r_next_status, r_next_value, r_cold_status, "
-                               "r_cold_value FROM router_outcomes WHERE decision_id = ?", (row["id"],))
+    outcome = outcome_now(connection, str(row["id"])) if outcome_now is not None else None
     if outcome is not None:
-        out["outcome"] = {key: code(value) for key, value in outcome.items()}
+        out["outcome"] = outcome
     responses = select_rows(connection, "SELECT id, response, responded_at, detail_json FROM router_suggestion_responses "
                                   "WHERE decision_id = ? ORDER BY responded_at, id", (row["id"],))
     if responses:
@@ -265,7 +270,8 @@ def _decision_next(connection: Any, row: Mapping[str, Any], detail: Mapping[str,
     return out, inferred
 
 
-def router_decision(connection: Any, decision_id: str, *, timeout_now: float | None = None) -> dict[str, Any] | None:
+def router_decision(connection: Any, decision_id: str, *, timeout_now: float | None = None,
+                    outcome_now: OutcomeReader | None = None) -> dict[str, Any] | None:
     """A ``router_decisions`` row as an answer: what won, the mix's alternatives, each model's answer, the inputs the
     row kept, versions and seed, its calls joined by the boundary key, the calls that answered after it, and next."""
 
@@ -283,7 +289,7 @@ def router_decision(connection: Any, decision_id: str, *, timeout_now: float | N
     # detail says so.
     fallback = bool(detail.get("fallback"))
     forced = [item for item in detail.get("forced") or () if isinstance(item, Mapping)]
-    nxt, inferred = _decision_next(connection, row, detail)
+    nxt, inferred = _decision_next(connection, row, detail, outcome_now)
     answer = {
         "label": LABEL,
         "kind": code(row["decision_kind"]),
@@ -664,7 +670,8 @@ def first_build(connection: Any) -> dict[str, Any] | None:
 # -- dispatch ------------------------------------------------------------------------------------------------------
 
 
-def resolve(connection: Any, target: str, *, timeout_now: float | None = None) -> list[dict[str, Any]]:
+def resolve(connection: Any, target: str, *, timeout_now: float | None = None,
+            outcome_now: OutcomeReader | None = None) -> list[dict[str, Any]]:
     """The reconstructed answers ``target`` names (empty when none): ``latest`` (the newest router decision),
     ``block:``, ``offer:``, ``decision:``, ``figure:``, or a bare router decision, figure, pre-build decision or
     offer response id."""
@@ -673,7 +680,7 @@ def resolve(connection: Any, target: str, *, timeout_now: float | None = None) -
     out: list[dict[str, Any]] = []
 
     def decision(decision_id: str) -> None:
-        answer = router_decision(connection, decision_id, timeout_now=timeout_now)
+        answer = router_decision(connection, decision_id, timeout_now=timeout_now, outcome_now=outcome_now)
         if answer is not None:
             out.append(answer)
             out.extend(offer_withdrawals(connection, decision_id))

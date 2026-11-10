@@ -32,10 +32,36 @@ RECONSTRUCTED_KINDS = frozenset({"plan_block", "plan_interrupt", "today_offer", 
 # -- one decision's answer ---------------------------------------------------------------------------------------
 
 
-def _outcome(connection: Any, decision_id: str) -> dict[str, Any] | None:
-    found = R.select_one(connection, "SELECT action_status, action_attempt_id, r_next_status, r_next_value, r_cold_status, "
-                               "r_cold_value FROM router_outcomes WHERE decision_id = ?", (decision_id,))
-    return {key: R.code(value) for key, value in found.items()} if found else None
+#: The outcome fields an answer shows (``router_outcomes``' columns, as the derivation names them).
+OUTCOME_FIELDS = ("action_status", "action_attempt_id", "r_next_status", "r_next_value", "r_cold_status",
+                  "r_cold_value")
+
+
+def outcome_reader(repository: Any, loaded: Any) -> R.OutcomeReader:
+    """``outcome(connection, decision_id)``: a router decision's outcome as of now, derived from the ledgers at read
+    time once per answer (``router.outcomes_now``, the derivation ``learnloop router decisions`` shows). Not the
+    ``router_outcomes`` table: that is a rebuild cache, stale for any decision made or answered since the last
+    rebuild. Without the vault (its servable items and outcome version) nothing derives it, so the outcome is None,
+    as it is when the derivation cannot run on an older schema."""
+
+    derived: dict[str, Any] = {}
+
+    def outcome(connection: Any, decision_id: str) -> dict[str, Any] | None:
+        if loaded is None:
+            return None
+        if "rows" not in derived:
+            from learnloop.router.outcomes_now import outcomes_now
+
+            try:
+                derived["rows"] = outcomes_now(connection, loaded, repository.sqlite_path)
+            except (sqlite3.Error, ValueError, KeyError, TypeError):
+                derived["rows"] = {}
+        row = derived["rows"].get(str(decision_id))
+        if row is None:
+            return None
+        return {**{key: R.code(row.get(key)) for key in OUTCOME_FIELDS}, "basis": "derived_at_read"}
+
+    return outcome
 
 
 def objective_trace_pointer(connection: Any, decision_id: str) -> dict[str, Any] | None:
@@ -47,7 +73,7 @@ def objective_trace_pointer(connection: Any, decision_id: str) -> dict[str, Any]
 
 
 def _decision(connection: Any, record: provenance.DecisionRecord, children: list[provenance.DecisionRecord],
-              discarded: list[dict[str, Any]]) -> dict[str, Any]:
+              discarded: list[dict[str, Any]], outcome_now: R.OutcomeReader) -> dict[str, Any]:
     router = record.detail_table == "router_decisions" and record.detail_id
     return {
         "record_id": record.id,
@@ -70,7 +96,7 @@ def _decision(connection: Any, record: provenance.DecisionRecord, children: list
         "next": [{"record_id": child.id, "kind": child.kind, "status": child.status, "rule": child.rule,
                   "chosen": child.chosen_ref, "trace_id": child.trace_id, "created_at": child.created_at}
                  for child in children],
-        "outcome": _outcome(connection, str(record.detail_id)) if router else None,
+        "outcome": outcome_now(connection, str(record.detail_id)) if router else None,
         "objective_trace": objective_trace_pointer(connection, str(record.detail_id)) if router else None,
         "discarded": discarded,
     }
@@ -133,7 +159,7 @@ def _native_first_build(connection: Any) -> dict[str, Any] | None:
 
 
 def _records_answer(repository: Any, target: str, kind: str | None, *, first_build: bool,
-                    timeout_now: float | None) -> dict[str, Any]:
+                    timeout_now: float | None, outcome_now: R.OutcomeReader) -> dict[str, Any]:
     from learnloop.db.stores.provenance import discarded_calls, trace_model_calls, unclaimed_calls
 
     with repository.connection() as connection:
@@ -158,11 +184,11 @@ def _records_answer(repository: Any, target: str, kind: str | None, *, first_bui
         discarded = discarded_calls(records, calls)
         children = provenance.read_children(connection, [record.id for record in records if record.id])
         decisions = [_decision(connection, record, [child for child in children if child.parent_id == record.id],
-                               [entry for entry in discarded if entry["record_id"] == record.id])
+                               [entry for entry in discarded if entry["record_id"] == record.id], outcome_now)
                      for record in records]
         rebuilt: list[dict[str, Any]] = []
         if not records and not first_build and (kind is None or kind in RECONSTRUCTED_KINDS):
-            rebuilt = R.resolve(connection, target, timeout_now=timeout_now)
+            rebuilt = R.resolve(connection, target, timeout_now=timeout_now, outcome_now=outcome_now)
             if kind is not None:
                 rebuilt = [item for item in rebuilt if item["kind"] == kind]
             for item in rebuilt:
@@ -211,16 +237,19 @@ def answer(repository: Any, target: str | None = None, *, kind: str | None = Non
     if loaded is not None:
         router = getattr(getattr(loaded, "config", None), "router", None)
         timeout_now = getattr(router, "timeout_seconds", None)
+    outcome_now = outcome_reader(repository, loaded)
     item_target = target.removeprefix("item:")
     if loaded is not None and not first_build and item_target in loaded.practice_items:
         explanation = scheduler_explanation(loaded, repository, item_target)
         if target.startswith("item:"):
             explanation = item_exclusions(loaded, repository, item_target, explanation)
-            records = _records_answer(repository, target, kind, first_build=False, timeout_now=timeout_now)
+            records = _records_answer(repository, target, kind, first_build=False, timeout_now=timeout_now,
+                                      outcome_now=outcome_now)
             explanation["records"] = records["records"]
             explanation["decisions"] = records["decisions"]
         return explanation
-    result = _records_answer(repository, target, kind, first_build=first_build, timeout_now=timeout_now)
+    result = _records_answer(repository, target, kind, first_build=first_build, timeout_now=timeout_now,
+                             outcome_now=outcome_now)
     subject = target.partition(":")[0] in provenance.SUBJECT_KINDS and bool(target.partition(":")[2])
     if not found_anything(result) and kind is None and target != "latest" and not subject and loaded is not None:
         # Not a record, a trace or an old row: an item no longer in the vault's files keeps its last explanation.

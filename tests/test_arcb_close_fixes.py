@@ -362,3 +362,32 @@ def test_codes_only_withholds_text_fields_and_their_keys_whatever_the_spelling()
     assert cleaned == {"inputs": {"unsupported_kind": None, "rule": "chooser_error"}, "reasons": [None],
                        "latest": {"explanation": {}}}
     assert set(withheld) == {"inputs.unsupported_kind", "reasons[0]", "latest.explanation.<key>"}
+
+
+# -- 6. what happened next is derived now, not read from the rebuild cache ----------------------------------------
+
+
+def test_why_shows_an_attempt_completed_after_the_last_rebuild(tmp_path: Path):
+    """``router_outcomes`` holds what the last rebuild derived (here: nothing, no rebuild has run since the
+    decision). Before the fix ``why`` read it, so a decision answered since showed no outcome."""
+
+    from learnloop.daily_plan.engine import advance
+    from tests.daily_plan_fakes import record_attempt
+    from tests.router_mixture_helpers import mixture_env
+    from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
+
+    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM()))
+    with provenance.trace_scope("TRACE_NEXT"):
+        _record, step = advance(env, serve=True)
+    assert step is not None and step["kind"] == "item"
+    env.clock.advance(2)
+    attempt = record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now(),
+                             session_id=env.session_id)
+    assert _count(env.repository.sqlite_path, "SELECT COUNT(*) FROM router_outcomes") == 0
+    answer = _why(env.vault.root, "TRACE_NEXT")
+    routed = [decision for decision in answer["decisions"] if decision["detail"]
+              and decision["detail"]["table"] == "router_decisions"]
+    assert routed
+    outcome = routed[0]["outcome"]
+    assert outcome is not None and outcome["basis"] == "derived_at_read"
+    assert outcome["action_attempt_id"] == attempt

@@ -37,15 +37,6 @@ router_app = typer.Typer(
 )
 
 
-def _reader_exposures(connection: sqlite3.Connection, loaded: Any, path: Path) -> list[tuple[str, str]] | None:
-    """What this vault's outcome version reads of the Reader (read-only, like everything here)."""
-
-    from learnloop.data_capture import reading_exposures
-    from learnloop.db.repositories import Repository
-    from learnloop.router.outcomes import outcome_version_for
-
-    return reading_exposures.for_version(connection, loaded, Repository.attach(path, read_only=True),
-                                         outcome_version_for(loaded.config))
 
 
 def _emit(payload: dict, json_output: bool) -> None:
@@ -130,12 +121,7 @@ def router_log(
     """The newest logged router decisions, with their R_next / R_cold / S outcomes."""
 
     from learnloop.db.stores.router import router_decision_rows, router_payloads_present
-    from learnloop.router.outcomes import (
-        derive_router_outcomes,
-        outcome_version_for,
-        servable_items_by_learning_object,
-    )
-    from learnloop.substrate.canonical_projection import held_for_review_attempts, pfc_assessments
+    from learnloop.router.outcomes_now import outcomes_now
 
     try:
         if not (vault / "learnloop.toml").is_file():
@@ -164,18 +150,7 @@ def router_log(
                     ]
             else:
                 rows = router_decision_rows(connection, limit=limit)
-            attempt_ids = [row[0] for row in connection.execute("SELECT id FROM practice_attempts")]
-            outcomes = {
-                row["decision_id"]: row
-                for row in derive_router_outcomes(
-                    connection,
-                    pfc_states=pfc_assessments(connection, attempt_ids),
-                    servable_items_by_lo=servable_items_by_learning_object(loaded),
-                    held_attempt_ids=held_for_review_attempts(connection),
-                    outcome_version=outcome_version_for(loaded.config),
-                    reader_exposures=_reader_exposures(connection, loaded, path),
-                )
-            }
+            outcomes = outcomes_now(connection, loaded, path)
             total = connection.execute("SELECT COUNT(*) FROM router_decisions").fetchone()[0]
         if decision is not None:
             # Router R2b: one decision's receipt in full.
@@ -214,9 +189,8 @@ def router_report(
     arm propensity (read-only; no model call)."""
 
     from learnloop.db.stores import router_suggestions
-    from learnloop.router.outcomes import derive_router_outcomes, outcome_version_for, servable_items_by_learning_object
+    from learnloop.router.outcomes_now import outcomes_now
     from learnloop.router.suggestion_report import itt_split, lines
-    from learnloop.substrate.canonical_projection import held_for_review_attempts, pfc_assessments
 
     try:
         if not (vault / "learnloop.toml").is_file():
@@ -234,19 +208,10 @@ def router_report(
                 str(row["id"]): dict(row) for row in connection.execute(
                     "SELECT id, origin_ref, closed_at, close_reason FROM lessons WHERE origin = 'router'")
             }
-            attempt_ids = [row[0] for row in connection.execute("SELECT id FROM practice_attempts")]
             wanted = {str(decision["id"]) for decision in decisions}
             outcomes = {
-                str(row["decision_id"]): row
-                for row in derive_router_outcomes(
-                    connection,
-                    pfc_states=pfc_assessments(connection, attempt_ids),
-                    servable_items_by_lo=servable_items_by_learning_object(loaded),
-                    held_attempt_ids=held_for_review_attempts(connection),
-                    outcome_version=outcome_version_for(loaded.config),
-                    reader_exposures=_reader_exposures(connection, loaded, path),
-                )
-                if str(row["decision_id"]) in wanted
+                decision_id: row for decision_id, row in outcomes_now(connection, loaded, path).items()
+                if decision_id in wanted
             }
         split = itt_split(decisions, responses, releases, lessons, outcomes)
         if json_output:
