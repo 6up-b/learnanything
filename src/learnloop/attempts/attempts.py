@@ -3537,7 +3537,43 @@ def _apply_attempt_in_transaction(
             # (spec_followup_generate_serve_v1 §4.1), so the live cache is
             # brought to the replay's here, in the same transaction.
             _project_canonical_belief(vault, repository, clock=clock)
+    if not attempt.replace_existing:
+        _record_grade_decision(vault, repository, attempt, application)
     return application.result
+
+
+def _record_grade_decision(
+    vault: LoadedVault, repository: Repository, attempt: ApplyAttemptInput, application: AttemptApplication,
+) -> None:
+    """The live grade's decision record, and its hold's (refactor B7), last in the attempt's transaction.
+
+    Live only: replay re-applies a recorded attempt and must not claim to have decided it again. Never raises
+    (``grade_records.record_grade``), so the attempt commits whatever happens to its records.
+    """
+
+    from learnloop.attempts.grade_records import error_types_of, record_grade
+
+    result, draft = application.result, attempt.draft
+    try:
+        max_points = application.rubric.max_points if application.rubric is not None else None
+    except Exception:  # noqa: BLE001 - a record never changes the decision it describes
+        max_points = None
+    record_grade(
+        repository,
+        attempt_id=result.attempt_id, practice_item_id=result.practice_item_id,
+        learning_object_id=result.learning_object_id, rubric_score=result.rubric_score,
+        max_points=max_points, correctness=result.correctness, grader_confidence=result.grader_confidence,
+        grading_source=result.grading_source, grader_mode=attempt.grader_mode,
+        manual_review_reason=result.manual_review_reason, fallback_reason=result.fallback_reason,
+        agent_run_id=attempt.grading_agent_run_id or result.agent_run_id, attempt_type=draft.attempt_type,
+        hints_used=draft.hints_used, declared_dont_know=bool(draft.declared_dont_know),
+        declared_stuck=bool(draft.declared_stuck), primed=bool(draft.primed), fsrs_rating=result.fsrs_rating,
+        error_types=error_types_of(application.error_events), held=application.grade_held,
+        unverified_criterion_ids=attempt.unverified_criterion_ids,
+        plan_presentation_id=draft.plan_presentation_id, probe_presentation_id=draft.probe_presentation_id,
+        session_id=draft.session_id, algorithm_version=vault.config.algorithms.algorithm_version,
+        grader_identity=attempt.grader_identity,
+    )
 
 
 def _save_completion_work(

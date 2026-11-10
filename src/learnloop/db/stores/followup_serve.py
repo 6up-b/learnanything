@@ -12,6 +12,7 @@ import json
 import sqlite3
 from typing import Any
 
+from learnloop.db.stores import provenance as decision_store
 from learnloop.ids import new_ulid
 
 WORKFLOW_TABLE = "followup_workflows"
@@ -175,7 +176,14 @@ def enqueue_generation_job(connection: sqlite3.Connection, *, kind: str, dedupe_
         "ON CONFLICT(dedupe_key) DO NOTHING",
         (job_id, kind, dedupe_key, workflow_id, probe_episode_id, need_id, not_before, at, at),
     )
-    return job_id if cursor.rowcount > 0 else None
+    if cursor.rowcount <= 0:
+        return None
+    decision_store.record_job_enqueued(
+        connection, queue="followup_generation_jobs", job_id=job_id, job_kind=kind,
+        facts={"workflow_id": workflow_id, "probe_episode_id": probe_episode_id, "need_id": need_id,
+               "not_before": not_before},
+    )
+    return job_id
 
 
 def requeue_generation_job(connection: sqlite3.Connection, dedupe_key: str, *, at: str) -> bool:
@@ -187,7 +195,15 @@ def requeue_generation_job(connection: sqlite3.Connection, dedupe_key: str, *, a
         "lease_owner = NULL, lease_expires_at = NULL, updated_at = ? WHERE dedupe_key = ? AND state != 'leased'",
         (at, dedupe_key),
     )
-    return cursor.rowcount > 0
+    if cursor.rowcount <= 0:
+        return False
+    # The job runs again for a new decision: it continues the trace that asked for it, not the first one.
+    row = connection.execute("SELECT id, kind, workflow_id FROM followup_generation_jobs WHERE dedupe_key = ?",
+                             (dedupe_key,)).fetchone()
+    if row is not None:
+        decision_store.record_job_enqueued(connection, queue="followup_generation_jobs", job_id=str(row[0]),
+                                           job_kind=str(row[1]), rule="requeued", facts={"workflow_id": row[2]})
+    return True
 
 
 def lease_next_generation_job(connection: sqlite3.Connection, *, owner: str, now: str, lease_expires_at: str

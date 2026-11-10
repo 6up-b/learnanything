@@ -1503,11 +1503,16 @@ def _status_for_factor(
                 vault=vault,
                 clock=clock,
             )
-        except Exception:
+        except Exception as exc:
             logging.getLogger(__name__).exception(
                 "shadow selection failed for factor %s (live decision unaffected)",
                 factor_id,
             )
+            from learnloop.diagnosis.chain_records import record_step_failed
+
+            record_step_failed(repository, step="causal_shadow_selection", exc=exc, attempt_id=attempt_id,
+                               subject=("factor", str(factor_id)),
+                               facts={"causal_receipt_id": receipt.get("id") if isinstance(receipt, Mapping) else None})
         episode = (
             _episode_for(
                 repository,
@@ -2038,6 +2043,38 @@ class _OfferRefusedAtCommit(Exception):
 
 
 def accept_probe_offer(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    factor_id: str,
+    decision_receipt_id: str | None = None,
+    session_id: str | None = None,
+    clock: Clock | None = None,
+    ai_client: object | None = None,
+    candidate_id: str | None = None,
+    followup_workflow_id: str | None = None,
+    router_decision_id: str | None = None,
+) -> ProbeOffer:
+    """"Take the quick check" (:func:`_accept_probe_offer`), and its ``probe_offer`` decision record (refactor B7).
+
+    The record names the id that decided the offer, so a learner-lane probe has a row at acceptance though no router
+    decision exists for it (the map's break 5). It is written after the offer is settled and never raises; an
+    exception from the offer itself propagates as before, with no record.
+    """
+
+    offer = _accept_probe_offer(
+        vault, repository, factor_id=factor_id, decision_receipt_id=decision_receipt_id, session_id=session_id,
+        clock=clock, ai_client=ai_client, candidate_id=candidate_id, followup_workflow_id=followup_workflow_id,
+        router_decision_id=router_decision_id,
+    )
+    from learnloop.diagnosis.chain_records import record_probe_offer
+
+    record_probe_offer(repository, offer=offer, decision_receipt_id=decision_receipt_id,
+                       router_decision_id=router_decision_id, followup_workflow_id=followup_workflow_id)
+    return offer
+
+
+def _accept_probe_offer(
     vault: LoadedVault,
     repository: Repository,
     *,

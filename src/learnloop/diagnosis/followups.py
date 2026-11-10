@@ -982,6 +982,7 @@ def run_post_diagnosis_hooks(
 
     from types import SimpleNamespace
 
+    from learnloop.diagnosis import chain_records
     from learnloop.diagnosis.causal_orchestrator import sweep_machine_checks
 
     logger = logging.getLogger(__name__)
@@ -990,12 +991,16 @@ def run_post_diagnosis_hooks(
         sweep_machine_checks(
             vault, repository, learning_object_id, source="post_diagnosis", clock=clock
         )
-    except Exception:  # pragma: no cover - bookkeeping must not fail a diagnosis
+    except Exception as exc:  # pragma: no cover - bookkeeping must not fail a diagnosis
         logger.warning("post-diagnosis machine-check sweep failed for %s", learning_object_id, exc_info=True)
+        chain_records.record_step_failed(repository, step="machine_check_sweep", exc=exc, attempt_id=attempt_id,
+                                         facts={"learning_object_id": learning_object_id})
     try:
         _consult_common_repair(vault, repository, result, session_id=session_id, clock=clock)
-    except Exception:  # pragma: no cover - bookkeeping must not fail a diagnosis
+    except Exception as exc:  # pragma: no cover - bookkeeping must not fail a diagnosis
         logger.warning("post-diagnosis common-repair consultation failed for %s", attempt_id, exc_info=True)
+        chain_records.record_step_failed(repository, step="common_repair_consultation", exc=exc,
+                                         attempt_id=attempt_id, facts={"learning_object_id": learning_object_id})
 
 
 def _consult_common_repair(
@@ -2594,6 +2599,14 @@ def _record_followup_value_decision(
         need_id=need_id,
         algorithm_version=vault.config.algorithms.algorithm_version,
         clock=clock,
+    )
+    # Refactor B7: the decision's record beside its receipt, in the trace the follow-up's jobs continue (break 6).
+    from learnloop.diagnosis import chain_records
+
+    chain_records.record_followup_value(
+        repository, receipt_id=receipt_id, attempt_id=attempt_id, learning_object_id=learning_object_id,
+        session_id=session_id, outcome=outcome, decision=decision, manual_override=manual_override, need_id=need_id,
+        algorithm_version=vault.config.algorithms.algorithm_version,
     )
     if decision is not None:
         record_value_decision_forecast(

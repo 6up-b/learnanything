@@ -16,6 +16,7 @@ import sqlite3
 from typing import Any
 
 from learnloop.clock import parse_utc
+from learnloop.db.stores import provenance as decision_store
 from learnloop.ids import new_ulid
 
 GAP_COLUMNS = (
@@ -244,6 +245,8 @@ def enqueue_job(
         "VALUES (?,?,?,'queued',?,?,?)",
         (job_id, source_kind, source_id, _dumps(payload), now, now),
     )
+    decision_store.record_job_enqueued(connection, queue="learner_text_gap_jobs", job_id=job_id, job_kind=source_kind,
+                                       facts={"source_kind": source_kind, "source_id": source_id})
     return job_id
 
 

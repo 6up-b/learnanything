@@ -19,6 +19,7 @@ from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.daily_plan.router_runtime import FOLLOWUP_GENERATION_OWNER
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import followup_serve as store
+from learnloop.db.stores import provenance as decision_store
 from learnloop.followup_serve import identity
 from learnloop.followup_serve import workflow as wf
 from learnloop.followup_serve import queue
@@ -87,6 +88,8 @@ def process_next_job(
         )
     if job is None:
         return None
+    # The generation continues the trace that queued it (the attempt's diagnosis, or a re-decision).
+    decision_store.continue_job_trace(repository, str(job["id"]))
     outcome = JobOutcome(job_id=str(job["id"]), kind=str(job["kind"]), state="done",
                          workflow_id=job.get("workflow_id"))
     try:

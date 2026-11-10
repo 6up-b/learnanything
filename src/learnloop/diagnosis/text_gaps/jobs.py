@@ -32,6 +32,7 @@ from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_gaps as store
+from learnloop.db.stores import provenance as decision_store
 from learnloop.diagnosis.text_gaps.contract import (
     NOTE_SOURCE_KINDS,
     NOTE_UNCHECKPOINTED_FIELDS,
@@ -525,6 +526,8 @@ def process_next_gap_job(
     if job is None:
         return None
     job_id, epoch = str(job["id"]), int(job["lease_epoch"])
+    # The reading continues the trace that queued the text (a diagnosis, a stuck answer, a lesson turn).
+    decision_store.continue_job_trace(repository, job_id)
     outcome = GapJobOutcome(job_id, str(job["source_kind"]), str(job["source_id"]), "done")
     vault = load_vault(root)
     progress: dict[str, Any] = dict(job.get("payload") or {})
