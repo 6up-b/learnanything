@@ -77,6 +77,8 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `discarded_calls`, `trace_model_calls`, `unclaimed_calls`; statically calls `discarded_calls`, `trace_model_calls`, `unclaimed_calls`
+- [[Reference/Modules/learnloop/figures/records|learnloop.figures.records]] — imports `write_decision`; statically calls `write_decision`
+- [[Reference/Modules/learnloop/scheduling/slate_record|learnloop.scheduling.slate_record]] — imports `module`; statically calls `write_decision`
 
 ## Dependencies
 
@@ -96,7 +98,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/figures/records|learnloop.figures.records]], [[Reference/Modules/learnloop/scheduling/slate_record|learnloop.scheduling.slate_record]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -107,6 +109,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_store_write_takes_its_own_transaction_or_joins_the_repositorys`
 - [tests/test_router_failure_records.py](../../../../../../../tests/test_router_failure_records.py) — direct import
   - `test_the_store_names_the_routers_receipt_owner`
+- [tests/test_slate_record.py](../../../../../../../tests/test_slate_record.py) — direct import
+  - `test_a_record_that_cannot_be_written_changes_nothing_served`
 
 ## Modification guidance
 

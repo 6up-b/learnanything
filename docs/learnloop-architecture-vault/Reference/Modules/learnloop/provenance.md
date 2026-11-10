@@ -47,24 +47,25 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py) |
-| Source lines | 347 |
+| Source lines | 373 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class DecisionRecord` ([source](../../../../../src/learnloop/provenance.py), line 79) — One decision at a meaningful boundary: what won, what lost and why, as of then.
-  - `as_dict(self) -> dict[str, Any]` (line 105; public)
-- `current_trace() -> str | None` ([source](../../../../../src/learnloop/provenance.py), line 119) — The trace this code runs under, or ``None`` outside every entry point.
-- `new_trace_id() -> str` ([source](../../../../../src/learnloop/provenance.py), line 125)
-- `trace_scope(trace_id: str | None=None) -> Iterator[str]` ([source](../../../../../src/learnloop/provenance.py), line 130) — Run the block under ``trace_id``, or under a new trace when it is ``None``.
-- `where(exc: BaseException) -> str | None` ([source](../../../../../src/learnloop/provenance.py), line 149) — ``module:function:line`` of the frame that raised ``exc``: the record's ``error_where``.
-- `is_code(value: Any) -> bool` ([source](../../../../../src/learnloop/provenance.py), line 166) — Whether ``value`` is a string :func:`write` keeps as it is: an id, a rule name, a version (no whitespace).
-- `cap_alternatives(alternatives: Sequence[Mapping[str, Any]], *, limit: int=MAX_ALTERNATIVES) -> tuple[list[dict[str, Any]], dict[str, int]]` ([source](../../../../../src/learnloop/provenance.py), line 172) — The first ``limit`` alternatives, and how many more lost by each rule.
-- `check_no_prose(record: DecisionRecord) -> list[str]` ([source](../../../../../src/learnloop/provenance.py), line 185) — Paths of the record's values that are not an id, a number or a code constant (empty when clean).
-- `write(connection: Any, record: DecisionRecord) -> str | None` ([source](../../../../../src/learnloop/provenance.py), line 239) — Insert ``record`` on the caller's connection; its id, or ``None`` when it was not written.
-- `read(connection: Any, target: str='latest', *, kind: str | None=None, limit: int=500) -> list[DecisionRecord]` ([source](../../../../../src/learnloop/provenance.py), line 311) — The records ``target`` names, oldest first; empty when none (or the vault is below migration 253).
+- `is_code(value: Any) -> bool` ([source](../../../../../src/learnloop/provenance.py), line 70) — Whether ``value`` is a string :func:`write` keeps (an id, a rule name, a version).
+- `class DecisionRecord` ([source](../../../../../src/learnloop/provenance.py), line 89) — One decision at a meaningful boundary: what won, what lost and why, as of then.
+  - `as_dict(self) -> dict[str, Any]` (line 115; public)
+- `current_trace() -> str | None` ([source](../../../../../src/learnloop/provenance.py), line 129) — The trace this code runs under, or ``None`` outside every entry point.
+- `new_trace_id() -> str` ([source](../../../../../src/learnloop/provenance.py), line 135)
+- `trace_scope(trace_id: str | None=None) -> Iterator[str]` ([source](../../../../../src/learnloop/provenance.py), line 140) — Run the block under ``trace_id``, or under a new trace when it is ``None``.
+- `where(exc: BaseException) -> str | None` ([source](../../../../../src/learnloop/provenance.py), line 159) — ``module:function:line`` of the frame that raised ``exc``: the record's ``error_where``.
+- `cap_alternatives(alternatives: Sequence[Mapping[str, Any]], *, limit: int=MAX_ALTERNATIVES) -> tuple[list[dict[str, Any]], dict[str, int]]` ([source](../../../../../src/learnloop/provenance.py), line 176) — The first ``limit`` alternatives, and how many more lost by each rule.
+- `check_no_prose(record: DecisionRecord) -> list[str]` ([source](../../../../../src/learnloop/provenance.py), line 189) — Paths of the record's values that are not an id, a number or a code constant (empty when clean).
+- `write(connection: Any, record: DecisionRecord) -> str | None` ([source](../../../../../src/learnloop/provenance.py), line 243) — Insert ``record`` on the caller's connection; its id, or ``None`` when it was not written.
+- `read(connection: Any, target: str='latest', *, kind: str | None=None, limit: int=500) -> list[DecisionRecord]` ([source](../../../../../src/learnloop/provenance.py), line 315) — The records ``target`` names, oldest first; empty when none (or the vault is below migration 253).
+- `read_naming(connection: Any, ref: str, *, kind: str | None=None, limit: int=5) -> list[DecisionRecord]` ([source](../../../../../src/learnloop/provenance.py), line 354) — The newest records (of ``kind``) that name ``ref`` as what won, an alternative or a fact; newest first.
 
 ### Module constants
 
@@ -74,13 +75,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `SUBJECT_KINDS` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 58)
 - `MAX_ALTERNATIVES` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 62)
 - `_TOKEN` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 67)
-- `_COLUMNS` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 69)
-- `_TRACE` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 75)
+- `_COLUMNS` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 79)
+- `_TRACE` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 85)
 
 ## Internal implementation anchors
 
-- `_completed(record: DecisionRecord) -> DecisionRecord` ([source](../../../../../src/learnloop/provenance.py), line 224)
-- `_record(row: Sequence[Any]) -> DecisionRecord` ([source](../../../../../src/learnloop/provenance.py), line 298)
+- `_completed(record: DecisionRecord) -> DecisionRecord` ([source](../../../../../src/learnloop/provenance.py), line 228)
+- `_record(row: Sequence[Any]) -> DecisionRecord` ([source](../../../../../src/learnloop/provenance.py), line 302)
 
 ## Who imports or calls it
 
@@ -88,11 +89,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `current_trace`; statically calls `current_trace`
-- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `module`; statically calls `get`, `read`, `trace_scope`
+- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `module`; statically calls `get`, `read`, `read_naming`, `trace_scope`
 - [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]] — imports `DecisionRecord`, `module`; statically calls `DecisionRecord`, `current_trace`, `is_code`, `new_trace_id`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `current_trace`, `where`, `write`
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `current_trace`; statically calls `current_trace`
 - [[Reference/Modules/learnloop/db/stores/provenance|learnloop.db.stores.provenance]] — imports `module`; statically calls `current_trace`, `write`
+- [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `module`; statically calls `current_trace`, `trace_scope`, `write`
+- [[Reference/Modules/learnloop/figures/records|learnloop.figures.records]] — imports `module`; statically calls `DecisionRecord`, `check_no_prose`, `current_trace`, `new_trace_id`, `where`
+- [[Reference/Modules/learnloop/scheduling/slate_record|learnloop.scheduling.slate_record]] — imports `DecisionRecord`, `current_trace`, `is_code`; statically calls `DecisionRecord`, `current_trace`, `is_code`
 - [[Reference/Modules/learnloop_sidecar/logging|learnloop_sidecar.logging]] — imports `current_trace`; statically calls `current_trace`
 - [[Reference/Modules/learnloop_sidecar/post_attempt_worker|learnloop_sidecar.post_attempt_worker]] — imports `module`; statically calls `trace_scope`
 - [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `module`; statically calls `trace_scope`
@@ -115,12 +119,14 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] and 7 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_figure_decision_records.py](../../../../../tests/test_figure_decision_records.py) — direct import
+  - `test_a_refused_build_leaves_a_refused_record`
 - [tests/test_provenance.py](../../../../../tests/test_provenance.py) — direct import
   - `test_a_model_calls_receipt_carries_the_trace_it_started_under`
   - `test_a_phone_request_births_its_trace_and_hands_it_to_the_sidecar`
@@ -154,6 +160,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_record_that_cannot_be_built_never_blocks_the_block`
   - `test_records_hold_codes_only_and_an_id_that_is_not_a_code_is_hashed`
   - `test_the_crash_is_logged_with_its_trace_and_never_its_message`
+- [tests/test_slate_record.py](../../../../../tests/test_slate_record.py) — direct import
+  - `test_a_persisting_build_writes_one_slate_record_with_its_exclusions`
+  - `test_a_record_that_cannot_be_written_changes_nothing_served`
+  - `test_the_rule_that_put_the_head_first`
 
 ## Modification guidance
 
