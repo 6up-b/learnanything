@@ -106,7 +106,8 @@ def test_prebuilds_record_no_measured_latency_then_sampled_eu_positive_with_the_
     before = why(paths.root, f"decision:{skip['id']}")["records"]
     (record,) = [item for item in before if item["kind"] == FR.KIND_PREBUILD]
     assert record["status"] == "excluded" and record["rule"] == PM.RULE_NO_MEASURED_LATENCY
-    assert record["decided_by"] == PM.MODEL_VERSION and record["detail_table"] == "figure_prefetch_decisions"
+    # Below the figure wait estimate's tag (mvp-0.58) the pass decides as prefetch_decision_v1.
+    assert record["decided_by"] == PM.MODEL_VERSION_V1 and record["detail_table"] == "figure_prefetch_decisions"
     facts = record["facts"]
     assert facts["verdict"] == "skip" and facts["eu"] is None and facts["propensity"] == 0.0
     assert facts["waits_n"] == 0 and facts["wait_min"] is None and facts["wait_basis"] == "none"
@@ -149,7 +150,8 @@ def test_the_recorded_seed_redraws_the_pass_exactly(tmp_path):
     assert len(found) == 3 and len({record["versions"]["seed"] for record in found}) == 1
     seed = int(found[0]["versions"]["seed"])
     with connect(repository.sqlite_path, read_only=True) as connection:
-        model = PL.load_model(connection, PF.plan_providers(vault), now=env.now(), offset=env.offset())
+        model = PL.load_model(connection, PF.plan_providers(vault), now=env.now(), offset=env.offset(),
+                              pressed_waits=PF.pressed_waits_on(vault))
     assert model.digest() == found[0]["versions"]["posterior_digest"]  # the model the pass read
     rng = np.random.default_rng(seed)
     redrawn = [model.decide(PM.Candidate(item.trigger_kind, PF._source_key(repository, item.extraction_id),
