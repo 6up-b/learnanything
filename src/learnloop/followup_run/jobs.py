@@ -438,7 +438,7 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
                                          client=client, clock=clock)
         fresh = reloaded(vault)
         admitted = admission.commission_and_pin(
-            fresh, repository, probe, workflow=row, factor_id=factor_id, decision_id=decision.decision_id,
+            fresh, repository, probe, workflow=row, factor_id=factor_id, router_decision_id=decision.decision_id,
             practice_item_id=item_id, client=client, clock=clock,
         )
     except admission.OfferRefused as refused:

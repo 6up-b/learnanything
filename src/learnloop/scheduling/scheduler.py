@@ -53,6 +53,7 @@ from learnloop.scheduling.serving_exclusions import (
     routine_serving_exclusions,
 )
 from learnloop.diagnosis import voi_stopping as voi
+from learnloop.scheduling.slate_record import record_slate
 from learnloop.scheduling.selection_rewards import (
     SchedulerIntent,
     ability_vector,
@@ -193,12 +194,28 @@ def build_due_queue(
     offer_trace: OfferTrace | None = None,
     device_filter: DeviceFilter | None = None,
 ) -> list[ScheduledItem]:
+    """Today's routine queue: every item through one admission predicate, ranked, drawn from, composed.
+
+    Each item is asked ``admission_reason`` once (a withheld item's reason is
+    kept, never consulted); the admitted ones are scored and sorted by selection
+    reward, the seeded exploration draws over that order, and the composition
+    (teach-back cap, goal quota, requested floor, follow-ups, contrast pairs)
+    reorders it. ``persist_explanations`` marks a serving build: it alone
+    reconciles supply and, for a session, records the slate and the slate's
+    decision record; a read does none of these.
+    """
+
     now = (clock or SystemClock()).now().astimezone(UTC)
     session = session or SchedulerSession()
     config = vault.config
-    # Router R1: reason codes for the candidates the loop withholds, recorded
-    # only when a caller logs the offer. Never consulted by the build.
+    # The slate's record goes with the slate row: a sessionless build (a plan read with no session, the TUI) writes
+    # neither, so a read that changes nothing still commits nothing and the plan's memo stays warm.
+    records_slate = persist_explanations and session.session_id is not None
+    # Reason codes for the candidates the loop withholds, recorded when a caller
+    # logs the offer and for the slate's record. Never consulted by the build.
     traced_exclusions = offer_trace.exclusions if offer_trace is not None else None
+    if traced_exclusions is None and records_slate:
+        traced_exclusions = {}
 
     def withheld(reason: str, item_id: str) -> None:
         if traced_exclusions is not None:
@@ -971,6 +988,29 @@ def build_due_queue(
         )
         if voi.voi_stopping_active(config, voi.SITE_TEACH_BACK):
             offer_trace.teach_back_exclusion_reason = "teach_back_value_below_minutes_cost"
+    if records_slate and traced_slate_id is not None:
+        # ADR-017: one record per slate row, after everything the build decided.
+        record_slate(
+            repository,
+            served=queue,
+            considered=considered_queue,
+            greedy=greedy_queue,
+            withheld=traced_exclusions or {},
+            teach_back_value=voi.voi_stopping_active(config, voi.SITE_TEACH_BACK),
+            cold_deferrals=cold_deferrals,
+            placement_check_exclusions=placement_serving.check_exclusions if placement_serving is not None else {},
+            propensity=propensity_by_id,
+            limit=limit,
+            slate_id=traced_slate_id,
+            session_id=session.session_id,
+            pinned_item_id=(
+                active_session_presentation.practice_item_id if active_session_presentation is not None else None
+            ),
+            check_item_ids=check_item_ids,
+            probe_block_reason=probe_block_reason,
+            algorithm_version=config.algorithms.algorithm_version,
+            selection_policy=SELECTION_POLICY,
+        )
     return queue
 
 
@@ -1278,6 +1318,8 @@ class _PlacementServing:
     #: mvp-0.56: answered items with no due time, free of the out-of-timing holds. With no evidence on their LO they
     #: start as learning (``_BuildAdmission.placement``). Empty below the tag or with the switch off.
     unevidenced_return_item_ids: frozenset[str] = frozenset()
+    #: Items of an LO whose check is due that the check could not be chosen from, by rule (the slate record's).
+    check_exclusions: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 #: Practice modes never used as an assumed-known first review: the check is a
@@ -1349,6 +1391,7 @@ def _placement_serving(
         else frozenset()
     )
     unevidenced_return_item_ids: frozenset[str] = frozenset()
+    routine_excluded_item_ids = excluded_item_ids
     if due or answered_unscheduled:
         from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
         from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
@@ -1361,21 +1404,31 @@ def _placement_serving(
         if due:
             excluded_item_ids = set(excluded_item_ids) | out_of_timing
     candidates: dict[str, list[str]] = {}
+    # Why each other item of a due LO is not a check candidate, in the order the rules are asked: an LO whose check
+    # never comes is otherwise unexplained.
+    check_exclusions: dict[str, list[str]] = {}
     for item in vault.practice_items.values():
-        if item.learning_object_id not in due or item.status != "active":
+        if item.learning_object_id not in due:
             continue
         item_state = item_states.get(item.id)
-        if item_state is not None and not item_state.active:
+        if item.status != "active":
+            reason = "retired"
+        elif item_state is not None and not item_state.active:
+            reason = "inactive_state"
+        elif item.id in excluded_item_ids:
+            reason = "routine_exclusion" if item.id in routine_excluded_item_ids else "out_of_timing"
+        elif item.practice_mode in _CHECK_EXCLUDED_MODES:
+            reason = "check_excluded_mode"
+        elif unservable_reason(item) is not None:
+            reason = "unservable_stimulus"
+        elif vault.learning_object_for_item(item) is None:
+            reason = "no_learning_object"
+        elif not practice_item_servable(vault, item):
+            reason = "lifecycle_put_away"
+        else:
+            candidates.setdefault(str(item.learning_object_id), []).append(item.id)
             continue
-        if (
-            item.id in excluded_item_ids
-            or item.practice_mode in _CHECK_EXCLUDED_MODES
-            or unservable_reason(item) is not None
-            or vault.learning_object_for_item(item) is None
-            or not practice_item_servable(vault, item)
-        ):
-            continue
-        candidates.setdefault(str(item.learning_object_id), []).append(item.id)
+        check_exclusions.setdefault(reason, []).append(item.id)
     attempted = {item_id for item_id, item_state in item_states.items() if item_state.last_attempt_at is not None}
     return _PlacementServing(
         open_learning_object_ids=frozenset(state.open_by_lo),
@@ -1387,6 +1440,7 @@ def _placement_serving(
         advanced_learning_object_ids=state.advanced_learning_object_ids,
         committed_learning_object_ids=state.committed_learning_object_ids,
         unevidenced_return_item_ids=unevidenced_return_item_ids,
+        check_exclusions={reason: tuple(ids) for reason, ids in check_exclusions.items()},
     )
 
 
@@ -2779,6 +2833,27 @@ def explain_practice_item(vault: LoadedVault, repository: Repository, practice_i
         if item.practice_item_id == practice_item_id:
             return item
     return None
+
+
+def exclusion_now(vault: LoadedVault, repository: Repository, practice_item_id: str) -> str | None:
+    """The rule that keeps ``practice_item_id`` off a slate built now, or None. A read: it persists nothing.
+
+    The slate record names only a few ids per rule, so ``why item:<id>`` asks
+    the build itself for an item it does not find there.
+    """
+
+    from learnloop.scheduling.slate_record import TEACH_BACK_SESSION_CAP, TEACH_BACK_VALUE, merged_exclusions
+
+    trace = OfferTrace()
+    build_due_queue(vault, repository, persist_explanations=False, offer_trace=trace)
+    exclusions = merged_exclusions(
+        trace.exclusions,
+        greedy_ids=trace.greedy_item_ids,
+        considered_ids=[item.practice_item_id for item in trace.considered],
+        teach_back_rule=TEACH_BACK_VALUE if trace.teach_back_exclusion_reason == TEACH_BACK_VALUE else TEACH_BACK_SESSION_CAP,
+        cold_deferrals=trace.cold_deferrals,
+    )
+    return next((rule for rule, ids in sorted(exclusions.items()) if practice_item_id in ids), None)
 
 
 def _practice_information(item, learning_object, mastery, config: LearnLoopConfig) -> float:

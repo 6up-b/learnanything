@@ -3344,6 +3344,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_signal_quantiles.py](../../../../../../tests/test_signal_quantiles.py) — direct import
 - [tests/test_sim_teach_back.py](../../../../../../tests/test_sim_teach_back.py) — direct import
   - `test_runner_completes_session_with_teach_back_item`
+- [tests/test_slate_record.py](../../../../../../tests/test_slate_record.py) — direct import
 - [tests/test_source_block_fts.py](../../../../../../tests/test_source_block_fts.py) — direct import
   - `test_a_delete_never_removes_another_blocks_index_row`
   - `test_a_fresh_vault_has_the_identity_delete_paths_through_177`

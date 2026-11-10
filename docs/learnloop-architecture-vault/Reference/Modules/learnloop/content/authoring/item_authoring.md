@@ -168,6 +168,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_edited_prompt_or_key_is_unverified_until_rechecked`
 - [tests/test_reference_gate_imports.py](../../../../../../../tests/test_reference_gate_imports.py) — direct import
 - [tests/test_sidecar_blueprint_picker.py](../../../../../../../tests/test_sidecar_blueprint_picker.py) — direct import
+- [tests/test_slate_record.py](../../../../../../../tests/test_slate_record.py) — direct import
 - [tests/test_source_exercise_import.py](../../../../../../../tests/test_source_exercise_import.py) — direct import
   - `test_a_resumed_check_never_verifies_content_edited_since`
   - `test_recovery_never_binds_a_verdict_to_content_edited_before_the_commit`

@@ -755,6 +755,25 @@ def test_accepting_the_offer_enters_a_factor_aware_episode_with_pinned_bundles(
     assert replayed["classified_as"] == classified["classified_as"]
 
 
+def test_a_router_decided_pin_names_its_router_decision_not_a_causal_receipt(tmp_path):
+    """Refactor B6 (break 4): FG1 passed its router decision as ``decision_receipt_id``, the learner lane's causal
+    receipt. Each meaning has its own parameter and key now; the learner lane's pin is unchanged (above)."""
+
+    vault, repository, _root = _vault(tmp_path, with_probe_item=True)
+    factor_id, first_id, second_id = _seed_factor(repository)
+    admit_probe_instrument_card(repository, items=(PROBE_ITEM,))
+    _activate_probe_candidate(repository, factor_id, first_id, second_id)
+
+    offer = accept_probe_offer(
+        vault, repository, factor_id=factor_id, router_decision_id="RD_ROUTER_1",
+        followup_workflow_id="WF_1", clock=CLOCK,
+    )
+    assert offer.accepted, offer.reason
+    pinned = pinned_causal_probe(repository, offer.presentation_id)
+    assert pinned["router_decision_id"] == "RD_ROUTER_1" and pinned["followup_workflow_id"] == "WF_1"
+    assert "decision_receipt_id" not in pinned
+
+
 # --- §6.2 cold verification rides the follow-up task ------------------------
 
 

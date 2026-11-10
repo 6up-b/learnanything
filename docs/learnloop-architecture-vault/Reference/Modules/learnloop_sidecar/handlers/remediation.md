@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/remediation.py](../../../../../../src/learnloop_sidecar/handlers/remediation.py) |
-| Source lines | 304 |
+| Source lines | 306 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -62,13 +62,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `start_remediation_handler(ctx: SidecarContext, params: MisconceptionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 115)
 - `class RepairStatusInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 145)
 - `class ProbeOfferInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 150)
-- `causal_repair_status_handler(ctx: SidecarContext, params: RepairStatusInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 158) — The single P2 repair-orchestration read (spec §6).
-- `causal_probe_offer_action_handler(ctx: SidecarContext, params: ProbeOfferInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 185) — "Take the quick check" — enter the factor-aware episode and pin the probe.
-- `causal_probe_defer_handler(ctx: SidecarContext, params: ProbeOfferInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 202) — "Not now" — persist the decline so the next attempt does not re-offer.
-- `causal_teach_me_now_handler(ctx: SidecarContext, params: ProbeOfferInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 215) — "Teach me now" — explicit authorisation to repair under ambiguity.
-- `prescribe_remediation_handler(ctx: SidecarContext, params: EpisodeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 239) — Prescribe the comparison passages AND record their delivery.
-- `start_remediation_treatment_handler(ctx: SidecarContext, params: EpisodeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 280)
-- `get_remediation_handler(ctx: SidecarContext, params: EpisodeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 299)
+- `causal_repair_status_handler(ctx: SidecarContext, params: RepairStatusInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 160) — The single P2 repair-orchestration read (spec §6).
+- `causal_probe_offer_action_handler(ctx: SidecarContext, params: ProbeOfferInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 187) — "Take the quick check" — enter the factor-aware episode and pin the probe.
+- `causal_probe_defer_handler(ctx: SidecarContext, params: ProbeOfferInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 204) — "Not now" — persist the decline so the next attempt does not re-offer.
+- `causal_teach_me_now_handler(ctx: SidecarContext, params: ProbeOfferInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 217) — "Teach me now" — explicit authorisation to repair under ambiguity.
+- `prescribe_remediation_handler(ctx: SidecarContext, params: EpisodeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 241) — Prescribe the comparison passages AND record their delivery.
+- `start_remediation_treatment_handler(ctx: SidecarContext, params: EpisodeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 282)
+- `get_remediation_handler(ctx: SidecarContext, params: EpisodeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 301)
 
 ## Internal implementation anchors
 

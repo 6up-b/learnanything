@@ -47,20 +47,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py) |
-| Source lines | 675 |
+| Source lines | 677 |
 | Owning package | [[Reference/Modules/learnloop/router/_package|learnloop.router]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class OfferHeadMismatch(RuntimeError)` ([source](../../../../../../src/learnloop/router/decisions.py), line 100) — The recomposed realized outcome does not reproduce the served head.
-- `split_exclusions(exclusions: Mapping[str, Iterable[str]]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/router/decisions.py), line 136) — ``{"named": {reason: [ids]}, "counts": {reason: n}}``, sorted and deduplicated.
-- `head_distribution(outcomes: Sequence[Any], head_of: Callable[[Sequence[Any]], str | None]) -> dict[str | None, float]` ([source](../../../../../../src/learnloop/router/decisions.py), line 157) — P(each item heads the offer) over the exploration's whole support.
-- `build_today_offer_decision(trace: Any, *, offered: Sequence[Any], head_of: Callable[[Sequence[Any]], str | None], section_of: Callable[[Any], str], served_head: str | None, surface: str, policy: str, in_progress: Mapping[str, Any] | None=None, removed: Mapping[str, Iterable[str]] | None=None, inputs: Mapping[str, Any] | None=None, head_served: bool=True, created_at: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/decisions.py), line 174) — The ``router_decisions`` row for one published Today offer.
-- `build_staged_p2_decision(result: Any, *, ladder: Sequence[Mapping[str, Any]], canonical: Mapping[str, Any] | None, authority: str, veto_reason: str | None, run_id: str, commitment_id: str | None, algorithm_version: str, session_id: str | None, chosen_learning_object_id: str | None=None, created_at: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/decisions.py), line 447) — The ``router_decisions`` row for one live staged decision on a P2 run.
-- `record_decision(repository: Any, row: Mapping[str, Any], *, alongside: Callable[[Any], Any] | None=None) -> bool` ([source](../../../../../../src/learnloop/router/decisions.py), line 643) — Append one decision row in its own transaction; idempotent on its key.
-- `logging_enabled(config: Any) -> bool` ([source](../../../../../../src/learnloop/router/decisions.py), line 655)
+- `class OfferHeadMismatch(RuntimeError)` ([source](../../../../../../src/learnloop/router/decisions.py), line 102) — The recomposed realized outcome does not reproduce the served head.
+- `split_exclusions(exclusions: Mapping[str, Iterable[str]]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/router/decisions.py), line 138) — ``{"named": {reason: [ids]}, "counts": {reason: n}}``, sorted and deduplicated.
+- `head_distribution(outcomes: Sequence[Any], head_of: Callable[[Sequence[Any]], str | None]) -> dict[str | None, float]` ([source](../../../../../../src/learnloop/router/decisions.py), line 159) — P(each item heads the offer) over the exploration's whole support.
+- `build_today_offer_decision(trace: Any, *, offered: Sequence[Any], head_of: Callable[[Sequence[Any]], str | None], section_of: Callable[[Any], str], served_head: str | None, surface: str, policy: str, in_progress: Mapping[str, Any] | None=None, removed: Mapping[str, Iterable[str]] | None=None, inputs: Mapping[str, Any] | None=None, head_served: bool=True, created_at: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/decisions.py), line 176) — The ``router_decisions`` row for one published Today offer.
+- `build_staged_p2_decision(result: Any, *, ladder: Sequence[Mapping[str, Any]], canonical: Mapping[str, Any] | None, authority: str, veto_reason: str | None, run_id: str, commitment_id: str | None, algorithm_version: str, session_id: str | None, chosen_learning_object_id: str | None=None, created_at: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/decisions.py), line 449) — The ``router_decisions`` row for one live staged decision on a P2 run.
+- `record_decision(repository: Any, row: Mapping[str, Any], *, alongside: Callable[[Any], Any] | None=None) -> bool` ([source](../../../../../../src/learnloop/router/decisions.py), line 645) — Append one decision row in its own transaction; idempotent on its key.
+- `logging_enabled(config: Any) -> bool` ([source](../../../../../../src/learnloop/router/decisions.py), line 657)
 
 ### Module constants
 
@@ -73,8 +73,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `MODE_STAGED` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 52)
 - `STAGED_POLICY` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 53)
 - `DETERMINISTIC_TOLERANCE` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 56)
-- `COUNTED_EXCLUSIONS` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 60)
-- `_PLANNER_SIGNALS` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 80)
+- `COUNTED_EXCLUSIONS` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 62)
+- `_PLANNER_SIGNALS` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 82)
 
 ### Explicit exports
 
@@ -97,12 +97,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_round(value: Any) -> Any` ([source](../../../../../../src/learnloop/router/decisions.py), line 108)
-- `_exact(probability: float) -> float` ([source](../../../../../../src/learnloop/router/decisions.py), line 114) — A candidate's head probability, to 12 decimals (the row keeps the chosen candidate's at full precision).
-- `_canonical_hash(value: Any) -> str` ([source](../../../../../../src/learnloop/router/decisions.py), line 121)
-- `_dumps(value: Any) -> str` ([source](../../../../../../src/learnloop/router/decisions.py), line 126)
-- `_propensity(probability: float) -> tuple[float, str]` ([source](../../../../../../src/learnloop/router/decisions.py), line 130)
-- `_block_ref(action: str | None, subtype: str | None) -> str` ([source](../../../../../../src/learnloop/router/decisions.py), line 441)
+- `_round(value: Any) -> Any` ([source](../../../../../../src/learnloop/router/decisions.py), line 110)
+- `_exact(probability: float) -> float` ([source](../../../../../../src/learnloop/router/decisions.py), line 116) — A candidate's head probability, to 12 decimals (the row keeps the chosen candidate's at full precision).
+- `_canonical_hash(value: Any) -> str` ([source](../../../../../../src/learnloop/router/decisions.py), line 123)
+- `_dumps(value: Any) -> str` ([source](../../../../../../src/learnloop/router/decisions.py), line 128)
+- `_propensity(probability: float) -> tuple[float, str]` ([source](../../../../../../src/learnloop/router/decisions.py), line 132)
+- `_block_ref(action: str | None, subtype: str | None) -> str` ([source](../../../../../../src/learnloop/router/decisions.py), line 443)
 
 ## Who imports or calls it
 

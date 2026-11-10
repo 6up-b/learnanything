@@ -380,12 +380,16 @@ def commission_and_pin(
     *,
     workflow: Mapping[str, Any],
     factor_id: str,
-    decision_id: str | None,
+    router_decision_id: str | None,
     practice_item_id: str,
     client: Any = None,
     clock: Clock | None = None,
 ) -> AdmittedProbe:
-    """Commissioning of the explicit item, machine admission, and the pinned offer."""
+    """Commissioning of the explicit item, machine admission, and the pinned offer.
+
+    ``router_decision_id`` is the workflow's router decision; the pin carries it
+    as such, never as the learner lane's causal decision receipt.
+    """
 
     from learnloop.diagnosis.causal_orchestrator import accept_probe_offer
     from learnloop.diagnosis.causal_probe_commissioning import commission_probe_instrument
@@ -415,7 +419,7 @@ def commission_and_pin(
         clock=clock,
     )
     offer = accept_probe_offer(
-        vault, repository, factor_id=factor_id, decision_receipt_id=decision_id,
+        vault, repository, factor_id=factor_id, router_decision_id=router_decision_id,
         session_id=workflow.get("session_id"), clock=clock, candidate_id=candidate_id,
         followup_workflow_id=str(workflow["id"]),
     )

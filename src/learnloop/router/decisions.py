@@ -57,6 +57,8 @@ DETERMINISTIC_TOLERANCE = 1e-12
 
 #: Exclusion reasons logged as counts, not ids: they withhold most of a vault
 #: on every build (nothing due, retired, put away) and carry no decision content.
+#: The build's ``slate`` decision record counts every reason and names up to ten
+#: ids of each (``scheduling.slate_record``); ``why item:<id>`` reads it.
 COUNTED_EXCLUSIONS: frozenset[str] = frozenset(
     {
         "retired",

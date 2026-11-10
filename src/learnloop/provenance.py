@@ -55,7 +55,7 @@ STATUSES = frozenset({
 
 #: Subject kinds ``why <kind>:<id>`` looks up. A writer may name another kind;
 #: only these are read as a ``kind:id`` target.
-SUBJECT_KINDS = frozenset({"attempt", "item", "block", "offer", "figure", "job", "presentation", "decision"})
+SUBJECT_KINDS = frozenset({"attempt", "item", "block", "offer", "figure", "job", "presentation", "decision", "slate"})
 
 #: Alternatives kept per record; the rest are counted per losing rule in
 #: ``facts["alternatives_overflow"]``.
@@ -65,6 +65,16 @@ MAX_ALTERNATIVES = 50
 # whitespace, so a sentence (learner or item text, a prompt, an error message)
 # cannot pass.
 _TOKEN = re.compile(r"[A-Za-z0-9_.:/@+#=\-]{1,160}")
+
+
+def is_code(value: Any) -> bool:
+    """Whether ``value`` is a string :func:`write` keeps (an id, a rule name, a version).
+
+    A writer naming vault ids (which are free-form strings) asks this first and
+    counts what fails instead of naming it, so one odd id never drops the record.
+    """
+
+    return isinstance(value, str) and _TOKEN.fullmatch(value) is not None
 
 _COLUMNS = (
     "id", "trace_id", "parent_id", "kind", "status", "subject_kind", "subject_id", "chosen_ref", "decided_by",
@@ -345,3 +355,25 @@ def read(connection: Any, target: str = "latest", *, kind: str | None = None,
         if "no such table" in str(exc):
             return []
         raise
+
+
+def read_naming(connection: Any, ref: str, *, kind: str | None = None, limit: int = 5) -> list[DecisionRecord]:
+    """The newest records (of ``kind``) that name ``ref`` as what won, an alternative or a fact; newest first.
+
+    The match is on the JSON string ``"ref"``, so a longer id containing it
+    does not match; an empty list below migration 253.
+    """
+
+    needle = json.dumps(str(ref))
+    kind_clause = " AND kind = ?" if kind else ""
+    try:
+        rows = connection.execute(
+            f"SELECT {', '.join(_COLUMNS)} FROM {TABLE} WHERE (chosen_ref = ? OR instr(alternatives_json, ?) > 0 "
+            f"OR instr(facts_json, ?) > 0){kind_clause} ORDER BY created_at DESC, id DESC LIMIT {int(limit)}",
+            (str(ref), needle, needle, *((kind,) if kind else ())),
+        ).fetchall()
+    except sqlite3.OperationalError as exc:
+        if "no such table" in str(exc):
+            return []
+        raise
+    return [_record(tuple(item)) for item in rows]

@@ -887,6 +887,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_shadow_rebuild.py](../../../../../../tests/test_shadow_rebuild.py) — direct import
 - [tests/test_sidecar_close_cancels_jobs.py](../../../../../../tests/test_sidecar_close_cancels_jobs.py) — direct import
   - `test_shutting_down_the_gaps_slot_inside_a_request_sends_no_further_request`
+- [tests/test_slate_record.py](../../../../../../tests/test_slate_record.py) — direct import
+  - `test_a_persisting_build_writes_one_slate_record_with_its_exclusions`
 - [tests/test_source_block_fts.py](../../../../../../tests/test_source_block_fts.py) — direct import
   - `test_a_delete_never_removes_another_blocks_index_row`
   - `test_migration_177_indexes_a_176_vaults_existing_blocks`

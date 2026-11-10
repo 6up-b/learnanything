@@ -2482,7 +2482,8 @@ def why(
     item_target = target.removeprefix("item:")
     if item_target in loaded.practice_items:
         explanation = _why_scheduler_explanation(loaded, repository, item_target)
-        if explanation is not None and target.startswith("item:"):
+        if target.startswith("item:"):
+            explanation = _why_item_exclusions(loaded, repository, item_target, explanation)
             explanation["records"] = _why_records(repository, target, kind)["records"]
     elif target == "latest" or target.partition(":")[0] in provenance.SUBJECT_KINDS:
         explanation = _why_records(repository, target, kind)
@@ -2524,6 +2525,32 @@ def _why_scheduler_explanation(loaded, repository, practice_item_id: str) -> dic
         "readiness_factor": item.readiness_factor,
         "reasons": item.plain_english,
     }
+
+
+def _why_item_exclusions(loaded, repository, practice_item_id: str,
+                         explanation: dict[str, Any] | None) -> dict[str, Any]:
+    """``item:<id>``: the newest slate records naming the item, and, off today's slate, the rule keeping it off.
+
+    A slate record names only a few ids per exclusion rule, so an item it
+    counts without naming is answered by a build now (persisting nothing).
+    """
+
+    from learnloop.scheduling.scheduler import exclusion_now
+    from learnloop.scheduling.slate_record import KIND, item_outcome
+
+    result = dict(explanation) if explanation is not None else {
+        "version": 1, "source": "none", "practice_item_id": practice_item_id,
+    }
+    with repository.connection() as connection:
+        records = provenance.read_naming(connection, practice_item_id, kind=KIND)
+    result["slates"] = [
+        {"record_id": record.id, "trace_id": record.trace_id, "created_at": record.created_at,
+         "slate_id": record.detail_id, "outcome": item_outcome(record, practice_item_id)}
+        for record in records
+    ]
+    if result["source"] != "current":
+        result["excluded_now"] = exclusion_now(loaded, repository, practice_item_id)
+    return result
 
 
 def _why_records(repository, target: str, kind: str | None) -> dict[str, Any]:

@@ -151,6 +151,8 @@ class ProbeOfferInput(ParamsModel):
     factor_id: str
     misconception_id: str | None = None
     session_id: str | None = None
+    #: The causal probe decision receipt the offer came from (``causal_repair_status``); never a router decision,
+    #: which FG1 passes to ``accept_probe_offer`` as ``router_decision_id``.
     decision_receipt_id: str | None = None
 
 

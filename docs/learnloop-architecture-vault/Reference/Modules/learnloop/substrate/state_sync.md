@@ -423,6 +423,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_knowledge_model.py](../../../../../../tests/test_sidecar_knowledge_model.py) — direct import
 - [tests/test_sidecar_queue_serialization.py](../../../../../../tests/test_sidecar_queue_serialization.py) — direct import
   - `test_queue_serialization_bulk_loads_state_once`
+- [tests/test_slate_record.py](../../../../../../tests/test_slate_record.py) — direct import
 - [tests/test_sqlite_wal_lifecycle.py](../../../../../../tests/test_sqlite_wal_lifecycle.py) — direct import
   - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
