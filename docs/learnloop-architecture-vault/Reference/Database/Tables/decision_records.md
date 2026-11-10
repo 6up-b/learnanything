@@ -113,6 +113,7 @@ None found by exact static reference scan.
 
 - `tests/test_decision_records_migration.py`
 - `tests/test_figure_decision_records.py`
+- `tests/test_forced_withdrawal_records.py`
 - `tests/test_provenance.py`
 - `tests/test_slate_record.py`
 

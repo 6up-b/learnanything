@@ -91,12 +91,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `current_trace`; statically calls `current_trace`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `module`; statically calls `get`, `read`, `read_naming`, `trace_scope`
 - [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]] — imports `DecisionRecord`, `module`; statically calls `DecisionRecord`, `current_trace`, `is_code`, `new_trace_id`
-- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `current_trace`, `where`, `write`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `current_trace`, `read`, `where`, `write`
+- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `module`; statically calls `current_trace`, `read`, `write`
+- [[Reference/Modules/learnloop/daily_plan/plan_records|learnloop.daily_plan.plan_records]] — imports `DecisionRecord`, `module`; statically calls `DecisionRecord`, `is_code`, `where`
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `current_trace`; statically calls `current_trace`
 - [[Reference/Modules/learnloop/db/stores/provenance|learnloop.db.stores.provenance]] — imports `module`; statically calls `current_trace`, `write`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `module`; statically calls `current_trace`, `trace_scope`, `write`
 - [[Reference/Modules/learnloop/figures/records|learnloop.figures.records]] — imports `module`; statically calls `DecisionRecord`, `check_no_prose`, `current_trace`, `new_trace_id`, `where`
+- [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] — imports `DecisionRecord`, `is_code`, `where`; statically calls `DecisionRecord`, `is_code`, `where`
 - [[Reference/Modules/learnloop/scheduling/slate_record|learnloop.scheduling.slate_record]] — imports `DecisionRecord`, `current_trace`, `is_code`; statically calls `DecisionRecord`, `current_trace`, `is_code`
+- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `module`; statically calls `current_trace`, `read`
 - [[Reference/Modules/learnloop_sidecar/logging|learnloop_sidecar.logging]] — imports `current_trace`; statically calls `current_trace`
 - [[Reference/Modules/learnloop_sidecar/post_attempt_worker|learnloop_sidecar.post_attempt_worker]] — imports `module`; statically calls `trace_scope`
 - [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `module`; statically calls `trace_scope`
@@ -119,7 +123,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] and 7 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] and 11 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -127,6 +131,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_figure_decision_records.py](../../../../../tests/test_figure_decision_records.py) — direct import
   - `test_a_refused_build_leaves_a_refused_record`
+- [tests/test_forced_withdrawal_records.py](../../../../../tests/test_forced_withdrawal_records.py) — direct import
+  - `test_a_withdrawal_names_the_forced_probe_its_workflow_and_the_next_decision_points_to_it`
+  - `test_the_builders_keep_ids_numbers_and_codes_only`
 - [tests/test_provenance.py](../../../../../tests/test_provenance.py) — direct import
   - `test_a_model_calls_receipt_carries_the_trace_it_started_under`
   - `test_a_phone_request_births_its_trace_and_hands_it_to_the_sidecar`

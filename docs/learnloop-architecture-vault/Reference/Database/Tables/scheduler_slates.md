@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/collection.py"
   - "src/learnloop/evsi_calibration/forecast_report.py"
+  - "src/learnloop/router/decisions.py"
   - "src/learnloop/scheduling/slate_record.py"
   - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop/cli/app.py"

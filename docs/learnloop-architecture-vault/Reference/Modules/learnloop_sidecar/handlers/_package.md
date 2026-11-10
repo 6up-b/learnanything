@@ -176,7 +176,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop_sidecar/handlers/practice_index|learnloop_sidecar.handlers.practice_index]] | [[Reference/Modules/learnloop_sidecar/handlers/practice_index#^module-purpose|purpose]] | `ACTIVE` | 4 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/proposals|learnloop_sidecar.handlers.proposals]] | [[Reference/Modules/learnloop_sidecar/handlers/proposals#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/provenance|learnloop_sidecar.handlers.provenance]] | [[Reference/Modules/learnloop_sidecar/handlers/provenance#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
-| [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] | [[Reference/Modules/learnloop_sidecar/handlers/queue#^module-purpose|purpose]] | `ACTIVE` | 3 | 7 |
+| [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] | [[Reference/Modules/learnloop_sidecar/handlers/queue#^module-purpose|purpose]] | `ACTIVE` | 3 | 8 |
 | [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] | [[Reference/Modules/learnloop_sidecar/handlers/reader#^module-purpose|purpose]] | `ACTIVE` | 9 | 20 |
 | [[Reference/Modules/learnloop_sidecar/handlers/reader_cue_discovery|learnloop_sidecar.handlers.reader_cue_discovery]] | [[Reference/Modules/learnloop_sidecar/handlers/reader_cue_discovery#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop_sidecar/handlers/reader_followups|learnloop_sidecar.handlers.reader_followups]] | [[Reference/Modules/learnloop_sidecar/handlers/reader_followups#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
@@ -206,7 +206,7 @@ For system intent, use [[Architecture Overview]].
 ### This package imports
 
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 340 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 51 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 52 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 49 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 41 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 39 static module edges
@@ -216,7 +216,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 30 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 27 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 26 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 25 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 26 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 21 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 21 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 18 static module edges
@@ -279,7 +279,7 @@ flowchart LR
     n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_sidecar -->|6| center
     center -->|340| n_learnloop_sidecar
-    center -->|51| n_learnloop
+    center -->|52| n_learnloop
     center -->|49| n_learnloop_reader
     center -->|41| n_learnloop_source_retrieval
     center -->|39| n_learnloop_ai

@@ -563,6 +563,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followups_batch6_router_report.py](../../../../../../tests/test_followups_batch6_router_report.py) — direct import
   - `test_router_report_on_a_database_before_lesson_suggestions_is_refused`
   - `test_router_report_prints_the_split_from_the_ledgers_read_only`
+- [tests/test_forced_withdrawal_records.py](../../../../../../tests/test_forced_withdrawal_records.py) — direct import
 - [tests/test_forecast_receipts.py](../../../../../../tests/test_forecast_receipts.py) — direct import
   - `test_the_calibration_report_on_a_seeded_vault`
 - [tests/test_grading_cli.py](../../../../../../tests/test_grading_cli.py) — direct import
