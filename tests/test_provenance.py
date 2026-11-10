@@ -386,6 +386,14 @@ def _module_path(module: str) -> Path:
 _REGISTRIES = frozenset({"learnloop.db.table_roles", "learnloop.adaptive_difficulty.protected_tables",
                          "learnloop.adaptive_difficulty.column_classes"})
 
+#: Record writers inside the closure, each with its proof that replay never calls it. The slate's record
+#: (refactor B6) is written only by a persisting queue build (``build_due_queue``, statically in the closure through
+#: the simulator and the state sync's imports); no rebuild, replay or upgrade builds a queue, and
+#: ``test_a_rebuild_never_calls_the_record_and_keeps_its_rows`` refuses it at run time. The store enters the closure
+#: through these writers alone.
+_RECORD_WRITERS = frozenset({"learnloop.scheduling.slate_record"})
+_STORE = "learnloop.db.stores.provenance"
+
 
 def test_decision_records_is_unreachable_from_replay():
     import grimp
@@ -395,13 +403,14 @@ def test_decision_records_is_unreachable_from_replay():
     for root in _replay_roots():
         closure |= {root} | set(graph.find_upstream_modules(root))
     assert len(closure) > 100  # the closure is real, not an empty graph
-    # The store (the write with its own transaction, the trace's calls) is outside it altogether.
-    assert "learnloop.db.stores.provenance" not in closure and "learnloop.cli.app" not in closure
-    # No module in it names the table, and none reads or writes a record: the leaf's other names (the trace,
-    # the dataclass) are all a replay module may use. A later writer in this closure brings its own proof that
-    # replay never calls it.
+    # The store (the write with its own transaction, the trace's calls) is reached only through a declared writer.
+    assert "learnloop.cli.app" not in closure
+    assert graph.find_modules_that_directly_import(_STORE) & closure <= _RECORD_WRITERS
+    # No other module in it names the table, and none reads or writes a record: the leaf's other names (the trace,
+    # the dataclass, the code check) are all a replay module may use. A later writer in this closure brings its own
+    # proof that replay never calls it, and joins ``_RECORD_WRITERS``.
     naming, using = [], []
-    for module in sorted(closure - {"learnloop.provenance"}):
+    for module in sorted(closure - {"learnloop.provenance", _STORE}):
         path = _module_path(module)
         if not path.exists():
             continue
@@ -412,7 +421,8 @@ def test_decision_records_is_unreachable_from_replay():
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module == "learnloop.provenance":
                 using += [f"{module}:{alias.name}" for alias in node.names
-                          if alias.name not in {"current_trace", "trace_scope", "DecisionRecord", "STATUSES"}]
+                          if alias.name not in {"current_trace", "trace_scope", "DecisionRecord", "STATUSES",
+                                                "is_code"}]
             if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id == "provenance" \
                     and node.attr in {"write", "read", "cap_alternatives", "check_no_prose"}:
                 using.append(f"{module}:provenance.{node.attr}")
@@ -439,8 +449,16 @@ def test_a_rebuild_never_calls_the_record_and_keeps_its_rows(tmp_path: Path, mon
         monkeypatch.setattr(provenance, name, refused)
     for name in ("write_decision", "trace_model_calls"):
         monkeypatch.setattr(store, name, refused)
+    # The writers inside the closure (``_RECORD_WRITERS``) swallow a failed write, so they are counted, not refused.
+    import learnloop.scheduling.scheduler as scheduler
+    import learnloop.scheduling.slate_record as slate_record
+
+    slate_calls: list[object] = []
+    monkeypatch.setattr(scheduler, "record_slate", lambda *a, **k: slate_calls.append(k))
+    monkeypatch.setattr(slate_record, "record_slate", lambda *a, **k: slate_calls.append(k))
     rebuild_all_derived_state(load_vault(root), Repository(path))
     assert _rows(path) == before and len(before) == 1
+    assert slate_calls == []
 
 
 def test_the_table_is_a_receipt_and_denied_to_ad():

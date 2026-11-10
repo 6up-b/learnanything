@@ -2048,6 +2048,7 @@ def accept_probe_offer(
     ai_client: object | None = None,
     candidate_id: str | None = None,
     followup_workflow_id: str | None = None,
+    router_decision_id: str | None = None,
 ) -> ProbeOffer:
     """"Take the quick check": enter a factor-aware episode and pin the probe.
 
@@ -2055,6 +2056,14 @@ def accept_probe_offer(
     router's decision in place of the learner's click. ``candidate_id`` names the
     exact candidate (the served instrument is the one just admitted), and
     ``followup_workflow_id`` joins the pin to its workflow.
+
+    Two ids name what decided the offer, one meaning each: ``decision_receipt_id``
+    is the learner lane's causal probe decision receipt
+    (``causal_probe_decision_receipts``), ``router_decision_id`` FG1's router
+    decision (``router_decisions``). Before refactor B6 FG1 passed its router
+    decision as ``decision_receipt_id``: a pin that carries
+    ``followup_workflow_id`` and no ``router_decision_id`` holds a router
+    decision id there, and is read that way rather than rewritten.
 
     This is the ONLY caller of ``enter_episode(causal_factor_id=...)`` — the
     parameter existed with zero callers anywhere, which is why the locked causal
@@ -2188,11 +2197,15 @@ def accept_probe_offer(
                         "causal_probe_candidate_id": str(candidate["id"]),
                         "hypothesis_set_id": str(candidate["hypothesis_set_id"]),
                         "blind_bundle_ids": list(bundle_ids),
-                        "decision_receipt_id": decision_receipt_id,
+                        # A router-decided pin has no causal receipt: an empty key here would read as a learner-lane
+                        # pin that lost its receipt.
+                        **({"decision_receipt_id": decision_receipt_id}
+                           if router_decision_id is None or decision_receipt_id is not None else {}),
                         "decision_policy_version": CAUSAL_DECISION_POLICY_VERSION,
                         "formula_version": CAUSAL_ORCHESTRATOR_FORMULA_VERSION,
                         "session_id": session_id,
                         **({"followup_workflow_id": followup_workflow_id} if followup_workflow_id else {}),
+                        **({"router_decision_id": router_decision_id} if router_decision_id else {}),
                     }
                 },
                 clock=clock,
