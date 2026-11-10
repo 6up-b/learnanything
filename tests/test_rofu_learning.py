@@ -13,11 +13,13 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
 from learnloop.db.stores import router_objective as store
 from learnloop.router_objective import objective_report
 
-from tests.router_mixture_helpers import mixture_env, run
+from tests.router_mixture_helpers import mixture_env, run, served_horizon  # noqa: F401 - a fixture
 from tests.router_model_fakes import block_drawing_seed, fake_runtime
 
 TAG = ROUTER_FOLLOWUPS_ALGORITHM_VERSION
@@ -161,6 +163,7 @@ def test_the_join_rows_count_one_outcome_once_per_protocol_and_only_when_known()
     assert lags == [(4.0, 3.0)]
 
 
+@pytest.mark.usefixtures("served_horizon")
 def test_the_combiner_is_fitted_on_trace_outcomes_at_the_tag_and_the_trace_names_it(tmp_path, monkeypatch):
     from learnloop.adaptive_difficulty import history_resolve as HR
     from learnloop.daily_plan import objective_inputs as OI

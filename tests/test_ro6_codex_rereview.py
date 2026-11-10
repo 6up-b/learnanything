@@ -27,6 +27,7 @@ from learnloop.router_objective import tail_data as TD
 from learnloop.router_objective import tail_serve as TS
 from learnloop.router_objective import value as V
 
+from tests.router_mixture_helpers import served_horizon  # noqa: F401 - a fixture
 from tests.test_ro6_codex_review import (CFG, FAR, STOP, _logged, _quiet, _row, _trace, _value_actions,  # noqa: F401
                                          _value_inputs, utc)
 
@@ -168,6 +169,7 @@ def test_f3_a_trimmed_value_alone_is_no_value_at_the_carried_cutoff(monkeypatch,
     assert steps.transitions == () and steps.censored.get(TD.CUTOFF_UNMATCHED) == 1
 
 
+@pytest.mark.usefixtures("served_horizon")
 def test_f3_the_chooser_values_the_candidates_again_at_the_carried_cutoff(tmp_path):
     from learnloop.algorithm_versions import ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
     from learnloop.db.stores import router_objective as store

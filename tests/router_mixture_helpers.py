@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import json
+import re
+import sys
 from typing import Any
+
+import pytest
 
 from learnloop.algorithm_versions import ROUTER_MIXTURE_ALGORITHM_VERSION
 from learnloop.daily_plan.engine import advance
@@ -15,10 +19,39 @@ from tests.test_daily_plan_build import _seed_wide, _wide_items, _wide_vault
 
 B = ROUTER_MIXTURE_ALGORITHM_VERSION
 
+#: The objective's rollout horizon in these tests' vaults, in days; the served default is 90. Each rollout simulates
+#: every day to the horizon, so it is most of these tests' seconds (about half go at 30 days), and what they assert
+#: (one open offer, a switch's twin, a trace's fields) holds the same over a month as over a quarter. A test whose
+#: claim needs the served horizon, or that turned out to depend on how long a rollout takes, uses the
+#: ``served_horizon`` fixture. Refactor step A6 (docs/reviews/refactor-a6.md) records which and why.
+HORIZON_DAYS: float | None = 30.0
+
+
+@pytest.fixture
+def served_horizon(monkeypatch):
+    """This test's vaults keep the served 90-day horizon (``mixture_env`` adds no ``horizon_days``)."""
+
+    monkeypatch.setattr(sys.modules[__name__], "HORIZON_DAYS", None)
+
+
+def _with_horizon(toml: str | None) -> str | None:
+    """``toml`` with ``HORIZON_DAYS`` in its ``[router_objective]`` table (added if absent), unless it sets one."""
+
+    if HORIZON_DAYS is None or (toml and "horizon_days" in toml):
+        return toml
+    line = f"horizon_days = {HORIZON_DAYS!r}\n"
+    if toml and re.search(r"(?m)^\[router_objective\]\s*$", toml):
+        return re.sub(r"(?m)^\[router_objective\]\s*\n", lambda m: m.group(0) + line, toml, count=1)
+    return f"{toml.rstrip()}\n\n[router_objective]\n{line}" if toml else f"[router_objective]\n{line}"
+
 
 def mixture_env(tmp_path, runtime: Any, *, toml: str | None = None, serve: bool = True, version: str = B,
                 items: Any = None, session_id: str | None = "s1"):
+    """A routed plan env on the wide vault. Its objective rolls out ``HORIZON_DAYS`` (see there); a test that appends
+    its own ``[router_objective]`` table later uses ``served_horizon``, since the table already exists."""
+
     paths = _wide_vault(tmp_path, version=version)
+    toml = _with_horizon(toml)
     if toml:
         append_config_toml(paths.root, toml)
     env = make_env(paths.root, items if items is not None else _wide_items(), clock=MovableClock(),

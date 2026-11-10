@@ -26,7 +26,7 @@ from learnloop.router_objective import assignments as A
 from learnloop.router_objective import mix
 from learnloop.router_objective import stop_coin as SC
 
-from tests.router_mixture_helpers import mixture_env, rows, run
+from tests.router_mixture_helpers import mixture_env, rows, run, served_horizon  # noqa: F401 - a fixture
 from tests.router_model_fakes import fake_runtime
 
 TAG = ROUTER_CALIBRATION_ALGORITHM_VERSION
@@ -528,6 +528,7 @@ def test_r8_each_arm_can_be_drawn_with_its_logged_probability_and_no_interventio
     assert identity.generated_probe_ids(env.repository) == frozenset()
 
 
+@pytest.mark.usefixtures("served_horizon")
 def test_r5_1_no_room_to_wait_asks_now_deterministically_and_asks_no_model(tmp_path):
     from learnloop.daily_plan.router_chooser import INSERT_NOW
     from learnloop.followup_run import router

@@ -46,6 +46,7 @@ from learnloop.vault.loader import load_vault
 from tests.daily_plan_fakes import record_attempt
 from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version
 from tests.router_mixture_helpers import join_carried_valuations, mixture_env, rows, run
+from tests.router_mixture_helpers import served_horizon  # noqa: F401 - a fixture
 from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
 from tests.test_ih_numeric_seed import spy  # noqa: F401 - the fixture
 from tests.test_instruct_handoff_ih0 import make_world  # noqa: F401 - the fixture
@@ -456,6 +457,7 @@ def test_no_module_of_this_stage_branches_on_a_score_or_a_stuck_flag():
 # -- the sensor, frozen in the trace -----------------------------------------------------------------------------------
 
 
+@pytest.mark.usefixtures("served_horizon")
 def test_with_no_preference_the_trace_gains_nothing_and_the_numbers_are_the_predecessors(tmp_path, monkeypatch):
     join_carried_valuations(monkeypatch)  # review 3, m5: the twins compare residual numbers across serves
     pinned = _pin(monkeypatch)
@@ -491,6 +493,7 @@ def _twins_with_one_slow_carry(tmp_path, monkeypatch, *, joined: bool) -> tuple[
     return [_numbers(trace) for trace in _traces(on)], [_numbers(trace) for trace in _traces(off)]
 
 
+@pytest.mark.usefixtures("served_horizon")
 def test_a_late_carry_thread_in_one_twin_no_longer_moves_the_comparison(tmp_path, monkeypatch):
     """With the carry joined after each serve, a carry thread delayed in one twin only leaves the twins' numbers equal
     (unjoined, decision 4's residual fit and every ``v_residual`` differ: the race the two twin tests above had)."""
@@ -529,6 +532,7 @@ def test_v_pref_is_on_the_tails_scale_and_zero_with_no_spread():
     assert PF.scaled({"a": 0.5, "b": 0.3}, {"a": 0.2, "b": 0.2}) == {"a": 0.0, "b": 0.0}
 
 
+@pytest.mark.usefixtures("served_horizon")
 def test_w_pref_at_zero_changes_nothing_bit_for_bit_with_preferences_on_record(tmp_path, monkeypatch):
     """The same boundary with the switch on and off, preferences on record: the sensor is in the trace, and every value,
     the choice, its tie rule and the mix are the same bits. (A lesson request is another channel: the next test.)"""
@@ -796,6 +800,7 @@ def test_staged_reads_nothing(tmp_path, monkeypatch):
     assert rows(env)
 
 
+@pytest.mark.usefixtures("served_horizon")
 def test_the_staged_pick_inside_the_objective_is_the_same_with_preferences_on_record(tmp_path, monkeypatch):
     seen: list[Any] = []
     real = StagedChooser.choose

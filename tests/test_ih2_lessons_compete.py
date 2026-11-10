@@ -39,7 +39,7 @@ from learnloop.scheduling.device_eligibility import PlanStepFilter
 
 from tests.daily_plan_fakes import record_attempt, scheduled
 from tests.followup_serve_helpers import AuthorFake
-from tests.router_mixture_helpers import mixture_env, rows
+from tests.router_mixture_helpers import mixture_env, rows, served_horizon  # noqa: F401 - a fixture
 from tests.router_model_fakes import fake_runtime
 from tests.test_daily_plan_build import _wide_items
 from tests.test_te3b_offers import OFFER, offerable  # noqa: F401 - the fixture
@@ -256,6 +256,7 @@ def test_only_followups_compete_a_request_or_a_check_stays_forced(tmp_path):
     assert E._followups_compete(env, [SimpleNamespace(**{**vars(plain), "check_kind": "check_once"})], E.ORIGIN_FOLLOWUP) is False
 
 
+@pytest.mark.usefixtures("served_horizon")
 def test_a_requested_item_is_placed_at_the_build_with_no_offer_beside_it(tmp_path, draw):
     env = _env(tmp_path, toml=NO_CHECKS)
     env.repository.requested_practice_item_ids = lambda *, skip_commitment_ids=(): ["pi_r1a"]
