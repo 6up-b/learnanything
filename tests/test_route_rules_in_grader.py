@@ -60,6 +60,7 @@ from learnloop.vault.models import Rubric
 
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.split_live_helpers import ReadyRuntime, append_config, split_vault, submit
+from tests.helpers import MIGRATION_HEAD_FIXTURE
 
 VERSION = ROUTE_RULES_ALGORITHM_VERSION
 ITEM = "pi_svd_compute_001"  # setup (2) + result (2)
@@ -601,12 +602,10 @@ def test_migration_186_keeps_its_trigger_which_nothing_writes_now(tmp_path):
     admits ``route_check_disagreement`` so mvp-0.17's rows stay valid."""
 
     from learnloop.db.copies import copy_tree_with_databases
-    from learnloop.db.migrate import discover_migrations
 
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252"
+    head = MIGRATION_HEAD_FIXTURE
     root = tmp_path / "head"
     copy_tree_with_databases(head, root)
-    assert max(m.version for m in discover_migrations()) == 252
     with connect(root / "state.sqlite") as connection:
         sql = connection.execute(
             "SELECT sql FROM sqlite_master WHERE name = 'grading_clarifications'").fetchone()[0]

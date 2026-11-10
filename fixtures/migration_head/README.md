@@ -1,5 +1,17 @@
 # Migration-head fixture
 
+**Holds migration 252 (`252_attempt_active_seconds.sql`), the head.** The directory's name carries no number (since
+refactor A2): a new migration upgrades `state.sqlite` here in place, in rollback mode, and adds a section below naming
+the new head; no test or script changes for the number (`CLAUDE.md`, "Adding a migration"). Tests reach it
+through `MIGRATION_HEAD_FIXTURE` in `tests/helpers.py`; `tests/test_migrations.py` checks that it holds the newest
+file in `migrations/` and stays in rollback mode. Older sections below name the numbered directories it was renamed
+from, as they were then.
+
+## Refactor A2: the name loses its number, 2026-11-09
+
+Renamed from `migration_head_252` with `git mv` (every file a pure rename; `state.sqlite` byte-identical, still in
+rollback mode, header bytes 1/1, `integrity_check` ok). No migration applied. The head holds 229 through 252.
+
 ## Sanitized in storage S0 (2026-10-25)
 
 `docs/specs/spec_storage_sync_v1.md` §7.2. This fixture holds **no third-party

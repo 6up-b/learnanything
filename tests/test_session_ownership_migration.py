@@ -16,9 +16,10 @@ import pytest
 
 from learnloop.db.migrate import discover_migrations
 from learnloop.db.table_roles import TableRole, role_for_table
+from tests.helpers import MIGRATION_HEAD_FIXTURE
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252" / "state.sqlite"
+HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
 #: Every schema object 226 adds, and the table it alters: the earlier
 #: migrations' "nothing else changed" diffs on the way to head read these.
 PR4_ADDED_OBJECTS = frozenset({
@@ -89,6 +90,5 @@ def test_the_head_fixture_holds_exactly_226s_objects_in_rollback_mode():
         assert PR4_ADDED_OBJECTS <= names
         columns = [row[1] for row in connection.execute("PRAGMA table_info(sessions)")]
         assert columns[-2:] == ["owner_device_id", "owner_generation"]
-        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 252
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         assert connection.execute("SELECT COUNT(*) FROM session_handoffs").fetchone()[0] == 0

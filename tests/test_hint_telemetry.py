@@ -43,7 +43,7 @@ from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
-from tests.helpers import append_config_toml, create_basic_vault
+from tests.helpers import MIGRATION_HEAD_FIXTURE, append_config_toml, create_basic_vault
 
 ITEM = "pi_svd_define_001"
 FROZEN = datetime(2026, 10, 17, 9, 0, tzinfo=UTC)
@@ -917,7 +917,7 @@ def test_the_report_summarises_any_number_of_rows(tmp_path, n):
     from learnloop.db.copies import backup_database
     from learnloop.hints.report import build_hints_report
 
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252" / "state.sqlite"
+    head = MIGRATION_HEAD_FIXTURE / "state.sqlite"
     database = tmp_path / "state.sqlite"
     backup_database(head, database)
     with closing(connect(database)) as connection:

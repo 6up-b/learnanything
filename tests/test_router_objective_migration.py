@@ -6,7 +6,6 @@ Earlier migrations' additivity tests downgrade the head, so they read ``RO0_ADDE
 from __future__ import annotations
 
 from contextlib import closing
-from pathlib import Path
 import sqlite3
 
 import pytest
@@ -16,8 +15,9 @@ from learnloop.data_capture.gates import objective_receipts_on
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from learnloop.params.parameter_registry import REGISTRY, classify_config_path
+from tests.helpers import MIGRATION_HEAD_FIXTURE
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252" / "state.sqlite"
+HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
 TABLES = ("session_receipts", "decision_state_receipts", "goal_lifecycle_events")
 NEW_COLUMNS = {
     "question_events": {"reveal_state_json"},

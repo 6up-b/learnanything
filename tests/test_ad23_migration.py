@@ -8,7 +8,7 @@ stamps with the protection epoch (the AD23 redesign, round 2: ``item_serve_input
 ``ad_coupling_versions`` (RECEIPT, append-only), ``ad_state`` and
 ``ad_attempt_trace`` (DERIVED, the AD replayer) and ``item_forecast_scores``
 (DERIVED, the forecast-score replayer). Every pre-existing row is unchanged.
-The head fixture (migration_head_252) holds 214 with main's 215-220, in rollback mode; the durability lane runs the same
+The head fixture (tests/helpers.py's MIGRATION_HEAD_FIXTURE) holds 214 with main's 215-220, in rollback mode; the durability lane runs the same
 upgrade under WAL; the FK check is clean.
 """
 
@@ -24,8 +24,9 @@ from learnloop.db.connection import connect
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, \
     upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
+from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252" / "state.sqlite"
+HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
 NEW_TABLES = {"ad_selections", "ad_commission_results", "ad_dose_offers", "ad_relatedness_runs",
               "ad_coupling_versions", "ad_state", "ad_attempt_trace", "item_forecast_scores"}
 #: What 214 adds (the earlier migrations' "nothing else changed" diffs on the way to head read it).
@@ -176,9 +177,6 @@ def test_the_tables_are_classified() -> None:
 
 
 def test_head_fixture_at_head_with_214_in_rollback_mode() -> None:
-    # RW2d's 219 landed on this head after AD2+AD3 (its landing rebuilt the fixture with only 219 applied),
-    # then local retrieval P1's 220 (the same, with only 220 applied).
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 252
     assert {213, 214, 215, 216, 217, 218, 219, 220} <= applied_versions(HEAD)
     header = HEAD.read_bytes()[:20]
     assert (header[18], header[19]) == (1, 1)  # rollback journal, no WAL companion
@@ -208,7 +206,7 @@ def test_a_vault_at_218_without_214_gets_it(tmp_path) -> None:
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [214, 249, 250, 251, 252]
+    assert [migration.version for migration in applied] == [214, *range(249, migration_head() + 1)]
     after = _schema(database)
     # Instruct hand-off IH3's 251 (its own table) follows on the way to head.
     from tests.test_ih3_migration import IH3_ADDED_OBJECTS

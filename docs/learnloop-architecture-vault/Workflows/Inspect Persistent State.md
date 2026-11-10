@@ -64,7 +64,7 @@ ORDER BY created_at DESC, id DESC
 LIMIT 10;
 ```
 
-Migration head is currently `156`; migration version numbers have gaps.
+The migration head is the newest file in `migrations/`; version numbers have gaps. A current vault's `MAX(version)` equals it. The tracked fixture `fixtures/migration_head/state.sqlite` always holds the head (its `README.md` names the number), so it is the schema to inspect when no vault is at hand; open it read-only, or copy it with `learnloop.db.copies` first.
 
 ## Trace one attempt
 

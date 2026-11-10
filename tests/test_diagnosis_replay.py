@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from pathlib import Path
 
 import pytest
 
@@ -20,11 +19,12 @@ from learnloop.vault.loader import load_vault
 
 from tests.diagnosis_fakes import FakeEmbeddingClient, ReviewFakeClient
 from tests.split_live_helpers import at, drain_jobs, enable_embeddings, split_vault, submit
+from tests.helpers import MIGRATION_HEAD_FIXTURE
 
 pytestmark = pytest.mark.durability
 
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
-HEAD_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252"
+HEAD_FIXTURE = MIGRATION_HEAD_FIXTURE
 #: Raw ledgers that replay REWRITES (error events, debug payloads) or appends
 #: to (hypotheses), plus the factors the projection reconciles.
 REWRITTEN = ("error_events", "causal_hypotheses", "attempt_debug_payloads", "unresolved_cause_factors")

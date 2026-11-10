@@ -13,10 +13,11 @@ from pathlib import Path
 
 import pytest
 
-from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
+from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
+from tests.helpers import MIGRATION_HEAD_FIXTURE
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252" / "state.sqlite"
+HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
 TABLE = "help_assists"
 #: What 250 alters (its table's text: the surface list): earlier migrations' "alters nothing else" diffs read this.
 V3_ALTERED_TABLES = frozenset({TABLE})
@@ -34,13 +35,12 @@ _ROW = ("INSERT INTO help_assists (id, surface, assist_kind, practice_item_id, c
 
 def test_250_is_the_head_and_help_assists_stays_a_raw_ledger():
     names = {migration.version: migration.path.name for migration in discover_migrations()}
-    assert names[250] == "250_help_assists_phone_surface.sql" and max(names) == 252
+    assert names[250] == "250_help_assists_phone_surface.sql"
     assert TABLE_ROLES[TABLE] is TableRole.RAW_LEDGER
 
 
 def test_the_head_fixture_holds_250_in_rollback_mode():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == 252
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         sql = connection.execute("SELECT sql FROM sqlite_master WHERE name = ?", (TABLE,)).fetchone()[0]
         assert _NEW in sql and _OLD not in sql

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import shutil
 import sqlite3
-from pathlib import Path
 
 import pytest
 
@@ -11,6 +10,7 @@ from learnloop.db.connection import connect
 from learnloop.db.migrate import apply_migrations, applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
 from tests.owner_vaults import fixture_database_params
+from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
 
 #: These tests build older databases and upgrade them directly: the test
 #: suite's named allowance (F8 of the coordinated-migration verify).
@@ -78,16 +78,26 @@ def test_real_migration_chain_applies_incrementally_after_initial_schema(tmp_pat
 
 
 def test_repository_carries_a_fixture_at_the_current_migration_head():
-    fixture = (
-        Path(__file__).resolve().parents[1]
-        / "fixtures"
-        / "migration_head_252"
-        / "state.sqlite"
-    )
+    # The one check that the head fixture holds the head: every other test reads
+    # MIGRATION_HEAD_FIXTURE and migration_head() instead of naming the number,
+    # so a new migration upgrades the fixture in place and touches no test.
+    fixture = MIGRATION_HEAD_FIXTURE / "state.sqlite"
 
-    assert max(applied_versions(fixture)) == max(
-        migration.version for migration in discover_migrations()
-    )
+    assert max(applied_versions(fixture)) == migration_head()
+
+
+def test_the_head_fixture_stays_in_rollback_mode_with_no_companions():
+    # A WAL header would carry into every byte copy a test makes of it, and git
+    # tracks the main file only, so a committed page could live in a -wal.
+    fixture = MIGRATION_HEAD_FIXTURE / "state.sqlite"
+
+    assert fixture.read_bytes()[18:20] == b"\x01\x01"
+    assert [suffix for suffix in ("-wal", "-shm", "-journal") if fixture.with_name(fixture.name + suffix).exists()] == []
+    connection = sqlite3.connect(f"file:{fixture}?mode=ro", uri=True)
+    try:
+        assert connection.execute("PRAGMA integrity_check").fetchone() == ("ok",)
+    finally:
+        connection.close()
 
 
 # The databases git tracks under fixtures/, plus the owner lane's copies.

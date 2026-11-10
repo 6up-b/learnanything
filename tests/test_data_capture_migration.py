@@ -22,8 +22,9 @@ from tests.test_teacher_te2log_migration import TE2LOG_ADDED_OBJECTS
 from tests.test_ih3_migration import IH3_ADDED_OBJECTS
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
+from tests.helpers import MIGRATION_HEAD_FIXTURE
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252" / "state.sqlite"
+HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
 TABLES = ("prefilter_payloads", "prefilter_receipts", "decision_objectives", "decision_measurement_events",
           "reading_exposure_receipts")
 #: What 240 adds (its tables, autoindexes, indexes and triggers).

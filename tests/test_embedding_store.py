@@ -1,5 +1,4 @@
 from contextlib import closing
-from pathlib import Path
 import sqlite3
 
 import numpy as np
@@ -16,6 +15,7 @@ from learnloop.db.stores.embedding_vectors import (
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
+from tests.helpers import MIGRATION_HEAD_FIXTURE
 
 
 @pytest.fixture
@@ -246,17 +246,6 @@ def test_current_records_by_model_counts_current_identities_per_model(connection
     assert current_records_by_model(connection, **args, expected_records={}) == {}
 
 
-def _migration_head_fixture() -> Path:
-    # Resolved, not hard-coded: CLAUDE.md's head-fixture procedure lists the
-    # paths to rename, and this test must not become an unlisted sixth one.
-    # Only what git tracks: an untracked leftover directory is not the head.
-    from tests.owner_vaults import tracked_fixture_databases
-
-    heads = [path.parent for path in tracked_fixture_databases() if path.parent.name.startswith("migration_head_")]
-    assert len(heads) == 1, heads
-    return heads[0]
-
-
 @pytest.mark.durability
 def test_replay_preserves_paid_inputs_without_models(tmp_path, monkeypatch):
     from learnloop.ai import client
@@ -275,7 +264,7 @@ def test_replay_preserves_paid_inputs_without_models(tmp_path, monkeypatch):
     monkeypatch.setattr(OpenAIEmbeddingProviderClient, "embed", forbidden)
     sdk = install_fake_openai(monkeypatch)
     root = tmp_path / "vault"
-    copy_tree_with_databases(_migration_head_fixture(), root)
+    copy_tree_with_databases(MIGRATION_HEAD_FIXTURE, root)
     repository = Repository(root / "state.sqlite")
     with repository.connection() as connection:
         put_vector(connection, **identity(), vector=[1, 2])

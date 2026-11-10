@@ -1,8 +1,9 @@
 """Tracked fixture databases carry no un-checkpointed WAL frames.
 
 A tracked database may be in either journal mode. Since storage S0 the only
-tracked databases are the historical fixtures (the migration head and
-``mvp017_route_check_replay``, both in rollback mode); the owner's vaults left
+tracked databases are the historical fixtures (``migration_head/``, upgraded in
+place by each migration, and ``mvp017_route_check_replay``, both in rollback mode;
+``tests/test_migrations.py`` checks the head's mode); the owner's vaults left
 the tip, and their owner-lane copies are guarded by ``tests/conftest.py``. A read-only
 open of a WAL database leaves an empty ``-wal`` and a ``-shm`` behind, which
 is harmless. What must never exist beside a tracked database is a non-empty
@@ -46,8 +47,9 @@ def test_no_fixture_companion_file_is_tracked_by_git():
 
 
 def test_the_session_guard_reads_only_the_databases_git_tracks(monkeypatch):
-    """Codex review of S0, F6: an untracked vault left under ``fixtures/`` (or the
-    worktree's ignored ``migration_head_219/`` leftover) is not the tip's, so the
+    """Codex review of S0, F6: an untracked vault left under ``fixtures/`` (such as
+    an ignored numbered ``migration_head_<N>/`` from before the head's name lost its
+    number) is not the tip's, so the
     session guard never opens it; only git's list (and the owner lane's root) count."""
 
     import tests.conftest as conftest

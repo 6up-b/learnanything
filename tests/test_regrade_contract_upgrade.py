@@ -35,7 +35,7 @@ from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.substrate.shadow_rebuild import _learner_state_snapshot, _semantic_diff, shadow_rebuild
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import create_placement_vault, set_algorithm_version
+from tests.helpers import MIGRATION_HEAD_FIXTURE, create_placement_vault, set_algorithm_version
 from tests.test_held_grade_evidence import T, _graded_apply
 from tests.test_regrade_contract_replay import ITEM, SIBLING_ITEM, _regrade, _self_graded_apply, _set_result_points
 from tests.test_regrade_contract_successor import JOINT, _settle, _vault
@@ -43,7 +43,7 @@ from tests.test_regrade_contract_successor import JOINT, _settle, _vault
 TARGET = REGRADE_CONTRACT_ALGORITHM_VERSION
 PREDECESSOR = METHOD_EXPLICIT_ALGORITHM_VERSION
 CLOCK = FrozenClock(datetime(2026, 12, 1, 12, 0, tzinfo=UTC))
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252"
+HEAD = MIGRATION_HEAD_FIXTURE
 
 
 def _attempt_rows(repository):

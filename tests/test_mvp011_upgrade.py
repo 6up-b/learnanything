@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import sqlite3
 from datetime import UTC, datetime
-from pathlib import Path
 
 from typer.testing import CliRunner
 
@@ -39,9 +38,9 @@ from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, create_placement_vault, set_algorithm_version
+from tests.helpers import MIGRATION_HEAD_FIXTURE, NOW, create_placement_vault, set_algorithm_version
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252"
+HEAD = MIGRATION_HEAD_FIXTURE
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 
 

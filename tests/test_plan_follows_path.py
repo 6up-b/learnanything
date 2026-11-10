@@ -42,7 +42,7 @@ from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import Repository
 from learnloop.source_retrieval import reading_paths as RP
 from learnloop.vault.loader import load_vault
-from tests.helpers import append_config_toml, set_algorithm_version
+from tests.helpers import MIGRATION_HEAD_FIXTURE, append_config_toml, set_algorithm_version
 from tests.owner_vaults import owner_vault, working_vault_params
 from tests.reading_path_fixtures import (
     EXT,
@@ -447,7 +447,7 @@ def test_the_path_is_read_only_when_the_plan_is_built_and_ad_slot_facts_read_the
 
 # -- G47 on fixture copies -----------------------------------------------------------------------------
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252"
+HEAD = MIGRATION_HEAD_FIXTURE
 FROZEN = datetime(2026, 10, 12, 9, 30, tzinfo=UTC)
 
 

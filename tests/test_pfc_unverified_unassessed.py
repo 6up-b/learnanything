@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -50,6 +49,7 @@ from learnloop.vault.loader import load_vault
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.split_live_helpers import ReadyRuntime, append_config, drain_jobs, split_vault, submit
 from tests.test_field_split_outcomes import _ZeroEverythingWithoutAttribution
+from tests.helpers import MIGRATION_HEAD_FIXTURE
 
 #: The reference's final answer, reached by a different route: PF-c's
 #: final-answer check verifies it.
@@ -57,7 +57,7 @@ VERIFYING_ANSWER = "A different route.\nFinal answer: U Sigma V^T"
 ITEM = "pi_svd_compute_001"  # setup (2, measures compute) + result (2, measures recall)
 LO = "lo_svd_compute"
 CLOCK = FrozenClock(datetime(2026, 11, 1, 12, 0, tzinfo=UTC))
-HEAD_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252"
+HEAD_FIXTURE = MIGRATION_HEAD_FIXTURE
 #: Every split version grades blind, so the rule holds at each of them, never
 #: at mvp-0.10 alone (mvp-0.11 = the mvp-0.10 split plus placement).
 SPLIT_VERSIONS = sorted(DIAGNOSIS_SPLIT_VERSIONS)

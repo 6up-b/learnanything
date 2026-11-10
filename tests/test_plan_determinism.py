@@ -56,7 +56,7 @@ from learnloop.vault.loader import load_vault
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
-from tests.helpers import append_config_toml, create_daily_plan_vault
+from tests.helpers import MIGRATION_HEAD_FIXTURE, append_config_toml, create_daily_plan_vault
 
 A = ROUTER_STAGED_FRAME_ALGORITHM_VERSION
 FROZEN = datetime(2026, 10, 12, 9, 0, tzinfo=UTC)
@@ -595,7 +595,7 @@ def test_replay_never_reads_the_switch(tmp_path):
 
     from tests.helpers import _set_algorithm_version_at
 
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252"
+    head = MIGRATION_HEAD_FIXTURE
     clock = FrozenClock(datetime(2026, 10, 14, 12, 0, tzinfo=_UTC))
     root = tmp_path / "head"
     copy_tree_with_databases(head, root)

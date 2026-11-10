@@ -15,10 +15,11 @@ from pathlib import Path
 import pytest
 
 from learnloop.adaptive_difficulty.protected_tables import DENIED, ROLES
-from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
+from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
+from tests.helpers import MIGRATION_HEAD_FIXTURE
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252" / "state.sqlite"
+HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
 EPISODES = "lesson_episodes"
 INTERVALS = "lesson_activity_intervals"
 #: What 247 adds: earlier migrations' "nothing else changed" diffs on the way to head read this.
@@ -41,7 +42,7 @@ _INTERVAL = ("INSERT INTO lesson_activity_intervals(id, lesson_id, screen_sessio
 
 def test_247_is_the_head_and_its_tables_receipts_denied_to_ad():
     names = {migration.version: migration.path.name for migration in discover_migrations()}
-    assert names[247] == "247_lesson_episodes.sql" and max(names) == 252
+    assert names[247] == "247_lesson_episodes.sql"
     assert TABLE_ROLES[EPISODES] is TableRole.RECEIPT
     assert TABLE_ROLES[INTERVALS] is TableRole.RECEIPT
     assert ROLES[EPISODES] == DENIED and ROLES[INTERVALS] == DENIED
@@ -49,7 +50,6 @@ def test_247_is_the_head_and_its_tables_receipts_denied_to_ad():
 
 def test_the_head_fixture_holds_247_in_rollback_mode_with_empty_tables():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == 252
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
         assert TE2LOG_ADDED_OBJECTS <= names

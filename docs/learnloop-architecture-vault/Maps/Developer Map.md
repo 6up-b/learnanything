@@ -43,7 +43,7 @@ The sample changes from the refactor strategy's success measures (`docs/specs/re
 | A seed or prior | as a default, in `config/schema.py` | the same digests |
 | A model route | `ai/routing.py` (task and operation names), the route's default in `config/schema.py` | the digests |
 | A prompt | its own module, with its prompt version bumped | a golden for each switch-off parity test |
-| A new table | a file in `migrations/`, its role in `db/table_roles.py` (a `DERIVED` table also needs a replayer in `substrate/rebuild_orchestrator.py`), its role in `adaptive_difficulty/protected_tables.py` (`ROLES`, `COLUMNS`) when an AD operation reads it, its store under `db/stores/` | the head fixture `fixtures/migration_head_<N>/` renamed and every file naming its path updated (see `CLAUDE.md`), the generated database notes |
+| A new table | a file in `migrations/`, its role in `db/table_roles.py` (a `DERIVED` table also needs a replayer in `substrate/rebuild_orchestrator.py`), its role in `adaptive_difficulty/protected_tables.py` (`ROLES`, `COLUMNS`) when an AD operation reads it, its store under `db/stores/` | the head fixture `fixtures/migration_head/` upgraded in place and its `README.md` (see `CLAUDE.md`), the generated database notes |
 | A new algorithm tag | `algorithm_versions.py` (`SUCCESSOR_CHAIN`), a root `*_upgrade.py` module, the upgrade dispatch in `cli/app.py`; follow `docs/algorithm-change-playbook.md` | frozen `*_VERSIONS` sets and "latest" pins in the successor tests, the digests |
 | What to serve next | `daily_plan/engine.py` (the plan), `daily_plan/objective_chooser.py` (`_decide_objective`: the draw, the coin, the trace) | |
 | A term of the router's objective | `router_objective/value.py` (`_terms`) | |

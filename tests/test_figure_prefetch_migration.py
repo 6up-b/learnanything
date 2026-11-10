@@ -19,8 +19,9 @@ import pytest
 from learnloop.adaptive_difficulty import protected_tables as PT
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
+from tests.helpers import MIGRATION_HEAD_FIXTURE
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252" / "state.sqlite"
+HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
 P5_TABLES = {"figure_prefetch_decisions": TableRole.RAW_LEDGER, "plan_usage_pauses": TableRole.RAW_LEDGER}
 #: What 237 adds (its tables, their indexes and autoindexes, the triggers, the figure_requests index).
 P5_ADDED_OBJECTS = frozenset({
@@ -49,7 +50,6 @@ def test_237_is_p5s_migration_and_every_table_is_classified():
 def test_the_head_fixture_is_at_237_in_rollback_mode_with_empty_tables():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
-        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 252
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
         assert P5_ADDED_OBJECTS <= names
         for table in P5_TABLES:

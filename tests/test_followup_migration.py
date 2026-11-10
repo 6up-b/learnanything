@@ -6,15 +6,15 @@ Earlier migrations' additivity tests downgrade the head, so they read ``FOLLOWUP
 from __future__ import annotations
 
 from contextlib import closing
-from pathlib import Path
 import sqlite3
 
 import pytest
 
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
+from tests.helpers import MIGRATION_HEAD_FIXTURE
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252" / "state.sqlite"
+HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
 ROLES = {
     "followup_workflows": TableRole.WORKFLOW,
     "followup_generation_jobs": TableRole.WORKFLOW,

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from contextlib import closing
-from pathlib import Path
 import sqlite3
 
 import pytest
@@ -13,6 +12,7 @@ from learnloop.router_objective import trajectory as T
 from tests.daily_plan_fakes import record_attempt
 from tests.router_mixture_helpers import mixture_env, run
 from tests.router_model_fakes import fake_runtime
+from tests.helpers import MIGRATION_HEAD_FIXTURE
 
 
 def _links(env):
@@ -74,7 +74,7 @@ def test_a_view_would_break_the_rebuild_the_ledgers_migrations_use(tmp_path):
 
 
 def test_the_read_runs_on_the_head_schema(tmp_path):
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252" / "state.sqlite"
+    head = MIGRATION_HEAD_FIXTURE / "state.sqlite"
     with closing(sqlite3.connect(head)) as connection:
         connection.row_factory = sqlite3.Row
         assert isinstance(T.rows(connection), list)

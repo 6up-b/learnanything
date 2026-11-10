@@ -20,10 +20,9 @@ from learnloop.substrate.rebuild_orchestrator import (
 )
 from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.vault.loader import load_vault
+from tests.helpers import MIGRATION_HEAD_FIXTURE
 
-FIXTURE_VAULT = (
-    Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252"
-)
+FIXTURE_VAULT = (MIGRATION_HEAD_FIXTURE)
 CLOCK = FrozenClock(datetime(2026, 5, 19, 12, 0, tzinfo=UTC))
 
 

@@ -4,8 +4,8 @@
 file, over what git tracks (the index, read from the working tree):
 
 - no SQLite database, by name or by header, except the two historical
-  fixtures (the migration head and ``mvp017_route_check_replay``) until S3
-  turns them into text dumps;
+  fixtures (``fixtures/migration_head/``, upgraded in place, and
+  ``mvp017_route_check_replay``) until S3 turns them into text dumps;
 - no PDF, EPUB, DjVu, audio or video file outside ``samples/``;
 - no other binary file (one git would diff as binary) except images under
   ``docs/`` and application assets under ``apps/``;
@@ -36,6 +36,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.helpers import MIGRATION_HEAD_FIXTURE
+
 REPOSITORY = Path(__file__).resolve().parents[1]
 MAX_BYTES = 5 * 1024 * 1024
 #: G8's bounded exception for the historical databases (Codex review of S0,
@@ -44,7 +46,7 @@ MAX_BYTES = 5 * 1024 * 1024
 #: ``mvp017_route_check_replay`` is frozen (only ``e238fa07a`` can regenerate
 #: it), so its bound sits just above its size. S3's text dumps end both.
 HISTORICAL_DATABASE_MAX_BYTES = (
-    (re.compile(r"^fixtures/migration_head_\d+/state\.sqlite$"), 8 * 1024 * 1024),
+    (re.compile(r"^fixtures/migration_head/state\.sqlite$"), 8 * 1024 * 1024),
     (re.compile(r"^fixtures/mvp017_route_check_replay/state\.sqlite$"), 6 * 1024 * 1024),
 )
 SQLITE_HEADER = b"SQLite format 3\x00"
@@ -66,8 +68,8 @@ APP_WASM = {
     "apps/learnloop-tauri/sketch-engine/book-math-engine.wasm":
         "apps/learnloop-tauri/sketch-engine/LICENSES.txt",
 }
-HISTORICAL_FIXTURE = re.compile(r"^fixtures/(migration_head_\d+|mvp017_route_check_replay)/")
-ALLOWED_DATABASE = re.compile(r"^fixtures/(migration_head_\d+|mvp017_route_check_replay)/state\.sqlite$")
+HISTORICAL_FIXTURE = re.compile(r"^fixtures/(migration_head|mvp017_route_check_replay)/")
+ALLOWED_DATABASE = re.compile(r"^fixtures/(migration_head|mvp017_route_check_replay)/state\.sqlite$")
 
 #: Every path spec §3.5 and §6.11 mark as leaving the tip in S0.
 REMOVED_IN_S0 = (
@@ -121,8 +123,10 @@ def test_no_tracked_database_outside_the_historical_fixtures(tracked):
     ]
     stray = [path for path in databases if not ALLOWED_DATABASE.match(path)]
     assert stray == [], f"tracked SQLite databases outside the S0 allowlist: {stray}"
-    heads = [path for path in databases if path.startswith("fixtures/migration_head_")]
-    assert len(heads) <= 1, f"only the current migration-head fixture is tracked: {heads}"
+    # The head fixture's name carries no number (it is upgraded in place), so a
+    # numbered directory is a leftover of the old rename-per-migration procedure.
+    numbered = sorted({path.split("/")[1] for path in tracked if re.match(r"^fixtures/migration_head_\d+/", path)})
+    assert numbered == [], f"the head fixture is fixtures/migration_head/, upgraded in place: {numbered}"
 
 
 def test_no_document_or_media_file_outside_samples(tracked):
@@ -202,11 +206,11 @@ def test_no_file_over_five_megabytes(tracked):
 
 
 def test_the_historical_databases_size_exception_is_bounded():
-    head, replay = "fixtures/migration_head_252/state.sqlite", "fixtures/mvp017_route_check_replay/state.sqlite"
+    head, replay = "fixtures/migration_head/state.sqlite", "fixtures/mvp017_route_check_replay/state.sqlite"
     assert oversized([(head, 6_696_960), (replay, 5_976_064)]) == []
     assert [row[0] for row in oversized([(head, 100 * 1024 * 1024), (replay, 7 * 1024 * 1024)])] == [head, replay]
     # The exception is for those two databases only, never for a name elsewhere.
-    for path in ("fixtures/migration_head_252/big.bin", "docs/state.sqlite", "fixtures/other/state.sqlite"):
+    for path in ("fixtures/migration_head/big.bin", "fixtures/migration_head_253/state.sqlite", "docs/state.sqlite", "fixtures/other/state.sqlite"):
         assert oversized([(path, MAX_BYTES + 1)]) != []
     assert all(limit < 2 * MAX_BYTES for _pattern, limit in HISTORICAL_DATABASE_MAX_BYTES)
 
@@ -253,9 +257,8 @@ def test_the_migration_head_fixture_holds_no_replaced_text(tracked):
     """G13's sweep: no eight-word window of the replaced transcript and none of
     the owner's replaced answers in any file, text column or raw database byte."""
 
-    heads = sorted({path.split("/")[1] for path in tracked if path.startswith("fixtures/migration_head_")})
-    assert len(heads) == 1, heads
-    fixture = REPOSITORY / "fixtures" / heads[0]
+    fixture = MIGRATION_HEAD_FIXTURE
+    assert f"{fixture.relative_to(REPOSITORY)}/state.sqlite" in tracked
     sanitizer = _sanitizer()
     hashes = json.loads((REPOSITORY / "tests" / "fixtures" / "sanitized_head_sweep.json").read_text(encoding="utf-8"))
     assert hashes["transcript_windows"] and hashes["phrases"]

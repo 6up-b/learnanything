@@ -9,6 +9,7 @@ from pathlib import Path
 from learnloop.clock import FrozenClock
 from learnloop.config import LearnLoopConfig
 from learnloop.db.copies import copy_tree_with_databases
+from learnloop.db.migrate import discover_migrations
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.paths import VaultPaths
@@ -21,6 +22,17 @@ NOW_ISO = "2026-05-19T12:00:00Z"
 ALGORITHM_VERSION = LearnLoopConfig().algorithms.algorithm_version
 _BASIC_VAULT_TEMPLATE: VaultPaths | None = None
 _FRESH_VAULTS = False
+#: The tracked vault at the migration head, in rollback mode. Its name carries no
+#: number, so a new migration upgrades it in place instead of renaming it and every
+#: test that opens it (tests/test_migrations.py checks it holds the head).
+MIGRATION_HEAD_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head"
+
+
+def migration_head() -> int:
+    """The newest migration's version, read from ``migrations/``: what tests that
+    would otherwise pin today's number compare against."""
+
+    return max(migration.version for migration in discover_migrations())
 
 
 async def begin_session(app, pilot):

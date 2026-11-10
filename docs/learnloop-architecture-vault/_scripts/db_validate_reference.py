@@ -36,9 +36,8 @@ TABLES_ROOT = DATABASE_ROOT / "Tables"
 CONFIG_ROOT = VAULT_ROOT / "Reference" / "Configuration"
 CONFIG_FIELDS_ROOT = CONFIG_ROOT / "Fields"
 INITIALIZATION_NOTE = VAULT_ROOT / "Reference" / "CLI" / "Initialization.md"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_252" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head" / "state.sqlite"
 CONFIG_SCHEMA_SOURCE = REPOSITORY_ROOT / "src" / "learnloop" / "config" / "schema.py"
-SCHEMA_HEAD = 252
 
 sys.path.insert(0, str(SRC_ROOT))
 sys.path.insert(0, str(SCRIPT_PATH.parent))
@@ -46,11 +45,16 @@ sys.path.insert(0, str(SCRIPT_PATH.parent))
 import generated_provenance  # noqa: E402
 from learnloop.config.schema import LearnLoopConfig  # noqa: E402
 from learnloop.config.template import DEFAULT_CONFIG_TEXT  # noqa: E402
+from learnloop.db.migrate import discover_migrations  # noqa: E402
 from learnloop.db.table_roles import TABLE_ROLES, TableRole, user_table_names  # noqa: E402
 from learnloop.substrate.rebuild_orchestrator import (  # noqa: E402
     derived_table_owners,
     validate_replayer_registry,
 )
+
+# The head the fixture must hold, read from migrations/ so a new migration
+# needs no edit here (the fixture is upgraded in place; its name has no number).
+SCHEMA_HEAD = max(migration.version for migration in discover_migrations())
 
 
 REQUIRED_FRONTMATTER = {

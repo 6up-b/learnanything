@@ -14,11 +14,10 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.substrate.shadow_rebuild import ConfigOverrideError, shadow_rebuild
 from learnloop.vault.loader import load_vault
+from tests.helpers import MIGRATION_HEAD_FIXTURE
 
 
-FIXTURE_VAULT = (
-    Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252"
-)
+FIXTURE_VAULT = (MIGRATION_HEAD_FIXTURE)
 
 
 def _copy_fixture(tmp_path: Path, name: str) -> Path:

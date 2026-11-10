@@ -16,9 +16,10 @@ import pytest
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.stores import reader_digests as RDG
 from learnloop.db.table_roles import TableRole, role_for_table
+from tests.helpers import MIGRATION_HEAD_FIXTURE
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252" / "state.sqlite"
+HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
 #: Every schema object 227 adds: the earlier migrations' "nothing else
 #: changed" diffs on the way to head read these.
 RW6B_ADDED_OBJECTS = frozenset({
@@ -91,7 +92,6 @@ def test_the_head_fixture_holds_exactly_227s_objects_in_rollback_mode():
         assert RW6B_ADDED_OBJECTS <= names
         # Curriculum C0b's 228 landed first; the head holds 226 + 227 + 228.
         assert connection.execute("SELECT 1 FROM schema_migrations WHERE version = 227").fetchone()
-        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 252
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         assert connection.execute("SELECT COUNT(*) FROM reader_session_digests").fetchone()[0] == 0
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"

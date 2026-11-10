@@ -73,6 +73,8 @@ Only the coordinator upgrades an existing database. An upgrade has a vault-level
 
 Incremental migrations execute complete statements inside `BEGIN IMMEDIATE` with the schema receipt in the same transaction. Foreign-key-rebuild scripts disable enforcement before the transaction, run `foreign_key_check` before commit, roll back body plus receipt on failure/interruption, and restore enforcement in `finally`. Fresh databases are built under a temporary path, switched to WAL and closed, then atomically renamed.
 
+The repository tracks one database at the head: `fixtures/migration_head/`, a sanitized vault in rollback mode that the upgrade, replay and schema tests copy and the generated database notes read. Its name carries no number. A new migration upgrades it in place (a backup-API copy, `apply_migrations`, checkpointed and written back in rollback mode) and adds a section to its `README.md`; no test or script names the number. Tests reach it through `MIGRATION_HEAD_FIXTURE` and `migration_head()` in `tests/helpers.py`, and `tests/test_migrations.py` checks that it holds the newest migration and stays in rollback mode. `CLAUDE.md` has the steps.
+
 ## Journal mode and durability
 
 WAL is the target journal mode for vault databases, with `synchronous = FULL` ([[ADR-015 SQLite runs in WAL mode with synchronous FULL]]). Readers keep a consistent snapshot while a writer commits, and every commit is fsynced before it is acknowledged. Writers are still serialized.

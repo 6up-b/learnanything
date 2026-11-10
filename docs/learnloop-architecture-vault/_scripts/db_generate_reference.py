@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_252/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -36,7 +36,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_252" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -45,6 +45,7 @@ sys.path.insert(0, str(SCRIPT_PATH.parent))
 import generated_provenance  # noqa: E402
 from learnloop.config.schema import LearnLoopConfig  # noqa: E402
 from learnloop.config.template import DEFAULT_CONFIG_TEXT  # noqa: E402
+from learnloop.db.migrate import discover_migrations  # noqa: E402
 from learnloop.db.table_roles import TABLE_ROLES, TableRole, user_table_names  # noqa: E402
 from learnloop.substrate.rebuild_orchestrator import (  # noqa: E402
     derived_table_owners,
@@ -53,7 +54,9 @@ from learnloop.substrate.rebuild_orchestrator import (  # noqa: E402
 
 
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 252
+# The head the fixture must hold, read from migrations/ so a new migration
+# needs no edit here (the fixture is upgraded in place; its name has no number).
+SCHEMA_HEAD = max(migration.version for migration in discover_migrations())
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -2157,7 +2160,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_252/state.sqlite",
+                "fixtures/migration_head/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

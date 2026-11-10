@@ -24,9 +24,10 @@ from learnloop.recognition import ledger as L
 from learnloop.recognition import report as R
 
 from tests.test_exam_seeding import _exam_vault
+from tests.helpers import MIGRATION_HEAD_FIXTURE
 
 ROOT = Path(__file__).resolve().parents[1]
-HEAD = ROOT / "fixtures" / "migration_head_252" / "state.sqlite"
+HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
 #: What 252 alters (one column on a ledger table): earlier migrations' "nothing else changed" diffs on the way to head read this.
 RE0_ALTERED_TABLES = frozenset({"practice_attempts"})
 NOW =datetime(2026, 5, 19, 15, 30, 7, tzinfo=UTC)
@@ -174,7 +175,6 @@ def test_migration_252_adds_one_nullable_checked_column_to_a_ledger_table(tmp_pa
 
 def test_the_head_fixture_holds_252_in_rollback_mode_with_no_active_seconds():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == 252
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert "active_seconds" in {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
         assert connection.execute("SELECT COUNT(*) FROM practice_attempts WHERE active_seconds IS NOT NULL").fetchone()[0] == 0

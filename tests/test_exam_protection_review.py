@@ -54,6 +54,7 @@ from learnloop.vault.yaml_io import read_yaml
 from tests.source_retrieval_fakes import seed_source
 from tests.source_service_fakes import build_textbook_vault, loaded
 from tests.test_source_inventory import _block, _ir, _persist
+from tests.helpers import MIGRATION_HEAD_FIXTURE
 
 CLOCK = FrozenClock(datetime(2026, 10, 13, tzinfo=UTC))
 
@@ -608,7 +609,7 @@ def test_replay_never_reads_the_switch(tmp_path):
     from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
     from tests.helpers import _set_algorithm_version_at
 
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_252"
+    head = MIGRATION_HEAD_FIXTURE
     root = tmp_path / "head"
     copy_tree_with_databases(head, root)
     _set_algorithm_version_at(root, LATEST_ALGORITHM_VERSION)
