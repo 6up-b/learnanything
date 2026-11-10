@@ -441,7 +441,7 @@ The landing run at `-n 8` reached the scope's 10 GB limit: anonymous memory peak
 
 ## Proof
 
-- **Union check.** `scripts/check_gate_partition.py` on `1fcce2517e`: 31,034 collected = landing 30,974 + arc_close 60, the two disjoint, and no `arc_close` test without `slow`. PARTITION2
+- **Union check.** `scripts/check_gate_partition.py` on `1fcce2517e`: 31,034 collected = landing 30,974 + arc_close 60, the two disjoint, and no `arc_close` test without `slow`. Rerun on the record's commit `c809b58e05` (no test changed after `1fcce2517e`): the same counts, exit 0. `lint-imports`: 43 contracts kept.
 - **No assertion removed.** `git diff 9a623e3d9c -- tests` removes one assert line, `assert len(methods) > 300` in P1, which became `assert len(every) > 300` when the methods were sharded. Every edited test file:
   - `tests/conftest.py`: the `pytest_itemcollected` hook.
   - `tests/router_mixture_helpers.py`: `HORIZON_DAYS`, `served_horizon`, `_with_horizon`.
