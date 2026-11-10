@@ -333,6 +333,17 @@ class Waits:
         total = sum(known.values())
         return sum(self.minutes[tier] * share / total for tier, share in known.items())
 
+    def basis(self, trigger_kind: str) -> str:
+        """Which measurement :meth:`expected` reads for this kind: ``kind_mix``, ``pressed_mix``,
+        ``author_call`` (no tier mix yet) or ``none`` (no measured tier: no estimate)."""
+
+        mix = self.mix_by_kind.get(trigger_kind)
+        source = "kind_mix" if mix else "pressed_mix"
+        mix = mix or self.pressed_mix
+        if not mix:
+            return "author_call" if any(tier in self.minutes for tier in QUICK_TIERS) else "none"
+        return source if any(tier in self.minutes and share > 0 for tier, share in mix.items()) else "none"
+
     def summary(self) -> dict[str, Any]:
         return {"minutes_by_tier": {tier: round(value, 3) for tier, value in sorted(self.minutes.items())},
                 "measured_builds_by_tier": dict(sorted(self.counts.items())),
@@ -396,6 +407,13 @@ class Candidate:
     expected_requests: float = 1.0
 
 
+#: The rule a decision names (its decision record's ``rule``, ADR-017): no measured wait for the
+#: kind, so no estimate and no build; else the sign of the one Thompson draw's EU.
+RULE_NO_MEASURED_LATENCY = "no_measured_latency"
+RULE_SAMPLED_EU_POSITIVE = "sampled_eu_positive"
+RULE_SAMPLED_EU_NOT_POSITIVE = "sampled_eu_not_positive"
+
+
 @dataclass(frozen=True)
 class Decision:
     build: bool
@@ -405,6 +423,8 @@ class Decision:
     cost_minutes: float | None
     p_open: float | None
     reason: str
+    #: :data:`RULE_NO_MEASURED_LATENCY` and its two siblings: ``reason`` as a code, for the record.
+    rule: str = ""
 
 
 @dataclass
@@ -462,11 +482,13 @@ class Model:
 
         wait = self.waits.expected(candidate.trigger_kind)
         if wait is None:
-            return Decision(False, None, 0.0, None, None, None, "no measured build latency for this kind yet")
+            return Decision(False, None, 0.0, None, None, None, "no measured build latency for this kind yet",
+                            RULE_NO_MEASURED_LATENCY)
         eu, p_open, cost = self._draw(rng, candidate, wait)
         builds = sum(1 for _ in range(POSTERIOR_DRAWS) if self._draw(rng, candidate, wait)[0] > 0)
         return Decision(eu > 0, eu, builds / POSTERIOR_DRAWS, p_open * wait, cost, p_open,
-                        "sampled EU positive" if eu > 0 else "sampled EU not positive")
+                        "sampled EU positive" if eu > 0 else "sampled EU not positive",
+                        RULE_SAMPLED_EU_POSITIVE if eu > 0 else RULE_SAMPLED_EU_NOT_POSITIVE)
 
 
 __all__ = [
@@ -484,6 +506,9 @@ __all__ = [
     "P_CONTENT_CLIP",
     "QUICK_TIERS",
     "RICH_TIERS",
+    "RULE_NO_MEASURED_LATENCY",
+    "RULE_SAMPLED_EU_NOT_POSITIVE",
+    "RULE_SAMPLED_EU_POSITIVE",
     "TRIGGER_KINDS",
     "Candidate",
     "Decision",
