@@ -162,6 +162,34 @@ def test_each_author_call_is_named_by_its_builds_mode_from_the_ledger(tmp_path):
     assert not PL.background_call({"purpose": "grading", "owner_id": background}, modes)
 
 
+def test_a_rich_figures_calls_are_named_by_the_rich_jobs_own_key_and_a_reuse_never_relabels_a_build(tmp_path):
+    from learnloop.db.stores.figures import FIGURE_COLUMNS
+    from learnloop.figures import rich as RICH
+
+    _paths, repository, _vault, press, background = ledger(tmp_path)
+    with repository.connection() as connection:
+        quick = {row[1]: (row[0], row[2]) for row in connection.execute(
+            "SELECT f.id, r.build_mode, f.input_hash FROM interactive_figures f JOIN figure_requests r "
+            "ON r.id = f.request_id")}
+        figure_id, input_hash = quick["prefetch"]
+        # The pre-build's fuller version (a rich figure following its quick one, stored by its rich job) ...
+        columns = [name for name in FIGURE_COLUMNS if name not in ("id", "tier", "spec_version", "fuller_of_id")]
+        connection.execute(
+            f"INSERT INTO interactive_figures (id, tier, spec_version, fuller_of_id, {', '.join(columns)}) "
+            f"SELECT 'fig_rich', 'manim', 'manim-fig-v1', id, {', '.join(columns)} FROM interactive_figures WHERE id = ?",
+            (figure_id,))
+        # ... and a later press that reused the pre-built figure (its request names the figure, made no call).
+        connection.execute(
+            "INSERT INTO figure_requests (id, origin, anchor_json, policy, caller_kind, grounding, build_mode, figure_id, "
+            "created_at) SELECT 'freq_reuse', 'selection', anchor_json, policy, caller_kind, grounding, 'pressed', ?, "
+            "created_at FROM figure_requests WHERE build_mode = 'prefetch'", (figure_id,))
+        connection.commit()
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        modes = PL.call_build_modes(connection)
+    rich_owner = f"figure_rich:{RICH.content_key_for({'input_hash': input_hash, 'fast_figure_id': figure_id, 'generation': 0})}"
+    assert modes[rich_owner] == "prefetch" and modes[background] == "prefetch" and modes[press] == "pressed"
+
+
 # ---------------------------------------------------------------------------
 # W: background calls move it only through the prior (fail-first on prefetch_decision_v1)
 # ---------------------------------------------------------------------------
