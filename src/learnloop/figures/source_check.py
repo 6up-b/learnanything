@@ -883,7 +883,7 @@ def recheck(vault: Any, repository: Any, row: Mapping[str, Any], *, live_vault: 
             return None
         _RECHECKING.add(figure_id)
     try:
-        gate = FiguresGate(vault, recheck_key, live_vault=live_vault)
+        gate = FiguresGate(vault, recheck_key, live_vault=live_vault, repository=repository)
         try:
             gate.check("recheck")
             compiled = S.parse_spec(row["spec_json"])

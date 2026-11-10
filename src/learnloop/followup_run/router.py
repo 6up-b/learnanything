@@ -12,6 +12,11 @@ outcome joins and data capture's measurement follow that binding.
 **No plan** (§5.1): there is no ``plan_interrupt`` timing decision, classic Today still logs
 its ``today_offer``, and the probe goes first. No ``no_intervention`` draw is made (the
 spec's default, recorded in the review file).
+
+Every decision, logged or not, leaves one ``followup_gate`` decision record (refactor B5;
+``refusal_records``): the arm, the rule, the arms' probabilities, the components' statuses
+(their answers by reference, on the ``router_decisions`` row), and whether the value checks
+failed. A logged one is written in the decision's own transaction.
 """
 
 from __future__ import annotations
@@ -21,6 +26,7 @@ from dataclasses import dataclass, field, replace
 import logging
 from typing import Any
 
+from learnloop import refusal_records
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import followup_serve as store
@@ -61,6 +67,9 @@ class FollowupDecision:
     #: IH2 (spec_instruct_handoff_v1 §5 item 3): what a drawn lesson offer needs to become the plan's next step, in the
     #: decision's transaction: ``(env, record id, candidate)``. None: no offer was drawn, or this is a recorded decision.
     offer_placement: Any = None
+    #: Why the logged value checks failed (``observational`` is then ``{}``): only the gate's decision record keeps
+    #: its class and frame (the map's S14); the router's row is unchanged.
+    value_check_error: BaseException | None = field(default=None, compare=False, repr=False)
 
     @property
     def lesson_offer(self) -> bool:
@@ -114,6 +123,12 @@ def hard_refusal(vault: Any, repository: Repository, row: Mapping[str, Any], *, 
 def observational(repository: Repository, factor_id: str) -> dict[str, Any]:
     """§5 item 5: the checks that stopped deciding on this lane, still on the record."""
 
+    return _observe(repository, factor_id)[0]
+
+
+def _observe(repository: Repository, factor_id: str) -> tuple[dict[str, Any], BaseException | None]:
+    """The value checks' answer, or ``{}`` and the exception that stopped them (which never decides)."""
+
     from learnloop.diagnosis.causal_probe_coherence import decide_probe, repair_class_need_for_factor
 
     try:
@@ -133,10 +148,10 @@ def observational(repository: Repository, factor_id: str) -> dict[str, Any]:
             "repair_class_ids": list(need.get("repair_class_ids") or []),
             "repair_class_divergence": bool(need.get("repair_class_divergence")),
             "common_repair_covers": bool(need.get("common_repair_covers")),
-        }
-    except Exception:  # noqa: BLE001 - what is only logged never decides
+        }, None
+    except Exception as exc:  # noqa: BLE001 - what is only logged never decides
         LOG.warning("follow-up value checks not logged for %s", factor_id, exc_info=True)
-        return {}
+        return {}, exc
 
 
 def _card_facts(vault: Any, repository: Repository, choice: Any, seen: Mapping[str, Any]) -> list[str]:
@@ -189,14 +204,14 @@ def _plan_context(vault: Any, repository: Repository, row: Mapping[str, Any], *,
 def decide(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any,
            clock: Clock | None) -> FollowupDecision:
     factor_id = str(choice.factor_id)
-    seen = observational(repository, factor_id)
+    seen, seen_error = _observe(repository, factor_id)
     refusal = hard_refusal(vault, repository, row, factor_id=factor_id)
     if refusal is not None:
         return FollowupDecision(DECLINE, refusal, "refused", refusals=({"reason": refusal, "constraint_key": refusal},),
-                                observational=seen)
+                                observational=seen, value_check_error=seen_error)
     context = _plan_context(vault, repository, row, clients=clients, clock=clock)
     if context is None:
-        return FollowupDecision(ASK_NOW, "no_plan", "no_plan", observational=seen)
+        return FollowupDecision(ASK_NOW, "no_plan", "no_plan", observational=seen, value_check_error=seen_error)
     env, record, gate = context
     current = record.current_block()
     block = current if current is not None and not current.is_reading else None
@@ -205,7 +220,8 @@ def decide(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice
         "block_id": block.id if block is not None else None,
     }
     if gate is None:
-        return FollowupDecision(ASK_NOW, "router_off", "staged", observational=seen, **plan_fields)
+        return FollowupDecision(ASK_NOW, "router_off", "staged", observational=seen, value_check_error=seen_error,
+                                **plan_fields)
     # Waiting is a choice only when there is a block to finish and room after it (Codex review F8's rule).
     remaining = sum(entry.est_minutes for entry in block.items if not entry.resolved) if block is not None else 0.0
     wait_feasible = block is not None and record.minutes_left() - remaining > 0
@@ -224,7 +240,7 @@ def decide(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice
         outcome.chosen_ref, outcome.chosen_ref, str(outcome.record.get("decided_by") or "mixture"),
         propensity=float(outcome.propensity), record=dict(outcome.record), why=outcome.why,
         wait_feasible=outcome.wait_feasible, decision_id=outcome.record.get("decision_id"), observational=seen,
-        offer_placement=placement, **plan_fields,
+        offer_placement=placement, value_check_error=seen_error, **plan_fields,
     )
 
 
@@ -246,10 +262,19 @@ def decide_once(vault: Any, repository: Repository, row: Mapping[str, Any], *, c
         refusal = hard_refusal(vault, repository, row, factor_id=str(choice.factor_id))
         if refusal is None:
             return recorded
-        return replace(recorded, chosen_ref=DECLINE, reason=refusal,
-                       refusals=({"reason": refusal, "constraint_key": refusal},))
+        refused = replace(recorded, chosen_ref=DECLINE, reason=refusal, decided_by="refused",
+                          refusals=({"reason": refusal, "constraint_key": refusal},))
+        # The retry's refusal is a decision of its own (the row keeps the first draw): only its record says so.
+        refusal_records.write(repository, refusal_records.FOLLOWUP_GATE,
+                              lambda: refusal_records.followup_gate_record(row, refused, logged=False, retry=True))
+        return replace(refused, decided_by=recorded.decided_by)
     decision = decide(vault, repository, row, choice=choice, clients=clients, clock=clock)
     return record_decision(vault, repository, row, decision, clock=clock)
+
+
+def _gate_record(row: Mapping[str, Any], decision: FollowupDecision, *, logged: bool) -> Any:
+    return refusal_records.followup_gate_record(row, decision, logged=logged,
+                                                value_check_error=decision.value_check_error)
 
 
 def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *,
@@ -270,6 +295,8 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
 
     if decision.decided_by == "no_plan":
         wf.set_fields(repository, str(row["id"]), chosen_ref=decision.chosen_ref, clock=clock)
+        refusal_records.write(repository, refusal_records.FOLLOWUP_GATE,
+                              lambda: _gate_record(row, decision, logged=False))
         return decision
     decision_id: str | None = None
     now = utc_now_iso(clock)
@@ -336,14 +363,20 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
                 )
             store.update_workflow(connection, str(row["id"]), at=now, chosen_ref=decision.chosen_ref,
                                   decision_id=decision_id)
-            return replace(decision, decision_id=decision_id)
+            logged = replace(decision, decision_id=decision_id)
+            # The gate's record, in the decision's own transaction (after the decision, holding the lock it took).
+            refusal_records.write_on(connection, refusal_records.FOLLOWUP_GATE,
+                                     lambda: _gate_record(row, logged, logged=decision_id is not None))
+            return logged
     except Exception:  # noqa: BLE001 - logging never blocks the learner's plan
         LOG.warning("follow-up decision not logged for %s", row["id"], exc_info=True)
     if decision.lesson_offer:
         # IH2: with no receipt there is no offer to answer, so the rules' pick, the follow-up, stands.
         decision = replace(decision, chosen_ref=ASK_NOW, offer_placement=None)
     wf.set_fields(repository, str(row["id"]), chosen_ref=decision.chosen_ref, decision_id=None, clock=clock)
-    return replace(decision, decision_id=None)
+    unlogged = replace(decision, decision_id=None)
+    refusal_records.write(repository, refusal_records.FOLLOWUP_GATE, lambda: _gate_record(row, unlogged, logged=False))
+    return unlogged
 
 
 def record_outcome(repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *, outcome: str,

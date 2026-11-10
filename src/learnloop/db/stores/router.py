@@ -132,21 +132,29 @@ def insert_router_decision(connection: sqlite3.Connection, row: Mapping[str, Any
 def append_router_decision(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool:
     """Append one decision inside the caller's transaction, never failing it.
 
-    A savepoint isolates the insert: a refused row rolls back alone and is
-    logged as a warning (it is not a duplicate), and the caller's own writes
+    A savepoint isolates the insert: a refused row rolls back alone, is
+    logged as a warning (it is not a duplicate) and leaves a
+    ``router_decision_row`` decision record, and the caller's own writes
     (an offer receipt) commit as usual. Returns whether a row was written.
     """
 
     connection.execute("SAVEPOINT router_decision_append")
     try:
         inserted = insert_router_decision(connection, row)
-    except (sqlite3.Error, ValueError):
+    except (sqlite3.Error, ValueError) as exc:
+        refusal = exc
         connection.execute("ROLLBACK TO router_decision_append")
         connection.execute("RELEASE router_decision_append")
         logger.warning(
             "router R1: the decision ledger refused %s row %s; not logged",
             row.get("decision_kind"), row.get("receipt_key"), exc_info=True,
         )
+        # The behaviour the row describes still applies (the caller goes on), so without this record the refusal
+        # would be a log line only (refactor B5, the map's S13). Same transaction, after the savepoint is gone.
+        from learnloop import refusal_records
+
+        refusal_records.write_on(connection, refusal_records.ROUTER_DECISION_ROW,
+                                 lambda: refusal_records.router_row_record(row, refusal))
         return False
     connection.execute("RELEASE router_decision_append")
     return inserted

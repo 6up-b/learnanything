@@ -1777,7 +1777,7 @@ def _run_trigger(env: PrefetchEnv, trigger: Trigger) -> PassResult:
     if trigger.kind not in TRIGGER_KINDS:
         result.status = "unknown_trigger"
         return result
-    gate = FiguresGate(env.vault, _key, live_vault=env.live_vault, hold=_pass_hold(env))
+    gate = FiguresGate(env.vault, _key, live_vault=env.live_vault, hold=_pass_hold(env), repository=env.repository)
     try:
         with plan_fallback.quiet(), gate_model_requests(gate):
             pause = observe_pause(env)

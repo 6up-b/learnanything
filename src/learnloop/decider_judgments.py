@@ -17,6 +17,12 @@ offers as an option, so a reader that compares verdicts can skip it and
 hash names the judged input, not the producer, so a Decider verdict and an LLM
 verdict on the same input form a real pair. Nothing here makes a shadow call.
 
+A check with no answer also leaves a ``decider_judgment`` decision record
+(:mod:`learnloop.refusal_records`): a disabled judgment, which appends no
+ledger row, and a refused, unavailable or failed one, whose ledger verdict
+names neither the cause (no Decider routed, the route not ready, the spend
+cap and its limit) nor the exception's class.
+
 Each judgment has its own switch under ``[decider_routes]`` (default on); a
 serving judgment is live only at ``mvp-0.22`` or later
 (:data:`~learnloop.algorithm_versions.DECIDER_TIER1_VERSIONS`), while the content
@@ -37,6 +43,7 @@ from dataclasses import dataclass, field
 import json
 from typing import Any
 
+from learnloop import refusal_records
 from learnloop.ai.decisions import ChoiceQuestion, choice_probabilities
 from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
 from learnloop.ai.execution import call_labels, content_key
@@ -220,6 +227,57 @@ def record_failure(repository: Any, decision: Decision, *, error: str | None = N
     return decision
 
 
+def _record_unanswered(repository: Any, config: Any, decision: Decision, *, task: str, route: str,
+                       outcome: Callable[[], tuple[str, str, dict[str, Any] | None]],
+                       error: BaseException | None = None) -> None:
+    """The decision record of a check that gave no answer (refactor B5): a disabled switch or a Decider never routed
+    leaves no ledger row, and the ledger's ``unavailable``/``failed`` names neither the cause nor the limit. Written
+    after the check is decided; never raises: ``outcome`` (the record's status, rule and facts) is worked out inside
+    the record's builder, whose failure is logged and dropped."""
+
+    def build() -> Any:
+        status, rule, facts = outcome()
+        version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
+        return refusal_records.decider_record(
+            status=status, rule=rule, route=route, task=task, ledger_task=decision.task,
+            left_kind=decision.left_kind, left_id=decision.left_id, input_hash=decision.input_hash,
+            model=decision.model, judgment_id=decision.judgment_id, facts=facts,
+            error=error if status == "failed" else None,
+            versions={"question_set_version": VERSION, "algorithm_version": version},
+        )
+
+    refusal_records.write(repository, refusal_records.DECIDER_JUDGMENT, build)
+
+
+def route_rule(config: Any, route: str) -> tuple[str, str | None]:
+    """Why ``route`` had no ready Decider to ask (``no_decider_routed`` or ``decider_not_ready``) and the profile it
+    names, read from the configuration: no client is built."""
+
+    try:
+        from learnloop.ai.routing import provider_for_task
+
+        name = provider_for_task(config, route, allow_env=False).provider_name  # type: ignore[arg-type]
+    except Exception:  # noqa: BLE001 - an unreadable route routes nothing
+        name = None
+    providers = getattr(getattr(config, "ai", None), "providers", None)
+    return refusal_records.route_rule(name, providers if isinstance(providers, Mapping) else None)
+
+
+def _unanswered(config: Any, route: str, status: str, error: BaseException | None, *,
+                client_ready: bool) -> tuple[str, str, dict[str, Any] | None]:
+    """A failed check's record status, rule and facts: which limit refused, or why no Decider was there to ask."""
+
+    if status == "refused" and error is not None:
+        rule, facts = refusal_records.spend_rule(error)
+        return "refused", rule, facts
+    if status == "unavailable" and not client_ready:
+        rule, provider = route_rule(config, route)
+        return "excluded", rule, {"provider": provider} if provider else None
+    if status == "unavailable":
+        return "failed", refusal_records.PROVIDER_UNAVAILABLE, None
+    return "failed", refusal_records.REQUEST_FAILED, None
+
+
 def log_llm(repository: Any, decision: Decision, *, choice: str, model: str, rationale: str = "") -> str:
     """The fallback LLM's verdict on the Decider's input, as a real pair for the agreement report."""
 
@@ -253,15 +311,21 @@ def decide(*, root: Any, config: Any, repository: Any, task: str, state: Any, qu
     digest = input_hash or content_key({"state": state, "question": question.wire(), "task": task})
     decision = Decision(ledger_task or task, digest, left_kind, left_id or digest, right_kind, right_id)
     if not enabled(config, task):
+        _record_unanswered(repository, config, decision, task=task, route=route, outcome=lambda: (
+            "excluded", refusal_records.disabled_rule(config, task, serving_tasks=SERVING_TASKS,
+                                                      content_tasks=CONTENT_TASKS), None))
         return decision
     if reuse:
         recorded = _recorded(repository, decision, question)
         if recorded is not None:
             return recorded
+    client_ready = False
+    error: BaseException | None = None
     try:
         client = (client_factory or (lambda: client_for(root, config)))()
         if client is None:
             raise AIProviderUnavailable("Decider unavailable")
+        client_ready = True
         decision.model = str(getattr(client, "model", None) or "unknown")
         result = _ask(client, config=config, repository=repository, task=task, state=state,
                       questions={question_name: question}, owner_id=decision.left_id, spend=spend,
@@ -272,17 +336,21 @@ def decide(*, root: Any, config: Any, repository: Any, task: str, state: Any, qu
         decision.status = "ok" if decision.choice is not None else "tied"
     except AIInterrupted:
         raise  # a cancellation stops the caller; it is never a fallback
-    except SpendLimitExceeded:
-        decision.status = "refused"
-    except AIProviderUnavailable:
-        decision.status = "unavailable"
-    except Exception:  # noqa: BLE001 - a failed small judgment hands over to its LLM
-        decision.status = "failed"
+    except SpendLimitExceeded as exc:
+        decision.status, error = "refused", exc
+    except AIProviderUnavailable as exc:
+        decision.status, error = "unavailable", exc
+    except Exception as exc:  # noqa: BLE001 - a failed small judgment hands over to its LLM
+        decision.status, error = "failed", exc
     decision.judgment_id = _append(
         repository, decision, judge="decider", choice=decision.choice or decision.status, model=decision.model,
         rationale={**decision.detail(), **dict(rationale or {})},
         judgment_id=judgment_id if decision.status == "ok" else None,
     )
+    if decision.status in {"refused", "unavailable", "failed"}:
+        status_now = decision.status
+        _record_unanswered(repository, config, decision, task=task, route=route, error=error,
+                           outcome=lambda: _unanswered(config, route, status_now, error, client_ready=client_ready))
     return decision
 
 
@@ -379,11 +447,21 @@ def decide_many(*, root: Any, config: Any, repository: Any, task: str, state: An
     decisions = {name: Decision(task, content_key({"state": state, "question": question.wire(), "task": task}),
                                 left_kind, left_id, "metadata", name)
                  for name, question in questions.items()}
+    # The batch's one record (refactor B5) stands for every question in it: one request, one refusal.
+    batch = Decision(task, content_key({"state": state, "questions": sorted(questions), "task": task}), left_kind,
+                     left_id)
+    if questions and (not enabled(config, task) or len(questions) > MAX_QUESTIONS):
+        _record_unanswered(repository, config, batch, task=task, route=ROUTE, outcome=lambda: (
+            "excluded", "too_many_questions" if enabled(config, task) else refusal_records.disabled_rule(
+                config, task, serving_tasks=SERVING_TASKS, content_tasks=CONTENT_TASKS), {"questions": len(questions)}))
     if not enabled(config, task) or not questions or len(questions) > MAX_QUESTIONS:
         return decisions
     model = "unavailable"
+    client_ready = False
+    error: BaseException | None = None
     try:
         client = client_for(root, config)
+        client_ready = True
         model = str(getattr(client, "model", None) or "unknown")
         result = _ask(client, config=config, repository=repository, task=task, state=state,
                       questions=questions, owner_id=left_id, spend=spend, candidates=candidates)
@@ -399,12 +477,23 @@ def decide_many(*, root: Any, config: Any, repository: Any, task: str, state: An
     except Exception as exc:  # noqa: BLE001 - the batch hands over to its LLM
         status = ("refused" if isinstance(exc, SpendLimitExceeded) else
                   "unavailable" if isinstance(exc, AIProviderUnavailable) else "failed")
+        error = exc
         for decision in decisions.values():
             decision.status, decision.model = status, model
     for decision in decisions.values():
         decision.judgment_id = _append(repository, decision, judge="decider",
                                        choice=decision.choice or decision.status, model=decision.model,
                                        rationale=decision.detail())
+    if error is not None:
+        batch.status, batch.model = decisions[next(iter(decisions))].status, model
+        failed = error
+
+        def outcome() -> tuple[str, str, dict[str, Any] | None]:
+            status, rule, facts = _unanswered(config, ROUTE, batch.status, failed, client_ready=client_ready)
+            return status, rule, {**(facts or {}), "questions": len(questions),
+                                  "judgment_ids": [decision.judgment_id for decision in decisions.values()]}
+
+        _record_unanswered(repository, config, batch, task=task, route=ROUTE, error=error, outcome=outcome)
     return decisions
 
 

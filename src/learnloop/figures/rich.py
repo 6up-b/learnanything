@@ -558,7 +558,8 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
             return held(current) or _item_protected(current, repository, base, clock) or (
                 own_hold(current) if own_hold is not None else None)
 
-    gate = FiguresGate(vault, key, live_vault=live_vault, hold=hold, wait=_prefetch_wait if prefetch else None)
+    gate = FiguresGate(vault, key, live_vault=live_vault, hold=hold, wait=_prefetch_wait if prefetch else None,
+                       repository=repository)
     try:
         if prefetch:
             gate.check("prebuild")

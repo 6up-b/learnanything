@@ -141,7 +141,23 @@ class SpendEstimate:
 
 
 class SpendLimitExceeded(ValueError):
-    """The next request cannot be admitted under the declared caps."""
+    """The next request cannot be admitted under the declared caps.
+
+    ``rule`` names the cap that refused (``max_calls``, ``max_estimated_usd``,
+    ``unknown_price``, ``envelope_cap``, ...) and ``limit``, ``used`` and
+    ``requested`` its numbers, so a caller's decision record can say which
+    limit refused and at what value: the message is prose and a record keeps
+    none. All are None when a raiser gives none.
+    """
+
+    def __init__(self, message: object = "", *, rule: str | None = None, limit: float | None = None,
+                 used: float | None = None, requested: float | None = None, scope: str | None = None) -> None:
+        super().__init__(message)
+        self.rule = rule
+        self.limit = limit
+        self.used = used
+        self.requested = requested
+        self.scope = scope
 
 
 class SpendCancelled(AIInterrupted):
@@ -195,17 +211,21 @@ class SpendBudget:
             raise SpendCancelled("Paid work cancelled")
         if estimate.estimated_usd is None and not self._subscription:
             raise SpendLimitExceeded(
-                "Unknown price: supply an explicit finite owner price estimate"
+                "Unknown price: supply an explicit finite owner price estimate", rule="unknown_price",
             )
         for name in _COUNTS:
             if self._subscription and f"max_{name}" in SUBSCRIPTION_UNENFORCED_CAPS:
                 continue
             if getattr(self._used, name) + getattr(estimate, name) > getattr(self.caps, f"max_{name}"):
-                raise SpendLimitExceeded(f"{name} exceeds max_{name}")
+                raise SpendLimitExceeded(f"{name} exceeds max_{name}", rule=f"max_{name}",
+                                         limit=getattr(self.caps, f"max_{name}"), used=getattr(self._used, name),
+                                         requested=getattr(estimate, name))
         if not self._subscription and self.caps.max_estimated_usd is not None and (
             self._usd + Decimal(str(estimate.estimated_usd)) > Decimal(str(self.caps.max_estimated_usd))
         ):
-            raise SpendLimitExceeded("estimated_usd exceeds max_estimated_usd")
+            raise SpendLimitExceeded("estimated_usd exceeds max_estimated_usd", rule="max_estimated_usd",
+                                     limit=self.caps.max_estimated_usd, used=float(self._usd),
+                                     requested=estimate.estimated_usd)
         return estimate
 
     @contextmanager
@@ -251,7 +271,7 @@ class SpendBudget:
             # A refusal raised below this layer (a released reservation's
             # fence at the receipt's start) is a refusal like any other.
             if getattr(exc, "spend_refused", False) and not isinstance(exc, SpendLimitExceeded):
-                raise SpendLimitExceeded(str(exc)) from exc
+                raise SpendLimitExceeded(str(exc), rule=getattr(exc, "rule", None) or "refused_at_receipt") from exc
             raise
         finally:
             for envelope, handle in reserved:
@@ -369,7 +389,9 @@ class SpendEnvelope:
             if self._total() + usd > self.max_usd:
                 self._refused += 1
                 raise SpendLimitExceeded(
-                    f"{self.name}: ${float(self._total() + usd):.4f} would pass the ${float(self.max_usd):.4f} cap")
+                    f"{self.name}: ${float(self._total() + usd):.4f} would pass the ${float(self.max_usd):.4f} cap",
+                    rule="envelope_cap", limit=float(self.max_usd), used=float(self._total()), requested=float(usd),
+                    scope=self.name)
             if self._observed is None:
                 self._charged += usd
             else:
@@ -475,7 +497,8 @@ def _reserve_in(envelopes: tuple[SpendEnvelope, ...], estimate: SpendEstimate, *
     if subscription:
         return tuple((envelope, NO_RESERVATION) for envelope in envelopes)
     if estimate.estimated_usd is None:
-        raise SpendLimitExceeded("Unknown price: an envelope cannot admit an unpriced metered request")
+        raise SpendLimitExceeded("Unknown price: an envelope cannot admit an unpriced metered request",
+                                 rule="unknown_price", scope="envelope")
     amount = Decimal(str(estimate.estimated_usd))
     done: list[tuple[SpendEnvelope, object]] = []
     try:
@@ -589,7 +612,8 @@ class MeteredRequestGate:
     def estimate_usd(self, client: Any, *, prompt: Any, budget: int | None) -> float:
         price = self._price(getattr(client, "provider_name", None))
         if price is None:
-            raise SpendLimitExceeded("Unknown price: supply an explicit finite owner price estimate")
+            raise SpendLimitExceeded("Unknown price: supply an explicit finite owner price estimate",
+                                     rule="unknown_price", scope="request_gate")
         return self.estimate_tokens(client, prompt=prompt, budget=budget) * price
 
     def admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> RequestAdmission | None:
@@ -608,7 +632,8 @@ class MeteredRequestGate:
                 return None  # no limit to price against: nothing to admit or settle
             with self._lock:
                 self.refusal = {"reason": "unknown_price", "provider": provider, "purpose": purpose}
-            raise SpendLimitExceeded("Unknown price: supply an explicit finite owner price estimate")
+            raise SpendLimitExceeded("Unknown price: supply an explicit finite owner price estimate",
+                                     rule="unknown_price", scope="request_gate")
         _money("price_per_token", price)
         tokens = self.estimate_tokens(client, prompt=prompt, budget=budget)
         usd = Decimal(str(tokens * price))
@@ -620,7 +645,9 @@ class MeteredRequestGate:
                     "request_estimate_usd": round(float(usd), 6), "committed_usd": round(float(committed), 6),
                     "limit_usd": round(float(self._limit), 6),
                 }
-                raise SpendLimitExceeded("estimated_usd exceeds max_estimated_usd")
+                raise SpendLimitExceeded("estimated_usd exceeds max_estimated_usd", rule="max_estimated_usd",
+                                         limit=float(self._limit), used=float(committed), requested=float(usd),
+                                         scope="request_gate")
             key = self._next_key
             self._next_key += 1
             self._in_flight[key] = usd

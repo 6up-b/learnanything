@@ -390,8 +390,12 @@ _REGISTRIES = frozenset({"learnloop.db.table_roles", "learnloop.adaptive_difficu
 #: (refactor B6) is written only by a persisting queue build (``build_due_queue``, statically in the closure through
 #: the simulator and the state sync's imports); no rebuild, replay or upgrade builds a queue, and
 #: ``test_a_rebuild_never_calls_the_record_and_keeps_its_rows`` refuses it at run time. The store enters the closure
-#: through these writers alone.
-_RECORD_WRITERS = frozenset({"learnloop.scheduling.slate_record"})
+#: through these writers alone. The refusals' records (refactor B5, ``learnloop.refusal_records``) enter it through
+#: ``db.stores.router`` (a ledger refusal; the closure reaches the store for ``router.outcomes``' reads, and no replay
+#: appends a decision row), ``decider_judgments`` (AD's replay imports the feature audit, which uses the Decider's
+#: client and argmax, never ``decide``) and ``figure_admission`` (the gate, which no replay builds); the same test
+#: counts their calls during a live rebuild: none.
+_RECORD_WRITERS = frozenset({"learnloop.scheduling.slate_record", "learnloop.refusal_records"})
 _STORE = "learnloop.db.stores.provenance"
 
 
@@ -410,7 +414,7 @@ def test_decision_records_is_unreachable_from_replay():
     # the dataclass, the code check) are all a replay module may use. A later writer in this closure brings its own
     # proof that replay never calls it, and joins ``_RECORD_WRITERS``.
     naming, using = [], []
-    for module in sorted(closure - {"learnloop.provenance", _STORE}):
+    for module in sorted(closure - {"learnloop.provenance", _STORE} - _RECORD_WRITERS):
         path = _module_path(module)
         if not path.exists():
             continue
@@ -453,12 +457,17 @@ def test_a_rebuild_never_calls_the_record_and_keeps_its_rows(tmp_path: Path, mon
     import learnloop.scheduling.scheduler as scheduler
     import learnloop.scheduling.slate_record as slate_record
 
+    import learnloop.refusal_records as refusal_records
+
     slate_calls: list[object] = []
     monkeypatch.setattr(scheduler, "record_slate", lambda *a, **k: slate_calls.append(k))
     monkeypatch.setattr(slate_record, "record_slate", lambda *a, **k: slate_calls.append(k))
+    refusal_calls: list[object] = []
+    for name in ("write", "write_on"):
+        monkeypatch.setattr(refusal_records, name, lambda *a, _name=name, **k: refusal_calls.append((_name, a[1])))
     rebuild_all_derived_state(load_vault(root), Repository(path))
     assert _rows(path) == before and len(before) == 1
-    assert slate_calls == []
+    assert slate_calls == [] and refusal_calls == []
 
 
 def test_the_table_is_a_receipt_and_denied_to_ad():

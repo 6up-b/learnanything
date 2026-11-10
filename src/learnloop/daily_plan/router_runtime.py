@@ -32,7 +32,9 @@ model still out (G7, ``fallback`` recorded).
   quick check does (plan §8.4; Codex review F3, F4). A receipt that reported
   no usage (still running, its finish lost to a crash, or a failure) counts
   its reservation, never zero (Codex review F5). A refusal is a fallback
-  (``spend``). Subscription routes (Codex on the ChatGPT plan) are never
+  (``spend``); it writes no receipt, so the same transaction writes a
+  ``spend_admission`` decision record naming the cap, the day's spend and the
+  request's estimate (``refusal_records``). Subscription routes (Codex on the ChatGPT plan) are never
   capped; their tokens are estimated on the receipt. The provider key's own
   credit limit is the backstop.
 * **The router LLM's output room** is the shared output-budget policy for
@@ -62,6 +64,7 @@ import threading
 import time
 from typing import Any
 
+from learnloop import refusal_records
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.daily_plan.boundary_records import FAILURE_NOTE, wall_now
 from learnloop.provenance import current_trace
@@ -428,14 +431,27 @@ class RouterSpend:
             declared[RESERVATION_KEY] = round(float(usd), 10)
             event = {**event, "budget_json": json.dumps(declared, sort_keys=True)}
             now_iso = str(event.get("started_at") or _now_iso())
+            refused: SpendRefused | None = None
             with repository.atomic():
                 spent = Decimal(str(self.spent_today(repository, config, now_iso)))
                 amount = Decimal(str(float(usd)))
                 if spent + amount > cap:
-                    raise SpendRefused(
-                        f"router daily guard: ${float(spent + amount):.4f} would pass ${float(cap):.2f}"
+                    refused = SpendRefused(
+                        f"router daily guard: ${float(spent + amount):.4f} would pass ${float(cap):.2f}",
+                        rule=refusal_records.ROUTER_DAILY_CAP, limit=float(cap), used=float(spent),
+                        requested=float(amount),
                     )
-                repository.record_model_event(action, event, owner_kind=owner_kind, owner_id=owner_id)
+                    # A refused request writes no receipt, so its record is the only row it leaves. It joins this
+                    # transaction, which already holds the write lock, so the deadline never waits on it; the
+                    # transaction commits the record alone and the refusal is raised after.
+                    refusal_records.write(repository, refusal_records.SPEND_ADMISSION,
+                                          lambda: refusal_records.router_spend_record(
+                                              cap_usd=float(cap), spent_usd=float(spent), request_usd=float(amount),
+                                              owner_kind=owner_kind, owner_id=owner_id, event=event))
+                else:
+                    repository.record_model_event(action, event, owner_kind=owner_kind, owner_id=owner_id)
+            if refused is not None:
+                raise refused
 
         with observe_model_calls(observe), gate_model_requests(gate):
             yield

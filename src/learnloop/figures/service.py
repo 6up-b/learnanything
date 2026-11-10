@@ -2086,7 +2086,7 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
     # foreground work, and (Codex review F2) on the figure author's route
     # being the plan as configured NOW: a prebuild is never metered.
     hold = _prefetch_build_hold(author_client) if request.origin == "prefetch" else None
-    gate = FiguresGate(vault, key_for(request), live_vault=live_vault, hold=hold)
+    gate = FiguresGate(vault, key_for(request), live_vault=live_vault, hold=hold, repository=repository)
     try:
         with gate_model_requests(gate):
             return _build(vault, repository, request, gate=gate, author_client=author_client, clock=clock, find=find,

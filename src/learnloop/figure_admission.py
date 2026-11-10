@@ -343,6 +343,10 @@ class FiguresChanged(BaseException):
     admission_refused = True
 
 
+#: :attr:`FiguresGate.rule`'s codes, in the order the gate asks.
+GATE_RULES = ("vault_closed", "figures_off", "config_changed", "held")
+
+
 class FiguresGate:
     """Admit a figure-derived unit of work's requests only while its key holds.
 
@@ -361,22 +365,30 @@ class FiguresGate:
     admitted on is the one read after the wait, never a snapshot taken before
     it (the switch may have turned off meanwhile). Its result is not a
     verdict: ``hold`` decides on the vault read after it.
+
+    ``repository`` (refactor B5), when given, receives one ``figure_admission``
+    decision record when the gate first refuses, naming :attr:`rule`: a
+    refused request is never sent, so it leaves no call row of its own.
     """
 
     def __init__(self, vault: Any, key: Callable[[Any], Hashable], *,
                  live_vault: Callable[[], Any] | None = None,
                  hold: Callable[[Any], str | None] | None = None,
-                 wait: Callable[[], Any] | None = None) -> None:
+                 wait: Callable[[], Any] | None = None,
+                 repository: Any = None) -> None:
         self._root = getattr(vault, "root", None)
         self._key = key
         self._start = key(vault)
         self._live = live_vault
         self._hold = hold
         self._wait = wait
+        self._repository = repository
         self._outer = active_request_gate()
         self._lock = threading.Lock()
         #: Why the unit's requests are refused (None: they are not).
         self.changed: str | None = None
+        #: The refusal as a code (:data:`GATE_RULES`): ``changed`` is prose, and a record keeps none.
+        self.rule: str | None = None
         #: Whether :attr:`changed` came from ``hold`` (not a setting).
         self.held = False
 
@@ -399,15 +411,21 @@ class FiguresGate:
                     self._wait()
                 vault = self._current()
                 if vault is None or getattr(vault, "root", None) != self._root:
-                    self.changed = "the vault is no longer open"
+                    self.changed, self.rule = "the vault is no longer open", "vault_closed"
                 elif not figures_enabled(vault):
-                    self.changed = "figures were switched off"
+                    self.changed, self.rule = "figures were switched off", "figures_off"
                 elif self._key(vault) != self._start:
-                    self.changed = "the figure route, cap or price changed"
+                    self.changed, self.rule = "the figure route, cap or price changed", "config_changed"
                 elif self._hold is not None:
                     reason = self._hold(vault)
                     if reason:
-                        self.changed, self.held = reason, True
+                        self.changed, self.held, self.rule = reason, True, "held"
+                if self.changed is not None and self._repository is not None:
+                    from learnloop import refusal_records
+
+                    rule = self.rule or "refused"
+                    refusal_records.write(self._repository, refusal_records.FIGURE_ADMISSION,
+                                          lambda: refusal_records.figure_gate_record(rule=rule, purpose=purpose))
             if self.changed is not None:
                 raise FiguresChanged(f"{purpose} not sent: {self.changed}; nothing more is asked")
 

@@ -24,7 +24,10 @@ probability is the one logged (the distribution actually sampled from).
 Decider, or ``hints.chooser_enabled = false``: the item's authored hints in
 order while they last, then ``next_step``; after a reply, the first kind of a
 fixed list that satisfies the shortcut, at the same level; a taken level's
-first kind. Logged ``chooser = 'fallback'`` with propensity 1. The learner's
+first kind. Logged ``chooser = 'fallback'`` with propensity 1, and a
+``decider_judgment`` decision record names the rule that kept the Decider
+from choosing (no Decider routed, the route not ready, models off, the spend
+cap and its limit, the time box, the exception's class). The learner's
 picks (``book_way``, ``smaller_step``) are ``learner_pick`` with no
 propensity.
 
@@ -337,6 +340,7 @@ def ask(
     status = "ok"
     probabilities: dict[str, Any] = {}
     result_choice: Choice | None = None
+    error: BaseException | None = None
     try:
         client = (client_factory or (lambda: None))()
         if client is None:
@@ -379,14 +383,14 @@ def ask(
                                probabilities=probabilities, seed=seed, policy=policy, model=model)
     except AIInterrupted:
         raise
-    except SpendLimitExceeded:
-        status = "capped"
-    except TimeoutError:
-        status = "timeout"
+    except SpendLimitExceeded as exc:
+        status, error = "capped", exc
+    except TimeoutError as exc:
+        status, error = "timeout", exc
     except AIProviderUnavailable as exc:
-        status = "timeout" if "timed out" in str(exc).lower() else "unavailable"
-    except Exception:  # noqa: BLE001 - a failing chooser falls back (G-H8)
-        status = "failed"
+        status, error = ("timeout" if "timed out" in str(exc).lower() else "unavailable"), exc
+    except Exception as exc:  # noqa: BLE001 - a failing chooser falls back (G-H8)
+        status, error = "failed", exc
     latency = int((time.monotonic() - started) * 1000)
     asked = model != "unavailable"
     judgment_id = None
@@ -412,7 +416,57 @@ def ask(
     fallback = Choice("", 0, None, chooser="fallback", propensity=1.0, options=option_set.ids, seed=seed,
                       policy="fallback", reason=status, model=model if asked else None, judgment_id=judgment_id,
                       latency_ms=latency, probabilities=probabilities)
+    from learnloop import refusal_records
+
+    refusal_records.write(repository, refusal_records.DECIDER_JUDGMENT, lambda: _fallback_record(
+        config, state, status=status, asked=asked, error=error, model=model, assist_id=assist_id,
+        input_hash=input_hash, judgment_id=judgment_id, timeout=timeout, latency=latency))
     return fallback
+
+
+def _fallback_record(config: Any, state: HintState, *, status: str, asked: bool, error: BaseException | None,
+                     model: str, assist_id: str, input_hash: str, judgment_id: str | None, timeout: float,
+                     latency: int) -> Any:
+    """The fallback's decision record (refactor B5): which rule kept the Decider from choosing, and its limit.
+
+    With no Decider routed nothing is asked, so no ledger row exists, and the help row's ``unavailable`` does not
+    say whether no Decider was routed, the route was not ready or models were off (the owner's 2026-10-25 capture:
+    the style changed nothing because no Decider was routed). Built inside ``refusal_records.write`` after the
+    choice is made, so its failure is logged and dropped."""
+
+    from learnloop import refusal_records as records
+
+    facts: dict[str, Any] = {"latency_ms": latency, "help_style": state.help_style,
+                             "practice_item_id": state.practice_item_id, "assist_id": assist_id}
+    if status == "capped":
+        record_status = "refused"
+        rule, limit = records.spend_rule(error) if error is not None else (records.SPEND_REFUSED, {})
+        facts.update(limit)
+    elif status == "timeout":
+        record_status, rule = "timeout", records.TIME_BOX
+        facts["timeout_s"] = timeout
+    elif status == "unavailable" and not asked:
+        from learnloop.hints.writer import models_off
+
+        record_status = "excluded"
+        if models_off():
+            rule = records.MODELS_OFF
+        else:
+            from learnloop.decider_judgments import route_rule
+
+            rule, provider = route_rule(config, ROUTE)
+            facts["provider"] = provider
+    elif status == "unavailable":
+        record_status, rule = "failed", records.PROVIDER_UNAVAILABLE
+    else:
+        record_status, rule = "failed", records.REQUEST_FAILED
+    return records.decider_record(
+        status=record_status, rule=rule, route=ROUTE, task=TASK, ledger_task=LEDGER_TASK, left_kind="help_assist",
+        left_id=assist_id, input_hash=input_hash, model=model, judgment_id=judgment_id,
+        error=error if record_status == "failed" else None, facts=facts,
+        versions={"question_set_version": QUESTION_SET_VERSION, "policy_version": POLICY_VERSION},
+        subject_kind="item", subject_id=state.practice_item_id,
+    )
 
 
 def policy_version(policy: str | None) -> str:
