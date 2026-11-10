@@ -601,6 +601,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_route_rules_in_grader.py](../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_the_route_rules_follow_the_route_check_and_value_of_information_stopping_follows_them`
 - [tests/test_router_card.py](../../../../../tests/test_router_card.py) — direct import
+- [tests/test_router_failure_records.py](../../../../../tests/test_router_failure_records.py) — direct import
 - [tests/test_router_g1_feasibility.py](../../../../../tests/test_router_g1_feasibility.py) — direct import
   - `test_a_chooser_naming_an_infeasible_or_unknown_id_falls_back`
   - `test_a_reserved_assessment_surface_is_refused_on_today`

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/types.py](../../../../../../src/learnloop/daily_plan/types.py) |
-| Source lines | 247 |
+| Source lines | 251 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -63,10 +63,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class BlockSource(Protocol)` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 178)
   - `candidates(self, state: PlanState) -> list[BlockCandidate]` (line 181; public)
 - `class BlockChoice` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 185)
-- `class BlockChooser(Protocol)` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 203)
-  - `choose(self, state: PlanState, feasible: Sequence[BlockCandidate]) -> BlockChoice` (line 206; public)
-- `class DecisionPending(Exception)` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 209) — Router R2b: a chooser that may not wait (a read, a prefetch) found the decision's models still out.
-  - `__init__(self, key: str='') -> None` (line 214; internal)
+- `class BlockChooser(Protocol)` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 207)
+  - `choose(self, state: PlanState, feasible: Sequence[BlockCandidate]) -> BlockChoice` (line 210; public)
+- `class DecisionPending(Exception)` ([source](../../../../../../src/learnloop/daily_plan/types.py), line 213) — Router R2b: a chooser that may not wait (a read, a prefetch) found the decision's models still out.
+  - `__init__(self, key: str='') -> None` (line 218; internal)
 
 ### Module constants
 

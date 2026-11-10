@@ -48,31 +48,35 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/provenance.py](../../../../../../../src/learnloop/db/stores/provenance.py) |
-| Source lines | 58 |
+| Source lines | 134 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `write_decision(repository: Any, record: provenance.DecisionRecord) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 30) — Write ``record`` through ``repository``; its id, or ``None`` when it was not written.
-- `trace_model_calls(connection: Any, trace_ids: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 42) — Model calls made under any of ``trace_ids``, oldest first (empty below migration 253).
+- `write_decision(repository: Any, record: provenance.DecisionRecord) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 32) — Write ``record`` through ``repository``; its id, or ``None`` when it was not written.
+- `trace_model_calls(connection: Any, trace_ids: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 44) — Model calls made under any of ``trace_ids``, oldest first (empty below migration 253).
+- `discarded_calls(records: Iterable[provenance.DecisionRecord], calls: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 78) — The calls each decision discarded: started before it under its own or its prefetch's trace, for its boundary key when it names one, and finished after it (``late_ms``) or not at all (``late_ms`` None).
+- `unclaimed_calls(connection: Any, records: Iterable[provenance.DecisionRecord], calls: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 112) — Router calls whose boundary key no decision names: neither a shown record nor any logged router decision.
 
 ### Module constants
 
-- `LOG` ([src/learnloop/db/stores/provenance.py](../../../../../../../src/learnloop/db/stores/provenance.py), line 20)
-- `TRACE_CALL_COLUMNS` ([src/learnloop/db/stores/provenance.py](../../../../../../../src/learnloop/db/stores/provenance.py), line 24)
+- `LOG` ([src/learnloop/db/stores/provenance.py](../../../../../../../src/learnloop/db/stores/provenance.py), line 22)
+- `TRACE_CALL_COLUMNS` ([src/learnloop/db/stores/provenance.py](../../../../../../../src/learnloop/db/stores/provenance.py), line 26)
+- `LATE_ANSWER_KINDS` ([src/learnloop/db/stores/provenance.py](../../../../../../../src/learnloop/db/stores/provenance.py), line 65)
+- `ROUTER_OWNER` ([src/learnloop/db/stores/provenance.py](../../../../../../../src/learnloop/db/stores/provenance.py), line 109)
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_moment(value: Any) -> datetime | None` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 68)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `trace_model_calls`; statically calls `trace_model_calls`
+- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `discarded_calls`, `trace_model_calls`, `unclaimed_calls`; statically calls `discarded_calls`, `trace_model_calls`, `unclaimed_calls`
 
 ## Dependencies
 
@@ -82,7 +86,7 @@ No private top-level function or class definition is declared in this file.
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `logging`, `sqlite3`, `typing`
+- Standard library: `__future__`, `collections`, `datetime`, `logging`, `sqlite3`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -101,6 +105,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_provenance.py](../../../../../../../tests/test_provenance.py) — direct import
   - `test_a_rebuild_never_calls_the_record_and_keeps_its_rows`
   - `test_the_store_write_takes_its_own_transaction_or_joins_the_repositorys`
+- [tests/test_router_failure_records.py](../../../../../../../tests/test_router_failure_records.py) — direct import
+  - `test_the_store_names_the_routers_receipt_owner`
 
 ## Modification guidance
 

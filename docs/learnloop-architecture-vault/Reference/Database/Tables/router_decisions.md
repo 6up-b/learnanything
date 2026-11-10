@@ -19,11 +19,11 @@ source_paths:
   - "src/learnloop/cli/decider.py"
   - "src/learnloop/cli/router.py"
   - "src/learnloop/config/schema.py"
+  - "src/learnloop/daily_plan/boundary_records.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/learner_action.py"
   - "src/learnloop/daily_plan/measurement.py"
   - "src/learnloop/daily_plan/objective_card.py"
-  - "src/learnloop/daily_plan/router_retrieval.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -133,6 +133,7 @@ None found by exact static reference scan.
 - `src/learnloop/daily_plan/objective_card.py`
 - `src/learnloop/daily_plan/router_retrieval.py`
 - `src/learnloop/db/stores/plan_presentations.py`
+- `src/learnloop/db/stores/provenance.py`
 - `src/learnloop/db/stores/router.py`
 - `src/learnloop/db/stores/router_suggestions.py`
 - `src/learnloop/evsi_calibration/live_report.py`

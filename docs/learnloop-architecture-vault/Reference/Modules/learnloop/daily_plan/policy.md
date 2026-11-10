@@ -152,6 +152,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rw6b_p2_landing.py](../../../../../../tests/test_reader_rw6b_p2_landing.py) — direct import
 - [tests/test_ro5_calibration.py](../../../../../../tests/test_ro5_calibration.py) — direct import
 - [tests/test_router_card.py](../../../../../../tests/test_router_card.py) — direct import
+- [tests/test_router_failure_records.py](../../../../../../tests/test_router_failure_records.py) — direct import
+  - `test_a_prefetch_whose_key_changed_before_the_serve_leaves_unclaimed_calls`
+  - `test_a_prefetched_decision_names_the_prefetching_and_the_serving_trace`
 - [tests/test_router_g1_feasibility.py](../../../../../../tests/test_router_g1_feasibility.py) — direct import
   - `test_a_chooser_naming_an_infeasible_or_unknown_id_falls_back`
   - `test_a_reserved_assessment_surface_is_refused_on_today`

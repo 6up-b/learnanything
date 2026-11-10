@@ -46,71 +46,73 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py) |
-| Source lines | 754 |
+| Source lines | 787 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `models_disabled() -> bool` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 98)
-- `class ComponentResult` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 106) — One model's answer to one decision (or why there is none).
-  - `summary(self) -> dict[str, Any]` (line 123; public)
-- `class Prefetch` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 136) — One decision's model requests, from its first prefetch to its answers.
-  - `answered(self, name: str) -> bool` (line 154; public)
-  - `complete(self) -> bool` (line 159; public)
-  - `remaining(self, now: float) -> float` (line 162; public)
-  - `wait(self, timeout: float) -> None` (line 165; public)
-  - `results(self) -> dict[str, ComponentResult]` (line 173; public) — Every component's result; one still out is a timeout (its late answer is ignored).
-- `class RouteModels` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 194) — The production model source: the vault's ``router_decider`` / ``router_llm`` routes.
-  - `__init__(self, *, probe_http: Any=None) -> None` (line 197; internal)
-  - `readiness(self, vault: Any) -> dict[str, str | None]` (line 203; public) — ``{component: None (ready) | reason}``; cached for a few seconds per vault.
-  - `client(self, vault: Any, name: str, *, timeout_seconds: float) -> Any` (line 231; public)
-  - `decider_reachable(self, client: Any) -> tuple[bool, str]` (line 242; public) — Once per process (an hour's cache): the Decider's free endpoint listing.
-  - `embedding_client(self, vault: Any) -> Any | None` (line 266; public)
-- `receipt_usd(config: Any, row: Mapping[str, Any]) -> float` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 309) — What one router receipt counts against the daily guard: the provider's cost, else its reported tokens at the route's price; nothing for a subscription call.
-- `request_estimate_usd(config: Any, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> float` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 331) — One physical request's reservation: its input (~4 bytes a token) plus its output room, at the route's price.
-- `class SpendRefused(SpendLimitExceeded)` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 350) — The router's daily guard refused a request before it was sent.
-- `class RouterSpend` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 385) — The router's daily guard on metered spend (thread- and process-safe).
-  - `spent_today(self, repository: Any, config: Any, now_iso: str) -> float` (line 388; public)
-  - `metered(self, repository: Any, config: Any, *, owner_kind: str, owner_id: str) -> Iterator[None]` (line 396; public) — Record every model call in this context under ``owner_kind`` / ``owner_id`` and admit each metered physical request against ``router.max_daily_cost_usd``.
-- `class RouterRuntime` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 443) — Process-wide router state: the prefetch cache, the model source, the spend guard.
-  - `__post_init__(self) -> None` (line 457; internal)
-  - `seed_for(self, key: str, decision_id: str) -> str` (line 461; public)
-  - `lookup(self, scope: str, key: str) -> Prefetch | None` (line 466; public)
-  - `forget(self, scope: str, key: str) -> None` (line 473; public)
-  - `start(self, scope: str, key: str, *, kind: str, budget: float, material: dict[str, Any], job: Callable[[Prefetch], None], components: tuple[str, ...]) -> Prefetch` (line 477; public) — Register a decision's requests and start them (once per key).
-  - `readiness(self, vault: Any) -> dict[str, str | None]` (line 502; public)
-- `default_runtime() -> RouterRuntime` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 525) — The process's runtime (the sidecar's), created on first use.
-- `call_decider(runtime: RouterRuntime, vault: Any, repository: Any, request: Any, *, card_hash: str | None, budget: float, purpose: str=rq.PURPOSE) -> tuple[ComponentResult, Any]` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 556) — Ask the Decider one decision's typed questions.
-- `call_llm(runtime: RouterRuntime, vault: Any, repository: Any, request: Any, *, card_hash: str | None, budget: float, purpose: str=rq.PURPOSE) -> tuple[ComponentResult, Any]` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 626) — Ask the router LLM one decision's structured question.
+- `models_disabled() -> bool` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 100)
+- `class ComponentResult` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 108) — One model's answer to one decision (or why there is none).
+  - `summary(self) -> dict[str, Any]` (line 125; public)
+- `class Prefetch` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 138) — One decision's model requests, from its first prefetch to its answers.
+  - `answered(self, name: str) -> bool` (line 159; public)
+  - `complete(self) -> bool` (line 164; public)
+  - `remaining(self, now: float) -> float` (line 167; public)
+  - `wait(self, timeout: float) -> None` (line 170; public)
+  - `results(self) -> dict[str, ComponentResult]` (line 178; public) — Every component's result; one still out is a timeout (its late answer is ignored).
+- `class RouteModels` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 199) — The production model source: the vault's ``router_decider`` / ``router_llm`` routes.
+  - `__init__(self, *, probe_http: Any=None) -> None` (line 202; internal)
+  - `readiness(self, vault: Any) -> dict[str, str | None]` (line 208; public) — ``{component: None (ready) | reason}``; cached for a few seconds per vault.
+  - `client(self, vault: Any, name: str, *, timeout_seconds: float) -> Any` (line 236; public)
+  - `decider_reachable(self, client: Any) -> tuple[bool, str]` (line 247; public) — Once per process (an hour's cache): the Decider's free endpoint listing.
+  - `embedding_client(self, vault: Any) -> Any | None` (line 271; public)
+- `receipt_usd(config: Any, row: Mapping[str, Any]) -> float` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 314) — What one router receipt counts against the daily guard: the provider's cost, else its reported tokens at the route's price; nothing for a subscription call.
+- `request_estimate_usd(config: Any, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> float` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 336) — One physical request's reservation: its input (~4 bytes a token) plus its output room, at the route's price.
+- `class SpendRefused(SpendLimitExceeded)` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 355) — The router's daily guard refused a request before it was sent.
+- `class RouterSpend` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 390) — The router's daily guard on metered spend (thread- and process-safe).
+  - `spent_today(self, repository: Any, config: Any, now_iso: str) -> float` (line 393; public)
+  - `metered(self, repository: Any, config: Any, *, owner_kind: str, owner_id: str) -> Iterator[None]` (line 401; public) — Record every model call in this context under ``owner_kind`` / ``owner_id`` and admit each metered physical request against ``router.max_daily_cost_usd``.
+- `class RouterRuntime` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 448) — Process-wide router state: the prefetch cache, the model source, the spend guard.
+  - `__post_init__(self) -> None` (line 462; internal)
+  - `seed_for(self, key: str, decision_id: str) -> str` (line 466; public)
+  - `lookup(self, scope: str, key: str) -> Prefetch | None` (line 471; public)
+  - `forget(self, scope: str, key: str) -> None` (line 478; public)
+  - `start(self, scope: str, key: str, *, kind: str, budget: float, material: dict[str, Any], job: Callable[[Prefetch], None], components: tuple[str, ...]) -> Prefetch` (line 482; public) — Register a decision's requests and start them (once per key).
+  - `readiness(self, vault: Any) -> dict[str, str | None]` (line 508; public)
+- `default_runtime() -> RouterRuntime` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 531) — The process's runtime (the sidecar's), created on first use.
+- `seen(entry: Any, *, may_defer: bool, decided_wall: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 564) — What a decision's record needs from its prefetch that no persisted row carries: the trace that started it and the wall time its answers were taken (``BlockChoice.provenance``).
+- `note_failure(exc: BaseException, entry: Any, *, may_defer: bool, waited_ms: int | None, extra: Mapping[str, Mapping[str, Any]] | None=None) -> None` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 572) — Hang each model's result summary on a chooser's exception (``boundary_records.FAILURE_NOTE``): the chooser's own record dies with the exception, and ``engine.decide`` falls back to the rule, so this is how the fallback's record still names what the models answered.
+- `call_decider(runtime: RouterRuntime, vault: Any, repository: Any, request: Any, *, card_hash: str | None, budget: float, purpose: str=rq.PURPOSE) -> tuple[ComponentResult, Any]` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 589) — Ask the Decider one decision's typed questions.
+- `call_llm(runtime: RouterRuntime, vault: Any, repository: Any, request: Any, *, card_hash: str | None, budget: float, purpose: str=rq.PURPOSE) -> tuple[ComponentResult, Any]` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 659) — Ask the router LLM one decision's structured question.
 
 ### Module constants
 
-- `LOG` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 69)
-- `DECIDER` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 71)
-- `LLM` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 72)
-- `COMPONENT_ROUTES` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 73)
-- `RECEIPT_OWNER` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 74)
-- `SUMMARY_RECEIPT_OWNER` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 75)
-- `FOLLOWUP_GENERATION_OWNER` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 77)
-- `GUARDED_OWNERS` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 79)
-- `LLM_OUTPUT_FLOOR` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 81)
-- `MODELS_ENV` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 83)
-- `PROBE_TTL_SECONDS` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 84)
-- `READINESS_TTL_SECONDS` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 85)
-- `EMBEDDING_TIMEOUT_SECONDS` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 87)
-- `ANSWERED` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 89)
-- `TIMEOUT` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 90)
-- `FAILED` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 91)
-- `INVALID` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 92)
-- `SPEND` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 93)
-- `NOT_READY` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 94)
-- `UNREACHABLE` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 95)
-- `RESERVATION_KEY` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 284)
-- `_BYTES_PER_TOKEN` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 286)
-- `_DEFAULT` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 521)
-- `_DEFAULT_LOCK` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 522)
+- `LOG` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 71)
+- `DECIDER` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 73)
+- `LLM` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 74)
+- `COMPONENT_ROUTES` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 75)
+- `RECEIPT_OWNER` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 76)
+- `SUMMARY_RECEIPT_OWNER` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 77)
+- `FOLLOWUP_GENERATION_OWNER` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 79)
+- `GUARDED_OWNERS` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 81)
+- `LLM_OUTPUT_FLOOR` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 83)
+- `MODELS_ENV` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 85)
+- `PROBE_TTL_SECONDS` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 86)
+- `READINESS_TTL_SECONDS` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 87)
+- `EMBEDDING_TIMEOUT_SECONDS` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 89)
+- `ANSWERED` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 91)
+- `TIMEOUT` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 92)
+- `FAILED` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 93)
+- `INVALID` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 94)
+- `SPEND` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 95)
+- `NOT_READY` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 96)
+- `UNREACHABLE` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 97)
+- `RESERVATION_KEY` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 289)
+- `_BYTES_PER_TOKEN` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 291)
+- `_DEFAULT` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 527)
+- `_DEFAULT_LOCK` ([src/learnloop/daily_plan/router_runtime.py](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 528)
 
 ### Explicit exports
 
@@ -148,27 +150,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `class _NotReady(Exception)` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 275)
-- `_day_start(now_iso: str) -> str` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 289)
-- `_price_per_million(config: Any, provider: str | None) -> float` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 293)
-- `_reserved_usd(budget_json: Any) -> float | None` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 298)
-- `class _RouterGate` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 354) — The router's request gate (``ai.execution.RequestGate``): consulted immediately before EACH physical request; it prices the request and hands the estimate to the start-receipt observer on the same thread, which admits and reserves it (:meth:`RouterSpend.metered`).
-- `_run_job(job: Callable[[Prefetch], None], entry: Prefetch) -> None` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 506)
-- `_now_iso() -> str` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 538)
-- `_finish(entry: Prefetch, result: ComponentResult) -> None` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 544)
-- `_ms(started: float) -> int` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 552)
-- `_llm_budget(vault: Any, client: Any) -> int` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 620)
-- `_accepts_timeout(method: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 708)
-- `_supports_isolation(client: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 717)
+- `class _NotReady(Exception)` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 280)
+- `_day_start(now_iso: str) -> str` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 294)
+- `_price_per_million(config: Any, provider: str | None) -> float` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 298)
+- `_reserved_usd(budget_json: Any) -> float | None` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 303)
+- `class _RouterGate` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 359) — The router's request gate (``ai.execution.RequestGate``): consulted immediately before EACH physical request; it prices the request and hands the estimate to the start-receipt observer on the same thread, which admits and reserves it (:meth:`RouterSpend.metered`).
+- `_run_job(job: Callable[[Prefetch], None], entry: Prefetch) -> None` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 512)
+- `_now_iso() -> str` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 544)
+- `_finish(entry: Prefetch, result: ComponentResult) -> None` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 550)
+- `_ms(started: float) -> int` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 558)
+- `_llm_budget(vault: Any, client: Any) -> int` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 653)
+- `_accepts_timeout(method: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 741)
+- `_supports_isolation(client: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/router_runtime.py), line 750)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `ANSWERED`, `ComponentResult`, `DECIDER`, `FAILED`, `INVALID`, `LLM`, `NOT_READY`, `Prefetch`, `RECEIPT_OWNER`, `RouterRuntime`, `TIMEOUT`, `call_decider`, `call_llm`; statically calls `ComponentResult`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `ANSWERED`, `ComponentResult`, `DECIDER`, `FAILED`, `INVALID`, `LLM`, `NOT_READY`, `Prefetch`, `RECEIPT_OWNER`, `RouterRuntime`, `TIMEOUT`, `call_decider`, `call_llm`, `seen`, `wall_now`; statically calls `ComponentResult`, `seen`, `wall_now`
 - [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `default_runtime`; statically calls `default_runtime`
-- [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `ANSWERED`, `ComponentResult`, `DECIDER`, `INVALID`, `LLM`, `NOT_READY`, `Prefetch`, `RECEIPT_OWNER`, `RouterRuntime`, `call_decider`, `call_llm`; statically calls `ComponentResult`
+- [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `ANSWERED`, `ComponentResult`, `DECIDER`, `INVALID`, `LLM`, `NOT_READY`, `Prefetch`, `RECEIPT_OWNER`, `RouterRuntime`, `call_decider`, `call_llm`, `note_failure`, `seen`, `wall_now`; statically calls `ComponentResult`, `note_failure`, `seen`, `wall_now`
 - [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]] — imports `EMBEDDING_TIMEOUT_SECONDS`, `SpendRefused`
 - [[Reference/Modules/learnloop/daily_plan/router_teach_back|learnloop.daily_plan.router_teach_back]] — imports `LLM`, `SUMMARY_RECEIPT_OWNER`, `SpendRefused`, `_supports_isolation`, `default_runtime`; statically calls `_supports_isolation`, `default_runtime`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `FOLLOWUP_GENERATION_OWNER`, `default_runtime`; statically calls `default_runtime`
@@ -187,7 +189,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] — imports `SpendLimitExceeded`, `is_subscription_transport`; calls `is_subscription_transport`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `ISOLATED_TURN`, `execute_structured_operation`; calls `execute_structured_operation`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `utc_now_iso`; calls `utc_now_iso`
+- [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]] — imports `FAILURE_NOTE`, `wall_now`; calls `wall_now`
 - [[Reference/Modules/learnloop/daily_plan/types|learnloop.daily_plan.types]] — imports `DecisionPending`
+- [[Reference/Modules/learnloop/provenance|learnloop.provenance]] — imports `current_trace`; calls `current_trace`
 - [[Reference/Modules/learnloop/router/mixture|learnloop.router.mixture]] — imports `seed_for`; calls `seed_for`
 - [[Reference/Modules/learnloop/router/requests|learnloop.router.requests]] — imports `module`; calls `llm_result_model`
 
@@ -219,6 +223,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rofu_carried.py](../../../../../../tests/test_rofu_carried.py) — direct import
   - `test_an_early_publication_served_keeps_its_carried_valuation`
 - [tests/test_rofu_switch_key.py](../../../../../../tests/test_rofu_switch_key.py) — direct import
+- [tests/test_router_failure_records.py](../../../../../../tests/test_router_failure_records.py) — direct import
+  - `test_the_store_names_the_routers_receipt_owner`
 - [tests/test_router_r2b_agreement.py](../../../../../../tests/test_router_r2b_agreement.py) — direct import
   - `test_replay_never_asks_a_model_and_is_deterministic`
 - [tests/test_router_r2b_serving.py](../../../../../../tests/test_router_r2b_serving.py) — direct import
