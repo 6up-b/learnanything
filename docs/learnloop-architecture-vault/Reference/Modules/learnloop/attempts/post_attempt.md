@@ -127,6 +127,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/followup_serve_helpers.py](../../../../../../tests/followup_serve_helpers.py) — direct import
 - [tests/split_live_helpers.py](../../../../../../tests/split_live_helpers.py) — direct import
 - [tests/test_ad23_fix_review.py](../../../../../../tests/test_ad23_fix_review.py) — direct import
+- [tests/test_attempt_chain_records.py](../../../../../../tests/test_attempt_chain_records.py) — direct import
 - [tests/test_attempt_completion.py](../../../../../../tests/test_attempt_completion.py) — direct import
   - `test_block_closing_diagnostic_answer_keeps_grader_provenance`
   - `test_committed_model_grade_keeps_its_provenance_through_recovery`

@@ -111,6 +111,8 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_ad23_contract.py`
+- `tests/test_attempt_chain_records.py`
 - `tests/test_decision_records_migration.py`
 - `tests/test_figure_decision_records.py`
 - `tests/test_provenance.py`

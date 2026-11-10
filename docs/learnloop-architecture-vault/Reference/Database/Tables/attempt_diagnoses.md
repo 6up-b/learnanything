@@ -21,8 +21,8 @@ source_paths:
   - "src/learnloop/db/stores/diagnoses.py"
   - "src/learnloop/db/stores/recurrence.py"
   - "src/learnloop/db/stores/write_provenance.py"
+  - "src/learnloop/diagnosis/chain_records.py"
   - "src/learnloop/diagnosis/recurrence/report.py"
-  - "src/learnloop/diagnosis/split/diagnoser.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"

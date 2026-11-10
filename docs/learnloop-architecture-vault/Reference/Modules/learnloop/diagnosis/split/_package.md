@@ -90,9 +90,9 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 17 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 15 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 14 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 14 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 13 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 13 static module edges
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 7 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 8 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 7 static module edges
 - [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 5 static module edges
@@ -126,9 +126,9 @@ flowchart LR
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_attempts["learnloop.attempts"]
+    n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_diagnosis_recurrence["learnloop.diagnosis.recurrence"]
     n_learnloop_db["learnloop.db"]
-    n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop -->|2| center
@@ -138,13 +138,13 @@ flowchart LR
     center -->|17| n_learnloop_ai
     center -->|15| n_learnloop_vault
     center -->|14| n_learnloop_attempts
+    center -->|14| n_learnloop_db_stores
     n_learnloop_diagnosis_recurrence -->|9| center
     center -->|5| n_learnloop_diagnosis_recurrence
     center -->|13| n_learnloop_db
-    center -->|13| n_learnloop_db_stores
     n_learnloop_cli -->|12| center
     n_learnloop_diagnosis -->|3| center
-    center -->|7| n_learnloop_diagnosis
+    center -->|8| n_learnloop_diagnosis
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

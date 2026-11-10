@@ -19,13 +19,13 @@ tags:
 # Module Catalog
 
 > [!abstract] Lookup contract
-> This catalog maps all **1273 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **617 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **68 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
+> This catalog maps all **1275 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **617 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **68 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
 
 ## Coverage and status
 
 | Refactor status | Modules | Meaning |
 |---|---:|---|
-| `ACTIVE` | 1250 | Live ownership after the refactor. |
+| `ACTIVE` | 1252 | Live ownership after the refactor. |
 | `COMPAT` | 4 | Live but frozen old-vault compatibility machinery. |
 | `DORMANT` | 2 | Explicitly disabled/descoped modules with no live workflow authority. |
 | `EVALUATION` | 17 | Shadow, audit, or offline evaluation code whose outputs are decision-inert. |
@@ -44,7 +44,7 @@ tags:
 | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] | `infrastructure` | `ACTIVE` | 24 | Provider-neutral structured transport, routing, provider composition, capability checks, and usage accounting. |
 | [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] | `infrastructure` | `ACTIVE` | 7 | Sign in with ChatGPT for the chatgpt_plan provider: the machine-local sign-in store, the PKCE flow, access tokens and plan-usage state, and its requests. |
 | [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] | `infrastructure` | `ACTIVE` | 13 | Concrete AI transport adapters behind the provider-neutral contract. |
-| [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] | `domain` | `ACTIVE` | 30 | Attempt acceptance, grading, interaction evidence, feedback, and post-attempt processing. |
+| [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] | `domain` | `ACTIVE` | 31 | Attempt acceptance, grading, interaction evidence, feedback, and post-attempt processing. |
 | [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] | `domain` | `ACTIVE` | 8 | The shared capture domain (the capture inbox); importing it never attaches or migrates. |
 | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] | `adapter` | `ACTIVE` | 57 | Typer command adapters, rendering, argument contracts, and command registration. |
 | [[Reference/Modules/learnloop/config/_package|learnloop.config]] | `infrastructure` | `ACTIVE` | 5 | Typed configuration schema, compatibility normalization, loading, and template emission. |
@@ -60,7 +60,7 @@ tags:
 | [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] | `domain` | `ACTIVE` | 4 | What later evaluation needs, recorded now: its switches, prefilter receipts, and the one read of Reader exposures with the sweep that freezes them. |
 | [[Reference/Modules/learnloop/db/_package|learnloop.db]] | `infrastructure` | `ACTIVE` | 9 | SQLite connections, migrations, repository compatibility, table roles, rebuilds, and persistence infrastructure. |
 | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] | `infrastructure` | `ACTIVE` | 55 | Table-family persistence owners extracted from the repository facade. |
-| [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] | `domain` | `ACTIVE` | 58 | Diagnostic probes, causal attribution, error classification, and remediation decisions. |
+| [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] | `domain` | `ACTIVE` | 59 | Diagnostic probes, causal attribution, error classification, and remediation decisions. |
 | [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] | `domain` | `ACTIVE` | 10 | The offline review of blind grading and history-aware diagnosis, run on backup copies with synthetic learners; never changes a live vault. |
 | [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] | `domain` | `ACTIVE` | 11 | Recurrence with authority: the same_cause match kind over causal hypotheses, its shortlist and judge, the live step and the backlog. |
 | [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] | `domain` | `ACTIVE` | 20 | History-aware diagnosis split from the learner-blind grader: history modes, the diagnoser's inputs, jobs and traces. |
@@ -162,6 +162,6 @@ SORT file.name ASC
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py
 ```
 
-The current generation discovered 1487 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
+The current generation discovered 1488 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
 
 Notes carry no commit of their own: the commit they were generated from is `module_generate.py`'s row in [[Reference/_generated|Generated Reference Provenance]], so a regeneration rewrites only the notes whose facts changed.

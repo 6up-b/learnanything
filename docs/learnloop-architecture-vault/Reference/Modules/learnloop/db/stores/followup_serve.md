@@ -48,58 +48,58 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/followup_serve.py](../../../../../../../src/learnloop/db/stores/followup_serve.py) |
-| Source lines | 390 |
+| Source lines | 406 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `present(connection: sqlite3.Connection, table: str=WORKFLOW_TABLE) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 29)
-- `insert_workflow(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 45) — The workflow's row; a repeat of its attempt and revision is a no-op (retry and crash recovery reuse the identity).
-- `workflow(connection: sqlite3.Connection, workflow_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 64)
-- `workflow_for_attempt(connection: sqlite3.Connection, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 68) — The attempt's newest workflow (a regrade's revision is the newest).
-- `workflow_for_item(connection: sqlite3.Connection, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 77)
-- `any_feedback_held(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 84) — A miss's causes are still held from the learner, somewhere.
-- `workflow_for_presentation(connection: sqlite3.Connection, presentation_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 92)
-- `open_workflows(connection: sqlite3.Connection, *, session_id: str | None=None, states: Iterable[str]=OPEN_STATES) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 99)
-- `update_workflow(connection: sqlite3.Connection, workflow_id: str, *, at: str, **fields: Any) -> None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 112)
-- `move_workflow(connection: sqlite3.Connection, workflow_id: str, *, from_states: Iterable[str], to_state: str, reason: str, at: str, detail: Mapping[str, Any] | None=None, **fields: Any) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 125) — Move a workflow from one of ``from_states``: a compare-and-set, so a late generator or diagnosis cannot move a workflow a fallback or a skip has settled.
-- `insert_event(connection: sqlite3.Connection, workflow_id: str, from_state: str | None, to_state: str, reason: str, detail: Mapping[str, Any], at: str) -> None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 149)
-- `workflow_events(connection: sqlite3.Connection, workflow_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 158)
-- `enqueue_generation_job(connection: sqlite3.Connection, *, kind: str, dedupe_key: str, at: str, workflow_id: str | None=None, probe_episode_id: str | None=None, need_id: str | None=None, not_before: str | None=None) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 166) — One row per deduplicated key; returns the new id, None for a repeat.
-- `requeue_generation_job(connection: sqlite3.Connection, dedupe_key: str, *, at: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 181) — IH2 (spec_instruct_handoff_v1 §5): the workflow's one job runs again for a new decision, with a new attempt count; the row stays one per key.
-- `lease_next_generation_job(connection: sqlite3.Connection, *, owner: str, now: str, lease_expires_at: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 193) — Lease the oldest runnable job, or reclaim one whose lease lapsed.
-- `finish_generation_job(connection: sqlite3.Connection, job: Mapping[str, Any], *, state: str, at: str, error: str | None=None, not_before: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 215) — Settle or requeue a leased job, fenced on its lease epoch.
-- `cancel_generation_jobs(connection: sqlite3.Connection, *, workflow_id: str | None=None, probe_episode_id: str | None=None, reason: str, at: str) -> int` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 227) — Queued work whose reason has gone (its hypotheses closed, a skip): never run.
-- `skip_generation_job(connection: sqlite3.Connection, dedupe_key: str, *, reason: str, at: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 248) — A queued job whose reason has gone, by its key (teacher TE2's lesson probes): never run.
-- `runnable_generation_jobs(connection: sqlite3.Connection) -> int` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 257)
-- `generation_job(connection: sqlite3.Connection, dedupe_key: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 263)
-- `insert_generated_probe(connection: sqlite3.Connection, *, practice_item_id: str, item_revision: str, source: str, at: str, workflow_id: str | None=None, probe_episode_id: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 271)
-- `generated_probe(connection: sqlite3.Connection, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 281)
-- `unclosed_probes_of_workflow(connection: sqlite3.Connection, workflow_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 286) — A workflow's generated probes with no burn: what an interrupted run left behind.
-- `episodes_pinned_by_workflow(connection: sqlite3.Connection, workflow_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 297) — The episodes holding a presentation of this workflow's generated probes, bound or not.
-- `live_candidates_of_item(connection: sqlite3.Connection, practice_item_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 308) — The item's causal probe candidates not yet rejected.
-- `administration_ended(connection: sqlite3.Connection, practice_item_id: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 317) — Some presentation of this item was answered or ended: its one administration is over.
-- `generated_probe_ids(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 326)
-- `insert_burn(connection: sqlite3.Connection, *, practice_item_id: str, kind: str, item_revision: str, reason: str, at: str, surface: str | None=None, presentation_id: str | None=None, workflow_id: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 330) — The atomic claim: the UNIQUE (item, kind) decides the one winner.
-- `burns_for_item(connection: sqlite3.Connection, practice_item_id: str) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 344)
-- `closed_generated_probe_ids(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 352) — Every generated probe with a burn or a retirement.
-- `append_binding(connection: sqlite3.Connection, *, decision_id: str, workflow_id: str, binding_kind: str, at: str, practice_item_id: str | None=None, probe_presentation_id: str | None=None, plan_presentation_id: str | None=None, outcome: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 362)
-- `bindings_for_decision(connection: sqlite3.Connection, decision_id: str) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 375)
-- `all_bindings(connection: sqlite3.Connection) -> dict[str, dict[str, dict[str, Any]]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 382) — Every decision's bindings, keyed by decision id and then kind (the outcome join's one read).
+- `present(connection: sqlite3.Connection, table: str=WORKFLOW_TABLE) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 30)
+- `insert_workflow(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 46) — The workflow's row; a repeat of its attempt and revision is a no-op (retry and crash recovery reuse the identity).
+- `workflow(connection: sqlite3.Connection, workflow_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 65)
+- `workflow_for_attempt(connection: sqlite3.Connection, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 69) — The attempt's newest workflow (a regrade's revision is the newest).
+- `workflow_for_item(connection: sqlite3.Connection, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 78)
+- `any_feedback_held(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 85) — A miss's causes are still held from the learner, somewhere.
+- `workflow_for_presentation(connection: sqlite3.Connection, presentation_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 93)
+- `open_workflows(connection: sqlite3.Connection, *, session_id: str | None=None, states: Iterable[str]=OPEN_STATES) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 100)
+- `update_workflow(connection: sqlite3.Connection, workflow_id: str, *, at: str, **fields: Any) -> None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 113)
+- `move_workflow(connection: sqlite3.Connection, workflow_id: str, *, from_states: Iterable[str], to_state: str, reason: str, at: str, detail: Mapping[str, Any] | None=None, **fields: Any) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 126) — Move a workflow from one of ``from_states``: a compare-and-set, so a late generator or diagnosis cannot move a workflow a fallback or a skip has settled.
+- `insert_event(connection: sqlite3.Connection, workflow_id: str, from_state: str | None, to_state: str, reason: str, detail: Mapping[str, Any], at: str) -> None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 150)
+- `workflow_events(connection: sqlite3.Connection, workflow_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 159)
+- `enqueue_generation_job(connection: sqlite3.Connection, *, kind: str, dedupe_key: str, at: str, workflow_id: str | None=None, probe_episode_id: str | None=None, need_id: str | None=None, not_before: str | None=None) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 167) — One row per deduplicated key; returns the new id, None for a repeat.
+- `requeue_generation_job(connection: sqlite3.Connection, dedupe_key: str, *, at: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 189) — IH2 (spec_instruct_handoff_v1 §5): the workflow's one job runs again for a new decision, with a new attempt count; the row stays one per key.
+- `lease_next_generation_job(connection: sqlite3.Connection, *, owner: str, now: str, lease_expires_at: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 209) — Lease the oldest runnable job, or reclaim one whose lease lapsed.
+- `finish_generation_job(connection: sqlite3.Connection, job: Mapping[str, Any], *, state: str, at: str, error: str | None=None, not_before: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 231) — Settle or requeue a leased job, fenced on its lease epoch.
+- `cancel_generation_jobs(connection: sqlite3.Connection, *, workflow_id: str | None=None, probe_episode_id: str | None=None, reason: str, at: str) -> int` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 243) — Queued work whose reason has gone (its hypotheses closed, a skip): never run.
+- `skip_generation_job(connection: sqlite3.Connection, dedupe_key: str, *, reason: str, at: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 264) — A queued job whose reason has gone, by its key (teacher TE2's lesson probes): never run.
+- `runnable_generation_jobs(connection: sqlite3.Connection) -> int` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 273)
+- `generation_job(connection: sqlite3.Connection, dedupe_key: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 279)
+- `insert_generated_probe(connection: sqlite3.Connection, *, practice_item_id: str, item_revision: str, source: str, at: str, workflow_id: str | None=None, probe_episode_id: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 287)
+- `generated_probe(connection: sqlite3.Connection, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 297)
+- `unclosed_probes_of_workflow(connection: sqlite3.Connection, workflow_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 302) — A workflow's generated probes with no burn: what an interrupted run left behind.
+- `episodes_pinned_by_workflow(connection: sqlite3.Connection, workflow_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 313) — The episodes holding a presentation of this workflow's generated probes, bound or not.
+- `live_candidates_of_item(connection: sqlite3.Connection, practice_item_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 324) — The item's causal probe candidates not yet rejected.
+- `administration_ended(connection: sqlite3.Connection, practice_item_id: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 333) — Some presentation of this item was answered or ended: its one administration is over.
+- `generated_probe_ids(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 342)
+- `insert_burn(connection: sqlite3.Connection, *, practice_item_id: str, kind: str, item_revision: str, reason: str, at: str, surface: str | None=None, presentation_id: str | None=None, workflow_id: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 346) — The atomic claim: the UNIQUE (item, kind) decides the one winner.
+- `burns_for_item(connection: sqlite3.Connection, practice_item_id: str) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 360)
+- `closed_generated_probe_ids(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 368) — Every generated probe with a burn or a retirement.
+- `append_binding(connection: sqlite3.Connection, *, decision_id: str, workflow_id: str, binding_kind: str, at: str, practice_item_id: str | None=None, probe_presentation_id: str | None=None, plan_presentation_id: str | None=None, outcome: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 378)
+- `bindings_for_decision(connection: sqlite3.Connection, decision_id: str) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 391)
+- `all_bindings(connection: sqlite3.Connection) -> dict[str, dict[str, dict[str, Any]]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 398) — Every decision's bindings, keyed by decision id and then kind (the outcome join's one read).
 
 ### Module constants
 
-- `WORKFLOW_TABLE` ([src/learnloop/db/stores/followup_serve.py](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 17)
-- `TERMINAL_STATES` ([src/learnloop/db/stores/followup_serve.py](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 19)
-- `OPEN_STATES` ([src/learnloop/db/stores/followup_serve.py](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 20)
-- `WORKFLOW_FIELDS` ([src/learnloop/db/stores/followup_serve.py](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 22)
+- `WORKFLOW_TABLE` ([src/learnloop/db/stores/followup_serve.py](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 18)
+- `TERMINAL_STATES` ([src/learnloop/db/stores/followup_serve.py](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 20)
+- `OPEN_STATES` ([src/learnloop/db/stores/followup_serve.py](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 21)
+- `WORKFLOW_FIELDS` ([src/learnloop/db/stores/followup_serve.py](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 23)
 
 ## Internal implementation anchors
 
-- `_row(row: Any) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 34)
-- `_rows(cursor: Iterable[Any]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 38)
+- `_row(row: Any) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 35)
+- `_rows(cursor: Iterable[Any]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 39)
 
 ## Who imports or calls it
 
@@ -118,6 +118,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/db/stores/provenance|learnloop.db.stores.provenance]] — imports `module`; calls `record_job_enqueued`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 
 ### Platform and third-party dependencies

@@ -351,6 +351,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_approach_maps.py](../../../../../../tests/test_approach_maps.py) — direct import
   - `test_the_dry_run_prints_the_estimate_and_writes_nothing`
   - `test_the_hints_report_shows_maps_failures_routes_and_spend`
+- [tests/test_attempt_chain_records.py](../../../../../../tests/test_attempt_chain_records.py) — direct import
 - [tests/test_attempt_content_state_successor.py](../../../../../../tests/test_attempt_content_state_successor.py) — direct import
   - `test_a_bare_upgrade_targets_the_latest_through_mvp037`
   - `test_landing_ii_an_interrupted_mvp036_activation_then_upgrade_to_mvp037_completes_it`

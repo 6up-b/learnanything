@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/regrade.py](../../../../../../src/learnloop/attempts/regrade.py) |
-| Source lines | 827 |
+| Source lines | 847 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -69,9 +69,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - `_run_deferred_agent_regrades(vault: LoadedVault, repository: Repository, *, runtime, client: AIProviderClient | None, missing_client_reason: str, grading_source: str, limit: int | None, clock: Clock | None) -> DeferredRegradeResult` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 116)
 - `_publish_regrade(vault: LoadedVault, repository: Repository, attempt: dict, *, item, learning_object, validated: ValidatedCodexGrade, agent_run_id: str, new_evidence_rows: list[dict], first_new_evidence_id: str, supersede_tiers: tuple[int, ...], new_score: int, rubric, bind_frozen: Any | None, cite_contract: bool=False, primary_error_type: str | None, content_events: list[dict], blind_record: dict | None, prior_blind: dict | None, blind_context_hash: str | None, grader_identity_overrides: dict[str, tuple[str, str] | None] | None, clock: Clock | None, grading_source: str='ai') -> None` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 562) — Every write of one regrade, in order, inside the caller's transaction.
-- `_agent_run_provider_fields(client: AIProviderClient, runtime) -> dict[str, str | None]` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 796)
-- `_manual_review_reason(existing: str | None, attempt: dict) -> str | None` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 812)
-- `_disagreement_summary(old_evidence, new_evidence_rows, old_score: int, new_score: int) -> str` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 824)
+- `_agent_run_provider_fields(client: AIProviderClient, runtime) -> dict[str, str | None]` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 816)
+- `_manual_review_reason(existing: str | None, attempt: dict) -> str | None` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 832)
+- `_disagreement_summary(old_evidence, new_evidence_rows, old_score: int, new_score: int) -> str` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 844)
 
 ## Who imports or calls it
 
@@ -96,6 +96,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `GradeAttribution`, `_blind_grading_plan`, `assessed_rubric_score`, `attempt_graded_contract`, `publish_regraded_probe_grade`, `regrade_reads_contract`, `snapshot_graded_contract`, `unverified_attribution_json`; calls `GradeAttribution`, `_blind_grading_plan`, `assessed_rubric_score`, `attempt_graded_contract`, `publish_regraded_probe_grade`, `regrade_reads_contract`, `snapshot_graded_contract`, `unverified_attribution_json`
 - [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] — imports `BLIND_GRADER_OUTPUT_SCHEMA_VERSION`, `split_grading_active`, `validate_blind_grading_proposal`; calls `split_grading_active`, `validate_blind_grading_proposal`
 - [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]] — imports `record_clarification`; calls `record_clarification`
+- [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]] — imports `held_now`, `record_grade`; calls `held_now`, `record_grade`
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `GradingValidationError`, `ValidatedCodexGrade`, `build_grading_context`, `grading_context_hash`, `request_vault_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`, `vault_grading_calibration_identity`, `vault_grading_run_identity`; calls `build_grading_context`, `grading_context_hash`, `request_vault_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`, `vault_grading_calibration_identity`, `vault_grading_run_identity`
 - [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] — imports `gated_review_reason`, `record_route_rule_judgment`, `request_blind_grading_run`, `revalidated_support`; calls `gated_review_reason`, `record_route_rule_judgment`, `request_blind_grading_run`, `revalidated_support`
 - [[Reference/Modules/learnloop/attempts/stuck|learnloop.attempts.stuck]] — imports `STUCK_READING_KEY`, `record_stuck_reading_judgment`, `stuck_answer_prompt`, `verified_stuck_reading`; calls `record_stuck_reading_judgment`, `stuck_answer_prompt`, `verified_stuck_reading`

@@ -172,7 +172,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop_sidecar/handlers/measurement|learnloop_sidecar.handlers.measurement]] | [[Reference/Modules/learnloop_sidecar/handlers/measurement#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]] | [[Reference/Modules/learnloop_sidecar/handlers/notes#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop_sidecar/handlers/placement|learnloop_sidecar.handlers.placement]] | [[Reference/Modules/learnloop_sidecar/handlers/placement#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
-| [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] | [[Reference/Modules/learnloop_sidecar/handlers/practice#^module-purpose|purpose]] | `ACTIVE` | 7 | 36 |
+| [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] | [[Reference/Modules/learnloop_sidecar/handlers/practice#^module-purpose|purpose]] | `ACTIVE` | 7 | 37 |
 | [[Reference/Modules/learnloop_sidecar/handlers/practice_index|learnloop_sidecar.handlers.practice_index]] | [[Reference/Modules/learnloop_sidecar/handlers/practice_index#^module-purpose|purpose]] | `ACTIVE` | 4 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/proposals|learnloop_sidecar.handlers.proposals]] | [[Reference/Modules/learnloop_sidecar/handlers/proposals#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/provenance|learnloop_sidecar.handlers.provenance]] | [[Reference/Modules/learnloop_sidecar/handlers/provenance#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
@@ -211,9 +211,9 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 41 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 39 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 39 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 31 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 31 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 30 static module edges
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 30 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 27 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 26 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 25 static module edges
@@ -273,9 +273,9 @@ flowchart LR
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_instructional["learnloop.instructional"]
+    n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_attempts["learnloop.attempts"]
-    n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_sidecar -->|6| center
     center -->|340| n_learnloop_sidecar
@@ -284,9 +284,9 @@ flowchart LR
     center -->|41| n_learnloop_source_retrieval
     center -->|39| n_learnloop_ai
     center -->|39| n_learnloop_instructional
+    center -->|31| n_learnloop_diagnosis
     center -->|31| n_learnloop_learner
     center -->|30| n_learnloop_attempts
-    center -->|30| n_learnloop_diagnosis
     center -->|27| n_learnloop_content_sources
 ```
 

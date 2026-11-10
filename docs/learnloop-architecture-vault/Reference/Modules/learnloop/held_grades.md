@@ -94,6 +94,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `held_for_review_attempts`; statically calls `held_for_review_attempts`
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `held_attempt_ids`, `record_held_for_review`; statically calls `held_attempt_ids`, `record_held_for_review`
+- [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]] — imports `attempt_grade_held`; statically calls `attempt_grade_held`
 - [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] — imports `attempt_grade_held`; statically calls `attempt_grade_held`
 - [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `attempt_grade_held`; statically calls `attempt_grade_held`
 - [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] — imports `held_attempt_ids`; statically calls `held_attempt_ids`
@@ -165,7 +166,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] and 45 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] and 46 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

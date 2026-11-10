@@ -88,6 +88,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `GRADE_CONTRACT_UNRECORDED`, `HELD_ROW_KEY`, `grade_held_for_review`, `grade_is_held`; statically calls `grade_held_for_review`, `grade_is_held`
+- [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]] — imports `GRADE_CONTRACT_UNRECORDED`, `GRADE_HELD_FOR_REVIEW`
 - [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] — imports `GRADE_CONTRACT_UNRECORDED`
 - [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] — imports `GRADE_HELD_FOR_REVIEW`
 - [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] — imports `GRADE_HELD_FOR_REVIEW`
@@ -138,12 +139,14 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] and 27 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] and 28 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_attempt_chain_records.py](../../../../../tests/test_attempt_chain_records.py) — direct import
+  - `test_a_held_grade_gets_a_record_when_the_hold_first_applies`
 - [tests/test_collection_dataset.py](../../../../../tests/test_collection_dataset.py) — direct import
   - `test_adjudication_accepts_evidence_keyed_by_a_non_id_primary_key`
   - `test_retention_contract_rejects_contaminated_or_unobserved_labels`

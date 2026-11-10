@@ -46,26 +46,26 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/voi_forecasting.py](../../../../../../src/learnloop/diagnosis/voi_forecasting.py) |
-| Source lines | 602 |
+| Source lines | 618 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `record_probe_presentation_forecast(vault: Any, repository: Repository, presentation: Any, *, learning_object_id: str | None=None, candidate_count: int | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 95) — Forecast of one committed probe presentation (site ``probe_selection``).
-- `record_robust_selection_forecast(vault: Any, repository: Repository, *, episode: Any, decision: rc.RobustDecision, candidates: Sequence[Any], ensembles: Mapping[str, rc.Ensemble] | None, posterior: Mapping[str, float], observations: int, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 178) — Forecast of the robust stop/abstain gate (site ``probe_robust_selection``).
-- `facet_contract_criteria_hash(criteria: Any) -> str` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 281) — Identity of an assessment contract's ``criteria`` (with their targets).
-- `target_facet_contract(vault: Any, item: Any, rubric: Any, facet: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 294) — How the chosen item's answer measures ``facet``, frozen at selection time.
-- `record_followup_forecast(vault: Any, repository: Repository, *, attempt_id: str, learning_object_id: str, selection: Any, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 350) — Forecast of a queued follow-up (site ``followup_selection``).
-- `value_decision_is_forecast(body: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 456) — Whether a ``voi_stopping`` receipt is a valued decision (it carries the valuation of the check it is about), so a forecast.
-- `record_value_decision_forecast(vault: Any, repository: Repository, body: Mapping[str, Any] | None, *, receipt_key: str, scheduler_exploration: Mapping[str, Any] | None=None, extra: Mapping[str, Any] | None=None, clock: Clock | None=None, **columns: Any) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 482) — One value-of-information stop/continue decision (``SiteDecision.as_dict`` or a per-check receipt) as a ``voi_forecasts`` row.
+- `record_probe_presentation_forecast(vault: Any, repository: Repository, presentation: Any, *, learning_object_id: str | None=None, candidate_count: int | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 107) — Forecast of one committed probe presentation (site ``probe_selection``).
+- `record_robust_selection_forecast(vault: Any, repository: Repository, *, episode: Any, decision: rc.RobustDecision, candidates: Sequence[Any], ensembles: Mapping[str, rc.Ensemble] | None, posterior: Mapping[str, float], observations: int, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 191) — Forecast of the robust stop/abstain gate (site ``probe_robust_selection``).
+- `facet_contract_criteria_hash(criteria: Any) -> str` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 295) — Identity of an assessment contract's ``criteria`` (with their targets).
+- `target_facet_contract(vault: Any, item: Any, rubric: Any, facet: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 308) — How the chosen item's answer measures ``facet``, frozen at selection time.
+- `record_followup_forecast(vault: Any, repository: Repository, *, attempt_id: str, learning_object_id: str, selection: Any, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 364) — Forecast of a queued follow-up (site ``followup_selection``).
+- `value_decision_is_forecast(body: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 471) — Whether a ``voi_stopping`` receipt is a valued decision (it carries the valuation of the check it is about), so a forecast.
+- `record_value_decision_forecast(vault: Any, repository: Repository, body: Mapping[str, Any] | None, *, receipt_key: str, scheduler_exploration: Mapping[str, Any] | None=None, extra: Mapping[str, Any] | None=None, clock: Clock | None=None, **columns: Any) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 497) — One value-of-information stop/continue decision (``SiteDecision.as_dict`` or a per-check receipt) as a ``voi_forecasts`` row.
 
 ### Module constants
 
-- `FACET_OUTCOME_CONTRACT_VERSION` ([src/learnloop/diagnosis/voi_forecasting.py](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 278)
-- `VALUE_DECISION_SITES` ([src/learnloop/diagnosis/voi_forecasting.py](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 443)
-- `_NOT_VALUED_REASONS` ([src/learnloop/diagnosis/voi_forecasting.py](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 453)
+- `FACET_OUTCOME_CONTRACT_VERSION` ([src/learnloop/diagnosis/voi_forecasting.py](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 292)
+- `VALUE_DECISION_SITES` ([src/learnloop/diagnosis/voi_forecasting.py](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 458)
+- `_NOT_VALUED_REASONS` ([src/learnloop/diagnosis/voi_forecasting.py](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 468)
 
 ### Explicit exports
 
@@ -80,9 +80,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_route_action_of(repository: Repository, labels: Sequence[str]) -> tuple[Callable[[Mapping[str, float]], str | None], str]` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 56)
-- `_vocabulary_parameters(instrument: CompiledInstrument) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 78)
-- `_coarse_parameters(parameters: Sequence[Mapping[str, Any]] | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 465) — The decision's own parameter list on ``voi_forecasts``' coarse provenance vocabulary: a provenance outside it (the multi-family study's ``evsi_multisim`` recommendations, set by simulation, never measured on this learner) reads ``heuristic`` and keeps its own as ``fine_provenanc…
+- `_forecast_failed(repository: Any, site: str, exc: BaseException, decision_ref: Any, receipt_key: str | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 56) — Refactor B7: a forecast that could not be logged leaves a ``voi_forecast`` record (it was a log line only); the decision it describes stands, and the record never raises.
+- `_route_action_of(repository: Repository, labels: Sequence[str]) -> tuple[Callable[[Mapping[str, float]], str | None], str]` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 68)
+- `_vocabulary_parameters(instrument: CompiledInstrument) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 90)
+- `_coarse_parameters(parameters: Sequence[Mapping[str, Any]] | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/voi_forecasting.py), line 480) — The decision's own parameter list on ``voi_forecasts``' coarse provenance vocabulary: a provenance outside it (the multi-family study's ``evsi_multisim`` recommendations, set by simulation, never measured on this learner) reads ``heuristic`` and keeps its own as ``fine_provenanc…
 
 ## Who imports or calls it
 
@@ -100,6 +101,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/diagnosis/chain_records|learnloop.diagnosis.chain_records]] — imports `module`; calls `record_forecast_failed`
 - [[Reference/Modules/learnloop/diagnosis/probe_families|learnloop.diagnosis.probe_families]] — imports `CompiledInstrument`, `GRADER_CHANNEL_RELIABILITY`, `ORDINAL_VOCABULARY`, `SELECTION_POLICY_VERSION`, `instrument_conditionals`; calls `instrument_conditionals`
 - [[Reference/Modules/learnloop/diagnosis/probe_hypotheses|learnloop.diagnosis.probe_hypotheses]] — imports `triage_reason_for_label`; calls `triage_reason_for_label`
 - [[Reference/Modules/learnloop/diagnosis/probes|learnloop.diagnosis.probes]] — imports `facet_conditional_distribution`, `resolve_item_irt`; calls `facet_conditional_distribution`, `resolve_item_irt`
@@ -126,6 +128,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_attempt_chain_records.py](../../../../../../tests/test_attempt_chain_records.py) — direct import
+  - `test_a_failed_forecast_and_a_failed_post_diagnosis_step_leave_records`
 - [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import
   - `test_followup_forecast_uses_the_facet_model`
   - `test_robust_gate_forecast_records_the_eig_paths_minutes`

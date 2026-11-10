@@ -71,7 +71,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/_package|learnloop]] — 10 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 9 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 7 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 5 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 6 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 4 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 4 static module edges
@@ -114,7 +114,7 @@ flowchart LR
     center -->|9| n_learnloop_db
     n_learnloop_sidecar_handlers -->|9| center
     center -->|7| n_learnloop_daily_plan
-    center -->|5| n_learnloop_db_stores
+    center -->|6| n_learnloop_db_stores
     center -->|4| n_learnloop_ai
     center -->|4| n_learnloop_content_authoring
     center -->|4| n_learnloop_vault
