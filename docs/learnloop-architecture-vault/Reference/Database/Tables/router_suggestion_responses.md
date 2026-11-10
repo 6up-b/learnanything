@@ -17,12 +17,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/236_router_lesson_suggestions.sql"
   - "src/learnloop/algorithm_versions.py"
-  - "src/learnloop/config/template.py"
   - "src/learnloop/daily_plan/lesson_suggestion.py"
   - "src/learnloop/db/stores/router_suggestions.py"
   - "src/learnloop/lesson_offers_upgrade.py"
   - "src/learnloop/lesson_suggestions_upgrade.py"
   - "src/learnloop/router/lesson_suggestions.py"
+  - "src/learnloop/router/outcomes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"

@@ -47,14 +47,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py) |
-| Source lines | 1245 |
+| Source lines | 1244 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `successors_from(version: str) -> frozenset[str]` ([source](../../../../../src/learnloop/algorithm_versions.py), line 971) — ``version`` and every later tag in :data:`SUCCESSOR_CHAIN`.
+- `successors_from(version: str) -> frozenset[str]` ([source](../../../../../src/learnloop/algorithm_versions.py), line 970) — ``version`` and every later tag in :data:`SUCCESSOR_CHAIN`.
 
 ### Module constants
 
@@ -108,57 +108,57 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `FAILURE_SHARE_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 884)
 - `UNEVIDENCED_RETURN_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 899)
 - `SLIP_GAP_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 910)
-- `SUCCESSOR_CHAIN` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 919)
-- `DIAGNOSIS_SPLIT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 982)
-- `RECURRENCE_GROUP_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 987)
-- `STUCK_PROMPT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 993)
-- `P0_SUCCESSOR_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 998)
-- `P0_PROJECTION_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 999)
-- `CANONICAL_STATE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1006)
-- `PLACEMENT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1013)
-- `DAILY_PLAN_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1018)
-- `PROBE_TIE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1023)
-- `LEARNER_TEXT_GAP_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1029)
-- `SOURCE_REFERENCE_GATE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1033)
-- `SOURCE_FIRST_NEEDS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1037)
-- `ROUTE_RULES_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1044)
-- `VOI_STOPPING_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1051)
-- `DECIDER_TIER1_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1055)
-- `ROUTER_STAGED_FRAME_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1060)
-- `ROUTER_MIXTURE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1066)
-- `METHOD_EXPLICIT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1072)
-- `REGRADE_CONTRACT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1078)
-- `ELIGIBILITY_DECISION_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1084)
-- `INTENT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1089)
-- `ADAPTIVE_DIFFICULTY_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1095)
-- `WORKBENCH_FIELD_SIGNALS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1101)
-- `READING_PATH_PLAN_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1106)
-- `CLAIM_FIXES_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1112)
-- `REPLAY_LEDGER_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1117)
-- `ONE_ASK_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1123)
-- `SUPERSEDED_CLAIMS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1128)
-- `ATTEMPT_CONTENT_STATE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1134)
-- `COLD_RETRY_RESCHEDULE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1139)
-- `READER_FOLLOWUPS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1144)
-- `DELIVERABLE_PLAN_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1148)
-- `TEACHER_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1151)
-- `HELP_FOLD_ATTACH_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1156)
-- `LESSON_SUGGESTIONS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1161)
-- `DATA_CAPTURE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1167)
-- `FOLLOWUP_SERVE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1172)
-- `INTERVAL_FACTOR_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1179)
-- `ROUTER_OBJECTIVE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1185)
-- `ROUTER_CALIBRATION_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1191)
-- `ROUTER_LEARNED_TAIL_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1197)
-- `ROUTER_FOLLOWUPS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1202)
-- `TEACHER_PROBES_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1207)
-- `LESSON_OPPORTUNITY_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1214)
-- `LESSON_OFFERS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1220)
-- `PHONE_PROBES_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1224)
-- `FAILURE_SHARE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1230)
-- `UNEVIDENCED_RETURN_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1235)
-- `SLIP_GAP_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1240)
-- `LATEST_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1245)
+- `SUCCESSOR_CHAIN` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 918)
+- `DIAGNOSIS_SPLIT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 981)
+- `RECURRENCE_GROUP_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 986)
+- `STUCK_PROMPT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 992)
+- `P0_SUCCESSOR_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 997)
+- `P0_PROJECTION_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 998)
+- `CANONICAL_STATE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1005)
+- `PLACEMENT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1012)
+- `DAILY_PLAN_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1017)
+- `PROBE_TIE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1022)
+- `LEARNER_TEXT_GAP_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1028)
+- `SOURCE_REFERENCE_GATE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1032)
+- `SOURCE_FIRST_NEEDS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1036)
+- `ROUTE_RULES_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1043)
+- `VOI_STOPPING_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1050)
+- `DECIDER_TIER1_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1054)
+- `ROUTER_STAGED_FRAME_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1059)
+- `ROUTER_MIXTURE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1065)
+- `METHOD_EXPLICIT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1071)
+- `REGRADE_CONTRACT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1077)
+- `ELIGIBILITY_DECISION_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1083)
+- `INTENT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1088)
+- `ADAPTIVE_DIFFICULTY_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1094)
+- `WORKBENCH_FIELD_SIGNALS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1100)
+- `READING_PATH_PLAN_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1105)
+- `CLAIM_FIXES_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1111)
+- `REPLAY_LEDGER_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1116)
+- `ONE_ASK_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1122)
+- `SUPERSEDED_CLAIMS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1127)
+- `ATTEMPT_CONTENT_STATE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1133)
+- `COLD_RETRY_RESCHEDULE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1138)
+- `READER_FOLLOWUPS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1143)
+- `DELIVERABLE_PLAN_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1147)
+- `TEACHER_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1150)
+- `HELP_FOLD_ATTACH_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1155)
+- `LESSON_SUGGESTIONS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1160)
+- `DATA_CAPTURE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1166)
+- `FOLLOWUP_SERVE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1171)
+- `INTERVAL_FACTOR_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1178)
+- `ROUTER_OBJECTIVE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1184)
+- `ROUTER_CALIBRATION_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1190)
+- `ROUTER_LEARNED_TAIL_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1196)
+- `ROUTER_FOLLOWUPS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1201)
+- `TEACHER_PROBES_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1206)
+- `LESSON_OPPORTUNITY_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1213)
+- `LESSON_OFFERS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1219)
+- `PHONE_PROBES_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1223)
+- `FAILURE_SHARE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1229)
+- `UNEVIDENCED_RETURN_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1234)
+- `SLIP_GAP_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1239)
+- `LATEST_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1244)
 
 ## Internal implementation anchors
 
@@ -294,7 +294,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/router_mixture_helpers.py](../../../../../tests/router_mixture_helpers.py) — direct import
 - [tests/teacher_fakes.py](../../../../../tests/teacher_fakes.py) — direct import
 - [tests/test_ad23_successor.py](../../../../../tests/test_ad23_successor.py) — direct import
-  - `test_the_successor_is_the_next_link_with_its_defaults_snapshot`
+  - `test_the_successor_is_the_next_link`
 - [tests/test_ad_denial_log.py](../../../../../tests/test_ad_denial_log.py) — direct import
 - [tests/test_ai_config.py](../../../../../tests/test_ai_config.py) — direct import
   - `test_default_config_contains_ai_codex_profile`
@@ -321,7 +321,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_config_refactor.py](../../../../../tests/test_config_refactor.py) — direct import
   - `test_a_successor_merge_appends_one_tag_and_every_gate_follows`
   - `test_new_vaults_start_at_the_latest_algorithm_version`
-  - `test_the_defaults_snapshot_covers_the_successor_chain`
+  - `test_the_template_renders_at_every_tag_by_its_label_alone`
 - [tests/test_curriculum_c0b_landing.py](../../../../../tests/test_curriculum_c0b_landing.py) — direct import
 - [tests/test_curriculum_c1_landing.py](../../../../../tests/test_curriculum_c1_landing.py) — direct import
   - `test_the_chain_is_rw6b_then_c1`
@@ -334,7 +334,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_successor.py](../../../../../tests/test_data_capture_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_te1b_and_the_latest`
 - [tests/test_diagnosis_input_provenance.py](../../../../../tests/test_diagnosis_input_provenance.py) — direct import
-  - `test_f5_every_defaults_snapshot_records_the_switch_off`
+  - `test_f5_every_tag_defaults_the_switch_off`
+- [tests/test_effective_defaults_golden.py](../../../../../tests/test_effective_defaults_golden.py) — direct import
+  - `test_every_tag_has_the_latest_defaults_apart_from_its_label`
+  - `test_the_golden_file_reads_back_as_the_effective_config`
 - [tests/test_evsi_staged_binding.py](../../../../../tests/test_evsi_staged_binding.py) — direct import
 - [tests/test_exam_protection_review.py](../../../../../tests/test_exam_protection_review.py) — direct import
   - `test_replay_never_reads_the_switch`
@@ -382,7 +385,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_lp_claim_fixes_rereview.py](../../../../../tests/test_lp_claim_fixes_rereview.py) — direct import
 - [tests/test_lp_claim_fixes_review.py](../../../../../tests/test_lp_claim_fixes_review.py) — direct import
 - [tests/test_method_explicit_upgrade.py](../../../../../tests/test_method_explicit_upgrade.py) — direct import
-  - `test_defaults_fingerprint_is_recorded_for_the_successor`
   - `test_new_vaults_start_at_the_successor`
   - `test_the_successor_is_the_latest_and_keeps_every_predecessor`
   - `test_upgrade_command_defaults_to_the_successor`
@@ -400,49 +402,39 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_new_vaults_start_at_the_latest_version`
   - `test_placement_successor_keeps_the_split_and_the_p0_projection_namespace`
 - [tests/test_mvp013_upgrade.py](../../../../../tests/test_mvp013_upgrade.py) — direct import
-  - `test_defaults_fingerprint_is_recorded_for_the_successor`
   - `test_stuck_version_is_a_successor_and_keeps_every_predecessor`
 - [tests/test_mvp014_upgrade.py](../../../../../tests/test_mvp014_upgrade.py) — direct import
-  - `test_defaults_fingerprint_is_recorded_for_the_plan_successor`
   - `test_new_vaults_serve_the_plan`
   - `test_the_plan_successor_keeps_every_predecessor`
 - [tests/test_mvp015_upgrade.py](../../../../../tests/test_mvp015_upgrade.py) — direct import
-  - `test_defaults_fingerprint_is_recorded_for_the_probe_tie_successor`
   - `test_new_vaults_start_at_a_successor_that_admits_probe_ties`
   - `test_probe_tie_successor_keeps_every_predecessor`
   - `test_upgrade_command_defaults_to_the_latest`
 - [tests/test_mvp016_upgrade.py](../../../../../tests/test_mvp016_upgrade.py) — direct import
-  - `test_defaults_fingerprint_is_recorded_for_the_learner_text_gap_successor`
   - `test_learner_text_gap_successor_keeps_every_predecessor`
   - `test_new_vaults_start_at_a_successor_with_sooner_checks`
   - `test_upgrade_command_defaults_to_the_latest`
 - [tests/test_mvp017_upgrade.py](../../../../../tests/test_mvp017_upgrade.py) — direct import
   - `test_the_route_check_successor_keeps_every_predecessor`
 - [tests/test_mvp018_upgrade.py](../../../../../tests/test_mvp018_upgrade.py) — direct import
-  - `test_defaults_fingerprints_are_recorded_for_every_successor`
   - `test_the_sources_successors_follow_the_route_check_and_keep_every_predecessor`
 - [tests/test_mvp020_upgrade.py](../../../../../tests/test_mvp020_upgrade.py) — direct import
-  - `test_defaults_fingerprint_is_recorded_for_the_route_rules_successor`
   - `test_new_vaults_start_at_a_successor_with_the_route_rules`
   - `test_the_route_rules_successor_keeps_every_predecessor`
   - `test_upgrade_command_defaults_to_the_latest`
 - [tests/test_mvp021_upgrade.py](../../../../../tests/test_mvp021_upgrade.py) — direct import
-  - `test_defaults_fingerprint_is_recorded_for_every_successor`
   - `test_new_vaults_start_at_a_successor_with_voi_stopping`
   - `test_upgrade_command_defaults_to_the_latest`
   - `test_voi_successor_keeps_every_predecessor`
 - [tests/test_mvp022_upgrade.py](../../../../../tests/test_mvp022_upgrade.py) — direct import
-  - `test_defaults_fingerprints_are_recorded_for_every_successor`
   - `test_new_vaults_start_at_a_successor_with_the_deciders_judgments`
   - `test_the_decider_successor_follows_voi_stopping_and_keeps_every_predecessor`
   - `test_upgrade_command_defaults_to_the_latest`
 - [tests/test_mvp023_upgrade.py](../../../../../tests/test_mvp023_upgrade.py) — direct import
-  - `test_defaults_fingerprints_are_recorded_for_every_successor`
   - `test_new_vaults_start_at_the_router_successor`
   - `test_the_router_successor_follows_the_decider_and_keeps_every_predecessor`
   - `test_upgrade_command_defaults_to_the_latest`
 - [tests/test_mvp024_upgrade.py](../../../../../tests/test_mvp024_upgrade.py) — direct import
-  - `test_defaults_fingerprints_are_recorded_for_every_successor`
   - `test_new_vaults_start_at_the_mixture_successor`
   - `test_the_mixture_successor_follows_the_staged_frame_and_keeps_every_predecessor`
   - `test_upgrade_command_defaults_to_the_latest`
@@ -454,7 +446,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name`
   - `test_the_successor_is_one_constant_after_its_predecessor_and_the_latest`
 - [tests/test_plan_determinism.py](../../../../../tests/test_plan_determinism.py) — direct import
-  - `test_every_defaults_snapshot_records_the_switch_on`
+  - `test_every_tag_defaults_the_switch_on`
   - `test_replay_never_reads_the_switch`
   - `test_the_switch_acts_only_where_the_router_composes_today`
 - [tests/test_plan_determinism_landing.py](../../../../../tests/test_plan_determinism_landing.py) — direct import
@@ -485,7 +477,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f2_r3_embedded_credit_whose_direct_credit_was_regraded_away_leaves_the_claim_open`
 - [tests/test_reader_rw3a_landing.py](../../../../../tests/test_reader_rw3a_landing.py) — direct import
 - [tests/test_reading_step_switch.py](../../../../../tests/test_reading_step_switch.py) — direct import
-  - `test_every_defaults_snapshot_records_the_switch_on`
+  - `test_every_tag_defaults_the_switch_on`
   - `test_new_vaults_read_on_from_the_furthest_section`
   - `test_replay_never_reads_the_switch`
   - `test_the_reading_step_acts_wherever_the_plan_acts_behind_its_switch`
@@ -493,7 +485,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rebuild_equivalence.py](../../../../../tests/test_rebuild_equivalence.py) — direct import
   - `test_a_second_learner_report_on_an_lo_after_an_attempt_rebuilds_to_live`
 - [tests/test_rebuild_equivalence_review.py](../../../../../tests/test_rebuild_equivalence_review.py) — direct import
-  - `test_the_successor_is_one_constant_after_its_predecessor_with_its_defaults_snapshot`
+  - `test_the_successor_is_one_constant_after_its_predecessor`
   - `test_upgrade_from_the_predecessor_rebuilds_to_live_and_through_the_chain`
 - [tests/test_recurrence_commands.py](../../../../../tests/test_recurrence_commands.py) — direct import
   - `test_successor_vocabulary`

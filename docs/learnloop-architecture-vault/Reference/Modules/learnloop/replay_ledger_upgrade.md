@@ -131,7 +131,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_failed_activation_leaves_the_predecessor_and_a_dead_one_resumes`
   - `test_a_partial_rebuild_under_the_tag_does_not_complete_the_activation`
   - `test_a_startup_receipt_after_a_died_activation_does_not_hide_it`
-  - `test_the_successor_is_one_constant_after_its_predecessor_with_its_defaults_snapshot`
+  - `test_the_successor_is_one_constant_after_its_predecessor`
   - `test_upgrade_from_the_predecessor_rebuilds_to_live_and_through_the_chain`
 
 ## Modification guidance

@@ -21,9 +21,9 @@ source_paths:
   - "src/learnloop/cli/diagnosis.py"
   - "src/learnloop/cli/evsi.py"
   - "src/learnloop/config/schema.py"
-  - "src/learnloop/config/template.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/data_capture/prefilter.py"
+  - "src/learnloop/db/stores/forecast_receipts.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"

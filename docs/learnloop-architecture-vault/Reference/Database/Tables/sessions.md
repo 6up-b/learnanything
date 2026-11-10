@@ -23,7 +23,7 @@ source_paths:
   - "src/learnloop/capture/report.py"
   - "src/learnloop/cli/hints.py"
   - "src/learnloop/config/schema.py"
-  - "src/learnloop/config/template.py"
+  - "src/learnloop/curriculum/ai_contracts.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/reentry.py"

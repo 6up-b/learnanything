@@ -36,7 +36,7 @@ Up: [[Reference/Modules/learnloop/config/_package|learnloop.config]] · Root: [[
 
 ## Why this module exists
 
-`learnloop.config.template` exists within [[Reference/Modules/learnloop/config/_package|learnloop.config]] to own the behavior summarized by its module contract: Generated configuration text and the effective-defaults snapshot contract.
+`learnloop.config.template` exists within [[Reference/Modules/learnloop/config/_package|learnloop.config]] to own the behavior summarized by its module contract: The decision-only configuration template a new vault is written with.
 
 The authoritative system-level explanation remains in [[Configuration]], [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -47,36 +47,28 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py) |
-| Source lines | 4255 |
+| Source lines | 125 |
 | Owning package | [[Reference/Modules/learnloop/config/_package|learnloop.config]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `default_config_text(algorithm_version: str=LATEST_ALGORITHM_VERSION) -> str` ([source](../../../../../../src/learnloop/config/template.py), line 822) — The decision-only template as a vault at ``algorithm_version`` holds it.
-- `write_default_config(path: Path) -> None` ([source](../../../../../../src/learnloop/config/template.py), line 4204) — Write the decision-only template without replacing an existing file.
-- `effective_defaults_fingerprint(config: LearnLoopConfig | None=None) -> str` ([source](../../../../../../src/learnloop/config/template.py), line 4212) — Content address of the complete effective defaults for a new vault.
-- `defaults_fingerprint_for_version(algorithm_version: str) -> str` ([source](../../../../../../src/learnloop/config/template.py), line 4234) — The effective-defaults fingerprint of a new vault at ``algorithm_version``.
+- `default_config_text(algorithm_version: str=LATEST_ALGORITHM_VERSION) -> str` ([source](../../../../../../src/learnloop/config/template.py), line 99) — The decision-only template as a vault at ``algorithm_version`` holds it.
+- `write_default_config(path: Path) -> None` ([source](../../../../../../src/learnloop/config/template.py), line 113) — Write the decision-only template without replacing an existing file.
 
 ### Module constants
 
-- `LEGACY_DEFAULT_CONFIG_TEXT` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 19)
-- `_ALGORITHM_VERSION_PLACEHOLDER` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 737)
-- `_DEFAULT_CONFIG_TEMPLATE` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 739)
-- `DEFAULT_CONFIG_TEXT` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 836)
-- `DEFAULTS_SNAPSHOT_BY_ALGORITHM` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 845)
+- `_ALGORITHM_VERSION_PLACEHOLDER` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 14)
+- `_DEFAULT_CONFIG_TEMPLATE` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 16)
+- `DEFAULT_CONFIG_TEXT` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 110)
 
 ### Explicit exports
 
 `__all__` declares:
 
 - `DEFAULT_CONFIG_TEXT`
-- `DEFAULTS_SNAPSHOT_BY_ALGORITHM`
-- `LEGACY_DEFAULT_CONFIG_TEXT`
 - `default_config_text`
-- `defaults_fingerprint_for_version`
-- `effective_defaults_fingerprint`
 - `write_default_config`
 
 ## Internal implementation anchors
@@ -100,11 +92,10 @@ No private top-level function or class definition is declared in this file.
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `LATEST_ALGORITHM_VERSION`
-- [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] — imports `LearnLoopConfig`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `hashlib`, `json`, `pathlib`, `tomllib`, `typing`
+- Standard library: `__future__`, `pathlib`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -119,117 +110,44 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_ad23_successor.py](../../../../../../tests/test_ad23_successor.py) — direct import
-  - `test_the_successor_is_the_next_link_with_its_defaults_snapshot`
-- [tests/test_attempt_content_state_successor.py](../../../../../../tests/test_attempt_content_state_successor.py) — direct import
-  - `test_mvp037_is_one_constant_after_mvp036`
-- [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — direct import
-  - `test_mvp035_is_one_constant_after_mvp034_and_the_latest`
-- [tests/test_cold_retry_reschedule.py](../../../../../../tests/test_cold_retry_reschedule.py) — direct import
-  - `test_mvp038_is_one_constant_after_mvp037`
 - [tests/test_config_refactor.py](../../../../../../tests/test_config_refactor.py) — direct import
   - `test_config_responsibilities_have_canonical_module_owners`
-  - `test_every_recorded_version_keeps_its_defaults_snapshot`
-  - `test_minimal_template_preserves_non_provider_effective_defaults`
   - `test_new_vaults_start_at_the_latest_algorithm_version`
-- [tests/test_curriculum_c1_plan_follows_path.py](../../../../../../tests/test_curriculum_c1_plan_follows_path.py) — direct import
-  - `test_the_successor_is_one_constant_after_rw6bs_followups`
-- [tests/test_data_capture_successor.py](../../../../../../tests/test_data_capture_successor.py) — direct import
-  - `test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys`
+  - `test_the_template_renders_at_every_tag_by_its_label_alone`
 - [tests/test_diagnosis_input_provenance.py](../../../../../../tests/test_diagnosis_input_provenance.py) — direct import
-  - `test_f5_every_defaults_snapshot_records_the_switch_off`
+  - `test_f5_every_tag_defaults_the_switch_off`
+- [tests/test_effective_defaults_golden.py](../../../../../../tests/test_effective_defaults_golden.py) — direct import
+  - `test_every_tag_has_the_latest_defaults_apart_from_its_label`
 - [tests/test_field_config.py](../../../../../../tests/test_field_config.py) — direct import
   - `test_offline_config_never_opens_dotenv_or_global_settings`
-- [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — direct import
-  - `test_the_successor_vocabulary_is_one_constant_after_its_predecessor`
 - [tests/test_followup_successor.py](../../../../../../tests/test_followup_successor.py) — direct import
-  - `test_every_defaults_snapshot_is_recomputed`
   - `test_new_vaults_get_true_effectively_and_older_templates_stay_as_they_were`
-- [tests/test_help_fold_attach_successor.py](../../../../../../tests/test_help_fold_attach_successor.py) — direct import
-  - `test_mvp042_is_one_constant_after_mvp041_and_the_latest`
-- [tests/test_ih5_successor.py](../../../../../../tests/test_ih5_successor.py) — direct import
-  - `test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key`
-- [tests/test_intent_codex_rereview.py](../../../../../../tests/test_intent_codex_rereview.py) — direct import
-  - `test_f2_the_chain_ends_at_the_intent_successor`
-- [tests/test_learner_report_superseded.py](../../../../../../tests/test_learner_report_superseded.py) — direct import
-  - `test_the_tag_is_one_constant_after_mvp035_and_the_latest`
-- [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import
-  - `test_the_successor_is_one_constant_after_its_predecessor`
 - [tests/test_method_explicit_upgrade.py](../../../../../../tests/test_method_explicit_upgrade.py) — direct import
-  - `test_defaults_fingerprint_is_recorded_for_the_successor`
-- [tests/test_mobile_v3_successor.py](../../../../../../tests/test_mobile_v3_successor.py) — direct import
-  - `test_the_snapshot_is_recorded_and_differs_from_the_predecessors_by_the_tag_alone`
-- [tests/test_mvp010_upgrade.py](../../../../../../tests/test_mvp010_upgrade.py) — direct import
-  - `test_defaults_fingerprint_is_recorded_for_the_successor`
-- [tests/test_mvp011_upgrade.py](../../../../../../tests/test_mvp011_upgrade.py) — direct import
-  - `test_defaults_fingerprint_is_recorded_for_the_placement_successor`
+  - `test_the_successors_kill_switch_defaults_on_and_its_judge_route_is_unset`
 - [tests/test_mvp013_upgrade.py](../../../../../../tests/test_mvp013_upgrade.py) — direct import
-  - `test_defaults_fingerprint_is_recorded_for_the_successor`
+  - `test_the_successors_kill_switch_defaults_on`
 - [tests/test_mvp014_upgrade.py](../../../../../../tests/test_mvp014_upgrade.py) — direct import
-  - `test_defaults_fingerprint_is_recorded_for_the_plan_successor`
+  - `test_the_plan_successors_defaults`
 - [tests/test_mvp015_upgrade.py](../../../../../../tests/test_mvp015_upgrade.py) — direct import
-  - `test_defaults_fingerprint_is_recorded_for_the_probe_tie_successor`
+  - `test_the_probe_tie_successors_switches_default_on`
 - [tests/test_mvp016_upgrade.py](../../../../../../tests/test_mvp016_upgrade.py) — direct import
-  - `test_defaults_fingerprint_is_recorded_for_the_learner_text_gap_successor`
+  - `test_the_learner_text_gap_successors_defaults`
 - [tests/test_mvp017_upgrade.py](../../../../../../tests/test_mvp017_upgrade.py) — direct import
-  - `test_defaults_fingerprint_is_recorded_for_the_route_check_successor`
-- [tests/test_mvp018_upgrade.py](../../../../../../tests/test_mvp018_upgrade.py) — direct import
-  - `test_defaults_fingerprints_are_recorded_for_every_successor`
+  - `test_the_route_check_successors_kill_switch_defaults_on`
 - [tests/test_mvp020_upgrade.py](../../../../../../tests/test_mvp020_upgrade.py) — direct import
-  - `test_defaults_fingerprint_is_recorded_for_the_route_rules_successor`
+  - `test_the_route_rules_successors_kill_switch_stays_and_its_route_is_retired`
 - [tests/test_mvp021_upgrade.py](../../../../../../tests/test_mvp021_upgrade.py) — direct import
-  - `test_defaults_fingerprint_is_recorded_for_every_successor`
-- [tests/test_mvp022_upgrade.py](../../../../../../tests/test_mvp022_upgrade.py) — direct import
-  - `test_defaults_fingerprints_are_recorded_for_every_successor`
-- [tests/test_mvp023_upgrade.py](../../../../../../tests/test_mvp023_upgrade.py) — direct import
-  - `test_defaults_fingerprints_are_recorded_for_every_successor`
-- [tests/test_mvp024_upgrade.py](../../../../../../tests/test_mvp024_upgrade.py) — direct import
-  - `test_defaults_fingerprints_are_recorded_for_every_successor`
+  - `test_the_voi_stopping_successors_defaults`
 - [tests/test_pf_cli.py](../../../../../../tests/test_pf_cli.py) — direct import
   - `test_template_keeps_generation_off_and_caps_publication`
-- [tests/test_placement_unevidenced_return.py](../../../../../../tests/test_placement_unevidenced_return.py) — direct import
-  - `test_the_snapshot_is_recorded_and_differs_from_the_predecessors_by_the_tag_alone`
 - [tests/test_plan_determinism.py](../../../../../../tests/test_plan_determinism.py) — direct import
-  - `test_every_defaults_snapshot_records_the_switch_on`
-- [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
-  - `test_the_successor_is_one_constant_after_rw2d`
-- [tests/test_reader_ca2_one_ask.py](../../../../../../tests/test_reader_ca2_one_ask.py) — direct import
-  - `test_the_successor_is_one_constant_after_rebuild_equivalence`
-- [tests/test_reader_followups_successor.py](../../../../../../tests/test_reader_followups_successor.py) — direct import
-  - `test_mvp039_is_one_constant_after_mvp038_and_the_latest`
+  - `test_every_tag_defaults_the_switch_on`
 - [tests/test_reading_step_switch.py](../../../../../../tests/test_reading_step_switch.py) — direct import
-  - `test_every_defaults_snapshot_records_the_switch_on`
-- [tests/test_rebuild_equivalence_review.py](../../../../../../tests/test_rebuild_equivalence_review.py) — direct import
-  - `test_the_successor_is_one_constant_after_its_predecessor_with_its_defaults_snapshot`
+  - `test_every_tag_defaults_the_switch_on`
 - [tests/test_recurrence_commands.py](../../../../../../tests/test_recurrence_commands.py) — direct import
-  - `test_defaults_fingerprint_is_recorded_for_the_successor`
-- [tests/test_regrade_contract_successor.py](../../../../../../tests/test_regrade_contract_successor.py) — direct import
-  - `test_its_defaults_fingerprint_is_recorded`
+  - `test_the_successor_sets_no_cosine_cutoff_by_default`
 - [tests/test_ro1_successor.py](../../../../../../tests/test_ro1_successor.py) — direct import
-  - `test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys`
-  - `test_the_factors_constants_stay_in_config_with_their_note`
-- [tests/test_ro4_successor.py](../../../../../../tests/test_ro4_successor.py) — direct import
-  - `test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys`
-- [tests/test_ro5_successor.py](../../../../../../tests/test_ro5_successor.py) — direct import
-  - `test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys`
-- [tests/test_ro6_successor.py](../../../../../../tests/test_ro6_successor.py) — direct import
-  - `test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys`
-- [tests/test_rofu_successor.py](../../../../../../tests/test_rofu_successor.py) — direct import
-  - `test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys`
-- [tests/test_serve_eligibility_review.py](../../../../../../tests/test_serve_eligibility_review.py) — direct import
-  - `test_f4_the_successor_follows_regrade_contracts_and_keeps_every_predecessor`
-- [tests/test_sg_successor.py](../../../../../../tests/test_sg_successor.py) — direct import
-  - `test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys`
-- [tests/test_te3a_successor.py](../../../../../../tests/test_te3a_successor.py) — direct import
-  - `test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key`
-- [tests/test_te3b_successor.py](../../../../../../tests/test_te3b_successor.py) — direct import
-  - `test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key`
-- [tests/test_teacher_te1_successor.py](../../../../../../tests/test_teacher_te1_successor.py) — direct import
-  - `test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys`
-- [tests/test_teacher_te1b_suggestions.py](../../../../../../tests/test_teacher_te1b_suggestions.py) — direct import
-  - `test_every_defaults_snapshot_drops_to_te1s_value_without_the_suggestion_keys`
-- [tests/test_teacher_te2_successor.py](../../../../../../tests/test_teacher_te2_successor.py) — direct import
-  - `test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys`
+  - `test_the_factors_constants_stay_in_config`
 
 ## Modification guidance
 

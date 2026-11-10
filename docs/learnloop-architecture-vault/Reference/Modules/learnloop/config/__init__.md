@@ -263,20 +263,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_config_refactor.py](../../../../../../tests/test_config_refactor.py) — direct import
   - `test_canonical_transcription_route_wins_over_legacy_audio_input`
   - `test_config_responsibilities_have_canonical_module_owners`
-  - `test_defaults_snapshot_is_keyed_by_algorithm_version`
+  - `test_each_plan_tier_runs_its_codex_tiers_model_and_effort`
   - `test_endpoint_audio_config_does_not_create_a_chat_route`
-  - `test_every_recorded_version_keeps_its_defaults_snapshot`
   - `test_generated_template_is_decision_only_schema_v2`
   - `test_legacy_codex_is_input_only_and_sidecar_does_not_reexport_it`
   - `test_legacy_native_gates_normalize_to_audio_mode`
   - `test_legacy_openrouter_audio_becomes_a_dedicated_transcription_route`
-  - `test_minimal_template_preserves_non_provider_effective_defaults`
   - `test_new_vaults_start_at_the_latest_algorithm_version`
   - `test_provider_profiles_use_discriminated_types_and_ignore_retired_auth`
   - `test_provider_without_type_keeps_codex_sdk_compatibility`
   - `test_retired_keys_parse_and_are_ignored`
   - `test_schema_v1_is_accepted_but_v2_is_generated`
-  - `test_the_defaults_snapshot_covers_the_successor_chain`
+  - `test_the_template_renders_at_every_tag_by_its_label_alone`
   - `test_tracked_fixture_config_corpus_is_compatibly_normalized`
 - [tests/test_conjunctive_instruments.py](../../../../../../tests/test_conjunctive_instruments.py) — direct import
   - `test_a_no_reliable_decomposition_contract_does_not_suppress_elicitation`

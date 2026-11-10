@@ -20,7 +20,6 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/cli/fit.py"
-  - "src/learnloop/config/template.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/params/fitted_params.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"

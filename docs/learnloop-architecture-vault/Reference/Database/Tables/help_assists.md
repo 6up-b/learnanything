@@ -22,8 +22,8 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/hint_fold.py"
   - "src/learnloop/config/schema.py"
-  - "src/learnloop/config/template.py"
   - "src/learnloop/daily_plan/objective_inputs.py"
+  - "src/learnloop/db/stores/approach_maps.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"

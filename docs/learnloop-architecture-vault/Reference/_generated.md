@@ -3,8 +3,8 @@ title: "Generated Reference Provenance"
 type: "generated-provenance"
 status: "current"
 version: "1.0.0"
-source_commit: "86b3f47440cad75b60c1708cf0c308588e5ef5a4"
-source_commit_timestamp: "2026-11-09T23:22:54-05:00"
+source_commit: "7430827a40819624c9f6b0ce69d5cf082f644220"
+source_commit_timestamp: "2026-11-09T23:55:19-05:00"
 source_worktree_state: "clean"
 generated: true
 source_paths:
@@ -26,8 +26,8 @@ Every generated note under `Reference/` was generated from the sources at one co
 
 | Fact | Value |
 |---|---|
-| Source commit | `86b3f47440cad75b60c1708cf0c308588e5ef5a4` |
-| Commit timestamp | `2026-11-09T23:22:54-05:00` |
+| Source commit | `7430827a40819624c9f6b0ce69d5cf082f644220` |
+| Commit timestamp | `2026-11-09T23:55:19-05:00` |
 | Inputs since that commit | none |
 
 ## Generators

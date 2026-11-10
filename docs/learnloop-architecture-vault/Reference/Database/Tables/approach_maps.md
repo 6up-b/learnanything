@@ -18,11 +18,11 @@ source_paths:
   - "migrations/211_approach_maps.sql"
   - "src/learnloop/ai/disclosures.py"
   - "src/learnloop/config/schema.py"
-  - "src/learnloop/config/template.py"
   - "src/learnloop/db/stores/approach_maps.py"
   - "src/learnloop/hints/map_builder.py"
   - "src/learnloop/hints/map_report.py"
   - "src/learnloop/hints/map_seeds.py"
+  - "src/learnloop/hints/outcome.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
