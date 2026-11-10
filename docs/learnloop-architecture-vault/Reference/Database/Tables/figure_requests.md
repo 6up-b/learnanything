@@ -107,6 +107,7 @@ None found by exact static reference scan.
 - `src/learnloop/figures/prefetch_ledger.py`
 - `src/learnloop/figures/service.py`
 - `src/learnloop/reader/reader_report.py`
+- `src/learnloop/why/reconstructed.py`
 
 ### Direct SQL writers
 

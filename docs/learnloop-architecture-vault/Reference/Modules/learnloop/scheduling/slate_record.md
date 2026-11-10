@@ -104,8 +104,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `KIND`, `item_outcome`; statically calls `item_outcome`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `TEACH_BACK_SESSION_CAP`, `TEACH_BACK_VALUE`, `merged_exclusions`, `record_slate`; statically calls `merged_exclusions`, `record_slate`
+- [[Reference/Modules/learnloop/why/reader|learnloop.why.reader]] — imports `KIND`, `item_outcome`; statically calls `item_outcome`
 
 ## Dependencies
 
@@ -126,7 +126,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]].
+Static participation evidence comes from [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]], [[Reference/Modules/learnloop/why/reader|learnloop.why.reader]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

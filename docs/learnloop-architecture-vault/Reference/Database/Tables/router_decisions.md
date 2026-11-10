@@ -152,6 +152,7 @@ None found by exact static reference scan.
 - `src/learnloop/router_objective/trajectory.py`
 - `src/learnloop/substrate/rebuild_orchestrator.py`
 - `src/learnloop/teacher/diagnosed_sources.py`
+- `src/learnloop/why/reconstructed.py`
 
 ### Direct SQL writers
 

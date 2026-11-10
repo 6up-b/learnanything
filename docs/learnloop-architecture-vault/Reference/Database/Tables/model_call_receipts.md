@@ -134,6 +134,8 @@ None found by exact static reference scan.
 - `src/learnloop/source_retrieval/timing.py`
 - `src/learnloop/substrate/data_quality.py`
 - `src/learnloop/substrate/model_usage.py`
+- `src/learnloop/why/reader.py`
+- `src/learnloop/why/reconstructed.py`
 - `src/learnloop/workbench/check.py`
 
 ### Direct SQL writers

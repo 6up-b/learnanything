@@ -170,8 +170,8 @@ Indexes and uniqueness:
 - `tests/test_remediation_cold_retry.py`
 - `tests/test_router_r2a_serving.py`
 - `tests/test_voi_forecasts.py`
+- `tests/test_why_reader.py`
 - `tests/test_assumed_known.py`
-- `tests/test_causal_orchestrator.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

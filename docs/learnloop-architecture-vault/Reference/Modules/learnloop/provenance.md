@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py) |
-| Source lines | 408 |
+| Source lines | 435 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -67,7 +67,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `check_no_prose(record: DecisionRecord) -> list[str]` ([source](../../../../../src/learnloop/provenance.py), line 224) — Paths of the record's values that are not an id, a number or a code constant (empty when clean).
 - `write(connection: Any, record: DecisionRecord) -> str | None` ([source](../../../../../src/learnloop/provenance.py), line 278) — Insert ``record`` on the caller's connection; its id, or ``None`` when it was not written.
 - `read(connection: Any, target: str='latest', *, kind: str | None=None, limit: int=500) -> list[DecisionRecord]` ([source](../../../../../src/learnloop/provenance.py), line 350) — The records ``target`` names, oldest first; empty when none (or the vault is below migration 253).
-- `read_naming(connection: Any, ref: str, *, kind: str | None=None, limit: int=5) -> list[DecisionRecord]` ([source](../../../../../src/learnloop/provenance.py), line 389) — The newest records (of ``kind``) that name ``ref`` as what won, an alternative or a fact; newest first.
+- `read_children(connection: Any, parent_ids: Sequence[str], *, limit: int=500) -> list[DecisionRecord]` ([source](../../../../../src/learnloop/provenance.py), line 401) — The records whose ``parent_id`` is one of ``parent_ids`` (what happened next, in any trace), oldest first.
+- `read_kind(connection: Any, kind: str, *, limit: int=5000) -> list[DecisionRecord]` ([source](../../../../../src/learnloop/provenance.py), line 410) — Every record of ``kind`` across traces, oldest first (``why --first-build`` walks them in order).
+- `read_naming(connection: Any, ref: str, *, kind: str | None=None, limit: int=5) -> list[DecisionRecord]` ([source](../../../../../src/learnloop/provenance.py), line 416) — The newest records (of ``kind``) that name ``ref`` as what won, an alternative or a fact; newest first.
 
 ### Module constants
 
@@ -86,6 +88,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `_completed(record: DecisionRecord) -> DecisionRecord` ([source](../../../../../src/learnloop/provenance.py), line 263)
 - `_record(row: Sequence[Any]) -> DecisionRecord` ([source](../../../../../src/learnloop/provenance.py), line 337)
+- `_select(connection: Any, where: str, args: Sequence[Any], *, limit: int) -> list[DecisionRecord]` ([source](../../../../../src/learnloop/provenance.py), line 389)
 
 ## Who imports or calls it
 
@@ -94,7 +97,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `current_trace`; statically calls `current_trace`
 - [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]] — imports `module`; statically calls `DecisionRecord`, `current_cause`, `current_trace`, `is_code`
-- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `module`; statically calls `get`, `read`, `read_naming`, `trace_scope`
+- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `module`; statically calls `get`, `trace_scope`
 - [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]] — imports `DecisionRecord`, `module`; statically calls `DecisionRecord`, `current_trace`, `is_code`, `new_trace_id`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `current_trace`, `read`, `where`, `write`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `module`; statically calls `current_trace`, `read`, `write`
@@ -107,6 +110,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/refusal_records|learnloop.refusal_records]] — imports `DecisionRecord`, `module`; statically calls `DecisionRecord`, `current_trace`, `is_code`, `where`, `write`
 - [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] — imports `DecisionRecord`, `is_code`, `where`; statically calls `DecisionRecord`, `is_code`, `where`
 - [[Reference/Modules/learnloop/scheduling/slate_record|learnloop.scheduling.slate_record]] — imports `DecisionRecord`, `current_trace`, `is_code`; statically calls `DecisionRecord`, `current_trace`, `is_code`
+- [[Reference/Modules/learnloop/why/reader|learnloop.why.reader]] — imports `module`; statically calls `is_code`, `read`, `read_children`, `read_kind`, `read_naming`, `where`
+- [[Reference/Modules/learnloop/why/reconstructed|learnloop.why.reconstructed]] — imports `module`; statically calls `cap_alternatives`, `is_code`
 - [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `module`; statically calls `current_trace`, `read`
 - [[Reference/Modules/learnloop_sidecar/logging|learnloop_sidecar.logging]] — imports `current_trace`; statically calls `current_trace`
 - [[Reference/Modules/learnloop_sidecar/post_attempt_worker|learnloop_sidecar.post_attempt_worker]] — imports `module`; statically calls `trace_scope`
@@ -130,7 +135,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]], [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] and 14 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]], [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] and 16 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -202,6 +207,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_persisting_build_writes_one_slate_record_with_its_exclusions`
   - `test_a_record_that_cannot_be_written_changes_nothing_served`
   - `test_the_rule_that_put_the_head_first`
+- [tests/test_why_cases.py](../../../../../tests/test_why_cases.py) — direct import
+  - `test_case_3_a_figure_stored_failed_has_one_author_record_per_attempt_with_typed_codes`
+- [tests/test_why_reader.py](../../../../../tests/test_why_reader.py) — direct import
+  - `test_a_follow_up_gate_call_that_answered_after_the_gate_is_discarded`
+  - `test_case_3_aged_the_failed_figure_its_typed_codes_and_its_author_calls`
+  - `test_why_resolves_goal_and_lesson_subjects`
+- [tests/test_why_real_cases.py](../../../../../tests/test_why_real_cases.py) — direct import
+  - `test_case_3_the_figure_stored_failed`
 - [tests/voi_restore_scenarios.py](../../../../../tests/voi_restore_scenarios.py) — direct import
 
 ## Modification guidance

@@ -22,7 +22,7 @@ source_paths:
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_migration.py"
   - "src/learnloop/scheduling/scheduler.py"
-  - "src/learnloop_sidecar/handlers/inspector.py"
+  - "src/learnloop/why/reader.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -100,6 +100,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/scheduling/scheduler.py`
+- `src/learnloop/why/reader.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 - `src/learnloop_sidecar/handlers/practice.py`
 - `src/learnloop_sidecar/handlers/queue.py`

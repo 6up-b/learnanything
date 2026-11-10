@@ -151,7 +151,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `apply_eligibility_writes`, `cold_check_serve_decision`, `exclusion_now`; statically calls `apply_eligibility_writes`, `cold_check_serve_decision`, `exclusion_now`
+- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `apply_eligibility_writes`, `cold_check_serve_decision`; statically calls `apply_eligibility_writes`, `cold_check_serve_decision`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `SchedulerSession`, `build_due_queue`, `explain_practice_item`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `OfferTrace`, `SELECTION_POLICY`, `SchedulerSession`, `build_due_queue`, `cold_check_hold_until`, `cold_check_serve_decision`, `cold_check_serve_hold`; statically calls `OfferTrace`, `SchedulerSession`, `build_due_queue`, `cold_check_hold_until`, `cold_check_serve_decision`, `cold_check_serve_hold`
 - [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]] — imports `pool_admission`; statically calls `pool_admission`
@@ -164,6 +164,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/tui/screens/start|learnloop.tui.screens.start]] — imports `SchedulerSession`; statically calls `SchedulerSession`
 - [[Reference/Modules/learnloop/tui/screens/today|learnloop.tui.screens.today]] — imports `ScheduledItem`
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `ScheduledItem`, `SchedulerSession`, `build_due_queue`; statically calls `SchedulerSession`, `build_due_queue`
+- [[Reference/Modules/learnloop/why/reader|learnloop.why.reader]] — imports `exclusion_now`, `explain_practice_item`; statically calls `exclusion_now`, `explain_practice_item`
 - [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `build_due_queue`; statically calls `build_due_queue`
 - [[Reference/Modules/learnloop_sidecar/handlers/facets|learnloop_sidecar.handlers.facets]] — imports `build_due_queue`; statically calls `build_due_queue`
 - [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]] — imports `build_due_queue`; statically calls `build_due_queue`
@@ -236,7 +237,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]], [[Reference/Modules/learnloop/scheduling/evaluation|learnloop.scheduling.evaluation]] and 14 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]], [[Reference/Modules/learnloop/scheduling/evaluation|learnloop.scheduling.evaluation]] and 15 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

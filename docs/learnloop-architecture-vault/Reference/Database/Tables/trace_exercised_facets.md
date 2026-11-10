@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/trace_evidence.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/why/reader.py"
   - "src/learnloop_sidecar/handlers/feedback.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/regrade.py"
@@ -97,6 +98,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/why/reader.py`
 
 ### Direct SQL writers
 
@@ -117,6 +119,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_conjunctive_instruments.py`
+- `tests/test_why_reader.py`
 - `tests/test_projection_evidence_polarity.py`
 - `tests/test_reader_recap_review_r2.py`
 - `tests/test_reader_recap_review_r3.py`

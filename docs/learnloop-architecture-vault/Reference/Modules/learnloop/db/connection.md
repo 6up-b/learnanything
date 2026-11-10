@@ -1002,6 +1002,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_decision_features_receipt_reads_the_overlay_and_says_so`
 - [tests/test_whole_comparison_provenance_surfaces.py](../../../../../../tests/test_whole_comparison_provenance_surfaces.py) — direct import
 - [tests/test_whole_comparison_reuse_provenance.py](../../../../../../tests/test_whole_comparison_reuse_provenance.py) — direct import
+- [tests/test_why_reader.py](../../../../../../tests/test_why_reader.py) — direct import
+  - `test_a_follow_up_gate_call_that_answered_after_the_gate_is_discarded`
+  - `test_case_1_aged_the_timeout_and_the_late_answer_from_the_decision_row_and_its_receipts`
+  - `test_trace_evidence_and_why_attempt_read_the_same_observations`
+  - `test_why_get_returns_ids_numbers_and_codes_and_never_a_payload`
+  - `test_why_is_still_a_pure_read_with_the_new_options`
+  - `test_why_resolves_goal_and_lesson_subjects`
 
 ## Modification guidance
 

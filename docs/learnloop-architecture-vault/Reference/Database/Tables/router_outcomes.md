@@ -114,6 +114,8 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/router.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/router_objective/calibration_report.py`
+- `src/learnloop/why/reader.py`
+- `src/learnloop/why/reconstructed.py`
 
 ### Direct SQL writers
 

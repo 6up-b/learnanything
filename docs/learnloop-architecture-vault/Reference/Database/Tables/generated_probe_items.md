@@ -18,6 +18,7 @@ source_paths:
   - "migrations/241_followup_generate_serve.sql"
   - "src/learnloop/db/stores/followup_serve.py"
   - "src/learnloop/followup_serve/identity.py"
+  - "src/learnloop/why/reconstructed.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -83,6 +84,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/db/stores/followup_serve.py`
 - `src/learnloop/followup_serve/identity.py`
+- `src/learnloop/why/reconstructed.py`
 
 ### Direct SQL writers
 

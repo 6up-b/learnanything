@@ -17,6 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/241_followup_generate_serve.sql"
   - "src/learnloop/db/stores/followup_serve.py"
+  - "src/learnloop/why/reconstructed.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -82,6 +83,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/followup_serve.py`
+- `src/learnloop/why/reconstructed.py`
 
 ### Direct SQL writers
 

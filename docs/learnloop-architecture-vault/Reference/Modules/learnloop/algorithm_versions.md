@@ -676,6 +676,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ux_phase4_landing.py](../../../../../tests/test_ux_phase4_landing.py) — direct import
   - `test_a_contest_regrade_records_provenance_and_re_resolves_the_forecast`
   - `test_a_contest_the_regrade_does_not_uphold_is_flagged_never_held`
+- [tests/test_why_cases.py](../../../../../tests/test_why_cases.py) — direct import
 
 ## Modification guidance
 

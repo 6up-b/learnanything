@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/provenance.py](../../../../../../../src/learnloop/db/stores/provenance.py) |
-| Source lines | 198 |
+| Source lines | 200 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -57,23 +57,23 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - `write_decision(repository: Any, record: provenance.DecisionRecord) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 32) — Write ``record`` through ``repository``; its id, or ``None`` when it was not written.
 - `trace_model_calls(connection: Any, trace_ids: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 44) — Model calls made under any of ``trace_ids``, oldest first (empty below migration 253).
-- `discarded_calls(records: Iterable[provenance.DecisionRecord], calls: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 78) — The calls each decision discarded: started before it under its own or its prefetch's trace, for its boundary key when it names one, and finished after it (``late_ms``) or not at all (``late_ms`` None).
-- `unclaimed_calls(connection: Any, records: Iterable[provenance.DecisionRecord], calls: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 112) — Router calls whose boundary key no decision names: neither a shown record nor any logged router decision.
-- `job_enqueued_record(*, queue: str, job_id: str, job_kind: str, rule: str | None=None, facts: Mapping[str, Any] | None=None) -> provenance.DecisionRecord` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 144) — The record of one queued job (pure).
-- `record_job_enqueued(connection: Any, *, queue: str, job_id: str | None, job_kind: str, rule: str | None=None, facts: Mapping[str, Any] | None=None) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 159) — Write a queued job's record on the enqueuing connection, in its transaction; its id, or None.
-- `continue_job_trace(repository: Any, job_id: str) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 177) — Continue the trace that queued ``job_id`` for the rest of the worker's scope; the trace now current.
+- `discarded_calls(records: Iterable[provenance.DecisionRecord], calls: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 80) — The calls each decision discarded: started before it under its own or its prefetch's trace, for its boundary key when it names one, and finished after it (``late_ms``) or not at all (``late_ms`` None).
+- `unclaimed_calls(connection: Any, records: Iterable[provenance.DecisionRecord], calls: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 114) — Router calls whose boundary key no decision names: neither a shown record nor any logged router decision.
+- `job_enqueued_record(*, queue: str, job_id: str, job_kind: str, rule: str | None=None, facts: Mapping[str, Any] | None=None) -> provenance.DecisionRecord` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 146) — The record of one queued job (pure).
+- `record_job_enqueued(connection: Any, *, queue: str, job_id: str | None, job_kind: str, rule: str | None=None, facts: Mapping[str, Any] | None=None) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 161) — Write a queued job's record on the enqueuing connection, in its transaction; its id, or None.
+- `continue_job_trace(repository: Any, job_id: str) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 179) — Continue the trace that queued ``job_id`` for the rest of the worker's scope; the trace now current.
 
 ### Module constants
 
 - `LOG` ([src/learnloop/db/stores/provenance.py](../../../../../../../src/learnloop/db/stores/provenance.py), line 22)
 - `TRACE_CALL_COLUMNS` ([src/learnloop/db/stores/provenance.py](../../../../../../../src/learnloop/db/stores/provenance.py), line 26)
-- `LATE_ANSWER_KINDS` ([src/learnloop/db/stores/provenance.py](../../../../../../../src/learnloop/db/stores/provenance.py), line 65)
-- `ROUTER_OWNER` ([src/learnloop/db/stores/provenance.py](../../../../../../../src/learnloop/db/stores/provenance.py), line 109)
-- `JOB_ENQUEUED` ([src/learnloop/db/stores/provenance.py](../../../../../../../src/learnloop/db/stores/provenance.py), line 141)
+- `LATE_ANSWER_KINDS` ([src/learnloop/db/stores/provenance.py](../../../../../../../src/learnloop/db/stores/provenance.py), line 67)
+- `ROUTER_OWNER` ([src/learnloop/db/stores/provenance.py](../../../../../../../src/learnloop/db/stores/provenance.py), line 111)
+- `JOB_ENQUEUED` ([src/learnloop/db/stores/provenance.py](../../../../../../../src/learnloop/db/stores/provenance.py), line 143)
 
 ## Internal implementation anchors
 
-- `_moment(value: Any) -> datetime | None` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 68)
+- `_moment(value: Any) -> datetime | None` ([source](../../../../../../../src/learnloop/db/stores/provenance.py), line 70)
 
 ## Who imports or calls it
 
@@ -81,7 +81,6 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]] — imports `module`; statically calls `write_decision`
-- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `discarded_calls`, `trace_model_calls`, `unclaimed_calls`; statically calls `discarded_calls`, `trace_model_calls`, `unclaimed_calls`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `write_decision`; statically calls `write_decision`
 - [[Reference/Modules/learnloop/db/stores/diagnoses|learnloop.db.stores.diagnoses]] — imports `module`; statically calls `record_job_enqueued`
 - [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]] — imports `module`; statically calls `record_job_enqueued`
@@ -92,6 +91,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/figures/records|learnloop.figures.records]] — imports `write_decision`; statically calls `write_decision`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `module`; statically calls `continue_job_trace`
 - [[Reference/Modules/learnloop/scheduling/slate_record|learnloop.scheduling.slate_record]] — imports `module`; statically calls `write_decision`
+- [[Reference/Modules/learnloop/why/reader|learnloop.why.reader]] — imports `discarded_calls`, `trace_model_calls`, `unclaimed_calls`; statically calls `discarded_calls`, `trace_model_calls`, `unclaimed_calls`
 - [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `write_decision`; statically calls `write_decision`
 
 ## Dependencies
@@ -112,7 +112,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/db/stores/diagnoses|learnloop.db.stores.diagnoses]], [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]] and 8 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/db/stores/diagnoses|learnloop.db.stores.diagnoses]], [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]], [[Reference/Modules/learnloop/db/stores/learner_gaps|learnloop.db.stores.learner_gaps]] and 8 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

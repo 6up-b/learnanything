@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/db/stores/followup_serve.py"
   - "src/learnloop/followup_run/lesson_probe.py"
   - "src/learnloop/followup_serve/queue.py"
+  - "src/learnloop/why/reconstructed.py"
   - "src/learnloop_sidecar/post_attempt_worker.py"
 tags:
   - "learnloop/database/table"

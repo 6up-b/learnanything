@@ -446,6 +446,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ux_phase1_usability_round1.py](../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
 - [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import
   - `test_followup_outcome_needs_the_frozen_facet_map`
+- [tests/test_why_reader.py](../../../../../../tests/test_why_reader.py) — direct import
+- [tests/test_why_real_cases.py](../../../../../../tests/test_why_real_cases.py) — direct import
 - [tests/ux_phase1_support.py](../../../../../../tests/ux_phase1_support.py) — direct import
 
 ## Modification guidance

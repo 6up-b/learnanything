@@ -131,7 +131,7 @@ For system intent, use [[Learning System]].
 
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 30 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 26 static module edges
-- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 18 static module edges
+- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 17 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 14 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 9 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 8 static module edges
@@ -160,6 +160,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 1 static module edge
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 1 static module edge
 - [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] — 1 static module edge
+- [[Reference/Modules/learnloop/why/_package|learnloop.why]] — 1 static module edge
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 1 static module edge
 
 ### Dependency neighborhood
@@ -173,9 +174,9 @@ flowchart LR
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_learner["learnloop.learner"]
-    n_learnloop_cli["learnloop.cli"]
     n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_ai["learnloop.ai"]
+    n_learnloop_cli["learnloop.cli"]
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_diagnosis_split["learnloop.diagnosis.split"]
@@ -186,10 +187,10 @@ flowchart LR
     n_learnloop_sidecar_handlers -->|30| center
     n_learnloop_learner -->|6| center
     center -->|14| n_learnloop_learner
-    n_learnloop_cli -->|18| center
     n_learnloop_substrate -->|5| center
     center -->|13| n_learnloop_substrate
     center -->|17| n_learnloop_ai
+    n_learnloop_cli -->|17| center
     center -->|17| n_learnloop_vault
     center -->|16| n_learnloop_db
     n_learnloop_diagnosis_split -->|14| center

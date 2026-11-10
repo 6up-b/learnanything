@@ -1128,6 +1128,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_skipped_probe_does_not_suppress_its_alternative_on_refresh`
   - `test_requested_probes_and_requests_share_one_request_rule`
   - `test_the_usable_minutes_are_what_the_requests_and_lanes_leave`
+- [tests/test_why_cases.py](../../../../../../tests/test_why_cases.py) — direct import
 
 ## Modification guidance
 

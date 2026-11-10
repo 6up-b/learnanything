@@ -183,6 +183,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_stored_request_is_linked_whatever_holds_new_builds_and_its_opening_is_observed`
   - `test_every_background_guard_a_power_deferred_resume_rechecks_holds_a_capped_one`
 - [tests/test_followups_batch7_prefetch_link_served.py](../../../../../../tests/test_followups_batch7_prefetch_link_served.py) — direct import
+- [tests/test_why_cases.py](../../../../../../tests/test_why_cases.py) — direct import
 
 ## Modification guidance
 

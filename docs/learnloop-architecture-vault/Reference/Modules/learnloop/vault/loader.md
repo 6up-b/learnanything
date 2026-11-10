@@ -3586,6 +3586,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_need_then_a_queue_on_one_attempt_keeps_both_decisions`
   - `test_a_served_probe_records_its_probability_over_the_composed_queue`
 - [tests/test_voi_v2.py](../../../../../../tests/test_voi_v2.py) — direct import
+- [tests/test_why_reader.py](../../../../../../tests/test_why_reader.py) — direct import
+- [tests/test_why_real_cases.py](../../../../../../tests/test_why_real_cases.py) — direct import
 - [tests/test_workbench_assistance.py](../../../../../../tests/test_workbench_assistance.py) — direct import
   - `test_an_abandoned_problem_writes_no_attempt_and_a_rebuild_leaves_the_evidence`
 - [tests/test_workbench_report.py](../../../../../../tests/test_workbench_report.py) — direct import

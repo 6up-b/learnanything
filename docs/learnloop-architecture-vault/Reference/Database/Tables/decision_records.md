@@ -20,6 +20,8 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/provenance.py"
+  - "src/learnloop/why/reader.py"
+  - "src/learnloop/why/reconstructed.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -119,6 +121,8 @@ None found by exact static reference scan.
 - `tests/test_provenance.py`
 - `tests/test_refusal_records.py`
 - `tests/test_slate_record.py`
+- `tests/test_why_cases.py`
+- `tests/test_why_reader.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
