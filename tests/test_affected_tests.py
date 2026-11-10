@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
@@ -29,6 +30,36 @@ def test_a_path_every_test_depends_on_falls_back_to_the_whole_suite(selector, pa
     module, graph = selector
     result = module.select([path], graph)
     assert result["mode"] == "full" and result["tests"] == ["tests"] and result["reasons"]
+
+
+def test_a_deleted_module_falls_back_to_the_whole_suite(selector, monkeypatch):
+    # The graph reads the files that exist, so deleting chooser.py also drops
+    # tests/test_workbench_chooser.py's import of it: selecting from the graph finds nothing.
+    module, _graph = selector
+    deleted = "src/learnloop/hints/chooser.py"
+    files = module._python_files()
+    monkeypatch.setattr(module, "_python_files", lambda: [p for p in files if p != deleted])
+    result = module.select([deleted], module.Graph())
+    assert result["mode"] == "full" and result["tests"] == ["tests"]
+    assert any(reason.startswith(deleted) for reason in result["reasons"])
+
+
+def test_a_rename_lists_the_old_path_too(selector, tmp_path, monkeypatch):
+    module, _graph = selector
+
+    def git(*args):
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid", *args],
+                       cwd=tmp_path, check=True, capture_output=True)
+
+    (tmp_path / "src" / "learnloop").mkdir(parents=True)
+    (tmp_path / "src" / "learnloop" / "old_name.py").write_text("X = 1\n", encoding="utf-8")
+    git("init", "-q", "-b", "trunk")
+    git("add", "-A")
+    git("commit", "-q", "-m", "one")
+    git("mv", "src/learnloop/old_name.py", "src/learnloop/new_name.py")
+    git("commit", "-q", "-m", "two")
+    monkeypatch.setattr(module, "ROOT", tmp_path)
+    assert {"src/learnloop/old_name.py", "src/learnloop/new_name.py"} <= set(module.changed_paths("HEAD~1"))
 
 
 def test_a_module_selects_the_tests_importing_it_and_nothing_unrelated(selector):

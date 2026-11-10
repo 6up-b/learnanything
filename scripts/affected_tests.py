@@ -9,7 +9,10 @@ the arc-close gate runs the rest. The rule, in order:
    (the ones it patches for the fast lane), ``tests/helpers.py``,
    ``tests/connection_reuse.py``, ``pyproject.toml``, ``uv.lock``,
    ``migrations/``, the tracked fixtures under ``fixtures/``, or a non-Python file
-   under ``src/`` with no module in its directory or any directory above it.
+   under ``src/`` with no module in its directory or any directory above it. Also
+   a deleted (or renamed-away) ``.py`` module under ``src/`` or ``tests/``: the
+   graph is read from the files that exist, so the imports of it that would now
+   fail are gone from it too.
 2. A changed ``.py`` module under ``src/`` or ``tests/``: the test files that
    import it, through at most ``--depth`` other ``src`` modules (default 1: the
    tests that import it, and the tests that import a module importing it). Test
@@ -82,10 +85,13 @@ def _git(*args: str) -> list[str]:
 
 
 def changed_paths(base: str) -> list[str]:
-    """Committed changes since the merge base with ``base``, plus staged, unstaged and untracked ones."""
+    """Committed changes since the merge base with ``base``, plus staged, unstaged and untracked ones.
 
-    paths = set(_git("diff", "--name-only", f"{base}...HEAD"))
-    paths |= set(_git("diff", "--name-only", "HEAD"))
+    ``--no-renames``: with rename detection (git's default) a moved file lists only its new
+    path, and the old one, which other files may still import, would never be seen."""
+
+    paths = set(_git("diff", "--name-only", "--no-renames", f"{base}...HEAD"))
+    paths |= set(_git("diff", "--name-only", "--no-renames", "HEAD"))
     paths |= set(_git("ls-files", "--others", "--exclude-standard"))
     return sorted(paths)
 
@@ -209,6 +215,11 @@ def select(changed: list[str], graph: Graph | None = None, *, depth: int = 1) ->
             continue
         name = module_name(path)
         if name is not None:
+            if name not in graph.modules:
+                # Deleted (or renamed away). The graph is read from the files that exist, so the
+                # imports of it that survive were dropped with it, and they are exactly what breaks.
+                reasons.append(f"{path}: deleted, and the graph no longer holds what imported it")
+                continue
             if name in conftest_deps:
                 reasons.append(f"{path}: tests/conftest.py imports it, so every test does")
                 continue
