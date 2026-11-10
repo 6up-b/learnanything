@@ -12,6 +12,7 @@ uv run pytest -m durability              # production SQLite pragmas + WAL + fre
 uv run pytest --fresh-connections        # production connection opens and fresh-schema builds in the fast lane
 uv run pytest tests/test_scheduler.py::test_name -x   # single test
 uv run lint-imports --no-cache           # architectural dependency contracts
+uv run ruff check                        # bug-finding lint (rules in pyproject.toml); in every gate beside lint-imports
 uv run learnloop --help                  # CLI; most subcommands take --vault and --json
 uv run learnloop doctor --fix-state --vault <path>    # after manual vault edits
 uv run learnloop config effective --vault <path>      # normalized effective config

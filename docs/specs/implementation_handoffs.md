@@ -78,6 +78,7 @@ These are the prompts for the agents that build the rest of Slice A and the slic
    - `npm install` in `apps/learnloop-tauri` if you touch the frontend.
 10. **Done always includes:**
     - `uv run lint-imports --no-cache`;
+    - `uv run ruff check`;
     - `uv run pytest -n auto`;
     - `uv run pytest -m durability`;
     - `npm run typecheck && npm test` if the frontend changed;

@@ -112,7 +112,7 @@ Ranked by what each costs a stage or a debugging session. Ids are the map's.
 **Every step:**
 - **Size:** one review-and-gate cycle.
 - **Who:** an Opus implementer in a worktree, then the gate; a step's named proof and the gates are its check. At the end of each arc, one read-only Codex review (`gpt-6.1-sol`) of the arc's whole diff, with a fix round for what it finds, before the next arc starts (owner, Nov 9: per arc, not per step, because the reviews have caught meaningful gaps). Steps that change persisted meaning (G2, G4, H3-H6) still land alone. "Verify" names anything beyond that, and the owner only where stated. Nothing in this document is yet approved to run.
-- **Gate per step:** targeted tests under the memory cap, `lint-imports`, the vault validators, and the step's named proof.
+- **Gate per step:** targeted tests under the memory cap, `lint-imports`, `ruff check` (from A5), the vault validators, and the step's named proof.
 - **Gate per landing batch:** the full suite and durability once, on the merged tree (owner decision 1).
 - **Gate per arc:** one full `pytest --fresh-connections` run at each arc's close, about 55 minutes, because the fast lane reuses connections (`tests/connection_reuse.py`) and only this run shows what that hides; and from A6 on, the `arc_close` tests (pre-registered sims and long journeys), which landing gates leave out (owner, Nov 9).
 - **Not in any gate (owner, Nov 9):** `openai_codex`. `test_the_real_sdk_has_the_seams_the_lockdown_replaces` keeps skipping there.

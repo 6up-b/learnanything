@@ -63,7 +63,7 @@ Step A3 replaced the 48 frozen default digests (one per tag, through mvp-0.57) i
 3. Identify the executable oracle in **Important tests**.
 4. Preserve package direction from [[Package Boundaries]].
 5. If persisted meaning changes, follow [[Algorithm Versions and Reproducibility#Change protocol]].
-6. Run focused tests, import contracts, architecture tests, and the full suite.
+6. Run focused tests, import contracts (`uv run lint-imports --no-cache`), the bug-finding linter (`uv run ruff check`; its rules are `[tool.ruff.lint]` in `pyproject.toml`), architecture tests, and the full suite. A finding is fixed, or kept with `# noqa: <code>  <reason>`.
 
 > [!failure] Common wrong turns
 > - Adding provider-named methods instead of a feature-owned structured operation.

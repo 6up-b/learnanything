@@ -52,6 +52,7 @@ Tests are part of the architecture. LearnLoop uses example tests for local rules
 .venv/bin/pytest -q
 .venv/bin/pytest -q -m durability
 .venv/bin/lint-imports --no-cache
+.venv/bin/ruff check
 .venv/bin/python -m compileall -q src scripts tests
 git diff --check
 (cd apps/learnloop-tauri && npm test)
