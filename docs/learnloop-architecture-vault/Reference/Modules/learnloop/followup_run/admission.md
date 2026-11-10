@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_run/admission.py](../../../../../../src/learnloop/followup_run/admission.py) |
-| Source lines | 434 |
+| Source lines | 438 |
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -65,7 +65,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `persist_item(vault: Any, repository: Repository, probe: AuthoredProbe, *, template: Any, card: Any, workflow_id: str | None, episode_id: str | None=None, source: str='workflow', client: Any=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 227) — The mint's persistence and single-use handling, reused (§4.1).
 - `admit(repository: Repository, *, candidate_id: str, receipt: Mapping[str, Any], clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 327) — The machine admission receipt: the ladder, walked by what actually checked it.
 - `commission_only(vault: Any, repository: Repository, probe: AuthoredProbe, *, factor_id: str, practice_item_id: str, client: Any=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 339) — An entry or a failed lane's later generation: an active candidate, pinned by no one yet.
-- `commission_and_pin(vault: Any, repository: Repository, probe: AuthoredProbe, *, workflow: Mapping[str, Any], factor_id: str, decision_id: str | None, practice_item_id: str, client: Any=None, clock: Clock | None=None) -> AdmittedProbe` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 376) — Commissioning of the explicit item, machine admission, and the pinned offer.
+- `commission_and_pin(vault: Any, repository: Repository, probe: AuthoredProbe, *, workflow: Mapping[str, Any], factor_id: str, router_decision_id: str | None, practice_item_id: str, client: Any=None, clock: Clock | None=None) -> AdmittedProbe` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 376) — Commissioning of the explicit item, machine admission, and the pinned offer.
 
 ### Module constants
 

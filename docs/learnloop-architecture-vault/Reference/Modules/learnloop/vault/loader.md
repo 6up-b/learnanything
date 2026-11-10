@@ -3193,6 +3193,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sim_teach_back.py](../../../../../../tests/test_sim_teach_back.py) — direct import
   - `test_runner_completes_session_with_teach_back_item`
 - [tests/test_simulation.py](../../../../../../tests/test_simulation.py) — direct import
+- [tests/test_slate_record.py](../../../../../../tests/test_slate_record.py) — direct import
 - [tests/test_source_append.py](../../../../../../tests/test_source_append.py) — direct import
   - `test_append_budget_overrides_reach_the_manifest`
   - `test_append_context_bounded_by_neighborhood`

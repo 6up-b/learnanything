@@ -197,6 +197,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_a_formative_gap_brings_no_check_forward`
 - [tests/test_router_offer_log.py](../../../../../../tests/test_router_offer_log.py) — direct import
   - `test_placement_components_and_exclusions_are_in_the_candidate_set`
+- [tests/test_slate_record.py](../../../../../../tests/test_slate_record.py) — direct import
+  - `test_a_placement_check_records_why_its_lo_items_were_not_candidates`
 - [tests/test_stuck_prompt_composition.py](../../../../../../tests/test_stuck_prompt_composition.py) — direct import
 - [tests/test_today_headline.py](../../../../../../tests/test_today_headline.py) — direct import
   - `test_assumed_comes_first_and_is_omitted_before_placement`

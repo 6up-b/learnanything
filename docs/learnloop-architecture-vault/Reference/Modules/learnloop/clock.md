@@ -1967,6 +1967,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_save_tutor_answer_note_and_facet_question_counts`
 - [tests/test_sim_probe_validation.py](../../../../../tests/test_sim_probe_validation.py) — direct import
 - [tests/test_simulation.py](../../../../../tests/test_simulation.py) — direct import
+- [tests/test_slate_record.py](../../../../../tests/test_slate_record.py) — direct import
 - [tests/test_source_append.py](../../../../../tests/test_source_append.py) — direct import
 - [tests/test_source_deletion.py](../../../../../tests/test_source_deletion.py) — direct import
 - [tests/test_source_ingestion.py](../../../../../tests/test_source_ingestion.py) — direct import
