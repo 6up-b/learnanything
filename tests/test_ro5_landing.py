@@ -398,6 +398,8 @@ def _fg1_env(tmp_path, *, version: str = TAG, toml: str | None = ARMS_OFF, llm=N
     """A standing plan with its first block open and one answer in it (``tests/test_followup_router.py``'s shape),
     at ``version``; the fakes answer every model. ``seed``: a pinned decision seed (RO6's landing ruling R14)."""
 
+    from dataclasses import replace
+
     from learnloop.daily_plan.engine import advance, build_plan
 
     from tests.daily_plan_fakes import record_attempt
@@ -407,8 +409,27 @@ def _fg1_env(tmp_path, *, version: str = TAG, toml: str | None = ARMS_OFF, llm=N
     llm = llm or FakeLLM()
     env = mixture_env(tmp_path, fake_runtime(llm=llm, seed=seed), version=version, toml=toml,
                       items=lambda: list(_wide_items()))
-    build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
-    record, step = advance(env, serve=True)
+    # The mix's draws are live (seeded by random decision ids) and its support holds stop_for_today, which it drew at
+    # the first boundary (decided at the build) in about 1 run in 35: the plan then has no first block to answer in.
+    # The stop is the only draw redirected, in both mixes (the objective's, and R2's below its tag); every later draw
+    # is as it would be.
+    from learnloop.router import mixture as router_mixture
+
+    def never_stop(real_draw):
+        def drawn_not_stopping(support, parts, weights, epsilon, seed):
+            drawn = real_draw(support, parts, weights, epsilon, seed)
+            if drawn.chosen != "stop_for_today":
+                return drawn
+            other = next(ref for ref in support if ref != "stop_for_today")
+            return replace(drawn, chosen=other, propensity=drawn.pi[other])
+
+        return drawn_not_stopping
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(mix, "draw", never_stop(mix.draw))
+        patch.setattr(router_mixture, "draw", never_stop(router_mixture.draw))
+        build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")  # draws the first boundary
+        record, step = advance(env, serve=True)
     assert step["kind"] == "item"
     env.clock.advance(1)
     record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now(),

@@ -200,7 +200,8 @@ def test_a_refused_follow_up_is_recorded_with_the_constraint_that_refused_it(tmp
 
 
 @pytest.mark.usefixtures("offerable")
-def test_a_failed_check_draw_placement_and_lesson_builder_are_the_boundarys_children(tmp_path, monkeypatch, caplog):
+def test_a_failed_check_draw_placement_and_lesson_builder_are_the_boundarys_children(tmp_path, monkeypatch, caplog,
+                                                                                    draw):
     """Fail-first: before B3 each was a WARNING line and nothing else."""
 
     from learnloop.router_objective import checks
@@ -208,6 +209,9 @@ def test_a_failed_check_draw_placement_and_lesson_builder_are_the_boundarys_chil
     def boom(*_args, **_kwargs):
         raise RuntimeError(SECRET)
 
+    # The mix's draws are live (seeded by random decision ids) and stop_for_today is in its support: it drew the stop
+    # at the builder's boundary in about 1 run in 60, so the step was "done", not an item. Only the stop is redirected.
+    draw.never_stop = True
     monkeypatch.setattr(checks, "draw_day", boom)
     monkeypatch.setattr(E, "_checks_to_place", boom)
     env = _ih2_env(tmp_path)
