@@ -86,7 +86,6 @@ from learnloop.experiments.contextual_embeddings.budget import E0Ledger, E0Provi
 from learnloop.experiments.contextual_embeddings.callers import Checkpoints
 from learnloop.experiments.contextual_embeddings.corpus import CorpusSnapshot
 from learnloop.experiments.contextual_embeddings.delivery import (
-    Delivered,
     deliver,
     retrieved_d1,
 )

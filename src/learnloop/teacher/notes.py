@@ -50,7 +50,6 @@ def your_notes(vault: Any, repository: Any, learning_object_ids: Sequence[str]) 
 
 
 def read_note(vault: Any, repository: Any, state: Any, refs: list[str]) -> dict[str, Any]:
-    from learnloop.teacher.brief import c4_active
 
     if not c4_active(vault):
         return {"refused": "notes_off", "message": "the learner's notes are not part of this lesson"}

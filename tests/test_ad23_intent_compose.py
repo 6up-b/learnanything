@@ -18,7 +18,6 @@ Fakes only: no network, no model call.
 
 from __future__ import annotations
 
-import dataclasses
 import random
 
 import pytest

@@ -16,7 +16,6 @@ Every model is a fake; nothing leaves the machine.
 from __future__ import annotations
 
 import os
-import sqlite3
 from datetime import timedelta
 
 from learnloop.clock import FrozenClock, parse_utc, utc_now_iso
@@ -25,11 +24,10 @@ from learnloop.daily_plan import reading_choice as RC
 from learnloop.db.copies import backup_database
 from learnloop.placement.rules import DIAGNOSIS_WAIT_DAYS
 from learnloop.source_retrieval import deliverable_path as DP
-from learnloop.vault.loader import load_vault
 from tests.deliverable_fixtures import DeliverableFake
 from tests.reading_path_fixtures import call, context
 from tests.test_curriculum_c1_fix_round2 import _no_refresh
-from tests.test_curriculum_c1_fix_round3 import JOB, _env, _raw
+from tests.test_curriculum_c1_fix_round3 import _env, _raw
 from tests.test_curriculum_c1_plan_follows_path import PRIMARIES, _c1
 
 

@@ -730,7 +730,7 @@ def _queued_followup(connection, gate_attempt: str, item: str, created_at: str) 
     connection.execute(
         "INSERT INTO attempt_surprise (attempt_id, observed_joint_bucket_json, triggered_actions_json, "
         "algorithm_version, created_at) VALUES (?, '{}', ?, 'test', ?)",
-        (gate_attempt, json.dumps([f"intervention_followup:low_score:pi_gate_source",
+        (gate_attempt, json.dumps(["intervention_followup:low_score:pi_gate_source",
                                    f"intervention_followup:queued:{item}"]), created_at),
     )
     return {"site": "followup_selection", "source_attempt_id": gate_attempt, "decision_ref": gate_attempt,

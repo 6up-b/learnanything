@@ -106,5 +106,5 @@ def test_llpdf_pages_count_from_one():
 
 def test_the_desktop_never_has_a_reason(store):
     vault, names = store
-    item = _item(f"![graph](figures/graph.png)")
+    item = _item("![graph](figures/graph.png)")
     assert DE.ineligibility_reason(vault, item, DE.DESKTOP, media=True) is None

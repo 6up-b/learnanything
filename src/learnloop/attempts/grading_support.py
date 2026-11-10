@@ -86,7 +86,7 @@ import json
 import re
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Literal, Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 from pydantic import Field
 

@@ -24,7 +24,7 @@ still replays from its hash.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock

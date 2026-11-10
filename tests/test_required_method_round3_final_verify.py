@@ -73,7 +73,7 @@ def _rewrite_contract(repository, attempt_id: str, **changes) -> None:
 @pytest.mark.parametrize("cleared", ["disputed", "verified", "unchecked"])
 @pytest.mark.parametrize("contract", ["recorded", "historical"])
 def test_an_unrebuildable_method_binding_needs_a_fresh_check_whatever_another_revision_says(
-        pre_fix, contract, cleared):  # noqa: F811 - the imported fixture
+        pre_fix, contract, cleared):
     """The verify's reproduction (``recorded``: the legacy hash) and its
     historical twin (no hash recorded). The method is cleared and the cleared
     question is disputed, verified or left alone by a check written now; the
@@ -109,7 +109,7 @@ def test_an_unrebuildable_method_binding_needs_a_fresh_check_whatever_another_re
 
 
 def test_a_contract_without_a_recorded_hash_leaves_the_cleared_question_needing_a_fresh_check(
-        pre_fix):  # noqa: F811 - the imported fixture
+        pre_fix):
     """The verify's reproduction: a legacy check of the induction question and
     a method contract frozen before contracts recorded a hash. Clearing the
     method recreates the legacy hash; the cleared question needs a fresh
@@ -140,7 +140,7 @@ def test_a_contract_without_a_recorded_hash_leaves_the_cleared_question_needing_
 
 
 def test_a_contract_frozen_now_records_its_key_identity_and_binds_exactly_without_its_rubric(
-        gated_successor):  # noqa: F811 - the imported fixture
+        gated_successor):
     """A contract frozen now names its hash's identity, so it is never
     ambiguous: with the rubric graded lost, it still binds exactly its
     revision (verified by that revision's check, lowered by its dispute)."""
@@ -171,7 +171,7 @@ def test_a_contract_frozen_now_records_its_key_identity_and_binds_exactly_withou
 
 @pytest.mark.parametrize("rubric", ["rebuilt", "lost"])
 def test_a_branch_contract_recorded_since_review_f1_binds_exactly_only_when_it_is_rebuilt(
-        gated_successor, rubric):  # noqa: F811 - the imported fixture
+        gated_successor, rubric):
     """A contract this branch froze between review F1 and this fix recorded
     the method-aware hash but not its identity, so nothing tells it from a
     legacy hash except a rebuild. Rebuilt: it binds exactly and stays

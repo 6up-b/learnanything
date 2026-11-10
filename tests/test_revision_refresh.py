@@ -9,15 +9,13 @@ payloads, zero network.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from pathlib import Path
 
 from learnloop.clock import FrozenClock
 from learnloop.content.pipeline.revision_refresh import refresh_revision
 from learnloop.content.synthesis.source_set_synthesis import create_study_map
 from learnloop.vault.loader import load_vault
 
-from tests.test_source_append import SymmetryInventoryClient
-from tests.test_source_inventory import _block, _ir, _persist, _register_revision
+from tests.test_source_inventory import _block, _ir, _persist
 from tests.test_source_set_synthesis import FakeSynthesisClient, _setup
 
 _CLOCK = FrozenClock(datetime(2026, 7, 14, 12, 0, 0, tzinfo=UTC))

@@ -37,7 +37,6 @@ from tests.figure_fixtures import (
     counts,
     flagship,
     rows,
-    set_config,
 )
 
 WHY = "the grammar has no random process with state"

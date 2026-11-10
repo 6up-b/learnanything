@@ -6,7 +6,6 @@ AD1's fixed map (``tests.test_ad1_reading_opportunities.FakeMap``); fakes only.
 
 from __future__ import annotations
 
-import json
 from collections import Counter
 from contextlib import closing
 from typing import Any

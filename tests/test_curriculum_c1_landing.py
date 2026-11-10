@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 
-import pytest  # noqa: F401 - _cli_process is a fixture imported below
+import pytest
 from typer.testing import CliRunner
 
 from learnloop.algorithm_versions import (
@@ -30,7 +30,6 @@ from learnloop.curriculum import commitments as C
 from learnloop.db.repositories import Repository
 from learnloop.instructional import reader_followups as RF
 from learnloop.ops.vault_upgrade import rewrite_algorithm_version
-from learnloop.vault.loader import load_vault
 from tests.helpers import append_config_toml, create_placement_vault
 from tests.reading_path_fixtures import call, context
 from tests.test_curriculum_c1_plan_follows_path import C1_OFF, _activated, _at, _c1, _cli_process, _journal, _split, _version  # noqa: F401  a pytest fixture the tests here request

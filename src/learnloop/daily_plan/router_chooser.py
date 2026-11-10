@@ -49,10 +49,9 @@ import hashlib
 import json
 import logging
 import threading
-import time
 from typing import Any
 
-from learnloop.daily_plan.chooser import LaneQuotaChooser, unspent_share
+from learnloop.daily_plan.chooser import unspent_share
 from learnloop.daily_plan import measurement as objectives
 from learnloop.data_capture.gates import serving_on
 from learnloop.daily_plan.staged_frame import CardBuilder, StagedChooser

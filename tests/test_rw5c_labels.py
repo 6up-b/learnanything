@@ -7,7 +7,6 @@ import typing
 from typing import Any
 
 import pytest
-from pydantic import BaseModel
 
 from learnloop.content.authoring import pf_sandbox
 from learnloop.figures import elements as E
@@ -16,7 +15,7 @@ from learnloop.figures import source_check as SC
 from learnloop.figures import spec as S
 from learnloop.figures.display_format import js_string
 from tests.figure_fixtures import AuthorFake, build, call, context
-from tests.rw5c_fixtures import EXTRACTION, FLAGSHIP_EXPR, FLAGSHIP_TEX, PARAMETERS, build_check_vault, plot
+from tests.rw5c_fixtures import EXTRACTION, FLAGSHIP_TEX, build_check_vault, plot
 
 sandboxed = pytest.mark.skipif(not pf_sandbox.sandbox_available(), reason="needs bubblewrap")
 MODEL_WORDS = "matches the book's equation (checked)"

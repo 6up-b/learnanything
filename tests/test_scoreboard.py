@@ -45,7 +45,6 @@ from learnloop.diagnosis.scoreboard import (
     cold_success_metrics,
     cold_success_trajectories,
     harmful_write_rate,
-    measurement_rank_metric,
     planted_vs_adjudicated_agreement,
     probe_action_change_rate,
     scoreboard,

@@ -23,7 +23,7 @@ from learnloop.db.connection import connect
 from learnloop.workbench import compare_methods
 from tests.approach_map_fakes import EXPECTED, ITEM, LO, add_attempt, write_item
 from tests.hint_fakes import receipts, reveals
-from tests.workbench_help_fakes import STEP_1, STEP_2, CheckFake, call, help_rows, open_problem, run_job, sidecar
+from tests.workbench_help_fakes import STEP_1, STEP_2, CheckFake, call, help_rows, open_problem, sidecar
 
 SIBLING = "pi_cdf_2"
 

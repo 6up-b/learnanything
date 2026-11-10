@@ -149,7 +149,7 @@ import json
 import logging
 import sqlite3
 import threading
-from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
 from contextlib import closing, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -177,7 +177,6 @@ from learnloop.figure_admission import sketch_enabled as admission_sketch_enable
 from learnloop.figure_admission import GROUNDING_PASSAGES as ADMISSION_GROUNDING_PASSAGES
 from learnloop.figure_admission import show_me_enabled as admission_show_me_enabled
 from learnloop.figures import elements as E
-from learnloop.figures import grammar as G
 from learnloop.figures import labels as L
 from learnloop.figures import manim_figure as M
 from learnloop.figures import rich as RICH

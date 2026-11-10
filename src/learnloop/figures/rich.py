@@ -58,7 +58,6 @@ from contextlib import closing, contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
-from learnloop.ai.schemas import WireModel
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.authoring.ai_contracts import (
@@ -758,7 +757,6 @@ def _run(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base
         pacing_band,
         render_scene,
         resolve_manim_command,
-        store_video_bytes,
         validate_scene_code,
     )
 

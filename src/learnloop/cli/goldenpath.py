@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from learnloop.cli.runtime import *  # noqa: F401,F403
+from learnloop.cli.runtime import *  # noqa: F403
 
 goldenpath_app = typer.Typer(
     no_args_is_help=True, help="P2 golden-path fixture bootstrap (spec_p2 §C)."

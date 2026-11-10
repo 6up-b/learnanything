@@ -65,7 +65,7 @@ from learnloop.content.authoring import pf_contracts as C
 from learnloop.content.authoring.authoring_gates import build_instrument_gates
 from learnloop.content.authoring.pf_sandbox import (
     GENERATOR_PROTOCOL, SandboxLimits, SandboxUnavailable, check_generator_answers,
-    equivalence_confirmations, require_sandbox, run_equivalence_checks, run_generator_tests,
+    require_sandbox, run_generator_tests,
     sandbox_available,
 )
 from learnloop.content.sources.exam_material import exam_material, source_ref_protected

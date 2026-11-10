@@ -1211,7 +1211,7 @@ def fitted_useful_dose(result: ReaderResult, kind: str, reader: int, *, draws: i
     from learnloop.adaptive_difficulty import dose_report as DR
 
     bank = result.view.bank
-    names = [f"gbar:1", f"delta:{kind}:1", "gbar:2", f"delta:{kind}:2", "gamma"]
+    names = ["gbar:1", f"delta:{kind}:1", "gbar:2", f"delta:{kind}:2", "gamma"]
     idx = [bank.index[name] for name in names]
     mu = bank.mu[reader, idx]
     cov = bank.S[reader][np.ix_(idx, idx)]

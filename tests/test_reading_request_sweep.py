@@ -39,7 +39,7 @@ from learnloop.db.repositories import Repository
 
 from tests.test_ux_phase1_add_source import call
 from tests.test_ux_phase1_round2_review import _added_book
-from tests.ux_phase1_support import CLOCK, fake_services, route
+from tests.ux_phase1_support import CLOCK, fake_services
 
 
 class ScriptedClock:

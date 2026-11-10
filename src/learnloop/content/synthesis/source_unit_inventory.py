@@ -49,7 +49,6 @@ from learnloop.content.synthesis.ai_contracts import (
 )
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.ingest.hashing import normalize_semantic_text
 from learnloop.ingest.ir import DocumentIR
 from learnloop.ingest.reanchor import EXACT_HASH, reanchor_spans
 from learnloop.content.sources.role_authority import default_inventory_profile

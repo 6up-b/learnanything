@@ -20,7 +20,7 @@ from typing import Any, Iterable
 
 # The predicate itself lives beside the media's (``learnloop.reader.phone_media``), so the phone's text, its
 # pages, its stored images and its eligibility read one definition (Codex review of V4, F3, F10).
-from learnloop.reader.phone_media import PhoneWithheld, phone_withheld  # noqa: F401
+from learnloop.reader.phone_media import PhoneWithheld, phone_withheld
 
 #: The surface a reader call under a phone origin records (spec §3.4).
 PHONE_READER_SURFACE = "phone_reader"

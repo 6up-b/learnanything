@@ -49,8 +49,7 @@ import json
 import logging
 import re
 import time
-from dataclasses import asdict, dataclass
-from datetime import timedelta
+from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence
 
 from learnloop import confidence_events

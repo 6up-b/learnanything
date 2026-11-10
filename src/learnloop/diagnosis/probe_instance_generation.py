@@ -35,7 +35,7 @@ from learnloop.diagnosis.ai_contracts import (
 )
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.authoring.practice_leakage import reserved_payload_findings, reserved_questions
-from learnloop.db.repositories import ProbeGenerationNeedRecord, Repository
+from learnloop.db.repositories import Repository
 from learnloop.learner.facet_state_reader import is_canonical_state_vault
 from learnloop.diagnosis.probe_families import (
     CONTRAST_CONFUSABLE_V1,

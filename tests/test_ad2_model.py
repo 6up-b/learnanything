@@ -26,7 +26,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 
-from tests.ad23_fakes import ITEMS, LO, ad23_vault, answer, env_for, rows
+from tests.ad23_fakes import LO, ad23_vault, answer, env_for, rows
 
 SPEC = ItemSpec("i", "lo", "s", "retrieval", {"f": 1.0},
                 features={"scaffolding": "worked", "response": "recognize", "tools": ["open_book"]})

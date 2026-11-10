@@ -6,7 +6,7 @@ from learnloop.vault.models import EvidenceFacet
 from learnloop.vault.writer import upsert_facet
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.helpers import NOW_ISO, create_basic_vault
+from tests.helpers import create_basic_vault
 from learnloop.vault.paths import VaultPaths
 
 

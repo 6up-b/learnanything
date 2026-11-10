@@ -18,7 +18,7 @@ The caller (``engine``) catches every exception from here and logs only its type
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import replace
 from typing import Any
 

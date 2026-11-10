@@ -4,7 +4,6 @@ from __future__ import annotations
 import pytest
 
 from learnloop.ingest.locators import format_block_span
-from learnloop.instructional.policy import caller_for
 from learnloop.instructional.sources import propose_sources
 from learnloop.source_retrieval.find_sources import find_sources, find_sources_for_caller
 from learnloop.source_retrieval.policy import CallerContext, PolicyRefused

@@ -285,7 +285,6 @@ def v2_rankings(replayed: Replayed, store: VectorStore) -> tuple[dict[str, dict[
 def label_estimate(per_question: Sequence[int], replayed: Replayed) -> dict[str, Any]:
     """Dollars for the supplementary labels of these real counts (the plan's token model)."""
 
-    import math
 
     from learnloop.experiments.contextual_embeddings.e1 import plan as plan_module
 

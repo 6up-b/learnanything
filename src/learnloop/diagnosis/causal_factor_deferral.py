@@ -62,7 +62,7 @@ from learnloop.db.repositories import Repository
 # Slice 1 §7.6: the one grouping function every exact-statement site uses.
 # Re-exported here, where the spec names it; it lives below the domains
 # because the repository's candidate projection calls it too.
-from learnloop.recurrence import RECURRENCE_KEY_VERSION, recurrence_key
+from learnloop.recurrence import recurrence_key
 
 #: §10.3 deferral escalation: this many further recurrences of the same error
 #: signature after the case's first factor opened — with no learner engagement

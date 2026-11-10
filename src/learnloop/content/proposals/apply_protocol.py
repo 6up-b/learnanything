@@ -37,7 +37,6 @@ from learnloop.ids import new_ulid
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault
-from learnloop.vault.paths import VaultPaths
 
 # Directories never copied into the staging vault: derived caches and raw
 # fetched bytes. Databases and their -wal/-shm/-journal companions are left out

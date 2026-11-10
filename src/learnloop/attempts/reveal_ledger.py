@@ -28,10 +28,9 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
-from datetime import timedelta
 from typing import Any, Mapping, Sequence
 
-from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop.clock import Clock, utc_now_iso
 from learnloop import serve_eligibility
 from learnloop.db.repositories import Repository
 from learnloop.reveal_coverage import (

@@ -11,7 +11,6 @@ ignored (owner decision 2026-10-12): their never-practised LOs start as learning
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from pathlib import Path
 
 import pytest
 
@@ -26,7 +25,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.repository import open_vault_repository
 
-from tests.owner_vaults import owner_vault, owner_vaults, working_vault_params
+from tests.owner_vaults import owner_vault, working_vault_params
 from tests.helpers import append_config_toml, set_algorithm_version
 
 # The owner's working vaults: backup-API copies in the owner_vaults lane (S0).

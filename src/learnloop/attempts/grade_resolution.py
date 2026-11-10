@@ -13,7 +13,7 @@ it is swallowed by :func:`record_grade_dual_write` and recoverable by P0.3 repla
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock

@@ -22,7 +22,6 @@ from learnloop.db.migrate import (
     upgrade_allowance,
 )
 from learnloop.db.table_roles import TableRole, role_for_table
-from tests.test_ro1_availability import RO1_ALTERED_TABLES
 from tests.test_te3a_migration import TE3A_ALTERED_TABLES
 from tests.test_retrieval_spaces_migration import P1_ADDED_OBJECTS
 from tests.test_learner_claim_application_migration import CLAIM_POINT_ALTERED_TABLES

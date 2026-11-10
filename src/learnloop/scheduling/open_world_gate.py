@@ -22,7 +22,7 @@ the open-world SUBSTRATE is absent, an independent reason expansion cannot be en
 from __future__ import annotations
 
 import importlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable
 
 from learnloop.db.repositories import Repository

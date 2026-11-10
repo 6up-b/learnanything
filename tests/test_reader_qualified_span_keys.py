@@ -59,7 +59,7 @@ REQUESTS: list[tuple[str, Any]] = [
 IDS = [f"{method}:{index}" for index, (method, _build) in enumerate(REQUESTS)]
 
 
-def test_ca6b_open1_the_helper_refuses_another_readings_key_and_an_unkeyed_id(twins):  # noqa: F811
+def test_ca6b_open1_the_helper_refuses_another_readings_key_and_an_unkeyed_id(twins):
     _paths, repository = twins
     SI.require_reading_span_keys(repository, extraction_id="ext_x", span_keys=["ext_x:s1"], span_ids=["s1"])
     SI.require_reading_span_keys(repository, extraction_id="ext_x", span_keys=None, span_ids=["s1"])  # not sent
@@ -75,21 +75,21 @@ def test_ca6b_open1_the_helper_refuses_another_readings_key_and_an_unkeyed_id(tw
 
 
 @pytest.mark.parametrize(("method", "build"), REQUESTS, ids=IDS)
-def test_ca6b_open1_a_colliding_span_id_keyed_to_another_book_is_refused(twins, method, build):  # noqa: F811
+def test_ca6b_open1_a_colliding_span_id_keyed_to_another_book_is_refused(twins, method, build):
     paths, repository = twins
     error = _refused(context(paths.root), repository, method, build(["ext_y:s1"]))
     assert error.details["reason"] == "span_key_reading"
 
 
 @pytest.mark.parametrize(("method", "build"), REQUESTS, ids=IDS)
-def test_ca6b_open1_a_bare_id_without_its_key_is_refused(twins, method, build):  # noqa: F811
+def test_ca6b_open1_a_bare_id_without_its_key_is_refused(twins, method, build):
     paths, repository = twins
     error = _refused(context(paths.root), repository, method, build([]))
     assert error.details["reason"] == "span_key_missing"
 
 
 @pytest.mark.parametrize(("method", "build"), REQUESTS, ids=IDS)
-def test_ca6b_open1_keys_naming_the_requests_own_reading_pass_the_guard(twins, method, build):  # noqa: F811
+def test_ca6b_open1_keys_naming_the_requests_own_reading_pass_the_guard(twins, method, build):
     paths, _repository = twins
     for keys in (["ext_x:s1"], None):  # keyed by the app, or a caller that sends no keys (as before)
         params = build(keys)

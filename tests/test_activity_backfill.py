@@ -5,7 +5,6 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect

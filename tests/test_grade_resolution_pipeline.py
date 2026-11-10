@@ -31,7 +31,6 @@ from learnloop.attempts.grade_classifier import (
 from learnloop.attempts.grade_resolution import (
     append_adjudication,
     quarantine_observation,
-    record_grade_dual_write,
     resolve_grade,
 )
 from learnloop.attempts.grader_calibration import (
@@ -43,7 +42,6 @@ from learnloop.attempts.grader_calibration import (
 )
 from learnloop.attempts.outcome_schemas import (
     COARSE_RESPONSE_SLUG,
-    COARSE_RESPONSE_UNANSWERED_SLUG,
     ensure_builtin_schemas,
 )
 from learnloop.substrate.state_sync import sync_vault_state

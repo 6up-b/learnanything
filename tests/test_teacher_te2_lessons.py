@@ -22,7 +22,7 @@ from learnloop.teacher import te2 as T2
 from learnloop.vault.loader import load_vault
 from tests.deliverable_fixtures import DeliverableFake
 from tests.teacher_fakes import TeacherFake, build_teacher_vault, check_turn, clients, close_turn, plan_turn
-from tests.test_teacher_te2_probes import ProbeAuthor, _Lesson, probe_turn
+from tests.test_teacher_te2_probes import _Lesson, probe_turn
 
 TAG = TEACHER_PROBES_ALGORITHM_VERSION
 OLD = ROUTER_FOLLOWUPS_ALGORITHM_VERSION

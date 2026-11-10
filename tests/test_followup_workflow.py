@@ -9,7 +9,7 @@ from learnloop.followup_serve import workflow as wf
 from learnloop.followup_serve.gates import effective_auto_generate_on_entry, generate_and_serve_on
 
 from tests.followup_serve_helpers import CLOCK, BlindRivalClient, OFF, TAG, miss_with_rivals, rival_causes_vault, run_jobs
-from tests.split_live_helpers import drain_jobs, fake_client, split_vault, submit
+from tests.split_live_helpers import drain_jobs, split_vault, submit
 from tests.test_causal_p2_acceptance import _divergent_failure
 
 

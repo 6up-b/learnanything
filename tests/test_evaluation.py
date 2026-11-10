@@ -11,7 +11,6 @@ from typer.testing import CliRunner
 
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
-from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.scheduling.evaluation import (
     brier_score,

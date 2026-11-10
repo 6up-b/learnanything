@@ -212,7 +212,6 @@ def test_223_adds_only_the_earlier_opening_column(tmp_path):
     # Numbered 221 on reader/ca2-one-ask; the batch landing renumbered it 223
     # after main's 221 (LP claim fixes) and 222 (curriculum C0a). Reader
     # RW5d P1's 224 follows on the way to head.
-    from pathlib import Path
 
     from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations
     from learnloop.db.migrate import upgrade_allowance

@@ -15,7 +15,7 @@ from learnloop.clock import FrozenClock
 from learnloop.teacher import episodes as E
 from learnloop.teacher import service as S
 from learnloop.vault.loader import load_vault
-from tests.teacher_fakes import TeacherFake, build_teacher_vault, check_turn, clients, close_turn, plan_turn
+from tests.teacher_fakes import TeacherFake, build_teacher_vault, check_turn, clients, close_turn
 from tests.test_teacher_te2log_episodes import detour_turn
 from tests.test_teacher_te2log_node_held import held_plan
 

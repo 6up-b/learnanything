@@ -39,7 +39,7 @@ a dominance filter, or a documented tie-break order (:func:`argmin_action`).
 from __future__ import annotations
 
 import statistics
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from learnloop.db.repositories import Repository

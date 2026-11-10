@@ -13,7 +13,7 @@ unchanged, so nothing here bypasses review.
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository

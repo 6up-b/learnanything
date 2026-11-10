@@ -19,10 +19,9 @@ from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, NOW_ISO
+from tests.helpers import NOW
 from tests.test_km3_projections import (
     COMP_A,
-    COMP_B,
     INTEG,
     LO_ID,
     build_blueprint_vault,

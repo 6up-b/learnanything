@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.attempts.attempts import GradeAttribution, ResolvedGrade
+from learnloop.attempts.attempts import ResolvedGrade
 from learnloop.goals.exam_pool import reserve_exam_pool, reserved_item_ids
 from learnloop.goals.exam_session import (
     ExamSessionError,

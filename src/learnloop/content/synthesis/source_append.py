@@ -35,7 +35,6 @@ from learnloop.content.synthesis.ai_contracts import (
     AppendReconciliation,
     AppendReconciliationContext,
     SourceSetSynthesis,
-    SynthSpanRef,
     append_reconciliation_prompt,
     append_reconciliation_prompt_version,
 )
@@ -44,7 +43,7 @@ from learnloop.db.repositories import Repository
 from learnloop.vault.repository import vault_repository
 from learnloop.ids import new_ulid
 from learnloop.ai.runs import finish_agent_run
-from learnloop.content.synthesis.append_neighborhood import Neighborhood, select_neighborhood
+from learnloop.content.synthesis.append_neighborhood import select_neighborhood
 from learnloop.content.synthesis.graph_nomination import GraphNominator, plan_ingest_embedding
 from learnloop.content.proposals.patches import compute_target_hash
 from learnloop.content.facet_identity import authority as facet_meaning
@@ -74,7 +73,7 @@ from learnloop.content.synthesis.synthesis_manifests import (
 )
 from learnloop.content.synthesis.vault_epigraphs import digest_for_append, generate_vault_epigraphs
 from learnloop.vault.loader import load_vault
-from learnloop.vault.models import LoadedVault, SourceSet
+from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 
 APPEND_AGENT_PURPOSE = "append_reconciliation"

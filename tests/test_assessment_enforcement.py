@@ -15,7 +15,6 @@ from learnloop.substrate.activities import (
     ExposureCollisionAtRender,
     RenderRefused,
     append_practice_successor_proposal,
-    cancel_reservation,
     open_administration,
     render_assessment_with_replacement,
     reserve_surface,

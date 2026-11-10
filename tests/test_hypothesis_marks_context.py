@@ -8,7 +8,6 @@ from datetime import timedelta
 import json
 import sqlite3
 
-import pytest
 
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.attempts.post_attempt import run_post_attempt_pipeline
@@ -17,7 +16,6 @@ from learnloop.daily_plan.types import BlockCandidate, PlanState
 from learnloop.db.connection import connect
 from learnloop.followup_run import marks as panel
 from learnloop.followup_serve import marks as M
-from learnloop.followup_serve import workflow as wf
 from learnloop.ops.capture_report import (
     DELAYED_AGREEMENT_LABEL,
     POSITION_LABEL,

@@ -829,7 +829,6 @@ def test_bootstrap_synthesis_job_validates_payload(tmp_path):
 
 
 def _extract_ctx(tmp_path):
-    from learnloop.db.repositories import Repository
     from learnloop.clock import FrozenClock
     from learnloop.content.pipeline.runner import JobContext
 

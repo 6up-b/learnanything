@@ -36,13 +36,10 @@ from learnloop.adaptive_difficulty.operation import entry
 import logging
 import math
 from collections.abc import Mapping, Sequence
-from contextlib import closing
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
-import numpy as np
 
-from learnloop.clock import parse_utc
 from learnloop.db.stores import ad_serving as store
 
 from learnloop.adaptive_difficulty import predict as PR

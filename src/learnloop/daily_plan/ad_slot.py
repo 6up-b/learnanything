@@ -172,9 +172,8 @@ def decide(vault: Any, repository: Any, wire: str, *, session: SlotSession) -> A
     support's checks 0-4 from the facts and AD's own view, and the draw (``decide_slot``, which
     writes the ``ad_selections`` row). Returns ``(decision, request)``."""
 
-    from learnloop.adaptive_difficulty import predict as PR
     from learnloop.adaptive_difficulty.operation import ad_operation
-    from learnloop.adaptive_difficulty.serving import SlotCandidate, SlotRequest, decide_slot
+    from learnloop.adaptive_difficulty.serving import decide_slot
 
     def run() -> Any:
         try:

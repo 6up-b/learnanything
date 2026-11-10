@@ -51,7 +51,7 @@ from learnloop.ai.execution import content_key
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.ai.transport import render_structured_prompt
-from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.stores import ad_receipts as store
 from learnloop.scheduling.forecast_receipts import (

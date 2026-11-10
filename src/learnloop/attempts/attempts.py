@@ -44,8 +44,6 @@ from learnloop.diagnosis.causal_activity_policy import classify_attempt_activity
 from learnloop.attempts.grading import (
     GradingValidationError,
     ValidatedCodexGrade,
-    ValidatedCriterionEvidence,
-    ValidatedErrorAttribution,
     build_grading_context,
     confidence_to_grader_confidence,
     enforce_passed_target_firewall,
@@ -91,7 +89,6 @@ from learnloop.attempts.blind_grading import (
     split_grading_active,
 )
 from learnloop.attempts.evidence import attempt_evidence_mass
-from learnloop.attempts.reveal_ledger import POST_ATTEMPT_REVEAL_KINDS
 from learnloop import serve_eligibility
 from learnloop.attempts.stuck import (
     EMPTY_STUCK_EVIDENCE,
@@ -107,7 +104,6 @@ from learnloop.attempts.stuck import (
 )
 from learnloop.learner.assessment_contracts import (
     CANONICAL_STATE_VERSIONS,
-    KM_ALGORITHM_VERSION,
     compile_assessment_contract,
     contract_required_method,
     rubric_from_contract,
@@ -118,16 +114,11 @@ from learnloop.learner.facet_state_reader import (
 )
 from learnloop.content.proposals.proposals import maybe_promote_self_tagged_fatal_error
 from learnloop.learner.recall_coverage import (
-    build_facet_recall_updates,
     build_facet_recall_updates_from_prior,
-    build_quality_state_update,
     build_quality_state_update_from_prior,
     derive_facet_outcomes,
-    event_local_severity,
     event_local_severity_from_attempts,
-    familiarity_discount,
     familiarity_discount_from_attempts,
-    predicted_correctness,
     predicted_correctness_from_prior,
     resolve_coverage,
     resolve_error_impact,
@@ -3702,7 +3693,6 @@ def _stamp_observation_lineage(
     """
 
     from learnloop.learner.assessment_contracts import (
-        KM_ALGORITHM_VERSION,
         snapshot_for_presentation,
     )
 

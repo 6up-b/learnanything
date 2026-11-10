@@ -62,7 +62,6 @@ from learnloop.vault.models import (
     CAPABILITY_VOCABULARY,
     LoadedVault,
     PracticeItem,
-    recipe_components,
 )
 
 # The capability ladder runs LOW -> HIGH in ``CAPABILITY_VOCABULARY`` declaration

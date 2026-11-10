@@ -600,7 +600,6 @@ def test_replay_never_reads_the_switch(tmp_path):
     """On the migration-head fixture at the latest tag: rebuilds with the
     switch on and off leave every DERIVED table the same."""
 
-    from pathlib import Path
 
     from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
     from learnloop.db.copies import copy_tree_with_databases

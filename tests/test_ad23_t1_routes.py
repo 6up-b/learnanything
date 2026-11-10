@@ -17,7 +17,6 @@ Fakes only: nothing is sent.
 
 from __future__ import annotations
 
-import pytest
 
 from learnloop.adaptive_difficulty import operation as O
 from learnloop.ai import plan_fallback

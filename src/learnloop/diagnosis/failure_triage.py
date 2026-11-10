@@ -35,8 +35,8 @@ arm that fired is recorded as ``tier_one_basis`` on the result and in the event 
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from typing import Any, Mapping, Sequence
+from dataclasses import asdict, dataclass
+from typing import Any, Mapping
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository

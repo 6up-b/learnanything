@@ -21,7 +21,6 @@ from learnloop.diagnosis.ai_contracts import (
 )
 from learnloop.clock import Clock, parse_utc
 from learnloop.db.repositories import MisconceptionRecord, Repository
-from learnloop.diagnosis.error_taxonomy_map import map_legacy_error_type
 from learnloop.learner.facet_state_reader import is_canonical_state_vault
 from learnloop.recurrence import key_for_statement
 from learnloop.substrate.recurrence_groups import active_group_map, refresh_recurrence_groups

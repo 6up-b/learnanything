@@ -34,7 +34,7 @@ from learnloop.db.repositories import Repository
 from learnloop.curriculum import commitments as C
 from learnloop.curriculum import depth_transition as DT
 from learnloop.curriculum.depth_envelopes import depth_policy, envelope_edges
-from learnloop.substrate.activities import canonical_hash, canonical_json
+from learnloop.substrate.activities import canonical_hash
 
 # The default conditional stage ladder (§10.1). An arc may override the ordered set;
 # the transitions are conditional (evidence-gated), never precomputed due dates.

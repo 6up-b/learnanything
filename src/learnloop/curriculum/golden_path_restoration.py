@@ -27,7 +27,7 @@ while the gate is off; ``decline_depth_invitation`` logs the decision.
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any, Mapping
 
 from learnloop.clock import Clock

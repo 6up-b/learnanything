@@ -39,7 +39,7 @@ from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Sequence
+from typing import Any
 
 import pytest
 import yaml
@@ -1633,7 +1633,7 @@ def test_a_late_uptake_callback_writes_nothing_when_ad_cannot_record_it(tmp_path
     from learnloop.adaptive_difficulty import dose as D
     from learnloop.db.stores import ad_serving
 
-    from tests.test_ad3_dose_arm import _arm, _boundary, _draws, _mapping
+    from tests.test_ad3_dose_arm import _arm
     from tests.test_ad1_reading_opportunities import _question, at
 
     paths, vault, repo = _arm(tmp_path)

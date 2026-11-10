@@ -48,7 +48,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.helpers import set_algorithm_version
-from tests.split_live_helpers import ReadyRuntime, append_config, at, drain_jobs, split_vault
+from tests.split_live_helpers import ReadyRuntime, at, drain_jobs, split_vault
 
 ITEM = "pi_svd_compute_001"
 LO = "lo_svd_compute"

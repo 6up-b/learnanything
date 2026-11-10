@@ -16,7 +16,6 @@ from typing import Any
 import pytest
 
 from learnloop.algorithm_versions import INTERVAL_FACTOR_ALGORITHM_VERSION, ROUTER_OBJECTIVE_ALGORITHM_VERSION
-from learnloop.daily_plan.engine import advance
 from learnloop.db.stores import router_objective as store
 from learnloop.router_objective import mix
 

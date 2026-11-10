@@ -11,7 +11,6 @@ doctor reports what an existing item breaks. Fakes only; no network.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 import yaml

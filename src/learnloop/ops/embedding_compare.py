@@ -38,7 +38,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Callable, Mapping
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 import hashlib
 import json
 import math

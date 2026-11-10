@@ -28,9 +28,8 @@ The ladders (``ad_ladder_v1``, §9.1) and the commission candidates ``X_c``
 from __future__ import annotations
 
 import hashlib
-import math
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 SELECT_VERSION = "ad_select_v1"

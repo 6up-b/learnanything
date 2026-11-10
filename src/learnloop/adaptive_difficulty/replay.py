@@ -51,7 +51,6 @@ import logging
 import math
 import threading
 from collections.abc import Iterable, Mapping, Sequence
-from contextlib import closing
 from dataclasses import dataclass, field, replace
 from typing import Any
 

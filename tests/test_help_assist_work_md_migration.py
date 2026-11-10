@@ -22,7 +22,6 @@ from learnloop.adaptive_difficulty import protected_tables as PT
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.stores import help_assists as store
 from learnloop.db.table_roles import TableRole, role_for_table
-from tests.test_ro1_availability import RO1_ALTERED_TABLES
 from tests.test_te3a_migration import TE3A_ALTERED_TABLES
 from tests.test_learner_note_source_kind_migration import C5_ALTERED_TABLES
 from tests.test_learner_gap_unlinked_migration import UNLINKED_ALTERED_TABLES

@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC
 
-from learnloop.clock import Clock, SystemClock, parse_utc
+from learnloop.clock import Clock, SystemClock
 from learnloop.config import ProbeIRTConfig
 from learnloop.db.repositories import Repository
 from learnloop.learner.mastery import (

@@ -40,7 +40,6 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores.retrieval_spaces import (
     append_feedback,
     delivery_for_receipt,
-    feedback_rows,
     has_tables,
     record_citation_signals,
 )

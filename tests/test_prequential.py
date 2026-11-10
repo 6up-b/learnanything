@@ -8,7 +8,6 @@ by-group splits, and the secondary composed-selector report.
 
 from __future__ import annotations
 
-import math
 
 import pytest
 

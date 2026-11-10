@@ -420,7 +420,6 @@ def _linear_algebra_fixture_split_inputs(tmp_path):
     """Attempts, contracts and source links from a copy of the fixture, with
     every attempt treated as human because the fixture predates evidence origin."""
     import shutil
-    from pathlib import Path
 
     from learnloop.substrate.data_quality import rows, table_names
     from learnloop.substrate.dataset import _split_source_links

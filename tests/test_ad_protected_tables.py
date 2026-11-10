@@ -12,7 +12,6 @@ refused): ``test_ad_guard.py``'s zero-denial pipeline.
 
 from __future__ import annotations
 
-import importlib
 from contextlib import closing
 
 from learnloop.adaptive_difficulty import protected_tables as T

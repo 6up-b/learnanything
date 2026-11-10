@@ -9,7 +9,7 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.config import LearnLoopConfig
-from learnloop.db.repositories import ItemParameterState, MasteryState, Repository
+from learnloop.db.repositories import ItemParameterState, Repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.learner.mastery import (
     MasteryObservation,

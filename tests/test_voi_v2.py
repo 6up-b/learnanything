@@ -28,7 +28,6 @@ branch's before the study, exactly (``tests/voi_restore_golden.json``).
 from __future__ import annotations
 
 import json
-import math
 
 import pytest
 
@@ -39,7 +38,7 @@ from learnloop.vault.yaml_io import write_yaml
 
 from tests.daily_plan_fakes import make_env, scheduled
 from tests.helpers import create_daily_plan_vault
-from tests.test_voi_stopping import _admission, _classify, _ctx, _probe
+from tests.test_voi_stopping import _classify, _ctx, _probe
 
 
 # ── F2: the predictive objective, recomputed on each posterior branch ────────
@@ -1088,7 +1087,6 @@ def test_a_probe_outside_the_plans_universe_does_not_suppress_one_inside(tmp_pat
     universe) that would make B worthless. C cannot join this plan, so it
     takes no part in the admission: B is valued without it."""
 
-    from dataclasses import replace
 
     from learnloop.daily_plan.engine import _live_context, build_plan
 

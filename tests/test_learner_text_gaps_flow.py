@@ -32,7 +32,7 @@ from learnloop.tutor.tutor_qa import ask_question
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, append_config_toml, create_placement_vault, set_algorithm_version
-from tests.text_gap_fakes import ChoiceDecider, GapLLMFake, GapTutor, always, word_match
+from tests.text_gap_fakes import ChoiceDecider, GapLLMFake, GapTutor, word_match
 
 EIGEN_GAP = LearnerGap(prerequisite_name="Eigenvalues", prerequisite_line="Scalars a matrix scales its eigenvectors by.",
                        kind="prerequisite")

@@ -14,7 +14,6 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.scheduling import controller_snapshot as cs
-from learnloop.scheduling import controller_store as store
 from learnloop.scheduling import prequential
 from learnloop.scheduling import shadow_components as sc
 from learnloop.vault.loader import load_vault

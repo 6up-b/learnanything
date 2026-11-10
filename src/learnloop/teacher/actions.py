@@ -25,7 +25,6 @@ same protection the brief does:
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import Any
 
 from learnloop.teacher.contracts import ActionRequestV1

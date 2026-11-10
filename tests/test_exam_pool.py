@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.goals.exam_pool import (
     release_exam_pool,

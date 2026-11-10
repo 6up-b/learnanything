@@ -38,7 +38,6 @@ from typer.testing import CliRunner
 from learnloop.algorithm_versions import (
     DELIVERABLE_PLAN_ALGORITHM_VERSION,
     DELIVERABLE_PLAN_VERSIONS,
-    LATEST_ALGORITHM_VERSION,
     READER_FOLLOWUPS_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )

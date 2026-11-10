@@ -26,7 +26,6 @@ from typing import Any
 
 from learnloop.ingest.block_roles import classify_block_role
 from learnloop.ingest.extractors.base import ExtractionContext, units_from_toc_entries
-from learnloop.ingest.hashing import semantic_hash
 from learnloop.ingest.ir import (
     IR_SCHEMA_VERSION,
     DocumentAsset,

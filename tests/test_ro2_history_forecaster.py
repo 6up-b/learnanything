@@ -12,12 +12,12 @@ from datetime import timedelta
 
 import pytest
 
-from learnloop.clock import FrozenClock, parse_utc
+from learnloop.clock import FrozenClock
 from learnloop.daily_plan.engine import advance, build_plan
 from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 
-from tests.ad_fakes import ITEMS, LO, ForecastLLM, ad_plan_vault, plan_env, rows
+from tests.ad_fakes import LO, ForecastLLM, ad_plan_vault, plan_env, rows
 
 HISTORY_OFF = '[adaptive_difficulty]\noutside_forecasters = ["llm_v1:item", "llm_v3:llm", "llm_v3:decider"]\n'
 

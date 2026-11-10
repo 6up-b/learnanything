@@ -754,7 +754,6 @@ def test_an_ungraded_next_attempt_is_reported_ungraded_never_fail(tmp_path, monk
 
 
 def test_an_ungraded_hinted_attempt_and_no_later_attempt(tmp_path):
-    from learnloop.hints.report import build_hints_report
 
     paths = _vault(tmp_path, hints=["Name the three factors.", "U Sigma V^T."])
     ctx, session_id = _sidecar(paths.root)

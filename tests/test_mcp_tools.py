@@ -39,7 +39,6 @@ from tests.mcp_world import (
     GAP_TEXT,
     HYPOTHESIS,
     INJECTION,
-    KEY,
     MISCONCEPTION,
     OWN_ANSWER,
     PINNED_STEM,

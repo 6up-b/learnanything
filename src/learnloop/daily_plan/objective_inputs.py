@@ -23,8 +23,7 @@ from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import replace
-from datetime import datetime, timedelta
-import json
+from datetime import datetime
 import logging
 import math
 import os

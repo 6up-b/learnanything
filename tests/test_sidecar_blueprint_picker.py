@@ -11,7 +11,6 @@ from pathlib import Path
 
 from learnloop.db.repositories import Repository
 from learnloop.content.authoring.item_authoring import author_item
-from learnloop.vault.loader import load_vault
 from learnloop_sidecar.server import serve
 
 from tests.helpers import add_followup_item, create_basic_vault

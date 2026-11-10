@@ -25,8 +25,8 @@ from __future__ import annotations
 
 import json as canonical_json
 import math
-from dataclasses import dataclass, field
-from typing import Any, Iterable, Sequence
+from dataclasses import dataclass
+from typing import Any, Sequence
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository

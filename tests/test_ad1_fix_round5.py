@@ -19,7 +19,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.ad_fakes import AuditDecider, ForecastLLM, ad_plan_vault, ad_receipts, rows
 from tests.test_ad1_codex_rereview_fixes import _exercise, _hold_out, _served_with_history, _set_fields
-from tests.test_ad1_fix_round4 import EXAM_SET, _add_exam_scope, _builds, _bulk_vault, _patch_preparation
+from tests.test_ad1_fix_round4 import EXAM_SET, _add_exam_scope, _builds, _bulk_vault
 
 # -- V1 [High]: a reload during the protection check ----------------------------------------------
 

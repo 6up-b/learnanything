@@ -29,7 +29,6 @@ from tests.daily_plan_fakes import iso, record_attempt
 from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version
 from tests.router_mixture_helpers import mixture_env, payloads, rows
 from tests.router_model_fakes import FakeDecider, FakeLLM, block_drawing_seed, fake_runtime
-from tests.test_daily_plan_build import _wide_items
 from tests.test_ih2_lessons_compete import (
     NO_CHECKS,
     QUIET,

@@ -20,7 +20,6 @@ from learnloop.ingest.extractors import (
 from learnloop.ingest.extractors import marker as marker_mod
 from learnloop.ingest.extractors.marker import MarkerUnavailableError, chunk_output_to_ir
 from learnloop.ingest.hashing import (
-    asset_hash,
     extraction_request_hash,
     extraction_result_hash,
 )

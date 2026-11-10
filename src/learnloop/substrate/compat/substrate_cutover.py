@@ -26,7 +26,7 @@ This module never raises into the attempt writer (except invariant 8's
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock

@@ -7,7 +7,6 @@ test_km2_write_path.py.
 
 from __future__ import annotations
 
-import pathlib
 
 import pytest
 

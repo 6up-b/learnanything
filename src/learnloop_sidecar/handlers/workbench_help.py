@@ -43,7 +43,7 @@ from learnloop.workbench import ladder as help_module
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
-from learnloop_sidecar.handlers.hints import HintJobs, _as_sidecar_error
+from learnloop_sidecar.handlers.hints import HintJobs
 from learnloop_sidecar.logging import log_event
 from learnloop_sidecar.registry import method
 

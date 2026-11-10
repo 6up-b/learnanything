@@ -18,7 +18,6 @@ from learnloop.learner.mastery import (
     MasteryObservation,
     irt_observation,
     item_irt_params,
-    sigmoid,
     update_mastery_traced,
 )
 from learnloop.diagnosis.probes import (
@@ -27,7 +26,7 @@ from learnloop.diagnosis.probes import (
     conditional_distribution,
     expected_information_gain,
 )
-from learnloop.vault.models import LearningObject, PracticeItem, Rubric, RubricFatalError
+from learnloop.vault.models import LearningObject, PracticeItem, Rubric
 
 VERSION = "mvp-0.1"
 NOW = datetime(2026, 5, 19, 12, 0, tzinfo=UTC)

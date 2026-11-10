@@ -52,7 +52,7 @@ from learnloop.db.stores.judgments import append_judgment
 from learnloop.field.evaluation import _eligible, _groups
 from learnloop.field.predictors import create_predictor
 from learnloop.field.probability_arms import (
-    CachedProbabilityArm, JUDGES, VARIANTS, clip, position_key,
+    CachedProbabilityArm, VARIANTS, position_key,
 )
 from learnloop.field.probability_states import (
     PredictionPoint, STATE_VERSION, StateRenderer, canonical_json, history_pairs, start_index, state_hash,

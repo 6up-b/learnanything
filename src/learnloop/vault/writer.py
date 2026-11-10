@@ -5,7 +5,7 @@ from contextlib import closing
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.config import load_config

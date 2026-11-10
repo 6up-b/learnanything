@@ -48,7 +48,6 @@ from learnloop.learner.recall_coverage import (
 from learnloop.scheduling.serving_exclusions import (
     DEVICE_INELIGIBLE,
     PROBE_RESERVED_GATES,
-    ServingExclusions,
     admission_reason,
     out_of_timing_serving_exclusions,
     routine_serving_exclusions,

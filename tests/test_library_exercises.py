@@ -46,7 +46,6 @@ from learnloop.practice_index.retrieval import find_practice
 from learnloop.practice_index.usage import USAGE_TASK
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
-from learnloop_sidecar.handlers import workbench as workbench_handler
 from tests.library_ask_fixtures import build_library_vault, context, finish_job, set_config, table_counts
 from tests.recap_fixtures import call as call_rpc
 from tests.source_service_fakes import LEARNING_STATE_TABLES, FakeServiceLLM

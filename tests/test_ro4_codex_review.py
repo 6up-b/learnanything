@@ -35,7 +35,6 @@ from learnloop.vault.loader import load_vault
 
 from tests.router_mixture_helpers import mixture_env, rows, run
 from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
-from tests.test_ro4_objective_serving import policy_answer
 
 TAG = ROUTER_OBJECTIVE_ALGORITHM_VERSION
 #: The frozen-input builder itself (the spy below wraps it).

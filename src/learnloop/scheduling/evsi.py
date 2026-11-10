@@ -35,7 +35,7 @@ itself force another question; only a robust net value above the minutes cost do
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from learnloop.scheduling import action_loss as AL

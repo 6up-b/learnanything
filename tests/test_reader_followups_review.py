@@ -27,14 +27,13 @@ Fakes only; no model call anywhere.
 from __future__ import annotations
 
 import json
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 
 import pytest
 
 from learnloop.curriculum import commitments as C
 from learnloop.db.stores import reader_digests as RDG
 from learnloop.instructional import reader_followups as RF
-from learnloop.reader import reader_sessions as RS
 from learnloop.vault.loader import load_vault
 from tests.recap_fixtures import EXT, at, iso
 from tests.test_reader_followups import (

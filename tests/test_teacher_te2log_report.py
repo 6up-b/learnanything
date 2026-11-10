@@ -9,7 +9,7 @@ of item 5's fields.
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 from typer.testing import CliRunner
 

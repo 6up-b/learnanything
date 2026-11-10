@@ -17,7 +17,7 @@ from math import log
 from typing import Any, Mapping
 
 from learnloop.clock import Clock, parse_utc
-from learnloop.db.repositories import ProbeEpisodeRecord, Repository
+from learnloop.db.repositories import Repository
 from learnloop.diagnosis.probe_episodes import (
     _bayes_update,
     _observation_likelihoods_from_row,

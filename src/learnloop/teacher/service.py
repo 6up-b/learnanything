@@ -1016,7 +1016,6 @@ def _record_help(repository: Any, state: LessonState, text: str, *, clock: Clock
 
 def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapping[str, Any], *, clients: Clients,
                   clock: Clock | None) -> dict[str, Any]:
-    from learnloop.learner.lesson_weight import read_hedges
     from learnloop.vault.loader import load_vault
 
     open_check = state.open_check
@@ -1871,8 +1870,8 @@ def _propose_gap(vault: Any, repository: Any, state: LessonState, request: Actio
         return
     lo = _gap_learning_object(state, learner)
     flags = _turn_flags(turn_entry)
-    data = {"ref": str(getattr(request, "ref")), "learner_turn_id": str(learner["id"]),
-            "gap_kind": getattr(request, "gap_kind"), "gap": " ".join(str(getattr(request, "gap")).split()),
+    data = {"ref": str(request.ref), "learner_turn_id": str(learner["id"]),
+            "gap_kind": request.gap_kind, "gap": " ".join(str(request.gap).split()),
             "learning_object_id": lo, "filed": pipeline_enabled(vault),
             "prompt": _prompt_version(flags["visuals"], flags["episodes"], flags["te2"])}
     now = utc_now_iso(clock)

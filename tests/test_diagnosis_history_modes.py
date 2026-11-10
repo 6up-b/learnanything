@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import sys
-from enum import Enum
 from pathlib import Path
-from types import ModuleType, SimpleNamespace
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
-from learnloop.ai.errors import AIProviderUnavailable, CodexUnavailable
+from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.providers.codex import SdkCodexClient
 from learnloop.ai.transport import READ_ONLY_WORKSPACE, StructuredRequest, execute_structured_operation
 from learnloop.attempts.grading import resolved_rubric

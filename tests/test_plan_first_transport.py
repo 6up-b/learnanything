@@ -31,7 +31,6 @@ from learnloop.ai.isolation import TOOL_FREE
 from learnloop.ai.providers.chatgpt_plan import ChatGPTPlanProviderClient
 from learnloop.ai.routing import (
     DECIDER_TASKS,
-    LIST_ROUTE_TASKS,
     AITask,
     fallback_provider_for,
     provider_for_task,

@@ -18,13 +18,11 @@ from learnloop.clock import FrozenClock
 from learnloop.content.pipeline.ai_contracts import CanonicalIngestContext
 from learnloop.content.proposals.ai_contracts import AuthoringProposal
 from learnloop.content.synthesis.ai_contracts import (
-    SynthCriterion,
     SynthCriterionTarget,
     SynthPracticeItem,
     SynthRecipe,
     SynthRecipeComponent,
 )
-from learnloop.db.repositories import Repository
 from learnloop.substrate.replay import rebuild_derived_state, record_content_recalibration
 from learnloop.content.synthesis.source_append import append_source
 from learnloop.content.pipeline.source_ingestion import (

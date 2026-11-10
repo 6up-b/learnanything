@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from learnloop.cli.runtime import *  # noqa: F401,F403
+from learnloop.cli.runtime import *  # noqa: F403
 
 surfaces_app = typer.Typer(
     no_args_is_help=True, help="Inspect activity-surface exposure and burn history (P0.4 §5)."

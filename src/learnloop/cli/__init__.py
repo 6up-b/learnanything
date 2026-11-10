@@ -1,24 +1,24 @@
-from learnloop.cli.app import *  # noqa: F401,F403
-from learnloop.cli.config import *  # noqa: F401,F403
-from learnloop.cli.claims import *  # noqa: F401,F403
-from learnloop.cli.contracts import *  # noqa: F401,F403
-from learnloop.cli.goldenpath import *  # noqa: F401,F403
-from learnloop.cli.depth import *  # noqa: F401,F403
-from learnloop.cli.surfaces import *  # noqa: F401,F403
-from learnloop.cli.calibration import *  # noqa: F401,F403
-from learnloop.cli.registry import *  # noqa: F401,F403
-from learnloop.cli.controller import *  # noqa: F401,F403
-from learnloop.cli.grading import *  # noqa: F401,F403
-from learnloop.cli.diagnosis import *  # noqa: F401,F403
-from learnloop.cli.ingest_batches import *  # noqa: F401,F403
-from learnloop.cli.source_set import *  # noqa: F401,F403
-from learnloop.cli.clarification import *  # noqa: F401,F403
-from learnloop.cli.card import *  # noqa: F401,F403
-from learnloop.cli.questions import *  # noqa: F401,F403
-from learnloop.cli.exam import *  # noqa: F401,F403
-from learnloop.cli.fit import *  # noqa: F401,F403
-from learnloop.cli.sim import *  # noqa: F401,F403
-from learnloop.cli.data import *  # noqa: F401,F403
+from learnloop.cli.app import *  # noqa: F403
+from learnloop.cli.config import *  # noqa: F403
+from learnloop.cli.claims import *  # noqa: F403
+from learnloop.cli.contracts import *  # noqa: F403
+from learnloop.cli.goldenpath import *  # noqa: F403
+from learnloop.cli.depth import *  # noqa: F403
+from learnloop.cli.surfaces import *  # noqa: F403
+from learnloop.cli.calibration import *  # noqa: F403
+from learnloop.cli.registry import *  # noqa: F403
+from learnloop.cli.controller import *  # noqa: F403
+from learnloop.cli.grading import *  # noqa: F403
+from learnloop.cli.diagnosis import *  # noqa: F403
+from learnloop.cli.ingest_batches import *  # noqa: F403
+from learnloop.cli.source_set import *  # noqa: F403
+from learnloop.cli.clarification import *  # noqa: F403
+from learnloop.cli.card import *  # noqa: F403
+from learnloop.cli.questions import *  # noqa: F403
+from learnloop.cli.exam import *  # noqa: F403
+from learnloop.cli.fit import *  # noqa: F403
+from learnloop.cli.sim import *  # noqa: F403
+from learnloop.cli.data import *  # noqa: F403
 from learnloop.cli.embeddings import embeddings_app
 from learnloop.cli.project import project_app
 from learnloop.cli.diagnose import diagnose_app
@@ -99,7 +99,7 @@ app.add_typer(experiments_app, name="experiments")
 # Preserve the package-level compatibility hooks that callers and tests imported
 # from the former monolithic ``learnloop.cli`` module.  Import these last so the
 # broad command-module re-exports above cannot replace them with runtime aliases.
-from learnloop.cli.app import (  # noqa: E402,F401
+from learnloop.cli.app import (  # noqa: E402
     _AsciiSpinner as _AsciiSpinner,
     _client_for_provider as _client_for_provider,
     _parse_mode_mix as _parse_mode_mix,

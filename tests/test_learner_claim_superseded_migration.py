@@ -21,7 +21,6 @@ from learnloop.db.migrate import (
     upgrade_allowance,
 )
 
-from tests.test_ro1_availability import RO1_ALTERED_TABLES
 from tests.test_te3a_migration import TE3A_ALTERED_TABLES
 from tests.test_session_ownership_migration import PR4_ADDED_OBJECTS, PR4_ALTERED_TABLES
 from tests.test_learner_note_source_kind_migration import C5_ALTERED_TABLES

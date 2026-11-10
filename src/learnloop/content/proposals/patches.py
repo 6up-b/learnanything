@@ -20,7 +20,6 @@ from learnloop.vault.models import EvidenceFacet, LoadedVault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.required_method import rewrites_decided_statement
 from learnloop.vault.writer import (
-    VaultWriterError,
     delete_concept,
     delete_concept_edge,
     upsert_concept,

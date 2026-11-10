@@ -8,7 +8,7 @@ consumes rows the live path already logs.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from learnloop.clock import parse_utc

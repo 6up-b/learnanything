@@ -8,7 +8,6 @@ source or curriculum state. Canned, zero network.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from pathlib import Path
 
 from learnloop.clock import FrozenClock
 from learnloop.ops.maintenance_feed import (
@@ -20,7 +19,6 @@ from learnloop.ops.maintenance_feed import (
 from learnloop.content.synthesis.source_set_synthesis import create_study_map
 from learnloop.vault.loader import load_vault
 
-from tests.test_source_append import _bootstrap_and_add
 from tests.test_source_set_synthesis import FakeSynthesisClient, _setup
 
 _CLOCK = FrozenClock(datetime(2026, 7, 14, 12, 0, 0, tzinfo=UTC))

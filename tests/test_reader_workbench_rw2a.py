@@ -31,7 +31,7 @@ from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
 
-from tests.split_live_helpers import ReadyRuntime, append_config, split_vault
+from tests.split_live_helpers import ReadyRuntime, split_vault
 from tests.test_stuck_prompt import RefusingClient, StuckFake
 
 ITEM = "pi_svd_compute_001"

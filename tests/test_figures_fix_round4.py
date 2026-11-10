@@ -27,7 +27,6 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.content.authoring import pf_sandbox
 from learnloop.diagnosis.text_gaps import pipeline as gap_pipeline
 from learnloop.diagnosis.text_gaps import sources as gap_sources
 from learnloop.diagnosis.text_gaps.jobs import process_next_gap_job, sweep_backlog
@@ -36,18 +35,10 @@ from learnloop.figures import spec as S
 from learnloop.figures import verify as V
 from learnloop.vault.loader import load_vault
 from tests.figure_fixtures import (
-    EQUATION_TEXT,
-    AuthorFake,
-    VerifierFake,
-    build,
-    build_figure_vault,
     call,
-    context,
-    flagship,
-    rows,
     sandbox_ready,
 )
-from tests.test_figures_codex_review import _clients, _equivalence, _gap_jobs, _missed_prediction
+from tests.test_figures_codex_review import _clients, _gap_jobs, _missed_prediction
 
 needs_sandbox = pytest.mark.skipif(not sandbox_ready(), reason="bubblewrap is not available here")
 

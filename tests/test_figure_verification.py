@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
 
 from learnloop.figures import spec as S
 from learnloop.figures import verify as V

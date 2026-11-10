@@ -24,7 +24,6 @@ import learnloop_sidecar.handlers  # noqa: F401 - registers the RPCs
 from learnloop.algorithm_versions import ONE_ASK_ALGORITHM_VERSION
 from learnloop.db.repositories import Repository
 from learnloop.tutor.tutor_qa import WITHHELD_ANSWER_MD, hint_equivalents_for_submission
-from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.errors import SidecarError
 from tests.hint_fakes import ITEM as CDF_ITEM, WORK
 from tests.test_hint_h2b_review import grader  # noqa: F401 - the blind grader fixture

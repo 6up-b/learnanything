@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
 
 import pytest
 
@@ -34,7 +33,7 @@ from learnloop.db.repositories import Repository
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.registry import METHOD_REGISTRY
 from tests.owner_vaults import owner_vault, working_vault_params
-from tests.daily_plan_fakes import MovableClock, make_env, record_attempt, scheduled, seed_due
+from tests.daily_plan_fakes import MovableClock, make_env, record_attempt, scheduled
 from tests.helpers import append_config_toml, create_daily_plan_vault, set_algorithm_version
 from tests.test_daily_plan_build import _assert_finite, _seed_wide, _wide_items, _wide_vault
 

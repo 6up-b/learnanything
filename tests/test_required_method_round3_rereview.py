@@ -66,7 +66,7 @@ def _checks(repository, item_id: str) -> list[dict]:
 
 
 @pytest.fixture
-def pre_fix(gated_successor, monkeypatch):  # noqa: F811 - the imported fixture
+def pre_fix(gated_successor, monkeypatch):
     """A verified exercise answered under induction by the code before the
     fix: its import check, the check of its induction revision and its
     contract all carry the legacy hash, and neither a check nor the contract

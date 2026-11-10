@@ -64,7 +64,7 @@ from learnloop.tutor.ai_contracts import (
 )
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.ai.providers.codex import SdkCodexClient
-from learnloop.ai.transport import STRUCTURED_COMPLETION, StructuredRequest
+from learnloop.ai.transport import StructuredRequest
 from learnloop.attempts.grading import request_grading_proposal
 from learnloop.config import AIProviderConfig
 

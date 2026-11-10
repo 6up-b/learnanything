@@ -31,7 +31,6 @@ from typing import Any
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.vault.repository import vault_repository
-from learnloop.ids import new_ulid
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.substrate.canonical_projection import surface_group_id
 from learnloop.learner.capability_mapping import default_capability_for

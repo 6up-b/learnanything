@@ -33,7 +33,6 @@ from learnloop.diagnosis.probe_families import (
     CardValidationError,
     InstrumentCard,
     PlantedTrial,
-    ensure_builtin_families,
     instrument_expected_information_gain,
     map_episode_labels_to_slots,
     run_family_admission_gate,

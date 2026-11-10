@@ -18,7 +18,7 @@ from learnloop.curriculum import commitments as C
 from learnloop.db.stores import reader_digests as RDG
 from learnloop.instructional import reader_followups as RF
 from tests.recap_fixtures import at
-from tests.test_reader_followups import NOW_MIN, _attempt, _candidate, _now, _plan, _seeded
+from tests.test_reader_followups import _attempt, _candidate, _now, _plan, _seeded
 from tests.test_reader_followups_round4 import (
     QD,
     QR,

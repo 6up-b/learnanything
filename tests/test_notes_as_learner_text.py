@@ -38,7 +38,7 @@ from tests.notes_fixtures import SENTINEL, edit_annotation
 from tests.reading_path_fixtures import call
 from tests.section_coverage_fixtures import table_counts
 from tests.test_notes_linked import _deliverable, _lines
-from tests.text_gap_fakes import ChoiceDecider, GapLLMFake, always, word_match
+from tests.text_gap_fakes import ChoiceDecider, GapLLMFake, word_match
 
 CLOCK = FrozenClock(NOW)
 GAPS_ON = "[notes]\ngaps_enabled = true\n"

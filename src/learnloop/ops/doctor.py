@@ -45,7 +45,6 @@ from learnloop.db.storage import DatabaseStorage, inspect_database_storage
 from learnloop.migration_coordinator import migrate_vault
 from learnloop.learner.assessment_contracts import (
     CANONICAL_STATE_VERSIONS,
-    KM_ALGORITHM_VERSION,
 )
 from learnloop.learner.calibration import difficulty_miscalibration_flags
 from learnloop.substrate.instrument_serving import (

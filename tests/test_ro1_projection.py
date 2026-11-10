@@ -22,7 +22,6 @@ from datetime import timedelta
 import pytest
 
 from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, INTERVAL_FACTOR_ALGORITHM_VERSION
-from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import Repository
@@ -248,7 +247,7 @@ def item_max_points(vault, item):
     return resolved_rubric(vault, item).max_points
 
 
-def test_the_diagnosers_context_is_the_predecessors_below_the_tag_and_switched_off(picked, tmp_path):  # noqa: F811
+def test_the_diagnosers_context_is_the_predecessors_below_the_tag_and_switched_off(picked, tmp_path):
     paths, factor_id, _attempt_id = picked
     below = _context(paths, tmp_path, PREDECESSOR, None)
     off = _context(paths, tmp_path, TAG, _toml({"self_report"}))

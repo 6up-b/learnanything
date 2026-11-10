@@ -6,7 +6,6 @@ from __future__ import annotations
 import json
 import time
 
-import pytest
 from typer.testing import CliRunner
 
 from learnloop.algorithm_versions import INTERVAL_FACTOR_ALGORITHM_VERSION, ROUTER_OBJECTIVE_ALGORITHM_VERSION

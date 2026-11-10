@@ -117,7 +117,7 @@ from __future__ import annotations
 import math
 import statistics
 from dataclasses import dataclass, field, replace
-from typing import Any, Callable, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from learnloop.data_capture.gates import serving_on
 from learnloop.algorithm_versions import VOI_STOPPING_VERSIONS

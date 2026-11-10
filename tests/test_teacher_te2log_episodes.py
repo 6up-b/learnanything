@@ -8,7 +8,6 @@ schema, forecaster family and ledger exactly; a refused row rolls back alone; no
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 from datetime import UTC, datetime, timedelta

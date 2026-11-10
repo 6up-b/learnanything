@@ -28,7 +28,7 @@ from learnloop.content.sources.source_refs import source_ref_display_dto
 from learnloop.reader.source_review import resolve_source_refs
 from learnloop.vault.required_method import method_instruction
 from learnloop.tutor.tutor_qa import hint_equivalents_for_attempt
-from learnloop.vault.models import ErrorType, LearningObject, LoadedVault, PracticeItem, Rubric
+from learnloop.vault.models import ErrorType, LoadedVault, PracticeItem, Rubric
 from learnloop_sidecar.context import mastery_dto
 from learnloop_sidecar.dto import to_camel, versioned
 from learnloop_sidecar.errors import SidecarError

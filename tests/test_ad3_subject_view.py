@@ -6,13 +6,10 @@ readiness numbers). Fakes only; no model is called.
 
 from __future__ import annotations
 
-import math
 from contextlib import closing
-from datetime import timedelta
 from typing import Any
 
 import numpy as np
-import pytest
 
 from learnloop.adaptive_difficulty import model as M
 from learnloop.adaptive_difficulty import predict as PR
@@ -203,7 +200,6 @@ def test_coupling_is_prediction_only(tmp_path):
     to no proposal; the caps hold; ``learned_coupling = false`` makes the subject view
     byte-identical to its uniform-sharing points and makes no proposal call."""
 
-    from learnloop.daily_plan import ad_slot
 
     results = {}
     for name in ("plain", "adversarial"):

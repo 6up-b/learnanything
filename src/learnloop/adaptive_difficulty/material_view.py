@@ -784,7 +784,6 @@ class MaterialView:
         item's id or stem, or a facet or surface family only withheld material names. Empty when
         nothing leaks; everything is a leak while the predicate is unavailable."""
 
-        import re
 
         if not self.available:
             return ["the held-out predicate is unavailable"]
@@ -818,7 +817,6 @@ class MaterialView:
         canonical note is withheld with its source's held-out material; Codex verify F40, fix round
         12). No items and no notes when unavailable."""
 
-        import dataclasses
 
         visible = {str(item.id): item for item in self.items()}
         notes = getattr(self.vault, "notes", None)
@@ -1486,7 +1484,6 @@ class MaterialView:
         return self._projected
 
     def _project_vault(self) -> Any:
-        import dataclasses
         from contextlib import closing
 
         from learnloop.db.connection import connect

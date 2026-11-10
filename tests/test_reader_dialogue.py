@@ -9,7 +9,7 @@ exposure warming, and the golden-path-with-reader-disabled requirement.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 
 from learnloop.clock import FrozenClock
 from learnloop.tutor.ai_contracts import TutorQAContext, tutor_qa_prompt

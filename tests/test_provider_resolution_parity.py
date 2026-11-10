@@ -10,7 +10,6 @@ import pytest
 from tests.ast_cache import source_ast, source_text
 from learnloop.ai.client import make_ai_provider_client_from_profile
 from learnloop.ai.providers.codex import SdkCodexClient
-from learnloop.ai.providers.codex_http import HttpCodexClient
 from learnloop.ai.providers.openai_chat import OpenAIChatProviderClient
 from learnloop.ai.routing import MANUAL_PROVIDER, ROUTE_FOR_OPERATION, ready_client_for_task
 from learnloop.ai.runtime import AIRuntimeReport
@@ -21,7 +20,7 @@ from learnloop.ai.transport import (
     STRUCTURED_COMPLETION,
     StructuredRequest,
 )
-from learnloop.config import CodexConfig, LearnLoopConfig
+from learnloop.config import LearnLoopConfig
 from learnloop.diagnosis.diagnostic_gate import request_diagnostic_fire
 
 

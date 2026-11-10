@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import re
 import shutil
-from pathlib import Path
 
 import pytest
 

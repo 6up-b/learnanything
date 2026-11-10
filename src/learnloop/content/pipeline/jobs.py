@@ -29,7 +29,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Iterable, Literal, Mapping, Sequence
+from typing import Any, Callable, Literal, Mapping, Sequence
 
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.ai.errors import AIProviderUnavailable
@@ -55,7 +55,6 @@ from learnloop.content.pipeline.runner import (
     JobContext,
     JobSpec,
     RunnerServices,
-    WaitingForInput,
     derive_batch_status,
     effective_ingest_job_status,
 )
@@ -1496,7 +1495,6 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
     units are ever re-inventoried across collections/revisions (§3.2)."""
 
     from learnloop.content.synthesis.source_unit_inventory import (
-        InventoryExecution,
         InventoryResult,
         PreparedInventory,
         execute_prepared_inventory,

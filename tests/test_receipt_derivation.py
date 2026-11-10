@@ -13,20 +13,17 @@ from __future__ import annotations
 
 import re
 import shutil
-from pathlib import Path
 
 import pytest
 
 from learnloop.clock import FrozenClock, parse_utc
 from learnloop.substrate.canonical_projection import (
-    configured_repeat_discount,
     project_canonical_facet_state,
 )
 from learnloop.learner.facet_evidence_timeline import (
     _observation_events,
     facet_evidence_timeline,
     facet_ready_derivation,
-    fold_demonstrated_timeline,
 )
 from learnloop.vault.loader import load_vault
 from learnloop.vault.repository import open_vault_repository

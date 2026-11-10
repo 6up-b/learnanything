@@ -25,7 +25,6 @@ from typing import Any
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
-from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import canonical_source_raw_path
 from learnloop.vault.writer import upsert_source_set
 
