@@ -186,7 +186,10 @@ def test_the_workflows_arm_with_no_room_to_wait_seeds_from_its_identity(tmp_path
 def test_the_workflows_decision_with_no_lesson_keeps_the_predecessors_identity(tmp_path, draw, spy, monkeypatch):
     """Switched off, the identity has no offer and no ``as_of``, so its key and seed are computed as main's are."""
 
-    env, row = _miss_env(tmp_path, toml=OFF_NO_CHECKS)
+    # With no lesson the decision draws (and hashes an identity) only when waiting is a choice: a current block with
+    # room after it. The plan's draws are live, so a miss that finished its block (about 1 run in 50) left no current
+    # block and an insert-now with no draw: an answer that leaves questions in its block keeps one.
+    env, row = _miss_env(tmp_path, toml=OFF_NO_CHECKS, questions_left=True)
     draw.prefer = (INSERT_NOW,)
     _run_lane(env, row, monkeypatch)
     identity = _assert_determined(spy, kind="objective_followup")
