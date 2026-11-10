@@ -183,13 +183,21 @@ def test_help_prose_is_not_part_of_the_contract() -> None:
     assert '"help"' not in SURFACE_PATH.read_text(encoding="utf-8")
 
 
+#: The commands split into this many tests, every command in exactly one, so no single test is the suite's floor.
+HELP_SHARDS = 6
+
+
 @pytest.mark.slow
-def test_every_command_prints_its_help() -> None:
-    """Help rendering runs each command's Typer and Rich formatting (about 60 s for all of them): a bad signature or
-    bad markup in one fails here. The rendered text itself isn't pinned."""
+@pytest.mark.parametrize("shard", range(HELP_SHARDS))
+def test_every_command_prints_its_help(shard: int) -> None:
+    """Help rendering runs each command's Typer and Rich formatting (about 50 s for all of them, so the commands are
+    dealt round-robin into ``HELP_SHARDS`` tests): a bad signature or bad markup in one fails here. The rendered text
+    itself isn't pinned."""
 
     runner = CliRunner()
-    for path, _command in _command_paths(get_command(app)):
+    paths = list(_command_paths(get_command(app)))
+    assert len(paths) >= HELP_SHARDS
+    for path, _command in paths[shard::HELP_SHARDS]:
         result = runner.invoke(app, [*path, "--help"], prog_name="learnloop", terminal_width=120, color=False)
         name = " ".join(path) or "<root>"
         assert result.exit_code == 0, f"{name}: {result.output}"

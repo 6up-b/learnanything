@@ -304,14 +304,22 @@ def _methods() -> list[str]:
     return sorted(name for name in METHOD_REGISTRY if name != "ai_use_fallback")
 
 
+#: The registered RPCs split into this many tests, every one in exactly one (the answered method in each), so the sweep
+#: isn't one 45-second test.
+P1_SHARDS = 4
+
+
 @pytest.mark.slow
-def test_p1_after_a_yes_to_one_method_only_its_requests_and_units_use_openrouter(harness):
+@pytest.mark.parametrize("shard", range(P1_SHARDS))
+def test_p1_after_a_yes_to_one_method_only_its_requests_and_units_use_openrouter(harness, shard):
     """Over every registered RPC: nothing before any answer; after answering M's offer, only M."""
 
     from learnloop_sidecar.handlers import hints as hint_rpcs
 
-    methods = _methods()
-    assert len(methods) > 300
+    every = _methods()
+    assert len(every) > 300
+    chosen = "reader.library_ask_tutor"
+    methods = sorted({*every[shard::P1_SHARDS], chosen})
     jobs = hint_rpcs.HintJobs()
     granted_in_job: dict[tuple[str, int], bool] = {}
     started: list[Any] = []
@@ -334,7 +342,6 @@ def test_p1_after_a_yes_to_one_method_only_its_requests_and_units_use_openrouter
         harness.stub(method, resolve="tutor_qa", enqueue=True, work=start_job(method))
     before = {method: harness.call(method) for method in methods}
     assert all(harness.out(response).get("provider") != "openrouter" for response in before.values())
-    chosen = "reader.library_ask_tutor"
     harness.answer(before[chosen])
     rounds["n"] = 1
     after = {method: harness.call(method) for method in methods}
