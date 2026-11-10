@@ -122,7 +122,7 @@ def _check_entry(valuation: Mapping[str, Any] | None, ref: str) -> dict[str, Any
                 listed = next((entry for entry in valued if entry.get("ref") == ref), {})
 
                 def field(name: str) -> Any:
-                    return check.get(name) if check.get(name) is not None else listed.get(name)
+                    return check.get(name) if check.get(name) is not None else listed.get(name)  # noqa: B023  called within this iteration, before the loop rebinds it
 
                 return {"problem": problem.get("key"), "regime": check.get("regime"),
                         "robust_eig_nats": field("robust_eig_nats"), "point_eig_nats": field("point_eig_nats"),

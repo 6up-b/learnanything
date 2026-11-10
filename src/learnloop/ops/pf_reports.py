@@ -181,7 +181,7 @@ class _Judge:
                                     prompt_version=C.PAIRWISE_PROMPT, result_model=C.PairwiseVerdict)
 
             def mapped(value: str) -> str:
-                return "tie" if value == "tie" else ("left" if (value == "A") == (order[0] is left) else "right")
+                return "tie" if value == "tie" else ("left" if (value == "A") == (order[0] is left) else "right")  # noqa: B023  called within this iteration, before the loop rebinds it
 
             result = {key: mapped(getattr(call.result, key)) for key in ("preferred", "depth", "accuracy")}
             self.caller.ledger(task="pilot_rating", left_kind="pf_candidate", left_id=left["id"],

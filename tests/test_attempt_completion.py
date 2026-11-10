@@ -309,8 +309,8 @@ def test_completion_lock_is_shared_by_every_spelling_of_the_database_path(tmp_pa
 
         def hold(path=held):
             with completion_lock.attempt_completion_lock(path):
-                holding.set()
-                release.wait(5)
+                holding.set()  # noqa: B023  called within this iteration, before the loop rebinds it
+                release.wait(5)  # noqa: B023  called within this iteration, before the loop rebinds it
 
         holder = threading.Thread(target=hold)
         holder.start()

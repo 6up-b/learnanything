@@ -171,11 +171,11 @@ def classify_missing_questions(
                                 price_per_token=_price_per_token(estimate_per_question),
                             ),
                         }, sort_keys=True)}
-                    repository.record_model_event(action, event, owner_kind=TASK, owner_id=event_id)
+                    repository.record_model_event(action, event, owner_kind=TASK, owner_id=event_id)  # noqa: B023  called within this iteration, before the loop rebinds it
                     if action == "finish":
                         for name in ("input_tokens", "output_tokens", "cost"):
                             if event.get(name) is not None:
-                                usage[name] = max(usage.get(name, 0), event[name])
+                                usage[name] = max(usage.get(name, 0), event[name])  # noqa: B023  called within this iteration, before the loop rebinds it
 
                 admitted = replace(estimate_per_question, candidates=int(budget.used.candidates == candidates_before))
                 if decider is not None and subscription:

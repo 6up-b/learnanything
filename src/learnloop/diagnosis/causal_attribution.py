@@ -445,11 +445,11 @@ def _backtracking_depth(
         memo: dict[str, int] = {}
 
         def depth(checkpoint: str, visiting: set[str]) -> int:
-            if checkpoint in memo:
-                return memo[checkpoint]
+            if checkpoint in memo:  # noqa: B023  called within this iteration, before the loop rebinds it
+                return memo[checkpoint]  # noqa: B023  called within this iteration, before the loop rebinds it
             if checkpoint in visiting:
                 return 0
-            dependencies = recipe.dependencies.get(checkpoint, [])
+            dependencies = recipe.dependencies.get(checkpoint, [])  # noqa: B023  called within this iteration, before the loop rebinds it
             value = (
                 0
                 if not dependencies
@@ -459,7 +459,7 @@ def _backtracking_depth(
                     for value in dependencies
                 )
             )
-            memo[checkpoint] = value
+            memo[checkpoint] = value  # noqa: B023  called within this iteration, before the loop rebinds it
             return value
 
         all_depths = [depth(value, set()) for value in recipe.checkpoints]

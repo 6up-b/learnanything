@@ -140,7 +140,7 @@ def test_non_prerequisite_edges_produce_zero_belief_change(tmp_path, monkeypatch
         vault = load_vault(paths.root)
         repository = Repository(paths.sqlite_path)
         masteries = {PREREQ_LO: _mastery(PREREQ_LO)}
-        monkeypatch.setattr(repository, "mastery_state", lambda lo_id: masteries.get(lo_id))
+        monkeypatch.setattr(repository, "mastery_state", lambda lo_id: masteries.get(lo_id))  # noqa: B023  called within this iteration, before the loop rebinds it
         # A non-prerequisite edge carries no learner-belief effect (§8.1).
         assert graph_propagated_prior(vault, repository, SVD_LO) is None
 

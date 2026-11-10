@@ -273,12 +273,12 @@ def test_an_early_offer_moves_the_window_and_the_incumbent_back(seeded):
                 # have folded both forbidden rows: the test is sensitive.
                 harness_past = prediction_points(
                     (*rows, *inputs["signals"]), incumbent=incumbent(loaded, inputs),
-                    start_of=lambda attempt_id: renderer._attempts[attempt_id]["instant"],
+                    start_of=lambda attempt_id: renderer._attempts[attempt_id]["instant"],  # noqa: B023  called within this iteration, before the loop rebinds it
                 )
                 leaky = by_attempt(harness_past)["att_06_svd_fail"].incumbent
                 harness_flipped = prediction_points(
                     (*flipped(rows), *inputs["signals"]), incumbent=incumbent(loaded, inputs),
-                    start_of=lambda attempt_id: renderer._attempts[attempt_id]["instant"],
+                    start_of=lambda attempt_id: renderer._attempts[attempt_id]["instant"],  # noqa: B023  called within this iteration, before the loop rebinds it
                 )
                 assert by_attempt(harness_flipped)["att_06_svd_fail"].incumbent["p_success"] != leaky["p_success"]
     stored, reversed_ = states["stored"], states["flipped"]

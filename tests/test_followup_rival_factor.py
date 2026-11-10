@@ -238,7 +238,7 @@ def test_an_answered_probe_moves_the_same_measurement_with_or_without_a_mapped_r
         ctx.post_attempt_worker.autostart = False
         client = BlindRivalClient()
         monkeypatch.setattr("learnloop_sidecar.handlers.practice.ready_grading_provider",
-                            lambda *_a, **_k: ("fake", _Ready(), client))
+                            lambda *_a, **_k: ("fake", _Ready(), client))  # noqa: B023  called within this iteration, before the loop rebinds it
         session = _call(ctx, "start_session", {"available_minutes": 30})
         desk = SimpleNamespace(ctx=ctx, client=client, session=session.get("sessionId") or session["session_id"], paths=paths)
         attempt_id = _miss(desk, shape)

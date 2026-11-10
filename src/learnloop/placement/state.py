@@ -865,9 +865,9 @@ def load_miss_verdicts(
         def fallback(reason: str, *, diagnosis_id: str | None = None, decided_at: str | None = None,
                      decided_ref: str | None = None, record_id: str | None = None) -> MissVerdict:
             return MissVerdict(
-                attempt_id, MISS_TO_LEARNING, REASON_NO_DIAGNOSIS, fallback=reason, diagnosis_id=diagnosis_id,
-                blind_grade_record_id=record_id or (str(latest_record["id"]) if latest_record is not None else None),
-                job_state=str(open_job["state"]) if open_job is not None else None,
+                attempt_id, MISS_TO_LEARNING, REASON_NO_DIAGNOSIS, fallback=reason, diagnosis_id=diagnosis_id,  # noqa: B023  called within this iteration, before the loop rebinds it
+                blind_grade_record_id=record_id or (str(latest_record["id"]) if latest_record is not None else None),  # noqa: B023  called within this iteration, before the loop rebinds it
+                job_state=str(open_job["state"]) if open_job is not None else None,  # noqa: B023  called within this iteration, before the loop rebinds it
                 decided_at=decided_at, decided_ref=decided_ref,
             )
 

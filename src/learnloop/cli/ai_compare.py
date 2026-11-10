@@ -999,9 +999,9 @@ def run_compare(
             nonlocal stopped
             if stopped is not None:
                 return {"parsed": False, "valid": False, "error": f"not_run: {stopped}"}
-            tokens = int(planned[(kind, target)]["total_tokens"])
-            output = int(planned[(kind, target)]["output_tokens"])
-            say(f"{name}: {kind} {target}")
+            tokens = int(planned[(kind, target)]["total_tokens"])  # noqa: B023  called within this iteration, before the loop rebinds it
+            output = int(planned[(kind, target)]["output_tokens"])  # noqa: B023  called within this iteration, before the loop rebinds it
+            say(f"{name}: {kind} {target}")  # noqa: B023  called within this iteration, before the loop rebinds it
             try:
                 # Admitted before anything is sent: the root receipt records the
                 # caps in force (subscription, estimated_only, no physical-request
@@ -1012,11 +1012,11 @@ def run_compare(
                 # state it in the prompt, as neither takes a hard cap.
                 # No physical-request bound (single_request) is set: a
                 # workspace turn's rounds and a repair all run.
-                with budget.request(SpendEstimate(calls=1, total_tokens=tokens, estimated_usd=None)) as charge, \
+                with (budget.request(SpendEstimate(calls=1, total_tokens=tokens, estimated_usd=None)) as charge,  # noqa: B023  called within this iteration, before the loop rebinds it
                         annotate_calls(ai_compare={"run_id": run_id, "kind": kind, "target": target,
-                                                   "planned_total_tokens": tokens}), \
-                        generation_limit(output):
-                    outcome = _timed(work, client, provider=name)
+                                                   "planned_total_tokens": tokens}),
+                        generation_limit(output)):
+                    outcome = _timed(work, client, provider=name)  # noqa: B023  called within this iteration, before the loop rebinds it
                     reported = (outcome.get("input_tokens") or 0) + (outcome.get("output_tokens") or 0)
                     charge.reconcile(total_tokens=reported or None)
             except SpendLimitExceeded:
@@ -1029,9 +1029,9 @@ def run_compare(
             }
             judgment = outcome.pop("_judgment", None)
             if judgment is not None:
-                model = ",".join(outcome.get("resolved_models") or []) or str(profile.get("model") or "unknown")
+                model = ",".join(outcome.get("resolved_models") or []) or str(profile.get("model") or "unknown")  # noqa: B023  called within this iteration, before the loop rebinds it
                 try:
-                    outcome["judgment_id"] = _append_judgment(repository, judgment, provider=name, model=model,
+                    outcome["judgment_id"] = _append_judgment(repository, judgment, provider=name, model=model,  # noqa: B023  called within this iteration, before the loop rebinds it
                                                               run_id=run_id)
                 except (sqlite3.Error, ValueError) as exc:
                     outcome["judgment_error"] = _error_class(exc)
@@ -1043,7 +1043,7 @@ def run_compare(
         for attempt_id in targets.grading:
             attempt = store.attempt(attempt_id)
             row["grading"][attempt_id] = call(
-                "grading", attempt_id, lambda attempt=attempt: _grade(vault, repository, client, attempt))
+                "grading", attempt_id, lambda attempt=attempt: _grade(vault, repository, client, attempt))  # noqa: B023  called within this iteration, before the loop rebinds it
         if targets.diagnosis is not None:
             if request.diagnosis_mode == "snapshot" and not profile["read_only_workspace"]:
                 error = "provider_lacks_read_only_workspace"
@@ -1052,11 +1052,11 @@ def run_compare(
             else:
                 row["diagnosis"] = call(
                     "diagnosis", targets.diagnosis,
-                    lambda: _diagnose(vault, repository, client, targets.diagnosis, store=store,
+                    lambda: _diagnose(vault, repository, client, targets.diagnosis, store=store,  # noqa: B023  called within this iteration, before the loop rebinds it
                                       mode=request.diagnosis_mode))
         if targets.generation_item is not None:
             row["generation"] = call("generation", targets.generation_item,
-                                     lambda: _generate(vault, client, targets.generation_item))
+                                     lambda: _generate(vault, client, targets.generation_item))  # noqa: B023  called within this iteration, before the loop rebinds it
         row["allowance_after"] = plan_allowance(profile["type"])
         row["stopped"] = stopped
         row["summary"] = _profile_summary(row)

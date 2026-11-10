@@ -353,7 +353,7 @@ def _sha256_database(path: Path) -> str:
         except FileNotFoundError:
             continue
         with handle:
-            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):  # noqa: B023  called within this iteration, before the loop rebinds it
                 digest.update(chunk)
     return digest.hexdigest()
 

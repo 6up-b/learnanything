@@ -200,9 +200,9 @@ def passages(vault: LoadedVault, repository: Repository, *, excluded: set[tuple[
         def close() -> None:
             nonlocal current, tokens
             if current:
-                text_key = _sha(PROMPT_VERSION, extraction_id, [[b["span_id"], b["text"]] for b in current])
-                found.append({"key": "pg_" + text_key[:24], "extraction_id": extraction_id,
-                              "source_id": extraction.source_id, "section": list(section or ()),
+                text_key = _sha(PROMPT_VERSION, extraction_id, [[b["span_id"], b["text"]] for b in current])  # noqa: B023  called within this iteration, before the loop rebinds it
+                found.append({"key": "pg_" + text_key[:24], "extraction_id": extraction_id,  # noqa: B023  called within this iteration, before the loop rebinds it
+                              "source_id": extraction.source_id, "section": list(section or ()),  # noqa: B023  called within this iteration, before the loop rebinds it
                               "blocks": list(current)})
             current, tokens = [], 0
 

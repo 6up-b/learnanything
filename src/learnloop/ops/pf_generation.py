@@ -1713,9 +1713,9 @@ def _resumable_job(vault: LoadedVault, repository: Repository, family: ActivityF
             method = getattr(parent, "required_method", None)
 
             def unjudged(row: Mapping[str, Any], stem: str) -> bool:
-                return method is not None and recorded_verdict(
+                return method is not None and recorded_verdict(  # noqa: B023  called within this iteration, before the loop rebinds it
                     connection, question="variant", subject_kind="pf_candidate", subject_id=str(row["id"]),
-                    statement=stem, method=method.name) is None
+                    statement=stem, method=method.name) is None  # noqa: B023  called within this iteration, before the loop rebinds it
 
             # Review F7 (method-explicit-3): the persisted inputs of the
             # unfinished work, so the plan estimates THEM, never the parent's

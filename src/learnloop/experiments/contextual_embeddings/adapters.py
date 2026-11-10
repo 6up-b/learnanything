@@ -620,7 +620,7 @@ class EmbeddingAdapter:
                     billed = self._billed(usage.get("cost"))
                     price = self.pin.price_per_million_upper_bound
                     actual = reconciled_usd({"input_tokens": reported_tokens, "cost": billed},
-                                            lambda tokens_in, _out: tokens_in * price / 1_000_000)
+                                            lambda tokens_in, _out: tokens_in * price / 1_000_000)  # noqa: B023  called within this iteration, before the loop rebinds it
                     charge.settle(actual_usd=actual, usage={"input_tokens": reported_tokens, "cost": billed},
                                   request_id=response.request_id, latency_s=latency)
                     receipt = dict(arm=self.arm, adapter=self.pin.name, endpoint=url, model=self.pin.model,

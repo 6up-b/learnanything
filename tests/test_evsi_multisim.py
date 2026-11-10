@@ -348,8 +348,8 @@ def test_each_ablation_puts_back_exactly_one_piece_of_the_successor(eedi):
         belief = {h: v / total for h, v in raw.items()}
         for observations in (0, 2):
             def state():
-                st = _state(scenario, belief, settings)
-                st.observations = observations
+                st = _state(scenario, belief, settings)  # noqa: B023  called within this iteration, before the loop rebinds it
+                st.observations = observations  # noqa: B023  called within this iteration, before the loop rebinds it
                 return st
 
             proposed = P.decide("voi_proposed", state(), settings)
@@ -400,8 +400,8 @@ def test_the_package_with_every_piece_put_back_is_the_successor(eedi):
             settings = P.PolicySettings(repair_minutes=repair)
             for observations in (0, 1, 2, 5):
                 def state():
-                    st = _state(scenario, belief, settings)
-                    st.observations = observations
+                    st = _state(scenario, belief, settings)  # noqa: B023  called within this iteration, before the loop rebinds it
+                    st.observations = observations  # noqa: B023  called within this iteration, before the loop rebinds it
                     return st
 
                 assert P.decide_package(state(), settings, gate=True, fallback=True, lookahead=False) == \
@@ -516,7 +516,7 @@ def test_the_calibrated_systems_average_responses_over_the_item_pool(eedi):
             rows = model.system_rows(question)
             oracle = _population_oracle(
                 model, question,
-                lambda i: F.NrmScenario(scenario, model.pool[i:i + 1], model.typical, holder_shift=model.holder_shift))
+                lambda i: F.NrmScenario(scenario, model.pool[i:i + 1], model.typical, holder_shift=model.holder_shift))  # noqa: B023  called within this iteration, before the loop rebinds it
             for h in scenario.hypotheses:
                 assert [rows[h][o] for o in "ABCD"] == pytest.approx(list(oracle[h]), abs=1e-9), h
                 old = mean_params.system_rows(question)[h]

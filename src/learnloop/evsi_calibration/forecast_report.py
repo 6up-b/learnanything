@@ -803,7 +803,7 @@ def summarize(rows: Sequence[tuple[Mapping[str, Any], Mapping[str, Any]]]) -> di
             block["forecaster_versions"] = dict(sorted(versions.items()))
             if kind == FR.DIAGNOSIS_NEXT_OBSERVATION:
                 body = lambda receipt: receipt.get("forecast") or {}  # noqa: E731
-                block["by_causal_class"] = _splits(group, lambda r: body(r).get("causal_class"), "pass")
+                block["by_causal_class"] = _splits(group, lambda r: body(r).get("causal_class"), "pass")  # noqa: B023  called within this iteration, before the loop rebinds it
                 block["by_mode"] = _splits(group, lambda r: (r.get("versions") or {}).get("mode"), "pass")
             forecasters[forecaster] = block
         kinds[kind] = {"forecasters": forecasters, "receipts": sum(len(g) for g in by_kind[kind].values())}

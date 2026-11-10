@@ -603,7 +603,7 @@ def _facet_projections(
                 evidence_mass=evidence_mass,
                 min_evidence_mass=min_mass,
                 mastery_evidence_count=mastery.evidence_count if mastery is not None else 0,
-                claim_present=lambda: _claim_present(learning_object_id),
+                claim_present=lambda: _claim_present(learning_object_id),  # noqa: B023  called within this iteration, before the loop rebinds it
             )
             certified = label == "solid"
             on_track = predicted_at_horizon >= goal.target_recall and label != "known_gap"
