@@ -39,6 +39,9 @@ def ad_envelope(vault: Any, repository: Any, *, clock: Clock | None = None) -> S
     return SharedDailyEnvelope(
         vault, repository, day=midnight(clock), cap=float(settings.daily_spend_cap_usd), clock=clock,
         name=ENVELOPE, owner_kinds=OWNER_KINDS, price_per_million=settings.price_per_million,
+        # Reserved inside AD operations, whose guard denies the decision record table; its refusals are already
+        # the forecast receipts' ``refused_spend`` status and the audit's ledger verdicts.
+        record_refusals=False,
     )
 
 

@@ -3410,6 +3410,52 @@ def ad_commission_batch_id(commission_id: str) -> str:
 AD_MODELS_OFF_CODE = "ad_models_off"
 
 
+#: Refactor B8: an AD commission's job that generated nothing because the commission wasn't open to it.
+AD_COMMISSION_SKIP = "ad_commission_skip"
+
+
+def ad_commission_skip_record(*, commission_id: Any, job_id: Any, rule: str) -> Any:
+    """Why a commission's job generated nothing (pure): ``commission_closed`` (it landed or expired),
+    ``view_unavailable`` (AD's held-out predicate couldn't be read) or ``guard_denied`` (AD's guard refused a read;
+    the denial itself is in ``ad_guard_denials.jsonl``). Before this the job's result said "no longer open" for all
+    three."""
+
+    import hashlib
+
+    from learnloop import provenance
+
+    def ref(value: Any) -> str | None:
+        if value is None or value == "":
+            return None
+        text = str(value)
+        return text if provenance.is_code(text) else "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+    job = ref(job_id)
+    return provenance.DecisionRecord(
+        kind=AD_COMMISSION_SKIP, status="excluded", subject_kind="job" if job else None, subject_id=job,
+        decided_by="ad_commission_job", rule=rule,
+        facts={key: value for key, value in {"commission_id": ref(commission_id), "generated": 0}.items()
+               if value is not None},
+        detail_table="ad_selections", detail_id=ref(commission_id),
+    )
+
+
+def _record_commission_skip(ctx: JobContext, commission_id: str, rule: str) -> None:
+    """Write :func:`ad_commission_skip_record` in a short transaction of its own, outside every AD operation;
+    never raises."""
+
+    from learnloop import provenance
+    from learnloop.db.stores.provenance import write_decision
+
+    try:
+        record = ad_commission_skip_record(commission_id=commission_id, job_id=ctx.job_id, rule=rule)
+    except Exception as exc:  # noqa: BLE001 - a record never changes the decision it describes
+        logging.getLogger(__name__).warning("decision record %r not built (trace %s): %s", AD_COMMISSION_SKIP,
+                                            provenance.current_trace(), type(exc).__name__)
+        return
+    write_decision(ctx.repo, record)
+
+
 def _handle_ad_commission(ctx: JobContext, lo_ids: list[str], commission_id: str) -> dict[str, Any]:
     """One item at an open AD commission's point, through the ordinary generation path and
     its gates (spec_adaptive_difficulty_v1 §6.1 "runs in the background", §7.1, §7.4). A
@@ -3433,6 +3479,7 @@ def _handle_ad_commission(ctx: JobContext, lo_ids: list[str], commission_id: str
     # one AD operation (the AD23 redesign); the generation itself runs outside it (E1).
     from learnloop.adaptive_difficulty.operation import is_denial
 
+    unread: str | None = None
     try:
         # The savepoint form (round 4): the operation inside its savepoint, rolled back on poison.
         with ad_operation(vault, ctx.repo, savepoint=True) as op:
@@ -3440,11 +3487,16 @@ def _handle_ad_commission(ctx: JobContext, lo_ids: list[str], commission_id: str
             open_ids = {str(row["id"]) for row in view.open_commissions(ctx.repo.connection(),
                                                                          now=utc_now_iso(ctx.clock))} \
                 if view.available else set()
+            unread = None if view.available else "view_unavailable"
     except Exception as exc:
         if not is_denial(exc):
             raise
         open_ids = set()  # the AD guard refused something: no commission is open for this job
+        unread = "guard_denied"
     if commission_id not in open_ids:
+        # The job's result says "no longer open" whether the commission closed or AD couldn't read it; the record,
+        # written after the operation has closed (its guard denies the table), says which.
+        _record_commission_skip(ctx, commission_id, unread or "commission_closed")
         return {"generated": 0, "skipped_reason": "commission no longer open"}
     from learnloop.adaptive_difficulty.spend import models_off
 

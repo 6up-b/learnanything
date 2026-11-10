@@ -17,6 +17,7 @@ writers here (``tests/test_provenance.py``). The grader never reads the table.
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -105,6 +106,7 @@ def grade_record(
     algorithm_version: str | None = None,
     grader_identity: tuple[str, str] | None = None,
     decided_by: str | None = None,
+    fsrs: Mapping[str, Any] | None = None,
 ) -> provenance.DecisionRecord:
     """One grade's record (pure): the verdict class as ``rule``; the score, its maximum and the review reason's code
     in ``facts``; the grader's identity in ``versions``. ``decided_by`` overrides the grader's name (``regrade``)."""
@@ -128,6 +130,12 @@ def grade_record(
         "plan_presentation_id": _code(plan_presentation_id), "probe_presentation_id": _code(probe_presentation_id),
         "session_id": _code(session_id),
     }
+    if fsrs:
+        # The review as of the grade (B8): rating before and after the hint cap, elapsed days, state before and
+        # after, interval and factor, due time, or why none applied. Numbers and codes only; anything else is dropped.
+        facts["fsrs"] = {str(key): value for key, value in fsrs.items()
+                         if value is None or isinstance(value, (bool, int)) or provenance.is_code(value)
+                         or (isinstance(value, float) and math.isfinite(value))}
     if fallback_reason:
         # The model grade failed and the learner's self-grade stood; the reason is a code, or it is not named.
         facts["fallback_reason"] = _code(fallback_reason) or "unnamed"

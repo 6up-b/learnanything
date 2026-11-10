@@ -1840,11 +1840,96 @@ def plan_refresh_route_problem(vault: Any, client: Any | None = None) -> str | N
     return None if DL._is_plan_type(route.profile_type) else DL.PLAN_ONLY_REASON
 
 
+#: The daily re-judgment's record (refactor B8): its non-ready outcomes lived only in the sidecar's memory and a
+#: log line, so "why was the stale path not judged again today?" had no stored answer.
+REFRESH_RECORD = "curriculum_path_refresh"
+#: Outcomes that decided nothing worth a row: no deliverable in play, or its path already fresh.
+_UNRECORDED_REFRESH = frozenset({"none", "fresh"})
+_REFRESH_RECORD_STATUS = {"ready": "chosen", "unavailable": "refused", "switched_off": "excluded",
+                          "no_scope": "excluded", "no_sections": "excluded", "coalesced": "deferred",
+                          "stale": "discarded"}
+
+
+def refresh_record(result: Mapping[str, Any] | None, *, error: BaseException | None = None) -> Any:
+    """The daily re-judgment's outcome as a decision record (pure): ids and codes only; a reason that is prose
+    (the switch's sentence) is left out, the status says it. None when the outcome decided nothing."""
+
+    from learnloop import provenance
+
+    def ref(value: Any) -> str | None:
+        if value is None or value == "":
+            return None
+        text = str(value)
+        return text if provenance.is_code(text) else "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+    def code(value: Any) -> str | None:
+        return value if provenance.is_code(value) else None
+
+    result = dict(result or {})
+    status = "failed" if error is not None else str(result.get("status") or "")
+    if error is None and status in _UNRECORDED_REFRESH:
+        return None
+    goal = ref(result.get("goal_id"))
+    facts = {key: value for key, value in {
+        "outcome": code(status), "goal_id": goal, "depth": code(result.get("depth")),
+        "reason": code(result.get("reason")), "state_key": ref(result.get("state_key")),
+    }.items() if value is not None}
+    return provenance.DecisionRecord(
+        kind=REFRESH_RECORD, status=_REFRESH_RECORD_STATUS.get(status, "failed"),
+        subject_kind="goal" if goal else None, subject_id=goal,
+        chosen_ref=goal if status == "ready" else None, decided_by="curriculum_daily_refresh",
+        rule=code(result.get("reason")) or code(status) or "failed", facts=facts,
+        versions={"prompt_version": code(PROMPT_VERSION)},
+        detail_table="deliverable_path_sections" if status == "ready" else None,
+        error_type=type(error).__name__ if error is not None else None,
+        error_where=None if error is None else "".join(
+            char if char.isalnum() or char in "_.:/-" else "_" for char in (provenance.where(error) or ""))[:160]
+        or None,
+    )
+
+
 def refresh_for_plan(vault: Any, repository: Repository, *, client: Any | None = None, clock: Clock | None = None,
                      live_vault: Callable[[], Any] | None = None,
                      in_flight: Callable[[str, str, str], AbstractContextManager[bool]] | None = None,
                      still_wanted: Callable[[Any], bool] | None = None,
                      ) -> dict[str, Any]:
+    """C1's daily re-judgment (:func:`_refresh_for_plan`), with its outcome kept as a ``curriculum_path_refresh``
+    record when it decided something (never ``none`` or ``fresh``). The record is written after the job, in a short
+    transaction of its own, and never raises: the job's result, or its exception, is returned or raised as before."""
+
+    from learnloop.db.stores.provenance import write_decision
+
+    try:
+        result = _refresh_for_plan(vault, repository, client=client, clock=clock, live_vault=live_vault,
+                                   in_flight=in_flight, still_wanted=still_wanted)
+    except Exception as exc:
+        _write_refresh_record(write_decision, repository, None, exc)
+        raise
+    _write_refresh_record(write_decision, repository, result, None)
+    return result
+
+
+def _write_refresh_record(write: Callable[[Any, Any], Any], repository: Any, result: Mapping[str, Any] | None,
+                          error: BaseException | None) -> None:
+    try:
+        record = refresh_record(result, error=error)
+    except Exception as exc:  # noqa: BLE001 - a record never changes the decision it describes
+        import logging
+
+        from learnloop import provenance
+
+        logging.getLogger(__name__).warning("decision record %r not built (trace %s): %s", REFRESH_RECORD,
+                                            provenance.current_trace(), type(exc).__name__)
+        return
+    if record is not None:
+        write(repository, record)
+
+
+def _refresh_for_plan(vault: Any, repository: Repository, *, client: Any | None = None, clock: Clock | None = None,
+                      live_vault: Callable[[], Any] | None = None,
+                      in_flight: Callable[[str, str, str], AbstractContextManager[bool]] | None = None,
+                      still_wanted: Callable[[Any], bool] | None = None,
+                      ) -> dict[str, Any]:
     """C1's daily job (§7.6): the deliverable path's key includes learner state (the days
     left among it), so a path the plan would follow goes stale; once a day, before the
     plan is built, the nearest deliverable whose path is in play is judged again,

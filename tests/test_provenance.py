@@ -404,11 +404,16 @@ _REGISTRIES = frozenset({"learnloop.db.table_roles", "learnloop.adaptive_difficu
 #: rebuild runs; a queued job's by the four enqueues, which no rebuild calls; and the job processors read one
 #: ``job_enqueued`` record's trace, which no rebuild leases a job to do. The runtime test counts every write and
 #: every trace continuation during a live rebuild: zero.
+#:
+#: Refactor B8's: ``source_retrieval.deliverable_path`` (the closure reaches it for the curriculum path's reads)
+#: writes the daily re-judgment's record from ``refresh_for_plan``, which only the sidecar's plan handler starts and
+#: no rebuild calls; the runtime test counts its writes during a live rebuild: zero.
 _RECORD_WRITERS = frozenset({
     "learnloop.scheduling.slate_record", "learnloop.refusal_records",
     "learnloop.attempts.grade_records", "learnloop.diagnosis.chain_records",
     "learnloop.db.stores.diagnoses", "learnloop.db.stores.learner_gaps", "learnloop.db.stores.followup_serve",
     "learnloop.diagnosis.split.jobs", "learnloop.diagnosis.text_gaps.jobs",
+    "learnloop.source_retrieval.deliverable_path",
 })
 _STORE = "learnloop.db.stores.provenance"
 
@@ -489,6 +494,10 @@ def test_a_rebuild_never_calls_the_record_and_keeps_its_rows(tmp_path: Path, mon
     monkeypatch.setattr(chain_records, "_write", lambda _repo, kind, _build: chain_calls.append(kind))
     monkeypatch.setattr(store, "record_job_enqueued", lambda *a, **k: chain_calls.append("job_enqueued"))
     monkeypatch.setattr(store, "continue_job_trace", lambda *a, **k: chain_calls.append("continue_job_trace"))
+    # Refactor B8's: the curriculum path's daily re-judgment record.
+    import learnloop.source_retrieval.deliverable_path as deliverable_path
+
+    monkeypatch.setattr(deliverable_path, "_write_refresh_record", lambda *a, **k: chain_calls.append("refresh"))
     rebuild_all_derived_state(load_vault(root), Repository(path))
     assert _rows(path) == before and len(before) == 1
     assert slate_calls == [] and refusal_calls == [] and chain_calls == []

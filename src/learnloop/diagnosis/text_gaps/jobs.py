@@ -606,8 +606,9 @@ def process_next_gap_job(
     # A figure prediction's reading runs under the one figure gate (RW5a):
     # before each of its physical requests (the reader, the Decider, any
     # action call) the switch is read as configured now, and a change stops
-    # the reading with no further call.
-    figure_gate = (FiguresGate(vault, text_key)
+    # the reading with no further call. The gate's first refusal leaves a
+    # ``figure_admission`` record in the job's trace: the job row keeps only prose.
+    figure_gate = (FiguresGate(vault, text_key, repository=repository)
                    if outcome.source_kind == "reader_formative" and is_figure_prediction(outcome.source_id) else None)
     try:
         if budget_factory is not None:

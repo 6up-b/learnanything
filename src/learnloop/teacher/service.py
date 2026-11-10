@@ -593,6 +593,19 @@ def _refused_by_budget(state: LessonState, exc: BaseException) -> bool:
     return state.gate is not None and state.gate.refusal is not None
 
 
+def _record_budget_close(repository: Any, state: LessonState, exc: BaseException) -> None:
+    """The refusal that closes the lesson with ``budget``, as a ``spend_admission`` record (refactor B8): the close
+    receipt says only ``budget``, and the gate's refusal (which request, its estimate, the limit) was kept nowhere.
+    Never raises; written before the close, outside its transaction."""
+
+    from learnloop import refusal_records
+
+    refusal = getattr(state.gate, "refusal", None) if state.gate is not None else None
+    refusal_records.write(repository, refusal_records.SPEND_ADMISSION,
+                          lambda: refusal_records.lesson_budget_record(lesson_id=state.lesson_id, exc=exc,
+                                                                       refusal=refusal))
+
+
 def _require_metered_settings(vault: Any, client: Any) -> None:
     """A metered (OpenRouter) lesson needs its price and its per-lesson cap first (T1 redesign D; Q7)."""
 
@@ -926,6 +939,7 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
                 # The lesson's envelope refused a recovered request (a visual's figure author: Codex
                 # review F4): the lesson closes with ``budget``, before the action, as in ``_teach``.
                 outcome = _Outcome()
+                _record_budget_close(repository, state, exc)
                 _close(vault, repository, state, reason="budget", recap=None, clock=clock, outcome=outcome)
                 return view(vault, repository, lesson_id, outcome=outcome)
             if state.closed:
@@ -1047,6 +1061,7 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
         if _refused_by_budget(state, exc):
             # The lesson's envelope refused the grader's request (§17): the lesson closes with ``budget``.
             outcome = _Outcome()
+            _record_budget_close(repository, state, exc)
             _close(vault, repository, state, reason="budget", recap=None, clock=clock, outcome=outcome)
             return view(vault, repository, state.lesson_id, outcome=outcome)
         raise LessonError("grading_unavailable", f"Your answer couldn't be graded right now ({type(exc).__name__}). "
@@ -1122,6 +1137,7 @@ def _answer_probe(vault: Any, repository: Any, state: LessonState, payload: Mapp
     except Exception as exc:  # noqa: BLE001 - the probe stays open; the learner can submit again
         if _refused_by_budget(state, exc):
             outcome = _Outcome()
+            _record_budget_close(repository, state, exc)
             _close(vault, repository, state, reason="budget", recap=None, clock=clock, outcome=outcome)
             return view(vault, repository, state.lesson_id, outcome=outcome)
         raise LessonError("grading_unavailable", f"Your answer couldn't be graded right now ({type(exc).__name__}). "
@@ -1179,6 +1195,7 @@ def _teach(vault: Any, repository: Any, state: LessonState, *, clients: Clients,
         if not _refused_by_budget(state, exc):
             raise
         # The lesson's envelope refused the next request (§17): the lesson closes with ``budget``.
+        _record_budget_close(repository, state, exc)
         _close(vault, repository, state, reason="budget", recap=None, clock=clock, outcome=outcome)
     finally:
         if outcome.usage["calls"]:

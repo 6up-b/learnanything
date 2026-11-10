@@ -931,12 +931,19 @@ def _disclosed(paths, table: str, row: tuple) -> tuple:
     relatedness run's units and key, a relatedness claim's or model call's key, and a frozen
     outside-forecast state. Those fields, by name, are the only ones rewritten. A decision record's
     ``created_at`` is the wall clock, not the frozen run clock (ADR-017), so the two copies' records are
-    compared by everything else."""
+    compared by everything else. A grade record's ``facts.fsrs`` (refactor B8) is the incumbent's own FSRS
+    review, copied from what ``attempt_surprise`` and ``practice_item_state`` hold (both the incumbent's, outside
+    this comparison), so it is set aside by name, as those tables are."""
 
     columns = [name for name, *_ in _columns(paths.sqlite_path, table)]
     values = dict(zip(columns, row, strict=True))
     if table == "decision_records":
         values["created_at"] = "<wall clock>"
+        if values.get("kind") == "grade" and values.get("facts_json"):
+            facts = json.loads(values["facts_json"])
+            if "fsrs" in facts:
+                facts["fsrs"] = "<the incumbent's FSRS review>"
+                values["facts_json"] = json.dumps(facts, sort_keys=True)
     epoch = _epoch(paths)
     for name, value in list(values.items()):
         if isinstance(value, str) and epoch in value and table not in ("ad_relatedness_runs", "item_forecast_payloads"):
