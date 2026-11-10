@@ -59,6 +59,12 @@ def run_startup_maintenance(
     from learnloop.attempts.clarification import expire_clarifications
 
     expired = tuple(expire_clarifications(repository, clock=clock))
+    # ADR-017, strategy §3.7: router.payload_retention_days clears old decision records' facts and alternatives
+    # (the rows stay). Never raises, and nothing reads the payloads but ``why``.
+    from learnloop.db.stores.provenance import prune_old_decision_payloads
+
+    prune_old_decision_payloads(repository, retention_days=vault.config.router.payload_retention_days,
+                                now=clock.now() if clock is not None else None)
     # Project understanding M1 (spec §3.2): capture new agent-trailer commits in
     # enrolled repos. Git only, never a model call; it writes only the
     # standalone project store and returns at once when nothing is enrolled.

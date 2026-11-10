@@ -69,6 +69,50 @@ def write_decision_without_waiting(repository: Any, record: provenance.DecisionR
                 pass
 
 
+#: What retention leaves in a pruned record's two payload columns (migration 254's trigger allows exactly these).
+PRUNED_ALTERNATIVES = "[]"
+PRUNED_FACTS = '{"payload_pruned":true}'
+
+
+def prune_decision_payloads(connection: Any, *, before: str) -> int:
+    """Clear ``alternatives_json`` and ``facts_json`` on records created before ``before``
+    (``router.payload_retention_days``, as ``db.stores.router.prune_router_payloads`` does for the router's
+    payloads); the row, its identity and its pointers stay. The number of rows cleared; 0 below migration 254, whose
+    trigger is what permits the update (253's refuses every one)."""
+
+    try:
+        return connection.execute(
+            f"UPDATE {provenance.TABLE} SET alternatives_json = ?, facts_json = ? WHERE created_at < ? "
+            "AND NOT (alternatives_json = ? AND facts_json = ?)",
+            (PRUNED_ALTERNATIVES, PRUNED_FACTS, before, PRUNED_ALTERNATIVES, PRUNED_FACTS),
+        ).rowcount
+    except sqlite3.OperationalError as exc:
+        if "no such table" in str(exc):
+            return 0
+        raise
+    except sqlite3.IntegrityError as exc:
+        if "append-only" in str(exc):  # migration 253's trigger: this vault has no retention yet
+            return 0
+        raise
+
+
+def prune_old_decision_payloads(repository: Any, *, retention_days: int, now: datetime | None = None) -> int:
+    """The maintenance pass: clear the payloads of records older than ``retention_days``, in one short transaction.
+    Never raises (a locked or older vault keeps its payloads until the next pass)."""
+
+    from datetime import timedelta
+
+    moment = now or datetime.now(timezone.utc)
+    moment = moment.replace(tzinfo=timezone.utc) if moment.tzinfo is None else moment.astimezone(timezone.utc)
+    before = (moment - timedelta(days=int(retention_days))).strftime("%Y-%m-%dT%H:%M:%S")
+    try:
+        with repository.connection() as connection:
+            return prune_decision_payloads(connection, before=before)
+    except Exception as exc:  # noqa: BLE001 - retention is housekeeping; it never fails what runs it
+        LOG.warning("decision record payloads not pruned: %s", type(exc).__name__)
+        return 0
+
+
 def trace_model_calls(connection: Any, trace_ids: Iterable[str]) -> list[dict[str, Any]]:
     """Model calls made under any of ``trace_ids``, oldest first (empty below migration 253)."""
 
