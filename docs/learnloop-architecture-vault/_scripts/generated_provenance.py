@@ -46,21 +46,21 @@ GENERATORS = (
 )
 
 
-def _git(*args: str) -> str:
-    return subprocess.run(
+def _git(*args: str, strip: bool = True) -> str:
+    output = subprocess.run(
         ["git", *args], cwd=REPO_ROOT, check=True, text=True, capture_output=True
-    ).stdout.strip()
+    ).stdout
+    return output.strip() if strip else output
 
 
 def inputs_provenance() -> tuple[str, str, list[str]]:
     """Return the newest commit touching an input, its timestamp, and the inputs that differ from HEAD."""
 
     commit, timestamp = _git("log", "-1", "--format=%H%x09%cI", "--", *INPUT_PATHS).split("\t", 1)
-    dirty = sorted(
-        line[3:]
-        for line in _git("status", "--porcelain=v1", "--untracked-files=normal", "--", *INPUT_PATHS).splitlines()
-        if line.strip()
-    )
+    # Unstripped: porcelain's two status columns start with a space for an
+    # unstaged change, and stripping the output cut the first path's first letter.
+    status = _git("status", "--porcelain=v1", "--untracked-files=normal", "--", *INPUT_PATHS, strip=False)
+    dirty = sorted(line[3:] for line in status.splitlines() if line.strip())
     return commit, timestamp, dirty
 
 
