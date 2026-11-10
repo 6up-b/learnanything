@@ -742,6 +742,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
 - [tests/test_regrade_contract_upgrade.py](../../../../../../tests/test_regrade_contract_upgrade.py) — direct import
   - `test_upgrade_command_reaches_the_successor`
+- [tests/test_remaining_decision_records.py](../../../../../../tests/test_remaining_decision_records.py) — direct import
 - [tests/test_required_method_authority.py](../../../../../../tests/test_required_method_authority.py) — direct import
   - `test_the_cli_proposes_the_override_and_accept_applies_it`
 - [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — direct import

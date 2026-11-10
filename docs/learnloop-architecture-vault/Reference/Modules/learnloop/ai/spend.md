@@ -450,6 +450,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
   - `test_a_spend_refusal_names_the_cap_and_its_numbers_and_keeps_its_message`
   - `test_no_decider_routed_and_a_spend_cap_each_name_their_rule`
+- [tests/test_remaining_decision_records.py](../../../../../../tests/test_remaining_decision_records.py) — direct import
+  - `test_a_cap_record_that_cannot_be_built_still_refuses`
+  - `test_a_shared_daily_caps_refusal_names_its_cap_and_leaves_a_record`
+  - `test_every_b8_builder_passes_the_prose_check_with_learner_text_planted`
 - [tests/test_required_method_reopened.py](../../../../../../tests/test_required_method_reopened.py) — direct import
   - `test_f17_a_failed_judgment_leaves_the_job_retryable_and_a_rerun_resumes_without_regenerating`
 - [tests/test_required_method_round3.py](../../../../../../tests/test_required_method_round3.py) — direct import

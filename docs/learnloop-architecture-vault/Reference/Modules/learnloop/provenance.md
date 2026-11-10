@@ -95,6 +95,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `current_trace`; statically calls `current_trace`
 - [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]] — imports `module`; statically calls `DecisionRecord`, `current_cause`, `current_trace`, `is_code`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `module`; statically calls `get`, `read`, `read_naming`, `trace_scope`
+- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `module`; statically calls `DecisionRecord`, `current_trace`, `is_code`
 - [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]] — imports `DecisionRecord`, `module`; statically calls `DecisionRecord`, `current_trace`, `is_code`, `new_trace_id`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `current_trace`, `read`, `where`, `write`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `module`; statically calls `current_trace`, `read`, `write`
@@ -107,6 +108,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/refusal_records|learnloop.refusal_records]] — imports `DecisionRecord`, `module`; statically calls `DecisionRecord`, `current_trace`, `is_code`, `where`, `write`
 - [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] — imports `DecisionRecord`, `is_code`, `where`; statically calls `DecisionRecord`, `is_code`, `where`
 - [[Reference/Modules/learnloop/scheduling/slate_record|learnloop.scheduling.slate_record]] — imports `DecisionRecord`, `current_trace`, `is_code`; statically calls `DecisionRecord`, `current_trace`, `is_code`
+- [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `module`; statically calls `DecisionRecord`, `current_trace`, `is_code`, `where`
 - [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `module`; statically calls `current_trace`, `read`
 - [[Reference/Modules/learnloop_sidecar/logging|learnloop_sidecar.logging]] — imports `current_trace`; statically calls `current_trace`
 - [[Reference/Modules/learnloop_sidecar/post_attempt_worker|learnloop_sidecar.post_attempt_worker]] — imports `module`; statically calls `trace_scope`
@@ -130,7 +132,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]], [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] and 14 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]], [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]] and 16 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -189,6 +191,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_no_decider_routed_and_a_spend_cap_each_name_their_rule`
   - `test_the_figure_gate_records_its_first_refusal_once`
   - `test_the_follow_up_gates_decision_names_its_rule_arms_and_components`
+- [tests/test_remaining_decision_records.py](../../../../../tests/test_remaining_decision_records.py) — direct import
+  - `test_a_commission_job_that_generated_nothing_says_why`
+  - `test_a_follow_up_interrupts_logger_that_raises_leaves_a_record`
+  - `test_a_lesson_closed_with_budget_names_the_request_and_the_limit`
+  - `test_a_plan_logger_that_raises_leaves_a_record_on_the_block_and_serves_the_same`
+  - `test_a_shared_daily_caps_refusal_names_its_cap_and_leaves_a_record`
+  - `test_an_fsrs_summary_with_a_non_finite_number_keeps_the_grade_record`
+  - `test_every_b8_builder_passes_the_prose_check_with_learner_text_planted`
+  - `test_the_daily_re_judgment_records_what_it_decided_and_nothing_for_none_or_fresh`
 - [tests/test_router_failure_records.py](../../../../../tests/test_router_failure_records.py) — direct import
   - `test_a_chooser_crash_writes_a_fallback_record_with_the_error_and_each_models_answer`
   - `test_a_component_timeout_writes_a_model_answer_with_the_configured_wait`

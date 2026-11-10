@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/spend.py](../../../../../../src/learnloop/adaptive_difficulty/spend.py) |
-| Source lines | 46 |
+| Source lines | 49 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -128,6 +128,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad23_owner_decisions.py](../../../../../../tests/test_ad23_owner_decisions.py) — direct import
   - `test_a_cancelled_commission_stays_cancelled_when_models_come_back_on`
   - `test_a_commission_waiting_on_models_stays_open_and_a_cancelled_one_expires`
+- [tests/test_remaining_decision_records.py](../../../../../../tests/test_remaining_decision_records.py) — direct import
+  - `test_ads_envelope_records_no_refusal_since_its_guard_denies_the_table`
 
 ## Modification guidance
 

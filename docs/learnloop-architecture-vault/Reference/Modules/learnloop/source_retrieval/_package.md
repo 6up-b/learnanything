@@ -90,7 +90,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/source_retrieval/compare_scope|learnloop.source_retrieval.compare_scope]] | [[Reference/Modules/learnloop/source_retrieval/compare_scope#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/source_retrieval/contracts|learnloop.source_retrieval.contracts]] | [[Reference/Modules/learnloop/source_retrieval/contracts#^module-purpose|purpose]] | `ACTIVE` | 5 | 6 |
 | [[Reference/Modules/learnloop/source_retrieval/corpus|learnloop.source_retrieval.corpus]] | [[Reference/Modules/learnloop/source_retrieval/corpus#^module-purpose|purpose]] | `ACTIVE` | 43 | 25 |
-| [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] | [[Reference/Modules/learnloop/source_retrieval/deliverable_path#^module-purpose|purpose]] | `ACTIVE` | 5 | 13 |
+| [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] | [[Reference/Modules/learnloop/source_retrieval/deliverable_path#^module-purpose|purpose]] | `ACTIVE` | 5 | 15 |
 | [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] | [[Reference/Modules/learnloop/source_retrieval/deliverables#^module-purpose|purpose]] | `ACTIVE` | 6 | 14 |
 | [[Reference/Modules/learnloop/source_retrieval/dense|learnloop.source_retrieval.dense]] | [[Reference/Modules/learnloop/source_retrieval/dense#^module-purpose|purpose]] | `ACTIVE` | 5 | 12 |
 | [[Reference/Modules/learnloop/source_retrieval/evaluation|learnloop.source_retrieval.evaluation]] | [[Reference/Modules/learnloop/source_retrieval/evaluation#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
@@ -113,7 +113,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/source_retrieval/role_labeller|learnloop.source_retrieval.role_labeller]] | [[Reference/Modules/learnloop/source_retrieval/role_labeller#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/source_retrieval/search|learnloop.source_retrieval.search]] | [[Reference/Modules/learnloop/source_retrieval/search#^module-purpose|purpose]] | `ACTIVE` | 11 | 10 |
 | [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] | [[Reference/Modules/learnloop/source_retrieval/section_coverage#^module-purpose|purpose]] | `ACTIVE` | 15 | 19 |
-| [[Reference/Modules/learnloop/source_retrieval/service_spend|learnloop.source_retrieval.service_spend]] | [[Reference/Modules/learnloop/source_retrieval/service_spend#^module-purpose|purpose]] | `ACTIVE` | 21 | 4 |
+| [[Reference/Modules/learnloop/source_retrieval/service_spend|learnloop.source_retrieval.service_spend]] | [[Reference/Modules/learnloop/source_retrieval/service_spend#^module-purpose|purpose]] | `ACTIVE` | 21 | 5 |
 | [[Reference/Modules/learnloop/source_retrieval/source_vectors|learnloop.source_retrieval.source_vectors]] | [[Reference/Modules/learnloop/source_retrieval/source_vectors#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
 | [[Reference/Modules/learnloop/source_retrieval/spaces|learnloop.source_retrieval.spaces]] | [[Reference/Modules/learnloop/source_retrieval/spaces#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
 | [[Reference/Modules/learnloop/source_retrieval/student_data|learnloop.source_retrieval.student_data]] | [[Reference/Modules/learnloop/source_retrieval/student_data#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
@@ -132,9 +132,9 @@ For system intent, use [[Architecture Overview]].
 
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 84 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 65 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 53 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 54 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 44 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 36 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 38 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 32 static module edges
 - [[Reference/Modules/learnloop/local_embeddings/_package|learnloop.local_embeddings]] — 28 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 27 static module edges
@@ -195,10 +195,10 @@ flowchart LR
     n_learnloop_content_sources["learnloop.content.sources"]
     center -->|84| n_learnloop_ai
     center -->|65| n_learnloop_db
-    center -->|53| n_learnloop_db_stores
+    center -->|54| n_learnloop_db_stores
     center -->|44| n_learnloop_vault
     n_learnloop_sidecar_handlers -->|41| center
-    center -->|36| n_learnloop
+    center -->|38| n_learnloop
     center -->|32| n_learnloop_practice_index
     center -->|28| n_learnloop_local_embeddings
     center -->|27| n_learnloop_reader

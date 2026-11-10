@@ -2774,6 +2774,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_upgrade_holds_exactly_the_unrecorded_epochs_and_rewrites_no_evidence`
   - `test_upgrade_refuses_older_versions_and_is_idempotent`
   - `test_upgrade_through_the_chain_from_earlier_successors`
+- [tests/test_remaining_decision_records.py](../../../../../../tests/test_remaining_decision_records.py) — direct import
+  - `test_ads_envelope_records_no_refusal_since_its_guard_denies_the_table`
+  - `test_the_daily_re_judgment_records_what_it_decided_and_nothing_for_none_or_fresh`
 - [tests/test_remediation_cold_retry.py](../../../../../../tests/test_remediation_cold_retry.py) — direct import
 - [tests/test_repair_splice.py](../../../../../../tests/test_repair_splice.py) — direct import
 - [tests/test_replay.py](../../../../../../tests/test_replay.py) — direct import
