@@ -400,23 +400,17 @@ def _built(kind: str, build: Callable[[], DecisionRecord]) -> DecisionRecord | N
 
 
 def write(repository: Any, kind: str, build: Callable[[], DecisionRecord]) -> str | None:
-    """Build and write one record through ``repository`` (joining its open transaction, else a short one of its own);
-    its id, or None. Never raises.
+    """Build and write one record through ``repository`` (joining its open transaction without committing it, else a
+    short one of its own); its id, or None. Never raises.
 
-    The same write as ``db.stores.provenance.write_decision``, done here with the leaf's :func:`provenance.write`:
-    ``db.stores.router`` writes through this module, so importing the store back would close an import cycle.
+    The same write as ``db.stores.provenance.write_decision`` (both are the leaf's :func:`provenance.write_through`):
+    ``db.stores.router`` writes through this module, so importing the store back would close a package cycle.
     """
 
     record = _built(kind, build)
     if record is None:
         return None
-    try:
-        with repository.connection() as connection:
-            return provenance.write(connection, record)
-    except Exception as exc:  # noqa: BLE001 - a record never changes the decision it describes
-        LOG.warning("decision record %r not written (trace %s): %s", kind,
-                    record.trace_id or provenance.current_trace(), type(exc).__name__)
-        return None
+    return provenance.write_through(repository, record)
 
 
 def write_on(connection: Any, kind: str, build: Callable[[], DecisionRecord]) -> str | None:

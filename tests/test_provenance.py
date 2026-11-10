@@ -447,7 +447,7 @@ def test_decision_records_is_unreachable_from_replay():
                           if alias.name not in {"current_trace", "trace_scope", "DecisionRecord", "STATUSES",
                                                 "is_code"}]
             if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id == "provenance" \
-                    and node.attr in {"write", "read", "cap_alternatives", "check_no_prose"}:
+                    and node.attr in {"write", "write_through", "read", "cap_alternatives", "check_no_prose"}:
                 using.append(f"{module}:provenance.{node.attr}")
     assert naming == [] and using == []
 

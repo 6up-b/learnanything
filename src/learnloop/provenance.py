@@ -331,6 +331,28 @@ def write(connection: Any, record: DecisionRecord) -> str | None:
     return completed.id
 
 
+def write_through(repository: Any, record: DecisionRecord) -> str | None:
+    """Write ``record`` through ``repository``'s connection; its id, or ``None`` when it was not written. Never raises.
+
+    A repository hands out a connection it opened for this call (``owns_connection``: entering it commits the
+    record and closes it) or the one its caller holds under a pin or an ``atomic()`` block, possibly with the
+    caller's transaction open. That borrowed one is never entered: a pin's exit commits the whole transaction, so a
+    record written that way would publish the caller's work before the caller decided to keep it. :func:`write`'s
+    savepoint joins the caller's transaction instead, or commits alone when none is open.
+    """
+
+    try:
+        connection = repository.connection()
+        if getattr(connection, "owns_connection", False):
+            with connection as owned:
+                return write(owned, record)
+        return write(connection, record)
+    except Exception as exc:  # noqa: BLE001 - a record never changes the decision it describes
+        LOG.warning("decision record %r not written (trace %s): %s", record.kind,
+                    record.trace_id or current_trace(), type(exc).__name__)
+        return None
+
+
 # -- reading -------------------------------------------------------------------------------------------------
 
 

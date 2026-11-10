@@ -30,15 +30,13 @@ TRACE_CALL_COLUMNS = (
 
 
 def write_decision(repository: Any, record: provenance.DecisionRecord) -> str | None:
-    """Write ``record`` through ``repository``; its id, or ``None`` when it was not written. Never raises."""
+    """Write ``record`` through ``repository``; its id, or ``None`` when it was not written. Never raises.
 
-    try:
-        with repository.connection() as connection:
-            return provenance.write(connection, record)
-    except Exception as exc:  # noqa: BLE001 - a record never changes the decision it describes
-        LOG.warning("decision record %r not written (trace %s): %s", record.kind,
-                    record.trace_id or provenance.current_trace(), type(exc).__name__)
-        return None
+    It joins a transaction the caller holds on a pinned or atomic connection without committing it
+    (:func:`provenance.write_through`), and takes a short one of its own otherwise.
+    """
+
+    return provenance.write_through(repository, record)
 
 
 def trace_model_calls(connection: Any, trace_ids: Iterable[str]) -> list[dict[str, Any]]:
@@ -185,13 +183,15 @@ def continue_job_trace(repository: Any, job_id: str) -> str | None:
     to the ``ContextVar`` only; no record's content reaches the job.
     """
 
+    query = (f"SELECT trace_id, id FROM {provenance.TABLE} WHERE kind = ? AND subject_kind = 'job' "
+             "AND subject_id = ? ORDER BY created_at DESC, id DESC LIMIT 1", (JOB_ENQUEUED, str(job_id)))
     try:
-        with repository.connection() as connection:
-            row = connection.execute(
-                f"SELECT trace_id, id FROM {provenance.TABLE} WHERE kind = ? AND subject_kind = 'job' "
-                "AND subject_id = ? ORDER BY created_at DESC, id DESC LIMIT 1",
-                (JOB_ENQUEUED, str(job_id)),
-            ).fetchone()
+        connection = repository.connection()
+        if getattr(connection, "owns_connection", False):
+            with connection as owned:
+                row = owned.execute(*query).fetchone()
+        else:  # a pinned connection's exit would commit whatever its holder has open
+            row = connection.execute(*query).fetchone()
     except Exception as exc:  # noqa: BLE001 - below migration 253, or a closed connection: the job runs as it would
         LOG.debug("job %s keeps its own trace: %s", job_id, type(exc).__name__)
         return provenance.current_trace()

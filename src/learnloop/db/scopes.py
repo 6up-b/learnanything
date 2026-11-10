@@ -237,6 +237,10 @@ class _GuardedCursor:
 class OwnedConnection:
     """Close a borrowed repository connection at the end of its with block."""
 
+    #: Opened for one repository call, so entering it commits only that call's work (``provenance.write_through``
+    #: enters this one and never a pinned or atomic connection, whose exit would commit the caller's transaction).
+    owns_connection = True
+
     def __init__(self, connection: sqlite3.Connection):
         object.__setattr__(self, "_connection", connection)
 
