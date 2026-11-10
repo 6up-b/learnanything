@@ -38,6 +38,7 @@ These notes capture the accepted decision, its context, consequences, and execut
 | [[ADR-014 SQLite stays in DELETE journal mode]] | superseded by ADR-015; listed the checks a switch to WAL needed |
 | [[ADR-015 SQLite runs in WAL mode with synchronous FULL]] | WAL with fsynced commits, a one-way switch in the migration path, backup-API copies and explicit checkpoints |
 | [[ADR-016 Learner-blind grading with an asynchronous diagnoser]] | mvp-0.10 grades blind and diagnoses asynchronously; causal fields come from the diagnosis ledger on read |
+| [[ADR-017 One decision record, one trace id, one entry point]] | `decision_records` (a receipt nothing replays), a trace id per learner-visible action carried to model calls and logs, and a read-only `learnloop why` |
 
 ## Source of accepted decisions
 
