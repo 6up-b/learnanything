@@ -117,6 +117,7 @@ PACKAGE_DESCRIPTIONS = {
     "learnloop.source_retrieval": "Source retrieval and the Reader's sources side: keyword and dense search, section coverage, deliverables and paths, and the learner's notes.",
     "learnloop.teacher": "Lessons on the latent learner state: the brief, the teacher's turn contract and actions, guards, checks, delayed checks and receipts.",
     "learnloop.workbench": "The Reader workbench's checks and the help ladder's Reader side: Check my work, declared symbolic checks and the ladder.",
+    "learnloop.why": "Why x and not y: the one reader over decision records, and the labelled reconstruction of decisions older than them (ADR-017).",
 }
 
 PRIMITIVE_MODULES = {
