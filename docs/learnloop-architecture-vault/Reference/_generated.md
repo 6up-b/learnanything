@@ -2,11 +2,21 @@
 title: "Generated Reference Provenance"
 type: "generated-provenance"
 status: "current"
-version: "1.0.0"
-source_commit: "77fea00d177c1471bb9186cf2b8e233913303002"
-source_commit_timestamp: "2026-11-10T02:56:21-05:00"
-source_worktree_state: "clean"
+version: "2.0.0"
 generated: true
+generators:
+  module_generate.py:
+    source_commit: "91efb50137b964ea770282a79317de5121029099"
+    source_commit_timestamp: "2026-11-10T04:10:11-05:00"
+    uncommitted_inputs: []
+  desktop_generate.py:
+    source_commit: "91efb50137b964ea770282a79317de5121029099"
+    source_commit_timestamp: "2026-11-10T04:10:11-05:00"
+    uncommitted_inputs: []
+  db_generate_reference.py:
+    source_commit: "91efb50137b964ea770282a79317de5121029099"
+    source_commit_timestamp: "2026-11-10T04:10:11-05:00"
+    uncommitted_inputs: []
 source_paths:
   - "src"
   - "tests"
@@ -22,22 +32,14 @@ tags:
 
 # Generated Reference Provenance
 
-Every generated note under `Reference/` was generated from the sources at one commit, recorded here once instead of in each note. It is the newest commit that changed a generator input (listed in `source_paths`), so committing a regeneration doesn't move it. ^generated-commit
+Each generator records here the commit its notes were generated from, instead of in each note. It is the newest commit that changed a generator input (listed in `source_paths`) when that generator last ran, so committing a regeneration doesn't move it. A generator rewrites only its own row: running one alone never vouches for another's notes. ^generated-commit
 
-| Fact | Value |
-|---|---|
-| Source commit | `77fea00d177c1471bb9186cf2b8e233913303002` |
-| Commit timestamp | `2026-11-10T02:56:21-05:00` |
-| Inputs since that commit | none |
+| Generator | Writes | Source commit | Commit timestamp | Inputs since that commit |
+|---|---|---|---|---|
+| `_scripts/module_generate.py` | Reference/Modules/ (module notes, package maps, Module Catalog) | `91efb50137b964ea770282a79317de5121029099` | `2026-11-10T04:10:11-05:00` | none |
+| `_scripts/desktop_generate.py` | Reference/Desktop/ (TypeScript and Rust notes, area maps, Desktop Module Catalog) | `91efb50137b964ea770282a79317de5121029099` | `2026-11-10T04:10:11-05:00` | none |
+| `_scripts/db_generate_reference.py` | Reference/Database/Tables/, Reference/Configuration/Fields/, Database Catalog, Configuration Field Catalog | `91efb50137b964ea770282a79317de5121029099` | `2026-11-10T04:10:11-05:00` | none |
 
-## Generators
-
-| Generator | Writes |
-|---|---|
-| `_scripts/module_generate.py` | Reference/Modules/ (module notes, package maps, Module Catalog) |
-| `_scripts/desktop_generate.py` | Reference/Desktop/ (TypeScript and Rust notes, area maps, Desktop Module Catalog) |
-| `_scripts/db_generate_reference.py` | Reference/Database/Tables/, Reference/Configuration/Fields/, Database Catalog, Configuration Field Catalog |
-
-Each generator rewrites this note with the same content. A regeneration on a clean tree changes nothing; one after a source change touches only the notes whose facts changed, plus this note when the recorded commit moves.
+`_scripts/generate_all.py` runs all three. A regeneration on a clean tree changes nothing; one after a source change touches only the notes whose facts changed, plus a generator's row here when its recorded commit moves.
 
 Hand-written notes keep their own `source_commit_timestamp`; see [[Documentation Conventions]].

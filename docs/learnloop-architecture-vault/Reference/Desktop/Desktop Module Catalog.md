@@ -120,4 +120,4 @@ SORT source_path ASC
 
 Use `desktop_generate.py --check` in CI to verify byte-for-byte reproducibility without writing files.
 
-Notes carry no commit of their own: the commit every generated note describes is in [[Reference/_generated|Generated Reference Provenance]].
+Notes carry no commit of their own: the commit they were generated from is `desktop_generate.py`'s row in [[Reference/_generated|Generated Reference Provenance]].

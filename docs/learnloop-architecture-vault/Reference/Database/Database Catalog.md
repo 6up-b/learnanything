@@ -552,4 +552,4 @@ Validate live schema/config coverage and this vault's complete note graph:
 
 Then run `tests/test_migrations.py` and `tests/test_table_roles.py` when schema or role code changed. The first validator checks table coverage and the configuration catalog against their live authorities; the second resolves the whole vault's frontmatter, source paths, Wikilinks, headings, and blocks.
 
-Table and configuration notes carry no commit or migration head of their own: the head is stated once in this catalog, and the commit every generated note describes is in [[Reference/_generated|Generated Reference Provenance]].
+Table and configuration notes carry no commit or migration head of their own: the head is stated once in this catalog, and the commit they were generated from is `db_generate_reference.py`'s row in [[Reference/_generated|Generated Reference Provenance]].
