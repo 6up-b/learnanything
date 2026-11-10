@@ -48,6 +48,9 @@ dev = [
   # The MCP adapter's tests run in every gate (no silent skips, unlike the
   # mobile extra): dev carries the same pinned SDK as the mcp extra.
   "mcp==2.3.0",
+  # One pinned version, because a new ruff release adds findings to rules
+  # already selected and would fail every gate at once ([tool.ruff] below).
+  "ruff==0.17.1",
 ]
 # High-fidelity PDF extraction (headings, tables, LaTeX math, OCR) for
 # canonical source ingestion; heavy (pulls in torch). Without it, PDF
@@ -88,6 +91,51 @@ markers = [
   "fresh_connections: runs production's connection opens and fresh-schema build in the fast lane instead of the lane's shortcuts (tests/connection_reuse.py); for a test about connection identity or open-time behaviour",
   "owner_vaults: reads backup-API copies of the owner's vaults that S0 removed from fixtures/; skipped unless LEARNLOOP_OWNER_VAULTS names their directory (tests/owner_vaults.py)",
   "gpu_smoke: trains a tiny random-initialised query student on the GPU under the GPU lock and the memory floors; skipped unless LEARNLOOP_GPU_SMOKE=1 (tests/test_query_student_gpu.py)",
+]
+
+# A bug-finding linter, not a style checker: no formatter and no naming, style or
+# complexity rules, because rewriting most lines would collide with every branch
+# in flight. Rules and counts: docs/reviews/refactor-a5.md.
+[tool.ruff.lint]
+select = [
+  "F",       # pyflakes: undefined and unused names, redefinitions
+  "E9",      # syntax and IO errors
+  "B",       # bugbear: loop-variable closures, zip truncation, mutable defaults
+  "PLE",     # pylint errors
+  "RUF100",  # a noqa that suppresses nothing
+  "SIM115",  # a file opened without a context manager is never closed
+]
+ignore = [
+  "B007",  # an unused loop variable is a naming nit; all 47 at A5 were read and none was a bug
+  "B904",  # Python chains the handled exception implicitly, so the traceback already keeps the cause
+]
+# Codes of rules this config doesn't run whose noqa comments carry the reason a
+# line is allowed (746 of the 804 BLE001 ones do); RUF100's fix would delete the
+# reason along with the code.
+external = ["ANN", "ARG", "BLE", "D", "E402", "E731", "N8", "PLC", "S", "SLF"]
+
+[tool.ruff.lint.per-file-ignores]
+# The CLI modules share one namespace by star import (cli/__init__.py, runtime.py,
+# render.py): rewriting them is not this linter's job.
+"src/learnloop/cli/*.py" = ["F405"]
+# runtime.py and render.py are star-imported by the other CLI modules, so an
+# import with no local use is still the name those modules call.
+"src/learnloop/cli/{runtime,render}.py" = ["F401"]
+# F811: a pytest fixture imported from another test module is redefined by the
+# test's parameter of the same name; that is how pytest finds it (none of the 653
+# at A5 was a duplicate test name). B017: the 30 pytest.raises(Exception) are
+# listed in docs/reviews/refactor-a5.md to narrow test by test.
+"tests/**" = ["F811", "B017"]
+
+[tool.ruff.lint.flake8-bugbear]
+# Frozen values, so one shared default instance is safe.
+extend-immutable-calls = [
+  "pathlib.Path",
+  "pydantic.Field",
+  "learnloop.adaptive_difficulty.replay.ReplaySettings",
+  "learnloop.adaptive_difficulty.selection.SelectionConstants",
+  "learnloop.ops.pf_generation.GenerationOptions",
+  "tests.text_gap_fakes.always",
 ]
 
 [dependency-groups]
