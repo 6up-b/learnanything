@@ -115,7 +115,8 @@ Rows are small: ids, numbers and capped lists, exclusions aggregated by rule. Th
 ## What it replaces
 
 - **Kept:** `router_decisions` and payloads, `router_objective_traces`, `ad_selections` (the model for the shape), `judgment_ledger`, `plan_presentations`, the causal receipts.
-- **Gone:** the manual JSON join from decision to receipt (for new rows), `why`'s writes, and, as B2-B9 land, free-text `owner_id` as the join, AD's JSONL denial log if nothing else reads it, and per-subsystem entry points as separate code.
+- **Gone:** the manual JSON join from decision to receipt (for new rows), `why`'s writes, and, as B2-B9 land, free-text `owner_id` as the join and per-subsystem entry points as separate code.
+- **Kept beside the records:** AD's JSONL denial log (`ad_guard_denials.jsonl`). `learnloop ad report` counts it and a successful `learnloop upgrade` archives it, so B3 left it in place and added the `ad_slot` record (the incumbent's fallback, naming what the guard refused as verb, table and reader). The plan writes that record after every AD operation has closed, in its own transaction, so the guard never sees it and `decision_records` stays out of `AD_WRITABLE`.
 - **Not done:** trace spans or OpenTelemetry (a dependency and a concept for a single-user app), a record at every function or per protection read, prompts or free text in records, and renaming "decision" elsewhere (`router_decisions` stays).
 
 ## B8: boundaries with no record, and why not
