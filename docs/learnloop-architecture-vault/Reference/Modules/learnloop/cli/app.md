@@ -351,6 +351,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_approach_maps.py](../../../../../../tests/test_approach_maps.py) — direct import
   - `test_the_dry_run_prints_the_estimate_and_writes_nothing`
   - `test_the_hints_report_shows_maps_failures_routes_and_spend`
+- [tests/test_attempt_chain_records.py](../../../../../../tests/test_attempt_chain_records.py) — direct import
 - [tests/test_attempt_content_state_successor.py](../../../../../../tests/test_attempt_content_state_successor.py) — direct import
   - `test_a_bare_upgrade_targets_the_latest_through_mvp037`
   - `test_landing_ii_an_interrupted_mvp036_activation_then_upgrade_to_mvp037_completes_it`
@@ -563,6 +564,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followups_batch6_router_report.py](../../../../../../tests/test_followups_batch6_router_report.py) — direct import
   - `test_router_report_on_a_database_before_lesson_suggestions_is_refused`
   - `test_router_report_prints_the_split_from_the_ledgers_read_only`
+- [tests/test_forced_withdrawal_records.py](../../../../../../tests/test_forced_withdrawal_records.py) — direct import
 - [tests/test_forecast_receipts.py](../../../../../../tests/test_forecast_receipts.py) — direct import
   - `test_the_calibration_report_on_a_seeded_vault`
 - [tests/test_grading_cli.py](../../../../../../tests/test_grading_cli.py) — direct import

@@ -30,6 +30,8 @@ from learnloop.attempts.blind_grading import split_grading_active
 from learnloop.attempts.grading import resolved_rubric
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
+from learnloop.db.stores import provenance as decision_store
+from learnloop.diagnosis import chain_records
 from learnloop.diagnosis.forecast_receipts import record_diagnosis_forecasts
 from learnloop.diagnosis.split.diagnoser import DiagnosisOutcome, run_diagnosis
 from learnloop.diagnosis.split.live import (
@@ -320,6 +322,9 @@ def process_next_job(
     )
     if job is None:
         return None
+    # The job continues the trace of whatever queued it (the submit that graded the attempt, a regrade, a
+    # diagnosis), so its model calls and records answer under that trace.
+    decision_store.continue_job_trace(repository, str(job["id"]))
     if kind == DIAGNOSE_KIND:
         return run_diagnose_job(
             vault,
@@ -440,6 +445,8 @@ def _persist(
         row_id = repository.insert_attempt_diagnosis(diagnosis_id=diagnosis_id, clock=clock, **values)
         if forecasts is not None:
             forecasts()
+        # Refactor B7: the diagnosis's decision record, in its row's transaction (it rolls back with a lost lease).
+        chain_records.record_diagnosis(repository, diagnosis_id=row_id, job_id=str(job["id"]), values=values)
         return row_id
 
 
@@ -1134,16 +1141,20 @@ def apply_diagnosis(
             vault, repository, attempt_id=attempt_id, diagnosis=diagnosis, writer_factory=writer_factory,
             spend=spend, reserve=reserve, cancelled=cancelled, clock=clock, heartbeat=heartbeat,
         )
-    except Exception:  # noqa: BLE001 - the escalation display never fails the diagnosis
+    except Exception as exc:  # noqa: BLE001 - the escalation display never fails the diagnosis
         LOG.warning("escalation receipt failed for attempt %s", attempt_id, exc_info=True)
+        chain_records.record_step_failed(repository, step="escalation_receipt", exc=exc, attempt_id=attempt_id,
+                                         facts={"diagnosis_id": str(diagnosis.get("id") or "")})
     # Learner-text gaps: the diagnosis (and the attempt's stuck text, if it is
     # one) is read for a named gap off this job, in the gaps queue.
     try:
         from learnloop.diagnosis.text_gaps.jobs import enqueue_after_diagnosis
 
         enqueue_after_diagnosis(vault, repository, attempt_id=attempt_id, diagnosis=diagnosis, clock=clock)
-    except Exception:  # noqa: BLE001 - queueing a gap reading never fails the diagnosis
+    except Exception as exc:  # noqa: BLE001 - queueing a gap reading never fails the diagnosis
         LOG.warning("learner-text gap enqueue failed for attempt %s", attempt_id, exc_info=True)
+        chain_records.record_step_failed(repository, step="learner_text_enqueue", exc=exc, attempt_id=attempt_id,
+                                         facts={"diagnosis_id": str(diagnosis.get("id") or "")})
 
 
 def record_pattern_verdicts(repository: Repository, *, diagnosis: Mapping[str, Any], attempt_id: str) -> int:

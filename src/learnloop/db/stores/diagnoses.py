@@ -16,6 +16,7 @@ from datetime import timedelta
 from typing import Any
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop.db.stores import provenance as decision_store
 from learnloop.ids import new_ulid
 
 #: Error-event keys a causal view may set (everything else stays grader-owned).
@@ -141,18 +142,25 @@ class DiagnosisStoreMixin:
                 completed = connection.execute(
                     "SELECT created_at FROM practice_attempts WHERE id = ?", (attempt_id,)
                 ).fetchone()
-                connection.execute(
+                job_id = new_ulid()
+                cursor = connection.execute(
                     """INSERT OR IGNORE INTO post_attempt_jobs(
                         id, attempt_id, kind, job_key, attempt_completed_at, state,
                         payload_json, created_at, updated_at
                     ) VALUES (?, ?, 'diagnose', ?, ?, 'queued', ?, ?, ?)""",
                     (
-                        new_ulid(), attempt_id, f"{attempt_id}:{record_id}",
+                        job_id, attempt_id, f"{attempt_id}:{record_id}",
                         str(completed[0]) if completed is not None else now,
                         _dumps({"mode": "live", "blind_grade_record_id": record_id, "rediagnose": True}),
                         now, now,
                     ),
                 )
+                if cursor.rowcount:
+                    decision_store.record_job_enqueued(
+                        connection, queue="post_attempt_jobs", job_id=job_id, job_kind="diagnose", rule="regraded",
+                        facts={"attempt_id": attempt_id, "blind_grade_record_id": record_id, "mode": "live",
+                               "rediagnose": True},
+                    )
             connection.commit()
         return record_id
 
@@ -676,6 +684,15 @@ class DiagnosisStoreMixin:
                     _dumps(dict(payload or {})), now, now,
                 ),
             )
+            if cursor.rowcount:
+                body = dict(payload or {})
+                decision_store.record_job_enqueued(
+                    connection, queue="post_attempt_jobs", job_id=job_id, job_kind=kind,
+                    facts={"attempt_id": attempt_id, "mode": body.get("mode"),
+                           "rediagnose": bool(body.get("rediagnose")),
+                           "blind_grade_record_id": body.get("blind_grade_record_id"),
+                           "diagnosis_id": body.get("diagnosis_id")},
+                )
             connection.commit()
         return job_id if cursor.rowcount else None
 

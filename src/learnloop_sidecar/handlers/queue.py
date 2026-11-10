@@ -653,6 +653,7 @@ def publish_offer(
     states = repository.practice_item_states()
     dtos = scheduled_item_dtos(vault, repository, queue, now=now, item_states=states)
     decision = None
+    unlogged: BaseException | None = None
     if trace is not None and trace.slate_id is not None:
         try:
             # M2a (open item 3): a phone has no plan. It shows this list and "Next" opens its
@@ -684,15 +685,19 @@ def publish_offer(
                 },
                 head_served=head_served,
             )
-        except Exception:  # logging never fails the offer
+        except Exception as exc:  # logging never fails the offer
             logging.getLogger(__name__).warning(
                 "router R1: offer decision for slate %s not logged", trace.slate_id, exc_info=True
             )
             decision = None
+            unlogged = exc
     receipt = _offer_prefilter(vault, repository, decision, trace, queue) if decision is not None else None
     with repository.atomic() if alongside is not None else nullcontext():
         if alongside is not None:
             alongside()
+        if unlogged is not None:
+            _record_unlogged_offer(repository, unlogged, slate_id=trace.slate_id if trace else None,
+                                   surface=offer_surface(ctx.request_origin))
         if slate_id is not None:
             repository.finalize_scheduler_offer(
                 slate_id,
@@ -711,6 +716,27 @@ def publish_offer(
                     exc_info=True,
                 )
     return queue, dtos
+
+
+def _record_unlogged_offer(repository: Any, exc: BaseException, *, slate_id: str | None, surface: Any) -> None:
+    """Refactor B3 (the map's S12): a Today offer published without its router decision leaves a ``today_offer``
+    record, ``failed``: a head mismatch names both heads, any other failure its type and where; its parent is the
+    build's ``slate`` record. In the offer's transaction when it has one; never raises."""
+
+    from learnloop import provenance
+    from learnloop.db.stores.provenance import write_decision
+    from learnloop.router.decisions import offer_failure_record
+
+    try:
+        with repository.connection() as connection:
+            slates = provenance.read(connection, f"slate:{slate_id}", kind="slate") if slate_id else []
+        record = offer_failure_record(exc, slate_id=slate_id, surface=surface,
+                                      parent_id=slates[-1].id if slates else None)
+    except Exception as failure:  # noqa: BLE001 - a record never changes the offer it describes
+        logging.getLogger(__name__).warning("today_offer decision record not built (trace %s): %s",
+                                            provenance.current_trace(), type(failure).__name__)
+        return
+    write_decision(repository, record)
 
 
 def _offer_prefilter(vault: Any, repository: Any, decision: Mapping[str, Any], trace: Any, queue: Any) -> Callable[[Any], Any] | None:

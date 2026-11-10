@@ -80,7 +80,7 @@ A ULID in a `ContextVar` (`provenance.current_trace()`), **born** once per learn
 - the MCP server, per tool call (`learnloop_mcp.server`'s `run`);
 - the CLI, per command (the root callback).
 
-It is **carried** by the `ContextVar`: threads started in a copied context (the router's jobs, background exam grading) inherit it. The post-attempt worker's long-lived threads give each job a trace of its own, so a job never carries the RPC that first woke the worker. Until a job's enqueue writes a `job_enqueued` record (B7), a background job's trace is its own.
+It is **carried** by the `ContextVar`: threads started in a copied context (the router's jobs, background exam grading) inherit it. The post-attempt worker's long-lived threads open one scope per job, so a job never carries the RPC that first woke the worker. **Across a queue** (B7): each enqueue that inserts a row (`post_attempt_jobs`, `learner_text_gap_jobs`, `followup_generation_jobs`, and IH2's requeue) writes a `job_enqueued` record (`subject = job:<id>`) in its transaction, and the job's processor, once it has leased the row, continues that record's trace (`db.stores.provenance.continue_job_trace`, which switches the worker's scope in place with `provenance.continue_trace`). The record is the job's cause (`provenance.current_cause()`), so the job's own records name it as their `parent_id`. Submit, grade, diagnosis and follow-up generation therefore share one trace; a job queued before B7, or whose record did not write, keeps a trace of its own.
 
 **Model calls** carry it in a real column, `model_call_receipts.trace_id` (nullable), set when the call starts (`ai.execution`) and written by `record_model_event`. That closes break 2 without moving the decision id, which feeds the mix's seed. **Logs** carry it: the sidecar's `log_event` adds `trace_id` to every structured event.
 
@@ -115,7 +115,8 @@ Rows are small: ids, numbers and capped lists, exclusions aggregated by rule. Th
 ## What it replaces
 
 - **Kept:** `router_decisions` and payloads, `router_objective_traces`, `ad_selections` (the model for the shape), `judgment_ledger`, `plan_presentations`, the causal receipts.
-- **Gone:** the manual JSON join from decision to receipt (for new rows), `why`'s writes, and, as B2-B9 land, free-text `owner_id` as the join, AD's JSONL denial log if nothing else reads it, and per-subsystem entry points as separate code.
+- **Gone:** the manual JSON join from decision to receipt (for new rows), `why`'s writes, and, as B2-B9 land, free-text `owner_id` as the join and per-subsystem entry points as separate code.
+- **Kept beside the records:** AD's JSONL denial log (`ad_guard_denials.jsonl`). `learnloop ad report` counts it and a successful `learnloop upgrade` archives it, so B3 left it in place and added the `ad_slot` record (the incumbent's fallback, naming what the guard refused as verb, table and reader). The plan writes that record after every AD operation has closed, in its own transaction, so the guard never sees it and `decision_records` stays out of `AD_WRITABLE`.
 - **Not done:** trace spans or OpenTelemetry (a dependency and a concept for a single-user app), a record at every function or per protection read, prompts or free text in records, and renaming "decision" elsewhere (`router_decisions` stays).
 
 ## B8: boundaries with no record, and why not

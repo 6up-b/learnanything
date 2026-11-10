@@ -182,10 +182,10 @@ None found by exact static reference scan.
 - `tests/test_evsi_staged_binding.py`
 - `tests/test_figure_predictions.py`
 - `tests/test_followup_codex_review.py`
+- `tests/test_forced_withdrawal_records.py`
 - `tests/test_ih3_phone_host.py`
 - `tests/test_ih6_workbench_open_item.py`
 - `tests/test_ih7_lesson_sources_follow_diagnosis.py`
-- `tests/test_instruct_handoff_ih0.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

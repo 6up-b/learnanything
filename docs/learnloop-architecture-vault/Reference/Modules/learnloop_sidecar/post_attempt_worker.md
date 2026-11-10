@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py) |
-| Source lines | 290 |
+| Source lines | 292 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -67,8 +67,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `_run_gaps(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]` (line 190; internal)
   - `_run_followup(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]` (line 220; internal) — FG1: the generation slot, apart from the strictly ordered diagnosis slot, so a later diagnosis is never delayed by a question being written (spec §5 item 1).
   - `_with_busy_retry(self, work: Callable[[], Any]) -> Any` (line 241; internal)
-  - `_loop(self, kind: str) -> None` (line 254; internal)
-  - `wait_for(self, pending: Callable[[], list[str]], timeout: float) -> tuple[list[str], float]` (line 268; public) — Wait until ``pending()`` is empty or ``timeout`` passes.
+  - `_loop(self, kind: str) -> None` (line 256; internal)
+  - `wait_for(self, pending: Callable[[], list[str]], timeout: float) -> tuple[list[str], float]` (line 270; public) — Wait until ``pending()`` is empty or ``timeout`` passes.
 
 ### Module constants
 
@@ -124,6 +124,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_attempt_chain_records.py](../../../../../tests/test_attempt_chain_records.py) — direct import
+  - `test_a_job_with_no_enqueue_record_keeps_a_trace_of_its_own`
 - [tests/test_figures_prefetch.py](../../../../../tests/test_figures_prefetch.py) — direct import
   - `test_the_gap_worker_fires_the_gap_trigger_after_a_drain`
 - [tests/test_learner_text_gaps_flow.py](../../../../../tests/test_learner_text_gaps_flow.py) — direct import

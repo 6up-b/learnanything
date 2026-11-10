@@ -53,6 +53,18 @@ from learnloop.scheduling import voi_forecasts as VF
 logger = logging.getLogger(__name__)
 
 
+def _forecast_failed(repository: Any, site: str, exc: BaseException, decision_ref: Any,
+                     receipt_key: str | None = None) -> None:
+    """Refactor B7: a forecast that could not be logged leaves a ``voi_forecast`` record (it was a log line only);
+    the decision it describes stands, and the record never raises."""
+
+    from learnloop.diagnosis import chain_records
+
+    chain_records.record_forecast_failed(repository, site=site, exc=exc,
+                                         decision_ref=None if decision_ref is None else str(decision_ref),
+                                         receipt_key=receipt_key)
+
+
 def _route_action_of(
     repository: Repository, labels: Sequence[str]
 ) -> tuple[Callable[[Mapping[str, float]], str | None], str]:
@@ -170,8 +182,9 @@ def record_probe_presentation_forecast(
                 if presentation.expected_information_gain is not None else body.get("eig_nats")
             ),
         )
-    except Exception:  # noqa: BLE001 - logging must never break a decision
+    except Exception as exc:  # noqa: BLE001 - logging must never break a decision
         logger.warning("probe presentation forecast not recorded", exc_info=True)
+        _forecast_failed(repository, "probe_selection", exc, getattr(presentation, "id", None))
         return None
 
 
@@ -266,8 +279,9 @@ def record_robust_selection_forecast(
             evsi_point_minutes=evsi_minutes,
             evsi_lcb_minutes=evsi_minutes,
         )
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
         logger.warning("robust selection forecast not recorded", exc_info=True)
+        _forecast_failed(repository, "probe_robust_selection", exc, getattr(episode, "id", None))
         return None
 
 
@@ -433,8 +447,9 @@ def record_followup_forecast(
             chosen_practice_item_id=candidate.id,
             eig_nats=float(eig) if eig is not None else body.get("eig_nats"),
         )
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
         logger.warning("follow-up forecast not recorded", exc_info=True)
+        _forecast_failed(repository, "followup_selection", exc, attempt_id)
         return None
 
 
@@ -587,8 +602,9 @@ def record_value_decision_forecast(
             clock=clock,
             **values,
         )
-    except Exception:  # noqa: BLE001 - logging must never break a decision
+    except Exception as exc:  # noqa: BLE001 - logging must never break a decision
         logger.warning("value decision forecast not recorded (key=%s)", receipt_key, exc_info=True)
+        _forecast_failed(repository, "value_decision", exc, columns.get("decision_ref"), receipt_key=receipt_key)
         return None
 
 

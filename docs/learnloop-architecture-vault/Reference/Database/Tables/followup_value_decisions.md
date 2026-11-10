@@ -17,6 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/201_followup_value_decisions.sql"
   - "src/learnloop/db/stores/followup_value.py"
+  - "src/learnloop/diagnosis/chain_records.py"
   - "src/learnloop/diagnosis/voi_stopping.py"
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/scheduling/voi_forecasts.py"

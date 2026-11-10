@@ -733,6 +733,26 @@ def _publish_regrade(
     )
     # What this regrade's grader read (a regrade is never C4-augmented).
     record_grading(connection, attempt_id=attempt["id"], writer="regrade", clock=clock)
+    # Refactor B7: the regrade's decision record, and its hold's when the new grade is held (THE predicate over the
+    # ledger, now that the replay above re-applied the attempt). Never raises.
+    from learnloop.attempts.grade_records import held_now, record_grade
+
+    record_grade(
+        repository,
+        attempt_id=str(attempt["id"]), practice_item_id=str(attempt.get("practice_item_id") or "") or None,
+        learning_object_id=learning_object.id, rubric_score=new_score, max_points=rubric.max_points,
+        correctness=new_score / max(rubric.max_points, 1), grader_confidence=validated.grader_confidence,
+        grading_source=grading_source, grader_mode="blind" if blind_record is not None else None,
+        manual_review_reason=_manual_review_reason(validated.manual_review_reason, attempt),
+        agent_run_id=agent_run_id, attempt_type=attempt.get("attempt_type"),
+        hints_used=int(attempt.get("hints_used") or 0), declared_dont_know=bool(attempt.get("declared_dont_know")),
+        declared_stuck=bool(attempt.get("declared_stuck")), primed=bool(attempt.get("primed")),
+        error_types=[attribution.error_type for attribution in validated.error_attributions],
+        held=held_now(repository, str(attempt["id"])),
+        algorithm_version=vault.config.algorithms.algorithm_version,
+        grader_identity=(str(blind_record.get("prompt_version")), "") if blind_record is not None else None,
+        decided_by="regrade",
+    )
     persist_unknown_error_type_proposals(
         vault,
         repository,

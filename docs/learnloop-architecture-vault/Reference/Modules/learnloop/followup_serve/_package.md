@@ -48,7 +48,7 @@ For system intent, use [[Architecture Overview]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/followup_serve/__init__|learnloop.followup_serve]] | [[Reference/Modules/learnloop/followup_serve/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] | [[Reference/Modules/learnloop/followup_serve/gates#^module-purpose|purpose]] | `ACTIVE` | 24 | 9 |
+| [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] | [[Reference/Modules/learnloop/followup_serve/gates#^module-purpose|purpose]] | `ACTIVE` | 24 | 10 |
 | [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] | [[Reference/Modules/learnloop/followup_serve/identity#^module-purpose|purpose]] | `ACTIVE` | 19 | 16 |
 | [[Reference/Modules/learnloop/followup_serve/marks|learnloop.followup_serve.marks]] | [[Reference/Modules/learnloop/followup_serve/marks#^module-purpose|purpose]] | `ACTIVE` | 9 | 2 |
 | [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] | [[Reference/Modules/learnloop/followup_serve/queue#^module-purpose|purpose]] | `ACTIVE` | 8 | 4 |

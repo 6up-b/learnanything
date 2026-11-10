@@ -132,3 +132,67 @@ def unclaimed_calls(connection: Any, records: Iterable[provenance.DecisionRecord
              "purpose": call.get("purpose"), "model": call.get("model"), "status": call.get("status"),
              "error_type": call.get("error_type")}
             for call in router if call["owner_id"] not in claimed]
+
+
+# -- the queue hop: a job continues the trace that queued it ---------------------------------------------------
+
+#: A job was queued (``subject = job:<id>``). The worker that leases the job continues this record's trace, with
+#: the record as the cause of everything the job records, so submit, grade, diagnosis and follow-up share one trace.
+JOB_ENQUEUED = "job_enqueued"
+
+
+def job_enqueued_record(*, queue: str, job_id: str, job_kind: str, rule: str | None = None,
+                        facts: Mapping[str, Any] | None = None) -> provenance.DecisionRecord:
+    """The record of one queued job (pure). ``queue`` is its table, ``job_kind`` its kind there, ``rule`` why it was
+    queued (``queued`` unless a caller says, e.g. ``requeued``); ``facts`` holds ids and codes only (what a value that is
+    not a code would be is dropped, so one odd id never drops the record)."""
+
+    kept = {key: value for key, value in dict(facts or {}).items()
+            if value is None or isinstance(value, (bool, int, float)) or provenance.is_code(value)}
+    return provenance.DecisionRecord(
+        kind=JOB_ENQUEUED, status="deferred", subject_kind="job", subject_id=job_id, decided_by=queue,
+        rule=rule or "queued", facts={"queue": queue, "job_kind": job_kind, **kept}, detail_table=queue,
+        detail_id=job_id, parent_id=provenance.current_cause(),
+    )
+
+
+def record_job_enqueued(connection: Any, *, queue: str, job_id: str | None, job_kind: str, rule: str | None = None,
+                        facts: Mapping[str, Any] | None = None) -> str | None:
+    """Write a queued job's record on the enqueuing connection, in its transaction; its id, or None. Never raises.
+
+    Called only when the enqueue inserted (or requeued) a row, so a repeated enqueue of the same job leaves one record.
+    """
+
+    if not job_id:
+        return None
+    try:
+        record = job_enqueued_record(queue=queue, job_id=str(job_id), job_kind=job_kind, rule=rule, facts=facts)
+    except Exception as exc:  # noqa: BLE001 - a record never changes the decision it describes
+        LOG.warning("decision record %r not written (trace %s): %s", JOB_ENQUEUED, provenance.current_trace(),
+                    type(exc).__name__)
+        return None
+    return provenance.write(connection, record)
+
+
+def continue_job_trace(repository: Any, job_id: str) -> str | None:
+    """Continue the trace that queued ``job_id`` for the rest of the worker's scope; the trace now current.
+
+    Reads one thing of the table: the newest ``job_enqueued`` record's trace and id for this job (a requeued job
+    continues its latest enqueuer). No record (a job queued before this existed, or whose record did not write):
+    the job keeps the scope's own trace. Never raises: a failed read leaves the trace as it was. The trace and id go
+    to the ``ContextVar`` only; no record's content reaches the job.
+    """
+
+    try:
+        with repository.connection() as connection:
+            row = connection.execute(
+                f"SELECT trace_id, id FROM {provenance.TABLE} WHERE kind = ? AND subject_kind = 'job' "
+                "AND subject_id = ? ORDER BY created_at DESC, id DESC LIMIT 1",
+                (JOB_ENQUEUED, str(job_id)),
+            ).fetchone()
+    except Exception as exc:  # noqa: BLE001 - below migration 253, or a closed connection: the job runs as it would
+        LOG.debug("job %s keeps its own trace: %s", job_id, type(exc).__name__)
+        return provenance.current_trace()
+    if row is None:
+        return provenance.continue_trace(None)
+    return provenance.continue_trace(str(row[0]), cause=str(row[1]))

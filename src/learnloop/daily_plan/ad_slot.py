@@ -92,6 +92,18 @@ def _unavailable(code: str) -> AdUnavailable:
     return AdUnavailable(code)
 
 
+def take_guard_denials() -> tuple[dict[str, Any], ...]:
+    """What AD's guard refused in this context since the last call, as codes only (verb, table, reader, entry): the
+    plan's record of an AD phase it found unavailable names them. Never raises."""
+
+    try:
+        from learnloop.adaptive_difficulty.operation import take_denials
+
+        return take_denials()
+    except Exception:  # noqa: BLE001 - a record never changes the decision it describes
+        return ()
+
+
 def _guarded(run: Any) -> Any:
     """Run an AD phase; any failure becomes :class:`AdUnavailable` carrying only a code, raised
     OUTSIDE the ``except`` clause (no cause, no context, no inner frames: the final round's codec)."""
@@ -383,4 +395,4 @@ def eligibility_failures(vault: Any, repository: Any, now_iso: str, item: Any, *
 
 
 __all__ = ["AdUnavailable", "SlotNotAdmitted", "SlotSession", "decide", "deferrals_cleared", "eligibility_failures",
-           "open_deferrals", "open_slot"]
+           "open_deferrals", "open_slot", "take_guard_denials"]

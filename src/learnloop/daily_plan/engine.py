@@ -111,6 +111,7 @@ from learnloop.daily_plan.types import (
 from learnloop import provenance
 from learnloop.daily_plan import boundary_records
 from learnloop.daily_plan import measurement as objectives
+from learnloop.daily_plan import plan_records
 from learnloop.daily_plan.boundary_records import FAILURE_NOTE, wall_now
 from learnloop.data_capture import prefilter
 from learnloop.router_objective import ask_availability, decision_state
@@ -2773,14 +2774,91 @@ def _write_boundary_records(env: PlanEnv, connection: Any, decision: Decision, *
     neither the write nor its lock wait can change it, and a record that fails is dropped with a warning."""
 
     try:
+        trigger = _trigger_attempt(connection)
+        parent = (decision.seen or {}).get("parent_record") or _attempt_record(connection, trigger)
         records = boundary_records.plan_block_records(decision, block_id=block_id, detail_id=detail_id,
-                                                      config=env.vault.config, stop=stop)
+                                                      config=env.vault.config, stop=stop, parent_id=parent,
+                                                      trigger_attempt=trigger)
     except Exception as exc:  # noqa: BLE001 - a record never changes the decision it describes
         logging.getLogger(__name__).warning("plan_block decision records not built (trace %s): %s",
                                             provenance.current_trace(), type(exc).__name__)
         return
     for record in records:
         provenance.write(connection, record)
+
+
+def _trigger_attempt(connection: Any) -> str | None:
+    """The newest attempt as of the decision (break 1): the attempt the router's boundary key already names
+    (``as_of``), read on the decision's own connection so it is the one the decision saw."""
+
+    row = connection.execute("SELECT id FROM practice_attempts ORDER BY created_at DESC, id DESC LIMIT 1").fetchone()
+    return str(row[0]) if row is not None else None
+
+
+def _attempt_record(connection: Any, attempt_id: str | None) -> str | None:
+    """The newest record about ``attempt_id`` (its grade, once the attempt chain writes one), the decision's parent."""
+
+    if not attempt_id:
+        return None
+    records = provenance.read(connection, f"attempt:{attempt_id}")
+    return records[-1].id if records else None
+
+
+def _forced_entries(env: PlanEnv, forced: Sequence[Any], origin: str) -> list[dict[str, Any]]:
+    """The forced items as a record names them, with their follow-up workflows (read outside the decision's write).
+    Never raises: an unreadable workflow leaves the item's id and origin."""
+
+    from learnloop.followup_serve import workflow as followup_workflow
+
+    entries = []
+    for item in forced:
+        item_id = getattr(item, "practice_item_id", item)
+        try:
+            row = followup_workflow.workflow_of_item(env.repository, str(item_id))
+        except Exception:  # noqa: BLE001 - a record never changes the decision it describes
+            row = None
+        entries.append(boundary_records.forced_entry(item_id, origin=origin, workflow=row))
+    return entries
+
+
+def _note_for_records(env: PlanEnv, decision: Decision, *, forced: Sequence[Any], forced_origin: str,
+                      failures: Sequence[Any], parent_record: str | None, superseding: PlannedBlock | None) -> None:
+    """Hang what only the boundary knows on the decision, for its record (``Decision.seen``): the forced items and
+    their workflows, the offer it replaces, its failed steps and the record that caused it. After the decision, so
+    the workflow reads can't delay it; never raises."""
+
+    try:
+        note: dict[str, Any] = {"failures": tuple(failures), "parent_record": parent_record}
+        if forced:
+            note["forced"] = _forced_entries(env, forced, forced_origin)
+        if superseding is not None:
+            note["superseding"] = {"block_id": superseding.id, "decision_id": superseding.decision_ref}
+        decision.seen = {**dict(decision.seen or {}), **note}
+    except Exception as exc:  # noqa: BLE001 - a record never changes the decision it describes
+        logging.getLogger(__name__).warning("plan_block decision record notes not kept (trace %s): %s",
+                                            provenance.current_trace(), type(exc).__name__)
+
+
+def _step_failure(kind: str, rule: str, exc: BaseException) -> list[Any]:
+    """A boundary step's failure record (``plan_records.step_failure``), or none when it can't be built."""
+
+    try:
+        return [plan_records.step_failure(kind, rule, exc)]
+    except Exception:  # noqa: BLE001 - a record never changes the decision it describes
+        return []
+
+
+def _record_quietly(build: Any, what: str) -> list[Any]:
+    """``build()``'s records, or none when building them fails (logged with the trace): a record never changes the
+    decision it describes."""
+
+    try:
+        records = build()
+    except Exception as exc:  # noqa: BLE001 - a record never changes the decision it describes
+        logging.getLogger(__name__).warning("%s decision record not built (trace %s): %s", what,
+                                            provenance.current_trace(), type(exc).__name__)
+        return []
+    return list(records) if isinstance(records, (list, tuple)) else [records]
 
 
 #: Who may be named on a chooser's choice (§6.8): never ``learner_pick``,
@@ -3021,23 +3099,28 @@ def _boundary(
     forced_origin: str = ORIGIN_REQUESTED,
     ad_deferrals: Mapping[str, Any] | None = None,
     superseding: PlannedBlock | None = None,
+    parent_record: str | None = None,
 ) -> str | None:
     """Choose and persist the next block, or close the plan. Returns the block id.
 
     ``superseding`` (IH2, spec_instruct_handoff_v1 §5 item 1): an unanswered lesson offer this decision replaces, ended
-    in this decision's own transaction with the decision's id on its row."""
+    in this decision's own transaction with the decision's id on its row. ``parent_record``: the decision record that
+    caused this boundary (an offer taken back for forced items), named as its record's parent."""
 
     forced = list(forced)
     forced_ids = {item.practice_item_id for item in forced}
     context, forced_minutes, releases, forced_allotment, forced_spent = _forced_charges(
         record, context, forced, forced_origin)
+    # Refactor B3: steps of this boundary that fail before its decision, recorded as its decision record's children.
+    failures: list[Any] = []
     # Router objective RO5 (spec §9 item 2): the day's randomized checks are drawn before any action draw of the
     # day and independent of it (once a day, idempotent; off, below the tag or with the objective off, nothing).
-    _draw_randomized_checks(env, record, context)
+    _draw_randomized_checks(env, record, context, failures=failures)
     # Codex re-review F2: the day's check is administered at this boundary before its decision, whatever the
     # decision would draw, as its own block placed by the rules (none pending: nothing, the boundary as RO4's).
     check_block = _randomized_check_block(env, record, context, forced=forced, forced_origin=forced_origin,
-                                          releases=releases, superseding=superseding)
+                                          releases=releases, superseding=superseding, failures=failures,
+                                          parent_record=parent_record)
     if check_block is not None:
         return check_block
     # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the boundary's lesson offer, a candidate of the objective's support
@@ -3052,9 +3135,11 @@ def _boundary(
             # A decision replacing an open offer contests the card already on offer, so the day's ceiling doesn't end it.
             offer = builder(env=env, record=record, forced=bool(forced) and not competing,
                             **({"replacing": True} if superseding is not None else {}))
-        except Exception:  # noqa: BLE001 - an offer never blocks the plan
+        except Exception as exc:  # noqa: BLE001 - an offer never blocks the plan
             logging.getLogger(__name__).warning("teacher TE3b: the boundary's lesson offer was not built", exc_info=True)
             offer = None
+            failures += _step_failure(
+                plan_records.LESSON_OFFER_BUILD, plan_records.BUILDER_ERROR, exc)
     contest = _followup_contest(env, forced) if competing and getattr(offer, "candidate", None) is not None else None
     if contest is not None:
         # Nothing is placed whatever is chosen: the follow-ups are a candidate, charged only if drawn.
@@ -3070,6 +3155,8 @@ def _boundary(
         offer=getattr(offer, "candidate", None),
         contest=contest,
     )
+    _note_for_records(env, decision, forced=forced, forced_origin=forced_origin, failures=failures,
+                      parent_record=parent_record, superseding=superseding)
     choice = decision.choice
     frozen = _frozen_objective(env, record, decision)
     detail: dict[str, Any] = {
@@ -3251,7 +3338,9 @@ def _boundary(
         # TE3b: a lesson offer's block has no measurement slot of its own (its delayed checks are the lesson's).
         is_offer = subtype == LESSON_OFFER_SUBTYPE
         if superseding is not None and not is_offer:
-            _supersede_offer(env, connection, superseding, by=decision_ref)  # a new offer ends it in ``_persist_block``
+            # A new offer ends it in ``_persist_block``.
+            _supersede_offer(env, connection, superseding, by=decision_ref,
+                             forced=(decision.seen or {}).get("forced") or ())
         if offer_won:
             _followups_lost(env, detail["followups_lost"], offer_ref=candidate.candidate_id,
                             offer_decision_id=decision_ref)
@@ -3351,10 +3440,11 @@ def _followup_contest(env: PlanEnv, forced: Sequence[PoolItem]) -> BlockCandidat
     )
 
 
-def _supersede_offer(env: PlanEnv, connection: Any, block: PlannedBlock, *, by: str | None) -> None:
+def _supersede_offer(env: PlanEnv, connection: Any, block: PlannedBlock, *, by: str | None,
+                     forced: Sequence[Mapping[str, Any]] = ()) -> None:
     from learnloop.daily_plan import lesson_offer as LO
 
-    LO.supersede(connection, block, at=env.now_iso(), by=by)
+    LO.supersede(connection, block, at=env.now_iso(), by=by, forced=forced)
 
 
 def _followups_lost(env: PlanEnv, item_ids: Sequence[str], *, offer_ref: str, offer_decision_id: str | None) -> None:
@@ -3475,10 +3565,12 @@ def ro5_check_origin() -> str:
     return ORIGIN
 
 
-def _draw_randomized_checks(env: PlanEnv, record: PlanRecord, context: PoolContext) -> None:
+def _draw_randomized_checks(env: PlanEnv, record: PlanRecord, context: PoolContext, *,
+                            failures: list[Any] | None = None) -> None:
     """RO5 §9 item 2: the day's draw, before the boundary's decision (fails soft: a plan never waits on it), over
     the items this plan's pool can serve (Codex re-review F2: a drawn check is then administered at once, before
-    the decision; the pool is fixed before any of the day's action draws)."""
+    the decision; the pool is fixed before any of the day's action draws). A failed draw adds its record to
+    ``failures`` (the boundary's record's children)."""
 
     from learnloop.router_objective_switches import CHECKS_OFF, check_mode
 
@@ -3495,10 +3587,13 @@ def _draw_randomized_checks(env: PlanEnv, record: PlanRecord, context: PoolConte
                         eligible_items=lambda los, exclude: objective_inputs.check_eligible_items(
                             env.vault, env.repository, los, exclude),
                         placeable=lambda item_id: str(item_id) in in_pool)
-    except Exception:  # noqa: BLE001 - the checks never block the plan
+    except Exception as exc:  # noqa: BLE001 - the checks never block the plan
         import logging
 
         logging.getLogger(__name__).warning("router objective RO5: the day's checks were not drawn", exc_info=True)
+        if failures is not None:
+            failures += _step_failure(
+                plan_records.RANDOMIZED_CHECK, plan_records.CHECK_DRAW_ERROR, exc)
 
 
 #: Router objective RO5: the check block's plain "why" (the learner sees an ordinary question, §9 item 2).
@@ -3520,7 +3615,8 @@ def _checks_to_place(env: PlanEnv, record: PlanRecord, context: PoolContext) -> 
 
 def _randomized_check_block(env: PlanEnv, record: PlanRecord, context: PoolContext, *, forced: Sequence[PoolItem],
                             forced_origin: str, releases: Mapping[str, Mapping[str, Any] | None],
-                            superseding: PlannedBlock | None = None) -> str | None:
+                            superseding: PlannedBlock | None = None, failures: list[Any] | None = None,
+                            parent_record: str | None = None) -> str | None:
     """RO5 §9 item 2 (Codex re-review F2): the day's undelivered checks, administered at this boundary BEFORE its
     decision, as their own block placed by the rules, so whether a check is administered never depends on what the
     decision would draw (a practice block, a reading, a stop: the day's first session's first boundary serves the
@@ -3528,7 +3624,9 @@ def _randomized_check_block(env: PlanEnv, record: PlanRecord, context: PoolConte
     off, outside the day's first session, nothing pending or no eligible item in the plan's pool; fails soft). The
     boundary's forced items (requests, follow-ups) come first in it, as in any block. Its decision is the rules' own
     (``forced:<origin>``, deterministic): neither policy's action, outside ``μ``, with no objective trace, no stop
-    coin and no score; the check's minutes come off the plan's as any block's (the cost of the arm)."""
+    coin and no score; the check's minutes come off the plan's as any block's (the cost of the arm). A placement
+    that raises adds its record to ``failures``; a placed block writes its own ``plan_block`` record, with the
+    boundary's earlier failures as its children."""
 
     from learnloop.router_objective_switches import CHECKS_OFF, check_mode
 
@@ -3550,10 +3648,13 @@ def _randomized_check_block(env: PlanEnv, record: PlanRecord, context: PoolConte
             entry["net_minutes"] = round(float(placement.item.est_minutes), 4)
             entry["placed"] = "before_the_boundary_decision"
             ro5_checks[str(placement.item.practice_item_id)] = entry
-    except Exception:  # noqa: BLE001 - the checks never block the plan
+    except Exception as exc:  # noqa: BLE001 - the checks never block the plan
         import logging
 
         logging.getLogger(__name__).warning("router objective RO5: the day's check was not placed", exc_info=True)
+        if failures is not None:
+            failures += _step_failure(
+                plan_records.RANDOMIZED_CHECK, plan_records.CHECK_PLACE_ERROR, exc)
         return None
     pending = [*forced, *(placement.item for placement in placed)]
     lane = next((item.lane for item in pending if item.lane), None) or "maintain"
@@ -3572,6 +3673,7 @@ def _randomized_check_block(env: PlanEnv, record: PlanRecord, context: PoolConte
                             "assignments": [placement.assignment_id for placement in placed]},
         **_device_detail(env),
     }
+    forced_entries = _forced_entries(env, forced, forced_origin) if forced else []
     with env.repository.atomic(), env.repository.connection() as connection:
         _refuse_a_taken_boundary(env, record)
         block_id = new_ulid()
@@ -3588,8 +3690,11 @@ def _randomized_check_block(env: PlanEnv, record: PlanRecord, context: PoolConte
         )
         if decision_ref is not None:
             detail["decision_ref"] = decision_ref
+        _write_check_block_records(env, connection, block_id=block_id, detail_id=decision_ref,
+                                   forced=forced_entries, placed=placed, failures=failures or (),
+                                   parent_record=parent_record)
         if superseding is not None:
-            _supersede_offer(env, connection, superseding, by=decision_ref)
+            _supersede_offer(env, connection, superseding, by=decision_ref, forced=forced_entries)
         _persist_block(env, connection, record, lane=lane, action=action, subtype=subtype, chosen_by="lane_quota",
                        est_minutes=sum(float(item.est_minutes) for item, _origin in items), reading=None,
                        reading_full=None,
@@ -3597,6 +3702,26 @@ def _randomized_check_block(env: PlanEnv, record: PlanRecord, context: PoolConte
                        detail=detail, items=items, decision_ref=decision_ref, releases=releases, block_id=block_id,
                        ro5_checks=ro5_checks)
     return block_id
+
+
+def _write_check_block_records(env: PlanEnv, connection: Any, *, block_id: str, detail_id: str | None,
+                               forced: Sequence[Mapping[str, Any]], placed: Sequence[Any], failures: Sequence[Any],
+                               parent_record: str | None) -> None:
+    """The check block's ``plan_block`` record and the boundary's failed steps as its children, in the block's
+    transaction after it is placed; never raises."""
+
+    def build() -> list[Any]:
+        trigger = _trigger_attempt(connection)
+        block = plan_records.check_block(
+            block_id=block_id, detail_id=detail_id, forced=forced,
+            assignments=[placement.assignment_id for placement in placed],
+            checks=[placement.item.practice_item_id for placement in placed], trigger_attempt=trigger,
+            parent_id=parent_record or _attempt_record(connection, trigger),
+            algorithm_version=env.vault.config.algorithms.algorithm_version)
+        return [block, *plan_records.children(failures, block)]
+
+    for record in _record_quietly(build, "plan_block"):
+        provenance.write(connection, record)
 
 
 def _read_ad_fields(env: PlanEnv, learning_object_ids: Sequence[str]) -> Mapping[str, Any]:
@@ -4525,6 +4650,7 @@ def _insert_followups(env: PlanEnv, record: PlanRecord, built: _Pool) -> tuple[P
                 for item, outcome in refused_now:
                     decision_ref = _log_interrupt(env, connection, record, anchor, item, outcome,
                                                   material=built.prefilter, estimator=built.estimator, ad=ad)
+                    _write_interrupt_records(env, connection, record, anchor, item, outcome, decision_ref)
                     _event(connection, anchor.id, "followup_refused",
                            {"practice_item_id": item.practice_item_id, "decision_ref": decision_ref,
                             "propensity": outcome.propensity}, now)
@@ -4781,6 +4907,8 @@ def _restrained_followups(
             offer_won = outcome.chosen_ref.startswith(LESSON_OFFER_PREFIX)
             decision_ref = _log_interrupt(env, connection, record, current, item, outcome, material=material,
                                           estimator=estimator, ad=ad, offer_block_id=new_ulid() if offer_won else None)
+            _write_interrupt_records(env, connection, record, current, item, outcome, decision_ref,
+                                     displaced=[victim.practice_item_id for victim in victims])
             if offer_won:
                 if decision_ref is not None:
                     place_interrupt_offer(
@@ -4803,6 +4931,22 @@ def _restrained_followups(
             _write_followup(connection, current, item, victims, lane=str(lane), release=release,
                             position=int(placed_at or 0), decision_ref=decision_ref, now=now)
     return _reload(env, record.id), []
+
+
+def _write_interrupt_records(env: PlanEnv, connection: Any, record: PlanRecord, current: PlannedBlock, item: PoolItem,
+                             outcome: Any, decision_ref: str | None, *, displaced: Sequence[str] = ()) -> None:
+    """Refactor B3 (B2's open item): the restraint's decision on one follow-up as a ``plan_interrupt`` record, what it
+    let in, made wait or refused and by which rule, with its components' answers; in the write that logs its router
+    row, after it was decided. Never raises."""
+
+    def build() -> list[Any]:
+        return plan_records.plan_interrupt(
+            outcome=outcome, item_id=item.practice_item_id, block_id=current.id, plan_id=record.id,
+            detail_id=decision_ref, displaced=displaced, est_minutes=item.est_minutes,
+            trigger_attempt=_trigger_attempt(connection), config=env.vault.config)
+
+    for entry in _record_quietly(build, "plan_interrupt"):
+        provenance.write(connection, entry)
 
 
 def _logged_offer_block(connection: Any, decision_id: str) -> str:
@@ -5200,8 +5344,10 @@ def advance(env: PlanEnv, *, serve: bool, skip_practice_item_id: str | None = No
 
 
 def advance_with_context(
-    env: PlanEnv, *, serve: bool, skip_practice_item_id: str | None = None
+    env: PlanEnv, *, serve: bool, skip_practice_item_id: str | None = None, parent_record: str | None = None,
 ) -> tuple[PlanRecord, dict[str, Any], PoolContext | None]:
+    # ``parent_record`` (refactor B3): the decision record of what made this call's boundary (an offer taken back for
+    # forced items), named as the parent of the boundary's own record.
     # IH6 (spec_instruct_handoff_v1 §7b): under an open workbench a read decides nothing and starts no job: not the day's
     # first block, a follow-up's own decision, or the next block. It reports what the plan already holds. A serve always
     # decides, so a problem left open can't strand the learner.
@@ -5278,7 +5424,7 @@ def advance_with_context(
                 context = _context(env, record, built, day=(), released=cleared)
         try:
             block_id = _boundary(env, record, context, forced=forced, forced_origin=forced_origin,
-                                 ad_deferrals=ad_deferrals, superseding=superseding)
+                                 ad_deferrals=ad_deferrals, superseding=superseding, parent_record=parent_record)
         except BoundaryTaken:
             return advance_with_context(env, serve=serve)  # what took it is the next step now
         except DecisionPending:
@@ -5326,10 +5472,12 @@ def advance_with_context(
             withdrawal = LO.WITHDRAWN_FORCED  # Codex review F1: a probe or follow-up became ready while it waited
         if withdrawal is not None:
             # Taken back unanswered (an answered offer's block has already ended): the next boundary decides, with
-            # the forced items first.
+            # the forced items first, and its record names this withdrawal's as its parent.
+            entries = _forced_entries(env, forced, ORIGIN_FOLLOWUP) if withdrawal == LO.WITHDRAWN_FORCED else []
             with env.repository.atomic(), env.repository.connection() as connection:
-                LO.withdraw(connection, block, at=env.now_iso(), why=withdrawal)
-            return advance_with_context(env, serve=serve)
+                LO.withdraw(connection, block, at=env.now_iso(), why=withdrawal, forced=entries)
+                withdrawn_record = LO.taken_back_record(connection, block)
+            return advance_with_context(env, serve=serve, parent_record=withdrawn_record)
         if serve and not boundary:
             from learnloop.db.stores import router_suggestions as suggestions
 
@@ -5512,8 +5660,9 @@ def _code(exc: BaseException) -> str:
         else type(exc).__name__
 
 
-def _ad_phase(run: Any, where: str) -> Any:
-    """An AD phase (``ad_slot``): its result, or None when AD is unavailable (logged with its code)."""
+def _ad_phase(run: Any, where: str, note: Any = None) -> Any:
+    """An AD phase (``ad_slot``): its result, or None when AD is unavailable (logged with its code, and recorded by
+    ``note`` when given)."""
 
     from learnloop.daily_plan import ad_slot
 
@@ -5523,13 +5672,16 @@ def _ad_phase(run: Any, where: str) -> Any:
     except ad_slot.AdUnavailable as exc:
         code = _code(exc)
     _AD_LOG.warning("adaptive difficulty unavailable for %s (%s): the incumbent decides", where, code)
+    if note is not None:
+        note("view", code)
     return None
 
 
-def _incumbent_facts(run: Any, where: str) -> Any:
+def _incumbent_facts(run: Any, where: str, note: Any = None) -> Any:
     """Phase 2: the plan's own facts, or None. Any failure of the plan's code is caught here, in the
     incumbent, and logged as its type and a code at the default level (owner Q3, 2026-10-24); the
-    traceback, which can quote what the plan read, only at DEBUG. Nothing of it reaches AD."""
+    traceback, which can quote what the plan read, only at DEBUG. Nothing of it reaches AD. ``note``
+    records it (the type and the code, never the message)."""
 
     from learnloop.daily_plan.slot_facts import FACTS_FAILED
 
@@ -5541,7 +5693,29 @@ def _incumbent_facts(run: Any, where: str) -> Any:
         _AD_LOG.debug("adaptive difficulty: the plan's facts for %s failed", where, exc_info=True)
     _AD_LOG.warning("adaptive difficulty unavailable for %s (%s, %s): the incumbent decides", where, name,
                     FACTS_FAILED)
+    if note is not None:
+        note("facts", FACTS_FAILED, error_type=name)
     return None
+
+
+def _ad_note(env: PlanEnv, *, subject_kind: str, subject_id: Any, facts: Mapping[str, Any]) -> Any:
+    """The recorder of an AD phase found unavailable (refactor B3): an ``ad_slot`` record, ``fallback`` to the
+    incumbent, naming the phase, AD's code and what its guard refused in this context. Called by the plan once the
+    phase has failed, with every AD operation closed, and written in the plan's own transaction (``atomic``), so it
+    never enters AD's guard and never waits on the write lock. Never raises."""
+
+    from learnloop.daily_plan import ad_slot
+    from learnloop.db.stores.provenance import write_decision
+
+    def note(phase: str, code: Any, *, error_type: Any = None) -> None:
+        denials = ad_slot.take_guard_denials()
+        for record in _record_quietly(lambda: plan_records.ad_unavailable(
+                phase=phase, code=code, subject_kind=subject_kind, subject_id=subject_id, facts=facts,
+                denials=denials, error_type=error_type), "ad_slot"):
+            write_decision(env.repository, record)
+
+    ad_slot.take_guard_denials()  # this phase's denials only: an earlier operation's are not its
+    return note
 
 
 def _ad_deferrals_cleared(env: PlanEnv, record: PlanRecord, built: _Pool, active: Mapping[str, Any]) -> list[str]:
@@ -5551,12 +5725,14 @@ def _ad_deferrals_cleared(env: PlanEnv, record: PlanRecord, built: _Pool, active
     from learnloop.daily_plan import ad_slot, slot_facts
     from learnloop.daily_plan.slot_facts_schema import encode
 
+    note = _ad_note(env, subject_kind="plan", subject_id=record.id,
+                    facts={"where": "deferrals", "deferrals_n": len(active)})
     with env.repository.atomic():
-        session = _ad_phase(lambda: ad_slot.open_deferrals(env.vault, env.repository, active), "deferrals")
+        session = _ad_phase(lambda: ad_slot.open_deferrals(env.vault, env.repository, active), "deferrals", note)
         if session is None or not session.inputs.candidate_ids:
             return []
         facts = _incumbent_facts(lambda: slot_facts.for_deferrals(env, record, built, session.inputs, active),
-                                 "deferrals")
+                                 "deferrals", note)
         if facts is None:
             return []
         cleared: list[str] | None = None
@@ -5571,6 +5747,7 @@ def _ad_deferrals_cleared(env: PlanEnv, record: PlanRecord, built: _Pool, active
             code = slot_facts.CHOICE_REJECTED
         if cleared is None:
             _AD_LOG.warning("adaptive difficulty unavailable for deferrals (%s): none is cleared", code)
+            note("decide", code)
             return []
         return cleared
 
@@ -5595,14 +5772,16 @@ def _ad_slot_serve(
     from learnloop.daily_plan import ad_slot, slot_facts
     from learnloop.daily_plan.slot_facts_schema import encode
 
+    note = _ad_note(env, subject_kind="item", subject_id=item.practice_item_id,
+                    facts={"where": "slot", "block": block.id, "position": item.position})
     with env.repository.atomic():
         day = day_records(env)  # the plan's own records
         session = _ad_phase(lambda: ad_slot.open_slot(env.vault, env.repository, slot_item_id=item.practice_item_id),
-                            f"slot {block.id}/{item.position}")
+                            f"slot {block.id}/{item.position}", note)
         if session is None:
             return _AD_UNAVAILABLE
         facts = _incumbent_facts(lambda: slot_facts.for_slot(env, record, block, item, built, day, session.inputs),
-                                 f"slot {block.id}/{item.position}")
+                                 f"slot {block.id}/{item.position}", note)
         if facts is None:
             return _AD_UNAVAILABLE
         if session.inputs.slot_visible and not facts.slot_admitted:
@@ -5610,6 +5789,7 @@ def _ad_slot_serve(
             # of the queue): the incumbent's own handling decides, as with AD off (compose fix round 3).
             _AD_LOG.info("adaptive difficulty: slot %s/%s is not in the plan's admitted pool (slot_not_admitted); "
                          "the planned item is served", block.id, item.position)
+            note("facts", "slot_not_admitted")
             return _AD_UNAVAILABLE
         wire = encode(facts)
         outcome = None
@@ -5626,6 +5806,7 @@ def _ad_slot_serve(
         if outcome is None:
             _AD_LOG.warning("adaptive difficulty unavailable for slot %s/%s (%s): the planned item is served",
                             block.id, item.position, code)
+            note("decide", code)
             return _AD_UNAVAILABLE
         decision, request = outcome
         now = env.now_iso()
@@ -5678,12 +5859,22 @@ def _held_cold_check(env: PlanEnv, block: PlannedBlock, item: PlannedItem) -> tu
     if decision.verdict == serve_eligibility.SERVE:
         return False, None
     if decision.verdict == serve_eligibility.SERVE_AS_ORDINARY:
+        # Refactor B3: the check served as practice leaves a record (before, a log line only). It takes its own short
+        # transaction: the serve's decision is made, and nothing here has a deadline.
+        from learnloop.db.stores.provenance import write_decision
+
+        for entry in _record_quietly(lambda: plan_records.serve_eligibility(decision, block_id=block.id,
+                                                                             displaced=False), "serve_eligibility"):
+            write_decision(env.repository, entry)
         return False, decision
     with env.repository.atomic(), env.repository.connection() as connection:
         _event(
             connection, block.id, "item_displaced",
             {"practice_item_id": item.practice_item_id, "reason": decision.reason}, env.now_iso(),
         )
+        for entry in _record_quietly(lambda: plan_records.serve_eligibility(decision, block_id=block.id,
+                                                                             displaced=True), "serve_eligibility"):
+            provenance.write(connection, entry)
     return True, decision
 
 

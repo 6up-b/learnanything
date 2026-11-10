@@ -622,11 +622,16 @@ def _probe_contract(ctx: SidecarContext, vault: Any, repository: Any, item: Any,
             extra_components = {"shadow_planner": planner}
     # mvp-0.21 (voi_stopping): a new observation is committed only while its
     # value of information pays for its minutes; the decision is logged on the
-    # presentation it admits.
+    # presentation it admits. A rejection had no presentation to be logged on, so it leaves a ``probe_value``
+    # record (refactor B7) after the decision, which never changes it.
     value_reason, value_decision = probe_value_block_reason(
         vault, repository, episode, item.id, session_id=params.session_id, cap_lifted=cap_lifted
     )
     if value_reason is not None:
+        from learnloop.diagnosis.chain_records import record_probe_value
+
+        record_probe_value(repository, practice_item_id=item.id, episode_id=getattr(episode, "id", None),
+                           reason=value_reason, decision=value_decision)
         return versioned({"active": False, "reason": value_reason})
     if value_decision is not None:
         extra_components = {**(extra_components or {}), "voi_stopping": value_decision}

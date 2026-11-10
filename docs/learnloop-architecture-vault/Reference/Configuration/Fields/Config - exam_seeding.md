@@ -26,10 +26,10 @@ source_paths:
   - "tests/test_agent_run_tokens.py"
   - "tests/test_anchor_resolution.py"
   - "tests/test_attempt_ai_flow.py"
+  - "tests/test_attempt_chain_records.py"
   - "tests/test_attempts.py"
   - "tests/test_blind_grading_contract.py"
   - "tests/test_causal_attribution_exhibit.py"
-  - "tests/test_causal_attribution_p0.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/exam-seeding"
@@ -68,10 +68,10 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_agent_run_tokens.py`
 - `tests/test_anchor_resolution.py`
 - `tests/test_attempt_ai_flow.py`
+- `tests/test_attempt_chain_records.py`
 - `tests/test_attempts.py`
 - `tests/test_blind_grading_contract.py`
 - `tests/test_causal_attribution_exhibit.py`
-- `tests/test_causal_attribution_p0.py`
 
 ## Extension and modification guidance
 

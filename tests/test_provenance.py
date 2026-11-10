@@ -390,12 +390,26 @@ _REGISTRIES = frozenset({"learnloop.db.table_roles", "learnloop.adaptive_difficu
 #: (refactor B6) is written only by a persisting queue build (``build_due_queue``, statically in the closure through
 #: the simulator and the state sync's imports); no rebuild, replay or upgrade builds a queue, and
 #: ``test_a_rebuild_never_calls_the_record_and_keeps_its_rows`` refuses it at run time. The store enters the closure
-#: through these writers alone. The refusals' records (refactor B5, ``learnloop.refusal_records``) enter it through
+#: through these writers alone.
+#:
+#: The refusals' records (refactor B5, ``learnloop.refusal_records``) enter it through
 #: ``db.stores.router`` (a ledger refusal; the closure reaches the store for ``router.outcomes``' reads, and no replay
 #: appends a decision row), ``decider_judgments`` (AD's replay imports the feature audit, which uses the Decider's
 #: client and argmax, never ``decide``) and ``figure_admission`` (the gate, which no replay builds); the same test
 #: counts their calls during a live rebuild: none.
-_RECORD_WRITERS = frozenset({"learnloop.scheduling.slate_record", "learnloop.refusal_records"})
+#:
+#: The attempt chain's (refactor B7): the grade's record is written by the attempt step's live branch only
+#: (``replace_existing`` False; replay re-applies with it True) and by a regrade; the diagnosis's, its failed steps',
+#: the follow-up value's and the failed forecasts' by the diagnosis worker and the post-attempt pipeline, which no
+#: rebuild runs; a queued job's by the four enqueues, which no rebuild calls; and the job processors read one
+#: ``job_enqueued`` record's trace, which no rebuild leases a job to do. The runtime test counts every write and
+#: every trace continuation during a live rebuild: zero.
+_RECORD_WRITERS = frozenset({
+    "learnloop.scheduling.slate_record", "learnloop.refusal_records",
+    "learnloop.attempts.grade_records", "learnloop.diagnosis.chain_records",
+    "learnloop.db.stores.diagnoses", "learnloop.db.stores.learner_gaps", "learnloop.db.stores.followup_serve",
+    "learnloop.diagnosis.split.jobs", "learnloop.diagnosis.text_gaps.jobs",
+})
 _STORE = "learnloop.db.stores.provenance"
 
 
@@ -465,9 +479,19 @@ def test_a_rebuild_never_calls_the_record_and_keeps_its_rows(tmp_path: Path, mon
     refusal_calls: list[object] = []
     for name in ("write", "write_on"):
         monkeypatch.setattr(refusal_records, name, lambda *a, _name=name, **k: refusal_calls.append((_name, a[1])))
+    # The attempt chain's (refactor B7): the grade's writer (looked up at call time by the attempt step and the
+    # regrade), the chain's writer, the queued job's writer and the job processors' trace continuation.
+    import learnloop.attempts.grade_records as grade_records
+    import learnloop.diagnosis.chain_records as chain_records
+
+    chain_calls: list[str] = []
+    monkeypatch.setattr(grade_records, "record_grade", lambda *a, **k: chain_calls.append("grade"))
+    monkeypatch.setattr(chain_records, "_write", lambda _repo, kind, _build: chain_calls.append(kind))
+    monkeypatch.setattr(store, "record_job_enqueued", lambda *a, **k: chain_calls.append("job_enqueued"))
+    monkeypatch.setattr(store, "continue_job_trace", lambda *a, **k: chain_calls.append("continue_job_trace"))
     rebuild_all_derived_state(load_vault(root), Repository(path))
     assert _rows(path) == before and len(before) == 1
-    assert slate_calls == [] and refusal_calls == []
+    assert slate_calls == [] and refusal_calls == [] and chain_calls == []
 
 
 def test_the_table_is_a_receipt_and_denied_to_ad():

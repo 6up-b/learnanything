@@ -929,10 +929,14 @@ def _disclosed(paths, table: str, row: tuple) -> tuple:
     """The protection epoch (E2: a digest of the protected material, so it differs by construction)
     is compared by what it means, whether it is the copy's current epoch, never by value: in a
     relatedness run's units and key, a relatedness claim's or model call's key, and a frozen
-    outside-forecast state. Those fields, by name, are the only ones rewritten."""
+    outside-forecast state. Those fields, by name, are the only ones rewritten. A decision record's
+    ``created_at`` is the wall clock, not the frozen run clock (ADR-017), so the two copies' records are
+    compared by everything else."""
 
     columns = [name for name, *_ in _columns(paths.sqlite_path, table)]
     values = dict(zip(columns, row, strict=True))
+    if table == "decision_records":
+        values["created_at"] = "<wall clock>"
     epoch = _epoch(paths)
     for name, value in list(values.items()):
         if isinstance(value, str) and epoch in value and table not in ("ad_relatedness_runs", "item_forecast_payloads"):

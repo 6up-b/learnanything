@@ -196,6 +196,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rebuild_and_replay_call_no_model_and_never_read_approach_maps`
 - [tests/test_assumed_known.py](../../../../../../tests/test_assumed_known.py) — direct import
   - `test_placement_receipts_survive_rebuild_with_zero_model_calls`
+- [tests/test_attempt_chain_records.py](../../../../../../tests/test_attempt_chain_records.py) — direct import
+  - `test_replay_writes_no_grade_record`
 - [tests/test_daily_plan_composition.py](../../../../../../tests/test_daily_plan_composition.py) — direct import
   - `test_an_empty_stuck_answer_on_a_plan_item_is_done_and_labelled_daily_plan`
 - [tests/test_daily_plan_replay.py](../../../../../../tests/test_daily_plan_replay.py) — direct import

@@ -239,8 +239,10 @@ class PostAttemptWorker:
         return outcomes
 
     def _with_busy_retry(self, work: Callable[[], Any]) -> Any:
-        # Each job runs under a trace of its own (ADR-017): the slots are long-lived threads started in a copy of
-        # the RPC that first woke them, so without this every job would carry that one request's trace.
+        # One scope per job (ADR-017): the slots are long-lived threads started in a copy of the RPC that first
+        # woke them, so without this every job would carry that one request's trace. Once the job's processor has
+        # leased its row it continues the trace that queued it (``continue_job_trace``) inside this scope; a job
+        # with no ``job_enqueued`` record keeps the scope's own trace.
         with provenance.trace_scope():
             for attempt in range(BUSY_RETRIES + 1):
                 try:

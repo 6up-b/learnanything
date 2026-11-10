@@ -55,7 +55,8 @@ STATUSES = frozenset({
 
 #: Subject kinds ``why <kind>:<id>`` looks up. A writer may name another kind;
 #: only these are read as a ``kind:id`` target.
-SUBJECT_KINDS = frozenset({"attempt", "item", "block", "offer", "figure", "job", "presentation", "decision", "slate"})
+SUBJECT_KINDS = frozenset({"attempt", "item", "block", "offer", "figure", "job", "presentation", "decision", "slate",
+                           "factor"})
 
 #: Alternatives kept per record; the rest are counted per losing rule in
 #: ``facts["alternatives_overflow"]``.
@@ -83,6 +84,10 @@ _COLUMNS = (
 )
 
 _TRACE: ContextVar[str | None] = ContextVar("learnloop_trace_id", default=None)
+#: The trace the innermost :func:`trace_scope` was opened with, so :func:`continue_trace` can go back to it.
+_SCOPE: ContextVar[str | None] = ContextVar("learnloop_trace_scope", default=None)
+#: The record that caused the work running now (a queued job's ``job_enqueued``), for its records' ``parent_id``.
+_CAUSE: ContextVar[str | None] = ContextVar("learnloop_trace_cause", default=None)
 
 
 @dataclass(frozen=True)
@@ -147,10 +152,40 @@ def trace_scope(trace_id: str | None = None) -> Iterator[str]:
 
     value = trace_id or new_trace_id()
     token = _TRACE.set(value)
+    scope_token = _SCOPE.set(value)
+    cause_token = _CAUSE.set(None)
     try:
         yield value
     finally:
+        _CAUSE.reset(cause_token)
+        _SCOPE.reset(scope_token)
         _TRACE.reset(token)
+
+
+def current_cause() -> str | None:
+    """The record that caused the work running now (a queued job's ``job_enqueued``), or ``None``."""
+
+    return _CAUSE.get()
+
+
+def continue_trace(trace_id: str | None, *, cause: str | None = None) -> str | None:
+    """Continue earlier work's trace for the rest of the innermost :func:`trace_scope`; the trace now current.
+
+    A queued job learns which work it continues only once it has leased its row,
+    deep inside the scope its worker opened, so this switches the scope's trace
+    in place instead of opening a nested one: the scope's exit restores what came
+    before. ``None`` goes back to the scope's own trace. Outside every scope it
+    changes nothing, so a job run directly (a test, a one-off call) never leaves
+    a trace behind on its thread.
+    """
+
+    scope = _SCOPE.get()
+    if scope is None:
+        return _TRACE.get()
+    value = trace_id or scope
+    _TRACE.set(value)
+    _CAUSE.set(cause if trace_id else None)
+    return value
 
 
 # -- writing -------------------------------------------------------------------------------------------------

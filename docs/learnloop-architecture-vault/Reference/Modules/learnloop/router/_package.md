@@ -56,7 +56,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/router/__init__|learnloop.router]] | [[Reference/Modules/learnloop/router/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/router/agreement|learnloop.router.agreement]] | [[Reference/Modules/learnloop/router/agreement#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/router/card|learnloop.router.card]] | [[Reference/Modules/learnloop/router/card#^module-purpose|purpose]] | `ACTIVE` | 1 | 13 |
-| [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] | [[Reference/Modules/learnloop/router/decisions#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
+| [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] | [[Reference/Modules/learnloop/router/decisions#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 | [[Reference/Modules/learnloop/router/first_delayed_success|learnloop.router.first_delayed_success]] | [[Reference/Modules/learnloop/router/first_delayed_success#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 | [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]] | [[Reference/Modules/learnloop/router/lesson_suggestions#^module-purpose|purpose]] | `ACTIVE` | 4 | 15 |
 | [[Reference/Modules/learnloop/router/mixture|learnloop.router.mixture]] | [[Reference/Modules/learnloop/router/mixture#^module-purpose|purpose]] | `ACTIVE` | 9 | 11 |
@@ -70,7 +70,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 11 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 12 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 7 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 2 static module edges
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 1 static module edge
@@ -106,7 +106,7 @@ flowchart LR
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_data_capture["learnloop.data_capture"]
     n_learnloop_daily_plan -->|19| center
-    center -->|11| n_learnloop
+    center -->|12| n_learnloop
     center -->|7| n_learnloop_db_stores
     n_learnloop_router_objective -->|5| center
     n_learnloop_cli -->|3| center
