@@ -31,11 +31,12 @@ the arc-close gate runs the rest. The rule, in order:
 **Why a depth and not the whole closure.** The packages are tightly knit: through
 ``db.repositories``, ``config`` and ``tests/helpers.py`` nearly every module
 reaches nearly every test, so the full reverse closure of the median module is
-70% of the suite's seconds. Measured on main ``9a623e3d9c``'s JUnit over all 1,285
-``src`` modules: depth 0 selects a median of 16 test seconds (90th percentile
-551), depth 1 a median of 865 (90th percentile 4,015), depth 2 a median of 2,844.
-Depth 1 is the default because it is about 1-2 minutes at ``-n 6`` for most
-modules; pass ``--depth 2`` for a change to a widely used module's behaviour.
+the whole suite. Measured on the A5+A6 landing gate's JUnit (``0a67c832e3``) over
+all 1,285 ``src`` modules: depth 0 selects a median of 42 test seconds (90th
+percentile 1,023), depth 1 a median of 1,379 (90th percentile 4,138), depth 2 a
+median of 3,425. Depth 1 is the default because it is about 4 minutes at ``-n 6``
+for the median module and under one for a leaf; pass ``--depth 2`` for a change to
+a widely used module's behaviour.
 
 Imports are read from the source (``ast``), function-local ones included, plus any
 string constant naming a module (``importlib.import_module("learnloop.x")``,
@@ -214,8 +215,9 @@ class Graph:
             for module in frontier:
                 for importer in sorted(self.importers.get(module, ())):
                     if _is_test_module(importer):
+                        # Selected, and traversed on at no cost: a test module importing another for its
+                        # fixtures or fakes passes them on, like a helper (cycles end at ``best``).
                         found.add(importer)
-                        continue
                     free = importer.startswith("tests") or self._registry_use(importer, module)
                     cost = best[module] + (0 if free else 1)
                     if cost > depth or best.get(importer, depth + 1) <= cost:

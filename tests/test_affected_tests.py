@@ -119,6 +119,15 @@ def test_a_changed_test_file_selects_itself_and_a_doc_selects_only_tests_naming_
     assert module.select([unnamed], graph) == {"mode": "selected", "reasons": [], "tests": []}
 
 
+def test_a_test_module_imported_by_another_passes_its_importers_through(selector):
+    # StuckFake (test_stuck_prompt) backs test_hint_h2b_review's grader fixture, which
+    # test_workbench_help_kill_switch imports.
+    module, graph = selector
+    changed = "/".join(("tests", "test_stuck_prompt.py"))
+    selected = module.select([changed], graph)["tests"]
+    assert {"tests/test_hint_h2b_review.py", "tests/test_workbench_help_kill_switch.py"} <= set(selected)
+
+
 def test_a_test_helper_module_passes_its_importers_through(selector):
     module, graph = selector
     selected = module.select(["tests/router_mixture_helpers.py"], graph)["tests"]
