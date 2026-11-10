@@ -2272,7 +2272,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             "",
             "Then run `tests/test_migrations.py` and `tests/test_table_roles.py` when schema or role code changed. The first validator checks table coverage and the configuration catalog against their live authorities; the second resolves the whole vault's frontmatter, source paths, Wikilinks, headings, and blocks.",
             "",
-            "Table and configuration notes carry no commit or migration head of their own: the head is stated once in this catalog, and the commit every generated note describes is in [[Reference/_generated|Generated Reference Provenance]].",
+            "Table and configuration notes carry no commit or migration head of their own: the head is stated once in this catalog, and the commit they were generated from is `db_generate_reference.py`'s row in [[Reference/_generated|Generated Reference Provenance]].",
             "",
         ]
     )
@@ -2414,7 +2414,7 @@ def main() -> None:
     generate_table_catalog(grouped)
     generate_config_catalog(sections)
     validate_generated(grouped, sections)
-    generated_provenance.write()
+    generated_provenance.write("db_generate_reference.py")
     commit, commit_timestamp, dirty = generated_provenance.inputs_provenance()
     effective =LearnLoopConfig.model_validate(tomllib.loads(DEFAULT_CONFIG_TEXT)).model_dump(
         mode="json", exclude_none=False

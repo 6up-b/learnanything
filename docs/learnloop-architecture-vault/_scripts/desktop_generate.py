@@ -1046,7 +1046,7 @@ def render_catalog(infos: dict[Path, SourceInfo], areas: list[str]) -> str:
         "",
         "Use `desktop_generate.py --check` in CI to verify byte-for-byte reproducibility without writing files.",
         "",
-        "Notes carry no commit of their own: the commit every generated note describes is in [[Reference/_generated|Generated Reference Provenance]].",
+        "Notes carry no commit of their own: the commit they were generated from is `desktop_generate.py`'s row in [[Reference/_generated|Generated Reference Provenance]].",
     ]
     return "\n".join(lines).rstrip() + "\n"
 
@@ -1079,8 +1079,9 @@ def rendered_files() -> dict[Path, str]:
         rendered[area_note_path(area)] = body
     rendered[CATALOG_ROOT / "Desktop Module Catalog.md"] = render_catalog(infos, areas)
     # The shared provenance note sits outside Reference/Desktop, so the stale-note
-    # sweep in main() never deletes it, and --check still compares it.
-    rendered[generated_provenance.NOTE_PATH] = generated_provenance.render()
+    # sweep in main() never deletes it, and --check still compares it. Only this
+    # generator's row changes; the module and db rows stay as they were.
+    rendered[generated_provenance.NOTE_PATH] = generated_provenance.render_for("desktop_generate.py")
     return rendered
 
 

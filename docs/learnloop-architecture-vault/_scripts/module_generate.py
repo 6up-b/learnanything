@@ -1396,7 +1396,7 @@ def render_catalog(
             "",
             f"The current generation discovered {len(tests)} Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.",
             "",
-            "Notes carry no commit of their own: the commit every generated note describes is in [[Reference/_generated|Generated Reference Provenance]], so a regeneration rewrites only the notes whose facts changed.",
+            "Notes carry no commit of their own: the commit they were generated from is `module_generate.py`'s row in [[Reference/_generated|Generated Reference Provenance]], so a regeneration rewrites only the notes whose facts changed.",
             "",
         ]
     )
@@ -1425,7 +1425,7 @@ def main() -> None:
     (CATALOG_ROOT / "Module Catalog.md").write_text(
         render_catalog(modules, packages, tests), encoding="utf-8"
     )
-    generated_provenance.write()
+    generated_provenance.write("module_generate.py")
     print(
         f"Generated {len(modules)} module notes, {len(packages)} package maps, "
         f"and 1 catalog from {len(tests)} test files."

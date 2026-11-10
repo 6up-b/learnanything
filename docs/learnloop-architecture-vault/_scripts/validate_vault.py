@@ -69,7 +69,7 @@ def main() -> int:
             continue
         metadata[path] = data
         # Generated notes carry no stamp of their own: Reference/_generated.md holds
-        # the one commit they describe (the module, desktop and db validators check it).
+        # each generator's commit (the module, desktop and db validators check it).
         hand_written = data.get("generated") is not True
         required_keys = ("title", "status", "source_paths", "tags")
         if hand_written:

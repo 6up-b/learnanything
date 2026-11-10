@@ -81,15 +81,13 @@ SORT file.folder ASC, file.name ASC
 Each generated catalog owns its generator and strict coverage validator; the final command validates metadata, all WikiLinks (including heading/block fragments), every declared source path, and reachability of every non-template note from [[Home]].
 
 ```bash
-.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py
+.venv/bin/python docs/learnloop-architecture-vault/_scripts/generate_all.py   # module, desktop and db generators
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py
-.venv/bin/python docs/learnloop-architecture-vault/_scripts/db_generate_reference.py
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/db_validate_reference.py
-.venv/bin/python docs/learnloop-architecture-vault/_scripts/desktop_generate.py --check
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/desktop_validate.py
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/validate_vault.py
 ```
 
-Generated notes carry no commit of their own. Each generator also rewrites [[Reference/_generated|Generated Reference Provenance]], which records the newest commit that changed a generator input, and lists any input that differs from it. So regenerate after committing the source change: a regeneration then touches only the notes whose facts changed (and the provenance note when its commit moved), and a regeneration on a clean tree changes nothing.
+Generated notes carry no commit of their own. Each generator also rewrites its own row of [[Reference/_generated|Generated Reference Provenance]], which records the newest commit that changed a generator input when that generator ran, and lists any input that differed from it; it never touches another generator's row, so running one generator alone vouches only for its own notes. So regenerate after committing the source change: a regeneration then touches only the notes whose facts changed (and a provenance row when its commit moved), and a regeneration on a clean tree changes nothing.
 
 See [[Module Catalog#Maintenance]], [[Desktop Module Catalog#Maintenance]], and [[Database#Documentation regeneration]] for catalog-specific ownership and regeneration rules.

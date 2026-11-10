@@ -58,3 +58,7 @@ Before this step, the same one-line change would also have moved `clock.md`'s th
 
 - Config-field line citations still move whenever `schema.py` lines shift (7 to 19 notes per landing). A3 rewrites `schema.py` and is the place to decide.
 - The head fixture's path is still named in the Database Catalog's `source_paths`. A2 renames the fixture.
+
+## Arc A close: one row per generator
+
+The arc's end review found that any one generator could certify notes it never regenerated: each wrote the whole shared stamp, so committing a new function and running only `db_generate_reference.py` moved the recorded commit although the module notes lacked the function. `Reference/_generated.md` now holds one row per generator (commit, timestamp, uncommitted inputs), and each generator rewrites only its own row (`generated_provenance.write("<script>")`; the desktop generator's `--check` compares the note with only its own row recomputed). Running one generator alone therefore vouches only for its own notes, and the validators flag a generator that never recorded its commit. `_scripts/generate_all.py` runs all three. A regeneration on a clean tree is still a fixed point. `tests/test_generated_provenance.py` pins it.

@@ -126,4 +126,4 @@ Run both documentation validators after regeneration:
 
 The database/config validator compares all 396 table notes and all 1195 effective configuration leaves to live authorities, including operational Function and runtime/refactor Status fields. The global validator then checks the entire Obsidian graph: frontmatter, source paths, Wikilinks, heading links, and block links.
 
-Table and configuration notes carry no commit, timestamp, or migration head of their own. The head is stated once in [[Database Catalog]], and the commit every generated note describes is in [[Reference/_generated|Generated Reference Provenance]]. So a new migration no longer rewrites every table note.
+Table and configuration notes carry no commit, timestamp, or migration head of their own. The head is stated once in [[Database Catalog]], and the commit they were generated from is `db_generate_reference.py`'s row in [[Reference/_generated|Generated Reference Provenance]]. So a new migration no longer rewrites every table note.

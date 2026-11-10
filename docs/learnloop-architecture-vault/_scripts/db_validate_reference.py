@@ -67,7 +67,7 @@ REQUIRED_FRONTMATTER = {
     "tags",
 }
 # Hand-written notes keep their own stamp; generated ones must not carry one
-# (Reference/_generated.md holds the single commit for all of them).
+# (Reference/_generated.md holds the commit each generator's notes describe).
 HAND_WRITTEN_FRONTMATTER = {"source_commit", "source_commit_timestamp"}
 EXPECTED_STATUS_OVERRIDES = {
     "practice_item_state": "active-historical-seam",

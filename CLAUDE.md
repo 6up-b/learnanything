@@ -39,7 +39,7 @@ Debug env vars: `LEARNLOOP_SIDECAR_LOG_LEVEL=DEBUG`, `LEARNLOOP_SIDECAR_DEBUG_LO
 
 See `docs/learnloop-architecture-vault/Home.md` for information on architecture, examples of user journeys, and previous design decisions (ADRs in `Decisions/`; ADR-015 WAL + `synchronous=FULL` supersedes ADR-014). Changes to persisted meaning (scoring, scheduling, projections) follow `docs/algorithm-change-playbook.md`; feature specs are in `docs/specs/`.
 
-The vault's generated notes (`Reference/Modules`, `Reference/Desktop`, `Reference/Database/Tables`, `Reference/Configuration/Fields` and their catalogs; `_scripts/{module,desktop,db}_generate*.py`) carry no commit of their own: `Reference/_generated.md` records the newest commit that changed a generator input. Regenerate after committing the source change, and commit every note that changes; a regeneration on a clean tree changes nothing.
+The vault's generated notes (`Reference/Modules`, `Reference/Desktop`, `Reference/Database/Tables`, `Reference/Configuration/Fields` and their catalogs; `_scripts/{module,desktop,db}_generate*.py`) carry no commit of their own: `Reference/_generated.md` records, for each generator, the newest commit that changed a generator input when it last ran, and a generator rewrites only its own row. Regenerate after committing the source change (`_scripts/generate_all.py` runs all three), and commit every note that changes; a regeneration on a clean tree changes nothing.
 
 ## Tests
 
