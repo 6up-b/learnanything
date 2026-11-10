@@ -19,7 +19,7 @@ from learnloop.ops import capture_report as CR
 from learnloop.router import outcomes as RO
 from learnloop.router.first_delayed_success import trajectories
 
-from tests.test_data_capture_a2_measurement import _answer, _arranged_wait, _due_measurement, _events, _objectives, _outcomes
+from tests.test_data_capture_a2_measurement import _answer, _arranged_wait, _due_measurement, _events, _outcomes
 from tests.test_data_capture_codex_review import _due_hint, _hint_instant, _second_decision, _warm_answer
 from tests.test_router_g4_restraint import DECIDER_ONLY
 

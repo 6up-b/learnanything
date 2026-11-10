@@ -420,7 +420,6 @@ def _linear_algebra_fixture_split_inputs(tmp_path):
     """Attempts, contracts and source links from a copy of the fixture, with
     every attempt treated as human because the fixture predates evidence origin."""
     import shutil
-    from pathlib import Path
 
     from learnloop.substrate.data_quality import rows, table_names
     from learnloop.substrate.dataset import _split_source_links
@@ -643,7 +642,8 @@ def test_manifest_is_published_by_atomic_rename(tmp_path, monkeypatch):
     def observe_replace(source, destination):
         # The final name must not exist until the complete file is renamed onto it.
         assert not os.path.exists(destination)
-        assert json.loads(open(source, encoding="utf-8").read())["artifacts"]
+        with open(source, encoding="utf-8") as handle:
+            assert json.loads(handle.read())["artifacts"]
         replaced.append((os.path.basename(source), os.path.basename(destination)))
         real_replace(source, destination)
 

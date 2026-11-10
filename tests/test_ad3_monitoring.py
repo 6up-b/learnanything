@@ -10,10 +10,8 @@ from __future__ import annotations
 import hashlib
 import json
 from contextlib import closing
-from typing import Any
 
 import numpy as np
-import pytest
 from typer.testing import CliRunner
 
 from learnloop.adaptive_difficulty import arms as A

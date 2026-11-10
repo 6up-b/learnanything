@@ -131,7 +131,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/attempts/outcome_schemas|learnloop.attempts.outcome_schemas]] — imports `canonical_hash`, `canonical_json`; statically calls `canonical_hash`, `canonical_json`
 - [[Reference/Modules/learnloop/cli/surfaces|learnloop.cli.surfaces]] — imports `evaluate_held_out_eligibility`, `retire_with_reason`; statically calls `evaluate_held_out_eligibility`, `retire_with_reason`
 - [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] — imports `retire_with_reason`; statically calls `retire_with_reason`
-- [[Reference/Modules/learnloop/curriculum/commitment_arcs|learnloop.curriculum.commitment_arcs]] — imports `canonical_hash`, `canonical_json`; statically calls `canonical_hash`
+- [[Reference/Modules/learnloop/curriculum/commitment_arcs|learnloop.curriculum.commitment_arcs]] — imports `canonical_hash`; statically calls `canonical_hash`
 - [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] — imports `canonical_hash`, `canonical_json`; statically calls `canonical_hash`, `canonical_json`
 - [[Reference/Modules/learnloop/curriculum/depth_edge_authoring|learnloop.curriculum.depth_edge_authoring]] — imports `canonical_hash`; statically calls `canonical_hash`
 - [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]] — imports `canonical_hash`, `canonical_json`; statically calls `canonical_hash`, `canonical_json`

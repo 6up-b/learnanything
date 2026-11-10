@@ -127,7 +127,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `MasteryConfig`; calls `MasteryConfig`
-- [[Reference/Modules/learnloop/field/types|learnloop.field.types]] — imports `ArmConstants`, `AttemptRow`, `FacetRow`, `ItemFeatures`, `ItemPrediction`, `LearnerPredictor`, `ObservationRow`, `Predictor`, `RegionEstimate`, `SignalRow`; calls `ArmConstants`, `ItemFeatures`, `ItemPrediction`, `RegionEstimate`
+- [[Reference/Modules/learnloop/field/types|learnloop.field.types]] — imports `ArmConstants`, `FacetRow`, `ItemFeatures`, `ItemPrediction`, `LearnerPredictor`, `ObservationRow`, `Predictor`, `RegionEstimate`, `SignalRow`; calls `ArmConstants`, `ItemFeatures`, `ItemPrediction`, `RegionEstimate`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `MasteryObservation`, `initial_mastery_state`, `update_mastery`; calls `MasteryObservation`, `initial_mastery_state`, `update_mastery`
 
 ### Platform and third-party dependencies

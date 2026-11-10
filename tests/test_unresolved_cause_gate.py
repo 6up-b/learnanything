@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository

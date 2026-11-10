@@ -218,7 +218,7 @@ def test_mixture_posterior_misconception_is_monotone_in_w():
         ]
         for w in (0.0, 0.25, 0.5, 0.75, 1.0)
     ]
-    assert all(later > earlier for earlier, later in zip(posteriors, posteriors[1:]))
+    assert all(later > earlier for earlier, later in zip(posteriors, posteriors[1:], strict=False))
 
 
 def test_mixture_softly_downweights_mastered_without_eliminating_it():

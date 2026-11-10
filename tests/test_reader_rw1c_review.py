@@ -1710,7 +1710,7 @@ def _fuzz(text: str, variant: str) -> str:
         "tabs": lambda: text.replace(" ", "\t"),
         "newlines": lambda: text.replace(" ", "\n"),
         "nbsp": lambda: text.replace(" ", " "),
-        "zero_width": lambda: text.replace("=", "=​").replace(", ", ",​ "),
+        "zero_width": lambda: text.replace("=", "=\u200b").replace(", ", ",\u200b "),
         "casing": lambda: text.upper(),
         # Fix round 12: a format character between a base letter and its
         # combining mark (one canonical pass left "a" + ring, the next "å").
@@ -1887,7 +1887,7 @@ def test_unbound_queries_are_built_as_before(tmp_path, monkeypatch):
     queries = _recording_lookups(monkeypatch)
     ask(ctx, "how  should\tI begin?", personalized=True, **PASSAGE_T2)
     assert queries[-1] == f"how should I begin? {' '.join(gap.split())}"[:QUERY_CHARS]
-    assert "​" in queries[-1]
+    assert "\u200b" in queries[-1]
 
 
 GROUPS = {
@@ -1940,7 +1940,7 @@ def test_the_verifys_display_math_case_is_cut_before_the_group():
 #: combining marks, Hangul jamo, compatibility forms, whitespace of every kind.
 CANON_ALPHABET = [
     "a", "A", "x", "2", "=", " ", "\t", "\n", " ", "　",
-    "​", "‌", "‍", "⁠", "﻿", "­",
+    "\u200b", "‌", "‍", "⁠", "﻿", "­",
     "́", "̊", "̈", "̧",
     "ᄀ", "ᅡ", "ᆨ", "가",
     "ﬁ", "Ａ", "①", "½", "Ω", "Å", "ẛ",
@@ -1956,7 +1956,7 @@ def test_canonical_is_a_fixed_point():
 
     from learnloop.text_canon import canonical
 
-    assert canonical("A​̊ = 2") == "Å = 2"  # the verify's case, in one call
+    assert canonical("A\u200b̊ = 2") == "Å = 2"  # the verify's case, in one call
     for size in (1, 2, 3):
         for chars in itertools.product(CANON_ALPHABET, repeat=size):
             text = "".join(chars)
@@ -1977,7 +1977,7 @@ def test_the_guard_reads_only_delivered_text():
 
     guard = ItemBoundGuard(repository=None, item=SimpleNamespace(id=ITEM, expected_answer="a = 2"))
     assert not guard.text_leaks("Å = 2")
-    for text in ("Å = 2", "a  =  2", "a​ = 2"):
+    for text in ("Å = 2", "a  =  2", "a\u200b = 2"):
         with pytest.raises(ValueError):
             guard.text_leaks(text)
         with pytest.raises(ValueError):
@@ -1995,7 +1995,7 @@ def test_the_verifys_cold_thread_case_delivers_what_was_scored(tmp_path, monkeyp
     from learnloop.text_canon import canonical
     from learnloop.tutor.tutor_qa import span_leaks_expected
 
-    raw = "A​̊ = 2"
+    raw = "A\u200b̊ = 2"
     tutor = LookupTutor(answer_md=raw)
     paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
     set_item_answer(paths, ITEM, "a = 2")

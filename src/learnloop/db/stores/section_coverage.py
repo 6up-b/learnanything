@@ -28,7 +28,7 @@ def _dicts(cursor: sqlite3.Cursor) -> list[dict[str, Any]]:
     names = [column[0] for column in cursor.description or ()]
     rows = []
     for values in cursor.fetchall():
-        row = dict(zip(names, values))
+        row = dict(zip(names, values, strict=True))
         for column in ("roles_json", "assumes_json"):
             try:
                 row[column[: -len("_json")]] = json.loads(row.get(column) or "[]")

@@ -17,7 +17,7 @@ mvp-0.8, so P2 only pins the pack, opens the episode, and records the visible ca
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock

@@ -25,7 +25,6 @@ same protection the brief does:
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import Any
 
 from learnloop.teacher.contracts import ActionRequestV1
@@ -193,7 +192,7 @@ def read_history(vault: Any, repository: Any, state: Any, refs: list[str]) -> di
                 if row is None:
                     out.append({"id": ref, "refused": "not found"})
                     continue
-                data = dict(zip([d[0] for d in cursor.description], row))
+                data = dict(zip([d[0] for d in cursor.description], row, strict=True))
                 protected = attempt_protection(withheld, {"item": data["practice_item_id"],
                                                           "type": data["attempt_type"],
                                                           "probe": data.get("probe_presentation_id")})

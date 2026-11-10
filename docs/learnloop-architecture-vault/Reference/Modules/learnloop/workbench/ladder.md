@@ -170,8 +170,8 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_mobile_allowlist.py](../../../../../../tests/test_mobile_allowlist.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
 - [tests/test_hint_h2b_fix3.py](../../../../../../tests/test_hint_h2b_fix3.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]]
 - [tests/test_hint_h2b_review.py](../../../../../../tests/test_hint_h2b_review.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]]
-- [tests/test_library_exercises.py](../../../../../../tests/test_library_exercises.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]]
 - [tests/test_reader_rw1c_review.py](../../../../../../tests/test_reader_rw1c_review.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]]
+- [tests/test_reader_rw4b_admission_idempotency.py](../../../../../../tests/test_reader_rw4b_admission_idempotency.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]]
 
 ## Modification guidance
 

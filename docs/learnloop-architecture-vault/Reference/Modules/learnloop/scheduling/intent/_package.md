@@ -53,7 +53,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/scheduling/intent/model|learnloop.scheduling.intent.model]] | [[Reference/Modules/learnloop/scheduling/intent/model#^module-purpose|purpose]] | `ACTIVE` | 8 | 4 |
 | [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]] | [[Reference/Modules/learnloop/scheduling/intent/recall_targets#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
 | [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]] | [[Reference/Modules/learnloop/scheduling/intent/resolution#^module-purpose|purpose]] | `ACTIVE` | 8 | 4 |
-| [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] | [[Reference/Modules/learnloop/scheduling/intent/serving#^module-purpose|purpose]] | `ACTIVE` | 9 | 16 |
+| [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] | [[Reference/Modules/learnloop/scheduling/intent/serving#^module-purpose|purpose]] | `ACTIVE` | 9 | 15 |
 
 ## Cross-package dependencies
 

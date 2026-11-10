@@ -13,9 +13,7 @@ from tests.structured_ai import StructuredClientFake
 import json
 from dataclasses import asdict
 from datetime import UTC, datetime
-from pathlib import Path
 
-import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.content.synthesis.ai_contracts import (
@@ -28,13 +26,11 @@ from learnloop.content.synthesis.ai_contracts import (
     VaultEpigraph,
     VaultEpigraphBatch,
 )
-from learnloop.db.repositories import Repository
 from learnloop.content.synthesis.append_neighborhood import select_neighborhood
 from learnloop.content.synthesis.source_append import append_source
 from learnloop.content.synthesis.source_set_synthesis import create_study_map
 from learnloop.content.synthesis.source_unit_inventory import run_unit_inventory
-from learnloop.vault.loader import add_subject, init_vault, load_vault
-from learnloop.vault.paths import VaultPaths
+from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_source_set
 
 from learnloop.content.synthesis.ai_contracts import (
@@ -42,7 +38,6 @@ from learnloop.content.synthesis.ai_contracts import (
     InventoryConceptMention,
     SourceUnitInventory,
 )
-from tests.helpers import set_algorithm_version
 from tests.test_source_inventory import _block, _ir, _persist, _register_revision
 from tests.test_source_set_synthesis import FakeSynthesisClient, _setup
 
@@ -274,7 +269,7 @@ def test_planted_full_map_resend_fails_scaling_gate(tmp_path):
     budget = vault.config.ingest.budgets.append_neighborhood_input_tokens
 
     from learnloop.content.synthesis.source_set_synthesis import _collect_inputs
-    from learnloop.content.synthesis.append_neighborhood import _estimate_tokens, _facet_contract
+    from learnloop.content.synthesis.append_neighborhood import _estimate_tokens
 
     source_set = next(s for s in vault.source_sets if s.id == "set_la")
     inputs = _collect_inputs(repo, vault, source_set)

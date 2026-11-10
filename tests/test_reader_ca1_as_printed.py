@@ -150,7 +150,7 @@ def _share(image: Image.Image, colour: tuple[int, int, int]) -> float:
     """The share of pixels near ``colour`` (the PDF writer's JPEG blurs edges)."""
 
     near = sum(count for count, pixel in image.getcolors(image.width * image.height)
-               if all(abs(a - b) < 60 for a, b in zip(pixel, colour)))
+               if all(abs(a - b) < 60 for a, b in zip(pixel, colour, strict=True)))
     return near / (image.width * image.height)
 
 

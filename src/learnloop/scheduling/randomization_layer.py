@@ -144,7 +144,7 @@ def is_near_equivalent(values: Sequence[float], margin: float = EPSILON_TIE_MARG
 
 
 def _tied_set(refs: Sequence[str], values: Sequence[float], margin: float) -> list[str]:
-    ordered = sorted(zip(values, refs), key=lambda t: (t[0], t[1]), reverse=True)
+    ordered = sorted(zip(values, refs, strict=True), key=lambda t: (t[0], t[1]), reverse=True)
     top = ordered[0][0]
     tied: list[str] = []
     for v, r in ordered:
@@ -206,7 +206,7 @@ def epsilon_tiebreak(
         return Assignment(None, experiment_id, "epsilon_tiebreak", "decision", decision_id,
                           "", 0.0, seed, None, False, "experimental", False)
 
-    ordered = sorted(zip(values, refs), key=lambda t: (t[0], t[1]), reverse=True)
+    ordered = sorted(zip(values, refs, strict=True), key=lambda t: (t[0], t[1]), reverse=True)
     deterministic_top = ordered[0][1]
 
     if not is_near_equivalent(values, margin):

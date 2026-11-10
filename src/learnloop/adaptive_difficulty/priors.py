@@ -194,8 +194,8 @@ def _lesson_priors() -> tuple[tuple[str, float, float], ...]:
     first = [1.0 - math.exp(-1.0 / h) for h in DOSE_SCALES]
     centre = GAMMA_PRIOR[1] * LESSON_CHECK_MASS_PRIOR
     spread = GAMMA_PRIOR[2] * LESSON_CHECK_MASS_PRIOR ** 2
-    mean_scale = centre / sum(b * mu for b, mu in zip(first, shape_mean))
-    var_scale = spread / sum(b * b * var for b, var in zip(first, shape_var))
+    mean_scale = centre / sum(b * mu for b, mu in zip(first, shape_mean, strict=True))
+    var_scale = spread / sum(b * b * var for b, var in zip(first, shape_var, strict=True))
     return tuple((f"lesson:{subkind}:{m}", shape_mean[m - 1] * mean_scale, shape_var[m - 1] * var_scale)
                  for subkind in LESSON_SUBKINDS for m in (1, 2))
 

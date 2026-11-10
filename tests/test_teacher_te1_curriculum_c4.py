@@ -5,7 +5,6 @@ behind ``teacher.brief.use_deliverable``. The synthetic vault notes (C2b: Reader
 
 from __future__ import annotations
 
-import pytest
 
 from learnloop.algorithm_versions import TEACHER_ALGORITHM_VERSION
 from learnloop.teacher import service as S

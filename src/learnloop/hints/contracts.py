@@ -523,7 +523,7 @@ def _techniques_between(current: Mapping[str, Any], route_id: str, start: str, e
     if start not in path or end not in path:
         return []
     segment = path[path.index(start):path.index(end) + 1]
-    pairs = set(zip(segment, segment[1:]))
+    pairs = set(zip(segment, segment[1:], strict=False))
     return [str(edge.get("technique") or "") for edge in (current.get("edges") or ())
             if (str(edge.get("from_node")), str(edge.get("to_node"))) in pairs
             and len(str(edge.get("technique") or "")) >= 4]

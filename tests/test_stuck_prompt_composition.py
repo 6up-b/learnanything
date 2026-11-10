@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from learnloop.attempts.attempts import AttemptDraft, complete_attempt_with_ai_required
+from learnloop.attempts.attempts import complete_attempt_with_ai_required
 from learnloop.attempts.grading_support import REFERENCE_POLICY_PROMPT_VERSION
 from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 from learnloop.attempts.stuck import STUCK_READING_JUDGMENT_TASK, STUCK_READING_KEY, stuck_answers

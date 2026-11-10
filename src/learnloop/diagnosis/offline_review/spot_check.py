@@ -424,7 +424,7 @@ def record_diagnosis_screen(
 
 def record_links_screen(run_dir: Path, *, session_id: str, screen: Mapping[str, Any], verdicts: Sequence[str | None]) -> list[str]:
     ids = []
-    for link, verdict in zip(screen["links"], verdicts):
+    for link, verdict in zip(screen["links"], verdicts, strict=True):
         if verdict not in LINK_TAPS:
             continue
         ids.append(

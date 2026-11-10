@@ -49,7 +49,7 @@ HOLDING = {"setup": {"verdict": "cannot_tell"}, "result": {"verdict": "not_estab
 
 
 @pytest.mark.skipif(not OUT, reason="fixture generator: set LEARNLOOP_GENERATE_MVP017_FIXTURE")
-def test_generate_the_mvp017_replay_fixture(tmp_path, checker):
+def test_generate_the_mvp017_replay_fixture(tmp_path, checker):  # noqa: F811  the imported pytest fixture, requested by name
     assert VERSION == "mvp-0.17"
     paths, vault, repository = split_vault(tmp_path, version=VERSION)
     t0 = CLOCK.now()

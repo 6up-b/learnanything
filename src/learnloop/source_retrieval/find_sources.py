@@ -27,7 +27,6 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
 import json
-import time
 from typing import Any, Literal
 
 from learnloop.ai.errors import AIInvalidOutput

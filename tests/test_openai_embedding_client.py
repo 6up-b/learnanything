@@ -21,7 +21,7 @@ from tests.openai_fakes import install_fake_openai
 def response(*vectors, indices=None):
     return SimpleNamespace(
         data=[SimpleNamespace(index=index, embedding=vector) for index, vector in
-              zip(indices if indices is not None else range(len(vectors)), vectors)],
+              zip(indices if indices is not None else range(len(vectors)), vectors, strict=True)],
         usage=SimpleNamespace(prompt_tokens=12, total_tokens=12),
     )
 

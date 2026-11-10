@@ -671,10 +671,10 @@ def _placement(head: Mapping[str, Any] | None, extraction_id: str, hashes: Mappi
         return nowhere
     resolutions = [translator.resolve(made_on, str(s.get("span_id"))) for s in segments]
     if all(r.exact and hashes.get(str(r.span_id)) == s.get("block_content_hash")
-           for r, s in zip(resolutions, segments)):
+           for r, s in zip(resolutions, segments, strict=True)):
         # The same text on this reading: the offsets hold as they are.
         return {"state": PLACEMENT_MOVED,
-                "segments": [_placed_segment(s, str(r.span_id)) for r, s in zip(resolutions, segments)],
+                "segments": [_placed_segment(s, str(r.span_id)) for r, s in zip(resolutions, segments, strict=True)],
                 "flag_span_id": None}
     flag = next((str(r.span_id) for r in resolutions if r.span_id is not None and str(r.span_id) in hashes), None)
     return {"state": PLACEMENT_FLAGGED if flag else PLACEMENT_ELSEWHERE, "segments": [], "flag_span_id": flag}

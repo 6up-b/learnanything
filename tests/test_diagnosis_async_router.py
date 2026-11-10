@@ -257,5 +257,5 @@ def test_as_of_cutoff_excludes_attempts_completed_after_the_diagnosed_one(tmp_pa
     shown = {*receipt["failure_attempt_ids"], *receipt["success_attempt_ids"]}
     assert later.attempt_id not in shown
     assert receipt["lagged_attempts"] >= 1
-    first_prompt = next(prompt for purpose, prompt in zip(client.calls, client.prompts) if purpose == "diagnosis")
+    first_prompt = next(prompt for purpose, prompt in zip(client.calls, client.prompts, strict=True) if purpose == "diagnosis")
     assert "LATER-ANSWER" not in first_prompt

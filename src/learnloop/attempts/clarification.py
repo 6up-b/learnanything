@@ -47,7 +47,6 @@ from typing import Any
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.attempts.grading import PROVISIONAL_PENDING_CLARIFICATION
 from learnloop.vault.models import LoadedVault
 
 #: How long a question stays askable. Long enough to survive a day off, short

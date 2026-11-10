@@ -27,7 +27,7 @@ from learnloop.diagnosis.ai_contracts import (
     ProbeDialogueTurnContext,
     probe_dialogue_turn_prompt,
 )
-from learnloop.clock import Clock, utc_now_iso
+from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.diagnosis.probe_episodes import (

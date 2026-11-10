@@ -101,7 +101,7 @@ def test_create_scope_cover_path_slice_override_and_ready(tmp_path):
     listed = call(ctx, "curriculum.deliverables", {})
     assert [entry["goalId"] for entry in listed["deliverables"]] == [goal_id]
     # The path judge read no passage text and no exam material.
-    path_prompts = [prompt for prompt, purpose in zip(fake.prompts, fake.purposes) if purpose == "path"]
+    path_prompts = [prompt for prompt, purpose in zip(fake.prompts, fake.purposes, strict=True) if purpose == "path"]
     assert path_prompts and all("Exam question" not in prompt for prompt in path_prompts)
 
 
@@ -144,7 +144,7 @@ def test_the_reader_selection_action_scopes_from_the_selected_passage_only(tmp_p
                                        (HELD_OUT_SENTINEL,)).fetchone()
     assert row[0] == "ext_book" and json.loads(row[1]) == ["s2"] and row[3] is None
     assert json.loads(row[2]) == {"from": "reader_selection"}
-    scope_prompt = [prompt for prompt, purpose in zip(fake.prompts, fake.purposes) if purpose == "scope"][-1]
+    scope_prompt = [prompt for prompt, purpose in zip(fake.prompts, fake.purposes, strict=True) if purpose == "scope"][-1]
     assert selected in scope_prompt  # the selected passage, and only it, is read
     assert not any(text in scope_prompt for text in others if text and text != selected)
     before = table_counts(repository)

@@ -216,7 +216,7 @@ def pure_scenarios() -> list[tuple[str, Callable[[voi.VoiContext], voi.SiteDecis
         for slate_name, slate in _three_slates().items():
             for weights in PRIORS_THREE:
                 for minutes in MINUTES:
-                    prior = dict(zip(_THREE, weights))
+                    prior = dict(zip(_THREE, weights, strict=True))
 
                     def decide(ctx, slate=slate, minutes=minutes, prior=prior):
                         return voi.value_candidates(

@@ -91,7 +91,7 @@ def test_the_single_family_path_defaults_to_no_count_bound(eedi, monkeypatch):
     assert len(scenarios[0].questions) == 40
     run = run_simulation(scenarios, _generous())
     assert run.episodes and all(e.checks > 25 for e in run.episodes)
-    for e, spec in zip(run.episodes, run.learners):
+    for e, spec in zip(run.episodes, run.learners, strict=True):
         assert e.checks <= 40 - len(spec.history) and e.stop_reason in ("robust_eig_stop", "no_question_left")
 
 

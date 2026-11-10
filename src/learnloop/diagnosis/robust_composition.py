@@ -166,7 +166,7 @@ def _draw_emission(
     for z, row in joint_alpha.items():
         keys = sorted(row.keys())
         sampled = _dirichlet(rng, [row[k] for k in keys])
-        drawn[z] = dict(zip(keys, sampled))
+        drawn[z] = dict(zip(keys, sampled, strict=True))
     return drawn
 
 
@@ -183,7 +183,7 @@ def _perturb_instrument(
         keys = sorted(row.keys())
         alpha = [max(float(row[k]), 0.0) * concentration + 1e-9 for k in keys]
         sampled = _dirichlet(rng, alpha)
-        perturbed[slot] = dict(zip(keys, sampled))
+        perturbed[slot] = dict(zip(keys, sampled, strict=True))
     return perturbed
 
 
@@ -396,7 +396,7 @@ def evaluate_selection(
         runner_ens, runner_secs = scored[1][2], scored[1][3]
         best_series = _ensemble_eig_per_second(best_ens, posterior, best_secs)
         runner_series = _ensemble_eig_per_second(runner_ens, posterior, runner_secs)
-        advantage = [b - r for b, r in zip(best_series, runner_series)]
+        advantage = [b - r for b, r in zip(best_series, runner_series)]  # noqa: B905  the two ensembles' series lengths aren't checked here; whether a mismatch should raise is open (refactor-a5.md)
         lcb_advantage = robust_quantile(advantage, best_ens.quantile)
     else:
         # A single candidate has no runner-up; its advantage is its own robust value.

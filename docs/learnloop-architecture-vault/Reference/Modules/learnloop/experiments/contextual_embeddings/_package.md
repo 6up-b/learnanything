@@ -65,7 +65,7 @@ For system intent, use [[Architecture Overview]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/experiments/contextual_embeddings/__init__|learnloop.experiments.contextual_embeddings]] | [[Reference/Modules/learnloop/experiments/contextual_embeddings/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/experiments/contextual_embeddings/adapters|learnloop.experiments.contextual_embeddings.adapters]] | [[Reference/Modules/learnloop/experiments/contextual_embeddings/adapters#^module-purpose|purpose]] | `ACTIVE` | 8 | 13 |
+| [[Reference/Modules/learnloop/experiments/contextual_embeddings/adapters|learnloop.experiments.contextual_embeddings.adapters]] | [[Reference/Modules/learnloop/experiments/contextual_embeddings/adapters#^module-purpose|purpose]] | `ACTIVE` | 8 | 12 |
 | [[Reference/Modules/learnloop/experiments/contextual_embeddings/answers|learnloop.experiments.contextual_embeddings.answers]] | [[Reference/Modules/learnloop/experiments/contextual_embeddings/answers#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/experiments/contextual_embeddings/anthropic_api|learnloop.experiments.contextual_embeddings.anthropic_api]] | [[Reference/Modules/learnloop/experiments/contextual_embeddings/anthropic_api#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/experiments/contextual_embeddings/bank|learnloop.experiments.contextual_embeddings.bank]] | [[Reference/Modules/learnloop/experiments/contextual_embeddings/bank#^module-purpose|purpose]] | `ACTIVE` | 10 | 12 |

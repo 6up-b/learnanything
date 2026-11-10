@@ -107,7 +107,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/answers|learnloop.experiments.contextual_embeddings.answers]] — imports `Delivered`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/bank|learnloop.experiments.contextual_embeddings.bank]] — imports `Selection`, `quote_covered`; statically calls `Selection`, `quote_covered`
-- [[Reference/Modules/learnloop/experiments/contextual_embeddings/paid|learnloop.experiments.contextual_embeddings.paid]] — imports `Delivered`, `deliver`, `retrieved_d1`; statically calls `deliver`, `retrieved_d1`
+- [[Reference/Modules/learnloop/experiments/contextual_embeddings/paid|learnloop.experiments.contextual_embeddings.paid]] — imports `deliver`, `retrieved_d1`; statically calls `deliver`, `retrieved_d1`
 
 ## Dependencies
 

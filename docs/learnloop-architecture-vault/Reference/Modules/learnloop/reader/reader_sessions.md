@@ -136,7 +136,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_followups.py](../../../../../../tests/test_reader_followups.py) — direct import
   - `test_revealed_families_are_the_sessions_reveals_only`
   - `test_the_provenance_carries_the_way_back_and_dl2_renders_it`
-- [tests/test_reader_followups_review.py](../../../../../../tests/test_reader_followups_review.py) — direct import
 - [tests/test_reader_formative_texts.py](../../../../../../tests/test_reader_formative_texts.py) — direct import
   - `test_reading_it_writes_only_gap_rows_and_names_the_observations_hypothesis`
 - [tests/test_reader_observation_records.py](../../../../../../tests/test_reader_observation_records.py) — direct import

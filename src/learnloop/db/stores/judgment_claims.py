@@ -31,7 +31,7 @@ def _row(connection: sqlite3.Connection, claim_key: str) -> dict[str, Any] | Non
     raw = cursor.fetchone()
     if raw is None:
         return None
-    return dict(zip([column[0] for column in cursor.description], raw))
+    return dict(zip([column[0] for column in cursor.description], raw, strict=True))
 
 
 def claim_work(

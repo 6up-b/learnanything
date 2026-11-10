@@ -152,7 +152,7 @@ def test_every_protected_table_reads_as_in_the_absent_copy(tmp_path, monkeypatch
     copies = C.make_copies(tmp_path, coupled=True)
     C._hold_out(monkeypatch)
     seen: dict[str, dict[str, list[str]]] = {}
-    for name, paths in zip(("protected", "absent"), copies):
+    for name, paths in zip(("protected", "absent"), copies, strict=True):
         vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
         out: dict[str, list[str]] = {}
         with ad_operation(vault, repository) as op, closing(connect(paths.sqlite_path, read_only=True)) as connection:

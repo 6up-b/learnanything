@@ -131,7 +131,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_epsilon_tiebreak_randomizes_near_equivalents_with_logged_propensity`
   - `test_micro_randomize_only_on_reversible`
   - `test_outcome_window_anchored_to_next_spaced_cold_review`
-- [tests/test_shadow_components.py](../../../../../../tests/test_shadow_components.py) — direct import
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
   - `test_decision_persists_snapshot_decision_candidates_and_block`
   - `test_legacy_comparator_is_logged_but_not_authority`

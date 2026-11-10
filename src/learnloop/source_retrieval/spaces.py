@@ -272,7 +272,7 @@ def _local_states(vault: LoadedVault, repository: Repository, windows: Mapping[t
         def read(extraction_id: str, keys: Mapping[str, Sequence[tuple[str, int]]]) -> dict[str, np.ndarray]:
             flat = [key for parts in keys.values() for key, _w in parts]
             try:
-                found = cache.vectors(flat)
+                found = cache.vectors(flat)  # noqa: B023  called within this iteration, before the loop rebinds it
             except CacheUnreadable:
                 return {}
             out: dict[str, np.ndarray] = {}

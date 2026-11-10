@@ -20,7 +20,6 @@ from __future__ import annotations
 import threading
 from types import SimpleNamespace
 
-import pytest
 
 from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault

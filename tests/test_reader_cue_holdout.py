@@ -59,7 +59,7 @@ def test_a_held_out_cue_is_not_shown_and_carries_its_seed_and_propensity_guide_c
     targets = [target("hypothesis", f"h{index}", p_open=0.5) for index in range(8)]
     spans = ["t1", "t3", "t4", "t5", "t6", "t7", "t8", "t9"]
     _paths, _repository, cues, ids = _merged(tmp_path, monkeypatch, rate=0.95, targets=targets,
-                                             links=list(zip(targets, spans)), guide=["t2"])
+                                             links=list(zip(targets, spans, strict=True)), guide=["t2"])
     held = cues["discovery"]["held_out"]
     expected = {link_id for link_id in ids if PC.holdout_draw(link_id, 0.95)["held_out"]}
     assert {entry["link_id"] for entry in held} == expected and expected
@@ -76,7 +76,7 @@ def test_a_held_out_cue_is_not_shown_and_carries_its_seed_and_propensity_guide_c
 def test_rate_zero_turns_the_holdout_off(tmp_path, monkeypatch):
     targets = [target("hypothesis", f"h{index}", p_open=0.5) for index in range(4)]
     _paths, _repository, cues, _ids = _merged(tmp_path, monkeypatch, rate=0.0, targets=targets,
-                                              links=list(zip(targets, ["t1", "t3", "t5", "t7"])))
+                                              links=list(zip(targets, ["t1", "t3", "t5", "t7"], strict=True)))
     assert cues["discovery"]["held_out"] == [] and cues["withheld"]["holdout"] == 0
     assert all(mark["propensity"] == 1.0 for mark in cues["marks"])
 
@@ -87,7 +87,7 @@ def test_rate_zero_turns_the_holdout_off(tmp_path, monkeypatch):
 def _ctx_with_cues(tmp_path, monkeypatch, *, rate: float, density: str = "fewer"):
     targets = [target("hypothesis", f"h{index}", p_open=0.9 - index * 0.1) for index in range(6)]
     paths, repository, _cues, ids = _merged(tmp_path, monkeypatch, rate=rate, targets=targets,
-                                            links=list(zip(targets, ["t1", "t3", "t5", "t7", "t8", "t9"])),
+                                            links=list(zip(targets, ["t1", "t3", "t5", "t7", "t8", "t9"], strict=True)),
                                             guide=["t2"], density=density)
     ctx = context(paths.root)
     plan = snake(call(ctx, "reader.guide_plan", {"extraction_id": "ext_text"}))

@@ -87,7 +87,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] | [[Reference/Modules/learnloop/scheduling/controller_cutover#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
 | [[Reference/Modules/learnloop/scheduling/controller_ownership|learnloop.scheduling.controller_ownership]] | [[Reference/Modules/learnloop/scheduling/controller_ownership#^module-purpose|purpose]] | `ACTIVE` | 4 | 6 |
 | [[Reference/Modules/learnloop/scheduling/controller_snapshot|learnloop.scheduling.controller_snapshot]] | [[Reference/Modules/learnloop/scheduling/controller_snapshot#^module-purpose|purpose]] | `ACTIVE` | 9 | 15 |
-| [[Reference/Modules/learnloop/scheduling/controller_store|learnloop.scheduling.controller_store]] | [[Reference/Modules/learnloop/scheduling/controller_store#^module-purpose|purpose]] | `ACTIVE` | 5 | 7 |
+| [[Reference/Modules/learnloop/scheduling/controller_store|learnloop.scheduling.controller_store]] | [[Reference/Modules/learnloop/scheduling/controller_store#^module-purpose|purpose]] | `ACTIVE` | 5 | 6 |
 | [[Reference/Modules/learnloop/scheduling/decay_pressure|learnloop.scheduling.decay_pressure]] | [[Reference/Modules/learnloop/scheduling/decay_pressure#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/scheduling/device_eligibility|learnloop.scheduling.device_eligibility]] | [[Reference/Modules/learnloop/scheduling/device_eligibility#^module-purpose|purpose]] | `ACTIVE` | 6 | 12 |
 | [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]] | [[Reference/Modules/learnloop/scheduling/dispersion#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |

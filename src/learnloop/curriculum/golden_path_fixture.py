@@ -21,10 +21,10 @@ affordance (``learnloop goldenpath init-fixture``).
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from learnloop.clock import Clock, FrozenClock, utc_now_iso
 from learnloop.vault.repository import vault_repository

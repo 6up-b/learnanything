@@ -694,7 +694,7 @@ def build_windows(units: Sequence[CandidateUnit], *, window_tokens: int = pins.W
             nonlocal current, current_tokens
             if current:
                 ids = tuple(unit.unit_id for unit in current)
-                windows.append(Window("w_" + _sha(extraction_id, segment, ids)[:16], extraction_id, segment, ids,
+                windows.append(Window("w_" + _sha(extraction_id, segment, ids)[:16], extraction_id, segment, ids,  # noqa: B023  called within this iteration, before the loop rebinds it
                                       current_tokens))
             current, current_tokens = [], 0
 

@@ -40,7 +40,7 @@ from learnloop.content.proposals.ai_contracts import AuthoringContext, Authoring
 from learnloop.content.synthesis.ai_contracts import AppendReconciliation
 from learnloop.diagnosis.ai_contracts import MisconceptionMatch
 from learnloop.reader.ai_contracts import ReaderPresetSynthesis, ReaderPresetSynthesisContext
-from learnloop.tutor.ai_contracts import TeachBackAuthoring, TeachBackAuthoringContext
+from learnloop.tutor.ai_contracts import TeachBackAuthoringContext
 from learnloop.content.proposals.proposals import request_authoring_proposal
 from learnloop.reader.reader_requests import request_reader_preset_synthesis
 from learnloop.tutor.teach_back import request_teach_back_authoring

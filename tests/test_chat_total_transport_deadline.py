@@ -322,7 +322,7 @@ def test_rw6b2_f3_a_dribbling_narration_request_ends_inside_its_lease_and_publis
     _assert_transport_over(server, returned)
     assert server.max_in_flight == 1
     bound = OC.enforced_total_seconds(route.request_timeout)
-    for sock, started in zip(server.sockets, server.started):
+    for sock, started in zip(server.sockets, server.started, strict=True):
         # Each physical request was cancelled at the route's timeout (the enforced bound), inside the lease.
         assert sock.closed_at - started < bound + SLACK < lease
 

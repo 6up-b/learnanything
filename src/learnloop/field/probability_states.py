@@ -192,7 +192,7 @@ class StateRenderer:
         )
         names = [column[0] for column in cursor.description]
         for values in cursor:
-            record = dict(zip(names, values))
+            record = dict(zip(names, values, strict=True))
             instant = _instant(record["created_at"])
             if instant is None:
                 continue
@@ -403,7 +403,7 @@ class StateRenderer:
                 "ORDER BY created_at, id"
             )
             names = [column[0] for column in cursor.description]
-            self._questions = [dict(zip(names, row)) for row in cursor]
+            self._questions = [dict(zip(names, row, strict=True)) for row in cursor]
         return self._questions
 
     def _mutable_rows(self) -> tuple[

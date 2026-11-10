@@ -48,45 +48,45 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py) |
-| Source lines | 1069 |
+| Source lines | 1068 |
 | Owning package | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `request_append_reconciliation(client: StructuredTransport, context: AppendReconciliationContext) -> AppendReconciliation` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 84) — Reconcile one bounded append context through the shared transport.
-- `subject_has_applied_study_map(vault: LoadedVault, subject_id: str) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 97) — The bootstrap-vs-append discriminator (§8/§10).
-- `class AppendResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 114)
-  - `as_dict(self) -> dict[str, Any]` (line 133; public)
-- `append_source(root: Path, source_set_id: str, *, client: Any, new_revision_ids: list[str] | None=None, change_kind: str='source_added', revision_diff: dict[str, Any] | None=None, brief: dict[str, Any] | None=None, auto_apply: bool=True, repository: Repository | None=None, clock: Clock | None=None, budget_overrides: dict[str, int] | None=None, unlimited_token_budget: bool=False, embedding_client_factory: Callable[[], Any] | None=None, facet_identity_client: Any=None, apply_gate: Callable[[], bool] | None=None) -> AppendResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 157) — Run bounded append reconciliation and (by policy) auto-apply routine items.
-- `plan_append_embedding(root: Path, source_set_id: str, *, new_revision_ids: list[str] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 197) — Dry run of one append's Slice 2 T5 embedding spend.
+- `request_append_reconciliation(client: StructuredTransport, context: AppendReconciliationContext) -> AppendReconciliation` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 83) — Reconcile one bounded append context through the shared transport.
+- `subject_has_applied_study_map(vault: LoadedVault, subject_id: str) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 96) — The bootstrap-vs-append discriminator (§8/§10).
+- `class AppendResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 113)
+  - `as_dict(self) -> dict[str, Any]` (line 132; public)
+- `append_source(root: Path, source_set_id: str, *, client: Any, new_revision_ids: list[str] | None=None, change_kind: str='source_added', revision_diff: dict[str, Any] | None=None, brief: dict[str, Any] | None=None, auto_apply: bool=True, repository: Repository | None=None, clock: Clock | None=None, budget_overrides: dict[str, int] | None=None, unlimited_token_budget: bool=False, embedding_client_factory: Callable[[], Any] | None=None, facet_identity_client: Any=None, apply_gate: Callable[[], bool] | None=None) -> AppendResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 156) — Run bounded append reconciliation and (by policy) auto-apply routine items.
+- `plan_append_embedding(root: Path, source_set_id: str, *, new_revision_ids: list[str] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 196) — Dry run of one append's Slice 2 T5 embedding spend.
 
 ### Module constants
 
-- `APPEND_AGENT_PURPOSE` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 80)
-- `APPEND_PROPOSAL_PURPOSE` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 81)
-- `_AUTO_APPLY_RELATIONS` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 110)
+- `APPEND_AGENT_PURPOSE` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 79)
+- `APPEND_PROPOSAL_PURPOSE` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 80)
+- `_AUTO_APPLY_RELATIONS` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 109)
 
 ## Internal implementation anchors
 
-- `_append(vault: LoadedVault, repository: Repository, root: Path, source_set_id: str, *, client: Any, new_revision_ids: list[str] | None, change_kind: str, revision_diff: dict[str, Any], brief: dict[str, Any], auto_apply: bool, clock: Clock | None, budget_overrides: dict[str, int] | None=None, unlimited_token_budget: bool=False, embedding_client_factory: Callable[[], Any] | None=None, facet_identity_client: Any=None, apply_gate: Callable[[], bool] | None=None) -> AppendResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 224)
-- `_run_reconciliation(client, repository, inputs, new_inventories, neighborhood, source_set, subject_id, change_kind, revision_diff, brief, budgets, *, clock, unlimited_token_budget: bool=False, one_facet_per_skill: bool=False)` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 537)
-- `_output_tokens(result: Any) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 572)
-- `_normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subject_id, items_off: bool=False, nominator=None, facet_identity_plan=None)` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 582) — Map an AppendReconciliation to proposal rows + gate items + auto-apply ids.
-- `class _FacetReword` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 809) — A facet restructure, normalized: its proposal payload and the citations the gates judge.
-- `_facet_reword(obj: dict[str, Any], vault: LoadedVault, inputs: Any, operation: str, target_id: str) -> _FacetReword` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 826) — Normalize a facet restructure: a reword of a registered facet.
-- `_checked_reword(target_id: str, current: dict[str, Any], payload: dict[str, Any], gate_refs: list[ProvenanceRef], support: Any, unresolved: list[str], inputs: Any, policy: facet_meaning.MeaningPolicy=facet_meaning.REWORD_CONFIRM) -> _FacetReword` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 936) — A reword, judged in advance by the chokepoint the apply runs again.
-- `_span_problem(span: dict[str, Any], inputs) -> str | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 971) — Why a cited span cannot attach, or None when it can.
-- `_relation_for_intent(intent: str | None) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 986)
-- `_hash_type(target_type: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 994)
-- `_target_type(target_type: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 998)
-- `_auto_applies(payload, gate_refs, vault, current_hash, target_type) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1004) — §10.3 auto-apply predicate for a provenance_link.
-- `_span_yaml(span, inputs) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1034)
-- `_count(rows) -> dict[str, int]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1041)
-- `_snapshot(repository: Repository, vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1051)
-- `_link_count(repository: Repository) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1061)
-- `_diff_from_snapshot(repository, vault_after, before, patch_id) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1066)
+- `_append(vault: LoadedVault, repository: Repository, root: Path, source_set_id: str, *, client: Any, new_revision_ids: list[str] | None, change_kind: str, revision_diff: dict[str, Any], brief: dict[str, Any], auto_apply: bool, clock: Clock | None, budget_overrides: dict[str, int] | None=None, unlimited_token_budget: bool=False, embedding_client_factory: Callable[[], Any] | None=None, facet_identity_client: Any=None, apply_gate: Callable[[], bool] | None=None) -> AppendResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 223)
+- `_run_reconciliation(client, repository, inputs, new_inventories, neighborhood, source_set, subject_id, change_kind, revision_diff, brief, budgets, *, clock, unlimited_token_budget: bool=False, one_facet_per_skill: bool=False)` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 536)
+- `_output_tokens(result: Any) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 571)
+- `_normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subject_id, items_off: bool=False, nominator=None, facet_identity_plan=None)` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 581) — Map an AppendReconciliation to proposal rows + gate items + auto-apply ids.
+- `class _FacetReword` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 808) — A facet restructure, normalized: its proposal payload and the citations the gates judge.
+- `_facet_reword(obj: dict[str, Any], vault: LoadedVault, inputs: Any, operation: str, target_id: str) -> _FacetReword` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 825) — Normalize a facet restructure: a reword of a registered facet.
+- `_checked_reword(target_id: str, current: dict[str, Any], payload: dict[str, Any], gate_refs: list[ProvenanceRef], support: Any, unresolved: list[str], inputs: Any, policy: facet_meaning.MeaningPolicy=facet_meaning.REWORD_CONFIRM) -> _FacetReword` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 935) — A reword, judged in advance by the chokepoint the apply runs again.
+- `_span_problem(span: dict[str, Any], inputs) -> str | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 970) — Why a cited span cannot attach, or None when it can.
+- `_relation_for_intent(intent: str | None) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 985)
+- `_hash_type(target_type: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 993)
+- `_target_type(target_type: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 997)
+- `_auto_applies(payload, gate_refs, vault, current_hash, target_type) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1003) — §10.3 auto-apply predicate for a provenance_link.
+- `_span_yaml(span, inputs) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1033)
+- `_count(rows) -> dict[str, int]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1040)
+- `_snapshot(repository: Repository, vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1050)
+- `_link_count(repository: Repository) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1060)
+- `_diff_from_snapshot(repository, vault_after, before, patch_id) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1065)
 
 ## Who imports or calls it
 
@@ -111,8 +111,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/facet_identity/judge|learnloop.content.facet_identity.judge]] — imports `PROMPT_VERSION`, `resolve_route`; calls `resolve_route`
 - [[Reference/Modules/learnloop/content/facet_identity/plan|learnloop.content.facet_identity.plan]] — imports `ingest_dry_run`; calls `ingest_dry_run`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `apply_accepted_items`, `compute_target_hash`; calls `apply_accepted_items`, `compute_target_hash`
-- [[Reference/Modules/learnloop/content/synthesis/ai_contracts|learnloop.content.synthesis.ai_contracts]] — imports `AppendReconciliation`, `AppendReconciliationContext`, `SourceSetSynthesis`, `SynthSpanRef`, `append_reconciliation_prompt`, `append_reconciliation_prompt_version`; calls `AppendReconciliationContext`, `SourceSetSynthesis`, `append_reconciliation_prompt`, `append_reconciliation_prompt_version`
-- [[Reference/Modules/learnloop/content/synthesis/append_neighborhood|learnloop.content.synthesis.append_neighborhood]] — imports `Neighborhood`, `select_neighborhood`; calls `select_neighborhood`
+- [[Reference/Modules/learnloop/content/synthesis/ai_contracts|learnloop.content.synthesis.ai_contracts]] — imports `AppendReconciliation`, `AppendReconciliationContext`, `SourceSetSynthesis`, `append_reconciliation_prompt`, `append_reconciliation_prompt_version`; calls `AppendReconciliationContext`, `SourceSetSynthesis`, `append_reconciliation_prompt`, `append_reconciliation_prompt_version`
+- [[Reference/Modules/learnloop/content/synthesis/append_neighborhood|learnloop.content.synthesis.append_neighborhood]] — imports `select_neighborhood`; calls `select_neighborhood`
 - [[Reference/Modules/learnloop/content/synthesis/facet_doctor|learnloop.content.synthesis.facet_doctor]] — imports `near_duplicate_facet_review`; calls `near_duplicate_facet_review`
 - [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] — imports `GraphNominator`, `plan_ingest_embedding`; calls `plan_ingest_embedding`
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `StudyMapError`, `_collect_inputs`, `_facet_identity_plan`, `_gate_context`, `_normalize`, `_resolve_span_requests`, `_row`, `_span_refs`, `_support_citations`, `facet_identity_result`; calls `StudyMapError`, `_collect_inputs`, `_facet_identity_plan`, `_gate_context`, `_normalize`, `_resolve_span_requests`, `_row`, `_span_refs`, `_support_citations`, `facet_identity_result`
@@ -123,7 +123,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
-- [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `SourceSet`
+- [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `vault_repository`; calls `vault_repository`
 

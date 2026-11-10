@@ -46,36 +46,36 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/exams.py](../../../../../../src/learnloop_sidecar/handlers/exams.py) |
-| Source lines | 570 |
+| Source lines | 569 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class StartExamInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 49)
-- `class SubmitExamAnswerInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 53)
-- `class FinishExamInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 59)
-- `get_answer_calibration(ctx: SidecarContext, _params: EmptyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 64)
-- `get_exam_status(ctx: SidecarContext, params: GoalIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 74)
-- `start_exam_handler(ctx: SidecarContext, params: StartExamInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 294)
-- `submit_exam_answer(ctx: SidecarContext, params: SubmitExamAnswerInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 317)
-- `finish_exam_handler(ctx: SidecarContext, params: FinishExamInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 372)
+- `class StartExamInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 48)
+- `class SubmitExamAnswerInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 52)
+- `class FinishExamInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 58)
+- `get_answer_calibration(ctx: SidecarContext, _params: EmptyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 63)
+- `get_exam_status(ctx: SidecarContext, params: GoalIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 73)
+- `start_exam_handler(ctx: SidecarContext, params: StartExamInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 293)
+- `submit_exam_answer(ctx: SidecarContext, params: SubmitExamAnswerInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 316)
+- `finish_exam_handler(ctx: SidecarContext, params: FinishExamInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 371)
 
 ### Module constants
 
-- `_LEARNER_TRACE_FIELDS` ([src/learnloop_sidecar/handlers/exams.py](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 428)
+- `_LEARNER_TRACE_FIELDS` ([src/learnloop_sidecar/handlers/exams.py](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 427)
 
 ## Internal implementation anchors
 
-- `_session_snapshot(ctx: SidecarContext, view: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 122)
-- `_grade_and_record_exam_answer(vault, repository, client, *, session_id: str, practice_item_id: str, answer_md: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 177) — Resolve one persisted answer and attach its grade idempotently.
-- `_schedule_exam_answer_grading(ctx: SidecarContext, *, vault, repository, session_id: str, practice_item_id: str, answer_md: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 222)
-- `_schedule_pending_exam_grading(ctx: SidecarContext, session_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 255) — Resume durable ungraded rows without delaying the exam snapshot.
-- `_raise_exam_grading_error(exc: Exception) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 274)
-- `_learner_repair_dto(suggestion: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 437) — The learner-facing subset of one validated repair suggestion.
-- `_item_review_fields(vault, answer: dict[str, Any] | None, practice_item_id: str, *, contract: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 464) — Post-sitting review payload for one exam item.
-- `_report_dto(vault, repository, report: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 509)
+- `_session_snapshot(ctx: SidecarContext, view: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 121)
+- `_grade_and_record_exam_answer(vault, repository, client, *, session_id: str, practice_item_id: str, answer_md: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 176) — Resolve one persisted answer and attach its grade idempotently.
+- `_schedule_exam_answer_grading(ctx: SidecarContext, *, vault, repository, session_id: str, practice_item_id: str, answer_md: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 221)
+- `_schedule_pending_exam_grading(ctx: SidecarContext, session_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 254) — Resume durable ungraded rows without delaying the exam snapshot.
+- `_raise_exam_grading_error(exc: Exception) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 273)
+- `_learner_repair_dto(suggestion: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 436) — The learner-facing subset of one validated repair suggestion.
+- `_item_review_fields(vault, answer: dict[str, Any] | None, practice_item_id: str, *, contract: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 463) — Post-sitting review payload for one exam item.
+- `_report_dto(vault, repository, report: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 508)
 
 ## Who imports or calls it
 
@@ -94,7 +94,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `SERVING_SURFACE`
 - [[Reference/Modules/learnloop/goals/exam_calibration|learnloop.goals.exam_calibration]] — imports `calibration_report`; calls `calibration_report`
 - [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `reserve_exam_pool`, `withdrawn_note`; calls `reserve_exam_pool`, `withdrawn_note`
-- [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] — imports `ExamItemWithdrawnError`, `ExamSessionError`, `exam_availability`, `exam_report`, `finish_exam`, `queue_exam_answer`, `record_exam_answer`, `session_withdrawn_items`, `start_exam`; calls `ExamSessionError`, `exam_availability`, `finish_exam`, `queue_exam_answer`, `record_exam_answer`, `session_withdrawn_items`, `start_exam`
+- [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] — imports `ExamItemWithdrawnError`, `ExamSessionError`, `exam_availability`, `finish_exam`, `queue_exam_answer`, `record_exam_answer`, `session_withdrawn_items`, `start_exam`; calls `ExamSessionError`, `exam_availability`, `finish_exam`, `queue_exam_answer`, `record_exam_answer`, `session_withdrawn_items`, `start_exam`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `resolve_goal_scope`; calls `resolve_goal_scope`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/vault/required_method|learnloop.vault.required_method]] — imports `answered_prompt`; calls `answered_prompt`

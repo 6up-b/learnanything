@@ -167,8 +167,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_each_invariant_kind_holds_or_fails`
   - `test_numeric_checks_pass_the_flagship_and_reject_the_half_negative_control`
   - `test_quotes_must_be_verbatim`
-- [tests/test_figures_codex_review.py](../../../../../../tests/test_figures_codex_review.py) — direct import
-- [tests/test_figures_fix_round2.py](../../../../../../tests/test_figures_fix_round2.py) — direct import
 - [tests/test_figures_fix_round3.py](../../../../../../tests/test_figures_fix_round3.py) — direct import
   - `test_a_finite_map_and_the_flagship_still_pass_structure`
   - `test_a_map_whose_shown_values_overflow_fails_structure`

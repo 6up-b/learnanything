@@ -62,7 +62,7 @@ def test_exam_readiness_predicted_score_distribution_is_analytic(tmp_path):
 
     # Sizing the exam tightens per-family variance (more items → smaller variance).
     sized = exam_readiness_report(vault, repo, subject_id="linear-algebra", total_exam_items=20)
-    for base_row, sized_row in zip(report.rows, sized.rows):
+    for base_row, sized_row in zip(report.rows, sized.rows, strict=True):
         if base_row.predicted and sized_row.predicted and sized_row.predicted["n_items"] > 1:
             assert sized_row.predicted["variance"] <= base_row.predicted["variance"]
     # Deterministic.

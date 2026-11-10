@@ -620,7 +620,7 @@ class EmbeddingAdapter:
                     billed = self._billed(usage.get("cost"))
                     price = self.pin.price_per_million_upper_bound
                     actual = reconciled_usd({"input_tokens": reported_tokens, "cost": billed},
-                                            lambda tokens_in, _out: tokens_in * price / 1_000_000)
+                                            lambda tokens_in, _out: tokens_in * price / 1_000_000)  # noqa: B023  called within this iteration, before the loop rebinds it
                     charge.settle(actual_usd=actual, usage={"input_tokens": reported_tokens, "cost": billed},
                                   request_id=response.request_id, latency_s=latency)
                     receipt = dict(arm=self.arm, adapter=self.pin.name, endpoint=url, model=self.pin.model,
@@ -765,7 +765,7 @@ class EmbeddingAdapter:
             chunk = list(missing[start:start + size])
             decoded = self._send(self.pin.query_endpoint, self._query_body(chunk), method="query",
                                  texts=[query.text for query in chunk], items=len(chunk),
-                                 parse=lambda body, count=len(chunk): self._parse_queries(body, count))
+                                 parse=lambda body, count=len(chunk): self._parse_queries(body, count))  # noqa: B008  binds the value now on purpose, so the closure doesn't read a later one
             for query, (row, vector) in zip(chunk, decoded, strict=True):
                 found[query.text] = vector
                 self.store.put(self.query_space, query_vector_key(self.query_encoder_id, query.text), [vector],

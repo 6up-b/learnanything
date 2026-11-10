@@ -142,7 +142,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/judgments|learnloop.db.stores.judgments]] — imports `append_judgment`; calls `append_judgment`
 - [[Reference/Modules/learnloop/field/evaluation|learnloop.field.evaluation]] — imports `_eligible`, `_groups`; calls `_eligible`, `_groups`
 - [[Reference/Modules/learnloop/field/predictors|learnloop.field.predictors]] — imports `create_predictor`; calls `create_predictor`
-- [[Reference/Modules/learnloop/field/probability_arms|learnloop.field.probability_arms]] — imports `CachedProbabilityArm`, `JUDGES`, `VARIANTS`, `clip`, `position_key`; calls `CachedProbabilityArm`, `position_key`
+- [[Reference/Modules/learnloop/field/probability_arms|learnloop.field.probability_arms]] — imports `CachedProbabilityArm`, `VARIANTS`, `position_key`; calls `CachedProbabilityArm`, `position_key`
 - [[Reference/Modules/learnloop/field/probability_states|learnloop.field.probability_states]] — imports `PredictionPoint`, `STATE_VERSION`, `StateRenderer`, `canonical_json`, `history_pairs`, `start_index`, `state_hash`; calls `PredictionPoint`, `canonical_json`, `history_pairs`, `start_index`, `state_hash`
 - [[Reference/Modules/learnloop/field/types|learnloop.field.types]] — imports `AttemptRow`, `SignalRow`
 

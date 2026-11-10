@@ -477,7 +477,7 @@ def build_hints_report(
         more_help_levels: Counter = Counter()
         progress = Counter(unaided(row) for row in attached)
         for row in attached:
-            attempt = attempts[row["resolved_attempt"]]
+            attempts[row["resolved_attempt"]]  # a resolved attempt the report did not load raises KeyError
             shown = _when(row["shown_at"] or row["requested_at"])
             submitted = _when(row["submitted_at"])
             if shown is not None and submitted is not None:

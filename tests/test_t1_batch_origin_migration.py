@@ -11,7 +11,6 @@ from contextlib import closing
 from pathlib import Path
 import sqlite3
 
-from tests.test_ro1_availability import RO1_ALTERED_TABLES
 from tests.test_te3a_migration import TE3A_ALTERED_TABLES
 from tests.test_retrieval_spaces_migration import P1_ADDED_OBJECTS
 from tests.test_section_coverage_migration import C0A_ADDED_OBJECTS

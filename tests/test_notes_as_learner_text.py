@@ -38,7 +38,7 @@ from tests.notes_fixtures import SENTINEL, edit_annotation
 from tests.reading_path_fixtures import call
 from tests.section_coverage_fixtures import table_counts
 from tests.test_notes_linked import _deliverable, _lines
-from tests.text_gap_fakes import ChoiceDecider, GapLLMFake, always, word_match
+from tests.text_gap_fakes import ChoiceDecider, GapLLMFake, word_match
 
 CLOCK = FrozenClock(NOW)
 GAPS_ON = "[notes]\ngaps_enabled = true\n"
@@ -318,7 +318,7 @@ def test_a_notes_receipts_keep_the_prompt_like_any_learner_text(tmp_path, monkey
     with repository.connection() as connection:
         connection.row_factory = None
         names = [column[0] for column in connection.execute("SELECT * FROM model_call_receipts LIMIT 0").description]
-        rows = [dict(zip(names, row)) for row in connection.execute(
+        rows = [dict(zip(names, row, strict=True)) for row in connection.execute(
             "SELECT * FROM model_call_receipts WHERE purpose = 'learner_gap_reading'").fetchall()]
     assert rows and any(row["input_text"] and SENTINEL in row["input_text"] for row in rows)
 

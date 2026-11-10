@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from learnloop.ai.execution import report_call_usage
 from learnloop.ai.isolation import TOOL_FREE
@@ -30,8 +30,8 @@ from tests import figure_corpus as FC
 from tests.pf_fakes import prompt_context
 from tests.recap_fixtures import call as call_rpc
 from tests.recap_fixtures import context as _context
-from tests.source_service_fakes import build_textbook_vault, set_config  # noqa: F401 - re-exported
-from learnloop.vault.writer import upsert_source_set  # noqa: F401,E402 - re-exported
+from tests.source_service_fakes import build_textbook_vault, set_config  # re-exported
+from learnloop.vault.writer import upsert_source_set  # noqa: E402 - re-exported
 from tests.test_source_inventory import _persist
 
 EXTRACTION = "ext_prob"

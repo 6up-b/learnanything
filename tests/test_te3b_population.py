@@ -5,20 +5,11 @@ objective's population (an objective-definition change point), only at the tag w
 from __future__ import annotations
 
 import json
-import math
-from datetime import UTC, datetime, timedelta
 
-import numpy as np
 import pytest
 
 from learnloop.algorithm_versions import LESSON_OFFERS_ALGORITHM_VERSION, LESSON_OPPORTUNITY_ALGORITHM_VERSION
-from learnloop.daily_plan import lesson_offer as LO
-from learnloop.router import lesson_suggestions as LS
-from learnloop.router_objective import learned_tail as LT
-from learnloop.router_objective import price as P
-from learnloop.router_objective import value as V
 
-from tests.test_ro4_value import EXACT, FIXED, _inputs, _logit
 
 TAG = LESSON_OFFERS_ALGORITHM_VERSION
 OLD = LESSON_OPPORTUNITY_ALGORITHM_VERSION

@@ -1092,7 +1092,7 @@ class PersonaGate:
                     members[0], self.judge(members[0]["payload"], client_item_id=_ref(members[0]))
                 )
                 continue
-            for row, outcome in zip(members, self._judge_contrast_pair(key, members)):
+            for row, outcome in zip(members, self._judge_contrast_pair(key, members), strict=True):
                 self._apply(row, outcome)
 
     @staticmethod

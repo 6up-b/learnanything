@@ -58,7 +58,6 @@ from contextlib import closing, contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
-from learnloop.ai.schemas import WireModel
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.authoring.ai_contracts import (
@@ -555,7 +554,7 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
         held = _prefetch_hold(repository, client)
         own_hold = hold
 
-        def hold(current: Any) -> str | None:  # noqa: F811 - the prebuild's hold wraps the learner-state one
+        def hold(current: Any) -> str | None:  # the prebuild's hold wraps the learner-state one
             return held(current) or _item_protected(current, repository, base, clock) or (
                 own_hold(current) if own_hold is not None else None)
 
@@ -758,7 +757,6 @@ def _run(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base
         pacing_band,
         render_scene,
         resolve_manim_command,
-        store_video_bytes,
         validate_scene_code,
     )
 

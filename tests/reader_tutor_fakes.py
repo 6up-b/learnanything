@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from learnloop.ai.execution import report_call_usage
-from tests.library_ask_fixtures import build_library_vault, call, context, set_config  # noqa: F401
+from tests.library_ask_fixtures import build_library_vault, call, context, set_config
 from tests.source_service_fakes import FakeServiceLLM
 
 ROOT_QUESTION = "why does the determinant change sign when two rows are swapped?"

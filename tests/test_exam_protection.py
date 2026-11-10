@@ -24,7 +24,7 @@ Each test failed on the base commit (``e8d261405``), recorded in
 from __future__ import annotations
 
 from contextlib import closing
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, UTC
 from decimal import Decimal
 from pathlib import Path
 

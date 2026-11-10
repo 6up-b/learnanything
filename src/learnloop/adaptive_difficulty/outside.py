@@ -61,7 +61,7 @@ import json
 import logging
 from collections.abc import Callable, Mapping
 from contextlib import closing
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from datetime import timedelta
 from typing import Any
 
@@ -74,7 +74,6 @@ from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.stores import ad_receipts as store
-from learnloop.db.stores import forecast_receipts as receipt_store
 from learnloop.scheduling.forecast_receipts import (
     FIRST_PRESENTATION,
     ITEM_UNASSISTED_SUCCESS,

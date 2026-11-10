@@ -13,7 +13,6 @@ order and the two failure modes it makes visible.
 
 from __future__ import annotations
 
-import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository

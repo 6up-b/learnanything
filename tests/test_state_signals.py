@@ -18,7 +18,7 @@ from learnloop.scheduling import state_signals as ss
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault
+from tests.helpers import NOW, create_basic_vault
 
 CLOCK = FrozenClock(NOW)
 

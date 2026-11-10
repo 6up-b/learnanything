@@ -348,8 +348,8 @@ def test_each_ablation_puts_back_exactly_one_piece_of_the_successor(eedi):
         belief = {h: v / total for h, v in raw.items()}
         for observations in (0, 2):
             def state():
-                st = _state(scenario, belief, settings)
-                st.observations = observations
+                st = _state(scenario, belief, settings)  # noqa: B023  called within this iteration, before the loop rebinds it
+                st.observations = observations  # noqa: B023  called within this iteration, before the loop rebinds it
                 return st
 
             proposed = P.decide("voi_proposed", state(), settings)
@@ -377,7 +377,7 @@ def test_each_ablation_puts_back_exactly_one_piece_of_the_successor(eedi):
 
 def _random_beliefs(hypotheses, n, seed):
     rng = np.random.default_rng(seed)
-    return [{h: float(v) for h, v in zip(hypotheses, rng.dirichlet(np.full(len(hypotheses), 0.7)))}
+    return [{h: float(v) for h, v in zip(hypotheses, rng.dirichlet(np.full(len(hypotheses), 0.7)), strict=True)}
             for _ in range(n)]
 
 
@@ -400,8 +400,8 @@ def test_the_package_with_every_piece_put_back_is_the_successor(eedi):
             settings = P.PolicySettings(repair_minutes=repair)
             for observations in (0, 1, 2, 5):
                 def state():
-                    st = _state(scenario, belief, settings)
-                    st.observations = observations
+                    st = _state(scenario, belief, settings)  # noqa: B023  called within this iteration, before the loop rebinds it
+                    st.observations = observations  # noqa: B023  called within this iteration, before the loop rebinds it
                     return st
 
                 assert P.decide_package(state(), settings, gate=True, fallback=True, lookahead=False) == \
@@ -473,7 +473,7 @@ def test_the_multi_family_study_runs_every_episode_without_a_count_bound(eedi, t
                        policy=replace(base.policy, lambda_time=0.0, burden_cost=0.0, draw_count=4))
     run = MS.run_family_simulation(world, generous)
     assert run.episodes and all(e.checks > 25 for e in run.episodes)
-    for e, spec in zip(run.episodes, run.learners):
+    for e, spec in zip(run.episodes, run.learners, strict=True):
         assert e.checks == 40 - len(spec.history) and e.stop_reason == "no_question_left"
     # The old bound censored exactly these episodes.
     bounded = MS.run_family_simulation(world, replace(generous, policy=replace(generous.policy, safety_bound=25)))
@@ -516,7 +516,7 @@ def test_the_calibrated_systems_average_responses_over_the_item_pool(eedi):
             rows = model.system_rows(question)
             oracle = _population_oracle(
                 model, question,
-                lambda i: F.NrmScenario(scenario, model.pool[i:i + 1], model.typical, holder_shift=model.holder_shift))
+                lambda i: F.NrmScenario(scenario, model.pool[i:i + 1], model.typical, holder_shift=model.holder_shift))  # noqa: B023  called within this iteration, before the loop rebinds it
             for h in scenario.hypotheses:
                 assert [rows[h][o] for o in "ABCD"] == pytest.approx(list(oracle[h]), abs=1e-9), h
                 old = mean_params.system_rows(question)[h]

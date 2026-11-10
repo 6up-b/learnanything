@@ -326,7 +326,7 @@ def _ledger(repository: Repository) -> list[dict]:
             "SELECT id, left_id, right_id, verdict, supersedes_id, judge, rationale FROM judgment_ledger "
             "WHERE task = 'passage_cue' ORDER BY created_at, id"
         ).fetchall()
-    return [dict(zip(("id", "left_id", "right_id", "verdict", "supersedes_id", "judge", "rationale"), row)) for row in rows]
+    return [dict(zip(("id", "left_id", "right_id", "verdict", "supersedes_id", "judge", "rationale"), row, strict=True)) for row in rows]
 
 
 def _cue_events(repository: Repository) -> list[dict]:

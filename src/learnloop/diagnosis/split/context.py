@@ -708,7 +708,6 @@ def assemble_diagnosis_context(
     neighborhood = learning_object_neighborhood(vault, current.learning_object_id)
     lo_ids = neighborhood.all_ids()
     prior = store.attempts_before(before, lo_ids)
-    by_id = {attempt.attempt_id: attempt for attempt in prior}
     targets = current.target_facets()
     neighborhood_block, neighborhood_facets, prerequisites = _neighborhood_block(vault, neighborhood, prior)
     hypotheses = sorted(

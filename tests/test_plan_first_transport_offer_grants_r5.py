@@ -30,7 +30,7 @@ from tests.test_plan_first_transport_paid_roles import _priced_vault
 
 
 @pytest.fixture
-def harness(tmp_path, monkeypatch, fake_openai):  # noqa: F811
+def harness(tmp_path, monkeypatch, fake_openai):
     return Harness(tmp_path, monkeypatch)
 
 
@@ -232,7 +232,7 @@ def _planner_outcome(ctx, batch_id: str) -> dict[str, Any]:
     return dict((jobs[0].get("result") or {}))
 
 
-def test_m3_build_now_surfaces_its_offer_on_the_library_read(book, fake_openai):  # noqa: F811
+def test_m3_build_now_surfaces_its_offer_on_the_library_read(book, fake_openai):
     import threading
 
     _root, ctx, source_id = book
@@ -251,7 +251,7 @@ def test_m3_build_now_surfaces_its_offer_on_the_library_read(book, fake_openai):
     assert "fallbackAvailable" not in _handle(ctx, "get_source_library", {})["result"]
 
 
-def test_m4_the_yes_is_the_builds_consent(book, fake_openai):  # noqa: F811
+def test_m4_the_yes_is_the_builds_consent(book, fake_openai):
     root, ctx, source_id = book
     assert "openrouter" not in ctx.require_vault()[0].config.ai.consent  # only ever connected to ChatGPT
     plan_fallback.grant_origin(root, "source_action")  # the learner's yes to the book card's offer
@@ -262,7 +262,7 @@ def test_m4_the_yes_is_the_builds_consent(book, fake_openai):  # noqa: F811
     assert outcome.get("outcome") == "building" and outcome.get("provider") == "openrouter", outcome
 
 
-def test_m3_a_press_drained_in_its_own_request_shows_the_offer_on_its_response(book, fake_openai):  # noqa: F811
+def test_m3_a_press_drained_in_its_own_request_shows_the_offer_on_its_response(book, fake_openai):
     """A foreground drain (the CLI-like inline runner): the press's own response reports its batch, and so
     shows the batch's offer at once (once: the library read then shows nothing)."""
 

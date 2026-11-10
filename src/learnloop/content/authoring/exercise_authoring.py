@@ -235,7 +235,7 @@ def _item_refs(source_refs: Sequence[Mapping[str, Any]], span_ids: Sequence[str]
     as a validated stimulus (:func:`_figure_roles`), whatever text overlaps."""
 
     refs = [json.loads(json.dumps(ref)) for ref in source_refs]
-    for ref, span_id in zip(refs, span_ids):
+    for ref, span_id in zip(refs, span_ids):  # noqa: B905  span_ids are de-duplicated and source_refs may not be; whether a mismatch should raise is open (refactor-a5.md)
         ref["owned"] = span_id in owned
         if figures is not None and span_id in figures:
             role, rejected = figures[span_id]
@@ -563,7 +563,7 @@ def author_exercises(
     # selection knows which blocks are its own (Codex re-review F9).
     part_ranges: list[tuple[str, int, int]] | None = []
     offset = 0
-    for span, part in zip(part_spans, parts):
+    for span, part in zip(part_spans, parts, strict=True):
         part_ranges.append((span, offset, offset + len(part)))
         offset += len(part) + 2
 

@@ -96,7 +96,7 @@ def _busy_free(arms_by_session):
     the coins' residuals differ within a session while the outcomes are the session's."""
 
     rows = []
-    for (session, busy), arms in zip((("s1", True), ("s2", False)), arms_by_session):
+    for (session, busy), arms in zip((("s1", True), ("s2", False)), arms_by_session, strict=True):
         z, y, offered = (-0.6, 0.8, 0.5) if busy else (0.4, -0.4, 1.5)
         for k, arm in enumerate(arms):
             weight = 1 / P_ARM if arm == SC.OFFER_STOP else (-1 / P_ARM if arm == SC.PRESENT_NEXT else 0.0)

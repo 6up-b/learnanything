@@ -47,55 +47,54 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/reveal_ledger.py](../../../../../../src/learnloop/attempts/reveal_ledger.py) |
-| Source lines | 661 |
+| Source lines | 660 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `is_routine_answer_display(row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 93) — Is this ledger row one of the plain surface's routine full-answer displays?
-- `routine_display_lapsed_before(at: str | None) -> str | None` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 99) — The instant (ledger timestamp format) before which a routine display no longer counts against a production at ``at`` (its coverage has ended); None when ``at`` is unknown (nothing lapses: fail closed).
-- `frozen_trace_hash(answer_md: str, explanation_md: str | None) -> str` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 120) — The identity of the trace a plain self-grade froze before it showed the key.
-- `disclosure_basis(submission_id: str, frozen_hash: str, display_id: str | None=None) -> str` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 128) — The basis of a plain self-grade's disclosure row: a versioned, canonical JSON identity (its retry key, the hash of the trace it froze and, for a display row, the display id).
-- `reveal_episode_id(repository: Repository, practice_item_id: str | None, *, strict: bool=False) -> str | None` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 153) — The live repair episode an exposure on this item belongs to, if any.
-- `record_reveal(repository: Repository, *, practice_item_id: str, source_kind: str, amount: float, learning_object_id: str | None=None, remediation_episode_id: str | None=None, basis: str | None=None, question_event_id: str | None=None, attempt_id: str | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 173) — Append one reveal.
-- `record_reveal_strict(repository: Repository, *, practice_item_id: str, source_kind: str, amount: float, learning_object_id: str | None=None, remediation_episode_id: str | None=None, basis: str | None=None, question_event_id: str | None=None, attempt_id: str | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 207) — :func:`record_reveal` for a caller whose action must not stand without its reveal: a failed write raises (inside the caller's transaction, so the action rolls back with it).
-- `class ProductionAdmissibility` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 243) — Whether a learner production counts as INDEPENDENT evidence.
-- `production_admissibility(repository: Repository, *, practice_item_id: str | None, learning_object_id: str | None=None, produced_at: str | None, since: str | None=None, strict: bool=False, production_id: str | None=None, clock: Clock | None=None) -> ProductionAdmissibility` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 259) — Admit a learner production unless a reveal preceded it in its window.
-- `repair_display_amounts(repair_suggestions: Sequence[Mapping[str, Any]] | None) -> list[tuple[str, float]]` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 366) — (repair id, declared reveal budget) for suggestions that reveal anything.
-- `record_repair_display_reveals(repository: Repository, *, attempt_id: str, practice_item_id: str | None, learning_object_id: str | None=None, repair_suggestions: Sequence[Mapping[str, Any]] | None=None, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 390) — Debit the ledger for repair suggestions shown on a feedback screen.
-- `record_answer_display_reveal(repository: Repository, *, attempt_id: str, practice_item_id: str, learning_object_id: str | None=None, basis: str, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 430) — Debit the ledger for the full expected answer shown after an attempt.
-- `class DisplayReceipt` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 475) — A routine display row the ledger holds: its id, its stamp (ledger format), and whether it was already there (a retry of the same display).
-- `class DisplayNotRecorded(Exception)` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 484) — The display row could not be written: the screen must not show the answer on its strength, and retries under the same display id.
-- `record_feedback_answer_display_reveal(repository: Repository, *, attempt_id: str, practice_item_id: str, display_id: str, learning_object_id: str | None=None, surface: str='desktop', clock: Clock | None=None) -> DisplayReceipt` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 535) — Record one display of the full answer on a feedback screen.
-- `record_self_grade_disclosure_display(repository: Repository, *, practice_item_id: str, submission_id: str, frozen_hash: str, display_id: str, learning_object_id: str | None=None, clock: Clock | None=None) -> DisplayReceipt` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 569) — Record one display of the key on a pending plain self-grade (round 3 F1).
-- `record_self_grade_disclosure_reveal(repository: Repository, *, practice_item_id: str, submission_id: str, frozen_hash: str, learning_object_id: str | None=None, attempt_id: str | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 600) — Debit the ledger for the full answer a plain self-grade showed.
+- `is_routine_answer_display(row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 92) — Is this ledger row one of the plain surface's routine full-answer displays?
+- `routine_display_lapsed_before(at: str | None) -> str | None` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 98) — The instant (ledger timestamp format) before which a routine display no longer counts against a production at ``at`` (its coverage has ended); None when ``at`` is unknown (nothing lapses: fail closed).
+- `frozen_trace_hash(answer_md: str, explanation_md: str | None) -> str` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 119) — The identity of the trace a plain self-grade froze before it showed the key.
+- `disclosure_basis(submission_id: str, frozen_hash: str, display_id: str | None=None) -> str` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 127) — The basis of a plain self-grade's disclosure row: a versioned, canonical JSON identity (its retry key, the hash of the trace it froze and, for a display row, the display id).
+- `reveal_episode_id(repository: Repository, practice_item_id: str | None, *, strict: bool=False) -> str | None` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 152) — The live repair episode an exposure on this item belongs to, if any.
+- `record_reveal(repository: Repository, *, practice_item_id: str, source_kind: str, amount: float, learning_object_id: str | None=None, remediation_episode_id: str | None=None, basis: str | None=None, question_event_id: str | None=None, attempt_id: str | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 172) — Append one reveal.
+- `record_reveal_strict(repository: Repository, *, practice_item_id: str, source_kind: str, amount: float, learning_object_id: str | None=None, remediation_episode_id: str | None=None, basis: str | None=None, question_event_id: str | None=None, attempt_id: str | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 206) — :func:`record_reveal` for a caller whose action must not stand without its reveal: a failed write raises (inside the caller's transaction, so the action rolls back with it).
+- `class ProductionAdmissibility` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 242) — Whether a learner production counts as INDEPENDENT evidence.
+- `production_admissibility(repository: Repository, *, practice_item_id: str | None, learning_object_id: str | None=None, produced_at: str | None, since: str | None=None, strict: bool=False, production_id: str | None=None, clock: Clock | None=None) -> ProductionAdmissibility` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 258) — Admit a learner production unless a reveal preceded it in its window.
+- `repair_display_amounts(repair_suggestions: Sequence[Mapping[str, Any]] | None) -> list[tuple[str, float]]` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 365) — (repair id, declared reveal budget) for suggestions that reveal anything.
+- `record_repair_display_reveals(repository: Repository, *, attempt_id: str, practice_item_id: str | None, learning_object_id: str | None=None, repair_suggestions: Sequence[Mapping[str, Any]] | None=None, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 389) — Debit the ledger for repair suggestions shown on a feedback screen.
+- `record_answer_display_reveal(repository: Repository, *, attempt_id: str, practice_item_id: str, learning_object_id: str | None=None, basis: str, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 429) — Debit the ledger for the full expected answer shown after an attempt.
+- `class DisplayReceipt` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 474) — A routine display row the ledger holds: its id, its stamp (ledger format), and whether it was already there (a retry of the same display).
+- `class DisplayNotRecorded(Exception)` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 483) — The display row could not be written: the screen must not show the answer on its strength, and retries under the same display id.
+- `record_feedback_answer_display_reveal(repository: Repository, *, attempt_id: str, practice_item_id: str, display_id: str, learning_object_id: str | None=None, surface: str='desktop', clock: Clock | None=None) -> DisplayReceipt` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 534) — Record one display of the full answer on a feedback screen.
+- `record_self_grade_disclosure_display(repository: Repository, *, practice_item_id: str, submission_id: str, frozen_hash: str, display_id: str, learning_object_id: str | None=None, clock: Clock | None=None) -> DisplayReceipt` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 568) — Record one display of the key on a pending plain self-grade (round 3 F1).
+- `record_self_grade_disclosure_reveal(repository: Repository, *, practice_item_id: str, submission_id: str, frozen_hash: str, learning_object_id: str | None=None, attempt_id: str | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 599) — Debit the ledger for the full answer a plain self-grade showed.
 
 ### Module constants
 
-- `REVEAL_SOURCE_KINDS` ([src/learnloop/attempts/reveal_ledger.py](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 48)
-- `POST_ATTEMPT_REVEAL_KINDS` ([src/learnloop/attempts/reveal_ledger.py](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 56)
-- `FEEDBACK_FULL_ANSWER_BASIS` ([src/learnloop/attempts/reveal_ledger.py](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 63)
-- `SELF_GRADE_DISCLOSURE_BASIS` ([src/learnloop/attempts/reveal_ledger.py](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 64)
-- `ROUTINE_ANSWER_DISPLAY_BASES` ([src/learnloop/attempts/reveal_ledger.py](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 73)
-- `ROUTINE_ANSWER_DISPLAY_HORIZON` ([src/learnloop/attempts/reveal_ledger.py](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 83)
-- `ROUTINE_ANSWER_DISPLAY_COVERAGE` ([src/learnloop/attempts/reveal_ledger.py](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 90)
-- `DISCLOSURE_IDENTITY_VERSION` ([src/learnloop/attempts/reveal_ledger.py](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 114)
-- `_DISCLOSURE_PREFIX` ([src/learnloop/attempts/reveal_ledger.py](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 115)
+- `REVEAL_SOURCE_KINDS` ([src/learnloop/attempts/reveal_ledger.py](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 47)
+- `POST_ATTEMPT_REVEAL_KINDS` ([src/learnloop/attempts/reveal_ledger.py](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 55)
+- `FEEDBACK_FULL_ANSWER_BASIS` ([src/learnloop/attempts/reveal_ledger.py](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 62)
+- `SELF_GRADE_DISCLOSURE_BASIS` ([src/learnloop/attempts/reveal_ledger.py](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 63)
+- `ROUTINE_ANSWER_DISPLAY_BASES` ([src/learnloop/attempts/reveal_ledger.py](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 72)
+- `ROUTINE_ANSWER_DISPLAY_HORIZON` ([src/learnloop/attempts/reveal_ledger.py](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 82)
+- `ROUTINE_ANSWER_DISPLAY_COVERAGE` ([src/learnloop/attempts/reveal_ledger.py](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 89)
+- `DISCLOSURE_IDENTITY_VERSION` ([src/learnloop/attempts/reveal_ledger.py](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 113)
+- `_DISCLOSURE_PREFIX` ([src/learnloop/attempts/reveal_ledger.py](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 114)
 
 ## Internal implementation anchors
 
-- `_lapsed_routine_display(row: Mapping[str, Any], cutoff: str | None) -> bool` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 143) — A routine row whose coverage no longer reaches the read (the one convention, ``reveal_coverage``: covered when stamped at or after ``cutoff``, inclusive).
-- `_production_trace(repository: Repository, production_id: str | None, practice_item_id: str | None) -> tuple[str | None, str | None]` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 356) — (retry key, trace) of the attempt ``production_id`` names on this item, the identity its own disclosure rows must match exactly; (None, None) without an id: no exemption (``serve_eligibility.attempt_submission``).
-- `_record_routine_display(repository: Repository, *, basis: str, practice_item_id: str, learning_object_id: str | None, attempt_id: str | None, clock: Clock | None) -> DisplayReceipt` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 489) — Write one routine display row, or find it already written; raise :class:`DisplayNotRecorded` on any failure (round 3 F1).
+- `_lapsed_routine_display(row: Mapping[str, Any], cutoff: str | None) -> bool` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 142) — A routine row whose coverage no longer reaches the read (the one convention, ``reveal_coverage``: covered when stamped at or after ``cutoff``, inclusive).
+- `_production_trace(repository: Repository, production_id: str | None, practice_item_id: str | None) -> tuple[str | None, str | None]` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 355) — (retry key, trace) of the attempt ``production_id`` names on this item, the identity its own disclosure rows must match exactly; (None, None) without an id: no exemption (``serve_eligibility.attempt_submission``).
+- `_record_routine_display(repository: Repository, *, basis: str, practice_item_id: str, learning_object_id: str | None, attempt_id: str | None, clock: Clock | None) -> DisplayReceipt` ([source](../../../../../../src/learnloop/attempts/reveal_ledger.py), line 488) — Write one routine display row, or find it already written; raise :class:`DisplayNotRecorded` on any failure (round 3 F1).
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `POST_ATTEMPT_REVEAL_KINDS`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `production_admissibility`; statically calls `production_admissibility`
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `ProductionAdmissibility`, `production_admissibility`; statically calls `ProductionAdmissibility`, `production_admissibility`
 - [[Reference/Modules/learnloop/diagnosis/split/card|learnloop.diagnosis.split.card]] — imports `record_repair_display_reveals`; statically calls `record_repair_display_reveals`
@@ -120,7 +119,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/attempts/trace_evidence|learnloop.attempts.trace_evidence]] — imports `compose_learner_trace`; calls `compose_learner_trace`
-- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`, `utc_now_iso`; calls `utc_now_iso`
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `open_episode_for_practice_item`; calls `open_episode_for_practice_item`
 - [[Reference/Modules/learnloop/reveal_coverage|learnloop.reveal_coverage]] — imports `ROUTINE_DISPLAY_BASES`, `ROUTINE_DISPLAY_COVERAGE`, `ROUTINE_DISPLAY_HORIZON`, `ROUTINE_DISPLAY_RENEWAL_GRACE`, `is_routine_display`, `routine_covered_from`; calls `is_routine_display`, `routine_covered_from`
@@ -128,7 +127,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `datetime`, `json`, `logging`, `typing`
+- Standard library: `__future__`, `dataclasses`, `json`, `logging`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -138,7 +137,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/split/card|learnloop.diagnosis.split.card]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] and 14 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/split/card|learnloop.diagnosis.split.card]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]], [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] and 13 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

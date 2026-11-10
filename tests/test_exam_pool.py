@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.goals.exam_pool import (
     release_exam_pool,
@@ -111,7 +109,6 @@ def test_only_never_attempted_items_are_reservable(tmp_path):
 
 def test_uncovered_facets_reported_when_no_item_tests_a_facet(tmp_path):
     vault, _paths, repository = _vault_with_items(tmp_path)
-    goal = vault.goals[0]
     # Scope includes any facet required by SVD LO items; add an item requiring a
     # facet, then attempt it so nothing reservable can test it.
     _add_item(tmp_path / "vault", "pi_pool_prove", facets=["prove"], difficulty=0.5)

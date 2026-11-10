@@ -119,8 +119,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `resolve_quote_anchor`, `resolved_rubric`; calls `resolve_quote_anchor`, `resolved_rubric`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/stores/diagnosis_review|learnloop.db.stores.diagnosis_review]] — imports `review_rows`; calls `review_rows`
-- [[Reference/Modules/learnloop/diagnosis/offline_review/judge|learnloop.diagnosis.offline_review.judge]] — imports `PAIRS_OF_INTEREST`, `RATINGS`, `module`; calls `cited_links`, `diagnosis_judgment_revision`, `judged_arm_rows`, `link_judgment_revision`, `planted_judgment_revision`, `planted_statements`
-- [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] — imports `MAIN_ARMS`, `RUN_FILE`, `SCRATCH_FILE`
+- [[Reference/Modules/learnloop/diagnosis/offline_review/judge|learnloop.diagnosis.offline_review.judge]] — imports `RATINGS`, `module`; calls `cited_links`, `diagnosis_judgment_revision`, `judged_arm_rows`, `link_judgment_revision`, `planted_judgment_revision`, `planted_statements`
+- [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] — imports `RUN_FILE`, `SCRATCH_FILE`
 
 ### Platform and third-party dependencies
 

@@ -492,7 +492,7 @@ def check_claim(compiled: K.CompiledSketch, claim: K.CompiledClaim, sample: _Sam
         if prop == "sums_to_one":
             total = math.fsum(numbers)
             return None if abs(total - 1.0) <= V.PMF_TOLERANCE else f"{where}: {spec.probe} sums to {total:.12g}"
-        for left, right in zip(numbers, numbers[1:]):
+        for left, right in zip(numbers, numbers[1:], strict=False):
             if right < left - V.MONOTONE_SLACK * max(1.0, abs(left)):
                 return f"{where}: {spec.probe} decreases from {left:.6g} to {right:.6g}"
         return None
@@ -551,7 +551,7 @@ def prediction_outcome(compiled: K.CompiledSketch, engine: SketchEngine, index: 
     program = compiled.program
     prediction = program.predictions[index]
     observe = prediction.observe
-    probe = compiled.probes[observe.probe]
+    compiled.probes[observe.probe]  # an unknown probe raises KeyError here, before the program runs
     defaults = compiled.defaults
     clock = program.clock
     change = dict(prediction.change)
@@ -601,7 +601,7 @@ def prediction_outcome(compiled: K.CompiledSketch, engine: SketchEngine, index: 
     answer = None
     if len(series) == len(labels) and series:
         top = max(series)
-        winners = [label for label, v in zip(labels, series) if abs(v - top) <= 1e-6 * max(1.0, abs(top))]
+        winners = [label for label, v in zip(labels, series, strict=True) if abs(v - top) <= 1e-6 * max(1.0, abs(top))]
         answer = winners[0] if len(winners) == 1 else None
     return {"kind": "choice", "before": None, "after": None, "answer": answer, "choices": labels, "change": change,
             "target_step": target}
@@ -732,13 +732,13 @@ def verify_sketch(compiled: K.CompiledSketch, *, engine_factory: EngineFactory =
                 if step in entry["steps"]:
                     if entry["digests"][entry["steps"].index(step)] != digest:
                         raise _Failed("deterministic", [
-                            f"at {_point_text(dict(zip(names, values)))}: grading a prediction read different values "
+                            f"at {_point_text(dict(zip(names, values, strict=True)))}: grading a prediction read different values "
                             "than verification did (it may not depend on anything but its inputs and rand())"])
                     continue
                 entry["steps"].append(step)
                 entry["digests"].append(digest)
                 settings += 1
-                point = {name: value for name, value in zip(names, values) if value != defaults_point[name]}
+                point = {name: value for name, value in zip(names, values, strict=True) if value != defaults_point[name]}
                 sample = _Sample(point=point, step=step, scene=scene, probes=probes)
                 elements = K.element_index(scene)
                 if binding_problem is None:

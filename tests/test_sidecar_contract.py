@@ -6,7 +6,6 @@ import shutil
 import statistics
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from pathlib import Path
 
 import pytest
 
@@ -136,7 +135,7 @@ def test_sidecar_initialize_start_session_and_queue(tmp_path):
 
 def test_sidecar_checkpoint_patch_preserves_omitted_fields_and_hints(tmp_path):
     vault_root = tmp_path / "vault"
-    paths = create_basic_vault(vault_root)
+    create_basic_vault(vault_root)
 
     first = _rpc(
         [
@@ -1448,8 +1447,7 @@ def test_sidecar_config_carries_gate_fields(tmp_path):
 
 
 def test_sidecar_calibration_session_lifecycle(tmp_path):
-    from learnloop.clock import FrozenClock
-    from tests.helpers import NOW, admit_probe_instrument_card
+    from tests.helpers import admit_probe_instrument_card
 
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)

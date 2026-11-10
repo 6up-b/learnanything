@@ -9,10 +9,8 @@ test exercises ``blueprint_weight_by_facet`` against real blueprint dataclasses.
 from __future__ import annotations
 
 import shutil
-import tempfile
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
 import pytest
 

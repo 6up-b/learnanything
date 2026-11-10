@@ -23,7 +23,7 @@ from learnloop.ai.isolation import TOOL_FREE
 from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION, ISOLATED_TURN, STRUCTURED_COMPLETION
 from learnloop.vault.loader import load_vault
 
-from tests.ad_fakes import ITEMS, LO, TASK_FEATURES, ad_plan_vault, plan_env, rows, stamp_task_features
+from tests.ad_fakes import ITEMS, LO, TASK_FEATURES, rows, stamp_task_features
 from tests.daily_plan_fakes import MovableClock, iso, make_env, scheduled, seed_due
 from tests.helpers import append_config_toml, create_daily_plan_vault
 

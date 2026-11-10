@@ -26,13 +26,11 @@ import re
 import sqlite3
 
 import numpy as np
-import pytest
 
 from learnloop.ai.execution import model_call
 from learnloop.ai.spend import SpendCaps
 from learnloop.clock import FrozenClock
 from learnloop.content.facet_identity import grouping as grouping_module
-from learnloop.content.facet_identity import judge as judge_module
 from learnloop.content.facet_identity.actions import list_actions, undo_action
 from learnloop.content.facet_identity.dedupe import run_dedupe
 from learnloop.content.facet_identity.grouping import centred_unit, shortlist_pairs
@@ -42,22 +40,17 @@ from learnloop.content.facet_identity.judge import (
     TASK,
     DeciderGroupJudge,
     DecidedSet,
-    LLMGroupJudge,
     Member,
     build_judge,
     build_request,
     partition_from_pairs,
-    pricing_for,
     resolve_route,
 )
 from learnloop.content.facet_identity.plan import build_plan, candidate_subject_id
-from learnloop.content.facet_identity.views import judge_view
 from learnloop.content.synthesis.ai_contracts import SourceSetSynthesis, SynthFacet
 from learnloop.content.synthesis.graph_nomination import facet_query
 from learnloop.content.synthesis.synthesis_gates import facet_tokens, jaccard
-from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
-from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
 from tests.decider_fakes import fake_decisions

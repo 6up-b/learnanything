@@ -141,7 +141,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/diagnosis/offline_review/decider_links|learnloop.diagnosis.offline_review.decider_links]] — imports `LinkJudgment`, `LinkVerdict`; statically calls `LinkJudgment`, `LinkVerdict`
 - [[Reference/Modules/learnloop/diagnosis/offline_review/links|learnloop.diagnosis.offline_review.links]] — imports `revision_of`; statically calls `revision_of`
-- [[Reference/Modules/learnloop/diagnosis/offline_review/report|learnloop.diagnosis.offline_review.report]] — imports `PAIRS_OF_INTEREST`, `RATINGS`, `module`; statically calls `cited_links`, `diagnosis_judgment_revision`, `judged_arm_rows`, `link_judgment_revision`, `planted_judgment_revision`, `planted_statements`
+- [[Reference/Modules/learnloop/diagnosis/offline_review/report|learnloop.diagnosis.offline_review.report]] — imports `RATINGS`, `module`; statically calls `cited_links`, `diagnosis_judgment_revision`, `judged_arm_rows`, `link_judgment_revision`, `planted_judgment_revision`, `planted_statements`
 - [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] — imports `module`; statically calls `assign_labels`, `canonical_pair`, `cited_links`, `diagnosis_judgment_prompt`, `diagnosis_judgment_revision`, `input_hash`, `judge_view`, `judged_arm_rows`, `link_judgment_prompt`, `link_judgment_revision`, `planted_cause_prompt`, `planted_judgment_revision`, `planted_statements`, `request_diagnosis_judgment`, `request_link_judgment`, `request_planted_cause_judgment`, `stable_json`
 - [[Reference/Modules/learnloop/diagnosis/offline_review/spot_check|learnloop.diagnosis.offline_review.spot_check]] — imports `judge_view`; statically calls `judge_view`
 

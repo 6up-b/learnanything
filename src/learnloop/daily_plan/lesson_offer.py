@@ -103,7 +103,7 @@ def accept_moments(state: LS.AcceptanceState, context: LS.Context, candidate: LS
 
     weights = state.weights()
     first = second = 0.0
-    for weight, bank in zip(weights, state.banks):
+    for weight, bank in zip(weights, state.banks, strict=True):
         h = state.design(bank, context, candidate)
         m, v = float(h @ bank.mean), max(float(h @ bank.cov @ h), 0.0)
         p = sigmoid(m + math.sqrt(v) * NODES)
@@ -194,7 +194,7 @@ def check_mass(vault: Any, repository: Any, learning_object_id: str, *, at: str)
         LOG.warning("lesson offer: the lesson-check mass was not read", exc_info=True)
         weights, moments, source = np.array([1.0]), [(0.0, 1.0)], "prior (not read)"
     first = second = 0.0
-    for weight, (m, v) in zip(weights, moments):
+    for weight, (m, v) in zip(weights, moments, strict=True):
         p = sigmoid(m + math.sqrt(max(v, 0.0)) * NODES)
         first += float(weight) * float((WEIGHTS * p).sum())
         second += float(weight) * float((WEIGHTS * p * p).sum())

@@ -36,8 +36,8 @@ from learnloop.learner import lesson_weight as LW
 def _posterior_sd(state: LW.WeightState, index: int) -> float:
     weights = state.tau_weights()
     means = [float(bank.mean[index]) for bank in state.banks]
-    mean = sum(w * m for w, m in zip(weights, means))
-    second = sum(w * (float(bank.cov[index, index]) + float(bank.mean[index]) ** 2) for w, bank in zip(weights, state.banks))
+    mean = sum(w * m for w, m in zip(weights, means, strict=True))
+    second = sum(w * (float(bank.cov[index, index]) + float(bank.mean[index]) ** 2) for w, bank in zip(weights, state.banks, strict=True))
     return math.sqrt(max(second - mean * mean, 0.0))
 
 
@@ -86,7 +86,7 @@ def report(vault: Any, repository: Any, *, today: str | None = None) -> dict[str
         "global_mass": round(baseline, 6),
         "resolved_checks": state.updates,
         "contraction": contraction,
-        "tau_weights": dict(zip([str(t) for t in LW.TAU_GRID], [round(float(w), 6) for w in state.tau_weights()])),
+        "tau_weights": dict(zip([str(t) for t in LW.TAU_GRID], [round(float(w), 6) for w in state.tau_weights()], strict=True)),
         "prior_sensitivity": sensitivity,
         "prequential_log_loss": {"n": len(state.prequential), "learned_nats": round(-learned_ll, 6),
                                  "fixed_half_nats": round(-fixed_ll, 6)},

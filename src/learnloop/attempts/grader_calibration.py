@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import math
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock
@@ -619,7 +619,7 @@ def credible_interval(
             row = resolved.joint_alpha[z]
             keys = sorted(row.keys())
             sampled = _dirichlet_sample(rng, [row[k] for k in keys])
-            like = dict(zip(keys, sampled)).get(emission, 0.0)
+            like = dict(zip(keys, sampled, strict=True)).get(emission, 0.0)
             unnormalized[z] = like * prior.get(z, 0.0)
         total = sum(unnormalized.values()) or 1.0
         samples.append(unnormalized[leading] / total)

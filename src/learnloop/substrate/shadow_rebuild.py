@@ -353,7 +353,7 @@ def _sha256_database(path: Path) -> str:
         except FileNotFoundError:
             continue
         with handle:
-            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):  # noqa: B023  called within this iteration, before the loop rebinds it
                 digest.update(chunk)
     return digest.hexdigest()
 
@@ -459,7 +459,7 @@ def _numeric_delta(
     if before is None or after is None:
         return {}
     delta: dict[str, int | float] = {}
-    for field in sorted(set(before) & set(after)):
+    for field in sorted(set(before) & set(after)):  # noqa: F402  a local loop variable; this function never calls dataclasses.field()
         old_value = before[field]
         new_value = after[field]
         if (

@@ -261,7 +261,7 @@ def test_clean_consume_records_cold_success_row_idempotently(tmp_path):
 def test_contaminated_consume_records_typed_row(tmp_path):
     _, vault, repository, misconception_id = _setup(tmp_path)
     treatment = _to_treatment(vault, repository, misconception_id)
-    primed = _attempt(
+    _attempt(
         vault,
         repository,
         treatment["primed_item_id"],

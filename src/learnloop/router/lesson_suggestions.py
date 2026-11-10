@@ -323,7 +323,7 @@ class AcceptanceState:
         """The posterior predictive ``P(accept)`` of an offer: the grid mixture of ``E[σ(h · θ)]``."""
 
         total = 0.0
-        for weight, bank in zip(self.weights(), self.banks):
+        for weight, bank in zip(self.weights(), self.banks, strict=True):
             h = self.design(bank, context, candidate)
             total += float(weight) * gaussian_sigmoid_mean(float(h @ bank.mean), float(h @ bank.cov @ h))
         return min(max(total, 0.0), 1.0)
@@ -363,11 +363,11 @@ class AcceptanceState:
         """Posterior means (grid-weighted) and the recovery grid's weights, for the decision row."""
 
         weights = self.weights()
-        mean = sum(float(w) * bank.mean for w, bank in zip(weights, self.banks))
+        mean = sum(float(w) * bank.mean for w, bank in zip(weights, self.banks, strict=True))
         extra = {"unprompted_updates": self.unprompted_updates} if self.unprompted_updates else {}
         terms = (*TERMS, UNPROMPTED_TERM) if self.unprompted_updates else TERMS
         return {"priors_version": self.priors_version, "updates": self.updates, **extra,
-                "means": {term: round(float(value), 6) for term, value in zip(terms, mean)},
+                "means": {term: round(float(value), 6) for term, value in zip(terms, mean, strict=True)},
                 "recovery_days": [round(bank.recovery_days, 6) for bank in self.banks],
                 "recovery_weights": [round(float(w), 6) for w in weights]}
 

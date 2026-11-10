@@ -12,7 +12,6 @@ from learnloop.cli.runtime import _dump, _load_vault_or_exit, _root
 from learnloop.clock import parse_utc
 from learnloop.substrate.data_quality import data_quality_report
 from learnloop.substrate.dataset import DEFAULT_SPLIT_POLICY, export_dataset, parse_embargo
-from learnloop.substrate.dataset import export_dataset
 from learnloop.substrate.model_usage import SYNTHESIS_BUDGET_FIELDS, model_usage_report
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths

@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/compat/substrate_cutover.py](../../../../../../../src/learnloop/substrate/compat/substrate_cutover.py) |
-| Source lines | 721 |
+| Source lines | 720 |
 | Owning package | [[Reference/Modules/learnloop/substrate/compat/_package|learnloop.substrate.compat]] |
 | Architecture layer | `domain` |
 | Refactor status | `COMPAT` |

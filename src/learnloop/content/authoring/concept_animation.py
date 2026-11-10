@@ -648,11 +648,11 @@ def estimate_scene_duration(code: str) -> float | None:
         env: dict[str, float] = {}
         positional = function.args.args[1:] if function.args.args else []
         defaults = function.args.defaults
-        for param, default in zip(positional[len(positional) - len(defaults):], defaults):
+        for param, default in zip(positional[len(positional) - len(defaults):], defaults, strict=True):
             value = _const_number(default, env)
             if value is not None:
                 env[param.arg] = value
-        for param, default in zip(function.args.kwonlyargs, function.args.kw_defaults):
+        for param, default in zip(function.args.kwonlyargs, function.args.kw_defaults, strict=True):
             if default is None:
                 continue
             value = _const_number(default, env)
@@ -1486,7 +1486,7 @@ def _generate_with_video_model(
 
         shots = [
             {"prompt": shot.prompt.strip(), "duration_seconds": seconds, "caption": shot.caption.strip()}
-            for shot, seconds in zip(storyboard.shots, clamped_shot_seconds(storyboard, context, constraints))
+            for shot, seconds in zip(storyboard.shots, clamped_shot_seconds(storyboard, context, constraints), strict=True)
         ]
         plan = {"prompt_version": VIDEO_STORYBOARD_PROMPT_VERSION, "shots": shots}
         repository.update_concept_animation(
@@ -1542,7 +1542,7 @@ def _generate_with_video_model(
         return fail("video_model", f"could not stitch the shots: {exc}")
     plan["jobs"] = [
         {"job_id": job_id, "status": status.status, "cost": status.cost}
-        for job_id, status in zip(job_ids, statuses)
+        for job_id, status in zip(job_ids, statuses, strict=True)
     ]
     plan["total_cost"] = round(sum(status.cost or 0.0 for status in statuses), 6)
     return _store_video(

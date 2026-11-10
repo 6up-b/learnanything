@@ -242,7 +242,7 @@ def test_a_pair_must_declare_one_symmetric_differing_component(tmp_path):
     """Authored so the analysis is structural rather than inferred (§3.A4)."""
 
     paths = create_basic_vault(tmp_path / "vault")
-    vault = load_vault(paths.root)
+    load_vault(paths.root)
 
     missing = judge_pair(
         _member(FIRST, SECOND, expected="a", differing=None),

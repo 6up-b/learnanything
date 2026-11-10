@@ -422,7 +422,7 @@ def test_narrowing_model_monotonically_increases_effective_mass():
     ).certainty
     within = [mass(point_certainty * f) for f in (0.1, 0.3, 0.5, 0.7, 0.9, 1.0)]
     assert within == sorted(within)
-    assert all(b > a for a, b in zip(within, within[1:]))
+    assert all(b > a for a, b in zip(within, within[1:], strict=False))
     assert within[-1] == pytest.approx(1.0)
     # Synthetic lcb above the point certainty (the robust bound never produces
     # one) clamps at full mass instead of inventing evidence.

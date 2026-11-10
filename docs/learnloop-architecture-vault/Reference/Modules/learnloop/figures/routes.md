@@ -210,7 +210,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_menu_is_neutral_facts_in_order_golden`
   - `test_v3_instructions_replace_the_preference_and_carry_the_rich_brief`
   - `test_with_no_rich_tier_on_the_menu_the_contract_is_v2s_byte_for_byte`
-- [tests/test_figures_fix_round5.py](../../../../../../tests/test_figures_fix_round5.py) — direct import
 - [tests/test_figures_rw5b_review.py](../../../../../../tests/test_figures_rw5b_review.py) — direct import
   - `test_a_figure_built_before_the_panels_came_on_is_reused_with_them_on`
 - [tests/test_figures_scope_redesign.py](../../../../../../tests/test_figures_scope_redesign.py) — direct import

@@ -11,7 +11,6 @@ that publishing the rank merges nothing.
 
 from __future__ import annotations
 
-from pathlib import Path
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository

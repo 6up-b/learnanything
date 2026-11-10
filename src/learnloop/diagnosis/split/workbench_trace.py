@@ -68,7 +68,7 @@ def trace_for_attempt(repository: Any, attempt: Mapping[str, Any], *,
             "AND assist_kind IN ('check', 'hint', 'discriminate_answer') ORDER BY COALESCE(shown_at, requested_at), rowid",
             (str(submission),))
         names = [column[0] for column in cursor.description]
-        rows = [dict(zip(names, raw)) for raw in cursor.fetchall()]
+        rows = [dict(zip(names, raw, strict=True)) for raw in cursor.fetchall()]
     if not rows:
         return None
     assists: list[dict[str, Any]] = []

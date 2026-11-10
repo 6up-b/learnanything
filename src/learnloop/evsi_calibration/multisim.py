@@ -173,7 +173,7 @@ def true_loss(needs: Sequence[str], action: str, *, repair_minutes: float, unres
 
     routes = [route_for(n) for n in needs]
     loss = 0.0 if action in routes else minutes(action)
-    for need, route in zip(needs, routes):
+    for need, route in zip(needs, routes, strict=True):
         if route == action or need == HYP_KNOWS:
             continue
         loss += minutes(route) + unresolved

@@ -207,7 +207,7 @@ def test_mechanism_taxonomy_is_earned_from_recurring_operations(tmp_path):
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
 
-    first = _attempt(vault, repository, "att_operation_1")
+    _attempt(vault, repository, "att_operation_1")
     second = _attempt(
         vault,
         repository,

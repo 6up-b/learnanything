@@ -39,7 +39,6 @@ from learnloop.diagnosis.probe_instance_generation import (
 )
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import write_yaml
-from learnloop.vault.models import LoadedVault
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault
 

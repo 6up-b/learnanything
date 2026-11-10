@@ -835,9 +835,9 @@ def test_codex_f3_rollouts_carry_the_lesson_window_as_ads_transition_does(sequen
     learned = V.Learning(gamma=(gm, P.GAMMA_PRIOR[2]), lesson=_prior_curve(mean=posterior, cov=prior.prior_cov))
     believed, _true = _objective_lesson_steps(sequence, learned)
     oracle = [post - pri for post, pri in zip(_ad_lesson_steps(sequence, posterior),
-                                              _ad_lesson_steps(sequence, prior.prior_mean))]
+                                              _ad_lesson_steps(sequence, prior.prior_mean), strict=True)]
     assert len(believed) == len(oracle) == sequence.count("L")
-    for step, expected in zip(believed, oracle):
+    for step, expected in zip(believed, oracle, strict=True):
         assert np.allclose(step, placeholder + expected, atol=1e-12, rtol=0.0)
     # The window moved: a second consecutive lesson's learned shift is AD's second-dose one, not a first dose again;
     # after a graded attempt the window is closed and the next lesson is a first dose.
@@ -851,7 +851,7 @@ def test_codex_f3_rollouts_carry_the_lesson_window_as_ads_transition_does(sequen
     at_prior = V.Learning(gamma=(gm, P.GAMMA_PRIOR[2]), lesson=_prior_curve({"lo_a": 2.0}))
     believed_prior, true_prior = _objective_lesson_steps(sequence, at_prior)
     believed_off, true_off = _objective_lesson_steps(sequence, V.Learning(gamma=(gm, P.GAMMA_PRIOR[2])))
-    for a, b in zip(believed_prior + true_prior, believed_off + true_off):
+    for a, b in zip(believed_prior + true_prior, believed_off + true_off, strict=True):
         assert np.array_equal(a, b)
 
 

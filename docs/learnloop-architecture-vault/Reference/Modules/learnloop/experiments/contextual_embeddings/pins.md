@@ -247,7 +247,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_label_passes_never_reach_a_codex_turn`
   - `test_voyage_is_admitted_at_the_full_price_never_the_free_tier`
 - [tests/test_e0_review_round5.py](../../../../../../../tests/test_e0_review_round5.py) — direct import
-  - `test_a_prompt_that_could_pass_100k_tokens_is_admitted_at_haikus_long_rate`
   - `test_each_post_is_admitted_first_at_its_hard_maximum_and_settled_from_usage`
   - `test_preflight_only_reports_names_and_checks_with_zero_network_and_no_value`
   - `test_the_key_is_in_one_header_only_and_errors_are_allowlisted`

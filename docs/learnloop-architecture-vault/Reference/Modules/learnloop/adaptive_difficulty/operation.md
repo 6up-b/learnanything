@@ -47,66 +47,66 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py) |
-| Source lines | 796 |
+| Source lines | 794 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class GuardDenied(RuntimeError)` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 82) — A read or write the AD guard refused inside an operation (A8): AD is unavailable for it.
-- `class OperationPoisoned(GuardDenied)` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 86) — An operation in which the guard refused something: its output may not be used, whatever the code inside did with the refusal.
-- `class Guard` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 92) — The operation's SQLite authorizer (see the module docstring).
-  - `__post_init__(self) -> None` (line 121; internal)
-  - `_statement_started(self, sql: Any) -> None` (line 125; internal) — SQLite's trace: a statement began running, after its preparation (round 6).
-  - `authorize(self, action: int, arg1: Any, arg2: Any, database: Any, source: Any) -> int` (line 139; public)
-  - `_write_access(self, table: str, column: str | None) -> bool` (line 172; internal)
-  - `_read(self, table: str, database: Any, column: str | None=None) -> int` (line 179; internal)
-  - `_write(self, table: str, verb: str) -> int` (line 217; internal)
-  - `_deny(self, verb: str, table: str, why: str, reader: str) -> int` (line 232; internal)
-  - `install(self, connection: Any) -> None` (line 249; public)
-  - `refresh(self) -> None` (line 263; public) — Expire every guarded connection's statement cache (by re-installing the authorizer).
-  - `remove(self, connection: Any) -> None` (line 275; public)
-- `class Scope(str, Enum)` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 299) — The rules' read scopes, closed (the final round): the material view's readers, the derivation of a visible reading's stored structure, and the held-out predicate's own inputs.
-- `class ViewFailure(RuntimeError)` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 311) — A failure inside a rules scope, as it leaves the scope: its kind (``error`` or ``denied``) and the failing exception's type name, nothing else (no cause, no context, no inner frames; the final round's codec, :func:`scoped`).
-- `class ViewDenied(ViewFailure, GuardDenied)` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 317) — The guard's refusal inside a rules scope, as it leaves the scope (still a denial).
-- `scoped(scope: Scope, run: Callable[[], Any]) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 321) — ``run()`` inside the rules scope ``scope``; any exception leaving it becomes a :class:`ViewFailure` (or :class:`ViewDenied`) carrying only its kind and type name, raised OUTSIDE the ``except`` clause so that neither ``__cause__`` nor ``__context__`` points at the original (``rai…
-- `class Operation` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 416) — One AD operation (see the module docstring).
-  - `available(self) -> bool` (line 428; public)
-- `current() -> Operation | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 432) — The operation open in this context, if any.
-- `epoch_of(view: Any) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 438) — The protection epoch of a material view (:meth:`MaterialView.epoch`): a digest of everything its projection withholds.
-- `rules(name: Scope) -> Iterator[None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 450) — The rules' read scope: protected tables may be read (the rules' own SQL carries :data:`RULES_MARKER`).
-- `own_write(table: str) -> Iterator[None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 479) — A store writer's own idempotency read of the AD table it writes (its existence check before the insert): allowed for that table only, and only around the writer's call.
-- `suspended() -> Iterator[None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 499) — Leave the operation for a deliberate egress (the AD23 redesign): the send guard re-reads the predicate afresh at each request by design, and a model call may run the incumbent's own work (a reload's maintenance), which never runs inside an operation.
-- `ad_operation(vault: Any, repository: Any, *, protected: Any=None, connections: tuple[Any, ...]=(), mode: str | None=None, name: str | None=None, savepoint: bool=False, read_only: bool=False) -> Iterator[Operation]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 540) — Open (or join) the operation for this database (see the module docstring).
-- `optional_operation(vault: Any, repository: Any, *, savepoint: bool=False, read_only: bool=False) -> Iterator[Operation | None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 683) — The operation, or None with adaptive difficulty off (then nothing opens).
-- `is_denial(exc: BaseException) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 697) — Whether an exception is the guard's refusal (SQLite's "not authorized" for a statement, "access to <table>.<column> is prohibited" for a column read), or an AD reader's refusal to read a withheld record it would otherwise reuse (:class:`GuardDenied`).
-- `entry(func: Callable[..., Any] | None=None, *, poisoned: Callable[[Mapping[str, Any]], Any] | None=None, savepoint: bool=False, read_only: bool=False, durable: str | None=None) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 714) — Run an AD entry point inside an operation: its ``vault`` and ``repository`` arguments are replaced by the operation's, its ``view`` (when it takes one and none was given) by the operation's view, and a ``connection`` it was handed carries the guard.
+- `class GuardDenied(RuntimeError)` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 80) — A read or write the AD guard refused inside an operation (A8): AD is unavailable for it.
+- `class OperationPoisoned(GuardDenied)` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 84) — An operation in which the guard refused something: its output may not be used, whatever the code inside did with the refusal.
+- `class Guard` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 90) — The operation's SQLite authorizer (see the module docstring).
+  - `__post_init__(self) -> None` (line 119; internal)
+  - `_statement_started(self, sql: Any) -> None` (line 123; internal) — SQLite's trace: a statement began running, after its preparation (round 6).
+  - `authorize(self, action: int, arg1: Any, arg2: Any, database: Any, source: Any) -> int` (line 137; public)
+  - `_write_access(self, table: str, column: str | None) -> bool` (line 170; internal)
+  - `_read(self, table: str, database: Any, column: str | None=None) -> int` (line 177; internal)
+  - `_write(self, table: str, verb: str) -> int` (line 215; internal)
+  - `_deny(self, verb: str, table: str, why: str, reader: str) -> int` (line 230; internal)
+  - `install(self, connection: Any) -> None` (line 247; public)
+  - `refresh(self) -> None` (line 261; public) — Expire every guarded connection's statement cache (by re-installing the authorizer).
+  - `remove(self, connection: Any) -> None` (line 273; public)
+- `class Scope(str, Enum)` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 297) — The rules' read scopes, closed (the final round): the material view's readers, the derivation of a visible reading's stored structure, and the held-out predicate's own inputs.
+- `class ViewFailure(RuntimeError)` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 309) — A failure inside a rules scope, as it leaves the scope: its kind (``error`` or ``denied``) and the failing exception's type name, nothing else (no cause, no context, no inner frames; the final round's codec, :func:`scoped`).
+- `class ViewDenied(ViewFailure, GuardDenied)` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 315) — The guard's refusal inside a rules scope, as it leaves the scope (still a denial).
+- `scoped(scope: Scope, run: Callable[[], Any]) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 319) — ``run()`` inside the rules scope ``scope``; any exception leaving it becomes a :class:`ViewFailure` (or :class:`ViewDenied`) carrying only its kind and type name, raised OUTSIDE the ``except`` clause so that neither ``__cause__`` nor ``__context__`` points at the original (``rai…
+- `class Operation` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 414) — One AD operation (see the module docstring).
+  - `available(self) -> bool` (line 426; public)
+- `current() -> Operation | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 430) — The operation open in this context, if any.
+- `epoch_of(view: Any) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 436) — The protection epoch of a material view (:meth:`MaterialView.epoch`): a digest of everything its projection withholds.
+- `rules(name: Scope) -> Iterator[None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 448) — The rules' read scope: protected tables may be read (the rules' own SQL carries :data:`RULES_MARKER`).
+- `own_write(table: str) -> Iterator[None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 477) — A store writer's own idempotency read of the AD table it writes (its existence check before the insert): allowed for that table only, and only around the writer's call.
+- `suspended() -> Iterator[None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 497) — Leave the operation for a deliberate egress (the AD23 redesign): the send guard re-reads the predicate afresh at each request by design, and a model call may run the incumbent's own work (a reload's maintenance), which never runs inside an operation.
+- `ad_operation(vault: Any, repository: Any, *, protected: Any=None, connections: tuple[Any, ...]=(), mode: str | None=None, name: str | None=None, savepoint: bool=False, read_only: bool=False) -> Iterator[Operation]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 538) — Open (or join) the operation for this database (see the module docstring).
+- `optional_operation(vault: Any, repository: Any, *, savepoint: bool=False, read_only: bool=False) -> Iterator[Operation | None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 681) — The operation, or None with adaptive difficulty off (then nothing opens).
+- `is_denial(exc: BaseException) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 695) — Whether an exception is the guard's refusal (SQLite's "not authorized" for a statement, "access to <table>.<column> is prohibited" for a column read), or an AD reader's refusal to read a withheld record it would otherwise reuse (:class:`GuardDenied`).
+- `entry(func: Callable[..., Any] | None=None, *, poisoned: Callable[[Mapping[str, Any]], Any] | None=None, savepoint: bool=False, read_only: bool=False, durable: str | None=None) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 712) — Run an AD entry point inside an operation: its ``vault`` and ``repository`` arguments are replaced by the operation's, its ``view`` (when it takes one and none was given) by the operation's view, and a ``connection`` it was handed carries the guard.
 
 ### Module constants
 
-- `LOG` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 67)
-- `EPOCH_VERSION` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 70)
-- `RULES_MARKER` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 72)
-- `_CURRENT` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 74)
-- `_IN_RULES` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 75)
-- `_OWN_WRITE` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 76)
-- `_READ` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 78)
-- `_WRITES` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 79)
-- `UPDATE_SELECT` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 286)
-- `RETURNING` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 287)
-- `_RETURNING_RE` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 288)
-- `_SQL_NOISE_RE` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 289)
-- `DERIVE` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 308)
-- `DERIVED_READ` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 338)
-- `CONTENT_READ` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 340)
-- `POISONED` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 342)
-- `_SCHEMA_FACTS` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 344)
-- `_MODE` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 648)
-- `DENIALS` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 658)
-- `OBSERVERS` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 664)
-- `WRITE_FORMS` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 710)
-- `_READ_ONLY` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 711)
+- `LOG` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 65)
+- `EPOCH_VERSION` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 68)
+- `RULES_MARKER` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 70)
+- `_CURRENT` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 72)
+- `_IN_RULES` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 73)
+- `_OWN_WRITE` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 74)
+- `_READ` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 76)
+- `_WRITES` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 77)
+- `UPDATE_SELECT` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 284)
+- `RETURNING` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 285)
+- `_RETURNING_RE` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 286)
+- `_SQL_NOISE_RE` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 287)
+- `DERIVE` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 306)
+- `DERIVED_READ` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 336)
+- `CONTENT_READ` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 338)
+- `POISONED` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 340)
+- `_SCHEMA_FACTS` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 342)
+- `_MODE` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 646)
+- `DENIALS` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 656)
+- `OBSERVERS` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 662)
+- `WRITE_FORMS` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 708)
+- `_READ_ONLY` ([src/learnloop/adaptive_difficulty/operation.py](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 709)
 
 ### Explicit exports
 
@@ -135,17 +135,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_bare_sql(sql: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 292) — A statement without its literals, quoted identifiers and comments.
-- `_schema_facts(raw: Any, database: Path) -> tuple[frozenset[str], dict[str, frozenset[tuple[str, str]]]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 347) — The schema's trigger names, and per AD-writable table the KEY COLUMNS its declared foreign keys read, as ``(table, column)``: its parents' referenced keys, and the children's referencing columns (cached per schema version).
-- `_entry_name() -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 381)
-- `_stack_modules() -> tuple[str, ...]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 392)
-- `_reader() -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 403) — The innermost LearnLoop module (outside the database layer and this module) on the stack.
-- `_no_hook() -> Iterator[None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 525)
-- `_same_database(op: Operation, repository: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 532)
-- `_operation(vault: Any, repository: Any, *, protected: Any=None, connections: tuple[Any, ...]=(), mode: str | None=None, name: str | None=None) -> Iterator[Operation]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 579)
-- `_default_mode() -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 651)
-- `_record_denials(op: Operation) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 667)
-- `_is_protection(value: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 787)
+- `_bare_sql(sql: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 290) — A statement without its literals, quoted identifiers and comments.
+- `_schema_facts(raw: Any, database: Path) -> tuple[frozenset[str], dict[str, frozenset[tuple[str, str]]]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 345) — The schema's trigger names, and per AD-writable table the KEY COLUMNS its declared foreign keys read, as ``(table, column)``: its parents' referenced keys, and the children's referencing columns (cached per schema version).
+- `_entry_name() -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 379)
+- `_stack_modules() -> tuple[str, ...]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 390)
+- `_reader() -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 401) — The innermost LearnLoop module (outside the database layer and this module) on the stack.
+- `_no_hook() -> Iterator[None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 523)
+- `_same_database(op: Operation, repository: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 530)
+- `_operation(vault: Any, repository: Any, *, protected: Any=None, connections: tuple[Any, ...]=(), mode: str | None=None, name: str | None=None) -> Iterator[Operation]` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 577)
+- `_default_mode() -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 649)
+- `_record_denials(op: Operation) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 665)
+- `_is_protection(value: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/operation.py), line 785)
 
 ## Who imports or calls it
 
@@ -186,7 +186,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/column_classes|learnloop.adaptive_difficulty.column_classes]] — imports `module`; calls `column_class`
-- [[Reference/Modules/learnloop/adaptive_difficulty/denial_log|learnloop.adaptive_difficulty.denial_log]] — imports `append_denials`, `denial_count`, `denial_log_path`; calls `append_denials`
+- [[Reference/Modules/learnloop/adaptive_difficulty/denial_log|learnloop.adaptive_difficulty.denial_log]] — imports `append_denials`, `denial_count`; calls `append_denials`
 - [[Reference/Modules/learnloop/adaptive_difficulty/logs|learnloop.adaptive_difficulty.logs]] — imports `warn_failure`; calls `warn_failure`
 - [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `MaterialView`, `detached_view`; calls `detached_view`
 - [[Reference/Modules/learnloop/adaptive_difficulty/projection|learnloop.adaptive_difficulty.projection]] — imports `project_repository`, `project_vault`; calls `project_repository`, `project_vault`
@@ -199,7 +199,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `contextlib`, `contextvars`, `copy`, `dataclasses`, `enum`, `functools`, `hashlib`, `inspect`, `logging`, `pathlib`, `re`, `sqlite3`, `sys`, `typing`
+- Standard library: `__future__`, `collections`, `contextlib`, `contextvars`, `dataclasses`, `enum`, `functools`, `inspect`, `logging`, `pathlib`, `re`, `sqlite3`, `sys`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

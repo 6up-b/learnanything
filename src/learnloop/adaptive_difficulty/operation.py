@@ -46,11 +46,9 @@ With adaptive difficulty off, no operation opens and nothing here runs.
 
 from __future__ import annotations
 
-from learnloop.adaptive_difficulty.denial_log import append_denials, denial_count, denial_log_path
+from learnloop.adaptive_difficulty.denial_log import append_denials, denial_count
 from learnloop.adaptive_difficulty.logs import warn_failure
-import copy
 import functools
-import hashlib
 import inspect
 import logging
 import re

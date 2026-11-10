@@ -115,7 +115,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 - [[Reference/Modules/learnloop/decider_judgments|learnloop.decider_judgments]] — imports `ReviewSpend`, `RouteInfo`; statically calls `ReviewSpend`, `RouteInfo`
 - [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] — imports `RouteInfo`; statically calls `RouteInfo`
-- [[Reference/Modules/learnloop/diagnosis/offline_review/spend|learnloop.diagnosis.offline_review.spend]] — imports `__all__`, `module`
+- [[Reference/Modules/learnloop/diagnosis/offline_review/spend|learnloop.diagnosis.offline_review.spend]] — imports `module`
 - [[Reference/Modules/learnloop/field/decider|learnloop.field.decider]] — imports `ReviewSpend`; statically calls `ReviewSpend`
 - [[Reference/Modules/learnloop/ops/contamination/decider|learnloop.ops.contamination.decider]] — imports `ReviewSpend`; statically calls `ReviewSpend`
 

@@ -8,7 +8,6 @@ schema, forecaster family and ledger exactly; a refused row rolls back alone; no
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 from datetime import UTC, datetime, timedelta
@@ -47,7 +46,7 @@ def _rows(repository, sql, params=()):
 def _episodes(repository):
     with repository.connection() as connection:
         cursor = connection.execute("SELECT * FROM lesson_episodes ORDER BY opened_at, id")
-        return [{d[0]: v for d, v in zip(cursor.description, row)} for row in cursor.fetchall()]
+        return [{d[0]: v for d, v in zip(cursor.description, row, strict=True)} for row in cursor.fetchall()]
 
 
 def detour_turn(node="n1", repair="reteach", p=0.7, hypothesis=HYPOTHESIS, message="Let's look at it another way."):
@@ -346,7 +345,7 @@ def _log_texts(repository):
     with repository.connection() as connection:
         for table in ("lesson_episodes", "forecast_receipts"):
             cursor = connection.execute(f"SELECT * FROM {table}")
-            out.extend((table, d[0], v) for row in cursor.fetchall() for d, v in zip(cursor.description, row)
+            out.extend((table, d[0], v) for row in cursor.fetchall() for d, v in zip(cursor.description, row, strict=True)
                        if isinstance(v, str))
     return out
 

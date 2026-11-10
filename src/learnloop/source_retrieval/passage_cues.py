@@ -73,7 +73,6 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_gaps as gap_store
 from learnloop.db.stores import reader_cue_links as store
-from learnloop.db.stores.source_block_fts import blocks_by_key
 from learnloop.practice_index.listwise import ListwiseTask, judge_listwise, route_skip, task_output_tokens
 from learnloop.practice_index.paid import (
     PaidCalls,

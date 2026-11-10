@@ -49,7 +49,6 @@ from learnloop.content.synthesis.ai_contracts import (
 )
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.ingest.hashing import normalize_semantic_text
 from learnloop.ingest.ir import DocumentIR
 from learnloop.ingest.reanchor import EXACT_HASH, reanchor_spans
 from learnloop.content.sources.role_authority import default_inventory_profile
@@ -227,7 +226,7 @@ def build_inventory_windows(
     current_tokens = 0
     last_section: tuple[str, ...] | None = None
 
-    for block, entry in zip(kept_blocks, view_blocks):
+    for block, entry in zip(kept_blocks, view_blocks, strict=True):
         block_tokens = _approx_tokens(entry["text"])
         section = _section_key(block)
         at_boundary = section != last_section

@@ -63,7 +63,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 13 static module edges
+- [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 12 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 3 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 1 static module edge
 
@@ -86,7 +86,7 @@ flowchart LR
     n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_config["learnloop.config"]
-    center -->|13| n_learnloop_ingest
+    center -->|12| n_learnloop_ingest
     n_learnloop_content_pipeline -->|8| center
     center -->|3| n_learnloop_ai
     n_learnloop_content_sources -->|3| center

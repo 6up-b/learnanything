@@ -132,7 +132,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]] — imports `held_for_review_attempts`; statically calls `held_for_review_attempts`
 - [[Reference/Modules/learnloop/scheduling/review_log|learnloop.scheduling.review_log]] — imports `held_attempt_ids`; statically calls `held_attempt_ids`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `held_attempt_ids`; statically calls `held_attempt_ids`
-- [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `HELD_ROW_KEY`, `attempt_grade_held`, `contract_unrecorded_attempts`, `held_attempt_ids`, `held_for_review_attempts`, `mark_held_attempts`, `pfc_assessment`, `pfc_assessments`; statically calls `contract_unrecorded_attempts`
+- [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `contract_unrecorded_attempts`, `held_for_review_attempts`, `pfc_assessments`; statically calls `contract_unrecorded_attempts`
 - [[Reference/Modules/learnloop/substrate/data_quality|learnloop.substrate.data_quality]] — imports `held_for_review_attempts`; statically calls `held_for_review_attempts`
 - [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] — imports `held_for_review_attempts`; statically calls `held_for_review_attempts`
 - [[Reference/Modules/learnloop/substrate/intervention_outcomes|learnloop.substrate.intervention_outcomes]] — imports `held_for_review_attempts`; statically calls `held_for_review_attempts`

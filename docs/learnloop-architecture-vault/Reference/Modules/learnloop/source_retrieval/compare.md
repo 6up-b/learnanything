@@ -47,34 +47,34 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/source_retrieval/compare.py](../../../../../../src/learnloop/source_retrieval/compare.py) |
-| Source lines | 875 |
+| Source lines | 873 |
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class Contribution(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 137)
-- `class PairRelation(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 144)
-- `class SourceComparison(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 153) — Per-source contributions and pairwise relations; deliberately no consensus field.
-- `class PointCell(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 161)
-- `class ComparisonPoint(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 168)
-- `class SourceComparisonV2(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 176) — Reader CA4: points, each with per-source cells and its pairs' relations; deliberately no consensus field.
-- `class Comparison` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 184)
-  - `as_dict(self) -> dict[str, Any]` (line 201; public)
-- `compare_sources(vault: LoadedVault, repository: Repository, query: str, *, caller: CallerContext, facet_ids: Sequence[str]=(), requested_perspectives: Sequence[str]=(), pinned_span_ids: Sequence[Any]=(), pinned_span_keys: Sequence[Any]=(), anchor_span_keys: Sequence[Any]=(), source_ids: Sequence[str]=(), by_point: bool=False, policy: str | None=None, deadline: float | None=None, client: Any | None=None, verify_client: Any | None=None, embedder: Any | None=None, clock: Clock | None=None) -> Comparison` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 235)
+- `class Contribution(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 136)
+- `class PairRelation(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 143)
+- `class SourceComparison(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 152) — Per-source contributions and pairwise relations; deliberately no consensus field.
+- `class PointCell(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 160)
+- `class ComparisonPoint(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 167)
+- `class SourceComparisonV2(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 175) — Reader CA4: points, each with per-source cells and its pairs' relations; deliberately no consensus field.
+- `class Comparison` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 183)
+  - `as_dict(self) -> dict[str, Any]` (line 200; public)
+- `compare_sources(vault: LoadedVault, repository: Repository, query: str, *, caller: CallerContext, facet_ids: Sequence[str]=(), requested_perspectives: Sequence[str]=(), pinned_span_ids: Sequence[Any]=(), pinned_span_keys: Sequence[Any]=(), anchor_span_keys: Sequence[Any]=(), source_ids: Sequence[str]=(), by_point: bool=False, policy: str | None=None, deadline: float | None=None, client: Any | None=None, verify_client: Any | None=None, embedder: Any | None=None, clock: Clock | None=None) -> Comparison` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 234)
 
 ### Module constants
 
-- `COMPARE_PROMPT_VERSION` ([src/learnloop/source_retrieval/compare.py](../../../../../../src/learnloop/source_retrieval/compare.py), line 96)
-- `COMPARE_PROMPT_VERSION_V2` ([src/learnloop/source_retrieval/compare.py](../../../../../../src/learnloop/source_retrieval/compare.py), line 98)
-- `KEYS_PER_SOURCE` ([src/learnloop/source_retrieval/compare.py](../../../../../../src/learnloop/source_retrieval/compare.py), line 103)
-- `VERIFY_PAGE` ([src/learnloop/source_retrieval/compare.py](../../../../../../src/learnloop/source_retrieval/compare.py), line 104)
-- `PASSAGE_CHARS` ([src/learnloop/source_retrieval/compare.py](../../../../../../src/learnloop/source_retrieval/compare.py), line 105)
-- `NO_SUCH_PASSAGE` ([src/learnloop/source_retrieval/compare.py](../../../../../../src/learnloop/source_retrieval/compare.py), line 108)
-- `RELATIONS` ([src/learnloop/source_retrieval/compare.py](../../../../../../src/learnloop/source_retrieval/compare.py), line 109)
-- `_INSTRUCTIONS` ([src/learnloop/source_retrieval/compare.py](../../../../../../src/learnloop/source_retrieval/compare.py), line 110)
-- `_INSTRUCTIONS_V2` ([src/learnloop/source_retrieval/compare.py](../../../../../../src/learnloop/source_retrieval/compare.py), line 122)
+- `COMPARE_PROMPT_VERSION` ([src/learnloop/source_retrieval/compare.py](../../../../../../src/learnloop/source_retrieval/compare.py), line 95)
+- `COMPARE_PROMPT_VERSION_V2` ([src/learnloop/source_retrieval/compare.py](../../../../../../src/learnloop/source_retrieval/compare.py), line 97)
+- `KEYS_PER_SOURCE` ([src/learnloop/source_retrieval/compare.py](../../../../../../src/learnloop/source_retrieval/compare.py), line 102)
+- `VERIFY_PAGE` ([src/learnloop/source_retrieval/compare.py](../../../../../../src/learnloop/source_retrieval/compare.py), line 103)
+- `PASSAGE_CHARS` ([src/learnloop/source_retrieval/compare.py](../../../../../../src/learnloop/source_retrieval/compare.py), line 104)
+- `NO_SUCH_PASSAGE` ([src/learnloop/source_retrieval/compare.py](../../../../../../src/learnloop/source_retrieval/compare.py), line 107)
+- `RELATIONS` ([src/learnloop/source_retrieval/compare.py](../../../../../../src/learnloop/source_retrieval/compare.py), line 108)
+- `_INSTRUCTIONS` ([src/learnloop/source_retrieval/compare.py](../../../../../../src/learnloop/source_retrieval/compare.py), line 109)
+- `_INSTRUCTIONS_V2` ([src/learnloop/source_retrieval/compare.py](../../../../../../src/learnloop/source_retrieval/compare.py), line 121)
 
 ### Explicit exports
 
@@ -92,18 +92,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_normalized(text: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 213)
-- `_quote_in(quote: str, passage: str) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 217)
-- `_by_source(scope: Scope) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 221)
-- `_pin_reason(scope: Scope, key: tuple[str, str], *, policy: str, item: Any) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 228)
-- `_compare_sources(vault: LoadedVault, repository: Repository, query: str, *, caller: CallerContext, facet_ids: Sequence[str], requested_perspectives: Sequence[str], pinned_span_ids: Sequence[Any], pinned_span_keys: Sequence[Any], anchor_span_keys: Sequence[Any]=(), source_ids: Sequence[str]=(), by_point: bool=False, policy: str | None=None, deadline: float | None=None, client: Any | None, verify_client: Any | None, embedder: Any | None, clock: Clock | None) -> Comparison` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 273)
-- `_cell_holders(repository: Repository, refs: Mapping[str, SpanHit], anchor: SpanHit | None, anchor_blocks: Sequence[tuple[str, str]]) -> dict[str, list[tuple[str, str, str]]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 692) — Per ref, the blocks of its passage as ``(extraction, span, text)`` (an anchor of several blocks is all of them, in order), so a quoted cell names the block that holds its quote.
-- `_verified_points(answer: SourceComparisonV2, refs: Mapping[str, SpanHit], passages: Mapping[str, str], holders: Mapping[str, list[tuple[str, str, str]]], requested: list[str], dropped: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 708) — The v2 output as it may be shown (K13): every quoted cell's quote is in its own source's passage (else ``not_addressed``, listed as dropped); every compared source has a cell on every point; a relation stands only between two quoted cells of its point with both quotes verified (…
-- `_ordered_keys(values: Sequence[Any]) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 798) — ``_span_keys`` in the given order (an anchor's first block names it).
-- `_anchor_hit(repository: Repository, scope: Scope, keys: Sequence[tuple[str, str]]) -> tuple[SpanHit, list[tuple[str, str]]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 807) — The anchor as one passage: its blocks of the first block's extraction, in the learner's order, joined (cut to the prompt bound as any passage), and those blocks (the first names the passage).
-- `_also_in(vault: LoadedVault, repository: Repository, query: str, scope: Scope, others: Mapping[str, list[str]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 827) — The other books with a keyword passage on the question (CA3, Q13): one unchecked hit each, exam material withheld, never sent to a model.
-- `_entry(hit: SpanHit, ref: str, anchor: SpanHit | None, anchor_blocks: Sequence[tuple[str, str]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 846)
-- `_source_entry(hit: SpanHit, ref: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 858)
+- `_normalized(text: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 212)
+- `_quote_in(quote: str, passage: str) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 216)
+- `_by_source(scope: Scope) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 220)
+- `_pin_reason(scope: Scope, key: tuple[str, str], *, policy: str, item: Any) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 227)
+- `_compare_sources(vault: LoadedVault, repository: Repository, query: str, *, caller: CallerContext, facet_ids: Sequence[str], requested_perspectives: Sequence[str], pinned_span_ids: Sequence[Any], pinned_span_keys: Sequence[Any], anchor_span_keys: Sequence[Any]=(), source_ids: Sequence[str]=(), by_point: bool=False, policy: str | None=None, deadline: float | None=None, client: Any | None, verify_client: Any | None, embedder: Any | None, clock: Clock | None) -> Comparison` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 272)
+- `_cell_holders(repository: Repository, refs: Mapping[str, SpanHit], anchor: SpanHit | None, anchor_blocks: Sequence[tuple[str, str]]) -> dict[str, list[tuple[str, str, str]]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 690) — Per ref, the blocks of its passage as ``(extraction, span, text)`` (an anchor of several blocks is all of them, in order), so a quoted cell names the block that holds its quote.
+- `_verified_points(answer: SourceComparisonV2, refs: Mapping[str, SpanHit], passages: Mapping[str, str], holders: Mapping[str, list[tuple[str, str, str]]], requested: list[str], dropped: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 706) — The v2 output as it may be shown (K13): every quoted cell's quote is in its own source's passage (else ``not_addressed``, listed as dropped); every compared source has a cell on every point; a relation stands only between two quoted cells of its point with both quotes verified (…
+- `_ordered_keys(values: Sequence[Any]) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 796) — ``_span_keys`` in the given order (an anchor's first block names it).
+- `_anchor_hit(repository: Repository, scope: Scope, keys: Sequence[tuple[str, str]]) -> tuple[SpanHit, list[tuple[str, str]]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 805) — The anchor as one passage: its blocks of the first block's extraction, in the learner's order, joined (cut to the prompt bound as any passage), and those blocks (the first names the passage).
+- `_also_in(vault: LoadedVault, repository: Repository, query: str, scope: Scope, others: Mapping[str, list[str]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 825) — The other books with a keyword passage on the question (CA3, Q13): one unchecked hit each, exam material withheld, never sent to a model.
+- `_entry(hit: SpanHit, ref: str, anchor: SpanHit | None, anchor_blocks: Sequence[tuple[str, str]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 844)
+- `_source_entry(hit: SpanHit, ref: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 856)
 
 ## Who imports or calls it
 
@@ -135,7 +135,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `PaidCalls`, `plan_route`, `resolve_client`, `transport_problem`; calls `PaidCalls`, `plan_route`, `resolve_client`, `transport_problem`
 - [[Reference/Modules/learnloop/source_retrieval/corpus|learnloop.source_retrieval.corpus]] — imports `Scope`, `exam_withheld`, `item_exclusions`; calls `Scope`, `exam_withheld`, `item_exclusions`
 - [[Reference/Modules/learnloop/source_retrieval/feedback|learnloop.source_retrieval.feedback]] — imports `deliver`; calls `deliver`
-- [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `INTENT_VERDICTS`, `_span_keys`, `_verify`, `facet_lists`, `scope_for`; calls `_span_keys`, `_verify`, `facet_lists`, `scope_for`
+- [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `_span_keys`, `_verify`, `facet_lists`, `scope_for`; calls `_span_keys`, `_verify`, `facet_lists`, `scope_for`
 - [[Reference/Modules/learnloop/source_retrieval/policy|learnloop.source_retrieval.policy]] — imports `CallerContext`, `PolicyRefused`, `derive_policy`; calls `PolicyRefused`, `derive_policy`
 - [[Reference/Modules/learnloop/source_retrieval/queries|learnloop.source_retrieval.queries]] — imports `embed_query_texts`; calls `embed_query_texts`
 - [[Reference/Modules/learnloop/source_retrieval/search|learnloop.source_retrieval.search]] — imports `SpanHit`, `search_spans`; calls `SpanHit`, `search_spans`
@@ -145,7 +145,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `contextlib`, `dataclasses`, `json`, `time`, `typing`
+- Standard library: `__future__`, `collections`, `contextlib`, `dataclasses`, `time`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

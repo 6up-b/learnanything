@@ -29,7 +29,7 @@ from learnloop.vault.paths import VaultPaths
 from learnloop.vault.writer import upsert_source_set
 from learnloop.vault.yaml_io import write_yaml
 from tests.practice_index_fakes import _learning_object
-from tests.source_retrieval_fakes import EXAM_QUESTION, build_retrieval_vault, seed_source
+from tests.source_retrieval_fakes import build_retrieval_vault, seed_source
 from tests.structured_ai import StructuredClientFake
 
 HELD_OUT_SENTINEL = "HELDOUTSENTINEL the eigenvalues of the held-out midterm matrix are seven and nine."

@@ -796,7 +796,7 @@ def _closed_book_grades(
     grades = grade_items(paid, route, items, diff_id=diff["id"], stage="closed_book_grading")
     now = _now(clock)
     entries = []
-    for item, probe in zip(items, probes):
+    for item, probe in zip(items, probes, strict=True):
         grade = grades[item["key"]]
         generic = grade.verdict in GENERIC_VERDICTS
         entries.append(

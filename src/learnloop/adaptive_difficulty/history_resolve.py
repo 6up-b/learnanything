@@ -80,7 +80,7 @@ def interpolate(curve: Mapping[str, Any], lag_days: float) -> float | None:
         return None
     if lag_days <= points[0][0]:
         return points[0][1]
-    for (lag0, p0), (lag1, p1) in zip(points, points[1:]):
+    for (lag0, p0), (lag1, p1) in zip(points, points[1:], strict=False):
         if lag0 <= lag_days <= lag1:
             weight = (math.log(lag_days) - math.log(lag0)) / (math.log(lag1) - math.log(lag0))
             return p0 + weight * (p1 - p0)

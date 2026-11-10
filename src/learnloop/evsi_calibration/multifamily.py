@@ -329,10 +329,10 @@ def run_count_stream(
 
         def rows_for(question: EediQuestion) -> dict[str, dict[str, float]]:
             if mode == "family":
-                return truth.system_rows(question)
+                return truth.system_rows(question)  # noqa: B023  called within this iteration, before the loop rebinds it
             if mode == "hand_set":
-                return {h: counted_row(h, question, {}, 1.0) for h in scenario.hypotheses}
-            return {h: counted_row(h, question, counts, pseudo_count) for h in scenario.hypotheses}
+                return {h: counted_row(h, question, {}, 1.0) for h in scenario.hypotheses}  # noqa: B023  called within this iteration, before the loop rebinds it
+            return {h: counted_row(h, question, counts, pseudo_count) for h in scenario.hypotheses}  # noqa: B023  called within this iteration, before the loop rebinds it
 
         belief = dict(prior)
         for question_id, option in spec.history:
@@ -559,7 +559,7 @@ def run_multifamily(
                     keys.append((name, _label(strength), repair, mode, pc))
         results = list(pool.map(_stream_job, jobs))
     streams: dict[str, Any] = {}
-    for (name, strength, repair, mode, pc), result in zip(keys, results):
+    for (name, strength, repair, mode, pc), result in zip(keys, results, strict=True):
         arm = mode if mode != "counts" else f"pseudo_{pc:g}"
         streams.setdefault(name, {}).setdefault(f"{strength}/{repair:g}", {})[arm] = result
     report["pseudo_count"] = {

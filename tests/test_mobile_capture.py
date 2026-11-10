@@ -5,7 +5,7 @@ from PIL import Image
 import pytest
 
 from learnloop.ids import new_ulid
-from tests.test_mobile_host_auth import mobile
+from tests.test_mobile_host_auth import mobile  # noqa: F401  a pytest fixture the tests here request
 
 
 def manifest(**changes):

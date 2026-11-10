@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.db.repositories import Repository
 from learnloop.teacher import service as S
 from learnloop.vault.loader import load_vault
 from tests.teacher_fakes import (
@@ -15,9 +14,7 @@ from tests.teacher_fakes import (
     build_teacher_vault,
     check_turn,
     clients,
-    close_turn,
     landed_and_close_turn,
-    landed_turn,
     plan_turn,
 )
 

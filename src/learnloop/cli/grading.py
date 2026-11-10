@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from learnloop.cli.runtime import *  # noqa: F401,F403
+from learnloop.cli.runtime import *  # noqa: F403
 
 grading_app = typer.Typer(
     no_args_is_help=True, help="Adjudication queue: pending reviews, adjudicate, measurement receipt."
@@ -138,7 +138,7 @@ def grading_hardcases(
     cases: Annotated[Path | None, typer.Option("--cases", help="Gold-set JSON (default: fixtures/grading_hardcases/cases_v3.json).")] = None,
     ablations: Annotated[bool, typer.Option("--ablations", help="Grade under all four R2 arms: the reference shown or solve-first, crossed with the final-answer check shown to the grader or withheld (the gate still applies it). Default: the production arm only.")] = False,
     repeats: Annotated[int, typer.Option("--repeats", min=1, help="Fresh, separately identified repetitions of every call; 2 or more report a repeat-run noise floor.")] = 1,
-    output_dir: Annotated[Path, typer.Option("--output-dir", "--output", help="Report destination.")] = Path("fixtures-local/reports/grading-hardcases"),
+    output_dir: Annotated[Path, typer.Option("--output-dir", "--output", help="Report destination.")] = Path("fixtures-local/reports/grading-hardcases"),  # noqa: B008  Path is immutable, so one shared default is safe
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan calls, tokens and cost; build no client and send nothing.")] = False,
     max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0, help="Cap on metered spend (reservations: each request reserves its full output budget).")] = 3.0,
     max_calls: Annotated[int, typer.Option("--max-calls", min=0)] = 200,

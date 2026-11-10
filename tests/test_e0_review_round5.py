@@ -159,7 +159,6 @@ def test_a_prompt_that_could_pass_100k_tokens_is_admitted_at_haikus_long_rate(tm
     long_prompt = "prompt_version: e0-writer-v1\n{\"context\": {\"seeds\": []}} " + "x" * 120_000
     _result, ledger, _client_ = _call(tmp_path, "context", server, prompt=long_prompt)
     [entry] = _entries(ledger)
-    pin = pins.ROLE_PINS["context"]
     body = server.posts[0]["body"]
     tokens = estimate_input_tokens([body["system"], body["messages"][0]["content"]])
     assert tokens > 100_000

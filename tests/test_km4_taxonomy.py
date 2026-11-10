@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from tests.structured_ai import StructuredClientFake
 
-import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION

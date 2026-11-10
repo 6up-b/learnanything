@@ -18,7 +18,7 @@ Two acceptance invariants (spec §16.3):
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from learnloop.substrate.activities import canonical_hash

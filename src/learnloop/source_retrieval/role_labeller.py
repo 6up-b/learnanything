@@ -363,7 +363,7 @@ def _batches(passages: Sequence[Mapping[str, Any]]) -> list[list[Mapping[str, An
 def _batch_prompt(title: str | None, batch: Sequence[Mapping[str, Any]]) -> tuple[dict[str, Key], str]:
     refs = {f"p{index}": entry["key"] for index, entry in enumerate(batch, start=1)}
     candidates = [{"ref": ref, "passage": entry["text"][:PASSAGE_CHARS], "role": entry.get("role") or "text"}
-                  for ref, entry in zip(refs, batch)]
+                  for ref, entry in zip(refs, batch, strict=True)]
     return refs, labeller_prompt(title, candidates)
 
 

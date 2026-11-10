@@ -395,7 +395,7 @@ def _current_epoch_unassessed(connection: Any, attempt_id: str) -> bool:
                           ).fetchone() is None:
         return False
     rows = [dict(zip(("id", "criterion_id", "attribution_json", "grading_revision", "assessment_contract_version_id",
-                      "created_at", "superseded_at"), row)) for row in connection.execute(
+                      "created_at", "superseded_at"), row, strict=True)) for row in connection.execute(
         "SELECT id, criterion_id, attribution_json, grading_revision, assessment_contract_version_id, created_at, "
         "superseded_at FROM grading_evidence WHERE attempt_id = ? AND superseded_at IS NULL "
         "ORDER BY created_at, criterion_id, id", (attempt_id,))]

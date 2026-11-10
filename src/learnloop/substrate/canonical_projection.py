@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, Any, Collection, Iterable, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Collection, Mapping, Sequence
 
 from learnloop.algorithm_versions import REGRADE_CONTRACT_VERSIONS
 from learnloop.clock import Clock
@@ -29,7 +29,6 @@ from learnloop.grading_epochs import current_epoch
 from learnloop.learner.assessment_contracts import (
     CANONICAL_STATE_VERSIONS,
     KM_ALGORITHM_VERSION,
-    P0_ALGORITHM_VERSION,
     P0_PROJECTION_VERSIONS,
 )
 from learnloop.diagnosis.causal_activity_policy import (
@@ -89,9 +88,9 @@ DEFAULT_REPEAT_SURFACE_DISCOUNT = 0.25
 # attempt-level PF-c read (``pfc_assessment``, ``pfc_assessments``) lives in that
 # leaf too (data capture A3: the board reads it), re-exported below.
 from learnloop.outcome_contract import (  # noqa: E402 - re-exported beside their rule
-    UNASSESSED_INTERPRETATION,
-    UNVERIFIED_CRITERION_BLOCK,
-    UNVERIFIED_INTERPRETATION_KEY,
+    UNASSESSED_INTERPRETATION,  # noqa: F401  re-exported: other modules import it from here
+    UNVERIFIED_CRITERION_BLOCK,  # noqa: F401  re-exported: other modules import it from here
+    UNVERIFIED_INTERPRETATION_KEY,  # noqa: F401  re-exported: other modules import it from here
     unassessed_evidence_row,
     unverified_evidence_row,
 )
@@ -101,13 +100,8 @@ from learnloop.outcome_contract import (  # noqa: E402 - re-exported beside thei
 # leaf ``learnloop.held_grades`` (readers in learner and placement code import
 # it there) and re-exported here, where the merge composed it.
 from learnloop.held_grades import (  # noqa: E402 - re-exported beside PF-c's state
-    HELD_ROW_KEY,
-    attempt_grade_held,
-    held_attempt_ids,
-    held_for_review_attempts,
-    mark_held_attempts,
-    pfc_assessment,
-    pfc_assessments,
+    held_for_review_attempts,  # noqa: F401  re-exported: other modules import it from here
+    pfc_assessments,  # noqa: F401  re-exported: other modules import it from here
 )
 
 

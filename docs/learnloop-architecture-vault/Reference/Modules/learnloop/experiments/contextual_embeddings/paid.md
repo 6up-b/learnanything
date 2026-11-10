@@ -47,48 +47,48 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/experiments/contextual_embeddings/paid.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py) |
-| Source lines | 688 |
+| Source lines | 687 |
 | Owning package | [[Reference/Modules/learnloop/experiments/contextual_embeddings/_package|learnloop.experiments.contextual_embeddings]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class PaidState` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 118) — What a paid run has done (aggregates for the report, failures for the ledger).
-  - `fail(self, item: str, kind: str, reason: str, denominator: Any=None) -> None` (line 128; public)
-  - `missing(self, kind: str, count: int) -> None` (line 131; public)
-  - `stop(self, step: str, exc: Exception) -> None` (line 135; public)
-- `effective_query(question: BankQuestion, snapshot: CorpusSnapshot) -> str` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 159) — The complete query every arm encodes: the question's frozen context (``bank.freeze_context``), never an oracle location for a library question.
-- `allowed_units(question: BankQuestion, snapshot: CorpusSnapshot) -> set[str]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 166)
-- `make_adapter(arm: str, snapshot: CorpusSnapshot, *, ledger: E0Ledger, transport: Transport | None, receipts: Receipts, store: VectorStore, qwen_client_factory: Callable[[], Any] | None, key_envs: Mapping[str, str] | None=None, environ: Mapping[str, str] | None=None) -> EmbeddingAdapter` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 173)
-- `run_contracts(snapshot: CorpusSnapshot, state: PaidState, **adapter_kwargs: Any) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 192) — One public canary per embedding route, Qwen included, BEFORE any bulk work (the service backfill included: fix round 4, Medium 9): the document AND query contracts, their compatibility and the returned identity.
-- `contracts_state(contracts: Mapping[str, Any]) -> PaidState` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 219) — A state carrying contracts already run (``run_live`` runs them before the service backfill), with their blocked arms.
-- `rank_arm(arm: str, snapshot: CorpusSnapshot, questions: Sequence[BankQuestion], adapter: EmbeddingAdapter, *, headers: Mapping[str, str] | None=None, top: int=pins.POOL_DEPTH, indexes: dict[str, tuple[EmbeddingAdapter, SpaceVectors]] | None=None) -> dict[str, list[str]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 232)
-- `rank_bm25(snapshot: CorpusSnapshot, questions: Sequence[BankQuestion], headers: Mapping[str, str]) -> dict[str, list[str]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 255)
-- `label_all(snapshot: CorpusSnapshot, questions: Sequence[BankQuestion], rankings: Mapping[str, Mapping[str, Sequence[str]]], caller: Any, state: PaidState | None=None) -> dict[str, QuestionLabels]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 268) — Labels for every question, then the audits.
-- `primary_rows(rows: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 327) — The prespecified selection slice: development, context-dependent/support strata.
-- `slice_summaries(rows: Sequence[Mapping[str, Any]], arms: Sequence[str]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 333) — Every slice reported apart with its own denominator (``total`` rows, ``scored`` per arm).
-- `pick_finalists(summary: Mapping[str, Mapping[str, Any]]) -> dict[str, str | None]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 356) — On the primary development slice only: the best one-model (Qwen) arm and each hosted family's best arm, by Complete Evidence@10 (ties by arm name).
-- `latency_check(answers: Sequence[ScoredAnswer], arm: str | None, incumbent: str | None, budget_s: float | None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 392) — Whether ``arm`` meets the frozen deadline AND shows no paired p50/p95 regression against ``incumbent`` (within the pinned tolerance).
-- `run_paid(snapshot: CorpusSnapshot, *, ledger: E0Ledger, caller: Any, run_dir: Path | None, transport: Transport | None=None, qwen_client_factory: Callable[[], Any] | None=None, logged: Sequence[BankQuestion]=(), strata: Mapping[str, int] | None=None, key_envs: Mapping[str, str] | None=None, environ: Mapping[str, str] | None=None, latency_budget_s: float | None=None, system_handles: Mapping[str, Any] | None=None, system_preparation: Mapping[str, Any] | None=None, system_clients: Mapping[str, Any] | None=None, contracts: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 419) — One vault copy's paid E0 run (see the module docstring).
-- `snapshot_sqlite(snapshot: CorpusSnapshot) -> Path` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 669)
+- `class PaidState` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 117) — What a paid run has done (aggregates for the report, failures for the ledger).
+  - `fail(self, item: str, kind: str, reason: str, denominator: Any=None) -> None` (line 127; public)
+  - `missing(self, kind: str, count: int) -> None` (line 130; public)
+  - `stop(self, step: str, exc: Exception) -> None` (line 134; public)
+- `effective_query(question: BankQuestion, snapshot: CorpusSnapshot) -> str` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 158) — The complete query every arm encodes: the question's frozen context (``bank.freeze_context``), never an oracle location for a library question.
+- `allowed_units(question: BankQuestion, snapshot: CorpusSnapshot) -> set[str]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 165)
+- `make_adapter(arm: str, snapshot: CorpusSnapshot, *, ledger: E0Ledger, transport: Transport | None, receipts: Receipts, store: VectorStore, qwen_client_factory: Callable[[], Any] | None, key_envs: Mapping[str, str] | None=None, environ: Mapping[str, str] | None=None) -> EmbeddingAdapter` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 172)
+- `run_contracts(snapshot: CorpusSnapshot, state: PaidState, **adapter_kwargs: Any) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 191) — One public canary per embedding route, Qwen included, BEFORE any bulk work (the service backfill included: fix round 4, Medium 9): the document AND query contracts, their compatibility and the returned identity.
+- `contracts_state(contracts: Mapping[str, Any]) -> PaidState` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 218) — A state carrying contracts already run (``run_live`` runs them before the service backfill), with their blocked arms.
+- `rank_arm(arm: str, snapshot: CorpusSnapshot, questions: Sequence[BankQuestion], adapter: EmbeddingAdapter, *, headers: Mapping[str, str] | None=None, top: int=pins.POOL_DEPTH, indexes: dict[str, tuple[EmbeddingAdapter, SpaceVectors]] | None=None) -> dict[str, list[str]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 231)
+- `rank_bm25(snapshot: CorpusSnapshot, questions: Sequence[BankQuestion], headers: Mapping[str, str]) -> dict[str, list[str]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 254)
+- `label_all(snapshot: CorpusSnapshot, questions: Sequence[BankQuestion], rankings: Mapping[str, Mapping[str, Sequence[str]]], caller: Any, state: PaidState | None=None) -> dict[str, QuestionLabels]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 267) — Labels for every question, then the audits.
+- `primary_rows(rows: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 326) — The prespecified selection slice: development, context-dependent/support strata.
+- `slice_summaries(rows: Sequence[Mapping[str, Any]], arms: Sequence[str]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 332) — Every slice reported apart with its own denominator (``total`` rows, ``scored`` per arm).
+- `pick_finalists(summary: Mapping[str, Mapping[str, Any]]) -> dict[str, str | None]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 355) — On the primary development slice only: the best one-model (Qwen) arm and each hosted family's best arm, by Complete Evidence@10 (ties by arm name).
+- `latency_check(answers: Sequence[ScoredAnswer], arm: str | None, incumbent: str | None, budget_s: float | None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 391) — Whether ``arm`` meets the frozen deadline AND shows no paired p50/p95 regression against ``incumbent`` (within the pinned tolerance).
+- `run_paid(snapshot: CorpusSnapshot, *, ledger: E0Ledger, caller: Any, run_dir: Path | None, transport: Transport | None=None, qwen_client_factory: Callable[[], Any] | None=None, logged: Sequence[BankQuestion]=(), strata: Mapping[str, int] | None=None, key_envs: Mapping[str, str] | None=None, environ: Mapping[str, str] | None=None, latency_budget_s: float | None=None, system_handles: Mapping[str, Any] | None=None, system_preparation: Mapping[str, Any] | None=None, system_clients: Mapping[str, Any] | None=None, contracts: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 418) — One vault copy's paid E0 run (see the module docstring).
+- `snapshot_sqlite(snapshot: CorpusSnapshot) -> Path` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 668)
 
 ### Module constants
 
-- `QWEN_ARMS` ([src/learnloop/experiments/contextual_embeddings/paid.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 105)
-- `QUESTION_FAILURES` ([src/learnloop/experiments/contextual_embeddings/paid.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 109)
-- `HOSTED_FAMILIES` ([src/learnloop/experiments/contextual_embeddings/paid.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 110)
-- `NON_PRIMARY_STRATA` ([src/learnloop/experiments/contextual_embeddings/paid.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 113)
-- `DELIVERY_ARMS` ([src/learnloop/experiments/contextual_embeddings/paid.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 114)
-- `QWEN_ROUTE_ARMS` ([src/learnloop/experiments/contextual_embeddings/paid.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 154)
-- `CANARY_ARMS` ([src/learnloop/experiments/contextual_embeddings/paid.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 156)
+- `QWEN_ARMS` ([src/learnloop/experiments/contextual_embeddings/paid.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 104)
+- `QUESTION_FAILURES` ([src/learnloop/experiments/contextual_embeddings/paid.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 108)
+- `HOSTED_FAMILIES` ([src/learnloop/experiments/contextual_embeddings/paid.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 109)
+- `NON_PRIMARY_STRATA` ([src/learnloop/experiments/contextual_embeddings/paid.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 112)
+- `DELIVERY_ARMS` ([src/learnloop/experiments/contextual_embeddings/paid.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 113)
+- `QWEN_ROUTE_ARMS` ([src/learnloop/experiments/contextual_embeddings/paid.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 153)
+- `CANARY_ARMS` ([src/learnloop/experiments/contextual_embeddings/paid.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 155)
 
 ## Internal implementation anchors
 
-- `_time_up(state: PaidState, ledger: E0Ledger, step: str) -> bool` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 140) — Stop cleanly at the run's wall-time bound (Codex review F14), and at once when the ledger is halted by an overage (fix round 4, High 2).
-- `_online_retrieval(arm: str, question: BankQuestion, snapshot: CorpusSnapshot, source: BlockSource, indexes: Mapping[str, tuple[EmbeddingAdapter, SpaceVectors]], measured: Checkpoints) -> float | None` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 367) — One question's online retrieval-through-delivery time for a retrieval arm: a FRESH query embedding (never the cache), the exact search and the D1 delivery.
-- `_answer_rows(answers: Sequence[ScoredAnswer], questions: Sequence[BankQuestion]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 676)
-- `_paired_answers(rows: Sequence[Mapping[str, Any]], a: str, b: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 685)
+- `_time_up(state: PaidState, ledger: E0Ledger, step: str) -> bool` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 139) — Stop cleanly at the run's wall-time bound (Codex review F14), and at once when the ledger is halted by an overage (fix round 4, High 2).
+- `_online_retrieval(arm: str, question: BankQuestion, snapshot: CorpusSnapshot, source: BlockSource, indexes: Mapping[str, tuple[EmbeddingAdapter, SpaceVectors]], measured: Checkpoints) -> float | None` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 366) — One question's online retrieval-through-delivery time for a retrieval arm: a FRESH query embedding (never the cache), the exact search and the D1 delivery.
+- `_answer_rows(answers: Sequence[ScoredAnswer], questions: Sequence[BankQuestion]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 675)
+- `_paired_answers(rows: Sequence[Mapping[str, Any]], a: str, b: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/paid.py), line 684)
 
 ## Who imports or calls it
 
@@ -110,7 +110,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/budget|learnloop.experiments.contextual_embeddings.budget]] — imports `E0Ledger`, `E0ProviderFailure`, `E0Stop`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/callers|learnloop.experiments.contextual_embeddings.callers]] — imports `Checkpoints`; calls `Checkpoints`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/corpus|learnloop.experiments.contextual_embeddings.corpus]] — imports `CorpusSnapshot`
-- [[Reference/Modules/learnloop/experiments/contextual_embeddings/delivery|learnloop.experiments.contextual_embeddings.delivery]] — imports `Delivered`, `deliver`, `retrieved_d1`; calls `deliver`, `retrieved_d1`
+- [[Reference/Modules/learnloop/experiments/contextual_embeddings/delivery|learnloop.experiments.contextual_embeddings.delivery]] — imports `deliver`, `retrieved_d1`; calls `deliver`, `retrieved_d1`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/evaluate|learnloop.experiments.contextual_embeddings.evaluate]] — imports `agreement`, `arm_summary`, `completion`, `paired`, `question_rows`; calls `agreement`, `arm_summary`, `completion`, `paired`, `question_rows`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/metrics|learnloop.experiments.contextual_embeddings.metrics]] — imports `latency_summary`, `paired_bootstrap`; calls `latency_summary`, `paired_bootstrap`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/pins|learnloop.experiments.contextual_embeddings.pins]] — imports `module`

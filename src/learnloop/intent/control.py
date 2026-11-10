@@ -21,10 +21,9 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
-from datetime import datetime
 from typing import Any
 
-from learnloop.clock import Clock, SystemClock, utc_now_iso
+from learnloop.clock import Clock, utc_now_iso
 from learnloop.curriculum import commitments as C
 from learnloop.ids import new_ulid
 from learnloop.scheduling.intent.model import (

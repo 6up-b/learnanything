@@ -311,7 +311,7 @@ def validate(answer: RelatednessV1 | Mapping[str, Any], inputs: Mapping[str, Any
     proposal = Proposal()
     wanted_items = set(inputs.get("focus_items", own))
     wanted_los = set(inputs.get("focus_learning_objects", los))
-    for entry in answer.items:
+    for entry in answer.items:  # noqa: F402  a local loop variable; this function never calls the imported entry()
         if entry.item_id not in own:
             proposal.dropped.append({"unit": entry.item_id, "why": "unknown_item"})
             continue

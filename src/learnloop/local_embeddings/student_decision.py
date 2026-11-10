@@ -312,7 +312,7 @@ def decide(actions: Sequence[Action], *, lam: np.ndarray | float, mu: np.ndarray
     chosen = int(np.argmax(expected))
     loss = float(matrix.max(axis=0).mean() - expected.max())
     return {"version": DECISION_VERSION, "chosen": actions[chosen].name,
-            "expected_utility": {action.name: round(float(value), 6) for action, value in zip(actions, expected)},
+            "expected_utility": {action.name: round(float(value), 6) for action, value in zip(actions, expected, strict=True)},
             "p_best": {action.name: round(float(np.mean(best == index)), 4) for index, action in enumerate(actions)},
             "expected_quality": {action.name: round(float(np.mean(action.quality)), 6) for action in actions},
             "expected_loss_now": round(loss, 6), "draws": int(size)}

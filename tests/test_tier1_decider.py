@@ -558,7 +558,7 @@ class TiedDecider(Decider):
 def test_a_tied_top_option_is_no_answer_and_hands_over(tmp_path):
     """Review F8: a tie for the top probability is no clear answer; the first option never wins it."""
 
-    from learnloop.decider_judgments import FAILURE_VERDICTS, decide, decide_many, log_llm
+    from learnloop.decider_judgments import FAILURE_VERDICTS, decide, log_llm
 
     repo = Repository(tmp_path / "state.sqlite3")
     question = ChoiceQuestion("Choose", {"yes": None, "no": None, "unsure": None})
@@ -664,7 +664,6 @@ def test_contamination_one_routes_switch_restores_its_old_checkpoints_budget_che
     from learnloop import decider_judgments as tier1
     from learnloop.ai.execution import content_key
     from learnloop.ai.spend import SpendCaps
-    from learnloop.vault.loader import load_vault
     from tests.test_contamination_report import Judge, run, tutor_vault
 
     _paths, loaded, repository, _event = tutor_vault.__wrapped__(tmp_path)

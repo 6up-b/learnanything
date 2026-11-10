@@ -145,7 +145,6 @@ def test_real_fk_rebuild_153_rolls_back_on_interruption(tmp_path, monkeypatch):
 
     import learnloop.db.migrate as migrate_module
 
-    repository_root = Path(__file__).resolve().parents[1]
     db = tmp_path / "state.sqlite"
     shutil.copy2(require_owner_vault("arxiv") / "state.sqlite", db)
     with connect(db) as connection:

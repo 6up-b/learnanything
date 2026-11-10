@@ -1332,7 +1332,7 @@ def _ledger_rows(connection: sqlite3.Connection, envelope: str, day: str) -> tup
 
     present = {row[1] for row in connection.execute(f'PRAGMA table_info("{SERVICE_SPEND_TABLE}")')}
     select = ", ".join(column if column in present else f"NULL AS {column}" for column in _LEDGER_COLUMNS)
-    rows = [dict(zip(_LEDGER_COLUMNS, tuple(row))) for row in connection.execute(
+    rows = [dict(zip(_LEDGER_COLUMNS, tuple(row), strict=True)) for row in connection.execute(
         f"SELECT {select} FROM {SERVICE_SPEND_TABLE} WHERE envelope=? AND day=? ORDER BY created_at, id",
         (envelope, day))]
     return rows, "legacy" in present

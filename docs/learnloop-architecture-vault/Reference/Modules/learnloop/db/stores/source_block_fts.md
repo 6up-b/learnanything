@@ -174,7 +174,6 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/source_retrieval/kept_comparisons|learnloop.source_retrieval.kept_comparisons]] — imports `block_content_hashes`, `blocks_by_key`; statically calls `block_content_hashes`, `blocks_by_key`
 - [[Reference/Modules/learnloop/source_retrieval/library|learnloop.source_retrieval.library]] — imports `query_terms`; statically calls `query_terms`
 - [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] — imports `blocks_by_key`; statically calls `blocks_by_key`
-- [[Reference/Modules/learnloop/source_retrieval/passage_cues|learnloop.source_retrieval.passage_cues]] — imports `blocks_by_key`
 - [[Reference/Modules/learnloop/source_retrieval/queries|learnloop.source_retrieval.queries]] — imports `query_terms`; statically calls `query_terms`
 - [[Reference/Modules/learnloop/source_retrieval/recipes|learnloop.source_retrieval.recipes]] — imports `BlockRow`, `EXCLUDED_BLOCK_TYPES`, `extraction_blocks`, `extraction_fingerprint`, `section_header_titles`; statically calls `extraction_blocks`, `extraction_fingerprint`, `section_header_titles`
 - [[Reference/Modules/learnloop/source_retrieval/role_labeller|learnloop.source_retrieval.role_labeller]] — imports `extraction_blocks`, `extraction_source_ids`; statically calls `extraction_blocks`, `extraction_source_ids`
@@ -206,7 +205,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]], [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/quick_add|learnloop.content.pipeline.quick_add]], [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] and 35 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]], [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/quick_add|learnloop.content.pipeline.quick_add]], [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] and 34 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

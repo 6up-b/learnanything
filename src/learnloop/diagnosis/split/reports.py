@@ -9,7 +9,6 @@ reads it against the run-to-run spread at the S1.5 exit review.
 from __future__ import annotations
 
 import json
-import statistics
 from collections import Counter
 from datetime import datetime, timezone
 from typing import Any, Iterable, Mapping, Sequence

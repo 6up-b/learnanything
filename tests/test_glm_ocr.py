@@ -1445,7 +1445,7 @@ def test_r3_f14_the_cards_details_are_plain_words(monkeypatch):
     config = LearnLoopConfig()
     for flag in ("glm_ocr_needs_upload_ok", "glm_ocr_failed_pypdf_fallback", "glm_ocr_failed_marker_fallback"):
         repo = SimpleNamespace(get_extraction_run=lambda extraction_id: {
-            "health": {"flags": [flag, "glm_ocr_api_selected"], "pages": []}})
+            "health": {"flags": [flag, "glm_ocr_api_selected"], "pages": []}})  # noqa: B023  called within this iteration, before the loop rebinds it
         line = core._health_line(repo, "src_1", config=config)
         assert line["details"] and "_" not in line["details"], line
 

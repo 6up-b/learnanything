@@ -81,7 +81,7 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `CHOOSER_NAME`, `LaneQuotaChooser`; statically calls `LaneQuotaChooser`
 - [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `LaneQuotaChooser`; statically calls `LaneQuotaChooser`
-- [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `LaneQuotaChooser`, `unspent_share`; statically calls `unspent_share`
+- [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `unspent_share`; statically calls `unspent_share`
 - [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]] — imports `LaneQuotaChooser`; statically calls `LaneQuotaChooser`
 
 ## Dependencies

@@ -63,7 +63,7 @@ Step A3 replaced the 48 frozen default digests (one per tag, through mvp-0.57) i
 3. Identify the executable oracle in **Important tests**.
 4. Preserve package direction from [[Package Boundaries]].
 5. If persisted meaning changes, follow [[Algorithm Versions and Reproducibility#Change protocol]].
-6. Run the tests the change can affect (`scripts/affected_tests.py`, chosen from the import graph; it falls back to the whole suite for `tests/conftest.py`, `tests/helpers.py`, `pyproject.toml`, migrations and fixtures), import contracts and architecture tests. Each landing runs the whole suite minus `arc_close`; each arc's close runs `-m arc_close` (the pre-registered simulations and the long journeys). The commands are in `CLAUDE.md`.
+6. Run the tests the change can affect (`scripts/affected_tests.py`, chosen from the import graph; it falls back to the whole suite for `tests/conftest.py`, `tests/helpers.py`, `pyproject.toml`, migrations and fixtures), import contracts (`uv run lint-imports --no-cache`), the bug-finding linter (`uv run ruff check`; its rules are `[tool.ruff.lint]` in `pyproject.toml`) and architecture tests. A finding is fixed, or kept with `# noqa: <code>  <reason>`. Each landing runs the whole suite minus `arc_close`; each arc's close runs `-m arc_close` (the pre-registered simulations and the long journeys). The commands are in `CLAUDE.md`.
 
 > [!failure] Common wrong turns
 > - Adding provider-named methods instead of a feature-owned structured operation.

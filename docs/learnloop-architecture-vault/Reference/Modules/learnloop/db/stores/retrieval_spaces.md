@@ -106,7 +106,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - [[Reference/Modules/learnloop/local_embeddings/fusion|learnloop.local_embeddings.fusion]] — imports `feedback_rows`, `has_tables`, `replace_fusion_posteriors`; statically calls `feedback_rows`, `has_tables`, `replace_fusion_posteriors`
 - [[Reference/Modules/learnloop/source_retrieval/fallback_space|learnloop.source_retrieval.fallback_space]] — imports `has_tables`, `register_space`; statically calls `has_tables`, `register_space`
-- [[Reference/Modules/learnloop/source_retrieval/feedback|learnloop.source_retrieval.feedback]] — imports `append_feedback`, `delivery_for_receipt`, `feedback_rows`, `has_tables`, `record_citation_signals`; statically calls `append_feedback`, `delivery_for_receipt`, `has_tables`, `record_citation_signals`
+- [[Reference/Modules/learnloop/source_retrieval/feedback|learnloop.source_retrieval.feedback]] — imports `append_feedback`, `delivery_for_receipt`, `has_tables`, `record_citation_signals`; statically calls `append_feedback`, `delivery_for_receipt`, `has_tables`, `record_citation_signals`
 - [[Reference/Modules/learnloop/source_retrieval/local_index|learnloop.source_retrieval.local_index]] — imports `register_space`, `set_space_canaries`, `set_space_status`, `spaces`; statically calls `register_space`, `set_space_canaries`, `set_space_status`, `spaces`
 - [[Reference/Modules/learnloop/source_retrieval/query_student|learnloop.source_retrieval.query_student]] — imports `spaces`; statically calls `spaces`
 - [[Reference/Modules/learnloop/source_retrieval/spaces|learnloop.source_retrieval.spaces]] — imports `fusion_posteriors`, `spaces`; statically calls `fusion_posteriors`, `spaces`

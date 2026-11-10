@@ -56,8 +56,8 @@ def g_ad2_18(scenario: str, *, n: int = 200) -> dict[str, Any]:
             first_block.append(log.cell not in seen)
             if len(first_block) % 5 == 0:
                 seen.add(log.cell)
-        never = [log for log, new in zip(logs, first_block) if new]
-        seen_logs = [log for log, new in zip(logs, first_block) if not new]
+        never = [log for log, new in zip(logs, first_block, strict=True) if new]
+        seen_logs = [log for log, new in zip(logs, first_block, strict=True) if not new]
         cells = sorted({log.cell for log in logs})
         arms[name] = {
             "band_hit_16_30": result.band_hit_rate(name), "trivial_success": result.trivial_success_rate(name),
@@ -185,7 +185,7 @@ def _reading_flag_and_losses(result: A.ReaderResult) -> tuple[np.ndarray, np.nda
     for i in range(len(result.records["y"])):
         y = result.records["y"][i]
         on, off = result.records["on"][i], result.records["off"][i]
-        terms = [MON.log_loss_difference(a, b, c) for a, b, c in zip(on, off, y)]
+        terms = [MON.log_loss_difference(a, b, c) for a, b, c in zip(on, off, y, strict=True)]
         losses.append(np.mean([t[0] for t in terms]))
         fires.append(MON.comparison_flag("reading_worse_than_no_reading", [t[0] for t in terms],
                                          [t[1] for t in terms]).fires)
@@ -300,9 +300,9 @@ def g_ad3_9(*, seeds: int = 200, attempts: int = 300) -> dict[str, Any]:
         # Teacher TE3a's lesson flag is the same comparison flag (its own arm, its own split).
         for name in ("sharing_worse_than_topic_only", "coupling_worse_than_uniform", "reading_worse_than_no_reading",
                      "verdicts_worse_than_no_verdicts", "lessons_worse_than_no_lessons"):
-            terms = [MON.log_loss_difference(a, b, c) for a, b, c in zip(worse, p, y)]
+            terms = [MON.log_loss_difference(a, b, c) for a, b, c in zip(worse, p, y, strict=True)]
             fired_worse[name].append(MON.comparison_flag(name, [t[0] for t in terms], [t[1] for t in terms]).fires)
-            terms = [MON.log_loss_difference(a, b, c) for a, b, c in zip(twin_a, twin_b, y)]
+            terms = [MON.log_loss_difference(a, b, c) for a, b, c in zip(twin_a, twin_b, y, strict=True)]
             fired_null[name].append(MON.comparison_flag(name, [t[0] for t in terms], [t[1] for t in terms]).fires)
         # Readiness: the band-region error of a forecaster 0.10 too high, in two consecutive reports.
         band = rng.uniform(0.6, 0.9, attempts)

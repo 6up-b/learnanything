@@ -122,7 +122,7 @@ def _log_posterior(
     prior_mean: tuple[float, float], precision: float,
 ) -> float:
     total = -0.5 * precision * ((a - prior_mean[0]) ** 2 + (b - prior_mean[1]) ** 2)
-    for x, offset, y in zip(features, offsets, outcomes):
+    for x, offset, y in zip(features, offsets, outcomes, strict=True):
         z = offset + a + b * x
         total += y * _log_sigmoid(z) + (1.0 - y) * _log_sigmoid(-z)
     return total
@@ -153,7 +153,7 @@ def fit_logistic(
         gb = -(b - prior_mean[1]) * precision
         haa = hbb = precision
         hab = 0.0
-        for x, offset, y in zip(features, offsets, outcomes):
+        for x, offset, y in zip(features, offsets, outcomes, strict=True):
             p = _sigmoid(offset + a + b * x)
             residual, weight = y - p, p * (1 - p)
             ga += residual

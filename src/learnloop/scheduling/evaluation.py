@@ -8,7 +8,7 @@ consumes rows the live path already logs.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from learnloop.clock import parse_utc
@@ -147,7 +147,7 @@ def _predictions_section(repository: Repository, *, bins: int) -> dict[str, Any]
     ece, table = ece_equal_width(pairs, bins=bins)
 
     by_mode: dict[str, list[tuple[float, float]]] = {}
-    for row, pair in zip(rows, pairs):
+    for row, pair in zip(rows, pairs, strict=True):
         by_mode.setdefault(str(row["selected_mode"] or "unknown"), []).append(pair)
 
     deciles: list[dict[str, Any]] = []

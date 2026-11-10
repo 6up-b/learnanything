@@ -47,93 +47,93 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py) |
-| Source lines | 1761 |
+| Source lines | 1760 |
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `models_off() -> bool` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 162)
-- `class CueDiscoveryError(ValueError)` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 168) — A refused discovery or tap (nothing was written).
-- `discovery_enabled(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 180) — RW3b's switch, under RW3a's kill switch.
-- `try_first_enabled(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 186)
-- `value_order_enabled(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 191)
-- `holdout_rate(vault: LoadedVault) -> float` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 195) — ``cues.holdout_rate`` normalized once (clamped to [0, 0.99]): the one value both the draw and the stored propensity use (Codex verify F18).
-- `class CueTarget` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 208) — One thing a cue can connect to, rendered as its LLM-written statement.
-  - `open(self) -> bool` (line 231; public)
-  - `state_key(self) -> str` (line 235; public) — The cache key: the target's statement and status (§6.2 item 5).
-  - `ref(self) -> str` (line 241; public)
-  - `left_id(self, extraction_id: str) -> str` (line 244; public)
-  - `describe(self) -> dict[str, Any]` (line 247; public)
-- `source_learning_objects(vault: LoadedVault, repository: Repository, extraction_id: str) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 253) — The LOs the open source teaches: provenance-linked to a section (RW6a's reading), or linked to one of its passages by a teaching link.
-- `unchecked_claims(vault: LoadedVault, repository: Repository, extraction_id: str, *, now: Any | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 539) — RW6a's "claims needing an independent check" (§9.1) on this source: facets whose work in the current or the previous reader session was assisted only, with no unassisted success since (``recap.session_summary``, a pure read).
-- `cue_targets(vault: LoadedVault, repository: Repository, extraction_id: str, *, failure: Callable[[str | None], float | None] | None=None) -> list[CueTarget]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 602) — Every target the open source's cues can connect to (reads only).
-- `targets_key(targets: Sequence[CueTarget]) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 653) — One fingerprint of the targets' states: the Reader asks for discovery again when it changes (a new or resolved hypothesis in the session).
-- `class Protection` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 665) — What of one extraction a model may never read, from the shared helpers.
-  - `allows(self, key: tuple[str, str]) -> bool` (line 672; public)
-- `protection(vault: LoadedVault, repository: Repository, extraction_id: str) -> Protection` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 676) — T6's exclusions (``teaching_exclusions``: exam and held-out material, source-set roles without teaching authority, exercise and assessment links) and the held-out partition (``held_out_material``).
-- `class SpanLearningObjects` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 693) — The LOs a passage teaches: its section's provenance-linked LOs (the Guide's reading) and the LOs a teaching link names this very block for.
-  - `__init__(self, vault: LoadedVault, repository: Repository, extraction_id: str) -> None` (line 697; internal)
-  - `__call__(self, span_id: str) -> list[str]` (line 714; internal)
-- `contrast_list(vault: LoadedVault, repository: Repository, target: CueTarget, extraction_id: str, *, guard: Protection | None=None) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 729) — Passages with a ``contrast`` or ``counterexample`` role on the target's LOs or their confusables: RW4e's proposals (the sources spec's ``remediate`` list) and the roles this judge proposed before.
-- `class Shortlist` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 784)
-  - `manifest(self) -> dict[str, Any]` (line 794; public)
-- `shortlist(vault: LoadedVault, repository: Repository, target: CueTarget, extraction_id: str, *, guard: Protection | None=None, embedder: Any | None=None, limit: int=SHORTLIST, owner_id: str='', deep: bool=True, budget: SpendBudget | None=None) -> Shortlist` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 799) — The target's shortlisted passages, every one protected before a model sees it.
-- `class CueJudgment(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 856)
-  - `_tolerate_roles(cls, data: Any) -> Any` (line 872; internal)
-- `class CueJudgeResult(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 876)
-- `judge_prompt(target: CueTarget, candidates: Sequence[Mapping[str, Any]]) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 912)
-- `quote_verifies(quote: str, text: str) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 923) — The quote is this passage's own words (canonical text, RW1c's helper).
-- `discovery_calls_last_24h(repository: Repository, extraction_id: str, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 960) — The cue judge's requests for this source in the last 24 hours (a rolling window in UTC), counted from the durable receipts (Codex verify F16): one root receipt per request, written before it is sent, a failed, unfinished or retried one included.
-- `discovery_budget(vault: LoadedVault, *, cancelled: Callable[[], bool] | None=None) -> SpendBudget` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 996) — The judge's caps for one whole discovery (one source open), shared by every target (Codex review F3): each admitted judge request counts once, a failure and a retry included, against ``cues.max_calls_per_source_open``; metered dollars against ``cues.max_daily_cost_usd``.
-- `judge_target(vault: LoadedVault, repository: Repository, listed: Shortlist, extraction_id: str, *, client: Any | None=None, clock: Clock | None=None, budget: SpendBudget | None=None, route: Any | None=None, envelope: SharedDailyEnvelope | None=None, admit: Callable[[SpendEstimate], None] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1035) — One listwise judgment of a target's shortlist; picks become links.
-- `discover(vault: LoadedVault, repository: Repository, extraction_id: str, *, client: Any | None=None, embedder: Any | None=None, clock: Clock | None=None, dry_run: bool=False, cancelled: Callable[[], bool]=lambda: False, budget: SpendBudget | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1248) — Compute the open source's missing links, at most ``cues.max_calls_per_source_open`` judge requests in all (a failure and a retry count), highest ``p_open`` first.
-- `holdout_draw(link_id: str, rate: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1379) — The seeded draw for one link: reproducible from its seed (G14).
-- `discovered_candidates(vault: LoadedVault, repository: Repository, *, extraction_id: str, plan: Mapping[str, Any], targets: Sequence[CueTarget], failure: Callable[[str | None], float | None]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1437) — The current links of the current targets as cue candidates (reads only).
-- `seen_targets(vault: LoadedVault, repository: Repository, *, extraction_id: str, candidates: Sequence[Mapping[str, Any]], now: str | None=None) -> set[str]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1517) — The targets whose cue the learner actually had in view during this visit (Codex review F10): the shown impressions of the current reader session on this source (impressions less than ``SESSION_GAP`` apart, the newest less than that before ``now``; RW6a's session), read back to t…
-- `targets_pending(vault: LoadedVault, repository: Repository) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1562) — Background work that can name a new target (Codex review F8): a learner-text gap job queued or running.
-- `merged_cues(vault: LoadedVault, repository: Repository, *, extraction_id: str, plan: Mapping[str, Any], now: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1575) — RW3a's cue payload with RW3b's discovered cues merged in (reads only).
-- `find_discovered(vault: LoadedVault, repository: Repository, *, extraction_id: str, cue_id: str, plan: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1702) — A discovered cue of this source by id, whatever the learner's choices (a "not relevant" can be undone); held-out material is never one.
+- `models_off() -> bool` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 161)
+- `class CueDiscoveryError(ValueError)` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 167) — A refused discovery or tap (nothing was written).
+- `discovery_enabled(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 179) — RW3b's switch, under RW3a's kill switch.
+- `try_first_enabled(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 185)
+- `value_order_enabled(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 190)
+- `holdout_rate(vault: LoadedVault) -> float` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 194) — ``cues.holdout_rate`` normalized once (clamped to [0, 0.99]): the one value both the draw and the stored propensity use (Codex verify F18).
+- `class CueTarget` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 207) — One thing a cue can connect to, rendered as its LLM-written statement.
+  - `open(self) -> bool` (line 230; public)
+  - `state_key(self) -> str` (line 234; public) — The cache key: the target's statement and status (§6.2 item 5).
+  - `ref(self) -> str` (line 240; public)
+  - `left_id(self, extraction_id: str) -> str` (line 243; public)
+  - `describe(self) -> dict[str, Any]` (line 246; public)
+- `source_learning_objects(vault: LoadedVault, repository: Repository, extraction_id: str) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 252) — The LOs the open source teaches: provenance-linked to a section (RW6a's reading), or linked to one of its passages by a teaching link.
+- `unchecked_claims(vault: LoadedVault, repository: Repository, extraction_id: str, *, now: Any | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 538) — RW6a's "claims needing an independent check" (§9.1) on this source: facets whose work in the current or the previous reader session was assisted only, with no unassisted success since (``recap.session_summary``, a pure read).
+- `cue_targets(vault: LoadedVault, repository: Repository, extraction_id: str, *, failure: Callable[[str | None], float | None] | None=None) -> list[CueTarget]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 601) — Every target the open source's cues can connect to (reads only).
+- `targets_key(targets: Sequence[CueTarget]) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 652) — One fingerprint of the targets' states: the Reader asks for discovery again when it changes (a new or resolved hypothesis in the session).
+- `class Protection` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 664) — What of one extraction a model may never read, from the shared helpers.
+  - `allows(self, key: tuple[str, str]) -> bool` (line 671; public)
+- `protection(vault: LoadedVault, repository: Repository, extraction_id: str) -> Protection` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 675) — T6's exclusions (``teaching_exclusions``: exam and held-out material, source-set roles without teaching authority, exercise and assessment links) and the held-out partition (``held_out_material``).
+- `class SpanLearningObjects` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 692) — The LOs a passage teaches: its section's provenance-linked LOs (the Guide's reading) and the LOs a teaching link names this very block for.
+  - `__init__(self, vault: LoadedVault, repository: Repository, extraction_id: str) -> None` (line 696; internal)
+  - `__call__(self, span_id: str) -> list[str]` (line 713; internal)
+- `contrast_list(vault: LoadedVault, repository: Repository, target: CueTarget, extraction_id: str, *, guard: Protection | None=None) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 728) — Passages with a ``contrast`` or ``counterexample`` role on the target's LOs or their confusables: RW4e's proposals (the sources spec's ``remediate`` list) and the roles this judge proposed before.
+- `class Shortlist` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 783)
+  - `manifest(self) -> dict[str, Any]` (line 793; public)
+- `shortlist(vault: LoadedVault, repository: Repository, target: CueTarget, extraction_id: str, *, guard: Protection | None=None, embedder: Any | None=None, limit: int=SHORTLIST, owner_id: str='', deep: bool=True, budget: SpendBudget | None=None) -> Shortlist` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 798) — The target's shortlisted passages, every one protected before a model sees it.
+- `class CueJudgment(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 855)
+  - `_tolerate_roles(cls, data: Any) -> Any` (line 871; internal)
+- `class CueJudgeResult(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 875)
+- `judge_prompt(target: CueTarget, candidates: Sequence[Mapping[str, Any]]) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 911)
+- `quote_verifies(quote: str, text: str) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 922) — The quote is this passage's own words (canonical text, RW1c's helper).
+- `discovery_calls_last_24h(repository: Repository, extraction_id: str, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 959) — The cue judge's requests for this source in the last 24 hours (a rolling window in UTC), counted from the durable receipts (Codex verify F16): one root receipt per request, written before it is sent, a failed, unfinished or retried one included.
+- `discovery_budget(vault: LoadedVault, *, cancelled: Callable[[], bool] | None=None) -> SpendBudget` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 995) — The judge's caps for one whole discovery (one source open), shared by every target (Codex review F3): each admitted judge request counts once, a failure and a retry included, against ``cues.max_calls_per_source_open``; metered dollars against ``cues.max_daily_cost_usd``.
+- `judge_target(vault: LoadedVault, repository: Repository, listed: Shortlist, extraction_id: str, *, client: Any | None=None, clock: Clock | None=None, budget: SpendBudget | None=None, route: Any | None=None, envelope: SharedDailyEnvelope | None=None, admit: Callable[[SpendEstimate], None] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1034) — One listwise judgment of a target's shortlist; picks become links.
+- `discover(vault: LoadedVault, repository: Repository, extraction_id: str, *, client: Any | None=None, embedder: Any | None=None, clock: Clock | None=None, dry_run: bool=False, cancelled: Callable[[], bool]=lambda: False, budget: SpendBudget | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1247) — Compute the open source's missing links, at most ``cues.max_calls_per_source_open`` judge requests in all (a failure and a retry count), highest ``p_open`` first.
+- `holdout_draw(link_id: str, rate: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1378) — The seeded draw for one link: reproducible from its seed (G14).
+- `discovered_candidates(vault: LoadedVault, repository: Repository, *, extraction_id: str, plan: Mapping[str, Any], targets: Sequence[CueTarget], failure: Callable[[str | None], float | None]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1436) — The current links of the current targets as cue candidates (reads only).
+- `seen_targets(vault: LoadedVault, repository: Repository, *, extraction_id: str, candidates: Sequence[Mapping[str, Any]], now: str | None=None) -> set[str]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1516) — The targets whose cue the learner actually had in view during this visit (Codex review F10): the shown impressions of the current reader session on this source (impressions less than ``SESSION_GAP`` apart, the newest less than that before ``now``; RW6a's session), read back to t…
+- `targets_pending(vault: LoadedVault, repository: Repository) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1561) — Background work that can name a new target (Codex review F8): a learner-text gap job queued or running.
+- `merged_cues(vault: LoadedVault, repository: Repository, *, extraction_id: str, plan: Mapping[str, Any], now: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1574) — RW3a's cue payload with RW3b's discovered cues merged in (reads only).
+- `find_discovered(vault: LoadedVault, repository: Repository, *, extraction_id: str, cue_id: str, plan: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1701) — A discovered cue of this source by id, whatever the learner's choices (a "not relevant" can be undone); held-out material is never one.
 
 ### Module constants
 
-- `PROMPT_VERSION` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 107)
-- `CUES_VERSION` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 108)
-- `TARGET_LEFT_KIND` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 110)
-- `SPAN_RIGHT_KIND` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 111)
-- `TARGET_RIGHT_KIND` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 113)
-- `TARGET_KINDS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 114)
-- `OPEN_TARGET_KINDS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 119)
-- `TRY_FIRST_ONLY_KINDS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 122)
-- `RELATIONS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 123)
-- `LINK_RELATIONS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 124)
-- `KIND_FOR_RELATION` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 126)
-- `CONFIDENCES` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 128)
-- `CONTRAST_ROLES` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 130)
-- `SHORTLIST` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 132)
-- `PASSAGE_CHARS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 133)
-- `STATEMENT_CHARS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 134)
-- `PICK_AT_MOST` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 135)
-- `MIN_QUOTE_CHARS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 137)
-- `JUDGE_ENVELOPE` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 138)
-- `HOLDOUT_SALT` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 140)
-- `P_OPEN_SOURCES` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 142)
-- `NOTE_PREREQUISITE` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 146)
-- `NOTE_APPLICATION` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 147)
-- `NOTE_TRY_FIRST` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 148)
-- `BECAUSE_WORK` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 149)
-- `BECAUSE_QUESTION` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 150)
-- `BECAUSE_SHOWN` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 151)
-- `BECAUSE_CLAIM` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 152)
-- `DISCOVERED_TEMPLATES` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 153)
-- `MODELS_ENV` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 159)
-- `CUE_JUDGE_TASK` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 883)
-- `_INSTRUCTIONS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 894)
-- `DAILY_CAP_REASON` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 942)
-- `DAILY_CAP_WINDOW` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 946)
-- `MAX_LEARNER_TEXT_CHARS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1411)
-- `_PRIVATE` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1695)
+- `PROMPT_VERSION` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 106)
+- `CUES_VERSION` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 107)
+- `TARGET_LEFT_KIND` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 109)
+- `SPAN_RIGHT_KIND` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 110)
+- `TARGET_RIGHT_KIND` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 112)
+- `TARGET_KINDS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 113)
+- `OPEN_TARGET_KINDS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 118)
+- `TRY_FIRST_ONLY_KINDS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 121)
+- `RELATIONS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 122)
+- `LINK_RELATIONS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 123)
+- `KIND_FOR_RELATION` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 125)
+- `CONFIDENCES` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 127)
+- `CONTRAST_ROLES` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 129)
+- `SHORTLIST` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 131)
+- `PASSAGE_CHARS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 132)
+- `STATEMENT_CHARS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 133)
+- `PICK_AT_MOST` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 134)
+- `MIN_QUOTE_CHARS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 136)
+- `JUDGE_ENVELOPE` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 137)
+- `HOLDOUT_SALT` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 139)
+- `P_OPEN_SOURCES` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 141)
+- `NOTE_PREREQUISITE` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 145)
+- `NOTE_APPLICATION` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 146)
+- `NOTE_TRY_FIRST` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 147)
+- `BECAUSE_WORK` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 148)
+- `BECAUSE_QUESTION` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 149)
+- `BECAUSE_SHOWN` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 150)
+- `BECAUSE_CLAIM` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 151)
+- `DISCOVERED_TEMPLATES` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 152)
+- `MODELS_ENV` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 158)
+- `CUE_JUDGE_TASK` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 882)
+- `_INSTRUCTIONS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 893)
+- `DAILY_CAP_REASON` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 941)
+- `DAILY_CAP_WINDOW` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 945)
+- `MAX_LEARNER_TEXT_CHARS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1410)
+- `_PRIVATE` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1694)
 
 ### Explicit exports
 
@@ -186,41 +186,41 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_cues(vault: LoadedVault) -> Any` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 176)
-- `_topic(vault: LoadedVault, lo_id: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 271)
-- `_clip(text: str | None, limit: int) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 276)
-- `_sigmoid(value: float) -> float` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 281)
-- `class _Failure` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 286) — The active predictor's P(failure) per LO, read once (``placement.predictor``).
-- `_misconception_status(record: Any) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 320)
-- `_flat(text: str | None) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 324)
-- `_facets(*groups: Any) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 328)
-- `class _Provenance` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 338) — Reads of the rows a target was named from (one read per id).
-- `_episode_targets(vault: LoadedVault, repository: Repository, lo_id: str, topic: str, reads: _Provenance) -> list[CueTarget]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 378) — An open probe episode's concrete hypotheses, each with its posterior mass (§6.2 item 4: "the open episode's posterior"): a registry hypothesis by its misconception's statement, a legacy one by the statement of the error event it was entered from (Codex review F9).
-- `_candidate_targets(vault: LoadedVault, repository: Repository, lo_id: str, topic: str, reads: _Provenance, covered: set[str], statements: set[str]) -> list[CueTarget]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 420) — The holding pen's candidates on this LO (``misconception_candidates`` and the open causal hypotheses projected into it, grouped by their recurrence key, Slice 2 T1): a class seen more than once is a recurrence group, a single one a hypothesis; open by its lifecycle (Codex review…
-- `_gap_targets(vault: LoadedVault, repository: Repository, lo_ids: Sequence[str], covered: set[str]) -> list[CueTarget]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 454) — Named learner-text gaps on these LOs, not undone (the learner's "not what I meant" hides a gap from cue targets, D37); a gap naming a misconception or a holding-pen candidate already a target is that target, not a second one.
-- `_facet_title(vault: LoadedVault, facet_id: str) -> tuple[str, str]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 499)
-- `_facet_targets(vault: LoadedVault, repository: Repository, lo_ids: Sequence[str], failure: Callable[[str | None], float | None]) -> list[CueTarget]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 506) — Facets of these LOs with a demonstrated capability ("a new application").
-- `_claim_targets(vault: LoadedVault, repository: Repository, extraction_id: str, lo_ids: Sequence[str], failure: Callable[[str | None], float | None]) -> list[CueTarget]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 568) — A claim needing an independent check on a facet of these LOs: a target for "try this step first" only (§6.1, G42; Codex review F9).
-- `_scope(repository: Repository, extraction_id: str, guard: Protection) -> Scope` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 688)
-- `_lo_neighbourhood(vault: LoadedVault, lo_ids: Sequence[str]) -> set[str]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 723) — The target's LOs and their confusables (concept-graph reading).
-- `_own_contrasts(repository: Repository, extraction_id: str) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 761) — The passages this judge's own links gave a contrast role before.
-- `_on_target(keys: Sequence[tuple[str, str]], extraction_id: str, span_los: SpanLearningObjects, los: set[str]) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 769) — ``keys`` on the open extraction and the target's LOs, once each, in order.
-- `_judge_envelope(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> SharedDailyEnvelope` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 930)
-- `_calls_cap(vault: LoadedVault) -> int` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 937)
-- `_daily_calls_cap(vault: LoadedVault) -> int` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 949)
-- `_window_start(clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 953) — Now (UTC) less 24 hours, in the receipts' own format (``datetime.isoformat`` with ``+00:00``), so it compares as text.
-- `_daily_admission(vault: LoadedVault, repository: Repository, extraction_id: str, *, clock: Clock | None) -> Callable[[SpendEstimate], None]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 980) — ``PaidCalls``'s admission of each judge attempt (a retry included): refused before it is sent once the source's calls in the last 24 hours reach ``cues.max_calls_per_source_per_day``, whatever route (the subscription too) and whatever open.
-- `_recovered(repository: Repository, route: Any, prompt: str, validate: Callable[[CueJudgeResult], CueJudgeResult]) -> CueJudgeResult | None` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1011) — A judged answer's own paid output (checkpoint, else receipt), when the ledger answered "cached" but the links were never written.
-- `_link_id(extraction_id: str, target: CueTarget, span_id: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1031)
-- `_settled(repository: Repository, targets: Sequence[CueTarget], extraction_id: str) -> set[str]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1144) — Targets whose state was judged and whose picks are links already.
-- `_judge_readiness(vault: LoadedVault, client: Any | None) -> tuple[Any, Any | None, str | None, str | None]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1172) — The judge's route and client, resolved before anything is paid for (Codex review F2): ``(route, client, status, reason)``; a status means no target is retrieved deeply or judged.
-- `_metered_room(vault: LoadedVault, repository: Repository, route: Any, *, clock: Clock | None) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1193) — Whether a metered judge has any of today's allowance left (a subscription judge is never refused for money).
-- `_spend_plan(vault: LoadedVault, repository: Repository, route: Any, pending: Sequence[tuple[CueTarget, Shortlist]], *, clock: Clock | None, extraction_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1203) — The dry run's read-only spend plan (Codex review F13): the resolved route and its cost basis, the judge calls a run would send (each target's prompt as the dry run's keyword shortlist builds it, so the real one may differ in its passages), the query embeddings retrieval may buy,…
-- `_because(target: CueTarget) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1394)
-- `_note(relation: str, target: CueTarget, passage_topic: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1400)
-- `_earlier(vault: LoadedVault, repository: Repository, target: CueTarget, cache: dict[str, dict[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1414) — "Open · what you worked on" for a discovered cue (spec §6.1, UX §4.4; Codex review F12): the cited answer the target was read from (the question as it was answered, the answer in the learner's words), the learner's own words a gap was named from, and the target's statement in Le…
-- `_guide_p_open(_cue: Mapping[str, Any]) -> tuple[float, str]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1511) — A Guide cue's target is an active error on its LO: open by its lifecycle.
-- `_public(cue: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1698)
+- `_cues(vault: LoadedVault) -> Any` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 175)
+- `_topic(vault: LoadedVault, lo_id: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 270)
+- `_clip(text: str | None, limit: int) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 275)
+- `_sigmoid(value: float) -> float` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 280)
+- `class _Failure` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 285) — The active predictor's P(failure) per LO, read once (``placement.predictor``).
+- `_misconception_status(record: Any) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 319)
+- `_flat(text: str | None) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 323)
+- `_facets(*groups: Any) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 327)
+- `class _Provenance` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 337) — Reads of the rows a target was named from (one read per id).
+- `_episode_targets(vault: LoadedVault, repository: Repository, lo_id: str, topic: str, reads: _Provenance) -> list[CueTarget]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 377) — An open probe episode's concrete hypotheses, each with its posterior mass (§6.2 item 4: "the open episode's posterior"): a registry hypothesis by its misconception's statement, a legacy one by the statement of the error event it was entered from (Codex review F9).
+- `_candidate_targets(vault: LoadedVault, repository: Repository, lo_id: str, topic: str, reads: _Provenance, covered: set[str], statements: set[str]) -> list[CueTarget]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 419) — The holding pen's candidates on this LO (``misconception_candidates`` and the open causal hypotheses projected into it, grouped by their recurrence key, Slice 2 T1): a class seen more than once is a recurrence group, a single one a hypothesis; open by its lifecycle (Codex review…
+- `_gap_targets(vault: LoadedVault, repository: Repository, lo_ids: Sequence[str], covered: set[str]) -> list[CueTarget]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 453) — Named learner-text gaps on these LOs, not undone (the learner's "not what I meant" hides a gap from cue targets, D37); a gap naming a misconception or a holding-pen candidate already a target is that target, not a second one.
+- `_facet_title(vault: LoadedVault, facet_id: str) -> tuple[str, str]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 498)
+- `_facet_targets(vault: LoadedVault, repository: Repository, lo_ids: Sequence[str], failure: Callable[[str | None], float | None]) -> list[CueTarget]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 505) — Facets of these LOs with a demonstrated capability ("a new application").
+- `_claim_targets(vault: LoadedVault, repository: Repository, extraction_id: str, lo_ids: Sequence[str], failure: Callable[[str | None], float | None]) -> list[CueTarget]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 567) — A claim needing an independent check on a facet of these LOs: a target for "try this step first" only (§6.1, G42; Codex review F9).
+- `_scope(repository: Repository, extraction_id: str, guard: Protection) -> Scope` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 687)
+- `_lo_neighbourhood(vault: LoadedVault, lo_ids: Sequence[str]) -> set[str]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 722) — The target's LOs and their confusables (concept-graph reading).
+- `_own_contrasts(repository: Repository, extraction_id: str) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 760) — The passages this judge's own links gave a contrast role before.
+- `_on_target(keys: Sequence[tuple[str, str]], extraction_id: str, span_los: SpanLearningObjects, los: set[str]) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 768) — ``keys`` on the open extraction and the target's LOs, once each, in order.
+- `_judge_envelope(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> SharedDailyEnvelope` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 929)
+- `_calls_cap(vault: LoadedVault) -> int` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 936)
+- `_daily_calls_cap(vault: LoadedVault) -> int` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 948)
+- `_window_start(clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 952) — Now (UTC) less 24 hours, in the receipts' own format (``datetime.isoformat`` with ``+00:00``), so it compares as text.
+- `_daily_admission(vault: LoadedVault, repository: Repository, extraction_id: str, *, clock: Clock | None) -> Callable[[SpendEstimate], None]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 979) — ``PaidCalls``'s admission of each judge attempt (a retry included): refused before it is sent once the source's calls in the last 24 hours reach ``cues.max_calls_per_source_per_day``, whatever route (the subscription too) and whatever open.
+- `_recovered(repository: Repository, route: Any, prompt: str, validate: Callable[[CueJudgeResult], CueJudgeResult]) -> CueJudgeResult | None` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1010) — A judged answer's own paid output (checkpoint, else receipt), when the ledger answered "cached" but the links were never written.
+- `_link_id(extraction_id: str, target: CueTarget, span_id: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1030)
+- `_settled(repository: Repository, targets: Sequence[CueTarget], extraction_id: str) -> set[str]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1143) — Targets whose state was judged and whose picks are links already.
+- `_judge_readiness(vault: LoadedVault, client: Any | None) -> tuple[Any, Any | None, str | None, str | None]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1171) — The judge's route and client, resolved before anything is paid for (Codex review F2): ``(route, client, status, reason)``; a status means no target is retrieved deeply or judged.
+- `_metered_room(vault: LoadedVault, repository: Repository, route: Any, *, clock: Clock | None) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1192) — Whether a metered judge has any of today's allowance left (a subscription judge is never refused for money).
+- `_spend_plan(vault: LoadedVault, repository: Repository, route: Any, pending: Sequence[tuple[CueTarget, Shortlist]], *, clock: Clock | None, extraction_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1202) — The dry run's read-only spend plan (Codex review F13): the resolved route and its cost basis, the judge calls a run would send (each target's prompt as the dry run's keyword shortlist builds it, so the real one may differ in its passages), the query embeddings retrieval may buy,…
+- `_because(target: CueTarget) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1393)
+- `_note(relation: str, target: CueTarget, passage_topic: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1399)
+- `_earlier(vault: LoadedVault, repository: Repository, target: CueTarget, cache: dict[str, dict[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1413) — "Open · what you worked on" for a discovered cue (spec §6.1, UX §4.4; Codex review F12): the cited answer the target was read from (the question as it was answered, the answer in the learner's words), the learner's own words a gap was named from, and the target's statement in Le…
+- `_guide_p_open(_cue: Mapping[str, Any]) -> tuple[float, str]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1510) — A Guide cue's target is an active error on its LO: open by its lifecycle.
+- `_public(cue: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1697)
 
 ## Who imports or calls it
 
@@ -247,7 +247,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/learner_gaps|learnloop.db.stores.learner_gaps]] — imports `module`; calls `gaps`, `reversals`
 - [[Reference/Modules/learnloop/db/stores/reader_cue_links|learnloop.db.stores.reader_cue_links]] — imports `module`; calls `insert_link`, `judged_left_ids`, `links_for_extraction`, `links_with_roles`, `shown_impressions`, `tables_present`
-- [[Reference/Modules/learnloop/db/stores/source_block_fts|learnloop.db.stores.source_block_fts]] — imports `blocks_by_key`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `episode_hypothesis_set`, `episode_posterior`; calls `episode_hypothesis_set`, `episode_posterior`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] — imports `pending_jobs`, `pipeline_enabled`; calls `pending_jobs`, `pipeline_enabled`
 - [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]] — imports `demonstrated_capabilities_for_facet`; calls `demonstrated_capabilities_for_facet`

@@ -65,7 +65,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 23 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 22 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 19 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 16 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 10 static module edges
@@ -113,7 +113,7 @@ flowchart LR
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_content_facet_identity["learnloop.content.facet_identity"]
     n_learnloop_curriculum["learnloop.curriculum"]
-    center -->|23| n_learnloop_vault
+    center -->|22| n_learnloop_vault
     center -->|19| n_learnloop_ai
     center -->|16| n_learnloop
     center -->|10| n_learnloop_db

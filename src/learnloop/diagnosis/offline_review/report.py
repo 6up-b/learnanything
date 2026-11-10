@@ -21,8 +21,8 @@ from learnloop.attempts.grading import resolve_quote_anchor, resolved_rubric
 from learnloop.db.connection import connect
 from learnloop.db.stores.diagnosis_review import review_rows
 from learnloop.diagnosis.offline_review import judge as judging
-from learnloop.diagnosis.offline_review.judge import PAIRS_OF_INTEREST, RATINGS
-from learnloop.diagnosis.offline_review.runner import MAIN_ARMS, RUN_FILE, SCRATCH_FILE
+from learnloop.diagnosis.offline_review.judge import RATINGS
+from learnloop.diagnosis.offline_review.runner import RUN_FILE, SCRATCH_FILE
 
 REPORT_VERSION = "slice1-m1-report-v1"
 ARM_LABELS = {
@@ -76,7 +76,7 @@ def _ledger(connection, task: str) -> list[dict[str, Any]]:
     columns = [description[0] for description in cursor.description]
     rows = []
     for row in cursor.fetchall():
-        payload = dict(zip(columns, row))
+        payload = dict(zip(columns, row, strict=True))
         try:
             payload["rationale"] = json.loads(payload["rationale"]) if payload["rationale"] else {}
         except ValueError:

@@ -51,7 +51,6 @@ import logging
 import math
 import threading
 from collections.abc import Iterable, Mapping, Sequence
-from contextlib import closing
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -244,7 +243,7 @@ def _historical_signals(item: Any) -> dict[str, float]:
 
 def _frozen_signals(row: Mapping[str, Any]) -> dict[str, float]:
     signals: dict[str, float] = {}
-    for name, entry in (receipt_store._loads(row.get("signals_json"), {}) or {}).items():
+    for name, entry in (receipt_store._loads(row.get("signals_json"), {}) or {}).items():  # noqa: F402  a local loop variable; this function never calls the imported entry()
         if isinstance(entry, Mapping) and entry.get("available") and entry.get("value") is not None:
             signals[str(name)] = float(entry["value"])
     return signals

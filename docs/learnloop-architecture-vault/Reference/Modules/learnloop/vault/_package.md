@@ -60,9 +60,9 @@ For system intent, use [[State and Persistence]].
 | [[Reference/Modules/learnloop/vault/facet_fingerprint|learnloop.vault.facet_fingerprint]] | [[Reference/Modules/learnloop/vault/facet_fingerprint#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 | [[Reference/Modules/learnloop/vault/hashes|learnloop.vault.hashes]] | [[Reference/Modules/learnloop/vault/hashes#^module-purpose|purpose]] | `ACTIVE` | 22 | 18 |
 | [[Reference/Modules/learnloop/vault/lifecycle|learnloop.vault.lifecycle]] | [[Reference/Modules/learnloop/vault/lifecycle#^module-purpose|purpose]] | `ACTIVE` | 17 | 3 |
-| [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] | [[Reference/Modules/learnloop/vault/loader#^module-purpose|purpose]] | `ACTIVE` | 141 | 803 |
-| [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] | [[Reference/Modules/learnloop/vault/models#^module-purpose|purpose]] | `ACTIVE` | 297 | 76 |
-| [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] | [[Reference/Modules/learnloop/vault/paths#^module-purpose|purpose]] | `ACTIVE` | 144 | 119 |
+| [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] | [[Reference/Modules/learnloop/vault/loader#^module-purpose|purpose]] | `ACTIVE` | 140 | 798 |
+| [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] | [[Reference/Modules/learnloop/vault/models#^module-purpose|purpose]] | `ACTIVE` | 298 | 74 |
+| [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] | [[Reference/Modules/learnloop/vault/paths#^module-purpose|purpose]] | `ACTIVE` | 143 | 117 |
 | [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] | [[Reference/Modules/learnloop/vault/repository#^module-purpose|purpose]] | `ACTIVE` | 92 | 32 |
 | [[Reference/Modules/learnloop/vault/required_method|learnloop.vault.required_method]] | [[Reference/Modules/learnloop/vault/required_method#^module-purpose|purpose]] | `ACTIVE` | 50 | 10 |
 | [[Reference/Modules/learnloop/vault/scope_seal|learnloop.vault.scope_seal]] | [[Reference/Modules/learnloop/vault/scope_seal#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
@@ -91,7 +91,7 @@ For system intent, use [[State and Persistence]].
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 26 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 25 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 24 static module edges
-- [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 23 static module edges
+- [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 22 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 21 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 20 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 19 static module edges
@@ -103,9 +103,9 @@ For system intent, use [[State and Persistence]].
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 14 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 14 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 13 static module edges
+- [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 13 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 13 static module edges
 - [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 12 static module edges
-- [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 12 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 11 static module edges
 - [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 10 static module edges
 - [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] — 9 static module edges
@@ -114,7 +114,7 @@ For system intent, use [[State and Persistence]].
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 7 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 6 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 6 static module edges
-- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 5 static module edges
+- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 4 static module edges
 - [[Reference/Modules/learnloop/evsi_calibration/_package|learnloop.evsi_calibration]] — 4 static module edges
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 4 static module edges
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 4 static module edges
@@ -157,7 +157,7 @@ flowchart LR
     n_learnloop_content_synthesis -->|26| center
     n_learnloop_learner -->|25| center
     n_learnloop_curriculum -->|24| center
-    n_learnloop_content_proposals -->|23| center
+    n_learnloop_content_proposals -->|22| center
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

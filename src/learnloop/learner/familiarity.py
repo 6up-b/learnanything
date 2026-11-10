@@ -30,7 +30,7 @@ from consuming warmth as a knowledge signal.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Iterable, Mapping, Sequence
 
 from learnloop.clock import Clock

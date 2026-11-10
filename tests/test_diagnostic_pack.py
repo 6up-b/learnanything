@@ -6,7 +6,6 @@ import pytest
 
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis import diagnostic_pack as DP
-from learnloop.curriculum import golden_path_run as GPR
 from learnloop.curriculum.golden_path_fixture import (
     LO_ID,
     build_golden_path_fixture,

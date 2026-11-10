@@ -21,7 +21,7 @@ from learnloop.vault.writer import (
 )
 from learnloop.vault.yaml_io import write_yaml
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault, write_facets
+from tests.helpers import NOW, create_basic_vault, write_facets
 
 CLOCK = FrozenClock(NOW)
 

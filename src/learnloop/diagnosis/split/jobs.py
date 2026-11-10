@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any, Callable, Iterator, Mapping
 
-from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
+from learnloop.ai.errors import AIInterrupted
 from learnloop.ai.execution import record_model_calls
 from learnloop.ai.runs import finish_agent_run
 from learnloop.ai.spend import SpendCaps, SpendEstimate, SpendLimitExceeded

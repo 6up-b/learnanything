@@ -262,7 +262,7 @@ def prior_weights(proposal: Mapping[str, Any]) -> tuple[dict[str, float], int] |
         total = sum(resolved)
         if not total:
             resolved, total = [1.0] * len(causes), float(len(causes))
-        for cause, weight in zip(causes, resolved):
+        for cause, weight in zip(causes, resolved, strict=True):
             totals[_class(cause.get("cause_scope"))] += weight / total
         events += 1
     if not events:

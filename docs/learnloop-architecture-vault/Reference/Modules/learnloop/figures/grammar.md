@@ -165,7 +165,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/figures/book_math|learnloop.figures.book_math]] — imports `module`; statically calls `Node`, `free_names`, `is_name`, `node_count`
 - [[Reference/Modules/learnloop/figures/elements|learnloop.figures.elements]] — imports `module`; statically calls `GrammarError`
 - [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]] — imports `module`; statically calls `check_names`, `evaluate`, `is_name`, `parse`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`
 - [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] — imports `module`; statically calls `check_names`, `free_names`, `is_name`, `parse`
 - [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]] — imports `module`; statically calls `evaluate`
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `module`; statically calls `Node`, `evaluate`, `walk`
@@ -190,7 +189,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/book_math|learnloop.figures.book_math]], [[Reference/Modules/learnloop/figures/elements|learnloop.figures.elements]], [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/book_math|learnloop.figures.book_math]], [[Reference/Modules/learnloop/figures/elements|learnloop.figures.elements]], [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]], [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]], [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -216,7 +215,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figures_fix_round4.py](../../../../../../tests/test_figures_fix_round4.py) — direct import
   - `test_the_depth_cap_is_the_same_in_typescript`
   - `test_the_verifys_seven_level_chain_compiles_and_evaluates`
-- [tests/test_figures_fix_round5.py](../../../../../../tests/test_figures_fix_round5.py) — direct import
 - [tests/test_rw5c_book_math.py](../../../../../../tests/test_rw5c_book_math.py) — direct import
   - `test_the_e_rule_reads_only_a_power_or_mathrm`
 - [tests/test_rw5c_katex_tree.py](../../../../../../tests/test_rw5c_katex_tree.py) — direct import

@@ -189,7 +189,7 @@ def _candidate_causes(event: Mapping[str, Any]) -> list[dict[str, Any]]:
     return [
         {"cause_scope": c.get("cause_scope"), "prior_weight": round(w / total, 6),
          "statement": str(c.get("statement") or "")[:240]}
-        for c, w in zip(causes, resolved)
+        for c, w in zip(causes, resolved, strict=True)
     ]
 
 

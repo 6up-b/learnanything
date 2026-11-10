@@ -59,7 +59,7 @@ def test_overlaid_read_carries_the_diagnosers_statement_and_verdict(tmp_path):
     # grader's taxonomy prior.
     assert all(event.is_misconception for event in overlaid)
     # Grader-owned fields are kept.
-    for before, after in zip(raw, overlaid):
+    for before, after in zip(raw, overlaid, strict=True):
         assert (after.error_type, after.severity, after.created_at, after.learning_object_id) == (
             before.error_type, before.severity, before.created_at, before.learning_object_id,
         )

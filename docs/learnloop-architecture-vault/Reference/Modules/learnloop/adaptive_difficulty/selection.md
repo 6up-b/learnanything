@@ -47,51 +47,51 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py) |
-| Source lines | 411 |
+| Source lines | 410 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class SelectionConstants` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 47)
-  - `as_dict(self) -> dict[str, Any]` (line 55; public)
-- `constants_from_config(config: Any) -> SelectionConstants` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 61)
-- `class Scored` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 75) — One candidate's scores, as logged.
-  - `as_dict(self) -> dict[str, Any]` (line 83; public)
-- `class Draw` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 89)
-  - `propensity(self) -> float` (line 101; public)
-  - `as_dict(self) -> dict[str, Any]` (line 104; public)
-- `seed_for(design: str, key: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 111)
-- `uniform(seed: str) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 115) — A uniform in [0, 1) from the seed (53 bits of a SHA-256).
-- `propensities(scored: Sequence[Scored], constants: SelectionConstants=SelectionConstants()) -> tuple[str, dict[str, float], tuple[str, ...], tuple[str, ...], float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 144) — ``(mode, π, T, O, q)``: the exact propensities of §6.1 step 4 (or §6.2's calibrate rule).
-- `draw(scored: Sequence[Scored], *, key: str, design: str=SELECT_VERSION, constants: SelectionConstants=SelectionConstants()) -> Draw` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 174) — The draw, with its propensities logged before it is used (A7).
-- `recompute(row: Mapping[str, Any], constants: SelectionConstants | None=None) -> Draw` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 187) — Recompute a draw from its logged row (G-AD2-19): the scores, the constants and the seed.
-- `feature_level(dimension: str, value: Any) -> int` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 257) — The ordinal level of a feature value on a ladder dimension (§9.1's order).
-- `point_key(point: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 266)
-- `entry_point(capability: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 278) — ``e_k``: the default-trajectory waypoint for the capability (§9.1); None for coordination.
-- `default_target(capability: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 289) — ``e_k`` stepped one level up in complexity and in transfer, bounded by the default trajectory.
-- `envelope_max() -> dict[str, int]` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 302) — The default trajectory's depth envelope: the hardest level it reaches on each dimension.
-- `within_envelope(point: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 315)
-- `ladder(capability: str, target: Mapping[str, Any] | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 323) — A ladder instance ``L(k, t)`` (§9.1): from ``e_k`` to ``t``, one dimension one level per rung in the fixed order, cycling until every dimension reaches ``t``.
-- `ladder_id(capability: str, target: Mapping[str, Any] | None) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 350)
-- `commission_candidates(capability: str, targets: Sequence[Mapping[str, Any] | None]=(None,)) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 358) — ``X_c``: the rungs of every applicable ladder and their one-step neighbours on a single ordinal dimension, clipped to the depth envelope (§6.1).
+- `class SelectionConstants` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 46)
+  - `as_dict(self) -> dict[str, Any]` (line 54; public)
+- `constants_from_config(config: Any) -> SelectionConstants` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 60)
+- `class Scored` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 74) — One candidate's scores, as logged.
+  - `as_dict(self) -> dict[str, Any]` (line 82; public)
+- `class Draw` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 88)
+  - `propensity(self) -> float` (line 100; public)
+  - `as_dict(self) -> dict[str, Any]` (line 103; public)
+- `seed_for(design: str, key: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 110)
+- `uniform(seed: str) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 114) — A uniform in [0, 1) from the seed (53 bits of a SHA-256).
+- `propensities(scored: Sequence[Scored], constants: SelectionConstants=SelectionConstants()) -> tuple[str, dict[str, float], tuple[str, ...], tuple[str, ...], float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 143) — ``(mode, π, T, O, q)``: the exact propensities of §6.1 step 4 (or §6.2's calibrate rule).
+- `draw(scored: Sequence[Scored], *, key: str, design: str=SELECT_VERSION, constants: SelectionConstants=SelectionConstants()) -> Draw` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 173) — The draw, with its propensities logged before it is used (A7).
+- `recompute(row: Mapping[str, Any], constants: SelectionConstants | None=None) -> Draw` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 186) — Recompute a draw from its logged row (G-AD2-19): the scores, the constants and the seed.
+- `feature_level(dimension: str, value: Any) -> int` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 256) — The ordinal level of a feature value on a ladder dimension (§9.1's order).
+- `point_key(point: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 265)
+- `entry_point(capability: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 277) — ``e_k``: the default-trajectory waypoint for the capability (§9.1); None for coordination.
+- `default_target(capability: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 288) — ``e_k`` stepped one level up in complexity and in transfer, bounded by the default trajectory.
+- `envelope_max() -> dict[str, int]` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 301) — The default trajectory's depth envelope: the hardest level it reaches on each dimension.
+- `within_envelope(point: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 314)
+- `ladder(capability: str, target: Mapping[str, Any] | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 322) — A ladder instance ``L(k, t)`` (§9.1): from ``e_k`` to ``t``, one dimension one level per rung in the fixed order, cycling until every dimension reaches ``t``.
+- `ladder_id(capability: str, target: Mapping[str, Any] | None) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 349)
+- `commission_candidates(capability: str, targets: Sequence[Mapping[str, Any] | None]=(None,)) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 357) — ``X_c``: the rungs of every applicable ladder and their one-step neighbours on a single ordinal dimension, clipped to the depth envelope (§6.1).
 
 ### Module constants
 
-- `SELECT_VERSION` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 36)
-- `COMMISSION_VERSION` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 37)
-- `LADDER_VERSION` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 38)
-- `DESIGN` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 39)
-- `MODE_BAND` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 41)
-- `MODE_CALIBRATE` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 42)
-- `MODE_PREDECESSOR` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 43)
-- `LADDER_ORDER` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 210)
-- `_SCAFFOLDING` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 211)
-- `_TRANSFER` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 212)
-- `_SPAN` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 213)
-- `_RESPONSE_CLASS` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 214)
-- `_LEVELS` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 263)
+- `SELECT_VERSION` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 35)
+- `COMMISSION_VERSION` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 36)
+- `LADDER_VERSION` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 37)
+- `DESIGN` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 38)
+- `MODE_BAND` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 40)
+- `MODE_CALIBRATE` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 41)
+- `MODE_PREDECESSOR` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 42)
+- `LADDER_ORDER` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 209)
+- `_SCAFFOLDING` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 210)
+- `_TRANSFER` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 211)
+- `_SPAN` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 212)
+- `_RESPONSE_CLASS` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 213)
+- `_LEVELS` ([src/learnloop/adaptive_difficulty/selection.py](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 262)
 
 ### Explicit exports
 
@@ -126,12 +126,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_invert(propensities: Mapping[str, float], u: float) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 122)
-- `_within(value: float, interval: tuple[float, float]) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 132)
-- `_distance(value: float, interval: tuple[float, float]) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 136)
-- `_level(dimension: str, value: Any) -> int` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 218)
-- `_value(dimension: str, level: int, template: Mapping[str, Any]) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 238)
-- `_neighbours(point: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 371)
+- `_invert(propensities: Mapping[str, float], u: float) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 121)
+- `_within(value: float, interval: tuple[float, float]) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 131)
+- `_distance(value: float, interval: tuple[float, float]) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 135)
+- `_level(dimension: str, value: Any) -> int` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 217)
+- `_value(dimension: str, level: int, template: Mapping[str, Any]) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 237)
+- `_neighbours(point: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/selection.py), line 370)
 
 ## Who imports or calls it
 
@@ -156,7 +156,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `dataclasses`, `hashlib`, `json`, `math`, `typing`
+- Standard library: `__future__`, `collections`, `dataclasses`, `hashlib`, `json`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

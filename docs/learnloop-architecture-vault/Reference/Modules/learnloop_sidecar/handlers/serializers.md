@@ -162,7 +162,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `FOLLOWUP_REASONS`, `ScheduledItem`, `dominant_scheduler_reason`, `explain_practice_item`; calls `dominant_scheduler_reason`, `explain_practice_item`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `unassessed_evidence_row`; calls `unassessed_evidence_row`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `hint_equivalents_for_attempt`; calls `hint_equivalents_for_attempt`
-- [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `ErrorType`, `LearningObject`, `LoadedVault`, `PracticeItem`, `Rubric`
+- [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `ErrorType`, `LoadedVault`, `PracticeItem`, `Rubric`
 - [[Reference/Modules/learnloop/vault/required_method|learnloop.vault.required_method]] — imports `method_instruction`; calls `method_instruction`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `mastery_dto`; calls `mastery_dto`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `to_camel`, `versioned`; calls `to_camel`, `versioned`

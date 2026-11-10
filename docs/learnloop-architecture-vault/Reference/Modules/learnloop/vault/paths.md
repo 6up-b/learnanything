@@ -132,7 +132,6 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/content/pipeline/quick_add|learnloop.content.pipeline.quick_add]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/content/pipeline/revision_refresh|learnloop.content.pipeline.revision_refresh]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]] — imports `VaultPaths`
 - [[Reference/Modules/learnloop/content/proposals/method_phrasing|learnloop.content.proposals.method_phrasing]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `VaultPaths`; statically calls `VaultPaths`
@@ -258,7 +257,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 139 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 138 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -323,7 +322,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_facet_authority_review.py](../../../../../../tests/test_facet_authority_review.py) — direct import
   - `test_recovery_settles_an_undo_intent_the_authority_rule_refuses`
 - [tests/test_facet_identity.py](../../../../../../tests/test_facet_identity.py) — direct import
-- [tests/test_facet_identity_composition.py](../../../../../../tests/test_facet_identity_composition.py) — direct import
 - [tests/test_facet_identity_ingest.py](../../../../../../tests/test_facet_identity_ingest.py) — direct import
   - `test_a_candidate_matching_a_registered_facet_becomes_its_alias`
   - `test_a_duplicate_candidate_is_merged_before_the_gates_and_undo_re_mints_it`
@@ -425,7 +423,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sim_teach_back.py](../../../../../../tests/test_sim_teach_back.py) — direct import
   - `test_runner_completes_session_with_teach_back_item`
 - [tests/test_simulation.py](../../../../../../tests/test_simulation.py) — direct import
-- [tests/test_source_append.py](../../../../../../tests/test_source_append.py) — direct import
 - [tests/test_source_deletion.py](../../../../../../tests/test_source_deletion.py) — direct import
   - `test_delete_keeps_stored_bytes_another_source_still_shares`
 - [tests/test_source_set_synthesis.py](../../../../../../tests/test_source_set_synthesis.py) — direct import

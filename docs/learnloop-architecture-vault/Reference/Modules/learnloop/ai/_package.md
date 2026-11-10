@@ -83,7 +83,7 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] | [[Reference/Modules/learnloop/ai/routing#^module-purpose|purpose]] | `ACTIVE` | 60 | 35 |
 | [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] | [[Reference/Modules/learnloop/ai/runs#^module-purpose|purpose]] | `ACTIVE` | 10 | 1 |
 | [[Reference/Modules/learnloop/ai/runtime|learnloop.ai.runtime]] | [[Reference/Modules/learnloop/ai/runtime#^module-purpose|purpose]] | `ACTIVE` | 9 | 15 |
-| [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] | [[Reference/Modules/learnloop/ai/schemas#^module-purpose|purpose]] | `ACTIVE` | 73 | 14 |
+| [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] | [[Reference/Modules/learnloop/ai/schemas#^module-purpose|purpose]] | `ACTIVE` | 72 | 14 |
 | [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] | [[Reference/Modules/learnloop/ai/spend#^module-purpose|purpose]] | `ACTIVE` | 122 | 84 |
 | [[Reference/Modules/learnloop/ai/strict_schema|learnloop.ai.strict_schema]] | [[Reference/Modules/learnloop/ai/strict_schema#^module-purpose|purpose]] | `ACTIVE` | 5 | 11 |
 | [[Reference/Modules/learnloop/ai/tool_requests|learnloop.ai.tool_requests]] | [[Reference/Modules/learnloop/ai/tool_requests#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
@@ -126,8 +126,8 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 17 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 17 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 17 static module edges
-- [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 16 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 16 static module edges
+- [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 15 static module edges
 - [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 14 static module edges
 - [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] — 14 static module edges
 - [[Reference/Modules/learnloop/ops/contamination/_package|learnloop.ops.contamination]] — 14 static module edges

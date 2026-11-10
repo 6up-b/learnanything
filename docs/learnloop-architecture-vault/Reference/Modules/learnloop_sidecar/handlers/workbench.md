@@ -213,7 +213,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_hint_h2b_fix3.py](../../../../../../tests/test_hint_h2b_fix3.py) — direct import
 - [tests/test_hint_h2b_review.py](../../../../../../tests/test_hint_h2b_review.py) — direct import
   - `test_f1_the_open_request_names_no_submission`
-- [tests/test_library_exercises.py](../../../../../../tests/test_library_exercises.py) — direct import
 - [tests/test_mobile_allowlist.py](../../../../../../tests/test_mobile_allowlist.py) — direct import
   - `test_the_pinned_rw4b_rpcs_are_all_of_them`
 - [tests/test_reader_rw1c_review.py](../../../../../../tests/test_reader_rw1c_review.py) — direct import

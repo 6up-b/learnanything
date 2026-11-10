@@ -37,7 +37,7 @@ from typing import Any, Mapping, Sequence
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.substrate import card_lineage as _lineage
-from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS, Rating
+from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS
 
 PURPOSES: tuple[str, ...] = ("diagnostic", "instructional", "practice", "assessment")
 

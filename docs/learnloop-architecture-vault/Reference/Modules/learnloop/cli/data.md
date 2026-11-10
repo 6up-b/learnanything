@@ -49,35 +49,35 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/data.py](../../../../../../src/learnloop/cli/data.py) |
-| Source lines | 219 |
+| Source lines | 218 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `data_quality(vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 37) — Read-only JSON coverage report, with current-version denominators.
-- `usage(vault: Annotated[Path | None, typer.Option('--vault')]=None, json_output: Annotated[bool, typer.Option('--json', help='Emit the stable JSON report.')]=False, since: Annotated[str | None, typer.Option('--since', help='Only operations started at or after this ISO date or time (UTC when no offset).')]=None, purpose: Annotated[str | None, typer.Option('--purpose', help='Only operations whose root purpose starts with this prefix.')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 53) — Read-only token and cost report from model-call receipts, with synthesis budget ratios.
-- `render_usage_report(report: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/cli/data.py), line 80) — A terminal-width summary of the JSON report, section by section.
-- `dataset_export(output: Annotated[Path, typer.Argument(help='New local output directory.')], split_policy: Annotated[str, typer.Option('--split-policy', help=_SPLIT_POLICY_HELP)]=DEFAULT_SPLIT_POLICY, embargo: Annotated[str, typer.Option('--embargo', help='Temporal policy only: a duration such as 7d, 36h, 90m, 30s or 0 (no embargo).')]='7d', vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 179) — Back up an active database and export evidence, labels and split metadata.
-- `adjudicate_remediation(attempt_id: Annotated[str, typer.Argument()], false_remediation: Annotated[bool, typer.Option('--false-remediation/--appropriate-remediation')], evidence: Annotated[Path, typer.Option('--evidence', help="JSON list of retained {table, id} evidence references; id is the table's primary-key value.")], verifier_version: Annotated[str, typer.Option('--verifier-version')], author_kind: Annotated[str, typer.Option('--author-kind', help='human or machine')]='human', vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 201) — Append an evidence-backed label; corrections append another adjudication.
+- `data_quality(vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 36) — Read-only JSON coverage report, with current-version denominators.
+- `usage(vault: Annotated[Path | None, typer.Option('--vault')]=None, json_output: Annotated[bool, typer.Option('--json', help='Emit the stable JSON report.')]=False, since: Annotated[str | None, typer.Option('--since', help='Only operations started at or after this ISO date or time (UTC when no offset).')]=None, purpose: Annotated[str | None, typer.Option('--purpose', help='Only operations whose root purpose starts with this prefix.')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 52) — Read-only token and cost report from model-call receipts, with synthesis budget ratios.
+- `render_usage_report(report: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/cli/data.py), line 79) — A terminal-width summary of the JSON report, section by section.
+- `dataset_export(output: Annotated[Path, typer.Argument(help='New local output directory.')], split_policy: Annotated[str, typer.Option('--split-policy', help=_SPLIT_POLICY_HELP)]=DEFAULT_SPLIT_POLICY, embargo: Annotated[str, typer.Option('--embargo', help='Temporal policy only: a duration such as 7d, 36h, 90m, 30s or 0 (no embargo).')]='7d', vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 178) — Back up an active database and export evidence, labels and split metadata.
+- `adjudicate_remediation(attempt_id: Annotated[str, typer.Argument()], false_remediation: Annotated[bool, typer.Option('--false-remediation/--appropriate-remediation')], evidence: Annotated[Path, typer.Option('--evidence', help="JSON list of retained {table, id} evidence references; id is the table's primary-key value.")], verifier_version: Annotated[str, typer.Option('--verifier-version')], author_kind: Annotated[str, typer.Option('--author-kind', help='human or machine')]='human', vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 200) — Append an evidence-backed label; corrections append another adjudication.
 
 ### Module constants
 
-- `_SPLIT_POLICY_HELP` ([src/learnloop/cli/data.py](../../../../../../src/learnloop/cli/data.py), line 44)
-- `_TOKEN_LABELS` ([src/learnloop/cli/data.py](../../../../../../src/learnloop/cli/data.py), line 71)
+- `_SPLIT_POLICY_HELP` ([src/learnloop/cli/data.py](../../../../../../src/learnloop/cli/data.py), line 43)
+- `_TOKEN_LABELS` ([src/learnloop/cli/data.py](../../../../../../src/learnloop/cli/data.py), line 70)
 
 ## Internal implementation anchors
 
-- `_loaded_vault(vault: Path | None) -> LoadedVault` ([source](../../../../../../src/learnloop/cli/data.py), line 23)
-- `_sqlite_path(loaded: LoadedVault) -> Path` ([source](../../../../../../src/learnloop/cli/data.py), line 27)
-- `_fail(exc: BaseException) -> typer.Exit` ([source](../../../../../../src/learnloop/cli/data.py), line 31)
-- `_usage_heading(report: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/cli/data.py), line 89)
-- `_number(value: Any) -> str` ([source](../../../../../../src/learnloop/cli/data.py), line 96)
-- `_render_purposes(groups: list[dict[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/cli/data.py), line 104)
-- `_ratio_text(value: int | None, ratio: float | None, budget: int | None, name: str) -> str` ([source](../../../../../../src/learnloop/cli/data.py), line 129)
-- `_render_synthesis_runs(section: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/cli/data.py), line 138)
-- `_render_coverage(rows: list[dict[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/cli/data.py), line 163)
+- `_loaded_vault(vault: Path | None) -> LoadedVault` ([source](../../../../../../src/learnloop/cli/data.py), line 22)
+- `_sqlite_path(loaded: LoadedVault) -> Path` ([source](../../../../../../src/learnloop/cli/data.py), line 26)
+- `_fail(exc: BaseException) -> typer.Exit` ([source](../../../../../../src/learnloop/cli/data.py), line 30)
+- `_usage_heading(report: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/cli/data.py), line 88)
+- `_number(value: Any) -> str` ([source](../../../../../../src/learnloop/cli/data.py), line 95)
+- `_render_purposes(groups: list[dict[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/cli/data.py), line 103)
+- `_ratio_text(value: int | None, ratio: float | None, budget: int | None, name: str) -> str` ([source](../../../../../../src/learnloop/cli/data.py), line 128)
+- `_render_synthesis_runs(section: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/cli/data.py), line 137)
+- `_render_coverage(rows: list[dict[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/cli/data.py), line 162)
 
 ## Who imports or calls it
 

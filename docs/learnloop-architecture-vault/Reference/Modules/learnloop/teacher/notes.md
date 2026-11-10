@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/notes.py](../../../../../../src/learnloop/teacher/notes.py) |
-| Source lines | 119 |
+| Source lines | 118 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -56,7 +56,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `your_notes(vault: Any, repository: Any, learning_object_ids: Sequence[str]) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/teacher/notes.py), line 25) — Per LO, headers of the learner's linked notes (title, heading, date, one line): their own voice (C4).
 - `read_note(vault: Any, repository: Any, state: Any, refs: list[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/notes.py), line 52)
-- `notes_still_deliverable(vault: Any, repository: Any, note_refs: Sequence[str]) -> bool` ([source](../../../../../../src/learnloop/teacher/notes.py), line 85) — Whether every note a lesson was given (``n:<link id>``: a ``your_notes`` header or a ``read_note`` text) could still be given now, so an earlier lesson's recap may carry what it took from them (followups batch 5, Codex review F2; :func:`learnloop.teacher.brief.recap_admissible`…
+- `notes_still_deliverable(vault: Any, repository: Any, note_refs: Sequence[str]) -> bool` ([source](../../../../../../src/learnloop/teacher/notes.py), line 84) — Whether every note a lesson was given (``n:<link id>``: a ``your_notes`` header or a ``read_note`` text) could still be given now, so an earlier lesson's recap may carry what it took from them (followups batch 5, Codex review F2; :func:`learnloop.teacher.brief.recap_admissible`…
 
 ### Explicit exports
 

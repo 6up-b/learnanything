@@ -85,7 +85,7 @@ def test_the_probe_with_the_switch_off_is_the_pre_fix_source_exactly(case):
 def test_the_probe_after_the_fix_pins_its_numbers_and_the_seed(case):
     after = _probe(case, consistent_review_draw=True)
     assert after == pytest.approx(PROBE_AFTER[case], rel=1e-12, abs=0.0)
-    curve = dict(zip((0.0, 30.0, 40.0), after))
+    curve = dict(zip((0.0, 30.0, 40.0), after, strict=True))
     kappa0, how = P.seed_from_gain(curve, remembered=30.0, block_minutes=10.0, last_positive=None)
     assert (how, kappa0 > 0) == SEED_AFTER[case]
 

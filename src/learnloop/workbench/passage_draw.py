@@ -102,7 +102,7 @@ class Draw:
         return {
             "options_json": json.dumps(list(self.options), sort_keys=True),
             "probabilities_json": json.dumps({option["option_id"]: p for option, p in zip(self.options,
-                                                                                        self.probabilities)},
+                                                                                        self.probabilities, strict=True)},
                                              sort_keys=True),
             "drawn_option_json": json.dumps(self.drawn, sort_keys=True),
             "propensity": self.propensity,

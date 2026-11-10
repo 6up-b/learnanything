@@ -25,7 +25,7 @@ from learnloop.scheduling.fsrs import interval_for_retention
 from learnloop.params.fitted_params import resolve_fsrs_weights
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, append_config_toml, create_placement_vault
+from tests.helpers import NOW, create_placement_vault
 
 TAG = INTERVAL_FACTOR_ALGORITHM_VERSION
 PREDECESSOR = FOLLOWUP_SERVE_ALGORITHM_VERSION

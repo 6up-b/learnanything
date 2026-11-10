@@ -34,7 +34,7 @@ def table_exists(connection: sqlite3.Connection) -> bool:
 def _decode(row: sqlite3.Row | tuple[Any, ...] | None) -> dict[str, Any] | None:
     if row is None:
         return None
-    record = dict(zip(COLUMNS, tuple(row)))
+    record = dict(zip(COLUMNS, tuple(row), strict=True))
     for column in _JSON_COLUMNS:
         record[column.removesuffix("_json")] = json.loads(record[column] or "{}")
     record["verified_goal"] = bool(record["verified_goal"])

@@ -60,7 +60,7 @@ def test_caps_are_code_owned_constants():
 @pytest.mark.parametrize("case", CORPUS["figures"], ids=lambda case: case["id"])
 def test_panel_values(case):
     compiled = S.parse_spec(case["spec"])
-    for params, expected in zip(case["params"], case["expected"]):
+    for params, expected in zip(case["params"], case["expected"], strict=True):
         assert S.evaluate_figure(compiled, params) == expected
 
 
@@ -89,7 +89,7 @@ def test_rk4_is_the_textbook_integrator_step_for_step_and_fourth_order():
     compiled = S.parse_spec(spec)
     data = S.evaluate_figure(compiled, {"w": 1, "c": 0})["panels"][0]
     reference = _textbook_rk4(lambda x, y: (y, -1 * 1 * x - 0 * y), 1.0, 0.0, 10 / 200, 200)
-    assert [(x, y) for x, y in zip(data["x"], data["y"])] == pytest.approx(reference, rel=1e-14, abs=1e-15)
+    assert [(x, y) for x, y in zip(data["x"], data["y"], strict=True)] == pytest.approx(reference, rel=1e-14, abs=1e-15)
     assert data["t"][-1] == pytest.approx(10.0)
     # The undamped oscillator is x = cos t: RK4 at h = 0.05 is within 1e-6.
     assert abs(data["x"][-1] - math.cos(10)) < 1e-6 and abs(data["y"][-1] + math.sin(10)) < 1e-6

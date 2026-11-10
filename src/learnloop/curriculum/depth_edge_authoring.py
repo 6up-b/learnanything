@@ -22,7 +22,7 @@ from learnloop.curriculum.ai_contracts import (
     DepthEdgeInstanceContext,
     depth_edge_instance_prompt,
 )
-from learnloop.clock import Clock, utc_now_iso
+from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.curriculum import commitments as C
@@ -32,7 +32,6 @@ from learnloop.substrate.activity_patterns import (
     ensure_builtin_task_feature_schema,
     ensure_capability_alias_registry,
     map_capability,
-    validate_task_features,
 )
 from learnloop.curriculum.depth_rungs import project_task_contract
 from learnloop.content.synthesis.synthesis_gates import GateDiagnostic
@@ -205,7 +204,6 @@ def author_edge_instances(
     batch = request_depth_edge_instances(client, context)
 
     stored: list[dict[str, Any]] = []
-    template_by_id = {row["id"]: row for row in template_versions}
     for payload in batch.instances[: max(count, len(batch.instances))]:
         # Attribute each instance to the first template whose gates it passes,
         # falling back to the first template's report when none admit.

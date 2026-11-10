@@ -105,7 +105,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] — imports `append_denials`, `denial_count`, `denial_log_path`; statically calls `append_denials`
+- [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] — imports `append_denials`, `denial_count`; statically calls `append_denials`
 - [[Reference/Modules/learnloop/adaptive_difficulty/report|learnloop.adaptive_difficulty.report]] — imports `module`; statically calls `summary`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `archive_denial_log`, `cutover_mark`; statically calls `archive_denial_log`, `cutover_mark`
 

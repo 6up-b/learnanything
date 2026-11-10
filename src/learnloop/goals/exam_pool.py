@@ -569,8 +569,8 @@ def _select(candidates: list[_Candidate], item_count: int) -> list[_Candidate]:
 
     while remaining and len(selected) < item_count:
         def sort_key(candidate: _Candidate) -> tuple:
-            new_components = len(candidate.components - covered_components)
-            new_facets = len(candidate.facets - covered)
+            new_components = len(candidate.components - covered_components)  # noqa: B023  called within this iteration, before the loop rebinds it
+            new_facets = len(candidate.facets - covered)  # noqa: B023  called within this iteration, before the loop rebinds it
             surface_new = (
                 candidate.surface_family is not None and candidate.surface_family not in used_surfaces
             )

@@ -15,7 +15,7 @@ from learnloop.attempts.effective_observation import (
     effective_observation_from_posterior,
 )
 from learnloop.attempts.grade_resolution import append_adjudication, resolve_grade
-from learnloop.attempts.outcome_schemas import COARSE_RESPONSE_SLUG, ensure_builtin_schemas
+from learnloop.attempts.outcome_schemas import ensure_builtin_schemas
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 

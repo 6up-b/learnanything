@@ -109,7 +109,7 @@ from learnloop.vault.repository import open_vault_repository
 from learnloop.vault.yaml_io import read_yaml, yaml_to_string
 
 from learnloop.cli.receipts import bind_command_repository, bind_command_vault
-from learnloop.cli.render import *  # noqa: F401,F403
+from learnloop.cli.render import *  # noqa: F403
 
 _INGEST_SPINNER_FRAMES = ("|", "/", "-", "\\")
 

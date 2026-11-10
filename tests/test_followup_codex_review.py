@@ -31,7 +31,6 @@ from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
-from tests.daily_plan_fakes import record_attempt
 from tests.followup_serve_helpers import (
     CLOCK,
     OFF,

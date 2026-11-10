@@ -185,7 +185,7 @@ class ReaderLookup:
         return learner_query(self.question, ancestors=self.ancestors)
 
     def __call__(self, inputs: Mapping[str, Any] | None = None) -> tuple[list[dict[str, Any]] | None, dict[str, Any]]:
-        vault, repository = self.vault, self.repository
+        vault = self.vault
         gaps = self.gaps if inputs is None else inputs.get("gaps") or []
         misconceptions = self.misconceptions if inputs is None else inputs.get("misconceptions")
         # Bound: the query and the practice question exactly as the plan
@@ -292,7 +292,7 @@ class ItemBoundGuard:
             roles = block_roles(connection, [key for key in keys if key[0] and key[1]])
         kept: list[dict[str, Any]] = []
         counts: dict[str, int] = {}
-        for span, key in zip(spans, keys):
+        for span, key in zip(spans, keys, strict=True):
             text = str(span.get("text") or "")
             role = span.get("role") or roles.get(key)
             selection = span.get("relation") in SELECTION_RELATIONS

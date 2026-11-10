@@ -18,7 +18,7 @@ from learnloop.tutor.question_signal import (
 )
 from learnloop.tutor.tutor_qa import ask_question
 from learnloop.vault.loader import load_vault
-from tests.helpers import NOW, NOW_ISO, create_basic_vault
+from tests.helpers import NOW, create_basic_vault
 
 EARLIER_ISO = "2026-05-19T10:00:00Z"  # before NOW (12:00)
 QUESTION_ISO = "2026-05-19T11:00:00Z"

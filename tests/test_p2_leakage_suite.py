@@ -17,7 +17,6 @@ Cases:
 
 from __future__ import annotations
 
-import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository

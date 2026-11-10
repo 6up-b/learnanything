@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/experiments/contextual_embeddings/e1/run.py](../../../../../../../../src/learnloop/experiments/contextual_embeddings/e1/run.py) |
-| Source lines | 485 |
+| Source lines | 484 |
 | Owning package | [[Reference/Modules/learnloop/experiments/contextual_embeddings/e1/_package|learnloop.experiments.contextual_embeddings.e1]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -71,10 +71,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `run_local(plan: Mapping[str, Any], layout: ImportLayout, *, model_dir: Path, launcher: Any, check_plan: bool=True, smoke_only: bool=False) -> dict[str, Any]` ([source](../../../../../../../../src/learnloop/experiments/contextual_embeddings/e1/run.py), line 229) — ONE scoped worker for every missing v2 document and query (resumable).
 - `v2_rankings(replayed: Replayed, store: VectorStore) -> tuple[dict[str, dict[str, list[str]]], dict[str, Any]]` ([source](../../../../../../../../src/learnloop/experiments/contextual_embeddings/e1/run.py), line 269)
 - `label_estimate(per_question: Sequence[int], replayed: Replayed) -> dict[str, Any]` ([source](../../../../../../../../src/learnloop/experiments/contextual_embeddings/e1/run.py), line 285) — Dollars for the supplementary labels of these real counts (the plan's token model).
-- `run_labels(plan: Mapping[str, Any], layout: ImportLayout, *, authorized: bool=False, dry_run_only: bool=False, env_file: Sequence[Path]=(), key_envs: Mapping[str, str] | None=None, new_authorization: str | None=None, transport: Any=None, client_factory: Any=None, environ: Mapping[str, str] | None=None, check_plan: bool=True) -> dict[str, Any]` ([source](../../../../../../../../src/learnloop/experiments/contextual_embeddings/e1/run.py), line 318) — The v2 arms' new candidates labelled (and any voyage-context-4 fill) under E1's ledger.
-- `save_supplement(path: Path, outcome: Mapping[str, Any]) -> None` ([source](../../../../../../../../src/learnloop/experiments/contextual_embeddings/e1/run.py), line 414)
-- `load_supplement(path: Path) -> dict[str, Any]` ([source](../../../../../../../../src/learnloop/experiments/contextual_embeddings/e1/run.py), line 428)
-- `score(plan: Mapping[str, Any], layout: ImportLayout, *, check_plan: bool=True) -> dict[str, Any]` ([source](../../../../../../../../src/learnloop/experiments/contextual_embeddings/e1/run.py), line 446)
+- `run_labels(plan: Mapping[str, Any], layout: ImportLayout, *, authorized: bool=False, dry_run_only: bool=False, env_file: Sequence[Path]=(), key_envs: Mapping[str, str] | None=None, new_authorization: str | None=None, transport: Any=None, client_factory: Any=None, environ: Mapping[str, str] | None=None, check_plan: bool=True) -> dict[str, Any]` ([source](../../../../../../../../src/learnloop/experiments/contextual_embeddings/e1/run.py), line 317) — The v2 arms' new candidates labelled (and any voyage-context-4 fill) under E1's ledger.
+- `save_supplement(path: Path, outcome: Mapping[str, Any]) -> None` ([source](../../../../../../../../src/learnloop/experiments/contextual_embeddings/e1/run.py), line 413)
+- `load_supplement(path: Path) -> dict[str, Any]` ([source](../../../../../../../../src/learnloop/experiments/contextual_embeddings/e1/run.py), line 427)
+- `score(plan: Mapping[str, Any], layout: ImportLayout, *, check_plan: bool=True) -> dict[str, Any]` ([source](../../../../../../../../src/learnloop/experiments/contextual_embeddings/e1/run.py), line 445)
 
 ### Module constants
 
@@ -85,8 +85,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `_scratch(layout: ImportLayout) -> Path` ([source](../../../../../../../../src/learnloop/experiments/contextual_embeddings/e1/run.py), line 74)
 - `_prior(anchor: Path) -> dict[str, Any]` ([source](../../../../../../../../src/learnloop/experiments/contextual_embeddings/e1/run.py), line 140)
-- `_priority(question: Any) -> tuple[int, str]` ([source](../../../../../../../../src/learnloop/experiments/contextual_embeddings/e1/run.py), line 310)
-- `_fill_hosted(replayed: Replayed, arms: Sequence[str], *, ledger: Any, store: VectorStore, receipts_path: Path, transport: Any, key_envs: Mapping[str, str], environ: Mapping[str, str] | None) -> dict[str, Any]` ([source](../../../../../../../../src/learnloop/experiments/contextual_embeddings/e1/run.py), line 391) — The voyage-context-4 vectors E0 never stored, bought under E1's ledger (the route's canary first, checked against E0's first canary).
+- `_priority(question: Any) -> tuple[int, str]` ([source](../../../../../../../../src/learnloop/experiments/contextual_embeddings/e1/run.py), line 309)
+- `_fill_hosted(replayed: Replayed, arms: Sequence[str], *, ledger: Any, store: VectorStore, receipts_path: Path, transport: Any, key_envs: Mapping[str, str], environ: Mapping[str, str] | None) -> dict[str, Any]` ([source](../../../../../../../../src/learnloop/experiments/contextual_embeddings/e1/run.py), line 390) — The voyage-context-4 vectors E0 never stored, bought under E1's ledger (the route's canary first, checked against E0's first canary).
 
 ## Who imports or calls it
 
@@ -122,7 +122,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `json`, `math`, `os`, `pathlib`, `shutil`, `subprocess`, `typing`
+- Standard library: `__future__`, `collections`, `json`, `os`, `pathlib`, `shutil`, `subprocess`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

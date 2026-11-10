@@ -16,7 +16,6 @@ from typing import Any
 import pytest
 
 from learnloop.adaptive_difficulty import selection as S
-from learnloop.daily_plan import ad_slot
 from learnloop.daily_plan.engine import advance, build_plan, day_records, keep_going, load_records
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
@@ -525,7 +524,6 @@ def test_support_rechecked_at_draw_slot_item_included(tmp_path, monkeypatch, cha
     ``ad_ineligible``, except in the pre-exposure-only case, served with ``mode = predecessor``
     and ``π_AD = 1``. Fails before AD2: reconciliation re-checked only status and serving blocks."""
 
-    from learnloop.daily_plan import staged_frame
 
     items = ("pi_h", "pi_e1") if who == "other" else ("pi_h",)
     paths, env, clock, record = _plan(tmp_path, items, features={"pi_h": HARD},
@@ -595,7 +593,6 @@ def test_ineligible_displacement_defers_until_condition_clears(tmp_path, router)
     same day excludes it; the plan record rebuilt from its events gives the same exclusion set.
     Fails before AD2: a displaced item returned to the pool."""
 
-    from learnloop.daily_plan.engine import _context_from_build, simulate_blocks
 
     config = ROUTER_OFF if router == "off" else ROUTER_STAGED
     paths, env, clock, record = _plan(tmp_path, ("pi_a",), budget=6.0, minutes={"pi_a": 4.5}, config=config)

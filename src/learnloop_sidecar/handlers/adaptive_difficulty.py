@@ -48,8 +48,6 @@ class ReaderDoseOfferInput(ParamsModel):
 def reader_dose_offer(ctx: SidecarContext, params: ReaderDoseOfferInput) -> dict[str, Any]:
     """The dose arm's draw at a section boundary (§5.12): ``offer`` is the extra to show, or null."""
 
-    from learnloop.adaptive_difficulty.dose import Boundary, decide
-    from learnloop.adaptive_difficulty.operation import optional_operation
 
     from learnloop.adaptive_difficulty.operation import is_denial
 

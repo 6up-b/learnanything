@@ -19,7 +19,6 @@ from dataclasses import replace
 from datetime import timedelta
 import hashlib
 import json
-from pathlib import Path
 
 import pytest
 
@@ -274,12 +273,12 @@ def test_an_early_offer_moves_the_window_and_the_incumbent_back(seeded):
                 # have folded both forbidden rows: the test is sensitive.
                 harness_past = prediction_points(
                     (*rows, *inputs["signals"]), incumbent=incumbent(loaded, inputs),
-                    start_of=lambda attempt_id: renderer._attempts[attempt_id]["instant"],
+                    start_of=lambda attempt_id: renderer._attempts[attempt_id]["instant"],  # noqa: B023  called within this iteration, before the loop rebinds it
                 )
                 leaky = by_attempt(harness_past)["att_06_svd_fail"].incumbent
                 harness_flipped = prediction_points(
                     (*flipped(rows), *inputs["signals"]), incumbent=incumbent(loaded, inputs),
-                    start_of=lambda attempt_id: renderer._attempts[attempt_id]["instant"],
+                    start_of=lambda attempt_id: renderer._attempts[attempt_id]["instant"],  # noqa: B023  called within this iteration, before the loop rebinds it
                 )
                 assert by_attempt(harness_flipped)["att_06_svd_fail"].incumbent["p_success"] != leaky["p_success"]
     stored, reversed_ = states["stored"], states["flipped"]
@@ -620,7 +619,7 @@ def test_scripted_decider_sees_identical_states_for_both_judges(seeded, tmp_path
         prepare_judge(plan, route=routes[judge], variants=["v2"], cache_dir=tmp_path / "cache",
                       repository=Repository(paths.sqlite_path), caps=SpendCaps())
     assert len(decider.states) == len(llm.requests) == len(plan.for_variant("v2"))
-    for state, request in zip(decider.states, llm.requests):
+    for state, request in zip(decider.states, llm.requests, strict=True):
         assert json.dumps(state, sort_keys=True, ensure_ascii=False) in request.prompt or json.dumps(
             state, sort_keys=True, ensure_ascii=False)[1:-1] in request.prompt
 

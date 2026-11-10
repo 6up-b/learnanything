@@ -18,34 +18,14 @@ reused, as an illustration; and a percent readout's scaled value is checked.
 
 from __future__ import annotations
 
-import json
-import threading
 
 import pytest
 
-from learnloop.content.authoring import pf_sandbox
-from learnloop.db.repositories import Repository
-from learnloop.figures import grammar as G
-from learnloop.figures import routes as R
-from learnloop.figures import service as FS
 from learnloop.figures import spec as S
 from learnloop.figures import verify as V
-from learnloop.vault.loader import load_vault
 from tests.figure_fixtures import (
-    EQUATION_TEXT,
-    EXTRACTION,
-    AuthorFake,
-    VerifierFake,
-    build,
-    build_figure_vault,
-    call,
-    context,
-    flagship,
-    rows,
     sandbox_ready,
 )
-from tests.test_figures_codex_review import _equivalence
-from tests.test_figures_switch_off import _switch
 
 needs_sandbox = pytest.mark.skipif(not sandbox_ready(), reason="bubblewrap is not available here")
 

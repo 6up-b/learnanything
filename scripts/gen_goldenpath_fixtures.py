@@ -99,7 +99,7 @@ def main() -> None:
         repo = open_vault_repository(vault_root, VaultPaths(vault_root, load_vault(vault_root).config).sqlite_path)
         vault = load_vault(vault_root)
         for slug, item_id in zip(
-            [s["surface_slug"] for s in pool_stub["surfaces"]], (EXEMPLAR_A, EXEMPLAR_B)
+            [s["surface_slug"] for s in pool_stub["surfaces"]], (EXEMPLAR_A, EXEMPLAR_B), strict=False
         ):
             resolved = resolve_legacy_item(vault, repo, vault.practice_items[item_id], purpose="practice")
             SP.admit_pool_surface(repo, pool_id=pool["poolId"], surface_slug=slug, surface_id=resolved.surface_id)

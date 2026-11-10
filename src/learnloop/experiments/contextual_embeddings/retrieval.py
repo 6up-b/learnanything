@@ -45,7 +45,6 @@ from learnloop.experiments.contextual_embeddings.adapters import (
     Document,
     SpaceVectors,
     assert_compatible,
-    query_vector_key,
 )
 from learnloop.experiments.contextual_embeddings.corpus import CandidateUnit, CorpusSnapshot, Window, alias
 

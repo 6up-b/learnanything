@@ -23,7 +23,6 @@ import pytest
 from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, INTERVAL_FACTOR_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
-from learnloop.db.repositories import Repository
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from learnloop.goals.exam_seeding import seed_exam_attempts
 from learnloop.ids import _decode_ulid, new_ulid

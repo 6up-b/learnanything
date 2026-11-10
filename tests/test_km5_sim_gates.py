@@ -24,7 +24,7 @@ from learnloop.vault.yaml_io import write_yaml
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version, write_facets
 from tests.test_capability_residual import _build_vault, FACET, _RETRIEVAL_ITEMS, _SELECT_ITEMS
-from tests.test_km2_write_path import _attempt, _item, _rubric
+from tests.test_km2_write_path import _attempt, _rubric
 
 # The sim discrimination convention: >= 8 trials clears the 25th-percentile Beta
 # bounds a perfect discriminator otherwise fails at N=5 (0.79 < 0.80 gate).

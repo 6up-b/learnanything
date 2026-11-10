@@ -12,7 +12,6 @@ from __future__ import annotations
 from contextlib import closing
 from datetime import UTC, datetime
 import json
-from pathlib import Path
 import re
 import sqlite3
 
@@ -39,8 +38,8 @@ from learnloop.placement.state import load_answers
 from learnloop.vault.loader import load_vault
 
 from tests.owner_vaults import owner_vault, working_vault_params
-from tests.helpers import NOW, append_config_toml, create_placement_vault, set_algorithm_version
-from tests.test_assumed_known import EVIDENCE_TABLES, LOW_Q, _answer, _at, _decisions, _queue, _snapshot
+from tests.helpers import NOW, create_placement_vault, set_algorithm_version
+from tests.test_assumed_known import LOW_Q, _answer, _at, _decisions, _queue, _snapshot
 from tests.test_quick_check import _answer_target, _progress, _start
 from tests.workbench_help_fakes import call, help_rows, run_job
 

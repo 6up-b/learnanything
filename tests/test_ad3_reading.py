@@ -7,7 +7,6 @@ G-AD3-8 and G-AD3-15 are in ``tests/test_ad23_sim.py``. Fakes only.
 
 from __future__ import annotations
 
-import json
 from contextlib import closing
 from typing import Any
 
@@ -256,7 +255,7 @@ def test_a_question_counts_once_and_no_verdict_reaches_evidence(tmp_path):
     """(3) A changed verdict appends a ledger row and moves nothing (AD1's sweep records only the
     first). (4) ``reject_salience`` still refuses the verdict's receipt record."""
 
-    from tests.test_ad1_reading_opportunities import FakeMap, _question, _setup, _sweep, at
+    from tests.test_ad1_reading_opportunities import _question, _setup, _sweep, at
     from learnloop.reader import reader_quick_check as RQC
 
     paths, vault, repo = _setup(tmp_path)

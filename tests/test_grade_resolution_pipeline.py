@@ -31,7 +31,6 @@ from learnloop.attempts.grade_classifier import (
 from learnloop.attempts.grade_resolution import (
     append_adjudication,
     quarantine_observation,
-    record_grade_dual_write,
     resolve_grade,
 )
 from learnloop.attempts.grader_calibration import (
@@ -43,7 +42,6 @@ from learnloop.attempts.grader_calibration import (
 )
 from learnloop.attempts.outcome_schemas import (
     COARSE_RESPONSE_SLUG,
-    COARSE_RESPONSE_UNANSWERED_SLUG,
     ensure_builtin_schemas,
 )
 from learnloop.substrate.state_sync import sync_vault_state
@@ -482,7 +480,7 @@ def test_exploratory_em_cannot_promote_to_live_calibrated():
 
 def test_confusion_updates_only_from_denominator_bearing_sources(env):
     _, repo = env
-    error = record_error_intake_sample(
+    record_error_intake_sample(
         repo, observation_id=None, administration_id=None, raw_grade_event_id=None
     )
     samples = repo.calibration_stream_samples(stream="error_intake")
@@ -731,7 +729,7 @@ def test_bootstrap_frame_logs_inclusion_probabilities_and_is_deterministic(env):
 
     # Same frame id over the same history reproduces the same selection set.
     selected_ids = {s["attempt_id"] for s in frame1.samples}
-    frame2 = build_bootstrap_frame(repo, frame_id="frame_repro")
+    build_bootstrap_frame(repo, frame_id="frame_repro")
     # Determinism is per (frame_id, attempt) so a fresh id may differ; the SELECTION
     # RULE is reproducible: rebuilding frame_fixed's decision gives the same set.
     from learnloop.attempts.calibration_streams import should_sample, stratum_for

@@ -47,28 +47,28 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/predict.py](../../../../../../src/learnloop/adaptive_difficulty/predict.py) |
-| Source lines | 172 |
+| Source lines | 171 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `mixture_weights(view: View, *, uniform: bool=False) -> np.ndarray` ([source](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 33)
-- `class Prediction` ([source](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 44)
-  - `as_dict(self) -> dict[str, Any]` (line 49; public)
-- `predict(view: View, spec: ItemSpec, *, warmth: float=0.0, weights: np.ndarray | None=None, band: tuple[float, float]=(0.7, 0.8)) -> Prediction` ([source](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 53) — ``p̄(x)`` and ``P_band(x)`` (mixtures in the subject view).
-- `score(view: View, specs: Sequence[ItemSpec], *, warmth: float=0.0, constants: SelectionConstants=SelectionConstants(), weights: np.ndarray | None=None, information: bool=True) -> list[Scored]` ([source](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 65) — Each candidate's ``Scored`` (``P_band``, ``p̄`` and the cell information ``I_c``).
-- `item_subject(vault: Any, item: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 94)
-- `facet_weights(vault: Any, item: Any) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 99)
-- `capability(item: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 108)
-- `guess(vault: Any, item: Any) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 121)
-- `current_spec(vault: Any, connection: Any, item: Any, *, at: str, view: Any, loadings: Mapping[str, float] | None=None, outside: bool=False) -> ItemSpec` ([source](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 130) — The item as a decision now reads it: the audit where answered, else the stamped features; the signals the serve-input receipt would freeze (their calibration history read through ``view``, the operation's material view); the loadings in force.
-- `point_spec(point: Mapping[str, Any], *, learning_object_id: str, subject: str, facet: str, capability_name: str) -> ItemSpec` ([source](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 152) — A not-yet-written feature point (``z = 0``, the cell's own facet only).
+- `mixture_weights(view: View, *, uniform: bool=False) -> np.ndarray` ([source](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 32)
+- `class Prediction` ([source](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 43)
+  - `as_dict(self) -> dict[str, Any]` (line 48; public)
+- `predict(view: View, spec: ItemSpec, *, warmth: float=0.0, weights: np.ndarray | None=None, band: tuple[float, float]=(0.7, 0.8)) -> Prediction` ([source](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 52) — ``p̄(x)`` and ``P_band(x)`` (mixtures in the subject view).
+- `score(view: View, specs: Sequence[ItemSpec], *, warmth: float=0.0, constants: SelectionConstants=SelectionConstants(), weights: np.ndarray | None=None, information: bool=True) -> list[Scored]` ([source](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 64) — Each candidate's ``Scored`` (``P_band``, ``p̄`` and the cell information ``I_c``).
+- `item_subject(vault: Any, item: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 93)
+- `facet_weights(vault: Any, item: Any) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 98)
+- `capability(item: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 107)
+- `guess(vault: Any, item: Any) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 120)
+- `current_spec(vault: Any, connection: Any, item: Any, *, at: str, view: Any, loadings: Mapping[str, float] | None=None, outside: bool=False) -> ItemSpec` ([source](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 129) — The item as a decision now reads it: the audit where answered, else the stamped features; the signals the serve-input receipt would freeze (their calibration history read through ``view``, the operation's material view); the loadings in force.
+- `point_spec(point: Mapping[str, Any], *, learning_object_id: str, subject: str, facet: str, capability_name: str) -> ItemSpec` ([source](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 151) — A not-yet-written feature point (``z = 0``, the cell's own facet only).
 
 ### Module constants
 
-- `VIEW_SUBJECT` ([src/learnloop/adaptive_difficulty/predict.py](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 30)
+- `VIEW_SUBJECT` ([src/learnloop/adaptive_difficulty/predict.py](../../../../../../src/learnloop/adaptive_difficulty/predict.py), line 29)
 
 ### Explicit exports
 
@@ -117,7 +117,7 @@ No private top-level function or class definition is declared in this file.
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `dataclasses`, `math`, `typing`
+- Standard library: `__future__`, `collections`, `dataclasses`, `typing`
 - Third party: `numpy`
 
 ## Larger workflow participation

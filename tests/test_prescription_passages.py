@@ -8,7 +8,7 @@ from learnloop.ingest.locators import format_block_span
 from learnloop.instructional import sources as service_sources
 from learnloop.instructional.sources import remediation_passage_provider, tutor_intent_for
 from learnloop.source_retrieval.tutor import TutorSpanProvider
-from tests.source_service_fakes import FakeServiceLLM, build_textbook_vault, insert_question, loaded
+from tests.source_service_fakes import FakeServiceLLM, build_textbook_vault, loaded
 
 
 @pytest.fixture

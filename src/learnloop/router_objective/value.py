@@ -669,7 +669,7 @@ class _Model:
             # p̄ (never a point inverse with the variance added again).
             rebuilt = self.link.inverse(sigmoid(np.array(self.eta_means)), np.array(self.eta_vars))
             self.eta_means = [float(t.eta_latent[0]) if t.eta_latent is not None else float(m)
-                              for t, m in zip(inputs.topics, rebuilt)]
+                              for t, m in zip(inputs.topics, rebuilt, strict=True)]
             self.eta_vars = [float(t.eta_latent[1]) if t.eta_latent is not None else float(t.eta_var)
                              for t in inputs.topics]
         self.cutoff = inputs.cutoff if self.carried is None else self.carried
@@ -1258,7 +1258,7 @@ class _Model:
             # Undated uses over this day's pieces (split at C), from the action's end on every day.
             cuts = [b for b in boundaries if day_start < b < day_end]
             edges = [day_start, *cuts, day_end]
-            for a, b in zip(edges[:-1], edges[1:]):
+            for a, b in zip(edges[:-1], edges[1:], strict=False):
                 width = np.maximum(b - np.maximum(after, a), 0.0)
                 if not (width > 0).any():
                     continue

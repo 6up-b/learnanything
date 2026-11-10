@@ -6,7 +6,7 @@ from learnloop.content.synthesis.synthesis_manifests import build_manifest
 from learnloop.content.synthesis.synthesis_manifests import persist_manifest
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW_ISO, create_basic_vault
+from tests.helpers import create_basic_vault
 from tests.test_apply_write_ahead import _seed_lo_and_pi_proposal, LO_ID
 
 

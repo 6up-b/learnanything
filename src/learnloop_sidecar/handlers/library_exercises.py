@@ -477,7 +477,7 @@ def _fallback_candidates(vault: Any, repository: Any, hits: Any, lo_ids: list[st
         ids = record_shown_spans(repository, shown, context="library", entity_type="library_exercises",
                                  entity_id=str(hits.manifest.get("query_hash") or ""),
                                  exposure_fields=exposure.fields(vault.config, repository, context="library"))
-        recorded = dict(zip(dict.fromkeys(shown), ids))
+        recorded = dict(zip(dict.fromkeys(shown), ids))  # noqa: B905  ids come back from record_shown_spans unchecked; whether a mismatch should raise is open (refactor-a5.md)
     for candidate in candidates:
         # What "use this one" sends back (workbench.open's ``exercise_pick``):
         # this listing's own exposure rows, which never count against the pick

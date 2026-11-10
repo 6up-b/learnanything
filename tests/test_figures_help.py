@@ -417,7 +417,6 @@ def test_the_sidecar_never_offers_a_figure_cold_or_switched_off(tmp_path, monkey
 
 
 def test_a_figure_built_from_the_items_own_blocks_never_qualifies(tmp_path, monkeypatch):
-    from learnloop.db.repositories import Repository
     from learnloop.db.stores.judgments import append_judgment
     from learnloop.figures import help as FHelp
     from learnloop.source_retrieval.corpus import Exclusions

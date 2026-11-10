@@ -178,7 +178,7 @@ def rebuild_blackout(fixture: Path, directory: Path, mode: str) -> dict:
         stop.set()
         reader.join()
         window = [started] + [moment for moment in successes if started <= moment <= finished] + [finished]
-        longest_gap = max(later - earlier for earlier, later in zip(window, window[1:]))
+        longest_gap = max(later - earlier for earlier, later in zip(window, window[1:], strict=False))
         rebuilds.append({
             "rebuild_seconds": round(finished - started, 3),
             "longest_reader_blackout_seconds": round(longest_gap, 3),

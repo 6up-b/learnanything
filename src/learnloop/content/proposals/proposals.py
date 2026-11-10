@@ -817,7 +817,7 @@ def generate_diagnostic_proposal(
         for item in proposal.items
     ]
     practice_rows = [
-        (row, item) for row, item in zip(rows, proposal.items) if item.item_type == "practice_item"
+        (row, item) for row, item in zip(rows, proposal.items, strict=True) if item.item_type == "practice_item"
     ]
     primary_item_id = practice_rows[0][0]["payload"].get("id") if practice_rows else None
     patch_id = repository.persist_proposal_batch(
@@ -1961,7 +1961,7 @@ def _required_create_payload_errors(
         "error_type": ["title"],
     }
     errors: list[str] = []
-    for field in required_by_type.get(item_type, []):
+    for field in required_by_type.get(item_type, []):  # noqa: F402  a local loop variable; this function never calls dataclasses.field()
         if _missing(payload.get(field)):
             errors.append(f"missing_required:{field}")
     if item_type == "learning_object":
@@ -2290,7 +2290,7 @@ def _generated_practice_reward_metadata_errors(
     proposal: AuthoringProposal | None,
 ) -> list[str]:
     errors: list[str] = []
-    for field in ("retrieval_demand", "transfer_distance", "scaffold_level"):
+    for field in ("retrieval_demand", "transfer_distance", "scaffold_level"):  # noqa: F402  a local loop variable; this function never calls dataclasses.field()
         if _missing(payload.get(field)):
             errors.append(f"missing_{field}")
             continue

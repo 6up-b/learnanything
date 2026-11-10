@@ -351,7 +351,6 @@ def test_the_replay_caller_serves_checkpoints_reproduces_failures_and_never_send
 
 
 def test_a_smoke_only_local_run_loads_checks_and_stores_nothing(e0_run, tmp_path):
-    from learnloop.experiments.contextual_embeddings.adapters import VectorStore
     from learnloop.experiments.contextual_embeddings.e1 import run as e1
 
     layout = _import(e0_run)

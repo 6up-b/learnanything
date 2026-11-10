@@ -232,7 +232,7 @@ def _projection_changes(
         if key in projected:
             # The full DELETE+INSERT this replaces failed on the unique index.
             raise sqlite3.IntegrityError(
-                f"UNIQUE constraint failed: {table.name} {dict(zip(table.key, key))}"
+                f"UNIQUE constraint failed: {table.name} {dict(zip(table.key, key, strict=True))}"
             )
         projected[key] = cell
     columns = ", ".join((*table.key, *table.values))
@@ -9583,7 +9583,6 @@ class Repository(
         returned = [
             row for row in rows if float((row.get("components") or {}).get("selected") or 0.0) > 0.0
         ]
-        selected_practice_item_id = returned[0]["practice_item_id"] if returned else None
         returned_rank_by_id = {
             row["practice_item_id"]: rank
             for rank, row in enumerate(returned, start=1)
@@ -9963,7 +9962,7 @@ class Repository(
         ordered = sorted(days)
         longest = 1
         run = 1
-        for previous, day in zip(ordered, ordered[1:]):
+        for previous, day in zip(ordered, ordered[1:], strict=False):
             run = run + 1 if (day - previous).days == 1 else 1
             longest = max(longest, run)
 
@@ -11554,7 +11553,7 @@ class Repository(
         now = utc_now_iso(clock)
         correction_ids = [new_ulid() for _ in source_ids]
         with self.connection() as connection:
-            for correction_id, source_version_id in zip(correction_ids, source_ids):
+            for correction_id, source_version_id in zip(correction_ids, source_ids, strict=True):
                 connection.execute(
                     """
                     INSERT INTO measurement_contract_corrections(
@@ -16146,7 +16145,7 @@ class Repository(
         decoded: list[dict[str, Any]] = []
         for row in rows:
             payload = dict(row)
-            for field in ("trace", "item_context", "detail"):
+            for field in ("trace", "item_context", "detail"):  # noqa: F402  a local loop variable; this function never calls dataclasses.field()
                 payload[field] = _loads(payload.pop(f"{field}_json"), None)
             decoded.append(payload)
         return decoded
@@ -16222,7 +16221,7 @@ class Repository(
         decoded: dict[str, dict[str, Any]] = {}
         for row in rows:
             payload = dict(row)
-            for field in ("target_refs", "preserve_refs", "definition"):
+            for field in ("target_refs", "preserve_refs", "definition"):  # noqa: F402  a local loop variable; this function never calls dataclasses.field()
                 payload[field] = _loads(payload.pop(f"{field}_json"), None)
             decoded[str(payload["repair_class_id"])] = payload
         return decoded
@@ -17016,7 +17015,7 @@ class Repository(
         if row is None:
             return None
         payload = dict(row)
-        for field in (
+        for field in (  # noqa: F402  a local loop variable; this function never calls dataclasses.field()
             "hypothesis_ids",
             "avoided_affordances",
             "capability_update",
@@ -21841,7 +21840,7 @@ class Repository(
         for attempt_id, epochs in epochs_by_attempt.items():
             ordered = sorted(epochs.items(), key=lambda pair: (pair[1]["at"], pair[0]))
             attempt_transitions: list[dict[str, Any]] = []
-            for (_prev_key, prev), (_curr_key, curr) in zip(ordered, ordered[1:]):
+            for (_prev_key, prev), (_curr_key, curr) in zip(ordered, ordered[1:], strict=False):
                 attempt_transitions.append(
                     {
                         "attempt_id": attempt_id,
@@ -27662,7 +27661,7 @@ def _decode_error_event(row: sqlite3.Row) -> dict[str, Any]:
 
 def _decode_causal_hypothesis(row: sqlite3.Row) -> dict[str, Any]:
     payload = dict(row)
-    for field in (
+    for field in (  # noqa: F402  a local loop variable; this function never calls dataclasses.field()
         "target_ref",
         "applicability",
         "postdictive_claims",
@@ -27674,7 +27673,7 @@ def _decode_causal_hypothesis(row: sqlite3.Row) -> dict[str, Any]:
 
 def _decode_causal_discriminating_observation(row: sqlite3.Row) -> dict[str, Any]:
     payload = dict(row)
-    for field in (
+    for field in (  # noqa: F402  a local loop variable; this function never calls dataclasses.field()
         "blind_bundle_ids",
         "classified_as",
         "observed_features",

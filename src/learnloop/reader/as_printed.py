@@ -765,7 +765,7 @@ def printed_crops(
             by_page.setdefault(box.page, []).append(index)
         for page, indices in by_page.items():
             made, _size = SV._local_pdf_crops(pdf_path, page, [list(boxes[i].bbox) for i in indices])
-            for index, image in zip(indices, made):
+            for index, image in zip(indices, made):  # noqa: B905  a failed render may return fewer images than boxes; whether that should raise is open (refactor-a5.md)
                 images[index] = image
         if not any(images):
             status = "no_original"
@@ -773,7 +773,7 @@ def printed_crops(
         crops = [{"index": index, "image": image} for index, image in enumerate(images)]
         return {"status": status, "crops": crops, "skipped_span_ids": []}
     crops = []
-    for box, image in zip(boxes, images):
+    for box, image in zip(boxes, images):  # noqa: B905  a failed render may return fewer images than boxes; whether that should raise is open (refactor-a5.md)
         crops.append({
             "page": box.page,
             "page_label": page_label(pdf_path, box.page),

@@ -47,25 +47,25 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/source_retrieval/feedback.py](../../../../../../src/learnloop/source_retrieval/feedback.py) |
-| Source lines | 227 |
+| Source lines | 226 |
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `new_receipt_id() -> str` ([source](../../../../../../src/learnloop/source_retrieval/feedback.py), line 53)
-- `log_search(repository: Repository, *, receipt_id: str, consumer: str, query_kind: str, owner_id: str, resolution: Mapping[str, Any], hits: Sequence[Any], space_ranks: Mapping[str, Mapping[str, int]], lists_available: Sequence[str]=(), queried: Sequence[str]=(), query_propensity: Mapping[str, float] | None=None, query_set_propensity: float | None=None) -> int` ([source](../../../../../../src/learnloop/source_retrieval/feedback.py), line 57) — The one ``query`` row of a search, its candidates' ranks included; returns rows written (0 on failure).
-- `deliver(vault: Any, repository: Repository, search: Any, keys: Sequence[tuple[str, str]]) -> list[int]` ([source](../../../../../../src/learnloop/source_retrieval/feedback.py), line 82) — Record what a consumer finally delivers from ``search`` (Codex review F9).
-- `record_citations(repository: Repository, *, consumer: str, owner_id: str, citations: Sequence[Mapping[str, Any]]) -> int` ([source](../../../../../../src/learnloop/source_retrieval/feedback.py), line 132) — ``cited`` rows for validated citations of spans this owner's search delivered.
-- `record_receipt_citations(repository: Repository, *, receipt_ids: Sequence[str], citations: Sequence[Mapping[str, Any]]) -> int` ([source](../../../../../../src/learnloop/source_retrieval/feedback.py), line 146) — ``cited`` rows for validated citations of spans one of ``receipt_ids`` delivered (a library ask's tutor answer cites the ask's own retrieval); returns rows written, 0 when none was delivered or on failure.
-- `refresh_due(repository: Repository, *, last_refit: Any | None, now: Any) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/feedback.py), line 181) — Whether the background refit should run: receipts newer than the stored posterior, and this host has not refitted within ``REFIT_EVERY_HOURS``.
-- `record_open(repository: Repository, *, receipt_id: str, extraction_id: str, span_id: str) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/feedback.py), line 198) — An ``opened`` row when the learner opens a span that ``receipt_id`` delivered.
-- `feedback_summary(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/feedback.py), line 216)
+- `new_receipt_id() -> str` ([source](../../../../../../src/learnloop/source_retrieval/feedback.py), line 52)
+- `log_search(repository: Repository, *, receipt_id: str, consumer: str, query_kind: str, owner_id: str, resolution: Mapping[str, Any], hits: Sequence[Any], space_ranks: Mapping[str, Mapping[str, int]], lists_available: Sequence[str]=(), queried: Sequence[str]=(), query_propensity: Mapping[str, float] | None=None, query_set_propensity: float | None=None) -> int` ([source](../../../../../../src/learnloop/source_retrieval/feedback.py), line 56) — The one ``query`` row of a search, its candidates' ranks included; returns rows written (0 on failure).
+- `deliver(vault: Any, repository: Repository, search: Any, keys: Sequence[tuple[str, str]]) -> list[int]` ([source](../../../../../../src/learnloop/source_retrieval/feedback.py), line 81) — Record what a consumer finally delivers from ``search`` (Codex review F9).
+- `record_citations(repository: Repository, *, consumer: str, owner_id: str, citations: Sequence[Mapping[str, Any]]) -> int` ([source](../../../../../../src/learnloop/source_retrieval/feedback.py), line 131) — ``cited`` rows for validated citations of spans this owner's search delivered.
+- `record_receipt_citations(repository: Repository, *, receipt_ids: Sequence[str], citations: Sequence[Mapping[str, Any]]) -> int` ([source](../../../../../../src/learnloop/source_retrieval/feedback.py), line 145) — ``cited`` rows for validated citations of spans one of ``receipt_ids`` delivered (a library ask's tutor answer cites the ask's own retrieval); returns rows written, 0 when none was delivered or on failure.
+- `refresh_due(repository: Repository, *, last_refit: Any | None, now: Any) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/feedback.py), line 180) — Whether the background refit should run: receipts newer than the stored posterior, and this host has not refitted within ``REFIT_EVERY_HOURS``.
+- `record_open(repository: Repository, *, receipt_id: str, extraction_id: str, span_id: str) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/feedback.py), line 197) — An ``opened`` row when the learner opens a span that ``receipt_id`` delivered.
+- `feedback_summary(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/feedback.py), line 215)
 
 ### Module constants
 
-- `REFIT_EVERY_HOURS` ([src/learnloop/source_retrieval/feedback.py](../../../../../../src/learnloop/source_retrieval/feedback.py), line 178)
+- `REFIT_EVERY_HOURS` ([src/learnloop/source_retrieval/feedback.py](../../../../../../src/learnloop/source_retrieval/feedback.py), line 177)
 
 ### Explicit exports
 
@@ -108,7 +108,7 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
-- [[Reference/Modules/learnloop/db/stores/retrieval_spaces|learnloop.db.stores.retrieval_spaces]] — imports `append_feedback`, `delivery_for_receipt`, `feedback_rows`, `has_tables`, `record_citation_signals`; calls `append_feedback`, `delivery_for_receipt`, `has_tables`, `record_citation_signals`
+- [[Reference/Modules/learnloop/db/stores/retrieval_spaces|learnloop.db.stores.retrieval_spaces]] — imports `append_feedback`, `delivery_for_receipt`, `has_tables`, `record_citation_signals`; calls `append_feedback`, `delivery_for_receipt`, `has_tables`, `record_citation_signals`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/local_embeddings/fusion|learnloop.local_embeddings.fusion]] — imports `module`, `refit_posteriors`; calls `explore`, `feature_row`, `rng_seed`
 - [[Reference/Modules/learnloop/source_retrieval/recipes|learnloop.source_retrieval.recipes]] — imports `block_record_id`; calls `block_record_id`

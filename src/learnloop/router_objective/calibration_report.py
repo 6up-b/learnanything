@@ -132,7 +132,7 @@ def floor_section(connection: Any) -> dict[str, Any]:
         values, weights = entry.pop("_v"), entry.pop("_w")
         if values:
             entry["mean_r_cold"] = round(sum(values) / len(values), 4)
-            entry["ipw_mean_r_cold"] = round(sum(v * w for v, w in zip(values, weights)) / sum(weights), 4)
+            entry["ipw_mean_r_cold"] = round(sum(v * w for v, w in zip(values, weights, strict=True)) / sum(weights), 4)
         out_arms[arm] = dict(entry)
     total = len(rows)
     active_days = sorted({_local(row["created_at"]) for row in rows})

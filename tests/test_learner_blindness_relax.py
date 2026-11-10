@@ -397,9 +397,9 @@ def test_the_live_diagnosis_records_its_arm_and_the_grader_never_sees_it(tmp_pat
     assert receipt["context_hash"]
     expected = DIAGNOSIS_PROMPT_VERSION + (PA.SUFFIX if setting == "on" else "")
     assert diagnosis["diagnosis_prompt_version"] == expected
-    diagnosis_prompts = [p for purpose, p in zip(client.calls, client.prompts) if purpose == "diagnosis"]
+    diagnosis_prompts = [p for purpose, p in zip(client.calls, client.prompts, strict=True) if purpose == "diagnosis"]
     assert ("earlier_diagnosis" in diagnosis_prompts[-1]) is (setting == "on")
-    grading_prompts = [p for purpose, p in zip(client.calls, client.prompts) if purpose != "diagnosis"]
+    grading_prompts = [p for purpose, p in zip(client.calls, client.prompts, strict=True) if purpose != "diagnosis"]
     assert grading_prompts and all("earlier_diagnosis" not in p and "prior_analysis" not in p
                                    for p in grading_prompts)
     assert _diagnosis_of(repository, _attempt_id(first))

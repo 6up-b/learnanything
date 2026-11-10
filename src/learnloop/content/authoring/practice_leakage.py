@@ -351,7 +351,7 @@ def matching_phrases(text: str, findings: list[dict[str, str]]) -> list[str]:
                 covered[start:start + size] = [True] * size
     phrases: list[str] = []
     run: list[str] = []
-    for token, marked in zip([*tokens, ""], [*covered, False]):
+    for token, marked in zip([*tokens, ""], [*covered, False], strict=True):
         if marked:
             run.append(token)
         elif run:

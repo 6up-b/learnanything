@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Any
@@ -41,7 +41,7 @@ from learnloop.db.stores import router as router_store
 from learnloop.ids import new_ulid
 from learnloop.router import lesson_suggestions as LS
 from learnloop.router_objective import preferences as PF
-from learnloop.router_objective.preferences import KINDS, LESSON, NEW, QUESTION, READ, REVIEW, STOP, WORDS, kind_of
+from learnloop.router_objective.preferences import KINDS, LESSON, NEW, QUESTION, READ, REVIEW, STOP, WORDS, kind_of  # noqa: F401  re-exported: read as an attribute of this module
 
 LOG = logging.getLogger(__name__)
 

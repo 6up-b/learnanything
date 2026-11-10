@@ -69,8 +69,8 @@ For system intent, use [[Learning System]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 23 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 13 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 12 static module edges
-- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 12 static module edges
 - [[Reference/Modules/learnloop/matching/_package|learnloop.matching]] — 10 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 9 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 9 static module edges
@@ -101,8 +101,8 @@ flowchart LR
     center["learnloop.diagnosis.recurrence"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_diagnosis_split["learnloop.diagnosis.split"]
-    n_learnloop_db["learnloop.db"]
     n_learnloop_vault["learnloop.vault"]
+    n_learnloop_db["learnloop.db"]
     n_learnloop["learnloop"]
     n_learnloop_matching["learnloop.matching"]
     n_learnloop_diagnosis_offline_review["learnloop.diagnosis.offline_review"]
@@ -112,8 +112,8 @@ flowchart LR
     center -->|23| n_learnloop_ai
     n_learnloop_diagnosis_split -->|5| center
     center -->|9| n_learnloop_diagnosis_split
+    center -->|13| n_learnloop_vault
     center -->|12| n_learnloop_db
-    center -->|12| n_learnloop_vault
     n_learnloop -->|1| center
     center -->|9| n_learnloop
     center -->|10| n_learnloop_matching

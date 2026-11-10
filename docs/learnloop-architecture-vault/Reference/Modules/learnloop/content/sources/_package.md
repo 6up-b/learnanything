@@ -81,8 +81,8 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 10 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 8 static module edges
-- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 5 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 4 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 4 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 3 static module edges
 - [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 2 static module edges

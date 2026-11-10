@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/ad_slot.py](../../../../../../src/learnloop/daily_plan/ad_slot.py) |
-| Source lines | 387 |
+| Source lines | 386 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -59,9 +59,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class SlotSession` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 83) — Phase 1's result: what AD hands the plan (``inputs``), and the view phase 3 reuses.
 - `open_slot(vault: Any, repository: Any, *, slot_item_id: str) -> SlotSession` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 142) — Phase 1 for a slot: the slot item and its never-attempted visible siblings at its capability.
 - `decide(vault: Any, repository: Any, wire: str, *, session: SlotSession) -> Any` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 170) — Phase 3 for a slot: the facts decoded against the schema (ids projected onto AD's view), the support's checks 0-4 from the facts and AD's own view, and the draw (``decide_slot``, which writes the ``ad_selections`` row).
-- `open_deferrals(vault: Any, repository: Any, deferral_ids: Iterable[str]) -> SlotSession` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 278) — Phase 1 for the boundary's AD deferrals: the deferred items AD's view shows.
-- `deferrals_cleared(vault: Any, repository: Any, wire: str, *, session: SlotSession) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 295) — Phase 3 for deferrals: the deferred members whose check 0 (pre-exposure aside) and the plan's verdicts all pass now.
-- `eligibility_failures(vault: Any, repository: Any, now_iso: str, item: Any, *, slot_facets: Iterable[str], capability: str, exclusions: Any, view: Any) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 333) — Check 0 for one candidate: why it is not in the cell pool now, or why it may not be served.
+- `open_deferrals(vault: Any, repository: Any, deferral_ids: Iterable[str]) -> SlotSession` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 277) — Phase 1 for the boundary's AD deferrals: the deferred items AD's view shows.
+- `deferrals_cleared(vault: Any, repository: Any, wire: str, *, session: SlotSession) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 294) — Phase 3 for deferrals: the deferred members whose check 0 (pre-exposure aside) and the plan's verdicts all pass now.
+- `eligibility_failures(vault: Any, repository: Any, now_iso: str, item: Any, *, slot_facets: Iterable[str], capability: str, exclusions: Any, view: Any) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 332) — Check 0 for one candidate: why it is not in the cell pool now, or why it may not be served.
 
 ### Module constants
 
@@ -86,7 +86,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_guarded(run: Any) -> Any` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 95) — Run an AD phase; any failure becomes :class:`AdUnavailable` carrying only a code, raised OUTSIDE the ``except`` clause (no cause, no context, no inner frames: the final round's codec).
 - `_estimator(vault: Any, repository: Any, view: Any) -> Any` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 111) — AD's candidate estimates (Codex verify F28): the plan's estimator rule on duration evidence read through the slot's material view, so a withheld answer's latency never moves a candidate's estimate or its block-budget check.
 - `_inputs(vault: Any, repository: Any, view: Any, items: Sequence[Any], *, slot_visible: bool=True) -> SlotInputs` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 127)
-- `_request(vault: Any, repository: Any, view: Any, facts: SlotFacts, session: SlotSession) -> Any` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 198)
+- `_request(vault: Any, repository: Any, view: Any, facts: SlotFacts, session: SlotSession) -> Any` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 197)
 
 ## Who imports or calls it
 
@@ -135,8 +135,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ad_never_takes_the_plans_objects`
   - `test_high1_a_malformed_stored_context_quoting_held_out_text_never_reaches_ad_or_the_log`
   - `test_property_a_buggy_deciders_pick_outside_the_facts_is_rolled_back`
-- [tests/test_ad2_serving.py](../../../../../../tests/test_ad2_serving.py) — direct import
-- [tests/test_ad3_subject_view.py](../../../../../../tests/test_ad3_subject_view.py) — direct import
 - [tests/test_ad_guard.py](../../../../../../tests/test_ad_guard.py) — direct import
 
 ## Modification guidance

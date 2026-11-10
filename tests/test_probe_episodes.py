@@ -33,7 +33,6 @@ from learnloop.diagnosis.probe_families import (
     CardValidationError,
     InstrumentCard,
     PlantedTrial,
-    ensure_builtin_families,
     instrument_expected_information_gain,
     map_episode_labels_to_slots,
     run_family_admission_gate,
@@ -613,7 +612,7 @@ def test_budget_exhaustion_completes_episode(tmp_path):
     admit_contrast_card(repository, items=tuple(items))
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
     scores = [4, 1, 1, 4]  # conflicting evidence keeps the posterior unstable
-    for item_id, score in zip(items, scores):
+    for item_id, score in zip(items, scores, strict=True):
         episode = repository.probe_episode(episode.id)
         if episode.status != "in_progress":
             break

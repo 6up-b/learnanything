@@ -67,7 +67,6 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
-import json
 import time
 from typing import Any, Literal
 
@@ -85,7 +84,7 @@ from learnloop.ids import new_ulid
 from learnloop.practice_index.paid import PaidCalls, plan_route, resolve_client, transport_problem
 from learnloop.practice_index.listwise import route_skip
 from learnloop.source_retrieval.corpus import Scope, exam_withheld, item_exclusions
-from learnloop.source_retrieval.find_sources import INTENT_VERDICTS, _span_keys, _verify, facet_lists, scope_for
+from learnloop.source_retrieval.find_sources import _span_keys, _verify, facet_lists, scope_for
 from learnloop.source_retrieval.policy import CallerContext, PolicyRefused, derive_policy
 from learnloop.source_retrieval.queries import embed_query_texts
 from learnloop.source_retrieval.search import SpanHit, search_spans
@@ -374,7 +373,6 @@ def _compare_sources(
 
     # Counterparts: every source in scope (CA3: the named ones), one shared
     # query embedding.
-    started = time.monotonic()
     vectors: dict[str, Any] | None = None
     if vault.config.embedding.enabled or embedder is not None:
         vectors, embedding = embed_query_texts(vault, repository, {"query": query}, embedder=embedder,

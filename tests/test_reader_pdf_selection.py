@@ -176,7 +176,7 @@ from tests.test_reread_safety import EXACT, MOVED, _reread, studied  # noqa: E40
 def _placements(repo, extraction_id):
     heads = repo.annotations_for_source("src1")
     return {head["annotation"]["id"]: placement
-            for head, placement in zip(heads, ANN.annotation_placements(repo, heads, extraction_id))}
+            for head, placement in zip(heads, ANN.annotation_placements(repo, heads, extraction_id), strict=True)}
 
 
 def _slice(repo, extraction_id, segment):

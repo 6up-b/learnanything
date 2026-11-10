@@ -26,7 +26,7 @@ This module never raises into the attempt writer (except invariant 8's
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock
@@ -629,7 +629,6 @@ def run_cutover_gates(
     are N/A; new-substrate write-completeness / atomicity / failure / rollback gates
     stay fully live. A gate is evaluated only if every prior gate cleared."""
 
-    live = purpose_adapters_live(algorithm_version)
     # Each entry lazily produces (status, detail) so a later gate is only evaluated once
     # its predecessors cleared (the sequential barrier, §7.4 tail).
     specs: list[tuple[str, str, Any]] = [

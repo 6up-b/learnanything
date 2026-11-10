@@ -74,7 +74,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`, `compile_assessment_contract`, `contract_required_method`, `rubric_from_contract`, `snapshot_for_presentation`; statically calls `compile_assessment_contract`, `contract_required_method`, `rubric_from_contract`, `snapshot_for_presentation`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `CANONICAL_STATE_VERSIONS`, `compile_assessment_contract`, `contract_required_method`, `rubric_from_contract`, `snapshot_for_presentation`; statically calls `compile_assessment_contract`, `contract_required_method`, `rubric_from_contract`, `snapshot_for_presentation`
 - [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] — imports `P0_ALGORITHM_VERSION`, `snapshot_for_presentation`; statically calls `snapshot_for_presentation`
 - [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] — imports `compile_assessment_contract`, `snapshot_for_presentation`; statically calls `compile_assessment_contract`, `snapshot_for_presentation`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `CANONICAL_STATE_VERSIONS`
@@ -84,14 +84,14 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/field/probability_states|learnloop.field.probability_states]] — imports `rubric_from_contract`; statically calls `rubric_from_contract`
 - [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] — imports `P0_PROJECTION_VERSIONS`, `rubric_from_contract`; statically calls `rubric_from_contract`
 - [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`
-- [[Reference/Modules/learnloop/learner/residual_diagnostics|learnloop.learner.residual_diagnostics]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`
-- [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`
+- [[Reference/Modules/learnloop/learner/residual_diagnostics|learnloop.learner.residual_diagnostics]] — imports `CANONICAL_STATE_VERSIONS`
+- [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `CANONICAL_STATE_VERSIONS`
 - [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] — imports `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `REVEAL_LEDGER_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/recognition/ledger|learnloop.recognition.ledger]] — imports `contract_required_method`; statically calls `contract_required_method`
 - [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]] — imports `compile_assessment_contract`; statically calls `compile_assessment_contract`
 - [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] — imports `compile_assessment_contract`; statically calls `compile_assessment_contract`
 - [[Reference/Modules/learnloop/substrate/administration_adapters|learnloop.substrate.administration_adapters]] — imports `P0_PROJECTION_VERSIONS`
-- [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `P0_PROJECTION_VERSIONS`
+- [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`, `P0_PROJECTION_VERSIONS`
 - [[Reference/Modules/learnloop/substrate/canonical_projection_rollout|learnloop.substrate.canonical_projection_rollout]] — imports `CANONICAL_STATE_VERSIONS`
 - [[Reference/Modules/learnloop/substrate/compat/activity_backfill|learnloop.substrate.compat.activity_backfill]] — imports `compile_assessment_contract`; statically calls `compile_assessment_contract`
 - [[Reference/Modules/learnloop/substrate/compat/substrate_cutover|learnloop.substrate.compat.substrate_cutover]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `P0_SUCCESSOR_VERSIONS`

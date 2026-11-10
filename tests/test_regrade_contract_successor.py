@@ -57,7 +57,7 @@ from learnloop.substrate.shadow_rebuild import _learner_state_snapshot
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.handlers.serializers import feedback_bundle
 
-from tests.split_live_helpers import ReadyRuntime, append_config, split_vault, submit
+from tests.split_live_helpers import ReadyRuntime, split_vault, submit
 from tests.test_held_grade_evidence import T, _graded_apply
 from tests.test_regrade_contract_replay import (
     ITEM,

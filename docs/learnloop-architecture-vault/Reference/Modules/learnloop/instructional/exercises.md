@@ -93,7 +93,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/instructional/exposure|learnloop.instructional.exposure]] — imports `exercise_regions`
 - [[Reference/Modules/learnloop/instructional/tools|learnloop.instructional.tools]] — imports `exercise_region_count`; statically calls `exercise_region_count`
 - [[Reference/Modules/learnloop/instructional/wiring|learnloop.instructional.wiring]] — imports `exercise_candidates`
 - [[Reference/Modules/learnloop_sidecar/handlers/library_exercises|learnloop_sidecar.handlers.library_exercises]] — imports `STATEMENT_CHARS`, `exercise_label`, `imported_span_keys`; statically calls `exercise_label`, `imported_span_keys`
@@ -124,7 +123,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/instructional/exposure|learnloop.instructional.exposure]], [[Reference/Modules/learnloop/instructional/tools|learnloop.instructional.tools]], [[Reference/Modules/learnloop/instructional/wiring|learnloop.instructional.wiring]], [[Reference/Modules/learnloop_sidecar/handlers/library_exercises|learnloop_sidecar.handlers.library_exercises]].
+Static participation evidence comes from [[Reference/Modules/learnloop/instructional/tools|learnloop.instructional.tools]], [[Reference/Modules/learnloop/instructional/wiring|learnloop.instructional.wiring]], [[Reference/Modules/learnloop_sidecar/handlers/library_exercises|learnloop_sidecar.handlers.library_exercises]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

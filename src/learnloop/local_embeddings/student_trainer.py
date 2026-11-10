@@ -229,7 +229,7 @@ def agreement(student: np.ndarray, teacher: np.ndarray, documents: np.ndarray, k
         return np.zeros(0)
     teacher_top = np.argsort(-(teacher @ documents.T), axis=1)[:, :k]
     student_top = np.argsort(-(student @ documents.T), axis=1)[:, :k]
-    return np.array([len(set(a.tolist()) & set(b.tolist())) / k for a, b in zip(teacher_top, student_top)])
+    return np.array([len(set(a.tolist()) & set(b.tolist())) / k for a, b in zip(teacher_top, student_top, strict=True)])
 
 
 def _load_split(directory: Path, split: str) -> dict[str, Any]:

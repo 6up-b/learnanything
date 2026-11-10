@@ -360,7 +360,7 @@ def _run(segments: list[TextSegment]) -> TextRun:
             body = segments[1:]
             lead = first.text.translate(_SUPERSCRIPT) + " "
     text = body[0].text
-    for previous, segment in zip(body, body[1:]):
+    for previous, segment in zip(body, body[1:], strict=False):
         # pdfium keeps a word space inside its run; a narrow gap is a font
         # change inside a word or a number ("0" "." "51").
         gap = segment.x0 - previous.x1
@@ -647,13 +647,13 @@ class _Seen:
     def __init__(self, text: str):
         self.flat = _normalised(text)
         words = _WORDS.findall(_LATEX.sub(" ", text).lower())
-        self.pairs = set(zip(words, words[1:]))
+        self.pairs = set(zip(words, words[1:], strict=False))
 
 
 def _already_read(text: str, seen: _Seen) -> bool:
     words = _WORDS.findall(_LATEX.sub(" ", text).lower())
     if len(words) >= 3:
-        pairs = list(zip(words, words[1:]))
+        pairs = list(zip(words, words[1:], strict=False))
         if sum(pair in seen.pairs for pair in pairs) >= 0.75 * len(pairs):
             return True
     key = _normalised(text)

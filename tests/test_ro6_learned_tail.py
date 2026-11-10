@@ -85,10 +85,10 @@ def test_the_features_are_numbers_from_the_belief_and_the_candidate():
     assert belief.pending_reports == pytest.approx(math.log(4)) and belief.mastery_var == pytest.approx(0.3)
     block = LT.vector(belief, LT.ActionView("b", "review", 5.0, (topic,)), remembered=20.0)
     stop = LT.vector(belief, LT.ActionView("s", "stop", 0.0, ()), remembered=20.0)
-    named = dict(zip(LT.NAMES, block))
+    named = dict(zip(LT.NAMES, block, strict=True))
     assert named["minutes"] == 0.25 and named["topic_lag"] == pytest.approx(math.log1p(0.5)) and named["stop"] == 0.0
     assert named["minutes_x_load"] == pytest.approx(0.125)
-    assert dict(zip(LT.NAMES, stop))["stop_x_load"] == 0.5 and dict(zip(LT.NAMES, stop))["topic_p"] == 0.0
+    assert dict(zip(LT.NAMES, stop, strict=True))["stop_x_load"] == 0.5 and dict(zip(LT.NAMES, stop, strict=True))["topic_p"] == 0.0
     # With no mastery recorded the decision's frozen belief numbers stand in.
     fallback = LT.belief(session_minutes=0.0, remembered=20.0, nearest_goal_days=None, horizon_days=90.0,
                          pending_reports=None, mastery=[], topics=[topic])

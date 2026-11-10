@@ -185,7 +185,7 @@ def test_review_why_attempt_show_json_contracts(tmp_path):
 
 def test_proposals_json_contract(tmp_path):
     vault_root = tmp_path / "vault"
-    paths = create_basic_vault(vault_root)
+    create_basic_vault(vault_root)
     loaded = load_vault(vault_root)
     repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
     sync_vault_state(loaded, repository)

@@ -259,7 +259,7 @@ def scaled(p: Mapping[str, float], q: Mapping[str, float]) -> dict[str, float]:
     if not refs or values.max() == values.min() or tail.max() == tail.min():
         return dict.fromkeys(refs, 0.0)
     out = (values - values.mean()) / values.std() * tail.std()
-    return {ref: float(value) for ref, value in zip(refs, out)}
+    return {ref: float(value) for ref, value in zip(refs, out, strict=True)}
 
 
 def with_values(preference: Mapping[str, Any], q: Mapping[str, float]) -> dict[str, Any]:

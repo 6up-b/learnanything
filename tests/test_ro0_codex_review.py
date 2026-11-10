@@ -12,7 +12,6 @@ import pytest
 
 from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
-from learnloop.daily_plan import lesson_suggestion as SG
 from learnloop.daily_plan.engine import advance, build_plan
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import router_objective as store
@@ -27,7 +26,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.daily_plan.router_chooser import INSERT_NOW
 from tests.daily_plan_fakes import record_attempt, scheduled
 from tests.helpers import NOW, append_config_toml, create_basic_vault, seed_due_item, set_algorithm_version
-from tests.router_mixture_helpers import mixture_env, run
+from tests.router_mixture_helpers import mixture_env
 from tests.router_model_fakes import fake_runtime
 from tests.test_daily_plan_build import _wide_items
 from tests.test_question_context import FakeTutorClient

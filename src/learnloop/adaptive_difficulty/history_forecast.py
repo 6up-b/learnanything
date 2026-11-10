@@ -51,7 +51,7 @@ from learnloop.ai.execution import content_key
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.ai.transport import render_structured_prompt
-from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.stores import ad_receipts as store
 from learnloop.scheduling.forecast_receipts import (
@@ -434,7 +434,7 @@ def _write(repository: Any, vault: Any, receipts: list[ForecastReceipt], *, crea
                         vault.config.router.payload_retention_days)
         written = record_receipts(repository, stamped, created_at=created_at)
         if judged is not None and len(written) == len(stamped):
-            for receipt, receipt_id in zip(stamped, written):
+            for receipt, receipt_id in zip(stamped, written, strict=True):
                 if receipt.p is None:
                     continue
                 append_judgment(

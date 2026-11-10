@@ -31,7 +31,7 @@ from learnloop.ai.execution import model_settings
 from learnloop.ai.routing import provider_for_task, ready_client_for_task
 from learnloop.ai.spend import SpendCaps, SpendEstimate, SpendLimitExceeded
 from learnloop.ai.transport import ISOLATED_TURN, READ_ONLY_WORKSPACE
-from learnloop.attempts.ai_contracts import GradingContext, GradingProposal
+from learnloop.attempts.ai_contracts import GradingProposal
 from learnloop.attempts.blind_grading import (
     BLIND_GRADING_PROMPT_VERSION,
     blind_grading_context,

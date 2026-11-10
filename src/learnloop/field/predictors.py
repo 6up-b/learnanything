@@ -21,7 +21,7 @@ import numpy as np
 from learnloop.clock import parse_utc
 from learnloop.config import MasteryConfig
 from learnloop.field.types import (
-    ArmConstants, AttemptRow, FacetRow, ItemFeatures, ItemPrediction, LearnerPredictor,
+    ArmConstants, FacetRow, ItemFeatures, ItemPrediction, LearnerPredictor,
     ObservationRow, Predictor, RegionEstimate, SignalRow,
 )
 from learnloop.learner.mastery import (

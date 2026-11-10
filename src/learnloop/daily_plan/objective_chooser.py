@@ -35,7 +35,6 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import timedelta
-import hashlib
 import json
 import logging
 import math
@@ -47,7 +46,6 @@ from learnloop.clock import parse_utc
 from learnloop.daily_plan import objective_inputs as OI
 from learnloop.daily_plan.router_chooser import (
     INSERT_NOW,
-    MODE as MIXTURE_MODE,
     NO_INTERVENTION,
     FollowupGate,
     RestraintGate,

@@ -57,7 +57,7 @@ def test_units_are_deterministic_and_keep_original_offsets(tmp_path):
     span = pieces[0].members[0].span_id
     covered = sorted((member.start, member.end) for unit in pieces for member in unit.members if member.span_id == span)
     assert covered[0][0] == 0 and covered[-1][1] == len(LONG_BLOCK)
-    assert all(left[1] == right[0] for left, right in zip(covered, covered[1:]))
+    assert all(left[1] == right[0] for left, right in zip(covered, covered[1:], strict=False))
     assert "".join(LONG_BLOCK[start:end] for start, end in covered) == LONG_BLOCK
     assert all(unit.tokens <= pins.UNIT_MAX_TOKENS for unit in first.units)
 
@@ -66,7 +66,7 @@ def test_split_offsets_cover_text_exactly_and_respect_the_bound():
     text = "Alpha beta. " * 900 + "tail without boundary " * 50
     pieces = C.split_offsets(text, 200)
     assert pieces[0][0] == 0 and pieces[-1][1] == len(text)
-    assert all(a[1] == b[0] for a, b in zip(pieces, pieces[1:]))
+    assert all(a[1] == b[0] for a, b in zip(pieces, pieces[1:], strict=False))
     assert all(token_estimate(text[start:end]) <= 200 for start, end in pieces)
     assert C.split_offsets(text, 200) == pieces
 

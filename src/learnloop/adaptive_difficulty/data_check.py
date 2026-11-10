@@ -53,7 +53,7 @@ def spearman(xs: list[float], ys: list[float]) -> dict[str, Any]:
         return {"n": n, "rho": None, "interval": None}
     rx, ry = _ranks(xs), _ranks(ys)
     mx, my = sum(rx) / n, sum(ry) / n
-    sxy = sum((a - mx) * (b - my) for a, b in zip(rx, ry))
+    sxy = sum((a - mx) * (b - my) for a, b in zip(rx, ry, strict=True))
     sxx = sum((a - mx) ** 2 for a in rx)
     syy = sum((b - my) ** 2 for b in ry)
     if sxx <= 0 or syy <= 0:
@@ -87,7 +87,7 @@ def data_check(vault: Any, sqlite_path: Any, *, repository: Any = None) -> dict[
         select = ["id", "practice_item_id", "attempt_type", "correctness", "hints_used", "primed", "latency_seconds",
                   "answer_confidence", "created_at"]
         select += [name for name in ("difficulty_rating", "first_hint_progress") if name in columns]
-        rows = [dict(zip(select, values)) for values in connection.execute(
+        rows = [dict(zip(select, values, strict=True)) for values in connection.execute(
             f"SELECT {', '.join(select)} FROM practice_attempts WHERE attempt_type NOT IN ('self_report', 'skip') "
             "AND correctness IS NOT NULL ORDER BY created_at, id")]
         per_item = Counter(row["practice_item_id"] for row in rows)

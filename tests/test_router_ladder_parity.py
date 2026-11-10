@@ -65,7 +65,7 @@ def test_the_fired_rung_is_the_rule_the_staged_policy_applies(commitment):
     snapshot = _snapshot(commitment=commitment)
     checked = 0
     for bits in itertools.product((False, True), repeat=len(FLAGS)):
-        values = dict(zip(FLAGS, bits))
+        values = dict(zip(FLAGS, bits, strict=True))
         signals = _signals(values)
         intent = sp.evaluate_staged_rule(snapshot, signals)
         rungs = sp.ladder_eligibility(snapshot, signals)

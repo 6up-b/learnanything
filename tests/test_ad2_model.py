@@ -26,7 +26,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 
-from tests.ad23_fakes import ITEMS, LO, ad23_vault, answer, env_for, rows
+from tests.ad23_fakes import LO, ad23_vault, answer, env_for, rows
 
 SPEC = ItemSpec("i", "lo", "s", "retrieval", {"f": 1.0},
                 features={"scaffolding": "worked", "response": "recognize", "tools": ["open_book"]})
@@ -256,7 +256,7 @@ def test_self_report_and_held_grades_excluded(tmp_path):
     with closing(connect(paths.sqlite_path)) as connection:
         attempt = dict(zip([d[0] for d in connection.execute("SELECT * FROM practice_attempts LIMIT 1").description],
                            connection.execute("SELECT * FROM practice_attempts WHERE id = ?",
-                                              (target.attempt_id,)).fetchone()))
+                                              (target.attempt_id,)).fetchone(), strict=True))
         connection.execute("UPDATE practice_attempts SET attempt_type = 'self_report' WHERE id = ?",
                            (target.attempt_id,))
         connection.commit()

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from tests.structured_ai import StructuredClientFake
 
-from pathlib import Path
 
 import pytest
 

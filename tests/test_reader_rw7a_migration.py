@@ -27,7 +27,6 @@ from learnloop.db.migrate import (
     upgrade_allowance,
 )
 from learnloop.db.table_roles import TableRole, role_for_table
-from tests.test_ro1_availability import RO1_ALTERED_TABLES
 from tests.test_te3a_migration import TE3A_ALTERED_TABLES
 from tests.test_figures_migration import RW5A_ADDED_OBJECTS
 from tests.test_t1_batch_origin_migration import T1_ALTERED_TABLES
@@ -35,7 +34,7 @@ from tests.test_rw2d_receipts_migration import RW2D_ADDED_OBJECTS, RW2D_ALTERED_
 from tests.test_retrieval_spaces_migration import P1_ADDED_OBJECTS
 from tests.test_learner_claim_application_migration import CLAIM_POINT_ALTERED_TABLES
 from tests.test_section_coverage_migration import C0A_ADDED_OBJECTS
-from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
+from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS
 from tests.test_session_ownership_migration import PR4_ADDED_OBJECTS, PR4_ALTERED_TABLES
 from tests.test_learner_note_source_kind_migration import C5_ALTERED_TABLES
 from tests.test_learner_gap_unlinked_migration import UNLINKED_ALTERED_TABLES

@@ -235,7 +235,7 @@ def test_a_cold_retry_with_nothing_assessed_neither_confirms_nor_fails_the_repai
     if assessed:
         cold = _apply_graded(
             vault, repository, cold_item.id,
-            points={cid: float(c.points) for cid, c in zip(criteria, resolved_rubric(vault, cold_item).criteria)},
+            points={cid: float(c.points) for cid, c in zip(criteria, resolved_rubric(vault, cold_item).criteria, strict=True)},
             clock=later,
         )
     else:

@@ -11,14 +11,12 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
-from pathlib import Path
+from datetime import timedelta
 
 import pytest
 
 from learnloop.clock import FrozenClock, parse_utc
 from learnloop.db.copies import copy_tree_with_databases
-from learnloop.db.repositories import Repository
 from learnloop.scheduling.intent.recall_targets import (
     FALLBACK_ANCHOR_NOT_BEFORE_DUE,
     FALLBACK_NO_ANCHOR,
@@ -29,10 +27,8 @@ from learnloop.scheduling.intent.recall_targets import (
     load_anchors,
     ratio,
 )
-from learnloop.scheduling.intent.serving import intent_serving
 from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS, interval_for_retention
 from learnloop.scheduling.scheduler import build_due_queue
-from learnloop.vault.loader import load_vault
 from tests.owner_vaults import owner_vault, working_vault_params
 from tests.daily_plan_fakes import iso
 from tests.helpers import append_config_toml

@@ -209,7 +209,7 @@ def _merged(tmp_path, monkeypatch, *, rate, density, targets, links):
 def test_with_density_off_nothing_is_held_out(tmp_path, monkeypatch):
     targets = [target("hypothesis", f"h{index}", p_open=0.5) for index in range(4)]
     _p, _r, cues, _ids = _merged(tmp_path, monkeypatch, rate=0.95, density="off", targets=targets,
-                                 links=list(zip(targets, ["t1", "t3", "t5", "t7"])))
+                                 links=list(zip(targets, ["t1", "t3", "t5", "t7"], strict=True)))
     assert cues["marks"] == [] and cues["discovery"]["held_out"] == []
     assert all("propensity" not in cue for cue in cues["discovery"]["suppressed"])
 
@@ -217,7 +217,7 @@ def test_with_density_off_nothing_is_held_out(tmp_path, monkeypatch):
 def test_a_cue_the_budget_cuts_is_never_a_control_and_a_held_out_cue_keeps_its_slot(tmp_path, monkeypatch):
     targets = [target("hypothesis", f"h{index}", p_open=0.9 - 0.1 * index) for index in range(3)]
     _p, _r, cues, ids = _merged(tmp_path, monkeypatch, rate=0.95, density="fewer", targets=targets,
-                                links=list(zip(targets, ["t1", "t2", "t3"])))
+                                links=list(zip(targets, ["t1", "t2", "t3"], strict=True)))
     # One slot in ch5: the best cue is eligible; the others are density cuts, never held out.
     eligible = [*cues["marks"], *cues["discovery"]["held_out"]]
     assert len([cue for cue in eligible if cue["section_id"] == "ch5"]) == 1
@@ -231,7 +231,7 @@ def test_a_cue_the_budget_cuts_is_never_a_control_and_a_held_out_cue_keeps_its_s
 def test_a_held_out_cue_the_reader_would_have_spaced_out_is_recorded_as_spacing(tmp_path, monkeypatch):
     targets = [target("hypothesis", f"h{index}", p_open=0.9 - 0.1 * index) for index in range(6)]
     paths, repository, _cues, _ids = _merged(tmp_path, monkeypatch, rate=0.95, density="more", targets=targets,
-                                             links=list(zip(targets, ["t1", "t2", "t3", "t5", "t7", "t8"])))
+                                             links=list(zip(targets, ["t1", "t2", "t3", "t5", "t7", "t8"], strict=True)))
     ctx = context(paths.root)
     plan = snake(call(ctx, "reader.guide_plan", {"extraction_id": "ext_text"}))
     held = plan["cues"]["discovery"]["held_out"]

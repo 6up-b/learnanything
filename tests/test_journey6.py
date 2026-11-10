@@ -117,7 +117,7 @@ def test_journey6_end_to_end_on_fresh_mvp08_vault(repo, monkeypatch):
     _submit(repo, surface=s1b, cv=retr_cv, family_id=family_id, lineage_id=retr_lineage, tag="retr-2")
     assert SM.needs_rotation(repo, surface_id=s1.id if hasattr(s1, "id") else s1["id"])
     state_before_mint = repo.activity_card_state(card_lineage_id=retr_lineage, scheduler_algorithm_version=SCHED)
-    request_id = SM.request_candidates(repo, card_version_id=retr_cv, anchor_surface_id=s1["id"], clock=CLOCK)
+    SM.request_candidates(repo, card_version_id=retr_cv, anchor_surface_id=s1["id"], clock=CLOCK)
     job = SM.claim_next_mint_job(repo, worker_id="w1", clock=CLOCK)
     candidate_surface = repo.ensure_activity_surface(
         card_version_id=retr_cv, surface_hash="sh-retr-cand", fingerprint=None, surface_json="{}", clock=CLOCK,

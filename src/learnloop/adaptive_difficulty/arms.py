@@ -34,7 +34,6 @@ from typing import Any
 import numpy as np
 
 from learnloop.adaptive_difficulty import model as M
-from learnloop.adaptive_difficulty import outcomes as O
 from learnloop.adaptive_difficulty import priors as P
 from learnloop.adaptive_difficulty import replay as RP
 from learnloop.adaptive_difficulty.state import View

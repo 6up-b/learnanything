@@ -18,7 +18,6 @@ from learnloop.goals.exam_session import (
     ExamItemWithdrawnError,
     ExamSessionError,
     exam_availability,
-    exam_report,
     finish_exam,
     queue_exam_answer,
     record_exam_answer,

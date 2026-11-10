@@ -144,7 +144,7 @@ def test_offline_backlog_flushes_without_per_device_throttle(mobile):
         assert response.status_code == 201, response.text
         receipts.append(response.json())
     # A flush that lost its responses retries every receipt: same captures, 200.
-    for payload, receipt in zip(backlog, receipts):
+    for payload, receipt in zip(backlog, receipts, strict=True):
         response = client.post("/api/v1/capture", json=payload, headers=headers)
         assert response.status_code == 200
         assert response.json() == receipt

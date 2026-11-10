@@ -15,7 +15,6 @@ view, the loadings in force; a feature point's spec carries no signal
 
 from __future__ import annotations
 
-import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -59,7 +58,7 @@ def predict(view: View, spec: ItemSpec, *, warmth: float = 0.0, weights: np.ndar
     p_bars = M.expected_success(m, v, spec.guess)
     p_bands = M.band_probability(m, v, spec.guess, band)
     return Prediction(float(np.dot(w, p_bars)), float(np.dot(w, p_bands)),
-                      tuple((float(a), float(b)) for a, b in zip(m, v)))
+                      tuple((float(a), float(b)) for a, b in zip(m, v, strict=True)))
 
 
 def score(view: View, specs: Sequence[ItemSpec], *, warmth: float = 0.0,

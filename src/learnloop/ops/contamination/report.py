@@ -286,7 +286,7 @@ def _summarize(
     for category in SAMPLE_CATEGORIES:
         chosen = sorted(categories.get(category, []), key=lambda entry: entry[0])[:sample_size]
         samples[category] = [{
-            "question": dict(zip(("task", "left_kind", "left_id", "right_kind", "right_id"), candidate.question)),
+            "question": dict(zip(("task", "left_kind", "left_id", "right_kind", "right_id"), candidate.question, strict=True)),
             "signals": candidate.signals(),
             "decision": asdict(decision),
             "repeat_verdict": repeat_verdict(candidate),

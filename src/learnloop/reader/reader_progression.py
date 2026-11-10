@@ -21,9 +21,9 @@ from learnloop.content.sources.span_aliases import SpanTranslator
 from learnloop.db.repositories import Repository
 from learnloop.reader.reader_guidance import _span_for_ref, extraction_sections
 from learnloop.section_map import (  # moved below every package that reads them; this name stays the Reader's
-    learning_objects_by_section,
+    learning_objects_by_section,  # noqa: F401  re-exported: other modules import it from here
     learning_objects_for_section,
-    learning_objects_for_span,
+    learning_objects_for_span,  # noqa: F401  re-exported: other modules import it from here
     section_id_for_span,
 )
 from learnloop.vault.models import LoadedVault, learning_object_facet_union

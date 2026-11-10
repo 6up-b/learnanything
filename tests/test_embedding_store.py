@@ -63,7 +63,7 @@ def test_dimensions_fixed_per_model(connection):
 
 def test_exact_centered_retrieval_is_model_and_revision_isolated(connection):
     vectors = np.array([[10, 1], [10, -1], [12, 0]], dtype=float)
-    for name, vector in zip("abc", vectors):
+    for name, vector in zip("abc", vectors, strict=True):
         put_vector(connection, **identity(record_id=name), vector=vector)
     put_vector(connection, **identity(model_id="other"), vector=[1, 2, 3])
     put_vector(connection, **identity(content_hash="old"), vector=[100, 100])
@@ -95,7 +95,7 @@ def test_empty_and_zero_centered_retrieval(connection):
 
 def test_mrl_retrieval_truncates_before_centering_and_ranking(connection, tmp_path):
     vectors = np.array([[10, 1, -100], [10, -1, 100], [12, 0, 0]], dtype=float)
-    for name, vector in zip("abc", vectors):
+    for name, vector in zip("abc", vectors, strict=True):
         put_vector(connection, **identity(record_id=name), vector=vector)
     args = dict(record_kind="item", field="stem", model_id="fake", task_prefix="similarity",
                 query=[10, 1, 100], expected_records=dict.fromkeys("abc", "h"))
@@ -127,7 +127,7 @@ def test_mrl_view_ranks_like_vectors_embedded_at_that_width(connection):
     # Unit vectors whose 2-d prefixes have different norms (1.0, 0.6, 0.6).
     full = np.array([[0.6, 0.8, 0.0], [0.6, 0.0, 0.8], [0.0, 0.6, 0.8]])
     native = full[:, :2] / np.linalg.norm(full[:, :2], axis=1, keepdims=True)
-    for name, wide, narrow in zip("abc", full, native):
+    for name, wide, narrow in zip("abc", full, native, strict=True):
         put_vector(connection, **identity(record_id=name, model_id="wide"), vector=wide)
         put_vector(connection, **identity(record_id=name, model_id="narrow"), vector=narrow)
     args = dict(record_kind="item", field="stem", task_prefix="similarity",
@@ -164,7 +164,7 @@ def test_client_agnostic_storage_and_prefix_isolation(connection):
             return [[len(text), 1] for text in inputs]
 
     client = FakeEmbeddingClient()
-    for name, vector in zip("ab", client.embed(["a", "bb"], "similarity")):
+    for name, vector in zip("ab", client.embed(["a", "bb"], "similarity"), strict=True):
         put_vector(connection, **identity(record_id=name, model_id=client.model_id), vector=vector)
     for changes in ({"field": "outline"}, {"task_prefix": "retrieval-document"},
                     {"record_kind": "facet"}):

@@ -24,7 +24,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from contextlib import closing
-from datetime import timedelta
 import json
 from typing import Any, Literal
 
@@ -38,7 +37,6 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_block_fts import blocks_by_key, extraction_units, search_blocks
 from learnloop.db.stores.source_service import impressions_of_item, impressions_of_spans
 from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
-from learnloop.instructional.exercises import exercise_regions
 from learnloop.practice_index.listwise import ListwiseTask, judge_listwise, listwise_caps
 from learnloop.practice_index.paid import plan_route
 from learnloop.reveal_coverage import routine_coverage_sql, routine_window_start

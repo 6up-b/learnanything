@@ -262,7 +262,7 @@ def _pair_lifts(
     best_index = flat.argmax(axis=2)
     best_value = flat.max(axis=2)
     best: dict[tuple[int, int], tuple[float, int, int]] = {}
-    for i, j in zip(*np.nonzero(best_value > 0.0)):
+    for i, j in zip(*np.nonzero(best_value > 0.0), strict=True):
         index = int(best_index[i, j])
         best[(int(i), int(j))] = (float(best_value[i, j]), index // 4 + 1, index % 4 + 1)
     return best
@@ -553,7 +553,7 @@ def _fit_subject(
         stamps = np.zeros((len(common), 3), dtype=np.int64)
         for row_index, u in enumerate(sorted(common)):
             cats = []
-            for position, (qi, d) in enumerate(zip(items, designated)):
+            for position, (qi, d) in enumerate(zip(items, designated)):  # noqa: B905  items and designated come from the caller unchecked; whether a mismatch should raise is open (refactor-a5.md)
                 value, minute = answer_of[(u, qi)]
                 category = CORRECT if value == correct_by_q[qi] else (DESIGNATED if value == d else OTHER)
                 cats.append(category)

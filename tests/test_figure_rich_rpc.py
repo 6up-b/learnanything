@@ -32,7 +32,7 @@ from learnloop.figures import rich as RICH
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
 from tests import rich_fixtures as RF
-from tests.figure_fixtures import EXTRACTION, AuthorFake, build, build_figure_vault, call, context, flagship, rows
+from tests.figure_fixtures import EXTRACTION, AuthorFake, build, build_figure_vault, call, context, flagship
 from tests.figure_fixtures import set_config
 
 WHY = "a narrated video shows the spiral tighten"

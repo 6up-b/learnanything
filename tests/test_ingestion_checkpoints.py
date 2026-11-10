@@ -122,7 +122,7 @@ def test_truncation_or_exhausted_repair_budget_records_usage_without_repaying(tm
 
 
 def test_retry_policy_records_each_failed_request_with_unknown_usage(tmp_path, monkeypatch):
-    module = install_fake_openai(monkeypatch)
+    install_fake_openai(monkeypatch)
     monkeypatch.setenv("TEST_KEY", "unused")
     monkeypatch.setattr("learnloop.ai.providers.openai_chat._sleep", lambda _: None)
     client = OpenAIChatProviderClient("test", AIProviderConfig(type="openai_chat", base_url="https://unused.invalid", api_key_env="TEST_KEY", model="fake"))

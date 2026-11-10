@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-import pytest
 
 import learnloop.clock as clock_module
 import learnloop_sidecar.handlers  # noqa: F401

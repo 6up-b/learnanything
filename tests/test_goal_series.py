@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt

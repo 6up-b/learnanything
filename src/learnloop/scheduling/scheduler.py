@@ -48,7 +48,6 @@ from learnloop.learner.recall_coverage import (
 from learnloop.scheduling.serving_exclusions import (
     DEVICE_INELIGIBLE,
     PROBE_RESERVED_GATES,
-    ServingExclusions,
     admission_reason,
     out_of_timing_serving_exclusions,
     routine_serving_exclusions,
@@ -2603,7 +2602,7 @@ def _rotate_same_day_frontier_repeats(
 
     rotated = sorted((queue[index] for index in slots), key=attempted_today)
     reordered = list(queue)
-    for index, scheduled in zip(slots, rotated):
+    for index, scheduled in zip(slots, rotated, strict=True):
         reordered[index] = scheduled
     return reordered
 

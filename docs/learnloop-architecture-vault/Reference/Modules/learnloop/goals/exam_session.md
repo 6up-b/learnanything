@@ -94,7 +94,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/cli/exam|learnloop.cli.exam]] — imports `ExamItemWithdrawnError`, `refuse_withdrawn_answer`; statically calls `refuse_withdrawn_answer`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `ExamSessionError`, `exam_availability`, `exam_report`, `finish_exam`, `record_exam_answer`, `start_exam`
-- [[Reference/Modules/learnloop_sidecar/handlers/exams|learnloop_sidecar.handlers.exams]] — imports `ExamItemWithdrawnError`, `ExamSessionError`, `exam_availability`, `exam_report`, `finish_exam`, `queue_exam_answer`, `record_exam_answer`, `session_withdrawn_items`, `start_exam`; statically calls `ExamSessionError`, `exam_availability`, `finish_exam`, `queue_exam_answer`, `record_exam_answer`, `session_withdrawn_items`, `start_exam`
+- [[Reference/Modules/learnloop_sidecar/handlers/exams|learnloop_sidecar.handlers.exams]] — imports `ExamItemWithdrawnError`, `ExamSessionError`, `exam_availability`, `finish_exam`, `queue_exam_answer`, `record_exam_answer`, `session_withdrawn_items`, `start_exam`; statically calls `ExamSessionError`, `exam_availability`, `finish_exam`, `queue_exam_answer`, `record_exam_answer`, `session_withdrawn_items`, `start_exam`
 
 ## Dependencies
 

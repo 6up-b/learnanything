@@ -35,7 +35,7 @@ from learnloop.diagnosis.ai_contracts import (
 )
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.authoring.practice_leakage import reserved_payload_findings, reserved_questions
-from learnloop.db.repositories import ProbeGenerationNeedRecord, Repository
+from learnloop.db.repositories import Repository
 from learnloop.learner.facet_state_reader import is_canonical_state_vault
 from learnloop.diagnosis.probe_families import (
     CONTRAST_CONFUSABLE_V1,
@@ -1133,17 +1133,17 @@ def generate_instances_for_episode(
                 instance_metadata["prompt_version"] = _llm_prompt_version()
             def record_generated() -> None:
                 repository.link_probe_item_family(
-                    practice_item_id=payload["id"],
-                    instrument_card_id=card.id,
-                    instrument_card_version=card.version,
-                    generator_id=generator_id,
-                    generator_version=generator_version,
+                    practice_item_id=payload["id"],  # noqa: B023  called within this iteration, before the loop rebinds it
+                    instrument_card_id=card.id,  # noqa: B023  called within this iteration, before the loop rebinds it
+                    instrument_card_version=card.version,  # noqa: B023  called within this iteration, before the loop rebinds it
+                    generator_id=generator_id,  # noqa: B023  called within this iteration, before the loop rebinds it
+                    generator_version=generator_version,  # noqa: B023  called within this iteration, before the loop rebinds it
                     generation_seed=str(seed),
-                    instance_metadata=instance_metadata,
+                    instance_metadata=instance_metadata,  # noqa: B023  called within this iteration, before the loop rebinds it
                     clock=clock,
                 )
                 if fg1:
-                    _register_single_use(repository, payload, source="batch", episode_id=episode.id, clock=clock)
+                    _register_single_use(repository, payload, source="batch", episode_id=episode.id, clock=clock)  # noqa: B023  called within this iteration, before the loop rebinds it
 
             if fg1:
                 # FG1 §4.2: the identity before the file, so no crash publishes one without it.
@@ -1325,16 +1325,16 @@ def mint_single_use_probe_surface(
 
             def record_generated() -> None:
                 repository.link_probe_item_family(
-                    practice_item_id=payload["id"],
-                    instrument_card_id=card.id,
-                    instrument_card_version=card.version,
-                    generator_id=generator_id,
-                    generator_version=generator_version,
+                    practice_item_id=payload["id"],  # noqa: B023  called within this iteration, before the loop rebinds it
+                    instrument_card_id=card.id,  # noqa: B023  called within this iteration, before the loop rebinds it
+                    instrument_card_version=card.version,  # noqa: B023  called within this iteration, before the loop rebinds it
+                    generator_id=generator_id,  # noqa: B023  called within this iteration, before the loop rebinds it
+                    generator_version=generator_version,  # noqa: B023  called within this iteration, before the loop rebinds it
                     generation_seed=str(seed),
                     instance_metadata={
-                        "review_status": review_status,
-                        "surface_family": payload["surface_family"],
-                        "family_status_at_generation": family_status,
+                        "review_status": review_status,  # noqa: B023  called within this iteration, before the loop rebinds it
+                        "surface_family": payload["surface_family"],  # noqa: B023  called within this iteration, before the loop rebinds it
+                        "family_status_at_generation": family_status,  # noqa: B023  called within this iteration, before the loop rebinds it
                         "single_use_probe_mint": True,
                         "probe_episode_id": episode.id,
                         **(
@@ -1342,14 +1342,14 @@ def mint_single_use_probe_surface(
                                 "generator_model": getattr(ai_client, "model", None),
                                 "prompt_version": _llm_prompt_version(),
                             }
-                            if generator_id == LLM_GENERATOR_ID
+                            if generator_id == LLM_GENERATOR_ID  # noqa: B023  called within this iteration, before the loop rebinds it
                             else {}
                         ),
                     },
                     clock=clock,
                 )
                 if fg1:
-                    _register_single_use(repository, payload, source="mint", episode_id=episode.id, clock=clock)
+                    _register_single_use(repository, payload, source="mint", episode_id=episode.id, clock=clock)  # noqa: B023  called within this iteration, before the loop rebinds it
 
             if fg1:
                 # FG1 §4.2: the identity before the file, so no crash publishes one without it.

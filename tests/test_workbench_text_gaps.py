@@ -27,7 +27,7 @@ from learnloop.tutor.ai_contracts import LearnerGap
 from learnloop.vault.loader import load_vault
 from tests.hint_fakes import ITEM
 from tests.text_gap_fakes import GapLLMFake
-from tests.workbench_help_fakes import call, help_rows, open_problem, run_job, sidecar
+from tests.workbench_help_fakes import call, open_problem, run_job, sidecar
 
 GAP_TABLES = {"learner_text_gaps", "learner_text_gap_jobs", "judgment_ledger", "model_call_receipts",
               "text_write_provenance", "interaction_events", "judgment_work_claims", "model_work_checkpoints"}

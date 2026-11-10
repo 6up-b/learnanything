@@ -80,7 +80,7 @@ def _has_table(connection: Any, table: str) -> bool:
 def _rows(connection: Any, sql: str, args: Iterable[Any] = ()) -> list[dict[str, Any]]:
     cursor = connection.execute(sql, tuple(args))
     names = [d[0] for d in cursor.description]
-    return [dict(zip(names, raw)) for raw in cursor.fetchall()]
+    return [dict(zip(names, raw, strict=True)) for raw in cursor.fetchall()]
 
 
 def _json(raw: Any, default: Any) -> Any:
@@ -784,7 +784,6 @@ class MaterialView:
         item's id or stem, or a facet or surface family only withheld material names. Empty when
         nothing leaks; everything is a leak while the predicate is unavailable."""
 
-        import re
 
         if not self.available:
             return ["the held-out predicate is unavailable"]
@@ -818,7 +817,6 @@ class MaterialView:
         canonical note is withheld with its source's held-out material; Codex verify F40, fix round
         12). No items and no notes when unavailable."""
 
-        import dataclasses
 
         visible = {str(item.id): item for item in self.items()}
         notes = getattr(self.vault, "notes", None)
@@ -1486,7 +1484,6 @@ class MaterialView:
         return self._projected
 
     def _project_vault(self) -> Any:
-        import dataclasses
         from contextlib import closing
 
         from learnloop.db.connection import connect
@@ -1499,7 +1496,7 @@ class MaterialView:
             def refs(provenance: Any) -> Any:
                 source_refs = list(getattr(provenance, "source_refs", None) or [])
                 kept = [ref for ref in (self._visible_ref(connection, ref) for ref in source_refs) if ref is not None]
-                if len(kept) == len(source_refs) and all(a is b for a, b in zip(kept, source_refs)):
+                if len(kept) == len(source_refs) and all(a is b for a, b in zip(kept, source_refs, strict=True)):
                     return provenance
                 return provenance.model_copy(update={"source_refs": kept})
 
@@ -1740,7 +1737,7 @@ class MaterialView:
         (receipts are frozen: a deleted source leaves them, §5.11; Codex verify F30); one that cannot
         be read is withheld (fail closed)."""
 
-        table, source, kind = str(row.get("source_table")), str(row.get("source_id") or ""), str(row.get("kind"))
+        table, source = str(row.get("source_table")), str(row.get("source_id") or "")
         try:
             if table == "reader_section_progress":
                 extraction, _sep, _rest = source.partition("/")

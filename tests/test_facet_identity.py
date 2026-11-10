@@ -398,7 +398,7 @@ def test_dedupe_dry_run_plans_calls_and_cost_with_no_client_or_change(vault_repo
 def test_dedupe_regression_set_merges_the_agreed_pairs_and_keeps_the_distinct_ones(vault_repo):
     root, repository, data = vault_repo
     original = {facet["id"]: normalized_entry(entry) for facet, entry in zip(
-        data["facets"], read_yaml(root / "facets.yaml")["facets"])}
+        data["facets"], read_yaml(root / "facets.yaml")["facets"], strict=True)}
     report = run_dedupe(root, client=_study_judge(data), clock=_CLOCK)
     assert report["status"] == "complete", report
     assert len(report["actions"]) == 5 and report["refused"] == []

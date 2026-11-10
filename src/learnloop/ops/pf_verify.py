@@ -193,7 +193,7 @@ def agreement(env: VerifierEnv, subject_kind: str, subject_id: str, input_hash: 
             "symbolic_status": status,
             "per_solve": [
                 {"model": solve["model"], "agree": agree, "model_agree": llm, "symbolic": confirmation}
-                for solve, agree, llm, confirmation in zip(solves, agrees, llm_agrees, confirmations)]}
+                for solve, agree, llm, confirmation in zip(solves, agrees, llm_agrees, confirmations, strict=True)]}
 
 
 def symbolic_status(*, symbolic: bool, usable: bool, check_written: bool, sandbox_state: str,
@@ -216,9 +216,9 @@ def symbolic_status(*, symbolic: bool, usable: bool, check_written: bool, sandbo
     if degenerate:
         return "degenerate_check"
     if sandbox_state != "ran" or any(
-            agreed and confirmation is None for agreed, confirmation in zip(llm_agrees, confirmations)):
+            agreed and confirmation is None for agreed, confirmation in zip(llm_agrees, confirmations, strict=True)):
         return "sandbox_error"
-    agreed = [confirmation for agreed, confirmation in zip(llm_agrees, confirmations) if agreed]
+    agreed = [confirmation for agreed, confirmation in zip(llm_agrees, confirmations, strict=True) if agreed]
     if agreed and all(confirmation is True for confirmation in agreed):
         return "confirmed"
     if any(confirmation is False for confirmation in agreed):

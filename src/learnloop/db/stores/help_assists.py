@@ -124,7 +124,7 @@ def assist(connection: sqlite3.Connection, assist_id: str) -> dict[str, Any] | N
     row = connection.execute(
         f"SELECT {', '.join(COLUMNS)} FROM help_assists WHERE id = ?", (assist_id,)
     ).fetchone()
-    return dict(zip(COLUMNS, tuple(row))) if row is not None else None
+    return dict(zip(COLUMNS, tuple(row), strict=True)) if row is not None else None
 
 
 def submission_assists(
@@ -138,7 +138,7 @@ def submission_assists(
         "ORDER BY requested_at, rowid",
         (submission_id, practice_item_id),
     ).fetchall()
-    return [dict(zip(COLUMNS, tuple(row))) for row in rows]
+    return [dict(zip(COLUMNS, tuple(row), strict=True)) for row in rows]
 
 
 #: The assist kinds the submit's fold counts (hints spec §5): the hint
@@ -562,7 +562,7 @@ def workbench_rows(connection: sqlite3.Connection, workbench_session_id: str) ->
         "ORDER BY requested_at, rowid",
         (workbench_session_id,),
     ).fetchall()
-    return [dict(zip(COLUMNS, tuple(row))) for row in rows]
+    return [dict(zip(COLUMNS, tuple(row), strict=True)) for row in rows]
 
 
 def bind_workbench_rows(connection: sqlite3.Connection, *, workbench_session_id: str, practice_session_id: str,
@@ -679,7 +679,7 @@ def open_figure_rows(connection: sqlite3.Connection, *, practice_item_id: str,
     rows = connection.execute(
         f"SELECT {', '.join(COLUMNS)} FROM help_assists WHERE {' AND '.join(clauses)} ORDER BY requested_at, rowid",
         tuple(values)).fetchall()
-    return [dict(zip(COLUMNS, tuple(row))) for row in rows]
+    return [dict(zip(COLUMNS, tuple(row), strict=True)) for row in rows]
 
 
 def submission_session_conflict(connection: sqlite3.Connection, *, practice_item_id: str, submission_id: str,
@@ -727,7 +727,7 @@ def figure_rows(connection: sqlite3.Connection) -> list[dict[str, Any]]:
     rows = connection.execute(
         f"SELECT {', '.join(COLUMNS)} FROM help_assists WHERE assist_kind = 'figure' ORDER BY requested_at, rowid"
     ).fetchall()
-    return [dict(zip(COLUMNS, tuple(row))) for row in rows]
+    return [dict(zip(COLUMNS, tuple(row), strict=True)) for row in rows]
 
 
 def _latency(value: float | None) -> float | None:

@@ -38,7 +38,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Callable, Mapping
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 import hashlib
 import json
 import math
@@ -262,8 +262,8 @@ class VectorCache:
 # -- metrics -------------------------------------------------------------------------
 
 def roc_auc(scores: list[float], labels: list[bool]) -> float | None:
-    positives = [score for score, label in zip(scores, labels) if label]
-    negatives = [score for score, label in zip(scores, labels) if not label]
+    positives = [score for score, label in zip(scores, labels, strict=True) if label]
+    negatives = [score for score, label in zip(scores, labels, strict=True) if not label]
     if not positives or not negatives:
         return None
     wins = sum(1.0 if p > n else 0.5 if p == n else 0.0 for p in positives for n in negatives)
@@ -272,8 +272,8 @@ def roc_auc(scores: list[float], labels: list[bool]) -> float | None:
 
 def blocking_cutoff(scores: list[float], labels: list[bool], target_recall: float) -> dict[str, Any]:
     """The highest cutoff whose recall on positives reaches the target (R4)."""
-    positives = sorted((score for score, label in zip(scores, labels) if label), reverse=True)
-    negatives = [score for score, label in zip(scores, labels) if not label]
+    positives = sorted((score for score, label in zip(scores, labels, strict=True) if label), reverse=True)
+    negatives = [score for score, label in zip(scores, labels, strict=True) if not label]
     if not positives:
         return {"cutoff": None, "recall": None, "judge_load": None, "positives": 0}
     needed = max(1, math.ceil(target_recall * len(positives)))
@@ -293,10 +293,10 @@ def binary_metrics(predictions: list[bool | None], labels: list[bool]) -> dict[s
     every case) and ``recall`` (over every positive), and ``coverage`` states
     the answered share.
     """
-    tp = sum(1 for p, y in zip(predictions, labels) if p is True and y)
-    fp = sum(1 for p, y in zip(predictions, labels) if p is True and not y)
-    fn = sum(1 for p, y in zip(predictions, labels) if p is False and y)
-    tn = sum(1 for p, y in zip(predictions, labels) if p is False and not y)
+    tp = sum(1 for p, y in zip(predictions, labels, strict=True) if p is True and y)
+    fp = sum(1 for p, y in zip(predictions, labels, strict=True) if p is True and not y)
+    fn = sum(1 for p, y in zip(predictions, labels, strict=True) if p is False and y)
+    tn = sum(1 for p, y in zip(predictions, labels, strict=True) if p is False and not y)
     abstained = sum(1 for p in predictions if p is None)
     positives = sum(1 for y in labels if y)
     precision = tp / (tp + fp) if tp + fp else None
@@ -502,7 +502,7 @@ class B2Suite:
                     report["views"][key] = {
                         "view": view, "model_id": model, "dims": dims, "auc": roc_auc(scores, labels),
                         "by_category": {category: roc_auc(
-                            [s for s, case in zip(scores, data.cases) if case.category == category or not case.positive],
+                            [s for s, case in zip(scores, data.cases, strict=True) if case.category == category or not case.positive],
                             [case.positive for case in data.cases if case.category == category or not case.positive])
                             for category in sorted({case.category for case in data.cases if case.positive})},
                     }
@@ -522,7 +522,7 @@ class B2Suite:
             entry = ctx.role("freshness")[0]
             predictions = []
             case_models: list[str] = []
-            for case, label in zip(data.cases, labels):
+            for case, label in zip(data.cases, labels, strict=True):
                 call = ctx.caller.call(
                     entry, prompt=C.freshness_prompt(
                         candidate={"stem": case.left["stem"], "final_answer": case.left.get("answer") or ""},
@@ -546,8 +546,8 @@ class B2Suite:
             report["views"]["judge"] = {
                 "view": "judge", **binary_metrics(predictions, labels),
                 "by_model": {model: binary_metrics(
-                    [p for p, m in zip(predictions, case_models) if m == model],
-                    [y for y, m in zip(labels, case_models) if m == model])
+                    [p for p, m in zip(predictions, case_models, strict=True) if m == model],
+                    [y for y, m in zip(labels, case_models, strict=True) if m == model])
                     for model in sorted(set(case_models))},
             }
         return report
@@ -639,9 +639,9 @@ class ValidAlternativeSuite:
                     # The production rule: a check that accepts a negative
                     # control (always True) confirms no trace.
                     checks, degenerate = equivalence_confirmations(sandbox, len(traces))
-                agreements = [a and c is True for a, c in zip(agreements, checks)]
+                agreements = [a and c is True for a, c in zip(agreements, checks, strict=True)]
                 degenerate_checks += int(degenerate)
-            for index, ((kind, trace), verified) in enumerate(zip(traces, agreements)):
+            for index, ((kind, trace), verified) in enumerate(zip(traces, agreements, strict=True)):
                 trace_id = "va_" + content_key([va.item_id, call.input_hash, index])[:24]
                 ctx.caller.ledger(task="answer_equivalence", left_kind="va_trace", left_id=trace_id,
                                   right_kind="practice_item", right_id=va.item_id, judge="verifier",

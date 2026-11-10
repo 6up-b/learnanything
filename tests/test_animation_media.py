@@ -118,7 +118,7 @@ def test_concat_clips_rebases_offset_clips_and_ignores_longer_audio_tracks():
 
     times = _frame_times(joined)
     assert len(times) == 48  # every frame of every clip survives
-    gaps = [round(b - a, 3) for a, b in zip(times, times[1:])]
+    gaps = [round(b - a, 3) for a, b in zip(times, times[1:], strict=False)]
     assert max(gaps) == pytest.approx(1 / 15, abs=0.01)  # no frozen stretch
     assert probe_duration_seconds(joined) == pytest.approx(4 * 0.8, abs=0.15)
 

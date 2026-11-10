@@ -47,35 +47,35 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/curriculum/depth_edge_authoring.py](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py) |
-| Source lines | 578 |
+| Source lines | 576 |
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class DepthEdgeAuthoringError(ValueError)` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 52)
-- `request_depth_edge_instances(client: StructuredTransport, context: DepthEdgeInstanceContext) -> DepthEdgeInstanceBatch` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 56) — Author depth-edge candidates through the shared transport.
-- `create_edge_template(repository: Repository, *, template_slug: str, body: Mapping[str, Any], domain_scope: Mapping[str, Any] | None=None, clock: Clock | None=None) -> tuple[str, str]` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 74) — Create a template with its version 1 (status ``draft``).
-- `review_edge_template(repository: Repository, *, version_id: str, status: str, reviewed_by: str='owner', clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 122)
-- `author_edge_instances(repository: Repository, client: Any, *, commitment_id: str, template_version_ids: list[str], count: int=1, author: str='codex', clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 155) — LLM-author edge instances from reviewed templates; each is immediately gated and stored ``admitted`` or ``rejected`` with its full admission report.
-- `admit_edge_instance(repository: Repository, *, instance: Mapping[str, Any], template_version: Mapping[str, Any], envelope_row: Mapping[str, Any]) -> list[GateDiagnostic]` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 253) — The six §5.7-adjacent admission gates over one candidate edge instance.
-- `pin_admitted_edges(repository: Repository, *, commitment_id: str, instance_ids: list[str], confirmed_by: str='learner', receipt_key: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 402) — Append confirmed admitted instances into a NEW envelope version (bounds unchanged — no widening) plus matching ``depth_milestone_versions`` rows.
+- `class DepthEdgeAuthoringError(ValueError)` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 51)
+- `request_depth_edge_instances(client: StructuredTransport, context: DepthEdgeInstanceContext) -> DepthEdgeInstanceBatch` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 55) — Author depth-edge candidates through the shared transport.
+- `create_edge_template(repository: Repository, *, template_slug: str, body: Mapping[str, Any], domain_scope: Mapping[str, Any] | None=None, clock: Clock | None=None) -> tuple[str, str]` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 73) — Create a template with its version 1 (status ``draft``).
+- `review_edge_template(repository: Repository, *, version_id: str, status: str, reviewed_by: str='owner', clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 121)
+- `author_edge_instances(repository: Repository, client: Any, *, commitment_id: str, template_version_ids: list[str], count: int=1, author: str='codex', clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 154) — LLM-author edge instances from reviewed templates; each is immediately gated and stored ``admitted`` or ``rejected`` with its full admission report.
+- `admit_edge_instance(repository: Repository, *, instance: Mapping[str, Any], template_version: Mapping[str, Any], envelope_row: Mapping[str, Any]) -> list[GateDiagnostic]` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 251) — The six §5.7-adjacent admission gates over one candidate edge instance.
+- `pin_admitted_edges(repository: Repository, *, commitment_id: str, instance_ids: list[str], confirmed_by: str='learner', receipt_key: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 400) — Append confirmed admitted instances into a NEW envelope version (bounds unchanged — no widening) plus matching ``depth_milestone_versions`` rows.
 
 ### Module constants
 
-- `EXIT_GATE_KINDS` ([src/learnloop/curriculum/depth_edge_authoring.py](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 40)
-- `FRESH_PROOF_KINDS` ([src/learnloop/curriculum/depth_edge_authoring.py](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 41)
-- `_ORDERED_VOCAB` ([src/learnloop/curriculum/depth_edge_authoring.py](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 45)
+- `EXIT_GATE_KINDS` ([src/learnloop/curriculum/depth_edge_authoring.py](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 39)
+- `FRESH_PROOF_KINDS` ([src/learnloop/curriculum/depth_edge_authoring.py](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 40)
+- `_ORDERED_VOCAB` ([src/learnloop/curriculum/depth_edge_authoring.py](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 44)
 
 ## Internal implementation anchors
 
-- `_validate_template_body(body: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 138)
-- `_envelope_row(repository: Repository, envelope_version_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 493)
-- `_as_dict(value: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 502)
-- `_value_within_bound(dim: str, value: Any, allowed: Any) -> bool` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 511) — Is one task-feature value inside one envelope bound?
-- `_predecessor_features(repository: Repository, envelope_row: Mapping[str, Any], predecessor_milestone: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 533) — The predecessor milestone's task-feature point (+capability), or None when the milestone has no stored contract (root milestones).
-- `_dimension_step(dim: str, prev: Any, new: Any) -> int | None` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 558) — Signed depth step for one dimension (positive = deeper), or None when the values cannot be compared.
+- `_validate_template_body(body: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 137)
+- `_envelope_row(repository: Repository, envelope_version_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 491)
+- `_as_dict(value: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 500)
+- `_value_within_bound(dim: str, value: Any, allowed: Any) -> bool` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 509) — Is one task-feature value inside one envelope bound?
+- `_predecessor_features(repository: Repository, envelope_row: Mapping[str, Any], predecessor_milestone: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 531) — The predecessor milestone's task-feature point (+capability), or None when the milestone has no stored contract (root milestones).
+- `_dimension_step(dim: str, prev: Any, new: Any) -> int | None` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 556) — Signed depth step for one dimension (positive = deeper), or None when the values cannot be compared.
 
 ## Who imports or calls it
 
@@ -89,7 +89,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `StructuredTransport`, `execute_structured_operation`; calls `execute_structured_operation`
-- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/content/synthesis/synthesis_gates|learnloop.content.synthesis.synthesis_gates]] — imports `GateDiagnostic`; calls `GateDiagnostic`
 - [[Reference/Modules/learnloop/curriculum/ai_contracts|learnloop.curriculum.ai_contracts]] — imports `DepthEdgeInstanceBatch`, `DepthEdgeInstanceContext`, `depth_edge_instance_prompt`; calls `DepthEdgeInstanceContext`, `depth_edge_instance_prompt`
 - [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] — imports `module`; calls `change_depth_envelope`, `resolve_head`
@@ -97,7 +97,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] — imports `canonical_hash`; calls `canonical_hash`
-- [[Reference/Modules/learnloop/substrate/activity_patterns|learnloop.substrate.activity_patterns]] — imports `LEGACY_UNMAPPED`, `ensure_builtin_task_feature_schema`, `ensure_capability_alias_registry`, `map_capability`, `validate_task_features`; calls `ensure_builtin_task_feature_schema`, `ensure_capability_alias_registry`, `map_capability`
+- [[Reference/Modules/learnloop/substrate/activity_patterns|learnloop.substrate.activity_patterns]] — imports `LEGACY_UNMAPPED`, `ensure_builtin_task_feature_schema`, `ensure_capability_alias_registry`, `map_capability`; calls `ensure_builtin_task_feature_schema`, `ensure_capability_alias_registry`, `map_capability`
 
 ### Platform and third-party dependencies
 

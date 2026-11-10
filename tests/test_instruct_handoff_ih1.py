@@ -15,7 +15,6 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 
-import pytest
 
 from learnloop.daily_plan import lesson_offer as LO
 from learnloop.daily_plan import lesson_suggestion as SG

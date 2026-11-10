@@ -9,7 +9,6 @@ from learnloop.db.repositories import MasteryState
 from learnloop.learner.mastery import (
     MasteryObservation,
     display_mastery,
-    initial_mastery_state,
     sigmoid,
     update_mastery,
 )

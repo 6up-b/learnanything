@@ -29,7 +29,7 @@ from learnloop.section_map import (  # the Reader's mapping, moved below every p
     canonical_note_ids as _canonical_note_ids,
     extraction_sections,
     normalize_text,
-    span_for_ref as _span_for_ref,
+    span_for_ref as _span_for_ref,  # noqa: F401  re-exported: other modules import it from here
 )
 from learnloop.vault.models import LoadedVault, SourceRef, learning_object_facet_union
 from learnloop.vault.required_method import presented_prompt

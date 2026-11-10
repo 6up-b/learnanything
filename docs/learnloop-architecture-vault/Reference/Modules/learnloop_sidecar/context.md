@@ -527,7 +527,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_page_known_without_a_box_offers_the_original_page_and_no_substitute_crop`
 - [tests/test_reader_ca2_astra_handoff_recovery.py](../../../../../tests/test_reader_ca2_astra_handoff_recovery.py) — direct import
   - `test_after_a_restart_the_reader_still_reads_the_answer_box_s_questions`
-- [tests/test_reader_ca2_codex_rereview.py](../../../../../tests/test_reader_ca2_codex_rereview.py) — direct import
 - [tests/test_reader_ca2_codex_review.py](../../../../../tests/test_reader_ca2_codex_review.py) — direct import
   - `test_an_earlier_attempt_opened_before_submit_costs_one_hint_across_a_restart`
 - [tests/test_reader_ca2_one_ask.py](../../../../../tests/test_reader_ca2_one_ask.py) — direct import

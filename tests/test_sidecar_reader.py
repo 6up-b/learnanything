@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import io
 import json
-from datetime import UTC, datetime
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository

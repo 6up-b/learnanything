@@ -15,7 +15,7 @@ import pytest
 
 from learnloop import learner_protection
 from learnloop.db.stores import write_provenance as wp
-from learnloop.followup_run import admission, authoring, router
+from learnloop.followup_run import authoring, router
 from learnloop.followup_run.authoring import CAUSE_MATCHES_RESERVED, QUESTION_MATCHES_RESERVED
 from learnloop.followup_serve import identity, workflow as wf
 from learnloop.vault.loader import load_vault

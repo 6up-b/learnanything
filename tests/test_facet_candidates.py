@@ -24,7 +24,6 @@ def test_similarity_pair_is_review_proposal_only(tmp_path):
     vault = load_vault(paths.root)
     # Two near-identical LO summaries should surface a review pair, never a merge.
     vault.learning_objects["lo_svd_definition"].summary = "the spectral theorem applies to symmetric matrices"
-    from learnloop.vault.models import LearningObject
 
     clone = vault.learning_objects["lo_svd_definition"].model_copy(
         update={"id": "lo_clone", "summary": "the spectral theorem applies to symmetric matrices here"}

@@ -16,7 +16,6 @@ import time
 import numpy as np
 import pytest
 
-from learnloop.db.connection import connect
 from learnloop.local_embeddings import pins
 from learnloop.local_embeddings import student_decision as SD
 from learnloop.local_embeddings import student_pins as SP
@@ -573,7 +572,6 @@ def test_the_owner_revoke_is_a_judgment_ledger_verdict(tmp_path):
 
 # -- the query process and its client ---------------------------------------------------------------------
 def test_the_query_process_answers_over_its_unix_socket_and_exits_idle(_fresh):
-    from learnloop.local_embeddings import student_server
 
     socket_path = _fresh / "s.sock"
     service = TeacherService()
@@ -901,7 +899,7 @@ def test_training_candidates_hold_training_families_only_and_no_bank_tainted_win
     train = D.nested(camp["rows"], 2_000)
     assert len(negatives) == len(train)
     assert all(candidates["sources"][index] == row["extraction_id"]
-               for row, found in zip(train, negatives) for index in found)
+               for row, found in zip(train, negatives, strict=True) for index in found)
 
 
 def test_unjudged_retrieved_material_is_latent_never_a_miss():

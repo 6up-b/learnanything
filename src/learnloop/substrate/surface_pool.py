@@ -26,7 +26,7 @@ landed service:
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock

@@ -28,9 +28,7 @@ from pydantic import BaseModel, ValidationError
 from learnloop.ai.errors import (
     AIInvalidOutput,
     AIOutputTruncated,
-    AIInterrupted,
     AIProviderUnavailable,
-    AITurnTimeout,
     CodexInterrupted,
     CodexTurnTimeout,
     CodexUnavailable,

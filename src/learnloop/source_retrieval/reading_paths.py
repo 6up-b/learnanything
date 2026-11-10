@@ -44,11 +44,10 @@ import hashlib
 import json
 import math
 import os
-import re
 import sqlite3
 import threading
 import time
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from contextlib import closing, contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime

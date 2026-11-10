@@ -37,7 +37,6 @@ from learnloop.ids import new_ulid
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault
-from learnloop.vault.paths import VaultPaths
 
 # Directories never copied into the staging vault: derived caches and raw
 # fetched bytes. Databases and their -wal/-shm/-journal companions are left out
@@ -121,10 +120,6 @@ def _topological_order(
     order_key = {
         item_id: _proposal_apply_order(requested_by_id[item_id]) for item_id in apply_set
     }
-    ready = sorted(
-        (i for i in apply_set if not (set(deps.get(i, [])) & apply_set)),
-        key=lambda i: order_key[i],
-    )
     result: list[str] = []
     placed: set[str] = set()
     remaining = set(apply_set)

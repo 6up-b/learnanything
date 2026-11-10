@@ -98,7 +98,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/help_fold_attach_upgrade|learnloop.help_fold_attach_upgrade]] — imports `UpgradeResult`; statically calls `UpgradeResult`
 - [[Reference/Modules/learnloop/intent_upgrade|learnloop.intent_upgrade]] — imports `UpgradeResult`, `rewrite_algorithm_version`; statically calls `UpgradeResult`, `rewrite_algorithm_version`
 - [[Reference/Modules/learnloop/interval_factor_upgrade|learnloop.interval_factor_upgrade]] — imports `UpgradeResult`; statically calls `UpgradeResult`
-- [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `KM_ALGORITHM_VERSION`, `LEGACY_ALGORITHM_VERSION`
+- [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `LEGACY_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/learner_text_gap_upgrade|learnloop.learner_text_gap_upgrade]] — imports `UpgradeResult`, `rewrite_algorithm_version`; statically calls `UpgradeResult`, `rewrite_algorithm_version`
 - [[Reference/Modules/learnloop/lesson_offers_upgrade|learnloop.lesson_offers_upgrade]] — imports `UpgradeResult`; statically calls `UpgradeResult`
 - [[Reference/Modules/learnloop/lesson_opportunity_upgrade|learnloop.lesson_opportunity_upgrade]] — imports `UpgradeResult`; statically calls `UpgradeResult`

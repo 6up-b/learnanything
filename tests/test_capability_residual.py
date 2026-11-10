@@ -21,7 +21,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version, write_facets
+from tests.helpers import NOW, create_basic_vault, set_algorithm_version, write_facets
 from tests.test_km2_write_path import _attempt, _item, _rubric
 
 FACET = "facet_svd_factorization"

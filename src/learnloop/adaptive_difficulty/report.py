@@ -79,7 +79,7 @@ def arm_scores(records: Sequence[A.Record], arm: str, split: str | None) -> dict
     y = np.array([r.y for r in rows])
     return {
         "n": len(rows),
-        "log_loss": float(np.mean([MON.log_loss(a, b) for a, b in zip(p, y)])),
+        "log_loss": float(np.mean([MON.log_loss(a, b) for a, b in zip(p, y, strict=True)])),
         "brier": float(np.mean((p - y) ** 2)),
         "band_region_error": MON.band_region_error(p, y),
         "reliability": MON.reliability(p, y),
@@ -195,7 +195,7 @@ def _identifiability(snapshot: RP.Snapshot, records: Sequence[A.Record]) -> dict
     margins = {}
     for key in ("split", "coupling", "implication"):
         values = sorted({getattr(p, key) for p in bank.points})
-        posterior_margin = {v: float(sum(w for p, w in zip(bank.points, weights) if getattr(p, key) == v))
+        posterior_margin = {v: float(sum(w for p, w in zip(bank.points, weights, strict=True) if getattr(p, key) == v))
                             for v in values}
         prior_margin = 1.0 / len(values)
         margins[key] = {"posterior": posterior_margin,
@@ -252,7 +252,7 @@ def _sensitivity(vault: Any, repository: Any, connection: Any, snapshot: RP.Snap
         for sign in (-1, 1):
             settings = replace(snapshot.settings, prior_means=((name, mean + sign * math.sqrt(var)),))
             shifted = RP.run(events, settings, trace=False)
-            changed[f"{name}{'+' if sign > 0 else '-'}1sd"] = sum(1 for a, b in zip(base, decisions(shifted)) if a != b)
+            changed[f"{name}{'+' if sign > 0 else '-'}1sd"] = sum(1 for a, b in zip(base, decisions(shifted), strict=True) if a != b)
     return {"selections": len(serves), "changed": changed, "support_refs": len(refs), "withheld": withheld}
 
 

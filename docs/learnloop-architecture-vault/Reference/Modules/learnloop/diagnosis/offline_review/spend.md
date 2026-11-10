@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/offline_review/spend.py](../../../../../../../src/learnloop/diagnosis/offline_review/spend.py) |
-| Source lines | 7 |
+| Source lines | 6 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -84,7 +84,7 @@ No private top-level function or class definition is declared in this file.
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/ai/review_spend|learnloop.ai.review_spend]] — imports `__all__`, `module`
+- [[Reference/Modules/learnloop/ai/review_spend|learnloop.ai.review_spend]] — imports `module`
 
 ### Platform and third-party dependencies
 

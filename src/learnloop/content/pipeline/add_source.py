@@ -947,7 +947,7 @@ def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
     No-op for jobs that are not part of an automatic build."""
 
     from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded
-    from learnloop.content.pipeline.runner import IngestRunnerError, JobCancelled
+    from learnloop.content.pipeline.runner import JobCancelled
     from learnloop.vault.loader import load_vault
 
     auto = ctx.payload.get("auto_build")

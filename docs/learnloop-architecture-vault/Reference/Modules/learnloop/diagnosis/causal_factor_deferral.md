@@ -88,7 +88,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `parse_utc`; calls `SystemClock`, `parse_utc`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
-- [[Reference/Modules/learnloop/recurrence|learnloop.recurrence]] — imports `RECURRENCE_KEY_VERSION`, `recurrence_key`; calls `recurrence_key`
+- [[Reference/Modules/learnloop/recurrence|learnloop.recurrence]] — imports `recurrence_key`; calls `recurrence_key`
 
 ### Platform and third-party dependencies
 

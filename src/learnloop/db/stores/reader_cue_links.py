@@ -30,7 +30,7 @@ def tables_present(connection: sqlite3.Connection) -> bool:
 
 
 def _link(row: Any) -> dict[str, Any]:
-    value = dict(zip(LINK_COLUMNS, row))
+    value = dict(zip(LINK_COLUMNS, row, strict=True))
     value["ranks"] = json.loads(value.pop("ranks_json") or "{}")
     value["roles"] = json.loads(value.pop("roles_json") or "[]")
     value["target_facets"] = json.loads(value.pop("target_facets_json") or "[]")
@@ -116,7 +116,7 @@ def judged_left_ids(connection: sqlite3.Connection, task: str, left_kind: str,
 
 
 def _impression(row: Any) -> dict[str, Any]:
-    value = dict(zip(IMPRESSION_COLUMNS, row))
+    value = dict(zip(IMPRESSION_COLUMNS, row, strict=True))
     value["shown"] = bool(value["shown"])
     return value
 
@@ -164,7 +164,7 @@ def shown_impressions(connection: sqlite3.Connection, extraction_id: str) -> lis
         "SELECT i.id, i.cue_id, i.visit_id, i.created_at, l.target_kind, l.target_id "
         "FROM reader_cue_impressions i LEFT JOIN passage_links l ON l.id = i.link_id "
         "WHERE i.extraction_id = ? AND i.shown = 1 ORDER BY i.created_at, i.id", (extraction_id,)).fetchall()
-    return [dict(zip(("id", "cue_id", "visit_id", "created_at", "target_kind", "target_id"), row)) for row in rows]
+    return [dict(zip(("id", "cue_id", "visit_id", "created_at", "target_kind", "target_id"), row, strict=True)) for row in rows]
 
 
 def impressions(connection: sqlite3.Connection, *, since: str | None = None) -> list[dict[str, Any]]:

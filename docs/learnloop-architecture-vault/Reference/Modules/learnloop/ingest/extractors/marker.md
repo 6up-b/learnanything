@@ -46,47 +46,47 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ingest/extractors/marker.py](../../../../../../../src/learnloop/ingest/extractors/marker.py) |
-| Source lines | 408 |
+| Source lines | 407 |
 | Owning package | [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class MarkerUnavailableError(RuntimeError)` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 63) — Raised when marker is requested but not importable (§2.9 explicit fallback).
-- `marker_available() -> bool` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 67)
-- `marker_package_version() -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 71)
-- `chunk_output_to_ir(*, blocks: list[Any], metadata: dict[str, Any] | None=None, page_info: dict[Any, Any] | None=None, extractor_version: str, document_title: str | None=None, embedded_outline: list[dict[str, Any]] | None=None) -> DocumentIR` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 165) — Pure marker ``ChunkOutput`` → :class:`DocumentIR` mapping (§2.3).
-- `class MarkerDocumentExtractor` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 351) — High-fidelity local OCR/layout/math/table/figure extractor (§2.9).
-  - `__init__(self, *, config: dict[str, Any] | None=None) -> None` (line 367; internal)
-  - `version(self) -> str` (line 370; public)
-  - `model_versions(self) -> dict[str, str]` (line 373; public)
-  - `extract(self, raw_bytes: bytes, context: ExtractionContext) -> DocumentIR` (line 385; public)
+- `class MarkerUnavailableError(RuntimeError)` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 62) — Raised when marker is requested but not importable (§2.9 explicit fallback).
+- `marker_available() -> bool` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 66)
+- `marker_package_version() -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 70)
+- `chunk_output_to_ir(*, blocks: list[Any], metadata: dict[str, Any] | None=None, page_info: dict[Any, Any] | None=None, extractor_version: str, document_title: str | None=None, embedded_outline: list[dict[str, Any]] | None=None) -> DocumentIR` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 164) — Pure marker ``ChunkOutput`` → :class:`DocumentIR` mapping (§2.3).
+- `class MarkerDocumentExtractor` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 350) — High-fidelity local OCR/layout/math/table/figure extractor (§2.9).
+  - `__init__(self, *, config: dict[str, Any] | None=None) -> None` (line 366; internal)
+  - `version(self) -> str` (line 369; public)
+  - `model_versions(self) -> dict[str, str]` (line 372; public)
+  - `extract(self, raw_bytes: bytes, context: ExtractionContext) -> DocumentIR` (line 384; public)
 
 ### Module constants
 
-- `EXTRACTOR_NAME` ([src/learnloop/ingest/extractors/marker.py](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 41)
-- `_SAFE_PDFTEXT_WORKERS` ([src/learnloop/ingest/extractors/marker.py](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 50)
-- `_TAG_RE` ([src/learnloop/ingest/extractors/marker.py](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 52)
-- `_WS_RE` ([src/learnloop/ingest/extractors/marker.py](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 53)
-- `_VERBATIM_TYPES` ([src/learnloop/ingest/extractors/marker.py](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 54)
-- `_BLOCK_ID_PAGE` ([src/learnloop/ingest/extractors/marker.py](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 96)
-- `_MATH_TAG_RE` ([src/learnloop/ingest/extractors/marker.py](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 126)
-- `_MATH_DISPLAY_BLOCK_RE` ([src/learnloop/ingest/extractors/marker.py](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 127)
+- `EXTRACTOR_NAME` ([src/learnloop/ingest/extractors/marker.py](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 40)
+- `_SAFE_PDFTEXT_WORKERS` ([src/learnloop/ingest/extractors/marker.py](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 49)
+- `_TAG_RE` ([src/learnloop/ingest/extractors/marker.py](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 51)
+- `_WS_RE` ([src/learnloop/ingest/extractors/marker.py](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 52)
+- `_VERBATIM_TYPES` ([src/learnloop/ingest/extractors/marker.py](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 53)
+- `_BLOCK_ID_PAGE` ([src/learnloop/ingest/extractors/marker.py](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 95)
+- `_MATH_TAG_RE` ([src/learnloop/ingest/extractors/marker.py](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 125)
+- `_MATH_DISPLAY_BLOCK_RE` ([src/learnloop/ingest/extractors/marker.py](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 126)
 
 ## Internal implementation anchors
 
-- `_marker_runtime_options(config: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 57)
-- `_as_dict(block: Any) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 80)
-- `_block_page(block: dict[str, Any]) -> int | None` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 99) — Page index for a chunk block.
-- `_section_path(section_hierarchy: dict | None) -> list[str]` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 118)
-- `_math_to_delimited(html: str) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 130) — Marker encodes math as ``<math display='inline|block'>LaTeX</math>``.
-- `_block_text(block_type: str, html: str) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 146)
-- `_unescape(text: str) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 154)
-- `_units_from_toc(toc: list[Any] | None, blocks: list[DocumentBlock], *, document_title: str | None, embedded_outline: list[dict[str, Any]] | None=None) -> list[DocumentUnit]` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 247) — Units from the best available section source.
-- `_health_from_page_stats(page_stats: list[Any] | None, blocks: list[DocumentBlock]) -> ExtractionHealth` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 282)
-- `_normalize_counts(block_counts: Any) -> dict[str, int]` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 325)
-- `_page_flags(counts: dict[str, int], blocks: list[DocumentBlock], page_id: Any) -> list[str]` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 336)
+- `_marker_runtime_options(config: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 56)
+- `_as_dict(block: Any) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 79)
+- `_block_page(block: dict[str, Any]) -> int | None` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 98) — Page index for a chunk block.
+- `_section_path(section_hierarchy: dict | None) -> list[str]` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 117)
+- `_math_to_delimited(html: str) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 129) — Marker encodes math as ``<math display='inline|block'>LaTeX</math>``.
+- `_block_text(block_type: str, html: str) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 145)
+- `_unescape(text: str) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 153)
+- `_units_from_toc(toc: list[Any] | None, blocks: list[DocumentBlock], *, document_title: str | None, embedded_outline: list[dict[str, Any]] | None=None) -> list[DocumentUnit]` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 246) — Units from the best available section source.
+- `_health_from_page_stats(page_stats: list[Any] | None, blocks: list[DocumentBlock]) -> ExtractionHealth` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 281)
+- `_normalize_counts(block_counts: Any) -> dict[str, int]` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 324)
+- `_page_flags(counts: dict[str, int], blocks: list[DocumentBlock], page_id: Any) -> list[str]` ([source](../../../../../../../src/learnloop/ingest/extractors/marker.py), line 335)
 
 ## Who imports or calls it
 
@@ -104,7 +104,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ingest/block_roles|learnloop.ingest.block_roles]] — imports `classify_block_role`; calls `classify_block_role`
 - [[Reference/Modules/learnloop/ingest/extractors/base|learnloop.ingest.extractors.base]] — imports `ExtractionContext`, `units_from_toc_entries`; calls `units_from_toc_entries`
 - [[Reference/Modules/learnloop/ingest/extractors/marker_worker|learnloop.ingest.extractors.marker_worker]] — imports `run_marker`; calls `run_marker`
-- [[Reference/Modules/learnloop/ingest/hashing|learnloop.ingest.hashing]] — imports `semantic_hash`
 - [[Reference/Modules/learnloop/ingest/ir|learnloop.ingest.ir]] — imports `DocumentAsset`, `DocumentBlock`, `DocumentIR`, `DocumentUnit`, `ExtractionHealth`, `IR_SCHEMA_VERSION`, `PageHealth`, `block_content_hash`; calls `DocumentAsset`, `DocumentBlock`, `DocumentIR`, `ExtractionHealth`, `PageHealth`, `block_content_hash`
 
 ### Platform and third-party dependencies

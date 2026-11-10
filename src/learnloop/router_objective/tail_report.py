@@ -131,7 +131,7 @@ def build(connection: Any, vault: Any, *, now: str) -> dict[str, Any]:
     for key in fitted.order:
         model = fitted.by_generator.get(key)
         entry = dict(spans.get(key) or {"generator": key})
-        entry["fit"] = ({"n": model.n, "coefficients": dict(zip(model.names, model.coef)), "sigma2": model.sigma2,
+        entry["fit"] = ({"n": model.n, "coefficients": dict(zip(model.names, model.coef, strict=True)), "sigma2": model.sigma2,
                          "condition": model.condition, "passes": model.passes, "source": model.source,
                          "prior_sd": model.prior_sd, "version": model.version}
                         if model is not None else {"n": 0, "source": "no transition of this version"})

@@ -39,9 +39,8 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from statistics import NormalDist
-from typing import Any
 
 import numpy as np
 
@@ -397,7 +396,7 @@ class Bank:
     def _regressed(self, name: str, regression: Regression) -> int:
         variance = (P.COLD_START_VARIANCE - self.split) / 2.0
         idx = [self.index[r] for r in regression.regressors if r in self.index]
-        raw = np.array([w for r, w in zip(regression.regressors, regression.raw) if r in self.index], dtype=np.float64)
+        raw = np.array([w for r, w in zip(regression.regressors, regression.raw, strict=True) if r in self.index], dtype=np.float64)
         share = (self.coupling ** 2) * min(1.0, float(regression.total_strength))
         if not idx or float(regression.total_strength) <= 0.0 or not np.any(share > 0):
             return self._append(name, np.zeros(self.B), variance, topic=True)
@@ -437,7 +436,7 @@ class Bank:
         if regression is None:
             return coef_full, np.full(self.B, mean), base_var
         idx = [self.index[r] for r in regression.regressors if r in self.index]
-        raw = np.array([w for r, w in zip(regression.regressors, regression.raw) if r in self.index], dtype=np.float64)
+        raw = np.array([w for r, w in zip(regression.regressors, regression.raw, strict=True) if r in self.index], dtype=np.float64)
         share = (self.coupling ** 2) * min(1.0, float(regression.total_strength))
         if not idx or float(regression.total_strength) <= 0.0 or not np.any(share > 0):
             return coef_full, np.full(self.B, mean), base_var

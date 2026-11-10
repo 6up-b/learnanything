@@ -33,7 +33,7 @@ from learnloop.algorithm_versions import (
     WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
 )
 from learnloop.cli.receipts import command_receipts
-from learnloop.cli.runtime import *  # noqa: F401,F403
+from learnloop.cli.runtime import *  # noqa: F403
 
 
 _runtime_ready_provider_for_task = _ready_provider_for_task
@@ -68,7 +68,7 @@ def _record_command_model_calls(ctx: typer.Context) -> None:
 
 @app.command()
 def init(
-    path: Annotated[Path, typer.Argument(help="Vault directory to create.")] = Path("."),
+    path: Annotated[Path, typer.Argument(help="Vault directory to create.")] = Path("."),  # noqa: B008  Path is immutable, so one shared default is safe
     force: Annotated[
         bool,
         typer.Option(
@@ -1179,7 +1179,7 @@ def synthesize_repair_command(
     )
 
     vault_root = _root(vault)
-    loaded = load_vault(vault_root)
+    load_vault(vault_root)  # a vault that doesn't load stops the command before its repository opens
     repository = _repository(vault_root)
     explicit_ops: list[dict] = []
     if ops_file is not None:
@@ -1439,7 +1439,7 @@ def resolve_conflict_command(
     from learnloop.content.proposals.conflict_resolution import ConflictResolutionError, resolve_conflict
 
     vault_root = _root(vault)
-    loaded = load_vault(vault_root)
+    load_vault(vault_root)  # a vault that doesn't load stops the command before its repository opens
     repository = _repository(vault_root)
     payload = jsonlib.loads(resolution_file.read_text(encoding="utf-8")) if resolution_file else {}
     try:

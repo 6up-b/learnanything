@@ -36,13 +36,10 @@ from learnloop.adaptive_difficulty.operation import entry
 import logging
 import math
 from collections.abc import Mapping, Sequence
-from contextlib import closing
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
-import numpy as np
 
-from learnloop.clock import parse_utc
 from learnloop.db.stores import ad_serving as store
 
 from learnloop.adaptive_difficulty import predict as PR
@@ -332,7 +329,7 @@ def commission_draw(vault: Any, repository: Any, snapshot: RP.Snapshot, view: An
     if current_view().lookup(connection, store.SELECTIONS, "decision_key = ?", (decision_key,))[0] != "missing":
         return None
     draw = S.draw(scored, key=f"{facet}:{capability_name}:{key}", design=S.COMMISSION_VERSION, constants=constants)
-    chosen = next((point for point, spec in zip(points, specs) if spec.item_id == draw.chosen), None)
+    chosen = next((point for point, spec in zip(points, specs, strict=True) if spec.item_id == draw.chosen), None)
     return store.insert_selection(connection, {
         "protection_epoch": current_view().epoch,
         "decision_key": decision_key, "kind": "commission", "view": view_name,

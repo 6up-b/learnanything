@@ -97,7 +97,7 @@ Other tracks continue alongside Slice 2 where they don't compete for the critica
 | **2. Adversarial review** | A **Codex** agent (`codex` agent type: ChatGPT-subscription billing, `gpt-6-astra`, `effort: high`, `sandbox: read-only`) in the same worktree. **Fallback (owner, 2026-10-12):** when Codex fails or its usage runs out, a separate Opus 5.5 agent runs the same review prompt read-only, and later reviews in that stage skip Codex. The stage result records which reviewer ran | A ranked findings list (prompt below) |
 | **3. Fix** | A Claude agent, in the same worktree | For each finding: reproduce it with a failing test, then fix it, or reject it with a reason. Written to `docs/reviews/<stage>-codex-review.md` and committed |
 | **4. Re-review** | Codex, only if a High finding was fixed, over the fix commits only | Confirms or reopens the fix |
-| **5. Gate** | The fixer | Full suite, durability lane, `lint-imports`, frontend checks, DB reference validate, and a shadow rebuild on a `fixtures-local/` copy for any serving change |
+| **5. Gate** | The fixer | Full suite, durability lane, `lint-imports`, `ruff check`, frontend checks, DB reference validate, and a shadow rebuild on a `fixtures-local/` copy for any serving change |
 | **6. Integrate** | Claude, in the main checkout | The branch merges into `main` one at a time (renumbering migrations if needed), then `main` is pushed |
 | **7. Owner checkpoint** | The owner, where the stage has one | A recorded verdict in `docs/reviews/` |
 
@@ -164,6 +164,7 @@ Follow docs/specs/implementation_handoffs.md §0. Rerun the full gate:
 - the full suite;
 - the durability lane;
 - lint-imports;
+- ruff check;
 - the frontend checks;
 - the DB reference validate.
 

@@ -181,7 +181,7 @@ class _Judge:
                                     prompt_version=C.PAIRWISE_PROMPT, result_model=C.PairwiseVerdict)
 
             def mapped(value: str) -> str:
-                return "tie" if value == "tie" else ("left" if (value == "A") == (order[0] is left) else "right")
+                return "tie" if value == "tie" else ("left" if (value == "A") == (order[0] is left) else "right")  # noqa: B023  called within this iteration, before the loop rebinds it
 
             result = {key: mapped(getattr(call.result, key)) for key in ("preferred", "depth", "accuracy")}
             self.caller.ledger(task="pilot_rating", left_kind="pf_candidate", left_id=left["id"],
@@ -242,7 +242,7 @@ def _pair_rows(left: list[dict[str, Any]], right: list[dict[str, Any]], limit: i
     queues = []
     for group in sorted(groups, key=lambda value: json.dumps(value, default=str)):
         lefts, rights = (sorted(rows, key=lambda row: content_key(["pair", row["id"]])) for rows in groups[group])
-        queues.append(list(zip(lefts, rights)))
+        queues.append(list(zip(lefts, rights, strict=False)))
     pairs: list[tuple[dict, dict]] = []
     while len(pairs) < limit and any(queues):
         for queue in queues:

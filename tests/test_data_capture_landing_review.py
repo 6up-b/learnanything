@@ -323,7 +323,7 @@ def test_f11_a_new_decision_never_shares_a_check_that_b_can_answer(tmp_path):
     other = _other_lo_item(env, lo)
     broad = _broad_check(env, [_other_item(env, objective), other.id])
     env.clock.advance(1)
-    with env.repository.atomic(), env.repository.connection() as connection:
+    with env.repository.atomic(), env.repository.connection():
         arranged = M._arrange(env.vault, env.repository, M.freeze_followup(lo, support=["insert_now", "continue_current"]),
                               decision_id="d9", exclude=(), clock=env.clock)
     assert arranged.commitment_id != broad

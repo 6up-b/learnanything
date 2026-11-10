@@ -136,7 +136,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_intent_checks.py](../../../../../../../tests/test_intent_checks.py) — direct import
   - `test_the_way_back_is_rendered_only_when_the_provenance_carries_it`
-- [tests/test_narrative_rollback_overlap.py](../../../../../../../tests/test_narrative_rollback_overlap.py) — direct import
 - [tests/test_reader_digest_narrative.py](../../../../../../../tests/test_reader_digest_narrative.py) — direct import
   - `test_the_narrative_is_written_once_even_when_two_writers_race`
   - `test_the_narrative_is_written_once_from_the_typed_summary_with_valid_citations`

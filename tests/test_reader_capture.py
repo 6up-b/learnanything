@@ -9,7 +9,6 @@ with the drain worker down.
 from __future__ import annotations
 
 import json
-import os
 import signal
 import subprocess
 import sys

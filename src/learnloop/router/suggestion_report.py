@@ -135,7 +135,7 @@ def lines(split: Mapping[str, Any]) -> list[str]:
         funnel, rates, outcome, said = row["funnel"], row["weighted_rates"], row["outcome"], row["responses"]
 
         def rate(key: str) -> str:
-            value = rates[key]
+            value = rates[key]  # noqa: B023  called within this iteration, before the loop rebinds it
             return "-" if value is None else f"{value:.2f}"
 
         mean = outcome["weighted_mean_r_cold"]

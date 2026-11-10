@@ -93,7 +93,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 11 static module edges
 - [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 9 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 9 static module edges
-- [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 5 static module edges
+- [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 4 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 2 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 2 static module edges
@@ -143,7 +143,7 @@ flowchart LR
     center -->|11| n_learnloop_db
     n_learnloop_sidecar_handlers -->|8| center
     n_learnloop_content_pipeline -->|7| center
-    center -->|5| n_learnloop_ingest
+    center -->|4| n_learnloop_ingest
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

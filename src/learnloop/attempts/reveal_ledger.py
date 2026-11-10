@@ -28,17 +28,16 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
-from datetime import timedelta
 from typing import Any, Mapping, Sequence
 
-from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop.clock import Clock, utc_now_iso
 from learnloop import serve_eligibility
 from learnloop.db.repositories import Repository
 from learnloop.reveal_coverage import (
     ROUTINE_DISPLAY_BASES,
     ROUTINE_DISPLAY_COVERAGE,
     ROUTINE_DISPLAY_HORIZON,
-    ROUTINE_DISPLAY_RENEWAL_GRACE,
+    ROUTINE_DISPLAY_RENEWAL_GRACE,  # noqa: F401  re-exported: other modules import it from here
     is_routine_display,
     routine_covered_from,
 )

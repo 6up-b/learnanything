@@ -31,7 +31,6 @@ from learnloop.diagnosis.text_gaps.jobs import process_next_gap_job
 from learnloop.diagnosis.text_gaps.pipeline import PipelineClients
 from learnloop.diagnosis.text_gaps.provenance import formative_record
 from learnloop.figures import service as FS
-from learnloop.figures import verify as V
 from learnloop.tutor.ai_contracts import LearnerGap
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
@@ -39,7 +38,6 @@ from learnloop_sidecar.handlers import figures as FH
 from tests.figure_fixtures import (
     EXTRACTION,
     AuthorFake,
-    VerifierFake,
     build,
     build_figure_vault,
     call,
@@ -121,7 +119,7 @@ def test_f1_a_neighbour_left_out_at_build_time_does_not_withhold_later(tmp_path,
 # F2: a region's figure lands under the region's block
 # ---------------------------------------------------------------------------
 
-def test_f2_a_region_built_figure_is_anchored_under_its_region(tmp_path, crops):  # noqa: F811
+def test_f2_a_region_built_figure_is_anchored_under_its_region(tmp_path, crops):
     paths, _repository = build_figure_vault(tmp_path / "vault")
     ctx = context(paths.root, author=AuthorFake([flagship(kind="illustrative"), ("unsupported", "a 3-D surface")],
                                                images=True))

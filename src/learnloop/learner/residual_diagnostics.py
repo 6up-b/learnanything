@@ -26,7 +26,6 @@ from typing import Any
 from learnloop.db.repositories import Repository
 from learnloop.learner.assessment_contracts import (
     CANONICAL_STATE_VERSIONS,
-    KM_ALGORITHM_VERSION,
 )
 from learnloop.substrate.canonical_projection import FAILURE_THRESHOLD, surface_group_id
 from learnloop.learner.capability_mapping import compile_criterion_targets

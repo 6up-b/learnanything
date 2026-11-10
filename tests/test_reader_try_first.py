@@ -15,7 +15,6 @@ import pytest
 
 from learnloop.attempts import salience_firewall as SF
 from learnloop.db.stores import reader_cue_links as store
-from learnloop.reader.reader_guidance import build_guide_plan
 from learnloop.source_retrieval import passage_cues as PC
 from learnloop_sidecar.errors import SidecarError
 from tests.passage_cue_fakes import CueJudgeFake, build_cue_vault, loaded, set_config, snake, target

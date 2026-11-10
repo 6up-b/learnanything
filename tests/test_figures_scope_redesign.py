@@ -18,7 +18,6 @@ The admission sweeps enumerate every request (fakes that enter
 
 from __future__ import annotations
 
-import json
 import re
 from contextlib import contextmanager
 from pathlib import Path

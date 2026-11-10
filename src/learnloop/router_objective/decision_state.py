@@ -214,7 +214,7 @@ def _active_minutes(connection: Any, session_id: str | None, day_start: datetime
         (day_start.strftime(_STAMP),)).fetchone()[0]
     day_shares = [_in_window(visit, day_start, now) for visit in visits]
     day = (float(day_attempts or 0) + sum(day_shares)) / 60.0
-    split = {index for index, (visit, share) in enumerate(zip(visits, day_shares)) if 0.0 < share < visit[2]}
+    split = {index for index, (visit, share) in enumerate(zip(visits, day_shares, strict=True)) if 0.0 < share < visit[2]}
     minutes: float | None = None
     if session_start is not None:
         session_end = parse_utc(session[1]) if session[1] else now
@@ -223,7 +223,7 @@ def _active_minutes(connection: Any, session_id: str | None, day_start: datetime
             (session[0], session_id)).fetchone()[0]
         session_shares = [_in_window(visit, session_start, session_end) for visit in visits]
         minutes = (float(attempts or 0) + sum(session_shares)) / 60.0
-        split |= {index for index, (visit, share) in enumerate(zip(visits, session_shares)) if 0.0 < share < visit[2]}
+        split |= {index for index, (visit, share) in enumerate(zip(visits, session_shares, strict=True)) if 0.0 < share < visit[2]}
     return minutes, day, {"reader_split_visits": len(split), "reader_unattributed": _round(unplaced / 60.0)}
 
 

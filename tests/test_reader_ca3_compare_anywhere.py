@@ -32,7 +32,6 @@ from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.reader import reader_intent as RI
 from learnloop.source_retrieval import compare_scope as CS
-from learnloop.source_retrieval import library_ask as LA
 from learnloop.source_retrieval.compare import compare_sources
 from learnloop.source_retrieval.policy import CallerContext, PolicyRefused
 from learnloop_sidecar.errors import SidecarError

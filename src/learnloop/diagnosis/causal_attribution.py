@@ -445,11 +445,11 @@ def _backtracking_depth(
         memo: dict[str, int] = {}
 
         def depth(checkpoint: str, visiting: set[str]) -> int:
-            if checkpoint in memo:
-                return memo[checkpoint]
+            if checkpoint in memo:  # noqa: B023  called within this iteration, before the loop rebinds it
+                return memo[checkpoint]  # noqa: B023  called within this iteration, before the loop rebinds it
             if checkpoint in visiting:
                 return 0
-            dependencies = recipe.dependencies.get(checkpoint, [])
+            dependencies = recipe.dependencies.get(checkpoint, [])  # noqa: B023  called within this iteration, before the loop rebinds it
             value = (
                 0
                 if not dependencies
@@ -459,7 +459,7 @@ def _backtracking_depth(
                     for value in dependencies
                 )
             )
-            memo[checkpoint] = value
+            memo[checkpoint] = value  # noqa: B023  called within this iteration, before the loop rebinds it
             return value
 
         all_depths = [depth(value, set()) for value in recipe.checkpoints]
@@ -805,7 +805,6 @@ def select_minimal_repair(
             depth = _backtracking_depth(trace_contract, changed_checkpoints)
         edit_cost = _trace_edit_cost(before, after) if before or after else None
         minutes = validated_suggestion.get("expected_minutes")
-        burden = float(minutes) if isinstance(minutes, (int, float)) else float("inf")
         # An unavailable deterministic key must never win by being absent.
         deterministic_rank = (
             int(contradiction),
@@ -2416,7 +2415,7 @@ def materialize_causal_episode(
             model=model,
             # Built only when a new version is appended (an idempotent
             # replay re-append reads no write-time record).
-            provenance=lambda refs=spec.get("provenance_refs"): _statement_provenance(repository, attempt_id, refs),
+            provenance=lambda refs=spec.get("provenance_refs"): _statement_provenance(repository, attempt_id, refs),  # noqa: B008  binds the value now on purpose, so the closure doesn't read a later one
             provenance_writer="causal_materialization",
             clock=clock,
         )

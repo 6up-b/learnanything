@@ -1295,7 +1295,7 @@ def test_identity_rereview_f7_an_assessment_profile_is_not_an_exam_role(exam_boo
 
     from learnloop.db.migrate import apply_migrations
 
-    repo, root = exam_book["repo"], exam_book["root"]
+    repo = exam_book["repo"]
     textbook = {**_EXAM_MEMBER, "default_role": "primary_textbook"}
     _older_build_with_membership(exam_book, textbook, profile="assessment")
     if read == "migrated":

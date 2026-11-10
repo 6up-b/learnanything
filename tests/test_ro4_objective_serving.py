@@ -16,7 +16,6 @@ from typing import Any
 import pytest
 
 from learnloop.algorithm_versions import INTERVAL_FACTOR_ALGORITHM_VERSION, ROUTER_OBJECTIVE_ALGORITHM_VERSION
-from learnloop.daily_plan.engine import advance
 from learnloop.db.stores import router_objective as store
 from learnloop.router_objective import mix
 
@@ -137,7 +136,7 @@ def test_a_numeric_timeout_is_a_failure_and_both_failed_keeps_the_floor(tmp_path
     real = OC.run_numeric
 
     def timed_out(*args, **kwargs):
-        result = real(*args, **kwargs)
+        real(*args, **kwargs)
         return OC.NumericPolicy(status="timeout", error="no answer within the budget")
 
     monkeypatch.setattr(OC, "run_numeric", timed_out)
