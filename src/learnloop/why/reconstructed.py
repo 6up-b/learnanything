@@ -66,6 +66,14 @@ def code(value: Any) -> Any:
     return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
+def digest(value: Any) -> str | None:
+    """A stored free-text value (model or learner words) as ``sha256:<16 hex>`` whatever its spelling, or None."""
+
+    if value is None or value == "":
+        return None
+    return "sha256:" + hashlib.sha256(str(value).encode("utf-8")).hexdigest()[:16]
+
+
 def _number(value: Any) -> float | int | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
@@ -521,7 +529,8 @@ def figure(connection: Any, figure_id: str) -> dict[str, Any] | None:
             "problems": problems, "problems_n": len(problems),
             "problem_paths": sorted({path for path in (problem_path(text) for text in texts) if path}),
             "dropped_predictions_n": len(report.get("dropped_predictions") or ()),
-            "unsupported_kind": code(row["unsupported_kind"]), "tier": code(row["tier"]),
+            # The author's own words for what it couldn't draw: hashed even when it is one word.
+            "unsupported_kind": digest(row["unsupported_kind"]), "tier": code(row["tier"]),
             "origin": code(row["origin"]), "request_id": code(row["request_id"]),
             "build_mode": code(request["build_mode"]) if request else None,
             "prefetch_decision_id": code(request["prefetch_decision_id"]) if request else None,

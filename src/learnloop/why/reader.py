@@ -377,32 +377,44 @@ def payloads(repository: Any, ids: Iterable[str]) -> list[dict[str, Any]]:
             for row in rows]
 
 
+#: Fields whose strings are free text however they are spelled: one word of model or learner text ("photosynthesis")
+#: passes the code check, so under these names every string, and every key, is withheld. ``unsupported_kind`` is
+#: the figure author's own words; ``reasons`` and ``explanation`` the scheduler's plain English; the rest name the
+#: payloads and learner text no answer should hold.
+TEXT_FIELDS = frozenset({
+    "unsupported_kind", "unsupported_reason", "why_not_spec", "reasons", "plain_english", "explanation",
+    "rationale", "input_text", "output_text", "prompt", "answer_md", "work_md", "hint_md", "explanation_text",
+    "learner_answer", "title", "message",
+})
+
+
 def codes_only(value: Any, path: str = "") -> tuple[Any, list[str]]:
-    """``value`` with every string that is not an id, a number or a code (:func:`provenance.is_code`) removed, and the
-    paths removed. The RPC returns this, so a field that holds prose (an item's plain-English reasons, a latest
-    stored explanation) never leaves the desktop through it."""
+    """``value`` with every string that is not an id, a number or a code (:func:`provenance.is_code`) removed, every
+    string and key under a :data:`TEXT_FIELDS` name removed whatever its spelling, and the paths removed. The RPC
+    returns this, so a field that holds prose (an item's plain-English reasons, a latest stored explanation, a
+    figure author's words) never leaves the desktop through it."""
 
     withheld: list[str] = []
 
-    def visit(item: Any, where: str) -> Any:
+    def visit(item: Any, where: str, text: bool) -> Any:
         if item is None or isinstance(item, (bool, int, float)):
             return item
         if isinstance(item, str):
-            if provenance.is_code(item):
+            if not text and provenance.is_code(item):
                 return item
             withheld.append(where)
             return None
         if isinstance(item, Mapping):
             out = {}
             for key, inner in item.items():
-                if not provenance.is_code(str(key)):
+                if text or not provenance.is_code(str(key)):
                     withheld.append(f"{where}.<key>")
                     continue
-                out[str(key)] = visit(inner, f"{where}.{key}" if where else str(key))
+                out[str(key)] = visit(inner, f"{where}.{key}" if where else str(key), str(key) in TEXT_FIELDS)
             return out
         if isinstance(item, (list, tuple)):
-            return [visit(inner, f"{where}[{index}]") for index, inner in enumerate(item)]
+            return [visit(inner, f"{where}[{index}]", text) for index, inner in enumerate(item)]
         withheld.append(where)
         return None
 
-    return visit(value, path), withheld
+    return visit(value, path, False), withheld

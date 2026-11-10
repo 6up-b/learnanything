@@ -316,3 +316,49 @@ def test_each_queued_figure_trigger_runs_under_the_trace_that_queued_it(monkeypa
     with provenance.trace_scope("TRACE_DRAIN_THREAD"):
         runtime._drain(_Ctx(), None)
     assert seen == [("trigger_a", "TRACE_FIRST"), ("trigger_b", "TRACE_SECOND")]
+
+
+# -- 4. why.get withholds free-text fields however they are spelled -----------------------------------------------
+
+
+def test_a_figure_authors_one_word_unsupported_kind_never_leaves_through_why(tmp_path: Path):
+    """``unsupported_kind`` is the author's own words; "photosynthesis" passes the code check, so before the fix both
+    ``why --json`` and ``why.get`` returned it unchanged, with nothing withheld."""
+
+    import json
+
+    import learnloop_sidecar.handlers  # noqa: F401 - registers the RPCs
+    from learnloop_sidecar.context import SidecarContext
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+    from tests.helpers import create_basic_vault
+
+    paths = create_basic_vault(tmp_path / "vault")
+    with connect(paths.sqlite_path) as connection:
+        connection.execute(
+            "INSERT INTO interactive_figures (id, extraction_id, origin, spec_json, spec_version, kind, verification, "
+            "unsupported_kind, prompt_version, input_hash, created_at) VALUES ('fig_photo', 'ext1', 'selection', '{}', "
+            "'ifs-v1', 'illustrative', 'illustrative', 'photosynthesis', 'figure_author.v1', 'hash_photo', "
+            "'2026-01-01T00:10:00Z')")
+        connection.commit()
+    answer = _why(paths.root, "figure:fig_photo")
+    [figure] = answer["reconstructed"]
+    assert figure["inputs"]["unsupported_kind"].startswith("sha256:")
+    assert "photosynthesis" not in json.dumps(answer)
+    ctx = SidecarContext()
+    ctx.load(paths.root)
+    spec = METHOD_REGISTRY["why.get"]
+    reply = spec.handler(ctx, spec.params_model.model_validate({"target": "figure:fig_photo"}))
+    assert "photosynthesis" not in json.dumps(reply)
+    assert reply["why"]["reconstructed"][0]["inputs"]["unsupported_kind"] is None
+    assert "reconstructed[0].inputs.unsupported_kind" in reply["withheld"]
+    ctx.close()
+
+
+def test_codes_only_withholds_text_fields_and_their_keys_whatever_the_spelling():
+    from learnloop.why.reader import codes_only
+
+    cleaned, withheld = codes_only({"inputs": {"unsupported_kind": "photosynthesis", "rule": "chooser_error"},
+                                    "reasons": ["Overdue"], "latest": {"explanation": {"photosynthesis": 1}}})
+    assert cleaned == {"inputs": {"unsupported_kind": None, "rule": "chooser_error"}, "reasons": [None],
+                       "latest": {"explanation": {}}}
+    assert set(withheld) == {"inputs.unsupported_kind", "reasons[0]", "latest.explanation.<key>"}
