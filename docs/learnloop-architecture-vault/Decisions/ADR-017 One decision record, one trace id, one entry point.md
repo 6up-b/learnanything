@@ -121,7 +121,52 @@ Rows are small: ids, numbers and capped lists, exclusions aggregated by rule. Th
 
 ## B8: boundaries with no record, and why not
 
-B8 reads the remaining boundaries (teacher lessons and checks, Reader retrieval, ingest routing, AI route fallback, retries, re-read and alias resolution, curriculum path, FSRS rating and elapsed) and writes here, for each one it leaves without a record, why not. Until B8 lands this list is open.
+B8 read the remaining boundaries (teacher lessons and checks, Reader retrieval, ingest routing, AI route fallback, retries, re-read and alias resolution, curriculum path, FSRS rating and elapsed) and the leftovers B3-B7 handed on. The rule: a record where a real question had no stored answer; for the rest, the row that already answers it, or why a record isn't worth it. With B2-B7's records, this is the inventory with no silent gap (`docs/specs/refactor_strategy_v3.md` §3.8).
+
+**Records B8 added** (`docs/reviews/refactor-b8.md` has what each carries):
+
+| Site | Record | The question it answers |
+|---|---|---|
+| A plan decision's logger raised (`daily_plan/engine.py` `_log_plan_decision`, `_log_interrupt`; S13's other half) | `router_decision_row`, `failed`, `logger_error`, on the block | Why does this block have no ledger row? (Before: a warning line.) |
+| A shared daily cap refused (`SharedDailyEnvelope.reserve`: the source service's, hints', hint maps', figures', the Reader's follow-ups and digest, reading paths, deliverables, library ask, passage cues, workbench check) | `spend_admission`, `refused`, `envelope_cap` | Why did my comparison, path, hint or figure come back capped or empty today? Each caller turned the refusal into its own status, nothing was sent, and the exception named no numbers. AD's own envelope records none (below) |
+| A lesson closed with `budget` (`teacher/service.py`) | `spend_admission`, `refused`, by `lesson_envelope` | Which request hit the lesson's cap, at what estimate against what limit? The gate's refusal was kept nowhere |
+| The curriculum path's daily re-judgment (`deliverable_path.refresh_for_plan`) | `curriculum_path_refresh` (`chosen`, `refused`, `excluded`, `deferred`, `discarded`, `failed`; none for `none` or `fresh`) | Why was the stale path not judged again today? (Before: the sidecar's memory and a log line) |
+| An AD commission's job that generated nothing (`content/pipeline/jobs.py`) | `ad_commission_skip`, `excluded`: `commission_closed`, `view_unavailable` or `guard_denied` | Did the commission close, or could AD not read it? The job's result says "no longer open" for all three, and still does |
+| A figure prediction's gap reading stopped by the figure gate (`diagnosis/text_gaps/jobs.py`) | B5's `figure_admission`, now with the job's repository | Why did the reading stop? The job row kept prose only |
+| The FSRS review (`attempts/attempts.py`) | `grade.facts.fsrs` on B7's record | Why is this card due then? The rating before and after the hint cap, elapsed days, the state before and after, the interval and its factor, the due time, or why no review applied. The state row is overwritten by the next review and the elapsed time was never stored |
+
+**Boundaries left without a record, and why:**
+
+| Site | The question | Why no record |
+|---|---|---|
+| Teacher, inside a lesson: turns, invalid or withheld turns, visuals, read refusals, checks, closes | What did the teacher do and why did the lesson end? | `lesson_turns` (with payloads), `lesson_receipts` and `lessons.close_reason` hold each one |
+| Teacher, an open refused before the lesson row (topics refused, lesson refused, protection unreadable, teacher route not ready) | Why did "Teach me this" open nothing? | Learner-initiated and synchronous: the code and message are shown at that moment, and nothing was decided on the learner's behalf |
+| Teacher, a provider failure mid-lesson | Why did the teacher not answer? | The call's receipt (`status`, `error_type`) carries the RPC's trace (B1), so `why <trace>` joins it |
+| Teacher brief: an unreadable deliverable or AD readiness (`brief.py`) | Was there no deliverable, or did reading it fail? | Low value: the brief is stored on the open turn; open item below |
+| Reader retrieval: embedding refused or failed, pool fallback, rewrite, verification | Why lexical, why no passages? | `question_events.source_context.source_retrieval` keeps the whole manifest (statuses and reasons); `find_practice` keeps `signals` on its proposal receipt |
+| Re-read carry-over | Did the old reading carry over? | `source_span_reanchors`, the import job's `result_json.carried_over`, and `carry_over_for`/`carry_over_done` |
+| Alias resolution (spans, LOs, facets) | Which span does this old reference mean? | A pure function of `source_span_reanchors` and the stored document IRs, so it recomputes; LO and facet aliases are deterministic maps |
+| Margin cues and re-read suggestions | Why was this cue shown? | Display-only and derived from stored error rows and configuration; taps are in `judgment_ledger` (`passage_cue`) |
+| Curriculum path choice and the plan's use of it | Which section, and why did the plan fall back? | Path rows and `judgment_ledger` (`reason_by`, alternates); the plan row's `split_json.reading_path` (status, `chosen_by`, the deliverables consulted). `validate`'s dropped LOs are deterministic from `state_key` |
+| Ingest routing (extractor choice and fallback, Quick Add scope) | Which extractor read this, and was it a fallback? | `source_extraction_runs.extractor`, `model_versions_json.fallback_from` and `health_json`'s flags. Not a served decision. The primary extractor's exception class and the Quick Add "nothing matched" fallback are lost: open item |
+| AI route fallback (`ai/routing.py`) | Which provider answered, and was it a fallback? | The receipt names the provider and model that answered, and the Decider, spend, figure and grade records name a fallback where it changed a decision. Which route fell back, and why the primary wasn't ready, is not stored: routing holds no connection and runs inside router paths with a time budget, where a record's own transaction could wait on the write lock (B1's rule). Open item: carry it on the receipt (a nullable column, its own migration) |
+| Retries (transport, truncation, JSON repair) | How many attempts, which failed, with what? | Each physical attempt is a child receipt (`parent_call_id`, `status` `failed` or `truncated`, `error_type`, output budget); a record per retry would duplicate them |
+| FSRS: the causal-activity or eligibility skip | Why did this attempt not move the schedule? | Now `grade.facts.fsrs.skipped` (above); it was also derivable from the attempt row under the same tag |
+| Device eligibility's failure | Why did the phone not show this? | B6's slate record counts `device_ineligible` by rule; the media predicate fails closed (the item waits for the desktop), so a failed read and "not served" look alike, at no cost to the learner |
+| Spend refusals in content generation (follow-up generation) | Why did the follow-up not appear? | `followup_generation_jobs.last_error`, the workflow's `failed` reason, and B5's `spend_admission` from the router guard |
+| AD's sending (forecasts, audits, relatedness) | Why no forecast? | Forecast receipts carry `refused_spend` or `skipped:<reason>`; the audit's Decider verdicts are in `judgment_ledger`. AD's envelope writes no refusal record: it is reserved inside AD operations, whose guard denies the table, and a denied write would poison the operation |
+| Reader intent, Reader quick check, Reader follow-ups, hint writer, grading | Why did it fall back or stop? | Reader intent: `judgment_ledger` verdict `refused`. Quick check: `ingest_jobs.error_json` with the cap's numbers. Follow-ups: the digest receipt's `reason=budget`. Hint writer: `help_assists.contract_failures_json` (`capped`, `unrouted`, ...). Grading: the `agent_runs` row `failed`. The shared caps among them now also write the envelope record |
+| Hint outcome placement refused | Why no placement verdict? | Measurement-only and retried next pass; the missing verdict is itself visible |
+| `hints.chooser_enabled = false`; a tied Decider judgment (B5) | Why the default help style? Why no choice? | The help row's `chooser_reason = chooser_disabled` (a switch, not a refusal); the ledger's `tied` verdict with its probabilities |
+| Background AD denials (preparation, forecasts, audits, relatedness, generation; B3) | Why was this item never prepared or forecast? | `ad_guard_denials.jsonl` (counted by `learnloop ad report`, archived by an upgrade; owner, 2026-10-21: logged, counted, no UI). A record needs a write after each operation closes, in each of about seven background callers; the commission job, whose result mislabelled the denial, got one (above) |
+| `commission_point`'s denial inside generation | Why the incumbent's rung? | It runs inside the caller's AD view, where the table is denied; the JSONL holds the denial |
+| Quick check and `find_practice` exclusions (B6) | Why was this item not offered? | Learner-initiated selectors: the quick check's served items are presentations; `find_practice`'s results are on screen with its receipt's signals. The exclusions are the shared predicate the slate record counts per build, and `why item:<id>` re-derives them |
+| The TUI's probe door (B7) | Why no `probe_value`? | The TUI is rebuilt as a frontend after the refactor (C7) |
+| AD generation refusal; the hint ladder's missing client (B7) | Why no generated item? Why the authored hint? | `ingest_jobs` `failed` with `error_json` (`AuthoringRequestRefused`, `ad_models_off`); `help_assists.contract_failures_json.reason` and `chooser_reason`, plus B5's `decider_judgment` |
+| Rich figure jobs' attempts (B4) | What went wrong on attempt 1? | Each attempt's call is a receipt (`metadata.attempt`, status); the stored figure keeps the last failure; a retry refused by the figures' cap is now the envelope record. Per-attempt problem codes are an open item |
+| Learner protection, a per-call read | | Recorded only where it excludes something from a decision (B4, B6), per the strategy |
+
+**Open items from the inventory:** the AI route's fallback on the receipt (a migration); the ingest extractor's primary failure class and per-attempt job history (`ingest_jobs.error_json` is reset when a job is leased again); the Quick Add scope fallback; the teacher brief's swallowed reads; rich figure attempts' problem codes (B4's `AuthorAttempts`, wired through `figures/rich.py`'s several exits).
 
 ## Related notes
 
