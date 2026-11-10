@@ -296,7 +296,10 @@ def _router_day(tmp_path: Path, name: str, *, write) -> tuple[list[tuple], list]
     env = mixture_env(tmp_path / name, runtime, toml="[router]\nmax_daily_cost_usd = 0.0\n")
     with pytest.MonkeyPatch.context() as patch:
         if write is not None:
+            from learnloop.db.stores import provenance as store
+
             patch.setattr(refusal_records, "write", write)
+            patch.setattr(store, "write_decision_without_waiting", write)  # the router guard's own writer
         run(env)
     served = [(row["chosen_ref"], row["propensity"], row["fallback"],
                {name: model["status"] for name, model in row["detail_json"]["mixture"]["models"].items()})

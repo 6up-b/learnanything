@@ -39,6 +39,36 @@ def write_decision(repository: Any, record: provenance.DecisionRecord) -> str | 
     return provenance.write_through(repository, record)
 
 
+def write_decision_without_waiting(repository: Any, record: provenance.DecisionRecord) -> str | None:
+    """Write ``record`` in a short transaction on a connection of its own that never waits for a lock; its id, or
+    ``None``. Never raises.
+
+    For a caller on a wall-clock budget holding no transaction (the router's spend guard after a refusal): a lock
+    held elsewhere, another writer's or, in rollback-journal mode, a reader's snapshot that blocks the commit, drops
+    the record with a warning instead of holding the caller for the busy timeout.
+    """
+
+    from learnloop.db.connection import connect
+
+    connection = None
+    try:
+        connection = connect(repository.sqlite_path)
+        connection.execute("PRAGMA busy_timeout = 0")
+        return provenance.write(connection, record)
+    except Exception as exc:  # noqa: BLE001 - a record never changes the decision it describes
+        LOG.warning("decision record %r not written (trace %s): %s", record.kind,
+                    record.trace_id or provenance.current_trace(), type(exc).__name__)
+        return None
+    finally:
+        if connection is not None:
+            try:
+                if connection.in_transaction:  # a commit refused for a lock leaves its transaction open
+                    connection.rollback()
+                connection.close()
+            except Exception:  # noqa: BLE001 - closing discards whatever is left
+                pass
+
+
 def trace_model_calls(connection: Any, trace_ids: Iterable[str]) -> list[dict[str, Any]]:
     """Model calls made under any of ``trace_ids``, oldest first (empty below migration 253)."""
 

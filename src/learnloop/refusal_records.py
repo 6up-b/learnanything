@@ -389,7 +389,7 @@ def followup_gate_record(row: Mapping[str, Any], decision: Any, *, logged: bool,
 # -- writing (never raises) ---------------------------------------------------------------------------------------
 
 
-def _built(kind: str, build: Callable[[], DecisionRecord]) -> DecisionRecord | None:
+def built(kind: str, build: Callable[[], DecisionRecord]) -> DecisionRecord | None:
     try:
         return build()
     except Exception as exc:  # noqa: BLE001 - a record never changes the decision it describes
@@ -407,7 +407,7 @@ def write(repository: Any, kind: str, build: Callable[[], DecisionRecord]) -> st
     ``db.stores.router`` writes through this module, so importing the store back would close a package cycle.
     """
 
-    record = _built(kind, build)
+    record = built(kind, build)
     if record is None:
         return None
     return provenance.write_through(repository, record)
@@ -416,7 +416,7 @@ def write(repository: Any, kind: str, build: Callable[[], DecisionRecord]) -> st
 def write_on(connection: Any, kind: str, build: Callable[[], DecisionRecord]) -> str | None:
     """Build and write one record on ``connection``, inside the transaction the caller holds; never raises."""
 
-    record = _built(kind, build)
+    record = built(kind, build)
     if record is None:
         return None
     return provenance.write(connection, record)
@@ -428,5 +428,5 @@ __all__ = [
     "ROUTER_DAILY_CAP", "ROUTER_DECISION_ROW", "SPEND_ADMISSION", "SPEND_REFUSED", "SWITCH_OFF", "TIME_BOX",
     "decider_record", "disabled_rule", "envelope_record", "figure_gate_record", "followup_gate_record",
     "lesson_budget_record", "plan_logger_record", "route_rule", "router_row_record", "router_spend_record",
-    "spend_rule", "write", "write_on",
+    "spend_rule", "built", "write", "write_on",
 ]

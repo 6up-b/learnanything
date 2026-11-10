@@ -431,27 +431,33 @@ class RouterSpend:
             declared[RESERVATION_KEY] = round(float(usd), 10)
             event = {**event, "budget_json": json.dumps(declared, sort_keys=True)}
             now_iso = str(event.get("started_at") or _now_iso())
-            refused: SpendRefused | None = None
-            with repository.atomic():
-                spent = Decimal(str(self.spent_today(repository, config, now_iso)))
-                amount = Decimal(str(float(usd)))
-                if spent + amount > cap:
-                    refused = SpendRefused(
-                        f"router daily guard: ${float(spent + amount):.4f} would pass ${float(cap):.2f}",
-                        rule=refusal_records.ROUTER_DAILY_CAP, limit=float(cap), used=float(spent),
-                        requested=float(amount),
-                    )
-                    # A refused request writes no receipt, so its record is the only row it leaves. It joins this
-                    # transaction, which already holds the write lock, so the deadline never waits on it; the
-                    # transaction commits the record alone and the refusal is raised after.
-                    refusal_records.write(repository, refusal_records.SPEND_ADMISSION,
-                                          lambda: refusal_records.router_spend_record(
-                                              cap_usd=float(cap), spent_usd=float(spent), request_usd=float(amount),
-                                              owner_kind=owner_kind, owner_id=owner_id, event=event))
-                else:
+            try:
+                with repository.atomic():
+                    spent = Decimal(str(self.spent_today(repository, config, now_iso)))
+                    amount = Decimal(str(float(usd)))
+                    if spent + amount > cap:
+                        raise SpendRefused(
+                            f"router daily guard: ${float(spent + amount):.4f} would pass ${float(cap):.2f}",
+                            rule=refusal_records.ROUTER_DAILY_CAP, limit=float(cap), used=float(spent),
+                            requested=float(amount),
+                        )
                     repository.record_model_event(action, event, owner_kind=owner_kind, owner_id=owner_id)
-            if refused is not None:
-                raise refused
+            except SpendRefused as refused:
+                # A refused request writes no receipt, so its record is the only row it leaves. The guard's
+                # transaction rolled back with nothing to commit, so the refusal reaches the router at once. Committing
+                # the record in it would wait out the busy timeout behind a reader's snapshot (rollback journal) and
+                # turn the refusal into a storage failure, so the record takes a connection of its own that never
+                # waits: under contention it is dropped with a warning.
+                from learnloop.db.stores.provenance import write_decision_without_waiting
+
+                record = refusal_records.built(refusal_records.SPEND_ADMISSION,
+                                               lambda: refusal_records.router_spend_record(
+                                                   cap_usd=float(cap), spent_usd=float(refused.used or 0.0),
+                                                   request_usd=float(refused.requested or 0.0),
+                                                   owner_kind=owner_kind, owner_id=owner_id, event=event))
+                if record is not None:
+                    write_decision_without_waiting(repository, record)
+                raise
 
         with observe_model_calls(observe), gate_model_requests(gate):
             yield
