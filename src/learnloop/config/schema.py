@@ -11,8 +11,8 @@ class StorageConfig(BaseModel):
 
 
 class AlgorithmsConfig(BaseModel):
-    # Fallback for configs that omit the field, i.e. vaults created before the
-    # mvp-0.7 template. Treat them as legacy; activation must go through
+    # Fallback for configs that omit the field, i.e. vaults whose template
+    # predates the key. Treat them as legacy; activation must go through
     # `learnloop upgrade`, never through a silent default flip. New vaults get
     # an explicit current version from the generated template.
     algorithm_version: str = "mvp-0.6"
@@ -22,37 +22,36 @@ class SchedulerSurpriseConfig(BaseModel):
     theta_pos: float = 1.5
     theta_neg: float = 1.5
     # The surprise interval factor exp(alpha_interval * residual), clamped to
-    # [f_min, f_max]. Router objective RO1 (mvp-0.46, spec_router_objective_v1
-    # §5): at or above the tag, with ``remove_interval_factor`` on, these three
-    # do nothing (the FSRS interval is interval_for_retention(S) alone). They
-    # stay so vaults below the tag, or with the switch off, keep replaying.
+    # [f_min, f_max]. At or above mvp-0.46, with ``remove_interval_factor`` on,
+    # these three do nothing (the FSRS interval is interval_for_retention(S)
+    # alone). They stay so vaults below the tag, or with the switch off, keep
+    # replaying.
     alpha_interval: float = 0.3
     f_min: float = 0.5
     f_max: float = 1.5
     epsilon_error_surprise: float = 0.05
-    #: RO1's kill switch (mvp-0.46): the factor is not applied to the interval.
-    #: Off, or below the tag, the interval is multiplied by it as before.
+    #: Kill switch: the factor is not applied to the interval. Off, or below
+    #: mvp-0.46, the interval is multiplied by it.
     remove_interval_factor: bool = True
 
 
 class SchedulerFollowupConfig(BaseModel):
-    # Re-tuned for the probability-space EKF surprise (spec_irt_difficulty.md §6.2):
-    # the bounded EKF moves mu gently, so per-attempt Bayesian surprise is ~6x
-    # smaller in nats than the legacy logit update. 0.3 was unreachable post-EKF.
+    # The bounded probability-space EKF moves mu gently, so per-attempt Bayesian
+    # surprise is ~6x smaller in nats than a logit update; 0.3 is unreachable.
     tau_followup_nats: float = 0.05
     gamma_min: float = 0.5
     tau_severe_error: float = 0.75
     tau_repeated_item_failures: int = 2
     tau_repeated_facet_failures: int = 2
     tau_unfamiliar_intervention: float = 0.85
-    # From mvp-0.21 the kill-switch path only (voi_stopping.followups off):
-    # with it on, a further intervention is queued while its value of
-    # information pays for its minutes.
+    # From mvp-0.21 read only with voi_stopping.followups off: with it on, a
+    # further intervention is queued while its value of information pays for
+    # its minutes.
     max_interventions_per_lo_per_session: int = 1
     cold_start_min_lo_evidence: float = 2.0
     min_target_facet_overlap: float = 0.5
     max_diagnostic_target_facets: int = 2
-    # Data-relative thresholds (gate modernization): "quantile" resolves
+    # Data-relative thresholds: "quantile" resolves
     # tau_followup_nats / tau_severe_error against this learner's own logged
     # signal distribution; below quantile_min_samples observations the absolute
     # constants above remain the cold-start fallback.
@@ -74,7 +73,7 @@ class SchedulerFollowupConfig(BaseModel):
     # logs justify trusting it (log-before-trust).
     predictive_eig_weight: float = 0.0
     predictive_eig_target_cap: int = 4
-    # Misconception discrimination gate (spec §4.1, Phase 1: parsed but inert).
+    # Misconception discrimination gate (parsed but inert).
     # A diagnostic candidate must clear this Youden-J lower bound against an
     # active misconception to be diagnostic-eligible. require_misconception_discrimination
     # gates whether an active misconception with no discriminating candidate
@@ -104,7 +103,7 @@ class SchedulerConfig(BaseModel):
     candidate_log_retention_limit: int = 200
     # Matches the generated template: exploration stays on even for vaults whose
     # learnloop.toml predates the key, or logged slates carry degenerate
-    # propensities and off-policy evaluation is dead (architecture_pivot Stage 0).
+    # propensities and off-policy evaluation is dead.
     selection_exploration_rate: float = 0.1
     selection_exploration_reward_window: float = 0.15
     surprise: SchedulerSurpriseConfig = Field(default_factory=SchedulerSurpriseConfig)
@@ -115,32 +114,30 @@ class GoalsConfig(BaseModel):
     # Projection horizon for goals without a due date: facet recall is
     # forward-projected this many days out when deciding on-track status.
     default_projection_horizon_days: int = 30
-    # Exam protection's serving rules (docs/reviews/exam-protection.md; the
-    # kill switch of its Codex review F6): material the learner has been shown
+    # Exam protection's serving rules: material the learner has been shown
     # never becomes an exam item, a certification cold probe or a cold retry;
     # an exam item shown after its reservation is withdrawn before the exam
     # starts; an item made from held-out material stays out of routine
     # practice (Today, the quick check, find_practice, picks and session
-    # serves) and is never a cold probe or retry; the plan's reading step in
-    # DL1's order (plan.reading_from_furthest off) never offers exam material
-    # (exam protection by extraction identity, Codex review F6). Live at every
-    # version (replay never reads it); off restores the selection before the
-    # stage. What a model is shown (teaching, the Reader, leakage) is not
-    # switched.
+    # serves) and is never a cold probe or retry; the plan's reading step
+    # with plan.reading_from_furthest off never offers exam material (matched
+    # by extraction identity). Live at every version (replay never reads it);
+    # off restores the unprotected selection. What a model is shown
+    # (teaching, the Reader, leakage) is not switched.
     held_out_selection: bool = True
 
 
 class HypothesisConfig(BaseModel):
     session_card_budget: int = Field(default=2, ge=0)
     claim_cooldown_days: int = Field(default=7, ge=0)
-    # F5 overconfidence list (§4.3): the minimum aggregate evidence mass a facet
+    # Overconfidence list: the minimum aggregate evidence mass a facet
     # needs before "Ready high, Demonstrated false" is trusted over cold-start
     # noise.
     overconfidence_min_evidence_mass: float = Field(default=1.0, ge=0.0)
-    # F7 welcome-back diff (§4.4): a gap strictly larger than this many days
+    # Welcome-back diff: a gap strictly larger than this many days
     # since the last session end opens the re-entry panel.
     reentry_gap_days: int = Field(default=7, ge=1)
-    # F7 no-goal decay pressure (§4.5): the recall threshold a facet "crosses"
+    # No-goal decay pressure: the recall threshold a facet "crosses"
     # and how far out we search for the crossing day.
     decay_pressure_target_recall: float = Field(default=0.8, gt=0.0, le=1.0)
     decay_pressure_horizon_days: int = Field(default=60, ge=1)
@@ -149,7 +146,7 @@ class HypothesisConfig(BaseModel):
 class MasteryIRTConfig(BaseModel):
     enabled: bool = True                     # false -> legacy logit-space update (bit-for-bit)
     discrimination_default: float = 1.0
-    discrimination_min: float = 0.2          # forward-compat clamp; a is fixed 1.0 in Phase A
+    discrimination_min: float = 0.2          # forward-compat clamp; a is fixed at 1.0
     discrimination_max: float = 3.0
     difficulty_default: float = 0.0          # b at mu_0
     difficulty_from_prior: bool = True       # derive b from PracticeItem.difficulty / LO.difficulty_prior
@@ -158,7 +155,7 @@ class MasteryIRTConfig(BaseModel):
     p_clip: float = 1e-4                     # numerical clamp on p before H/R_y
     mu_abs_max: float = 5.0                  # sanity clamp on logit_mean
     max_logit_step: float = 4.0              # per-attempt cap on |mu_new - mu| (EKF-overshoot guard)
-    # Empirical-Bayes per-item difficulty (Fable's-take item 5). Ships dark:
+    # Empirical-Bayes per-item difficulty, off by default:
     # theta and b are confounded at N=1, and a bad b trajectory corrupts
     # mastery, surprise, and gating simultaneously — validate via calibration
     # flags + flag-flip-and-rebuild before defaulting on. The authored value
@@ -184,14 +181,14 @@ class ProbeIRTConfig(BaseModel):
     cut_mid: float = -1.0
     cut_high: float = 1.0
     unfamiliar_error_leak: float = 0.20
-    err_low_frac: float = 0.80               # §5.3 misconception:E low-bucket routing
-    err_mid_frac: float = 0.50               # §5.3 misconception:E mid-bucket routing
+    err_low_frac: float = 0.80               # misconception:E low-bucket routing
+    err_mid_frac: float = 0.50               # misconception:E mid-bucket routing
 
 
 class ProbeSelfTagConfig(BaseModel):
-    """Learner self-attributed misconception probe coverage (spec_irt_difficulty.md §12)."""
+    """Learner self-attributed misconception probe coverage."""
 
-    w_base: float = 0.5            # base label trust before semantic modulation (§12.3)
+    w_base: float = 0.5            # base label trust before semantic modulation
     w_max: float = 0.7            # cap: a self-tag can never reach rubric strength w=1
     target_degree: float = 2.0    # graph density at which a *missing* link is fully trusted
     promotion_threshold: int = 3  # per-(item, E) self-tags before a reviewed rubric-fatal proposal
@@ -201,7 +198,7 @@ class MasteryConfig(BaseModel):
     base_observation_variance: float = 1.0   # probability-space scale: inverse effective trials in R_y
     sigma2_drift: float = 0.01
     p_max: float = 4.0
-    # Cold-start prior widths (P0 revision). A vault serves complete novices
+    # Cold-start prior widths. A vault serves complete novices
     # through rusty experts, so the no-signal prior must be broad: 3.0 puts the
     # central 80% interval near [0.07, 0.93] instead of [0.22, 0.78] at 1.0.
     # Claims move the MEAN but must not manufacture confidence — a claim-seeded
@@ -209,8 +206,7 @@ class MasteryConfig(BaseModel):
     # large its pseudo-count.
     cold_start_prior_logit_variance: float = 3.0
     claim_prior_min_variance: float = 2.0
-    # LP-min (a) (spec_learned_parameters_v1 §3.0b items 1 and 7): the ONE kill
-    # switch of the successor ``CLAIM_FIXES_ALGORITHM_VERSION``: gap claims
+    # The one kill switch of ``CLAIM_FIXES_ALGORITHM_VERSION``: gap claims
     # re-anchor, claims replay in (created_at, id) order, a claim never lowers
     # a variance (cold or warm), ties go by recency then pseudo-count, never
     # level, and the resolving review says "You marked this as known".
@@ -225,7 +221,7 @@ class MasteryConfig(BaseModel):
 
 
 class ProbeEpisodeConfig(BaseModel):
-    """Diagnostic-episode policy (spec_probe_eig_redesign.md §5/§11).
+    """Diagnostic-episode policy.
 
     Belief updates and episode advancement are separate accounting paths: the
     *_evidence_weight fields dampen incidental/contaminated likelihoods toward
@@ -240,7 +236,7 @@ class ProbeEpisodeConfig(BaseModel):
     maximum_observations: int = 4
     posterior_stop_threshold: float = 0.85
     # A high-cost hypothesis pair is unresolved while the smaller of the two
-    # probabilities exceeds this fraction of the larger (§11).
+    # probabilities exceeds this fraction of the larger.
     ambiguity_threshold: float = 0.30
     # Decision-equivalence stop: complete after >=1 qualifying observation once
     # every hypothesis holding at least action_equivalence_plausible_threshold
@@ -252,29 +248,29 @@ class ProbeEpisodeConfig(BaseModel):
     open_set_trigger_threshold: float = 0.35
     hinted_evidence_weight: float = 0.5
     contaminated_evidence_weight: float = 0.3
-    # From mvp-0.21 the kill-switch path only (voi_stopping.probe_episodes
-    # off): with it on, each next observation is served while its value of
+    # From mvp-0.21 read only with voi_stopping.probe_episodes off: with it
+    # on, each next observation is served while its value of
     # information pays for its minutes.
     session_qualifying_observation_cap: int = 4
-    # Explicit §11 fast path replacing the legacy claim_skip_threshold: a strong
+    # Fast path: a strong
     # prior claim plus a highly discriminating cross-facet instrument may complete
     # after one qualifying observation.
     fast_path_enabled: bool = True
     fast_path_claim_threshold: float = 0.75
     presentation_ttl_minutes: int = 240
-    # §7.4/§7.5: predictive EIG per expected second is the diagnostic default
-    # objective when enough held-out target instruments exist; hypothesis EIG
-    # is the fallback and audit signal. Never added together (§7.4).
+    # Predictive EIG per expected second is the diagnostic default objective
+    # when enough held-out target instruments exist; hypothesis EIG is the
+    # fallback and audit signal. Never added together.
     predictive_selection_enabled: bool = True
     predictive_target_minimum: int = Field(default=2, ge=1)
     predictive_target_cap: int = Field(default=6, ge=1)
     selection_overhead_seconds: float = Field(default=10.0, ge=0.0)
-    # §5.9 fresh-vault onboarding ceiling: once this many qualifying diagnostic
+    # Fresh-vault onboarding ceiling: once this many qualifying diagnostic
     # observations exist and no ordinary practice attempt has been recorded yet,
     # the probe contract deactivates so the learner reaches ordinary practice.
     # 0 disables the ceiling. A calibration session (explicit opt-in) lifts it.
     onboarding_practice_ceiling_observations: int = Field(default=4, ge=0)
-    # §6.5 re-probe triggers. Repeated prediction errors: at least
+    # Re-probe triggers. Repeated prediction errors: at least
     # `reprobe_prediction_error_count` negative-surprise attempts above the
     # predictive-surprise threshold (nats) within the last
     # `reprobe_prediction_error_window` attempts reopen the LO's episode.
@@ -289,54 +285,54 @@ class ProbeEpisodeConfig(BaseModel):
 
 
 class ProbeGenerationConfig(BaseModel):
-    """Parameterized instance generation from admitted family/card bindings (§10)."""
+    """Parameterized instance generation from admitted family/card bindings."""
 
     instances_per_need: int = Field(default=2, ge=1, le=3)
     auto_generate_on_entry: bool = False
-    # LLM-backed instance surfaces (§9.2/§9.4): used only when a capable AI
+    # LLM-backed instance surfaces: used only when a capable AI
     # client is threaded through; every surface still passes the structural
     # instance gate, and the parametric templates remain the fallback.
     llm_surfaces: bool = True
 
 
 class ProbeDialogueConfig(BaseModel):
-    """Short adaptive dialogue microprobes (§8.1)."""
+    """Short adaptive dialogue microprobes."""
 
     planned_turns: int = Field(default=3, ge=1, le=6)
 
 
 class ProbeCalibrationConfig(BaseModel):
-    """Learner-initiated calibration sessions (§5.9)."""
+    """Learner-initiated calibration sessions."""
 
     default_time_budget_minutes: int = Field(default=20, ge=1)
     max_planned_episodes: int = Field(default=8, ge=1)
-    # §5.9/§6.4 planner priority: disagreement among the graph-propagated
+    # Planner priority: disagreement among the graph-propagated
     # prior, learner claims, and observed evidence multiplies the information
     # rate by (1 + weight * disagreement). 0 disables the signal.
     disagreement_weight: float = Field(default=0.5, ge=0.0)
 
 
 class ProbeHierarchyConfig(BaseModel):
-    """Hierarchical family → item shrinkage (§9.7, Checkpoint 4.2).
+    """Hierarchical family → item shrinkage.
 
     Item-instance conditionals shrink toward the family-version posterior with
     the strength of ``item_shrinkage_pseudo_count`` family-equivalent
     observations: an item's own counts only move its rows meaningfully once
     they rival that mass. Within a single-learner vault every estimate is
-    learner-specific pooling, never psychometric calibration (§9.7).
+    learner-specific pooling, never psychometric calibration.
     """
 
     item_shrinkage_pseudo_count: float = Field(default=25.0, gt=0.0)
 
 
 class ProbeLifecycleConfig(BaseModel):
-    """Metric gates for trusted/revise/retire transitions (§9.7, Checkpoint 4.7).
+    """Metric gates for trusted/revise/retire transitions.
 
     Promotion to ``trusted`` requires real-learner evidence, acceptable regrade
     agreement, and realized-information health; retirement triggers on sustained
     negative realized information or grading disagreement. All thresholds apply
     to real-learner rows only — synthetic gate statistics never qualify a
-    family for trust (§9.6).
+    family for trust.
     """
 
     trust_minimum_real_sample: int = Field(default=20, ge=1)
@@ -349,7 +345,7 @@ class ProbeLifecycleConfig(BaseModel):
 
 
 class ProbeShadowConfig(BaseModel):
-    """Shadow-mode alternative selection policies (§13.3, Checkpoint 5.1).
+    """Shadow-mode alternative selection policies.
 
     Alternative rankings are logged onto the committed presentation; a policy
     is promoted only after held-out predictive gains, never from shadow logs
@@ -361,18 +357,18 @@ class ProbeShadowConfig(BaseModel):
 
 
 class ProbeBlockConfig(BaseModel):
-    """Precommitted diagnostic blocks (§5.6, Checkpoint 5.2/5.3).
+    """Precommitted diagnostic blocks.
 
     ``family_redundancy_penalty`` demotes candidates whose family already
     produced an observation this episode (a separate ranking component, never
     folded into the EIG label). Joint greedy conditional EIG applies only to
     blocks committed before answers are observed; sequential selection keeps
-    conditioning on the live posterior (§16 test 29).
+    conditioning on the live posterior.
     """
 
     family_redundancy_penalty: float = Field(default=0.6, gt=0.0, le=1.0)
     max_block_size: int = Field(default=4, ge=2, le=8)
-    # §5.6/§5.7 default diagnostic block: sequential (non-dialogue,
+    # Default diagnostic block: sequential (non-dialogue,
     # non-precommitted) probes run the block-end hook after this many
     # observations in the current state segment.
     default_block_observations: int = Field(default=2, ge=1, le=8)
@@ -382,8 +378,7 @@ class ProbeBlockConfig(BaseModel):
 
 
 class ProbeConfig(BaseModel):
-    # LEGACY fields (Checkpoint 0.4): consumed only by the frozen pre-redesign
-    # replay path in diagnosis/probes.py. Live policy lives in `episode`; see the
+    # LEGACY fields: consumed only by the frozen pre-redesign replay path in diagnosis/probes.py. Live policy lives in `episode`; see the
     # [probe] TOML block for the field-by-field mapping.
     attempts_target_default: int = 3
     attempts_target_with_strong_claim: int = 1
@@ -405,8 +400,7 @@ class ProbeConfig(BaseModel):
 class PracticeGenerationConfig(BaseModel):
     """Difficulty-calibration targets for authored Practice Items and probes.
 
-    Difficulty is calibrated to a target *success rate* (research_on_learning.md
-    §8/§10), inverted through the mastery 2PL link at the learner's ability.
+    Difficulty is calibrated to a target *success rate*, inverted through the mastery 2PL link at the learner's ability.
     Practice items sit in the desirable-difficulty band - effortful but usually
     successful. Probes sit on the learner's boundary, where outcome variance (and
     thus diagnostic information / EIG) is maximized. Each band is ``(low, high)``
@@ -515,11 +509,11 @@ class MisconceptionsConfig(BaseModel):
 
     auto_resolve_clean_attempts: int = 3
     auto_resolve_min_correctness: float = 0.85
-    # Evidence-based resolution (spec §7, Phase 1: parsed, consumed later): a
+    # Evidence-based resolution (parsed, not yet consumed): a
     # registry misconception resolves once its posterior P(misconception) falls
     # below this threshold, rather than by a raw clean-attempt count.
     tau_misconception_resolved: float = 0.15
-    # Sim discrimination gate (spec §6, Phase 1: parsed, consumed later). A
+    # Sim discrimination gate. A
     # generated diagnostic is accepted only if the sim-estimated Beta lower
     # bounds clear these thresholds over sim_gate_trials planted/clean trials;
     # specificity errs stricter because false fires poison the posterior.
@@ -529,7 +523,7 @@ class MisconceptionsConfig(BaseModel):
     # 0.25^(1/(N+1)) — 0.794 at N=5, which fails the 0.8 specificity gate even
     # for a flawless discriminator; N=8 gives 0.857.
     sim_gate_trials: int = 8
-    # Opt-in codex answers-under-belief pass for the sim gate (spec §6). 0 keeps
+    # Opt-in codex answers-under-belief pass for the sim gate. 0 keeps
     # the pure-deterministic string-match grader (no provider tokens). When > 0,
     # codex role-plays that many planted + that many clean students in ONE call
     # per gate run; their fires combine with the deterministic trials into the
@@ -564,7 +558,7 @@ class TutorQAConfig(BaseModel):
     """Tutor Q&A ("ask") behavior.
 
     Question limits are enforced server-side per context: practice is per
-    attempt (Reader CA2, owner 2026-10-26), enforced on metered routes and
+    attempt, enforced on metered routes and
     unlimited on the subscription (ChatGPT plan) route while
     ``ask.panel_enabled`` (off, the cap applies on every route); feedback is
     per attempt, library is per note per UTC day. ``apply_uncertainty_effect`` gates the read-side diagnostic bump:
@@ -576,16 +570,15 @@ class TutorQAConfig(BaseModel):
     max_questions_practice: int = Field(default=3, ge=0)
     max_questions_feedback: int = Field(default=5, ge=0)
     max_questions_library: int = Field(default=8, ge=0)
-    # U-033 (§7.6): span-grounded reader Ask budget, per source span per UTC day.
+    # Span-grounded reader Ask budget, per source span per UTC day.
     max_questions_reader: int = Field(default=8, ge=0)
     # The reader is on by default for fresh vaults so the lead-user journey
-    # needs no hand-edited config. The §12.3.2
+    # needs no hand-edited config. The
     # invariant — the golden path completes with reader dialogue disabled —
     # is preserved by tests that disable it explicitly; the spine never imports
     # the reader module regardless of this flag.
     reader_enabled: bool = True
-    # Kill switch for the reader's reference-question adoption sweep (daily-loop
-    # follow-up, review F8): a question kept as a reference becomes practice
+    # Kill switch for the reader's reference-question adoption sweep: a question kept as a reference becomes practice
     # once an active LO cites its passage. false restores the previous
     # behaviour: references stay references, and cards the sweep adopted are
     # not served (vault.lifecycle) but never removed; true serves them again.
@@ -605,15 +598,14 @@ class TutorQAConfig(BaseModel):
     apply_question_evidence: bool = True
     question_solid_likelihood_ratio: float = Field(default=0.45, gt=0.0, le=1.0)
     question_likelihood_min_samples: int = Field(default=12, ge=1)
-    # §13.4 (probe redesign Checkpoint 4.6): interaction-preference questions
+    # Interaction-preference questions
     # (requested explanation style, pace, scaffold level, direct-explanation
     # asks) change tutor policy, not mastery belief. Until contextual
     # likelihoods are calibrated their mastery likelihood is damped toward 1
     # (no-op) by this factor: ratio' = 1 - (1 - ratio) * damping. 0 disables
     # the mastery effect of preference-channel questions entirely.
     preference_channel_damping: float = Field(default=0.4, ge=0.0, le=1.0)
-    # Tutor delivery fixes (owner, 2026-10-13): the source text one tutor turn
-    # reads, in tokens (characters / 4). Passages arrive as complete blocks in
+    # The source text one tutor turn reads, in tokens (characters / 4). Passages arrive as complete blocks in
     # priority order (selection, cited blocks, nearest neighbours; or the
     # chosen spans and what they cite); only the first passage past the budget
     # is trimmed and the rest dropped, recorded on the question's
@@ -624,8 +616,8 @@ class TutorQAConfig(BaseModel):
     # the budget and the exam rule). false is the kill switch: no reference
     # is followed.
     resolve_references: bool = True
-    # Kill switch for the expanded delivery (tutor delivery fixes items 1 and
-    # 2; Codex review F5): false restores the predecessor's passages. The
+    # Kill switch for the expanded delivery: false restores the narrow
+    # passages. The
     # Reader gets the span view's window again (the three blocks on each side
     # of the block in view, page furniture included, as 240-character
     # previews, at most max(4, spans + 2) spans) and retrieved, pinned and
@@ -635,8 +627,7 @@ class TutorQAConfig(BaseModel):
 
 
 class TutorPromotionConfig(BaseModel):
-    """Promoting Socratic tutor questions to practice items / learning objects
-    (spec_tutor_promotion.md §5).
+    """Promoting Socratic tutor questions to practice items / learning objects.
 
     Gap route: a "this exposed a gap" promotion writes a low self-report
     ``learner_claims`` row (``gap_claim_level`` at ``gap_claim_pseudo_count``
@@ -650,7 +641,7 @@ class TutorPromotionConfig(BaseModel):
     The filed ``tutor_gap_declaration`` need goes stale after
     ``gap_need_ttl_days``. ``requested_items_per_session`` bounds how many
     requested (promoted-but-unattempted) items the scheduler floor guarantees a
-    slot per built queue (§4a).
+    slot per built queue.
     """
 
     gap_claim_level: float = Field(default=0.25, ge=0.0, le=1.0)
@@ -689,7 +680,7 @@ class TeachBackConfig(BaseModel):
 class GlmOcrConfig(BaseModel):
     """[ingest.pdf.glm_ocr]: GLM-OCR's complete layout + recognition pipeline
     (learnloop.ingest.extractors.glm_ocr). Spend is observed and recorded per
-    request, never capped per file (owner policy)."""
+    request, never capped per file."""
 
     # "auto"/"api": z.ai when a key is set. "local": the self-hosted glmocr
     # server at local_url, when it answers.
@@ -733,7 +724,7 @@ class PdfIngestConfig(BaseModel):
 
 
 class AnimationConfig(BaseModel):
-    """AI-generated Manim explainer animations (spec_fork_features §2).
+    """AI-generated Manim explainer animations.
 
     ``enabled`` is a hard kill-switch; every generation additionally requires a
     per-run learner consent click (server-side re-checked) — that consent is
@@ -830,7 +821,7 @@ class NativeIngestConfig(BaseModel):
 
 
 class IngestBudgetsConfig(BaseModel):
-    """Per-stage token budgets for ingestion v2 (source-ingestion spec §3.1)."""
+    """Per-stage token budgets for ingestion v2."""
 
     model_config = ConfigDict(extra="allow")
 
@@ -842,17 +833,17 @@ class IngestBudgetsConfig(BaseModel):
     synthesis_output_tokens: int = 16000
     append_neighborhood_input_tokens: int = 24000
     append_output_tokens: int = 10000
-    # Span-request protocol caps (§8.5): one bounded request round only.
+    # Span-request protocol caps: one bounded request round only.
     synthesis_span_request_max_count: int = 12
     synthesis_span_char_cap: int = 4000
-    # Quick add (§1): the ToC-guided relevant-scope cap. When a source's whole
+    # Quick add: the ToC-guided relevant-scope cap. When a source's whole
     # outline fits under this, Quick add selects the whole thing; otherwise it
     # selects the brief/subject-matching chapters up to this token size.
     quick_add_scope_input_tokens: int = 40000
 
 
 class IngestProviderLimits(BaseModel):
-    """Per-provider context/output limits consulted by preflight (spec §3.1)."""
+    """Per-provider context/output limits consulted by preflight."""
 
     model_config = ConfigDict(extra="allow")
 
@@ -861,7 +852,7 @@ class IngestProviderLimits(BaseModel):
 
 
 class IngestRunnerConfig(BaseModel):
-    """Durable-queue worker settings for ingestion v2 (source-ingestion §6.2).
+    """Durable-queue worker settings for ingestion v2.
 
     The runner drains queued jobs sequentially under a single lease. A running
     job is kept alive by its heartbeat; a lease older than ``lease_ttl_seconds``
@@ -876,17 +867,16 @@ class IngestRunnerConfig(BaseModel):
 
 
 class IngestCostPauseConfig(BaseModel):
-    """When an automatic question build asks before spending (UX Phase 1, Q5),
-    and its daily guard.
+    """When an automatic question build asks before spending, and its daily
+    guard.
 
     A build started by Add or by reading progress runs silently unless its
     estimate exceeds ``threshold_usd`` or ``daily_cap_fraction`` of what is
     left of ``daily_cap_usd`` today. ``daily_cap_usd`` is the daily guard
     (metered spend today, from every model call's receipt): no automatic
     build, job or request runs past it, "Build them" included; unset, there
-    is none. There is no per-build money cap (owner, 2026-10-13: per-operation
-    caps off by default, a daily guard, spend observed; applied to automatic
-    book preparation when UX Phase 1 landed on main). Routes billed to the
+    is none. There is no per-build money cap: spend is observed and only the
+    daily guard stops it. Routes billed to the
     ChatGPT subscription (Codex, the ChatGPT plan) cost nothing extra and
     never pause. A metered route is priced at ``prices[<profile>]`` USD per
     million tokens, else ``default_price_per_million_tokens``.
@@ -896,7 +886,7 @@ class IngestCostPauseConfig(BaseModel):
 
     threshold_usd: float = Field(default=1.0, ge=0)
     daily_cap_fraction: float = Field(default=0.25, ge=0, le=1)
-    # The daily guard, as source_service.max_daily_cost_usd (owner, 2026-10-13).
+    # The daily guard, as source_service.max_daily_cost_usd.
     daily_cap_usd: float | None = Field(default=5.0, ge=0)
     default_price_per_million_tokens: float = Field(default=5.0, ge=0)
     prices: dict[str, float] = Field(default_factory=dict)
@@ -913,8 +903,7 @@ class IngestConfig(BaseModel):
     # product UI sends the brief field explicitly, so this default only governs
     # briefless callers.
     bootstrap_practice_items: str = "upfront"
-    # UX Phase 1 kill switches (docs/specs/ux_learnloop_v1.md §6, §10). With
-    # auto_build on, a source added through Add builds questions for the
+    # Kill switches. With auto_build on, a source added through Add builds questions for the
     # chapter being read (and the next) once its text is ready, and keeps one
     # chapter ahead as reading advances; off, Add only makes the source
     # readable. auto_apply_passing_builds applies those automatic builds when
@@ -991,7 +980,7 @@ class AIProviderConfig(BaseModel):
 
     Config files validate into the strict discriminated subclasses below.  The
     permissive base remains importable because provider-client tests and local
-    integrations historically constructed it directly.
+    integrations construct it directly.
     """
 
     model_config = ConfigDict(extra="allow")
@@ -1015,8 +1004,8 @@ class AIProviderConfig(BaseModel):
         try:
             return super().__getattr__(item)
         except AttributeError:
-            # Sparse directly-constructed compatibility profiles historically
-            # exposed every optional transport field as None.  This view does
+            # Sparse directly-constructed compatibility profiles expose every
+            # optional transport field as None.  This view does
             # not add those fields to concrete model schemas or serialization.
             if item in _COMPAT_OPTIONAL_PROVIDER_FIELDS:
                 return None
@@ -1088,8 +1077,7 @@ class OpenAIEmbeddingProviderConfig(OpenAICompatibleProviderConfig):
     max_input_tokens: int = Field(default=32768, gt=0)
 
 
-#: Local contextual retrieval P1b (spec_local_contextual_retrieval_v1 §8): the
-#: hosted fallback space's embedding-only profile type. It serves only the
+#: The hosted fallback space's embedding-only profile type. It serves only the
 #: source-retrieval fallback space (``embedding.fallback.provider``); every AI
 #: task, the ``embedding`` task included, refuses it (``ai.routing``), so no
 #: route or ``LEARNLOOP_AI_PROVIDER`` can send generation or Qwen-route text to it.
@@ -1117,18 +1105,18 @@ DECIDER_PROFILE_TYPE = "decider"
 DEFAULT_DECIDER_PROVIDER = "openrouter_decider"
 DEFAULT_EMBEDDING_PROVIDER = "openrouter_embedding"
 DEFAULT_DECIDER_MODEL = "perplexity/pplx-decider-v1.2"  # pinned, never -latest; docs/reviews/decider-v1-2.md
-# OpenRouter's listing (checked 2026-11-09): $0.02 per million input tokens,
+# OpenRouter's listed price: $0.02 per million input tokens,
 # output free. Used for estimates; OpenRouter also reports cost.
 DEFAULT_DECIDER_PRICE_PER_MILLION_INPUT = 0.02
 
 
 class DeciderProviderConfig(AIProviderConfig):
-    """A decision model (router spec §6): typed questions in, probabilities out.
+    """A decision model: typed questions in, probabilities out.
 
     It has no chat transport, so it never serves a generation route, and the
     decider routes accept nothing else. ``api`` selects the wire dialect and
     path: ``openrouter`` posts to ``<base_url>/alpha/decisions`` (OpenRouter's
-    Decisions API, the owner's route), ``perplexity`` to
+    Decisions API), ``perplexity`` to
     ``<base_url>/v1/decisions`` (Perplexity's direct API, the documented
     reference shape). Unset fields resolve from ``api`` in the client.
     """
@@ -1166,10 +1154,10 @@ class ChatGPTPlanProviderConfig(AIProviderConfig):
 
     A read-only workspace (a snapshot diagnosis's as-of export) is served by
     LearnLoop itself (``learnloop.ai.chatgpt_plan.workspace``):
-    ``workspace_mode = "inline"`` (the default since plan-first transport T1:
-    every file in the one request; an export over ``max_workspace_chars`` is
-    served in tools mode instead, each round its own admitted request, unless
-    the owner wrote ``workspace_mode = "inline"``, which then refuses it) or
+    ``workspace_mode = "inline"`` (the default: every file in the one
+    request; an export over ``max_workspace_chars`` is served in tools mode
+    instead, each round its own admitted request, unless the config sets
+    ``workspace_mode = "inline"`` explicitly, which then refuses it) or
     ``"tools"`` (Responses function calling: at most ``max_tool_rounds``
     rounds of calls, ``max_entry_chars`` per read and ``max_workspace_chars``
     served in all; the turn's resent input is capped at four times
@@ -1224,17 +1212,13 @@ AIProviderProfile = Annotated[
 #: Routes removed from the schema. A vault that still sets one loads (the
 #: value is ignored) and `learnloop doctor` warns that it should be removed.
 RETIRED_ROUTES: dict[str, str] = {
-    # Phase 2's numeric llm_probability arm, retired by the owner on
-    # 2026-10-12 in favour of router R0's V1-V3 arms (llm_probability_llm,
-    # llm_probability_decider).
+    # Replaced by the llm_probability_llm and llm_probability_decider arms.
     "field_llm_probability": (
         "Phase 2's numeric llm_probability arm is retired; the V1-V3 arms "
         "(`learnloop eval --section field --probability-arm ...`) use "
         "ai.routing.llm_probability_llm and ai.routing.llm_probability_decider."
     ),
-    # mvp-0.17's separate proofs route check, removed from serving by the
-    # owner on 2026-10-13 (route-check-in-grader): its rules are in the
-    # grader's own prompt, which uses the grading route.
+    # Its rules are in the grader's own prompt, which uses the grading route.
     "proof_check": (
         "mvp-0.17's separate proofs route check is retired; the grader applies the "
         "own-route rules in its one call on ai.routing.grading (mvp-0.20, kill switch "
@@ -1245,65 +1229,65 @@ RETIRED_ROUTES: dict[str, str] = {
 
 class AIRoutingConfig(BaseModel):
     # Never inherits active_provider, its fallback or LEARNLOOP_AI_PROVIDER.
-    # Empty = the code-default openrouter_embedding profile (owner, 2026-10-12);
+    # Empty = the code-default openrouter_embedding profile;
     # nothing is sent unless embedding.enabled (default false) is also on.
     embedding: str | None = DEFAULT_EMBEDDING_PROVIDER
     field_question_classifier: str | None = None
     pf_generator: str | None = None
     # Ensemble proposers: profile names whose models must be at least two
-    # distinct slugs, else generation is refused (Slice 2 §5.3, §13).
+    # distinct slugs, else generation is refused.
     pf_proposers: list[str] = Field(default_factory=list)
     pf_selection_judge: str | None = None
     pf_family_judge: str | None = None
     pf_isomorph_judge: str | None = None
     pf_closed_book: str | None = None
     pf_reference_verifier: str | None = None
-    # One profile, or a list for a panel at different tiers (P10).
+    # One profile, or a list for a panel at different tiers.
     pf_solver_panel: str | list[str] | None = None
-    # Practice index (Slice 2 §5.9): facet dossier writer, find_practice's LLM
+    # Practice index: facet dossier writer, find_practice's LLM
     # rerank, and the retrieval evaluation's query writer and relevance judge.
     # Empty = follow ai.active_provider like any generation route.
     practice_dossier: str | None = None
     practice_rerank: str | None = None
     practice_query_writer: str | None = None
     practice_relevance_judge: str | None = None
-    # Slice 2 T6 source retrieval: the live rewrite of conceptual questions,
-    # the tutor-span verification rerank, and the retrieval evaluation's / B4's
-    # question writer and relevance judge. Empty = ai.active_provider.
+    # Source retrieval: the live rewrite of conceptual questions, the
+    # tutor-span verification rerank, and the retrieval evaluation's question
+    # writer and relevance judge. Empty = ai.active_provider.
     source_query_rewrite: str | None = None
     source_rerank: str | None = None
     source_query_writer: str | None = None
     source_relevance_judge: str | None = None
-    # Canonical sources: the book's-solution match (S1), compare_sources (S3),
-    # the exercise discrimination screen and the worked-example equivalence
-    # judge (S2a). Empty = ai.active_provider; a metered route needs
+    # Canonical sources: the book's-solution match, compare_sources, the
+    # exercise discrimination screen and the worked-example equivalence
+    # judge. Empty = ai.active_provider; a metered route needs
     # source_service.llm_price_per_million or the step is skipped and labelled.
     source_solution_match: str | None = None
     source_compare: str | None = None
     exercise_discrimination: str | None = None
     worked_example_equivalence: str | None = None
 
-    # Slice 2 T4: the leak/reveal judge of `learnloop contamination report`
+    # The leak/reveal judge of `learnloop contamination report`
     # (shadow flags only). Empty = ai.active_provider.
     contamination_judge: str | None = None
-    # Facet identity (handoff §4): the cheap judge that partitions candidate
-    # facets into same-skill sets at ingest and in `learnloop facets dedupe`.
-    # Empty = the code-default `codex_luna` profile when the active provider
-    # is Codex, else ai.active_provider. A decider profile (router R0, e.g.
-    # `openrouter_decider`) is also accepted: one typed choice question per
-    # pair, partitioned with the no-chaining union (owner, 2026-10-12).
+    # Facet identity: the cheap judge that partitions candidate facets into
+    # same-skill sets at ingest and in `learnloop facets dedupe`. Empty = the
+    # code-default `codex_luna` profile when the active provider is Codex,
+    # else ai.active_provider. A decider profile (e.g. `openrouter_decider`)
+    # is also accepted: one typed choice question per pair, partitioned with
+    # the no-chaining union.
     facet_identity_judge: str | None = None
     grading: str | None = None
-    # Slice 1 history-aware diagnoser. Empty = the resolved `grading` route.
+    # History-aware diagnoser. Empty = the resolved `grading` route.
     diagnosis: str | None = None
-    # Offline diagnosis review (Slice 1 M1): the blind pairwise judge and the
+    # Offline diagnosis review: the blind pairwise judge and the
     # planted-case / grader-probe generator. Empty = ai.active_provider.
     diagnosis_judge: str | None = None
     diagnosis_generator: str | None = None
-    # Slice 2 T1: the same-cause judge (live, backlog and the guard suite).
+    # The same-cause judge (live, backlog and the guard suite).
     # Empty = the resolved diagnosis route (itself the grading route when unset).
     same_cause_judge: str | None = None
-    # Learner-text gaps (implementation_handoffs §4): the same/different and
+    # Learner-text gaps: the same/different and
     # "needed for this item?" judge, and the reader of stuck text. Empty = the
     # resolved diagnosis route. The Decider's second opinion is a decider task:
     # empty = the code-default openrouter_decider profile, never a chat
@@ -1331,81 +1315,77 @@ class AIRoutingConfig(BaseModel):
     # (Settings materializes it as openrouter_video). Empty = the video
     # renderer is unavailable; manim rendering is unaffected.
     video_generation: str | None = None
-    # Project understanding (spec_project_understanding_v1 §7): delayed-probe
+    # Project understanding: delayed-probe
     # authoring and the closed-book check. Empty = follow the grading route,
     # then ai.active_provider. Probe grading itself uses the grading route.
     project: str | None = None
-    # Action router and the learner field's llm_probability arms (router spec
-    # §6.2). The decider routes accept only a `decider` profile: empty = the
+    # Action router and the learner field's llm_probability arms. The decider
+    # routes accept only a `decider` profile: empty = the
     # code-default openrouter_decider profile; never a chat fallback and never
     # LEARNLOOP_AI_PROVIDER. The LLM routes are ordinary chat routes: empty =
     # ai.active_provider (Codex on the subscription is allowed).
-    # Tier 1 (owner 2026-10-13): the small judgments [decider_routes] moves
+    # Tier 1: the small judgments [decider_routes] moves
     # to the Decider; empty = the code-default openrouter_decider profile.
     tier1_decider: str | None = None
     router_decider: str | None = None
     router_llm: str | None = None
     llm_probability_decider: str | None = None
     llm_probability_llm: str | None = None
-    # Method-explicit items (owner rule 2026-10-13): the judge of `learnloop
+    # Method-explicit items: the judge of `learnloop
     # grading method-phrasing`, which reads whether a rubric criterion is
     # phrased by method. A decider profile (typed choice questions) or a chat
     # profile. Empty = the Tier-1 Decider (tier1_decider's profile, else the
     # code-default openrouter_decider) when it is ready, else
     # ai.active_provider; with neither ready the report falls back to the
     # conservative heuristic and says so. The same judge makes the one-time
-    # required-method statement judgments (redesign 2026-10-14: a textbook
-    # statement at import, a PF variant's stem at selection; the Decider only
+    # required-method statement judgments (a textbook statement at import, a PF variant's stem at selection; the Decider only
     # while decider_routes.required_method_statement is on), with no heuristic
     # fallback; grading never uses it.
     rubric_phrasing_judge: str | None = None
-    # Reader workbench RW1b (spec_reader_workbench_v1 §4.2): the intent box's
+    # Reader workbench: the intent box's
     # router, one typed choice to a decision model. A decider-only route:
     # empty = the code-default openrouter_decider profile, never a chat
     # fallback and never LEARNLOOP_AI_PROVIDER.
     reader_intent: str | None = None
-    # Reader CA3 (ux_reader_compare_ask_v1 §4.3, §12.2): the ask box's and the
+    # Reader: the ask box's and the
     # comparison's refine box's reading of the learner's words (is it a
     # comparison? which of the library's books are named? the topic), one
     # Decider request of typed questions over the book list. A decider-only
     # route: empty = the code-default openrouter_decider profile, never a chat
     # fallback and never LEARNLOOP_AI_PROVIDER.
     compare_scope: str | None = None
-    # Reader workbench RW4a (spec_reader_workbench_v1 §7.3, §7.6): the library
+    # Reader workbench: the library
     # answer's organizer, one listwise call (a note per passage on what it
     # contributes). Empty = ai.active_provider; a metered route needs
     # source_retrieval.llm_price_per_million or the notes are skipped and
     # labelled. Serves live requests, so the fast route is recommended.
     library_organizer: str | None = None
-    # Adaptive hints H1 (spec_adaptive_hints_v1 §4.3, §7.2): the approach-map
+    # Adaptive hints: the approach-map
     # builder and the learner-route merge, one structured call each, in the
     # background (never on a request path). Empty = ai.active_provider; any
     # chat profile, Codex (codex_low) included. Metered routes are held to
     # hints.maps.max_daily_cost_usd at hints.price_per_million (unset: a
     # metered build is refused before sending); Codex is estimated_only.
     approach_map: str | None = None
-    # Adaptive hints H2a (spec_adaptive_hints_v1 §4.5, §7.2): the hint
-    # chooser, one Decider request with two typed questions (kind and level;
+    # Adaptive hints: the hint chooser, one Decider request with two typed questions (kind and level;
     # horizon). A decider-only route: empty = the code-default
     # openrouter_decider profile, never a chat fallback and never
     # LEARNLOOP_AI_PROVIDER.
     hint_chooser: str | None = None
-    # Adaptive hints H2a (§4.6, §7.2, D9): the hint writer, one structured
+    # Adaptive hints: the hint writer, one structured
     # chat call per hint on the request path. Empty = ai.active_provider, but
     # it never resolves to Codex (too slow for a hint): a Codex route falls
     # back to the item's authored hints and says so. A ChatGPT-plan profile is
     # recommended; a metered one is held to hints.max_daily_cost_usd at
     # hints.price_per_million (unset: refused before sending).
     hint_writer: str | None = None
-    # Adaptive hints H2b (spec_adaptive_hints_v1 §6.1, §7.2, D11): outcome
-    # placement, one structured call in the background after a hinted answer
+    # Adaptive hints: outcome placement, one structured call in the background after a hinted answer
     # graded not fully correct (never on a request path). Empty =
     # ai.active_provider; any chat profile, Codex (codex_low) included.
     # Metered routes join hints.maps.max_daily_cost_usd at
     # hints.price_per_million (unset: refused before sending).
     hint_outcome: str | None = None
-    # Adaptive difficulty AD1 (spec_adaptive_difficulty_v1 §8.2, §7.2, D4):
-    # the outside forecasters (background, never on a request path) and the
+    # Adaptive difficulty: the outside forecasters (background, never on a request path) and the
     # feature audit's LLM fallback. ad_forecast_llm serves llm_v1:item and
     # llm_v3:llm: empty = ai.active_provider (Codex on the subscription is
     # estimated_only). ad_forecast_decider serves llm_v3:decider, a
@@ -1418,122 +1398,109 @@ class AIRoutingConfig(BaseModel):
     ad_forecast_llm: str | None = None
     ad_forecast_decider: str | None = None
     ad_feature_audit: str | None = None
-    # Adaptive difficulty AD2+AD3 (spec §5.10): the relatedness proposal, one call per subject (vault
+    # Adaptive difficulty: the relatedness proposal, one call per subject (vault
     # content only, never learner text); background work, owner-run while learned_coupling is off.
-    # Empty: the ChatGPT plan's medium tier (plan-first transport T1); a metered route is held to
+    # Empty: the ChatGPT plan's medium tier; a metered route is held to
     # adaptive_difficulty.daily_spend_cap_usd at adaptive_difficulty.price_per_million.
     ad_relatedness: str | None = None
-    # Reader workbench RW2b (spec_reader_workbench_v1 §5.2, §5.8): "Check my
-    # work", one structured chat call on the request path (step verdicts,
-    # the step graph, the map node each valid step reaches, the error-kind
-    # guess, the declared symbolic checks). Empty = ai.active_provider.
-    # Codex runs it on the owner's subscription (estimated_only, fix round 1,
-    # F12; the spec's D7 recommends a ChatGPT-plan or fast OpenRouter profile
-    # for latency, reported, not enforced). A metered profile is held to workbench.max_daily_cost_usd at
+    # Reader workbench: "Check my work", one structured chat call on the
+    # request path (step verdicts, the step graph, the map node each valid
+    # step reaches, the error-kind guess, the declared symbolic checks).
+    # Empty = ai.active_provider. Codex runs it on the subscription
+    # (estimated_only; a ChatGPT-plan or fast OpenRouter profile is
+    # recommended for latency, reported, not enforced). A metered profile is held to workbench.max_daily_cost_usd at
     # workbench.price_per_million (unset: refused before sending).
     workbench_check: str | None = None
-    # Reader workbench RW3b (spec_reader_workbench_v1 §6.2, §6.4): the cue
-    # judge, one listwise call per cue target (a verdict, a quote and the
+    # Reader workbench: the cue judge, one listwise call per cue target (a verdict, a quote and the
     # instructional roles per passage), in the background when a source opens
     # (never on a request path). Empty = ai.active_provider (Codex by default,
     # estimated_only); a metered route needs
     # source_retrieval.llm_price_per_million and is held to
     # cues.max_daily_cost_usd, or the judgment is skipped and labelled.
     passage_cue_judge: str | None = None
-    # Reader workbench RW4e (spec_reader_workbench_v1 §7.9): the owner-run
-    # batch role labeller (`learnloop reader label-roles`), one listwise call
+    # Reader workbench: the owner-run batch role labeller (`learnloop reader label-roles`), one listwise call
     # per batch of a source's passages in reading order (instructional roles
     # with a confidence, written as source-object proposals). Never on a
     # request path. Empty = ai.active_provider (Codex is estimated_only); a
     # metered route needs source_retrieval.llm_price_per_million and is held
     # to roles.batch_max_cost_usd per run, checked before each batch.
     role_labeller: str | None = None
-    # Local contextual retrieval P2 (spec_local_contextual_retrieval_v1 §7.1, Q8): the query
-    # student's synthetic-question generator (`learnloop embeddings local student generate`),
+    # Local contextual retrieval: the query student's synthetic-question generator (`learnloop embeddings local student generate`),
     # one call per batch of permitted passages, owner-run and background-quiet (no OpenRouter
     # offer; a plan that is down is reported). Empty: the ChatGPT plan's `chatgpt_luna`
     # (GPT-6 Luna). A metered route needs source_retrieval.llm_price_per_million and is held to
     # embedding.local.student_generator_max_cost_usd per run.
     retrieval_query_generator: str | None = None
-    # Reader workbench RW7a (spec_reader_workbench_v1 §10.1): the reading-path
-    # judge, one structured call per source and depth over the section list
+    # Reader workbench: the reading-path judge, one structured call per source and depth over the section list
     # (labels, roles, the linked LOs' statuses, the depth and the goal's
     # title), cached by its state key. Empty = ai.active_provider (Codex is
     # estimated_only); a metered route needs
     # source_retrieval.llm_price_per_million and is held to
     # reading_paths.max_daily_cost_usd, checked before the call.
     reading_path_judge: str | None = None
-    # Deliverable curriculum C0a (spec_deliverable_curriculum_v1 §6.2): the
-    # section coverage judge, one listwise call per learning object over its
+    # Deliverable curriculum: the section coverage judge, one listwise call per learning object over its
     # candidate sections across the library (titles, roles and lead passages;
     # never learner text), cached by its state key. Empty = ai.active_provider
-    # (the ChatGPT plan under T1; estimated_only); a metered route needs
+    # (the ChatGPT plan; estimated_only); a metered route needs
     # source_retrieval.llm_price_per_million and is held to
     # curriculum.max_daily_cost_usd (and, in learnloop curriculum cover, to
     # curriculum.cover_max_cost_usd), checked before each call.
     section_coverage_judge: str | None = None
-    # Deliverable curriculum C0b (spec_deliverable_curriculum_v1 §5.3, §7.2):
-    # the scope resolver (a pressed action: the learner's scope words, in
+    # Deliverable curriculum: the scope resolver (a pressed action: the learner's scope words, in
     # order, and the vault's active LOs as compact records; never exam text)
     # and the deliverable path judge (one call per deliverable and depth over
     # the needed LOs' coverage across books and the learner's own reading
-    # context). Empty = ai.active_provider (the ChatGPT plan under T1;
+    # context). Empty = ai.active_provider (the ChatGPT plan;
     # estimated_only); a metered route needs
     # source_retrieval.llm_price_per_million and is held to
     # curriculum.max_daily_cost_usd, checked before each call.
     deliverable_scope_resolver: str | None = None
     deliverable_path_judge: str | None = None
-    # Reader workbench RW5a (spec_reader_workbench_v1 §8.5): explorable
-    # figures. figure_author writes the declarative figure spec (a chat route;
-    # a region or figure block sends its crop as an image when the profile
-    # lists "image" in input_modalities). RW5a has no verifier route: the
-    # source check is RW5c's. Empty = ai.active_provider (Codex allowed,
+    # Reader workbench: explorable figures. figure_author writes the
+    # declarative figure spec (a chat route; a region or figure block sends
+    # its crop as an image when the profile lists "image" in
+    # input_modalities). There is no verifier route: the source check is
+    # separate. Empty = ai.active_provider (Codex allowed,
     # estimated_only). Metered calls are held to figures.max_daily_cost_usd at
     # figures.price_per_million (unset: refused before sending).
     figure_author: str | None = None
-    # Reader RW5d P2b (spec_reader_show_me_figures_v1 §8.6, §12.1): the rich
-    # figure author writes a Manim scene from the figure author's brief (and
+    # Reader: the rich figure author writes a Manim scene from the figure author's brief (and
     # its repair), in a durable job spawned by a pressed request. An isolated,
     # tool-free turn (a provider that cannot isolate it is refused). Empty =
     # the plan's medium tier (the concept animation route's tier: the same
     # Manim writing). Metered calls are held to figures.max_daily_cost_usd at
     # figures.price_per_million (unset: refused before sending).
     figure_rich_author: str | None = None
-    # Reader workbench RW6b part 2 (spec_reader_workbench_v1 §9.2): the
-    # session narrative, one call per reader session in the background from
-    # the session's typed summary only (ids, kinds, verdicts and the titles
-    # they name; never the learner's words). Empty = ai.active_provider (the
-    # ChatGPT plan under T1; estimated_only). Metered calls are held to
+    # Reader workbench: the session narrative, one call per reader session in
+    # the background from the session's typed summary only (ids, kinds,
+    # verdicts and the titles they name; never the learner's words). Empty =
+    # ai.active_provider (the ChatGPT plan; estimated_only). Metered calls are held to
     # digest.max_daily_cost_usd at digest.price_per_million (unset: refused
     # before sending).
     reader_digest: str | None = None
-    # Deliverable curriculum C2 (spec_deliverable_curriculum_v1 §10.3; C2b):
-    # the note link judge, one listwise call per learning object in the
+    # Deliverable curriculum: the note link judge, one listwise call per learning object in the
     # background over the candidate notes the vault notes search found (the LO,
     # its primary passage's lead and the notes' text). Ordinary quiet-route
     # rules: never an OpenRouter offer or a grant from background work; a
     # metered route needs source_retrieval.llm_price_per_million and stays
     # inside curriculum's daily cap. Empty = ai.active_provider (the ChatGPT
-    # plan under T1; estimated_only).
+    # plan; estimated_only).
     note_link_judge: str | None = None
-    # Reader RW5d P5 (spec_reader_show_me_figures_v1 §10b.2, §12.1): the
-    # prefetch judge, a listwise call in the background only: section mode
+    # Reader: the prefetch judge, a listwise call in the background only: section mode
     # (one section's blocks, exam and held-out roles removed: which blocks are
     # worth a figure, with what goal, and the content probability that a
     # reader would explore each) and gap mode (an open gap's statement, its
     # topic and a passage: the goal for a help figure). The ChatGPT plan only:
     # never metered (a metered route is not called: the prebuild waits), never
-    # an OpenRouter offer or a grant. Empty = ai.active_provider (the plan
-    # under T1).
+    # an OpenRouter offer or a grant. Empty = ai.active_provider (the plan).
     figure_prefetch_judge: str | None = None
-    # FG1 (spec_followup_generate_serve_v1 §4.1): the frontier author of a generated
-    # single-use probe, in the background. Empty = ai.active_provider (the plan under T1).
+    # The frontier author of a generated single-use probe, in the background.
+    # Empty = ai.active_provider (the plan).
     followup_probe_author: str | None = None
-    # Teacher TE1 (spec_teacher_v1 §17): the lesson's teacher, one structured
-    # call per lesson turn on the request path (lesson.turn). Empty: the ChatGPT
-    # plan's medium tier (keep: an operational route choice until a dry run picks
-    # the tier). A pressed action: with the plan down the lesson offers
-    # OpenRouter (T1 redesign D) once teacher.metered_price_per_million is set,
+    # Teacher: the lesson's teacher, one structured call per lesson turn on
+    # the request path (lesson.turn). Empty: the ChatGPT plan's medium tier. A
+    # pressed action: with the plan down the lesson offers OpenRouter once
+    # teacher.metered_price_per_million is set,
     # and a metered lesson is held to teacher.max_lesson_cost_usd.
     teacher: str | None = None
 
@@ -1553,24 +1520,24 @@ class AIRoutingConfig(BaseModel):
         return self
 
 
-#: The shared output-token budget of every LLM role (owner, 2026-10-12): large
+#: The shared output-token budget of every LLM role: large
 #: enough for a reasoning model's thinking plus its answer, so no role is cut
 #: off by a hand-set cap. ``learnloop.ai.output_budget`` resolves it.
 DEFAULT_OUTPUT_TOKENS = 16_384
 #: Reasoning efforts a route may request; "" (or "profile") keeps the profile's.
 REASONING_EFFORTS = frozenset({"", "profile", "none", "minimal", "low", "medium", "high", "xhigh"})
-#: Routes that ask for low reasoning effort unless the owner says otherwise
-#: (owner, 2026-10-12): T6's live query rewrite and tutor-span verification.
+#: Routes that ask for low reasoning effort unless the config says otherwise:
+#: the live query rewrite and tutor-span verification.
 DEFAULT_ROUTE_REASONING_EFFORT: dict[str, str] = {
     "source_query_rewrite": "low",
     "source_rerank": "low",
-    # Reader workbench RW4a: the library answer's organizer serves live requests.
+    # The library answer's organizer serves live requests.
     "library_organizer": "low",
 }
 
 
 class AIConsentRecord(BaseModel):
-    """One learner OK for one data flow to one AI provider (UX Phase 1, Q4).
+    """One learner OK for one data flow to one AI provider.
 
     Recorded once, when the provider is connected, instead of a checkbox per
     build. ``data_flow`` names what may leave the machine; an action that
@@ -1583,7 +1550,7 @@ class AIConsentRecord(BaseModel):
 
 
 class AIConfig(BaseModel):
-    # Plan-first transport T1 (owner, 2026-10-21): the tool-free ChatGPT plan.
+    # The tool-free ChatGPT plan.
     active_provider: str = "chatgpt"
     # A configured readiness fallback for routes that allow one. Never an
     # agent-harness (Codex) profile: such a fallback is ignored.
@@ -1669,27 +1636,24 @@ DEFAULT_CODEX_REASONING_EFFORT = "low"
 LEGACY_CODEX_MODEL = "gpt-5.5"
 CODEX_LOW_PROVIDER = "codex_low"
 CODEX_MEDIUM_PROVIDER = "codex_medium"
-# The cheapest Codex model the owner's account lists (`gpt-6-luna`, "fast and
-# affordable model for easier tasks"; checked in the Codex CLI's model list on
-# 2026-10-12). Code-default profile for cheap judges such as facet identity.
+# The cheapest Codex model (`gpt-6-luna`, "fast and affordable model for
+# easier tasks"). Code-default profile for cheap judges such as facet identity.
 CODEX_LUNA_PROVIDER = "codex_luna"
 CODEX_LUNA_MODEL = "gpt-6-luna"
 CODEX_PROVIDER_NAMES = frozenset({"codex", CODEX_LOW_PROVIDER, CODEX_MEDIUM_PROVIDER, CODEX_LUNA_PROVIDER})
 # Claude Haiku through OpenRouter: the metered alternative for cheap judges
-# (OpenRouter listing on 2026-10-12: $0.10 per million input tokens, $0.50
+# (OpenRouter listing: $0.10 per million input tokens, $0.50
 # per million output tokens).
 OPENROUTER_HAIKU_PROVIDER = "openrouter_haiku"
 OPENROUTER_HAIKU_MODEL = "anthropic/claude-haiku-5.5"
 OPENROUTER_TRANSCRIPTION_PROVIDER = "openrouter_transcription"
 
 #: Profile types that run an agent harness (the Codex app-server, or the
-#: retired HTTP adapter in front of it). Plan-first transport T1 (owner,
-#: 2026-10-21): refused for every serving task unless
+#: retired HTTP adapter in front of it). Refused for every serving task unless
 #: ``ai.agent_harness_opt_in`` is set, and never a fallback.
 AGENT_HARNESS_PROFILE_TYPES = frozenset({"codex_sdk", "http", "http_adapter"})
 
-# Plan-first transport T1 (owner, 2026-10-21): every serving route defaults to
-# LearnLoop's own tool-free ChatGPT-plan client (one POST /v1/responses per
+# Every serving route defaults to LearnLoop's own tool-free ChatGPT-plan client (one POST /v1/responses per
 # admitted request, store=false, no tools). The slugs are the ones the Codex
 # profiles served; the owner confirms them with `learnloop ai models chatgpt`
 # and sets [ai.providers.chatgpt] model (the low/medium copies follow it).
@@ -1715,19 +1679,19 @@ DEFAULT_SERVING_TASK_ROUTES = {
     "rung_variant": CHATGPT_LOW_PROVIDER,
     "animation": CHATGPT_MEDIUM_PROVIDER,
     "facet_identity_judge": CHATGPT_LUNA_PROVIDER,
-    # Adaptive difficulty (the compose onto T1, item C4): its background calls on the plan's tiers.
+    # Adaptive difficulty: its background calls on the plan's tiers.
     # Every AD operation runs under ``plan_fallback.quiet()``: no offer, no grant, the plan or nothing.
     "ad_forecast_llm": CHATGPT_LOW_PROVIDER,
     "ad_feature_audit": CHATGPT_LOW_PROVIDER,
     "ad_relatedness": CHATGPT_MEDIUM_PROVIDER,
-    # Local retrieval P2 (Q8): GPT-6 Luna on the plan, owner-run under ``plan_fallback.quiet()``.
+    # Local retrieval: GPT-6 Luna on the plan, owner-run under ``plan_fallback.quiet()``.
     "retrieval_query_generator": CHATGPT_LUNA_PROVIDER,
-    # Reader RW5d P2b: the rich figure author writes Manim scenes, the concept animation route's work.
+    # The rich figure author writes Manim scenes, the concept animation route's work.
     "figure_rich_author": CHATGPT_MEDIUM_PROVIDER,
-    # Teacher TE1 (spec_teacher_v1 §17): the plan's medium tier until a dry run picks the tier (keep).
+    # Teacher: the plan's medium tier.
     "teacher": CHATGPT_MEDIUM_PROVIDER,
 }
-#: The pre-T1 table: the routes of a vault whose active provider is Codex
+#: The routes of a vault whose active provider is Codex
 #: (served only with ``ai.agent_harness_opt_in``; `learnloop doctor` reports
 #: them otherwise). Also the meaning of a legacy ``routing.<task> = "codex"``.
 LEGACY_CODEX_TASK_ROUTES = {
@@ -1771,7 +1735,7 @@ class ErrorImpact(BaseModel):
 
 
 class FsrsFittingConfig(BaseModel):
-    """`learnloop fit fsrs` knobs (architecture_pivot.md Stage 1)."""
+    """`learnloop fit fsrs` knobs."""
 
     min_reviews: int = 50
     min_elapsed_days: float = 0.5
@@ -1786,14 +1750,14 @@ class FittingConfig(BaseModel):
 
 
 class LocksConfig(BaseModel):
-    """Retired: facet identity locks were removed (owner, 2026-10-12).
+    """Retired: facet identity locks.
 
     Facets used to lock when their direct evidence spanned
     ``facet_surface_groups`` distinct surface/correlation groups, reached
     ``facet_lock_mass`` independent mass, or entered an active goal's
     certified scope; a locked facet refused merges and rewording. Nothing
     reads these values any more: merges apply live with an undo and a reword
-    writes a facet version (knowledge-model §3.4). The section stays in the
+    writes a facet version. The section stays in the
     schema so the effective-defaults snapshots of every released version stay
     as recorded; ``learnloop doctor`` warns when a vault sets it.
     """
@@ -1803,7 +1767,7 @@ class LocksConfig(BaseModel):
 
 
 class EvidenceMassEntry(BaseModel):
-    """Evidence carried by one attempt type (Fable's-take item 3).
+    """Evidence carried by one attempt type.
 
     ``evidence_mass`` weights ability-belief updates (mastery EKF reliability);
     ``surface_exposure`` is the fraction of the item's facet surface the attempt
@@ -1853,33 +1817,29 @@ def default_practice_mode_item_coverage() -> dict[str, float]:
 
 
 class EvidenceCorrelationConfig(BaseModel):
-    """Vault-wide surface-correlation discounting (knowledge-model spec §6).
-
-    Reserved in Phase 0 of the KM/ingestion-v2 plan; consumed from KM2.
-    """
+    """Vault-wide surface-correlation discounting (free-form overrides)."""
 
     model_config = ConfigDict(extra="allow")
 
 
 class EvidenceCertificationConfig(BaseModel):
-    """Bounded certification credit (knowledge-model §5.4).
+    """Bounded certification credit.
 
     ``max_groups_per_attempt`` caps how many independently-observable
     correlation groups one attempt may certify (the attempt-wide ceiling is
     ``evidence_mass(attempt_type) * max_groups_per_attempt``). ``group_budgets``
     overrides the per-``(attempt_type, group)`` budget, which otherwise defaults
-    to ``evidence_mass(attempt_type)``. KM1 ships this table as data; the write
-    path that consumes it lands with KM2.
+    to ``evidence_mass(attempt_type)``.
 
-    ``max_embedded_credit_share`` is A1 guard 2 (``spec_measurement_efficiency_v1``
-    §3.A1): no ``(facet, capability)`` cell may take more than this fraction of
-    its certification credit from *embedded* (supporting-role) observations. A1
-    lets one conjunctive item credit several cells at once, and the passed-facet
+    ``max_embedded_credit_share``: no ``(facet, capability)`` cell may take
+    more than this fraction of its certification credit from *embedded*
+    (supporting-role) observations. One conjunctive item may credit several
+    cells at once, and the passed-facet
     firewall only protects the negative direction — positive smearing has no
     firewall and nobody contests being told they know something. At the default
     0.5 a cell needs at least as much direct as embedded credit, so a cell whose
-    entire history is supporting credit reads as *inferred* (Part II's honest
-    label), never as demonstrated. Set to 1.0 to disable the cap.
+    entire history is supporting credit reads as *inferred*, never as
+    demonstrated. Set to 1.0 to disable the cap.
     """
 
     model_config = ConfigDict(extra="allow")
@@ -1890,7 +1850,7 @@ class EvidenceCertificationConfig(BaseModel):
 
 
 class EvidenceBlueprintsConfig(BaseModel):
-    """Blueprint recipe likelihood defaults (knowledge-model spec §9.2)."""
+    """Blueprint recipe likelihood defaults."""
 
     model_config = ConfigDict(extra="allow")
 
@@ -1903,9 +1863,8 @@ class EvidenceBlueprintsConfig(BaseModel):
 class EvidenceConfig(BaseModel):
     """Single source of truth for per-attempt-type evidence carried.
 
-    Replaces the former ``ATTEMPT_TYPE_FACTORS`` (mastery/reliability) and
-    ``ATTEMPT_TYPE_COVERAGE_FACTORS`` (coverage) module tables, which had
-    drifted apart for the same attempt modes.
+    One table serves both mastery reliability and coverage, so the two cannot
+    drift apart for the same attempt mode.
     """
 
     attempt_types: dict[str, EvidenceMassEntry] = Field(default_factory=default_attempt_type_evidence)
@@ -1931,10 +1890,10 @@ class EvidenceConfig(BaseModel):
 
 
 class CapabilitiesConfig(BaseModel):
-    """Capability damping/shrinkage + lazy residual activation (spec §4.2).
+    """Capability damping/shrinkage + lazy residual activation.
 
-    Residual activation ships behind config, DEFAULT OFF. The thresholds below are
-    open calibration knobs (KM5): the shared parent stays the launch prediction
+    Residual activation is DEFAULT OFF. The thresholds below are open
+    calibration knobs: the shared parent stays the launch prediction
     state, and a learner-specific ``(facet, capability)`` residual is only
     activated when a closed diagnostic episode demonstrates divergence OR the
     capability-sliced residual persistently disagrees with the pooled parent.
@@ -1942,7 +1901,7 @@ class CapabilitiesConfig(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    # Master switch (§4.2 / §14 "capability-residual-by-default" is Deferred).
+    # Master switch.
     residual_activation_enabled: bool = False
     # |capability_mean - parent_mean| that counts as a persistent residual
     # disagreement (open calibration knob).
@@ -1960,16 +1919,16 @@ class CapabilitiesConfig(BaseModel):
 
 
 class TraceEvidenceConfig(BaseModel):
-    """A6 opportunistic trace evidence and its elicitation budget (Meas §3.A6).
+    """Opportunistic trace evidence and its elicitation budget.
 
     Two knobs, and the second is the one that matters. ``max_elicitations_per_session``
     is the hard budget on asking the learner for a one-line justification: "more
     explanation is more evidence, so there is a standing temptation to demand it
     everywhere. Do not." A system that makes people narrate their arithmetic has
-    traded a measurement problem for a retention problem (§11 non-goals), and
-    standing constraint 10 makes annoyance a first-class regression.
+    traded a measurement problem for a retention problem, so annoyance counts
+    as a first-class regression.
 
-    ``elicitation_enabled`` exists because the *reporting* half of A6 (the grader
+    ``elicitation_enabled`` exists because the *reporting* half (the grader
     naming facets it saw) has no learner cost and should not be revertible by the
     same switch as the half that does.
     """
@@ -1981,20 +1940,19 @@ class TraceEvidenceConfig(BaseModel):
 
 
 class DiagnosticAugmentationConfig(BaseModel):
-    """Stage 7 live diagnosis rungs.
+    """Live diagnosis rungs.
 
-    ``sample_count`` is C3's k and therefore both a support and cost decision.
-    ``history_limit`` is C4's anchoring/exposure bound.  They are explicit
-    registry parameters rather than module constants so a revert can restore
-    the one-sample/no-history baseline without changing historical receipts.
+    ``sample_count`` is the grading sample count k, and therefore both a
+    support and cost decision. ``history_limit`` is the anchoring/exposure
+    bound.  They are explicit registry parameters rather than module constants
+    so a revert can restore the one-sample/no-history baseline without
+    changing historical receipts.
 
-    The shipped default is the ONE-SAMPLE BASELINE (``sample_count=1``).  C1-C4
-    were promoted live simultaneously under a single grading-prompt bump, which
-    the augmentation spec forbids: each rung carries its own hypothesis and
-    revert criterion and therefore needs its own promotion.  k=3 tripled the paid
-    grading calls per graded attempt and, on disagreement, rewrote the winning
-    attribution to ``unresolved`` -- a live behaviour change that never had its
-    own trial.  k>1 stays available (planted-eval harness, or a deliberate
+    The default is the ONE-SAMPLE BASELINE (``sample_count=1``): each rung
+    carries its own hypothesis and revert criterion and therefore needs its
+    own promotion.  k=3 triples the paid grading calls per graded attempt and,
+    on disagreement, rewrites the winning attribution to ``unresolved``.  k>1
+    stays available (planted-eval harness, or a deliberate
     promotion trial) by setting it here; it is not the default a learner pays for.
     """
 
@@ -2006,15 +1964,13 @@ class DiagnosticAugmentationConfig(BaseModel):
 
 
 class DiagnosisConfig(BaseModel):
-    """Slice 1 M2: the live blind grader + asynchronous history-aware diagnoser.
+    """The live blind grader + asynchronous history-aware diagnoser.
 
     Dormant below ``mvp-0.10``: the algorithm version, not this section, decides
-    whether a vault grades split (spec §6.2). ``split_enabled`` is the kill
-    switch: off, an ``mvp-0.10`` (or later) vault grades NEW attempts jointly as
-    ``mvp-0.9`` did; already-blind attempts keep their records and replay from
+    whether a vault grades split. ``split_enabled`` is the kill switch: off, an
+    ``mvp-0.10`` (or later) vault grades NEW attempts jointly as the
+    predecessor did; already-blind attempts keep their records and replay from
     them (an attempt's grader mode is persisted, never read from this switch).
-    ``history_mode`` defaults to ``full`` (O16) and is changed by config once the
-    M1 report is reviewed.
     """
 
     split_enabled: bool = True
@@ -2023,8 +1979,8 @@ class DiagnosisConfig(BaseModel):
     exact_history_token_budget: int = Field(default=12_000, ge=1_000)
     history_error_limit: int = Field(default=6, ge=0, le=50)
     history_success_limit: int = Field(default=4, ge=0, le=50)
-    # Diagnoser k-sampling (cause disagreement, §4.4) is not built in M2: one
-    # diagnosis per attempt, so only 1 is accepted rather than ignored.
+    # Diagnoser k-sampling (cause disagreement) is not built: one diagnosis
+    # per attempt, so only 1 is accepted rather than ignored.
     sample_count: int = Field(default=1, ge=1, le=1)
     correct_answer_sample_rate: float = Field(default=0.0, ge=0.0, le=1.0)
     # Joint vaults only: run the diagnoser in shadow next to the joint grader.
@@ -2037,68 +1993,60 @@ class DiagnosisConfig(BaseModel):
     timeout_seconds: int = Field(default=300, ge=30, le=1_000)
     # Diagnoser calls per UTC day; past it a job is skipped ("budget"), never the grade.
     max_calls_per_day: int = Field(default=500, ge=0)
-    # The diagnosis card (§12.2) and whether its taps reach an open
-    # unresolved-cause factor's self-report channel (O14).
+    # The diagnosis card and whether its taps reach an open
+    # unresolved-cause factor's self-report channel.
     card_enabled: bool = True
     forward_card_taps: bool = True
-    # Diagnosis input provenance (spec_mcp_frontend_c1 §4.8): the chat
-    # frontend shows a model-written text (a diagnosis summary, a hypothesis,
-    # a misconception or candidate statement, a learner question's words, a
-    # generated topic's name) only when its write-time record is complete and
-    # every recorded input is safe. Off: chat holds every such text back (the
-    # C1a narrow rule). Writers record either way; nothing is evidence.
-    # Off as landed (2026-10-15, owner: "land narrow, then fix source"): the
-    # final verify reopened two High findings in the release path (a gap
-    # reader's record folds topics without checking the titles it showed; C4
-    # history dependencies escape grading validation). It stays off until
-    # every model-context build records through one capture point and a clean
-    # verify passes (docs/reviews/diagnosis-input-provenance.md, "Landing
-    # onto main").
+    # Diagnosis input provenance: the chat frontend shows a model-written
+    # text (a diagnosis summary, a hypothesis, a misconception or candidate
+    # statement, a learner question's words, a generated topic's name) only
+    # when its write-time record is complete and every recorded input is
+    # safe. Off: chat holds every such text back. Writers record either way;
+    # nothing is evidence. Off by default: not every model-context build
+    # records through one capture point (a gap reader's record folds topics
+    # without checking the titles it showed; history dependencies escape
+    # grading validation).
     chat_shows_recorded_text: bool = False
-    # PF-c (spec_embedding_consumers_v1 §5.5): reference policy, valid-
-    # alternative path and solve-first in the blind prompt. Off restores the
-    # mvp-2.0 blind prompt exactly.
+    # Reference policy, valid-alternative path and solve-first in the blind
+    # prompt. Off restores the predecessor's blind prompt exactly.
     grading_support: bool = True
-    # Hybrid kNN (S1.4b): shortlist size, fused top-N, reciprocal-rank k.
+    # Hybrid kNN: shortlist size, fused top-N, reciprocal-rank k.
     knn_limit: int = Field(default=8, ge=1, le=64)
     hybrid_keep: int = Field(default=6, ge=1, le=64)
     rrf_k: int = Field(default=60, ge=1)
-    # mvp-0.21 Part 2 (the Guide-fix audit's question 1, owner decision
-    # 2026-10-12/13): under split grading the probe hypothesis lane (the
-    # follow-up misconception gate's hypothesis set) reads the diagnoser's
-    # verdict through the diagnosis overlay instead of the blind grader's
-    # taxonomy prior. Dormant below mvp-0.21; off, the lane reads the stored
-    # events exactly as mvp-0.16 does.
+    # Under split grading the probe hypothesis lane (the follow-up
+    # misconception gate's hypothesis set) reads the diagnoser's verdict
+    # through the diagnosis overlay instead of the blind grader's taxonomy
+    # prior. Dormant below mvp-0.21; off, the lane reads the stored events
+    # exactly as the predecessor does.
     probe_lane_reads_diagnosis: bool = True
     # While an event's live diagnosis is pending: "hold_out" leaves it out of
     # the lane until the diagnoser's verdict arrives (the recommended default);
     # "keep_prior" admits it on the stored flag meanwhile. A failed or skipped
     # diagnosis never arrives, so its event is read as stored either way.
     probe_lane_pending: Literal["hold_out", "keep_prior"] = "hold_out"
-    # Saved diagnosis forecasts (owner go-ahead 2026-10-15; docs/reviews/
-    # diagnosis-forecast-receipts.md): a completed diagnosis and a scheduled
+    # Saved diagnosis forecasts: a completed diagnosis and a scheduled
     # repair cold check each write their forecast as a forecast_receipts row in
     # the deciding transaction, scored later by `learnloop diagnosis
     # calibration`. Logging only (no grading, scoring, scheduling or serving
     # change, so no successor); off writes nothing and reads stay possible.
     forecast_receipts: bool = True
-    # Learner-blindness relax (owner direction 2026-11-01: blindness only where
-    # it matters, the grader; docs/reviews/learner-blindness-relax.md): whether
-    # the history-aware diagnoser's context re-feeds each shown prior attempt's
-    # earlier diagnosis (its ``analysis_md``, bounded) and an earlier workbench
-    # attempt's step trace. Not a fixed preference (no-made-up-constants,
-    # 2026-10-24): ``randomized`` (the default) assigns each diagnosed attempt
-    # to one arm by a seeded equipoise draw recorded on its context receipt
-    # with the context hash, and ``learnloop diagnose m2-report`` reads E2's
-    # ``anchoring_suspect`` rate per arm; ``on`` / ``off`` fix the arm. The
-    # grader never reads any of it. ``off`` is today's context byte for byte.
+    # Whether the history-aware diagnoser's context re-feeds each shown prior
+    # attempt's earlier diagnosis (its ``analysis_md``, bounded) and an
+    # earlier workbench attempt's step trace (blindness matters only for the
+    # grader). Not a fixed preference: ``randomized`` (the default) assigns
+    # each diagnosed attempt to one arm by a seeded equipoise draw recorded on
+    # its context receipt with the context hash, and ``learnloop diagnose
+    # m2-report`` reads the ``anchoring_suspect`` rate per arm; ``on`` /
+    # ``off`` fix the arm. The grader never reads any of it. ``off`` is the
+    # predecessor's context byte for byte.
     history_includes_prior_analysis: Literal["randomized", "on", "off"] = "randomized"
 
 
 class RecurrenceBlockingCutoff(BaseModel):
     """One benchmark-set blocking cutoff and the vectors it was measured on.
 
-    B3 writes the whole entry. The cutoff describes the cosine distribution of
+    The benchmark run writes the whole entry. The cutoff describes the cosine distribution of
     exactly this model, width, text recipe and task prefix, so the shortlist
     applies it only to stored vectors of that identity and refuses it (top-k
     alone then blocks) for any other.
@@ -2122,7 +2070,7 @@ class RecurrenceBlockingCutoff(BaseModel):
 
 
 class RecurrenceConfig(BaseModel):
-    """Slice 2 T1 (M3): recurrence groups with authority (spec_embedding_consumers_v1 §3).
+    """Recurrence groups with authority.
 
     Dormant below ``mvp-0.12``: the algorithm version, not this section, decides
     whether grouping sites read recurrence groups. ``enabled`` is the kill
@@ -2133,21 +2081,21 @@ class RecurrenceConfig(BaseModel):
 
     Candidate pairs for the same-cause judge come from hypothesis-embedding
     kNN: the top ``top_k`` earlier hypotheses in scope, and, for a model with
-    a benchmark-set cutoff in ``blocking_cutoffs`` (model id -> B3's entry:
+    a benchmark-set cutoff in ``blocking_cutoffs`` (model id -> the benchmark's entry:
     the cutoff and the width, recipe and prefix it was measured on), only
     those at or above it. No cutoff is hand-set: an empty map blocks by top-k
     alone, and an entry measured on other vectors is refused. Scores never
     merge or reject anything.
 
-    ``require_guard`` (default false, owner 2026-10-12) decides only whether
+    ``require_guard`` (default false) decides only whether
     `learnloop upgrade` to mvp-0.12 refuses while the same-answer/different-
     cause guard has not passed; it changes nothing a vault serves.
     """
 
     enabled: bool = True
     # `learnloop upgrade` to mvp-0.12 refuses until the same-answer/
-    # different-cause guard passes for the configured judge. Off (the default,
-    # owner 2026-10-12): the guard is advisory; the upgrade prints its status
+    # different-cause guard passes for the configured judge. Off (the
+    # default): the guard is advisory; the upgrade prints its status
     # and proceeds.
     require_guard: bool = False
     # The live same-cause judge inside the diagnose job (the backlog command
@@ -2161,7 +2109,7 @@ class RecurrenceConfig(BaseModel):
     judge_timeout_seconds: int = Field(default=180, ge=30, le=1_000)
     # The escalated-repair block on the diagnosis card (UI only).
     escalation_card_enabled: bool = True
-    # §3.7: when a group reaches K and none of the diagnosis's repairs differs
+    # When a group reaches K and none of the diagnosis's repairs differs
     # from the repairs shown before, ask the diagnosis route once for a repair
     # with a different operator and representation. Off: the card says the
     # repair is the same kind as before.
@@ -2176,12 +2124,12 @@ class RecurrenceConfig(BaseModel):
 
 
 class StuckPromptConfig(BaseModel):
-    """"Write what you can" replaces "I don't know" (``mvp-0.13``).
+    """"Write what you can" replaces "I don't know".
 
     Dormant below ``mvp-0.13``: the algorithm version, not this section,
     decides whether the learner's surfaces offer "I'm stuck". ``enabled`` is
     the kill switch: off, an ``mvp-0.13`` vault shows "I don't know" and
-    records ``dont_know`` at its configured mass exactly as ``mvp-0.12`` does.
+    records ``dont_know`` at its configured mass exactly as the predecessor does.
     Already-recorded stuck answers keep their meaning (``declared_stuck`` is
     persisted per attempt and replay never reads this switch).
     """
@@ -2190,7 +2138,7 @@ class StuckPromptConfig(BaseModel):
 
 
 class HintsMapsConfig(BaseModel):
-    """Adaptive hints H1: approach maps (spec_adaptive_hints_v1 §4.3, §4.3.1, §9).
+    """Adaptive hints: approach maps.
 
     An approach map is a small subgoal graph of one item (nodes, edges and
     alternative routes with their origin) built by one structured call on
@@ -2198,15 +2146,15 @@ class HintsMapsConfig(BaseModel):
     rubric, authored hints, trace contract, PF skeleton, the learner's own
     textbook worked examples and the learner's own correct solutions, checked
     in code and stored in ``approach_maps`` (a revised item or changed seeds
-    gets a new row). Nothing in H1 shows a map: the hint writer (H2) and the
-    Reader workbench (RW2b) read it later, and the grader never does.
+    gets a new row). Building a map shows nothing: the hint writer and the
+    Reader workbench read it, and the grader never does.
 
     ``build_on_serve``: when the practice screen serves an item that has no
     map for its current revision, one is built in the background (never on the
     request path: the serve neither waits for it nor changes because of it),
     once per item revision; it also governs the lazy learner-route merge a
     shown hint schedules in the background when the item's map predates the
-    learner's newest correct answers in its family (H2a, §4.3.1 row 3). Each
+    learner's newest correct answers in its family. Each
     such build or merge is one model call (Codex on the
     subscription is ``estimated_only``); ``learnloop hints report`` shows the
     counts and the day's spend. ``max_daily_cost_usd``: the metered dollars a
@@ -2222,7 +2170,7 @@ class HintsMapsConfig(BaseModel):
 
 
 class HintsConfig(BaseModel):
-    """Adaptive hints (spec_adaptive_hints_v1 §9). H0 adds only the telemetry.
+    """Adaptive hints.
 
     ``telemetry_enabled``: the practice screen records each authored hint it
     reveals as a ``help_assists`` row (``practice.record_hint_reveal``: which
@@ -2232,26 +2180,25 @@ class HintsConfig(BaseModel):
     reveal events, evidence, FSRS, certification, scheduling and grading never
     read these rows, so no scoring, scheduling, projection or serving change
     and no successor. Off (the kill switch): no row is written, the RPC is a
-    no-op, and the practice RPCs and screen are exactly as before H0.
-    The phases after H0 add their own keys here (§9's list).
+    no-op, and the practice RPCs and screen are exactly as without telemetry.
 
-    H1 adds ``price_per_million``: the owner's price (USD per million tokens)
+    ``price_per_million``: the owner's price (USD per million tokens)
     for the hint routes on a METERED profile (OpenRouter, an API key); unset,
     a metered call is refused before it is sent (the spend rule). Codex and
     the ChatGPT plan need none: their cost is ``estimated_only``. And
     ``maps`` (:class:`HintsMapsConfig`).
 
-    H2a adds the hint service (``practice.request_hint``): ``adaptive_enabled``
+    The hint service (``practice.request_hint``): ``adaptive_enabled``
     (the kill switch), ``chooser_enabled``, ``choice_policy``,
     ``chooser_timeout_seconds``, ``help_style`` and ``max_daily_cost_usd``,
     with the routes ``ai.routing.hint_chooser`` (a decider-only route) and
-    ``ai.routing.hint_writer`` (a chat route that never resolves to Codex,
-    D9). A shown hint reaches the attempt only through ``hints_used`` (levels
-    1-3) and ``primed`` (levels 4-5) and a ``tutor_answer`` reveal on key
-    overlap, with their existing meaning (§5), so no scoring, scheduling,
-    projection or serving change and no successor.
+    ``ai.routing.hint_writer`` (a chat route that never resolves to Codex). A
+    shown hint reaches the attempt only through ``hints_used`` (levels 1-3)
+    and ``primed`` (levels 4-5) and a ``tutor_answer`` reveal on key overlap,
+    with their existing meaning, so no scoring, scheduling, projection or
+    serving change and no successor.
 
-    H2b adds the practice screen's hint panel and outcome placement:
+    The practice screen's hint panel and outcome placement:
     ``authored_offer_after_seconds`` (a display cap: how long a hint is
     written before the panel offers the item's own hint instead) and
     ``outcome_placement_enabled`` (one background call on route
@@ -2261,14 +2208,14 @@ class HintsConfig(BaseModel):
     envelope ``maps.max_daily_cost_usd``). Neither is read by scoring,
     scheduling, projection or serving, so no successor.
 
-    Follow-ups Nov 2 adds ``fold_follows_attach``: the kill switch of the
-    successor ``HELP_FOLD_ATTACH_ALGORITHM_VERSION`` (Codex review F1). At
-    that tag or later, with it on, a keyed submit's fold counts the key's
-    shown server hints in any practice session (H0's attach rule) and the
+    ``fold_follows_attach``: the kill switch of
+    ``HELP_FOLD_ATTACH_ALGORITHM_VERSION``. At that tag or later, with it on,
+    a keyed submit's fold counts the key's shown server hints in any practice
+    session (the telemetry's attach rule) and the
     attempt takes the rows it counted in its own write transaction, so a hint
     shown before the session rolled over is counted (levels 1-3) or primes
     (levels 4-5) where it attaches. Off, or below the tag: the fold reads the
-    submit's own session only and H0's attach takes the key's rows after the
+    submit's own session only and the attach takes the key's rows after the
     commit, exactly as the predecessor. Replay never reads it (replay never
     folds).
     """
@@ -2276,64 +2223,64 @@ class HintsConfig(BaseModel):
     telemetry_enabled: bool = True
     price_per_million: float | None = Field(default=None, gt=0)
     maps: HintsMapsConfig = Field(default_factory=HintsMapsConfig)
-    #: H2a: hints written for the learner's work (``practice.request_hint``).
+    #: Hints written for the learner's work (``practice.request_hint``).
     #: Off (the kill switch), the RPC answers ``disabled`` and the practice
     #: RPCs are byte-identical to the base. Needs ``telemetry_enabled`` (the
     #: rows are how a shown hint is counted at submit).
     adaptive_enabled: bool = True
-    #: H2a: the Decider chooses the kind, level and horizon (route
+    #: The Decider chooses the kind, level and horizon (route
     #: ``ai.routing.hint_chooser``); off, the fallback order serves.
     chooser_enabled: bool = True
-    #: H2a: ``sample`` draws from the Decider's probabilities and logs the
-    #: drawn option's propensity (D4); ``argmax`` serves the top option and
+    #: ``sample`` draws from the Decider's probabilities and logs the
+    #: drawn option's propensity; ``argmax`` serves the top option and
     #: logs 1 (no off-policy evaluation is then possible).
     choice_policy: Literal["sample", "argmax"] = "sample"
-    #: H2a: the chooser's time box; past it the fallback serves (a latency
+    #: The chooser's time box; past it the fallback serves (a latency
     #: bound, not a judgment).
     chooser_timeout_seconds: float = Field(default=3.0, gt=0)
-    #: H2a: the one stored help-style preference every surface reads (D5);
+    #: The one stored help-style preference every surface reads;
     #: a stated preference the Decider weighs, never a block.
     help_style: Literal["let_me_struggle", "balanced", "guide_me"] = "balanced"
-    #: H2a: the metered dollars a UTC day for the hint writer and chooser,
-    #: shared by every process (spec §7.3). A capped day falls back to the
+    #: The metered dollars a UTC day for the hint writer and chooser,
+    #: shared by every process. A capped day falls back to the
     #: item's authored hints and says so. Codex and the ChatGPT plan are
     #: ``estimated_only`` and never counted against it.
     max_daily_cost_usd: float = Field(default=1.00, ge=0.0)
-    #: H2b: seconds a hint is being written before the panel offers the
+    #: Seconds a hint is being written before the panel offers the
     #: item's own hint instead (*use the item's hint instead*: the request is
     #: cancelled first, so only one hint is recorded). A display cap.
     authored_offer_after_seconds: float = Field(default=4.0, gt=0)
-    #: H2b (spec §6.1, D11): after a hinted answer graded not fully correct on
+    #: After a hinted answer graded not fully correct on
     #: an item with an approach map, one background call (route
     #: ``ai.routing.hint_outcome``) places the final answer on the map, so the
     #: report can say whether the learner got past the hint's target.
     #: Measurement only; off, no call is made.
     outcome_placement_enabled: bool = True
-    #: Follow-ups Nov 2 (successor mvp-0.42's kill switch): a keyed fold
+    #: Kill switch of ``HELP_FOLD_ATTACH_ALGORITHM_VERSION``: a keyed fold
     #: counts exactly the help rows that attach (see the class docstring).
     fold_follows_attach: bool = True
 
 
 class ReaderInquiryConfig(BaseModel):
-    """Reader workbench RW1a: inquiry (spec_reader_workbench_v1 §4.1).
+    """Reader workbench: inquiry.
 
     Branching Ask (a follow-up names its parent exchange and sees only its
     ancestors), inquiry status on the root question with reopen, the return
     stack and detour strip, the reconnect line with its passage-scoped quick
     check, and the reader activity the funnel report reads. Content and
     display only: no scoring, scheduling, projection or serving change, so no
-    algorithm successor. ``enabled`` is the kill switch: off restores today's
-    flat rail, and every RPC RW1a touches answers exactly as before.
+    algorithm successor. ``enabled`` is the kill switch: off restores the flat
+    rail, and every RPC this touches answers exactly as the predecessor.
 
     The reconnect line's passage check is a paid call admitted through the
-    Phase 1 spend framework (W10) before it is sent: at most
+    spend framework before it is sent: at most
     ``max_checks_per_day`` checks a UTC day (counted from their receipts,
     failed calls included); on a metered route (OpenRouter, an API key) one
     admitted request per physical request at ``metered_price_per_million``
     (unset: a metered route is refused before sending), held to
     ``max_usd_per_check``. Codex on the ChatGPT subscription needs no price:
     its cost is estimated_only and it has no token, dollar or physical-request
-    bound (Slice A §5 rule 6).
+    bound.
     """
 
     enabled: bool = True
@@ -2343,7 +2290,7 @@ class ReaderInquiryConfig(BaseModel):
 
 
 class CuesConfig(BaseModel):
-    """Reader workbench RW3a: margin cues from the Guide (spec_reader_workbench_v1 §6).
+    """Reader workbench: margin cues from the Guide.
 
     The Guide's own passages whose Learning Object carries a recent
     misunderstanding (the diagnoser's overlay, ``reader_guidance``) are shown
@@ -2361,20 +2308,20 @@ class CuesConfig(BaseModel):
     most one mark per screenful at every density (off: the per-section budget
     alone). ``off_sources`` are the books the learner switched cues off for.
 
-    Reader workbench RW3b (discovered cues, §6.2 items 1-6): with
-    ``discovery_enabled``, passages the Guide's citations miss are found per
-    target (a durable misconception, an open hypothesis, a named learner-text
-    gap, a demonstrated facet) through T6 retrieval over the open source and
+    Discovered cues: with ``discovery_enabled``, passages the Guide's
+    citations miss are found per target (a durable misconception, an open
+    hypothesis, a named learner-text gap, a demonstrated facet) through
+    source retrieval over the open source and
     one listwise judgment per target (``ai.routing.passage_cue_judge``, ledger
     task ``passage_cue``), in the background when a source opens, at most
     ``max_calls_per_source_open`` judge calls per open,
     ``max_calls_per_source_per_day`` judge calls per source per rolling 24
     hours (UTC) over every open (counted from the durable receipts, the
-    subscription's included; Codex verify F16; the name says "day", the
+    subscription's included; the name says "day", the
     window is a rolling 24 hours so no timezone or DST rule moves it) and ``max_daily_cost_usd`` metered a UTC day
     (Codex is ``estimated_only``).
     ``try_first_enabled``: the judge's "try this step first" offers on worked
-    examples and derivations (pressing one opens RW1b's next-step question).
+    examples and derivations (pressing one opens the next-step question).
     ``value_order_enabled``: cues are ordered by the probability their target
     is still open, then the judge's rank, Guide first on ties (off: the
     Guide's order, discovered cues after). ``holdout_rate``: the share of
@@ -2398,7 +2345,7 @@ class CuesConfig(BaseModel):
 
 
 class WorkbenchConfig(BaseModel):
-    """Reader workbench RW2a: the resumable scratchpad (spec_reader_workbench_v1 §5.1, §5.9).
+    """Reader workbench: the resumable scratchpad.
 
     A problem worked in steps beside the source in the Reader (or full width
     on the practice screen), saved as it is typed, resumable, abandonable and
@@ -2414,32 +2361,29 @@ class WorkbenchConfig(BaseModel):
 
     enabled: bool = True
     open_session_days: int = Field(default=30, ge=1)
-    #: RW2b (spec §5.2-5.5, §5.9): "Check my work", the help ladder and its
-    #: hints through the one hint service (adaptive hints H3). Off: RW2a only
-    #: (no check, no ladder; every RW2a RPC byte-identical).
+    #: "Check my work", the help ladder and its hints through the one hint
+    #: service. Off: the scratchpad only (no check, no ladder; every
+    #: scratchpad RPC byte-identical).
     help_enabled: bool = True
-    #: Declared symbolic checks run in the PF-b sandbox (§5.3); off, every
-    #: verdict is the model's reading and the sandbox is never invoked.
-    #: Off by default (RW2b fix round 9, the orchestrator's decision): a
-    #: LaTeX-text checker could not be made to agree with what KaTeX displays;
-    #: on again once the renderer-equivalent (MathML) checker lands, or by the
-    #: owner knowing the limits recorded in the RW2b review.
+    #: Declared symbolic checks run in the sandbox; off, every verdict is the
+    #: model's reading and the sandbox is never invoked. Off by default: a
+    #: LaTeX-text checker could not be made to agree with what KaTeX displays.
     symbolic_checks_enabled: bool = False
     #: Off: ``discriminating`` is never among the workbench's options and
-    #: rung 1 is an ordinary question (§5.9).
+    #: rung 1 is an ordinary question.
     discriminate_enabled: bool = True
-    #: Off: no error-kind guess is shown or traced (§5.9).
+    #: Off: no error-kind guess is shown or traced.
     error_kind_enabled: bool = True
-    #: "Compare with the book" under a hint in the Reader (§5.2 bridging): a
-    #: background passage lookup through T6's practice context.
+    #: "Compare with the book" under a hint in the Reader: a background
+    #: passage lookup through source retrieval's practice context.
     bridge_enabled: bool = True
-    #: RW2c (spec §5.10): what helps this learner. The help-outcome lines (a
-    #: pure read of the ledgers) given to the hint writer and the chooser;
-    #: off, both get the request they got before RW2c.
+    #: What helps this learner. The help-outcome lines (a pure read of the
+    #: ledgers) given to the hint writer and the chooser; off, both get the
+    #: request without them.
     help_outcomes_enabled: bool = True
-    #: The worked example that takes the learner's route (the sources spec's
-    #: ``worked_example`` intent): after a level-3+ hint and on "Show me a
-    #: similar example". Absent when the sources spec's S3 is not available.
+    #: The worked example that takes the learner's route (the sources
+    #: service's ``worked_example`` intent): after a level-3+ hint and on "Show
+    #: me a similar example". Absent when compare_sources is not available.
     examples_enabled: bool = True
     #: "Compare with the book's method" after a correct Submit (the reference
     #: read by id, recorded as a reveal on the item before it is shown).
@@ -2447,18 +2391,17 @@ class WorkbenchConfig(BaseModel):
     #: The logged draw between two or more passages that all passed the judge
     #: (bridge, worked example); off, the first passage is shown as before.
     passage_draw_enabled: bool = True
-    #: RW2d (spec §5.11, G41): the kill switch of the successor
-    #: (``WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION``) whose field derivation
-    #: reads mid-work stuck steps and help asked for before the first step.
-    #: They never lower the record (no outcome, no mass, no attempt link);
-    #: they keep the LO out of fast-track and teach it first. Off, or below
-    #: the tag: the derivation, Phase 6 serving and every plan build exactly
-    #: as the predecessor (no workbench table is read).
+    #: Kill switch of ``WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION``: the field
+    #: derivation reads mid-work stuck steps and help asked for before the
+    #: first step. They never lower the record (no outcome, no mass, no
+    #: attempt link); they keep the LO out of fast-track and teach it first.
+    #: Off, or below the tag: the derivation, the field's serving and every
+    #: plan build exactly as the predecessor (no workbench table is read).
     field_signals_enabled: bool = True
     #: The workbench's own calls (checks, bridges, examples, comparisons) per problem: a money cap
-    #: counted in calls (§5.8). Hint calls are the hint service's (C8).
+    #: counted in calls. Hint calls are the hint service's.
     max_calls_per_session: int = Field(default=24, ge=1)
-    #: The workbench's own metered spend a UTC day (§5.8).
+    #: The workbench's own metered spend a UTC day.
     max_daily_cost_usd: float = Field(default=1.0, ge=0)
     #: The owner's price (USD per million tokens) for a METERED
     #: ``ai.routing.workbench_check`` profile; unset, a metered check is
@@ -2467,7 +2410,7 @@ class WorkbenchConfig(BaseModel):
 
 
 class RecapConfig(BaseModel):
-    """Reader workbench RW6a: "Last time here" and Wrap up (spec_reader_workbench_v1 §9.1, §9.6).
+    """Reader workbench: "Last time here" and Wrap up.
 
     On returning to a source the Guide opens with a compact card: where
     reading stopped, the questions still open, the unfinished problems, what
@@ -2479,8 +2422,8 @@ class RecapConfig(BaseModel):
     (``recap_shown``, ``recap_dismissed``, ``wrap_up_opened``), and nothing
     here is read by scoring, scheduling, projection or serving, so no
     algorithm successor. ``enabled`` is the card's kill switch and
-    ``wrap_up_enabled`` Wrap up's; off, the Reader and Today render exactly as
-    before RW6a and the RPCs refuse.
+    ``wrap_up_enabled`` Wrap up's; off, the Reader and Today render without
+    them and the RPCs refuse.
     """
 
     enabled: bool = True
@@ -2488,8 +2431,8 @@ class RecapConfig(BaseModel):
 
 
 class FollowupsConfig(BaseModel):
-    """Reader workbench RW6b part 1: cold follow-ups, the owner's "short
-    unfamiliar problem" (spec_reader_workbench_v1 §9.3-§9.6; UX §4.8-§4.9).
+    """Reader workbench: cold follow-ups, a "short unfamiliar problem" after
+    reading.
 
     After a reader session with activity, the session's open questions (claims
     that need a check on your own, rival explanations still open, and, with
@@ -2499,11 +2442,11 @@ class FollowupsConfig(BaseModel):
     valuation (relevance is its one model call; value of information, the
     stop rule and greedy conditional selection are the existing machinery).
     Whatever clears the stop becomes a ``test_me_later`` commitment dated by
-    purpose, served by DL2's "Check once"; there is no count cap. Before each
+    purpose, served by the plan's "Check once"; there is no count cap. Before each
     day's plan the pending ones are re-valued and those whose question was
     answered since are retired with their reason. Automatic dated requests
     change what the maintain lane holds and serves, so they are the successor
-    ``READER_FOLLOWUPS_ALGORITHM_VERSION`` (mvp-0.39; Codex review F4): below
+    ``READER_FOLLOWUPS_ALGORITHM_VERSION`` (mvp-0.39): below
     the tag the section is inert. Never evidence; replay never reads it.
 
     * ``enabled``: the kill switch. Off, or below the tag, no follow-up is
@@ -2513,10 +2456,10 @@ class FollowupsConfig(BaseModel):
       prediction, a "still unclear", ...) add questions; they never change a
       prior's number.
     * ``generate_when_nothing_fits``: queue a source-anchored generation
-      request when no unfamiliar problem fits. Default off: PF has no request
-      API yet, so ``no_item`` stands (as the spec's off state).
-    * ``max_wait_days`` (keep): a time cap; no claim waits longer for its check.
-    * ``max_daily_cost_usd`` (keep): the metered spend a UTC day of the
+      request when no unfamiliar problem fits. Default off: there is no
+      generation request API, so ``no_item`` stands.
+    * ``max_wait_days``: a time cap; no claim waits longer for its check.
+    * ``max_daily_cost_usd``: the metered spend a UTC day of the
       relevance and exposure calls made for follow-ups (they also count
       against ``source_service.max_daily_cost_usd``; the first reached stops
       them). Subscription calls are ``estimated_only``.
@@ -2530,10 +2473,10 @@ class FollowupsConfig(BaseModel):
 
 
 class DigestConfig(BaseModel):
-    """Reader workbench RW6b part 2: the session narrative and the router
-    card's reader section (spec_reader_workbench_v1 §9.2, §9.6; UX §4.8).
+    """Reader workbench: the session narrative and the router card's reader
+    section.
 
-    * ``narrative_enabled``: after a reader session RW6b planned (its digest
+    * ``narrative_enabled``: after a reader session the follow-ups planned (its digest
       row; with follow-ups not live, a summary-only row written for the
       narrative), one background call (route ``reader_digest``) writes at most 120
       words from the session's typed summary only, citing the summary's event
@@ -2543,34 +2486,34 @@ class DigestConfig(BaseModel):
       digest row, shown collapsed in "Last time here" and Wrap up, labelled
       "summary written by LearnLoop's model". Tier 1 (salience only): never a
       source of a filled mark and never evidence. Off: no route call and no
-      narrative anywhere (RW6b part 1 exactly).
-    * ``enabled``: RW6b part 2 as a whole: the narrative and the "Reader
-      activity" section of the router's learner-state card
-      (``reader_activity_for_card``; router R2), which the router models read
+      narrative anywhere.
+    * ``enabled``: the narrative and the "Reader activity" section of the
+      router's learner-state card (``reader_activity_for_card``), which the
+      router models read
       (routing only, never evidence). Off: neither, and the card is the
       predecessor's byte for byte.
     * ``price_per_million``: the owner's price for a metered narrative route
       (unset: a metered route is refused before sending). The ChatGPT plan
       needs none (estimated_only).
-    * ``max_daily_cost_usd`` (keep): the metered spend a UTC day of the
-      narrative calls (the owner's spending authority); subscription calls
-      are estimated_only and uncapped (Slice A §5 rule 6).
+    * ``max_daily_cost_usd``: the metered spend a UTC day of the narrative
+      calls (the owner's spending authority); subscription calls are
+      estimated_only and uncapped.
     """
 
     enabled: bool = True
     narrative_enabled: bool = True
     price_per_million: float | None = Field(default=None, gt=0)
     max_daily_cost_usd: float = Field(default=0.25, ge=0.0)
-    #: Learner-blindness relax (owner direction 2026-11-01): the narrative's
-    #: prompt also carries the learner's own words of each inquiry root
-    #: question in the summary (bounded excerpts), which the narrative may
-    #: quote; the cited-id, 120-word and no-well-marker checks are unchanged.
-    #: Off: the typed summary only, today's prompt exactly.
+    #: The narrative's prompt also carries the learner's own words of each
+    #: inquiry root question in the summary (bounded excerpts), which the
+    #: narrative may quote; the cited-id, 120-word and no-well-marker checks
+    #: still apply. Off: the typed summary only, the predecessor's prompt
+    #: exactly.
     narrative_quotes_inquiry: bool = True
 
 
 class ReaderIntentConfig(BaseModel):
-    """Reader workbench RW1b: the intent box (spec_reader_workbench_v1 §4.2, §4.4).
+    """Reader workbench: the intent box.
 
     Selecting text shows a small, unfocused box under the selection; the
     learner types what they want in their own words and one typed choice to
@@ -2584,7 +2527,7 @@ class ReaderIntentConfig(BaseModel):
     reader events, and nothing in scoring, scheduling, projection or serving
     reads them, so no algorithm successor. ``enabled`` is the kill switch: off
     (or with ``reader_inquiry.enabled`` off), a selection opens the palette in
-    Notes and the rail flips to Notes, exactly as before RW1b.
+    Notes and the rail flips to Notes, exactly as the predecessor.
 
     ``speculative_enabled``: routing starts once typing pauses for
     ``speculate_after_ms``, so Enter usually finds the routing already made
@@ -2603,7 +2546,7 @@ class ReaderIntentConfig(BaseModel):
 
 
 class ReaderActiveReadingConfig(BaseModel):
-    """Reader workbench RW1b: active reading (spec_reader_workbench_v1 §4.2).
+    """Reader workbench: active reading.
 
     On a selected derivation or worked example: "let me try the next step"
     (the book's following lines fold while the learner tries), "why does
@@ -2621,7 +2564,7 @@ class ReaderActiveReadingConfig(BaseModel):
 
 
 class ReaderFormativeConfig(BaseModel):
-    """Reader workbench RW1b: missed answers as learner text (spec_reader_workbench_v1 §4.2, W1).
+    """Reader workbench: missed answers as learner text.
 
     A next-step, why-step or assumption answer the learner marks *partly* or
     *no* is queued for learner-text gaps as a ``reader_formative`` text (the
@@ -2636,7 +2579,7 @@ class ReaderFormativeConfig(BaseModel):
 
 
 class LibraryAskConfig(BaseModel):
-    """Reader workbench RW4a: ask your library (spec_reader_workbench_v1 §7.3, §7.7).
+    """Reader workbench: ask your library.
 
     "Ask" (Shift+Enter) in the library search box, Ctrl+Shift+F in the Reader,
     or "where else is this explained?" / "where is this used?" / "what do I
@@ -2650,7 +2593,7 @@ class LibraryAskConfig(BaseModel):
     concept-graph expansion (prerequisites, applications), keeping only
     passages linked to those learning objects, labelled. The tutor answers
     only when asked, only from the passages pinned. Retrieval is context and
-    the notes are display (T6's ruling): nothing in scoring, scheduling,
+    the notes are display: nothing in scoring, scheduling,
     projection or serving reads them, so no algorithm successor.
     ``personalized_default``: whether the "personalized" chip starts on (the
     note may then name one open question the learner has on a passage's
@@ -2658,7 +2601,7 @@ class LibraryAskConfig(BaseModel):
     the organizer's metered spend a UTC day (Codex is ``estimated_only``).
     ``enabled`` is the kill switch: off (or with ``source_service.enabled`` or
     ``reader_inquiry.enabled`` off), the library search and the Reader are
-    exactly as before RW4a and the RPCs refuse.
+    exactly as without it and the RPCs refuse.
     """
 
     enabled: bool = True
@@ -2668,7 +2611,7 @@ class LibraryAskConfig(BaseModel):
 
 
 class ReaderTutorConfig(BaseModel):
-    """Reader workbench RW1c: a tutor that looks things up (spec_reader_workbench_v1 §4.6).
+    """Reader workbench: a tutor that looks things up.
 
     ``retrieval_enabled``: Ask in the Reader retrieves from the learner's
     books on its own (the sources service's ``find_sources`` with verification
@@ -2677,13 +2620,13 @@ class ReaderTutorConfig(BaseModel):
     books" excerpt, a grounded explanation, a bridge to the learner's work),
     says so when the books don't cover the question, and offers "another
     way" (intent ``alternative``) and "that didn't help" (intent
-    ``remediate``). Off: today's selection-and-neighbours tutor, byte for byte.
+    ``remediate``). Off: the selection-and-neighbours tutor, byte for byte.
     ``offers_enabled``: the buttons under an answer (the sources service's
     practice request and tool requests, fetched when the answer lands and
     shown only when pressed, and "Try the next step first" on a cited
     derivation or worked example). Off: no buttons under answers in the
-    Reader. Retrieval is context and display, buttons are learner picks (T6's
-    ruling): nothing in scoring, scheduling, projection or serving reads
+    Reader. Retrieval is context and display, buttons are learner picks:
+    nothing in scoring, scheduling, projection or serving reads
     either, so no algorithm successor. A Reader question asked inside a
     workbench session bound to an item is stored on that item and practice
     session, so the existing question hint-equivalents and reveals carry it
@@ -2693,36 +2636,35 @@ class ReaderTutorConfig(BaseModel):
 
     retrieval_enabled: bool = True
     offers_enabled: bool = True
-    #: Learner-blindness relax (owner direction 2026-11-01: blindness only
-    #: where it matters, the grader): the Reader tutor's context also carries
-    #: the learner's state on the passage's learning objects -- readiness in
-    #: words (the Today headline's class), the learner's confidence events
-    #: (TE0's block), attempt outcomes and the learner's own questions from
+    #: The Reader tutor's context also carries the learner's state on the
+    #: passage's learning objects -- readiness in words (the Today headline's
+    #: class), the learner's confidence events, attempt outcomes and the learner's own questions from
     #: recent practice and feedback exchanges (never a stored tutor answer),
     #: all through ``learner_protection`` (exam, held-out, reserved,
     #: cold-check and probe work never shows; a question asked during a cold
     #: administration carries none). Context only: the tutor still writes no
-    #: attempt, claim or mastery. Off: today's prompt and manifest byte for byte.
+    #: attempt, claim or mastery. Off: the predecessor's prompt and manifest
+    #: byte for byte.
     learner_state_enabled: bool = True
 
 
 class LibraryExercisesConfig(BaseModel):
-    """Reader workbench RW4b: exercises from my sources (spec_reader_workbench_v1 §7.4, §7.7).
+    """Reader workbench: exercises from my sources.
 
     ``enabled``: the Reader's view of the sources service's textbook-exercise
-    candidates wherever it lists practice proposals (RW4a's "practice this
-    question"): the verbatim statement, source and page, "open in the book",
+    candidates wherever it lists practice proposals (the library answer's
+    "practice this question"): the verbatim statement, source and page, "open in the book",
     "use this one" (the sources service's import, inside the workbench) and
     the key's honest status, with the sources service's exposure rule
     (``instructional/exposure.py``) labelling a candidate the learner has
     already seen, which is then never offered as a check on your own. Off:
-    the Reader's practice proposals render exactly as before RW4b and the
-    RPCs refuse. ``fallback_enabled``: the learner-initiated "find an
+    the Reader's practice proposals render without them and the RPCs
+    refuse. ``fallback_enabled``: the learner-initiated "find an
     exercise in my sources" when ``find_practice`` finds nothing
     (``find_sources`` over the question's learning objects, exercise blocks
     of the teaching scope only, imported with the Reader's own
-    ``import_exercises``). The spec retires it once the sources service's
-    candidates are live, which they are, so it defaults off (§7.4). Both are
+    ``import_exercises``). The sources service's candidates replace it, so
+    it defaults off. Both are
     kill switches over display and a learner's own pick: nothing in scoring,
     scheduling, projection or serving reads them, so no algorithm successor.
     """
@@ -2732,9 +2674,8 @@ class LibraryExercisesConfig(BaseModel):
 
 
 class FiguresPrefetchConfig(BaseModel):
-    """Reader RW5d P5 (spec_reader_show_me_figures_v1 §10b.4, §15): the
-    guardrails of figures built ahead of need, each a ``keep`` cap, never a
-    learned number. ``max_daily_builds``: background builds started a local
+    """The guardrails of figures built ahead of need, each a fixed cap, never
+    a learned number. ``max_daily_builds``: background builds started a local
     day (plan headroom spent on speculation; a lesson alone is 15-25 calls).
     ``max_daily_render_minutes``: wall-clock minutes of background Manim
     renders a local day. The caps cut the queue in expected-utility order;
@@ -2745,14 +2686,14 @@ class FiguresPrefetchConfig(BaseModel):
 
 
 class FiguresConfig(BaseModel):
-    """Reader workbench RW5a: explorable figures (spec_reader_workbench_v1 §8, §8.6).
+    """Reader workbench: explorable figures.
 
     ``enabled``: "make this explorable" on a selected equation, figure block
     or passage builds a declarative figure spec (route ``figure_author``),
-    verifies it before it shows (structure, invariants and shaded areas; RW5a
-    makes no source claim: every figure is an illustration, the source check
-    is RW5c's), and draws it inline under its passage. Off: the Reader is exactly
-    as before RW5a, the RPCs refuse and no route is called.
+    verifies it before it shows (structure, invariants and shaded areas; no
+    source claim: every figure is an illustration, the source check is
+    ``checked_labels_enabled``'s), and draws it inline under its passage.
+    Off: the Reader shows no figures, the RPCs refuse and no route is called.
     ``predictions_enabled``: one prediction before the first change, the
     observed before/after readout and "what changed?" (formative; a missed
     one is a ``reader_formative`` learner text). ``region_enabled``: a
@@ -2760,27 +2701,27 @@ class FiguresConfig(BaseModel):
     is sent. ``revisions_enabled``: "not right?" asks for a new version with
     the learner's note (the earlier one is kept).
 
-    RW5b (§8.7): ``advanced_panels_enabled``: heat maps, vector fields,
+    ``advanced_panels_enabled``: heat maps, vector fields,
     trajectories (fixed-step RK4) and iterated maps in the same declarative
     grammar; off, the author is not told of them and may not emit them, and a
     stored figure that uses one shows as "can't draw this yet".
-    ``offers_enabled``: the library organizer (RW4a) and the Reader tutor
-    (RW1c) judge, in the call they already make, whether a cited equation or
+    ``offers_enabled``: the library organizer and the Reader tutor judge, in
+    the call they already make, whether a cited equation or
     figure block could become an explorable figure, and a yes adds "make this
     explorable" to that passage or answer (pressing it builds through the same
     pipeline, origin ``library`` | ``tutor``); off, their prompts, outputs and
-    what the Reader shows are as before RW5b.
+    what the Reader shows carry no offer.
 
-    RW5d P1 (spec_reader_show_me_figures_v1): ``show_me_enabled``: "show me"
+    ``show_me_enabled``: "show me"
     takes the learner's words, with or without a passage (the intent box's
     "show me…", *show me* in the Reader's Ask rail, and the Reader tutor's
     optional ``figure_goal``, a button the learner presses). A request with
     no passage is grounded in the learner's books (verified retrieval, at
     most three passages) and, when nothing is found, built anyway and
-    labelled "not from your books". Off: figures are exactly RW5a/b's, and
-    the tutor's prompt and output are RW5b's.
+    labelled "not from your books". Off: figures start only from a passage,
+    and the tutor's prompt and output are the predecessor's.
 
-    RW5d P2: ``sketch_enabled``: the sketch tier. When the declarative grammar
+    ``sketch_enabled``: the sketch tier. When the declarative grammar
     cannot express an idea (a random process, a simulation with state, a
     geometric construction, a discrete structure), the author may write a
     small program instead (``SketchProgramV1``), which runs in a sealed
@@ -2788,17 +2729,14 @@ class FiguresConfig(BaseModel):
     app access) in the desktop and, for verification, in the sidecar; it
     returns a display list the Reader draws and declared probes that code
     checks against the claims it states. Labelled an AI-written simulation,
-    never "checked against the book". Off: the author's contract is RW5b's
-    byte for byte, and stored sketches list as "can't draw this yet".
-    Default **on** (Q5) since the sketch compartment (2026-11-01): the
-    engine's Worker runs from a blob inside a sandboxed, opaque-origin frame
-    whose CSP has ``connect-src 'none'``, and the spec's merge gate G-SM14 (an
-    IPC probe from inside it in the real Tauri webview) passed there
-    (docs/reviews/reader-rw5d-g-sm14-probe.md, "Rerun after the
-    compartment"). It had shipped off at the P2 landing (orchestrator decision
-    2026-10-31) because the first probe, from the URL-loaded Worker, failed.
+    never "checked against the book". Off: the author's contract is the
+    predecessor's byte for byte, and stored sketches list as "can't draw
+    this yet". Default **on**: the engine's Worker runs from a blob inside a
+    sandboxed, opaque-origin frame whose CSP has ``connect-src 'none'``, and
+    an IPC probe from inside it in the real Tauri webview cannot reach the
+    app (a URL-loaded Worker could).
 
-    RW5d P2b (spec_reader_show_me_figures_v1 §8.4, §8.6, §9b): ``rich_tiers_enabled``:
+    ``rich_tiers_enabled``:
     the rich tiers. When a rich tier is available on this machine the
     author's menu widens to it (``FigureAuthorOutputV3``: the tier chosen by
     what best explains the idea, with ``why_this_tier``, and an optional fast
@@ -2812,13 +2750,11 @@ class FiguresConfig(BaseModel):
     ``manim_opt_in = "standing"`` (asked once, inline, on a press; "not now"
     writes ``"declined"``; ``manim_opt_in_at`` records the date). The
     ``js_animation`` tier stays absent from every menu behind its build flag
-    until G-SM14 passes in the real webview. Off: the author's contract is
+    until its IPC probe passes in the real webview. Off: the author's contract is
     V2's (or V1's) byte for byte, no rich menu entry, and stored rich figures
     list as "can't show this kind here". Nothing in scoring, scheduling,
     projection or serving reads these keys.
 
-    Learner data-relax 2 (owner principle 2026-11-01: the learner's questions,
-    answers and history are not private; include them where they help):
     ``author_learner_state``: the figure author is also sent the learner's
     state on the passage's topics (their status in words, the open
     misconception and gap statements, and at most two recent answers of
@@ -2829,7 +2765,7 @@ class FiguresConfig(BaseModel):
     author's payload, prompt and keys are the predecessor's byte for byte.
     Figures stay help, never evidence.
 
-    RW5d P3 (spec_reader_show_me_figures_v1 §6.4, §11.2-§11.4): ``help_kind_enabled``:
+    ``help_kind_enabled``:
     figures inside an open attempt. The practice screen's and feedback's Ask
     panel and the Reader workbench gain *show me* with its cost line
     (feedback: free; an open attempt: one hint-equivalent, once per figure per
@@ -2842,40 +2778,37 @@ class FiguresConfig(BaseModel):
     help outcomes are unchanged. Figures are help, never certification, and
     never reach the grader.
 
-    RW5d P5 (spec_reader_show_me_figures_v1 §10b): ``prefetch_enabled``:
+    ``prefetch_enabled``:
     figures built ahead of need, quietly, on the desktop sidecar only, on
     mains power only, on the ChatGPT plan only (never metered, never an
     OpenRouter offer or a grant), never for exam or held-out material. Five
     triggers name candidates (the stored plan's reading section, the next
-    section after reading progress, RW5b's explorable offers, a lesson plan's
+    section after reading progress, the explorable offers, a lesson plan's
     nodes not yet reached, and open gaps on the plan's or a lesson's topics);
     the ``figure_prefetch_judge`` route picks a section's blocks (and writes a
     gap's goal), and a learned decision (Thompson sampling over a logistic
     model of opening, with seeded, labelled priors; the propensity logged in
     ``figure_prefetch_decisions``) decides each one, inside the ``prefetch``
     caps. A press of the same input reuses the prebuilt figure by its input
-    hash. Default **on** (Q21's recommended default, accepted by the owner's
-    standing decision 2026-10-12; Codex review F15; the P5 checkpoint, a week
-    on the desktop with the report's prefetch block, may turn it off): off,
-    nothing builds in the background, no decision is written, and a prebuilt
-    figure nobody pressed for is not listed (rev 1's behaviour exactly).
+    hash. Default **on**. Off: nothing builds in the background, no decision
+    is written, and a prebuilt figure nobody pressed for is not listed.
 
-    RW5c P1 (spec_reader_rw5c_checked_labels_v1 §10.1): ``checked_labels_enabled``:
-    after steps 1-2, code reads the book's equations from a grammar figure's own
+    ``checked_labels_enabled``: after the structural checks, code reads the book's equations from a grammar figure's own
     input spans and compares each definition drawn by bare reference with them,
     exactly, in the sandbox (no model call); an element that passes reads
     "matches the book's equation (checked)", and every label of that figure is
     code-owned. A stated claim proved different gets the second author attempt
-    and is otherwise not shown. Default **on** (Q2's recommended default). Off:
-    nothing is checked, nothing reads ``figure_source_checks``, and every view is
-    RW5a/RW5d's exactly; existing rows are kept and show again when it is back on.
+    and is otherwise not shown. Default **on**. Off: nothing is checked,
+    nothing reads ``figure_source_checks``, and every view is the
+    predecessor's exactly; existing rows are kept and show again when it is
+    back on.
 
-    Caps (money, W4): two author attempts per request; ``max_daily_cost_usd``
+    Caps: two author attempts per request; ``max_daily_cost_usd``
     meters the author route's metered spend a UTC day at
     ``price_per_million`` (unset: a metered route is refused before sending;
     Codex is ``estimated_only``). Content and formative only: nothing in
     scoring, scheduling, projection or serving reads these keys, so no
-    algorithm successor (§8.6).
+    algorithm successor.
     """
 
     enabled: bool = True
@@ -2899,7 +2832,7 @@ class FiguresConfig(BaseModel):
 
 
 class ReaderCompareConfig(BaseModel):
-    """Reader workbench RW4a: compare pinned passages (spec_reader_workbench_v1 §7.3).
+    """Reader workbench: compare pinned passages.
 
     The Reader's compare UI over the sources service's ``compare_sources``
     (whose own switch is ``source_service.compare`` and whose bounds are
@@ -2908,14 +2841,14 @@ class ReaderCompareConfig(BaseModel):
     consensus. ``enabled`` is the kill switch: off, no compare action and the
     RPC refuses.
 
-    RW4d (§7.8): ``keep_enabled`` is the kill switch of "Keep this
+    ``keep_enabled`` is the kill switch of "Keep this
     comparison" (the kept claims and relations as source-object proposals,
     the learner's own take, ``⇄`` marks, requested perspectives and Keep on
     the tutor's comparison). Proposals and display only: nothing becomes a
     concept edge, facet merge, prerequisite, LO change or evidence. Off, the
-    compare display is RW4a's exactly and the keep RPCs refuse.
+    compare display has no Keep and the keep RPCs refuse.
 
-    Reader CA3 (ux_reader_compare_ask_v1 §4, K12): ``scope_enabled`` is the
+    ``scope_enabled`` is the
     kill switch of comparing from anywhere: one comparison request for every
     door (a selection's *how do my other books treat this?*, the ask box
     reading named books, the tutor's offer, *compare these books* in a library
@@ -2927,9 +2860,9 @@ class ReaderCompareConfig(BaseModel):
     corrections are ``judgment_ledger`` rows (task ``compare_scope``), never
     evidence. Comparisons stay display and retrieval: nothing in scoring,
     scheduling, projection or serving reads any of it, so no successor. Off,
-    the RPC takes only today's pinned request and every door is RW4a's/RW4d's.
+    the RPC takes only the pinned request and every door is the predecessor's.
 
-    Reader CA4 (ux_reader_compare_ask_v1 §5, §12.2, K13): ``by_point`` is the
+    ``by_point`` is the
     kill switch of the table by point: the Reader's comparison is asked under
     ``source_compare.v2`` (the same route and one call: points, per source a
     verified-quote cell or not addressed, per point its pairs' relations,
@@ -2937,10 +2870,9 @@ class ReaderCompareConfig(BaseModel):
     grid (a row per point, a column per book, relation chips, the learner's
     column, hide row, the keyboard map, narrow cards, *by book*); Keep maps a
     kept row to proposals one claim per cell. Display and proposals only, no
-    successor. Off, the Reader requests v1 and renders by book exactly as
-    today. ``max_perspectives`` is the most views a comparison asks for and
-    keeps: a stored-size bound (a ``keep`` guardrail, §12.2), not a learned
-    constant.
+    successor. Off, the Reader requests v1 and renders by book.
+    ``max_perspectives`` is the most views a comparison asks for and keeps: a
+    stored-size bound (a fixed guardrail), not a learned constant.
     """
 
     enabled: bool = True
@@ -2953,7 +2885,7 @@ class ReaderCompareConfig(BaseModel):
 
 
 class AsPrintedConfig(BaseModel):
-    """Reader CA1: the problem as printed (ux_reader_compare_ask_v1 §8, K15).
+    """Reader: the problem as printed.
 
     ``enabled`` is the kill switch of *as printed* (a crop of only an imported
     problem's own blocks from the page), *original page* (the whole page,
@@ -2961,7 +2893,7 @@ class AsPrintedConfig(BaseModel):
     component of ``hints_used``), *your photo* for a card written from a
     phone photo, and *the transcription doesn't match the page* (a
     maintenance notice). Off, ``practice.as_printed`` answers disabled, the
-    report refuses and every screen is exactly as before CA1.
+    report refuses and every screen is exactly as without it.
     """
 
     enabled: bool = True
@@ -2970,11 +2902,10 @@ class AsPrintedConfig(BaseModel):
 class PracticeConfig(BaseModel):
     """The practice surfaces' own switches.
 
-    ``as_printed``: Reader CA1's display switches.
+    ``as_printed``: the problem-as-printed display switches.
 
-    ``attempt_keeps_content_state`` is the kill switch of the successor
-    ``ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION`` (mobile PR-4,
-    ``docs/reviews/mobile-pr3-pr4.md`` and its Codex review F4). At that tag
+    ``attempt_keeps_content_state`` is the kill switch of
+    ``ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION``. At that tag
     or later, with it on: a live attempt's write to its item's existing
     ``practice_item_state`` row takes only the scheduling columns and the
     last-attempt time; ``active`` can only close (a diagnostic probe's single
@@ -2986,9 +2917,8 @@ class PracticeConfig(BaseModel):
     the vault it graded against, exactly as the predecessor. Replay never
     reads it (replay rebuilds the whole row and re-closes what was closed).
 
-    ``reschedule_cold_after_assist`` is the kill switch of the successor
-    ``COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION`` (owner decision 2026-10-25,
-    Reader CA2 follow-up Q4; ``docs/reviews/cold-retry-after-assist.md``). At
+    ``reschedule_cold_after_assist`` is the kill switch of
+    ``COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION``. At
     that tag or later, with it on (and ``ask.cold_help_converts`` on, which
     admits the assisted attempt at all): help taken on a due repair
     ``cold_retry`` withdraws that retry in the attempt's own step and
@@ -2999,8 +2929,7 @@ class PracticeConfig(BaseModel):
     reads it (replay schedules nothing).
 
     ``device_eligibility_enabled`` is the kill switch of the phone's device
-    rules (mobile PR-6, ``spec_mobile_tailnet_v1`` §6.4; Codex review F6),
-    which name no algorithm tag: only a request with a phone origin reads it,
+    rules, which name no algorithm tag: only a request with a phone origin reads it,
     and no such request exists below the mobile host. Off: a phone request
     gets what the desktop gets, with no queue exclusion, no ``desktop_only``
     refusal at a by-id door or a probe contract, and no refusal to adopt
@@ -3014,7 +2943,7 @@ class PracticeConfig(BaseModel):
 
 
 class RolesConfig(BaseModel):
-    """Reader workbench RW4e: instructional roles (spec_reader_workbench_v1 §7.9).
+    """Reader workbench: instructional roles.
 
     The Reader's own judges (the library organizer, ``ai.routing.library_organizer``,
     and the cue judge, ``ai.routing.passage_cue_judge``) propose each passage
@@ -3024,11 +2953,11 @@ class RolesConfig(BaseModel):
     confidence, at no extra call; they are stored as ``source_objects``
     proposals (authorship ``ai``, status ``proposed``, one citation each).
     ``on_demand_enabled`` is the kill switch of those writes: off, both judges'
-    requests and outputs are RW4a's and RW3b's exactly and nothing is written.
+    requests and outputs are the predecessors' exactly and nothing is written.
     ``positive_filter_enabled`` is the kill switch of every use: the sources
     service's ``find_sources(roles=...)`` and intent lists matching the
     proposals as well as ingest's ``role_hint`` (low confidence only when
-    nothing better exists), RW3b preferring contrast and counterexample
+    nothing better exists), the cue judge preferring contrast and counterexample
     passages for distinction cues, and library answers grouped by a
     proposed role labelled "model's label"; off, proposals are ignored and
     ingest's roles alone apply. ``batch_max_cost_usd`` caps one run of the
@@ -3046,10 +2975,10 @@ class RolesConfig(BaseModel):
 
 
 class ReadingPathsConfig(BaseModel):
-    """Reader workbench RW7a: reading paths in the Guide (spec_reader_workbench_v1 §10.1).
+    """Reader workbench: reading paths in the Guide.
 
     At the depth the learner picks for a source (get the idea, learn to use
-    it, fluency; DL2's intent on the source preselects it, display-level
+    it, fluency; the plan's intent on the source preselects it, display-level
     only), the Guide's path card labels each section core, prerequisite,
     enrichment, already shown or assumed with a one-line why, read it anyway
     / skip it, one exercise worth trying per core section and a suggested
@@ -3058,15 +2987,16 @@ class ReadingPathsConfig(BaseModel):
     depth, the section list and the linked LOs' statuses; "already shown"
     stands only when every LO the section teaches is demonstrated and
     "assumed" only with an open assumption, enforced in code. ``enabled`` is
-    the kill switch (off: today's Guide, no call, every RPC refused).
+    the kill switch (off: the Guide without paths, no call, every RPC refused).
     ``max_daily_cost_usd`` caps a metered judge route a UTC day (checked
     before the call; Codex is ``estimated_only``). The Guide itself is
     display only: nothing in scoring, projection or evidence reads a path,
-    and below RW7b's tag nothing in scheduling or serving does either
-    (``plan_uses_path`` below is the plan's read, at its own tag).
+    and below ``READING_PATH_PLAN_ALGORITHM_VERSION`` nothing in scheduling
+    or serving does either (``plan_uses_path`` below is the plan's read, at
+    its own tag).
 
-    ``plan_uses_path`` (RW7b, spec §10.2) is the kill switch of the
-    successor ``READING_PATH_PLAN_ALGORITHM_VERSION``: at that tag and later,
+    ``plan_uses_path`` is the kill switch of
+    ``READING_PATH_PLAN_ALGORITHM_VERSION``: at that tag and later,
     with ``enabled`` on too, the plan's reading block opens the next
     unfinished core or prerequisite section of the source's path judged
     for the learner's current state (a "read it anyway" counts as core;
@@ -3085,13 +3015,12 @@ class ReadingPathsConfig(BaseModel):
 
 
 class CurriculumConfig(BaseModel):
-    """Deliverable curriculum C0a: section coverage and ``reader.correspondents``
-    (spec_deliverable_curriculum_v1 §6, §12; ux_reader_compare_ask_v1 §6).
+    """Deliverable curriculum: section coverage and ``reader.correspondents``.
 
     One judged row per (section, learning object): for each LO, its candidate
     sections across every teaching source (provenance, one search per source,
     the learner's own links) are read by one listwise call
-    (``ai.routing.section_coverage_judge``, plan-first under T1), cached by
+    (``ai.routing.section_coverage_judge``, plan-first), cached by
     the LO's statement and the candidates' block hashes. From any section,
     ``reader.correspondents`` lists the other books' sections that treat the
     same LOs (no model call), or, with none judged yet, the live search hits
@@ -3106,32 +3035,32 @@ class CurriculumConfig(BaseModel):
     only: nothing in scoring, scheduling, projection or serving reads
     coverage, so no algorithm successor.
 
-    C0b adds the deliverable: scope from the learner's words resolved to LOs
+    The deliverable: scope from the learner's words resolved to LOs
     (``ai.routing.deliverable_scope_resolver``), the goal's facet scope written
     by ``curriculum.set_scope``, the curated path across every book
     (``ai.routing.deliverable_path_judge``) with the learner's overrides,
     the Guide's slice of it, and "Am I ready?" (Check once commitments the
-    learner presses for, served by DL2's unchanged rule). ``enabled`` off is
-    today's Guide and RW7a exactly. The three routes share
-    ``max_daily_cost_usd``. Display only: no successor.
+    learner presses for, served by the plan's unchanged rule). ``enabled`` off
+    is the Guide and its per-source reading paths exactly. The three routes
+    share ``max_daily_cost_usd``. Display only: no successor.
 
-    C1 (spec §7.6, §8.1) adds ``plan_uses_path``, the kill switch of the
-    successor ``DELIVERABLE_PLAN_ALGORITHM_VERSION``. At that tag or later,
-    with it, ``enabled`` and RW7b's gate on (``reading_paths.enabled`` and
+    ``plan_uses_path``: the kill switch of
+    ``DELIVERABLE_PLAN_ALGORITHM_VERSION``. At that tag or later, with it,
+    ``enabled`` and the reading-path gate on (``reading_paths.enabled`` and
     ``reading_paths.plan_uses_path``: the plan never follows a path the
     learner cannot see): the plan's reading block opens the next unfinished
     core or prerequisite section in the nearest active deliverable's path
     order, in whichever book it is, when that path is fresh; a stale path is
     re-judged quietly once a day (plan only) and is not followed meanwhile.
-    Off, or below the tag: RW7b's plans byte for byte (gate G-C4). Replay
-    never reads it.
+    Off, or below the tag: the per-source reading-path plans byte for byte.
+    Replay never reads it.
 
-    C3 (spec §9, §12) adds the ``syllabus`` source role (scope input only:
+    The ``syllabus`` source role (scope input only:
     never taught from, never practice, never protected) and
     ``exam_units_in_scope``: the scope resolver also reads the ids, never the
     text, of the topics practice-available exam and problem-set units map to
     ("your past papers test these"); held-out units contribute nothing. Off:
-    C0b's resolution byte for byte. Scoping display and proposals only: no
+    the predecessor's resolution byte for byte. Scoping display and proposals only: no
     scoring, scheduling, projection or serving change, so no successor.
     """
 
@@ -3139,25 +3068,24 @@ class CurriculumConfig(BaseModel):
     max_daily_cost_usd: float = Field(default=0.5, ge=0.0)
     cover_max_cost_usd: float = Field(default=5.0, ge=0.0)
     max_prompt_tokens: int = Field(default=24_000, ge=2_000, le=400_000)
-    # C0b (spec §6.3, §12): a completed extraction (a book added or re-read)
+    # A completed extraction (a book added or re-read)
     # queues one background job that judges again the LOs already covered,
     # so the new reading's sections join their coverage (quiet: plan only,
     # never an OpenRouter offer; coalesced per LO, a fresh state pays
     # nothing). Off: coverage changes only when pressed or owner-run.
     coverage_on_extract: bool = True
-    # C1 (spec §7.6): the plan's reading block follows the nearest active
-    # deliverable's fresh path across books (a successor; off: RW7b's plans).
+    # The plan's reading block follows the nearest active deliverable's
+    # fresh path across books (a successor; off: per-source path plans).
     plan_uses_path: bool = True
-    # C3 (spec §9.2): practice-available exam and problem-set units' LO
-    # mappings (ids only) are a scope-resolution input (off: C0b's prompt).
+    # Practice-available exam and problem-set units' LO mappings (ids only)
+    # are a scope-resolution input (off: the predecessor's prompt).
     exam_units_in_scope: bool = True
 
 
 class NotesConfig(BaseModel):
-    """Deliverable curriculum C2: notes in the learner's voice, linked
-    (spec_deliverable_curriculum_v1 §10, §12 C2; C2b: the vault's own notes).
+    """Deliverable curriculum: notes in the learner's voice, linked.
 
-    "Your notes" are the vault's own (C2b): the learner's Reader notes and
+    "Your notes" are the vault's own: the learner's Reader notes and
     highlights with their own words, and their capture-inbox items; nothing
     outside the vault is read, and a note beside protected material is no note.
     For each topic on a deliverable path the notes are searched (the topic's and
@@ -3174,19 +3102,19 @@ class NotesConfig(BaseModel):
     bounded snapshot, refreshed when its text changes); a note is never written to.
     A note is never a source, a generation input or evidence. ``enabled`` is the
     kill switch (off: no search, no model call, every notes RPC refuses and the
-    Reader, the path and Compare are today's exactly). ``max_candidates`` bounds
-    the notes one judgment reads (``keep``: a prompt bound). Display and
+    Reader, the path and Compare show no notes). ``max_candidates`` bounds
+    the notes one judgment reads (a prompt bound). Display and
     learner-voice records only: nothing in scoring, scheduling, projection or
     serving reads a note, so no algorithm successor. A legacy ``[notes.tend]``
-    table (C2's tend adapter, removed in C2b) is ignored.
+    table (a removed adapter) is ignored.
 
-    ``gaps_enabled`` (curriculum C5, spec §10.2, §12 C5; owner Q9: off by
-    default, the learner's opt-in in Settings): a LINKED note (a standing
+    ``gaps_enabled`` (off by default, the learner's opt-in in Settings): a
+    LINKED note (a standing
     proposal or the learner's own link, never a hidden one or an unlinked
     note) is also a learner-text-gaps input (``source_kind = 'learner_note'``,
     the snapshot's current text, keyed to the topics and passages it is linked
     to), tier 2 only: it steers hypotheses and suggestions, never mastery,
-    evidence or grading. Read like any other learner text (C2b: the pipeline's
+    evidence or grading. Read like any other learner text (the pipeline's
     ordinary routes, the Decider and the embedding shortlist), never drafted into
     a new topic. Off (or ``enabled`` off, or ``learner_text_gaps.enabled`` off):
     the gaps code reads no note row.
@@ -3199,37 +3127,35 @@ class NotesConfig(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _drop_legacy_tend(cls, data: Any) -> Any:
-        # C2b removed the tend adapter: an existing config's [notes.tend] is ignored, never an error.
+        # The tend adapter is gone: an existing config's [notes.tend] is ignored, never an error.
         if isinstance(data, dict) and "tend" in data:
             return {key: value for key, value in data.items() if key != "tend"}
         return data
 
 
 class ReaderCorrespondenceConfig(BaseModel):
-    """Reader CA5a: *find this section in my other books*
-    (ux_reader_compare_ask_v1 §6.2, §6.3; CA5's *also in your books* will
-    share the switch).
+    """Reader: *find this section in my other books* and *also in your books*.
 
     A pressed action in the Guide's footer reads ``reader.correspondents``
     for the section in view and, while the section has no judged coverage,
     lists the live search hits grouped by book, each labelled *found by
     search, not checked* (no treatment words): peek, go there, and compare
     through the library compare path. *Not about this* records a coverage
-    correction exactly as C0a's ``curriculum.coverage_correct`` does. The
+    correction exactly as ``curriculum.coverage_correct`` does. The
     action is hidden for a section that has judged coverage. No model call
     and no write besides the correction. ``enabled`` is the kill switch: off
     (or with ``curriculum.enabled`` off, which gates the data), the Reader's
     prompt contract carries no ``correspondence`` key and the Guide is
-    exactly as before CA5a. Navigation and display only: no successor.
+    exactly as without it. Navigation and display only: no successor.
 
-    Reader CA5 (*also in your books*, §6.2–§6.3) shares the switch: one dim
+    *Also in your books* shares the switch: one dim
     line under the Guide's section progress naming the other books' sections
     whose judged coverage shares this section's LOs, expanded into a list by
     LO (peek, go there, compare, *not about this*, *also about…*). It never
     shows unchecked search hits. ``hide_everywhere`` and ``hidden_sources``
     are the learner's own off switch on the line (*hide everywhere* / *hide
     for this book*, by source id); Settings brings it back. They hide that
-    line only, never the data or CA5a's pressed action.
+    line only, never the data or the pressed find action.
     """
 
     enabled: bool = True
@@ -3238,7 +3164,7 @@ class ReaderCorrespondenceConfig(BaseModel):
 
 
 class ReaderSideBySideConfig(BaseModel):
-    """Reader CA6: *side by side* (ux_reader_compare_ask_v1 §6.4, X9, K14, C5).
+    """Reader: *side by side*.
 
     Two books in two panes: entered from ``s`` on a section in the find-section
     list, ``Ctrl+\\`` from reading (the first correspondent in
@@ -3246,24 +3172,24 @@ class ReaderSideBySideConfig(BaseModel):
     second pane reads one section of the other book at a time
     (``reader.side_by_side_section``: protection read now, exam and held-out
     sections refused, one ``source_exposure`` row per block shown). *Follow
-    along* (on by default, §15 Q14) moves the following pane to its first
+    along* (on by default) moves the following pane to its first
     judged correspondent once, only when the leading pane (the one the learner
     last scrolled, clicked or selected in) crosses into a new section. No model
     call; the only writes are the exposure rows and salience-only
     ``reader_action_invoked`` events. ``enabled`` is the kill switch: off (or
     with ``curriculum.enabled`` off, which gates the data), the Reader's prompt
     contract carries no ``side_by_side`` key and the Reader is exactly as
-    before CA6. Navigation and display only: no successor.
+    without it. Navigation and display only: no successor.
     """
 
     enabled: bool = True
 
 
 class ReaderConfig(BaseModel):
-    """The Reader's presentation switches (ux_reader_compare_ask_v1 §13).
+    """The Reader's presentation switches.
 
-    ``correspondence``: CA5a's and CA5's switch, and CA5's hide preferences.
-    ``side_by_side``: CA6's switch.
+    ``correspondence``: the find-section and *also in your books* switch,
+    and the line's hide preferences. ``side_by_side``: the two-pane switch.
     """
 
     correspondence: ReaderCorrespondenceConfig = Field(default_factory=ReaderCorrespondenceConfig)
@@ -3271,7 +3197,7 @@ class ReaderConfig(BaseModel):
 
 
 class LearnerTextGapsConfig(BaseModel):
-    """Learner-text gaps (implementation_handoffs §4, owner-directed 2026-10-12).
+    """Learner-text gaps.
 
     One pipeline turns a learner's own text (a tutor question, a non-empty
     stuck answer, a diagnosis) into a named gap and acts on it. Live behind
@@ -3279,7 +3205,7 @@ class LearnerTextGapsConfig(BaseModel):
     algorithm successor (``mvp-0.16``), with ``sooner_check_enabled`` as its
     switch: the sooner check, and a matched gap's target read as a weak
     prerequisite signal by the field loader (placement's fast-track rule
-    reads it). Nothing here writes evidence, mastery or certification (G13).
+    reads it). Nothing here writes evidence, mastery or certification.
 
     ``chooser`` decides whose kind is authoritative: ``context_model`` (the
     tutor, the diagnoser or the stuck-text reader: the model with the whole
@@ -3289,14 +3215,14 @@ class LearnerTextGapsConfig(BaseModel):
     """
 
     # The pipeline's kill switch: off, no learner text is read or acted on, and
-    # the field loader ignores gap targets (the F11 grounded rule applies).
+    # the field loader ignores gap targets (the grounded rule applies).
     enabled: bool = True
     chooser: Literal["context_model", "decider"] = "context_model"
     # The Decider's second opinion on the kind and on every judged pair (at
     # mvp-0.22 its deciding verdict). Off, no learner text reaches the Decider
     # at any version: the Tier-1 text-gap switches then act as off.
     decider_enabled: bool = True
-    # Vault-wide LO and registry shortlist breadth (stored vectors; R4).
+    # Vault-wide LO and registry shortlist breadth (stored vectors).
     top_k: int = Field(default=4, ge=1, le=20)
     # Candidate pairs judged per learner text (each by both judges).
     judge_max_pairs: int = Field(default=8, ge=1, le=20)
@@ -3312,10 +3238,10 @@ class LearnerTextGapsConfig(BaseModel):
     seed_check_delay_days: int = Field(default=1, ge=0, le=60)
     # A stated belief is a holding-pen sighting (or a new candidate).
     sightings_enabled: bool = True
-    # mvp-0.16's kill switch: a matched prerequisite gap brings an assumed or
-    # maintenance LO's next check forward to no sooner than this delay, and
-    # its target is a weak prerequisite signal (placement's fast-track rule).
-    # Off: mvp-0.15's serving exactly.
+    # Kill switch of the mvp-0.16 successor: a matched prerequisite gap brings
+    # an assumed or maintenance LO's next check forward to no sooner than this
+    # delay, and its target is a weak prerequisite signal (placement's
+    # fast-track rule). Off: the predecessor's serving exactly.
     sooner_check_enabled: bool = True
     sooner_check_delay_hours: int = Field(default=24, ge=1, le=24 * 60)
     # Per learner text: paid requests (all routes) and metered dollars.
@@ -3333,17 +3259,17 @@ class LearnerTextGapsConfig(BaseModel):
 
 
 class EvsiConfig(BaseModel):
-    """EVSI calibration (docs/reviews/evsi-calibration.md).
+    """EVSI calibration.
 
     ``forecast_logging`` records the forecast every live value-of-information
     decision runs on in ``voi_forecasts`` (probe selection, the robust probe
     stop, follow-up selection, every ``rank_feasible`` caller): logging only,
     no serving change; false is its kill switch.
 
-    ``measured_loss_enabled`` (Part C) adds the measured minutes an
-    unresolved misconception costs later (``scheduling.unresolved_cost``) to
-    the EVSI loss table. It changes what EVSI values, so it is off until the
-    owner turns it on; today only the causal shadow selector's EVSI reads it.
+    ``measured_loss_enabled`` adds the measured minutes an unresolved
+    misconception costs later (``scheduling.unresolved_cost``) to the EVSI
+    loss table. It changes what EVSI values, so it is off by default; only
+    the causal shadow selector's EVSI reads it.
     ``unresolved_cost_prior_pseudo_count`` is how many of the learner's own
     recurrence classes the Eedi population prior is worth in the shrinkage.
     """
@@ -3361,10 +3287,9 @@ class ProofCheckConfig(BaseModel):
     only by quoting the failing step; a mark-down on a divergent route that
     quotes nothing is unassessed, and a grade with nothing assessed and
     nothing validated is held for review). Dormant below ``mvp-0.20``. Off, new
-    answers grade as ``mvp-0.19`` now does: mvp-0.17's separate route check
-    was removed from serving (owner decision 2026-10-13), which is the state
-    its own switch defined, so an ``mvp-0.17``, ``mvp-0.18`` or ``mvp-0.19``
-    vault grades as ``mvp-0.16`` did whatever this says. Grades already recorded keep their meaning (the blind
+    answers grade without the own-route rules; there is no separate route
+    check, so an ``mvp-0.17``, ``mvp-0.18`` or ``mvp-0.19`` vault grades as
+    ``mvp-0.16`` did whatever this says. Grades already recorded keep their meaning (the blind
     record and the evidence rows carry the outcome; replay never reads this
     switch).
     """
@@ -3373,7 +3298,7 @@ class ProofCheckConfig(BaseModel):
 
 
 class RequiredMethodConfig(BaseModel):
-    """Method-explicit items (owner rule 2026-10-13): the grading side.
+    """Method-explicit items: the grading side.
 
     ``enabled`` is the kill switch of the method-explicit successor
     (``mvp-0.25``): the own-route rules grade a criterion tied to an item's
@@ -3382,7 +3307,7 @@ class RequiredMethodConfig(BaseModel):
     (``own-route-v2``), so another route fails it without a quoted wrong
     step. Dormant below the successor and whenever the own-route rules
     themselves are off (``proof_check.enabled``). Off, new answers grade
-    exactly as ``mvp-0.24``. Grades already recorded keep their meaning (the
+    exactly as the predecessor. Grades already recorded keep their meaning (the
     blind record carries the rules and the method criteria; replay never reads
     this switch). The generation side (criteria phrased by fact) and the
     ``criterion:method_phrased`` doctor check are content paths, not gated
@@ -3393,7 +3318,7 @@ class RequiredMethodConfig(BaseModel):
 
 
 class ProjectConfig(BaseModel):
-    """Project understanding M1 (spec_project_understanding_v1): delayed probes.
+    """Project understanding: delayed probes.
 
     Enrollment (`learnloop project enroll`) is the opt-in; nothing here sends
     code anywhere until a repo is enrolled. ``auto_sweep`` is the kill switch
@@ -3403,14 +3328,15 @@ class ProjectConfig(BaseModel):
     """
 
     auto_sweep: bool = True
-    # Probes stay sealed (never rendered) until captured_at + this many days (D4).
+    # Probes stay sealed (never rendered) until captured_at + this many days.
     probe_delay_days: int = Field(default=7, ge=0, le=365)
     probes_per_diff: int = Field(default=2, ge=1, le=6)
     candidates_per_diff: int = Field(default=6, ge=1, le=12)
-    # M1b (spec §5.1): diffs under this many changed lines are excluded from
-    # gate randomization. M1 probes every diff with probe-able content.
+    # Diffs under this many changed lines are excluded from gate
+    # randomization, never from probing: every diff with probe-able content
+    # is probed.
     min_diff_lines: int = Field(default=5, ge=0)
-    # Lines of head-side context sent around each hunk (D7).
+    # Lines of head-side context sent around each hunk.
     context_lines: int = Field(default=40, ge=0, le=400)
     # Upper bound on the estimated tokens of one diff's bundle sent to a model.
     context_token_budget: int = Field(default=12_000, ge=500)
@@ -3419,7 +3345,7 @@ class ProjectConfig(BaseModel):
     # Plan-build sweeps run at most this often (app start always sweeps).
     plan_sweep_min_interval_minutes: int = Field(default=15, ge=0)
     generate_before_serving: bool = True
-    # Spec §5.2: probe grading (the closed-book judgment and answer grades) is
+    # Probe grading (the closed-book judgment and answer grades) is
     # one high-effort pass. Applied to the grading route's profile when that
     # profile takes a reasoning effort; "" keeps the route's own effort.
     grading_reasoning_effort: Literal["", "minimal", "low", "medium", "high", "xhigh"] = "high"
@@ -3440,7 +3366,7 @@ class FamiliesConfig(BaseModel):
 
 
 class PFScalingConfig(BaseModel):
-    """The scaling check's two configured tiers (Slice 2 §5.6), as route lists.
+    """The scaling check's two configured tiers, as route lists.
 
     A tier's first profile serves the single-route roles (program writer,
     single-shot, isomorph and selection judges); all of its profiles propose on
@@ -3452,7 +3378,7 @@ class PFScalingConfig(BaseModel):
 
 
 class PFConfig(BaseModel):
-    """PF-b: generate, verify, select and publish (Slice 2 §5.3-§5.4).
+    """Practice families: generate, verify, select and publish.
 
     ``generation_enabled`` is the kill switch for every paid PF command and for
     publication; it is off in the template. Publishing verified items is a
@@ -3464,7 +3390,7 @@ class PFConfig(BaseModel):
     default_path: Literal["ensemble", "generator"] = "ensemble"
     candidates_per_family: int = Field(default=6, ge=1, le=60)
     select_per_family: int = Field(default=2, ge=1)
-    # P10 defaults: about three solves per panel model, at least two agreeing.
+    # About three solves per panel model, at least two agreeing.
     panel_solves_per_model: int = Field(default=3, ge=1, le=10)
     min_agreeing_solves: int = Field(default=2, ge=2)
     # Generator-program unit tests: draws checked for CAS and invariance.
@@ -3478,28 +3404,26 @@ class PFConfig(BaseModel):
 
 
 class LocalEmbeddingConfig(BaseModel):
-    """Local contextual retrieval P1a (spec_local_contextual_retrieval_v1 §4).
+    """Local contextual retrieval: the local pplx v2 9B document space.
 
-    The local pplx v2 9B document space. ``enabled = false`` (the default) is
-    the kill switch: nothing is queued, launched or read, and retrieval is
-    exactly today's. It stays off until the owner runs ``learnloop embeddings
+    ``enabled = false`` (the default) is the kill switch: nothing is queued,
+    launched or read, and retrieval is exactly as without it. It stays off until the owner runs ``learnloop embeddings
     local setup`` (the separate environment and the pinned model files under
     ``~/.local/share/learnloop``). ``index_on_extract`` queues a
     ``local_source_index`` job after each extraction (only while enabled);
-    ``index_batch_minutes`` (keep: an operational default the owner can tune,
-    §9.6) lets a burst of re-extractions load the 9B once.
+    ``index_batch_minutes`` (an operational default the owner can tune) lets
+    a burst of re-extractions load the 9B once.
     """
 
     enabled: bool = False
     index_on_extract: bool = True
     index_batch_minutes: float = Field(default=15.0, ge=0)
-    # P2 (spec §7.1, §9.3; docs/reviews/retrieval-local-p2-query-student.md). ``student`` is the
-    # query student's kill switch: it acts only once a checkpoint was adopted by the expected-
-    # utility rule (`learnloop embeddings local student evaluate`), and false keeps the local
-    # space without a query encoder (P1's behaviour). ``teacher_replay`` queues the queries the
+    # ``student`` is the query student's kill switch: it acts only once a checkpoint was adopted
+    # by the expected-utility rule (`learnloop embeddings local student evaluate`), and false
+    # keeps the local space without a query encoder. ``teacher_replay`` queues the queries the
     # student answers for the nightly teacher replay (learner text, kept in the vault's
-    # .learnloop/). ``student_idle_minutes`` (keep, §9.6) is when the query process exits;
-    # ``student_generator_max_cost_usd`` (keep: the owner's spending authority, Q8) caps one
+    # .learnloop/). ``student_idle_minutes`` is when the query process exits;
+    # ``student_generator_max_cost_usd`` (the owner's spending authority) caps one
     # generation run on a metered route (the plan's quota costs $0).
     student: bool = True
     teacher_replay: bool = True
@@ -3508,15 +3432,15 @@ class LocalEmbeddingConfig(BaseModel):
 
 
 class FallbackEmbeddingConfig(BaseModel):
-    """Local contextual retrieval P1b (spec §8): the hosted Voyage fallback space.
+    """Local contextual retrieval: the hosted Voyage fallback space.
 
     ``enabled = false`` (the default) is the kill switch: nothing is queued or
     sent. With it on (and ``embedding.enabled``), ``provider`` names the
     ``voyage_contextual_embedding`` profile, each extraction queues a capped
     backfill when ``maintain_index`` is on, and the resolver queries the space
     only for extractions no higher-weighted space covers. One backfill run is
-    capped at ``max_cost_usd_per_run`` (keep: spending authority is the
-    owner's, §9.6), admitted at ``price_per_million`` (Voyage's published
+    capped at ``max_cost_usd_per_run`` (spending authority is the owner's),
+    admitted at ``price_per_million`` (Voyage's published
     $0.12/M; the free tier is never assumed).
     """
 
@@ -3528,11 +3452,10 @@ class FallbackEmbeddingConfig(BaseModel):
 
 
 class SourceSpaceConfig(BaseModel):
-    """The source-space resolver and its fusion (spec §5, §9.2).
+    """The source-space resolver and its fusion.
 
-    ``default`` is the seed: the fusion's prior mean puts full weight on it
-    (Qwen until P3's owner-confirmed seed decision). ``learned_fusion = false``
-    (the default; orchestrator scoping 2026-10-24) serves the seed weights and
+    ``default`` is the seed: the fusion's prior mean puts full weight on it.
+    ``learned_fusion = false`` (the default) serves the seed weights and
     only LOGS what the learned rule would do; ``exploration = false`` (its own
     switch) never reorders anything, and when on it may reorder only spans the
     posterior cannot order (a gap smaller than its own posterior spread).
@@ -3550,13 +3473,12 @@ class EmbeddingConfig(BaseModel):
     backfill_enabled: bool = False
     model: str = Field(default="qwen/qwen3-embedding-8b", min_length=1)
     dimensions: int = Field(default=4096, gt=0)
-    # Slice 2 T7 kill switch (display only). The knowledge map ranks an item's
+    # Kill switch (display only). The knowledge map ranks an item's
     # neighbours by its stored stem vector when one is current; false keeps
     # the facet/concept-graph neighbours. Reads stored vectors only, so it
     # makes no calls and is independent of `enabled`.
     map_neighbors_enabled: bool = True
-    # Tutor delivery fixes (owner, 2026-10-13): a completed extraction (an
-    # import, a re-extraction, a page repair) queues the source_block/text
+    # A completed extraction (an import, a re-extraction, a page repair) queues the source_block/text
     # backfill of its source's current extraction, so dense retrieval keeps
     # covering it. Acts only when `enabled` and `backfill_enabled` are both on
     # (with either off nothing is queued or sent); false is the kill switch
@@ -3565,9 +3487,9 @@ class EmbeddingConfig(BaseModel):
     # 4,000-block book cost about $0.01 at the default model's price).
     backfill_sources_on_extract: bool = True
     source_backfill_max_cost_usd: float = Field(default=1.0, ge=0)
-    # Local contextual retrieval P1a/P1b (spec_local_contextual_retrieval_v1):
-    # the local 9B space, the Voyage fallback and the space resolver. All off
-    # or at the seed by default: retrieval is exactly today's.
+    # Local contextual retrieval: the local 9B space, the Voyage fallback and
+    # the space resolver. All off or at the seed by default: retrieval is
+    # exactly as without them.
     local: LocalEmbeddingConfig = Field(default_factory=LocalEmbeddingConfig)
     fallback: FallbackEmbeddingConfig = Field(default_factory=FallbackEmbeddingConfig)
     source_space: SourceSpaceConfig = Field(default_factory=SourceSpaceConfig)
@@ -3586,7 +3508,7 @@ class EmbeddingConfig(BaseModel):
 
 
 class GraphNominationConfig(BaseModel):
-    """Slice 2 T5: embedding nominations for ingest and graph review.
+    """Embedding nominations for ingest and graph review.
 
     Nominations only, never identity: the append-reconciliation or
     graph-structuring model, or the owner, decides every merge. Acts only when
@@ -3599,7 +3521,7 @@ class GraphNominationConfig(BaseModel):
 
     enabled: bool = True
     # Nearest registry neighbours nominated per new claim, concept or facet.
-    # A rank limit, not a cosine cutoff (R4: cutoffs come from a report).
+    # A rank limit, not a cosine cutoff (cutoffs come from a report).
     top_k: int = Field(default=5, ge=1, le=50)
     embed_new_text: bool = True
     max_query_texts: int = Field(default=256, ge=0)
@@ -3609,7 +3531,7 @@ class GraphNominationConfig(BaseModel):
 
 
 class FacetIdentityConfig(BaseModel):
-    """Facet identity at mint time, and the dedupe command (handoff §4).
+    """Facet identity at mint time, and the dedupe command.
 
     At ingest, a cheap judge sees each concept neighbourhood of candidate
     facets whole and partitions it into same-skill sets (``merge``,
@@ -3617,30 +3539,29 @@ class FacetIdentityConfig(BaseModel):
     facets go to the same judge. ``learnloop facets dedupe`` does the same for
     an existing vault. Merges and absorbs apply live, each with an undo.
     Embeddings only bound and shortlist neighbourhoods; the judge decides.
-    ``enabled = false`` is the kill switch: today's lexical gate only, the
-    pre-change synthesis prompts, no judge and no shortlist embedding.
-    ``reword_confirm = false`` is the kill switch of the owner's one-tap
-    reword confirm (2026-10-13; ``content.facet_identity.authority``).
+    ``enabled = false`` is the kill switch: the lexical gate only, the
+    predecessor's synthesis prompts, no judge and no shortlist embedding.
+    ``reword_confirm = false`` is the kill switch of the one-tap reword
+    confirm (``content.facet_identity.authority``).
     """
 
     enabled: bool = True
     # Facets one judge call partitions; a larger neighbourhood is split.
     max_group_size: int = Field(default=40, ge=2, le=120)
     # Embedding shortlist rank within a run (the study: every duplicate was
-    # within rank 4) and registry nominations per candidate (T5, top-4).
+    # within rank 4) and registry nominations per candidate.
     shortlist_top_k: int = Field(default=4, ge=1, le=20)
     attach_top_k: int = Field(default=4, ge=1, le=20)
-    # Retired compatibility key: nothing reads it. Facet identity locks were
-    # removed (owner, 2026-10-12), so every merge and absorb applies live with
-    # its undo; ``learnloop doctor`` warns when a vault sets it. (A merge still
-    # never adds a precondition to a registered facet, and a retiree that a
+    # Retired compatibility key: nothing reads it. There are no facet identity
+    # locks, so every merge and absorb applies live with its undo; ``learnloop
+    # doctor`` warns when a vault sets it. (A merge still never adds a precondition to a registered facet, and a retiree that a
     # graded criterion names with its survivor is still held back.) Kept so
     # the recorded effective-defaults snapshots do not move.
     merge_locked_facets: bool = True
     # A model-proposed change to a registered facet's meaning with no textbook,
     # lecture, paper, reference or alternate-explanation span behind it (not
     # exam-only) waits for the owner's one-tap confirm, and a title or
-    # worked-example change needs no explanatory citation (owner, 2026-10-13).
+    # worked-example change needs no explanatory citation.
     # false is the kill switch: the predecessor rule, under which such a change
     # is refused (the producers drop it) and titles and worked examples need
     # explanatory support like the rest of the meaning. Exam-only support is
@@ -3661,7 +3582,7 @@ class FacetIdentityConfig(BaseModel):
 
 
 class FieldConfig(BaseModel):
-    """Offline F1 analysis only; activation requires a later algorithm successor."""
+    """Offline learner-field analysis only; activation requires a later algorithm successor."""
 
     enabled: bool = False
     active_predictor: Literal["mastery_ekf"] = "mastery_ekf"
@@ -3671,7 +3592,7 @@ class FieldConfig(BaseModel):
 
 
 class PracticeIndexConfig(BaseModel):
-    """The practice index: facet dossiers and ``find_practice`` (Slice 2 §5.9).
+    """The practice index: facet dossiers and ``find_practice``.
 
     ``find_practice`` proposes items and never serves them, so nothing here is an
     algorithm successor. Dossier generation and the retrieval evaluation are
@@ -3711,7 +3632,7 @@ class PracticeIndexConfig(BaseModel):
 
 
 class SourceRetrievalConfig(BaseModel):
-    """Slice 2 T6: source retrieval (spec_embedding_consumers_v1 §9).
+    """Source retrieval.
 
     Four consumers: the library search, the tutor's source spans, the Quick Add
     scope and a nearest-LO suggestion for spans without provenance. Keyword
@@ -3740,22 +3661,21 @@ class SourceRetrievalConfig(BaseModel):
     tutor_rerank: bool = True
     # Seconds. A deep library search's time box: its rewrite and query
     # embedding carry the time left as their timeout, and it keeps what it has
-    # when the time runs out. For a tutor question it is a soft deadline only
-    # (owner, 2026-10-12): every step is timed on the question's receipt and a
+    # when the time runs out. For a tutor question it is a soft deadline
+    # only: every step is timed on the question's receipt and a
     # step over it is flagged, never cancelled, unless tutor_deadline_cancels.
     retrieval_timeout_seconds: float = Field(default=15.0, gt=0, le=120)
     # true restores the tutor's time box (cancel at retrieval_timeout_seconds
     # and keep the linked spans).
     tutor_deadline_cancels: bool = False
-    # How retrieval's ranked lists become one candidate pool (owner,
-    # 2026-10-12): "dense_plus_bm25" is the dense top-k plus the BM25 top
+    # How retrieval's ranked lists become one candidate pool:
+    # "dense_plus_bm25" is the dense top-k plus the BM25 top
     # pool_keyword_extras that dense did not return, ranked dense first for
     # display (verification picks from all of it on the tutor's path);
-    # "hybrid_rrf" fuses every list by reciprocal rank (T6 as merged). Without
-    # a complete dense index for the scope, dense_plus_bm25 falls back to
-    # hybrid_rrf. Default from the T6 follow-up evaluation (Haiku 5.5 labels,
-    # two library copies): it beat hybrid_rrf on the verified tutor path and
-    # on the library's display ranking (docs/reviews/t6-followup.md).
+    # "hybrid_rrf" fuses every list by reciprocal rank. Without a complete
+    # dense index for the scope, dense_plus_bm25 falls back to hybrid_rrf.
+    # The default beat hybrid_rrf in an evaluation on both the verified tutor
+    # path and the library's display ranking.
     pool: Literal["dense_plus_bm25", "hybrid_rrf"] = "dense_plus_bm25"
     pool_keyword_extras: int = Field(default=4, ge=0, le=20)
     # A labelled nearest-LO suggestion for reader spans without provenance.
@@ -3773,57 +3693,54 @@ class SourceRetrievalConfig(BaseModel):
     # Reciprocal-rank-fusion constant (Cormack et al. 2009); ranks, not scores.
     rrf_k: int = Field(default=60, ge=1)
     # Candidates the tutor's verification rerank judges, and spans it keeps
-    # (at most 4: the ING M8 §9.2 bound on source spans offered to one turn).
+    # (at most 4: the bound on source spans offered to one turn).
     tutor_candidate_pool: int = Field(default=12, ge=1, le=40)
     tutor_spans: int = Field(default=4, ge=1, le=4)
-    # Tutor delivery fixes (owner, 2026-10-13): one candidate passage as the
-    # relevance judges read it (the tutor's verification, the remediate and
-    # find_sources checks, the T6 report's labeller), in tokens (characters /
-    # 4). A passage is its complete block, whitespace collapsed, and is
-    # trimmed (marked "…" and counted) only past this; it was cut at 900
-    # characters before. Generous by default.
+    # One candidate passage as the relevance judges read it (the tutor's
+    # verification, the remediate and find_sources checks, the retrieval
+    # report's labeller), in tokens (characters / 4). A passage is its
+    # complete block, whitespace collapsed, and is trimmed (marked "…" and
+    # counted) only past this. Generous by default.
     passage_token_budget: int = Field(default=4_000, ge=250, le=100_000)
-    # Kill switch for complete judge passages (tutor delivery fixes item 2;
-    # Codex review F5): false restores the 900-character passages the judges
-    # read before (the tutor's verification, the find_sources checks and the
-    # T6 labeller, whose report is then t6-eval-v2 again).
+    # Kill switch for complete judge passages: false restores 900-character
+    # passages for the judges (the tutor's verification, the find_sources
+    # checks and the retrieval labeller, whose report is then t6-eval-v2).
     complete_passages: bool = True
 
 
 class SourceServiceConfig(BaseModel):
-    """Canonical sources as a shared instructional service
-    (``spec_source_practice_and_probes_v1.md`` §13).
+    """Canonical sources as a shared instructional service.
 
-    One master switch and one kill switch per phase. Tools propose and serving
-    paths serve (SC1). Every key here is a kill switch, a time or prompt-size
-    bound, or a money cap; none decides learning (SC6). ``enabled = false``
-    turns every phase off at once. No key turns off the certification gate for
-    unverified imported answer keys (C3, §7.3a): it is versioned by the
+    One master switch and one kill switch per capability. Tools propose and
+    serving paths serve. Every key here is a kill switch, a time or
+    prompt-size bound, or a money cap; none decides learning. ``enabled =
+    false`` turns everything off at once. No key turns off the certification
+    gate for unverified imported answer keys: it is versioned by the
     algorithm tag, not switched.
     """
 
     enabled: bool = True
-    # S0: a practice request on every tutor answer (practice, feedback, library
+    # A practice request on every tutor answer (practice, feedback, library
     # and reader contexts).
     tutor_offers: bool = True
-    # S1: textbook exercises as practice candidates, their verifier ladder,
+    # Textbook exercises as practice candidates, their verifier ladder,
     # whether an import whose key does not verify is still written (labelled),
     # and attachment to an existing practice family.
     exercise_arm: bool = True
     exercise_verification: bool = True
     unverified_imports: bool = True
     family_attachment: bool = True
-    # S2a: the value intents (discriminate, retention, remediate); off, only
-    # ``practice`` is accepted. S2b: source-first fulfilment of intervention
+    # The value intents (discriminate, retention, remediate); off, only
+    # ``practice`` is accepted. Then source-first fulfilment of intervention
     # needs (a successor; vaults below its tag never run it).
     discriminating_search: bool = True
     source_first_needs: bool = True
-    # S3: the tutor's intent-aware grounding, ranked remediation passages and
+    # The tutor's intent-aware grounding, ranked remediation passages and
     # compare_sources.
     tutor_intents: bool = True
     remediation_passages: bool = True
     compare: bool = True
-    # S4: the tutor's typed tool requests. S5: the intervention records.
+    # The tutor's typed tool requests, and the intervention records.
     tutor_tools: bool = True
     interventions: bool = True
     # Time bound (seconds) on the interactive import's verifier ladder; past it
@@ -3833,11 +3750,11 @@ class SourceServiceConfig(BaseModel):
     # uncompared, never dropped).
     compare_max_prompt_tokens: int = Field(default=24_000, ge=1_000, le=400_000)
     # Money caps (USD, metered routes; Codex and the ChatGPT plan are
-    # estimated_only, never counted). Owner (2026-10-13): the per-operation
-    # caps are off by default (None: no cap; set one to bound an import or a
-    # comparison) and the daily guard is 5.00, with headroom: spend is observed
-    # in real use (`learnloop sources report`) and caps set later from it; the
-    # provider key's own limit is the hard backstop.
+    # estimated_only, never counted). The per-operation caps are off by
+    # default (None: no cap; set one to bound an import or a comparison) and
+    # the daily guard is 5.00, with headroom: spend is observed in real use
+    # (`learnloop sources report`) and caps are set from it; the provider
+    # key's own limit is the hard backstop.
     import_max_cost_usd: float | None = Field(default=None, ge=0)
     compare_max_cost_usd: float | None = Field(default=None, ge=0)
     max_daily_cost_usd: float = Field(default=5.00, ge=0)
@@ -3849,7 +3766,7 @@ class SourceServiceConfig(BaseModel):
 
 
 class PlacementConfig(BaseModel):
-    """Learner field F2: starting new material without ceremony (spec §5.2).
+    """Learner field: starting new material without ceremony.
 
     Acts only on a vault at a placement algorithm version (``mvp-0.11`` or later, ``PLACEMENT_VERSIONS``).
     ``enabled`` is the kill switch: off restores the predecessor's opening
@@ -3857,97 +3774,94 @@ class PlacementConfig(BaseModel):
     """
 
     enabled: bool = True
-    # D11: no opening diagnostic episode per new LO. True restores them while
+    # No opening diagnostic episode per new LO. True restores them while
     # keeping assumed-known (a narrower switch than ``enabled``).
     initial_probes: bool = False
-    # Kill switch for mvp-0.56 (UNEVIDENCED_RETURN_VERSIONS): an answered item
+    # Kill switch of UNEVIDENCED_RETURN_VERSIONS (mvp-0.56): an answered item
     # with no due time, on an LO with no evidence, starts as learning instead of
-    # never coming back. Off (or below the tag) serves mvp-0.55 exactly.
+    # never coming back. Off (or below the tag) serves the predecessor exactly.
     unevidenced_return: bool = True
-    # D6: the assumed LO's first review is the check.
+    # The assumed LO's first review is the check.
     assumed_first_interval_days: int = Field(default=14, ge=1)
-    # D6: at least this many cold, unhinted, unhelped, full-marks first answers.
+    # At least this many cold, unhinted, unhelped, full-marks first answers.
     fast_track_min_correct: int = Field(default=2, ge=2)
-    # D6: P(theta_L > theta_known) >= q, theta_known = logit(known_probability).
+    # P(theta_L > theta_known) >= q, theta_known = logit(known_probability).
     fast_track_q: float = Field(default=0.8, gt=0.5, lt=1.0)
     known_probability: float = Field(default=0.75, gt=0.5, lt=1.0)
-    # D4: the optional quick check ("Check what I already know").
+    # The optional quick check ("Check what I already know").
     quick_check_k: int = Field(default=4, ge=1, le=4)
     quick_check_budget_minutes: int = Field(default=8, ge=1, le=8)
 
 
 class PlanConfig(BaseModel):
-    """Daily-loop DL1: the finite daily plan (``spec_daily_loop_v1.md`` §6, §10).
+    """Daily loop: the finite daily plan.
 
     Acts only on a vault at a daily-plan algorithm version (``mvp-0.14`` or a
     later successor, ``DAILY_PLAN_VERSIONS``).
-    ``enabled`` is the kill switch: off restores mvp-0.13's Today (the open queue
-    with the re-entry cap) exactly. ``new_admission_enabled`` and
+    ``enabled`` is the kill switch: off restores the predecessor's Today (the
+    open queue with the re-entry cap) exactly. ``new_admission_enabled`` and
     ``reading_blocks`` are narrower sub-switches; ``reading_from_furthest``
     (a live change wherever the plan acts, no successor tag) off restores
-    DL1's reading-block selection; ``deterministic_staged_plans`` (a live
-    change wherever the router composes Today, no successor tag) off restores
-    the staged plan's pool as ``mvp-0.23`` landed (session-seeded draws);
+    the first-unfinished-section reading block; ``deterministic_staged_plans``
+    (a live change wherever the router composes Today, no successor tag) off
+    restores the staged plan's session-seeded pool draws;
     ``headline`` only hides the optional Today headline (display).
     """
 
     enabled: bool = True
-    # §6.3: load-based new-material admission. Off admits no system-chosen new
+    # Load-based new-material admission. Off admits no system-chosen new
     # material at all (learner requests and scheduled checks still serve).
     new_admission_enabled: bool = True
-    # §6.10: at most one reading block a day from an as_you_read source.
+    # At most one reading block a day from an as_you_read source.
     reading_blocks: bool = True
-    # UX Phase 1 usability round 1 (U4): the reading block continues from the
-    # furthest section the learner read into and is never front or back matter
-    # while a chapter is left. A live change behind this kill switch at every
-    # daily-plan version, not a successor tag (owner ruling at the UX merge,
-    # docs/reviews/ux-phase1.md: the selection is a serving choice replay never
-    # reads). Off, the reading block is DL1's exactly, the first unfinished
-    # section in book order.
+    # The reading block continues from the furthest section the learner read
+    # into and is never front or back matter while a chapter is left. A live
+    # change behind this kill switch at every daily-plan version, not a
+    # successor tag: the selection is a serving choice replay never reads.
+    # Off, the reading block is the first unfinished section in book order.
     reading_from_furthest: bool = True
-    # Plan determinism (owner rule 2026-10-13: staged plans are deterministic;
-    # exploration only from the router mixture's logged floor). Where the
+    # Plan determinism: staged plans are deterministic; exploration comes only
+    # from the router mixture's logged floor. Where the
     # router composes Today (mvp-0.23 or later with router.enabled), the plan's
     # pool is the scheduler's greedy order, and a contrast pair's member order
     # is the pair's own draw (seeded on the pair, not the session), so the same
     # vault state plans the same blocks in every session. A live change behind
-    # this kill switch, not a successor tag (owner's standing ruling: serving
-    # changes replay never reads). At mvp-0.24 the same pool gives the model
-    # mixture its candidates (the staged pick and the support); the mixture
-    # keeps its own seeded draw, floor and logged propensities. Off, the
-    # staged plan's pool is as mvp-0.23 and mvp-0.24 landed: the scheduler's
-    # seeded exploration and the per-session pair order. DL1's own plan
-    # (router off, or below mvp-0.23) is unaffected.
+    # this kill switch, not a successor tag (a serving change replay never
+    # reads). From mvp-0.24 the same pool gives the model mixture its
+    # candidates (the staged pick and the support); the mixture keeps its own
+    # seeded draw, floor and logged propensities. Off, the staged plan's pool
+    # uses the scheduler's seeded exploration and the per-session pair order.
+    # The plan without the router (router off, or below mvp-0.23) is
+    # unaffected.
     deterministic_staged_plans: bool = True
-    # D1: minutes on a fresh vault; afterwards the remembered budget.
+    # Minutes on a fresh vault; afterwards the remembered budget.
     default_minutes: int = Field(default=25, ge=1, le=600)
     minutes_presets: list[int] = Field(default_factory=lambda: [10, 15, 25, 40, 60])
-    # D2: split caps (§6.2). repair + maintain < 1 leaves room for new and push.
+    # Split caps. repair + maintain < 1 leaves room for new and push.
     repair_max_share: float = Field(default=0.30, ge=0.0, le=1.0)
     maintain_max_share: float = Field(default=0.60, ge=0.0, le=1.0)
-    # D3: one "keep going" extension.
+    # One "keep going" extension.
     keep_going_minutes: int = Field(default=10, ge=1, le=120)
-    # §6.3 (Q11): projected review load over this horizon, against a ceiling.
+    # Projected review load over this horizon, against a ceiling.
     load_horizon_days: int = Field(default=14, ge=1, le=90)
     load_ceiling: float = Field(default=0.80, gt=0.0, le=1.0)
     new_item_reviews_14d: int = Field(default=4, ge=0, le=30)
     max_new_items_per_day: int = Field(default=10, ge=0, le=200)
     min_new_items_per_day: int = Field(default=1, ge=0, le=200)
-    # §6.4 (Q12): own latencies are winsorized at this many minutes.
+    # Own latencies are winsorized at this many minutes.
     latency_cap_minutes: float = Field(default=15.0, gt=0.0, le=120.0)
-    # §6.4: a reading block's estimate is the section's words left / this.
+    # A reading block's estimate is the section's words left / this.
     read_words_per_minute: int = Field(default=120, ge=10, le=2000)
-    # §6.10: pre-questions arrive in DL4; DL1 never serves any.
+    # Pre-questions per reading block; the plan serves none yet.
     pre_questions: int = Field(default=3, ge=0, le=10)
-    # D11: a re-entry plan's caps (§7).
+    # A re-entry plan's caps.
     reentry_minutes: int = Field(default=15, ge=1, le=120)
     reentry_max_items: int = Field(default=8, ge=1, le=100)
-    # §6.9: due project probes in the maintain lane per day. From mvp-0.21
-    # the kill-switch path only (voi_stopping.project_probes off): with it on,
-    # every due probe whose value pays for its minutes competes for the
-    # plan's minutes.
+    # Due project probes in the maintain lane per day. From mvp-0.21 read
+    # only with voi_stopping.project_probes off: with it on, every due probe
+    # whose value pays for its minutes competes for the plan's minutes.
     project_probes_max_per_day: int = Field(default=4, ge=0, le=50)
-    # D7: the optional one-line Today headline.
+    # The optional one-line Today headline.
     headline: bool = True
 
     @model_validator(mode="after")
@@ -3961,8 +3875,7 @@ class PlanConfig(BaseModel):
         return self
 
 
-#: §5.3 (Q8, accepted 2026-10-12; the owner may override at DL2's checkpoint):
-#: the recall target each depth preset is maintained at, and the uncommitted one.
+#: The recall target each depth preset is maintained at, and the uncommitted one.
 DEFAULT_RECALL_TARGETS: dict[str, float] = {
     "keep_in_touch": 0.80,
     "remember_key_ideas": 0.85,
@@ -3973,17 +3886,16 @@ DEFAULT_RECALL_TARGETS: dict[str, float] = {
 
 
 class IntentConfig(BaseModel):
-    """Daily-loop DL2: intent (``spec_daily_loop_v1.md`` §5, §11).
+    """Daily loop: intent.
 
-    The successor ``mvp-0.29`` behind its kill switches (the DL2 Codex
-    re-review F2: intent changes which items are served as measurements, the
-    2026-10-17 rule; ``docs/reviews/daily-loop-dl2-codex-review.md``): intent is
-    read only when serving, and ``due_at``, FSRS state, evidence and every
-    projection are unchanged. Below the tag these keys are inert.
+    The successor ``mvp-0.29`` behind its kill switches (intent changes which
+    items are served as measurements): intent is read only when serving, and
+    ``due_at``, FSRS state, evidence and every projection are unchanged.
+    Below the tag these keys are inert.
 
-    ``enabled`` off restores serving exactly as before DL2: commitments are read
-    only for requested items (and staged-owned runs). With it on and no
-    commitment, serving is today's too (every item uncommitted, target 0.90,
+    ``enabled`` off restores serving exactly as the predecessor: commitments
+    are read only for requested items (and staged-owned runs). With it on and
+    no commitment, serving is the predecessor's too (every item uncommitted, target 0.90,
     whose ratio is exactly 1). ``recall_targets_enabled`` off keeps the
     resolution (exclusion, "Check once", push, admission, re-entry) but serves
     every item at its stored ``due_at``.
@@ -4008,18 +3920,17 @@ class IntentConfig(BaseModel):
 
 
 class CaptureConfig(BaseModel):
-    """Daily-loop capture settings (``spec_daily_loop_v1.md`` §10).
+    """Daily-loop capture settings.
 
-    DL2 adds only ``test_me_later_days``: when a "Check once" (the control's,
-    or any ``test_me_later`` commitment without a ``due_hint``) comes due. DL3
-    adds the capture box and processor keys to this section.
+    ``test_me_later_days``: when a "Check once" (the control's, or any
+    ``test_me_later`` commitment without a ``due_hint``) comes due.
     """
 
     test_me_later_days: int = Field(default=7, ge=0, le=365)
 
 
 class RouterWeights(BaseModel):
-    """The model mixture's component weights (D1: one third each). Normalized
+    """The model mixture's component weights (one third each). Normalized
     before use; a model that fails or is not set up gives its weight to
     ``staged`` for that decision."""
 
@@ -4037,8 +3948,8 @@ class RouterWeights(BaseModel):
 
 
 class RouterLessonSuggestionsConfig(BaseModel):
-    """Teacher TE1b: the router suggests a lesson, the learner opts in
-    (spec_teacher_v1 §15.1, §18.4; ``learnloop.daily_plan.lesson_suggestion``).
+    """Teacher: the router suggests a lesson, the learner opts in
+    (``learnloop.daily_plan.lesson_suggestion``).
 
     ``enabled`` is the kill switch of the successor
     ``LESSON_SUGGESTIONS_ALGORITHM_VERSION``. On (at that tag or later, with
@@ -4050,13 +3961,13 @@ class RouterLessonSuggestionsConfig(BaseModel):
     the tag, nothing is drawn or written and Today and the plan are the
     predecessor's byte for byte.
 
-    ``ceiling_per_day`` (``keep``, spec §18.4): an anti-nagging guardrail, never
-    learned; a draw it binds shows no card and is logged with
-    ``ceiling_bound``. The card is also drawn at most once a day (spec §19),
-    so the default 3 binds only if that rule is ever relaxed.
+    ``ceiling_per_day``: an anti-nagging guardrail, never learned; a draw it
+    binds shows no card and is logged with ``ceiling_bound``. The card is
+    also drawn at most once a day, so the default 3 binds only if that rule
+    is ever relaxed.
 
-    ``in_objective`` is the kill switch of teacher TE3b's successor
-    ``LESSON_OFFERS_ALGORITHM_VERSION`` (spec_teacher_v1 rev 5 §15.1a): on (at
+    ``in_objective`` is the kill switch of
+    ``LESSON_OFFERS_ALGORITHM_VERSION``: on (at
     that tag or later, with ``enabled`` and wherever the router objective
     serves the plan), a lesson offer is a candidate of the objective at a
     reversible plan block boundary (one card at a time, its acceptance model a
@@ -4064,7 +3975,7 @@ class RouterLessonSuggestionsConfig(BaseModel):
     minutes count on the objective's clock, LOs with a pending lesson delayed
     check join its population, and the Today-open card above is drawn only
     where the objective does not serve. ``ceiling_per_day`` binds across the
-    day's offers and cards together. Off, or below the tag: TE1b's daily card
+    day's offers and cards together. Off, or below the tag: the daily card
     and the objective's predecessor support exactly.
     """
 
@@ -4076,53 +3987,53 @@ class RouterLessonSuggestionsConfig(BaseModel):
 
 
 class RouterConfig(BaseModel):
-    """Action router (spec_action_router_v1). R1: decision logging on today's paths.
+    """Action router: decision logging, the staged frame and the model mixture.
 
     ``log_decisions`` writes one ``router_decisions`` row per Today offer, staged
-    P2 decision and learner pick. It is not a serving change and acts at every
+    decision and learner pick. It is not a serving change and acts at every
     algorithm version; off stops the rows and nothing else.
     ``probe_tie_admission`` is the kill switch of the ``mvp-0.15`` successor
-    (``PROBE_TIE_VERSIONS``): probe near-ties, teach-back items included (owner
-    decision D11), join the Today queue's seeded exploration. Off (or below
-    ``mvp-0.15``) serves exactly as ``mvp-0.14``.
+    (``PROBE_TIE_VERSIONS``): probe near-ties, teach-back items included,
+    join the Today queue's seeded exploration. Off (or below ``mvp-0.15``)
+    serves exactly as the predecessor.
 
-    Router R2a (``mvp-0.23``, ``ROUTER_STAGED_FRAME_VERSIONS``; plan_router_r2_v1
-    §9): ``enabled`` is the router's kill switch. On, Today's plan is composed
-    by the staged frame (DL1's lanes and ``lane_quota_v1`` over the set the P4
-    constraint engine admits) and ``golden_path.advance`` goes through the P2
-    bridge; off (or below ``mvp-0.23``) both serve exactly as ``mvp-0.22``.
-    ``card_token_budget`` bounds the learner-state card each boundary stores
-    (D8). ``payload_retention_days`` prunes the stored payloads (the card, and
-    from R2b the models' requests and raw answers, ``router_decision_payloads``);
-    the hashes stay on the decision row.
+    ``enabled`` is the router's kill switch (``mvp-0.23``,
+    ``ROUTER_STAGED_FRAME_VERSIONS``). On, Today's plan is composed by the
+    staged frame (the daily plan's lanes and ``lane_quota_v1`` over the set
+    the constraint engine admits) and ``golden_path.advance`` goes through
+    the router bridge; off (or below ``mvp-0.23``) both serve exactly as the
+    predecessor. ``card_token_budget`` bounds the learner-state card each
+    boundary stores. ``payload_retention_days`` prunes the stored payloads
+    (the card, and the models' requests and raw answers,
+    ``router_decision_payloads``); the hashes stay on the decision row.
 
-    Router R2b + R2c (the successor after ``mvp-0.23``,
-    ``ROUTER_MIXTURE_VERSIONS``; plan_router_r2_v1 §3.3-§3.7, owner decisions
-    2026-10-13). ``mode`` names who chooses each block: ``mixture`` (the
-    default: a logged draw from the staged rule, the Decider and the router
-    LLM, weighted by ``weights``, over the top ``k`` reversible candidates
-    with a floor of ``epsilon_min`` each; exact propensities) or ``staged``
-    (the rule alone, deterministic, no model asked: R2a exactly). Below the
+    The model mixture (the successor after ``mvp-0.23``,
+    ``ROUTER_MIXTURE_VERSIONS``). ``mode`` names who chooses each block:
+    ``mixture`` (the default: a logged draw from the staged rule, the Decider
+    and the router LLM, weighted by ``weights``, over the top ``k``
+    reversible candidates with a floor of ``epsilon_min`` each; exact
+    propensities) or ``staged`` (the rule alone, deterministic, no model
+    asked). Below the
     successor the mixture is dormant and ``mixture`` serves as ``staged``.
     ``ties_only`` applies the mixture only among the rule's pick and the
     candidates of its lane. ``prefetch_timeout_seconds`` is how long the
     models have, from the moment a decision is prefetched (Today's open, the
     feedback after a block's last answer); ``timeout_seconds`` is how long a
     blocking step (Begin, Continue) waits for them before the rule's share
-    takes theirs (G7). ``max_daily_cost_usd`` guards metered model spend per
+    takes theirs. ``max_daily_cost_usd`` guards metered model spend per
     UTC day (subscription routes uncapped; the provider key's own limit is the
     backstop). ``sensors`` adds the logged-only ``teach_first`` and
     ``will_pass_next`` questions (``router_qs_v2``), ``sensor_source`` the
     model whose ``intervene_now`` is the restraint's sensor of record.
     ``restraint`` makes a mid-block follow-up a logged decision
     (``plan_interrupt``: join the current block now, or wait for the next
-    one); off, a follow-up always joins the current block (R2b).
+    one); off, a follow-up always joins the current block.
     ``similar_decisions`` shows the models up to ``similar_k`` matured similar
     past decisions on a logged random ``similar_include_rate`` of decisions
     (needs ``embedding.enabled``; a logged no-op otherwise).
     ``teach_back_summary`` summarizes each graded teach-back dialogue (after
     grading, off the hot path) into the card's typed evidence.
-    ``lesson_suggestions`` is teacher TE1b's (its own docstring).
+    ``lesson_suggestions`` is the teacher's (its own docstring).
     """
 
     log_decisions: bool = True
@@ -4135,7 +4046,7 @@ class RouterConfig(BaseModel):
     k: int = Field(default=6, ge=2, le=64)
     epsilon_min: float = Field(default=0.02, ge=0.0, lt=0.5)
     ties_only: bool = False
-    # Owner, Nov 8 2026: 40, up from 8. The LLM's calls took 11.6-15.8 s, so 8 discarded answers that were on the way.
+    # The LLM's calls take 12-16 s; a shorter wait discards answers that are on the way.
     timeout_seconds: float = Field(default=40.0, gt=0.0, le=120.0)
     prefetch_timeout_seconds: float = Field(default=45.0, gt=0.0, le=600.0)
     max_daily_cost_usd: float = Field(default=5.0, ge=0.0)
@@ -4146,7 +4057,7 @@ class RouterConfig(BaseModel):
     similar_k: int = Field(default=6, ge=1, le=32)
     similar_include_rate: float = Field(default=0.5, ge=0.0, le=1.0)
     teach_back_summary: bool = True
-    # Teacher TE1b: the successor's kill switch and its anti-nagging ceiling.
+    # Lesson suggestions: the successor's kill switch and its anti-nagging ceiling.
     lesson_suggestions: RouterLessonSuggestionsConfig = Field(default_factory=RouterLessonSuggestionsConfig)
 
     @model_validator(mode="after")
@@ -4157,17 +4068,17 @@ class RouterConfig(BaseModel):
 
 
 class DataCaptureConfig(BaseModel):
-    """What later offline evaluation needs, recorded now (owner, 2026-11-02;
-    docs/reviews/data-capture-a1-a6.md). It adds no policy and no constant.
+    """What later offline evaluation needs, recorded now. It adds no policy
+    and no constant.
 
     * ``receipts``: the prefilter receipts (``prefilter_receipts``), linked into
       each committed decision. Additive: they act at every algorithm version and
       never change what is served; off stops the rows and nothing else.
-    * ``serving``: the kill switch of the successor mvp-0.44 (``DATA_CAPTURE_VERSIONS``):
+    * ``serving``: the kill switch of ``DATA_CAPTURE_VERSIONS`` (mvp-0.44):
       measurement slots for reading, wait and stop arms, the exploration floor on
       the router's ``not_ready`` branch, the teacher's item-specific delayed-check
       picker with its logged tie draw, and ``router_outcomes_v3``. Off, or below
-      the tag, serving and outcomes are mvp-0.43's exactly.
+      the tag, serving and outcomes are the predecessor's exactly.
     """
 
     receipts: bool = True
@@ -4175,16 +4086,16 @@ class DataCaptureConfig(BaseModel):
 
 
 class RouterObjectiveConfig(BaseModel):
-    """The router objective (docs/specs/spec_router_objective_v1.md).
+    """The router objective.
 
-    RO0's logging:
+    Logging:
 
-    * ``receipts``: the additive receipts and columns of §4 (disclosure state at an ask, generating-process
+    * ``receipts``: the additive receipts and columns (disclosure state at an ask, generating-process
       fields, question opportunity, exposure initiator, event times, session availability and end, decision-time
       belief, cold-check timing, goal lifecycle). They act at every algorithm version and nothing serving,
       scheduling or certification reads them; off, nothing is written and nothing else changes.
 
-    RO1's switches (mvp-0.46, §5.5):
+    Switches acting from mvp-0.46:
 
     * ``available_at_reads``: decision-time reads of attempts (the router card) use the availability time,
       ``coalesce(received_at, created_at)``, so an exam imported today is not something an earlier decision
@@ -4193,220 +4104,214 @@ class RouterObjectiveConfig(BaseModel):
       not counted as validated evidence in the diagnoser's history; the factor's status and resolution ids
       are unchanged.
 
-    Off, or below the tag, each of RO1's restores mvp-0.45 exactly. (The interval factor's switch lives with the
+    Off, or below the tag, each restores the predecessor exactly. (The interval factor's switch lives with the
     factor, ``[scheduler.surprise] remove_interval_factor``.)
 
-    RO4 (mvp-0.47, §8): ``enabled`` and its seeds, each shown in the trace and changeable without a code change.
-    Every seed is chosen by judgment and labelled so (§12); the ``keep`` bounds are numerical safeguards.
+    From mvp-0.47: ``enabled`` and its seeds, each shown in the trace and changeable without a code change.
+    Every seed is chosen by judgment and labelled so; the fixed bounds are numerical safeguards.
 
-    RO5 (mvp-0.48, §9): the arms (``stop_coin``, ``check_rate`` with ``embedded_checks_per_day``,
+    From mvp-0.48: the arms (``stop_coin``, ``check_rate`` with ``embedded_checks_per_day``,
     ``pick_open_share``), each a declared price for information whose zero (``"off"`` for the checks) serves
-    mvp-0.47 exactly; the calibration's labelled priors (``kappa_prior_log_sd``, ``return_slope_prior_sd``,
-    ``goal_transfer_prior_sd``); ``fitted_models`` for RO4's follow-ups.
+    the predecessor exactly; the calibration's labelled priors (``kappa_prior_log_sd``, ``return_slope_prior_sd``,
+    ``goal_transfer_prior_sd``); ``fitted_models``.
 
-    RO6 (mvp-0.49, §10): ``learned_tail`` (the kill switch; off serves mvp-0.48 exactly) and the learned tail's
+    From mvp-0.49: ``learned_tail`` (the kill switch; off serves the predecessor exactly) and the learned tail's
     labelled priors (``residual_prior_sd`` on the fitted Q evaluation's coefficients, ``residual_weight_prior_sd``
     on its calibration slope ``ŵ``, which starts at zero).
 
-    The follow-up batch (mvp-0.50): ``combiner_trace_outcomes``, ``merged_sessions``, ``consistent_review_draw``,
+    From mvp-0.50: ``combiner_trace_outcomes``, ``merged_sessions``, ``consistent_review_draw``,
     ``monotone_combiner``, ``ad_predictive_link``, ``carried_in_prefetch``, ``scope_extension``, each part's own
-    switch (off, or below the tag, mvp-0.49 exactly). Router speed (at the same tag): ``held_ad_link`` (off, the
-    batch's landing code exactly); its stage 2: ``held_reading_map`` and ``pooled_connections`` (off, main
-    e9ceaf8d44's code exactly).
+    switch (off, or below the tag, the predecessor exactly). At the same tag, the speed switches ``held_ad_link``,
+    ``held_reading_map`` and ``pooled_connections`` (the same values, faster; off, the slower paths).
 
-    Instruct hand-off IH5 (mvp-0.55, spec_instruct_handoff_v1 §7a): ``failure_share_to_other_policy``: a failed
-    policy's share of the mix goes to the other policy instead of staged (both failed: staged, as before). Off, or
-    below the tag, mvp-0.54's mix exactly.
+    From mvp-0.55: ``failure_share_to_other_policy``: a failed policy's share of the mix goes to the other policy
+    instead of staged (both failed: staged). Off, or below the tag, the predecessor's mix exactly.
 
-    Instruct hand-off IH2 (the same tag, spec_instruct_handoff_v1 §5): ``lessons_compete_with_followups``: a lesson
-    offer and a follow-up compete in one logged decision wherever a lesson is available, at a block boundary and after
-    a miss. Off, or below the tag, mvp-0.54's boundary and follow-up decisions exactly.
+    ``lessons_compete_with_followups`` (the same tag): a lesson offer and a follow-up compete in one logged decision
+    wherever a lesson is available, at a block boundary and after a miss. Off, or below the tag, the predecessor's
+    boundary and follow-up decisions exactly.
 
-    Instruct hand-off IH3 (the same tag, spec_instruct_handoff_v1 §6): ``learner_preferences``: the quiet "Something
-    else would help" link, the learner's own pick of an action (served as a ``learner_pick`` decision) and the
-    ``router_learner_preferences`` ledger it writes. Off, or below the tag, the link is absent and nothing is served or
-    written, as mvp-0.54.
+    ``learner_preferences`` (the same tag): the quiet "Something else would help" link, the learner's own pick of an
+    action (served as a ``learner_pick`` decision) and the ``router_learner_preferences`` ledger it writes. Off, or
+    below the tag, the link is absent and nothing is served or written.
 
-    Instruct hand-off IH6 (the same tag, spec_instruct_handoff_v1 §7b): ``workbench_is_open_item``: while a workbench
-    problem of the plan's current practice session is open, a read of the plan writes no decision and starts no job, and
-    says a question is in progress; an explicit step still decides. Off, or below the tag, reads as mvp-0.54's.
+    ``workbench_is_open_item`` (the same tag): while a workbench problem of the plan's current practice session is
+    open, a read of the plan writes no decision and starts no job, and says a question is in progress; an explicit
+    step still decides. Off, or below the tag, reads as the predecessor's.
 
-    Instruct hand-off IH7 (the same tag, spec_instruct_handoff_v1 §7c): ``lesson_sources_follow_diagnosis``: a lesson opened
-    from an offer or a suggestion with a recent miss on its topics also loads the source sections matching the diagnosed
-    confusion, beside the topic's linked ones. It changes what a lesson reads, not what the router decides. Off, or below
-    the tag, the brief is byte-identical to mvp-0.54's.
+    ``lesson_sources_follow_diagnosis`` (the same tag): a lesson opened from an offer or a suggestion with a recent
+    miss on its topics also loads the source sections matching the diagnosed confusion, beside the topic's linked
+    ones. It changes what a lesson reads, not what the router decides. Off, or below the tag, the brief is
+    byte-identical to the predecessor's.
 
-    Instruct hand-off, the owner's decision 4 of Nov 9 (the same tag, spec_instruct_handoff_v1 §8):
-    ``lesson_candidate_after_cold_miss``: a topic with a missed cold check since its last lesson is a lesson candidate,
-    with no threshold on the miss's size, its count or its error type (the router decides with its own evidence), and its
-    reason says when ("On Nov 3, a check on it wasn't fully right."). Off, or below the tag, mvp-0.54's ``cold_failing`` rule
-    (the two latest cold checks below full) and its wording.
+    ``lesson_candidate_after_cold_miss`` (the same tag): a topic with a missed cold check since its last lesson is a
+    lesson candidate, with no threshold on the miss's size, its count or its error type (the router decides with its
+    own evidence), and its reason says when ("On Nov 3, a check on it wasn't fully right."). Off, or below the tag,
+    the predecessor's ``cold_failing`` rule (the two latest cold checks below full) and its wording.
 
-    Instruct hand-off IH4 (the same tag, spec_instruct_handoff_v1 §7): ``preferences_inform_router``: what the learner said
-    would help updates the lesson offers' acceptance model (a request flagged unprompted), is frozen in each decision's
-    trace as a choice model's sensor, enters the numeric value through one coefficient learned from randomized draws
-    (``w_pref``, 0 until they support more), and goes on the LLM's card as the learner's own statements. Staged reads
-    nothing. Off, or below the tag, all of it as IH3 left it.
+    ``preferences_inform_router`` (the same tag): what the learner said would help updates the lesson offers'
+    acceptance model (a request flagged unprompted), is frozen in each decision's trace as a choice model's sensor,
+    enters the numeric value through one coefficient learned from randomized draws (``w_pref``, 0 until they support
+    more), and goes on the LLM's card as the learner's own statements. Staged reads nothing. Off, or below the tag,
+    preferences are recorded but inform nothing.
 
-    Slip or gap SG1 (mvp-0.57, spec_slip_vs_gap_v1 §3): ``miss_cause_sensor``: each candidate topic's latest missed cold
-    check's diagnosis (its cause-class probabilities: gap, slip, unknown), stored surprise and status, frozen in the
-    objective's trace, on the lesson offer's card record and on the LLM's card. No numeric value moves. SG2:
-    ``miss_cause_in_value`` (needs ``miss_cause_sensor``): a lesson's and a repair's effect slope splits by the miss's
-    cause, ``p_gap·γ_gap + p_slip·γ_slip + p_unknown·γ`` (``γ_slip``'s seeded prior centred at 0), with ``p_gap``
-    calibrated by a learned surprise coefficient (prior 0). Off, or below the tag, mvp-0.56's trace, card and values.
+    From mvp-0.57: ``miss_cause_sensor``: each candidate topic's latest missed cold check's diagnosis (its
+    cause-class probabilities: gap, slip, unknown), stored surprise and status, frozen in the objective's trace, on
+    the lesson offer's card record and on the LLM's card. No numeric value moves. ``miss_cause_in_value`` (needs
+    ``miss_cause_sensor``): a lesson's and a repair's effect slope splits by the miss's cause,
+    ``p_gap·γ_gap + p_slip·γ_slip + p_unknown·γ`` (``γ_slip``'s seeded prior centred at 0), with ``p_gap``
+    calibrated by a learned surprise coefficient (prior 0). Off, or below the tag, the predecessor's trace, card and
+    values.
     """
 
     receipts: bool = True
     available_at_reads: bool = True
     self_report_not_validated: bool = True
-    #: RO4's kill switch (mvp-0.47, §8.3): the soft-budget frame, the two policies and their learned mix,
-    #: the trace. Off, mvp-0.46's mixture and frame exactly; below the tag nothing is computed. With
-    #: ``receipts`` off the objective still serves and no comparison score is formed (§8.7).
+    #: Kill switch (from mvp-0.47): the soft-budget frame, the two policies and their learned mix,
+    #: the trace. Off, the predecessor's mixture and frame exactly; below the tag nothing is computed. With
+    #: ``receipts`` off the objective still serves and no comparison score is formed.
     enabled: bool = True
-    #: §8.4: the LLM's effect-slope correction ``ΔG = α_v + β_v·f(a)`` on the memory rollout's
+    #: The LLM's effect-slope correction ``ΔG = α_v + β_v·f(a)`` on the memory rollout's
     #: learning effect. Off by hand, the value is the memory rollout's alone.
     sensors_in_value: bool = True
-    #: §8.1: the parameter draws shared across every candidate (common random numbers), at least this
-    #: many, more while the LLM policy is still out, up to ``rollout_theta_draws_max`` (``keep``).
+    #: The parameter draws shared across every candidate (common random numbers), at least this
+    #: many, more while the LLM policy is still out, up to ``rollout_theta_draws_max`` (fixed).
     rollout_theta_draws: int = Field(default=8, ge=1, le=256)
     rollout_theta_draws_max: int = Field(default=64, ge=1, le=1024)
-    #: §8.1 ``H`` (days): undated uses are counted to at least ``t + H`` (and to the latest active goal
+    #: ``H`` (days): undated uses are counted to at least ``t + H`` (and to the latest active goal
     #: date when that is further), and ``T_C`` continues the tail for a further ``H``. A config seed.
     horizon_days: float = Field(default=90.0, gt=0.0, le=3650.0)
-    #: §8.5 ``c``: the daily density of undated uses per topic, copied into a goal's contract when it is
+    #: ``c``: the daily density of undated uses per topic, copied into a goal's contract when it is
     #: created (so a change here never rewrites a goal's history); topics outside any goal read this.
     #: A preference, labelled a seed: one exam date is worth about 90 days of ongoing use.
     undated_use_density: float = Field(default=1.0 / 90.0, ge=0.0, le=10.0)
-    #: §8.5 ``ω``: a dated goal's weight per topic of its scope at its date, the default asked at goal
+    #: ``ω``: a dated goal's weight per topic of its scope at its date, the default asked at goal
     #: creation and the stated default for a goal with no confirmed contract.
     dated_use_weight: float = Field(default=1.0, ge=0.0, le=1000.0)
-    #: §8.6: a session ends after a gap of at least this many minutes (``keep``), so short restarts
+    #: A session ends after a gap of at least this many minutes (fixed), so short restarts
     #: cannot reset the attention price.
     session_gap_minutes: float = Field(default=60.0, gt=0.0, le=1440.0)
-    #: §8.6 the runaway guard (``keep``, a numerical safeguard, not a budget): past this many session
+    #: The runaway guard (fixed, a numerical safeguard, not a budget): past this many session
     #: minutes a stop offer is forced into the support and the crossing reported. None: 3 x the plan's
     #: remembered minutes.
     session_guard_minutes: float | None = Field(default=None, gt=0.0, le=1440.0)
-    #: §8.7 ``B`` (days): the evaluation window of a decision's common return.
+    #: ``B`` (days): the evaluation window of a decision's common return.
     evaluation_window_days: int = Field(default=14, ge=1, le=365)
-    #: §8.3 the weight's seeds, chosen by judgment and not measured: ``w`` starts at
+    #: The weight's seeds, chosen by judgment and not measured: ``w`` starts at
     #: ``llm_weight_prior``; ``ℓ_L``, ``ℓ_Q`` are the declared minimum shares (prices for information).
     llm_weight_prior: float = Field(default=0.8, gt=0.0, lt=1.0)
     llm_min_share: float = Field(default=0.1, ge=0.0, lt=0.5)
     numeric_min_share: float = Field(default=0.1, ge=0.0, lt=0.5)
-    #: §8.7 ``s₀`` (use-equivalents): the prior sd of ``Δ``, about one block's effect over ``B`` days
+    #: ``s₀`` (use-equivalents): the prior sd of ``Δ``, about one block's effect over ``B`` days
     #: of undated use at the default ``c``.
     delta_prior_sd: float = Field(default=0.01, gt=0.0, le=10.0)
-    #: §8.4 the effect slope's prior ``β_v ~ N(mean, variance)``, as AD gives its item-only LLM signal
+    #: The effect slope's prior ``β_v ~ N(mean, variance)``, as AD gives its item-only LLM signal
     #: (``alpha:z_v1``); ``α_v`` is centred on zero with the same variance.
     effect_slope_prior_mean: float = 0.2
     effect_slope_prior_variance: float = Field(default=0.04, gt=0.0, le=100.0)
-    #: §8.1 the stop offer's acceptance, ``p_accept ~ Beta(a, b)`` updated from §4 row 7.
+    #: The stop offer's acceptance, ``p_accept ~ Beta(a, b)`` updated from the stop-offer receipts.
     stop_accept_prior_a: float = Field(default=1.0, gt=0.0, le=1000.0)
     stop_accept_prior_b: float = Field(default=1.0, gt=0.0, le=1000.0)
-    #: §8.3 the LLM policy's decision card bound (UTF-8 bytes, ``keep``), one shared budget over the
-    #: union of the candidates' topics, as RO2's card's.
+    #: The LLM policy's decision card bound (UTF-8 bytes, fixed), one shared budget over the
+    #: union of the candidates' topics.
     llm_card_token_budget: int = Field(default=48_000, ge=2_000, le=400_000)
-    #: RO5 (mvp-0.48, §9, §12): the arms. Each probability is a declared price for information, not a
+    #: The arms (from mvp-0.48). Each probability is a declared price for information, not a
     #: statistical fact; the report shows what each costs in minutes. ``stop_coin``: at a reversible block
     #: boundary, the chance of offering stop and, separately, of presenting the next block instead of a
     #: drawn stop (so 0.05 each way); 0 draws no coin.
     stop_coin: float = Field(default=0.05, ge=0.0, le=0.45)
-    #: §9 item 2: ``"embedded"`` (default) replaces one ordinary question of the day's first session with
+    #: ``"embedded"`` (default) replaces one ordinary question of the day's first session with
     #: ``embedded_checks_per_day`` randomized cold checks; a number selects extra checks at that rate per
     #: valued topic per day; ``"off"`` schedules none.
     check_rate: Literal["embedded", "off"] | float = "embedded"
     embedded_checks_per_day: int = Field(default=1, ge=0, le=16)
-    #: §9 item 6: the seeded share of misconception picks left open (recorded as attributed opinion, no
+    #: The seeded share of misconception picks left open (recorded as attributed opinion, no
     #: provisional belief, the factor open); 0 leaves none open.
     pick_open_share: float = Field(default=0.1, ge=0.0, le=0.5)
-    #: §9 item 1, §8.6: the prior sd of log kappa0 around the seed it is handed from once randomized stop
+    #: The prior sd of log kappa0 around the seed it is handed from once randomized stop
     #: offers exist (a seed, labelled: about a factor of two either way).
     kappa_prior_log_sd: float = Field(default=0.7, gt=0.0, le=10.0)
-    #: §9 item 1: the return model's prior sd on its slope (log return gap per remembered session of extra
+    #: The return model's prior sd on its slope (log return gap per remembered session of extra
     #: minutes), centred on no effect (a seed, labelled).
     return_slope_prior_sd: float = Field(default=0.5, gt=0.0, le=10.0)
-    #: §9 item 3: the pool-to-goal transfer's wide prior sd (logit scale, slope centred on 1 and intercept
+    #: The pool-to-goal transfer's wide prior sd (logit scale, slope centred on 1 and intercept
     #: on 0) per goal type (a seed, labelled).
     goal_transfer_prior_sd: float = Field(default=1.0, gt=0.0, le=10.0)
-    #: §9 item 7 (RO4's follow-ups): the rollouts read AD's fitted learning posterior (γ and the reading
-    #: curve) and the memory combiner fitted on resolved randomized checks; off, RO4's priors.
+    #: The rollouts read AD's fitted learning posterior (γ and the reading curve) and the memory
+    #: combiner fitted on resolved randomized checks; off, the seeded priors.
     fitted_models: bool = True
-    #: RO6 (mvp-0.49, §10): the learned tail's kill switch. On at the tag, the numeric policy values each
-    #: candidate with ``Ṽ = V_tail + ŵ·V_residual`` (``ŵ`` a learned weight starting at zero); off, mvp-0.48.
+    #: The learned tail's kill switch (from mvp-0.49). On at the tag, the numeric policy values each
+    #: candidate with ``Ṽ = V_tail + ŵ·V_residual`` (``ŵ`` a learned weight starting at zero); off, the predecessor.
     learned_tail: bool = True
-    #: §10: the fitted Q evaluation's prior sd on each coefficient of its standardized features, in
+    #: The fitted Q evaluation's prior sd on each coefficient of its standardized features, in
     #: use-equivalents (a seed, labelled: about one block's effect, as ``delta_prior_sd``), centred on zero
     #: (no residual); the fit's regularization.
     residual_prior_sd: float = Field(default=0.01, gt=0.0, le=10.0)
-    #: §10: the prior sd of the residual's calibration slope ``ŵ``, centred on zero (a seed, labelled: one
+    #: The prior sd of the residual's calibration slope ``ŵ``, centred on zero (a seed, labelled: one
     #: residual's worth either way); only randomized stop-coin contrasts move it.
     residual_weight_prior_sd: float = Field(default=1.0, gt=0.0, le=10.0)
-    #: The follow-up batch (mvp-0.50; docs/reviews/router-followups-nov5.md), each part's own switch; off, or
-    #: below the tag, that part is mvp-0.49's exactly. RO4 item 6: the memory combiner is also fitted on the
-    #: traces' frozen sensors joined to resolved cold outcomes (RO2's resolver, as of each decision).
+    #: From mvp-0.50, each part below has its own switch; off, or below the tag, that part is the
+    #: predecessor's exactly. Here the memory combiner is also fitted on the traces' frozen sensors joined
+    #: to resolved cold outcomes (the forecast resolver, as of each decision).
     combiner_trace_outcomes: bool = True
-    #: Item 3 (Codex review F2): the rollouts' tail sessions merged into one vectorized step where no topic repeats
+    #: The rollouts' tail sessions merged into one vectorized step where no topic repeats
     #: and no dated use is crossed; the same values per draw, but faster, so a deadline admits more draws.
     merged_sessions: bool = True
-    #: Landing ruling R1: a practised topic's practice outcome in the rollouts is drawn from the memory model's own
-    #: ``P(perform)`` at that moment (the combiner over AD's predictive and FSRS's R, §8.4), and the belief observes
+    #: A practised topic's practice outcome in the rollouts is drawn from the memory model's own
+    #: ``P(perform)`` at that moment (the combiner over AD's predictive and FSRS's R), and the belief observes
     #: it under the same likelihood, so a review FSRS calls a lapse is one the model expects; off, AD's predictive.
     consistent_review_draw: bool = True
-    #: Landing ruling R6: the memory model's combiner is monotone in ability by construction (η's slopes log-normal
-    #: in its prior and its fit), so higher ability never lowers predicted performance; off, RO4's linear combiner.
+    #: The memory model's combiner is monotone in ability by construction (η's slopes log-normal
+    #: in its prior and its fit), so higher ability never lowers predicted performance; off, a linear combiner.
     monotone_combiner: bool = True
-    #: Landing ruling R9: where the rollouts read AD's predicted success (an unpractised topic, a probe, the
+    #: Where the rollouts read AD's predicted success (an unpractised topic, a probe, the
     #: combiner's η input) they use AD's own F(η) with its lapse term, η on AD's latent scale; off, σ(η).
     ad_predictive_link: bool = True
-    #: RO6 R12/R3: a decision served before its carried valuation existed is valued again in the next
+    #: A decision served before its carried valuation existed is valued again in the next
     #: boundary's prefetch (the no-model branch too), recorded beside its trace, so its backup is not censored.
     carried_in_prefetch: bool = True
-    #: RO6 R11: a topic entering the retention scope at its configured default density extends the objective's
+    #: A topic entering the retention scope at its configured default density extends the objective's
     #: scope instead of changing it, for transitions whose earlier value never valued the topic.
     scope_extension: bool = True
-    #: Router speed, item 1 (Codex review F1): R9's link evaluated once per array in the rollouts, its values held
-    #: and recomputed only where the state changed; the same values per draw, but faster, so a deadline admits more
-    #: draws (part of RO6's generator payload). Off: the batch's landing code, a quadrature per read.
+    #: AD's predictive link evaluated once per array in the rollouts, its values held and recomputed only where the
+    #: state changed; the same values per draw, but faster, so a deadline admits more draws. Off: a quadrature per
+    #: read.
     held_ad_link: bool = True
-    #: Router speed stage 2, item 1 (its Codex review F2): AD's section → LO map (and the span → section and section
-    #: → spans maps) held within one objective job, a snapshot as of the job's first read (landing ruling R1);
-    #: faster input builds, so a deadline admits more draws (part of RO6's generator payload).
-    #: Off: main e9ceaf8d44's map, computed afresh at every map.
+    #: AD's section → LO map (and the span → section and section → spans maps) held within one objective job, a
+    #: snapshot as of the job's first read; faster input builds, so a deadline admits more draws.
+    #: Off: the maps computed afresh at every read.
     held_reading_map: bool = True
-    #: Router speed stage 2, item 4 (its Codex review F2): the objective job's own thread reuses its SQLite
-    #: connections (``db.connection.reused_connections``); the same values, but faster input builds, so a deadline
-    #: admits more draws (part of RO6's generator payload). Off: a connection opened at every ``connect()``.
+    #: The objective job's own thread reuses its SQLite connections (``db.connection.reused_connections``); the same
+    #: values, but faster input builds, so a deadline admits more draws. Off: a connection opened at every
+    #: ``connect()``.
     pooled_connections: bool = True
-    #: Instruct hand-off IH5 (mvp-0.55): with one policy failed the other takes the whole mix (the uniform floor
-    #: kept, propensities exact), instead of staged taking the failed policy's share. Off: mvp-0.54's mix.
+    #: From mvp-0.55: with one policy failed the other takes the whole mix (the uniform floor kept, propensities
+    #: exact), instead of staged taking the failed policy's share. Off: the predecessor's mix.
     failure_share_to_other_policy: bool = True
-    #: Instruct hand-off IH2 (mvp-0.55): lessons compete with follow-ups in one decision wherever a lesson is available
-    #: (the owner's decision of Nov 8). Off: forced follow-ups keep offers out and withdraw a drawn one, as mvp-0.54.
+    #: Lessons compete with follow-ups in one decision wherever a lesson is available. Off: forced follow-ups keep
+    #: offers out and withdraw a drawn one, as the predecessor.
     lessons_compete_with_followups: bool = True
-    #: Instruct hand-off IH3 (mvp-0.55): "Something else would help" (the owner's request of Nov 8): the learner may
-    #: choose the router's next action, which is served and logged as a learner pick beside the options then. Off: no
-    #: link, no write, as mvp-0.54.
+    #: "Something else would help": the learner may choose the router's next action, which is served and logged as
+    #: a learner pick beside the options then. Off: no link, no write.
     learner_preferences: bool = True
-    #: Instruct hand-off IH6 (mvp-0.55): an open workbench is an open item (the owner's decision of Nov 8): a read of the
-    #: plan doesn't cross a boundary, or start its job, under one; Next, Begin and Continue still decide. Off: reads as
-    #: mvp-0.54.
+    #: An open workbench is an open item: a read of the plan doesn't cross a boundary, or start its job, under one;
+    #: Next, Begin and Continue still decide. Off: reads as the predecessor.
     workbench_is_open_item: bool = True
-    #: Instruct hand-off IH7 (mvp-0.55): a lesson opened from an offer or a suggestion with a recent miss on its topics
-    #: loads the sections matching the diagnosed confusion beside the topic's linked ones (the owner's decision of Nov 8).
-    #: Keyword retrieval only, no model call. Off: the brief is mvp-0.54's, byte for byte.
+    #: A lesson opened from an offer or a suggestion with a recent miss on its topics loads the sections matching
+    #: the diagnosed confusion beside the topic's linked ones. Keyword retrieval only, no model call. Off: the brief
+    #: is the predecessor's, byte for byte.
     lesson_sources_follow_diagnosis: bool = True
-    #: The owner's decision 4 of Nov 9 (mvp-0.55): any missed cold check since the topic's last lesson makes it a lesson
-    #: candidate, with no threshold on size, count or error type; the router decides. Off: mvp-0.54's ``cold_failing`` rule.
+    #: Any missed cold check since the topic's last lesson makes it a lesson candidate, with no threshold on size,
+    #: count or error type; the router decides. Off: the predecessor's ``cold_failing`` rule.
     lesson_candidate_after_cold_miss: bool = True
-    #: Instruct hand-off IH4 (mvp-0.55): preferences inform the acceptance model, the choice model's sensor, the numeric
-    #: value through a learned ``w_pref`` (no hand-set bonus) and the LLM's card (the owner's decisions of Nov 8).
+    #: Preferences inform the acceptance model, the choice model's sensor, the numeric value through a learned
+    #: ``w_pref`` (no hand-set bonus) and the LLM's card.
     preferences_inform_router: bool = True
-    #: Slip or gap SG1 (mvp-0.57): the per-topic miss-cause sensor in the trace, the offer's card record and the LLM's
-    #: card; no numeric value moves. Off: mvp-0.56's trace and card, byte for byte.
+    #: From mvp-0.57: the per-topic miss-cause sensor in the trace, the offer's card record and the LLM's card; no
+    #: numeric value moves. Off: the predecessor's trace and card, byte for byte.
     miss_cause_sensor: bool = True
-    #: Slip or gap SG2 (mvp-0.57; needs ``miss_cause_sensor``): the lesson's and the repair's effect slopes split by the
-    #: miss's cause, ``p_gap`` calibrated by a learned surprise coefficient. Off: mvp-0.56's numeric values.
+    #: Needs ``miss_cause_sensor``: the lesson's and the repair's effect slopes split by the miss's cause, ``p_gap``
+    #: calibrated by a learned surprise coefficient. Off: the predecessor's numeric values.
     miss_cause_in_value: bool = True
 
     @model_validator(mode="after")
@@ -4424,15 +4329,15 @@ class RouterObjectiveConfig(BaseModel):
 
 
 class FollowupServeConfig(BaseModel):
-    """Follow-up generate and serve (FG1; ``docs/specs/spec_followup_generate_serve_v1.md``).
+    """Follow-up generate and serve.
 
-    ``generate_and_serve`` is the kill switch of the successor mvp-0.45
-    (``FOLLOWUP_SERVE_VERSIONS``). Off, or below the tag, behaviour matches mvp-0.44
+    ``generate_and_serve`` is the kill switch of ``FOLLOWUP_SERVE_VERSIONS``
+    (mvp-0.45). Off, or below the tag, behaviour matches the predecessor
     from an equivalent starting state, the stored
     ``probe.generation.auto_generate_on_entry`` applies, burns persist and open
     workflows settle as skipped.
 
-    ``hypothesis_marks`` is FG1c's kill switch (spec §7), at every algorithm version: the learner's
+    ``hypothesis_marks`` is a kill switch at every algorithm version: the learner's
     marks on possible causes and the hypothesis-list exposure receipts. It moves nothing that
     decides, so it mints no successor. Off: no marks UI, no exposure or mark rows, and every reply
     and context is what it was, whatever rows an earlier run left.
@@ -4443,11 +4348,11 @@ class FollowupServeConfig(BaseModel):
 
 
 class VoiStoppingConfig(BaseModel):
-    """mvp-0.21 Part 1: four count caps lifted onto value of information.
+    """Four count caps lifted onto value of information.
 
     Acts only on a vault at a value-of-information successor (``mvp-0.21`` or
     later, ``VOI_STOPPING_VERSIONS``). ``enabled`` is the kill switch: off (or
-    below ``mvp-0.21``) the four former caps serve exactly as ``mvp-0.16``:
+    below ``mvp-0.21``) the four former caps serve exactly as the predecessor:
     ``probe.episode.session_qualifying_observation_cap``,
     ``scheduler.followup.max_interventions_per_lo_per_session``,
     ``teach_back.session_cap`` and ``plan.project_probes_max_per_day``. Each
@@ -4461,12 +4366,11 @@ class VoiStoppingConfig(BaseModel):
     ``diagnosis.robust_composition`` (lambda_time, burden, the nat-to-minutes
     scale), and the three below.
 
-    The multi-family EVSI study (``docs/reviews/evsi-multisim.md`` §6.1,
-    ranks 1 to 3; the owner may flip each) adds one switch per change, each
-    at the study's recommendation; the value in brackets restores the
-    successor as it was before the study, exactly:
+    Three switches follow a multi-family EVSI study, each at its
+    recommendation; the value in brackets restores the successor without
+    that change, exactly:
 
-    * ``robust_gate_with_value`` (false; true restores): whether the mvp-0.8
+    * ``robust_gate_with_value`` (false; true restores): whether the
       robust completion gate (``couldnt_reliably_distinguish``) may still end
       an episode while value decides it. Off, a value-decided episode ends on
       its value stop (or a stability stop), and that stop's receipt records
@@ -4479,12 +4383,12 @@ class VoiStoppingConfig(BaseModel):
       administered together (one per canonical surface group) are valued
       jointly (robust EVSI of their product table) against their summed
       minutes; a paying batch continues with the site's own choice among it.
-      The follow-up and teach-back sites wait for live calibration (the
-      study's §6.2). A valuation depth, never a count of observations
+      The follow-up and teach-back sites wait for live calibration. A
+      valuation depth, never a count of observations
       (bounded at 4: the joint table grows as the alphabet to the power k).
     * ``robust_quantile`` (0.25; 0.10 restores): the lower quantile of the
       credible set the value gate reads (``rank_feasible``'s robust EVSI, the
-      robust EIG, the lookahead's batch value). The mvp-0.8 paths keep
+      robust EIG, the lookahead's batch value). The mvp-0.8 projection paths keep
       ``robust_composition.ROBUST_QUANTILE`` (0.10).
     """
 
@@ -4499,7 +4403,7 @@ class VoiStoppingConfig(BaseModel):
 
 
 class DeciderRoutesConfig(BaseModel):
-    """Tier 1 (owner decision 2026-10-13): small judgments the Decider decides, the LLM its fallback.
+    """Tier 1: small judgments the Decider decides, the LLM its fallback.
 
     One kill switch per judgment, each on by default; false restores that
     judgment's predecessor LLM path exactly. The serving judgments act only at
@@ -4533,8 +4437,8 @@ class DeciderRoutesConfig(BaseModel):
     #: does a PF variant's stem contradict its parent's, at selection). Off:
     #: the LLM judge on ``ai.routing.rubric_phrasing_judge`` decides it.
     required_method_statement: bool = True
-    #: Adaptive difficulty AD1's feature audit (spec_adaptive_difficulty_v1
-    #: §7.2, §10.3; a content path, every version): one Decider choice per
+    #: Adaptive difficulty's feature audit (a content path, every version):
+    #: one Decider choice per
     #: audited task-feature dimension of an item revision. Off: the audit's
     #: LLM judge on ``ai.routing.ad_feature_audit`` decides every dimension.
     #: ``adaptive_difficulty.feature_audit`` off runs no audit at all.
@@ -4542,54 +4446,52 @@ class DeciderRoutesConfig(BaseModel):
 
 
 class UiConfig(BaseModel):
-    """How the desktop app presents learner surfaces (``docs/specs/ux_learnloop_v1.md`` §10).
+    """How the desktop app presents learner surfaces.
 
     Display only: nothing here is read by grading, scheduling, evidence,
     projections or replay, so a value never needs an algorithm successor.
 
-    ``practice_feedback`` is the kill switch of UX Phase 4 (practice and
-    feedback, §7.4/§7.5): ``"simple"`` leads every practice card, feedback,
+    ``practice_feedback`` is the kill switch of the simple practice and
+    feedback screens: ``"simple"`` leads every practice card, feedback,
     short-check result and session finish with one plain line and one next
-    step, the rest behind *details*; ``"classic"`` restores the screens as they
-    were before Phase 4 exactly (owner ruling: live changes behind kill
-    switches, no shadow stage).
+    step, the rest behind *details*; ``"classic"`` restores the detailed
+    screens exactly.
 
-    ``shell`` is the kill switch of UX Phase 2 (the shell, §5, Q17):
-    ``"simple"`` is the four places (Today, Library, Reader, Progress) with
-    *+ Add*, the palette and *⋯*, the demoted screens under the hood, and the
-    notice system; ``"classic"`` keeps the ten-tab shell exactly as it was
-    (meant to stay selectable for a month after Phase 2 lands).
+    ``shell`` is the kill switch of the simple shell: ``"simple"`` is the
+    four places (Today, Library, Reader, Progress) with *+ Add*, the palette
+    and *⋯*, the demoted screens under the hood, and the notice system;
+    ``"classic"`` keeps the ten-tab shell exactly.
     """
 
     practice_feedback: Literal["simple", "classic"] = "simple"
     shell: Literal["simple", "classic"] = "simple"
-    #: FG1 §6.4: the router's decisions, plainly on Feedback and in the plan, for
+    #: The router's decisions, plainly on Feedback and in the plan, for
     #: debugging and calibration (a deliberate exception to "machinery behind why?").
     show_router_decisions: bool = True
 
 
 class TeacherWeightConfig(BaseModel):
-    """The lesson-check weight's switches (spec_teacher_v1 §12.1, §12.2): operational only."""
+    """The lesson-check weight's switches: operational only."""
 
     learned: bool = True
     source: Literal["pool", "parametric"] = "pool"
 
 
 class TeacherBriefConfig(BaseModel):
-    """What the lesson brief holds (§8.1): the prerequisite depth (``keep``) and curriculum C4's switch."""
+    """What the lesson brief holds: the prerequisite depth (fixed) and the deliverable switch."""
 
     depth: int = Field(default=2, ge=0)
     use_deliverable: bool = True
 
 
 class TeacherContextConfig(BaseModel):
-    """The teacher's context budget (§9.2): the goal's sections whole up to this many tokens (``keep``)."""
+    """The teacher's context budget: the goal's sections whole up to this many tokens (fixed)."""
 
     sources_tokens: int = Field(default=24000, ge=0)
 
 
 class TeacherDelayedConfig(BaseModel):
-    """Delayed retention and transfer checks (§13)."""
+    """Delayed retention and transfer checks."""
 
     target_retrievability: float = Field(default=0.9, gt=0.0, lt=1.0)
     fallback_retention_days: float = Field(default=3.0, gt=0.0)
@@ -4598,80 +4500,76 @@ class TeacherDelayedConfig(BaseModel):
 
 
 class TeacherPlacementConfig(BaseModel):
-    """Teacher TE2 (rev 5 §11.3, §18.4): ``max_probes`` (8, ``keep``), the generated probes one lesson may ask
-    for: a burden guardrail; the teacher decides when to stop, this only bounds it."""
+    """``max_probes`` (8, fixed): the generated probes one lesson may ask for: a burden guardrail; the
+    teacher decides when to stop, this only bounds it."""
 
     max_probes: int = Field(default=8, ge=0, le=8)
 
 
 class TeacherConfig(BaseModel):
-    """Teacher (spec_teacher_v1). TE0 (§15.2): the learner's confidence tap
-    and the grader's hedge read, rendered as events with the outcome
-    (``learnloop.confidence_events``), in the router card
-    (``learner_state_card_v2``), the history-aware diagnoser (live and
-    offline), the hint writer and the tutor; never the grader.
+    """Teacher. The learner's confidence tap and the grader's hedge read,
+    rendered as events with the outcome (``learnloop.confidence_events``), in
+    the router card (``learner_state_card_v2``), the history-aware diagnoser
+    (live and offline), the hint writer and the tutor; never the grader.
 
-    ``confidence_events_enabled`` is TE0's kill switch (default on, owner rule
-    2026-10-12: live changes behind kill switches). Off, every one of those
-    contexts is its predecessor's: no event, no stated limit, and the card is
-    a ``learner_state_card_v1`` card. Context only: no scoring, scheduling,
-    projection or serving reads it, at any algorithm version (no successor).
-    TE1 (§18.2, §18.3, §20) adds the lessons, the kill switches of the
-    successor ``TEACHER_ALGORITHM_VERSION``:
+    ``confidence_events_enabled`` is the confidence events' kill switch
+    (default on). Off, every one of those contexts is its predecessor's: no
+    event, no stated limit, and the card is a ``learner_state_card_v1`` card.
+    Context only: no scoring, scheduling, projection or serving reads it, at
+    any algorithm version (no successor).
+
+    The lessons, the kill switches of ``TEACHER_ALGORITHM_VERSION``:
 
     * ``enabled``: at that tag or later, a lesson the learner starts may open
       (``learnloop.teacher``). Off, or below the tag, no lesson opens: nothing
-      of TE1 writes and every path is its predecessor's byte for byte.
-    * ``weight.learned``: a lesson check enters mastery at the learned mass
-      (§12.1); off, at the type's configured mass (0.5).
+      of the lessons writes and every path is its predecessor's byte for byte.
+    * ``weight.learned``: a lesson check enters mastery at the learned mass;
+      off, at the type's configured mass (0.5).
     * ``weight.source``: ``pool`` mixes in the teacher's forecast by the
-      learned pool weight (§12.2); ``parametric`` uses §12.1's mass alone.
+      learned pool weight; ``parametric`` uses the learned mass alone.
     * ``brief.depth`` and ``context.sources_tokens``: context budgets
-      (``keep``); ``brief.use_deliverable`` is curriculum C4's switch (the
+      (fixed); ``brief.use_deliverable`` is the deliverable switch (the
       brief's goal and sources from the deliverable and its path, and the
       learner's linked notes with ``read_note``; off: the brief has none of it).
-    * ``delayed``: the delayed checks' dating (§13): ``target_retrievability``
+    * ``delayed``: the delayed checks' dating: ``target_retrievability``
       (R*, a seeded prior, basis ``published``: FSRS's default desired
       retention), the two seeded fallbacks used only while the LO has no FSRS
-      state (basis ``legacy``), and ``max_wait_days`` (``keep``).
+      state (basis ``legacy``), and ``max_wait_days`` (fixed).
     * ``metered_price_per_million``: the price of a metered (OpenRouter)
-      lesson; unset, no OpenRouter offer is made for a lesson (T1 redesign D).
+      lesson; unset, no OpenRouter offer is made for a lesson.
       ``max_lesson_cost_usd``: the per-lesson cap on a metered route
-      (``keep``, spend; set from one measured dry run, Q7: unset, a metered
-      lesson turn is refused before sending).
+      (spend; unset, a metered lesson turn is refused before sending).
 
-    Reader RW5d P4b (``spec_reader_show_me_figures_v1`` §6.5, §10.4) adds
     ``visuals``: the kill switch of the teacher's manipulatives. On (with
     ``figures.enabled`` and ``figures.show_me_enabled``), the teacher's turn may
     carry a ``visual`` and plan nodes a planned one, built by the figure service
     (grammar and sketch tiers) with origin ``teacher``, its own predictions off in
     the lesson; the teacher's prompt carries the visuals paragraph. Off, the
-    teacher's prompt and turn schema are TE1's byte for byte and no lesson figure
-    is built or shown. Content and display only: a figure never grades and is
-    never evidence (no successor).
+    teacher's prompt and turn schema are the predecessor's byte for byte and
+    no lesson figure is built or shown. Content and display only: a figure
+    never grades and is never evidence (no successor).
 
-    Teacher TE2-log (§11.6, §11.9, §20) adds ``episode_log``: item 5's logging,
-    additive at every algorithm version (no successor, as RO0's ``receipts``).
-    On, the teacher's turn may carry ``note_detour`` and plan nodes ``p_held``
-    (with the doctrine's versioned episode paragraph, a new §12.2 forecaster
-    family), and the lesson writes ``lesson_episodes``, ``lesson_activity_intervals``
+    ``episode_log``: the lesson episode logging, additive at every algorithm
+    version (no successor). On, the teacher's turn may carry ``note_detour``
+    and plan nodes ``p_held`` (with the doctrine's versioned episode
+    paragraph, a new forecaster family), and the lesson writes ``lesson_episodes``, ``lesson_activity_intervals``
     (through ``lesson.activity``), ``lesson_node_held`` forecasts and the receipt's
     ``episodes`` and ``minutes``. Nothing serving, scheduling, certification or
     replay reads any of it; a refused row rolls back alone with a warning. Off,
-    nothing of it is written and lessons are TE1's byte for byte.
+    nothing of it is written and lessons are the predecessor's byte for byte.
 
-    Teacher TE2 (rev 5 §11.3, §11.5, §11.7, §11.8, §18.3; ``TEACHER_PROBES_VERSIONS``) adds ``probes``, the kill
-    switch of its successor: at that tag or later, with lessons on, a lesson's teacher may ask for a generated
-    single-use probe (``serve_probe``, FG1's generation path with a lesson origin) and file a gap from the
-    learner's words (``propose_gap``, the text-gap pipeline with ``source_kind = 'lesson'``); a lesson may open on
-    a typed goal (C0b's resolver; a new topic through ``create_goal_lo`` with ``mechanism = teacher_goal_v1``);
-    the brief is ``lesson_brief_v2`` (no vault probe headers; where the last lesson left off); and Today offers
-    *Continue your lesson*. Off, or below the tag, every lesson is TE1's (and TE2-log's) byte for byte.
-    ``placement.max_probes`` (8, ``keep``): the probes one lesson may ask for.
+    ``probes`` is the kill switch of ``TEACHER_PROBES_VERSIONS``: at that tag or later, with lessons on, a
+    lesson's teacher may ask for a generated single-use probe (``serve_probe``, the follow-up generation path
+    with a lesson origin) and file a gap from the learner's words (``propose_gap``, the text-gap pipeline with
+    ``source_kind = 'lesson'``); a lesson may open on a typed goal (the deliverable scope resolver; a new topic
+    through ``create_goal_lo`` with ``mechanism = teacher_goal_v1``); the brief is ``lesson_brief_v2`` (no vault
+    probe headers; where the last lesson left off); and Today offers *Continue your lesson*. Off, or below the
+    tag, every lesson is the predecessor's byte for byte. ``placement.max_probes`` (8, fixed): the probes one
+    lesson may ask for.
     """
 
     confidence_events_enabled: bool = True
-    # TE1: the successor's kill switch (off, or below the tag: no lesson opens).
+    # The lessons' kill switch (off, or below the tag: no lesson opens).
     enabled: bool = True
     weight: TeacherWeightConfig = Field(default_factory=TeacherWeightConfig)
     brief: TeacherBriefConfig = Field(default_factory=TeacherBriefConfig)
@@ -4679,18 +4577,18 @@ class TeacherConfig(BaseModel):
     delayed: TeacherDelayedConfig = Field(default_factory=TeacherDelayedConfig)
     metered_price_per_million: float | None = None
     max_lesson_cost_usd: float | None = None
-    # Reader RW5d P4b: the teacher's manipulatives (off: TE1's prompt and turn schema exactly).
+    # The teacher's manipulatives (off: the predecessor's prompt and turn schema exactly).
     visuals: bool = True
-    # TE2-log: the episode log, intervals and node forecasts (off: nothing written, TE1's lessons exactly).
+    # The episode log, intervals and node forecasts (off: nothing written, the predecessor's lessons exactly).
     episode_log: bool = True
-    # TE2: the successor's kill switch (off, or below the tag: TE1's and TE2-log's lessons exactly).
+    # Lesson probes: the successor's kill switch (off, or below the tag: the predecessor's lessons exactly).
     probes: bool = True
     placement: TeacherPlacementConfig = Field(default_factory=TeacherPlacementConfig)
 
 
 class EligibilityConfig(BaseModel):
     """One serve/administration eligibility decision (``mvp-0.27``;
-    ``learnloop.serve_eligibility``, ``docs/reviews/serve-eligibility-decision.md``).
+    ``learnloop.serve_eligibility``).
 
     ``enabled`` is the successor's kill switch. On (at ``mvp-0.27`` or later),
     every serve path asks the decision submit asks: an item submit would prime
@@ -4700,7 +4598,7 @@ class EligibilityConfig(BaseModel):
     its typed disposition and the item served as ordinary practice; and exam
     seeding, an exam's finish and a kept-state sim count only reveals up to
     their own instant when auto-priming. Off (or below the tag), every path
-    serves and admits exactly as ``mvp-0.26``. Attempts and dispositions
+    serves and admits exactly as the predecessor. Attempts and dispositions
     already recorded keep their meaning; replay never reads this switch.
     """
 
@@ -4708,8 +4606,8 @@ class EligibilityConfig(BaseModel):
 
 
 class ReplayConfig(BaseModel):
-    """How replay reads the attempt ledger (rebuild equivalence, ``mvp-0.34``;
-    ``REPLAY_LEDGER_ALGORITHM_VERSION``, ``docs/reviews/rebuild-equivalence-fix.md``).
+    """How replay reads the attempt ledger (``mvp-0.34``,
+    ``REPLAY_LEDGER_ALGORITHM_VERSION``).
 
     ``ledger_bounded`` is the successor's kill switch. On (at the tag or
     later), replay recomputes each attempt from the ledger as its live write
@@ -4723,8 +4621,7 @@ class ReplayConfig(BaseModel):
 
 
 class AskConfig(BaseModel):
-    """One Ask (Reader CA2; ``docs/specs/ux_reader_compare_ask_v1.md`` §7,
-    ``docs/reviews/reader-ca2-one-ask.md``).
+    """One Ask.
 
     ``panel_enabled`` is the presentation's kill switch (display and prompt
     only, no successor). On: the practice and feedback Ask dock beside the
@@ -4734,10 +4631,10 @@ class AskConfig(BaseModel):
     directly, inside leak control), the practice thread is the attempt's
     (its submission key), and *earlier on this question* lists earlier
     attempts' help. Off: the overlay, the Reader's per-source answer mode and
-    the practice prompt exactly as before.
+    the practice prompt exactly as the predecessor.
 
-    ``cold_help_converts`` is the kill switch of the successor
-    ``ONE_ASK_ALGORITHM_VERSION`` (§7.7, K10, Q3-Q4). At that tag or later,
+    ``cold_help_converts`` is the kill switch of
+    ``ONE_ASK_ALGORITHM_VERSION``. At that tag or later,
     with it on: a question asked during a cold administration counts as help
     only when the tutor's ``question_type`` is substantive, on the Reader's
     cold paths too; and help taken on a cold follow-up makes the attempt
@@ -4751,44 +4648,43 @@ class AskConfig(BaseModel):
     cold_help_converts: bool = True
 
 
-#: Adaptive difficulty AD1's outside forecasters (spec_adaptive_difficulty_v1 §8.2, D4).
+#: Adaptive difficulty's outside forecasters.
 AD_OUTSIDE_FORECASTERS = ("llm_v1:item", "llm_v3:llm", "llm_v3:decider", "llm_history_v1")
 
 
 class AdaptiveDifficultyConfig(BaseModel):
-    """Adaptive difficulty (``docs/specs/spec_adaptive_difficulty_v1.md`` §11.4). AD1 adds only
-    the measuring and logging keys; the later phases add theirs.
+    """Adaptive difficulty.
 
-    AD1 is not an algorithm successor: it writes receipts (item forecasts as kind
-    ``item_unassisted_success`` in ``forecast_receipts``, ``item_serve_inputs``,
-    ``ad_reading_opportunities``), two nullable attempt columns and feature-audit
-    judgments, and nothing serving, scoring, scheduling, evidence, FSRS or
-    certification reads them (A2, A12). Each switch false restores its part's
-    predecessor exactly; all false (and ``enabled`` false) writes no row, sends
-    no extra model call and changes no prompt (G-AD1-5).
+    The measuring and logging keys are not an algorithm successor: they write
+    receipts (item forecasts as kind ``item_unassisted_success`` in
+    ``forecast_receipts``, ``item_serve_inputs``, ``ad_reading_opportunities``),
+    two nullable attempt columns and feature-audit judgments, and nothing
+    serving, scoring, scheduling, evidence, FSRS or certification reads them.
+    Each switch false restores its part's predecessor exactly; all false (and
+    ``enabled`` false) writes no row, sends no extra model call and changes no
+    prompt.
 
     * ``enabled``: the master switch; false turns every AD behaviour off,
-      logging included (§11.1).
+      logging included.
     * ``forecast_receipts``: at every plan serve, in the serve transaction, the
       reading-opportunity sweep, the frozen serve inputs of a never-attempted
       item and the in-process forecasts (``mastery_ekf``,
       ``lo_general+composite``); and the first-hint progress marker on the
       attempt. No model call.
-    * ``outside_forecasters``: the paid forecasters that run (D4):
+    * ``outside_forecasters``: the paid forecasters that run:
       ``llm_v1:item`` once per item revision when it is prepared for the plan's
       pool (background), ``llm_v3:llm`` and ``llm_v3:decider`` per
-      presentation (background, after the serve). Off the critical path; an
-      empty list (or false) runs none. Router objective RO2 adds
-      ``llm_history_v1`` (spec_router_objective_v1 §6): per presentation, its
-      rung H3 and one drawn rung of H0-H2, each one call, in the background
-      after the serve; receipts only, never evidence (A2, A12).
-    * ``history_card_token_budget`` (RO2, ``keep``): the size bound of one
+      presentation (background, after the serve), and ``llm_history_v1``: per
+      presentation, its rung H3 and one drawn rung of H0-H2, each one call, in
+      the background after the serve. Off the critical path; receipts only,
+      never evidence; an empty list (or false) runs none.
+    * ``history_card_token_budget`` (fixed): the size bound of one
       ``llm_history_v1`` card in UTF-8 bytes; over it, entries are trimmed
       oldest first within each rung and the card says what it left out.
     * ``rating_tap``: the practice screen's optional "Felt: easy / about right
-      / hard" beside Submit, stored on the attempt only when tapped (§12).
+      / hard" beside Submit, stored on the attempt only when tapped.
     * ``feature_audit``: one Decider judgment per audited task-feature
-      dimension of each item revision prepared for the pool (§7.2), with
+      dimension of each item revision prepared for the pool, with
       ``[decider_routes] ad_feature_audit`` choosing the Decider (off: its
       LLM fallback on ``ai.routing.ad_feature_audit`` judges).
     * ``daily_spend_cap_usd``: the metered dollars a UTC day for the outside
@@ -4798,48 +4694,47 @@ class AdaptiveDifficultyConfig(BaseModel):
       METERED LLM route of these roles; unset, a metered LLM call is refused
       before it is sent. The Decider is priced at its profile's listed price.
 
-    AD2+AD3 (``mvp-0.30``, one successor; §11.1; dormant below the tag), each
-    switch false restoring its part of ``mvp-0.29`` exactly:
+    The ``mvp-0.30`` successor (dormant below the tag), each switch false
+    restoring its part of the predecessor exactly:
 
     * ``selection``: a planned new-material slot is served by AD's draw over its
       support (practice in the band, calibration within acceptable difficulty,
       exact logged propensities); an empty support displaces the slot and defers
-      its item until its blocking condition clears (§6.1). Off: no draw, no
+      its item until its blocking condition clears. Off: no draw, no
       substitution, no deferral.
     * ``generation_contract``: generation asks for an item AT a commissioned
-      feature point, with no difficulty band (§7.1). Off: today's prompt and band
-      check.
+      feature point, with no difficulty band. Off: the predecessor's prompt and
+      band check.
     * ``promoted_predictor``: live decisions and the readiness numbers read the
-      subject view (§6.1, §9.5, §10.1). Off: each LO's own view, and no AD
-      readiness numbers.
+      subject view. Off: each LO's own view, and no AD readiness numbers.
     * ``learned_coupling``: the subject view's learned loadings and couplings and
-      their proposal (§5.10). Off: uniform sharing, no proposal call. **Off by
-      default** (owner decision 2026-10-19): on only after the owner has
-      spot-checked the relatedness proposal and adopted a coupling version.
-    * ``reading_opportunities``: reading raises the subject view's predicted level
-      (§5.11). Off: no reading transitions.
-    * ``reading_self_check``: the self-check verdict term (D22). Off: removed.
+      their proposal. Off: uniform sharing, no proposal call. **Off by
+      default**: on only after the owner has spot-checked the relatedness
+      proposal and adopted a coupling version.
+    * ``reading_opportunities``: reading raises the subject view's predicted
+      level. Off: no reading transitions.
+    * ``reading_self_check``: the self-check verdict term. Off: removed.
 
-    At teacher TE3a's successor (``LESSON_OPPORTUNITY_ALGORITHM_VERSION``; spec_teacher_v1 rev 5 §14.2):
-    ``lesson_opportunities``: a closed lesson's node with an LO, landed or taught, raises the subject view's
-    predicted level by its subkind's learned dose curve (prediction only), and the router objective's lesson
-    interface reads that curve. Off, or below the tag: AD as its predecessor exactly, and RO4's lesson placeholder.
+    At ``LESSON_OPPORTUNITY_ALGORITHM_VERSION``: ``lesson_opportunities``: a closed lesson's node with an LO,
+    landed or taught, raises the subject view's predicted level by its subkind's learned dose curve (prediction
+    only), and the router objective's lesson interface reads that curve. Off, or below the tag: AD as its
+    predecessor exactly, and the objective's lesson placeholder.
 
-    ``history_fallback`` (owner decision 2026-10-19): how AD's replay reads a
-    historical attempt whose exact item revision was not saved.
-    ``"current_content"`` (the default) reads it against today's item text;
-    ``"exclude"`` leaves it out. AD's own setting: ``field.legacy_fallback``,
-    which the field harness and its projections read, is unchanged.
+    ``history_fallback``: how AD's replay reads a historical attempt whose
+    exact item revision was not saved. ``"current_content"`` (the default)
+    reads it against the current item text; ``"exclude"`` leaves it out.
+    AD's own setting: ``field.legacy_fallback``, which the field harness and
+    its projections read, is unchanged.
 
-    Outside the successor, at every version: ``reading_dose_offers`` (D21, live by
-    owner decision): at an eligible section boundary the Reader may offer one
-    extra worked example or question with probability ``dose_floor`` each
-    (exact, logged propensities), at most one per section and
-    ``dose_daily_offers`` a day (§5.12). Off: today's Reader exactly.
+    Outside the successor, at every version: ``reading_dose_offers``: at an
+    eligible section boundary the Reader may offer one extra worked example
+    or question with probability ``dose_floor`` each (exact, logged
+    propensities), at most one per section and ``dose_daily_offers`` a day.
+    Off: the Reader makes no such offer.
 
-    The selection constants (§6.1, D6) and the versioned priors, grid and ladder
-    (§5.5, §5.10, §9.1) are recorded so a snapshot names them; the
-    pre-registration is ``docs/reviews/adaptive-difficulty-ad23.md`` §1.
+    The selection constants and the versioned priors, grid and ladder are
+    recorded so a snapshot names them; their pre-registration is in
+    ``docs/reviews/adaptive-difficulty-ad23.md``.
     """
 
     enabled: bool = True
@@ -4868,14 +4763,13 @@ class AdaptiveDifficultyConfig(BaseModel):
     calibrate_below: float = Field(default=0.25, ge=0.0, le=1.0)
     ready_threshold: float = Field(default=0.8, gt=0.0, lt=1.0)
     history_fallback: Literal["exclude", "current_content"] = "current_content"
-    #: Learner-blindness relax (owner direction 2026-11-01): the ``llm_v3``
-    #: forecasters' history card carries a bounded excerpt of each earlier
-    #: answer it lists (forecasts are reporting and scoring only, never an
-    #: offset prior; the material view still withholds exam and held-out
-    #: work). Its frozen state is ``ad-forecast-state-v2``. Off: the card and
-    #: state version of before, exactly.
+    #: The ``llm_v3`` forecasters' history card carries a bounded excerpt of
+    #: each earlier answer it lists (forecasts are reporting and scoring only,
+    #: never an offset prior; the material view still withholds exam and
+    #: held-out work). Its frozen state is ``ad-forecast-state-v2``. Off: the
+    #: predecessor's card and state version, exactly.
     history_answer_excerpts: bool = True
-    #: Router objective RO2 (spec_router_objective_v1 §6.3): the ``keep`` prompt-size bound on one
+    #: The fixed prompt-size bound on one
     #: ``llm_history_v1`` card, counted as UTF-8 bytes (an upper bound on its tokens). Over it, the
     #: card's entries are trimmed oldest first within each rung and the card states what it left
     #: out. A size bound, never a judgement: nothing weights it.
@@ -5028,8 +4922,7 @@ class LearnLoopConfig(BaseModel):
                 update={"model": CODEX_LUNA_MODEL, "reasoning_effort": "low"}
             ),
         )
-        # Plan-first transport T1: the ChatGPT-plan profiles every default
-        # route names. The tiers copy the vault's `chatgpt` profile (its slug,
+        # The ChatGPT-plan profiles every default route names. The tiers copy the vault's `chatgpt` profile (its slug,
         # base URL and switches), so the owner sets one model for all three.
         self.ai.providers.setdefault(CHATGPT_PLAN_PROVIDER, default_chatgpt_plan_provider())
         plan_profile = self.ai.providers[CHATGPT_PLAN_PROVIDER]
@@ -5048,7 +4941,7 @@ class LearnLoopConfig(BaseModel):
         self.ai.providers.setdefault("deepseek_flash", deepseek_flash_provider())
         self.ai.providers.setdefault("deepseek_pro", deepseek_pro_provider())
         self.ai.providers.setdefault("openrouter", openrouter_provider())
-        # Profiles from code defaults (implementation_goal §5 B6): a vault
+        # Profiles from code defaults: a vault
         # whose learnloop.toml predates them still resolves routes that name
         # them. An explicit vault profile of the same name stays authoritative.
         self.ai.providers.setdefault(DEFAULT_EMBEDDING_PROVIDER, openrouter_embedding_provider())
@@ -5131,7 +5024,7 @@ def default_codex_provider() -> CodexSDKProviderConfig:
 
 
 def default_chatgpt_plan_provider() -> ChatGPTPlanProviderConfig:
-    """The code-default ChatGPT-plan profile (plan-first transport T1).
+    """The code-default ChatGPT-plan profile.
 
     The slug is a config value (``[ai.providers.chatgpt] model``); the owner
     confirms it against ``learnloop ai models chatgpt`` after signing in.
@@ -5207,7 +5100,7 @@ def openrouter_embedding_provider() -> AIProviderConfig:
 
 
 def openrouter_decider_provider() -> AIProviderConfig:
-    """Perplexity Decider v1.1 through OpenRouter (router spec D4, owner)."""
+    """The Perplexity Decider through OpenRouter."""
 
     return DeciderProviderConfig(
         api="openrouter",
