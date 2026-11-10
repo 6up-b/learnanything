@@ -482,6 +482,11 @@ APPROVED_LAUNCH_SITES = {
     ("scripts/refactor_measures.py", "tracked", "subprocess.run"),
     ("scripts/refactor_measures.py", "run_timed", "subprocess.run"),
     ("scripts/refactor_measures.py", "main", "subprocess.run"),
+    # Refactor step A6's per-step selector: read-only `git diff --name-only` and
+    # `git ls-files` (fixed argv, no shell). Its partition check: `python -m pytest tests
+    # --collect-only` with fixed -m arguments (collection only, nothing runs). No model call.
+    ("scripts/affected_tests.py", "_git", "subprocess.run"),
+    ("scripts/check_gate_partition.py", "collect", "subprocess.run"),
     ("src/learnloop/ai/chatgpt_plan/store.py", "_fsync_directory", "getattr(os)"),
     ("src/learnloop/ai/providers/codex.py", "SdkCodexClient.__init__", "subprocess.Popen"),  # annotation
     # The launch check's probes: the resolved Codex CLI, never a model call.

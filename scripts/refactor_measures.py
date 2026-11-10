@@ -5,7 +5,7 @@ same way. Three kinds of measure:
 
 - computed from the checkout (the default, a few seconds): sizes, module and
   file counts, the plumbing counts, version-literal and tag-gate counts;
-- timed (``--timed``): the serial, ``-n 8`` and durability suite times. These
+- timed (``--timed``): the serial, ``-n 8`` and durability suite times, and step A6's two gates (``landing``, ``arc_close``). These
   take machine time, so they run only when asked, and the exact commands are
   printed either way;
 - manual: measures that need judgment or the owner. Listed with their procedure.
@@ -457,6 +457,12 @@ TIMED = {
     "serial": ("5G", ["uv", "run", "pytest", "-q", "-p", "no:cacheprovider"]),
     "n8": ("10G", ["uv", "run", "pytest", "-q", "-p", "no:cacheprovider", "-n", "8", "--dist", "worksteal"]),
     "durability": ("5G", ["uv", "run", "pytest", "-q", "-p", "no:cacheprovider", "-m", "durability"]),
+    # Step A6's two gates, which split n8's tests between them: every landing runs "landing", each arc's close runs
+    # "arc_close". n8 stays the whole suite, so S0 and Z2 compare like with like.
+    "landing": ("10G", ["uv", "run", "pytest", "-q", "-p", "no:cacheprovider", "-n", "8", "--dist", "worksteal",
+                        "-m", "not arc_close"]),
+    "arc_close": ("10G", ["uv", "run", "pytest", "-q", "-p", "no:cacheprovider", "-n", "8", "--dist", "worksteal",
+                          "-m", "arc_close"]),
 }
 
 
@@ -593,7 +599,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--floor", default=DEFAULT_FLOOR, help="oldest tag a live vault holds (default %(default)s)")
     parser.add_argument("--json", type=Path, help="write the JSON report here (default: stdout)")
     parser.add_argument("--markdown", type=Path, help="write the Markdown table here")
-    parser.add_argument("--timed", default="", help="comma list of serial,n8,durability: run those suites (machine time)")
+    parser.add_argument("--timed", default="", help="comma list of serial,n8,durability,landing,arc_close: run those suites (machine time)")
     parser.add_argument("--timed-dir", type=Path, default=ROOT / "fixtures-local" / "refactor-measures",
                         help="where timed runs write their JUnit XML (gitignored by default)")
     args = parser.parse_args(argv)
