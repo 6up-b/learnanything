@@ -89,9 +89,9 @@ DEFAULT_REPEAT_SURFACE_DISCOUNT = 0.25
 # attempt-level PF-c read (``pfc_assessment``, ``pfc_assessments``) lives in that
 # leaf too (data capture A3: the board reads it), re-exported below.
 from learnloop.outcome_contract import (  # noqa: E402 - re-exported beside their rule
-    UNASSESSED_INTERPRETATION,
-    UNVERIFIED_CRITERION_BLOCK,
-    UNVERIFIED_INTERPRETATION_KEY,
+    UNASSESSED_INTERPRETATION,  # noqa: F401  re-exported: other modules import it from here
+    UNVERIFIED_CRITERION_BLOCK,  # noqa: F401  re-exported: other modules import it from here
+    UNVERIFIED_INTERPRETATION_KEY,  # noqa: F401  re-exported: other modules import it from here
     unassessed_evidence_row,
     unverified_evidence_row,
 )
@@ -104,10 +104,10 @@ from learnloop.held_grades import (  # noqa: E402 - re-exported beside PF-c's st
     HELD_ROW_KEY,
     attempt_grade_held,
     held_attempt_ids,
-    held_for_review_attempts,
+    held_for_review_attempts,  # noqa: F401  re-exported: other modules import it from here
     mark_held_attempts,
     pfc_assessment,
-    pfc_assessments,
+    pfc_assessments,  # noqa: F401  re-exported: other modules import it from here
 )
 
 

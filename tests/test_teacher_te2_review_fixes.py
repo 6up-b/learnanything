@@ -260,7 +260,7 @@ def test_f4_resume_after_a_probe_result_whose_teacher_call_never_ran(tmp_path):
     lesson, probe = _served(tmp_path)
     broken = clients(lesson.fake)
     broken.teacher = _down  # the client cannot even be resolved
-    with pytest.raises(Exception):  # noqa: B017 - whatever the outage raises
+    with pytest.raises(Exception):  # whatever the outage raises
         S.take_turn(lesson.vault(), lesson.repository, lesson_id=lesson.lesson_id, action="answer_probe",
                     payload={"answer": "(1, 0) by three"}, clients=broken, clock=lesson.clock())
     assert _probe(lesson).status == "answered"
@@ -276,7 +276,7 @@ def test_f4_resume_after_the_follow_up_call_failed(tmp_path):
     def outage(_context):
         raise RuntimeError("transport")
 
-    with pytest.raises(Exception):  # noqa: B017 - whatever the outage raises
+    with pytest.raises(Exception):  # whatever the outage raises
         lesson.act("answer_probe", {"answer": "(1, 0) by three"}, turns=[outage])
     calls = _teacher_calls(lesson)
     lesson.act("resume", turns=[close_turn()])
@@ -287,7 +287,7 @@ def test_f4_resume_after_teach_it_anyway_whose_teacher_call_never_ran(tmp_path):
     lesson = _Lesson(tmp_path, [probe_turn])
     broken = clients(lesson.fake)
     broken.teacher = _down
-    with pytest.raises(Exception):  # noqa: B017 - whatever the outage raises
+    with pytest.raises(Exception):  # whatever the outage raises
         S.take_turn(lesson.vault(), lesson.repository, lesson_id=lesson.lesson_id, action="teach_anyway",
                     payload={}, clients=broken, clock=lesson.clock())
     assert _probe(lesson).status == "retired"

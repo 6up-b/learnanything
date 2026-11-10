@@ -41,7 +41,7 @@ from learnloop.db.stores import router as router_store
 from learnloop.ids import new_ulid
 from learnloop.router import lesson_suggestions as LS
 from learnloop.router_objective import preferences as PF
-from learnloop.router_objective.preferences import KINDS, LESSON, NEW, QUESTION, READ, REVIEW, STOP, WORDS, kind_of
+from learnloop.router_objective.preferences import KINDS, LESSON, NEW, QUESTION, READ, REVIEW, STOP, WORDS, kind_of  # noqa: F401  re-exported: read as an attribute of this module
 
 LOG = logging.getLogger(__name__)
 

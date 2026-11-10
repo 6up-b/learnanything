@@ -33,7 +33,7 @@ from learnloop.ops.vault_upgrade import rewrite_algorithm_version
 from learnloop.vault.loader import load_vault
 from tests.helpers import append_config_toml, create_placement_vault
 from tests.reading_path_fixtures import call, context
-from tests.test_curriculum_c1_plan_follows_path import C1_OFF, _activated, _at, _c1, _cli_process, _journal, _split, _version
+from tests.test_curriculum_c1_plan_follows_path import C1_OFF, _activated, _at, _c1, _cli_process, _journal, _split, _version  # noqa: F401  a pytest fixture the tests here request
 
 C1 = DELIVERABLE_PLAN_ALGORITHM_VERSION
 RW6B = READER_FOLLOWUPS_ALGORITHM_VERSION

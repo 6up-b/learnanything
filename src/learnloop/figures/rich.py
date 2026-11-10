@@ -555,7 +555,7 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
         held = _prefetch_hold(repository, client)
         own_hold = hold
 
-        def hold(current: Any) -> str | None:  # noqa: F811 - the prebuild's hold wraps the learner-state one
+        def hold(current: Any) -> str | None:  # the prebuild's hold wraps the learner-state one
             return held(current) or _item_protected(current, repository, base, clock) or (
                 own_hold(current) if own_hold is not None else None)
 

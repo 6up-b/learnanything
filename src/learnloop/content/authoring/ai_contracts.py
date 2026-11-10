@@ -13,7 +13,7 @@ from learnloop.content.proposals.ai_contracts import (
     CriterionFacetWeightsPayload,
     FacetWeightPayload,
     RequiredMethodPayload,
-    RubricCriterionPayload,
+    RubricCriterionPayload,  # noqa: F401  re-exported: other modules import it from here
     RubricPatchPayload,
     TaskFeaturesPayload,
     TraceContractPayload,

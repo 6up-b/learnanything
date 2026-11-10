@@ -30,7 +30,7 @@ from learnloop.learner.facet_state_reader import facet_recall_states_for_lo
 from learnloop.learner.mastery import covering_learner_claim, display_mastery
 from learnloop.content.authoring.authoring_gates import (
     SELECTED_RESPONSE_PATTERNS as _SELECTED_RESPONSE_PATTERNS,
-    SelectedResponseGate as _SelectedResponseGate,
+    SelectedResponseGate as _SelectedResponseGate,  # noqa: F401  re-exported: other modules import it from here
     build_instrument_gates,
     chain_gates as _chain_gates,
 )

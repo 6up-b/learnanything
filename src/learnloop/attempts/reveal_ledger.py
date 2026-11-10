@@ -38,7 +38,7 @@ from learnloop.reveal_coverage import (
     ROUTINE_DISPLAY_BASES,
     ROUTINE_DISPLAY_COVERAGE,
     ROUTINE_DISPLAY_HORIZON,
-    ROUTINE_DISPLAY_RENEWAL_GRACE,
+    ROUTINE_DISPLAY_RENEWAL_GRACE,  # noqa: F401  re-exported: other modules import it from here
     is_routine_display,
     routine_covered_from,
 )
