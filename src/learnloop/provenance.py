@@ -173,12 +173,6 @@ def where(exc: BaseException) -> str | None:
     return f"{module}:{frame.f_code.co_name}:{tb.tb_lineno}"
 
 
-def is_code(value: Any) -> bool:
-    """Whether ``value`` is a string :func:`write` keeps as it is: an id, a rule name, a version (no whitespace)."""
-
-    return isinstance(value, str) and _TOKEN.fullmatch(value) is not None
-
-
 def cap_alternatives(
     alternatives: Sequence[Mapping[str, Any]], *, limit: int = MAX_ALTERNATIVES,
 ) -> tuple[list[dict[str, Any]], dict[str, int]]:
