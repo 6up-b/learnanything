@@ -49,12 +49,7 @@ from learnloop.attempts.blind_grading import split_grading_active
 from learnloop.attempts.grading_support import method_rules_active, route_rules_active
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
-from learnloop.config.template import (
-    DEFAULTS_SNAPSHOT_BY_ALGORITHM,
-    default_config_text,
-    defaults_fingerprint_for_version,
-    effective_defaults_fingerprint,
-)
+from learnloop.config.template import default_config_text
 from learnloop.daily_plan.engine import plan_active
 from learnloop.db.connection import connect
 from learnloop.db.copies import copy_tree_with_databases
@@ -263,15 +258,12 @@ def test_new_vaults_start_at_the_successor(tmp_path):
     assert method_rules_active(fresh) and route_rules_active(fresh)
 
 
-def test_defaults_fingerprint_is_recorded_for_the_successor():
+def test_the_successors_kill_switch_defaults_on_and_its_judge_route_is_unset():
     import tomllib
 
     from learnloop.config.schema import LearnLoopConfig
 
-    for version in SUCCESSOR_CHAIN:
-        assert defaults_fingerprint_for_version(version) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[version], version
     config = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(TARGET)))
-    assert effective_defaults_fingerprint(config) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[TARGET]
     # The kill switch defaults on, beside the route rules' own switch; the
     # report's judge route is unset (the code-default decider when ready).
     assert config.required_method.enabled is True and config.proof_check.enabled is True

@@ -9,21 +9,18 @@ import pytest
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, P0_SUCCESSOR_VERSIONS
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, P0_SUCCESSOR_VERSIONS, SUCCESSOR_CHAIN
 from learnloop.cli import app
 from learnloop.config import (
     DEFAULT_CONFIG_TEXT,
-    DEFAULTS_SNAPSHOT_BY_ALGORITHM,
     CodexHTTPProviderConfig,
     CodexSDKProviderConfig,
-    LEGACY_DEFAULT_CONFIG_TEXT,
     LearnLoopConfig,
     OpenAICompatibleProviderConfig,
     OpenRouterProviderConfig,
     OPENROUTER_TRANSCRIPTION_PROVIDER,
-    effective_defaults_fingerprint,
 )
-from learnloop.config.template import default_config_text, defaults_fingerprint_for_version
+from learnloop.config.template import default_config_text
 from learnloop.vault.loader import init_vault
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.context import config_dto
@@ -40,9 +37,7 @@ def test_config_responsibilities_have_canonical_module_owners() -> None:
     assert public_config.load_config is loader.load_config
     assert public_config.load_dotenv is loader.load_dotenv
     assert public_config.DEFAULT_CONFIG_TEXT is template.DEFAULT_CONFIG_TEXT
-    assert public_config.effective_defaults_fingerprint is (
-        template.effective_defaults_fingerprint
-    )
+    assert public_config.write_default_config is template.write_default_config
     assert public_config.CodexConfig is compat.CodexConfig
     assert public_config.ai_provider_from_codex is compat.ai_provider_from_codex
 
@@ -52,9 +47,7 @@ def test_config_responsibilities_have_canonical_module_owners() -> None:
     for moved_name in (
         "ConfigLoadError",
         "DEFAULT_CONFIG_TEXT",
-        "LEGACY_DEFAULT_CONFIG_TEXT",
         "ai_provider_from_codex",
-        "effective_defaults_fingerprint",
         "load_config",
         "load_dotenv",
         "write_default_config",
@@ -100,52 +93,18 @@ def test_generated_template_is_decision_only_schema_v2() -> None:
     assert "auth_mode" not in DEFAULT_CONFIG_TEXT
 
 
-def test_minimal_template_preserves_non_provider_effective_defaults() -> None:
-    # The legacy before-image is frozen at its own version; compare it with the
-    # decision-only template rendered at that version (new vaults now start at
-    # the latest successor, owner decision 2026-10-12).
-    legacy_version = tomllib.loads(LEGACY_DEFAULT_CONFIG_TEXT)["algorithms"]["algorithm_version"]
-    before = _parsed(LEGACY_DEFAULT_CONFIG_TEXT).model_dump(mode="json")
-    after = _parsed(default_config_text(legacy_version)).model_dump(mode="json")
+def test_each_plan_tier_runs_its_codex_tiers_model_and_effort() -> None:
+    """The template routes to the ChatGPT-plan tiers; each is its Codex tier's slug and effort on the other transport,
+    so a route moved between the two keeps its model."""
 
-    before.pop("schema_version")
-    after.pop("schema_version")
-    before.pop("ai")
-    after.pop("ai")
-    assert after == before
-
-    old_ai = _parsed(LEGACY_DEFAULT_CONFIG_TEXT).ai
-    new_ai = _parsed(default_config_text(legacy_version)).ai
-    # Plan-first transport T1 (owner, 2026-10-21): the decision-only template
-    # moved every route from the Codex tiers to the ChatGPT-plan tiers of the
-    # same effort and slug; the frozen legacy before-image keeps Codex.
     from learnloop.config.schema import CODEX_TO_PLAN_PROFILE
 
-    assert old_ai.active_provider == "codex" and new_ai.active_provider == "chatgpt"
-    assert new_ai.fallback_provider == old_ai.fallback_provider
-    assert new_ai.timeout_seconds == old_ai.timeout_seconds
-    for route in (
-        "grading",
-        "canonical_ingest",
-        "canonical_ingest_retry",
-        "authoring",
-        "tutor_qa",
-        "teach_back",
-        "rung_variant",
-        "animation",
-    ):
-        assert getattr(new_ai.routing, route) == CODEX_TO_PLAN_PROFILE[getattr(old_ai.routing, route)]
+    ai = _parsed(DEFAULT_CONFIG_TEXT).ai
+    assert ai.active_provider == "chatgpt"
     for codex_name, plan_name in CODEX_TO_PLAN_PROFILE.items():
-        assert new_ai.providers[plan_name].type == "chatgpt_plan"
-        assert new_ai.providers[plan_name].model == old_ai.providers[codex_name].model
-        assert new_ai.providers[plan_name].reasoning_effort == old_ai.providers[codex_name].reasoning_effort
-    for name in ("codex", "codex_low", "codex_medium", "openrouter"):
-        assert new_ai.providers[name].type == old_ai.providers[name].type
-        assert new_ai.providers[name].model == old_ai.providers[name].model
-        assert (
-            new_ai.providers[name].reasoning_effort
-            == old_ai.providers[name].reasoning_effort
-        )
+        assert ai.providers[plan_name].type == "chatgpt_plan"
+        assert ai.providers[plan_name].model == ai.providers[codex_name].model
+        assert ai.providers[plan_name].reasoning_effort == ai.providers[codex_name].reasoning_effort
 
 
 def test_retired_keys_parse_and_are_ignored() -> None:
@@ -384,16 +343,8 @@ def test_tracked_fixture_config_corpus_is_compatibly_normalized() -> None:
         ), config_path
 
 
-def test_defaults_snapshot_is_keyed_by_algorithm_version() -> None:
-    config = _parsed(DEFAULT_CONFIG_TEXT)
-    assert effective_defaults_fingerprint(config) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[
-        config.algorithms.algorithm_version
-    ]
-
-
 def test_new_vaults_start_at_the_latest_algorithm_version(tmp_path) -> None:
-    """Owner decision 2026-10-12 (Slice 1 M2 open question 1): the template
-    writes LATEST_ALGORITHM_VERSION, so a successor merge moves one constant."""
+    """The template writes LATEST_ALGORITHM_VERSION, so a successor moves one constant."""
 
     assert tomllib.loads(DEFAULT_CONFIG_TEXT)["algorithms"]["algorithm_version"] == LATEST_ALGORITHM_VERSION
     assert DEFAULT_CONFIG_TEXT == default_config_text(LATEST_ALGORITHM_VERSION)
@@ -401,20 +352,11 @@ def test_new_vaults_start_at_the_latest_algorithm_version(tmp_path) -> None:
     assert load_vault(tmp_path / "fresh").config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION
 
 
-@pytest.mark.parametrize("version", sorted(DEFAULTS_SNAPSHOT_BY_ALGORITHM))
-def test_every_recorded_version_keeps_its_defaults_snapshot(version) -> None:
-    """Each snapshot is the template rendered at its own version, so it is
-    recomputed the same way whichever version new vaults start at."""
-
+@pytest.mark.parametrize("version", SUCCESSOR_CHAIN)
+def test_the_template_renders_at_every_tag_by_its_label_alone(version) -> None:
     rendered = default_config_text(version)
     assert tomllib.loads(rendered)["algorithms"]["algorithm_version"] == version
     assert len(rendered.splitlines()) == len(DEFAULT_CONFIG_TEXT.splitlines())
-    assert defaults_fingerprint_for_version(version) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[version]
-
-
-def test_the_defaults_snapshot_covers_the_successor_chain() -> None:
-    assert LATEST_ALGORITHM_VERSION in DEFAULTS_SNAPSHOT_BY_ALGORITHM
-    assert P0_SUCCESSOR_VERSIONS <= set(DEFAULTS_SNAPSHOT_BY_ALGORITHM)
 
 
 def test_a_successor_merge_appends_one_tag_and_every_gate_follows(monkeypatch) -> None:

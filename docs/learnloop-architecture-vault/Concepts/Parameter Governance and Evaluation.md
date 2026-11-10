@@ -67,7 +67,7 @@ Simulation validity is not live calibration. Prequential reports, shadow compone
 - Register new decision numbers with owner, rationale, class, lifecycle, and promotion gate.
 - Add dormant constraint bind sites and logging.
 - Sweep plausible ranges and link coverage certificates.
-- Bump algorithm version/default fingerprint when a shipped default changes persisted meaning.
+- Bump the algorithm version when a shipped default changes persisted meaning; the change shows as its line in `tests/goldens/effective_defaults.toml`.
 - Use [[Rebuild and Shadow Compare]] plus domain metrics before activation.
 
 ## Tests

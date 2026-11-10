@@ -28,12 +28,7 @@ from learnloop.algorithm_versions import (
 from learnloop.attempts.blind_grading import split_grading_active
 from learnloop.attempts.stuck import stuck_prompt_active
 from learnloop.clock import FrozenClock
-from learnloop.config.template import (
-    DEFAULTS_SNAPSHOT_BY_ALGORITHM,
-    default_config_text,
-    defaults_fingerprint_for_version,
-    effective_defaults_fingerprint,
-)
+from learnloop.config.template import default_config_text
 from learnloop.daily_plan.engine import plan_active, reading_from_furthest_active
 from learnloop.db.connection import connect
 from learnloop.db.copies import copy_tree_with_databases
@@ -96,15 +91,13 @@ def test_new_vaults_read_on_from_the_furthest_section(tmp_path):
     assert plan_active(fresh) and reading_from_furthest_active(fresh)
 
 
-def test_every_defaults_snapshot_records_the_switch_on():
+def test_every_tag_defaults_the_switch_on():
     import tomllib
 
     from learnloop.config.schema import LearnLoopConfig
 
     for version in SUCCESSOR_CHAIN:
-        assert defaults_fingerprint_for_version(version) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[version], version
         config = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(version)))
-        assert effective_defaults_fingerprint(config) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[version], version
         assert config.plan.reading_from_furthest is True, version
 
 

@@ -21,7 +21,6 @@ from learnloop.algorithm_versions import (
 )
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
-from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, effective_defaults_fingerprint
 from learnloop.db.connection import connect
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import Repository
@@ -208,15 +207,13 @@ def test_successor_vocabulary():
     assert LATEST_ALGORITHM_VERSION == "mvp-0.57"
 
 
-def test_defaults_fingerprint_is_recorded_for_the_successor():
+def test_the_successor_sets_no_cosine_cutoff_by_default():
     import tomllib
 
     from learnloop.config.schema import LearnLoopConfig
-    from learnloop.config.template import default_config_text, defaults_fingerprint_for_version
+    from learnloop.config.template import default_config_text
 
-    assert defaults_fingerprint_for_version("mvp-0.12") == DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.12"]
     config = LearnLoopConfig.model_validate(tomllib.loads(default_config_text("mvp-0.12")))
-    assert effective_defaults_fingerprint(config) == DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.12"]
     assert config.recurrence.blocking_cutoffs == {}, "no cosine cutoff is hand-set"
 
 

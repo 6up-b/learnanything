@@ -470,7 +470,6 @@ def _activated(paths, version=TAG) -> bool:
 def test_mvp038_is_one_constant_after_mvp037():
     from learnloop.cold_retry_reschedule_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
     from learnloop.config.schema import PracticeConfig
-    from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.params.parameter_registry import classify_config_path
 
     # Reader RW6b's mvp-0.39 and curriculum C1's mvp-0.40 (the latest) follow it (and keep it).
@@ -481,9 +480,6 @@ def test_mvp038_is_one_constant_after_mvp037():
     assert PracticeConfig().reschedule_cold_after_assist is True
     rule = classify_config_path("practice.reschedule_cold_after_assist")
     assert rule is not None and rule.kind == "structural" and "kill switch" in rule.rationale
-    for version in SUCCESSOR_CHAIN:
-        assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[version] == defaults_fingerprint_for_version(version), version
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[PREDECESSOR]
 
 
 @pytest.mark.parametrize("start", ["mvp-0.9", "mvp-0.30", "mvp-0.35", "mvp-0.36", "mvp-0.37"])

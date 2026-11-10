@@ -181,7 +181,6 @@ def _spans(repository, extraction_id, section_id) -> list[str]:
 
 
 def test_the_successor_is_one_constant_after_rw6bs_followups():
-    from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.deliverable_plan_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1:SUCCESSOR_CHAIN.index(TAG) + 1] == (PREDECESSOR, TAG) == ("mvp-0.39", "mvp-0.40")
@@ -189,9 +188,6 @@ def test_the_successor_is_one_constant_after_rw6bs_followups():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) + 1:] == ("mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57")
     assert UPGRADE_PREDECESSOR == PREDECESSOR
     assert DELIVERABLE_PLAN_VERSIONS == frozenset({TAG, "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57"})
-    for version in SUCCESSOR_CHAIN:
-        assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[version] == defaults_fingerprint_for_version(version), version
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[PREDECESSOR]
 
 
 def test_the_switch_is_on_by_default_classified_and_needs_the_curriculum_and_rw7b(tmp_path):

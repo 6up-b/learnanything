@@ -37,9 +37,7 @@ WORKING_FIXTURES = working_vault_params()
 ALL_OFF = "\n".join(f"{name} = false" for name in SC.SWITCHES) + "\n"
 
 
-def test_the_successor_is_the_next_link_with_its_defaults_snapshot():
-    from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
-
+def test_the_successor_is_the_next_link():
     # Reader workbench RW2d's mvp-0.31, RW7b's mvp-0.32 and LP-min (a)'s mvp-0.33 landed after it and keep
     # it, and rebuild equivalence's mvp-0.34, Reader CA2's mvp-0.35, the kept replaced claims' mvp-0.36 and mobile PR-4's mvp-0.37 (the latest) follow.
     assert ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION == "mvp-0.30" == SUCCESSOR_CHAIN[20]
@@ -47,7 +45,6 @@ def test_the_successor_is_the_next_link_with_its_defaults_snapshot():
     # DL2 landed first: mvp-0.29 is the predecessor and mvp-0.28 is never used (the compose round).
     assert SUCCESSOR_CHAIN[19] == "mvp-0.29" and "mvp-0.28" not in SUCCESSOR_CHAIN
     assert ADAPTIVE_DIFFICULTY_VERSIONS == frozenset({"mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57"})
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.30"] == defaults_fingerprint_for_version("mvp-0.30")
 
 
 def test_below_the_tag_every_switch_reads_off_whatever_the_config_says(tmp_path):

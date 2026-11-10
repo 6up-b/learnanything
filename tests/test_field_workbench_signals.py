@@ -496,7 +496,6 @@ def test_review_f4_a_long_autosaved_history_resolves_in_linear_time():
 
 
 def test_the_successor_vocabulary_is_one_constant_after_its_predecessor():
-    from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.workbench_field_signals_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
     # Reader workbench RW7b's mvp-0.32, LP-min (a)'s mvp-0.33, rebuild equivalence's mvp-0.34 and Reader
@@ -506,7 +505,6 @@ def test_the_successor_vocabulary_is_one_constant_after_its_predecessor():
     assert UPGRADE_PREDECESSOR == PREDECESSOR == ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION == "mvp-0.30"
     assert TAG == "mvp-0.31"
     assert WORKBENCH_FIELD_SIGNALS_VERSIONS == frozenset({TAG, "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57"})
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
 
 
 def test_the_switch_is_on_by_default_and_classified():

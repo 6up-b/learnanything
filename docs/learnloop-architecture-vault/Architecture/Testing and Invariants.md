@@ -69,7 +69,7 @@ These commands define the current verification procedure. A dated CI/release art
 
 ## When changing algorithms
 
-Follow [[Algorithm Versions and Reproducibility#Change protocol]]. In particular, a same-version rebuild must reproduce the golden projection; a new version needs a predecessor-to-successor fixture, defaults fingerprint, shadow diff, and simulation evidence.
+Follow [[Algorithm Versions and Reproducibility#Change protocol]]. In particular, a same-version rebuild must reproduce the golden projection; a new version needs a predecessor-to-successor fixture, its line in the effective-defaults golden (`tests/goldens/effective_defaults.toml`), shadow diff, and simulation evidence.
 
 > [!important] Green is necessary, not semantic approval
 > Reproducibility tests prove that the code consistently implements a version. They do not prove a new policy helps learners. Use the simulation/evaluation library and owner-reviewed shadow diffs for that decision.

@@ -8,11 +8,8 @@ chain's next journalled link (a projection activation; nothing recorded changes,
 
 from __future__ import annotations
 
-import hashlib
 import inspect
-import json
 import random
-import tomllib
 
 import pytest
 
@@ -23,8 +20,7 @@ from learnloop.algorithm_versions import (
     PHONE_PROBES_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
-from learnloop.config.schema import LearnLoopConfig, RouterObjectiveConfig
-from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, default_config_text, defaults_fingerprint_for_version
+from learnloop.config.schema import RouterObjectiveConfig
 from learnloop.daily_plan.objective_chooser import _failure_rule_field, objective_settings
 from learnloop.failure_share_upgrade import PREDECESSOR, upgrade_to_failure_share
 from learnloop.params.parameter_registry import classify_config_path
@@ -48,14 +44,6 @@ IH5_KEYS = {"failure_share_to_other_policy": True, "lessons_compete_with_followu
             "preferences_inform_router": True, "lesson_candidate_after_cold_miss": True}
 
 
-def drop_ih5_keys(dumped: dict) -> dict:
-    """An earlier successor's frozen defaults digest: IH5's key (in every snapshot, inert below mvp-0.55) dropped."""
-
-    for key, value in IH5_KEYS.items():
-        assert dumped["router_objective"].pop(key) is value
-    return dumped
-
-
 # -- the successor -------------------------------------------------------------------------------------------
 
 
@@ -70,37 +58,6 @@ def test_the_switch_defaults_on_and_is_classified():
     assert RouterObjectiveConfig().failure_share_to_other_policy is True
     rule = classify_config_path("router_objective.failure_share_to_other_policy")
     assert rule is not None and "kill switch" in rule.rationale and "IH5" in rule.rationale
-
-
-def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key():
-    for version, fingerprint in DEFAULTS_SNAPSHOT_BY_ALGORITHM.items():
-        assert fingerprint == defaults_fingerprint_for_version(version), version
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[OLD]
-    # mvp-0.54's value on the branch at IH5's base (19a812ae46), frozen here: dropping IH5's key reproduces it (and router
-    # speed stage 2's switches, in every snapshot, which landed after that base).
-    from tests.helpers import undo_decider_v12
-    from tests.test_rofu_successor import drop_rospeed2_keys
-    from tests.test_sg_successor import drop_sg_keys
-
-    dumped = drop_sg_keys(drop_rospeed2_keys(drop_ih5_keys(LearnLoopConfig.model_validate(tomllib.loads(
-        default_config_text(OLD))).model_dump(mode="json", exclude_none=False))))
-    undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor), which landed after that base
-    from tests.test_placement_unevidenced_return import drop_unevidenced_return_keys
-
-    drop_unevidenced_return_keys(dumped)  # mvp-0.56's switch (tests/test_placement_unevidenced_return.py), inert below it
-    canonical = json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()
-    assert hashlib.sha256(canonical).hexdigest() == MVP054_BASE_DIGEST
-    # The tag's own defaults differ from the predecessor's by the version label alone (the key is in both).
-    at_tag = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(TAG))).model_dump(
-        mode="json", exclude_none=False)
-    before = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
-        mode="json", exclude_none=False)
-    assert at_tag["algorithms"].pop("algorithm_version") == TAG and before["algorithms"].pop("algorithm_version") == OLD
-    assert at_tag == before
-
-
-#: mvp-0.54's recorded defaults snapshot on instruct/handoff 19a812ae46 (the effective config dumped, sorted, compact).
-MVP054_BASE_DIGEST = "9b301cbbd426103bc0740712938de05738b347d02057e6be61e92dea2b2d0ff8"
 
 
 def test_the_gate_reads_off_below_the_tag_switched_off_and_with_the_objective_off(tmp_path):

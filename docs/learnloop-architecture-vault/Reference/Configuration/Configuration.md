@@ -27,7 +27,7 @@ tags:
 
 # Configuration
 
-Configuration is split by responsibility: `schema.py` owns typed canonical models, `loader.py` owns TOML/dotenv/environment loading, `compat.py` owns one-way legacy translation, and `template.py` owns the short new-vault template plus its defaults fingerprint. ^configuration-boundaries
+Configuration is split by responsibility: `schema.py` owns typed canonical models, `loader.py` owns TOML/dotenv/environment loading, `compat.py` owns one-way legacy translation, and `template.py` owns the short new-vault template; `tests/goldens/effective_defaults.toml` lists the effective result. ^configuration-boundaries
 
 > [!important] The file is intentionally not the whole configuration
 > [[learnloop.toml]] records user decisions. Omitted policy comes from typed model defaults. `learnloop config effective` is the authoritative way to see what the running code will use.
@@ -90,13 +90,9 @@ The second form reparses the raw TOML and therefore does not include compatibili
 
 ## Defaults reproducibility
 
-New vaults are written at `LATEST_ALGORITHM_VERSION` (`mvp-0.12` since Slice 2 T1 merged); that effective configuration hashes to:
+New vaults are written at `LATEST_ALGORITHM_VERSION`. Their whole effective configuration is `tests/goldens/effective_defaults.toml`: one sorted line per key, with an unset key as a `# key = null` comment. `tests/test_effective_defaults_golden.py` fails when it differs, and also checks that every tag in `SUCCESSOR_CHAIN` has the same defaults apart from `algorithms.algorithm_version`.
 
-`d6c9d70d61dd543c51de6c34c168def87361684e8c2807699ad88e9afab0e68b`
-
-Every recorded version's snapshot (`mvp-0.9`, `mvp-0.10`, `mvp-0.11`, `mvp-0.12`) is the same template rendered at its own `algorithm_version` (`config.template.defaults_fingerprint_for_version`); all four are recorded in `config/template.py` (`DEFAULTS_SNAPSHOT_BY_ALGORITHM`).
-
-`tests/test_config_refactor.py` keys this fingerprint by algorithm version. Changing a behavior-affecting omitted default therefore requires an explicit algorithm-version/snapshot decision rather than silently changing every minimal-config vault.
+A changed default therefore shows up as its own line in review, where a behavior-affecting change gets its algorithm-version decision rather than silently changing every minimal-config vault. After a deliberate change, regenerate with `uv run python tests/test_effective_defaults_golden.py --write` and commit the file with the change.
 
 > [!note] This is a CI contract, not a runtime bundle
 > Old vaults do not carry a full copy of every default. Historical interpretation is governed by algorithm versions and compatibility paths.
@@ -123,7 +119,7 @@ For code changes:
 1. change the typed owner in `config/schema.py`;
 2. add a template field only when it is a real user decision;
 3. put old-to-new translation in `config/compat.py`;
-4. update the algorithm-version defaults fingerprint when semantics change;
+4. regenerate the effective-defaults golden, and mint an algorithm version when semantics change;
 5. update `tests/test_config_refactor.py` and relevant domain tests.
 
 ## Search recipes

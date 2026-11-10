@@ -13,8 +13,12 @@ it; existing vault history must remain interpretable and reproducible.
 3. Add or update the explicit vault-upgrade function. It must refuse jumps,
    prepare the candidate projection before the atomic config rename, and leave
    the prior version readable if preparation fails.
-4. Update the effective-default fingerprint keyed by the new version. A default
-   change without a version/fingerprint decision is a reproducibility bug.
+4. Regenerate the effective defaults (`uv run python
+   tests/test_effective_defaults_golden.py --write`) and commit
+   `tests/goldens/effective_defaults.toml` with the change: the new tag shows as
+   its `algorithms.algorithm_version` line and each new key as its own line. A
+   changed default that changes persisted meaning without a version decision is
+   a reproducibility bug; the golden line puts that decision in front of review.
 5. Classify every new table in `learnloop.db.table_roles`. A new `DERIVED` table
    must have exactly one registered rebuild owner; a new `RAW_LEDGER` or
    `RECEIPT` table must never be cleared by replay.
@@ -32,8 +36,10 @@ New vaults start at `LATEST_ALGORITHM_VERSION` (owner decision 2026-10-12,
 Slice 1 M2 open question 1). The successors form one linear chain,
 `SUCCESSOR_CHAIN` in `learnloop.algorithm_versions`: a successor merge appends
 its tag there (`LATEST_ALGORITHM_VERSION` and every version gate, such as
-`DIAGNOSIS_SPLIT_VERSIONS` and `PLACEMENT_VERSIONS`, follow) and adds its
-defaults snapshot.
+`DIAGNOSIS_SPLIT_VERSIONS` and `PLACEMENT_VERSIONS`, follow). Every tag's
+effective defaults are the latest's apart from the label
+(`tests/test_effective_defaults_golden.py`), so a new key is inert below its
+own tag by its gate, not by a per-version default.
 
 Recorded exception, not a rule: on 2026-10-12 the owner's placement decisions
 amended `mvp-0.11` in place, hours after it merged and before any vault this

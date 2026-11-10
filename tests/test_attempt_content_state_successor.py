@@ -140,7 +140,6 @@ def _closed_then_answered(paths):
 def test_mvp037_is_one_constant_after_mvp036():
     from learnloop.attempt_content_state_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
     from learnloop.config.schema import PracticeConfig
-    from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.params.parameter_registry import classify_config_path
 
     # Built as mvp-0.36 after mvp-0.35; the kept replaced claims' mvp-0.36 landed first, so the landing renumbered it.
@@ -151,8 +150,6 @@ def test_mvp037_is_one_constant_after_mvp036():
     assert PracticeConfig().attempt_keeps_content_state is True
     rule = classify_config_path("practice.attempt_keeps_content_state")
     assert rule is not None and rule.kind == "structural" and "kill switch" in rule.rationale
-    for version in SUCCESSOR_CHAIN:
-        assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[version] == defaults_fingerprint_for_version(version), version
 
 
 @pytest.mark.parametrize(("version", "switch", "keeps"), [

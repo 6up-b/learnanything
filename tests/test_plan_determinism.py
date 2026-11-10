@@ -559,22 +559,14 @@ def test_with_the_switch_off_a_contrast_pair_follows_the_session_again(tmp_path,
     assert _first_served(start) == {}
 
 
-def test_every_defaults_snapshot_records_the_switch_on():
-    """Each recorded snapshot moves only because the effective config gains
-    the key (default on); none records it off."""
-
+def test_every_tag_defaults_the_switch_on():
     import tomllib
 
     from learnloop.algorithm_versions import SUCCESSOR_CHAIN
     from learnloop.config.schema import LearnLoopConfig
-    from learnloop.config.template import (
-        DEFAULTS_SNAPSHOT_BY_ALGORITHM,
-        default_config_text,
-        defaults_fingerprint_for_version,
-    )
+    from learnloop.config.template import default_config_text
 
     for version in SUCCESSOR_CHAIN:
-        assert defaults_fingerprint_for_version(version) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[version], version
         config = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(version)))
         assert config.plan.deterministic_staged_plans is True, version
 

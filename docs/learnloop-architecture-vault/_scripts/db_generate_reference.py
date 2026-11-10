@@ -989,8 +989,8 @@ def config_field_status(path: str) -> tuple[str, str]:
     if path.startswith("locks.") or path == "facet_identity.merge_locked_facets":
         return (
             "COMPAT",
-            "Retired with facet identity locks (owner, 2026-10-12): accepted so older vaults still open and the "
-            "recorded defaults snapshots stay put; nothing reads it, and doctor warns when a vault sets it.",
+            "Retired with facet identity locks: accepted so older vaults still open; nothing reads it, and doctor "
+            "warns when a vault sets it.",
         )
     if path in DORMANT_CONFIG_PATHS or path.startswith(DORMANT_CONFIG_PREFIXES):
         if path.startswith("probe.shadow."):
@@ -2103,7 +2103,7 @@ def config_section_note(
         [
             "",
             "> [!warning] Omitted does not mean frozen in the file",
-            "> Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.",
+            "> Most values are intentionally absent from `learnloop.toml`. Every effective default is one line of `tests/goldens/effective_defaults.toml`, so a changed default shows up in review, where the `algorithms.algorithm_version` decision is made, instead of every default being dumped into each vault.",
             "",
             "## Who consumes it",
             "",
@@ -2115,7 +2115,7 @@ def config_section_note(
             "",
             "1. Add or change the typed field in `src/learnloop/config/schema.py`.",
             "2. Add it to the minimal template only if it represents a real user decision; derived policy stays omitted.",
-            "3. If behavior changes for omitted values, make the algorithm-version/defaults-fingerprint decision explicit and update `tests/test_config_refactor.py`.",
+            "3. Regenerate the effective-defaults golden (`uv run python tests/test_effective_defaults_golden.py --write`) and commit its changed line; if behavior changes for omitted values, make the algorithm-version decision explicit.",
             "4. Put one-way legacy spelling translation in `src/learnloop/config/compat.py`; runtime modules should read only the canonical typed shape.",
             "5. Verify the effective result with `learnloop config effective --json`.",
             "",

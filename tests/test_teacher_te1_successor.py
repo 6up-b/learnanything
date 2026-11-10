@@ -1,12 +1,10 @@
 """Teacher TE1's successor (spec_teacher_v1 §18.3): the tag, the upgrade, the kill switch's parity,
-the shadow rebuild, the defaults snapshot and the desktop RPCs. Every model is a fake; no network.
+the shadow rebuild and the desktop RPCs. Every model is a fake; no network.
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
-import tomllib
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -48,66 +46,6 @@ def test_the_tag_is_the_chains_last_link_after_curriculum_c1():
         "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57")
     assert PREDECESSOR == DELIVERABLE_PLAN_ALGORITHM_VERSION
     assert TEACHER_VERSIONS == frozenset({TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57"})
-
-
-def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys():
-    """G-style parity of the defaults: the new keys and the route are all that moved the
-    snapshots recorded before the tag (main's values at 19c72752b3, frozen here)."""
-
-    from learnloop.config.schema import LearnLoopConfig
-    from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, default_config_text, \
-        defaults_fingerprint_for_version
-
-    mains = {"mvp-0.9": "2cad7d6f8047d66b7290bc424553de1a66225992389ee4aff27300593001f8de",
-             "mvp-0.39": "932fd5c31ebf2945432ce9fae72d928a14ffe3f1a4ad580c404bfc0112fce31f",
-             "mvp-0.40": "f3da05902e84b7ba061bb92d77b7994c0ed15633feae4388f6a4e65e6611c587"}
-    for version, fingerprint in DEFAULTS_SNAPSHOT_BY_ALGORITHM.items():
-        assert fingerprint == defaults_fingerprint_for_version(version)
-    for version, main in mains.items():
-        config = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(version)))
-        dumped = config.model_dump(mode="json", exclude_none=False)
-        # Reader RW5d P4b's teacher.visuals moved them too (content and display, no successor), and
-        # teacher TE2-log's teacher.episode_log (additive receipts, no successor).
-        # Teacher TE2's teacher.probes and teacher.placement (mvp-0.51) too.
-        for key in ("enabled", "weight", "brief", "context", "delayed", "metered_price_per_million",
-                    "max_lesson_cost_usd", "visuals", "episode_log", "probes", "placement"):
-            dumped["teacher"].pop(key)
-        dumped["ai"]["routing"].pop("teacher")
-        # Follow-ups Nov 2's [hints] fold_follows_attach landed after TE1 (main's values predate it too).
-        dumped["hints"].pop("fold_follows_attach")
-        dumped["router"].pop("lesson_suggestions")  # teacher TE1b's keys (tests/test_teacher_te1b_successor.py)
-        # Reader RW5d P5 (after main's 19c72752b3): its [figures] prefetch keys and route moved them too.
-        # Reader RW5c P1 landed after it too: its kill switch moved them.
-        dumped["figures"].pop("checked_labels_enabled")
-        dumped.pop("data_capture")  # data capture's keys (mvp-0.44; tests/test_data_capture_successor.py)
-        dumped.pop("followup")  # FG1's keys (mvp-0.45; tests/test_followup_successor.py)
-        dumped.pop("router_objective")  # RO0's switch (no successor) and RO1's keys (mvp-0.46; tests/test_ro1_successor.py)
-        dumped["scheduler"]["surprise"].pop("remove_interval_factor")
-        dumped["ui"].pop("show_router_decisions")
-        dumped["ai"]["routing"].pop("followup_probe_author", None)
-        dumped["practice"].pop("device_eligibility_enabled")  # mobile PR-6 landed after it too
-        dumped["figures"].pop("prefetch_enabled")
-        dumped["figures"].pop("prefetch")
-        dumped["ai"]["routing"].pop("figure_prefetch_judge")
-        # Router objective RO2 (no successor): its forecaster in the default list and its card budget.
-        dumped["adaptive_difficulty"]["outside_forecasters"].remove("llm_history_v1")
-        assert dumped["adaptive_difficulty"].pop("history_card_token_budget") == 48_000
-        from tests.test_te3a_successor import drop_te3a_keys
-
-        drop_te3a_keys(dumped)  # teacher TE3a's key (mvp-0.52; tests/test_te3a_successor.py), inert below it
-        # (teacher TE3b's in_objective is in [router.lesson_suggestions], popped with TE1b's section)
-        # The router's wait: 40 s by owner decision, Nov 8 2026 (spec_instruct_handoff_v1 §3a), every snapshot, after the base.
-        assert dumped["router"]["timeout_seconds"] == 40.0
-        dumped["router"]["timeout_seconds"] = 8.0
-        from tests.helpers import undo_decider_v12
-
-        undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor)
-        from tests.test_placement_unevidenced_return import drop_unevidenced_return_keys
-
-        drop_unevidenced_return_keys(dumped)  # mvp-0.56's switch, inert below it
-        digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-        assert digest == main, version
-    assert TAG in DEFAULTS_SNAPSHOT_BY_ALGORITHM
 
 
 def _practice(paths, repository, at):

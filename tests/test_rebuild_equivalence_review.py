@@ -245,8 +245,7 @@ def _rebuilt(vault, repository):
     return _mastery(repository)
 
 
-def test_the_successor_is_one_constant_after_its_predecessor_with_its_defaults_snapshot():
-    from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
+def test_the_successor_is_one_constant_after_its_predecessor():
     from learnloop.replay_ledger_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
     # Reader CA2's mvp-0.35 follows it, then the kept replaced claims' mvp-0.36, mobile PR-4's mvp-0.37, the
@@ -254,8 +253,6 @@ def test_the_successor_is_one_constant_after_its_predecessor_with_its_defaults_s
     assert TAG == "mvp-0.34" == SUCCESSOR_CHAIN[-24] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.57"
     assert UPGRADE_PREDECESSOR == PREDECESSOR == SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1]
     assert REPLAY_LEDGER_VERSIONS == frozenset({TAG, "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", LATEST_ALGORITHM_VERSION})
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[PREDECESSOR] == defaults_fingerprint_for_version(PREDECESSOR)
 
 
 def test_the_switch_is_on_by_default_and_classified():

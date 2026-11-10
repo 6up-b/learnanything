@@ -1100,23 +1100,16 @@ def test_f4_retirements_are_idempotent_and_only_for_events_that_left():
 # -- F5: the kill switch is the predecessor's serving, and replay never reads either -------------
 
 
-def test_f5_every_defaults_snapshot_records_the_switch_off():
-    """Each recorded snapshot moves only because the effective config gains
-    the switch. Built on by default; landed off (the final verify reopened F2
-    and F3 in the release path), so every snapshot records it off."""
+def test_f5_every_tag_defaults_the_switch_off():
+    """Off by default at every tag: the release path reopened two of the findings it closes."""
 
     import tomllib
 
     from learnloop.algorithm_versions import SUCCESSOR_CHAIN
     from learnloop.config.schema import LearnLoopConfig
-    from learnloop.config.template import (
-        DEFAULTS_SNAPSHOT_BY_ALGORITHM,
-        default_config_text,
-        defaults_fingerprint_for_version,
-    )
+    from learnloop.config.template import default_config_text
 
     for version in SUCCESSOR_CHAIN:
-        assert defaults_fingerprint_for_version(version) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[version], version
         config = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(version)))
         assert config.diagnosis.chat_shows_recorded_text is False, version
 

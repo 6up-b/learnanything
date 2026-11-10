@@ -5,14 +5,13 @@ The 2026-10-17 rule (docs/algorithm-change-playbook.md): a change to which items
 successor with a kill switch even when replay is unchanged. From V3 a phone origin serves and answers the probes it
 used to leave for the desktop. The upgrade is the chain's next journalled link: from TE3b's mvp-0.53 (or mvp-0.9 onwards
 through the chain), one transaction with the projection's activation under the tag and the config's publication last.
-Nothing already recorded changes. The kill switch is the phone host's ``phone_probes`` (mobile.toml), so no vault key
-moves any snapshot. Fakes only; no model call.
+Nothing already recorded changes. The kill switch is the phone host's ``phone_probes`` (mobile.toml), so the vault's
+effective defaults gain no key. Fakes only; no model call.
 """
 
 from __future__ import annotations
 
 import inspect
-import tomllib
 
 from learnloop.algorithm_versions import (
     LATEST_ALGORITHM_VERSION,
@@ -21,8 +20,6 @@ from learnloop.algorithm_versions import (
     PHONE_PROBES_VERSIONS,
     SUCCESSOR_CHAIN,
 )
-from learnloop.config.schema import LearnLoopConfig
-from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, default_config_text, defaults_fingerprint_for_version
 from learnloop.phone_probes_upgrade import PREDECESSOR, upgrade_to_phone_probes
 from learnloop.vault.loader import load_vault
 from learnloop_mobile.config import MobileConfig
@@ -39,18 +36,6 @@ def test_the_successor_is_one_constant_after_te3b_and_the_latest():
     # IH5's successor (mvp-0.55) follows it and keeps it, then the placement hole's (mvp-0.56) and slip or gap's (mvp-0.57).
     assert TAG == "mvp-0.54" == SUCCESSOR_CHAIN[-4] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.57"
     assert PHONE_PROBES_VERSIONS == frozenset({TAG, "mvp-0.55", "mvp-0.56", "mvp-0.57"})
-
-
-def test_the_snapshot_is_recorded_and_differs_from_the_predecessors_by_the_tag_alone():
-    for version, fingerprint in DEFAULTS_SNAPSHOT_BY_ALGORITHM.items():
-        assert fingerprint == defaults_fingerprint_for_version(version), version
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[OLD]
-    at_tag = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(TAG))).model_dump(
-        mode="json", exclude_none=False)
-    before = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
-        mode="json", exclude_none=False)
-    assert at_tag["algorithms"].pop("algorithm_version") == TAG and before["algorithms"].pop("algorithm_version") == OLD
-    assert at_tag == before
 
 
 def test_the_switch_is_the_hosts_and_defaults_on():

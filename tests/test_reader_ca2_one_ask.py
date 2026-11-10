@@ -92,7 +92,6 @@ def _rows(paths, sql, params=()):
 
 def test_the_successor_is_one_constant_after_rebuild_equivalence():
     from learnloop.config.schema import AskConfig
-    from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.one_ask_upgrade import PREDECESSOR
     from learnloop.params.parameter_registry import classify_config_path
 
@@ -102,7 +101,6 @@ def test_the_successor_is_one_constant_after_rebuild_equivalence():
     assert SUCCESSOR_CHAIN[-23] == TAG == "mvp-0.35" and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.57"
     assert SUCCESSOR_CHAIN[-24] == PREDECESSOR == REPLAY_LEDGER_ALGORITHM_VERSION == "mvp-0.34"
     assert ONE_ASK_VERSIONS == frozenset({TAG, "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57"})
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
     assert AskConfig().panel_enabled is True and AskConfig().cold_help_converts is True
     for key in ("ask.panel_enabled", "ask.cold_help_converts"):
         assert classify_config_path(key) is not None

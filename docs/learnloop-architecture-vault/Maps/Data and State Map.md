@@ -52,7 +52,7 @@ Authored files and captured observations are authorities. Derived state can be d
 - [[Database Catalog]] — one note per `state.sqlite` table.
 - [[Configuration]] — every current `learnloop.toml` field and default.
 - [[Evidence and Measurement]] — what an observation is licensed to mean.
-- [[Algorithm Versions and Reproducibility]] — version bumps, fingerprints, upgrades.
+- [[Algorithm Versions and Reproducibility]] — version bumps, effective defaults, upgrades.
 - [[ADR-003 Explicit table roles govern rebuild]] — why naming is not enough.
 - [[ADR-007 Immutable evidence and append-only correction]] — historical meaning.
 - [[ADR-015 SQLite runs in WAL mode with synchronous FULL]] — journal mode, copies, checkpoints and where a vault may live.

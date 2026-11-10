@@ -9,10 +9,7 @@ serves mvp-0.51. Fakes only; no model call.
 
 from __future__ import annotations
 
-import hashlib
 import inspect
-import json
-import tomllib
 
 from learnloop.adaptive_difficulty.successor import LESSON_SWITCH, lesson_opportunities_on, settings
 from learnloop.algorithm_versions import (
@@ -22,8 +19,7 @@ from learnloop.algorithm_versions import (
     SUCCESSOR_CHAIN,
     TEACHER_PROBES_ALGORITHM_VERSION,
 )
-from learnloop.config.schema import AdaptiveDifficultyConfig, LearnLoopConfig
-from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, default_config_text, defaults_fingerprint_for_version
+from learnloop.config.schema import AdaptiveDifficultyConfig
 from learnloop.lesson_opportunity_upgrade import PREDECESSOR, upgrade_to_lesson_opportunity
 from learnloop.params.parameter_registry import classify_config_path
 from learnloop.vault.loader import load_vault
@@ -33,14 +29,6 @@ from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_
 TAG = LESSON_OPPORTUNITY_ALGORITHM_VERSION
 OLD = TEACHER_PROBES_ALGORITHM_VERSION
 TE3A_KEYS = {"lesson_opportunities": True}
-
-
-def drop_te3a_keys(dumped: dict) -> dict:
-    """An earlier successor's frozen defaults digest: TE3a's key (in every snapshot, inert below mvp-0.52) dropped."""
-
-    for key, value in TE3A_KEYS.items():
-        assert dumped["adaptive_difficulty"].pop(key) is value
-    return dumped
 
 
 def test_the_successor_is_one_constant_after_te2_and_the_latest():
@@ -56,50 +44,6 @@ def test_the_switch_defaults_on_and_is_classified():
         assert getattr(section, key) == value
     rule = classify_config_path(f"adaptive_difficulty.{LESSON_SWITCH}")
     assert rule is not None and "kill switch" in rule.rationale and "TE3a" in rule.rationale
-
-
-def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_key():
-    for version, fingerprint in DEFAULTS_SNAPSHOT_BY_ALGORITHM.items():
-        assert fingerprint == defaults_fingerprint_for_version(version), version
-    assert TAG in DEFAULTS_SNAPSHOT_BY_ALGORITHM
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[OLD]
-    # mvp-0.51's value on main at TE3a's landing merge (23182034c6), frozen here: dropping TE3a's key reproduces it
-    # (and router speed's [router_objective] held_ad_link, in every snapshot, which landed after it).
-    dumped = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
-        mode="json", exclude_none=False)
-    from tests.test_ih5_successor import drop_ih5_keys
-
-    drop_ih5_keys(dumped)  # instruct hand-off IH5's key (mvp-0.55; tests/test_ih5_successor.py), inert below it
-    from tests.test_sg_successor import drop_sg_keys
-
-    drop_sg_keys(dumped)  # slip or gap's keys (mvp-0.57; tests/test_sg_successor.py), inert below it
-    for key in TE3A_KEYS:
-        dumped["adaptive_difficulty"].pop(key)
-    from tests.test_te3b_successor import drop_te3b_keys
-
-    drop_te3b_keys(dumped)  # teacher TE3b's key (mvp-0.53; tests/test_te3b_successor.py), inert below it
-    assert dumped["router_objective"].pop("held_ad_link") is True
-    from tests.test_rofu_successor import drop_rospeed2_keys
-
-    drop_rospeed2_keys(dumped)  # router speed stage 2's switches (its Codex review F2), in every snapshot
-    # The router's wait: 40 s by owner decision, Nov 8 2026 (spec_instruct_handoff_v1 §3a), every snapshot, after the base.
-    assert dumped["router"]["timeout_seconds"] == 40.0
-    dumped["router"]["timeout_seconds"] = 8.0
-    from tests.helpers import undo_decider_v12
-
-    undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor)
-    from tests.test_placement_unevidenced_return import drop_unevidenced_return_keys
-
-    drop_unevidenced_return_keys(dumped)  # mvp-0.56's switch (tests/test_placement_unevidenced_return.py), inert below it
-    digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-    assert digest == "94291ed4789a10800d9b6174d87ae1ccf82a36e1d103d8c89fc98735e5d1d150"
-    # The tag's own defaults differ from the predecessor's by the version label alone (the key is in both).
-    at_tag = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(TAG))).model_dump(
-        mode="json", exclude_none=False)
-    before = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
-        mode="json", exclude_none=False)
-    assert at_tag["algorithms"].pop("algorithm_version") == TAG and before["algorithms"].pop("algorithm_version") == OLD
-    assert at_tag == before
 
 
 def test_the_gate_reads_off_below_the_tag_switched_off_and_with_ad_off(tmp_path):

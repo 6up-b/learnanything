@@ -911,11 +911,10 @@ SLIP_GAP_ALGORITHM_VERSION = "mvp-0.57"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
-# every gate below is "this tag or any later one". A successor merge appends
-# its tag here (one line; and records its defaults snapshot,
-# ``config.template.DEFAULTS_SNAPSHOT_BY_ALGORITHM``): LATEST_ALGORITHM_VERSION
-# and every version set follow, so a new vault at the new tag keeps the split
-# and placement.
+# every gate below is "this tag or any later one". A successor appends its tag
+# here (one line; ``tests/goldens/effective_defaults.toml`` then shows the new
+# ``algorithm_version`` line): LATEST_ALGORITHM_VERSION and every version set
+# follow, so a new vault at the new tag keeps the split and placement.
 SUCCESSOR_CHAIN: tuple[str, ...] = (
     REVEAL_LEDGER_ALGORITHM_VERSION,
     DIAGNOSIS_SPLIT_ALGORITHM_VERSION,

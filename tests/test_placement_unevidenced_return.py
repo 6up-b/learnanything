@@ -12,7 +12,6 @@ from dataclasses import asdict
 from datetime import timedelta
 import inspect
 import json
-import tomllib
 
 import pytest
 from typer.testing import CliRunner
@@ -27,8 +26,6 @@ from learnloop.algorithm_versions import (
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
-from learnloop.config.schema import LearnLoopConfig
-from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, default_config_text, defaults_fingerprint_for_version
 from learnloop.daily_plan.engine import build_plan, new_material_candidates
 from learnloop.daily_plan.lanes import classify_item
 from learnloop.db.repositories import Repository
@@ -53,14 +50,6 @@ def _at(minutes: float) -> FrozenClock:
     return FrozenClock(NOW + timedelta(minutes=minutes))
 
 
-def drop_unevidenced_return_keys(dumped: dict) -> dict:
-    """A dumped effective config without this successor's switch (default on, in every snapshot), for the snapshots
-    frozen before it landed."""
-
-    assert dumped["placement"].pop("unevidenced_return") is True
-    return dumped
-
-
 # ── the chain, the defaults, the switch ──────────────────────────────────────
 
 
@@ -69,17 +58,6 @@ def test_the_successor_is_one_constant_after_its_predecessor_and_the_latest():
     # Slip or gap's successor (mvp-0.57) follows it and keeps it.
     assert TAG == "mvp-0.56" == SUCCESSOR_CHAIN[-2] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.57"
     assert UNEVIDENCED_RETURN_VERSIONS == frozenset({TAG, "mvp-0.57"})
-
-
-def test_the_snapshot_is_recorded_and_differs_from_the_predecessors_by_the_tag_alone():
-    for version, fingerprint in DEFAULTS_SNAPSHOT_BY_ALGORITHM.items():
-        assert fingerprint == defaults_fingerprint_for_version(version), version
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[OLD]
-    at_tag = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(TAG))).model_dump(mode="json")
-    before = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(mode="json")
-    assert at_tag["algorithms"].pop("algorithm_version") == TAG and before["algorithms"].pop("algorithm_version") == OLD
-    assert at_tag == before
-    assert at_tag["placement"]["unevidenced_return"] is True
 
 
 @pytest.mark.parametrize(

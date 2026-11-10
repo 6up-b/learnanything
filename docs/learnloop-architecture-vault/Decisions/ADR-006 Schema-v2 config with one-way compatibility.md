@@ -33,9 +33,9 @@ Emit minimal schema-v2 configuration with canonical discriminated AI profiles. P
 
 - New vaults have one canonical shape.
 - Existing vaults load without serializing legacy forms back out.
-- Omitted defaults are frozen by algorithm-version fingerprint instead of bloating every file.
+- Omitted defaults are frozen by algorithm-version fingerprint instead of bloating every file. (Refactor step A3, Nov 2026, replaced the per-version fingerprints with one readable file, `tests/goldens/effective_defaults.toml`: a changed default shows as its own line.)
 
 ## Enforcement
 
-Fixture-equivalence, default fingerprint, config-owner, schema/profile, and init tests. See [[Configuration]].
+Fixture-equivalence, effective-defaults golden, config-owner, schema/profile, and init tests. See [[Configuration]].
 

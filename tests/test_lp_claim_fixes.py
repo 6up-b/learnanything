@@ -121,7 +121,6 @@ def _state(mean, variance, evidence=3):
 
 def test_the_successor_is_one_constant_after_its_predecessor():
     from learnloop.claim_fixes_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
-    from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
 
     # Rebuild equivalence's mvp-0.34, Reader CA2's mvp-0.35, the kept replaced claims' mvp-0.36 and mobile PR-4's mvp-0.37 (the latest) landed after it and keep it.
     assert TAG == SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(PREDECESSOR) + 1]
@@ -130,7 +129,6 @@ def test_the_successor_is_one_constant_after_its_predecessor():
     # Built as mvp-0.32 beside RW7b's successor; RW7b landed first, so the landing renumbered it.
     assert TAG == "mvp-0.33"
     assert CLAIM_FIXES_VERSIONS == frozenset({TAG, "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", LATEST_ALGORITHM_VERSION})
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
 
 
 def test_one_switch_on_by_default_classified_and_gated_by_the_tag():

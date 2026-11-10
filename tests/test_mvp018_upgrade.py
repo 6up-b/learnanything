@@ -51,7 +51,6 @@ from learnloop.algorithm_versions import (
 from learnloop.attempts.grading_support import route_rules_active
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
-from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
 from learnloop.daily_plan.engine import plan_active
 from learnloop.db.connection import connect
 from learnloop.db.copies import copy_tree_with_databases
@@ -194,11 +193,6 @@ def test_upgrade_command_defaults_to_the_latest(tmp_path):
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", "mvp-0.18"])
     assert result.exit_code == 0, result.output
     assert load_vault(explicit.root).config.algorithms.algorithm_version == "mvp-0.18"
-
-
-def test_defaults_fingerprints_are_recorded_for_every_successor():
-    for version in SUCCESSOR_CHAIN:
-        assert defaults_fingerprint_for_version(version) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[version], version
 
 
 def test_head_fixture_predecessor_to_successor_path(tmp_path):

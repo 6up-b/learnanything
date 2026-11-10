@@ -29,12 +29,7 @@ from learnloop.attempts.blind_grading import split_grading_active
 from learnloop.attempts.stuck import stuck_prompt_active
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
-from learnloop.config.template import (
-    DEFAULTS_SNAPSHOT_BY_ALGORITHM,
-    default_config_text,
-    defaults_fingerprint_for_version,
-    effective_defaults_fingerprint,
-)
+from learnloop.config.template import default_config_text
 from learnloop.db.connection import connect
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import Repository
@@ -181,16 +176,13 @@ def test_kill_switch_keeps_the_version_and_every_predecessor(tmp_path):
     assert split_grading_active(vault) and placement_active(vault) and recurrence_active(vault)
 
 
-def test_defaults_fingerprint_is_recorded_for_the_successor():
+def test_the_successors_kill_switch_defaults_on():
     import tomllib
 
     from learnloop.config.schema import LearnLoopConfig
 
-    for version in SUCCESSOR_CHAIN:
-        assert defaults_fingerprint_for_version(version) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[version], version
     config = LearnLoopConfig.model_validate(tomllib.loads(default_config_text("mvp-0.13")))
     assert config.stuck_prompt.enabled is True
-    assert effective_defaults_fingerprint(config) == DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.13"]
 
 
 def test_head_fixture_predecessor_to_successor_path(tmp_path):

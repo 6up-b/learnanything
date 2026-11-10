@@ -2,8 +2,8 @@
 spec_reader_workbench_v1 §9.3 "Why no successor", whose fallback applies;
 docs/reviews/reader-rw6b-p1-followups-codex-review.md).
 
-* the tag is ONE constant after mvp-0.38 and the latest; its defaults
-  snapshot is recorded; ``followups.enabled`` is its kill switch;
+* the tag is ONE constant after mvp-0.38 and the latest;
+  ``followups.enabled`` is its kill switch;
 * below the tag, or switched off, nothing is planned or re-valued: the Today
   queue is the predecessor's (plan parity), and no digest or commitment is
   written;
@@ -44,7 +44,6 @@ PREDECESSOR = COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION
 
 def test_mvp039_is_one_constant_after_mvp038_and_the_latest():
     from learnloop.config.schema import FollowupsConfig
-    from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.params.parameter_registry import classify_config_path
     from learnloop.reader_followups_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
@@ -55,9 +54,6 @@ def test_mvp039_is_one_constant_after_mvp038_and_the_latest():
     assert FollowupsConfig().enabled is True
     rule = classify_config_path("followups.enabled")
     assert rule is not None and rule.kind == "structural" and "mvp-0.39" in rule.rationale
-    for version in SUCCESSOR_CHAIN:
-        assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[version] == defaults_fingerprint_for_version(version), version
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[PREDECESSOR]
 
 
 @pytest.mark.parametrize(("version", "switch", "live"), [

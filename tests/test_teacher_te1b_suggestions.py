@@ -499,65 +499,6 @@ def test_the_openers_install_this_links_completion():
     assert "learnloop.slip_gap_upgrade" in inspect.getsource(context._complete_interrupted_activation)
 
 
-def test_every_defaults_snapshot_drops_to_te1s_value_without_the_suggestion_keys():
-    """The two new keys are all that moved the snapshots recorded before the tag."""
-
-    import hashlib
-    import tomllib
-
-    from learnloop.config.schema import LearnLoopConfig
-    from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, default_config_text, \
-        defaults_fingerprint_for_version
-
-    # main's values at f9bc4254b3 (follow-ups Nov 2's landing), frozen here.
-    mains = {"mvp-0.9": "daf9970ef448c318aa457a8b08b878c51062f2c468fd23ab52e922f57d442401",
-             "mvp-0.41": "bbf65e7656841b5190a519004dc9242617b22a1eff471382c28e03fda0da6567",
-             "mvp-0.42": "f4d3a0772f4abebe1177f59b74929e625cdddcee24f39ab1ace2fb7d85ce9825"}
-    for version, fingerprint in DEFAULTS_SNAPSHOT_BY_ALGORITHM.items():
-        assert fingerprint == defaults_fingerprint_for_version(version)
-    for version, main in mains.items():
-        config = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(version)))
-        dumped = config.model_dump(mode="json", exclude_none=False)
-        assert dumped["router"].pop("lesson_suggestions") == {"enabled": True, "ceiling_per_day": 3, "in_objective": True}
-        # Teacher TE2-log (no successor): its teacher.episode_log moved them too.
-        assert dumped["teacher"].pop("episode_log") is True
-        from tests.test_teacher_te2_successor import drop_te2_keys
-
-        drop_te2_keys(dumped)  # teacher TE2's keys (mvp-0.51; tests/test_teacher_te2_successor.py), inert below it
-        from tests.test_te3a_successor import drop_te3a_keys
-
-        drop_te3a_keys(dumped)  # teacher TE3a's key (mvp-0.52; tests/test_te3a_successor.py), inert below it
-        # (teacher TE3b's in_objective is in [router.lesson_suggestions], popped whole above)
-        # Reader RW5d P5 landed after TE1b: its [figures] prefetch keys and route moved them too.
-        # Reader RW5c P1 landed after it too: its kill switch moved them.
-        dumped["figures"].pop("checked_labels_enabled")
-        dumped.pop("data_capture")  # data capture's keys (mvp-0.44; tests/test_data_capture_successor.py)
-        dumped.pop("followup")  # FG1's keys (mvp-0.45; tests/test_followup_successor.py)
-        dumped.pop("router_objective")  # RO0's switch (no successor) and RO1's keys (mvp-0.46; tests/test_ro1_successor.py)
-        dumped["scheduler"]["surprise"].pop("remove_interval_factor")
-        dumped["ui"].pop("show_router_decisions")
-        dumped["ai"]["routing"].pop("followup_probe_author", None)
-        dumped["practice"].pop("device_eligibility_enabled")  # mobile PR-6 landed after it too
-        dumped["figures"].pop("prefetch_enabled")
-        dumped["figures"].pop("prefetch")
-        dumped["ai"]["routing"].pop("figure_prefetch_judge")
-        # Router objective RO2 (no successor): its forecaster in the default list and its card budget.
-        dumped["adaptive_difficulty"]["outside_forecasters"].remove("llm_history_v1")
-        assert dumped["adaptive_difficulty"].pop("history_card_token_budget") == 48_000
-        # The router's wait: 40 s by owner decision, Nov 8 2026 (spec_instruct_handoff_v1 §3a), every snapshot, after the base.
-        assert dumped["router"]["timeout_seconds"] == 40.0
-        dumped["router"]["timeout_seconds"] = 8.0
-        from tests.helpers import undo_decider_v12
-
-        undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor)
-        from tests.test_placement_unevidenced_return import drop_unevidenced_return_keys
-
-        drop_unevidenced_return_keys(dumped)  # mvp-0.56's switch, inert below it
-        digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-        assert digest == main, version
-    assert TAG in DEFAULTS_SNAPSHOT_BY_ALGORITHM
-
-
 def test_the_ceiling_binds_and_is_logged(tmp_path, shown):
     from tests.ux_phase1_support import set_config
 

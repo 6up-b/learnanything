@@ -9,21 +9,16 @@ became its predecessor at the landing. Fakes only; no model call.
 
 from __future__ import annotations
 
-import hashlib
 import inspect
-import json
-import tomllib
 
 from learnloop.algorithm_versions import (
-    FAILURE_SHARE_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
     SLIP_GAP_ALGORITHM_VERSION,
     SLIP_GAP_VERSIONS,
     SUCCESSOR_CHAIN,
     UNEVIDENCED_RETURN_ALGORITHM_VERSION,
 )
-from learnloop.config.schema import LearnLoopConfig, RouterObjectiveConfig
-from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, default_config_text, defaults_fingerprint_for_version
+from learnloop.config.schema import RouterObjectiveConfig
 from learnloop.daily_plan.objective_chooser import objective_settings
 from learnloop.params.parameter_registry import classify_config_path
 from learnloop.router_objective_switches import (
@@ -39,19 +34,8 @@ from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_
 
 TAG = SLIP_GAP_ALGORITHM_VERSION
 OLD = UNEVIDENCED_RETURN_ALGORITHM_VERSION
-#: The version whose defaults digest was frozen at this branch's base (instruct hand-off's mvp-0.55, then the predecessor).
-BASE = FAILURE_SHARE_ALGORITHM_VERSION
-#: Slip or gap's keys (spec §7), in every defaults snapshot, inert below the tag.
+#: Slip or gap's keys and their defaults, inert below the tag.
 SG_KEYS = {"miss_cause_sensor": True, "miss_cause_in_value": True}
-
-
-def drop_sg_keys(dumped: dict) -> dict:
-    """An earlier successor's frozen defaults digest: slip or gap's keys (in every snapshot, inert below mvp-0.57)
-    dropped."""
-
-    for key, value in SG_KEYS.items():
-        assert dumped["router_objective"].pop(key) is value
-    return dumped
 
 
 def test_the_successor_is_one_constant_after_the_placement_hole_and_the_latest():
@@ -66,33 +50,6 @@ def test_the_switches_default_on_and_are_classified():
     for key, stage in (("miss_cause_sensor", "SG1"), ("miss_cause_in_value", "SG2")):
         rule = classify_config_path(f"router_objective.{key}")
         assert rule is not None and "kill switch" in rule.rationale and stage in rule.rationale
-
-
-def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
-    for version, fingerprint in DEFAULTS_SNAPSHOT_BY_ALGORITHM.items():
-        assert fingerprint == defaults_fingerprint_for_version(version), version
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[OLD]
-    # mvp-0.55's value at this branch's base (55abc68feb), frozen here: dropping SG's keys reproduces it (and undoing
-    # Decider v1.2's model and dropping the placement hole's switch, both in every snapshot, which landed after that base).
-    from tests.helpers import undo_decider_v12
-    from tests.test_placement_unevidenced_return import drop_unevidenced_return_keys
-
-    dumped = drop_sg_keys(LearnLoopConfig.model_validate(tomllib.loads(default_config_text(BASE))).model_dump(
-        mode="json", exclude_none=False))
-    undo_decider_v12(dumped)
-    drop_unevidenced_return_keys(dumped)
-    canonical = json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()
-    assert hashlib.sha256(canonical).hexdigest() == MVP055_BASE_DIGEST
-    at_tag = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(TAG))).model_dump(
-        mode="json", exclude_none=False)
-    before = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
-        mode="json", exclude_none=False)
-    assert at_tag["algorithms"].pop("algorithm_version") == TAG and before["algorithms"].pop("algorithm_version") == OLD
-    assert at_tag == before
-
-
-#: mvp-0.55's recorded defaults snapshot on instruct/handoff at 55abc68feb (the effective config dumped, sorted, compact).
-MVP055_BASE_DIGEST = "5bfd4766447e8fb3637191cbd0b7f1d5c8c658f8c21da3a04c22152912d8c557"
 
 
 def test_the_gates_read_off_below_the_tag(tmp_path):

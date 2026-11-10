@@ -284,7 +284,6 @@ def test_f4_the_successor_follows_regrade_contracts_and_keeps_every_predecessor(
         ROUTER_MIXTURE_VERSIONS,
         SUCCESSOR_CHAIN,
     )
-    from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
 
     assert ELIGIBILITY_DECISION_ALGORITHM_VERSION == "mvp-0.27" == SUCCESSOR_CHAIN[18]
     assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.57"
@@ -293,7 +292,6 @@ def test_f4_the_successor_follows_regrade_contracts_and_keeps_every_predecessor(
     for versions in (REGRADE_CONTRACT_VERSIONS, METHOD_EXPLICIT_VERSIONS, ROUTER_MIXTURE_VERSIONS,
                      P0_PROJECTION_VERSIONS):
         assert "mvp-0.27" in versions
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.27"] == defaults_fingerprint_for_version("mvp-0.27")
 
 
 def test_f4_the_gate_reads_the_version_and_the_switch(tmp_path):

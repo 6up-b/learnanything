@@ -26,7 +26,6 @@ from learnloop.algorithm_versions import (
 from learnloop.attempts.blind_grading import split_grading_active
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
-from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM
 from learnloop.db.connection import connect
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import Repository
@@ -213,12 +212,6 @@ def test_existing_vaults_keep_their_version_until_the_owner_upgrades(tmp_path):
     assert latest.exit_code == 0, latest.output
     assert "advisory" in latest.output
     assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION
-
-
-def test_defaults_fingerprint_is_recorded_for_the_placement_successor():
-    from learnloop.config.template import defaults_fingerprint_for_version
-
-    assert defaults_fingerprint_for_version("mvp-0.11") == DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.11"]
 
 
 def test_head_fixture_predecessor_to_successor_path(tmp_path):

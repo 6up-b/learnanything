@@ -8,10 +8,7 @@ Built as mvp-0.50 on mvp-0.49 and renumbered at landing to mvp-0.51 on the route
 
 from __future__ import annotations
 
-import hashlib
 import inspect
-import json
-import tomllib
 
 import pytest
 
@@ -22,8 +19,7 @@ from learnloop.algorithm_versions import (
     TEACHER_PROBES_ALGORITHM_VERSION,
     TEACHER_PROBES_VERSIONS,
 )
-from learnloop.config.schema import LearnLoopConfig, TeacherConfig, TeacherPlacementConfig
-from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, default_config_text, defaults_fingerprint_for_version
+from learnloop.config.schema import TeacherConfig, TeacherPlacementConfig
 from learnloop.params.parameter_registry import classify_config_path
 from learnloop.teacher import te2 as T2
 from learnloop.teacher_probes_upgrade import PREDECESSOR, upgrade_to_teacher_probes
@@ -33,16 +29,8 @@ from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_
 
 TAG = TEACHER_PROBES_ALGORITHM_VERSION
 OLD = ROUTER_FOLLOWUPS_ALGORITHM_VERSION
-#: TE2's keys under [teacher] (modelled defaults, in every snapshot, inert below the tag).
+#: TE2's keys under [teacher] (modelled defaults, inert below the tag).
 TE2_KEYS = ("probes", "placement")
-
-
-def drop_te2_keys(dumped: dict) -> dict:
-    """An earlier successor's frozen defaults digest: TE2's keys (in every snapshot, inert below mvp-0.51) dropped."""
-
-    assert dumped["teacher"].pop("probes") is True
-    assert dumped["teacher"].pop("placement") == {"max_probes": 8}
-    return dumped
 
 
 def test_the_successor_is_one_constant_after_the_router_followups_and_the_latest():
@@ -58,46 +46,6 @@ def test_the_switch_and_the_keep_bound_and_their_validation():
     for bad in (-1, 9):
         with pytest.raises(ValueError):
             TeacherPlacementConfig(max_probes=bad)
-
-
-def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
-    for version, fingerprint in DEFAULTS_SNAPSHOT_BY_ALGORITHM.items():
-        assert fingerprint == defaults_fingerprint_for_version(version), version
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[OLD]
-    # mvp-0.50's value on main at the landing (516db1d862, the router follow-up batch's own mvp-0.50 snapshot),
-    # frozen here: dropping TE2's keys reproduces it (and router speed's [router_objective] held_ad_link, at mvp-0.50
-    # and in every snapshot, which landed after it).
-    dumped = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
-        mode="json", exclude_none=False)
-    from tests.test_ih5_successor import drop_ih5_keys
-
-    drop_ih5_keys(dumped)  # instruct hand-off IH5's key (mvp-0.55; tests/test_ih5_successor.py), inert below it
-    from tests.test_sg_successor import drop_sg_keys
-
-    drop_sg_keys(dumped)  # slip or gap's keys (mvp-0.57; tests/test_sg_successor.py), inert below it
-    assert dumped["teacher"].pop("probes") is True
-    assert dumped["teacher"].pop("placement") == {"max_probes": 8}
-    assert dumped["router_objective"].pop("held_ad_link") is True
-    from tests.test_rofu_successor import drop_rospeed2_keys
-
-    drop_rospeed2_keys(dumped)  # router speed stage 2's switches (its Codex review F2), in every snapshot
-    from tests.test_placement_unevidenced_return import drop_unevidenced_return_keys
-
-    drop_unevidenced_return_keys(dumped)  # mvp-0.56's switch (tests/test_placement_unevidenced_return.py), inert below it
-    from tests.test_te3a_successor import drop_te3a_keys
-
-    drop_te3a_keys(dumped)  # teacher TE3a's key (mvp-0.52; tests/test_te3a_successor.py), inert below it
-    from tests.test_te3b_successor import drop_te3b_keys
-
-    drop_te3b_keys(dumped)  # teacher TE3b's key (mvp-0.53; tests/test_te3b_successor.py), inert below it
-    # The router's wait: 40 s by owner decision, Nov 8 2026 (spec_instruct_handoff_v1 §3a), every snapshot, after the base.
-    assert dumped["router"]["timeout_seconds"] == 40.0
-    dumped["router"]["timeout_seconds"] = 8.0
-    from tests.helpers import undo_decider_v12
-
-    undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor)
-    digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-    assert digest == "780d5afa78fc92eae0911c381a364428f126dabd594125f7d63f423a4638ae59"
 
 
 @pytest.mark.parametrize("path", ["teacher.probes", "teacher.placement.max_probes"])

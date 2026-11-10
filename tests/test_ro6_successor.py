@@ -8,10 +8,7 @@ call.
 
 from __future__ import annotations
 
-import hashlib
 import inspect
-import json
-import tomllib
 
 import pytest
 
@@ -22,8 +19,7 @@ from learnloop.algorithm_versions import (
     ROUTER_LEARNED_TAIL_VERSIONS,
     SUCCESSOR_CHAIN,
 )
-from learnloop.config.schema import LearnLoopConfig, RouterObjectiveConfig
-from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, default_config_text, defaults_fingerprint_for_version
+from learnloop.config.schema import RouterObjectiveConfig
 from learnloop.params.parameter_registry import classify_config_path
 from learnloop import router_objective_switches as SW
 from learnloop.router_learned_tail_upgrade import PREDECESSOR, upgrade_to_router_learned_tail
@@ -50,47 +46,6 @@ def test_the_seeds_are_labelled_and_validated():
     for bad in ({"residual_prior_sd": 0.0}, {"residual_weight_prior_sd": -1.0}):
         with pytest.raises(ValueError):
             RouterObjectiveConfig(**bad)
-
-
-def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
-    for version, fingerprint in DEFAULTS_SNAPSHOT_BY_ALGORITHM.items():
-        assert fingerprint == defaults_fingerprint_for_version(version), version
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[OLD]
-    # mvp-0.48's value at this branch's base (5f02be6eb2), frozen here: dropping RO6's keys reproduces it.
-    dumped = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
-        mode="json", exclude_none=False)
-    from tests.test_ih5_successor import drop_ih5_keys
-
-    drop_ih5_keys(dumped)  # instruct hand-off IH5's key (mvp-0.55; tests/test_ih5_successor.py), inert below it
-    from tests.test_sg_successor import drop_sg_keys
-
-    drop_sg_keys(dumped)  # slip or gap's keys (mvp-0.57; tests/test_sg_successor.py), inert below it
-    # The follow-up batch's keys (mvp-0.50; tests/test_rofu_successor.py) are in every snapshot, inert below it.
-    from tests.test_rofu_successor import FOLLOWUP_KEYS
-
-    for key in (*RO6_KEYS, *FOLLOWUP_KEYS):
-        dumped["router_objective"].pop(key)
-    assert dumped["teacher"].pop("episode_log") is True  # teacher TE2-log's switch (no successor, every snapshot)
-    from tests.test_teacher_te2_successor import drop_te2_keys
-
-    drop_te2_keys(dumped)  # teacher TE2's keys (mvp-0.51; tests/test_teacher_te2_successor.py), inert below it
-    from tests.test_te3a_successor import drop_te3a_keys
-
-    drop_te3a_keys(dumped)  # teacher TE3a's key (mvp-0.52; tests/test_te3a_successor.py), inert below it
-    from tests.test_te3b_successor import drop_te3b_keys
-
-    drop_te3b_keys(dumped)  # teacher TE3b's key (mvp-0.53; tests/test_te3b_successor.py), inert below it
-    # The router's wait: 40 s by owner decision, Nov 8 2026 (spec_instruct_handoff_v1 §3a), every snapshot, after the base.
-    assert dumped["router"]["timeout_seconds"] == 40.0
-    dumped["router"]["timeout_seconds"] = 8.0
-    from tests.helpers import undo_decider_v12
-
-    undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor)
-    from tests.test_placement_unevidenced_return import drop_unevidenced_return_keys
-
-    drop_unevidenced_return_keys(dumped)  # mvp-0.56's switch (tests/test_placement_unevidenced_return.py), inert below it
-    digest =hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-    assert digest == "dc39796ffa66ee54c1877cba358f697f24fe449020fba6b2e3a1f14ec521a2b1"
 
 
 @pytest.mark.parametrize("path", [f"router_objective.{key}" for key in RO6_KEYS])

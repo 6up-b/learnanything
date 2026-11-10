@@ -8,10 +8,7 @@ model call.
 
 from __future__ import annotations
 
-import hashlib
 import inspect
-import json
-import tomllib
 
 import pytest
 
@@ -22,8 +19,7 @@ from learnloop.algorithm_versions import (
     ROUTER_LEARNED_TAIL_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
-from learnloop.config.schema import LearnLoopConfig, RouterObjectiveConfig
-from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, default_config_text, defaults_fingerprint_for_version
+from learnloop.config.schema import RouterObjectiveConfig
 from learnloop.params.parameter_registry import classify_config_path
 from learnloop import router_objective_switches as SW
 from learnloop.router_followups_upgrade import PREDECESSOR, upgrade_to_router_followups
@@ -48,17 +44,6 @@ FOLLOWUP_KEYS: dict[str, object] = {
     "held_reading_map": True,
     "pooled_connections": True,
 }
-#: Router speed stage 2's switches (its Codex review F2), in every defaults snapshot since they landed.
-ROSPEED2_KEYS = ("held_reading_map", "pooled_connections")
-
-
-def drop_rospeed2_keys(dumped: dict) -> dict:
-    """A dumped effective config without router speed stage 2's switches (each default on), for the snapshots frozen
-    before they landed."""
-
-    for key in ROSPEED2_KEYS:
-        assert dumped["router_objective"].pop(key) is True, key
-    return dumped
 
 
 def test_the_successor_is_one_constant_after_ro6_and_the_latest():
@@ -72,44 +57,6 @@ def test_the_switches_default_on():
     dumped = RouterObjectiveConfig().model_dump()
     for key, value in FOLLOWUP_KEYS.items():
         assert dumped[key] == value, key
-
-
-def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
-    for version, fingerprint in DEFAULTS_SNAPSHOT_BY_ALGORITHM.items():
-        assert fingerprint == defaults_fingerprint_for_version(version), version
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[OLD]
-    # mvp-0.49's value on main (5565bede25, merged at the landing: its own mvp-0.49 snapshot, which TE2-log's
-    # teacher.episode_log moved), frozen here: dropping the batch's keys reproduces it.
-    dumped = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(
-        mode="json", exclude_none=False)
-    from tests.test_ih5_successor import drop_ih5_keys
-
-    drop_ih5_keys(dumped)  # instruct hand-off IH5's key (mvp-0.55; tests/test_ih5_successor.py), inert below it
-    from tests.test_sg_successor import drop_sg_keys
-
-    drop_sg_keys(dumped)  # slip or gap's keys (mvp-0.57; tests/test_sg_successor.py), inert below it
-    for key in FOLLOWUP_KEYS:
-        dumped["router_objective"].pop(key)
-    from tests.test_teacher_te2_successor import drop_te2_keys
-
-    drop_te2_keys(dumped)  # teacher TE2's keys (mvp-0.51; tests/test_teacher_te2_successor.py), inert below it
-    from tests.test_te3a_successor import drop_te3a_keys
-
-    drop_te3a_keys(dumped)  # teacher TE3a's key (mvp-0.52; tests/test_te3a_successor.py), inert below it
-    from tests.test_te3b_successor import drop_te3b_keys
-
-    drop_te3b_keys(dumped)  # teacher TE3b's key (mvp-0.53; tests/test_te3b_successor.py), inert below it
-    # The router's wait: 40 s by owner decision, Nov 8 2026 (spec_instruct_handoff_v1 §3a), every snapshot, after the base.
-    assert dumped["router"]["timeout_seconds"] == 40.0
-    dumped["router"]["timeout_seconds"] = 8.0
-    from tests.helpers import undo_decider_v12
-
-    undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor)
-    from tests.test_placement_unevidenced_return import drop_unevidenced_return_keys
-
-    drop_unevidenced_return_keys(dumped)  # mvp-0.56's switch (tests/test_placement_unevidenced_return.py), inert below it
-    digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-    assert digest == "cb3a4f907f667d77deb1b53eb92c2e7b57f836443f7058de2a5a6e2b431e2e48"
 
 
 @pytest.mark.parametrize("path", [f"router_objective.{key}" for key in FOLLOWUP_KEYS])

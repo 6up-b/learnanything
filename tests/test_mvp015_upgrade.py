@@ -36,12 +36,7 @@ from learnloop.attempts.blind_grading import split_grading_active
 from learnloop.attempts.stuck import stuck_prompt_active
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
-from learnloop.config.template import (
-    DEFAULTS_SNAPSHOT_BY_ALGORITHM,
-    default_config_text,
-    defaults_fingerprint_for_version,
-    effective_defaults_fingerprint,
-)
+from learnloop.config.template import default_config_text
 from learnloop.daily_plan.engine import plan_active
 from learnloop.db.connection import connect
 from learnloop.db.copies import copy_tree_with_databases
@@ -222,15 +217,12 @@ def test_new_vaults_start_at_a_successor_that_admits_probe_ties(tmp_path):
     assert probe_ties_admitted(fresh.config) and plan_active(fresh)
 
 
-def test_defaults_fingerprint_is_recorded_for_the_probe_tie_successor():
+def test_the_probe_tie_successors_switches_default_on():
     import tomllib
 
     from learnloop.config.schema import LearnLoopConfig
 
-    for version in SUCCESSOR_CHAIN:
-        assert defaults_fingerprint_for_version(version) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[version], version
     config = LearnLoopConfig.model_validate(tomllib.loads(default_config_text("mvp-0.15")))
-    assert effective_defaults_fingerprint(config) == DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.15"]
     assert config.router.log_decisions is True and config.router.probe_tie_admission is True
 
 

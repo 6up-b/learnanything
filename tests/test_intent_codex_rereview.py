@@ -203,7 +203,7 @@ def test_f11_an_available_cold_sibling_is_still_preferred(iv):
     assert iv.serving(due_day).withhold_reason("pi_a1") == "intent_check_held"
 
 
-# -- F2: the tag, its upgrade and its snapshot ----------------------------------------------------------
+# -- F2: the tag and its upgrade ----------------------------------------------------------------------
 
 
 def test_f2_the_chain_ends_at_the_intent_successor():
@@ -215,7 +215,6 @@ def test_f2_the_chain_ends_at_the_intent_successor():
         P0_PROJECTION_VERSIONS,
         SUCCESSOR_CHAIN,
     )
-    from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
 
     # Adaptive difficulty AD2+AD3 (mvp-0.30) follows it, and the Reader workbench RW2d's field
     # signals (mvp-0.31), RW7b's reading path (mvp-0.32), LP-min (a)'s claim fixes (mvp-0.33) and rebuild
@@ -226,7 +225,6 @@ def test_f2_the_chain_ends_at_the_intent_successor():
     assert SUCCESSOR_CHAIN[18] == PREDECESSOR
     assert INTENT_VERSIONS == frozenset({"mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57"})
     assert "mvp-0.29" in ELIGIBILITY_DECISION_VERSIONS and "mvp-0.29" in P0_PROJECTION_VERSIONS
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.29"] == defaults_fingerprint_for_version("mvp-0.29")
 
 
 def test_f2_the_gate_reads_the_version_and_the_switch(tmp_path):

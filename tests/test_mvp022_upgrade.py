@@ -48,7 +48,6 @@ from learnloop.algorithm_versions import (
 )
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
-from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
 from learnloop.db.connection import connect
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import Repository
@@ -237,11 +236,6 @@ def test_new_vaults_start_at_a_successor_with_the_deciders_judgments(tmp_path):
     assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.57"
     assert LATEST_ALGORITHM_VERSION in DECIDER_TIER1_VERSIONS
     assert all(enabled(fresh.config, task) for task in SERVING_TASKS)
-
-
-def test_defaults_fingerprints_are_recorded_for_every_successor():
-    for version in SUCCESSOR_CHAIN:
-        assert defaults_fingerprint_for_version(version) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[version], version
 
 
 def test_head_fixture_predecessor_to_successor_path(tmp_path):

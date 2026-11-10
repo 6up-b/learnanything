@@ -39,7 +39,6 @@ from learnloop.algorithm_versions import (
 )
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
-from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
 from learnloop.daily_plan.engine import DEFAULT_POLICY
 from learnloop.daily_plan.policy import mixture_active, policy_for, router_active
 from learnloop.daily_plan.router_chooser import RouterChooser
@@ -237,11 +236,6 @@ def test_new_vaults_start_at_the_mixture_successor(tmp_path):
     assert router.weights.model_dump() == {"staged": 1 / 3, "decider": 1 / 3, "llm": 1 / 3}
     assert router.max_daily_cost_usd == 5.0
     assert mixture_active(fresh)
-
-
-def test_defaults_fingerprints_are_recorded_for_every_successor():
-    for version in SUCCESSOR_CHAIN:
-        assert defaults_fingerprint_for_version(version) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[version], version
 
 
 def test_the_floor_must_leave_room_for_the_draw(tmp_path):

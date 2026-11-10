@@ -34,12 +34,7 @@ from learnloop.attempts.blind_grading import split_grading_active
 from learnloop.attempts.stuck import stuck_prompt_active
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
-from learnloop.config.template import (
-    DEFAULTS_SNAPSHOT_BY_ALGORITHM,
-    default_config_text,
-    defaults_fingerprint_for_version,
-    effective_defaults_fingerprint,
-)
+from learnloop.config.template import default_config_text
 from learnloop.daily_plan.engine import plan_active
 from learnloop.daily_plan_upgrade import upgrade_to_mvp014
 from learnloop.db.connection import connect
@@ -204,15 +199,12 @@ def test_new_vaults_serve_the_plan(tmp_path):
     assert plan_active(fresh)
 
 
-def test_defaults_fingerprint_is_recorded_for_the_plan_successor():
+def test_the_plan_successors_defaults():
     import tomllib
 
     from learnloop.config.schema import LearnLoopConfig
 
-    for version in SUCCESSOR_CHAIN:
-        assert defaults_fingerprint_for_version(version) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[version], version
     config = LearnLoopConfig.model_validate(tomllib.loads(default_config_text("mvp-0.14")))
-    assert effective_defaults_fingerprint(config) == DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.14"]
     assert config.plan.enabled is True and config.plan.default_minutes == 25
 
 

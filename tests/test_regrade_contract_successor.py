@@ -49,7 +49,6 @@ from learnloop.algorithm_versions import (
 from learnloop.attempts.grade_resolution import append_adjudication_evidence_revision
 from learnloop.attempts.regrade import regrade_attempt, run_deferred_ai_regrades
 from learnloop.clock import FrozenClock
-from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
 from learnloop.grading_epochs import current_epoch, next_grading_revision, ordered_epochs
 from learnloop.held_grades import attempt_grade_held
 from learnloop.outcome_contract import GRADE_CONTRACT_UNRECORDED
@@ -150,10 +149,6 @@ def test_the_successor_is_the_latest_and_keeps_every_predecessor():
                      ROUTE_RULES_VERSIONS, ROUTER_MIXTURE_VERSIONS, METHOD_EXPLICIT_VERSIONS):
         assert VERSION in versions
     assert PREDECESSOR not in REGRADE_CONTRACT_VERSIONS
-
-
-def test_its_defaults_fingerprint_is_recorded():
-    assert defaults_fingerprint_for_version(VERSION) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[VERSION]
 
 
 # -- the epoch rule (pure) ---------------------------------------------------------------------

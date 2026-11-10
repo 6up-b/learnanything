@@ -4,8 +4,8 @@ docs/reviews/followups-nov2-codex-review.md; docs/algorithm-change-playbook.md,
 the 2026-10-17 rule: a change to which new attempts are primed is a successor
 with a kill switch even when replay is unchanged).
 
-* the tag is ONE constant after mvp-0.41 and the latest; its defaults
-  snapshot is recorded; ``hints.fold_follows_attach`` is its kill switch;
+* the tag is ONE constant after mvp-0.41 and the latest;
+  ``hints.fold_follows_attach`` is its kill switch;
 * below the tag, or switched off, a keyed submit folds exactly as the
   predecessor (the key's rows in the submit's own session only; no keyed
   attach in the attempt's transaction, H0's attach after the commit), so the
@@ -49,7 +49,6 @@ OFF = ARGMAX + "fold_follows_attach = false\n"
 
 def test_mvp042_is_one_constant_after_mvp041_and_the_latest():
     from learnloop.config.schema import HintsConfig
-    from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.help_fold_attach_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
     from learnloop.params.parameter_registry import classify_config_path
 
@@ -60,9 +59,6 @@ def test_mvp042_is_one_constant_after_mvp041_and_the_latest():
     assert HintsConfig().fold_follows_attach is True
     rule = classify_config_path("hints.fold_follows_attach")
     assert rule is not None and rule.kind == "structural" and "mvp-0.42" in rule.rationale
-    for version in SUCCESSOR_CHAIN:
-        assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[version] == defaults_fingerprint_for_version(version), version
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[PREDECESSOR]
 
 
 def _rolled(tmp_path, *, version: str, config: str = ARGMAX, option: str = "next_step@L3"):

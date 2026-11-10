@@ -47,7 +47,6 @@ from learnloop.algorithm_versions import (
 )
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
-from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
 from learnloop.daily_plan.engine import DEFAULT_POLICY
 from learnloop.daily_plan.policy import bridge_active, policy_for, router_active
 from learnloop.db.connection import connect
@@ -234,11 +233,6 @@ def test_new_vaults_start_at_the_router_successor(tmp_path):
     assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.57"
     assert fresh.config.router.enabled and fresh.config.router.mode == "mixture"
     assert router_active(fresh)
-
-
-def test_defaults_fingerprints_are_recorded_for_every_successor():
-    for version in SUCCESSOR_CHAIN:
-        assert defaults_fingerprint_for_version(version) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[version], version
 
 
 def test_head_fixture_predecessor_to_successor_path(tmp_path):

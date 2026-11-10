@@ -13,11 +13,7 @@ from learnloop.algorithm_versions import (
     SUCCESSOR_CHAIN,
 )
 from learnloop.config.schema import LearnLoopConfig
-from learnloop.config.template import (
-    DEFAULTS_SNAPSHOT_BY_ALGORITHM,
-    default_config_text,
-    defaults_fingerprint_for_version,
-)
+from learnloop.config.template import default_config_text
 from learnloop.followup_serve.gates import effective_auto_generate_on_entry, generate_and_serve_on
 from learnloop.followup_serve_upgrade import PREDECESSOR, upgrade_to_followup_serve
 from learnloop.vault.loader import load_vault
@@ -32,12 +28,6 @@ def test_the_successor_is_one_constant_after_data_capture():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.44"
     assert TAG == "mvp-0.45" and TAG in FOLLOWUP_SERVE_VERSIONS and OLD not in FOLLOWUP_SERVE_VERSIONS
     assert LATEST_ALGORITHM_VERSION in FOLLOWUP_SERVE_VERSIONS
-
-
-def test_every_defaults_snapshot_is_recomputed():
-    for version, fingerprint in DEFAULTS_SNAPSHOT_BY_ALGORITHM.items():
-        assert fingerprint == defaults_fingerprint_for_version(version), version
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[OLD]
 
 
 def test_new_vaults_get_true_effectively_and_older_templates_stay_as_they_were():

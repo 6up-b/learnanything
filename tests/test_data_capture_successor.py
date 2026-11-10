@@ -6,27 +6,18 @@ blocks and the router's rows (receipts stay additive in their own tables).
 
 from __future__ import annotations
 
-import hashlib
 import inspect
-import json
 import re
-import tomllib
 
 import pytest
 
 from learnloop.algorithm_versions import (
     DATA_CAPTURE_ALGORITHM_VERSION,
     DATA_CAPTURE_VERSIONS,
-    LATEST_ALGORITHM_VERSION,
     LESSON_SUGGESTIONS_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
-from learnloop.config.schema import DataCaptureConfig, LearnLoopConfig
-from learnloop.config.template import (
-    DEFAULTS_SNAPSHOT_BY_ALGORITHM,
-    default_config_text,
-    defaults_fingerprint_for_version,
-)
+from learnloop.config.schema import DataCaptureConfig
 from learnloop.data_capture.gates import receipts_on, serving_on
 from learnloop.data_capture_upgrade import PREDECESSOR, upgrade_to_data_capture
 from learnloop.daily_plan.engine import advance, build_plan
@@ -47,63 +38,6 @@ def test_the_successor_is_one_constant_after_te1b_and_the_latest():
     assert SUCCESSOR_CHAIN[position - 1:position + 1] == (OLD, TAG) == ("mvp-0.43", "mvp-0.44")
     assert TAG in DATA_CAPTURE_VERSIONS and OLD not in DATA_CAPTURE_VERSIONS
     assert PREDECESSOR == OLD
-
-
-def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
-    for version, fingerprint in DEFAULTS_SNAPSHOT_BY_ALGORITHM.items():
-        assert fingerprint == defaults_fingerprint_for_version(version), version
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[OLD]
-    # main's value at 6cf7a91ba8, frozen here: dropping the two keys reproduces it.
-    dumped = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(mode="json", exclude_none=False)
-    from tests.test_ih5_successor import drop_ih5_keys
-
-    drop_ih5_keys(dumped)  # instruct hand-off IH5's key (mvp-0.55; tests/test_ih5_successor.py), inert below it
-    from tests.test_sg_successor import drop_sg_keys
-
-    drop_sg_keys(dumped)  # slip or gap's keys (mvp-0.57; tests/test_sg_successor.py), inert below it
-    assert dumped.pop("data_capture") == {"receipts": True, "serving": True}
-    # FG1's keys, in every snapshot and inert below its tag.
-    dumped.pop("followup")
-    # RO0's switch (no successor; every snapshot moved) and RO1's keys (mvp-0.46; tests/test_ro1_successor.py), in
-    # every snapshot and inert below its tag.
-    section = dumped.pop("router_objective")
-    # Router objective RO4 (mvp-0.47; tests/test_ro4_successor.py) and RO5 (mvp-0.48; tests/test_ro5_successor.py):
-    # their switches and seeds, inert below their tags.
-    from tests.test_ro4_successor import RO4_KEYS
-    from tests.test_ro5_successor import RO5_KEYS
-    from tests.test_ro6_successor import RO6_KEYS
-    from tests.test_rofu_successor import FOLLOWUP_KEYS
-
-    for key in (*RO4_KEYS, *RO5_KEYS, *RO6_KEYS, *FOLLOWUP_KEYS):
-        section.pop(key)
-    assert section == {"receipts": True, "available_at_reads": True, "self_report_not_validated": True}
-    dumped["ai"]["routing"].pop("followup_probe_author", None)
-    dumped["ui"].pop("show_router_decisions")
-    assert dumped["scheduler"]["surprise"].pop("remove_interval_factor") is True
-    # Router objective RO2 (no successor): its forecaster in the default list and its card budget.
-    dumped["adaptive_difficulty"]["outside_forecasters"].remove("llm_history_v1")
-    assert dumped["adaptive_difficulty"].pop("history_card_token_budget") == 48_000
-    assert dumped["teacher"].pop("episode_log") is True  # teacher TE2-log's switch (no successor, every snapshot)
-    from tests.test_teacher_te2_successor import drop_te2_keys
-
-    drop_te2_keys(dumped)  # teacher TE2's keys (mvp-0.51; tests/test_teacher_te2_successor.py), inert below it
-    from tests.test_te3a_successor import drop_te3a_keys
-
-    drop_te3a_keys(dumped)  # teacher TE3a's key (mvp-0.52; tests/test_te3a_successor.py), inert below it
-    from tests.test_te3b_successor import drop_te3b_keys
-
-    drop_te3b_keys(dumped)  # teacher TE3b's key (mvp-0.53; tests/test_te3b_successor.py), inert below it
-    # The router's wait: 40 s by owner decision, Nov 8 2026 (spec_instruct_handoff_v1 §3a), operational, every snapshot.
-    assert dumped["router"]["timeout_seconds"] == 40.0
-    dumped["router"]["timeout_seconds"] = 8.0
-    from tests.helpers import undo_decider_v12
-
-    undo_decider_v12(dumped)  # Decider v1.2's model, in every snapshot (no successor)
-    from tests.test_placement_unevidenced_return import drop_unevidenced_return_keys
-
-    drop_unevidenced_return_keys(dumped)  # mvp-0.56's switch (tests/test_placement_unevidenced_return.py), inert below it
-    digest =hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-    assert digest == "08840dbd600321a4a8d52fafb969bfacb6ace0e53d3166f5bdb12f81be6b34f3"
 
 
 def test_the_switches_are_on_by_default_and_the_gate_reads_the_tag():
