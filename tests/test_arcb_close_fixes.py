@@ -261,3 +261,58 @@ def test_a_plan_block_names_the_attempt_its_chooser_saw_not_one_committed_while_
         blocks = provenance.read(connection, f"TRACE_AS_OF_{index}", kind="plan_block")
     assert blocks and all(block.facts.get("trigger_attempt") == last_attempt for block in blocks), \
         [block.facts.get("trigger_attempt") for block in blocks]
+
+
+# -- 7. a background job keeps the trace of the request that started it -------------------------------------------
+
+
+def test_an_async_hints_receipts_and_records_share_the_requests_trace(tmp_path: Path):
+    """The hint job runs on a thread of its own (``BackgroundJobs.spawn``). Before the fix that thread started with no
+    trace: its receipts carried none and its records got a trace of their own, so ``why`` could not join them."""
+
+    import sqlite3
+    from contextlib import closing
+
+    from tests.hint_fakes import WriterFake
+    from tests.test_hint_h2a_review import _request, _sidecar
+
+    paths, ctx, session = _sidecar(tmp_path)
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        before_calls = {row[0] for row in connection.execute("SELECT id FROM model_call_receipts")}
+        before_records = {row[0] for row in connection.execute("SELECT id FROM decision_records")}
+    with provenance.trace_scope("TRACE_HINT_REQUEST"):
+        job = _request(ctx, session, "next_step@L3", WriterFake())
+    assert ctx.hint_jobs.get(job["jobId"]).done.wait(30)
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        calls = [row for row in connection.execute("SELECT id, trace_id FROM model_call_receipts")
+                 if row[0] not in before_calls]
+        records = [row for row in connection.execute("SELECT id, trace_id, kind FROM decision_records")
+                   if row[0] not in before_records]
+    assert calls, "the job made no model call"
+    assert {row[1] for row in calls} == {"TRACE_HINT_REQUEST"}
+    assert {row[1] for row in records} <= {"TRACE_HINT_REQUEST"}
+    ctx.close()
+
+
+def test_each_queued_figure_trigger_runs_under_the_trace_that_queued_it(monkeypatch):
+    from learnloop.figures import prefetch as PF
+    from learnloop_sidecar import prefetch_runtime as PR
+
+    seen: list[tuple[str, str | None]] = []
+    monkeypatch.setattr(PF, "run_trigger", lambda env, trigger: seen.append((trigger, provenance.current_trace())))
+    monkeypatch.setattr(PR, "environment", lambda ctx, epoch: object())
+
+    class _Ctx:
+        figure_prefetch_inline = False
+
+    runtime = PR.PrefetchRuntime()
+    # Two requests queue a trigger each before the one drain runs both passes.
+    runtime._running = True
+    with provenance.trace_scope("TRACE_FIRST"):
+        runtime.submit(_Ctx(), "trigger_a")
+    with provenance.trace_scope("TRACE_SECOND"):
+        runtime.submit(_Ctx(), "trigger_b")
+    runtime._running = False
+    with provenance.trace_scope("TRACE_DRAIN_THREAD"):
+        runtime._drain(_Ctx(), None)
+    assert seen == [("trigger_a", "TRACE_FIRST"), ("trigger_b", "TRACE_SECOND")]

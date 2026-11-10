@@ -31,6 +31,7 @@ import threading
 import time
 from typing import Any, Callable
 
+from learnloop import provenance
 from learnloop.ai.execution import active_request_gate, gate_model_requests
 from learnloop.ai.spend import SpendCancelled
 
@@ -86,12 +87,20 @@ class BackgroundJobs:
 
     def spawn(self, target: Callable[[], Any], *, name: str, epoch: int | None = None) -> threading.Thread:
         """Start ``target`` on a daemon thread owned by this context: a close
-        cancels it (its requests refused from then on) and joins it, bounded."""
+        cancels it (its requests refused from then on) and joins it, bounded.
+
+        The job runs under the trace of the request that started it: a new
+        thread starts with every context variable at its default, so its
+        receipts would carry no trace and its records a trace of their own,
+        and ``why`` could not join the request to them. Only the trace is
+        handed over; the request's gates and observers stay with the request."""
 
         start_epoch = self.epoch() if epoch is None else epoch
+        trace = provenance.current_trace()
 
         def run() -> None:
-            with gate_model_requests(_ClosingGate(self, start_epoch, active_request_gate())):
+            with provenance.trace_scope(trace), \
+                    gate_model_requests(_ClosingGate(self, start_epoch, active_request_gate())):
                 target()
 
         thread = threading.Thread(target=run, name=name, daemon=True)

@@ -28,6 +28,7 @@ import threading
 from collections import deque
 from typing import Any
 
+from learnloop import provenance
 from learnloop.figures import power as P
 
 _LOG = logging.getLogger(__name__)
@@ -38,7 +39,9 @@ class PrefetchRuntime:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._queue: deque[Any] = deque()
+        #: ``(trigger, trace)``: each trigger with the trace of the request that queued it. One drain thread runs
+        #: the passes of many requests, so the thread's own trace (the first submitter's) names none but the first.
+        self._queue: deque[tuple[Any, str | None]] = deque()
         self._running = False
         self.results: list[Any] = []
         #: Offers already turned into a trigger (a finished job is read more than once).
@@ -52,9 +55,9 @@ class PrefetchRuntime:
 
     def submit(self, ctx: Any, trigger: Any) -> None:
         with self._lock:
-            if trigger in self._queue:
+            if any(queued == trigger for queued, _trace in self._queue):
                 return
-            self._queue.append(trigger)
+            self._queue.append((trigger, provenance.current_trace()))
             if self._running:
                 return
             self._running = True
@@ -74,12 +77,13 @@ class PrefetchRuntime:
                     if not self._queue:
                         self._running = False
                         return
-                    trigger = self._queue.popleft()
+                    trigger, trace = self._queue.popleft()
                 env = environment(ctx, epoch)
                 if env is None:
                     continue
                 try:
-                    self.results.append(PF.run_trigger(env, trigger))
+                    with provenance.trace_scope(trace):
+                        self.results.append(PF.run_trigger(env, trigger))
                 except Exception:  # noqa: BLE001 - background work never fails the sidecar
                     _LOG.warning("a figure prefetch pass failed", exc_info=True)
         except BaseException:
