@@ -125,6 +125,8 @@ None found by exact static reference scan.
 - `tests/test_figures_prefetch_boundary.py`
 - `tests/test_followups_batch6_prefetch_decided_once.py`
 - `tests/test_followups_batch6_prefetch_plan_wait.py`
+- `tests/test_why_reader.py`
+- `tests/test_why_real_cases.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
