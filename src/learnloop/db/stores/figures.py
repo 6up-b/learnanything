@@ -79,7 +79,7 @@ def insert_source_check(connection: sqlite3.Connection, row: Mapping[str, Any]) 
 def _source_check(row: sqlite3.Row | tuple | None) -> dict[str, Any] | None:
     if row is None:
         return None
-    found = dict(zip(SOURCE_CHECK_COLUMNS, row))
+    found = dict(zip(SOURCE_CHECK_COLUMNS, row, strict=True))
     found["definitions"] = json.loads(found.pop("definitions_json") or "[]")
     found["elements"] = json.loads(found.pop("elements_json") or "[]")
     found["reasons"] = json.loads(found.pop("reasons_json") or "{}")
@@ -155,7 +155,7 @@ def insert_figure(connection: sqlite3.Connection, row: Mapping[str, Any]) -> Non
 def _figure(row: sqlite3.Row | tuple | None) -> dict[str, Any] | None:
     if row is None:
         return None
-    found = dict(zip(FIGURE_COLUMNS, row))
+    found = dict(zip(FIGURE_COLUMNS, row, strict=True))
     found["span_ids"] = json.loads(found.pop("span_ids_json") or "[]")
     found["input_span_ids"] = json.loads(found.pop("input_span_ids_json") or "[]")
     found["region"] = json.loads(found.pop("region_json")) if found.get("region_json") else None
@@ -204,7 +204,7 @@ def set_request_figure(connection: sqlite3.Connection, request_id: str, figure_i
 def _request(row: sqlite3.Row | tuple | None) -> dict[str, Any] | None:
     if row is None:
         return None
-    found = dict(zip(REQUEST_COLUMNS, row))
+    found = dict(zip(REQUEST_COLUMNS, row, strict=True))
     for column, key, empty in (("anchor_json", "anchor", None), ("reading_at_json", "reading_at", None),
                                ("host_ref_json", "host_ref", "{}"),
                                ("grounding_manifest_json", "grounding_manifest", "{}"),
@@ -321,7 +321,7 @@ def insert_prediction(connection: sqlite3.Connection, row: Mapping[str, Any]) ->
 def _prediction(row: sqlite3.Row | tuple | None) -> dict[str, Any] | None:
     if row is None:
         return None
-    found = dict(zip(PREDICTION_COLUMNS, row))
+    found = dict(zip(PREDICTION_COLUMNS, row, strict=True))
     found["observed"] = json.loads(found.pop("observed_json") or "{}")
     found["matched"] = bool(found["matched"])
     return found

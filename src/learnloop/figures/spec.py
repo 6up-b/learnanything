@@ -983,7 +983,7 @@ def evaluate_panel(compiled: CompiledFigure, panel: CompiledPanel, env: Mapping[
     if panel.kind == "function_plot":
         xs = plot_xs(model.x)
         series = []
-        for item, node in zip(model.series, panel.nodes["series"]):
+        for item, node in zip(model.series, panel.nodes["series"], strict=True):
             scope = dict(env)
             ys = []
             for x in xs:
@@ -996,12 +996,12 @@ def evaluate_panel(compiled: CompiledFigure, panel: CompiledPanel, env: Mapping[
             shades.append({"label": shade.label, "series": shade.series, "from": _num(lower), "to": _num(upper),
                            "value": _num(value)})
         markers = [{"label": marker.label, "x": _num(_value(node, env, defs))}
-                   for marker, node in zip(model.markers, panel.nodes["markers"])]
+                   for marker, node in zip(model.markers, panel.nodes["markers"], strict=True)]
         return {"kind": "function_plot", "x": xs, "series": series, "shades": shades, "markers": markers}
     if panel.kind == "pmf_bars":
         ks = bar_ks(model.k)
         series = []
-        for item, node in zip(model.series, panel.nodes["series"]):
+        for item, node in zip(model.series, panel.nodes["series"], strict=True):
             scope = dict(env)
             ps = []
             for k in ks:

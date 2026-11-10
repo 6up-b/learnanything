@@ -23,7 +23,7 @@ def _dumps(value: Any) -> str:
 
 
 def _row(cursor: sqlite3.Cursor, row: Sequence[Any]) -> dict[str, Any]:
-    return {description[0]: value for description, value in zip(cursor.description, row)}
+    return {description[0]: value for description, value in zip(cursor.description, row, strict=True)}
 
 
 def payload_hash(payload: Any) -> str:

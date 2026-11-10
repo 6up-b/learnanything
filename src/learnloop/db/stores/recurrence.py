@@ -119,7 +119,7 @@ def recurrence_state(connection: sqlite3.Connection) -> dict[str, Any] | None:
     row = cursor.fetchone()
     if row is None:
         return None
-    value = dict(zip(names, row))
+    value = dict(zip(names, row, strict=True))
     value["active"] = bool(value["active"])
     return value
 
@@ -179,7 +179,7 @@ def recurrence_group_rows(connection: sqlite3.Connection, group_key: str | None 
         params = (group_key,)
     cursor = connection.execute(query + " ORDER BY group_key, episode_key", params)
     names = [column[0] for column in cursor.description]
-    return [dict(zip(names, row)) for row in cursor.fetchall()]
+    return [dict(zip(names, row, strict=True)) for row in cursor.fetchall()]
 
 
 def recurrence_review_rows(connection: sqlite3.Connection, case_kind: str | None = None) -> list[dict[str, Any]]:
@@ -192,7 +192,7 @@ def recurrence_review_rows(connection: sqlite3.Connection, case_kind: str | None
         params = (case_kind,)
     cursor = connection.execute(query + " ORDER BY case_kind, occurred_at, id", params)
     names = [column[0] for column in cursor.description]
-    rows = [dict(zip(names, row)) for row in cursor.fetchall()]
+    rows = [dict(zip(names, row, strict=True)) for row in cursor.fetchall()]
     for row in rows:
         row["detail"] = _loads(row.pop("detail_json"), {})
     return rows
@@ -243,7 +243,7 @@ def hypothesis_episode_rows(connection: sqlite3.Connection) -> list[dict[str, An
     names = [column[0] for column in cursor.description]
     by_episode: dict[str, dict[str, Any]] = {}
     for raw in cursor.fetchall():
-        row = dict(zip(names, raw))
+        row = dict(zip(names, raw, strict=True))
         key = str(row["episode_key"])
         current = by_episode.get(key)
         if current is None:
@@ -348,7 +348,7 @@ def not_same_mistake_taps(connection: sqlite3.Connection) -> list[dict[str, Any]
         "WHERE response = 'not_same_mistake' ORDER BY responded_at, id"
     )
     names = [column[0] for column in cursor.description]
-    return [dict(zip(names, row)) for row in cursor.fetchall()]
+    return [dict(zip(names, row, strict=True)) for row in cursor.fetchall()]
 
 
 def same_cause_judgments(connection: sqlite3.Connection) -> list[dict[str, Any]]:
@@ -358,7 +358,7 @@ def same_cause_judgments(connection: sqlite3.Connection) -> list[dict[str, Any]]
         "SELECT * FROM judgment_ledger WHERE task = 'same_cause' ORDER BY created_at, id"
     )
     names = [column[0] for column in cursor.description]
-    return [dict(zip(names, row)) for row in cursor.fetchall()]
+    return [dict(zip(names, row, strict=True)) for row in cursor.fetchall()]
 
 
 # -- escalation receipts ----------------------------------------------------------------
@@ -414,7 +414,7 @@ def insert_escalation(
 
 
 def _decode_escalation(names: Sequence[str], raw: Sequence[Any]) -> dict[str, Any]:
-    row = dict(zip(names, raw))
+    row = dict(zip(names, raw, strict=True))
     row["earlier_attempt_ids"] = _loads(row.pop("earlier_attempt_ids_json"), [])
     row["prior_operators"] = _loads(row.pop("prior_operators_json"), [])
     row["different_approach"] = bool(row["different_approach"])
@@ -482,7 +482,7 @@ def guard_case_rows(connection: sqlite3.Connection) -> list[dict[str, Any]]:
         return []
     cursor = connection.execute("SELECT * FROM recurrence_guard_cases ORDER BY registered_at, case_id")
     names = [column[0] for column in cursor.description]
-    return [dict(zip(names, raw)) for raw in cursor.fetchall()]
+    return [dict(zip(names, raw, strict=True)) for raw in cursor.fetchall()]
 
 
 class RecurrenceStoreMixin:

@@ -58,7 +58,7 @@ def _candidates(*predicted, question="What does your formula give at x = 0?"):
         payload = good_answer(context)
         rivals = [rival["id"] for rival in context["rivals"]]
         payload["candidates"] = [{"question_md": question, "predictions": [
-            {"rival_id": rival, "answer": value} for rival, value in zip(rivals, predicted)]}]
+            {"rival_id": rival, "answer": value} for rival, value in zip(rivals, predicted, strict=True)]}]
         return payload
     return answer
 

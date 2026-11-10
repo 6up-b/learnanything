@@ -945,7 +945,7 @@ def _normalize(
     # added to the rows' payloads last so the facet dicts the identity actions
     # record stay what facets.yaml will hold.
     row_extras: dict[str, dict[str, Any]] = {}
-    for candidate, verdict in zip(candidate_facets, mint_report.verdicts):
+    for candidate, verdict in zip(candidate_facets, mint_report.verdicts, strict=True):
         fkey = str(candidate["fkey"])
         fid = str(candidate["fid"])
         payload = candidate["payload"]

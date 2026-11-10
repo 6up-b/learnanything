@@ -295,7 +295,7 @@ def _readmitted(vault: LoadedVault, repository: Repository, scope: Scope, pool: 
             else:
                 admitted.append((region, record))
         records = _records(connection, repository, scope, [region for region, _record in admitted])
-    for current, (_region, record) in zip(records, admitted):
+    for current, (_region, record) in zip(records, admitted, strict=True):
         if record.get("statement") is not None and current["statement"] != record.get("statement"):
             dropped["changed"] += 1
             continue

@@ -98,7 +98,7 @@ def eig_calibration_report(repository: Repository) -> dict[str, Any]:
         all_expected.extend(expected)
         all_realized.extend(realized)
         total_negative += bucket["negative"]
-        gaps = [r - e for r, e in zip(realized, expected)]
+        gaps = [r - e for r, e in zip(realized, expected, strict=True)]
         families[key] = {
             "observations": len(realized),
             "mean_expected_eig": _round(_mean(expected)),
@@ -113,7 +113,7 @@ def eig_calibration_report(repository: Repository) -> dict[str, Any]:
         "mean_expected_eig": _round(_mean(all_expected)),
         "mean_realized_information": _round(_mean(all_realized)),
         "mean_realized_minus_expected": _round(
-            _mean([r - e for r, e in zip(all_realized, all_expected)])
+            _mean([r - e for r, e in zip(all_realized, all_expected, strict=True)])
         ),
         "negative_information_count": total_negative,
         "negative_information_rate": _round(total_negative / total) if total else None,
@@ -147,7 +147,7 @@ def time_calibration_report(repository: Repository) -> dict[str, Any]:
     all_errors: list[float] = []
     count = 0
     for key, bucket in sorted(per_family.items()):
-        errors = [a - e for a, e in zip(bucket["actual"], bucket["expected"])]
+        errors = [a - e for a, e in zip(bucket["actual"], bucket["expected"], strict=True)]
         all_errors.extend(errors)
         count += len(errors)
         families[key] = {

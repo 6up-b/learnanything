@@ -256,7 +256,7 @@ def test_self_report_and_held_grades_excluded(tmp_path):
     with closing(connect(paths.sqlite_path)) as connection:
         attempt = dict(zip([d[0] for d in connection.execute("SELECT * FROM practice_attempts LIMIT 1").description],
                            connection.execute("SELECT * FROM practice_attempts WHERE id = ?",
-                                              (target.attempt_id,)).fetchone()))
+                                              (target.attempt_id,)).fetchone(), strict=True))
         connection.execute("UPDATE practice_attempts SET attempt_type = 'self_report' WHERE id = ?",
                            (target.attempt_id,))
         connection.commit()

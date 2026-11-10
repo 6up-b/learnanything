@@ -444,7 +444,7 @@ def figure_prediction_row(repository: Repository, source_id: str) -> dict[str, A
     keys = ("id", "figure_id", "extraction_id", "prediction_index", "learner_answer", "observed_json", "matched",
             "explanation_text", "created_at", "spec_json", "span_ids_json", "region_json", "input_span_ids_json",
             "asset_id", "input_span_keys_json")
-    return {**dict(zip(keys, row)), "source_id": str(source_id)}
+    return {**dict(zip(keys, row, strict=True)), "source_id": str(source_id)}
 
 
 def figure_input_manifest(row: Mapping[str, Any]) -> list[str] | None:
@@ -803,7 +803,7 @@ def hint_feedback_row(repository: Repository, assist_id: str) -> dict[str, Any] 
         raw = cursor.fetchone()
         if raw is None:
             return None
-        row = dict(zip([column[0] for column in cursor.description], raw))
+        row = dict(zip([column[0] for column in cursor.description], raw, strict=True))
     if row.get("surface") == "workbench" or not str(row.get("feedback_text") or "").strip():
         return None
     if row.get("assist_kind") == "discriminate_answer":
@@ -934,7 +934,7 @@ def workbench_text_row(repository: Repository, source_id: str) -> dict[str, Any]
                                         (source_id,))
             raw = cursor.fetchone()
             if raw is not None:
-                row = dict(zip([column[0] for column in cursor.description], raw))
+                row = dict(zip([column[0] for column in cursor.description], raw, strict=True))
                 if not str(row.get("feedback_text") or "").strip():
                     return None
                 if row.get("assist_kind") == "discriminate_answer":
@@ -956,7 +956,7 @@ def workbench_text_row(repository: Repository, source_id: str) -> dict[str, Any]
         raw = cursor.fetchone()
         if raw is None:
             return None
-        row = dict(zip([column[0] for column in cursor.description], raw))
+        row = dict(zip([column[0] for column in cursor.description], raw, strict=True))
     if row["kind"] != "stuck" or row["deleted"] or not str(row["body_md"] or "").strip():
         return None
     return {**row, "role": "stuck", "text": str(row["body_md"]), "created": str(row["created_at"] or ""),

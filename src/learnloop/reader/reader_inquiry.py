@@ -406,7 +406,7 @@ def record_activity(
     validated = [_validate(entry) for entry in events]
     objective = objective_receipts_on(config)
     ids: list[str] = []
-    for entry, (kind, event, payload) in zip(events, validated):
+    for entry, (kind, event, payload) in zip(events, validated, strict=True):
         body = dict(payload)
         if event is not None:
             body["event"] = event

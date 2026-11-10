@@ -350,7 +350,7 @@ def _event_ids_by_index(
     attributions = list(record.get("error_attributions") or [])
     mapping: dict[int, str] = {}
     if len(attributions) == len(events):
-        for position, (row, event) in enumerate(zip(attributions, events)):
+        for position, (row, event) in enumerate(zip(attributions, events, strict=True)):
             mapping[int(row.get("index", position))] = str(event["id"])
         return mapping
     # Counts differ (an event list rewritten since this grade): pair by error

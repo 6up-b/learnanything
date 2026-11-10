@@ -377,7 +377,7 @@ def test_each_ablation_puts_back_exactly_one_piece_of_the_successor(eedi):
 
 def _random_beliefs(hypotheses, n, seed):
     rng = np.random.default_rng(seed)
-    return [{h: float(v) for h, v in zip(hypotheses, rng.dirichlet(np.full(len(hypotheses), 0.7)))}
+    return [{h: float(v) for h, v in zip(hypotheses, rng.dirichlet(np.full(len(hypotheses), 0.7)), strict=True)}
             for _ in range(n)]
 
 
@@ -473,7 +473,7 @@ def test_the_multi_family_study_runs_every_episode_without_a_count_bound(eedi, t
                        policy=replace(base.policy, lambda_time=0.0, burden_cost=0.0, draw_count=4))
     run = MS.run_family_simulation(world, generous)
     assert run.episodes and all(e.checks > 25 for e in run.episodes)
-    for e, spec in zip(run.episodes, run.learners):
+    for e, spec in zip(run.episodes, run.learners, strict=True):
         assert e.checks == 40 - len(spec.history) and e.stop_reason == "no_question_left"
     # The old bound censored exactly these episodes.
     bounded = MS.run_family_simulation(world, replace(generous, policy=replace(generous.policy, safety_bound=25)))

@@ -89,7 +89,7 @@ def _log_posterior(features, offsets, outcomes, a, b, prior_mean):
         return -log1p(exp(-z)) if z >= 0 else z - log1p(exp(z))
 
     total = -((a - prior_mean[0]) ** 2 + (b - prior_mean[1]) ** 2) / 2
-    for x, offset, y in zip(features, offsets, outcomes):
+    for x, offset, y in zip(features, offsets, outcomes, strict=True):
         z = offset + a + b * x
         total += y * log_sigmoid(z) + (1 - y) * log_sigmoid(-z)
     return total

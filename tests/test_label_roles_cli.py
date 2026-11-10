@@ -553,7 +553,7 @@ def test_recovery_takes_a_refs_first_judgment_as_the_live_path_did(library, monk
     assert out["recovery"]["recovered_passages"] == len(first.contexts[0]["candidates"])
     first_batch = {candidate["ref"]: candidate for candidate in first.contexts[0]["candidates"]}
     assert first_batch["p1"] == p1
-    texts = dict(zip(_spans_of(repository), _texts(repository, "ext_text", _spans_of(repository))))
+    texts = dict(zip(_spans_of(repository), _texts(repository, "ext_text", _spans_of(repository)), strict=True))
     p1_span = next(span for span, text in texts.items() if " ".join(text.split()) == p1["passage"])
     assert (p1_span, "explanation") in _labeller_versions(repository)
     assert len(_labeller_versions(repository)) == len(first.contexts[0]["candidates"]) + len(_sent(again))

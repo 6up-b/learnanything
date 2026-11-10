@@ -138,7 +138,7 @@ def _open_path_patched() -> bool:
 
     current = (sqlite3.connect, _db_connection._open_read_only, _db_connection._open_writable,
                _db_connection._configure, _db_connection.BUSY_TIMEOUT_MS)
-    return any(now is not original and now != original for now, original in zip(current, _PRODUCTION_OPEN))
+    return any(now is not original and now != original for now, original in zip(current, _PRODUCTION_OPEN, strict=True))
 
 
 class _Reused(_db_connection._ReusedConnection):

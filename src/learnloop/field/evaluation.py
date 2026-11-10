@@ -517,7 +517,7 @@ def evaluate(
                                           facet_share=f.facet_share)) for f in facets]
                 if any(not isfinite(p) or not 0 < p < 1 for p in ps):
                     raise ValueError("Arms must predict finite probabilities in (0, 1)")
-                p = sum(f.facet_share * p for f, p in zip(facets, ps))
+                p = sum(f.facet_share * p for f, p in zip(facets, ps, strict=True))
             elif getattr(arm, "uses_answer_signals", False):
                 # Offline answer-signal arms (owner 2026-10-13) read the
                 # attempt's own pre-outcome signals and abstain without them.

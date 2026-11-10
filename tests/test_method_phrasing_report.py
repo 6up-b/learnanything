@@ -117,7 +117,7 @@ class Decider:
 
 def _ledger(paths):
     with connect(paths.sqlite_path, read_only=True) as connection:
-        return [dict(zip(("judge", "left_id", "verdict", "prompt_version"), row)) for row in connection.execute(
+        return [dict(zip(("judge", "left_id", "verdict", "prompt_version"), row, strict=True)) for row in connection.execute(
             "SELECT judge, left_id, verdict, prompt_version FROM judgment_ledger WHERE task = ? ORDER BY rowid",
             (LEDGER_TASK,))]
 
@@ -356,7 +356,7 @@ def test_the_llm_contract_round_trips():
 
 def _ledger_rows(paths):
     with connect(paths.sqlite_path, read_only=True) as connection:
-        return [dict(zip(("id", "judge", "judge_model", "left_id", "verdict", "prompt_version", "input_hash"), row))
+        return [dict(zip(("id", "judge", "judge_model", "left_id", "verdict", "prompt_version", "input_hash"), row, strict=True))
                 for row in connection.execute(
                     "SELECT id, judge, judge_model, left_id, verdict, prompt_version, input_hash FROM judgment_ledger "
                     "WHERE task = ? ORDER BY rowid", (LEDGER_TASK,))]

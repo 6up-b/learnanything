@@ -559,7 +559,7 @@ def run_multifamily(
                     keys.append((name, _label(strength), repair, mode, pc))
         results = list(pool.map(_stream_job, jobs))
     streams: dict[str, Any] = {}
-    for (name, strength, repair, mode, pc), result in zip(keys, results):
+    for (name, strength, repair, mode, pc), result in zip(keys, results, strict=True):
         arm = mode if mode != "counts" else f"pseudo_{pc:g}"
         streams.setdefault(name, {}).setdefault(f"{strength}/{repair:g}", {})[arm] = result
     report["pseudo_count"] = {

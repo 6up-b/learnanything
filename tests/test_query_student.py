@@ -899,7 +899,7 @@ def test_training_candidates_hold_training_families_only_and_no_bank_tainted_win
     train = D.nested(camp["rows"], 2_000)
     assert len(negatives) == len(train)
     assert all(candidates["sources"][index] == row["extraction_id"]
-               for row, found in zip(train, negatives) for index in found)
+               for row, found in zip(train, negatives, strict=True) for index in found)
 
 
 def test_unjudged_retrieved_material_is_latent_never_a_miss():

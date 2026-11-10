@@ -293,7 +293,7 @@ def test_f11_the_evaluation_population_does_not_depend_on_candidate_support(tmp_
     # With no model set up each decision builds once, in order: its trace's uses are its population.
     traces = _traces(env)
     assert len(traces) == len(calls)
-    for (_args, _kwargs, (_inputs, _actions, built)), trace in zip(calls, traces):
+    for (_args, _kwargs, (_inputs, _actions, built)), trace in zip(calls, traces, strict=True):
         uses = trace["trace"]["evaluation"]["uses"]
         assert uses["population_basis"]
         assert {use["lo"] for use in uses["topics"]} == {lo for lo, c in built["population"]["los"].items() if c > 0}

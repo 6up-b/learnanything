@@ -109,7 +109,7 @@ def remediation_passage_provider(vault: LoadedVault, repository: Repository, *, 
     if not hits.hits or not str(hits.manifest.get("verification", {}).get("status")) in ("verified", "cached"):
         return None
     return [{"role": role, "facet_id": facet, "extraction_id": hit["extraction_id"], "span_id": hit["span_id"],
-             "basis": "ranked_verified"} for (role, facet), hit in zip(roles, hits.hits)]
+             "basis": "ranked_verified"} for (role, facet), hit in zip(roles, hits.hits, strict=False)]
 
 
 def propose_sources(vault: LoadedVault, repository: Repository, query: str, *, caller: CallerContext,

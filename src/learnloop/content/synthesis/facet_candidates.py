@@ -76,7 +76,7 @@ def _minhash_signature(tokens: set[str]) -> tuple[int, ...]:
 def _minhash_similarity(left: tuple[int, ...], right: tuple[int, ...]) -> float:
     if not left or not right:
         return 0.0
-    matches = sum(1 for a, b in zip(left, right) if a == b)
+    matches = sum(1 for a, b in zip(left, right, strict=True) if a == b)
     return matches / len(left)
 
 

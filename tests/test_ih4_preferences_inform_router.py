@@ -200,7 +200,7 @@ def test_with_no_request_the_model_is_te1bs_exactly():
     for row in answered:
         plain.observe(row.context, row.candidate, row.accepted)
     assert state.p_accept(CONTEXT, CANDIDATE) == plain.p_accept(CONTEXT, CANDIDATE)
-    for bank, other in zip(state.banks, plain.banks):
+    for bank, other in zip(state.banks, plain.banks, strict=True):
         assert bank.mean.shape == (len(LS.TERMS),) and bank.mean.tobytes() == other.mean.tobytes()
         assert bank.cov.tobytes() == other.cov.tobytes()
     assert state.summary() == plain.summary()
@@ -592,7 +592,7 @@ def test_a_planted_w_pref_moves_the_argmax_and_leaves_the_tails_values(tmp_path,
             env.clock.advance(1)
         run(env)
         twin[name] = _traces(env)
-    moved = [(a, b) for a, b in zip(twin["on"], twin["off"]) if a["policies"]["numeric"]["choice"] != b["policies"]["numeric"]["choice"]]
+    moved = [(a, b) for a, b in zip(twin["on"], twin["off"], strict=True) if a["policies"]["numeric"]["choice"] != b["policies"]["numeric"]["choice"]]
     first = twin["on"][0]
     assert first["preference"]["w_pref"] == 1.0
     tie = first["policies"]["numeric"]["tie"]
@@ -649,10 +649,10 @@ def _draws(n: int, *, b: float, noise: float, rng: Any) -> list[LT.Contrast]:
     for i in range(n):
         refs = ["a", "b", "c"]
         raw = [rng.uniform(0.05, 0.6) for _ in refs]
-        p = {ref: value / sum(raw) for ref, value in zip(refs, raw)}
+        p = {ref: value / sum(raw) for ref, value in zip(refs, raw, strict=True)}
         q = {ref: rng.gauss(0.0, 0.2) for ref in refs}
         weights = [rng.random() + 0.05 for _ in refs]
-        pi = {ref: value / sum(weights) for ref, value in zip(refs, weights)}
+        pi = {ref: value / sum(weights) for ref, value in zip(refs, weights, strict=True)}
         served = rng.choices(refs, [pi[ref] for ref in refs])[0]
         values = PF.scaled(p, q)
         found = S.Bounded(value=q[served] + b * values[served] + rng.gauss(0.0, noise))

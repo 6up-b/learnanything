@@ -156,7 +156,7 @@ def test_f3_a_confounded_return_is_not_read_as_a_return_effect():
     # The observational slope (realized minutes as the treatment) is strongly negative on these rows.
     zs, ys = [r.z for r in rows], [r.y for r in rows]
     zbar, ybar = sum(zs) / len(zs), sum(ys) / len(ys)
-    naive = sum((z - zbar) * (y - ybar) for z, y in zip(zs, ys)) / sum((z - zbar) ** 2 for z in zs)
+    naive = sum((z - zbar) * (y - ybar) for z, y in zip(zs, ys, strict=True)) / sum((z - zbar) ** 2 for z in zs)
     assert naive < -0.5
     fitted = SC.fit_return_slope(rows, 0.5)
     assert fitted.source == "posterior_randomized_coin"

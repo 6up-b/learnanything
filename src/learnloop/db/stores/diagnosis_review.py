@@ -339,7 +339,7 @@ def update_spot_check_session(
 
 
 def _decode(row: sqlite3.Row | tuple, columns: Iterable[str]) -> dict[str, Any]:
-    payload = dict(zip(columns, row))
+    payload = dict(zip(columns, row, strict=True))
     for key in list(payload):
         if key.endswith(_JSON_SUFFIX) and isinstance(payload[key], str):
             try:

@@ -223,7 +223,7 @@ def _localizations(root: Path, item_id: str) -> dict[tuple[bool, ...], list]:
     return {
         combo: localize_criterion_outcomes([
             CriterionOutcome(criterion_id=criterion.id, passed=passed, depends_on=tuple(criterion.depends_on))
-            for criterion, passed in zip(criteria, combo)
+            for criterion, passed in zip(criteria, combo, strict=True)
         ])
         for combo in itertools.product((True, False), repeat=len(criteria))
     }

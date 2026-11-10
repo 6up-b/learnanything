@@ -204,7 +204,7 @@ def test_r13_the_fill_is_the_exact_minimum_of_the_bound_estimator_at_the_unbound
                         realized=value, tail=tail, residual=residual, forced=True, forced_probability=0.1,
                         realized_lo=-10.0 if i == 0 else None, realized_hi=10.0 if i == 0 else None,
                         missing=1 if i == 0 else 0)
-            for i, ((tail, residual), value) in enumerate(zip(design, realized))]
+            for i, ((tail, residual), value) in enumerate(zip(design, realized, strict=True))]
     weight = LT.residual_weight(rows, prior_sd=1.0)
     sigma2 = float(weight.unbounded["sigma2"])
     x = np.asarray(design)

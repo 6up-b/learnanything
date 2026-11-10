@@ -100,7 +100,7 @@ def _plan_ctx(tmp_path, monkeypatch, *, rate: float = 0.0, density: str = "more"
     paths, repository, _spans = build_cue_vault(tmp_path / "v", misconception=False)
     set_config(paths, "cues", holdout_rate=rate, density=density)
     targets = [target("hypothesis", f"h{index}", p_open=0.9 - index * 0.1) for index in range(3)]
-    for t, span in zip(targets, ["t1", "t3", "t5"]):
+    for t, span in zip(targets, ["t1", "t3", "t5"], strict=True):
         seed_link(repository, t, span)
     monkeypatch.setattr(PC, "cue_targets", lambda *args, **kwargs: list(targets))
     ctx = context(paths.root)

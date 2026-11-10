@@ -773,7 +773,7 @@ class _Reader:
         if len(symbols) != 1:
             raise Unreadable("cases_condition")
         cuts = sorted({value for row in conditioned if row[2] is not None for _op, value in row[2][1]})
-        points = [cuts[0] - 1, *cuts, *[(left + right) / 2 for left, right in zip(cuts, cuts[1:])], cuts[-1] + 1]
+        points = [cuts[0] - 1, *cuts, *[(left + right) / 2 for left, right in zip(cuts, cuts[1:], strict=False)], cuts[-1] + 1]
         for point in points:
             holds = sum(1 for row in conditioned if row[2] is not None and all(
                 _compare(point, op, value) for op, value in row[2][1]))

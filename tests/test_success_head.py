@@ -712,5 +712,5 @@ def test_recency_running_sum_equals_the_full_weighted_sum():
         head.observe(row)
     when = parse_utc(rows[-1].observed_at) + timedelta(hours=5)
     weights = [0.5 ** ((when - parse_utc(r.observed_at)).total_seconds() / 86400) for r in rows]
-    expected = sum(w * (r.outcome - .5) for w, r in zip(weights, rows)) / (sum(weights) + 1)
+    expected = sum(w * (r.outcome - .5) for w, r in zip(weights, rows, strict=True)) / (sum(weights) + 1)
     assert head._recency(when) == pytest.approx(expected, rel=1e-12)

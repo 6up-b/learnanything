@@ -932,7 +932,7 @@ def _disclosed(paths, table: str, row: tuple) -> tuple:
     outside-forecast state. Those fields, by name, are the only ones rewritten."""
 
     columns = [name for name, *_ in _columns(paths.sqlite_path, table)]
-    values = dict(zip(columns, row))
+    values = dict(zip(columns, row, strict=True))
     epoch = _epoch(paths)
     for name, value in list(values.items()):
         if isinstance(value, str) and epoch in value and table not in ("ad_relatedness_runs", "item_forecast_payloads"):
@@ -1353,11 +1353,11 @@ def _diff(left: Any, right: Any, path: str = "") -> list[str]:
         return out
     if isinstance(left, list) and isinstance(right, list) and len(left) == len(right):
         out = []
-        for index, (a, b) in enumerate(zip(left, right)):
+        for index, (a, b) in enumerate(zip(left, right, strict=True)):
             out += _diff(a, b, f"{path}[{index}]")
         return out
     if isinstance(left, str) and isinstance(right, str) and left != right:
-        at = next((i for i, (a, b) in enumerate(zip(left, right)) if a != b), min(len(left), len(right)))
+        at = next((i for i, (a, b) in enumerate(zip(left, right, strict=True)) if a != b), min(len(left), len(right)))
         return [f"{path}: strings differ at {at}: {left[max(0, at - 150):at + 150]!r} != "
                 f"{right[max(0, at - 150):at + 150]!r}"]
     return [] if left == right else [f"{path}: {left!r} != {right!r}"[:600]]

@@ -26,7 +26,7 @@ _WORD = re.compile(r"[a-z]+|\d+(?:\.\d+)?|[^\sa-z\d]")
 def tokens(text: str) -> frozenset[str]:
     words = ["#" if word[0].isdigit() else word
              for word in _WORD.findall(unicodedata.normalize("NFKC", text).casefold())]
-    return frozenset(words) | frozenset(f"{a} {b}" for a, b in zip(words, words[1:]))
+    return frozenset(words) | frozenset(f"{a} {b}" for a, b in zip(words, words[1:], strict=False))
 
 
 def similarity(left: str, right: str) -> float:

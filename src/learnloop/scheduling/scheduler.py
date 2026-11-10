@@ -2602,7 +2602,7 @@ def _rotate_same_day_frontier_repeats(
 
     rotated = sorted((queue[index] for index in slots), key=attempted_today)
     reordered = list(queue)
-    for index, scheduled in zip(slots, rotated):
+    for index, scheduled in zip(slots, rotated, strict=True):
         reordered[index] = scheduled
     return reordered
 

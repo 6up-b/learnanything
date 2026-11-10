@@ -92,7 +92,7 @@ def information(checks: Sequence[CheckRecord], rng: np.random.Generator, draws: 
     groups = np.asarray([c.learner for c in checks])
     by_bin = []
     edges = np.quantile(eig, np.linspace(0, 1, 6)) if eig.size >= 10 else np.array([eig.min(), eig.max()])
-    for lo, hi in zip(edges[:-1], edges[1:]):
+    for lo, hi in zip(edges[:-1], edges[1:], strict=False):
         mask = (eig >= lo) & (eig <= hi)
         if mask.sum() == 0:
             continue

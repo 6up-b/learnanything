@@ -953,7 +953,7 @@ def verify_claims(check: Check, output: Any, *, target: Target, context: Workben
     # display bound is never checked, so a checked statement is never clipped.
     statements = [" ".join(str(claim.statement or "").split()) for claim in claims]
     oversized = {index for index, statement in enumerate(statements) if len(statement) > CLAIM_STATEMENT_CHARS}
-    as_shown = [claim.model_copy(update={"statement": statement}) for claim, statement in zip(claims, statements)]
+    as_shown = [claim.model_copy(update={"statement": statement}) for claim, statement in zip(claims, statements, strict=True)]
     outcomes: list[Mapping[str, Any]] = []
     if verifier is not None:
         try:

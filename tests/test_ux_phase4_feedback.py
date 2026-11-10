@@ -1206,7 +1206,7 @@ class _SixPointGrader(ReviewFakeClient):
         parts = super()._grade_parts(context)
         parts["evidence"] = [
             {**row, "points_awarded": min(6.0, float(criterion["points"]))}
-            for row, criterion in zip(parts["evidence"], parts["criteria"])
+            for row, criterion in zip(parts["evidence"], parts["criteria"], strict=True)
         ]
         parts["correct"] = False
         return parts

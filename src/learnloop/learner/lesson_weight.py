@@ -244,7 +244,7 @@ class WeightState:
 
         out = []
         index = self.lo_index.get(learning_object_id)
-        for bank, h in zip(self.banks, self._h(learning_object_id, z_c, z_p)):
+        for bank, h in zip(self.banks, self._h(learning_object_id, z_c, z_p), strict=True):
             m = float(h @ bank.mean)
             v = float(h @ bank.cov @ h)
             if index is None:
@@ -257,7 +257,7 @@ class WeightState:
 
         weights = self.tau_weights()
         moments = self.eta_moments(learning_object_id, z_c, z_p)
-        return float(sum(w * gaussian_sigmoid_mean(m, v) for w, (m, v) in zip(weights, moments)))
+        return float(sum(w * gaussian_sigmoid_mean(m, v) for w, (m, v) in zip(weights, moments, strict=True)))
 
     def pool_lambda(self, family: str) -> float:
         """λ̂, the pool weight's posterior mean for ``family`` (the seeded prior's mean before any update)."""
@@ -582,14 +582,14 @@ def _resolve_check(state: WeightState, check: Mapping[str, Any], outcome: Mappin
     # learned posterior before this update, and under the fixed type mass 0.5.
     weights = state.tau_weights()
     predictive = 0.0
-    for w, (m, v) in zip(weights, state.eta_moments(lo, z_c, z_p)):
+    for w, (m, v) in zip(weights, state.eta_moments(lo, z_c, z_p), strict=True):
         eta = m + math.sqrt(max(v, 0.0)) * NODES
         predictive += w * float((WEIGHTS * p_of_eta(eta)).sum())
     fixed = p_at_mass(0.5)
     state.prequential.append((float(share * _soft_log_lik(np.array([predictive]), y)[0]),
                               float(share * _soft_log_lik(np.array([fixed]), y)[0])))
     index = state._ensure_lo(lo)
-    for bank, h in zip(state.banks, state._h(lo, z_c, z_p)):
+    for bank, h in zip(state.banks, state._h(lo, z_c, z_p), strict=True):
         assert h[index] == 1.0
         bank.mean, bank.cov, record = adf_update(bank.mean, bank.cov, h, log_lik)
         bank.log_w += record.log_z

@@ -88,7 +88,7 @@ def test_the_path_links_the_vault_notes_that_discuss_it_and_stores_only_linked_n
     assert "Chapter 5 Eigenvalues" in by_key[corpus["typed"]]["note"]["heading"]
     # Only linked notes are stored, with origin vault and their vault reference.
     with repository.connection() as connection:
-        stored = [dict(zip(("key", "origin", "kind", "ref", "path", "text"), row)) for row in connection.execute(
+        stored = [dict(zip(("key", "origin", "kind", "ref", "path", "text"), row, strict=True)) for row in connection.execute(
             "SELECT note_key, origin, vault_ref_kind, vault_ref_id, path, text_md FROM learner_notes")]
         ledger = " ".join(str(row[0]) for row in connection.execute(
             "SELECT right_id || rationale FROM judgment_ledger WHERE task = 'note_link'"))
@@ -286,7 +286,7 @@ def test_the_judges_receipts_keep_the_prompt_like_any_learner_text(tmp_path):
             "SELECT * FROM model_call_receipts WHERE purpose LIKE 'note_link_judge%'").fetchall()
         names = [column[0] for column in connection.execute(
             "SELECT * FROM model_call_receipts LIMIT 0").description]
-    rows = [dict(zip(names, row)) for row in receipts]
+    rows = [dict(zip(names, row, strict=True)) for row in receipts]
     assert rows and any(row["input_text"] and SENTINEL in row["input_text"] for row in rows)
     assert any(row["output_text"] and "discusses" in row["output_text"] for row in rows)
 

@@ -465,7 +465,7 @@ def test_the_blind_grader_never_sees_marks_and_the_diagnoser_does(tmp_path):
         client.calls.clear()
         later = type(CLOCK)(CLOCK.now() + timedelta(days=2))
         live_miss(vault, repository, client, clock=later, answer="A = V Sigma U again wrong")
-        prompts[name] = list(zip(client.calls, client.prompts))
+        prompts[name] = list(zip(client.calls, client.prompts, strict=True))
     grader = {name: [prompt for purpose, prompt in rows if "grad" in purpose] for name, rows in prompts.items()}
     assert grader["plain"] and _without_ids(grader["plain"]) == _without_ids(grader["marked"])
     assert all(secret not in prompt and "learner_marks" not in prompt for prompt in grader["marked"])

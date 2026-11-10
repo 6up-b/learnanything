@@ -283,8 +283,8 @@ def _latent_moments(subject: Any, prediction: PR.Prediction, spec: Any) -> dict[
     rows = prediction.rows
     w = [float(x) for x in weights[:len(rows)]]
     total = sum(w) or 1.0
-    mean = sum(wi * m for wi, (m, _v) in zip(w, rows)) / total
-    second = sum(wi * (v + m * m) for wi, (m, v) in zip(w, rows)) / total
+    mean = sum(wi * m for wi, (m, _v) in zip(w, rows, strict=True)) / total
+    second = sum(wi * (v + m * m) for wi, (m, v) in zip(w, rows, strict=True)) / total
     return {"mean": float(mean), "variance": float(max(second - mean * mean, 0.0)), "guess": float(spec.guess),
             "rows": len(rows)}
 

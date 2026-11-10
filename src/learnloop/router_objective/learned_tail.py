@@ -273,8 +273,8 @@ class Fit:
     features_version: str = FEATURES_VERSION
 
     def value(self, phi: Sequence[float]) -> float:
-        z = [(float(x) - m) / s for x, m, s in zip(phi, self.mean, self.sd)]
-        return float(sum(c * v for c, v in zip(self.coef, z)))
+        z = [(float(x) - m) / s for x, m, s in zip(phi, self.mean, self.sd, strict=True)]
+        return float(sum(c * v for c, v in zip(self.coef, z, strict=True)))
 
     def as_dict(self) -> dict[str, Any]:
         return {"version": self.version, "features_version": self.features_version, "generator": self.generator,
@@ -752,7 +752,7 @@ def partial_history(rows: Sequence[WeightedRow], *, window_days: int,
     def summary(weights: list[float], realized: list[float]) -> dict[str, Any] | None:
         if not weights:
             return None
-        values = [(w - 1.0) * value for w, value in zip(weights, realized)]
+        values = [(w - 1.0) * value for w, value in zip(weights, realized, strict=True)]
         n = len(values)
         mean = sum(values) / n
         se = (math.sqrt(sum((v - mean) ** 2 for v in values) / (n - 1)) / math.sqrt(n)) if n > 1 else None
@@ -769,7 +769,7 @@ def partial_history(rows: Sequence[WeightedRow], *, window_days: int,
         start = _parse(row.decided_at)
         end = _parse(row.window_closes_at) if row.window_closes_at else start + span
         product: float | None = 1.0
-        for stamp, step in zip(stamps, steps):
+        for stamp, step in zip(stamps, steps, strict=True):
             if stamp < start or stamp >= end:
                 continue
             if step.ratio is None:

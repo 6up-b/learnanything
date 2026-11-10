@@ -167,7 +167,7 @@ def _return_gaps(connection: Any, gap_minutes: float) -> list[float]:
         "SELECT started_at FROM sessions ORDER BY started_at DESC LIMIT ?", (RETURN_GAP_LIMIT + 1,))]
     starts = sorted(filter(None, (parse_utc(row) for row in rows)))
     gaps = []
-    for earlier, later in zip(starts, starts[1:]):
+    for earlier, later in zip(starts, starts[1:], strict=False):
         days = _days(later, earlier)
         if days * 1440.0 >= gap_minutes:
             gaps.append(days)

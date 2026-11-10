@@ -284,7 +284,7 @@ def check_invariant(compiled: S.CompiledFigure, invariant: Any, node: G.Node | N
         worst = min(values)
         return worst >= -NONNEGATIVE_SLACK, f"goes negative ({worst:.6g})", worst
     if kind == "monotone_nondecreasing":
-        for left, right in zip(values, values[1:]):
+        for left, right in zip(values, values[1:], strict=False):
             if right < left - MONOTONE_SLACK * max(1.0, abs(left)):
                 return False, f"decreases from {left:.6g} to {right:.6g}", right - left
         return True, "", None
@@ -333,7 +333,7 @@ def independent_integral(compiled: S.CompiledFigure, node: G.Node, variable: str
     edges = [low, *cuts, high]
     at = _sampler(compiled, node, variable, env)
     total = 0.0
-    for a, b in zip(edges, edges[1:]):
+    for a, b in zip(edges, edges[1:], strict=False):
         width = (b - a) / GL_PANELS
         for panel in range(GL_PANELS):
             left = a + panel * width

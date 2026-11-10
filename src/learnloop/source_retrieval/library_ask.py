@@ -801,7 +801,7 @@ def _passages(vault: LoadedVault, repository: Repository, keys: Sequence[str], *
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         blocks = blocks_by_key(connection, parsed)
     out = {}
-    for key, pair in zip(keys, parsed):
+    for key, pair in zip(keys, parsed, strict=True):
         block = blocks.get(pair)
         if block is not None:
             out[key] = {"text": " ".join(str(block.text).split()), "page": block.page}
@@ -901,7 +901,7 @@ def organize(
     if explorable:
         # RW5b: code names which candidates are equation or figure blocks; the
         # judge only answers whether each could become an explorable figure.
-        for candidate, key in zip(candidates, refs.values()):
+        for candidate, key in zip(candidates, refs.values(), strict=True):
             kind = offerable_kind(passages[key])
             if kind is not None:
                 candidate["block"] = kind

@@ -172,7 +172,7 @@ class HistoryAttempt:
         )
         units: list[tuple[frozenset[str], bool]] = []
         flagged: list[tuple[frozenset[str], frozenset[str]]] = []
-        for facets, targeted, scope in zip(self.attribution_facets, criteria, scopes):
+        for facets, targeted, scope in zip(self.attribution_facets, criteria, scopes):  # noqa: B905  attribution_facets isn't sized to the scopes here; whether a mismatch should raise is open (refactor-a5.md)
             valid = scope == "valid_measurement"
             units.append((frozenset(facets), valid))
             if not valid:
@@ -189,7 +189,7 @@ class HistoryAttempt:
             if len(self.failed_criterion_facet_sets) == len(self.failed_criteria)
             else [tuple(self.failed_criterion_facets)] * len(self.failed_criteria)
         )
-        for criterion, facets in zip(self.failed_criteria, sets):
+        for criterion, facets in zip(self.failed_criteria, sets, strict=True):
             unit = frozenset(facets)
             units.append((unit, unflagged(criterion, unit)))
         if self.fatal_errors:

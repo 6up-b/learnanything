@@ -226,7 +226,7 @@ def _owner_labels(repository, verdicts=("same",)):
         attempts = [str(row[0]) for row in connection.execute(
             "SELECT attempt_id FROM causal_hypotheses GROUP BY attempt_id ORDER BY MIN(created_at)"
         )]
-    for later, verdict in zip(attempts[1:], verdicts):
+    for later, verdict in zip(attempts[1:], verdicts, strict=True):
         record_verdict(repository, left=later, right=attempts[0], verdict=verdict, judge="owner", kind="attempt")
 
 
@@ -416,7 +416,7 @@ class _FiveAContext:
         if any(len(vector) < dims for vector in vectors):
             raise ValueError("narrower than requested")
         out = {}
-        for text, vector in zip(texts, vectors):
+        for text, vector in zip(texts, vectors, strict=True):
             array = np.asarray(vector, dtype=np.float32)
             out[text] = array / (np.linalg.norm(array) or 1.0)
         return out

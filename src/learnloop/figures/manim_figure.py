@@ -869,15 +869,15 @@ def _check_claims(figure: ManimFigure, *, runner: FunctionRunner | None, budget:
             report.failures.append(f"{claim.function} gave no value at some tested settings")
             continue
         bad = None
-        for point, entry in zip(points[claim.function], values):
+        for point, entry in zip(points[claim.function], values, strict=True):
             value = _value(entry)
-            at = ", ".join(f"{a.name} = {v:g}" for a, v in zip(function.args, point))
+            at = ", ".join(f"{a.name} = {v:g}" for a, v in zip(function.args, point, strict=True))
             if value is None:
                 bad = f"{claim.function}({at}) raised {entry.get('error') or 'an error'}"
                 break
             if claim.kind == "equals":
                 try:
-                    expected = G.evaluate(compiled[index], dict(zip((a.name for a in function.args), point)),
+                    expected = G.evaluate(compiled[index], dict(zip((a.name for a in function.args), point, strict=True)),
                                           meter=budget)
                 except (G.GrammarError, ArithmeticError, ValueError) as exc:
                     bad = f"the claimed expression for {claim.function} can't be evaluated at {at} ({exc})"

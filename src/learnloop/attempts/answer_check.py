@@ -454,7 +454,7 @@ def _check_chain(sides: list[list[_Token]], bindings: dict[str, Fraction]) -> st
         constants = [_constant_of(value) for value in values]
         if any(value is None for value in constants):
             return "unchecked"
-        for (left_side, left), (right_side, right) in zip(zip(sides[1:], values), list(zip(sides[1:], values))[1:]):
+        for (left_side, left), (right_side, right) in zip(zip(sides[1:], values, strict=True), list(zip(sides[1:], values, strict=True))[1:], strict=False):
             if _compare(left, right, max(_decimals(left_side), _decimals(right_side))) == "false":
                 return "false"
         bindings[first[0].text] = constants[0]  # type: ignore[assignment]
@@ -462,7 +462,7 @@ def _check_chain(sides: list[list[_Token]], bindings: dict[str, Fraction]) -> st
     values = [_Parser(side, bindings).parse() for side in sides]
     verdicts = [
         _compare(left, right, max(_decimals(left_side), _decimals(right_side)))
-        for (left_side, left), (right_side, right) in zip(zip(sides, values), list(zip(sides, values))[1:])
+        for (left_side, left), (right_side, right) in zip(zip(sides, values, strict=True), list(zip(sides, values, strict=True))[1:], strict=False)
     ]
     if "false" in verdicts:
         return "false"

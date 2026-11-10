@@ -147,7 +147,7 @@ def test_no_protected_text_reaches_any_payload(world, server):
         ("find_sources", {"query": "eigenvalues determinant", "intent": "alternative"}),
     ]
     results = _call_all(server, calls)
-    for (name, _arguments), result in zip(calls, results):
+    for (name, _arguments), result in zip(calls, results, strict=True):
         assert not result.is_error, (name, result.content)
         text = payload_text(result.structured_content) + "".join(getattr(c, "text", "") for c in result.content)
         leaked = [planted for planted in PROTECTED if planted in text]

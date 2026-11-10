@@ -222,7 +222,7 @@ def brier_decomposition(
                 "resolution": None, "uncertainty": None, "within_bin": None}
     mean = sum(ys) / n
     groups: dict[int, list[tuple[float, float]]] = {}
-    for y, p in zip(ys, ps):
+    for y, p in zip(ys, ps, strict=True):
         groups.setdefault(min(int(p * bins), bins - 1), []).append((p, y))
     reliability = resolution = 0.0
     for members in groups.values():
@@ -231,7 +231,7 @@ def brier_decomposition(
         observed = sum(y for _, y in members) / count
         reliability += count * (forecast - observed) ** 2
         resolution += count * (observed - mean) ** 2
-    brier = sum((p - y) ** 2 for y, p in zip(ys, ps)) / n
+    brier = sum((p - y) ** 2 for y, p in zip(ys, ps, strict=True)) / n
     reliability, resolution = reliability / n, resolution / n
     uncertainty = sum((y - mean) ** 2 for y in ys) / n
     return {

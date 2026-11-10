@@ -215,8 +215,8 @@ def kappa_posterior(seed: float, log_sd: float, offers: Sequence[Offer]) -> dict
     top = max(logs)
     weights = [math.exp(value - top) for value in logs]
     norm = sum(weights)
-    mean_log = sum(math.log(seed * m) * w for m, w in zip(GRID, weights)) / norm
-    var_log = sum((math.log(seed * m) - mean_log) ** 2 * w for m, w in zip(GRID, weights)) / norm
+    mean_log = sum(math.log(seed * m) * w for m, w in zip(GRID, weights, strict=True)) / norm
+    var_log = sum((math.log(seed * m) - mean_log) ** 2 * w for m, w in zip(GRID, weights, strict=True)) / norm
     used = [offer for offer in offers if offer.gain > 0 and offer.cost_per_kappa > 0]
     return {"status": "posterior", "kappa0": math.exp(mean_log), "log_mean": mean_log, "log_sd": math.sqrt(var_log),
             "seed": seed, "prior_log_sd": log_sd, "n": len(offers), "informative": len(used),
@@ -425,10 +425,10 @@ def _session_moments(rows: Sequence[ReturnRow]) -> tuple[_Moments, int]:
     design = [row.covariates for row in first]
     ys = _residuals([row.y for row in first], design)
     zs = _residuals([row.z for row in first], design)
-    a = [w * y for w, y in zip(weights, ys)]
-    b = [w * z for w, z in zip(weights, zs)]
+    a = [w * y for w, y in zip(weights, ys, strict=True)]
+    b = [w * z for w, z in zip(weights, zs, strict=True)]
     moments = _Moments(sessions=len(order), sa=sum(a), sb=sum(b), saa=sum(x * x for x in a),
-                       sab=sum(x * y for x, y in zip(a, b)), sbb=sum(y * y for y in b))
+                       sab=sum(x * y for x, y in zip(a, b, strict=True)), sbb=sum(y * y for y in b))
     return moments, sum(1 for w in weights if w != 0.0)
 
 

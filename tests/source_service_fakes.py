@@ -453,7 +453,7 @@ class FakeServiceLLM:
             contributions.append(Contribution(source_ref=sources[0]["ref"], contribution="invented",
                                               perspective="made up", quote="words that are nowhere in the passage"))
         relations = []
-        for left, right in zip(sources, sources[1:]):
+        for left, right in zip(sources, sources[1:], strict=False):
             relations.append(PairRelation(left_ref=left["ref"], right_ref=right["ref"], relation="different_notation",
                                           statement="same idea, different notation", left_quote=quote(left["passage"], 5),
                                           right_quote=quote(right["passage"], 5)))
@@ -483,7 +483,7 @@ class FakeServiceLLM:
 
         relations = [PairRelation(left_ref=left["ref"], right_ref=right["ref"], relation="different_notation",
                                   statement="same idea, different notation", left_quote=quote(left["passage"], 5),
-                                  right_quote=quote(right["passage"], 5)) for left, right in zip(sources, sources[1:])]
+                                  right_quote=quote(right["passage"], 5)) for left, right in zip(sources, sources[1:], strict=False)]
         points = [ComparisonPoint(label="the main claim", perspective="", cells=[cell(src) for src in sources],
                                   relations=relations)]
         if sources:

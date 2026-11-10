@@ -194,7 +194,7 @@ class BlindRivalClient(ReviewFakeClient):
             # Two causes needing different repairs, what the predecessor's quick check is for.
             names = [criterion["criterion_id"] for criterion in context["current_attempt"]["blind_grade"]["criteria"]][:2]
             for event in data["event_diagnoses"]:
-                for cause, name in zip(event["candidate_causes"], names):
+                for cause, name in zip(event["candidate_causes"], names, strict=True):
                     cause["target_ref"] = {"kind": "criterion", "criterion_id": name}
             first = data["repair_suggestions"][0]
             data["repair_suggestions"] = [

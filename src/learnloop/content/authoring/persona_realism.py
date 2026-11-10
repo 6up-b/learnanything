@@ -108,7 +108,7 @@ def text_features(text: str) -> tuple[float, ...]:
 
 
 def _distance(left: Sequence[float], right: Sequence[float]) -> float:
-    return sum((a - b) ** 2 for a, b in zip(left, right))
+    return sum((a - b) ** 2 for a, b in zip(left, right, strict=True))
 
 
 def _centroid(rows: Sequence[Sequence[float]]) -> tuple[float, ...]:
@@ -154,7 +154,7 @@ def _blind_leave_pair_out(
             arm: _centroid(
                 [
                     row
-                    for row, row_label in zip(standardized_train, train_labels)
+                    for row, row_label in zip(standardized_train, train_labels, strict=True)
                     if row_label == arm
                 ]
             )

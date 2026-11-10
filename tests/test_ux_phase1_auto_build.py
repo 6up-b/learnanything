@@ -439,7 +439,7 @@ def test_reading_order_scope(labels, tokens, expected):
 
     chapters = [
         Chapter(unit_id=f"u{index}", label=label, unit_ids=(f"u{index}",), tokens=count)
-        for index, (label, count) in enumerate(zip(labels, tokens), start=1)
+        for index, (label, count) in enumerate(zip(labels, tokens, strict=True), start=1)
     ]
     picked = reading_order_scope(chapters, built=set(), cap_tokens=60, floor_tokens=15)
     assert [chapter.label for chapter in picked] == expected

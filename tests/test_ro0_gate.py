@@ -60,7 +60,7 @@ def _first_difference(left, right, path=""):
     if isinstance(left, list) and isinstance(right, list):
         if len(left) != len(right):
             return f"{path}: length {len(left)} != {len(right)}"
-        for index, (one, other) in enumerate(zip(left, right)):
+        for index, (one, other) in enumerate(zip(left, right, strict=True)):
             found = _first_difference(one, other, f"{path}[{index}]")
             if found:
                 return found

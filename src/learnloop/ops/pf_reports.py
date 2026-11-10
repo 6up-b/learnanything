@@ -242,7 +242,7 @@ def _pair_rows(left: list[dict[str, Any]], right: list[dict[str, Any]], limit: i
     queues = []
     for group in sorted(groups, key=lambda value: json.dumps(value, default=str)):
         lefts, rights = (sorted(rows, key=lambda row: content_key(["pair", row["id"]])) for rows in groups[group])
-        queues.append(list(zip(lefts, rights)))
+        queues.append(list(zip(lefts, rights, strict=False)))
     pairs: list[tuple[dict, dict]] = []
     while len(pairs) < limit and any(queues):
         for queue in queues:

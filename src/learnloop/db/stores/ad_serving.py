@@ -55,7 +55,7 @@ def has_table(connection: sqlite3.Connection, table: str) -> bool:
 
 
 def _row(cursor: sqlite3.Cursor, row: tuple) -> dict[str, Any]:
-    return {description[0]: value for description, value in zip(cursor.description, row)}
+    return {description[0]: value for description, value in zip(cursor.description, row, strict=True)}
 
 
 def _select(connection: sqlite3.Connection, sql: str, args: Iterable[Any] = ()) -> list[dict[str, Any]]:

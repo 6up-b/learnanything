@@ -177,7 +177,7 @@ def help_seeking(connection: Any, all_rows: list[dict[str, Any]], *, since: str 
     gaps: list[float] = []
     for rows in by_submission.values():
         ordered = sorted(rows, key=lambda row: (row["requested_at"], row["id"]))
-        for earlier, later in zip(ordered, ordered[1:]):
+        for earlier, later in zip(ordered, ordered[1:], strict=False):
             pairs += 1
             if earlier["work_hash"] and earlier["work_hash"] == later["work_hash"] and (later["request"] or "more") \
                     == "more":

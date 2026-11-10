@@ -357,7 +357,7 @@ def _attempt_rows(repository: Any, learning_object_ids: Sequence[str]) -> list[d
             f"primed, answer_confidence, created_at, entry_surface, probe_presentation_id FROM practice_attempts "
             f"WHERE learning_object_id IN ({marks}) ORDER BY created_at, id", list(learning_object_ids))
         names = [d[0] for d in cursor.description]
-        return [dict(zip(names, row)) for row in cursor.fetchall()]
+        return [dict(zip(names, row, strict=True)) for row in cursor.fetchall()]
 
 
 _COLD_TYPES = frozenset({"independent_attempt", "open_text", "diagnostic_probe", "exam_attempt"})

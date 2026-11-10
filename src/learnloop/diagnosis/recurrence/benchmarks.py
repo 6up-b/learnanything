@@ -416,8 +416,8 @@ def _run_writer(ctx: Any, output_tokens: int) -> dict[str, Any]:
 
 
 def roc_auc(scores: Sequence[float], labels: Sequence[bool]) -> float | None:
-    positives = [score for score, label in zip(scores, labels) if label]
-    negatives = [score for score, label in zip(scores, labels) if not label]
+    positives = [score for score, label in zip(scores, labels, strict=True) if label]
+    negatives = [score for score, label in zip(scores, labels, strict=True) if not label]
     if not positives or not negatives:
         return None
     wins = sum(1.0 if p > n else 0.5 if p == n else 0.0 for p in positives for n in negatives)
@@ -427,8 +427,8 @@ def roc_auc(scores: Sequence[float], labels: Sequence[bool]) -> float | None:
 def blocking_cutoff(scores: Sequence[float], labels: Sequence[bool], target_recall: float) -> dict[str, Any]:
     """The highest cutoff whose recall on confirmed matches reaches the target (R4)."""
 
-    positives = sorted((score for score, label in zip(scores, labels) if label), reverse=True)
-    negatives = [score for score, label in zip(scores, labels) if not label]
+    positives = sorted((score for score, label in zip(scores, labels, strict=True) if label), reverse=True)
+    negatives = [score for score, label in zip(scores, labels, strict=True) if not label]
     if not positives:
         return {"cutoff": None, "recall": None, "positives": 0, "negatives": len(negatives)}
     needed = max(1, math.ceil(target_recall * len(positives)))

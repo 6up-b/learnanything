@@ -80,7 +80,7 @@ def _has_table(connection: Any, table: str) -> bool:
 def _rows(connection: Any, sql: str, args: Iterable[Any] = ()) -> list[dict[str, Any]]:
     cursor = connection.execute(sql, tuple(args))
     names = [d[0] for d in cursor.description]
-    return [dict(zip(names, raw)) for raw in cursor.fetchall()]
+    return [dict(zip(names, raw, strict=True)) for raw in cursor.fetchall()]
 
 
 def _json(raw: Any, default: Any) -> Any:
@@ -1496,7 +1496,7 @@ class MaterialView:
             def refs(provenance: Any) -> Any:
                 source_refs = list(getattr(provenance, "source_refs", None) or [])
                 kept = [ref for ref in (self._visible_ref(connection, ref) for ref in source_refs) if ref is not None]
-                if len(kept) == len(source_refs) and all(a is b for a, b in zip(kept, source_refs)):
+                if len(kept) == len(source_refs) and all(a is b for a, b in zip(kept, source_refs, strict=True)):
                     return provenance
                 return provenance.model_copy(update={"source_refs": kept})
 

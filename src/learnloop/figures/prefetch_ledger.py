@@ -82,7 +82,7 @@ def _minutes(start: Any, end: Any) -> float | None:
 
 def _dicts(cursor: Any) -> list[dict[str, Any]]:
     names = [column[0] for column in cursor.description]
-    return [dict(zip(names, row)) for row in cursor.fetchall()]
+    return [dict(zip(names, row, strict=True)) for row in cursor.fetchall()]
 
 
 def decisions(connection: Any) -> list[dict[str, Any]]:

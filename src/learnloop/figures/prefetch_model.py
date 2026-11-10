@@ -162,8 +162,8 @@ class OpenPosterior:
     def summary(self) -> dict[str, Any]:
         """Prior to posterior on alpha and beta_kind (LP §3.3 contraction), for the report."""
 
-        mean = sum(w * m for w, m in zip(self.weights, self.means))
-        second = sum(w * (c + np.outer(m, m)) for w, m, c in zip(self.weights, self.means, self.covs))
+        mean = sum(w * m for w, m in zip(self.weights, self.means, strict=True))
+        second = sum(w * (c + np.outer(m, m)) for w, m, c in zip(self.weights, self.means, self.covs, strict=True))
         cov = second - np.outer(mean, mean)
 
         def entry(index: int, prior_mean: float, prior_sd: float) -> dict[str, Any]:
@@ -184,7 +184,7 @@ class OpenPosterior:
         return {"observations": self.observations, "alpha": entry(0, ALPHA_PRIOR_MEAN, ALPHA_PRIOR_SD),
                 "beta_kind": kinds,
                 "pooling_grid": [{"tau": tau, "sigma": sigma, "weight": round(float(w), 4)}
-                                 for (tau, sigma), w in zip(self.grid, self.weights)]}
+                                 for (tau, sigma), w in zip(self.grid, self.weights, strict=True)]}
 
     def sample(self, rng: np.random.Generator) -> np.ndarray:
         index = int(rng.choice(len(self.weights), p=self.weights))
@@ -298,7 +298,7 @@ def pause_posterior(days: Sequence[PlanDay]) -> PausePosterior:
     cov = np.diag([PAUSE_INTERCEPT_PRIOR_SD ** 2, PAUSE_SLOPE_PRIOR_SD ** 2])
     posterior = PausePosterior(mean, cov, load_mean, load_sd, len(days), sum(1 for day in days if day.paused),
                                per_request)
-    for day, load in zip(days, loads):
+    for day, load in zip(days, loads, strict=True):
         h = np.array([1.0, posterior.standardized(load)])
         posterior.mean, posterior.cov, _update = adf_update(posterior.mean, posterior.cov, h,
                                                             _log_lik(1 if day.paused else 0))

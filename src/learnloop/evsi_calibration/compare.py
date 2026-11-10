@@ -181,7 +181,7 @@ def quantity(label: str, old: Any, new: Any, old_ci: Any = None, new_ci: Any = N
     out: dict[str, Any] = {"label": label, "old": _shown(old, a), "old_ci95": a_ci, "new": _shown(new, b),
                            "new_ci95": b_ci, "delta": None}
     same_ci = (a_ci is None and b_ci is None) or (
-        a_ci is not None and b_ci is not None and all(abs(x - y) <= SAME for x, y in zip(a_ci, b_ci)))
+        a_ci is not None and b_ci is not None and all(abs(x - y) <= SAME for x, y in zip(a_ci, b_ci, strict=True)))
     if _absent(old) and _absent(new) and a_ci is None and b_ci is None:
         out["status"] = "missing"
         return out
@@ -255,7 +255,7 @@ def _records(items: Sequence[Any]) -> list[tuple[str, Any]]:
         for key, how in RANGE_KEYS:
             ranges = [_interval(item.get(key)) for item in items]
             if all(r is not None for r in ranges):
-                ordered = sorted(zip(ranges, items), key=lambda pair: (pair[0], _canonical(pair[1])))
+                ordered = sorted(zip(ranges, items, strict=True), key=lambda pair: (pair[0], _canonical(pair[1])))
                 if how == "value" and len({tuple(r) for r in ranges}) == len(ranges):  # type: ignore[arg-type]
                     return [(f"{_g(r[0])}-{_g(r[1])}", {k: v for k, v in item.items() if k != key})
                             for r, item in ordered]
@@ -264,7 +264,7 @@ def _records(items: Sequence[Any]) -> list[tuple[str, Any]]:
         if keys:
             names = [" ".join(f"{k}={item[k]}" for k in keys if k in item) for item in items]
             if len(set(names)) == len(names):
-                return [(name, {k: v for k, v in item.items() if k not in keys}) for name, item in zip(names, items)]
+                return [(name, {k: v for k, v in item.items() if k not in keys}) for name, item in zip(names, items, strict=True)]
     return [(str(n), item) for n, item in enumerate(items)]
 
 

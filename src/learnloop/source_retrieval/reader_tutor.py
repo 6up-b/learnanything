@@ -292,7 +292,7 @@ class ItemBoundGuard:
             roles = block_roles(connection, [key for key in keys if key[0] and key[1]])
         kept: list[dict[str, Any]] = []
         counts: dict[str, int] = {}
-        for span, key in zip(spans, keys):
+        for span, key in zip(spans, keys, strict=True):
             text = str(span.get("text") or "")
             role = span.get("role") or roles.get(key)
             selection = span.get("relation") in SELECTION_RELATIONS

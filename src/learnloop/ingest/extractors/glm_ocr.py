@@ -910,7 +910,7 @@ def _join_split_labels(blocks: list[tuple[str, str]]) -> list[str]:
     # Each block's label number, where it has one for sure: a whole one, or a
     # split one an environment word vouches for.
     numbers: list[tuple[int, ...] | None] = []
-    for (block_type, text), split in zip(blocks, splits):
+    for (block_type, text), split in zip(blocks, splits, strict=True):
         if split:
             vouched = _KIND_AFTER.match(text, split.end())
             numbers.append(_number(f"{split['major']}.{split['minor']}") if vouched else None)
@@ -1364,7 +1364,7 @@ def responses_to_ir(
         if flag not in ir.health.flags:
             ir.health.flags.append(flag)
         dimensions = _page_dimensions(result)
-        for offset, (page, regions) in enumerate(zip(page_ids, page_regions)):
+        for offset, (page, regions) in enumerate(zip(page_ids, page_regions, strict=True)):
             dims = dimensions[offset] if offset < len(dimensions) else {}
             items = []
             for region in sorted(regions, key=_region_order):
@@ -1373,7 +1373,7 @@ def responses_to_ir(
                 items.append([region, _bbox(region, sizes[page], dims), *_block_type_and_heading(region, text)])
             layout.append((page, items))
     labelled = [item for _, items in layout for item in items if item[2] in _LABEL_TYPES]
-    for item, text in zip(labelled, _join_split_labels([(item[2], item[4]) for item in labelled])):
+    for item, text in zip(labelled, _join_split_labels([(item[2], item[4]) for item in labelled]), strict=True):
         item[4] = text
     for page, items in layout:
         health = PageHealth(page=page, text_extraction_method=EXTRACTOR_NAME)

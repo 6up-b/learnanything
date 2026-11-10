@@ -60,7 +60,7 @@ def test_repeated_success_drifts_b_down_slowly():
     # Learner keeps succeeding on an item authored at b=0.5 while mu=0:
     # the item is easier than authored, so b drifts down — monotonically,
     # bounded per step, and slowly (gain scale 0.2).
-    assert all(later < earlier for earlier, later in zip(means, means[1:]))
+    assert all(later < earlier for earlier, later in zip(means, means[1:], strict=False))
     assert means[0] > 0.5 - CONFIG.irt.b_max_step - 1e-9
     assert means[-1] > -1.0  # slow drift, not a jump to the boundary
     assert state.evidence_count == 10
@@ -77,7 +77,7 @@ def test_variance_shrinks_toward_floor():
     for _ in range(50):
         state = _step(state, score=4, mu=0.0)
         variances.append(state.b_var)
-    assert all(later <= earlier for earlier, later in zip(variances, variances[1:]))
+    assert all(later <= earlier for earlier, later in zip(variances, variances[1:], strict=False))
     assert variances[-1] >= CONFIG.irt.b_var_min
 
 

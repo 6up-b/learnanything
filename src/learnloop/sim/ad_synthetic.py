@@ -707,7 +707,7 @@ def proposal(vault: Cluster, kind: str, rng: np.random.Generator | None = None
             pairs = set()
             unique = sorted({tuple(sorted(p)) for p in correct_pairs})
             keep = rng.random(len(unique)) < 0.5
-            for (a, b), kept in zip(unique, keep):
+            for (a, b), kept in zip(unique, keep, strict=True):
                 if kept:
                     pairs |= {(a, b), (b, a)}
                 else:
@@ -824,7 +824,7 @@ def related_topics(*, flow: str, proposal_kind: str, n: int = 200, seed: str = "
             if not logs[name]:
                 logs[name] = entries
             else:
-                logs[name] = [_join(a, b) for a, b in zip(logs[name], entries)]
+                logs[name] = [_join(a, b) for a, b in zip(logs[name], entries)]  # noqa: B905  the runs' logs may differ in length; whether a mismatch should raise is open (refactor-a5.md)
     return RelatedResult(flow, proposal_kind, logs, ("B1", "C1"), "A2")
 
 

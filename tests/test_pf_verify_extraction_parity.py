@@ -92,7 +92,7 @@ def _old_agreement(caller, role, limits, subject_kind, subject_id, input_hash, s
     return {"agree": sum(agrees), "total": len(solves), "answer_kind": result.answer_kind,
             "usable": usable, "sympy_checked": symbolic, "normal_form": normal_form,
             "degenerate_check": degenerate, "verifier_model": call.model,
-            "per_solve": [{"model": solve["model"], "agree": agree} for solve, agree in zip(solves, agrees)]}
+            "per_solve": [{"model": solve["model"], "agree": agree} for solve, agree in zip(solves, agrees, strict=True)]}
 
 
 def _role(fake):

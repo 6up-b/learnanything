@@ -857,7 +857,7 @@ def test_f3_live_a_clarification_regrade_keeps_an_error_the_reply_reveals(tmp_pa
 def _route_judgments(repository, attempt_id):
     with connect(repository.sqlite_path, read_only=True) as connection:
         return [
-            dict(zip(("id", "supersedes_id", "judge", "judge_model", "prompt_version", "input_hash", "verdict"), row))
+            dict(zip(("id", "supersedes_id", "judge", "judge_model", "prompt_version", "input_hash", "verdict"), row, strict=True))
             for row in connection.execute(
                 "SELECT id, supersedes_id, judge, judge_model, prompt_version, input_hash, verdict "
                 "FROM judgment_ledger WHERE task = 'own_route_rule' AND left_kind = 'attempt' "
@@ -900,7 +900,7 @@ def test_f4_no_route_verdict_without_the_rules(tmp_path):
 def _judgments(repository, attempt_id, task):
     with connect(repository.sqlite_path, read_only=True) as connection:
         return [
-            dict(zip(("id", "supersedes_id", "judge", "judge_model", "prompt_version", "input_hash", "verdict"), row))
+            dict(zip(("id", "supersedes_id", "judge", "judge_model", "prompt_version", "input_hash", "verdict"), row, strict=True))
             for row in connection.execute(
                 "SELECT id, supersedes_id, judge, judge_model, prompt_version, input_hash, verdict "
                 "FROM judgment_ledger WHERE task = ? AND left_kind = 'attempt' "

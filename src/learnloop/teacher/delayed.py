@@ -60,7 +60,7 @@ VIA = "lesson"
 
 def _bigrams(text: str) -> set[tuple[str, str]]:
     tokens = re.sub(r"[^\w]+", " ", str(text).lower()).split()
-    return set(zip(tokens, tokens[1:]))
+    return set(zip(tokens, tokens[1:], strict=False))
 
 
 def question_overlap(shown: str, question: str) -> float:

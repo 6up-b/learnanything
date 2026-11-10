@@ -398,7 +398,7 @@ def _order_probes_by_value(pool: list[PoolItem], admitted_order: Sequence[str]) 
     ]
     ordered = sorted((pool[index] for index in slots), key=lambda item: position[item.practice_item_id])
     reordered = list(pool)
-    for index, item in zip(slots, ordered):
+    for index, item in zip(slots, ordered, strict=True):
         reordered[index] = replace(item, plan_rank=pool[index].rank)
     return reordered
 
@@ -434,7 +434,7 @@ def reentry_order(pool: Sequence[PoolItem], tiers: Mapping[str, int] | None = No
     # into as its ``plan_rank``, as an admitted project probe does
     # (``_order_probes_by_value``). Otherwise the chooser would undo it.
     ranks = sorted(item.order_rank for item in pool)
-    return [replace(item, plan_rank=rank) for item, rank in zip(ordered, ranks)]
+    return [replace(item, plan_rank=rank) for item, rank in zip(ordered, ranks, strict=True)]
 
 
 def _candidate_id(lane: str, item_ids: Sequence[str], reading: ReadingTarget | None) -> str:

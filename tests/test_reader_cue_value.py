@@ -62,7 +62,7 @@ def test_the_order_uses_no_hand_set_weight_a_monotone_rescaling_keeps_it(tmp_pat
 
     def run(path, transform):
         targets = [target("hypothesis", f"h{index}", p_open=transform(value)) for index, value in enumerate(raw)]
-        cues, _ = _setup(path, monkeypatch, targets, [(t, span) for t, span in zip(targets, spans)])
+        cues, _ = _setup(path, monkeypatch, targets, [(t, span) for t, span in zip(targets, spans, strict=True)])
         return [mark["target_id"] for mark in sorted(cues["marks"], key=lambda m: (m["section_id"], m["section_rank"]))]
 
     assert run(tmp_path / "a", lambda p: p) == run(tmp_path / "b", lambda p: p ** 3)
@@ -71,7 +71,7 @@ def test_the_order_uses_no_hand_set_weight_a_monotone_rescaling_keeps_it(tmp_pat
 @pytest.mark.parametrize("density,shown", [("off", 0), ("fewer", 1), ("normal", 2), ("more", 3)])
 def test_the_density_control_changes_only_how_many_show(tmp_path, monkeypatch, density, shown):
     targets = [target("hypothesis", f"h{index}", p_open=p) for index, p in enumerate((0.9, 0.5, 0.1))]
-    cues, _ = _setup(tmp_path, monkeypatch, targets, [(t, span) for t, span in zip(targets, ("t3", "t1", "t2"))],
+    cues, _ = _setup(tmp_path, monkeypatch, targets, [(t, span) for t, span in zip(targets, ("t3", "t1", "t2"), strict=True)],
                      density=density)
     order = [mark["target_id"] for mark in sorted(cues["marks"], key=lambda m: m["section_rank"])]
     assert order == ["hypothesis:h0", "hypothesis:h1", "hypothesis:h2"][:shown]

@@ -111,7 +111,7 @@ def figure_trace_for_attempt(vault: Any, repository: Any, attempt: Mapping[str, 
                 names = ("figure_id", "extraction_id", "span_ids_json", "region_json", "asset_id",
                          "input_span_ids_json", "input_span_keys_json", "goal_text", "spec_json", "tier", "kind",
                          "goal_author")
-                figure = dict(zip(names, found))
+                figure = dict(zip(names, found, strict=True))
                 predictions = [
                     {"prompt_index": int(index), "learner_answer": str(answer or "")[:TEXT_CHARS],
                      "observed_answer": str((_json(observed, {}) or {}).get("answer") or "")[:TEXT_CHARS],

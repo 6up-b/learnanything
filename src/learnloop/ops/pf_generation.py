@@ -1125,7 +1125,7 @@ class _FamilyRun:
         gates(rows)
         hard = {entry["entity_refs"][0] for entry in gates.diagnostics() if entry["severity"] == "hard_fail"}
         inventory = self.ctx.inventory()
-        for candidate, row in zip(alive, rows):
+        for candidate, row in zip(alive, rows, strict=True):
             if row.get("validation_status") == "invalid" or candidate.id in hard:
                 self._reject(candidate, "authoring_gates", row.get("validation_errors") or ["hard_fail"])
                 continue
@@ -1326,7 +1326,7 @@ class _FamilyRun:
             results = checks[position:position + len(solves)]
             position += len(solves)
             agree = sum(1 for value in results if value is True)
-            for solve, value in zip(solves, results):
+            for solve, value in zip(solves, results, strict=True):
                 self.ctx.caller.ledger(
                     task="answer_equivalence", left_kind="pf_candidate", left_id=candidate.id,
                     judge="verifier", prompt_version=GENERATOR_PROTOCOL,
@@ -1337,7 +1337,7 @@ class _FamilyRun:
                 )
             candidate.panel = {"agree": agree, "total": len(solves), "check": "generator_program",
                                "per_solve": [{"model": s["model"], "agree": v is True}
-                                             for s, v in zip(solves, results)]}
+                                             for s, v in zip(solves, results, strict=True)]}
             if agree == 0:
                 # Outlier: no panel solve reaches the CAS-verified answer, so the
                 # draw is likely ill-posed or far off the family's difficulty.
@@ -1516,7 +1516,7 @@ class _FamilyRun:
               c.payload["stem"]) for c in survivors], history,
         )
         stems = [candidate.payload["stem"] for candidate in survivors]
-        contributions = dict(zip([c.id for c in survivors], vendi_contributions(stems)))
+        contributions = dict(zip([c.id for c in survivors], vendi_contributions(stems), strict=True))
         set_vendi = vendi_score(stems)
         by_id = {candidate.id: candidate for candidate in survivors}
         for rank, entry in enumerate(order):

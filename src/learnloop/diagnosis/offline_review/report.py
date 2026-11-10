@@ -76,7 +76,7 @@ def _ledger(connection, task: str) -> list[dict[str, Any]]:
     columns = [description[0] for description in cursor.description]
     rows = []
     for row in cursor.fetchall():
-        payload = dict(zip(columns, row))
+        payload = dict(zip(columns, row, strict=True))
         try:
             payload["rationale"] = json.loads(payload["rationale"]) if payload["rationale"] else {}
         except ValueError:

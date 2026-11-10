@@ -156,7 +156,7 @@ def allocate_success_mass(
             role=target.role,
             pseudo_mass=criterion_pseudo_mass * weight / total,
         )
-        for target, weight in zip(targets, weights)
+        for target, weight in zip(targets, weights, strict=True)
     ]
 
 

@@ -609,7 +609,7 @@ def decide(figure, book, payload, symbols, deadline, *, control=False):
         if cuts:
             bounds = [sympy.S.NegativeInfinity, *[sympy.Rational(c.numerator, c.denominator) for c in cuts],
                       sympy.S.Infinity]
-            inner = [cuts[0] - 1, *[(left + right) / 2 for left, right in zip(cuts, cuts[1:])], cuts[-1] + 1]
+            inner = [cuts[0] - 1, *[(left + right) / 2 for left, right in zip(cuts, cuts[1:], strict=False)], cuts[-1] + 1]
             pieces = [(sympy.Interval.open(bounds[i], bounds[i + 1]), inner[i]) for i in range(len(inner))]
         else:
             pieces = [(sympy.S.Reals, Fraction(0))]

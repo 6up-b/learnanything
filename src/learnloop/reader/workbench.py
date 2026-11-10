@@ -267,7 +267,7 @@ def _help_parts(fold: WorkbenchFold) -> list[str]:
     parts: list[str] = []
     if fold.checks:
         parts.append("a check" if fold.checks == 1 else f"{fold.checks} checks")
-    for level, count in zip((1, 2, 3), fold.by_level):
+    for level, count in zip((1, 2, 3), fold.by_level, strict=True):
         if count:
             noun = {1: "question", 2: "pointer", 3: "hint"}[level]
             parts.append(f"a level-{level} {noun}" if count == 1 else f"{count} level-{level} {noun}s")

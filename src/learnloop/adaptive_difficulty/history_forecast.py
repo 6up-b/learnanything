@@ -434,7 +434,7 @@ def _write(repository: Any, vault: Any, receipts: list[ForecastReceipt], *, crea
                         vault.config.router.payload_retention_days)
         written = record_receipts(repository, stamped, created_at=created_at)
         if judged is not None and len(written) == len(stamped):
-            for receipt, receipt_id in zip(stamped, written):
+            for receipt, receipt_id in zip(stamped, written, strict=True):
                 if receipt.p is None:
                     continue
                 append_judgment(

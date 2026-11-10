@@ -252,7 +252,7 @@ def grid_posterior(seed: float, observations: Sequence[Mapping[str, float]]) -> 
     top = max(logs)
     weights = [math.exp(value - top) for value in logs]
     norm = sum(weights)
-    mean = sum(value * weight for value, weight in zip(grid, weights)) / norm
+    mean = sum(value * weight for value, weight in zip(grid, weights, strict=True)) / norm
     return {"status": "posterior" if observations else "prior", "n": len(observations), "mean": mean,
             "grid": len(grid), "serves": False, "label": "preference plus model error"}
 

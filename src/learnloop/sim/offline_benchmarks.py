@@ -109,7 +109,7 @@ def fit_logistic(
     for _ in range(iterations):
         gradient = [0.0] * dims
         for example in examples:
-            z = sum(w * x for w, x in zip(weights, example.features))
+            z = sum(w * x for w, x in zip(weights, example.features, strict=True))
             error = _sigmoid(z) - (1.0 if example.outcome else 0.0)
             for index, x in enumerate(example.features):
                 gradient[index] += error * x
@@ -126,10 +126,10 @@ def _clamp(probability: float) -> float:
 def _metrics(predictions: list[float], outcomes: list[bool]) -> dict[str, float | int]:
     log_loss = -sum(
         log(_clamp(p)) if outcome else log(_clamp(1.0 - p))
-        for p, outcome in zip(predictions, outcomes)
+        for p, outcome in zip(predictions, outcomes, strict=True)
     ) / len(outcomes)
     brier = sum(
-        (p - (1.0 if outcome else 0.0)) ** 2 for p, outcome in zip(predictions, outcomes)
+        (p - (1.0 if outcome else 0.0)) ** 2 for p, outcome in zip(predictions, outcomes, strict=True)
     ) / len(outcomes)
     return {"log_loss": round(log_loss, 4), "brier": round(brier, 4), "n": len(outcomes)}
 
@@ -166,7 +166,7 @@ def run_forgetting_benchmark(
     weights = fit_logistic(train)
     outcomes = [example.outcome for example in test]
     das3h_predictions = [
-        _sigmoid(sum(w * x for w, x in zip(weights, example.features))) for example in test
+        _sigmoid(sum(w * x for w, x in zip(weights, example.features, strict=True))) for example in test
     ]
     global_predictions = [global_rate] * len(test)
     per_lo_predictions = []

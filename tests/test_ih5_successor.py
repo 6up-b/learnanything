@@ -317,7 +317,7 @@ def test_replay_under_both_rules_on_a_synthetic_history_reports_how_often_the_se
         label = mix.fallback_label(failed) or "none"
         w = rng.uniform(0.2, 0.8)
         raw = [rng.random() + 0.05 for _ in SUPPORT]
-        dist = {ref: value / sum(raw) for ref, value in zip(SUPPORT, raw)}
+        dist = {ref: value / sum(raw) for ref, value in zip(SUPPORT, raw, strict=True)}
         record = {"support": SUPPORT, "staged_ref": rng.choice(SUPPORT[1:]), "epsilon": EPSILON, "w": w,
                   "failed": failed, "llm_distribution": dist, "numeric_choice": rng.choice(SUPPORT)}
         parts = mix.components(SUPPORT, record["staged_ref"], llm=None if "llm" in failed else dist,

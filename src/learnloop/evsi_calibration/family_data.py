@@ -160,7 +160,7 @@ def _first_answers(responses: NeuripsResponses, questions: Sequence[int]) -> dic
     out: dict[int, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
     starts = np.flatnonzero(np.r_[True, question[1:] != question[:-1]])
     ends = np.r_[starts[1:], question.shape[0]]
-    for start, end in zip(starts.tolist(), ends.tolist()):
+    for start, end in zip(starts.tolist(), ends.tolist(), strict=True):
         users = user[start:end]
         keep = np.r_[True, users[1:] != users[:-1]]
         out[int(question[start])] = (users[keep], answer[start:end][keep], minute[start:end][keep])
@@ -207,7 +207,7 @@ def _correct_options(responses: NeuripsResponses, questions: Sequence[int]) -> d
     question = responses.question[mask]
     correct = responses.correct_option[mask]
     unique, first = np.unique(question, return_index=True)
-    return {int(q): int(correct[i]) for q, i in zip(unique.tolist(), first.tolist())}
+    return {int(q): int(correct[i]) for q, i in zip(unique.tolist(), first.tolist(), strict=True)}
 
 
 def build_subject_data(
@@ -268,7 +268,7 @@ def category_counts(table: np.ndarray) -> Mapping[tuple[int, int, int], int]:
     """(n, 3) categories -> {(c1, c2, c3): count} for the latent class EM."""
 
     keys, counts = np.unique(table, axis=0, return_counts=True)
-    return {(int(k[0]), int(k[1]), int(k[2])): int(c) for k, c in zip(keys, counts)}
+    return {(int(k[0]), int(k[1]), int(k[2])): int(c) for k, c in zip(keys, counts, strict=True)}
 
 
 __all__ = [

@@ -226,7 +226,7 @@ def build_inventory_windows(
     current_tokens = 0
     last_section: tuple[str, ...] | None = None
 
-    for block, entry in zip(kept_blocks, view_blocks):
+    for block, entry in zip(kept_blocks, view_blocks, strict=True):
         block_tokens = _approx_tokens(entry["text"])
         section = _section_key(block)
         at_boundary = section != last_section

@@ -232,7 +232,7 @@ def _projection_changes(
         if key in projected:
             # The full DELETE+INSERT this replaces failed on the unique index.
             raise sqlite3.IntegrityError(
-                f"UNIQUE constraint failed: {table.name} {dict(zip(table.key, key))}"
+                f"UNIQUE constraint failed: {table.name} {dict(zip(table.key, key, strict=True))}"
             )
         projected[key] = cell
     columns = ", ".join((*table.key, *table.values))
@@ -9963,7 +9963,7 @@ class Repository(
         ordered = sorted(days)
         longest = 1
         run = 1
-        for previous, day in zip(ordered, ordered[1:]):
+        for previous, day in zip(ordered, ordered[1:], strict=False):
             run = run + 1 if (day - previous).days == 1 else 1
             longest = max(longest, run)
 
@@ -11554,7 +11554,7 @@ class Repository(
         now = utc_now_iso(clock)
         correction_ids = [new_ulid() for _ in source_ids]
         with self.connection() as connection:
-            for correction_id, source_version_id in zip(correction_ids, source_ids):
+            for correction_id, source_version_id in zip(correction_ids, source_ids, strict=True):
                 connection.execute(
                     """
                     INSERT INTO measurement_contract_corrections(
@@ -21841,7 +21841,7 @@ class Repository(
         for attempt_id, epochs in epochs_by_attempt.items():
             ordered = sorted(epochs.items(), key=lambda pair: (pair[1]["at"], pair[0]))
             attempt_transitions: list[dict[str, Any]] = []
-            for (_prev_key, prev), (_curr_key, curr) in zip(ordered, ordered[1:]):
+            for (_prev_key, prev), (_curr_key, curr) in zip(ordered, ordered[1:], strict=False):
                 attempt_transitions.append(
                     {
                         "attempt_id": attempt_id,

@@ -607,7 +607,7 @@ def test_the_sandbox_pins_the_agent_home_and_state_locations(monkeypatch, layout
 
     monkeypatch.chdir(layout["home"].parent)
     args = sandbox_arguments(ToolIsolation(workdir=layout["workdir"]), home=Path(layout["home"].name))
-    pairs, triples = list(zip(args, args[1:])), list(zip(args, args[1:], args[2:]))
+    pairs, triples = list(zip(args, args[1:], strict=False)), list(zip(args, args[1:], args[2:], strict=False))
     home = str(layout["home"])  # a relative CODEX_HOME is made absolute: the tmpfs and the agent agree
     assert ("--tmpfs", home) in pairs
     assert ("--setenv", "CODEX_HOME", home) in triples and ("--setenv", "CODEX_SQLITE_HOME", home) in triples

@@ -875,12 +875,12 @@ def _phone_guide_plan(vault: Any, repository: Any, extraction_id: str, plan: dic
                 or any(readings[reading].covers(span) for reading, span in keys)
                 or any(readings[reading].whole for reading in whole))
 
-    dropped = [question_withheld(section, places) for section, places in zip(sections, stored)]
+    dropped = [question_withheld(section, places) for section, places in zip(sections, stored, strict=True)]
     if not withheld.spans and not any(dropped):
         return plan
     out = dict(plan)
     out["sections"] = []
-    for number, (section, drop) in enumerate(zip(sections, dropped), start=1):
+    for number, (section, drop) in enumerate(zip(sections, dropped, strict=True), start=1):
         section = dict(section)
         if withheld.any(section.get("span_ids") or []):
             # The label is the section's heading, which is its first block: text the phone is not sent.
@@ -1294,7 +1294,7 @@ def reader_source_annotations(ctx: SidecarContext, params: ReaderSourceAnnotatio
     heads = repository.annotations_for_source(params.source_id)
     if params.extraction_id:
         placements = ANN.annotation_placements(repository, heads, params.extraction_id)
-        heads = [{**head, "placement": placement} for head, placement in zip(heads, placements) if head is not None]
+        heads = [{**head, "placement": placement} for head, placement in zip(heads, placements, strict=True) if head is not None]
     return versioned({"annotations": heads})
 
 

@@ -40,7 +40,7 @@ class LastWordsLLM(FakeServiceLLM):
         relations = [PairRelation(left_ref=left["ref"], right_ref=right["ref"], relation="different_notation",
                                   statement="same idea, different notation", left_quote=quote(left["passage"], 5),
                                   right_quote=quote(right["passage"], 5))
-                     for left, right in zip(sources, sources[1:])]
+                     for left, right in zip(sources, sources[1:], strict=False)]
         return SourceComparison(contributions=contributions, relations=relations, missing_perspectives=[])
 
 
@@ -184,7 +184,7 @@ def test_f4_keep_rechecks_and_cites_a_quote_from_the_anchors_later_block(library
     assert not [entry for entry in stored["not_kept"]
                 if entry.get("key") == f"ext_text:{first_block}"], stored["not_kept"]
     with repository.connection() as connection:
-        citations = [dict(zip(("span_id", "exact_quote"), r)) for r in connection.execute(
+        citations = [dict(zip(("span_id", "exact_quote"), r, strict=True)) for r in connection.execute(
             "SELECT span_id, exact_quote FROM source_object_citations WHERE source_object_version_id = ?",
             (anchor_objects[0]["version_id"],))]
     # Cited to the block that holds the quote, never to the first block alone.

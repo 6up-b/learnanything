@@ -26,7 +26,7 @@ def _ledger(repository):
     with repository.connection() as connection:
         cursor = connection.execute("SELECT * FROM judgment_ledger ORDER BY rowid")
         names = [d[0] for d in cursor.description]
-        return [dict(zip(names, row)) for row in cursor.fetchall()]
+        return [dict(zip(names, row, strict=True)) for row in cursor.fetchall()]
 
 
 def test_a_notes_ledger_verdicts_have_the_shared_shape_and_the_report_reads_them(tmp_path, monkeypatch):

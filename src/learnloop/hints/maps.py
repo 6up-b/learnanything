@@ -716,7 +716,7 @@ def validate_map(candidate: ApproachMapV1, context: MapContext) -> Validation:
         path = list(route.path)
         ok = (len(path) >= 2 and len(set(path)) == len(path) and all(node in nodes for node in path)
               and nodes[path[0]].role == "given" and path[-1] == candidate.goal_node_id
-              and all((left, right) in pairs for left, right in zip(path, path[1:])))
+              and all((left, right) in pairs for left, right in zip(path, path[1:], strict=False)))
         if not ok:
             fail("route_not_given_to_goal", route_id=route.id)
         origin = _origin(route.origin, context, reasons, details, route.id)

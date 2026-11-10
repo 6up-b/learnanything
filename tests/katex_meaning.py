@@ -398,7 +398,7 @@ def _condition(tokens: list[tuple]) -> G.Node:
         else:
             parts[-1].append(token)
     sides = [_Meaning(part).expression() for part in parts]
-    compared = [G.Node("cmp", op=op, args=(left, right)) for op, left, right in zip(ops, sides, sides[1:])]
+    compared = [G.Node("cmp", op=op, args=(left, right)) for op, left, right in zip(ops, sides, sides[1:], strict=False)]
     return compared[0] if len(compared) == 1 else G.Node("and", args=tuple(compared))
 
 

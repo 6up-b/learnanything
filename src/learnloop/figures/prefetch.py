@@ -519,7 +519,7 @@ def judge_section(env: PrefetchEnv, extraction_id: str, section_id: str, *, call
     ids = [f"b{index}" for index in range(1, len(blocks) + 1)]
     context = {"mode": "section", "section": label, "max_blocks": PREFETCH_SECTION_CANDIDATES,
                "blocks": [{"id": block_id, "type": block["type"], "text": block["text"]}
-                          for block_id, block in zip(ids, blocks)]}
+                          for block_id, block in zip(ids, blocks, strict=True)]}
 
     def prompt(problems: list[str]) -> str:
         shown = {**context, **({"problems_with_the_last_answer": problems} if problems else {})}
@@ -537,7 +537,7 @@ def judge_section(env: PrefetchEnv, extraction_id: str, section_id: str, *, call
     output = _ask(route, prompt, PrefetchSectionOutputV1, lambda out: _section_problem(out, ids), revalidate)
     if result is not None:
         result.judge_calls += route.made
-    by_id = dict(zip(ids, blocks))
+    by_id = dict(zip(ids, blocks, strict=True))
     picks = [{"span_id": by_id[entry.block]["span_id"], "goal": " ".join(entry.goal.split()) or None,
               "p_open": float(entry.p_open)} for entry in output.blocks]
     with env.repository.atomic():

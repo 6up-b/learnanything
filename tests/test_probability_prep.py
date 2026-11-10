@@ -619,7 +619,7 @@ def test_scripted_decider_sees_identical_states_for_both_judges(seeded, tmp_path
         prepare_judge(plan, route=routes[judge], variants=["v2"], cache_dir=tmp_path / "cache",
                       repository=Repository(paths.sqlite_path), caps=SpendCaps())
     assert len(decider.states) == len(llm.requests) == len(plan.for_variant("v2"))
-    for state, request in zip(decider.states, llm.requests):
+    for state, request in zip(decider.states, llm.requests, strict=True):
         assert json.dumps(state, sort_keys=True, ensure_ascii=False) in request.prompt or json.dumps(
             state, sort_keys=True, ensure_ascii=False)[1:-1] in request.prompt
 

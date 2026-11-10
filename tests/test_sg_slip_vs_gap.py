@@ -679,7 +679,7 @@ def test_sg2_moves_only_the_diagnosed_topics_values_and_the_logged_mu_replays(tw
     on_traces, base_traces = _traces(on), _traces(sensor_only)
     assert on_traces and len(on_traces) == len(base_traces)
     moved = 0
-    for got, base in zip(on_traces, base_traces):
+    for got, base in zip(on_traces, base_traces, strict=True):
         split = got["miss_cause"]["in_value"]
         if not split["fitted"]:
             assert not split["topics"]

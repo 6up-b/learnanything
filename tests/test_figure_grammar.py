@@ -104,7 +104,7 @@ def test_rejected_inputs(case):
 @pytest.mark.parametrize("case", CORPUS["figures"], ids=lambda case: case["id"])
 def test_figure_panels(case):
     compiled = S.parse_spec(case["spec"])
-    for params, expected in zip(case["params"], case["expected"]):
+    for params, expected in zip(case["params"], case["expected"], strict=True):
         assert S.evaluate_figure(compiled, params) == expected
     for index, outcome in enumerate(case["predictions"]):
         assert S.prediction_outcome(compiled, index) == outcome
