@@ -2906,6 +2906,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_source_linked_generated_practice_with_passed_audit_auto_applies`
   - `test_timed_out_repair_fails_without_persisting_first_pass`
   - `test_unresolved_source_ref_is_persisted_invalid`
+- [tests/test_provenance.py](../../../../../../tests/test_provenance.py) — direct import
+  - `test_a_model_calls_receipt_carries_the_trace_it_started_under`
+  - `test_a_rebuild_never_calls_the_record_and_keeps_its_rows`
+  - `test_the_store_write_takes_its_own_transaction_or_joins_the_repositorys`
 - [tests/test_provenance_service.py](../../../../../../tests/test_provenance_service.py) — direct import
   - `test_empty_entity_has_no_provenance`
   - `test_get_entity_provenance_includes_conflicts_and_notation`

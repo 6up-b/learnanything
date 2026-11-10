@@ -2503,6 +2503,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_modification_requires_review`
   - `test_reject_route_stays_reject`
   - `test_source_grounded_existing_concept_edge_can_auto_apply`
+- [tests/test_provenance.py](../../../../../../tests/test_provenance.py) — direct import
+  - `test_a_rebuild_never_calls_the_record_and_keeps_its_rows`
 - [tests/test_provider_resolution_parity.py](../../../../../../tests/test_provider_resolution_parity.py) — direct import
   - `test_config_matrix_executes_all_six_production_resolution_paths`
 - [tests/test_question_context.py](../../../../../../tests/test_question_context.py) — direct import

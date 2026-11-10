@@ -50,29 +50,29 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/logging.py](../../../../../src/learnloop_sidecar/logging.py) |
-| Source lines | 103 |
+| Source lines | 107 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class JsonLineFormatter(logging.Formatter)` ([source](../../../../../src/learnloop_sidecar/logging.py), line 20)
-  - `format(self, record: logging.LogRecord) -> str` (line 21; public)
-- `debug_enabled() -> bool` ([source](../../../../../src/learnloop_sidecar/logging.py), line 37) — True when the sidecar should emit verbose state-update events.
-- `configure_logging() -> None` ([source](../../../../../src/learnloop_sidecar/logging.py), line 56)
-- `log_event(event: str, *, level: int=logging.DEBUG, **fields: Any) -> None` ([source](../../../../../src/learnloop_sidecar/logging.py), line 84) — Emit a structured sidecar event.
+- `class JsonLineFormatter(logging.Formatter)` ([source](../../../../../src/learnloop_sidecar/logging.py), line 22)
+  - `format(self, record: logging.LogRecord) -> str` (line 23; public)
+- `debug_enabled() -> bool` ([source](../../../../../src/learnloop_sidecar/logging.py), line 39) — True when the sidecar should emit verbose state-update events.
+- `configure_logging() -> None` ([source](../../../../../src/learnloop_sidecar/logging.py), line 58)
+- `log_event(event: str, *, level: int=logging.DEBUG, **fields: Any) -> None` ([source](../../../../../src/learnloop_sidecar/logging.py), line 86) — Emit a structured sidecar event.
 
 ### Module constants
 
-- `EVENT_FIELDS_ATTR` ([src/learnloop_sidecar/logging.py](../../../../../src/learnloop_sidecar/logging.py), line 13)
-- `LOG` ([src/learnloop_sidecar/logging.py](../../../../../src/learnloop_sidecar/logging.py), line 15)
-- `_TRUTHY` ([src/learnloop_sidecar/logging.py](../../../../../src/learnloop_sidecar/logging.py), line 17)
+- `EVENT_FIELDS_ATTR` ([src/learnloop_sidecar/logging.py](../../../../../src/learnloop_sidecar/logging.py), line 15)
+- `LOG` ([src/learnloop_sidecar/logging.py](../../../../../src/learnloop_sidecar/logging.py), line 17)
+- `_TRUTHY` ([src/learnloop_sidecar/logging.py](../../../../../src/learnloop_sidecar/logging.py), line 19)
 
 ## Internal implementation anchors
 
-- `_resolve_level() -> int` ([source](../../../../../src/learnloop_sidecar/logging.py), line 49)
-- `_show_warning(message, category, filename, lineno, file=None, line=None) -> None` ([source](../../../../../src/learnloop_sidecar/logging.py), line 96)
+- `_resolve_level() -> int` ([source](../../../../../src/learnloop_sidecar/logging.py), line 51)
+- `_show_warning(message, category, filename, lineno, file=None, line=None) -> None` ([source](../../../../../src/learnloop_sidecar/logging.py), line 100)
 
 ## Who imports or calls it
 
@@ -94,7 +94,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-No internal Python dependency was found by static analysis.
+- [[Reference/Modules/learnloop/provenance|learnloop.provenance]] — imports `current_trace`; calls `current_trace`
 
 ### Platform and third-party dependencies
 
@@ -117,20 +117,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/test_common_repair_delivery.py](../../../../../tests/test_common_repair_delivery.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]]
-- [tests/test_followup_fg1c_r1_exposure_independence.py](../../../../../tests/test_followup_fg1c_r1_exposure_independence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]]
-- [tests/test_mobile_v2_followup.py](../../../../../tests/test_mobile_v2_followup.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]]
-- [tests/test_reveal_ledger.py](../../../../../tests/test_reveal_ledger.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]]
-- [tests/test_source_first_needs.py](../../../../../tests/test_source_first_needs.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]]
-- [tests/test_figures_codex_review.py](../../../../../tests/test_figures_codex_review.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
-- [tests/test_figures_help.py](../../../../../tests/test_figures_help.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
-- [tests/test_figures_help_codex_review.py](../../../../../tests/test_figures_help_codex_review.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
-- [tests/test_figures_prefetch_review_fixes.py](../../../../../tests/test_figures_prefetch_review_fixes.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
-- [tests/test_figures_show_me.py](../../../../../tests/test_figures_show_me.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
-- [tests/test_figures_show_me_codex_review.py](../../../../../tests/test_figures_show_me_codex_review.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
-- [tests/test_followups_nov2_figure_provenance.py](../../../../../tests/test_followups_nov2_figure_provenance.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
+- [tests/test_provenance.py](../../../../../tests/test_provenance.py) — direct import
+  - `test_sidecar_log_events_carry_the_trace`
 
 ## Modification guidance
 

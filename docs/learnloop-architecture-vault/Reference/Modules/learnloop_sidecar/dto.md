@@ -200,6 +200,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rr_f3_the_plan_status_lists_the_sessions_grants_for_a_lasting_stop`
   - `test_the_sidecar_attaches_the_typed_hint_and_ai_use_fallback_records_the_choice`
 - [tests/test_plan_first_transport_offer_grants.py](../../../../../tests/test_plan_first_transport_offer_grants.py) — direct import
+- [tests/test_provenance.py](../../../../../tests/test_provenance.py) — direct import
 - [tests/test_reader_ca5_also_in_books.py](../../../../../tests/test_reader_ca5_also_in_books.py) — direct import
 - [tests/test_reader_intent.py](../../../../../tests/test_reader_intent.py) — direct import
   - `test_switched_off_the_prompt_contract_is_the_bases`

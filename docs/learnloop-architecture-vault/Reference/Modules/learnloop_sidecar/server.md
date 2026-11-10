@@ -50,36 +50,37 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/server.py](../../../../../src/learnloop_sidecar/server.py) |
-| Source lines | 318 |
+| Source lines | 331 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `serve(stdin: TextIO, stdout: TextIO) -> None` ([source](../../../../../src/learnloop_sidecar/server.py), line 32)
+- `serve(stdin: TextIO, stdout: TextIO) -> None` ([source](../../../../../src/learnloop_sidecar/server.py), line 33)
 
 ### Module constants
 
-- `LOG` ([src/learnloop_sidecar/server.py](../../../../../src/learnloop_sidecar/server.py), line 24)
-- `_INTERNAL_ERROR_MESSAGE` ([src/learnloop_sidecar/server.py](../../../../../src/learnloop_sidecar/server.py), line 26)
-- `_BATCH_KEYS` ([src/learnloop_sidecar/server.py](../../../../../src/learnloop_sidecar/server.py), line 157)
+- `LOG` ([src/learnloop_sidecar/server.py](../../../../../src/learnloop_sidecar/server.py), line 25)
+- `_INTERNAL_ERROR_MESSAGE` ([src/learnloop_sidecar/server.py](../../../../../src/learnloop_sidecar/server.py), line 27)
+- `_BATCH_KEYS` ([src/learnloop_sidecar/server.py](../../../../../src/learnloop_sidecar/server.py), line 170)
 
 ## Internal implementation anchors
 
-- `_handle(ctx: SidecarContext, request: Any) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/server.py), line 55)
-- `_offered(ctx: SidecarContext, offers: plan_fallback.OfferCollector, method_name: str) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/server.py), line 135) — Mint this response's offer (redesign D): the action that asked, its units, the vault's epoch.
-- `_reported_batches(value: Any, depth: int=0) -> list[str]` ([source](../../../../../src/learnloop_sidecar/server.py), line 161) — The ingest batch ids a response reports, in order (bounded walk).
-- `_attach_fallback_offer(exc: SidecarError, hint: dict[str, Any] | None) -> None` ([source](../../../../../src/learnloop_sidecar/server.py), line 182) — Plan-first transport T1: an unavailable ChatGPT-plan route offers OpenRouter.
-- `_with_fallback_offer(result: Any, hint: dict[str, Any] | None) -> Any` ([source](../../../../../src/learnloop_sidecar/server.py), line 194) — The same hint on a result that degraded instead of failing (a dict result only).
-- `_foreground(method_name: str)` ([source](../../../../../src/learnloop_sidecar/server.py), line 206) — RW5d P5 (spec §10b.4): a learner-facing method in flight is foreground work, which background figure prebuilds yield to (no prebuild starts while it runs).
-- `_observed_model_calls(ctx: SidecarContext, method_name: str, params: Any)` ([source](../../../../../src/learnloop_sidecar/server.py), line 216) — Record every model call the handler makes, owned by its submission or RPC.
-- `_busy_error(exc: Exception) -> SidecarError | None` ([source](../../../../../src/learnloop_sidecar/server.py), line 228) — Map lock contention to a retryable error; None for any other failure.
-- `_internal_error(request_id: Any, method_name: str, started: float, *, offer: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/server.py), line 252)
-- `_elapsed_ms(started: float) -> float` ([source](../../../../../src/learnloop_sidecar/server.py), line 270)
-- `_write(stdout: TextIO, response: dict[str, Any]) -> None` ([source](../../../../../src/learnloop_sidecar/server.py), line 274)
-- `_request_id(request: Any) -> Any` ([source](../../../../../src/learnloop_sidecar/server.py), line 298)
-- `_safe_validation_errors(exc: ValidationError) -> list[dict[str, Any]]` ([source](../../../../../src/learnloop_sidecar/server.py), line 302) — Return actionable Pydantic diagnostics without echoing request values.
+- `_handle(ctx: SidecarContext, request: Any, *, trace_id: str | None=None) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/server.py), line 56) — One RPC under its trace (ADR-017): a new one per request, or the phone host's, which it births first.
+- `_handle_request(ctx: SidecarContext, request: Any) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/server.py), line 68)
+- `_offered(ctx: SidecarContext, offers: plan_fallback.OfferCollector, method_name: str) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/server.py), line 148) — Mint this response's offer (redesign D): the action that asked, its units, the vault's epoch.
+- `_reported_batches(value: Any, depth: int=0) -> list[str]` ([source](../../../../../src/learnloop_sidecar/server.py), line 174) — The ingest batch ids a response reports, in order (bounded walk).
+- `_attach_fallback_offer(exc: SidecarError, hint: dict[str, Any] | None) -> None` ([source](../../../../../src/learnloop_sidecar/server.py), line 195) — Plan-first transport T1: an unavailable ChatGPT-plan route offers OpenRouter.
+- `_with_fallback_offer(result: Any, hint: dict[str, Any] | None) -> Any` ([source](../../../../../src/learnloop_sidecar/server.py), line 207) — The same hint on a result that degraded instead of failing (a dict result only).
+- `_foreground(method_name: str)` ([source](../../../../../src/learnloop_sidecar/server.py), line 219) — RW5d P5 (spec §10b.4): a learner-facing method in flight is foreground work, which background figure prebuilds yield to (no prebuild starts while it runs).
+- `_observed_model_calls(ctx: SidecarContext, method_name: str, params: Any)` ([source](../../../../../src/learnloop_sidecar/server.py), line 229) — Record every model call the handler makes, owned by its submission or RPC.
+- `_busy_error(exc: Exception) -> SidecarError | None` ([source](../../../../../src/learnloop_sidecar/server.py), line 241) — Map lock contention to a retryable error; None for any other failure.
+- `_internal_error(request_id: Any, method_name: str, started: float, *, offer: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/server.py), line 265)
+- `_elapsed_ms(started: float) -> float` ([source](../../../../../src/learnloop_sidecar/server.py), line 283)
+- `_write(stdout: TextIO, response: dict[str, Any]) -> None` ([source](../../../../../src/learnloop_sidecar/server.py), line 287)
+- `_request_id(request: Any) -> Any` ([source](../../../../../src/learnloop_sidecar/server.py), line 311)
+- `_safe_validation_errors(exc: ValidationError) -> list[dict[str, Any]]` ([source](../../../../../src/learnloop_sidecar/server.py), line 315) — Return actionable Pydantic diagnostics without echoing request values.
 
 ## Who imports or calls it
 
@@ -101,6 +102,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/attempts/completion_lock|learnloop.attempts.completion_lock]] — imports `AttemptCompletionBusy`
 - [[Reference/Modules/learnloop/figures/foreground|learnloop.figures.foreground]] — imports `FOREGROUND_METHODS`, `foreground`; calls `foreground`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
+- [[Reference/Modules/learnloop/provenance|learnloop.provenance]] — imports `module`; calls `trace_scope`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`; calls `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `to_camel`; calls `to_camel`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`, `json_rpc_error`, `sidecar_error`; calls `SidecarError`, `json_rpc_error`, `sidecar_error`
@@ -148,6 +150,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_plan_first_transport_today_quiet.py](../../../../../tests/test_plan_first_transport_today_quiet.py) — direct import
 - [tests/test_probe_orchestration_remainder.py](../../../../../tests/test_probe_orchestration_remainder.py) — direct import
 - [tests/test_probe_remint.py](../../../../../tests/test_probe_remint.py) — direct import
+- [tests/test_provenance.py](../../../../../tests/test_provenance.py) — direct import
+  - `test_a_phone_request_births_its_trace_and_hands_it_to_the_sidecar`
+  - `test_each_sidecar_rpc_runs_under_a_trace_of_its_own`
 - [tests/test_provenance_service.py](../../../../../tests/test_provenance_service.py) — direct import
 - [tests/test_question_queue.py](../../../../../tests/test_question_queue.py) — direct import
   - `test_sidecar_queue_roundtrip`

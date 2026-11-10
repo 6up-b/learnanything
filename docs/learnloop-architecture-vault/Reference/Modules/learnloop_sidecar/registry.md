@@ -316,6 +316,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_pr4_superseded_claims_landing.py](../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
 - [tests/test_practice_index_adapters.py](../../../../../tests/test_practice_index_adapters.py) — direct import
   - `test_sidecar_rpcs`
+- [tests/test_provenance.py](../../../../../tests/test_provenance.py) — direct import
 - [tests/test_re0_capture.py](../../../../../tests/test_re0_capture.py) — direct import
   - `test_the_sidecar_carries_active_seconds_into_the_attempt_beside_its_latency`
 - [tests/test_reader_ca1_as_printed.py](../../../../../tests/test_reader_ca1_as_printed.py) — direct import

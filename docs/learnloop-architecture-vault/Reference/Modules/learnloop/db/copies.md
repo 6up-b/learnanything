@@ -229,6 +229,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_plan_determinism.py](../../../../../../tests/test_plan_determinism.py) — direct import
   - `test_replay_never_reads_the_switch`
 - [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
+- [tests/test_provenance.py](../../../../../../tests/test_provenance.py) — direct import
+  - `test_a_rebuild_never_calls_the_record_and_keeps_its_rows`
 - [tests/test_reader_rw3b_migration.py](../../../../../../tests/test_reader_rw3b_migration.py) — direct import
   - `test_the_head_fixture_is_at_head_in_rollback_mode_with_empty_rw3b_tables`
 - [tests/test_reader_rw7a_migration.py](../../../../../../tests/test_reader_rw7a_migration.py) — direct import

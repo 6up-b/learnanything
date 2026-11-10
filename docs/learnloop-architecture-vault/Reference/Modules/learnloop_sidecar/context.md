@@ -514,6 +514,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_landing_i_control_below_the_tag_the_same_session_reopens_the_retired_row`
 - [tests/test_practice_index_adapters.py](../../../../../tests/test_practice_index_adapters.py) — direct import
   - `test_sidecar_rpcs`
+- [tests/test_provenance.py](../../../../../tests/test_provenance.py) — direct import
+  - `test_each_sidecar_rpc_runs_under_a_trace_of_its_own`
 - [tests/test_rbeq_pr2_landing.py](../../../../../tests/test_rbeq_pr2_landing.py) — direct import
 - [tests/test_re0_capture.py](../../../../../tests/test_re0_capture.py) — direct import
   - `test_the_sidecar_carries_active_seconds_into_the_attempt_beside_its_latency`

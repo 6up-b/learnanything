@@ -739,6 +739,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_project_experiment_store.py](../../../../../../tests/test_project_experiment_store.py) — direct import
   - `test_store_runs_in_wal_with_full_sync_in_production`
 - [tests/test_proposal_dependencies.py](../../../../../../tests/test_proposal_dependencies.py) — direct import
+- [tests/test_provenance.py](../../../../../../tests/test_provenance.py) — direct import
+  - `test_a_model_calls_receipt_carries_the_trace_it_started_under`
+  - `test_a_record_is_written_with_its_id_trace_and_time_filled_in`
+  - `test_a_write_joins_the_callers_transaction_and_its_failure_does_not_undo_the_callers_work`
+  - `test_a_write_on_a_read_only_connection_is_dropped`
+  - `test_alternatives_are_capped_with_the_overflow_counted_per_rule`
+  - `test_item_text_planted_from_the_head_fixture_is_refused`
+  - `test_read_finds_latest_a_trace_a_record_a_subject_and_filters_by_kind`
+  - `test_records_are_append_only`
+  - `test_why_answers_a_trace_from_its_records_and_its_calls_without_payloads`
 - [tests/test_question_promotions.py](../../../../../../tests/test_question_promotions.py) — direct import
   - `test_027_rebuild_preserves_existing_rows`
   - `test_attempt_before_promotion_does_not_consume_practice_again_request`

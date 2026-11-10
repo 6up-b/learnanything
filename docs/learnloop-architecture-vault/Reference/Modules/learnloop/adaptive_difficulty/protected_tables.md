@@ -47,16 +47,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py) |
-| Source lines | 769 |
+| Source lines | 772 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `role(table: str) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 740)
-- `read_verdict(table: str, *, rules: str | None, reader: str='', stack: tuple[str, ...]=()) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 744) — None when the read is allowed, else why it is refused.
-- `write_verdict(table: str) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 761)
+- `role(table: str) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 743)
+- `read_verdict(table: str, *, rules: str | None, reader: str='', stack: tuple[str, ...]=()) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 747) — None when the read is allowed, else why it is refused.
+- `write_verdict(table: str) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 764)
 
 ### Module constants
 
@@ -65,20 +65,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `PREDICATE` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 30)
 - `DENIED` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 31)
 - `_ROLES` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 33)
-- `ROLES` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 225)
-- `VALUE` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 235)
-- `DERIVED` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 244)
-- `COLUMNS` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 279)
-- `EPOCH` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 567)
-- `ENTITY_KINDS` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 588)
-- `GAP_SOURCES` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 605)
-- `AD_WRITABLE` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 627)
-- `CARVE_OUTS` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 639)
-- `_CHOKEPOINT` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 648)
-- `DERIVED_TREATMENT` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 650)
-- `READING` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 708)
-- `ITEM_PROVENANCE` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 731)
-- `_WHY` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 735)
+- `ROLES` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 228)
+- `VALUE` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 238)
+- `DERIVED` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 247)
+- `COLUMNS` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 282)
+- `EPOCH` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 570)
+- `ENTITY_KINDS` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 591)
+- `GAP_SOURCES` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 608)
+- `AD_WRITABLE` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 630)
+- `CARVE_OUTS` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 642)
+- `_CHOKEPOINT` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 651)
+- `DERIVED_TREATMENT` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 653)
+- `READING` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 711)
+- `ITEM_PROVENANCE` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 734)
+- `_WHY` ([src/learnloop/adaptive_difficulty/protected_tables.py](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 738)
 
 ### Explicit exports
 
@@ -106,7 +106,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_table(refs: Mapping[str, str], *, values: str, derived: str='') -> Mapping[str, str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 230)
+- `_table(refs: Mapping[str, str], *, values: str, derived: str='') -> Mapping[str, str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/protected_tables.py), line 233)
 
 ## Who imports or calls it
 
@@ -171,6 +171,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_229_is_c2s_migration_classified_with_no_derived_table`
 - [tests/test_learner_notes_vault_origin_migration.py](../../../../../../tests/test_learner_notes_vault_origin_migration.py) — direct import
   - `test_233_classifies_nothing_new`
+- [tests/test_provenance.py](../../../../../../tests/test_provenance.py) — direct import
+  - `test_the_table_is_a_receipt_and_denied_to_ad`
 - [tests/test_ro2_history_migration.py](../../../../../../tests/test_ro2_history_migration.py) — direct import
   - `test_245_is_the_head_and_its_table_a_receipt_ad_classifies`
 - [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import

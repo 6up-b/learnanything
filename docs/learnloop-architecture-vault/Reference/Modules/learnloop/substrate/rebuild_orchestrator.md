@@ -301,6 +301,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_g47_a_rebuild_shows_zero_projection_deltas_and_never_reads_a_path`
 - [tests/test_practice_index_dossiers.py](../../../../../../tests/test_practice_index_dossiers.py) — direct import
   - `test_rebuild_preserves_dossiers_and_calls_no_model`
+- [tests/test_provenance.py](../../../../../../tests/test_provenance.py) — direct import
+  - `test_a_rebuild_never_calls_the_record_and_keeps_its_rows`
 - [tests/test_reader_workbench_rw2a.py](../../../../../../tests/test_reader_workbench_rw2a.py) — direct import
   - `test_an_abandoned_session_writes_no_attempt_and_a_rebuild_leaves_the_workbench_alone`
   - `test_round4_f2_held_assistance_on_an_independent_only_item_is_assisted_on_every_submit_path_and_after_replay`

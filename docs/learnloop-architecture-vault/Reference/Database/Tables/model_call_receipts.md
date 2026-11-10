@@ -50,7 +50,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/160_model_call_receipts.sql`.
-- **Schema touched by:** `160_model_call_receipts.sql`, `163_provider_receipt_details.sql`, `165_model_call_budgets.sql`, `175_decider_judgments_and_receipt_labels.sql`, `195_source_service_spend_accounting.sql`.
+- **Schema touched by:** `160_model_call_receipts.sql`, `163_provider_receipt_details.sql`, `165_model_call_budgets.sql`, `175_decider_judgments_and_receipt_labels.sql`, `195_source_service_spend_accounting.sql`, `253_decision_records.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -92,6 +92,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `judge` | `TEXT` | no | — | — | Stored value |
 | `question_set_version` | `TEXT` | no | — | — | Stored value |
 | `state_hash` | `TEXT` | no | — | — | Stored value |
+| `trace_id` | `TEXT` | no | — | — | Application-validated soft reference |
 
 ## Relationships and access paths
 
@@ -101,6 +102,7 @@ Declared SQLite foreign keys:
 
 Indexes and uniqueness:
 
+- `model_call_receipts_trace` on `trace_id`.
 - `idx_model_calls_parent` on `parent_call_id`.
 - `idx_model_calls_started` on `started_at`.
 - `idx_model_calls_owner` on `owner_kind`, `owner_id`, `started_at`.
@@ -118,6 +120,7 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/learner_gaps.py`
 - `src/learnloop/db/stores/model_calls.py`
 - `src/learnloop/db/stores/practice_index.py`
+- `src/learnloop/db/stores/provenance.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/diagnosis/split/legacy_view.py`
 - `src/learnloop/diagnosis/split/reports.py`
@@ -153,6 +156,7 @@ None found by exact static reference scan.
 - `tests/test_ad1_fix_round7.py`
 - `tests/test_ad1_fix_round8.py`
 - `tests/test_ad1_send_guard.py`
+- `tests/test_ad23_migration.py`
 - `tests/test_ad_guard.py`
 - `tests/test_ad_protected_tables.py`
 - `tests/test_ai_compare.py`
@@ -160,12 +164,11 @@ None found by exact static reference scan.
 - `tests/test_chatgpt_plan_provider.py`
 - `tests/test_contamination_report.py`
 - `tests/test_decider_landing.py`
+- `tests/test_decision_records_migration.py`
 - `tests/test_deliverable_scope.py`
 - `tests/test_diagnose_review.py`
 - `tests/test_diagnosis_pipeline.py`
 - `tests/test_diagnosis_reports.py`
-- `tests/test_e0_review_round4.py`
-- `tests/test_embedding_backfill.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -209,7 +212,7 @@ CREATE TABLE model_call_receipts (
   output_budget_tokens INTEGER,
   collection_version TEXT NOT NULL DEFAULT 'learnloop-events-v1'
 , endpoint TEXT, resolved_model TEXT, cache_write_tokens INTEGER, usage_json TEXT, budget_json TEXT, judge TEXT
-  CHECK(judge IS NULL OR judge IN ('decider', 'llm')), question_set_version TEXT, state_hash TEXT);
+  CHECK(judge IS NULL OR judge IN ('decider', 'llm')), question_set_version TEXT, state_hash TEXT, trace_id TEXT);
 ```
 
 ## Related notes

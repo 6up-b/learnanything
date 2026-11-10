@@ -8,8 +8,8 @@ aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 252
-table_count: 396
+schema_head: 253
+table_count: 397
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
@@ -19,13 +19,13 @@ source_paths:
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-252"
+  - "learnloop/database/schema-head-253"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 396 user tables at migration head 252. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 397 user tables at migration head 253. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -38,7 +38,7 @@ This is the exhaustive map of the 396 user tables at migration head 252. Use [[T
 |---|---:|
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 166 |
 | [[Table Roles#Derived|`derived`]] | 26 |
-| [[Table Roles#Receipt|`receipt`]] | 95 |
+| [[Table Roles#Receipt|`receipt`]] | 96 |
 | [[Table Roles#Workflow|`workflow`]] | 99 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
@@ -46,7 +46,7 @@ This is the exhaustive map of the 396 user tables at migration head 252. Use [[T
 
 | Status | Tables |
 |---|---:|
-| `active` | 383 |
+| `active` | 384 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -441,6 +441,7 @@ Maintenance, generic observations, and optional generated media. This is a navig
 - [[Reference/Database/Tables/confidence_calibration_state|confidence_calibration_state]] — `derived` · `active` · Maintains the decision-facing current projection for confidence calibration so maintenance and optional operational work remains inspectable without becoming learner-state authority. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `priors_version`, `family`, `updates`, making the operational relationship explicit.
 - [[Reference/Database/Tables/decision_measurement_events|decision_measurement_events]] — `receipt` · `active` · Preserves an append-only chronology of decision measurement so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `decision_id`, `practice_item_id`, `attempt_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/decision_objectives|decision_objectives]] — `receipt` · `active` · Gives decision objective a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `decision_id`, `learning_object_id`, `commitment_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/decision_records|decision_records]] — `receipt` · `active` · Gives decision record a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `trace_id`, `parent_id`, `subject_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/decision_state_receipts|decision_state_receipts]] — `receipt` · `active` · Freezes the inputs and outcome of each decision state decision so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `decision_id`, `session_id`, `decision_kind`, making the operational relationship explicit.
 - [[Reference/Database/Tables/deliverable_path_sections|deliverable_path_sections]] — `workflow` · `active` · Gives deliverable path section a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `goal_id`, `learning_object_id`, `extraction_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/deliverable_scope_inputs|deliverable_scope_inputs]] — `raw_ledger` · `active` · Gives deliverable scope input a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `goal_id`, `extraction_id`, `kind`, making the operational relationship explicit.
