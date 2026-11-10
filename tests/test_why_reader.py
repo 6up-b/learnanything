@@ -423,3 +423,52 @@ def test_why_resolves_goal_and_lesson_subjects(tmp_path, subject_kind, kind):
     assert payload["reconstructed"] == []
     code, missing = why_exit(paths.root, f"{subject_kind}:no_such_{subject_kind}")
     assert code == 0 and missing["records"] == []
+
+
+# -- the real-case lane skips only a copy that cannot hold the events ----------------------------------------------
+
+
+def _synthetic_copy(path: Path, *, tables: tuple[str, ...], newest: str | None) -> Any:
+    import sqlite3
+
+    connection = sqlite3.connect(path)
+    for table in tables:
+        column = "started_at" if table == "model_call_receipts" else "created_at"
+        connection.execute(f"CREATE TABLE {table} (id TEXT, {column} TEXT)")
+        if newest is not None:
+            connection.execute(f"INSERT INTO {table} VALUES ('r1', ?)", (newest,))
+    connection.commit()
+    return connection
+
+
+ALL_CASE_TABLES = ("practice_attempts", "router_decisions", "model_call_receipts", "router_suggestion_responses",
+                   "interactive_figures", "figure_requests", "figure_prefetch_decisions")
+
+
+def test_an_october_copy_skips_every_real_case_with_its_reason(tmp_path):
+    from tests.test_why_real_cases import skip_reason
+
+    old = _synthetic_copy(tmp_path / "old.sqlite", tables=ALL_CASE_TABLES, newest="2026-10-26T18:30:11Z")
+    for case in (1, 2, 3, 4):
+        reason = skip_reason(old, case)
+        assert reason and "newest activity" in reason and "2026-10-26" in reason
+    # An older schema: the case's tables are absent.
+    older = _synthetic_copy(tmp_path / "older.sqlite", tables=("practice_attempts", "router_decisions"),
+                            newest="2026-11-09T10:00:00+00:00")
+    assert "router_suggestion_responses" in skip_reason(older, 2)
+    assert "figure_prefetch_decisions" in skip_reason(older, 4)
+    # Activity on Nov 7 only: case 1's day may be incomplete, Nov 8's certainly is.
+    nov7 = _synthetic_copy(tmp_path / "nov7.sqlite", tables=ALL_CASE_TABLES, newest="2026-11-07T23:00:00Z")
+    assert skip_reason(nov7, 1) and skip_reason(nov7, 2)
+
+
+def test_a_copy_past_nov_8_is_never_skipped_even_without_the_rows(tmp_path):
+    from tests.test_why_real_cases import skip_reason
+
+    fresh = _synthetic_copy(tmp_path / "fresh.sqlite", tables=ALL_CASE_TABLES,
+                            newest="2026-11-09T02:08:05.123456+00:00")
+    assert [skip_reason(fresh, case) for case in (1, 2, 3, 4)] == [None, None, None, None]
+    # Only one activity table reaching past the day is enough: the copy's history does.
+    mixed = _synthetic_copy(tmp_path / "mixed.sqlite", tables=ALL_CASE_TABLES, newest=None)
+    mixed.execute("INSERT INTO model_call_receipts VALUES ('c1', '2026-11-10T08:00:00Z')")
+    assert skip_reason(mixed, 4) is None

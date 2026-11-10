@@ -58,6 +58,8 @@ None. B9 is the reader; B2-B8 write the records.
 
 So §3.6's hypothesis for case 4 holds on the rows: no constant of 12 exists; 12 is the number of candidates decided before the first measured build latency, and EU turned positive (cost 0) once one existed. `why latest` on the `linear_algebra` and `probability` copies also answers (2 more tests).
 
+**A copy that can't hold the events skips, never fails.** The landing gate's owner lane runs this file on October-era copies at an older migration. Each case first checks `skip_reason`: it skips, naming why, when the copy lacks a table the case reads or its newest activity (the latest attempt, router decision or model call) ends before the events' day is over (Nov 8 00:00Z for case 1, Nov 9 00:00Z for cases 2-4). A copy whose activity reaches past that day and lacks the rows still fails. Two default-lane tests check the predicate on synthetic databases. On fresh backup-API copies of the gate's standing owner copies: the owner lane gives 93 passed, 8 skipped (main: 91 passed, 4 skipped; the 4 more skips are the four real cases, the 2 more passes this file's `latest` checks). On fresh copies of the Nov 9 backup the file still passes 6 of 6.
+
 **Verify (no-code reader).** The plain `why --json` outputs the real-case run used, and the questions, are in the step's scratch directory for the orchestrator (`reader-handoff/`: `case1_why.json` to `case4_why.json`, `pastbug4_why.json`, `QUESTIONS.md`). Not tracked.
 
 **P-draw / P-shadow.** Not required: B9 touches no router decision code (the router's code paths, the plan engine and the choosers are unchanged; `cli/router.py`'s `trace` is a read view), writes no record and no table, and adds no migration. `LATE_ANSWER_KINDS` is read at `why` time only.

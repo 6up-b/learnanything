@@ -16,6 +16,10 @@ date and shape on ``arxiv_v2`` and read back through ``learnloop why --json`` al
 A later backup, taken after these boundaries have written native records, finds those instead, and each case then
 asserts the answer carries no ``reconstructed`` label.
 
+A copy that cannot hold the events skips the case, with the reason: one older than the tables the case reads, or
+one whose newest activity (attempts, router decisions, model calls) ends before the events' day is over
+(:func:`skip_reason`). A copy whose activity reaches past that day and still lacks the rows fails, as it should.
+
 Run it only on backup-API copies (``tests/owner_vaults.py``); never on a live vault. A failure prints ids and field
 names only: ``why --json`` holds ids, numbers and codes, never a payload, and nothing here is written to a file.
 """
@@ -39,6 +43,63 @@ pytestmark = owner_vaults
 VAULT = owner_vault("arxiv_v2")
 CASE_DAYS = ("2026-11-07", "2026-11-09")  # Nov 7 and 8, as ISO bounds
 
+#: What counts as the vault's activity: the newest of these timestamps is when the copy's history ends.
+ACTIVITY = (("practice_attempts", "created_at"), ("router_decisions", "created_at"),
+            ("model_call_receipts", "started_at"))
+#: Per case, the tables it reads and the moment its events were over (a copy must reach past it to hold them):
+#: case 1 happened on Nov 7, cases 2-4 on Nov 8.
+CASE_NEEDS = {
+    1: (("router_decisions", "model_call_receipts"), "2026-11-08T00:00:00Z"),
+    2: (("router_decisions", "router_suggestion_responses"), "2026-11-09T00:00:00Z"),
+    3: (("interactive_figures", "figure_requests", "model_call_receipts"), "2026-11-09T00:00:00Z"),
+    4: (("figure_prefetch_decisions", "figure_requests", "model_call_receipts"), "2026-11-09T00:00:00Z"),
+}
+
+
+def _present(connection: sqlite3.Connection, table: str) -> bool:
+    return connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+                              (table,)).fetchone() is not None
+
+
+def newest_activity(connection: sqlite3.Connection) -> str | None:
+    """The newest attempt, router decision or model call in the copy (normalized to ``...Z``), or None."""
+
+    found = []
+    for table, column in ACTIVITY:
+        if _present(connection, table):
+            row = connection.execute(f"SELECT MAX({column}) FROM {table}").fetchone()
+            if row and row[0]:
+                found.append(str(row[0]).replace("+00:00", "Z"))
+    return max(found) if found else None
+
+
+def skip_reason(connection: sqlite3.Connection, case: int) -> str | None:
+    """Why the copy cannot hold case ``case``'s events (skip), or None when it can (the case must then find them)."""
+
+    tables, events_over = CASE_NEEDS[case]
+    missing = [table for table in tables if not _present(connection, table)]
+    if missing:
+        return f"case {case}: the copy predates the tables it reads ({', '.join(missing)})"
+    newest = newest_activity(connection)
+    if newest is None or newest < events_over:
+        return f"case {case}: the copy's newest activity ({newest}) is before {events_over}; it needs a later backup"
+    return None
+
+
+def _database() -> Path:
+    from learnloop.vault.loader import load_vault
+    from learnloop.vault.paths import VaultPaths
+
+    loaded = load_vault(VAULT, load_environment=False)
+    return VaultPaths(loaded.root, loaded.config).sqlite_path
+
+
+def _skip_unless_the_copy_can_hold(case: int) -> None:
+    with closing(sqlite3.connect(f"file:{_database()}?mode=ro", uri=True)) as connection:
+        reason = skip_reason(connection, case)
+    if reason is not None:
+        pytest.skip(reason)
+
 
 def why(*args: str) -> dict[str, Any]:
     from learnloop.cli import app
@@ -49,12 +110,7 @@ def why(*args: str) -> dict[str, Any]:
 
 
 def _rows(sql: str, args: tuple[Any, ...] = ()) -> list[tuple[Any, ...]]:
-    from learnloop.vault.loader import load_vault
-    from learnloop.vault.paths import VaultPaths
-
-    loaded = load_vault(VAULT, load_environment=False)
-    path = VaultPaths(loaded.root, loaded.config).sqlite_path
-    with closing(sqlite3.connect(f"file:{path}?mode=ro", uri=True)) as connection:
+    with closing(sqlite3.connect(f"file:{_database()}?mode=ro", uri=True)) as connection:
         try:
             return connection.execute(sql, args).fetchall()
         except sqlite3.OperationalError as exc:
@@ -78,6 +134,7 @@ def _codes_only(payload: dict[str, Any], where: str) -> None:
 
 
 def test_case_1_the_router_llm_answer_discarded_by_the_timeout():
+    _skip_unless_the_copy_can_hold(1)
     found = _rows("SELECT id FROM router_decisions WHERE created_at >= ? AND created_at < ? AND "
                   "json_extract(detail_json, '$.mixture.models.llm.status') = 'timeout' ORDER BY created_at, id",
                   CASE_DAYS)
@@ -109,6 +166,7 @@ def test_case_1_the_router_llm_answer_discarded_by_the_timeout():
 
 
 def test_case_2_the_offer_withdrawn_with_forced_items():
+    _skip_unless_the_copy_can_hold(2)
     found = _rows("SELECT decision_id, id FROM router_suggestion_responses WHERE response = 'expired' AND "
                   "json_extract(detail_json, '$.withdrawn') = 'forced_items' AND responded_at >= ? AND "
                   "responded_at < ? ORDER BY responded_at, id", ("2026-11-08", CASE_DAYS[1]))
@@ -138,6 +196,7 @@ def test_case_2_the_offer_withdrawn_with_forced_items():
 
 
 def test_case_3_the_figure_stored_failed():
+    _skip_unless_the_copy_can_hold(3)
     found = _rows("SELECT id FROM interactive_figures WHERE verification = 'failed' AND created_at >= ? AND "
                   "created_at < ? ORDER BY created_at, id", ("2026-11-08", CASE_DAYS[1]))
     assert found, "no failed figure on Nov 8"
@@ -166,6 +225,7 @@ def test_case_3_the_figure_stored_failed():
 
 
 def test_case_4_prebuilds_after_a_run_of_skips():
+    _skip_unless_the_copy_can_hold(4)
     payload = why("--kind", "figure_prebuild", "--first-build")
     _codes_only(payload, "case 4")
     built = payload["first_build"]
