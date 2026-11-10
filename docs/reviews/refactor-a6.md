@@ -388,16 +388,16 @@ The table (seconds: "before" from the orchestrator's run, "after" from this bran
 3. A non-Python file under `src/`: a change to the modules in the nearest directory holding any.
 4. Anything else: the test files whose text names its path or file name; none is a valid answer (a doc-only change runs no pytest; the vault validators are their own gate step).
 
-**Why a depth and not the whole closure.** Through `db.repositories`, `config` and `tests/helpers.py` nearly every module reaches nearly every test: the full reverse closure of the median `src` module is 70% of the suite's seconds, which is no per-step gate. Over all 1,285 `src` modules, in `9a623e3d9c`'s test seconds:
+**Why a depth and not the whole closure.** Through `db.repositories`, `config` and `tests/helpers.py` nearly every module reaches nearly every test: the full reverse closure of the median `src` module is the whole suite, which is no per-step gate. Over all 1,285 `src` modules, re-measured after the arc A close fixes (below) in the A5+A6 landing gate's test seconds (5,584 s, every test outside `arc_close`):
 
 | Depth | Median test seconds | 75th percentile | 90th percentile | Modules at or under 960 s |
 |---:|---:|---:|---:|---:|
-| 0 (tests importing it) | 16 | 83 | 551 | 92% |
-| **1 (default)** | **865** | 2,404 | 4,015 | 51% |
-| 2 | 2,844 | 4,542 | 6,633 | 14% |
-| whole closure | 5,524 | 7,646 | 7,648 | 2% |
+| 0 (tests importing it) | 42 | 260 | 1,023 | 90% |
+| **1 (default)** | **1,379** | 2,812 | 4,138 | 42% |
+| 2 | 3,425 | 4,401 | 5,341 | 10% |
+| whole closure | 5,456 | 5,456 | 5,466 | 2% |
 
-At `-n 6` the median depth-1 selection is about 2.5 minutes plus collection; a leaf module's is under a minute. A change to `config` or another hub selects about 1,200 files, which is the whole suite in all but name. The selector is a pre-filter: the landing gate runs everything else.
+(First measured on `9a623e3d9c`'s whole-suite JUnit, before the fixes: depth 1 a median of 865 s, 90th percentile 4,015.) At `-n 6` the median depth-1 selection is about 4 minutes plus collection; a leaf module's is under a minute. A change to `config` or another hub selects about 1,200 files, which is the whole suite in all but name. The selector is a pre-filter: the landing gate runs everything else.
 
 **On this branch's recent commits** (`--files` from each commit, seconds from this branch's landing JUnit):
 
@@ -453,3 +453,38 @@ The landing run at `-n 8` reached the scope's 10 GB limit: anonymous memory peak
 - **The landing gate's time** before and after: above.
 - **The arc-close lane passes** on `1fcce2517e`: 24 passed, 36 strict xfails as pre-registered.
 - **Targeted:** the 65 mixture-env files plus every edited file, 1,076 passed and 3 skipped at `-n 6` (one failure in the new selector test, fixed before the full runs); the guard files that scan `scripts/` (`test_codex_lockdown_round3`, `test_public_tip_guards`, `test_sqlite_file_copies`, `test_refactor_measures`, `test_coordinated_migrations`, `test_architecture`, `test_s0_landing`) 110 passed; `validate_vault.py` passes.
+
+## Arc A close: review fixes
+
+The end-of-arc Codex review of `e6023ad7b1..0a67c832e3` (read-only, static) found no production regression and four problems in the arc's new tools, three of them in the selector (the fourth, the generated-notes stamp, is recorded in `refactor-a1.md`). Each claim was checked against the code first, and all four held. Each fix has a test in `tests/test_affected_tests.py` that failed before it.
+
+1. **A deleted module selected nothing** (`16bc042e4d`). The graph is read from the files that exist, so deleting `hints/chooser.py` dropped `tests/test_workbench_chooser.py`'s import of it along with it, and the deleted path was a root with no importers. A changed `.py` module the graph no longer holds now falls back to the whole suite: the simple, fail-safe choice over replaying the base revision's import edges. While there: `changed_paths` passes `--no-renames`, since git's default rename detection listed only a moved file's new path, so the old name, which other files may still import, was never seen.
+2. **Dynamic dependencies.** (a) `899a4d626d`: `params/parameter_registry.py` names its module inventory by source path (`"src/learnloop/local_embeddings/pins.py"`), derives the dotted names, imports them and reads their source, so an unregistered constant in `pins.py`, exactly what `tests/test_registry_audit.py` guards, selected no audit. A string constant that is a source path under `src/` or `tests/` (with or without `src/`) is now an edge, which also makes a source guard in `tests/` depend on the files it names (`test_architecture`, `test_notes_never_read`, the lockdown rounds). A `"learnloop.x.y:attr"` string now names `learnloop.x.y`, not just its parents. (b) `b2ea35d087`: `learnloop_sidecar/server.py` runs `import learnloop_sidecar.handlers` so every handler registers into `METHOD_REGISTRY`, and 31 test files reach the handlers only through the server: handler, handlers package, server is two steps, so a change to `handlers/epigraphs.py` did not select `tests/test_sidecar_epigraphs.py`. The step from a package whose `__init__` imports its submodules to a module that runs `import <package>` now costs nothing. Making every user of the package import each handler directly instead raised the depth-1 median from 838 to 1,152 s, because about 130 test files `import learnloop_sidecar.handlers` and would then be one step from everything a handler imports; the free step leaves it at 838.
+3. **Test modules passed nothing on** (`c47e3721ea`). A test module importing the changed module was selected and the walk stopped, so `StuckFake` (`test_stuck_prompt`) reached `test_hint_h2b_review`'s grader fixture but not `test_workbench_help_kill_switch`, which imports it. A test module is now selected and walked through at no cost, like a test helper; the best-cost map ends cycles.
+
+**Other registries checked.**
+
+| Registry | How it names its modules | Covered |
+|---|---|---|
+| `parameter_registry.MODULE_INVENTORY` and `MODULE_IMPORTS` | source paths, dotted names derived at import | yes, fix 2a |
+| `parameter_registry._reg_const("<key>:<CONST>", ...)` | inventory keys | yes: the registry module has an edge to every inventory module |
+| sidecar `METHOD_REGISTRY` | `handlers/__init__.py` imports every handler; `server.py` imports the package | yes, fix 2b |
+| CLI Typer app | `cli/__init__.py` imports each sub-app and `add_typer`s it | yes, already: a test importing `learnloop.cli` imports the package, one step from each sub-app |
+| `learnloop.ai.__init__` lazy exports, `diagnosis.scoreboard`, `instructional.valuation`, `scheduling.open_world_gate` | dotted module strings for `import_module` | yes, already (dotted constants) |
+| `tests/conftest.py`'s `pytest_plugins` | `"tests.thread_guard"` | yes: conftest names it, so the whole suite |
+| mobile host (`learnloop_mobile.runtime` imports the server inside a function; `allowlist.py` names RPC methods, not modules) | function-local import | mostly: a handler change selects 25 of the 30 test files importing `learnloop_mobile` at depth 1 and 28 at depth 2; the rest don't dispatch |
+
+**Known gaps** (the landing gate's whole suite catches each): a source guard that builds its paths from parts (`ROOT / "src" / "learnloop" / ...`, 25 test files) or globs `src` (78 use `rglob` or `glob("**...")`) has no edge to the files it scans unless it also imports them or names them as one string; edges are per module, not per symbol, so a test importing one fake from a test module depends on everything that module imports.
+
+**What the fixes cost the per-step gate.** Every `src` module selected at each depth, scored against the A5+A6 landing gate's JUnit (5,584 test seconds outside `arc_close`). Median, 75th, 90th percentile of test seconds; share of modules at or under 960 s:
+
+| Depth | Before (`0a67c832e3`) | After fixes 1-2 | After fix 3 (now) |
+|---:|---|---|---|
+| 0 | 14, 71, 384; 93% | 20, 72, 389; 93% | 42, 260, 1,023; 90% |
+| **1** | **677**, 1,892, 3,251; 54% | **838**, 1,914, 3,267; 53% | **1,379**, 2,812, 4,138; 42% |
+| 2 | 2,428, 3,654, 5,171; 15% | 2,641, 3,779, 5,180; 13% | 3,425, 4,401, 5,341; 10% |
+| whole closure | 3,712, 5,445, 5,448; 2% | 5,445, 5,445, 5,455; 2% | 5,456, 5,456, 5,466; 2% |
+
+Fix 1 changes no row (every module in the sweep exists). Fix 2's source-path edges add the source guards that name a module (the depth-0 and depth-1 medians move a little) and join the hubs, so the whole closure of the median module becomes the whole suite. Fix 3 is the large one: there are 1,471 test-to-test imports, and one test module, `test_source_inventory`, is imported by 61 others and reaches 500 through them, so anything it imports now selects those 500. At `-n 6` the median depth-1 selection goes from about 2.5 to about 4 minutes plus collection. If that is too slow for a per-step gate, the remedy is narrower fixture modules (the fakes `test_source_inventory` and `test_source_set_synthesis` share moved into small helpers that import only what they use), not a cheaper rule: the missed selections were real.
+
+Proofs: `tests/test_affected_tests.py` (16 tests; the 6 new ones each failed before its fix); `ruff check`; the depth sweep script read only the tree and the JUnit (`scripts/affected_tests.py` imported by path, `Graph()` once, `select` per module).
