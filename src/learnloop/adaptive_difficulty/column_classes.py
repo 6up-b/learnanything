@@ -170,6 +170,11 @@ _CLASSES: dict[str, tuple[str, str]] = {
     "decision_features": (
         "id decision_id decision_type algorithm_version created_at",
         "ability_vector_json item_demand_vector_json context_json"),
+    # Refactor B1 (migration 253): DENIED; its JSON holds ids, numbers and codes by check, classed content anyway.
+    "decision_records": (
+        "id trace_id parent_id kind status subject_kind subject_id chosen_ref decided_by rule detail_table "
+        "detail_id error_type error_where created_at",
+        "alternatives_json facts_json versions_json"),
     "deliverable_path_sections": (
         "id goal_id depth learning_object_id extraction_id section_id label ordinal exercise_span_id "
         "learner_override commitment_id state_key ledger_id model prompt_version created_at",
@@ -448,7 +453,7 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "id parent_call_id owner_kind owner_id purpose provider model prompt_hash schema_hash status "
         "started_at finished_at input_tokens output_tokens cached_input_tokens reasoning_tokens cost "
         "provider_response_id finish_reason error_type output_budget_tokens collection_version endpoint "
-        "resolved_model cache_write_tokens usage_json budget_json judge question_set_version state_hash",
+        "resolved_model cache_write_tokens usage_json budget_json judge question_set_version state_hash trace_id",
         "input_text schema_json output_text"),
     "model_work_checkpoints": (
         "cache_key purpose usage_json created_at",

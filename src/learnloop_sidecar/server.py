@@ -10,6 +10,7 @@ from typing import Any, TextIO
 from pydantic import ValidationError
 
 import learnloop_sidecar.handlers  # noqa: F401
+from learnloop import provenance
 from learnloop.ai import plan_fallback
 from learnloop.ai.execution import record_model_calls
 from learnloop.attempts.completion_lock import AttemptCompletionBusy
@@ -52,7 +53,19 @@ def serve(stdin: TextIO, stdout: TextIO) -> None:
         ctx.close()
 
 
-def _handle(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
+def _handle(ctx: SidecarContext, request: Any, *, trace_id: str | None = None) -> dict[str, Any] | None:
+    """One RPC under its trace (ADR-017): a new one per request, or the phone host's, which it births first.
+
+    The trace reaches every model call's receipt, every log event and every
+    decision record this request makes, and the threads it starts in a copied
+    context; it ends with the request.
+    """
+
+    with provenance.trace_scope(trace_id):
+        return _handle_request(ctx, request)
+
+
+def _handle_request(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
     if (
         not isinstance(request, dict)
         or request.get("jsonrpc") != "2.0"

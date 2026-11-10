@@ -24,6 +24,7 @@ import threading
 import time
 from typing import Any, Callable
 
+from learnloop import provenance
 from learnloop.ids import new_ulid
 
 LOG = logging.getLogger(__name__)
@@ -238,13 +239,16 @@ class PostAttemptWorker:
         return outcomes
 
     def _with_busy_retry(self, work: Callable[[], Any]) -> Any:
-        for attempt in range(BUSY_RETRIES + 1):
-            try:
-                return work()
-            except sqlite3.OperationalError as exc:
-                if not _is_busy(exc) or attempt == BUSY_RETRIES:
-                    raise
-                time.sleep(BUSY_BACKOFF_SECONDS * (2**attempt))
+        # Each job runs under a trace of its own (ADR-017): the slots are long-lived threads started in a copy of
+        # the RPC that first woke them, so without this every job would carry that one request's trace.
+        with provenance.trace_scope():
+            for attempt in range(BUSY_RETRIES + 1):
+                try:
+                    return work()
+                except sqlite3.OperationalError as exc:
+                    if not _is_busy(exc) or attempt == BUSY_RETRIES:
+                        raise
+                    time.sleep(BUSY_BACKOFF_SECONDS * (2**attempt))
         return None
 
     def _loop(self, kind: str) -> None:

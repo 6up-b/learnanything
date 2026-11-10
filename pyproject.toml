@@ -579,6 +579,9 @@ source_modules = [
     "learnloop.ids",
     "learnloop.numeric",
     "learnloop.attempt_types",
+    # Refactor B1 (ADR-017): the decision record is a leaf every layer may write through;
+    # tests/test_provenance.py pins that it imports nothing of LearnLoop but learnloop.ids.
+    "learnloop.provenance",
 ]
 forbidden_modules = [
     "learnloop.config",
@@ -686,6 +689,7 @@ source_modules = [
     "learnloop.probe_tie_upgrade",
     "learnloop.projects",
     "learnloop.proof_check_upgrade",
+    "learnloop.provenance",
     "learnloop.reader",
     "learnloop.reader_learner_state",
     "learnloop.reading_path_plan_upgrade",

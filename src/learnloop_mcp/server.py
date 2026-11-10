@@ -32,6 +32,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from learnloop import provenance
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.ids import new_ulid
 from learnloop.learner_context import ContextLimits, learning_context
@@ -382,6 +383,13 @@ class ToolCalls:
 
     def run(self, tool: str, arguments: dict[str, Any], ctx: Context | None,
             body: Callable[[str], Outcome]) -> dict[str, Any]:
+        # One tool call is one learner-visible action (ADR-017): its trace reaches every model call, log event and
+        # decision record the body makes.
+        with provenance.trace_scope():
+            return self._run(tool, arguments, ctx, body)
+
+    def _run(self, tool: str, arguments: dict[str, Any], ctx: Context | None,
+             body: Callable[[str], Outcome]) -> dict[str, Any]:
         dispatch = _DISPATCH.get()
         if dispatch is not None:
             dispatch.dispatched = True

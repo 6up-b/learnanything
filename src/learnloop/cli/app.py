@@ -32,6 +32,7 @@ from learnloop.algorithm_versions import (
     UNEVIDENCED_RETURN_ALGORITHM_VERSION,
     WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
 )
+from learnloop import provenance
 from learnloop.cli.receipts import command_receipts
 from learnloop.cli.runtime import *  # noqa: F403
 
@@ -54,8 +55,12 @@ app = typer.Typer(no_args_is_help=True, help="LearnLoop local adaptive learning 
 
 @app.callback()
 def _record_command_model_calls(ctx: typer.Context) -> None:
-    # Every model call a command makes leaves a receipt owned by this run.
+    # One command is one learner-visible action (ADR-017): its trace reaches every
+    # model call, log event and decision record it makes. A long-lived host started
+    # here (`learnloop mcp serve`) births its own per request inside it.
     # (A docstring here would replace the application help text.)
+    ctx.with_resource(provenance.trace_scope())
+    # Every model call a command makes leaves a receipt owned by this run.
     ctx.with_resource(command_receipts(ctx.invoked_subcommand or "learnloop"))
     # Plan-first transport T1: offers to use OpenRouter while the ChatGPT plan
     # is unavailable are collected for the command's JSON (cli.render._dump).
@@ -2449,29 +2454,68 @@ def review(
 
 @app.command()
 def why(
-    practice_item_id: Annotated[str, typer.Argument(help="Practice item id.")],
+    practice_item_id: Annotated[
+        str | None,
+        typer.Argument(
+            metavar="[TARGET]",
+            help=(
+                "latest (the default), a trace id, a decision record id, <kind>:<id> (attempt, item, block, offer, "
+                "figure, job, presentation, decision), or a practice item id (its scheduler explanation)."
+            ),
+        ),
+    ] = None,
+    kind: Annotated[str | None, typer.Option("--kind", help="Only decision records of this kind.")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
 ) -> None:
+    """Why x and not y: the decision records of an action, or an item's scheduler explanation (ADR-017).
+
+    A pure read: a read-only connection, no state sync and no maintenance, so
+    asking never changes the vault. Records answer from the rows written when
+    the decision was made; a vault below migration 253, or a decision older
+    than its records, has none (old rows get no backfilled record).
+    """
+
     loaded = load_vault(_root(vault))
-    repository = _repository(loaded.root)
-    sync_vault_state(loaded, repository)
-    run_startup_maintenance(loaded, repository)
+    repository = Repository.attach(VaultPaths(loaded.root, loaded.config).sqlite_path, read_only=True)
+    target = practice_item_id or "latest"
+    item_target = target.removeprefix("item:")
+    if item_target in loaded.practice_items:
+        explanation = _why_scheduler_explanation(loaded, repository, item_target)
+        if explanation is not None and target.startswith("item:"):
+            explanation["records"] = _why_records(repository, target, kind)["records"]
+    elif target == "latest" or target.partition(":")[0] in provenance.SUBJECT_KINDS:
+        explanation = _why_records(repository, target, kind)
+    else:
+        explanation = _why_records(repository, target, kind)
+        if not explanation["records"] and kind is None:
+            # Not a record or a trace: an item no longer in the vault's files keeps its last explanation.
+            explanation = _why_scheduler_explanation(loaded, repository, target)
+    if explanation is None:
+        if json_output:
+            typer.echo(_dump({"version": 1, "error": "not_found", "practice_item_id": target, "target": target}))
+        else:
+            typer.echo(f"No decision record or scheduler explanation for {target}.")
+        raise typer.Exit(code=1)
+    if json_output:
+        typer.echo(_dump(explanation))
+        return
+    if explanation.get("source") != "decision_records":
+        typer.echo(_dump({key: value for key, value in explanation.items() if key != "version"}))
+        return
+    _echo_why_records(explanation)
+
+
+def _why_scheduler_explanation(loaded, repository, practice_item_id: str) -> dict[str, Any] | None:
+    """Today's scheduler explanation of one item, computed without persisting it; else its latest stored one."""
+
     item = explain_practice_item(loaded, repository, practice_item_id)
     if item is None:
         latest = repository.latest_scheduler_explanation(practice_item_id)
         if latest is None:
-            if json_output:
-                typer.echo(_dump({"version": 1, "error": "not_found", "practice_item_id": practice_item_id}))
-            else:
-                typer.echo(f"No scheduler explanation for {practice_item_id}.")
-            raise typer.Exit(code=1)
-        if json_output:
-            typer.echo(_dump({"version": 1, "source": "latest", "explanation": latest}))
-            return
-        typer.echo(_dump(latest))
-        return
-    payload = {
+            return None
+        return {"version": 1, "source": "latest", "explanation": latest}
+    return {
         "version": 1,
         "source": "current",
         "practice_item_id": item.practice_item_id,
@@ -2480,10 +2524,46 @@ def why(
         "readiness_factor": item.readiness_factor,
         "reasons": item.plain_english,
     }
-    if json_output:
-        typer.echo(_dump(payload))
-    else:
-        typer.echo(_dump({key: value for key, value in payload.items() if key != "version"}))
+
+
+def _why_records(repository, target: str, kind: str | None) -> dict[str, Any]:
+    """The records ``target`` names and their traces' model calls, joined by ``trace_id`` (no payloads)."""
+
+    from learnloop.db.stores.provenance import trace_model_calls
+
+    with repository.connection() as connection:
+        records = provenance.read(connection, target, kind=kind)
+        traces = sorted({record.trace_id for record in records if record.trace_id})
+        calls = trace_model_calls(connection, traces)
+    return {
+        "version": 1,
+        "source": "decision_records",
+        "target": target,
+        "traces": traces,
+        "records": [record.as_dict() for record in records],
+        "model_calls": calls,
+    }
+
+
+def _echo_why_records(explanation: dict[str, Any]) -> None:
+    records = explanation["records"]
+    if not records:
+        typer.echo(f"No decision records for {explanation['target']}.")
+        return
+    for record in records:
+        parts = [record["created_at"], record["kind"], record["status"]]
+        parts += [f"{name}={record[name]}" for name in ("chosen_ref", "decided_by", "rule", "subject_kind",
+                                                        "subject_id", "error_type", "error_where") if record[name]]
+        typer.echo("  ".join(str(part) for part in parts))
+        for alternative in record["alternatives"]:
+            typer.echo("    lost: " + ", ".join(f"{key}={value}" for key, value in sorted(alternative.items())))
+        if record["facts"]:
+            typer.echo("    facts: " + ", ".join(f"{key}={value}" for key, value in sorted(record["facts"].items())))
+    if explanation["model_calls"]:
+        typer.echo("Model calls in these traces:")
+        for call in explanation["model_calls"]:
+            typer.echo(f"  {call['started_at']} -> {call['finished_at']}  {call['purpose']}  {call['status']}"
+                       f"  {call['model']}  {call['id']}")
 
 @app.command()
 def show(

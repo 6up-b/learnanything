@@ -8,6 +8,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from learnloop.provenance import current_trace
+
 # Reserved LogRecord attribute that carries structured event fields. Handlers
 # emit it as a nested ``data`` object so debug events stay machine-parseable.
 EVENT_FIELDS_ATTR = "event_fields"
@@ -90,6 +92,8 @@ def log_event(event: str, *, level: int = logging.DEBUG, **fields: Any) -> None:
 
     if not LOG.isEnabledFor(level):
         return
+    # The action's trace (ADR-017), so a log line joins its decision records and model calls.
+    fields.setdefault("trace_id", current_trace())
     LOG.log(level, event, extra={EVENT_FIELDS_ATTR: {k: v for k, v in fields.items() if v is not None}})
 
 

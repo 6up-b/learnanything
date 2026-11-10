@@ -57,6 +57,9 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/hypothesis_marks.py",
         "src/learnloop/db/stores/completion.py",
         "src/learnloop/db/stores/model_calls.py",
+        # Refactor B1 (migration 253, ADR-017): the decision record's one insert, in the leaf every layer
+        # writes through, inside a savepoint on the caller's connection.
+        "src/learnloop/provenance.py",
         "src/learnloop/db/stores/collection.py",
         "src/learnloop/db/stores/embedding_vectors.py",
         # Local contextual retrieval P1a (migration 220): the embedding space

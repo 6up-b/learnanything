@@ -210,11 +210,13 @@ def test_a_vault_at_218_without_214_gets_it(tmp_path) -> None:
     after = _schema(database)
     # Instruct hand-off IH3's 251 (its own table) follows on the way to head.
     from tests.test_ih3_migration import IH3_ADDED_OBJECTS
+    from tests.test_decision_records_migration import B1_ADDED_OBJECTS
 
-    assert set(after) - set(before) - IH3_ADDED_OBJECTS == AD23_ADDED_OBJECTS
+    assert set(after) - set(before) - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS == AD23_ADDED_OBJECTS
     # Phone V3's 250 (help_assists' surface CHECK) runs after them too.
     from tests.test_mobile_v3_migration import V3_ALTERED_TABLES
-    # RE0's 252 (practice_attempts.active_seconds) last.
+    # RE0's 252 (practice_attempts.active_seconds) and refactor B1's 253 (model_call_receipts.trace_id) last.
     from tests.test_re0_capture import RE0_ALTERED_TABLES
+    from tests.test_decision_records_migration import B1_ALTERED_TABLES
 
-    assert {name for name in before if before[name] != after.get(name)} == EPOCH_STAMPED | V3_ALTERED_TABLES | RE0_ALTERED_TABLES
+    assert {name for name in before if before[name] != after.get(name)} == EPOCH_STAMPED | V3_ALTERED_TABLES | RE0_ALTERED_TABLES | B1_ALTERED_TABLES

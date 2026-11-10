@@ -168,6 +168,9 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # decisions are attention_block_events receipts). Replay never reads it.
     ("daily_plans", TableRole.WORKFLOW),
     ("decision_features", TableRole.RECEIPT),
+    # Refactor B1 (migration 253, ADR-017): why x and not y. Append-only; no rebuild,
+    # replay or upgrade path reads or clears it (tests/test_provenance.py).
+    ("decision_records", TableRole.RECEIPT),
     # Data capture A2 (migration 240): the objective frozen before a decision's
     # draw, and the states of the check that measures it (append-only).
     ("decision_measurement_events", TableRole.RECEIPT),

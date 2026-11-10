@@ -18,6 +18,7 @@ from typing import Any, Callable, Protocol
 from uuid import uuid4
 
 from learnloop.ai.errors import AIInterrupted, AIOutputTruncated
+from learnloop.provenance import current_trace
 
 logger = logging.getLogger(__name__)
 
@@ -393,6 +394,8 @@ def _observed_call(
         "schema_json": json.dumps(schema, sort_keys=True) if is_root else None,
         "budget_json": json.dumps(budgets, sort_keys=True) if is_root and budgets is not None else None,
         "output_budget_tokens": budget, "started_at": datetime.now(timezone.utc).isoformat(),
+        # The action this call belongs to (ADR-017): joins a decision to its calls without the boundary key.
+        "trace_id": current_trace(),
         **(_labels.get() or {}),
     })
     token = _parent.set(call_id)

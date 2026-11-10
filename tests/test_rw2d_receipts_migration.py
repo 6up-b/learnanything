@@ -47,6 +47,7 @@ from tests.test_ro2_history_migration import RO2_ADDED_OBJECTS
 from tests.test_ro4_traces_migration import RO4_ADDED_OBJECTS
 from tests.test_teacher_te2log_migration import TE2LOG_ADDED_OBJECTS
 from tests.test_ih3_migration import IH3_ADDED_OBJECTS
+from tests.test_decision_records_migration import B1_ADDED_OBJECTS, B1_ALTERED_TABLES
 from tests.test_mobile_jobs_migration import M2A_ADDED_OBJECTS
 from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
 from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
@@ -105,8 +106,8 @@ def test_219_adds_the_receipt_table_and_the_subject_column_and_nothing_else(tmp_
     # Local retrieval P1's 220 (its three tables, altering nothing) follows on the way to head.
     assert [migration.version for migration in applied] == list(range(219, migration_head() + 1))
     after = _schema(database)
-    assert set(after) - set(before) - P1_ADDED_OBJECTS - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS - RO4_ADDED_OBJECTS - TE2LOG_ADDED_OBJECTS - IH3_ADDED_OBJECTS == RW2D_ADDED_OBJECTS
-    assert {name for name in before if before[name] != after[name]} == (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | RW5D_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES | TE1_ALTERED_TABLES | TE3A_ALTERED_TABLES)
+    assert set(after) - set(before) - P1_ADDED_OBJECTS - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS - RO4_ADDED_OBJECTS - TE2LOG_ADDED_OBJECTS - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS == RW2D_ADDED_OBJECTS
+    assert {name for name in before if before[name] != after[name]} == (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | RW5D_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES | TE1_ALTERED_TABLES | B1_ALTERED_TABLES | TE3A_ALTERED_TABLES)
     assert role_for_table("field_signal_receipts") is TableRole.RECEIPT
     with closing(sqlite3.connect(database)) as connection:
         columns = [row[1] for row in connection.execute("PRAGMA table_info(workbench_sessions)")]

@@ -58,6 +58,10 @@ class ModelCallStoreMixin:
                 # caller set them, so unlabelled calls keep working on a
                 # database below that migration.
                 fields += tuple(label for label in LABEL_FIELDS if event.get(label) is not None)
+                # The trace (migration 253, ADR-017) likewise, so a call made outside every entry point
+                # still records on a database below it.
+                if event.get("trace_id") is not None:
+                    fields += ("trace_id",)
                 connection.execute(
                     f"INSERT INTO model_call_receipts ({','.join(fields)},owner_kind,owner_id,status) VALUES ({','.join('?' for _ in fields)},?,?,'started')",
                     (*(event.get(field) for field in fields), owner_kind, owner_id),

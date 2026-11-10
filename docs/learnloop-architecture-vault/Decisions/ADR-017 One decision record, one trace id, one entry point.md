@@ -14,11 +14,15 @@ source_commit: 0f11cb1053075cf6a271edf65355265f5732a059
 source_commit_timestamp: "2026-11-10T04:17:59-05:00"
 source_paths:
   - docs/specs/refactor_strategy_v3.md
+  - src/learnloop/provenance.py
+  - src/learnloop/db/stores/provenance.py
+  - migrations/253_decision_records.sql
   - src/learnloop/db/table_roles.py
   - src/learnloop/adaptive_difficulty/protected_tables.py
   - src/learnloop/ai/execution.py
   - src/learnloop/db/stores/model_calls.py
   - src/learnloop/cli/app.py
+  - tests/test_provenance.py
 tags:
   - learnloop/decision
   - learnloop/debugging
@@ -93,7 +97,7 @@ No successor tag: the table is a receipt and the column is accounting (`docs/alg
 
 ### The entry point
 
-`learnloop why [TARGET] [--kind K] [--json] --vault V` is a **pure read**: `Repository.attach(..., read_only=True)`, no `sync_vault_state`, no startup maintenance. `TARGET` is `latest` (the default), a trace id, a record id, `<subject_kind>:<id>`, or a practice item id (today's scheduler explanation, kept). For a trace it lists the records and the trace's model calls, joined by `trace_id` (ids, purposes, statuses, times; never payloads). Rows with no `trace_id` (every call before migration 253) are not joined; the old boundary-key reading stays where it is (`learnloop router trace`) until B9 folds it in as a "reconstructed" view.
+`learnloop why [TARGET] [--kind K] [--json] --vault V` is a **pure read**: `Repository.attach(..., read_only=True)`, no `sync_vault_state`, no startup maintenance. `TARGET` is `latest` (the default), a trace id, a record id, `<subject_kind>:<id>`, or a practice item id (today's scheduler explanation, kept). For a trace it lists the records and the trace's model calls, joined by `trace_id` (ids, purposes, statuses, times; never payloads). Rows with no `trace_id` (every call before migration 253) are not joined: an old decision still reaches its calls only through its boundary key (`router_decisions.detail_json` to `model_call_receipts.owner_id`), by hand, until B9 adds that join as a reader labelled "reconstructed".
 
 B9 completes it: the sidecar's read-only `why.get` RPC (ids, numbers and codes; not on the phone's allowlist), `--payload` on the desktop CLI, and `learnloop router trace` and `trace-evidence` as views over the same reader.
 

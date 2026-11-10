@@ -21,7 +21,7 @@ import threading
 import time
 from typing import Any, Callable, Mapping
 
-from learnloop import capture
+from learnloop import capture, provenance
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 
@@ -261,14 +261,18 @@ class HostRuntime:
         from learnloop_sidecar.server import _handle
 
         request_id = new_ulid()
-        try:
-            context = worker.loaded_context()
-            # §3.1: reloads when another process changed the vault's files, at most 2 s stale.
-            context.refresh_if_content_changed()
-        except SidecarError as error:
-            return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(error)}
-        with context.acting_as(origin):
-            response = _handle(context, {"jsonrpc": "2.0", "id": request_id, "method": method, "params": dict(params)})
+        # One phone request is one learner-visible action (ADR-017): its trace covers the reload as well as the
+        # handler, and the sidecar's ``_handle`` continues it rather than starting its own.
+        with provenance.trace_scope() as trace_id:
+            try:
+                context = worker.loaded_context()
+                # §3.1: reloads when another process changed the vault's files, at most 2 s stale.
+                context.refresh_if_content_changed()
+            except SidecarError as error:
+                return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(error)}
+            with context.acting_as(origin):
+                response = _handle(context, {"jsonrpc": "2.0", "id": request_id, "method": method,
+                                             "params": dict(params)}, trace_id=trace_id)
         assert response is not None  # every request carries an id
         return response
 

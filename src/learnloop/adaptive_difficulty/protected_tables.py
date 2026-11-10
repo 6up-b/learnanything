@@ -74,6 +74,9 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("controller_ownership", DENIED),
     ("daily_plans", NEUTRAL),
     ("decision_features", DENIED),
+    # Refactor B1 (migration 253, ADR-017): the decision records. Never read inside an operation; a writer
+    # inside one would need the table in AD_WRITABLE first.
+    ("decision_records", DENIED),
     # Curriculum C0b (migration 228): a path row names a reading's section; the scope inputs may name
     # a passage; the resolutions name LOs only. AD reads none of them (spec §9.4).
     ("deliverable_path_sections", PROTECTED),

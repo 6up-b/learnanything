@@ -6,7 +6,7 @@ aliases:
 status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
-last_reviewed: 2026-09-23
+last_reviewed: 2026-11-10
 source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
 source_commit_timestamp: "2026-09-23T13:06:55-04:00"
 source_paths:
@@ -14,6 +14,8 @@ source_paths:
   - src/learnloop/db/table_roles.py
   - src/learnloop/attempts/attempts.py
   - src/learnloop/substrate/rebuild_orchestrator.py
+  - src/learnloop/provenance.py
+  - src/learnloop/cli/app.py
   - tests/test_attempt_write_order.py
   - tests/test_rebuild_orchestrator.py
 tags:
@@ -160,7 +162,7 @@ SQL is best for provenance debugging. For stable supported output prefer:
 
 ```bash
 uv run learnloop show <identifier> --json --vault "$VAULT"
-uv run learnloop why <practice-item-id> --json --vault "$VAULT"
+uv run learnloop why [latest | <trace-id> | <record-id> | <kind>:<id> | <practice-item-id>] --json --vault "$VAULT"
 uv run learnloop ingest-batches show <batch-id> --json --vault "$VAULT"
 uv run learnloop doctor --json --vault "$VAULT"
 uv run learnloop data-quality --vault "$VAULT"
@@ -168,6 +170,26 @@ uv run learnloop usage --vault "$VAULT"
 ```
 
 These resolve filesystem configuration and SQLite state together. `data-quality` always prints JSON from one read-only transaction: collection coverage by version, entry surface and origin, offer and grade links, completion rows, model-call receipts and label exclusions. `usage` summarizes model-call tokens, cost and synthesis budget ratios from the same receipts (see [[Model Usage Report]]). `learnloop dataset-export <new-dir>` writes a full snapshot plus every ledger and receipt table; treat its output as the vault itself (see [[Privacy and Trust Boundaries]]).
+
+## Ask why a decision went the way it did
+
+`learnloop why` is a pure read ([[ADR-017 One decision record, one trace id, one entry point]]): it attaches read-only and runs no state sync or maintenance, so asking never changes the vault. With no target it answers `latest`: the newest decision record's trace. A trace id, a record id or `<kind>:<id>` (`attempt`, `item`, `block`, `offer`, `figure`, `job`, `presentation`, `decision`) name others; `--kind` keeps one kind. A practice item id still gives that item's scheduler explanation.
+
+For a trace it lists the `decision_records` (kind, status, what won, who decided and the rule, the alternatives and the inputs as numbers and codes) and the trace's model calls, joined by `model_call_receipts.trace_id` (ids, purposes, statuses and times, never the prompt or the output). Every sidecar RPC, phone request, MCP tool call and CLI command runs under one trace, and the sidecar's structured log events carry its `trace_id`, so a log line joins the same rows. Calls before migration 253 have no `trace_id`: an older router decision reaches its calls only through its boundary key (`router_decisions.detail_json` names it; the calls' `owner_id` holds it).
+
+The same join in SQL:
+
+```sql
+SELECT created_at, kind, status, chosen_ref, decided_by, rule, facts_json
+FROM decision_records
+WHERE trace_id = '<trace-id>'
+ORDER BY created_at, id;
+
+SELECT id, purpose, status, started_at, finished_at
+FROM model_call_receipts
+WHERE trace_id = '<trace-id>'
+ORDER BY started_at, id;
+```
 
 ## Decide the next action
 
