@@ -2551,10 +2551,6 @@ def _echo_why_records(explanation: dict[str, Any]) -> None:
         for call in item.get("calls") or ():
             typer.echo(f"    call: {call['started_at']} -> {call['finished_at']}  {call['purpose']}  {call['status']}"
                        f"  output {call['output']}  {call['call_id']}")
-        for late in item.get("discarded") or ():
-            when = "still out" if late["late_ms"] is None else f"answered {late['late_ms'] / 1000:.1f} s late"
-            typer.echo(f"    Discarded (inferred): {late['call_id']} ({late['purpose']}, {late['model']}) {when}, "
-                       f"discarded")
         for name, value in sorted((item.get("next") or {}).items()):
             typer.echo(f"    next {name}: {value}")
         if item.get("inferred"):
@@ -2566,7 +2562,8 @@ def _echo_why_records(explanation: dict[str, Any]) -> None:
         for name, (before, after) in sorted((built.get("changed") or {}).items()):
             typer.echo(f"  changed {name}: {before} -> {after}")
         for kind, counts in sorted((built.get("by_trigger_kind") or {}).items()):
-            typer.echo(f"  {kind}: {counts['skips_before_first_non_skip']} skip(s) before its first non-skip")
+            typer.echo(f"  {kind}: {counts['skips_before_first_non_skip']} skip(s) before its own first non-skip "
+                       "(counted up to that kind's first non-skip, not the first build)")
     if explanation["model_calls"]:
         typer.echo("Model calls in these traces:")
         for call in explanation["model_calls"]:
@@ -2574,8 +2571,10 @@ def _echo_why_records(explanation: dict[str, Any]) -> None:
                        f"  {call['model']}  {call['id']}")
     for late in explanation.get("discarded") or ():
         when = "still out" if late["late_ms"] is None else f"answered {late['late_ms'] / 1000:.1f} s late"
-        typer.echo(f"Discarded: {late['call_id']} ({late['purpose']}, {late['model']}) {when}, discarded by decision "
-                   f"{late['record_id']}")
+        precision = " (times stored to the second)" if late.get("late_ms_precision_ms") == 1000 else ""
+        inferred = " (inferred)" if late.get("label") == "reconstructed" else ""
+        typer.echo(f"Discarded{inferred}: {late['call_id']} ({late['purpose']}, {late['model']}) {when}, discarded by "
+                   f"decision {late.get('record_id') or late.get('decision_id')}{precision}")
     for call in explanation.get("unclaimed") or ():
         typer.echo(f"Unclaimed: {call['call_id']} ({call['purpose']}, {call['model']}, {call['status']}): no decision "
                    f"names its boundary key {call['boundary_key']}")

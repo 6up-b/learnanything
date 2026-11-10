@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from learnloop import provenance
+from learnloop.db.stores.provenance import time_precision_ms
 
 LABEL = "reconstructed"
 
@@ -135,8 +136,8 @@ def _error_type(text: Any) -> str | None:
 # -- model calls: metadata, and whether the output is still there --------------------------------------------------
 
 
-_CALL_COLUMNS = ("id", "owner_kind", "owner_id", "purpose", "provider", "model", "status", "error_type",
-                 "started_at", "finished_at", "input_tokens", "output_tokens", "cost")
+_CALL_COLUMNS = ("id", "parent_call_id", "owner_kind", "owner_id", "purpose", "provider", "model", "status",
+                 "error_type", "started_at", "finished_at", "input_tokens", "output_tokens", "cost")
 
 
 def calls_for_owner(connection: Any, owner_ids: Iterable[str], *, owner_kind: str | None = None) -> list[dict[str, Any]]:
@@ -164,7 +165,8 @@ def calls_for_owner(connection: Any, owner_ids: Iterable[str], *, owner_kind: st
         else:
             absent = "pruned"  # completed, its payload cleared by router.payload_retention_days
         out.append({
-            "call_id": code(row["id"]), "owner_kind": code(row["owner_kind"]), "purpose": code(row["purpose"]),
+            "call_id": code(row["id"]), "parent_call_id": code(row["parent_call_id"]),
+            "owner_kind": code(row["owner_kind"]), "purpose": code(row["purpose"]),
             "provider": code(row["provider"]), "model": code(row["model"]), "status": code(status),
             "error_type": code(row["error_type"]), "started_at": row["started_at"], "finished_at": row["finished_at"],
             "input_tokens": _number(row["input_tokens"]), "output_tokens": _number(row["output_tokens"]),
@@ -187,7 +189,9 @@ def late_calls(calls: Iterable[Mapping[str, Any]], decided_at: Any) -> list[dict
         out.append({"call_id": call.get("call_id"), "purpose": call.get("purpose"), "model": call.get("model"),
                     "status": call.get("status"), "finished_at": call.get("finished_at"),
                     "late_ms": None if finished is None else _ms_between(decided_at, call.get("finished_at")),
-                    "output": call.get("output")})
+                    "late_ms_precision_ms": None if finished is None else time_precision_ms(call.get("finished_at"),
+                                                                                             decided_at),
+                    "output": call.get("output"), "label": LABEL})
     return out
 
 
@@ -197,7 +201,7 @@ def late_calls(calls: Iterable[Mapping[str, Any]], decided_at: Any) -> list[dict
 _DECISION_COLUMNS = ("id", "decision_kind", "surface", "mode", "policy", "algorithm_version", "log_version",
                      "session_id", "parent_decision_id", "design", "seed", "chosen_ref", "propensity",
                      "propensity_kind", "fallback", "question_set_version", "latency_ms", "cost_usd", "detail_json",
-                     "created_at")
+                     "model_ids_json", "created_at")
 
 
 def _decision_row(connection: Any, decision_id: str) -> dict[str, Any] | None:
@@ -205,31 +209,59 @@ def _decision_row(connection: Any, decision_id: str) -> dict[str, Any] | None:
                 (decision_id,))
 
 
-def _components(mixture: Mapping[str, Any]) -> list[dict[str, Any]]:
+def _components(mixture: Mapping[str, Any], model_ids: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Each model's answer as the row kept it. A component that failed or timed out kept no model of its own; the
+    decision's ``model_ids`` (the route as it was then) names it where stored (``model_basis``). The provider was
+    never stored for one."""
+
     models = mixture.get("models") if isinstance(mixture.get("models"), Mapping) else {}
     out = []
     for name, summary in sorted(models.items()):
         summary = summary if isinstance(summary, Mapping) else {}
+        model, provider = code(summary.get("model")), code(summary.get("provider"))
+        model_basis = "answer" if model else None
+        if model is None and model_ids.get(name):
+            model, model_basis = code(model_ids.get(name)), "route_at_decision"
+        asked = str(name) in {"llm", "decider"}
         out.append({
             "component": code(name), "status": code(summary.get("status")),
             "decided_by": {"llm": "router_llm", "decider": "router_decider", "numeric": "numeric_policy"}.get(
                 str(name), code(name)),
             "latency_ms": _number(summary.get("latency_ms")), "cost_usd": _number(summary.get("cost_usd")),
-            "model": code(summary.get("model")), "provider": code(summary.get("provider")),
+            "model": model, "provider": provider,
+            "model_basis": (model_basis or "not_stored") if asked else None,
+            "provider_basis": ("answer" if provider else "not_stored") if asked else None,
             "error_type": _error_type(summary.get("error")),
         })
     return out
 
 
+def mix_probabilities(mixture: Mapping[str, Any]) -> tuple[dict[str, Any] | None, str]:
+    """Each option's probability under the decision's mix, and where it comes from: the stored ``mix_pi`` or ``pi``,
+    else recomputed from the stored component distributions and weights (``router_objective.mix.recompute``), else
+    ``not_stored`` (a row older than the values a recomputation needs)."""
+
+    for key, basis in (("mix_pi", "stored_mix_pi"), ("pi", "stored_pi")):
+        value = mixture.get(key)
+        if isinstance(value, Mapping) and value:
+            return {str(ref): _number(p) for ref, p in value.items()}, basis
+    try:
+        from learnloop.router_objective.mix import recompute
+
+        return {str(ref): _number(p) for ref, p in recompute(mixture).items()}, "recomputed_from_components"
+    except Exception:  # noqa: BLE001 - an older row lacks what the mix needs: say so, never fail the read
+        return None, "not_stored"
+
+
 def _alternatives(row: Mapping[str, Any], mixture: Mapping[str, Any]) -> list[dict[str, Any]]:
     chosen = row.get("chosen_ref")
-    pi = mixture.get("mix_pi") if isinstance(mixture.get("mix_pi"), Mapping) else None
+    pi, basis = mix_probabilities(mixture)
     if pi:
-        options = [(ref, _number(p)) for ref, p in pi.items()]
+        options = list(pi.items())
     else:
         options = [(ref, None) for ref in mixture.get("support") or () if isinstance(ref, str)]
     kept, overflow = provenance.cap_alternatives(
-        [{"ref": code(ref), "p": p, "lost_by": "not_drawn"} for ref, p in options if ref != chosen])
+        [{"ref": code(ref), "p": p, "p_basis": basis, "lost_by": "not_drawn"} for ref, p in options if ref != chosen])
     if overflow:
         kept.append({"ref": None, "lost_by": "overflow", "count": sum(overflow.values())})
     return kept
@@ -301,9 +333,11 @@ def router_decision(connection: Any, decision_id: str, *, timeout_now: float | N
         "decided_by": code(detail.get("chosen_by") or router.get("decided_by") or row["policy"]),
         "rule": code(router.get("why_code") or detail.get("fallback_reason") or detail.get("why_kind")),
         "alternatives": _alternatives(row, mixture),
-        "components": _components(mixture),
+        "components": _components(mixture, _json(row.get("model_ids_json"), {}) or {}),
         "inputs": {
-            "boundary_key": code(key), "waited_ms": _number(mixture.get("waited_ms")),
+            # From the prefetch's start to the decision, not how long any model was waited for; the configured wait
+            # is ``timeout_s``.
+            "boundary_key": code(key), "prefetch_to_decision_ms": _number(mixture.get("waited_ms")),
             "prefetched_at": code(mixture.get("prefetched_at")),
             # The configured wait was not stored before migration 253; the vault's setting now may differ.
             "timeout_s": None, "timeout_s_basis": "not_stored", "timeout_s_now": _number(timeout_now),
@@ -428,8 +462,7 @@ def offer_withdrawals(connection: Any, decision_id: str) -> list[dict[str, Any]]
                 "offer_decided_at": offer["created_at"] if offer else None, "shown_on": code(detail.get("shown_on")),
                 "responded_at": response["responded_at"],
                 "forced": [entry["ref"] for entry in alternatives],
-                "workflows": [entry.get("workflow") for entry in alternatives if entry.get("workflow")],
-                "source_attempts": [entry.get("source_attempt") for entry in alternatives if entry.get("source_attempt")],
+                **_workflows_and_attempts(alternatives, opened, generated),
                 "ready_between": [{"workflow": code(row["id"]), "item": code(row["practice_item_id"]),
                                    "source_attempt": code(row["source_attempt_id"]), "ready_at": row["created_at"]}
                                   for row in ready],
@@ -448,6 +481,31 @@ def offer_withdrawals(connection: Any, decision_id: str) -> list[dict[str, Any]]
             "inferred": inferred,
         })
     return out
+
+
+#: ``by_trigger_kind``'s counts are each kind's own, up to that kind's first non-skip (not the overall first build).
+BY_KIND_WINDOW = "each_kind_until_its_first_non_skip"
+
+
+def _workflows_and_attempts(alternatives: Sequence[Mapping[str, Any]], opened: Sequence[Mapping[str, Any]],
+                            generated: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """The workflows and source attempts behind a withdrawal: the forced items' own where they name one, else those
+    opened or generated while the offer waited (``*_basis`` says which; all are ``inferred``, being read by time)."""
+
+    workflows = [entry["workflow"] for entry in alternatives if entry.get("workflow")]
+    attempts = [entry["source_attempt"] for entry in alternatives if entry.get("source_attempt")]
+    workflows_basis = "forced_items" if workflows else None
+    attempts_basis = "forced_items" if attempts else None
+    if not workflows:
+        workflows = list(dict.fromkeys(code(row["id"]) for row in opened if row.get("id")))
+        workflows += [found for found in dict.fromkeys(code(row["workflow_id"]) for row in generated
+                                                       if row.get("workflow_id")) if found not in workflows]
+        workflows_basis = "opened_or_generated_between" if workflows else "none_found"
+    if not attempts:
+        attempts = list(dict.fromkeys(code(row["source_attempt_id"]) for row in opened if row.get("source_attempt_id")))
+        attempts_basis = "opened_between" if attempts else "none_found"
+    return {"workflows": workflows, "workflows_basis": workflows_basis, "source_attempts": attempts,
+            "source_attempts_basis": attempts_basis}
 
 
 def withdrawals_for_response(connection: Any, response_id: str) -> list[dict[str, Any]]:
@@ -541,7 +599,9 @@ def figure(connection: Any, figure_id: str) -> dict[str, Any] | None:
             "build_mode": code(request["build_mode"]) if request else None,
             "prefetch_decision_id": code(request["prefetch_decision_id"]) if request else None,
             "supersedes_id": code(row["supersedes_id"]), "generation": generation,
-            "author_calls_n": len(authors), "calls_failed_n": sum(1 for call in calls if call["status"] == "failed"),
+            # An author attempt is one logical call; its receipt rows include the physical requests under it.
+            "author_attempts_n": sum(1 for call in authors if not call.get("parent_call_id")),
+            "author_receipts_n": len(authors), "calls_failed_n": sum(1 for call in calls if call["status"] == "failed"),
         },
         "versions": {"prompt_version": code(row["prompt_version"]), "model": code(row["model"])},
         "calls": calls,
@@ -659,6 +719,7 @@ def first_build(connection: Any) -> dict[str, Any] | None:
         "last_skip": _prefetch(last_skip) if last_skip else None,
         "first_build": _prefetch(built) if built else None,
         "by_trigger_kind": by_kind,
+        "by_trigger_kind_window": BY_KIND_WINDOW,
         "first_measurement": measured,
         "measurement_between": between,
         "changed": _changed(_prefetch(last_skip), _prefetch(built), _PREFETCH_MEASURES) if last_skip and built else {},

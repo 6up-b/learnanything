@@ -54,29 +54,30 @@ Each decision appears under `decisions` with the same fields:
 | Field | What it answers |
 |---|---|
 | `chosen`, `rule`, `status` | What won, and why, as a code (`forced_items`, `chooser_error`, `no_measured_latency`) |
-| `alternatives` | What lost: each `ref` with its `p` or `score` and `lost_by` (the rule it lost by) |
-| `inputs` | The facts as of then: numbers, ids and codes (`timeout_s`, `waited_ms`, `wait_min`, `waits_n`) |
-| `decided_by`, `versions`, `seed` | Who decided (`mixture`, `router_llm`, `lane_quota`), with versions and the seed |
-| `next`, `outcome` | What came next: records naming this one as their parent; for a router decision, its outcome row |
-| `discarded` | Calls of the trace that answered after the decision took its answers (`late_ms`), or never answered |
+| `alternatives` | What lost: each `ref` with its `p` or `score` and `lost_by` (the rule it lost by). For a routing decision (`plan_block`) each also has `p_basis`: `record`, the decision row's mix (`stored_pi`, `stored_mix_pi`, `recomputed_from_components`), `outside_support` (`p = 0`), or why `p` is null (`fallback_drew_no_mix`, `not_stored`) |
+| `inputs` | The facts as of then: numbers, ids and codes (`timeout_s`, `prefetch_to_decision_ms`, `wait_min`, `waits_n`). `timeout_s` is the configured wait; `prefetch_to_decision_ms` (stored as `waited_ms`) is the time from the prefetch's start to the decision, not how long any model was waited for |
+| `decided_by`, `versions`, `seed` | Who decided (`mixture`, `router_llm`, `lane_quota`), with versions and the seed. A `model_answer` whose model failed or timed out names its model from the route the decision logged where it kept one: `inputs.model_basis` (`answer`, `route_at_decision`, `not_stored`) and `inputs.provider_basis` |
+| `next`, `outcome` | What came next: records naming this one as their parent; for a router decision, its outcome as of now (`outcome.basis = "derived_at_read"`: derived from the ledgers as `learnloop router decisions` does, not read from the `router_outcomes` rebuild cache) |
 | `objective_trace` | For a router decision, the router objective trace `learnloop router trace <decision>` prints |
 
-Top-level `model_calls` lists the trace's calls (ids, purposes, statuses, times; never the prompt or the output), and `unclaimed` the router calls whose decision was never made (a key that changed before the serve, an evicted prefetch).
+What was discarded is in one place, the answer's top-level `discarded`: calls that answered after their decision took its answers (`late_ms`, with `late_ms_precision_ms`: `1000` when a time was stored to the second) or never answered. Each entry names its decision (`record_id`, or `decision_id` for a reconstructed one) and its `label`. Top-level `model_calls` lists the trace's calls (ids, purposes, statuses, times; never the prompt or the output), and `unclaimed` the router calls whose decision was never made (a key that changed before the serve, an evicted prefetch).
+
+A record older than `router.payload_retention_days` keeps its row but not its payload columns: `facts` reads `{"payload_pruned": true}` and `alternatives` is empty (migration 254; startup maintenance prunes).
 
 ## Old decisions: "reconstructed"
 
 A decision made before its records existed (migration 253, or a boundary arc B had not reached yet) has no record and gets none backfilled. `why` answers it from the rows it left, under `reconstructed`, every answer labelled `"label": "reconstructed"`:
 
-- a router decision id (or `block:`, `offer:`, `decision:`): the `router_decisions` row, each model's status, the mix's alternatives, and its calls joined through the boundary key, each with its output `present` or the reason it's `absent`;
-- an offer taken back: the `expired` response, the forced items (from the next decision), the workflows and generation jobs of that window;
-- `figure:`: the `interactive_figures` row, its verification reduced to typed codes (`prediction_invalid`), its author calls;
-- `--first-build`: the pre-build ledger, the skips before the first build per trigger kind, and the first measured latency.
+- a router decision id (or `block:`, `offer:`, `decision:`): the `router_decisions` row, each model's status (a failed model's name from the row's `model_ids` where kept, with `model_basis`), the mix's alternatives with their chances (`p_basis`), and its calls joined through the boundary key, each with its output `present` or the reason it's `absent`;
+- an offer taken back: the `expired` response, the forced items (from the next decision), the workflows and generation jobs of that window. `inputs.workflows` and `inputs.source_attempts` are the forced items' own, else those opened or generated while the offer waited, with `workflows_basis` and `source_attempts_basis` saying which (all inferred);
+- `figure:`: the `interactive_figures` row, its verification reduced to typed codes (`prediction_invalid`), its author calls: `author_attempts_n` (logical author calls) apart from `author_receipts_n` (their receipt rows);
+- `--first-build`: the pre-build ledger, the skips before the first build, per trigger kind counted up to that kind's own first non-skip (`by_trigger_kind_window`), and the first measured latency. The answer's `source` matches `first_build.label`.
 
 A field found only by ordering rows in time is listed in that answer's `inferred`. The configured router wait was never stored on old rows: `timeout_s_basis = "not_stored"`, with the vault's setting now in `timeout_s_now`.
 
 ## Examples (synthetic ids)
 
-**A router LLM answer that came too late.** `why 01J9TRACE0000000000000000 --json` shows a `plan_block` with `inputs.timeout_s = 8` and `inputs.waited_ms = 8012`, and a child `model_answer` with `decided_by = router_llm`, `status = timeout`. Under `discarded`: `{"call_id": "call_example", "late_ms": 2310}`; the text output says "answered 2.3 s late, discarded". Add `--payload` to see that call's prompt and answer from its receipt.
+**A router LLM answer that came too late.** `why 01J9TRACE0000000000000000 --json` shows a `plan_block` with `inputs.timeout_s = 8` and `inputs.prefetch_to_decision_ms = 8012`, and a child `model_answer` with `decided_by = router_llm`, `status = timeout`. Under the top-level `discarded`: `{"record_id": "01J9RECORD000000000000000", "call_id": "call_example", "late_ms": 2310, "late_ms_precision_ms": 1}`; the text output says "answered 2.3 s late, discarded". Add `--payload` to see that call's prompt and answer from its receipt.
 
 **An offer withdrawn for a probe.** `why offer:01J9DECISION000000000000 --json` shows `offer_withdrawn` with `rule = forced_items`, `parent_id` the offer's `plan_block`, the forced probe under `alternatives` with its `workflow` and `source_attempt`, and under `next` the `plan_block` that served it.
 
@@ -86,7 +87,7 @@ A field found only by ordering rows in time is listed in that answer's `inferred
 
 ## Payloads, and the desktop's glass-box view
 
-`--payload` adds each named call's prompt and output from `model_call_receipts`, under the receipts' own retention. It exists only on the desktop CLI. The sidecar's read-only `why.get` RPC (for the UX stage's glass-box view) returns the same answer with every string that is not an id, a number or a code removed and its path listed in `withheld`; it never returns a payload, and it is not on the phone's allowlist.
+`--payload` adds each named call's prompt and output from `model_call_receipts`, under the receipts' own retention. It exists only on the desktop CLI. The sidecar's read-only `why.get` RPC (for the UX stage's glass-box view) returns the same answer with every string that is not an id, a number or a code removed, and every string and key under a free-text field (`unsupported_kind`, `reasons`, `explanation` and the other names in `why.reader.TEXT_FIELDS`) removed however it is spelled, each path listed in `withheld`; it never returns a payload, and it is not on the phone's allowlist.
 
 ## Related notes
 

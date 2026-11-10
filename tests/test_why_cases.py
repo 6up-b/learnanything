@@ -3,7 +3,7 @@
 Each case is staged through the code path that made the real one, on a synthetic vault, with every model a fake:
 
 1. **Nov 7, router LLM answers discarded by the timeout:** a slow LLM past the configured wait, then its late answer.
-   ``plan_block`` carries the configured wait (``timeout_s``), ``waited_ms`` and the mix's alternatives; the LLM's
+   ``plan_block`` carries the configured wait (``timeout_s``), ``prefetch_to_decision_ms`` and the mix's alternatives; the LLM's
    ``model_answer`` is ``router_llm``/``timeout``; the late receipt is listed as discarded, "answered N s late,
    discarded", and ``--payload`` shows its answer.
 2. **Nov 8, offer withdrawn with forced_items:** a probe made ready while an offer waits. ``offer_withdrawn``,
@@ -110,18 +110,31 @@ def test_case_1_a_late_llm_answer_is_a_timeout_and_a_discarded_call_with_the_con
     block = of_kind(payload, "plan_block")[0]
     # plan_block: the configured wait, how long it waited, and the mix's alternatives with their chances.
     assert block["inputs"]["timeout_s"] == 0.3 and block["inputs"]["prefetch_timeout_s"] == 0.6
-    assert block["inputs"]["waited_ms"] >= 0 and block["chosen"]
+    # From the prefetch's start to the decision: shown under that name, apart from the configured wait.
+    assert block["inputs"]["prefetch_to_decision_ms"] >= 0 and "waited_ms" not in block["inputs"] and block["chosen"]
     assert block["alternatives"] and all(alt["lost_by"] for alt in block["alternatives"])
-    assert any("p" in alt for alt in block["alternatives"])
+    # Each alternative's chance under the mix, and where it comes from (or why there is none).
+    assert any(alt["p"] is not None for alt in block["alternatives"])
+    assert all(alt["p_basis"] in {"record", "outside_support", "stored_pi", "stored_mix_pi",
+                                  "recomputed_from_components", "not_stored", "fallback_drew_no_mix"}
+               for alt in block["alternatives"])
     assert block["decided_by"] and block["versions"] and block["seed"] is not None
     # model_answer: router_llm, timeout, a child of the block ("what happened next").
     [llm_answer] = [decision for decision in of_kind(payload, "model_answer")
                     if decision["parent_id"] == block["record_id"] and decision["decided_by"] == "router_llm"]
     assert llm_answer["status"] == "timeout" and llm_answer["inputs"]["timeout_s"] == 0.3
+    # The timed-out LLM reported no model: the route as the decision logged it names one where it kept one, and
+    # the record says which (here the decision kept none for a call still out, so: not stored).
+    basis = llm_answer["inputs"]["model_basis"]
+    assert basis in {"answer", "route_at_decision", "not_stored"}
+    assert bool(llm_answer["versions"].get("model")) == (basis != "not_stored")
+    assert llm_answer["inputs"]["provider_basis"] in {"answer", "not_stored"}
     assert llm_answer["record_id"] in {child["record_id"] for child in block["next"]}
     # The receipts of this trace that finished after the decision: answered late, discarded.
-    late = block["discarded"]
-    assert late and all(entry["late_ms"] > 0 for entry in late)
+    # One place for what was discarded: the answer's own list, each entry naming its decision and late_ms's precision.
+    assert "discarded" not in block
+    late = [entry for entry in payload["discarded"] if entry["record_id"] == block["record_id"]]
+    assert late and all(entry["late_ms"] > 0 and entry["late_ms_precision_ms"] in {1, 10, 100, 1000} for entry in late)
     assert {entry["model"] for entry in late} == {"fake-router-llm"}
     assert "s late, discarded" in why_text(root, "TRACE_CASE1")
     # --payload shows the late answer from its receipt; plain --json never does.
@@ -272,6 +285,8 @@ def test_case_4_first_build_names_the_last_skip_the_first_build_and_the_measurem
     payload = why(root, "--kind", "figure_prebuild", "--first-build")
     built = payload["first_build"]
     assert built["label"] == "native" and built["skips_before_first_build"] == len(skips)
+    assert payload["source"] == "decision_records"
+    assert built["by_trigger_kind_window"] == "each_kind_until_its_first_non_skip"
     last, first = built["last_skip"], built["first_build"]
     assert last["rule"] == "no_measured_latency" and first["rule"] == "sampled_eu_positive"
     assert built["changed"]["waits_n"] == [0, 1] and built["changed"]["wait_basis"] == ["none", "author_call"]

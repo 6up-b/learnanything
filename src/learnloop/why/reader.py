@@ -14,6 +14,7 @@ desktop CLI's ``--payload`` only, and :func:`codes_only` is what the RPC returns
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from collections.abc import Iterable, Mapping
 from typing import Any
@@ -72,8 +73,51 @@ def objective_trace_pointer(connection: Any, decision_id: str) -> dict[str, Any]
     return {key: R.code(value) for key, value in row.items()} if row else None
 
 
+#: Stored fact names an answer shows under a clearer one. ``waited_ms`` is the time from the prefetch's start to the
+#: decision, not how long any model was waited for (the configured wait is ``timeout_s``).
+INPUT_NAMES = {"waited_ms": "prefetch_to_decision_ms"}
+#: Why an alternative of a routing decision has the probability it shows (``p_basis``).
+_OUTSIDE = frozenset({"outside_support", "infeasible"})
+
+
+def _inputs(facts: Mapping[str, Any]) -> dict[str, Any]:
+    return {INPUT_NAMES.get(name, name): value for name, value in facts.items()}
+
+
+def _alternatives(connection: Any, record: provenance.DecisionRecord) -> list[dict[str, Any]]:
+    """A decision's alternatives; a routing decision's each with its probability under the mix and where that comes
+    from (``p_basis``): the record's own, the decision row's mix (stored or recomputed from its components), zero for
+    an option outside the mix's support, or why there is none (a fallback drew from no mix; an older row kept none)."""
+
+    alternatives = [dict(item) for item in record.alternatives]
+    if record.kind != "plan_block":
+        return alternatives
+    mixture: dict[str, Any] | None = None
+    for item in alternatives:
+        if "p" in item:
+            item["p_basis"] = "record"
+        elif item.get("lost_by") in _OUTSIDE:
+            item["p"], item["p_basis"] = 0.0, "outside_support"
+        elif record.status == "fallback":
+            item["p"], item["p_basis"] = None, "fallback_drew_no_mix"
+        else:
+            if mixture is None:
+                row = R.select_one(connection, "SELECT detail_json FROM router_decisions WHERE id = ?",
+                                   (record.detail_id,)) if record.detail_table == "router_decisions" else None
+                try:
+                    detail = json.loads(row["detail_json"] or "{}") if row else {}
+                except ValueError:
+                    detail = {}
+                detail = detail if isinstance(detail, Mapping) else {}
+                mixture = detail.get("mixture") if isinstance(detail.get("mixture"), Mapping) else {}
+            pi, basis = R.mix_probabilities(mixture) if mixture else (None, "not_stored")
+            item["p"] = (pi or {}).get(str(item.get("ref"))) if pi else None
+            item["p_basis"] = basis if item["p"] is not None else "not_stored"
+    return alternatives
+
+
 def _decision(connection: Any, record: provenance.DecisionRecord, children: list[provenance.DecisionRecord],
-              discarded: list[dict[str, Any]], outcome_now: R.OutcomeReader) -> dict[str, Any]:
+              outcome_now: R.OutcomeReader) -> dict[str, Any]:
     router = record.detail_table == "router_decisions" and record.detail_id
     return {
         "record_id": record.id,
@@ -85,8 +129,8 @@ def _decision(connection: Any, record: provenance.DecisionRecord, children: list
         "trace_id": record.trace_id,
         "chosen": record.chosen_ref,
         "rule": record.rule,
-        "alternatives": [dict(item) for item in record.alternatives],
-        "inputs": dict(record.facts),
+        "alternatives": _alternatives(connection, record),
+        "inputs": _inputs(record.facts),
         "decided_by": record.decided_by,
         "versions": dict(record.versions),
         "seed": record.versions.get("seed"),
@@ -98,7 +142,6 @@ def _decision(connection: Any, record: provenance.DecisionRecord, children: list
                  for child in children],
         "outcome": outcome_now(connection, str(record.detail_id)) if router else None,
         "objective_trace": objective_trace_pointer(connection, str(record.detail_id)) if router else None,
-        "discarded": discarded,
     }
 
 
@@ -147,6 +190,7 @@ def _native_first_build(connection: Any) -> dict[str, Any] | None:
         "last_skip": {"record_id": last.id, "rule": last.rule, "created_at": last.created_at} if last else None,
         "first_build": {"record_id": built.id, "rule": built.rule, "created_at": built.created_at},
         "by_trigger_kind": by_kind,
+        "by_trigger_kind_window": R.BY_KIND_WINDOW,
         "first_measurement": measured,
         "measurement_between": between,
         "changed": changed,
@@ -184,7 +228,7 @@ def _records_answer(repository: Any, target: str, kind: str | None, *, first_bui
         discarded = discarded_calls(records, calls)
         children = provenance.read_children(connection, [record.id for record in records if record.id])
         decisions = [_decision(connection, record, [child for child in children if child.parent_id == record.id],
-                               [entry for entry in discarded if entry["record_id"] == record.id], outcome_now)
+                               outcome_now)
                      for record in records]
         rebuilt: list[dict[str, Any]] = []
         if not records and not first_build and (kind is None or kind in RECONSTRUCTED_KINDS):
@@ -195,10 +239,16 @@ def _records_answer(repository: Any, target: str, kind: str | None, *, first_bui
                 row = item.get("row") or {}
                 if row.get("table") == "router_decisions":
                     item["objective_trace"] = objective_trace_pointer(connection, str(row["id"]))
+                # One place for what was discarded: the answer's own list, each entry naming its decision.
+                discarded += [{**entry, "decision_id": row.get("id")} for entry in item.pop("discarded", None) or ()]
         evidence = attempt_evidence(connection, target.partition(":")[2]) if target.startswith("attempt:") else None
+    if first_build:
+        source = "reconstructed" if built is not None and built.get("label") == R.LABEL else "decision_records"
+    else:
+        source = "reconstructed" if rebuilt and not records else "decision_records"
     answer: dict[str, Any] = {
         "version": VERSION,
-        "source": "reconstructed" if rebuilt and not records else "decision_records",
+        "source": source,
         "target": target,
         "traces": traces,
         "prefetch_traces": prefetch,

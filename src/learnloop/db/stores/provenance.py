@@ -12,6 +12,7 @@ is active, and takes a short transaction of its own otherwise), and
 from __future__ import annotations
 
 import logging
+import re
 import sqlite3
 from collections.abc import Iterable, Mapping
 from datetime import datetime, timezone
@@ -149,6 +150,23 @@ def _moment(value: Any) -> datetime | None:
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
 
 
+_FRACTION = re.compile(r"T\d\d:\d\d:\d\d(?:[.,](\d+))?")
+
+
+def time_precision_ms(*values: Any) -> int | None:
+    """The coarsest precision, in ms, among ISO times (``1000`` for whole seconds, ``1`` for ms or finer): the
+    precision of a difference between them, e.g. ``late_ms`` from a receipt's ``finished_at`` stored to the second."""
+
+    precisions = []
+    for value in values:
+        found = _FRACTION.search(value) if isinstance(value, str) else None
+        if found is None:
+            return None
+        digits = len(found.group(1) or "")
+        precisions.append(10 ** (3 - digits) if digits < 3 else 1)
+    return max(precisions) if precisions else None
+
+
 def discarded_calls(records: Iterable[provenance.DecisionRecord],
                     calls: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
     """The calls each decision discarded: started before it under its own or its prefetch's trace, for its boundary
@@ -174,6 +192,9 @@ def discarded_calls(records: Iterable[provenance.DecisionRecord],
                 "purpose": call.get("purpose"), "model": call.get("model"), "status": call.get("status"),
                 "finished_at": call.get("finished_at"),
                 "late_ms": None if finished is None else int(round((finished - decided).total_seconds() * 1000)),
+                "late_ms_precision_ms": None if finished is None else time_precision_ms(call.get("finished_at"),
+                                                                                         record.created_at),
+                "label": "native",
             })
     return out
 

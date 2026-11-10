@@ -261,6 +261,8 @@ def component_records(block: DecisionRecord, router: Mapping[str, Any], mixture:
     records: list[DecisionRecord] = []
     models = mixture.get("models") or router.get("models") or models or {}
     distributions = dict(router.get("model_distributions") or {})
+    # A component that failed or timed out reports no model of its own; the route as the decision logged it does.
+    route_models = dict(router.get("model_ids") or {})
     drawn = mixture.get("drawn_component") or router.get("drawn_component")
     for name, summary in sorted(models.items()):
         summary = dict(summary or {})
@@ -268,14 +270,21 @@ def component_records(block: DecisionRecord, router: Mapping[str, Any], mixture:
         status = "discarded" if crashed and raw == "answered" else _STATUS.get(raw, "failed")
         distribution = dict(distributions.get(name) or {})
         favoured = mixture.get("numeric_choice") if name == "numeric" else _favoured(distribution)
+        model, provider = _code(summary.get("model")), _code(summary.get("provider"))
+        model_basis = "answer" if model else None
+        if model is None and _code(route_models.get(name)):
+            model, model_basis = _code(route_models.get(name)), "route_at_decision"
+        asked = name in {"llm", "decider"}
         records.append(_answer(
             name, status=status, raw=raw, chosen_ref=favoured, block=block, distribution=distribution,
             facts={"latency_ms": _number(summary.get("latency_ms")), "cost_usd": _number(summary.get("cost_usd")),
                    "subscription": summary.get("subscription") if isinstance(summary.get("subscription"), bool)
                    else None, "drew": drawn == name if drawn else None, **timeouts, "waited_ms": waited_ms,
                    "reason": _code(summary.get("error")) if raw == "not_ready" else None,
-                   "discarded_by": "chooser_error" if status == "discarded" else None},
-            versions={"model": _code(summary.get("model")), "provider": _code(summary.get("provider"))},
+                   "discarded_by": "chooser_error" if status == "discarded" else None,
+                   "model_basis": (model_basis or "not_stored") if asked else None,
+                   "provider_basis": ("answer" if provider else "not_stored") if asked else None},
+            versions={"model": model, "provider": provider},
             error_type=_error_type(summary.get("error")) if status in {"failed", "timeout"} else None,
         ))
     if mixture.get("staged_ref") is not None:

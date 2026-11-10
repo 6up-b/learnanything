@@ -72,7 +72,7 @@ def test_case_1_aged_the_timeout_and_the_late_answer_from_the_decision_row_and_i
     root, trace = stage_case_1(tmp_path)
     [block] = of_kind(why(root, trace), "plan_block")[:1]
     decision_id = block["detail"]["id"]
-    late_native = {entry["call_id"] for entry in block["discarded"]}
+    late_native = {entry["call_id"] for entry in why(root, trace)["discarded"] if entry["record_id"] == block["record_id"]}
     # The app stamps the decision's row on the wall clock as it decides; this env's plan runs on a frozen clock, so
     # the row gets the moment its record took the models' answers, as a real row would hold.
     with connect(_sqlite(root)) as connection:
@@ -89,19 +89,29 @@ def test_case_1_aged_the_timeout_and_the_late_answer_from_the_decision_row_and_i
     assert answer["row"] == {"table": "router_decisions", "id": decision_id}
     assert answer["chosen"] == block["chosen"] and answer["subject"] == block["subject"]
     assert answer["alternatives"] and all(alt["lost_by"] == "not_drawn" for alt in answer["alternatives"])
+    # Each alternative's chance under the mix, stored or recomputed from the row's components, or why there is none.
+    assert all(alt["p_basis"] in {"stored_mix_pi", "stored_pi", "recomputed_from_components", "not_stored"}
+               for alt in answer["alternatives"])
+    assert all((alt["p"] is None) == (alt["p_basis"] == "not_stored") for alt in answer["alternatives"])
     [llm] = [component for component in answer["components"] if component["component"] == "llm"]
     assert llm["status"] == "timeout" and llm["decided_by"] == "router_llm"
+    assert llm["model_basis"] in {"answer", "route_at_decision", "not_stored"}
+    assert bool(llm["model"]) == (llm["model_basis"] != "not_stored") and llm["provider_basis"] in {"answer", "not_stored"}
     # The configured wait was never stored on old rows: said so, with the setting now beside it.
     inputs = answer["inputs"]
     assert inputs["timeout_s"] is None and inputs["timeout_s_basis"] == "not_stored" and inputs["timeout_s_now"] == 0.3
-    assert inputs["waited_ms"] is not None and inputs["boundary_key"] == block["inputs"]["boundary_key"]
+    assert inputs["prefetch_to_decision_ms"] is not None and inputs["boundary_key"] == block["inputs"]["boundary_key"]
     assert answer["versions"]["seed"] and answer["versions"]["algorithm_version"]
     # Its receipts, joined by the boundary key (no trace): the late ones discarded, their output present.
     assert {call["owner_kind"] for call in answer["calls"]} == {"router_decision"}
-    late = {entry["call_id"] for entry in answer["discarded"]}
-    assert late and late == late_native and all(entry["late_ms"] > 0 for entry in answer["discarded"])
+    # One place for what was discarded: the answer's list, each entry naming its decision.
+    assert "discarded" not in answer
+    discarded = [entry for entry in payload["discarded"] if entry["decision_id"] == decision_id]
+    late = {entry["call_id"] for entry in discarded}
+    assert late and late == late_native and all(entry["late_ms"] > 0 for entry in discarded)
+    assert all(entry["label"] == "reconstructed" and entry["late_ms_precision_ms"] for entry in discarded)
     # The router call's receipt holds the late answer; a call whose output is absent says why.
-    assert any(entry["output"] == "present" for entry in answer["discarded"])
+    assert any(entry["output"] == "present" for entry in discarded)
     assert all(call["output_absent_reason"] for call in answer["calls"] if call["output"] == "absent")
     assert "discarded" in answer["inferred"]
     assert PLANTED not in json.dumps(payload)
@@ -126,6 +136,9 @@ def test_case_2_aged_the_expired_row_its_forced_probe_and_the_next_decision_infe
     assert forced["source_attempt"] == workflow["source_attempt_id"]
     assert answer["next"]["next_decision"]["decision_id"]
     assert {"alternatives", "inputs.forced", "next.next_decision"} <= set(answer["inferred"])
+    # The workflows and source attempts are the forced items' own here, and say so.
+    assert answer["inputs"]["workflows"] == [workflow["id"]] and answer["inputs"]["workflows_basis"] == "forced_items"
+    assert answer["inputs"]["source_attempts_basis"] == "forced_items"
     # The offer's own decision answers beside it, with the expired response as what came next.
     drawn = _only(payload, "plan_block")
     assert drawn["row"]["id"] == offer_decision
@@ -144,6 +157,9 @@ def test_case_3_aged_the_failed_figure_its_typed_codes_and_its_author_calls(tmp_
     assert answer["versions"]["prompt_version"].startswith("figure_author")
     assert answer["versions"]["model"] == "fake-figure-model"
     assert answer["inputs"]["origin"] and answer["inputs"]["request_id"]
+    # Author attempts (logical calls) apart from their receipt rows.
+    assert "author_calls_n" not in answer["inputs"]
+    assert 1 <= answer["inputs"]["author_attempts_n"] <= answer["inputs"]["author_receipts_n"]
 
 
 def test_reconstructed_problem_codes_name_a_bad_prediction_and_its_schema_path():
@@ -163,7 +179,9 @@ def test_case_4_aged_first_build_counts_the_skips_and_places_the_measurement_bet
     payload = why(root, "--first-build")
     built = payload["first_build"]
     assert built["label"] == "reconstructed" and built["skips_before_first_build"] == len(skips) == 2
+    assert payload["source"] == "reconstructed"  # the source names what answered, as the label does
     assert built["by_trigger_kind"]["offer"]["skips_before_first_non_skip"] == 2
+    assert built["by_trigger_kind_window"] == "each_kind_until_its_first_non_skip"
     assert built["last_skip"]["verdict"] == "skip" and built["first_build"]["verdict"] == "build"
     assert built["changed"]["sampled_eu"][0] is None and built["changed"]["sampled_eu"][1] > 0
     assert built["first_measurement"]["row"] == {"table": "model_call_receipts", "id": measured}
@@ -364,10 +382,10 @@ def test_a_follow_up_gate_call_that_answered_after_the_gate_is_discarded(tmp_pat
                 "'2026-11-10T10:00:00+00:00', ?, 'TRACE_GATE')", (call_id, finished))
         connection.commit()
     payload = why(paths.root, "TRACE_GATE")
-    assert [(entry["record_id"], entry["call_id"], entry["late_ms"]) for entry in payload["discarded"]] == [
-        (gate, "call_late", 4000)]
+    assert [(entry["record_id"], entry["call_id"], entry["late_ms"], entry["late_ms_precision_ms"])
+            for entry in payload["discarded"]] == [(gate, "call_late", 4000, 1000)]  # times stored to the second
     [decision] = payload["decisions"]
-    assert [entry["call_id"] for entry in decision["discarded"]] == ["call_late"]
+    assert "discarded" not in decision
 
 
 def test_why_is_still_a_pure_read_with_the_new_options(tmp_path, monkeypatch):

@@ -157,12 +157,13 @@ def test_case_1_the_router_llm_answer_discarded_by_the_timeout():
     for call in answer["calls"]:
         assert call["output"] == "present" or call["output_absent_reason"], \
             f"case 1 {decision_id}: call {call['call_id']} output_absent_reason"
-    assert answer["discarded"], f"case 1 {decision_id}: discarded"
-    assert all(entry["late_ms"] is None or entry["late_ms"] > 0 for entry in answer["discarded"]), \
+    discarded = [entry for entry in payload["discarded"] if entry.get("decision_id") == decision_id]
+    assert discarded, f"case 1 {decision_id}: discarded"
+    assert all(entry["late_ms"] is None or entry["late_ms"] > 0 for entry in discarded), \
         f"case 1 {decision_id}: discarded.late_ms"
     assert "discarded" in answer["inferred"], f"case 1 {decision_id}: inferred"
     print(f"case 1: decision {decision_id}; calls {len(answer['calls'])}; discarded "
-          f"{[(entry['call_id'], entry['late_ms'], entry['output']) for entry in answer['discarded']]}")
+          f"{[(entry['call_id'], entry['late_ms'], entry['output']) for entry in discarded]}")
 
 
 def test_case_2_the_offer_withdrawn_with_forced_items():
@@ -218,7 +219,8 @@ def test_case_3_the_figure_stored_failed():
         rules.append(answer["rule"])
         if len(rules) == 1:
             print(f"case 3: figure {figure_id}; rule {answer['rule']}; problems {answer['inputs']['problems']}; paths "
-                  f"{answer['inputs']['problem_paths']}; author calls {answer['inputs']['author_calls_n']}; calls "
+                  f"{answer['inputs']['problem_paths']}; author attempts {answer['inputs']['author_attempts_n']} \
+receipts {answer['inputs']['author_receipts_n']}; calls "
                   f"{[(call['call_id'], call['purpose'], call['status']) for call in answer['calls']]}")
     print(f"case 3: {len(found)} failed figures; rules {sorted(set(rules))}; prediction_invalid "
           f"{rules.count('prediction_invalid')}")

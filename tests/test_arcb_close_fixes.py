@@ -391,3 +391,29 @@ def test_why_shows_an_attempt_completed_after_the_last_rebuild(tmp_path: Path):
     outcome = routed[0]["outcome"]
     assert outcome is not None and outcome["basis"] == "derived_at_read"
     assert outcome["action_attempt_id"] == attempt
+
+
+# -- 10. the code-free reader's rough edges ----------------------------------------------------------------------
+
+
+def test_a_withdrawals_workflows_fall_back_to_those_opened_or_generated_while_the_offer_waited():
+    from learnloop.why.reconstructed import _workflows_and_attempts
+
+    forced_only = _workflows_and_attempts([{"ref": "pi_probe"}], [
+        {"id": "fw_opened", "source_attempt_id": "att_1"}], [{"workflow_id": "fw_generated"}])
+    assert forced_only == {"workflows": ["fw_opened", "fw_generated"], "workflows_basis": "opened_or_generated_between",
+                           "source_attempts": ["att_1"], "source_attempts_basis": "opened_between"}
+    assert _workflows_and_attempts([], [], [])["workflows_basis"] == "none_found"
+    own = _workflows_and_attempts([{"ref": "pi", "workflow": "fw_own", "source_attempt": "att_own"}], [{"id": "x"}], [])
+    assert (own["workflows"], own["workflows_basis"]) == (["fw_own"], "forced_items")
+
+
+def test_late_ms_names_its_precision_and_a_mix_names_where_its_chances_come_from():
+    from learnloop.db.stores.provenance import time_precision_ms
+    from learnloop.why.reconstructed import mix_probabilities
+
+    assert time_precision_ms("2026-11-10T10:00:09+00:00", "2026-11-10T10:00:05.123456+00:00") == 1000
+    assert time_precision_ms("2026-11-10T10:00:09.120Z", "2026-11-10T10:00:05.123456+00:00") == 1
+    assert time_precision_ms("2026-11-10T10:00:09.1Z") == 100 and time_precision_ms("not a time") is None
+    assert mix_probabilities({"mix_pi": {"a": 0.25, "b": 0.75}}) == ({"a": 0.25, "b": 0.75}, "stored_mix_pi")
+    assert mix_probabilities({"support": ["a"]}) == (None, "not_stored")
