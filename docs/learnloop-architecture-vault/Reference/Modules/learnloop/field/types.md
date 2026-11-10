@@ -97,7 +97,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/field/evaluation|learnloop.field.evaluation]] — imports `AttemptRow`, `FacetRow`, `ObservationRow`, `SignalRow`
 - [[Reference/Modules/learnloop/field/item_content|learnloop.field.item_content]] — imports `AttemptRow`
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `AnswerSignals`, `AttemptRow`, `FacetRow`, `ItemFeatures`; statically calls `AnswerSignals`, `AttemptRow`, `FacetRow`, `ItemFeatures`
-- [[Reference/Modules/learnloop/field/predictors|learnloop.field.predictors]] — imports `ArmConstants`, `AttemptRow`, `FacetRow`, `ItemFeatures`, `ItemPrediction`, `LearnerPredictor`, `ObservationRow`, `Predictor`, `RegionEstimate`, `SignalRow`; statically calls `ArmConstants`, `ItemFeatures`, `ItemPrediction`, `RegionEstimate`
+- [[Reference/Modules/learnloop/field/predictors|learnloop.field.predictors]] — imports `ArmConstants`, `FacetRow`, `ItemFeatures`, `ItemPrediction`, `LearnerPredictor`, `ObservationRow`, `Predictor`, `RegionEstimate`, `SignalRow`; statically calls `ArmConstants`, `ItemFeatures`, `ItemPrediction`, `RegionEstimate`
 - [[Reference/Modules/learnloop/field/probability_arms|learnloop.field.probability_arms]] — imports `AttemptRow`, `FacetRow`, `ItemFeatures`, `SignalRow`
 - [[Reference/Modules/learnloop/field/probability_prep|learnloop.field.probability_prep]] — imports `AttemptRow`, `SignalRow`
 - [[Reference/Modules/learnloop/field/probability_states|learnloop.field.probability_states]] — imports `AttemptRow`

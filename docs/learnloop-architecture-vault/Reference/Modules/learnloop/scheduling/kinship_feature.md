@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/kinship_feature.py](../../../../../../src/learnloop/scheduling/kinship_feature.py) |
-| Source lines | 526 |
+| Source lines | 525 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `DORMANT` |
@@ -87,7 +87,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_features_for(repository: Repository, surface_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/kinship_feature.py), line 155)
 - `_hard_colliding(repository: Repository, subject: str, kin: str) -> bool` ([source](../../../../../../src/learnloop/scheduling/kinship_feature.py), line 162) — The kernel scores only NON-hard-colliding surfaces (§8.1).
 - `_cache_feature(repository: Repository, model_id: str, score: KinshipScore, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/scheduling/kinship_feature.py), line 338)
-- `_append_kernel_event(repository: Repository, model_id: str, kind: str, detail: Mapping[str, Any], *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/scheduling/kinship_feature.py), line 509)
+- `_append_kernel_event(repository: Repository, model_id: str, kind: str, detail: Mapping[str, Any], *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/scheduling/kinship_feature.py), line 508)
 
 ## Who imports or calls it
 

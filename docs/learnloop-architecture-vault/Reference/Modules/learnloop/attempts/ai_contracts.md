@@ -116,7 +116,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/ai_contracts|learnloop.diagnosis.ai_contracts]] — imports `GRADING_PROMPT_VERSION`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation|learnloop.diagnosis.diagnostic_augmentation]] — imports `GRADING_PROMPT_VERSION`, `GradingContext`, `GradingProposal`, `grading_prompt_version`; statically calls `grading_prompt_version`
 - [[Reference/Modules/learnloop/diagnosis/missing_vocabulary|learnloop.diagnosis.missing_vocabulary]] — imports `GRADING_PROMPT_VERSION`
-- [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] — imports `GRADING_PROMPT_VERSION`, `GradingContext`, `GradingProposal`, `grading_prompt`; statically calls `grading_prompt`
+- [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] — imports `GRADING_PROMPT_VERSION`, `GradingProposal`, `grading_prompt`; statically calls `grading_prompt`
 - [[Reference/Modules/learnloop/diagnosis/split/contract|learnloop.diagnosis.split.contract]] — imports `ELICITING_REVEAL_BUDGET_DEFAULT`, `PostdictiveClaim`, `RepairVerificationRequest`
 - [[Reference/Modules/learnloop/diagnosis/split/legacy_view|learnloop.diagnosis.split.legacy_view]] — imports `GradingProposal`
 - [[Reference/Modules/learnloop/diagnosis/taxonomy_regrade|learnloop.diagnosis.taxonomy_regrade]] — imports `GRADING_PROMPT_VERSION`

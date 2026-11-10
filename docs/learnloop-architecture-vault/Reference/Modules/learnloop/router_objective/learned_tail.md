@@ -239,12 +239,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_at_the_tag_the_trace_carries_the_residual_and_its_terms_recompute`
 - [tests/test_rofu_carried.py](../../../../../../tests/test_rofu_carried.py) — direct import
 - [tests/test_rofu_scope.py](../../../../../../tests/test_rofu_scope.py) — direct import
-- [tests/test_te3b_binding.py](../../../../../../tests/test_te3b_binding.py) — direct import
-- [tests/test_te3b_clock.py](../../../../../../tests/test_te3b_clock.py) — direct import
 - [tests/test_te3b_features.py](../../../../../../tests/test_te3b_features.py) — direct import
   - `test_ro6s_features_gain_the_lesson_indicator_and_the_version_is_a_change_point`
-- [tests/test_te3b_population.py](../../../../../../tests/test_te3b_population.py) — direct import
-- [tests/test_te3b_value.py](../../../../../../tests/test_te3b_value.py) — direct import
 
 ## Modification guidance
 

@@ -181,7 +181,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_tap_on_a_drawn_mark_does_not_rebuild_the_plan`
   - `test_open_shows_the_cited_answer_and_the_learners_own_words`
   - `test_the_plan_says_when_background_work_can_still_name_a_target`
-- [tests/test_reader_try_first.py](../../../../../../tests/test_reader_try_first.py) — direct import
 - [tests/test_reading_hardening_landing.py](../../../../../../tests/test_reading_hardening_landing.py) — direct import
   - `test_the_guide_plan_never_lists_a_check_for_a_held_out_section`
 - [tests/test_required_method_round3.py](../../../../../../tests/test_required_method_round3.py) — direct import

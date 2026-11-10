@@ -105,7 +105,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `FSRS6_DEFAULT_WEIGHTS`, `forgetting_curve`; statically calls `forgetting_curve`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `forgetting_curve`; statically calls `forgetting_curve`
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `interval_for_retention`; statically calls `interval_for_retention`
-- [[Reference/Modules/learnloop/substrate/administration_adapters|learnloop.substrate.administration_adapters]] — imports `FSRS6_DEFAULT_WEIGHTS`, `Rating`
+- [[Reference/Modules/learnloop/substrate/administration_adapters|learnloop.substrate.administration_adapters]] — imports `FSRS6_DEFAULT_WEIGHTS`
 - [[Reference/Modules/learnloop/substrate/card_lineage|learnloop.substrate.card_lineage]] — imports `FSRS6_DEFAULT_WEIGHTS`, `MemoryState`, `Rating`, `apply_review`; statically calls `Rating`, `apply_review`
 - [[Reference/Modules/learnloop/substrate/compat/substrate_cutover|learnloop.substrate.compat.substrate_cutover]] — imports `FSRS6_DEFAULT_WEIGHTS`, `Rating`, `apply_review`; statically calls `apply_review`
 - [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]] — imports `forgetting_curve`; statically calls `forgetting_curve`

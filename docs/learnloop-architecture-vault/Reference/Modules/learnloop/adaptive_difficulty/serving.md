@@ -47,36 +47,36 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/serving.py](../../../../../../src/learnloop/adaptive_difficulty/serving.py) |
-| Source lines | 464 |
+| Source lines | 461 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class SlotCandidate` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 76)
-- `class SlotRequest` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 83)
-  - `decision_key(self) -> str` (line 96; public)
-- `class SlotDecision` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 101)
-  - `step_detail(self) -> dict[str, Any] | None` (line 113; public)
-- `slot_applies(config: Any, item: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 119) — A new-material slot AD's draw serves (§6.1): a planned, never-served item with ``new_admitted`` (an ordinary new-lane item the chooser planned).
-- `view_for(snapshot: RP.Snapshot, config: Any, learning_object_id: str) -> tuple[Any, str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 129)
-- `decide_slot(vault: Any, repository: Any, request: SlotRequest, *, view: Any=None) -> SlotDecision` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 181) — Score the slot's support and draw (§6.1), writing the ``ad_selections`` row first.
-- `commission_draw(vault: Any, repository: Any, snapshot: RP.Snapshot, view: Any, view_name: str, *, learning_object_id: str, subject: str, facet: str, capability_name: str, key: str, now: str, constants: S.SelectionConstants | None=None, targets: Sequence[Mapping[str, Any] | None]=(None,), generating_job_id: str | None=None) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 311) — A commission draw over ``X_c`` (§6.1): the same rule over feature points with ``z = 0``, its own seed and ``ad_selections`` row (``kind = commission``).
-- `why_for_presentation(connection: Any, presentation_id: str, *, view: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 350) — "Why this item" for a served plan item (§12): the one line of the draw that chose it, or None when no AD draw chose it (below the tag, ``selection`` off, a predecessor serve) or its item is withheld now (``view``, the material view).
-- `frozen_loadings(vault: Any, repository: Any, connection: Any, content_hash: str, served_at: str, *, view: Any) -> tuple[dict[str, Any] | None, str | None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 374) — The item revision's loadings in force at the serve and the coupling version (AD2/AD3).
-- `threshold_receipts(vault: Any, repository: Any, connection: Any, item: Any, *, presentation_kind: str, presentation_id: str, served_at: str, view: Any) -> list[Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 399) — The in-process ``ad_threshold@*`` forecasts of one presentation (AD2/AD3).
+- `class SlotCandidate` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 73)
+- `class SlotRequest` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 80)
+  - `decision_key(self) -> str` (line 93; public)
+- `class SlotDecision` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 98)
+  - `step_detail(self) -> dict[str, Any] | None` (line 110; public)
+- `slot_applies(config: Any, item: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 116) — A new-material slot AD's draw serves (§6.1): a planned, never-served item with ``new_admitted`` (an ordinary new-lane item the chooser planned).
+- `view_for(snapshot: RP.Snapshot, config: Any, learning_object_id: str) -> tuple[Any, str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 126)
+- `decide_slot(vault: Any, repository: Any, request: SlotRequest, *, view: Any=None) -> SlotDecision` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 178) — Score the slot's support and draw (§6.1), writing the ``ad_selections`` row first.
+- `commission_draw(vault: Any, repository: Any, snapshot: RP.Snapshot, view: Any, view_name: str, *, learning_object_id: str, subject: str, facet: str, capability_name: str, key: str, now: str, constants: S.SelectionConstants | None=None, targets: Sequence[Mapping[str, Any] | None]=(None,), generating_job_id: str | None=None) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 308) — A commission draw over ``X_c`` (§6.1): the same rule over feature points with ``z = 0``, its own seed and ``ad_selections`` row (``kind = commission``).
+- `why_for_presentation(connection: Any, presentation_id: str, *, view: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 347) — "Why this item" for a served plan item (§12): the one line of the draw that chose it, or None when no AD draw chose it (below the tag, ``selection`` off, a predecessor serve) or its item is withheld now (``view``, the material view).
+- `frozen_loadings(vault: Any, repository: Any, connection: Any, content_hash: str, served_at: str, *, view: Any) -> tuple[dict[str, Any] | None, str | None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 371) — The item revision's loadings in force at the serve and the coupling version (AD2/AD3).
+- `threshold_receipts(vault: Any, repository: Any, connection: Any, item: Any, *, presentation_kind: str, presentation_id: str, served_at: str, view: Any) -> list[Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 396) — The in-process ``ad_threshold@*`` forecasts of one presentation (AD2/AD3).
 
 ### Module constants
 
-- `LOG` ([src/learnloop/adaptive_difficulty/serving.py](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 59)
-- `SUBSTITUTED` ([src/learnloop/adaptive_difficulty/serving.py](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 61)
-- `DISPLACED` ([src/learnloop/adaptive_difficulty/serving.py](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 62)
-- `AD_INELIGIBLE` ([src/learnloop/adaptive_difficulty/serving.py](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 63)
-- `PRE_EXPOSED` ([src/learnloop/adaptive_difficulty/serving.py](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 64)
-- `THRESHOLD_FORECASTERS` ([src/learnloop/adaptive_difficulty/serving.py](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 65)
-- `THRESHOLD_VERSION` ([src/learnloop/adaptive_difficulty/serving.py](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 66)
-- `WHY` ([src/learnloop/adaptive_difficulty/serving.py](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 68)
+- `LOG` ([src/learnloop/adaptive_difficulty/serving.py](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 56)
+- `SUBSTITUTED` ([src/learnloop/adaptive_difficulty/serving.py](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 58)
+- `DISPLACED` ([src/learnloop/adaptive_difficulty/serving.py](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 59)
+- `AD_INELIGIBLE` ([src/learnloop/adaptive_difficulty/serving.py](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 60)
+- `PRE_EXPOSED` ([src/learnloop/adaptive_difficulty/serving.py](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 61)
+- `THRESHOLD_FORECASTERS` ([src/learnloop/adaptive_difficulty/serving.py](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 62)
+- `THRESHOLD_VERSION` ([src/learnloop/adaptive_difficulty/serving.py](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 63)
+- `WHY` ([src/learnloop/adaptive_difficulty/serving.py](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 65)
 
 ### Explicit exports
 
@@ -101,12 +101,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_warmth(connection: Any, view: Any, learning_object_id: str, now: str) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 135) — ``w_t`` at a decision: hours since the LO's last exposure (an attempt, a reveal, a reading opportunity) before ``now``, read through the material view (Codex verify F20: an attempt on a withheld item, or a receipt whose source is withheld now, warms nothing).
-- `_loadings(snapshot: RP.Snapshot, config: Any, content_hash: str, now: str) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 160)
-- `_spec(vault: Any, connection: Any, snapshot: RP.Snapshot, item: Any, now: str, view: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 166)
-- `_versions(vault: Any, snapshot: RP.Snapshot, view_name: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 174)
-- `_maybe_commission(vault: Any, repository: Any, snapshot: RP.Snapshot, view: Any, view_name: str, request: SlotRequest, constants: S.SelectionConstants, *, cell: str | None, capability_name: str | None, warmth: float, material: Any) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 284) — §6.1: a commission draw when the cell pool has no item with ``P_band >= calibrate_below``.
-- `_no_loadings(spec: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 441)
+- `_warmth(connection: Any, view: Any, learning_object_id: str, now: str) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 132) — ``w_t`` at a decision: hours since the LO's last exposure (an attempt, a reveal, a reading opportunity) before ``now``, read through the material view (Codex verify F20: an attempt on a withheld item, or a receipt whose source is withheld now, warms nothing).
+- `_loadings(snapshot: RP.Snapshot, config: Any, content_hash: str, now: str) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 157)
+- `_spec(vault: Any, connection: Any, snapshot: RP.Snapshot, item: Any, now: str, view: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 163)
+- `_versions(vault: Any, snapshot: RP.Snapshot, view_name: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 171)
+- `_maybe_commission(vault: Any, repository: Any, snapshot: RP.Snapshot, view: Any, view_name: str, request: SlotRequest, constants: S.SelectionConstants, *, cell: str | None, capability_name: str | None, warmth: float, material: Any) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 281) — §6.1: a commission draw when the cell pool has no item with ``P_band >= calibrate_below``.
+- `_no_loadings(spec: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 438)
 
 ## Who imports or calls it
 
@@ -135,15 +135,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `module`; calls `days`, `lo_view_name`, `snapshot`
 - [[Reference/Modules/learnloop/adaptive_difficulty/selection|learnloop.adaptive_difficulty.selection]] — imports `module`; calls `commission_candidates`, `constants_from_config`, `draw`, `recompute`, `seed_for`
 - [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]] — imports `coupling_on`, `selection_on`, `subject_view_live`, `successor_active`; calls `coupling_on`, `selection_on`, `subject_view_live`, `successor_active`
-- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`
 - [[Reference/Modules/learnloop/db/stores/ad_serving|learnloop.db.stores.ad_serving]] — imports `module`; calls `has_table`, `insert_selection`
 - [[Reference/Modules/learnloop/scheduling/forecast_receipts|learnloop.scheduling.forecast_receipts]] — imports `ForecastReceipt`, `ITEM_UNASSISTED_SUCCESS`; calls `ForecastReceipt`
 - [[Reference/Modules/learnloop/scheduling/voi_forecasts|learnloop.scheduling.voi_forecasts]] — imports `parameter`; calls `parameter`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `contextlib`, `dataclasses`, `logging`, `math`, `typing`
-- Third party: `numpy`
+- Standard library: `__future__`, `collections`, `dataclasses`, `logging`, `math`, `typing`
+- Third party: none imported directly
 
 ## Larger workflow participation
 

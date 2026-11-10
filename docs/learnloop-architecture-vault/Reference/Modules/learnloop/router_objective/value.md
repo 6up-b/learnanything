@@ -282,9 +282,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_at_the_seeded_prior_the_lesson_q_bar_equals_ro4s_placeholder`
   - `test_codex_f2_with_fitted_practice_parameters_the_untouched_lesson_curve_moves_no_decision`
   - `test_codex_f3_rollouts_carry_the_lesson_window_as_ads_transition_does`
-- [tests/test_te3b_binding.py](../../../../../../tests/test_te3b_binding.py) — direct import
-- [tests/test_te3b_clock.py](../../../../../../tests/test_te3b_clock.py) — direct import
-- [tests/test_te3b_features.py](../../../../../../tests/test_te3b_features.py) — direct import
 - [tests/test_te3b_population.py](../../../../../../tests/test_te3b_population.py) — direct import
   - `test_switch_off_or_below_the_tag_values_the_same_database_as_mvp052`
 - [tests/test_te3b_value.py](../../../../../../tests/test_te3b_value.py) — direct import

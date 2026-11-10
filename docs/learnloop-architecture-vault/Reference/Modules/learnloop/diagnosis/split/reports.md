@@ -47,19 +47,19 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/split/reports.py](../../../../../../../src/learnloop/diagnosis/split/reports.py) |
-| Source lines | 350 |
+| Source lines | 349 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `m2_report(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 258)
-- `render_markdown(report: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 296)
+- `m2_report(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 257)
+- `render_markdown(report: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 295)
 
 ### Module constants
 
-- `REPORT_VERSION` ([src/learnloop/diagnosis/split/reports.py](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 22)
+- `REPORT_VERSION` ([src/learnloop/diagnosis/split/reports.py](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 21)
 
 ### Explicit exports
 
@@ -71,14 +71,14 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_seconds(start: str | None, end: str | None) -> float | None` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 25)
-- `_quantiles(values: Sequence[float]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 33)
-- `_rows(repository: Repository, sql: str, params: Iterable[Any]=()) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 45)
-- `_e5(repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 50) — Would-merge (shadow): do validated citations / kNN neighbours find recurrences exact strings split, and are they right when audited?
-- `_e7(repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 95)
-- `_signals(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 182)
-- `_e2_prior_analysis_arms(repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 235) — E2's ``anchoring_suspect`` rate per prior-analysis arm (learner-blindness relax): completed live diagnoses, grouped by the arm their context receipt records (``unassigned``: written before the arm existed).
-- `_fmt(rate: Mapping[str, Any] | None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 290)
+- `_seconds(start: str | None, end: str | None) -> float | None` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 24)
+- `_quantiles(values: Sequence[float]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 32)
+- `_rows(repository: Repository, sql: str, params: Iterable[Any]=()) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 44)
+- `_e5(repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 49) — Would-merge (shadow): do validated citations / kNN neighbours find recurrences exact strings split, and are they right when audited?
+- `_e7(repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 94)
+- `_signals(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 181)
+- `_e2_prior_analysis_arms(repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 234) — E2's ``anchoring_suspect`` rate per prior-analysis arm (learner-blindness relax): completed live diagnoses, grouped by the arm their context receipt records (``unassigned``: written before the arm existed).
+- `_fmt(rate: Mapping[str, Any] | None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 289)
 
 ## Who imports or calls it
 
@@ -100,7 +100,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `datetime`, `json`, `statistics`, `typing`
+- Standard library: `__future__`, `collections`, `datetime`, `json`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

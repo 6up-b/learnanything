@@ -189,7 +189,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f13_on_your_own_is_the_activity_policys_classification`
 - [tests/test_intent_fix_round7.py](../../../../../../../tests/test_intent_fix_round7.py) — direct import
   - `test_f21_a_due_check_on_an_lo_with_no_items_is_recorded_as_no_candidates`
-- [tests/test_intent_recall_targets.py](../../../../../../../tests/test_intent_recall_targets.py) — direct import
 - [tests/test_intent_resolution.py](../../../../../../../tests/test_intent_resolution.py) — direct import
   - `test_check_dates_read_the_due_hint_then_the_default_delay`
 - [tests/test_reader_followups.py](../../../../../../../tests/test_reader_followups.py) — direct import

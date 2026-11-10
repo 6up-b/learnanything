@@ -61,13 +61,13 @@ For system intent, use [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/instructional/__init__|learnloop.instructional]] | [[Reference/Modules/learnloop/instructional/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/instructional/discriminating|learnloop.instructional.discriminating]] | [[Reference/Modules/learnloop/instructional/discriminating#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/instructional/exercises|learnloop.instructional.exercises]] | [[Reference/Modules/learnloop/instructional/exercises#^module-purpose|purpose]] | `ACTIVE` | 4 | 6 |
+| [[Reference/Modules/learnloop/instructional/exercises|learnloop.instructional.exercises]] | [[Reference/Modules/learnloop/instructional/exercises#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
 | [[Reference/Modules/learnloop/instructional/exposure|learnloop.instructional.exposure]] | [[Reference/Modules/learnloop/instructional/exposure#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/instructional/harvest|learnloop.instructional.harvest]] | [[Reference/Modules/learnloop/instructional/harvest#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
 | [[Reference/Modules/learnloop/instructional/interventions|learnloop.instructional.interventions]] | [[Reference/Modules/learnloop/instructional/interventions#^module-purpose|purpose]] | `ACTIVE` | 10 | 5 |
 | [[Reference/Modules/learnloop/instructional/needs|learnloop.instructional.needs]] | [[Reference/Modules/learnloop/instructional/needs#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
 | [[Reference/Modules/learnloop/instructional/offers|learnloop.instructional.offers]] | [[Reference/Modules/learnloop/instructional/offers#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/instructional/policy|learnloop.instructional.policy]] | [[Reference/Modules/learnloop/instructional/policy#^module-purpose|purpose]] | `ACTIVE` | 14 | 17 |
+| [[Reference/Modules/learnloop/instructional/policy|learnloop.instructional.policy]] | [[Reference/Modules/learnloop/instructional/policy#^module-purpose|purpose]] | `ACTIVE` | 14 | 16 |
 | [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]] | [[Reference/Modules/learnloop/instructional/practice#^module-purpose|purpose]] | `ACTIVE` | 7 | 9 |
 | [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]] | [[Reference/Modules/learnloop/instructional/reader_digest#^module-purpose|purpose]] | `ACTIVE` | 2 | 6 |
 | [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] | [[Reference/Modules/learnloop/instructional/reader_followups#^module-purpose|purpose]] | `ACTIVE` | 3 | 16 |

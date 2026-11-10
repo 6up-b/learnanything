@@ -47,24 +47,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/actions.py](../../../../../../src/learnloop/teacher/actions.py) |
-| Source lines | 244 |
+| Source lines | 243 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ActionRefused(ValueError)` ([source](../../../../../../src/learnloop/teacher/actions.py), line 37)
-  - `__init__(self, code: str, message: str) -> None` (line 38; internal)
-- `caller_for(state: Any) -> Any` ([source](../../../../../../src/learnloop/teacher/actions.py), line 43)
-- `run_read(vault: Any, repository: Any, state: Any, request: ActionRequestV1, *, model: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/actions.py), line 54)
-- `read_source(vault: Any, repository: Any, state: Any, refs: list[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/actions.py), line 74)
-- `find(vault: Any, repository: Any, state: Any, request: ActionRequestV1, *, model: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/actions.py), line 130)
-- `read_history(vault: Any, repository: Any, state: Any, refs: list[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/actions.py), line 174)
+- `class ActionRefused(ValueError)` ([source](../../../../../../src/learnloop/teacher/actions.py), line 36)
+  - `__init__(self, code: str, message: str) -> None` (line 37; internal)
+- `caller_for(state: Any) -> Any` ([source](../../../../../../src/learnloop/teacher/actions.py), line 42)
+- `run_read(vault: Any, repository: Any, state: Any, request: ActionRequestV1, *, model: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/actions.py), line 53)
+- `read_source(vault: Any, repository: Any, state: Any, refs: list[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/actions.py), line 73)
+- `find(vault: Any, repository: Any, state: Any, request: ActionRequestV1, *, model: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/actions.py), line 129)
+- `read_history(vault: Any, repository: Any, state: Any, refs: list[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/actions.py), line 173)
 
 ### Module constants
 
-- `_HISTORY_TEXT_CHARS` ([src/learnloop/teacher/actions.py](../../../../../../src/learnloop/teacher/actions.py), line 34)
+- `_HISTORY_TEXT_CHARS` ([src/learnloop/teacher/actions.py](../../../../../../src/learnloop/teacher/actions.py), line 33)
 
 ### Explicit exports
 
@@ -79,7 +79,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_open_solution(state: Any) -> str | None` ([source](../../../../../../src/learnloop/teacher/actions.py), line 68)
+- `_open_solution(state: Any) -> str | None` ([source](../../../../../../src/learnloop/teacher/actions.py), line 67)
 
 ## Who imports or calls it
 
@@ -104,7 +104,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `typing`
+- Standard library: `__future__`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

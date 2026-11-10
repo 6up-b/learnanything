@@ -184,7 +184,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/cli/diagnose|learnloop.cli.diagnose]] — imports `DECIDER_ROUTE`, `ReviewClients`, `ReviewOptions`, `data_check`, `decider_route_profile`, `estimate_spend`, `plan_review`, `register_decider_route`, `resolve_review_clients`, `route_profiles`, `run_review`, `unavailable_arms`; statically calls `ReviewOptions`, `data_check`, `decider_route_profile`, `estimate_spend`, `plan_review`, `register_decider_route`, `resolve_review_clients`, `route_profiles`, `run_review`, `unavailable_arms`
 - [[Reference/Modules/learnloop/diagnosis/offline_review/links|learnloop.diagnosis.offline_review.links]] — imports `RUN_FILE`, `SCRATCH_FILE`
-- [[Reference/Modules/learnloop/diagnosis/offline_review/report|learnloop.diagnosis.offline_review.report]] — imports `MAIN_ARMS`, `RUN_FILE`, `SCRATCH_FILE`
+- [[Reference/Modules/learnloop/diagnosis/offline_review/report|learnloop.diagnosis.offline_review.report]] — imports `RUN_FILE`, `SCRATCH_FILE`
 - [[Reference/Modules/learnloop/diagnosis/offline_review/spot_check|learnloop.diagnosis.offline_review.spot_check]] — imports `MAIN_ARMS`, `RUN_FILE`, `SCRATCH_FILE`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/guard|learnloop.diagnosis.recurrence.guard]] — imports `RUN_FILE`, `SCRATCH_FILE`
 - [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `route_profiles`; statically calls `route_profiles`
@@ -200,7 +200,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `provider_for_task`, `ready_client_for_task`; calls `provider_for_task`, `ready_client_for_task`
 - [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] — imports `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`; calls `SpendEstimate`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `ISOLATED_TURN`, `READ_ONLY_WORKSPACE`
-- [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]] — imports `GRADING_PROMPT_VERSION`, `GradingContext`, `GradingProposal`, `grading_prompt`; calls `grading_prompt`
+- [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]] — imports `GRADING_PROMPT_VERSION`, `GradingProposal`, `grading_prompt`; calls `grading_prompt`
 - [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] — imports `BLIND_GRADING_PROMPT_VERSION`, `blind_grading_context`, `blind_grading_context_hash`, `blind_grading_prompt`, `request_blind_grading_proposal`, `validate_blind_grading_proposal`; calls `blind_grading_context`, `blind_grading_context_hash`, `blind_grading_prompt`, `request_blind_grading_proposal`, `validate_blind_grading_proposal`
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `GradingValidationError`, `build_grading_context`, `grading_context_hash`, `request_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`; calls `build_grading_context`, `grading_context_hash`, `request_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`

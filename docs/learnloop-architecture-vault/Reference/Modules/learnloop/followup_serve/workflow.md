@@ -356,7 +356,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_diagnoser_reads_only_marks_made_before_the_attempt_it_is_on`
   - `test_the_switch_off_keeps_the_diagnosers_context_as_it_was_whatever_rows_exist`
   - `test_with_no_probe_the_list_is_on_the_feedback_screen`
-- [tests/test_hypothesis_marks_context.py](../../../../../../tests/test_hypothesis_marks_context.py) — direct import
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_a_lesson_win_after_a_miss_generates_nothing_and_the_offer_page_opens_from_next`
   - `test_a_lesson_win_over_a_ready_probe_releases_what_was_held_and_the_probe_waits`

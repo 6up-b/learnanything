@@ -47,42 +47,42 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/experiments/contextual_embeddings/retrieval.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py) |
-| Source lines | 328 |
+| Source lines | 327 |
 | Owning package | [[Reference/Modules/learnloop/experiments/contextual_embeddings/_package|learnloop.experiments.contextual_embeddings]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `preceding_text(snapshot: CorpusSnapshot, unit: CandidateUnit) -> tuple[str | None, str]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 68) — The preceding numbered label and up to ``PRECEDING_CHARS`` of the preceding unit, within the same extraction, section and policy segment.
-- `recipe_text(snapshot: CorpusSnapshot, unit: CandidateUnit, recipe: str, headers: Mapping[str, str] | None=None) -> str` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 88)
-- `document_vector_key(space_id: str, snapshot: CorpusSnapshot, units: Sequence[CandidateUnit], texts: Sequence[str]) -> str` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 114) — The spec's ``document_vector_key`` (§4.3): the space, the extraction revision, every context span and offset, the targets, the policy, and the exact texts (which carry any generated-context dependency).
-- `documents_for(snapshot: CorpusSnapshot, encoding: str, recipe: str, space_id: str, headers: Mapping[str, str] | None=None) -> tuple[list[Document], dict[str, str]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 126) — The documents an arm encodes, and ``{chunk_id: unit_id}``.
-- `exact_search(index: SpaceVectors, query: Sequence[float], *, query_encoder: str, top_k: int=pins.POOL_DEPTH, allowed: set[str] | None=None) -> list[tuple[str, float]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 153) — Ordinary cosine over normalized vectors, best first, ties by id.
-- `class BM25` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 177) — Okapi BM25 (k1 1.2, b 0.75) over unit texts; ties by id.
-  - `build(cls, texts: Mapping[str, str]) -> BM25` (line 186; public)
-  - `search(self, query: str, top_k: int=pins.POOL_DEPTH) -> list[tuple[str, float]]` (line 190; public)
-- `class GeneratedContext(WireModel)` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 219)
-- `class GeneratedContexts(WireModel)` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 224)
-- `context_prompt(snapshot: CorpusSnapshot, window: Window, targets: Sequence[str] | None=None) -> tuple[str, dict[str, str]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 233) — One prompt per window: its permitted units as the excerpt, one ref per unit.
-- `generate_contexts(snapshot: CorpusSnapshot, caller: Any) -> tuple[dict[str, str], dict[str, int]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 282) — ``{unit_id: context}`` for every unit, one call per window; a missing or out-of-range context is counted (``stats``) and the unit is reported without an R3 vector rather than silently given another recipe.
-- `units_from_blocks(snapshot: CorpusSnapshot, hits: Sequence[tuple[str, str]]) -> tuple[list[str], dict[str, int]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 308) — Production block hits mapped to the units that hold them (first occurrence), withheld or unmapped blocks dropped and counted.
+- `preceding_text(snapshot: CorpusSnapshot, unit: CandidateUnit) -> tuple[str | None, str]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 67) — The preceding numbered label and up to ``PRECEDING_CHARS`` of the preceding unit, within the same extraction, section and policy segment.
+- `recipe_text(snapshot: CorpusSnapshot, unit: CandidateUnit, recipe: str, headers: Mapping[str, str] | None=None) -> str` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 87)
+- `document_vector_key(space_id: str, snapshot: CorpusSnapshot, units: Sequence[CandidateUnit], texts: Sequence[str]) -> str` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 113) — The spec's ``document_vector_key`` (§4.3): the space, the extraction revision, every context span and offset, the targets, the policy, and the exact texts (which carry any generated-context dependency).
+- `documents_for(snapshot: CorpusSnapshot, encoding: str, recipe: str, space_id: str, headers: Mapping[str, str] | None=None) -> tuple[list[Document], dict[str, str]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 125) — The documents an arm encodes, and ``{chunk_id: unit_id}``.
+- `exact_search(index: SpaceVectors, query: Sequence[float], *, query_encoder: str, top_k: int=pins.POOL_DEPTH, allowed: set[str] | None=None) -> list[tuple[str, float]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 152) — Ordinary cosine over normalized vectors, best first, ties by id.
+- `class BM25` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 176) — Okapi BM25 (k1 1.2, b 0.75) over unit texts; ties by id.
+  - `build(cls, texts: Mapping[str, str]) -> BM25` (line 185; public)
+  - `search(self, query: str, top_k: int=pins.POOL_DEPTH) -> list[tuple[str, float]]` (line 189; public)
+- `class GeneratedContext(WireModel)` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 218)
+- `class GeneratedContexts(WireModel)` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 223)
+- `context_prompt(snapshot: CorpusSnapshot, window: Window, targets: Sequence[str] | None=None) -> tuple[str, dict[str, str]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 232) — One prompt per window: its permitted units as the excerpt, one ref per unit.
+- `generate_contexts(snapshot: CorpusSnapshot, caller: Any) -> tuple[dict[str, str], dict[str, int]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 281) — ``{unit_id: context}`` for every unit, one call per window; a missing or out-of-range context is counted (``stats``) and the unit is reported without an R3 vector rather than silently given another recipe.
+- `units_from_blocks(snapshot: CorpusSnapshot, hits: Sequence[tuple[str, str]]) -> tuple[list[str], dict[str, int]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 307) — Production block hits mapped to the units that hold them (first occurrence), withheld or unmapped blocks dropped and counted.
 
 ### Module constants
 
-- `PRECEDING_CHARS` ([src/learnloop/experiments/contextual_embeddings/retrieval.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 52)
-- `CONTEXT_PROMPT_VERSION` ([src/learnloop/experiments/contextual_embeddings/retrieval.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 53)
-- `CONTEXT_INSTRUCTIONS` ([src/learnloop/experiments/contextual_embeddings/retrieval.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 54)
-- `_WORD` ([src/learnloop/experiments/contextual_embeddings/retrieval.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 169)
-- `CONTEXT_SUBSET_INSTRUCTIONS` ([src/learnloop/experiments/contextual_embeddings/retrieval.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 229)
-- `SPLIT_ON` ([src/learnloop/experiments/contextual_embeddings/retrieval.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 253)
-- `SKIP_ON` ([src/learnloop/experiments/contextual_embeddings/retrieval.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 256)
+- `PRECEDING_CHARS` ([src/learnloop/experiments/contextual_embeddings/retrieval.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 51)
+- `CONTEXT_PROMPT_VERSION` ([src/learnloop/experiments/contextual_embeddings/retrieval.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 52)
+- `CONTEXT_INSTRUCTIONS` ([src/learnloop/experiments/contextual_embeddings/retrieval.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 53)
+- `_WORD` ([src/learnloop/experiments/contextual_embeddings/retrieval.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 168)
+- `CONTEXT_SUBSET_INSTRUCTIONS` ([src/learnloop/experiments/contextual_embeddings/retrieval.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 228)
+- `SPLIT_ON` ([src/learnloop/experiments/contextual_embeddings/retrieval.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 252)
+- `SKIP_ON` ([src/learnloop/experiments/contextual_embeddings/retrieval.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 255)
 
 ## Internal implementation anchors
 
-- `_sha(*parts: Any) -> str` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 61)
-- `_terms(text: str) -> list[str]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 172)
-- `_window_contexts(snapshot: CorpusSnapshot, window: Window, caller: Any, targets: Sequence[str] | None, stats: dict[str, Any]) -> list[tuple[str, str]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 259)
+- `_sha(*parts: Any) -> str` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 60)
+- `_terms(text: str) -> list[str]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 171)
+- `_window_contexts(snapshot: CorpusSnapshot, window: Window, caller: Any, targets: Sequence[str] | None, stats: dict[str, Any]) -> list[tuple[str, str]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/retrieval.py), line 258)
 
 ## Who imports or calls it
 
@@ -102,7 +102,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] — imports `WireModel`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `render_structured_prompt`; calls `render_structured_prompt`
-- [[Reference/Modules/learnloop/experiments/contextual_embeddings/adapters|learnloop.experiments.contextual_embeddings.adapters]] — imports `Chunk`, `Document`, `SpaceVectors`, `assert_compatible`, `query_vector_key`; calls `Chunk`, `Document`, `assert_compatible`
+- [[Reference/Modules/learnloop/experiments/contextual_embeddings/adapters|learnloop.experiments.contextual_embeddings.adapters]] — imports `Chunk`, `Document`, `SpaceVectors`, `assert_compatible`; calls `Chunk`, `Document`, `assert_compatible`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/budget|learnloop.experiments.contextual_embeddings.budget]] — imports `E0ProviderFailure`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/corpus|learnloop.experiments.contextual_embeddings.corpus]] — imports `CandidateUnit`, `CorpusSnapshot`, `Window`, `alias`; calls `alias`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/pins|learnloop.experiments.contextual_embeddings.pins]] — imports `module`

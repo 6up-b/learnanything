@@ -971,7 +971,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
   - `test_f1_a_slow_llm_leaves_the_numeric_share_in_place`
   - `test_f9_the_drawn_options_forecast_is_resolved_and_reported`
-- [tests/test_ro4_objective_serving.py](../../../../../../tests/test_ro4_objective_serving.py) — direct import
 - [tests/test_ro4_trace_report.py](../../../../../../tests/test_ro4_trace_report.py) — direct import
   - `test_the_why_surface_offers_the_trace_in_plain_words`
 - [tests/test_ro5_codex_rereview.py](../../../../../../tests/test_ro5_codex_rereview.py) — direct import

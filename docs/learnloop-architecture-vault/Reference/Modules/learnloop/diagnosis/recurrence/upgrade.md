@@ -46,22 +46,22 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/recurrence/upgrade.py](../../../../../../../src/learnloop/diagnosis/recurrence/upgrade.py) |
-| Source lines | 216 |
+| Source lines | 217 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `upgrade_to_mvp012(root: Path, *, clock: Clock | None=None) -> UpgradeResult` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/upgrade.py), line 77)
-- `guard_findings(vault: LoadedVault, repository: Repository) -> tuple[list[str], dict[str, Any] | None]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/upgrade.py), line 133) — Why the guard has not passed for the configured judge (empty: it passed).
-- `advisory_notes(problems: list[str], guard: dict[str, Any] | None) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/upgrade.py), line 195) — The guard's status for an upgrade it does not gate (owner, 2026-10-12).
+- `upgrade_to_mvp012(root: Path, *, clock: Clock | None=None) -> UpgradeResult` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/upgrade.py), line 78)
+- `guard_findings(vault: LoadedVault, repository: Repository) -> tuple[list[str], dict[str, Any] | None]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/upgrade.py), line 134) — Why the guard has not passed for the configured judge (empty: it passed).
+- `advisory_notes(problems: list[str], guard: dict[str, Any] | None) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/upgrade.py), line 196) — The guard's status for an upgrade it does not gate (owner, 2026-10-12).
 
 ### Module constants
 
-- `LOG` ([src/learnloop/diagnosis/recurrence/upgrade.py](../../../../../../../src/learnloop/diagnosis/recurrence/upgrade.py), line 69)
-- `_CHAINED_PREDECESSORS` ([src/learnloop/diagnosis/recurrence/upgrade.py](../../../../../../../src/learnloop/diagnosis/recurrence/upgrade.py), line 74)
-- `M1_RUN_ADDS` ([src/learnloop/diagnosis/recurrence/upgrade.py](../../../../../../../src/learnloop/diagnosis/recurrence/upgrade.py), line 187)
+- `LOG` ([src/learnloop/diagnosis/recurrence/upgrade.py](../../../../../../../src/learnloop/diagnosis/recurrence/upgrade.py), line 70)
+- `_CHAINED_PREDECESSORS` ([src/learnloop/diagnosis/recurrence/upgrade.py](../../../../../../../src/learnloop/diagnosis/recurrence/upgrade.py), line 75)
+- `M1_RUN_ADDS` ([src/learnloop/diagnosis/recurrence/upgrade.py](../../../../../../../src/learnloop/diagnosis/recurrence/upgrade.py), line 188)
 
 ### Explicit exports
 
@@ -98,6 +98,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/substrate/p0_projection|learnloop.substrate.p0_projection]] — imports `activate_p0_projection`; calls `activate_p0_projection`
 - [[Reference/Modules/learnloop/substrate/recurrence_groups|learnloop.substrate.recurrence_groups]] — imports `activate_recurrence_groups`, `prepare_recurrence_groups`; calls `activate_recurrence_groups`, `prepare_recurrence_groups`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
+- [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `open_vault_repository`; calls `open_vault_repository`
 

@@ -132,7 +132,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_full_live_walk_reproduces_canonical_sequence`
 - [tests/test_daily_loop_golden_path_lifecycle.py](../../../../../../tests/test_daily_loop_golden_path_lifecycle.py) — direct import
   - `test_assess_open_refuses_a_parked_lo_without_burning_the_surface`
-- [tests/test_diagnostic_pack.py](../../../../../../tests/test_diagnostic_pack.py) — direct import
 - [tests/test_failure_triage.py](../../../../../../tests/test_failure_triage.py) — direct import
   - `test_concentrated_signature_distribution_stays_tier_one`
   - `test_decide_commits_the_aid_and_routes_the_run`

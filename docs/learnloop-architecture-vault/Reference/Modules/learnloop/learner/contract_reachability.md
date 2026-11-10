@@ -47,58 +47,58 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/contract_reachability.py](../../../../../../src/learnloop/learner/contract_reachability.py) |
-| Source lines | 722 |
+| Source lines | 721 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ReachabilityVerdict(StrEnum)` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 106) — §5.8.2's four verdicts, plus one abstention arm.
-  - `reachable(self) -> bool` (line 140; public)
-- `class ContractCell` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 166) — One ``(LO, facet, required capability)`` obligation of a blueprint (§7.2).
-  - `integration(self) -> bool` (line 183; public) — True when some recipe names this cell as its integration component.
-  - `key(self) -> tuple[str, str, str]` (line 193; public)
-  - `as_dict(self) -> dict[str, Any]` (line 196; public)
-- `class CellReachability` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 209) — A contract cell plus its verdict and the instrument evidence behind it.
-  - `remedy(self) -> str` (line 231; public)
-  - `as_dict(self) -> dict[str, Any]` (line 234; public)
-- `class ContractReachabilityReport` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 252) — Per-cell verdicts plus §5.8's aggregate proportions.
-  - `counts(self) -> dict[str, int]` (line 286; public) — Cell count per verdict, every arm present (zeros included).
-  - `integration_counts(self) -> dict[str, int]` (line 295; public)
-  - `cell_count(self) -> int` (line 303; public)
-  - `integration_cell_count(self) -> int` (line 307; public)
-  - `reachable_count(self) -> int` (line 311; public)
-  - `unreachable_count(self) -> int` (line 315; public)
-  - `reachable_share(self) -> float | None` (line 319; public) — Reachable / total, or ``None`` when there are no contract cells.
-  - `integration_reachable_share(self) -> float | None` (line 332; public)
-  - `commissioning_queue(self) -> tuple[CellReachability, ...]` (line 338; public) — Non-reachable cells, cheapest remedy first (Stage 5.1's input).
-  - `by_verdict(self, verdict: ReachabilityVerdict) -> tuple[CellReachability, ...]` (line 348; public)
-  - `summary(self) -> dict[str, Any]` (line 351; public) — Aggregate-only payload (bounded size; safe to embed in doctor JSON).
-  - `as_dict(self) -> dict[str, Any]` (line 373; public)
-- `class InstrumentPool` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 464) — facet -> capability -> instrument ids, plus the roles seen per facet.
-  - `capabilities(self, facet_id: str) -> tuple[str, ...]` (line 476; public) — Observed capabilities for ``facet_id``, in ladder order.
-  - `item_ids(self, facet_id: str, capability: str | None=None) -> tuple[str, ...]` (line 489; public)
-- `build_instrument_pool(vault: LoadedVault, *, statuses: Iterable[str]=INSTRUMENT_STATUSES) -> InstrumentPool` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 499) — Index every active practice item by the cells it can observe.
-- `contract_cells(vault: LoadedVault) -> tuple[tuple[ContractCell, ...], int]` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 561) — Every deduped contract cell in the vault, plus the advisory-component count.
-- `classify_cell(required_capability: str, observed_capabilities: Iterable[str]) -> ReachabilityVerdict` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 625) — The §5.8.2 verdict for one cell, given the capabilities its facet is observed at.
-- `analyze_contract_reachability(vault: LoadedVault, *, statuses: Iterable[str]=INSTRUMENT_STATUSES) -> ContractReachabilityReport` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 665) — Static reachability report over a whole vault (§5.8.2).
+- `class ReachabilityVerdict(StrEnum)` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 105) — §5.8.2's four verdicts, plus one abstention arm.
+  - `reachable(self) -> bool` (line 139; public)
+- `class ContractCell` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 165) — One ``(LO, facet, required capability)`` obligation of a blueprint (§7.2).
+  - `integration(self) -> bool` (line 182; public) — True when some recipe names this cell as its integration component.
+  - `key(self) -> tuple[str, str, str]` (line 192; public)
+  - `as_dict(self) -> dict[str, Any]` (line 195; public)
+- `class CellReachability` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 208) — A contract cell plus its verdict and the instrument evidence behind it.
+  - `remedy(self) -> str` (line 230; public)
+  - `as_dict(self) -> dict[str, Any]` (line 233; public)
+- `class ContractReachabilityReport` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 251) — Per-cell verdicts plus §5.8's aggregate proportions.
+  - `counts(self) -> dict[str, int]` (line 285; public) — Cell count per verdict, every arm present (zeros included).
+  - `integration_counts(self) -> dict[str, int]` (line 294; public)
+  - `cell_count(self) -> int` (line 302; public)
+  - `integration_cell_count(self) -> int` (line 306; public)
+  - `reachable_count(self) -> int` (line 310; public)
+  - `unreachable_count(self) -> int` (line 314; public)
+  - `reachable_share(self) -> float | None` (line 318; public) — Reachable / total, or ``None`` when there are no contract cells.
+  - `integration_reachable_share(self) -> float | None` (line 331; public)
+  - `commissioning_queue(self) -> tuple[CellReachability, ...]` (line 337; public) — Non-reachable cells, cheapest remedy first (Stage 5.1's input).
+  - `by_verdict(self, verdict: ReachabilityVerdict) -> tuple[CellReachability, ...]` (line 347; public)
+  - `summary(self) -> dict[str, Any]` (line 350; public) — Aggregate-only payload (bounded size; safe to embed in doctor JSON).
+  - `as_dict(self) -> dict[str, Any]` (line 372; public)
+- `class InstrumentPool` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 463) — facet -> capability -> instrument ids, plus the roles seen per facet.
+  - `capabilities(self, facet_id: str) -> tuple[str, ...]` (line 475; public) — Observed capabilities for ``facet_id``, in ladder order.
+  - `item_ids(self, facet_id: str, capability: str | None=None) -> tuple[str, ...]` (line 488; public)
+- `build_instrument_pool(vault: LoadedVault, *, statuses: Iterable[str]=INSTRUMENT_STATUSES) -> InstrumentPool` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 498) — Index every active practice item by the cells it can observe.
+- `contract_cells(vault: LoadedVault) -> tuple[tuple[ContractCell, ...], int]` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 560) — Every deduped contract cell in the vault, plus the advisory-component count.
+- `classify_cell(required_capability: str, observed_capabilities: Iterable[str]) -> ReachabilityVerdict` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 624) — The §5.8.2 verdict for one cell, given the capabilities its facet is observed at.
+- `analyze_contract_reachability(vault: LoadedVault, *, statuses: Iterable[str]=INSTRUMENT_STATUSES) -> ContractReachabilityReport` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 664) — Static reachability report over a whole vault (§5.8.2).
 
 ### Module constants
 
-- `CAPABILITY_RANK` ([src/learnloop/learner/contract_reachability.py](../../../../../../src/learnloop/learner/contract_reachability.py), line 81)
-- `CONTRACT_MODALITIES` ([src/learnloop/learner/contract_reachability.py](../../../../../../src/learnloop/learner/contract_reachability.py), line 91)
-- `INSTRUMENT_STATUSES` ([src/learnloop/learner/contract_reachability.py](../../../../../../src/learnloop/learner/contract_reachability.py), line 97)
-- `OBSERVING_ROLES` ([src/learnloop/learner/contract_reachability.py](../../../../../../src/learnloop/learner/contract_reachability.py), line 103)
-- `_QUEUE_PRIORITY` ([src/learnloop/learner/contract_reachability.py](../../../../../../src/learnloop/learner/contract_reachability.py), line 147)
-- `_REMEDY` ([src/learnloop/learner/contract_reachability.py](../../../../../../src/learnloop/learner/contract_reachability.py), line 156)
+- `CAPABILITY_RANK` ([src/learnloop/learner/contract_reachability.py](../../../../../../src/learnloop/learner/contract_reachability.py), line 80)
+- `CONTRACT_MODALITIES` ([src/learnloop/learner/contract_reachability.py](../../../../../../src/learnloop/learner/contract_reachability.py), line 90)
+- `INSTRUMENT_STATUSES` ([src/learnloop/learner/contract_reachability.py](../../../../../../src/learnloop/learner/contract_reachability.py), line 96)
+- `OBSERVING_ROLES` ([src/learnloop/learner/contract_reachability.py](../../../../../../src/learnloop/learner/contract_reachability.py), line 102)
+- `_QUEUE_PRIORITY` ([src/learnloop/learner/contract_reachability.py](../../../../../../src/learnloop/learner/contract_reachability.py), line 146)
+- `_REMEDY` ([src/learnloop/learner/contract_reachability.py](../../../../../../src/learnloop/learner/contract_reachability.py), line 155)
 
 ## Internal implementation anchors
 
-- `_queue_sort_key(row: CellReachability) -> tuple[Any, ...]` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 381)
-- `_item_observed_capability(item: PracticeItem, tier: str) -> str` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 394) — Capability a criterion of ``tier`` observes on ``item``.
-- `class _Observation` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 413)
-- `_item_observations(vault: LoadedVault, item: PracticeItem) -> list[_Observation] | None` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 419) — Cells ``item`` can put evidence into, or ``None`` when it cannot be graded.
+- `_queue_sort_key(row: CellReachability) -> tuple[Any, ...]` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 380)
+- `_item_observed_capability(item: PracticeItem, tier: str) -> str` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 393) — Capability a criterion of ``tier`` observes on ``item``.
+- `class _Observation` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 412)
+- `_item_observations(vault: LoadedVault, item: PracticeItem) -> list[_Observation] | None` ([source](../../../../../../src/learnloop/learner/contract_reachability.py), line 418) — Cells ``item`` can put evidence into, or ``None`` when it cannot be graded.
 
 ## Who imports or calls it
 
@@ -123,7 +123,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/learner/capability_mapping|learnloop.learner.capability_mapping]] — imports `compile_criterion_targets`, `default_capability_for`, `is_valid_capability`; calls `compile_criterion_targets`, `default_capability_for`, `is_valid_capability`
 - [[Reference/Modules/learnloop/substrate/instrument_serving|learnloop.substrate.instrument_serving]] — imports `unservable_reason`; calls `unservable_reason`
-- [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `CAPABILITY_VOCABULARY`, `LoadedVault`, `PracticeItem`, `recipe_components`
+- [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `CAPABILITY_VOCABULARY`, `LoadedVault`, `PracticeItem`
 
 ### Platform and third-party dependencies
 

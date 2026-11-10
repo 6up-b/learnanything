@@ -57,7 +57,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/ingest/block_roles|learnloop.ingest.block_roles]] | [[Reference/Modules/learnloop/ingest/block_roles#^module-purpose|purpose]] | `ACTIVE` | 12 | 6 |
 | [[Reference/Modules/learnloop/ingest/detect|learnloop.ingest.detect]] | [[Reference/Modules/learnloop/ingest/detect#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/ingest/fetchers|learnloop.ingest.fetchers]] | [[Reference/Modules/learnloop/ingest/fetchers#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
-| [[Reference/Modules/learnloop/ingest/hashing|learnloop.ingest.hashing]] | [[Reference/Modules/learnloop/ingest/hashing#^module-purpose|purpose]] | `ACTIVE` | 12 | 20 |
+| [[Reference/Modules/learnloop/ingest/hashing|learnloop.ingest.hashing]] | [[Reference/Modules/learnloop/ingest/hashing#^module-purpose|purpose]] | `ACTIVE` | 10 | 20 |
 | [[Reference/Modules/learnloop/ingest/ir|learnloop.ingest.ir]] | [[Reference/Modules/learnloop/ingest/ir#^module-purpose|purpose]] | `ACTIVE` | 18 | 68 |
 | [[Reference/Modules/learnloop/ingest/locators|learnloop.ingest.locators]] | [[Reference/Modules/learnloop/ingest/locators#^module-purpose|purpose]] | `ACTIVE` | 28 | 12 |
 | [[Reference/Modules/learnloop/ingest/models|learnloop.ingest.models]] | [[Reference/Modules/learnloop/ingest/models#^module-purpose|purpose]] | `ACTIVE` | 8 | 2 |
@@ -80,13 +80,13 @@ For system intent, use [[Architecture Overview]].
 ### Packages that import this package
 
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 18 static module edges
-- [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] — 13 static module edges
+- [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] — 12 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 11 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 10 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 8 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 6 static module edges
-- [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 5 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 4 static module edges
+- [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 4 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 3 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 2 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 2 static module edges
@@ -119,18 +119,18 @@ flowchart LR
     n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
-    n_learnloop_content_synthesis["learnloop.content.synthesis"]
     n_learnloop_content_authoring["learnloop.content.authoring"]
+    n_learnloop_content_synthesis["learnloop.content.synthesis"]
     n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_content_pipeline -->|18| center
-    n_learnloop_ingest_extractors -->|13| center
+    n_learnloop_ingest_extractors -->|12| center
     n_learnloop_reader -->|11| center
     n_learnloop_content_sources -->|10| center
     n_learnloop_source_retrieval -->|8| center
     n_learnloop_sidecar_handlers -->|6| center
-    n_learnloop_content_synthesis -->|5| center
     n_learnloop_content_authoring -->|4| center
+    n_learnloop_content_synthesis -->|4| center
     n_learnloop_adaptive_difficulty -->|3| center
     n_learnloop_db -->|2| center
 ```

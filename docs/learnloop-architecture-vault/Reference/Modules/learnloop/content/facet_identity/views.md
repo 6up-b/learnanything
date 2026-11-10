@@ -121,7 +121,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_facet_identity.py](../../../../../../../tests/test_facet_identity.py) — direct import
   - `test_merge_unions_lists_and_sources_and_absorb_adds_the_claim`
-- [tests/test_facet_identity_composition.py](../../../../../../../tests/test_facet_identity_composition.py) — direct import
 
 ## Modification guidance
 

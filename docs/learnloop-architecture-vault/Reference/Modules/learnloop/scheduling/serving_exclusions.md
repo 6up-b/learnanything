@@ -89,7 +89,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]] — imports `out_of_timing_serving_exclusions`; statically calls `out_of_timing_serving_exclusions`
 - [[Reference/Modules/learnloop/diagnosis/quick_check|learnloop.diagnosis.quick_check]] — imports `out_of_timing_serving_exclusions`; statically calls `out_of_timing_serving_exclusions`
 - [[Reference/Modules/learnloop/practice_index/admission|learnloop.practice_index.admission]] — imports `out_of_timing_serving_exclusions`; statically calls `out_of_timing_serving_exclusions`
-- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `DEVICE_INELIGIBLE`, `PROBE_RESERVED_GATES`, `ServingExclusions`, `admission_reason`, `out_of_timing_serving_exclusions`, `routine_serving_exclusions`; statically calls `admission_reason`, `out_of_timing_serving_exclusions`, `routine_serving_exclusions`
+- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `DEVICE_INELIGIBLE`, `PROBE_RESERVED_GATES`, `admission_reason`, `out_of_timing_serving_exclusions`, `routine_serving_exclusions`; statically calls `admission_reason`, `out_of_timing_serving_exclusions`, `routine_serving_exclusions`
 
 ## Dependencies
 

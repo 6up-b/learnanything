@@ -47,34 +47,34 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/clarification.py](../../../../../../src/learnloop/attempts/clarification.py) |
-| Source lines | 505 |
+| Source lines | 504 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class Clarification` ([source](../../../../../../src/learnloop/attempts/clarification.py), line 79) — One clarification request, with its derived status.
-  - `status(self, *, now: str) -> str` (line 95; public) — ``pending`` | ``awaiting_regrade`` | ``answered`` | ``timed_out``.
-  - `as_dict(self, *, now: str) -> dict[str, Any]` (line 116; public)
-- `row_to_clarification(row: Any) -> Clarification` ([source](../../../../../../src/learnloop/attempts/clarification.py), line 133)
-- `record_clarification(repository: Repository, *, attempt_id: str, clarification: dict[str, Any], agent_run_id: str | None=None, grading_prompt_version: str | None=None, ttl_hours: int=DEFAULT_CLARIFICATION_TTL_HOURS, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/clarification.py), line 152) — Persist an accepted clarification request; returns its id (or None).
-- `pending_clarification(repository: Repository, attempt_id: str, *, clock: Clock | None=None) -> Clarification | None` ([source](../../../../../../src/learnloop/attempts/clarification.py), line 191) — The attempt's clarification if it is still askable, else None.
-- `answer_clarification(vault: LoadedVault, repository: Repository, *, attempt_id: str, answer_md: str, runtime=None, client=None, grading_source: str='codex', clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/clarification.py), line 208) — Record the learner's answer and re-grade the attempt with it in hand.
-- `resolve_awaiting_regrades(vault: LoadedVault, repository: Repository, *, runtime=None, client=None, grading_source: str='codex', limit: int | None=None, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/attempts/clarification.py), line 341) — Re-drive every clarification whose answer landed but whose re-grade did not.
-- `expire_clarifications(repository: Repository, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/attempts/clarification.py), line 424) — Clear the provisional grade state on every attempt with no live question.
-- `clarification_rate(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/clarification.py), line 476) — §3.A8's revert criterion, as a metric with an explicit unavailable arm.
+- `class Clarification` ([source](../../../../../../src/learnloop/attempts/clarification.py), line 78) — One clarification request, with its derived status.
+  - `status(self, *, now: str) -> str` (line 94; public) — ``pending`` | ``awaiting_regrade`` | ``answered`` | ``timed_out``.
+  - `as_dict(self, *, now: str) -> dict[str, Any]` (line 115; public)
+- `row_to_clarification(row: Any) -> Clarification` ([source](../../../../../../src/learnloop/attempts/clarification.py), line 132)
+- `record_clarification(repository: Repository, *, attempt_id: str, clarification: dict[str, Any], agent_run_id: str | None=None, grading_prompt_version: str | None=None, ttl_hours: int=DEFAULT_CLARIFICATION_TTL_HOURS, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/clarification.py), line 151) — Persist an accepted clarification request; returns its id (or None).
+- `pending_clarification(repository: Repository, attempt_id: str, *, clock: Clock | None=None) -> Clarification | None` ([source](../../../../../../src/learnloop/attempts/clarification.py), line 190) — The attempt's clarification if it is still askable, else None.
+- `answer_clarification(vault: LoadedVault, repository: Repository, *, attempt_id: str, answer_md: str, runtime=None, client=None, grading_source: str='codex', clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/clarification.py), line 207) — Record the learner's answer and re-grade the attempt with it in hand.
+- `resolve_awaiting_regrades(vault: LoadedVault, repository: Repository, *, runtime=None, client=None, grading_source: str='codex', limit: int | None=None, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/attempts/clarification.py), line 340) — Re-drive every clarification whose answer landed but whose re-grade did not.
+- `expire_clarifications(repository: Repository, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/attempts/clarification.py), line 423) — Clear the provisional grade state on every attempt with no live question.
+- `clarification_rate(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/clarification.py), line 475) — §3.A8's revert criterion, as a metric with an explicit unavailable arm.
 
 ### Module constants
 
-- `DEFAULT_CLARIFICATION_TTL_HOURS` ([src/learnloop/attempts/clarification.py](../../../../../../src/learnloop/attempts/clarification.py), line 57)
-- `CLARIFICATION_RATE_WARN_THRESHOLD` ([src/learnloop/attempts/clarification.py](../../../../../../src/learnloop/attempts/clarification.py), line 65)
-- `CLARIFICATION_RATE_MIN_ATTEMPTS` ([src/learnloop/attempts/clarification.py](../../../../../../src/learnloop/attempts/clarification.py), line 69)
-- `RESOLVED_OUTCOMES` ([src/learnloop/attempts/clarification.py](../../../../../../src/learnloop/attempts/clarification.py), line 75)
+- `DEFAULT_CLARIFICATION_TTL_HOURS` ([src/learnloop/attempts/clarification.py](../../../../../../src/learnloop/attempts/clarification.py), line 56)
+- `CLARIFICATION_RATE_WARN_THRESHOLD` ([src/learnloop/attempts/clarification.py](../../../../../../src/learnloop/attempts/clarification.py), line 64)
+- `CLARIFICATION_RATE_MIN_ATTEMPTS` ([src/learnloop/attempts/clarification.py](../../../../../../src/learnloop/attempts/clarification.py), line 68)
+- `RESOLVED_OUTCOMES` ([src/learnloop/attempts/clarification.py](../../../../../../src/learnloop/attempts/clarification.py), line 74)
 
 ## Internal implementation anchors
 
-- `_latest_grading_revision(repository: Repository, attempt_id: str) -> int | None` ([source](../../../../../../src/learnloop/attempts/clarification.py), line 325) — The highest grading revision now live on ``attempt_id``, or None.
+- `_latest_grading_revision(repository: Repository, attempt_id: str) -> int | None` ([source](../../../../../../src/learnloop/attempts/clarification.py), line 324) — The highest grading revision now live on ``attempt_id``, or None.
 
 ## Who imports or calls it
 
@@ -92,7 +92,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `PROVISIONAL_PENDING_CLARIFICATION`
 - [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `regrade_attempt`; calls `regrade_attempt`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`

@@ -47,31 +47,31 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py) |
-| Source lines | 246 |
+| Source lines | 245 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `hyper_fixed_name(point: P.HyperPoint) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 57)
-- `class Record` ([source](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 62)
-  - `as_dict(self) -> dict[str, Any]` (line 81; public)
-- `prequential(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str]=DEFAULT_ARMS, view: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 202) — Every arm's prequential predictions, keyed by attempt (zero model calls).
+- `hyper_fixed_name(point: P.HyperPoint) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 56)
+- `class Record` ([source](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 61)
+  - `as_dict(self) -> dict[str, Any]` (line 80; public)
+- `prequential(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str]=DEFAULT_ARMS, view: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 201) — Every arm's prequential predictions, keyed by attempt (zero model calls).
 
 ### Module constants
 
-- `SUBJECT` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 42)
-- `UNIFORM` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 43)
-- `LO` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 44)
-- `NOREAD` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 45)
-- `NOVERDICT` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 46)
-- `NOLESSON` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 48)
-- `HYPER_FINE` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 49)
-- `GRID` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 50)
-- `FIELD_ARMS` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 51)
-- `DEFAULT_ARMS` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 52)
-- `GRID_POINTS` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 54)
+- `SUBJECT` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 41)
+- `UNIFORM` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 42)
+- `LO` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 43)
+- `NOREAD` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 44)
+- `NOVERDICT` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 45)
+- `NOLESSON` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 47)
+- `HYPER_FINE` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 48)
+- `GRID` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 49)
+- `FIELD_ARMS` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 50)
+- `DEFAULT_ARMS` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 51)
+- `GRID_POINTS` ([src/learnloop/adaptive_difficulty/arms.py](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 53)
 
 ### Explicit exports
 
@@ -93,11 +93,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_p(view: View, spec: Any, warmth: float, weights: np.ndarray | None=None) -> tuple[float, np.ndarray]` ([source](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 92)
-- `_uniform_weights(view: View) -> np.ndarray` ([source](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 100)
-- `_run(events: RP.Events, settings: RP.ReplaySettings, *, base: bool, sink: dict[str, Record], names: Mapping[str, str], grid: '_GridArm | None'=None) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 105)
-- `class _GridArm` ([source](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 133) — ``:grid``: a QUEST+-exact grid for each cell's ability (cold-start prior), demand from the subject view's posterior feature effects and signal weights, learning at ``E[γ]``.
-- `_field_arms(connection: Any, vault: Any, view: Any, sink: dict[str, Record]) -> dict[str, int]` ([source](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 171) — Field's ``mastery_ekf`` and ``lo_general`` on field's rows (read through AD's history fallback), prequentially (predict, observe).
+- `_p(view: View, spec: Any, warmth: float, weights: np.ndarray | None=None) -> tuple[float, np.ndarray]` ([source](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 91)
+- `_uniform_weights(view: View) -> np.ndarray` ([source](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 99)
+- `_run(events: RP.Events, settings: RP.ReplaySettings, *, base: bool, sink: dict[str, Record], names: Mapping[str, str], grid: '_GridArm | None'=None) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 104)
+- `class _GridArm` ([source](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 132) — ``:grid``: a QUEST+-exact grid for each cell's ability (cold-start prior), demand from the subject view's posterior feature effects and signal weights, learning at ``E[γ]``.
+- `_field_arms(connection: Any, vault: Any, view: Any, sink: dict[str, Record]) -> dict[str, int]` ([source](../../../../../../src/learnloop/adaptive_difficulty/arms.py), line 170) — Field's ``mastery_ekf`` and ``lo_general`` on field's rows (read through AD's history fallback), prequentially (predict, observe).
 
 ## Who imports or calls it
 
@@ -114,7 +114,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `material_view`; calls `material_view`
 - [[Reference/Modules/learnloop/adaptive_difficulty/model|learnloop.adaptive_difficulty.model]] — imports `module`; calls `category_likelihood`, `expected_success`, `residual_success`
 - [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] — imports `entry`; calls `entry`
-- [[Reference/Modules/learnloop/adaptive_difficulty/outcomes|learnloop.adaptive_difficulty.outcomes]] — imports `module`
 - [[Reference/Modules/learnloop/adaptive_difficulty/priors|learnloop.adaptive_difficulty.priors]] — imports `module`; calls `feature_coding`
 - [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `module`; calls `load_events`, `run`
 - [[Reference/Modules/learnloop/adaptive_difficulty/state|learnloop.adaptive_difficulty.state]] — imports `View`

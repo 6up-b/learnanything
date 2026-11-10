@@ -281,7 +281,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_with_no_paid_answer_left_a_cached_line_stays_out_and_is_retried`
 - [tests/test_passage_links.py](../../../../../../tests/test_passage_links.py) — direct import
   - `test_the_judges_role_vocabulary_is_rw4es`
-- [tests/test_reader_ca3_compare_anywhere.py](../../../../../../tests/test_reader_ca3_compare_anywhere.py) — direct import
 - [tests/test_reader_compare_table.py](../../../../../../tests/test_reader_compare_table.py) — direct import
   - `test_compare_needs_two_pins_and_its_switch`
 - [tests/test_roles_judges.py](../../../../../../tests/test_roles_judges.py) — direct import

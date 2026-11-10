@@ -47,30 +47,30 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/instructional/exposure.py](../../../../../../src/learnloop/instructional/exposure.py) |
-| Source lines | 391 |
+| Source lines | 389 |
 | Owning package | [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class EquivalenceJudgment(WireModel)` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 63)
-- `class EquivalenceVerdicts(WireModel)` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 69)
-- `studied_worked_examples(repository: Repository, extraction_ids: Sequence[str], *, since: str) -> list[tuple[str, str, str, str]]` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 96) — Worked-example blocks shown to the learner, or in sections they read, since ``since``: ``(extraction_id, span_id, text, studied_at)``, where ``studied_at`` is the latest exposure or reading-progress stamp (S5's time since the related exposure, router §15.2's covariate).
-- `independent_check_eligibility(vault: LoadedVault, repository: Repository, candidate: Mapping[str, Any], *, intent: str, at: Any | None=None, picked_proposal_id: str | None=None, judge_client: Any | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 134) — Whether ``candidate`` may stand as an independent check now, and why not.
-- `practice_label(reasons: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 239) — The label for a candidate served as practice, not as an independent check.
-- `apply_dominance(entries: list[dict[str, Any]], eligibility: Mapping[str, Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 359) — A ``related``-labelled candidate never goes ahead of an unlabelled one whose robust value interval overlaps its own (a documented tie-break, decision-value §6.4).
+- `class EquivalenceJudgment(WireModel)` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 61)
+- `class EquivalenceVerdicts(WireModel)` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 67)
+- `studied_worked_examples(repository: Repository, extraction_ids: Sequence[str], *, since: str) -> list[tuple[str, str, str, str]]` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 94) — Worked-example blocks shown to the learner, or in sections they read, since ``since``: ``(extraction_id, span_id, text, studied_at)``, where ``studied_at`` is the latest exposure or reading-progress stamp (S5's time since the related exposure, router §15.2's covariate).
+- `independent_check_eligibility(vault: LoadedVault, repository: Repository, candidate: Mapping[str, Any], *, intent: str, at: Any | None=None, picked_proposal_id: str | None=None, judge_client: Any | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 132) — Whether ``candidate`` may stand as an independent check now, and why not.
+- `practice_label(reasons: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 237) — The label for a candidate served as practice, not as an independent check.
+- `apply_dominance(entries: list[dict[str, Any]], eligibility: Mapping[str, Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 357) — A ``related``-labelled candidate never goes ahead of an unlabelled one whose robust value interval overlaps its own (a documented tie-break, decision-value §6.4).
 
 ### Module constants
 
-- `EXPOSURE_RULE_VERSION` ([src/learnloop/instructional/exposure.py](../../../../../../src/learnloop/instructional/exposure.py), line 49)
-- `INDEPENDENT_INTENTS` ([src/learnloop/instructional/exposure.py](../../../../../../src/learnloop/instructional/exposure.py), line 50)
-- `EQUIVALENCE_PROMPT_VERSION` ([src/learnloop/instructional/exposure.py](../../../../../../src/learnloop/instructional/exposure.py), line 51)
-- `SHORTLIST` ([src/learnloop/instructional/exposure.py](../../../../../../src/learnloop/instructional/exposure.py), line 53)
-- `_EQUIVALENCE_INSTRUCTIONS` ([src/learnloop/instructional/exposure.py](../../../../../../src/learnloop/instructional/exposure.py), line 54)
-- `EQUIVALENCE_TASK` ([src/learnloop/instructional/exposure.py](../../../../../../src/learnloop/instructional/exposure.py), line 74)
-- `_PRACTICE_LABELS` ([src/learnloop/instructional/exposure.py](../../../../../../src/learnloop/instructional/exposure.py), line 231)
-- `SEEN_SINCE_LABEL` ([src/learnloop/instructional/exposure.py](../../../../../../src/learnloop/instructional/exposure.py), line 236)
+- `EXPOSURE_RULE_VERSION` ([src/learnloop/instructional/exposure.py](../../../../../../src/learnloop/instructional/exposure.py), line 47)
+- `INDEPENDENT_INTENTS` ([src/learnloop/instructional/exposure.py](../../../../../../src/learnloop/instructional/exposure.py), line 48)
+- `EQUIVALENCE_PROMPT_VERSION` ([src/learnloop/instructional/exposure.py](../../../../../../src/learnloop/instructional/exposure.py), line 49)
+- `SHORTLIST` ([src/learnloop/instructional/exposure.py](../../../../../../src/learnloop/instructional/exposure.py), line 51)
+- `_EQUIVALENCE_INSTRUCTIONS` ([src/learnloop/instructional/exposure.py](../../../../../../src/learnloop/instructional/exposure.py), line 52)
+- `EQUIVALENCE_TASK` ([src/learnloop/instructional/exposure.py](../../../../../../src/learnloop/instructional/exposure.py), line 72)
+- `_PRACTICE_LABELS` ([src/learnloop/instructional/exposure.py](../../../../../../src/learnloop/instructional/exposure.py), line 229)
+- `SEEN_SINCE_LABEL` ([src/learnloop/instructional/exposure.py](../../../../../../src/learnloop/instructional/exposure.py), line 234)
 
 ### Explicit exports
 
@@ -88,14 +88,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_iso(moment: Any) -> str` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 85)
-- `_family_items(vault: LoadedVault, item_id: str) -> set[str]` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 89)
-- `_seconds_since(now: Any, created_at: str) -> float | None` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 251)
-- `_solution_spans(connection: Any, extraction_id: str, span_ids: Sequence[str], candidate: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 258) — The exercise's own book solution, when the import found one.
-- `_candidate_text(vault: LoadedVault, repository: Repository, candidate: Mapping[str, Any], item: Any) -> str` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 276)
-- `_worked_example_rule(vault: LoadedVault, repository: Repository, candidate: Mapping[str, Any], item: Any, extraction_id: str | None, *, since: str, judge_client: Any | None, now: Any | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 282)
-- `_judge_equivalence(vault, repository, prompt, refs, candidate, text, judge_client, validate)` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 332)
-- `_equivalence_result(refs, outcome) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 347)
+- `_iso(moment: Any) -> str` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 83)
+- `_family_items(vault: LoadedVault, item_id: str) -> set[str]` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 87)
+- `_seconds_since(now: Any, created_at: str) -> float | None` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 249)
+- `_solution_spans(connection: Any, extraction_id: str, span_ids: Sequence[str], candidate: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 256) — The exercise's own book solution, when the import found one.
+- `_candidate_text(vault: LoadedVault, repository: Repository, candidate: Mapping[str, Any], item: Any) -> str` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 274)
+- `_worked_example_rule(vault: LoadedVault, repository: Repository, candidate: Mapping[str, Any], item: Any, extraction_id: str | None, *, since: str, judge_client: Any | None, now: Any | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 280)
+- `_judge_equivalence(vault, repository, prompt, refs, candidate, text, judge_client, validate)` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 330)
+- `_equivalence_result(refs, outcome) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/exposure.py), line 345)
 
 ## Who imports or calls it
 
@@ -121,7 +121,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/source_block_fts|learnloop.db.stores.source_block_fts]] — imports `blocks_by_key`, `extraction_units`, `search_blocks`; calls `blocks_by_key`, `extraction_units`, `search_blocks`
 - [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]] — imports `impressions_of_item`, `impressions_of_spans`; calls `impressions_of_item`, `impressions_of_spans`
 - [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `COLD_RETRIEVAL_DELAY`
-- [[Reference/Modules/learnloop/instructional/exercises|learnloop.instructional.exercises]] — imports `exercise_regions`
 - [[Reference/Modules/learnloop/practice_index/listwise|learnloop.practice_index.listwise]] — imports `ListwiseTask`, `judge_listwise`, `listwise_caps`; calls `ListwiseTask`, `judge_listwise`, `listwise_caps`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `plan_route`; calls `plan_route`
 - [[Reference/Modules/learnloop/reveal_coverage|learnloop.reveal_coverage]] — imports `routine_coverage_sql`, `routine_window_start`; calls `routine_coverage_sql`, `routine_window_start`
@@ -131,7 +130,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `contextlib`, `datetime`, `json`, `typing`
+- Standard library: `__future__`, `collections`, `contextlib`, `json`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

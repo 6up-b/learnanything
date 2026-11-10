@@ -47,50 +47,50 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py) |
-| Source lines | 939 |
+| Source lines | 938 |
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class IntentJudgment(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 125)
-- `class IntentVerification(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 131)
-- `intent_task(intent: str) -> ListwiseTask` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 136)
-- `class SourceHits` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 151) — Verbatim passages for an intent, plus the receipt-grade manifest (§5.5).
-  - `as_dict(self) -> dict[str, Any]` (line 161; public)
-- `span_keys(values: Sequence[Any]) -> set[SpanKey]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 166)
-- `scope_for(vault: LoadedVault, repository: Repository, *, policy: str, scope: str, learning_object_ids: Sequence[str], item: PracticeItem | None) -> Scope` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 181) — The policy's scope (§5.1).
-- `facet_lists(vault: LoadedVault, repository: Repository, facet_ids: Sequence[str]) -> tuple[dict[str, list[SpanKey]], list[dict[str, str]]]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 250) — Facet targeting (§9.1): one ranked list of the spans the facets' teaching source links cite (primary first), and each facet's label for the verification context.
-- `expanded_learning_objects(vault: LoadedVault, lo_ids: Sequence[str], kind: str) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 279) — The LOs one LO-graph expansion reaches from ``lo_ids``, read as the vault stores the graph (similarity never creates an edge).
-- `expansion_lists(vault: LoadedVault, repository: Repository, lo_ids: Sequence[str], expand: Sequence[str]) -> dict[str, list[SpanKey]]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 342) — One ranked list per LO-graph expansion, labelled on the hit (the Reader's rule).
-- `correction_lists(vault: LoadedVault, repository: Repository, misconception: Any, extraction_ids: Sequence[str]) -> tuple[dict[str, list[SpanKey]], dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 355) — §9.3: the misconception's correction facets' spans, and keyword hits in the sources ``correction_source_span_ids`` names (source ids, §3.2 item 2).
-- `source_object_lists(vault: LoadedVault, repository: Repository, intent: str, extraction_ids: Sequence[str], *, eligible: Callable[[list[SpanKey]], list[SpanKey]] | None=None) -> dict[str, list[SpanKey]]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 396) — Source objects whose type (or RW4e authorial role) matches the intent (§9.2).
-- `verification_question(query: str, intent: str, misconceptions: Sequence[Any]) -> str` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 502) — The question searched for and judged against: the query, or, for a remediation with no query, the first misconception's statement and correction.
-- `verification_context(intent: str, *, policy: str, misconceptions: Sequence[Any]=(), excluded: Iterable[SpanKey]=(), learner_work_md: str | None=None, item: PracticeItem | None=None, facet_labels: Sequence[Mapping[str, str]]=(), planned_practice_question: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 512) — The request-specific context the verification is given beside its candidates.
-- `verification_candidates(vault: LoadedVault, pool: Sequence[SpanHit]) -> tuple[list[dict[str, Any]], dict[str, SpanKey]]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 547) — The candidates one verification judges (``p1``, ``p2``, ...) and their span keys.
-- `widest_candidates(vault: LoadedVault, count: int=VERIFY_POOL) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 562) — ``count`` candidates at their largest prompt encoding (every field at its limit, the passage at the vault's judged-passage limit, every character :data:`WIDEST_CHAR`): no real pool's prompt is larger.
-- `verification_prompt(intent: str, question: str, candidates: Sequence[Mapping[str, Any]], pick_at_most: int, context: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 571) — The verification's prompt (a dry run renders the same one to estimate it).
-- `find_sources(vault: LoadedVault, repository: Repository, query: str, *, policy: str, intent: str='explain', scope: str='library', learning_object_ids: Sequence[str]=(), facet_ids: Sequence[str]=(), item: PracticeItem | None=None, roles: Sequence[str]=(), expand: Sequence[str]=(), exclude_span_ids: Sequence[Any]=(), exclude_span_keys: Sequence[Any]=(), target_hypotheses: Sequence[Mapping[str, Any]]=(), learner_work_md: str | None=None, personalized: bool=True, verify: bool=False, limit: int=8, cursor: Mapping[str, Any] | None=None, embedder: Any | None=None, rewrite_client: Any | None=None, rerank_client: Any | None=None, deadline: float | None=None, owner_id: str='', clock: Clock | None=None, misconceptions: Sequence[Any]=(), caller: CallerContext | None=None, compare_client: Any | None=None, rewrite: bool | None=None, planned_practice_question: str | None=None) -> SourceHits` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 613) — Verbatim passages for ``intent`` under ``policy`` (the caller's, derived on the server).
-- `find_sources_for_caller(vault: LoadedVault, repository: Repository, query: str, *, caller: CallerContext, policy: str | None=None, item: PracticeItem | None=None, **kwargs: Any) -> SourceHits` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 899) — ``find_sources`` under the caller's derived policy; a differing ``policy`` is refused (G2).
+- `class IntentJudgment(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 124)
+- `class IntentVerification(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 130)
+- `intent_task(intent: str) -> ListwiseTask` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 135)
+- `class SourceHits` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 150) — Verbatim passages for an intent, plus the receipt-grade manifest (§5.5).
+  - `as_dict(self) -> dict[str, Any]` (line 160; public)
+- `span_keys(values: Sequence[Any]) -> set[SpanKey]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 165)
+- `scope_for(vault: LoadedVault, repository: Repository, *, policy: str, scope: str, learning_object_ids: Sequence[str], item: PracticeItem | None) -> Scope` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 180) — The policy's scope (§5.1).
+- `facet_lists(vault: LoadedVault, repository: Repository, facet_ids: Sequence[str]) -> tuple[dict[str, list[SpanKey]], list[dict[str, str]]]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 249) — Facet targeting (§9.1): one ranked list of the spans the facets' teaching source links cite (primary first), and each facet's label for the verification context.
+- `expanded_learning_objects(vault: LoadedVault, lo_ids: Sequence[str], kind: str) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 278) — The LOs one LO-graph expansion reaches from ``lo_ids``, read as the vault stores the graph (similarity never creates an edge).
+- `expansion_lists(vault: LoadedVault, repository: Repository, lo_ids: Sequence[str], expand: Sequence[str]) -> dict[str, list[SpanKey]]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 341) — One ranked list per LO-graph expansion, labelled on the hit (the Reader's rule).
+- `correction_lists(vault: LoadedVault, repository: Repository, misconception: Any, extraction_ids: Sequence[str]) -> tuple[dict[str, list[SpanKey]], dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 354) — §9.3: the misconception's correction facets' spans, and keyword hits in the sources ``correction_source_span_ids`` names (source ids, §3.2 item 2).
+- `source_object_lists(vault: LoadedVault, repository: Repository, intent: str, extraction_ids: Sequence[str], *, eligible: Callable[[list[SpanKey]], list[SpanKey]] | None=None) -> dict[str, list[SpanKey]]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 395) — Source objects whose type (or RW4e authorial role) matches the intent (§9.2).
+- `verification_question(query: str, intent: str, misconceptions: Sequence[Any]) -> str` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 501) — The question searched for and judged against: the query, or, for a remediation with no query, the first misconception's statement and correction.
+- `verification_context(intent: str, *, policy: str, misconceptions: Sequence[Any]=(), excluded: Iterable[SpanKey]=(), learner_work_md: str | None=None, item: PracticeItem | None=None, facet_labels: Sequence[Mapping[str, str]]=(), planned_practice_question: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 511) — The request-specific context the verification is given beside its candidates.
+- `verification_candidates(vault: LoadedVault, pool: Sequence[SpanHit]) -> tuple[list[dict[str, Any]], dict[str, SpanKey]]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 546) — The candidates one verification judges (``p1``, ``p2``, ...) and their span keys.
+- `widest_candidates(vault: LoadedVault, count: int=VERIFY_POOL) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 561) — ``count`` candidates at their largest prompt encoding (every field at its limit, the passage at the vault's judged-passage limit, every character :data:`WIDEST_CHAR`): no real pool's prompt is larger.
+- `verification_prompt(intent: str, question: str, candidates: Sequence[Mapping[str, Any]], pick_at_most: int, context: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 570) — The verification's prompt (a dry run renders the same one to estimate it).
+- `find_sources(vault: LoadedVault, repository: Repository, query: str, *, policy: str, intent: str='explain', scope: str='library', learning_object_ids: Sequence[str]=(), facet_ids: Sequence[str]=(), item: PracticeItem | None=None, roles: Sequence[str]=(), expand: Sequence[str]=(), exclude_span_ids: Sequence[Any]=(), exclude_span_keys: Sequence[Any]=(), target_hypotheses: Sequence[Mapping[str, Any]]=(), learner_work_md: str | None=None, personalized: bool=True, verify: bool=False, limit: int=8, cursor: Mapping[str, Any] | None=None, embedder: Any | None=None, rewrite_client: Any | None=None, rerank_client: Any | None=None, deadline: float | None=None, owner_id: str='', clock: Clock | None=None, misconceptions: Sequence[Any]=(), caller: CallerContext | None=None, compare_client: Any | None=None, rewrite: bool | None=None, planned_practice_question: str | None=None) -> SourceHits` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 612) — Verbatim passages for ``intent`` under ``policy`` (the caller's, derived on the server).
+- `find_sources_for_caller(vault: LoadedVault, repository: Repository, query: str, *, caller: CallerContext, policy: str | None=None, item: PracticeItem | None=None, **kwargs: Any) -> SourceHits` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 898) — ``find_sources`` under the caller's derived policy; a differing ``policy`` is refused (G2).
 
 ### Module constants
 
-- `INTENTS` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 74)
-- `EXPANSIONS` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 75)
-- `INTENT_FIT_TASK` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 76)
-- `INTENT_PROMPT_VERSION` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 77)
-- `SOURCE_CHARS` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 80)
-- `SECTION_CHARS` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 81)
-- `QUESTION_CHARS` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 83)
-- `WIDEST_CHAR` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 87)
-- `HIT_TEXT_CHARS` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 88)
-- `VERIFY_POOL` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 90)
-- `PROVENANCE_SPANS_PER_LO` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 91)
-- `INTENT_VERDICTS` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 95)
-- `_DROP` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 101)
-- `_INSTRUCTIONS` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 103)
-- `FACET_LINK_RELATIONS` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 235)
+- `INTENTS` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 73)
+- `EXPANSIONS` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 74)
+- `INTENT_FIT_TASK` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 75)
+- `INTENT_PROMPT_VERSION` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 76)
+- `SOURCE_CHARS` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 79)
+- `SECTION_CHARS` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 80)
+- `QUESTION_CHARS` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 82)
+- `WIDEST_CHAR` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 86)
+- `HIT_TEXT_CHARS` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 87)
+- `VERIFY_POOL` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 89)
+- `PROVENANCE_SPANS_PER_LO` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 90)
+- `INTENT_VERDICTS` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 94)
+- `_DROP` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 100)
+- `_INSTRUCTIONS` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 102)
+- `FACET_LINK_RELATIONS` ([src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 234)
 
 ### Explicit exports
 
@@ -120,15 +120,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_provenance_list(vault: LoadedVault, repository: Repository, lo_ids: Sequence[str]) -> list[SpanKey]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 225)
-- `_locator_span_id(locator: str | None) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 238) — A source link's span id: its ``block_span_v1`` locator, or the early-v2 ``span:<id>`` form (as the cross-source grounding reads them).
-- `_hit_dict(hit: SpanHit, revision_ids: Mapping[str, str | None], *, verdict: str | None, rationale: str | None, expansion: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 473)
-- `_answer_overlap(repository: Repository, item: PracticeItem) -> Callable[[list[SpanKey]], set[SpanKey]]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 489) — The keys whose passage reproduces ``item``'s key: the answer-overlap filter ``find_sources`` applies to an assisted-practice pool, read for its effective eligibility (fix round 3) from the same block text.
-- `_candidate(ref: str, source_title: str, section_path: Sequence[str], passage: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 542)
-- `_verify(vault: LoadedVault, repository: Repository, *, intent: str, question: str, pool: Sequence[SpanHit], pick_at_most: int, context: Mapping[str, Any], client: Any | None, owner_id: str, deadline: float | None, clock: Clock | None) -> tuple[str, dict[SpanKey, Mapping[str, Any]], list[SpanKey], str | None]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 585)
-- `_caller_for_policy(policy: str, item: PracticeItem | None, lo_ids: Sequence[str]) -> CallerContext` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 841) — A server-side caller whose derived policy is ``policy`` (for a caller-less call).
-- `_delegate_compare(vault: LoadedVault, repository: Repository, query: str, result: SourceHits, *, policy: str, item: PracticeItem | None, lo_ids: Sequence[str], facet_ids: Sequence[str], caller: CallerContext | None, deadline: float | None, embedder: Any | None, rerank_client: Any | None, compare_client: Any | None, clock: Clock | None) -> SourceHits` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 852) — ``intent="compare"``: the comparison's sources as hits, the comparison on the manifest.
-- `_record_post_attempt_reveal(repository: Repository, item: PracticeItem, hits: Sequence[Mapping[str, Any]], *, clock: Clock | None) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 883) — A ``post_attempt`` display of the item's own passages or solutions is a reveal: the family is treated as revealed afterwards (§5.1, §5.4 rule 2).
+- `_provenance_list(vault: LoadedVault, repository: Repository, lo_ids: Sequence[str]) -> list[SpanKey]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 224)
+- `_locator_span_id(locator: str | None) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 237) — A source link's span id: its ``block_span_v1`` locator, or the early-v2 ``span:<id>`` form (as the cross-source grounding reads them).
+- `_hit_dict(hit: SpanHit, revision_ids: Mapping[str, str | None], *, verdict: str | None, rationale: str | None, expansion: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 472)
+- `_answer_overlap(repository: Repository, item: PracticeItem) -> Callable[[list[SpanKey]], set[SpanKey]]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 488) — The keys whose passage reproduces ``item``'s key: the answer-overlap filter ``find_sources`` applies to an assisted-practice pool, read for its effective eligibility (fix round 3) from the same block text.
+- `_candidate(ref: str, source_title: str, section_path: Sequence[str], passage: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 541)
+- `_verify(vault: LoadedVault, repository: Repository, *, intent: str, question: str, pool: Sequence[SpanHit], pick_at_most: int, context: Mapping[str, Any], client: Any | None, owner_id: str, deadline: float | None, clock: Clock | None) -> tuple[str, dict[SpanKey, Mapping[str, Any]], list[SpanKey], str | None]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 584)
+- `_caller_for_policy(policy: str, item: PracticeItem | None, lo_ids: Sequence[str]) -> CallerContext` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 840) — A server-side caller whose derived policy is ``policy`` (for a caller-less call).
+- `_delegate_compare(vault: LoadedVault, repository: Repository, query: str, result: SourceHits, *, policy: str, item: PracticeItem | None, lo_ids: Sequence[str], facet_ids: Sequence[str], caller: CallerContext | None, deadline: float | None, embedder: Any | None, rerank_client: Any | None, compare_client: Any | None, clock: Clock | None) -> SourceHits` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 851) — ``intent="compare"``: the comparison's sources as hits, the comparison on the manifest.
+- `_record_post_attempt_reveal(repository: Repository, item: PracticeItem, hits: Sequence[Mapping[str, Any]], *, clock: Clock | None) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 882) — A ``post_attempt`` display of the item's own passages or solutions is a reveal: the family is treated as revealed afterwards (§5.1, §5.4 rule 2).
 
 ## Who imports or calls it
 
@@ -142,7 +142,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/instructional/sources|learnloop.instructional.sources]] — imports `SourceHits`, `find_sources`, `find_sources_for_caller`; statically calls `find_sources`, `find_sources_for_caller`
 - [[Reference/Modules/learnloop/instructional/tools|learnloop.instructional.tools]] — imports `INTENTS`
 - [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]] — imports `module`; statically calls `intent_task`, `verification_context`, `verification_prompt`, `verification_question`, `widest_candidates`
-- [[Reference/Modules/learnloop/source_retrieval/compare|learnloop.source_retrieval.compare]] — imports `INTENT_VERDICTS`, `_span_keys`, `_verify`, `facet_lists`, `scope_for`; statically calls `_span_keys`, `_verify`, `facet_lists`, `scope_for`
+- [[Reference/Modules/learnloop/source_retrieval/compare|learnloop.source_retrieval.compare]] — imports `_span_keys`, `_verify`, `facet_lists`, `scope_for`; statically calls `_span_keys`, `_verify`, `facet_lists`, `scope_for`
 - [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] — imports `EXPANSIONS`, `expanded_learning_objects`; statically calls `expanded_learning_objects`
 - [[Reference/Modules/learnloop/source_retrieval/passage_cues|learnloop.source_retrieval.passage_cues]] — imports `correction_lists`, `expanded_learning_objects`, `source_object_lists`; statically calls `correction_lists`, `expanded_learning_objects`, `source_object_lists`
 - [[Reference/Modules/learnloop/source_retrieval/reader_tutor|learnloop.source_retrieval.reader_tutor]] — imports `QUESTION_CHARS`
@@ -185,7 +185,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `contextlib`, `dataclasses`, `json`, `time`, `typing`
+- Standard library: `__future__`, `collections`, `contextlib`, `dataclasses`, `json`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

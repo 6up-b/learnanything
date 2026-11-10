@@ -177,7 +177,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/live|learnloop.experiments.contextual_embeddings.live]] — imports `Receipts`, `UrllibTransport`, `VectorStore`; statically calls `Receipts`, `UrllibTransport`, `VectorStore`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/paid|learnloop.experiments.contextual_embeddings.paid]] — imports `ADAPTERS`, `AdapterError`, `EmbeddingAdapter`, `PreparedQuery`, `QwenAdapter`, `Receipts`, `SpaceVectors`, `Transport`, `VectorStore`, `build_index`; statically calls `AdapterError`, `PreparedQuery`, `QwenAdapter`, `Receipts`, `VectorStore`, `build_index`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/plan|learnloop.experiments.contextual_embeddings.plan]] — imports `Chunk`, `Document`; statically calls `Chunk`, `Document`
-- [[Reference/Modules/learnloop/experiments/contextual_embeddings/retrieval|learnloop.experiments.contextual_embeddings.retrieval]] — imports `Chunk`, `Document`, `SpaceVectors`, `assert_compatible`, `query_vector_key`; statically calls `Chunk`, `Document`, `assert_compatible`
+- [[Reference/Modules/learnloop/experiments/contextual_embeddings/retrieval|learnloop.experiments.contextual_embeddings.retrieval]] — imports `Chunk`, `Document`, `SpaceVectors`, `assert_compatible`; statically calls `Chunk`, `Document`, `assert_compatible`
 
 ## Dependencies
 
@@ -262,7 +262,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_independent_bodies_are_the_documented_shape`
   - `test_the_three_perplexity_canaries_pass_against_the_documented_contract`
 - [tests/test_e0_review_round8.py](../../../../../../../tests/test_e0_review_round8.py) — direct import
-- [tests/test_e1_harness.py](../../../../../../../tests/test_e1_harness.py) — direct import
 
 ## Modification guidance
 

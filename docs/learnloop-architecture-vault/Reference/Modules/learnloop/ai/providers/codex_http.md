@@ -125,7 +125,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_http_adapter_strips_the_usage_envelope_but_not_a_bad_field`
 - [tests/test_lo_general.py](../../../../../../../tests/test_lo_general.py) — direct import
   - `test_rebuild_deterministic_and_no_external_io`
-- [tests/test_provider_resolution_parity.py](../../../../../../../tests/test_provider_resolution_parity.py) — direct import
 - [tests/test_structured_transport_parity.py](../../../../../../../tests/test_structured_transport_parity.py) — direct import
   - `test_legacy_http_supports_exactly_eight_operations_and_degrades_the_rest`
 

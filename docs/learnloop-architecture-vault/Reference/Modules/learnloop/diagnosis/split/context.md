@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/split/context.py](../../../../../../../src/learnloop/diagnosis/split/context.py) |
-| Source lines | 1031 |
+| Source lines | 1030 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -77,10 +77,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `rendered(self) -> str` (line 384; public)
 - `render_context(blocks: Mapping[str, Any], current: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 388) — Byte-stable rendering: stable blocks in fixed order, current attempt last.
 - `assemble_diagnosis_context(vault: LoadedVault, store: HistoryStore, current: CurrentAttempt, settings: DiagnosisSettings, *, mode: HistoryMode | None=None, retriever: HistoryRetriever | None=None, snapshot_manifest: Mapping[str, Any] | None=None, token_budget: int | None=None, registry_retriever: RegistryRetriever | None=None, prior_analysis: Any=None) -> AssembledContext` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 680) — Assemble one context deterministically.
-- `history_attempt_tokens(attempt: HistoryAttempt, neighborhood: Neighborhood, *, with_answer: bool) -> int` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 973) — Estimated tokens one attempt adds to a rendered history block.
-- `stable_prefix(rendered: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 979) — Everything before the current attempt.
-- `cacheable_prefix(blocks: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 987) — The bytes a later diagnosis on the same LO can share with this one.
-- `facets_overlap(left: Iterable[str], right: Iterable[str]) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 1004)
+- `history_attempt_tokens(attempt: HistoryAttempt, neighborhood: Neighborhood, *, with_answer: bool) -> int` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 972) — Estimated tokens one attempt adds to a rendered history block.
+- `stable_prefix(rendered: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 978) — Everything before the current attempt.
+- `cacheable_prefix(blocks: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 986) — The bytes a later diagnosis on the same LO can share with this one.
+- `facets_overlap(left: Iterable[str], right: Iterable[str]) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 1003)
 
 ### Module constants
 

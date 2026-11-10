@@ -147,7 +147,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_import_rechecks_a_stale_proposal_before_any_paid_call`
 - [tests/test_exam_protection_review.py](../../../../../../tests/test_exam_protection_review.py) — direct import
   - `test_a_pick_of_an_item_marked_held_out_since_its_proposal_is_refused`
-- [tests/test_find_sources_intents.py](../../../../../../tests/test_find_sources_intents.py) — direct import
 - [tests/test_library_ask_review.py](../../../../../../tests/test_library_ask_review.py) — direct import
   - `test_the_tutor_refuses_a_bound_ask_while_its_cold_administration_is_open`
 - [tests/test_practice_availability.py](../../../../../../tests/test_practice_availability.py) — direct import

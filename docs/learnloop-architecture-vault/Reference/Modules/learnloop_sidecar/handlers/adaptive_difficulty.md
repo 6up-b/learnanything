@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/adaptive_difficulty.py](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py) |
-| Source lines | 204 |
+| Source lines | 202 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -59,12 +59,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `class ReaderDoseOfferInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 34)
 - `reader_dose_offer(ctx: SidecarContext, params: ReaderDoseOfferInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 48) — The dose arm's draw at a section boundary (§5.12): ``offer`` is the extra to show, or null.
-- `class ReaderDoseOfferEventInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 116)
-- `reader_dose_offer_event(ctx: SidecarContext, params: ReaderDoseOfferEventInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 122) — Record that the offer was delivered, not delivered, taken or dismissed.
-- `class AdaptiveDifficultyReadinessInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 149)
-- `adaptive_difficulty_readiness(ctx: SidecarContext, params: AdaptiveDifficultyReadinessInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 154) — An LO's readiness lines (predictions; "untested" where it has no answer of its own).
-- `class AdaptiveDifficultyWhyItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 174)
-- `adaptive_difficulty_why_item(ctx: SidecarContext, params: AdaptiveDifficultyWhyItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 179) — "Why this item" (§12): ``{"why": null}`` when no AD draw chose the served item.
+- `class ReaderDoseOfferEventInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 114)
+- `reader_dose_offer_event(ctx: SidecarContext, params: ReaderDoseOfferEventInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 120) — Record that the offer was delivered, not delivered, taken or dismissed.
+- `class AdaptiveDifficultyReadinessInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 147)
+- `adaptive_difficulty_readiness(ctx: SidecarContext, params: AdaptiveDifficultyReadinessInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 152) — An LO's readiness lines (predictions; "untested" where it has no answer of its own).
+- `class AdaptiveDifficultyWhyItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 172)
+- `adaptive_difficulty_why_item(ctx: SidecarContext, params: AdaptiveDifficultyWhyItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 177) — "Why this item" (§12): ``{"why": null}`` when no AD draw chose the served item.
 
 ### Module constants
 
@@ -78,8 +78,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_dose_offer(vault: Any, repository: Any, params: ReaderDoseOfferInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 67)
-- `_offered_question(repository: Any, view: Any, question_id: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 94)
+- `_dose_offer(vault: Any, repository: Any, params: ReaderDoseOfferInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 65)
+- `_offered_question(repository: Any, view: Any, question_id: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/adaptive_difficulty.py), line 92)
 
 ## Who imports or calls it
 

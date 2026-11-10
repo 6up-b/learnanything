@@ -47,33 +47,33 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/intent/control.py](../../../../../../src/learnloop/intent/control.py) |
-| Source lines | 519 |
+| Source lines | 518 |
 | Owning package | [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class IntentControlError(ValueError)` ([source](../../../../../../src/learnloop/intent/control.py), line 71) — A choice the control cannot apply (unknown scope, nothing to act on).
-- `class Scope` ([source](../../../../../../src/learnloop/intent/control.py), line 76)
-  - `as_dict(self) -> dict[str, str]` (line 80; public)
-- `class ScopeContents` ([source](../../../../../../src/learnloop/intent/control.py), line 85) — What a scope covers: its LO targets (or its one item) and every item.
-  - `targets(self) -> list[dict[str, str]]` (line 93; public)
-- `scope_contents(vault: Any, repository: Any, scope: Scope) -> ScopeContents` ([source](../../../../../../src/learnloop/intent/control.py), line 102) — A subject or source fans out to its active LOs (§5.1).
-- `own_commitments(snapshots: Sequence[CommitmentSnapshot], scope: Scope) -> list[CommitmentSnapshot]` ([source](../../../../../../src/learnloop/intent/control.py), line 164) — The control's commitments for exactly this scope, newest choice last.
-- `class Preview` ([source](../../../../../../src/learnloop/intent/control.py), line 188)
-  - `as_dict(self) -> dict[str, Any]` (line 202; public)
-- `preview(vault: Any, repository: Any, scope: Scope, choice: str, *, clock: Clock | None=None, snapshots: Sequence[CommitmentSnapshot] | None=None, contents: ScopeContents | None=None, cost: CostFunction | None=None) -> Preview` ([source](../../../../../../src/learnloop/intent/control.py), line 270)
-- `current_choice(vault: Any, repository: Any, contents: ScopeContents, snapshots: Sequence[CommitmentSnapshot]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/control.py), line 351) — What the scope is set to now: its own commitment's choice, else the resolved intent of an LO or item (a request or a broader choice).
-- `describe(vault: Any, repository: Any, scope: Scope, *, clock: Clock | None=None, cost: CostFunction | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/control.py), line 390) — The control's whole view: the current setting and every choice's preview.
-- `class Applied` ([source](../../../../../../src/learnloop/intent/control.py), line 421)
-  - `as_dict(self) -> dict[str, Any]` (line 427; public)
-- `apply_choice(vault: Any, repository: Any, scope: Scope, choice: str, *, clock: Clock | None=None) -> Applied` ([source](../../../../../../src/learnloop/intent/control.py), line 432) — Write the choice (§5.1): create or version the scope's own commitment, or re-dispose it; "Check once" creates a fresh ``test_me_later``.
+- `class IntentControlError(ValueError)` ([source](../../../../../../src/learnloop/intent/control.py), line 70) — A choice the control cannot apply (unknown scope, nothing to act on).
+- `class Scope` ([source](../../../../../../src/learnloop/intent/control.py), line 75)
+  - `as_dict(self) -> dict[str, str]` (line 79; public)
+- `class ScopeContents` ([source](../../../../../../src/learnloop/intent/control.py), line 84) — What a scope covers: its LO targets (or its one item) and every item.
+  - `targets(self) -> list[dict[str, str]]` (line 92; public)
+- `scope_contents(vault: Any, repository: Any, scope: Scope) -> ScopeContents` ([source](../../../../../../src/learnloop/intent/control.py), line 101) — A subject or source fans out to its active LOs (§5.1).
+- `own_commitments(snapshots: Sequence[CommitmentSnapshot], scope: Scope) -> list[CommitmentSnapshot]` ([source](../../../../../../src/learnloop/intent/control.py), line 163) — The control's commitments for exactly this scope, newest choice last.
+- `class Preview` ([source](../../../../../../src/learnloop/intent/control.py), line 187)
+  - `as_dict(self) -> dict[str, Any]` (line 201; public)
+- `preview(vault: Any, repository: Any, scope: Scope, choice: str, *, clock: Clock | None=None, snapshots: Sequence[CommitmentSnapshot] | None=None, contents: ScopeContents | None=None, cost: CostFunction | None=None) -> Preview` ([source](../../../../../../src/learnloop/intent/control.py), line 269)
+- `current_choice(vault: Any, repository: Any, contents: ScopeContents, snapshots: Sequence[CommitmentSnapshot]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/control.py), line 350) — What the scope is set to now: its own commitment's choice, else the resolved intent of an LO or item (a request or a broader choice).
+- `describe(vault: Any, repository: Any, scope: Scope, *, clock: Clock | None=None, cost: CostFunction | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/control.py), line 389) — The control's whole view: the current setting and every choice's preview.
+- `class Applied` ([source](../../../../../../src/learnloop/intent/control.py), line 420)
+  - `as_dict(self) -> dict[str, Any]` (line 426; public)
+- `apply_choice(vault: Any, repository: Any, scope: Scope, choice: str, *, clock: Clock | None=None) -> Applied` ([source](../../../../../../src/learnloop/intent/control.py), line 431) — Write the choice (§5.1): create or version the scope's own commitment, or re-dispose it; "Check once" creates a fresh ``test_me_later``.
 
 ### Module constants
 
-- `CHOICE_DOES` ([src/learnloop/intent/control.py](../../../../../../src/learnloop/intent/control.py), line 42)
-- `CHOICE_PHRASE` ([src/learnloop/intent/control.py](../../../../../../src/learnloop/intent/control.py), line 55)
+- `CHOICE_DOES` ([src/learnloop/intent/control.py](../../../../../../src/learnloop/intent/control.py), line 41)
+- `CHOICE_PHRASE` ([src/learnloop/intent/control.py](../../../../../../src/learnloop/intent/control.py), line 54)
 
 ### Explicit exports
 
@@ -95,12 +95,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_source_extractions(repository: Any, source_id_or_extraction: str) -> list[str]` ([source](../../../../../../src/learnloop/intent/control.py), line 145) — A source scope's readings: the extraction itself, or every reading of the source's current revision (the library card names the source).
-- `_item_title(item: Any) -> str` ([source](../../../../../../src/learnloop/intent/control.py), line 158)
-- `_all_snapshots(repository: Any) -> list[CommitmentSnapshot]` ([source](../../../../../../src/learnloop/intent/control.py), line 179)
-- `_virtual(contents: ScopeContents, choice: str, own: Sequence[CommitmentSnapshot], *, now_iso: str) -> CommitmentSnapshot` ([source](../../../../../../src/learnloop/intent/control.py), line 217) — The choice as a virtual newest commitment (the very rule the queue uses).
-- `_plural(count: int, word: str) -> str` ([source](../../../../../../src/learnloop/intent/control.py), line 258)
-- `_subject_phrase(contents: ScopeContents) -> str` ([source](../../../../../../src/learnloop/intent/control.py), line 262)
+- `_source_extractions(repository: Any, source_id_or_extraction: str) -> list[str]` ([source](../../../../../../src/learnloop/intent/control.py), line 144) — A source scope's readings: the extraction itself, or every reading of the source's current revision (the library card names the source).
+- `_item_title(item: Any) -> str` ([source](../../../../../../src/learnloop/intent/control.py), line 157)
+- `_all_snapshots(repository: Any) -> list[CommitmentSnapshot]` ([source](../../../../../../src/learnloop/intent/control.py), line 178)
+- `_virtual(contents: ScopeContents, choice: str, own: Sequence[CommitmentSnapshot], *, now_iso: str) -> CommitmentSnapshot` ([source](../../../../../../src/learnloop/intent/control.py), line 216) — The choice as a virtual newest commitment (the very rule the queue uses).
+- `_plural(count: int, word: str) -> str` ([source](../../../../../../src/learnloop/intent/control.py), line 257)
+- `_subject_phrase(contents: ScopeContents) -> str` ([source](../../../../../../src/learnloop/intent/control.py), line 261)
 
 ## Who imports or calls it
 
@@ -116,7 +116,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `utc_now_iso`; calls `utc_now_iso`
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] — imports `module`; calls `append_commitment_version`, `change_disposition`, `create_commitment`, `resolve_head`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/reader/recap|learnloop.reader.recap]] — imports `source_learning_objects`; calls `source_learning_objects`
@@ -125,7 +125,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `dataclasses`, `datetime`, `typing`
+- Standard library: `__future__`, `collections`, `dataclasses`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

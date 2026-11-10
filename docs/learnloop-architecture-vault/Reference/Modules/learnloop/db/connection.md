@@ -739,7 +739,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_project_experiment_store.py](../../../../../../tests/test_project_experiment_store.py) — direct import
   - `test_store_runs_in_wal_with_full_sync_in_production`
 - [tests/test_proposal_dependencies.py](../../../../../../tests/test_proposal_dependencies.py) — direct import
-- [tests/test_query_student.py](../../../../../../tests/test_query_student.py) — direct import
 - [tests/test_question_promotions.py](../../../../../../tests/test_question_promotions.py) — direct import
   - `test_027_rebuild_preserves_existing_rows`
   - `test_attempt_before_promotion_does_not_consume_practice_again_request`

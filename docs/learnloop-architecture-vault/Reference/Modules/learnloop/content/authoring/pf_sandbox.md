@@ -109,7 +109,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]] — imports `module`; statically calls `SandboxLimits`, `run_sandboxed_python`
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `module`; statically calls `SandboxLimits`, `sandbox_available`
 - [[Reference/Modules/learnloop/ops/embedding_compare|learnloop.ops.embedding_compare]] — imports `equivalence_confirmations`, `run_equivalence_checks`, `sandbox_available`; statically calls `equivalence_confirmations`, `run_equivalence_checks`, `sandbox_available`
-- [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] — imports `GENERATOR_PROTOCOL`, `SandboxLimits`, `SandboxUnavailable`, `check_generator_answers`, `equivalence_confirmations`, `require_sandbox`, `run_equivalence_checks`, `run_generator_tests`, `sandbox_available`; statically calls `check_generator_answers`, `require_sandbox`, `run_generator_tests`, `sandbox_available`
+- [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] — imports `GENERATOR_PROTOCOL`, `SandboxLimits`, `SandboxUnavailable`, `check_generator_answers`, `require_sandbox`, `run_generator_tests`, `sandbox_available`; statically calls `check_generator_answers`, `require_sandbox`, `run_generator_tests`, `sandbox_available`
 - [[Reference/Modules/learnloop/ops/pf_verify|learnloop.ops.pf_verify]] — imports `SandboxLimits`, `SandboxUnavailable`, `equivalence_confirmations`, `run_equivalence_checks`, `sandbox_available`; statically calls `equivalence_confirmations`, `run_equivalence_checks`, `sandbox_available`
 - [[Reference/Modules/learnloop/workbench/symbolic|learnloop.workbench.symbolic]] — imports `SandboxLimits`, `SandboxUnavailable`, `run_sandboxed_python`, `sandbox_available`; statically calls `SandboxLimits`, `run_sandboxed_python`, `sandbox_available`
 
@@ -143,9 +143,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figures_fix_round2.py](../../../../../../../tests/test_figures_fix_round2.py) — direct import
   - `test_f4_pf_equivalence_confirms_nothing_when_a_control_is_answered_with_no_boolean`
   - `test_f4_pf_generator_tests_count_an_inconclusive_answer_as_not_passing`
-- [tests/test_figures_fix_round3.py](../../../../../../../tests/test_figures_fix_round3.py) — direct import
-- [tests/test_figures_fix_round4.py](../../../../../../../tests/test_figures_fix_round4.py) — direct import
-- [tests/test_figures_fix_round5.py](../../../../../../../tests/test_figures_fix_round5.py) — direct import
 - [tests/test_item_fingerprints.py](../../../../../../../tests/test_item_fingerprints.py) — direct import
   - `test_rebuild_recomputes_fingerprints_without_any_model_or_generator`
 - [tests/test_key_ladder_labels.py](../../../../../../../tests/test_key_ladder_labels.py) — direct import

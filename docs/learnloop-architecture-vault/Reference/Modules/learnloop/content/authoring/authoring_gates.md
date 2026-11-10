@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/authoring/authoring_gates.py](../../../../../../../src/learnloop/content/authoring/authoring_gates.py) |
-| Source lines | 435 |
+| Source lines | 427 |
 | Owning package | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -60,11 +60,11 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
   - `__init__(self) -> None` (line 95; internal)
   - `__call__(self, rows: list[dict[str, Any]]) -> None` (line 98; internal)
 - `chain_gates(*gates: RowGate) -> RowGate` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 117) — Run several row_transform gates over one proposal batch, in order.
-- `remediate_instrument_gate_failures(rows: list[dict[str, Any]], *, persona_gate: PersonaGate) -> None` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 237) — Mechanically repair the two remediable gate failures, then re-judge.
-- `class InstrumentGateChain` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 311) — The composed Stage-5.3/6 instrument gates, with named handles.
-  - `__call__(self, rows: list[dict[str, Any]]) -> None` (line 325; internal)
-  - `diagnostics(self) -> list[dict[str, Any]]` (line 335; public) — Gate outcomes in the synthesis lanes' ``gate_diagnostics`` shape.
-- `build_instrument_gates(vault: Any, repository: Any | None=None, *, grading_client: Any=None, rung_gate: Any | None=None, difficulty_band_by_lo: dict[str, tuple[float, float]] | None=None, leading: Sequence[RowGate]=()) -> InstrumentGateChain` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 394) — The standard composition: leading → surface → rung → persona → pair.
+- `remediate_instrument_gate_failures(rows: list[dict[str, Any]], *, persona_gate: PersonaGate) -> None` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 229) — Mechanically repair the two remediable gate failures, then re-judge.
+- `class InstrumentGateChain` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 303) — The composed Stage-5.3/6 instrument gates, with named handles.
+  - `__call__(self, rows: list[dict[str, Any]]) -> None` (line 317; internal)
+  - `diagnostics(self) -> list[dict[str, Any]]` (line 327; public) — Gate outcomes in the synthesis lanes' ``gate_diagnostics`` shape.
+- `build_instrument_gates(vault: Any, repository: Any | None=None, *, grading_client: Any=None, rung_gate: Any | None=None, difficulty_band_by_lo: dict[str, tuple[float, float]] | None=None, leading: Sequence[RowGate]=()) -> InstrumentGateChain` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 386) — The standard composition: leading → surface → rung → persona → pair.
 
 ### Module constants
 
@@ -80,14 +80,14 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 ## Internal implementation anchors
 
 - `_strip_selected_response_surface(payload: dict[str, Any]) -> list[str] | None` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 152) — Remove the selected-response surface from ``payload`` in place.
-- `_drop_unkeyed_misconception(payload: dict[str, Any]) -> list[str] | None` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 218) — Drop a speculative diagnostic claim, demoting the item to plain practice.
+- `_drop_unkeyed_misconception(payload: dict[str, Any]) -> list[str] | None` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 210) — Drop a speculative diagnostic claim, demoting the item to plain practice.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `SELECTED_RESPONSE_PATTERNS`, `SelectedResponseGate`, `build_instrument_gates`, `chain_gates`; statically calls `build_instrument_gates`
+- [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `SelectedResponseGate`, `build_instrument_gates`; statically calls `build_instrument_gates`
 - [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] — imports `build_instrument_gates`; statically calls `build_instrument_gates`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `build_instrument_gates`; statically calls `build_instrument_gates`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `selected_response_reasons`; statically calls `selected_response_reasons`

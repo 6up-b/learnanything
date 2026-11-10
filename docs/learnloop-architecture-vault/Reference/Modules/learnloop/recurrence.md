@@ -90,7 +90,7 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `key_for_statement`, `recurrence_key`; statically calls `key_for_statement`, `recurrence_key`
-- [[Reference/Modules/learnloop/diagnosis/causal_factor_deferral|learnloop.diagnosis.causal_factor_deferral]] — imports `RECURRENCE_KEY_VERSION`, `recurrence_key`; statically calls `recurrence_key`
+- [[Reference/Modules/learnloop/diagnosis/causal_factor_deferral|learnloop.diagnosis.causal_factor_deferral]] — imports `recurrence_key`; statically calls `recurrence_key`
 - [[Reference/Modules/learnloop/diagnosis/error_hunt|learnloop.diagnosis.error_hunt]] — imports `recurrence_key`; statically calls `recurrence_key`
 - [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]] — imports `key_for_statement`; statically calls `key_for_statement`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/judging|learnloop.diagnosis.recurrence.judging]] — imports `key_for_statement`; statically calls `key_for_statement`

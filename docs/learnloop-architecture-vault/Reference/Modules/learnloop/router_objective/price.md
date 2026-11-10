@@ -153,13 +153,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f4_the_shared_construction_serves_ro4s_session_minutes_exactly`
 - [tests/test_rofu_review_draw.py](../../../../../../tests/test_rofu_review_draw.py) — direct import
   - `test_the_probe_after_the_fix_pins_its_numbers_and_the_seed`
-- [tests/test_te3b_binding.py](../../../../../../tests/test_te3b_binding.py) — direct import
 - [tests/test_te3b_clock.py](../../../../../../tests/test_te3b_clock.py) — direct import
   - `test_kappa_counts_a_lessons_active_minutes_only_with_lessons_on`
   - `test_the_serving_clock_reads_only_lesson_intervals_received_by_now`
-- [tests/test_te3b_features.py](../../../../../../tests/test_te3b_features.py) — direct import
-- [tests/test_te3b_population.py](../../../../../../tests/test_te3b_population.py) — direct import
-- [tests/test_te3b_value.py](../../../../../../tests/test_te3b_value.py) — direct import
 
 ## Modification guidance
 

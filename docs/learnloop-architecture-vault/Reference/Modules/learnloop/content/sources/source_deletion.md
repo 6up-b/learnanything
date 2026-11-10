@@ -48,36 +48,36 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/sources/source_deletion.py](../../../../../../../src/learnloop/content/sources/source_deletion.py) |
-| Source lines | 337 |
+| Source lines | 336 |
 | Owning package | [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class SourceDeletionError(ValueError)` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 33) — Deletion refused.
-  - `__init__(self, code: str, message: str, *, details: dict[str, Any] | None=None) -> None` (line 36; internal)
-- `class CollectionImpact` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 43)
-  - `as_dict(self) -> dict[str, Any]` (line 52; public)
-- `class SourceDeletionPlan` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 62)
-  - `deletable(self) -> bool` (line 83; public)
-  - `as_dict(self) -> dict[str, Any]` (line 86; public)
-- `class SourceDeletionResult` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 106)
-  - `as_dict(self) -> dict[str, Any]` (line 113; public)
-- `plan_source_deletion(vault, repo: Repository, source_id: str) -> SourceDeletionPlan` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 211) — Report what deleting ``source_id`` would remove, cost, and currently block.
-- `delete_source(vault, repo: Repository, source_id: str, *, vault_root: Path | None=None, clock: Clock | None=None) -> SourceDeletionResult` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 264) — Delete the source: SQLite cascade, collection membership, stored bytes.
+- `class SourceDeletionError(ValueError)` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 32) — Deletion refused.
+  - `__init__(self, code: str, message: str, *, details: dict[str, Any] | None=None) -> None` (line 35; internal)
+- `class CollectionImpact` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 42)
+  - `as_dict(self) -> dict[str, Any]` (line 51; public)
+- `class SourceDeletionPlan` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 61)
+  - `deletable(self) -> bool` (line 82; public)
+  - `as_dict(self) -> dict[str, Any]` (line 85; public)
+- `class SourceDeletionResult` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 105)
+  - `as_dict(self) -> dict[str, Any]` (line 112; public)
+- `plan_source_deletion(vault, repo: Repository, source_id: str) -> SourceDeletionPlan` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 210) — Report what deleting ``source_id`` would remove, cost, and currently block.
+- `delete_source(vault, repo: Repository, source_id: str, *, vault_root: Path | None=None, clock: Clock | None=None) -> SourceDeletionResult` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 263) — Delete the source: SQLite cascade, collection membership, stored bytes.
 
 ### Module constants
 
-- `_CITED_ENTITY_LIMIT` ([src/learnloop/content/sources/source_deletion.py](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 125)
+- `_CITED_ENTITY_LIMIT` ([src/learnloop/content/sources/source_deletion.py](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 124)
 
 ## Internal implementation anchors
 
-- `_artifact_or_error(repo: Repository, source_id: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 128)
-- `_display_title(artifact: dict[str, Any], revisions: list[dict[str, Any]]) -> str` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 135) — Same fallback chain the Source library uses, so the confirmation dialog names the source exactly as the row the learner clicked.
-- `_active_job_blockers(repo: Repository, *, canonical_uri: str | None, revision_ids: set[str], extraction_ids: set[str]) -> list[str]` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 149) — Jobs still running against this source, matched on their payload.
-- `_collections_for_source(vault, source_id: str) -> list[CollectionImpact]` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 172)
-- `_shared_asset_hashes(repo: Repository, source_id: str, revisions: list[dict[str, Any]]) -> set[str]` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 190) — Asset hashes of this source's revisions that another source also stores.
+- `_artifact_or_error(repo: Repository, source_id: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 127)
+- `_display_title(artifact: dict[str, Any], revisions: list[dict[str, Any]]) -> str` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 134) — Same fallback chain the Source library uses, so the confirmation dialog names the source exactly as the row the learner clicked.
+- `_active_job_blockers(repo: Repository, *, canonical_uri: str | None, revision_ids: set[str], extraction_ids: set[str]) -> list[str]` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 148) — Jobs still running against this source, matched on their payload.
+- `_collections_for_source(vault, source_id: str) -> list[CollectionImpact]` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 171)
+- `_shared_asset_hashes(repo: Repository, source_id: str, revisions: list[dict[str, Any]]) -> set[str]` ([source](../../../../../../../src/learnloop/content/sources/source_deletion.py), line 189) — Asset hashes of this source's revisions that another source also stores.
 
 ## Who imports or calls it
 
@@ -92,7 +92,6 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
-- [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `canonical_source_raw_path`; calls `canonical_source_raw_path`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `upsert_source_set`; calls `upsert_source_set`
 

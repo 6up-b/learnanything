@@ -212,7 +212,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_words_name_the_latest_miss_and_survive_the_record`
 - [tests/test_instruct_handoff_ih1.py](../../../../../../tests/test_instruct_handoff_ih1.py) — direct import
   - `test_offer_shown_is_ignored_by_the_plan_and_changes_no_decision`
-- [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
 - [tests/test_sg_slip_vs_gap.py](../../../../../../tests/test_sg_slip_vs_gap.py) — direct import
   - `test_the_latest_miss_is_the_one_read_and_it_is_lesson_suggestions_own_miss`
 - [tests/test_te3b_codex_review.py](../../../../../../tests/test_te3b_codex_review.py) — direct import

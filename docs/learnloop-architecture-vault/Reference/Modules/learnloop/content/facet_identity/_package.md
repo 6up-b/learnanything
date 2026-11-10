@@ -59,7 +59,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/facet_identity/judge|learnloop.content.facet_identity.judge]] | [[Reference/Modules/learnloop/content/facet_identity/judge#^module-purpose|purpose]] | `ACTIVE` | 6 | 5 |
 | [[Reference/Modules/learnloop/content/facet_identity/plan|learnloop.content.facet_identity.plan]] | [[Reference/Modules/learnloop/content/facet_identity/plan#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 | [[Reference/Modules/learnloop/content/facet_identity/span_support|learnloop.content.facet_identity.span_support]] | [[Reference/Modules/learnloop/content/facet_identity/span_support#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/content/facet_identity/views|learnloop.content.facet_identity.views]] | [[Reference/Modules/learnloop/content/facet_identity/views#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
+| [[Reference/Modules/learnloop/content/facet_identity/views|learnloop.content.facet_identity.views]] | [[Reference/Modules/learnloop/content/facet_identity/views#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 
 ## Cross-package dependencies
 

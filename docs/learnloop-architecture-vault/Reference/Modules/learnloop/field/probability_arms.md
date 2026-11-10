@@ -108,7 +108,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]] — imports `parse_arm_selection`; statically calls `parse_arm_selection`
 - [[Reference/Modules/learnloop/cli/probability_arms|learnloop.cli.probability_arms]] — imports `JUDGES`, `arm_name`; statically calls `arm_name`
 - [[Reference/Modules/learnloop/cli/success_head|learnloop.cli.success_head]] — imports `arm_name`; statically calls `arm_name`
-- [[Reference/Modules/learnloop/field/probability_prep|learnloop.field.probability_prep]] — imports `CachedProbabilityArm`, `JUDGES`, `VARIANTS`, `clip`, `position_key`; statically calls `CachedProbabilityArm`, `position_key`
+- [[Reference/Modules/learnloop/field/probability_prep|learnloop.field.probability_prep]] — imports `CachedProbabilityArm`, `VARIANTS`, `position_key`; statically calls `CachedProbabilityArm`, `position_key`
 
 ## Dependencies
 
