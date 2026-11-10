@@ -1901,12 +1901,13 @@ def trace_evidence_command(
     to consume a facet its learners' traces never touch. Always exits 0.
     """
 
-    from learnloop.attempts.trace_evidence import trace_evidence_report
+    from learnloop.why.reader import evidence_report
 
     vault_root = _root(vault)
     loaded = _load_vault_or_exit(vault_root, json_output=json_output)
     repository = _repository(loaded.root)
-    report = trace_evidence_report(repository)
+    # The same reader as `learnloop why`, which shows one attempt's observations (`why attempt:<id>`).
+    report = evidence_report(repository)
     if json_output:
         typer.echo(_dump({"version": 1, **report}))
         return
@@ -2460,135 +2461,62 @@ def why(
             metavar="[TARGET]",
             help=(
                 "latest (the default), a trace id, a decision record id, <kind>:<id> (attempt, item, block, offer, "
-                "figure, job, presentation, decision), or a practice item id (its scheduler explanation)."
+                "figure, job, presentation, decision, slate, factor, goal, lesson), a router decision, figure or offer "
+                "response id (old rows, reconstructed), or a practice item id (its scheduler explanation)."
             ),
         ),
     ] = None,
     kind: Annotated[str | None, typer.Option("--kind", help="Only decision records of this kind.")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    first_build: Annotated[
+        bool,
+        typer.Option("--first-build", help="Pre-builds: the last skip, the first build and what changed between them."),
+    ] = False,
+    payload: Annotated[
+        bool,
+        typer.Option("--payload", help="Also print each named call's prompt and output, from its receipt."),
+    ] = False,
 ) -> None:
-    """Why x and not y: the decision records of an action, or an item's scheduler explanation (ADR-017).
+    """Why x and not y: what each decision chose, what lost and why, its inputs, who decided, and what came next.
 
     A pure read: a read-only connection, no state sync and no maintenance, so
     asking never changes the vault. Records answer from the rows written when
-    the decision was made; a vault below migration 253, or a decision older
-    than its records, has none (old rows get no backfilled record).
+    the decision was made; a decision older than its records answers from the
+    rows it left, labelled "reconstructed" (old rows get no backfilled record).
     """
+
+    from learnloop.why import reader
 
     loaded = load_vault(_root(vault))
     repository = Repository.attach(VaultPaths(loaded.root, loaded.config).sqlite_path, read_only=True)
     target = practice_item_id or "latest"
-    item_target = target.removeprefix("item:")
-    if item_target in loaded.practice_items:
-        explanation = _why_scheduler_explanation(loaded, repository, item_target)
-        if target.startswith("item:"):
-            explanation = _why_item_exclusions(loaded, repository, item_target, explanation)
-            explanation["records"] = _why_records(repository, target, kind)["records"]
-    elif target == "latest" or target.partition(":")[0] in provenance.SUBJECT_KINDS:
-        explanation = _why_records(repository, target, kind)
-    else:
-        explanation = _why_records(repository, target, kind)
-        if not explanation["records"] and not explanation["model_calls"] and kind is None:
-            # Not a record or a trace: an item no longer in the vault's files keeps its last explanation.
-            explanation = _why_scheduler_explanation(loaded, repository, target)
+    explanation = reader.answer(repository, target, kind=kind, first_build=first_build, loaded=loaded)
     if explanation is None:
         if json_output:
             typer.echo(_dump({"version": 1, "error": "not_found", "practice_item_id": target, "target": target}))
         else:
             typer.echo(f"No decision record or scheduler explanation for {target}.")
         raise typer.Exit(code=1)
+    if payload:
+        explanation["payloads"] = reader.payloads(repository, reader.call_ids(explanation))
     if json_output:
         typer.echo(_dump(explanation))
         return
-    if explanation.get("source") != "decision_records":
+    if explanation.get("source") not in {"decision_records", "reconstructed"}:
         typer.echo(_dump({key: value for key, value in explanation.items() if key != "version"}))
         return
     _echo_why_records(explanation)
 
 
-def _why_scheduler_explanation(loaded, repository, practice_item_id: str) -> dict[str, Any] | None:
-    """Today's scheduler explanation of one item, computed without persisting it; else its latest stored one."""
-
-    item = explain_practice_item(loaded, repository, practice_item_id)
-    if item is None:
-        latest = repository.latest_scheduler_explanation(practice_item_id)
-        if latest is None:
-            return None
-        return {"version": 1, "source": "latest", "explanation": latest}
-    return {
-        "version": 1,
-        "source": "current",
-        "practice_item_id": item.practice_item_id,
-        "priority": item.priority,
-        "components": item.components,
-        "readiness_factor": item.readiness_factor,
-        "reasons": item.plain_english,
-    }
-
-
-def _why_item_exclusions(loaded, repository, practice_item_id: str,
-                         explanation: dict[str, Any] | None) -> dict[str, Any]:
-    """``item:<id>``: the newest slate records naming the item, and, off today's slate, the rule keeping it off.
-
-    A slate record names only a few ids per exclusion rule, so an item it
-    counts without naming is answered by a build now (persisting nothing).
-    """
-
-    from learnloop.scheduling.scheduler import exclusion_now
-    from learnloop.scheduling.slate_record import KIND, item_outcome
-
-    result = dict(explanation) if explanation is not None else {
-        "version": 1, "source": "none", "practice_item_id": practice_item_id,
-    }
-    with repository.connection() as connection:
-        records = provenance.read_naming(connection, practice_item_id, kind=KIND)
-    result["slates"] = [
-        {"record_id": record.id, "trace_id": record.trace_id, "created_at": record.created_at,
-         "slate_id": record.detail_id, "outcome": item_outcome(record, practice_item_id)}
-        for record in records
-    ]
-    if result["source"] != "current":
-        result["excluded_now"] = exclusion_now(loaded, repository, practice_item_id)
-    return result
-
-
-def _why_records(repository, target: str, kind: str | None) -> dict[str, Any]:
-    """The records ``target`` names and their traces' model calls, joined by ``trace_id`` (no payloads); the calls that
-    answered after their decision was taken (``discarded``) and the router calls no decision names (``unclaimed``)."""
-
-    from learnloop.db.stores.provenance import discarded_calls, trace_model_calls, unclaimed_calls
-
-    with repository.connection() as connection:
-        records = provenance.read(connection, target, kind=kind)
-        traces = sorted({record.trace_id for record in records if record.trace_id})
-        if not records and kind is None and target != "latest" and target.partition(":")[0] not in provenance.SUBJECT_KINDS \
-                and trace_model_calls(connection, [target]):
-            traces = [target]  # a trace whose models answered and nothing was decided (a key changed, an eviction)
-        # A decision prefetched by an earlier request asked its models under that request's trace.
-        prefetch = sorted({str(record.facts["prefetch_trace"]) for record in records
-                           if record.facts.get("prefetch_trace")} - set(traces))
-        calls = trace_model_calls(connection, [*traces, *prefetch])
-        unclaimed = unclaimed_calls(connection, records, calls)
-    return {
-        "version": 1,
-        "source": "decision_records",
-        "target": target,
-        "traces": traces,
-        "prefetch_traces": prefetch,
-        "records": [record.as_dict() for record in records],
-        "model_calls": calls,
-        "discarded": discarded_calls(records, calls),
-        "unclaimed": unclaimed,
-    }
-
-
 def _echo_why_records(explanation: dict[str, Any]) -> None:
     records = explanation["records"]
-    if not records and not explanation["model_calls"]:
+    rebuilt = explanation.get("reconstructed") or []
+    built = explanation.get("first_build")
+    if not records and not explanation["model_calls"] and not rebuilt and not built:
         typer.echo(f"No decision records for {explanation['target']}.")
         return
-    if not records:
+    if not records and explanation["model_calls"]:
         typer.echo(f"No decision records for {explanation['target']}; its model calls follow.")
     for record in records:
         parts = [record["created_at"], record["kind"], record["status"]]
@@ -2599,6 +2527,46 @@ def _echo_why_records(explanation: dict[str, Any]) -> None:
             typer.echo("    lost: " + ", ".join(f"{key}={value}" for key, value in sorted(alternative.items())))
         if record["facts"]:
             typer.echo("    facts: " + ", ".join(f"{key}={value}" for key, value in sorted(record["facts"].items())))
+        if record["versions"]:
+            typer.echo("    versions: " + ", ".join(f"{key}={value}" for key, value in sorted(record["versions"].items())))
+    for decision in explanation.get("decisions") or ():
+        for child in decision["next"]:
+            typer.echo(f"Next after {decision['record_id']}: {child['kind']} {child['status']} {child['rule'] or ''}"
+                       f" ({child['record_id']})")
+    for item in rebuilt:
+        parts = [item.get("created_at"), item["kind"], item["status"], "reconstructed"]
+        parts += [f"{name}={item[name]}" for name in ("chosen", "decided_by", "rule", "subject") if item.get(name)]
+        typer.echo("  ".join(str(part) for part in parts))
+        for alternative in item.get("alternatives") or ():
+            typer.echo("    lost: " + ", ".join(f"{key}={value}" for key, value in sorted(alternative.items())))
+        for component in item.get("components") or ():
+            typer.echo("    model: " + ", ".join(f"{key}={value}" for key, value in sorted(component.items())
+                                                 if value is not None))
+        inputs = {key: value for key, value in (item.get("inputs") or {}).items() if value not in (None, [], {})}
+        if inputs:
+            typer.echo("    inputs: " + ", ".join(f"{key}={value}" for key, value in sorted(inputs.items())))
+        versions = {key: value for key, value in (item.get("versions") or {}).items() if value is not None}
+        if versions:
+            typer.echo("    versions: " + ", ".join(f"{key}={value}" for key, value in sorted(versions.items())))
+        for call in item.get("calls") or ():
+            typer.echo(f"    call: {call['started_at']} -> {call['finished_at']}  {call['purpose']}  {call['status']}"
+                       f"  output {call['output']}  {call['call_id']}")
+        for late in item.get("discarded") or ():
+            when = "still out" if late["late_ms"] is None else f"answered {late['late_ms'] / 1000:.1f} s late"
+            typer.echo(f"    Discarded (inferred): {late['call_id']} ({late['purpose']}, {late['model']}) {when}, "
+                       f"discarded")
+        for name, value in sorted((item.get("next") or {}).items()):
+            typer.echo(f"    next {name}: {value}")
+        if item.get("inferred"):
+            typer.echo("    inferred by time: " + ", ".join(item["inferred"]))
+    if built:
+        typer.echo(f"First build ({built['label']}): {built['skips_before_first_build']} skip(s) before it; "
+                   f"last skip {built.get('last_skip')}; first build {built.get('first_build')}")
+        typer.echo(f"  first measurement {built.get('first_measurement')}; between: {built.get('measurement_between')}")
+        for name, (before, after) in sorted((built.get("changed") or {}).items()):
+            typer.echo(f"  changed {name}: {before} -> {after}")
+        for kind, counts in sorted((built.get("by_trigger_kind") or {}).items()):
+            typer.echo(f"  {kind}: {counts['skips_before_first_non_skip']} skip(s) before its first non-skip")
     if explanation["model_calls"]:
         typer.echo("Model calls in these traces:")
         for call in explanation["model_calls"]:
@@ -2606,11 +2574,15 @@ def _echo_why_records(explanation: dict[str, Any]) -> None:
                        f"  {call['model']}  {call['id']}")
     for late in explanation.get("discarded") or ():
         when = "still out" if late["late_ms"] is None else f"answered {late['late_ms'] / 1000:.1f} s late"
-        typer.echo(f"Discarded: {late['call_id']} ({late['purpose']}, {late['model']}) {when}, after decision "
+        typer.echo(f"Discarded: {late['call_id']} ({late['purpose']}, {late['model']}) {when}, discarded by decision "
                    f"{late['record_id']}")
     for call in explanation.get("unclaimed") or ():
         typer.echo(f"Unclaimed: {call['call_id']} ({call['purpose']}, {call['model']}, {call['status']}): no decision "
                    f"names its boundary key {call['boundary_key']}")
+    for entry in explanation.get("payloads") or ():
+        typer.echo(f"Payload {entry['call_id']} ({entry['purpose']}, {entry['status']}):")
+        typer.echo(f"  prompt: {entry['input_text']}")
+        typer.echo(f"  output: {entry['output_text']}")
 
 @app.command()
 def show(

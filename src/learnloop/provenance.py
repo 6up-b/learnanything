@@ -56,7 +56,7 @@ STATUSES = frozenset({
 #: Subject kinds ``why <kind>:<id>`` looks up. A writer may name another kind;
 #: only these are read as a ``kind:id`` target.
 SUBJECT_KINDS = frozenset({"attempt", "item", "block", "offer", "figure", "job", "presentation", "decision", "slate",
-                           "factor"})
+                           "factor", "goal", "lesson"})
 
 #: Alternatives kept per record; the rest are counted per losing rule in
 #: ``facts["alternatives_overflow"]``.
@@ -384,6 +384,33 @@ def read(connection: Any, target: str = "latest", *, kind: str | None = None,
         if "no such table" in str(exc):
             return []
         raise
+
+
+def _select(connection: Any, where: str, args: Sequence[Any], *, limit: int) -> list[DecisionRecord]:
+    try:
+        rows = connection.execute(
+            f"SELECT {', '.join(_COLUMNS)} FROM {TABLE} WHERE {where} ORDER BY created_at, id LIMIT {int(limit)}",
+            tuple(args)).fetchall()
+    except sqlite3.OperationalError as exc:
+        if "no such table" in str(exc):
+            return []
+        raise
+    return [_record(tuple(item)) for item in rows]
+
+
+def read_children(connection: Any, parent_ids: Sequence[str], *, limit: int = 500) -> list[DecisionRecord]:
+    """The records whose ``parent_id`` is one of ``parent_ids`` (what happened next, in any trace), oldest first."""
+
+    ids = sorted({str(item) for item in parent_ids if item})
+    if not ids:
+        return []
+    return _select(connection, f"parent_id IN ({', '.join('?' for _ in ids)})", ids, limit=limit)
+
+
+def read_kind(connection: Any, kind: str, *, limit: int = 5000) -> list[DecisionRecord]:
+    """Every record of ``kind`` across traces, oldest first (``why --first-build`` walks them in order)."""
+
+    return _select(connection, "kind = ?", (kind,), limit=limit)
 
 
 def read_naming(connection: Any, ref: str, *, kind: str | None = None, limit: int = 5) -> list[DecisionRecord]:

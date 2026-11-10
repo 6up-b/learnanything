@@ -317,8 +317,8 @@ def router_trace(
     """Router objective RO4's trace of one decision (spec §8.8): each sensor, the objective's terms, both
     policies, the mix and the output; in plain words, or with --json the whole trace (read-only)."""
 
-    from learnloop.db.stores import router_objective as store
     from learnloop.router_objective.trace import explain
+    from learnloop.why.reader import objective_trace
 
     try:
         if not (vault / "learnloop.toml").is_file():
@@ -326,14 +326,8 @@ def router_trace(
         loaded = load_vault(vault, load_environment=False)
         path = VaultPaths(loaded.root, loaded.config).sqlite_path
         with closing(connect(path, read_only=True)) as connection:
-            if not store.table_present(connection, store.TRACES):
-                raise ValueError("this database predates the router objective's trace (migration 246)")
-            row = store.trace(connection, decision)
-            # Teacher TE3b: a drawn lesson offer's binding (decision -> response -> lesson -> receipt -> delayed
-            # checks), a read over existing ids; None for every other decision.
-            from learnloop.router_objective.offer_report import binding
-
-            offer_binding = binding(connection, str(row["decision_id"])) if row is not None else None
+            # The same reader as `learnloop why`, whose answer for a router decision names this trace.
+            row, offer_binding = objective_trace(connection, decision)
         if row is None:
             raise ValueError(f"no router objective trace for {decision!r} (a decision below mvp-0.47, with "
                              "[router_objective] enabled off, or a deterministic pick has none)")

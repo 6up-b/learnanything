@@ -60,9 +60,11 @@ def trace_model_calls(connection: Any, trace_ids: Iterable[str]) -> list[dict[st
     return [dict(zip(TRACE_CALL_COLUMNS, row, strict=True)) for row in rows]
 
 
-#: Record kinds whose ``created_at`` is the moment the decision took its models' answers, so a call of its traces
-#: that finished later answered too late and was discarded. A kind joins only when its writer stamps that moment.
-LATE_ANSWER_KINDS = frozenset({"plan_block"})
+#: Record kinds whose ``created_at`` is at or after the moment the decision took its models' answers, so a call of its
+#: traces that finished later answered too late and was discarded. ``plan_block`` stamps that moment. The follow-up
+#: gate's record is written just after its draw, so a call finishing in between is missed (``late_ms`` is a lower
+#: bound) but nothing on time is ever called late. A kind whose ``created_at`` could precede its draw never joins.
+LATE_ANSWER_KINDS = frozenset({"plan_block", "followup_gate"})
 
 
 def _moment(value: Any) -> datetime | None:
