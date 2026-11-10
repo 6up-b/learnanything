@@ -249,9 +249,13 @@ def lesson_budget_record(*, lesson_id: Any, exc: BaseException | None, refusal: 
     gate = dict(refusal or {})
     if spend is None and gate.get("reason") == "unknown_price":
         rule = "unknown_price"
+    lesson = _ref(lesson_id)
     return DecisionRecord(
         kind=SPEND_ADMISSION,
         status="refused",
+        # ``why lesson:<id>`` finds records by subject only.
+        subject_kind="lesson" if lesson else None,
+        subject_id=lesson,
         decided_by="lesson_envelope",
         rule=rule,
         facts=_compact({

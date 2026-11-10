@@ -187,3 +187,34 @@ def test_the_record_stream_is_monotonic_and_apart_from_the_shared_one(monkeypatc
     assert minted == sorted(minted) and len(set(minted)) == len(minted)
     second = ids.new_ulid()
     assert ids._decode_ulid(second)[1] == ids._decode_ulid(first)[1] + 1  # the shared stream moved by one only
+
+
+# -- 9. a lesson's budget close is found by the lesson ------------------------------------------------------------
+
+
+def _why(root: Path, target: str, *extra: str) -> dict:
+    import json
+
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+
+    result = CliRunner().invoke(app, ["why", target, "--json", "--vault", str(root), *extra])
+    assert result.exit_code == 0, result.output
+    return json.loads(result.output)
+
+
+def test_why_lesson_finds_the_record_the_real_lesson_budget_builder_writes(tmp_path: Path):
+    from learnloop.ai.spend import SpendLimitExceeded
+    from tests.helpers import create_basic_vault
+
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = Repository.attach(paths.sqlite_path)
+    with provenance.trace_scope("TRACE_LESSON"):
+        assert refusal_records.write(repository, refusal_records.SPEND_ADMISSION,
+                                     lambda: refusal_records.lesson_budget_record(
+                                         lesson_id="lesson_42", exc=SpendLimitExceeded("x", rule="max_calls"),
+                                         refusal={"purpose": "teacher_turn", "limit_usd": 1.0}))
+    [record] = [item for item in _why(paths.root, "lesson:lesson_42")["records"] if item["kind"] == "spend_admission"]
+    assert (record["subject_kind"], record["subject_id"]) == ("lesson", "lesson_42")
+    assert (record["status"], record["decided_by"], record["rule"]) == ("refused", "lesson_envelope", "max_calls")
