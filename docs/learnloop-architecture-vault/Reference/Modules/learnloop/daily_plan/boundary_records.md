@@ -47,30 +47,30 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/boundary_records.py](../../../../../../src/learnloop/daily_plan/boundary_records.py) |
-| Source lines | 314 |
+| Source lines | 322 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `wall_now() -> str` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 52) — The wall clock in the receipts' format (``ai.execution``): a record's time is compared with theirs.
-- `ref(value: Any) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 58) — An option's id as a record keeps it: the id itself, or a short hash of one that isn't a code (a space in a vault's id would otherwise drop the whole record).
-- `forced_entry(item_id: Any, *, origin: Any, workflow: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 107) — One forced item as a record names it: its id and origin, and its follow-up workflow, source attempt and state when a workflow holds it (a follow-up from a recorded need has none).
-- `forced_facts(entries: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 122) — The forced items' ids, workflows and source attempts as lists (capped), and how many there were.
-- `plan_block_records(decision: Any, *, block_id: str, detail_id: str | None, config: Any, stop: bool, trace_id: str | None=None, parent_id: str | None=None, trigger_attempt: str | None=None) -> list[DecisionRecord]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 150) — A boundary decision's plan_block record, its components' model_answer records and any failed step's record, oldest first.
-- `component_records(block: DecisionRecord, router: Mapping[str, Any], mixture: Mapping[str, Any], *, timeouts: Mapping[str, Any], waited_ms: Any, crashed: bool, models: Mapping[str, Any] | None=None) -> list[DecisionRecord]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 256) — One ``model_answer`` per component of ``block``'s decision (the Decider, the LLM, the numeric policy, the staged rule), from the router's record of it: a plan block's (B2) or a follow-up's ``plan_interrupt`` (B3).
+- `wall_now() -> str` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 51) — The wall clock in the receipts' format (``ai.execution``): a record's time is compared with theirs.
+- `ref(value: Any) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 57) — An option's id as a record keeps it: the id itself, or a short hash of one that isn't a code (a space in a vault's id would otherwise drop the whole record).
+- `forced_entry(item_id: Any, *, origin: Any, workflow: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 106) — One forced item as a record names it: its id and origin, and its follow-up workflow, source attempt and state when a workflow holds it (a follow-up from a recorded need has none).
+- `forced_facts(entries: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 121) — The forced items' ids, workflows and source attempts as lists (capped), and how many there were.
+- `plan_block_records(decision: Any, *, block_id: str, detail_id: str | None, config: Any, stop: bool, trace_id: str | None=None, parent_id: str | None=None, trigger_attempt: str | None=None) -> list[DecisionRecord]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 149) — A boundary decision's plan_block record, its components' model_answer records and any failed step's record, oldest first.
+- `component_records(block: DecisionRecord, router: Mapping[str, Any], mixture: Mapping[str, Any], *, timeouts: Mapping[str, Any], waited_ms: Any, crashed: bool, models: Mapping[str, Any] | None=None) -> list[DecisionRecord]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 255) — One ``model_answer`` per component of ``block``'s decision (the Decider, the LLM, the numeric policy, the staged rule), from the router's record of it: a plan block's (B2) or a follow-up's ``plan_interrupt`` (B3).
 
 ### Module constants
 
-- `PLAN_BLOCK` ([src/learnloop/daily_plan/boundary_records.py](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 36)
-- `MODEL_ANSWER` ([src/learnloop/daily_plan/boundary_records.py](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 37)
-- `FAILURE_NOTE` ([src/learnloop/daily_plan/boundary_records.py](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 40)
-- `_STATUS` ([src/learnloop/daily_plan/boundary_records.py](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 43)
-- `_DECIDED_BY` ([src/learnloop/daily_plan/boundary_records.py](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 46)
-- `_ERROR_TYPE` ([src/learnloop/daily_plan/boundary_records.py](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 48)
-- `_NOT_CODE` ([src/learnloop/daily_plan/boundary_records.py](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 49)
-- `IDS_KEPT` ([src/learnloop/daily_plan/boundary_records.py](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 104)
+- `PLAN_BLOCK` ([src/learnloop/daily_plan/boundary_records.py](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 35)
+- `MODEL_ANSWER` ([src/learnloop/daily_plan/boundary_records.py](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 36)
+- `FAILURE_NOTE` ([src/learnloop/daily_plan/boundary_records.py](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 39)
+- `_STATUS` ([src/learnloop/daily_plan/boundary_records.py](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 42)
+- `_DECIDED_BY` ([src/learnloop/daily_plan/boundary_records.py](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 45)
+- `_ERROR_TYPE` ([src/learnloop/daily_plan/boundary_records.py](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 47)
+- `_NOT_CODE` ([src/learnloop/daily_plan/boundary_records.py](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 48)
+- `IDS_KEPT` ([src/learnloop/daily_plan/boundary_records.py](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 103)
 
 ### Explicit exports
 
@@ -89,14 +89,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_code(value: Any) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 70)
-- `_number(value: Any) -> float | int | None` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 74)
-- `_where(value: Any) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 80)
-- `_error_type(error: Any) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 85)
-- `_compact(values: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 90)
-- `_favoured(distribution: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 94)
-- `_superseding(value: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 141) — IH2's contest: the open offer this decision replaces (its block and its decision).
-- `_answer(name: str, *, status: str, raw: str, chosen_ref: Any, block: DecisionRecord, distribution: Mapping[str, Any], facts: Mapping[str, Any], versions: Mapping[str, Any], error_type: str | None) -> DecisionRecord` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 290)
+- `_code(value: Any) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 69)
+- `_number(value: Any) -> float | int | None` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 73)
+- `_where(value: Any) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 79)
+- `_error_type(error: Any) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 84)
+- `_compact(values: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 89)
+- `_favoured(distribution: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 93)
+- `_superseding(value: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 140) — IH2's contest: the open offer this decision replaces (its block and its decision).
+- `_answer(name: str, *, status: str, raw: str, chosen_ref: Any, block: DecisionRecord, distribution: Mapping[str, Any], facts: Mapping[str, Any], versions: Mapping[str, Any], error_type: str | None) -> DecisionRecord` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 298)
 
 ## Who imports or calls it
 
@@ -111,8 +111,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
-- [[Reference/Modules/learnloop/provenance|learnloop.provenance]] — imports `DecisionRecord`, `module`; calls `DecisionRecord`, `current_trace`, `is_code`, `new_trace_id`
+- [[Reference/Modules/learnloop/provenance|learnloop.provenance]] — imports `DecisionRecord`, `module`; calls `DecisionRecord`, `current_trace`, `is_code`, `new_record_id`, `new_trace_id`
 
 ### Platform and third-party dependencies
 

@@ -292,6 +292,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_codex_single_request_fails_closed_before_sdk_startup`
   - `test_openai_single_request_disables_retry_and_repair_only_in_scope`
   - `test_single_request_is_nested_context_local_and_restored_after_failure`
+- [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — direct import
 - [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
   - `test_a_401_under_single_request_fails_and_the_next_call_refreshes`
   - `test_a_json_repair_is_sent_with_the_budget_of_the_request_it_repairs`

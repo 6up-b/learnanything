@@ -128,7 +128,7 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 19 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 13 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 12 static module edges
-- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 11 static module edges
+- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 10 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 10 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 9 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 9 static module edges
@@ -155,6 +155,7 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 - [[Reference/Modules/learnloop/tui/_package|learnloop.tui]] — 1 static module edge
 - [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] — 1 static module edge
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 1 static module edge
+- [[Reference/Modules/learnloop/why/_package|learnloop.why]] — 1 static module edge
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 1 static module edge
 
 ### Dependency neighborhood
@@ -173,7 +174,7 @@ flowchart LR
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_ops["learnloop.ops"]
-    n_learnloop_cli["learnloop.cli"]
+    n_learnloop_goals["learnloop.goals"]
     n_learnloop -->|45| center
     center -->|32| n_learnloop
     n_learnloop_diagnosis -->|22| center
@@ -188,7 +189,8 @@ flowchart LR
     n_learnloop_attempts -->|13| center
     center -->|5| n_learnloop_attempts
     n_learnloop_ops -->|12| center
-    n_learnloop_cli -->|11| center
+    n_learnloop_goals -->|9| center
+    center -->|2| n_learnloop_goals
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

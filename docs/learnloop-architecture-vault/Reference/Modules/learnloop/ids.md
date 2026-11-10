@@ -36,7 +36,7 @@ Up: [[Reference/Modules/learnloop/_package|learnloop]] · Root: [[Module Catalog
 
 ## Why this module exists
 
-This module keeps ids behavior inside its owning package, [[Reference/Modules/learnloop/_package|learnloop]]. Its public surface centers on `new_ulid`, `new_ulid_after`, `kebab_case`, `snake_case`.
+This module keeps ids behavior inside its owning package, [[Reference/Modules/learnloop/_package|learnloop]]. Its public surface centers on `new_ulid`, `UlidStream`, `new_ulid_after`, `kebab_case`, `snake_case`.
 
 The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -47,31 +47,35 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ids.py](../../../../../src/learnloop/ids.py) |
-| Source lines | 109 |
+| Source lines | 141 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `primitive` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `new_ulid() -> str` ([source](../../../../../src/learnloop/ids.py), line 35) — Generate a ULID that sorts after every ULID this process generated before it.
-- `new_ulid_after(floor: str | None) -> str` ([source](../../../../../src/learnloop/ids.py), line 78) — A ULID that sorts after every ULID this process generated before it and after ``floor``, a ULID read from storage (Codex review F2 of followups-nov1c): process-local monotonicity cannot order an id against one a process with a clock running ahead persisted before a restart, so a…
-- `kebab_case(value: str) -> str` ([source](../../../../../src/learnloop/ids.py), line 95)
-- `snake_case(value: str) -> str` ([source](../../../../../src/learnloop/ids.py), line 108)
+- `new_ulid() -> str` ([source](../../../../../src/learnloop/ids.py), line 56) — Generate a ULID that sorts after every ULID this process generated before it.
+- `class UlidStream` ([source](../../../../../src/learnloop/ids.py), line 66) — A monotonic ULID stream with its own state and its own randomness, apart from :func:`new_ulid`'s.
+  - `__init__(self) -> None` (line 76; internal)
+  - `__call__(self) -> str` (line 82; internal)
+- `new_ulid_after(floor: str | None) -> str` ([source](../../../../../src/learnloop/ids.py), line 110) — A ULID that sorts after every ULID this process generated before it and after ``floor``, a ULID read from storage (Codex review F2 of followups-nov1c): process-local monotonicity cannot order an id against one a process with a clock running ahead persisted before a restart, so a…
+- `kebab_case(value: str) -> str` ([source](../../../../../src/learnloop/ids.py), line 127)
+- `snake_case(value: str) -> str` ([source](../../../../../src/learnloop/ids.py), line 140)
 
 ### Module constants
 
-- `_CROCKFORD` ([src/learnloop/ids.py](../../../../../src/learnloop/ids.py), line 7)
-- `_TIMESTAMP_MASK` ([src/learnloop/ids.py](../../../../../src/learnloop/ids.py), line 18)
-- `_RANDOMNESS_BITS` ([src/learnloop/ids.py](../../../../../src/learnloop/ids.py), line 19)
-- `_RANDOMNESS_MAX` ([src/learnloop/ids.py](../../../../../src/learnloop/ids.py), line 20)
-- `_FLOOR_JITTER_BITS` ([src/learnloop/ids.py](../../../../../src/learnloop/ids.py), line 75)
+- `_CROCKFORD` ([src/learnloop/ids.py](../../../../../src/learnloop/ids.py), line 9)
+- `_TIMESTAMP_MASK` ([src/learnloop/ids.py](../../../../../src/learnloop/ids.py), line 20)
+- `_RANDOMNESS_BITS` ([src/learnloop/ids.py](../../../../../src/learnloop/ids.py), line 21)
+- `_RANDOMNESS_MAX` ([src/learnloop/ids.py](../../../../../src/learnloop/ids.py), line 22)
+- `_FLOOR_JITTER_BITS` ([src/learnloop/ids.py](../../../../../src/learnloop/ids.py), line 107)
 
 ## Internal implementation anchors
 
-- `_encode_crockford(value: int, length: int) -> str` ([source](../../../../../src/learnloop/ids.py), line 10)
-- `_wall_clock_ms() -> int` ([source](../../../../../src/learnloop/ids.py), line 31)
-- `_decode_ulid(value: str) -> tuple[int, int] | None` ([source](../../../../../src/learnloop/ids.py), line 58) — A ULID's (timestamp ms, randomness), or None for anything that is not one.
+- `_encode_crockford(value: int, length: int) -> str` ([source](../../../../../src/learnloop/ids.py), line 12)
+- `_wall_clock_ms() -> int` ([source](../../../../../src/learnloop/ids.py), line 33)
+- `_next_ulid(last_ms: int, last_randomness: int, randbits: Callable[[int], int]) -> tuple[int, int]` ([source](../../../../../src/learnloop/ids.py), line 37) — The (timestamp ms, randomness) that follows ``(last_ms, last_randomness)`` under the monotonic rule.
+- `_decode_ulid(value: str) -> tuple[int, int] | None` ([source](../../../../../src/learnloop/ids.py), line 90) — A ULID's (timestamp ms, randomness), or None for anything that is not one.
 
 ## Who imports or calls it
 
@@ -122,13 +126,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/curriculum/subject_registry|learnloop.curriculum.subject_registry]] — imports `new_ulid`; statically calls `new_ulid`
-- [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `new_ulid`; statically calls `new_ulid`
-- [[Reference/Modules/learnloop/daily_plan/plan_records|learnloop.daily_plan.plan_records]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/data_capture/prefilter|learnloop.data_capture.prefilter]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `new_ulid`; statically calls `new_ulid`
@@ -191,7 +193,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/projects/capture|learnloop.projects.capture]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/projects/experiment_store|learnloop.projects.experiment_store]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/projects/probes|learnloop.projects.probes]] — imports `new_ulid`; statically calls `new_ulid`
-- [[Reference/Modules/learnloop/provenance|learnloop.provenance]] — imports `module`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/provenance|learnloop.provenance]] — imports `module`; statically calls `UlidStream`
 - [[Reference/Modules/learnloop/reader/reader_intent|learnloop.reader.reader_intent]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/reader/reader_quick_check|learnloop.reader.reader_quick_check]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/reader/workbench|learnloop.reader.workbench]] — imports `new_ulid`; statically calls `new_ulid`
@@ -259,7 +261,7 @@ No internal Python dependency was found by static analysis.
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `secrets`, `threading`, `time`
+- Standard library: `__future__`, `collections`, `random`, `secrets`, `threading`, `time`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -269,7 +271,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 167 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 165 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -278,6 +280,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/notes_fixtures.py](../../../../../tests/notes_fixtures.py) — direct import
 - [tests/test_ad23_contract.py](../../../../../tests/test_ad23_contract.py) — direct import
   - `test_an_empty_support_draw_of_a_protected_slot_leaves_the_report_cohort`
+- [tests/test_arcb_close_fixes.py](../../../../../tests/test_arcb_close_fixes.py) — direct import
+  - `test_the_record_stream_is_monotonic_and_apart_from_the_shared_one`
 - [tests/test_capture_desktop.py](../../../../../tests/test_capture_desktop.py) — direct import
   - `test_desktop_photo_preview_rpc_reads_only_the_capture_original`
   - `test_image_capture_kind_matches_desktop_dto`

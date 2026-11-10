@@ -186,7 +186,6 @@ Indexes and uniqueness:
 - `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/attempts/stuck.py`
 - `src/learnloop/capture/report.py`
-- `src/learnloop/cli/router.py`
 - `src/learnloop/confidence_events.py`
 - `src/learnloop/content/proposals/method_phrasing.py`
 - `src/learnloop/daily_plan/engine.py`
@@ -287,6 +286,7 @@ Indexes and uniqueness:
 - `src/learnloop/teacher/diagnosed_sources.py`
 - `src/learnloop/teacher/report.py`
 - `src/learnloop/teacher/service.py`
+- `src/learnloop/why/outcomes_now.py`
 - `src/learnloop/workbench/compare_methods.py`
 - `src/learnloop/workbench/help_outcomes.py`
 - `src/learnloop_sidecar/handlers/daily_plan.py`

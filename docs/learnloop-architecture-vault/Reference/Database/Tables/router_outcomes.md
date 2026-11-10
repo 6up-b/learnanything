@@ -114,8 +114,6 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/router.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/router_objective/calibration_report.py`
-- `src/learnloop/why/reader.py`
-- `src/learnloop/why/reconstructed.py`
 
 ### Direct SQL writers
 
@@ -130,6 +128,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_arcb_close_fixes.py`
 - `tests/test_daily_plan_replay.py`
 - `tests/test_data_capture_landing_review.py`
 - `tests/test_data_capture_successor.py`

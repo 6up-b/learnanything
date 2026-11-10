@@ -994,6 +994,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_automatic_builds_apply_asks_the_span_check_before_the_vault_lock`
   - `test_inside_an_automatic_builds_request_gate_the_span_check_is_admitted_and_settled`
   - `test_the_one_ok_and_settings_name_perplexity_through_openrouter`
+- [tests/test_decision_records_retention.py](../../../../../../tests/test_decision_records_retention.py) — direct import
+  - `test_startup_maintenance_runs_the_retention_pass`
 - [tests/test_deferred_regrade.py](../../../../../../tests/test_deferred_regrade.py) — direct import
   - `test_deferred_ai_regrade_records_provider_and_ai_origin`
   - `test_deferred_regrade_failure_leaves_self_grade_current_and_agent_failed`

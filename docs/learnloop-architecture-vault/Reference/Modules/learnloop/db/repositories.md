@@ -1551,6 +1551,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/tutor/teach_back|learnloop.tutor.teach_back]] — imports `Repository`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `Repository`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `Repository`; statically calls `Repository`
+- [[Reference/Modules/learnloop/why/outcomes_now|learnloop.why.outcomes_now]] — imports `Repository`
 - [[Reference/Modules/learnloop/workbench/bridge|learnloop.workbench.bridge]] — imports `Repository`
 - [[Reference/Modules/learnloop/workbench/check|learnloop.workbench.check]] — imports `Repository`
 - [[Reference/Modules/learnloop/workbench/compare_methods|learnloop.workbench.compare_methods]] — imports `Repository`
@@ -1622,7 +1623,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 401 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 402 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1860,6 +1861,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_approach_map_replay.py](../../../../../../tests/test_approach_map_replay.py) — direct import
   - `test_rebuild_and_replay_call_no_model_and_never_read_approach_maps`
 - [tests/test_approach_maps.py](../../../../../../tests/test_approach_maps.py) — direct import
+- [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — direct import
+  - `test_a_record_under_a_pin_with_nothing_open_commits_alone`
+  - `test_a_record_written_under_a_pin_never_commits_the_callers_work`
+  - `test_why_lesson_finds_the_record_the_real_lesson_budget_builder_writes`
 - [tests/test_assessment_contracts.py](../../../../../../tests/test_assessment_contracts.py) — direct import
   - `test_identical_item_versions_reuse_one_snapshot`
   - `test_legacy_attempt_records_no_observation_lineage`
@@ -2174,6 +2179,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_span_support_labels_never_leak_to_another_rewords_check`
 - [tests/test_decider_landing.py](../../../../../../tests/test_decider_landing.py) — direct import
   - `test_a_link_recorded_at_main_mvp020_or_mvp021_has_no_decider_authority`
+- [tests/test_decision_records_retention.py](../../../../../../tests/test_decision_records_retention.py) — direct import
+  - `test_pruning_clears_the_payloads_of_old_rows_only_and_keeps_every_identity_column`
+  - `test_startup_maintenance_runs_the_retention_pass`
 - [tests/test_deferred_regrade.py](../../../../../../tests/test_deferred_regrade.py) — direct import
   - `test_deferred_ai_regrade_records_provider_and_ai_origin`
   - `test_deferred_regrade_failure_leaves_self_grade_current_and_agent_failed`

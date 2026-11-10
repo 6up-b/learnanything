@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/scopes.py](../../../../../../src/learnloop/db/scopes.py) |
-| Source lines | 392 |
+| Source lines | 396 |
 | Owning package | [[Reference/Modules/learnloop/db/_package|learnloop.db]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -63,27 +63,27 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `apply_connection_hook(connection, path)` ([source](../../../../../../src/learnloop/db/scopes.py), line 135)
 - `guarded_connection(connection, path)` ([source](../../../../../../src/learnloop/db/scopes.py), line 142)
 - `class OwnedConnection` ([source](../../../../../../src/learnloop/db/scopes.py), line 237) — Close a borrowed repository connection at the end of its with block.
-  - `__init__(self, connection: sqlite3.Connection)` (line 240; internal)
-  - `__getattr__(self, name: str) -> Any` (line 243; internal)
-  - `__setattr__(self, name: str, value: Any) -> None` (line 246; internal)
-  - `__enter__(self)` (line 249; internal)
-  - `__exit__(self, *exc)` (line 252; internal)
-- `class AtomicConnection` ([source](../../../../../../src/learnloop/db/scopes.py), line 259) — Keep store methods' own commits inside an owning transaction.
-  - `__init__(self, connection: sqlite3.Connection)` (line 268; internal)
-  - `__getattr__(self, name: str) -> Any` (line 274; internal)
-  - `isolation_level(self)` (line 278; public)
-  - `isolation_level(self, value)` (line 282; public)
-  - `_savepoint(self) -> str` (line 286; internal)
-  - `__enter__(self)` (line 292; internal)
-  - `__exit__(self, exc_type, exc, traceback)` (line 296; internal)
-  - `execute(self, sql, parameters=())` (line 304; public)
-  - `executescript(self, _script)` (line 317; public)
-  - `cursor(self, *args, **kwargs)` (line 320; public)
-  - `commit(self)` (line 323; public)
-  - `rollback(self)` (line 328; public)
-  - `close(self)` (line 338; public)
-- `pinned_repository_call(function)` ([source](../../../../../../src/learnloop/db/scopes.py), line 363) — Reuse a connection for short local work, preserving each write commit.
-- `atomic_repository_call(function)` ([source](../../../../../../src/learnloop/db/scopes.py), line 376) — Wrap a local operation with a named repository argument atomically.
+  - `__init__(self, connection: sqlite3.Connection)` (line 244; internal)
+  - `__getattr__(self, name: str) -> Any` (line 247; internal)
+  - `__setattr__(self, name: str, value: Any) -> None` (line 250; internal)
+  - `__enter__(self)` (line 253; internal)
+  - `__exit__(self, *exc)` (line 256; internal)
+- `class AtomicConnection` ([source](../../../../../../src/learnloop/db/scopes.py), line 263) — Keep store methods' own commits inside an owning transaction.
+  - `__init__(self, connection: sqlite3.Connection)` (line 272; internal)
+  - `__getattr__(self, name: str) -> Any` (line 278; internal)
+  - `isolation_level(self)` (line 282; public)
+  - `isolation_level(self, value)` (line 286; public)
+  - `_savepoint(self) -> str` (line 290; internal)
+  - `__enter__(self)` (line 296; internal)
+  - `__exit__(self, exc_type, exc, traceback)` (line 300; internal)
+  - `execute(self, sql, parameters=())` (line 308; public)
+  - `executescript(self, _script)` (line 321; public)
+  - `cursor(self, *args, **kwargs)` (line 324; public)
+  - `commit(self)` (line 327; public)
+  - `rollback(self)` (line 332; public)
+  - `close(self)` (line 342; public)
+- `pinned_repository_call(function)` ([source](../../../../../../src/learnloop/db/scopes.py), line 367) — Reuse a connection for short local work, preserving each write commit.
+- `atomic_repository_call(function)` ([source](../../../../../../src/learnloop/db/scopes.py), line 380) — Wrap a local operation with a named repository argument atomically.
 
 ### Module constants
 
@@ -98,7 +98,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `_is_write_statement(sql: str) -> bool` ([source](../../../../../../src/learnloop/db/scopes.py), line 49) — Whether a statement can modify the database.
 - `class _GuardedConnection` ([source](../../../../../../src/learnloop/db/scopes.py), line 150)
 - `class _GuardedCursor` ([source](../../../../../../src/learnloop/db/scopes.py), line 218)
-- `class _AtomicCursor` ([source](../../../../../../src/learnloop/db/scopes.py), line 342) — Cursor transaction statements must obey the same borrowing rules.
+- `class _AtomicCursor` ([source](../../../../../../src/learnloop/db/scopes.py), line 346) — Cursor transaction statements must obey the same borrowing rules.
 
 ## Who imports or calls it
 

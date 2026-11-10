@@ -85,7 +85,7 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 | [[Reference/Modules/learnloop/ops/pf_verify|learnloop.ops.pf_verify]] | [[Reference/Modules/learnloop/ops/pf_verify#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/ops/plan_transport|learnloop.ops.plan_transport]] | [[Reference/Modules/learnloop/ops/plan_transport#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/ops/settings_store|learnloop.ops.settings_store]] | [[Reference/Modules/learnloop/ops/settings_store#^module-purpose|purpose]] | `ACTIVE` | 9 | 10 |
-| [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] | [[Reference/Modules/learnloop/ops/startup#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
+| [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] | [[Reference/Modules/learnloop/ops/startup#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop/ops/vault_lock|learnloop.ops.vault_lock]] | [[Reference/Modules/learnloop/ops/vault_lock#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] | [[Reference/Modules/learnloop/ops/vault_upgrade#^module-purpose|purpose]] | `ACTIVE` | 46 | 20 |
 
@@ -101,7 +101,7 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 41 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 22 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 19 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 13 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 14 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 12 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 10 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 7 static module edges
@@ -155,8 +155,8 @@ flowchart LR
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_cli["learnloop.cli"]
-    n_learnloop_content_authoring["learnloop.content.authoring"]
     n_learnloop_db_stores["learnloop.db.stores"]
+    n_learnloop_content_authoring["learnloop.content.authoring"]
     n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
@@ -166,9 +166,9 @@ flowchart LR
     center -->|41| n_learnloop_vault
     center -->|19| n_learnloop_db
     n_learnloop_cli -->|17| center
+    center -->|14| n_learnloop_db_stores
     n_learnloop_content_authoring -->|3| center
     center -->|10| n_learnloop_content_authoring
-    center -->|13| n_learnloop_db_stores
     center -->|12| n_learnloop_substrate
     n_learnloop_sidecar_handlers -->|10| center
     n_learnloop_source_retrieval -->|8| center

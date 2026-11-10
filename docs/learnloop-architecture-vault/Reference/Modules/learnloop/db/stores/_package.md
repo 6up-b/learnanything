@@ -136,7 +136,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/placement|learnloop.db.stores.placement]] | [[Reference/Modules/learnloop/db/stores/placement#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/db/stores/plan_presentations|learnloop.db.stores.plan_presentations]] | [[Reference/Modules/learnloop/db/stores/plan_presentations#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
 | [[Reference/Modules/learnloop/db/stores/practice_index|learnloop.db.stores.practice_index]] | [[Reference/Modules/learnloop/db/stores/practice_index#^module-purpose|purpose]] | `ACTIVE` | 17 | 8 |
-| [[Reference/Modules/learnloop/db/stores/provenance|learnloop.db.stores.provenance]] | [[Reference/Modules/learnloop/db/stores/provenance#^module-purpose|purpose]] | `ACTIVE` | 15 | 4 |
+| [[Reference/Modules/learnloop/db/stores/provenance|learnloop.db.stores.provenance]] | [[Reference/Modules/learnloop/db/stores/provenance#^module-purpose|purpose]] | `ACTIVE` | 18 | 7 |
 | [[Reference/Modules/learnloop/db/stores/reader_cue_links|learnloop.db.stores.reader_cue_links]] | [[Reference/Modules/learnloop/db/stores/reader_cue_links#^module-purpose|purpose]] | `ACTIVE` | 2 | 11 |
 | [[Reference/Modules/learnloop/db/stores/reader_digests|learnloop.db.stores.reader_digests]] | [[Reference/Modules/learnloop/db/stores/reader_digests#^module-purpose|purpose]] | `ACTIVE` | 4 | 13 |
 | [[Reference/Modules/learnloop/db/stores/reading_paths|learnloop.db.stores.reading_paths]] | [[Reference/Modules/learnloop/db/stores/reading_paths#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
@@ -158,24 +158,24 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 34 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 4 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 5 static module edges
 
 ### Packages that import this package
 
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 54 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 28 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 26 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 23 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 23 static module edges
-- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 22 static module edges
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 19 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 16 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 16 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 15 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 14 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 14 static module edges
+- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 14 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 14 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 13 static module edges
-- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 13 static module edges
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 12 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 11 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 9 static module edges
@@ -204,9 +204,9 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/_package|learnloop.experiments.contextual_embeddings]] — 3 static module edges
 - [[Reference/Modules/learnloop/matching/_package|learnloop.matching]] — 3 static module edges
 - [[Reference/Modules/learnloop/ops/contamination/_package|learnloop.ops.contamination]] — 3 static module edges
+- [[Reference/Modules/learnloop/why/_package|learnloop.why]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 2 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 2 static module edges
-- [[Reference/Modules/learnloop/why/_package|learnloop.why]] — 2 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 1 static module edge
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 1 static module edge
 - [[Reference/Modules/learnloop/local_embeddings/_package|learnloop.local_embeddings]] — 1 static module edge
@@ -224,10 +224,10 @@ flowchart LR
     n_learnloop["learnloop"]
     n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
-    n_learnloop_instructional["learnloop.instructional"]
     n_learnloop_daily_plan["learnloop.daily_plan"]
-    n_learnloop_router_objective["learnloop.router_objective"]
+    n_learnloop_instructional["learnloop.instructional"]
     n_learnloop_db["learnloop.db"]
+    n_learnloop_router_objective["learnloop.router_objective"]
     n_learnloop_hints["learnloop.hints"]
     n_learnloop_teacher["learnloop.teacher"]
     n_learnloop_source_retrieval -->|54| center
@@ -235,11 +235,11 @@ flowchart LR
     center -->|34| n_learnloop
     n_learnloop_adaptive_difficulty -->|28| center
     n_learnloop_sidecar_handlers -->|26| center
+    n_learnloop_daily_plan -->|23| center
     n_learnloop_instructional -->|23| center
-    n_learnloop_daily_plan -->|22| center
-    n_learnloop_router_objective -->|19| center
     n_learnloop_db -->|14| center
-    center -->|4| n_learnloop_db
+    center -->|5| n_learnloop_db
+    n_learnloop_router_objective -->|19| center
     n_learnloop_hints -->|16| center
     n_learnloop_teacher -->|16| center
 ```

@@ -98,7 +98,6 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/attempts/coldness_receipt|learnloop.attempts.coldness_receipt]] — imports `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] — imports `UNASSESSED_INTERPRETATION`, `UNVERIFIED_CRITERION_BLOCK`, `UNVERIFIED_INTERPRETATION_KEY`, `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] — imports `CANONICAL_PROJECTION_VERSION`, `project_canonical_facet_state`; statically calls `project_canonical_facet_state`
-- [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] — imports `held_for_review_attempts`, `pfc_assessments`; statically calls `held_for_review_attempts`, `pfc_assessments`
 - [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] — imports `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/curriculum/integration_backfill|learnloop.curriculum.integration_backfill]] — imports `CANONICAL_PROJECTION_VERSION`
 - [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]] — imports `held_for_review_attempts`, `pfc_assessments`; statically calls `held_for_review_attempts`, `pfc_assessments`
@@ -135,6 +134,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `CANONICAL_PROJECTION_VERSION`, `held_for_review_attempts`, `pfc_assessments`, `project_canonical_facet_state`; statically calls `held_for_review_attempts`, `pfc_assessments`, `project_canonical_facet_state`
 - [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `CANONICAL_PROJECTION_VERSION`, `project_canonical_facet_state`; statically calls `project_canonical_facet_state`
 - [[Reference/Modules/learnloop/tui/screens/feedback|learnloop.tui.screens.feedback]] — imports `unassessed_evidence_row`; statically calls `unassessed_evidence_row`
+- [[Reference/Modules/learnloop/why/outcomes_now|learnloop.why.outcomes_now]] — imports `held_for_review_attempts`, `pfc_assessments`; statically calls `held_for_review_attempts`, `pfc_assessments`
 - [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `unassessed_evidence_row`; statically calls `unassessed_evidence_row`
 
 ## Dependencies

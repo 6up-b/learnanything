@@ -152,6 +152,7 @@ None found by exact static reference scan.
 - `src/learnloop/router_objective/trajectory.py`
 - `src/learnloop/substrate/rebuild_orchestrator.py`
 - `src/learnloop/teacher/diagnosed_sources.py`
+- `src/learnloop/why/reader.py`
 - `src/learnloop/why/reconstructed.py`
 
 ### Direct SQL writers
@@ -169,6 +170,7 @@ None found by exact static reference scan.
 
 - `tests/router_mixture_helpers.py`
 - `tests/test_ad2_serving.py`
+- `tests/test_arcb_close_fixes.py`
 - `tests/test_daily_plan_owner_decisions.py`
 - `tests/test_daily_plan_replay.py`
 - `tests/test_daily_plan_review_regressions.py`
@@ -186,7 +188,6 @@ None found by exact static reference scan.
 - `tests/test_forced_withdrawal_records.py`
 - `tests/test_ih3_phone_host.py`
 - `tests/test_ih6_workbench_open_item.py`
-- `tests/test_ih7_lesson_sources_follow_diagnosis.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

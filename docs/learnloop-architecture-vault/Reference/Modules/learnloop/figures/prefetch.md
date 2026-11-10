@@ -282,6 +282,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — direct import
+  - `test_each_queued_figure_trigger_runs_under_the_trace_that_queued_it`
 - [tests/test_figure_decision_records.py](../../../../../../tests/test_figure_decision_records.py) — direct import
   - `test_a_pass_that_excludes_nothing_writes_no_filter_record`
   - `test_a_queue_stopped_by_foreground_work_records_what_waits`

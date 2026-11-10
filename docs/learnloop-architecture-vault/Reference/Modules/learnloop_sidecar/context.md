@@ -311,6 +311,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ad1_switches_restore_predecessor`
 - [tests/test_approach_map_replay.py](../../../../../tests/test_approach_map_replay.py) — direct import
 - [tests/test_approach_maps.py](../../../../../tests/test_approach_maps.py) — direct import
+- [tests/test_arcb_close_fixes.py](../../../../../tests/test_arcb_close_fixes.py) — direct import
+  - `test_a_figure_authors_one_word_unsupported_kind_never_leaves_through_why`
 - [tests/test_batch3_landing.py](../../../../../tests/test_batch3_landing.py) — direct import
 - [tests/test_canonical_projection_fold_skip.py](../../../../../tests/test_canonical_projection_fold_skip.py) — direct import
   - `test_a_sidecar_reload_after_nothing_happened_skips_the_fold`

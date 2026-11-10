@@ -63,15 +63,15 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop_sidecar/__init__|learnloop_sidecar]] | [[Reference/Modules/learnloop_sidecar/__init__#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop_sidecar/__main__|learnloop_sidecar.__main__]] | [[Reference/Modules/learnloop_sidecar/__main__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop_sidecar/background_jobs|learnloop_sidecar.background_jobs]] | [[Reference/Modules/learnloop_sidecar/background_jobs#^module-purpose|purpose]] | `ACTIVE` | 10 | 4 |
-| [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] | [[Reference/Modules/learnloop_sidecar/context#^module-purpose|purpose]] | `ACTIVE` | 77 | 208 |
+| [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] | [[Reference/Modules/learnloop_sidecar/context#^module-purpose|purpose]] | `ACTIVE` | 77 | 209 |
 | [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] | [[Reference/Modules/learnloop_sidecar/dto#^module-purpose|purpose]] | `ACTIVE` | 79 | 15 |
 | [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] | [[Reference/Modules/learnloop_sidecar/errors#^module-purpose|purpose]] | `ACTIVE` | 78 | 129 |
 | [[Reference/Modules/learnloop_sidecar/exam_grading|learnloop_sidecar.exam_grading]] | [[Reference/Modules/learnloop_sidecar/exam_grading#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop_sidecar/logging|learnloop_sidecar.logging]] | [[Reference/Modules/learnloop_sidecar/logging#^module-purpose|purpose]] | `ACTIVE` | 10 | 1 |
 | [[Reference/Modules/learnloop_sidecar/phone_reader|learnloop_sidecar.phone_reader]] | [[Reference/Modules/learnloop_sidecar/phone_reader#^module-purpose|purpose]] | `ACTIVE` | 5 | 0 |
 | [[Reference/Modules/learnloop_sidecar/post_attempt_worker|learnloop_sidecar.post_attempt_worker]] | [[Reference/Modules/learnloop_sidecar/post_attempt_worker#^module-purpose|purpose]] | `ACTIVE` | 1 | 9 |
-| [[Reference/Modules/learnloop_sidecar/prefetch_runtime|learnloop_sidecar.prefetch_runtime]] | [[Reference/Modules/learnloop_sidecar/prefetch_runtime#^module-purpose|purpose]] | `ACTIVE` | 6 | 5 |
-| [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] | [[Reference/Modules/learnloop_sidecar/registry#^module-purpose|purpose]] | `ACTIVE` | 76 | 142 |
+| [[Reference/Modules/learnloop_sidecar/prefetch_runtime|learnloop_sidecar.prefetch_runtime]] | [[Reference/Modules/learnloop_sidecar/prefetch_runtime#^module-purpose|purpose]] | `ACTIVE` | 6 | 6 |
+| [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] | [[Reference/Modules/learnloop_sidecar/registry#^module-purpose|purpose]] | `ACTIVE` | 76 | 143 |
 | [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]] | [[Reference/Modules/learnloop_sidecar/request_origin#^module-purpose|purpose]] | `ACTIVE` | 8 | 10 |
 | [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] | [[Reference/Modules/learnloop_sidecar/server#^module-purpose|purpose]] | `ACTIVE` | 1 | 46 |
 | [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] | [[Reference/Modules/learnloop_sidecar/serving#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
@@ -85,7 +85,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 12 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 14 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 7 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 7 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 6 static module edges
@@ -138,7 +138,7 @@ flowchart LR
     n_learnloop_db["learnloop.db"]
     n_learnloop_sidecar_handlers -->|344| center
     center -->|6| n_learnloop_sidecar_handlers
-    center -->|12| n_learnloop
+    center -->|14| n_learnloop
     center -->|7| n_learnloop_ai
     center -->|7| n_learnloop_vault
     center -->|5| n_learnloop_daily_plan

@@ -45,7 +45,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/253_decision_records.sql`.
-- **Schema touched by:** `253_decision_records.sql`.
+- **Schema touched by:** `253_decision_records.sql`, `254_decision_records_payload_retention.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -114,8 +114,10 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_ad23_contract.py`
+- `tests/test_arcb_close_fixes.py`
 - `tests/test_attempt_chain_records.py`
 - `tests/test_decision_records_migration.py`
+- `tests/test_decision_records_retention.py`
 - `tests/test_figure_decision_records.py`
 - `tests/test_forced_withdrawal_records.py`
 - `tests/test_provenance.py`

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ops/startup.py](../../../../../../src/learnloop/ops/startup.py) |
-| Source lines | 110 |
+| Source lines | 116 |
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -84,6 +84,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `CODEX_PROVIDER_NAMES`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/db/stores/provenance|learnloop.db.stores.provenance]] — imports `prune_old_decision_payloads`; calls `prune_old_decision_payloads`
 - [[Reference/Modules/learnloop/projects/capture|learnloop.projects.capture]] — imports `auto_sweep`; calls `auto_sweep`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
@@ -104,6 +105,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_decision_records_retention.py](../../../../../../tests/test_decision_records_retention.py) — direct import
+  - `test_startup_maintenance_runs_the_retention_pass`
 - [tests/test_deferred_regrade.py](../../../../../../tests/test_deferred_regrade.py) — direct import
   - `test_startup_maintenance_regrades_pending_self_grade_when_codex_ready`
 - [tests/test_project_hooks.py](../../../../../../tests/test_project_hooks.py) — direct import

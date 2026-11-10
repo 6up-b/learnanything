@@ -79,7 +79,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] | [[Reference/Modules/learnloop/figures/learner_state#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]] | [[Reference/Modules/learnloop/figures/manim_figure#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 | [[Reference/Modules/learnloop/figures/power|learnloop.figures.power]] | [[Reference/Modules/learnloop/figures/power#^module-purpose|purpose]] | `ACTIVE` | 5 | 10 |
-| [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] | [[Reference/Modules/learnloop/figures/prefetch#^module-purpose|purpose]] | `ACTIVE` | 1 | 12 |
+| [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] | [[Reference/Modules/learnloop/figures/prefetch#^module-purpose|purpose]] | `ACTIVE` | 1 | 13 |
 | [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] | [[Reference/Modules/learnloop/figures/prefetch_ledger#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
 | [[Reference/Modules/learnloop/figures/prefetch_model|learnloop.figures.prefetch_model]] | [[Reference/Modules/learnloop/figures/prefetch_model#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
 | [[Reference/Modules/learnloop/figures/records|learnloop.figures.records]] | [[Reference/Modules/learnloop/figures/records#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |

@@ -273,6 +273,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_ai_tool_isolation.py](../../../../../../tests/test_ai_tool_isolation.py) — direct import
+- [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — direct import
+  - `test_why_lesson_finds_the_record_the_real_lesson_budget_builder_writes`
 - [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — direct import
   - `test_iii_a_figure_grant_never_meters_an_ask_and_an_ask_grant_meters_it_under_the_cap`
   - `test_iv_with_the_student_off_rw5ds_grounding_retrieval_is_p1s`

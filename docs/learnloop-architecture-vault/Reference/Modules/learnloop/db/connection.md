@@ -135,6 +135,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/db/stores/embedding_vectors|learnloop.db.stores.embedding_vectors]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/db/stores/model_calls|learnloop.db.stores.model_calls]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/db/stores/provenance|learnloop.db.stores.provenance]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/diagnosis/offline_review/links|learnloop.diagnosis.offline_review.links]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/diagnosis/offline_review/report|learnloop.diagnosis.offline_review.report]] — imports `connect`; statically calls `connect`
@@ -293,7 +294,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] and 175 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] and 176 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -421,6 +422,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_help_assists_map_id_is_a_soft_reference_checked_in_code`
 - [tests/test_approach_maps_schema.py](../../../../../../tests/test_approach_maps_schema.py) — direct import
   - `test_the_store_refuses_unknown_columns`
+- [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — direct import
+  - `test_a_figure_authors_one_word_unsupported_kind_never_leaves_through_why`
+  - `test_a_plan_block_names_the_attempt_its_chooser_saw_not_one_committed_while_it_waited`
+  - `test_a_record_under_a_pin_with_nothing_open_commits_alone`
+  - `test_a_refused_router_request_is_refused_at_once_while_a_reader_holds_a_snapshot`
+  - `test_a_refused_router_request_still_leaves_its_record_when_nothing_holds_a_lock`
 - [tests/test_assessment_contracts.py](../../../../../../tests/test_assessment_contracts.py) — direct import
   - `test_observation_id_attaches_once`
 - [tests/test_assessment_enforcement.py](../../../../../../tests/test_assessment_enforcement.py) — direct import

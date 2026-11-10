@@ -172,6 +172,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_decision_records_migration.py](../../../../../../tests/test_decision_records_migration.py) — direct import
   - `test_it_adds_the_table_and_the_column_and_changes_nothing_else`
   - `test_the_head_fixture_holds_it_in_rollback_mode_with_every_trace_null`
+- [tests/test_decision_records_retention.py](../../../../../../tests/test_decision_records_retention.py) — direct import
+  - `test_the_head_holds_254_in_rollback_mode`
+  - `test_the_migration_replaces_only_the_no_update_trigger`
 - [tests/test_deliverable_curriculum_migration.py](../../../../../../tests/test_deliverable_curriculum_migration.py) — direct import
   - `test_228_is_c0bs_migration_classified_with_no_derived_table`
 - [tests/test_depth_transition.py](../../../../../../tests/test_depth_transition.py) — direct import

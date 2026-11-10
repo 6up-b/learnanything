@@ -146,12 +146,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] — imports `derive_router_outcomes`, `outcome_version_for`, `servable_items_by_learning_object`; statically calls `derive_router_outcomes`, `outcome_version_for`, `servable_items_by_learning_object`
 - [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `answer_completion`; statically calls `answer_completion`
 - [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]] — imports `derive_router_outcomes`, `outcome_version_for`, `servable_items_by_learning_object`; statically calls `derive_router_outcomes`, `outcome_version_for`, `servable_items_by_learning_object`
 - [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] — imports `delayed_outcomes_after`, `derive_router_outcomes`, `fold_measurement`, `outcome_version_for`, `servable_items_by_learning_object`; statically calls `delayed_outcomes_after`, `derive_router_outcomes`, `fold_measurement`, `outcome_version_for`, `servable_items_by_learning_object`
 - [[Reference/Modules/learnloop/router/first_delayed_success|learnloop.router.first_delayed_success]] — imports `OUTCOME_VERSION_V3`, `_Ledger`, `_completion`, `_decision_block`, `_table_present`; statically calls `_Ledger`, `_completion`, `_decision_block`, `_table_present`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `outcome_version_for`, `rebuild_router_outcomes`, `servable_items_by_learning_object`; statically calls `outcome_version_for`, `rebuild_router_outcomes`, `servable_items_by_learning_object`
+- [[Reference/Modules/learnloop/why/outcomes_now|learnloop.why.outcomes_now]] — imports `derive_router_outcomes`, `outcome_version_for`, `servable_items_by_learning_object`; statically calls `derive_router_outcomes`, `outcome_version_for`, `servable_items_by_learning_object`
 
 ## Dependencies
 
@@ -178,7 +178,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]], [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]], [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]], [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]], [[Reference/Modules/learnloop/router/first_delayed_success|learnloop.router.first_delayed_success]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]], [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]], [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]], [[Reference/Modules/learnloop/router/first_delayed_success|learnloop.router.first_delayed_success]], [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

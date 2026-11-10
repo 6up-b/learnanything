@@ -150,7 +150,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] | [[Reference/Modules/learnloop/held_grades#^module-purpose|purpose]] | `ACTIVE` | 51 | 17 |
 | [[Reference/Modules/learnloop/help_fold_attach_upgrade|learnloop.help_fold_attach_upgrade]] | [[Reference/Modules/learnloop/help_fold_attach_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/hint_window|learnloop.hint_window]] | [[Reference/Modules/learnloop/hint_window#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
-| [[Reference/Modules/learnloop/ids|learnloop.ids]] | [[Reference/Modules/learnloop/ids#^module-purpose|purpose]] | `ACTIVE` | 172 | 54 |
+| [[Reference/Modules/learnloop/ids|learnloop.ids]] | [[Reference/Modules/learnloop/ids#^module-purpose|purpose]] | `ACTIVE` | 170 | 55 |
 | [[Reference/Modules/learnloop/intent_upgrade|learnloop.intent_upgrade]] | [[Reference/Modules/learnloop/intent_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/interval_factor_upgrade|learnloop.interval_factor_upgrade]] | [[Reference/Modules/learnloop/interval_factor_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] | [[Reference/Modules/learnloop/learner_context#^module-purpose|purpose]] | `ACTIVE` | 4 | 10 |
@@ -167,13 +167,13 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/phone_probes_upgrade|learnloop.phone_probes_upgrade]] | [[Reference/Modules/learnloop/phone_probes_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/probe_tie_upgrade|learnloop.probe_tie_upgrade]] | [[Reference/Modules/learnloop/probe_tie_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/proof_check_upgrade|learnloop.proof_check_upgrade]] | [[Reference/Modules/learnloop/proof_check_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/provenance|learnloop.provenance]] | [[Reference/Modules/learnloop/provenance#^module-purpose|purpose]] | `ACTIVE` | 23 | 12 |
+| [[Reference/Modules/learnloop/provenance|learnloop.provenance]] | [[Reference/Modules/learnloop/provenance#^module-purpose|purpose]] | `ACTIVE` | 25 | 12 |
 | [[Reference/Modules/learnloop/reader_followups_upgrade|learnloop.reader_followups_upgrade]] | [[Reference/Modules/learnloop/reader_followups_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/reader_learner_state|learnloop.reader_learner_state]] | [[Reference/Modules/learnloop/reader_learner_state#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/reading_path_plan_upgrade|learnloop.reading_path_plan_upgrade]] | [[Reference/Modules/learnloop/reading_path_plan_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/reading_sources|learnloop.reading_sources]] | [[Reference/Modules/learnloop/reading_sources#^module-purpose|purpose]] | `ACTIVE` | 5 | 0 |
 | [[Reference/Modules/learnloop/recurrence|learnloop.recurrence]] | [[Reference/Modules/learnloop/recurrence#^module-purpose|purpose]] | `ACTIVE` | 10 | 6 |
-| [[Reference/Modules/learnloop/refusal_records|learnloop.refusal_records]] | [[Reference/Modules/learnloop/refusal_records#^module-purpose|purpose]] | `ACTIVE` | 9 | 3 |
+| [[Reference/Modules/learnloop/refusal_records|learnloop.refusal_records]] | [[Reference/Modules/learnloop/refusal_records#^module-purpose|purpose]] | `ACTIVE` | 9 | 4 |
 | [[Reference/Modules/learnloop/regrade_contract_upgrade|learnloop.regrade_contract_upgrade]] | [[Reference/Modules/learnloop/regrade_contract_upgrade#^module-purpose|purpose]] | `ACTIVE` | 26 | 2 |
 | [[Reference/Modules/learnloop/replay_ledger_upgrade|learnloop.replay_ledger_upgrade]] | [[Reference/Modules/learnloop/replay_ledger_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/reveal_coverage|learnloop.reveal_coverage]] | [[Reference/Modules/learnloop/reveal_coverage#^module-purpose|purpose]] | `ACTIVE` | 8 | 3 |
@@ -281,7 +281,7 @@ For system intent, use [[Architecture Overview]].
 
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 80 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 71 static module edges
-- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 61 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 59 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 52 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 50 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 45 static module edges
@@ -304,6 +304,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 16 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 16 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 14 static module edges
+- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 14 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 13 static module edges
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 13 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 12 static module edges
@@ -311,7 +312,6 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 12 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 12 static module edges
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 12 static module edges
-- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 12 static module edges
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 11 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 10 static module edges
 - [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 9 static module edges
@@ -366,7 +366,7 @@ flowchart LR
     center -->|1| n_learnloop_cli
     n_learnloop_ops -->|22| center
     center -->|44| n_learnloop_ops
-    n_learnloop_daily_plan -->|61| center
+    n_learnloop_daily_plan -->|59| center
     center -->|1| n_learnloop_daily_plan
     n_learnloop_sidecar_handlers -->|52| center
     n_learnloop_attempts -->|50| center

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/refusal_records.py](../../../../../src/learnloop/refusal_records.py) |
-| Source lines | 438 |
+| Source lines | 436 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,12 +61,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `router_spend_record(*, cap_usd: Any, spent_usd: Any, request_usd: Any, owner_kind: Any, owner_id: Any, event: Mapping[str, Any]) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 201) — The router's daily guard refused a metered request: no receipt is written, so this is the only row.
 - `envelope_record(*, envelope: Any, cap_usd: Any, spent_usd: Any, request_usd: Any, owner_kinds: Any=None) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 218) — A shared daily cap (``source_service.max_daily_cost_usd``, ``hints.max_daily_cost_usd``, the figures', the Reader's, ...) refused a metered request before it was sent: no call row exists, and each caller turns the refusal into its own status (``over_budget``, ``capped``, an empt…
 - `lesson_budget_record(*, lesson_id: Any, exc: BaseException | None, refusal: Mapping[str, Any] | None) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 238) — A lesson's own envelope (or a cap below it) refused its next request, so the lesson closed with ``budget``: the close receipt says ``budget``, and this names which request (its purpose), the rule and the numbers.
-- `figure_gate_record(*, rule: str, purpose: Any) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 265) — The figure gate refused a figure-derived request; every later request of the unit is refused with it.
-- `router_row_record(row: Mapping[str, Any], exc: BaseException) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 274) — The ledger refused a router decision row; the caller's behaviour applies all the same (``applied``).
-- `plan_logger_record(*, decision_kind: str, block_id: Any, plan_id: Any, logger: Any, exc: BaseException, logged_ref: Any=None) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 299) — A plan decision's logger raised: the block it describes is served all the same, with no ledger row (or, for a follow-up's interrupt, with a row whose linked rows stopped at ``logged_ref``).
-- `followup_gate_record(row: Mapping[str, Any], decision: Any, *, logged: bool, retry: bool=False, value_check_error: BaseException | None=None) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 324) — The follow-up gate's decision for one workflow: what it chose, the rule, the arms, the components' answers.
-- `write(repository: Any, kind: str, build: Callable[[], DecisionRecord]) -> str | None` ([source](../../../../../src/learnloop/refusal_records.py), line 402) — Build and write one record through ``repository`` (joining its open transaction, else a short one of its own); its id, or None.
-- `write_on(connection: Any, kind: str, build: Callable[[], DecisionRecord]) -> str | None` ([source](../../../../../src/learnloop/refusal_records.py), line 422) — Build and write one record on ``connection``, inside the transaction the caller holds; never raises.
+- `figure_gate_record(*, rule: str, purpose: Any) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 269) — The figure gate refused a figure-derived request; every later request of the unit is refused with it.
+- `router_row_record(row: Mapping[str, Any], exc: BaseException) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 278) — The ledger refused a router decision row; the caller's behaviour applies all the same (``applied``).
+- `plan_logger_record(*, decision_kind: str, block_id: Any, plan_id: Any, logger: Any, exc: BaseException, logged_ref: Any=None) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 303) — A plan decision's logger raised: the block it describes is served all the same, with no ledger row (or, for a follow-up's interrupt, with a row whose linked rows stopped at ``logged_ref``).
+- `followup_gate_record(row: Mapping[str, Any], decision: Any, *, logged: bool, retry: bool=False, value_check_error: BaseException | None=None) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 328) — The follow-up gate's decision for one workflow: what it chose, the rule, the arms, the components' answers.
+- `built(kind: str, build: Callable[[], DecisionRecord]) -> DecisionRecord | None` ([source](../../../../../src/learnloop/refusal_records.py), line 396)
+- `write(repository: Any, kind: str, build: Callable[[], DecisionRecord]) -> str | None` ([source](../../../../../src/learnloop/refusal_records.py), line 406) — Build and write one record through ``repository`` (joining its open transaction without committing it, else a short one of its own); its id, or None.
+- `write_on(connection: Any, kind: str, build: Callable[[], DecisionRecord]) -> str | None` ([source](../../../../../src/learnloop/refusal_records.py), line 420) — Build and write one record on ``connection``, inside the transaction the caller holds; never raises.
 
 ### Module constants
 
@@ -123,6 +124,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `router_row_record`
 - `router_spend_record`
 - `spend_rule`
+- `built`
 - `write`
 - `write_on`
 
@@ -134,7 +136,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_compact(values: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../src/learnloop/refusal_records.py), line 102)
 - `_clean(value: Any) -> Any` ([source](../../../../../src/learnloop/refusal_records.py), line 106) — A caller's fact as a record keeps it: numbers and flags as they are, strings as ids (hashed when not a code), lists and maps element by element; anything else dropped.
 - `_error(exc: BaseException | None) -> tuple[str | None, str | None]` ([source](../../../../../src/learnloop/refusal_records.py), line 123)
-- `_built(kind: str, build: Callable[[], DecisionRecord]) -> DecisionRecord | None` ([source](../../../../../src/learnloop/refusal_records.py), line 392)
 
 ## Who imports or calls it
 
@@ -142,7 +143,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `plan_logger_record`, `write_on`
-- [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `module`; statically calls `router_spend_record`, `write`
+- [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `module`; statically calls `built`, `router_spend_record`
 - [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] — imports `module`; statically calls `router_row_record`, `write_on`
 - [[Reference/Modules/learnloop/decider_judgments|learnloop.decider_judgments]] — imports `module`; statically calls `decider_record`, `disabled_rule`, `route_rule`, `spend_rule`, `write`
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `module`; statically calls `figure_gate_record`, `write`
@@ -155,7 +156,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/provenance|learnloop.provenance]] — imports `DecisionRecord`, `module`; calls `DecisionRecord`, `current_trace`, `is_code`, `where`, `write`
+- [[Reference/Modules/learnloop/provenance|learnloop.provenance]] — imports `DecisionRecord`, `module`; calls `DecisionRecord`, `current_trace`, `is_code`, `where`, `write`, `write_through`
 
 ### Platform and third-party dependencies
 
@@ -175,6 +176,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_arcb_close_fixes.py](../../../../../tests/test_arcb_close_fixes.py) — direct import
+  - `test_a_record_written_under_a_pin_never_commits_the_callers_work`
+  - `test_why_lesson_finds_the_record_the_real_lesson_budget_builder_writes`
 - [tests/test_provenance.py](../../../../../tests/test_provenance.py) — direct import
   - `test_a_rebuild_never_calls_the_record_and_keeps_its_rows`
 - [tests/test_refusal_records.py](../../../../../tests/test_refusal_records.py) — direct import

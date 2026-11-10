@@ -197,6 +197,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_switch_off_is_todays_reader_exactly`
 - [tests/test_approach_map_replay.py](../../../../../tests/test_approach_map_replay.py) — direct import
 - [tests/test_approach_maps.py](../../../../../tests/test_approach_maps.py) — direct import
+- [tests/test_arcb_close_fixes.py](../../../../../tests/test_arcb_close_fixes.py) — direct import
+  - `test_a_figure_authors_one_word_unsupported_kind_never_leaves_through_why`
 - [tests/test_causal_repair_sidecar_rpcs.py](../../../../../tests/test_causal_repair_sidecar_rpcs.py) — direct import
   - `test_causal_repair_methods_are_registered_and_accept_the_client_payloads`
 - [tests/test_chatgpt_plan_sidecar.py](../../../../../tests/test_chatgpt_plan_sidecar.py) — direct import

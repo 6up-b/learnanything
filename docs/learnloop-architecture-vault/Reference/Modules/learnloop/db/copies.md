@@ -148,6 +148,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_approach_maps_schema.py](../../../../../../tests/test_approach_maps_schema.py) — direct import
   - `test_the_head_fixture_carries_the_empty_table`
   - `test_the_store_refuses_unknown_columns`
+- [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — direct import
 - [tests/test_canonical_projection_fold_skip.py](../../../../../../tests/test_canonical_projection_fold_skip.py) — direct import
   - `test_a_database_restored_at_the_same_path_forces_the_fold`
 - [tests/test_collection_dataset.py](../../../../../../tests/test_collection_dataset.py) — direct import
@@ -162,6 +163,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_daily_plan_kill_switch.py](../../../../../../tests/test_daily_plan_kill_switch.py) — direct import
 - [tests/test_decider_agreement.py](../../../../../../tests/test_decider_agreement.py) — direct import
   - `test_agreement_counts_each_ledger_row_once_across_a_review_runs_vault_copy`
+- [tests/test_decision_records_retention.py](../../../../../../tests/test_decision_records_retention.py) — direct import
+  - `test_below_254_pruning_clears_nothing_and_never_raises`
+  - `test_the_migration_replaces_only_the_no_update_trigger`
 - [tests/test_diagnosis_replay.py](../../../../../../tests/test_diagnosis_replay.py) — direct import
   - `test_joint_fixture_rebuild_is_identical_at_the_previous_version`
   - `test_joint_reads_are_untouched_by_the_overlay`

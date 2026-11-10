@@ -66,7 +66,6 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 2 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 2 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
-- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 1 static module edge
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 1 static module edge
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 1 static module edge
 - [[Reference/Modules/learnloop/recognition/_package|learnloop.recognition]] — 1 static module edge
@@ -75,6 +74,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 1 static module edge
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 1 static module edge
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 1 static module edge
+- [[Reference/Modules/learnloop/why/_package|learnloop.why]] — 1 static module edge
 
 ### Dependency neighborhood
 
@@ -91,8 +91,8 @@ flowchart LR
     n_learnloop_ops["learnloop.ops"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
-    n_learnloop_cli["learnloop.cli"]
     n_learnloop_followup_run["learnloop.followup_run"]
+    n_learnloop_reader["learnloop.reader"]
     n_learnloop_daily_plan -->|7| center
     center -->|6| n_learnloop
     n_learnloop_router_objective -->|6| center
@@ -101,8 +101,8 @@ flowchart LR
     n_learnloop_ops -->|2| center
     n_learnloop_sidecar_handlers -->|2| center
     n_learnloop_adaptive_difficulty -->|1| center
-    n_learnloop_cli -->|1| center
     n_learnloop_followup_run -->|1| center
+    n_learnloop_reader -->|1| center
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.
