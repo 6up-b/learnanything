@@ -25,6 +25,7 @@ source_paths:
   - "src/learnloop/instructional/interventions.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "tests/codex_cli_fakes.py"
+  - "tests/helpers.py"
   - "tests/local_embeddings_fakes.py"
   - "tests/mcp_world.py"
   - "tests/mobile_host_helpers.py"
@@ -35,7 +36,6 @@ source_paths:
   - "tests/router_model_fakes.py"
   - "tests/rw5c_fixtures.py"
   - "tests/source_service_fakes.py"
-  - "tests/split_live_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/source-service"
@@ -84,6 +84,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/codex_cli_fakes.py`
+- `tests/helpers.py`
 - `tests/local_embeddings_fakes.py`
 - `tests/mcp_world.py`
 - `tests/mobile_host_helpers.py`
@@ -94,7 +95,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/router_model_fakes.py`
 - `tests/rw5c_fixtures.py`
 - `tests/source_service_fakes.py`
-- `tests/split_live_helpers.py`
 
 ## Extension and modification guidance
 

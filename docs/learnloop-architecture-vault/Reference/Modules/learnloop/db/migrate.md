@@ -134,6 +134,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/conftest.py](../../../../../../tests/conftest.py) — direct import
+- [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
 - [tests/test_activity_contract_extensions.py](../../../../../../tests/test_activity_contract_extensions.py) — direct import
 - [tests/test_activity_patterns.py](../../../../../../tests/test_activity_patterns.py) — direct import
 - [tests/test_ad1_migration.py](../../../../../../tests/test_ad1_migration.py) — direct import
@@ -144,7 +145,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — direct import
   - `test_agent_run_token_columns_exist_and_default_to_zero`
 - [tests/test_approach_maps_schema.py](../../../../../../tests/test_approach_maps_schema.py) — direct import
-  - `test_the_head_fixture_is_at_head_in_rollback_mode`
 - [tests/test_card_lineage.py](../../../../../../tests/test_card_lineage.py) — direct import
 - [tests/test_commitments.py](../../../../../../tests/test_commitments.py) — direct import
 - [tests/test_connection_reuse.py](../../../../../../tests/test_connection_reuse.py) — direct import
@@ -171,7 +171,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_head_fixture_is_at_240_in_rollback_mode_with_empty_tables`
 - [tests/test_deliverable_curriculum_migration.py](../../../../../../tests/test_deliverable_curriculum_migration.py) — direct import
   - `test_228_is_c0bs_migration_classified_with_no_derived_table`
-  - `test_the_head_fixture_holds_exactly_228s_objects_in_rollback_mode`
 - [tests/test_depth_transition.py](../../../../../../tests/test_depth_transition.py) — direct import
 - [tests/test_diagnosis_input_provenance_landing.py](../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import
   - `test_q14_on_a_vault_the_coordinator_upgrades_the_receipt_commits_with_the_grade`
@@ -211,7 +210,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_230_on_the_durability_lane`
   - `test_the_head_fixture_holds_230_in_rollback_mode`
 - [tests/test_help_assists_schema.py](../../../../../../tests/test_help_assists_schema.py) — direct import
-  - `test_the_head_fixture_is_at_head_in_rollback_mode`
 - [tests/test_hint_feedback_widening.py](../../../../../../tests/test_hint_feedback_widening.py) — direct import
   - `test_212_adds_hint_feedback_and_nothing_else`
   - `test_212_classifies_nothing_new`
@@ -219,12 +217,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_242_adds_exactly_its_objects_and_changes_nothing_else`
   - `test_242_is_applied_and_its_tables_have_their_roles`
   - `test_242_on_the_durability_lane`
-  - `test_the_head_fixture_holds_242_in_rollback_mode_with_empty_tables`
 - [tests/test_ih3_migration.py](../../../../../../tests/test_ih3_migration.py) — direct import
   - `test_it_adds_the_table_its_indexes_and_triggers_and_nothing_else`
   - `test_it_applies_under_production_pragmas`
   - `test_the_head_fixture_holds_it_in_rollback_mode`
-  - `test_the_migration_is_the_head_and_the_table_is_a_raw_ledger`
 - [tests/test_journey6.py](../../../../../../tests/test_journey6.py) — direct import
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
   - `test_judgment_ledger_accepts_the_decider_with_provenance`
@@ -251,14 +247,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_notes_migration.py](../../../../../../tests/test_learner_notes_migration.py) — direct import
   - `test_229_is_c2s_migration_classified_with_no_derived_table`
   - `test_229_on_the_durability_lane`
-  - `test_the_head_fixture_holds_exactly_229s_objects_in_rollback_mode`
 - [tests/test_learner_notes_vault_origin_migration.py](../../../../../../tests/test_learner_notes_vault_origin_migration.py) — direct import
   - `test_233_classifies_nothing_new`
   - `test_the_head_fixture_holds_233_in_rollback_mode`
 - [tests/test_learner_text_source_widening.py](../../../../../../tests/test_learner_text_source_widening.py) — direct import
   - `test_the_migration_names_both_kinds_in_one_rebuild`
 - [tests/test_library_asks_migration.py](../../../../../../tests/test_library_asks_migration.py) — direct import
-  - `test_the_head_fixture_is_at_head_in_rollback_mode`
 - [tests/test_migrate_fresh.py](../../../../../../tests/test_migrate_fresh.py) — direct import
   - `test_existing_database_upgrades_incrementally`
   - `test_fk_toggle_migration_is_atomic_and_restores_enforcement`
@@ -313,13 +307,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_jobs_migration.py](../../../../../../tests/test_mobile_jobs_migration.py) — direct import
   - `test_239_is_named_and_the_table_is_classified`
   - `test_a_database_at_238_gets_it_and_nothing_else_changes`
-  - `test_the_head_fixture_is_at_head_in_rollback_mode_with_an_empty_table`
 - [tests/test_mobile_meta_timing.py](../../../../../../tests/test_mobile_meta_timing.py) — direct import
   - `test_meta_names_the_allowlist_the_host_enforces`
 - [tests/test_mobile_v3_migration.py](../../../../../../tests/test_mobile_v3_migration.py) — direct import
   - `test_250_is_the_head_and_help_assists_stays_a_raw_ledger`
   - `test_250_widens_the_surface_and_keeps_every_row_index_and_trigger`
-  - `test_the_head_fixture_holds_250_in_rollback_mode`
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — direct import
   - `test_a_database_below_the_receipt_schema_lets_the_model_call_run_unrecorded`
 - [tests/test_narrative_rollback_overlap.py](../../../../../../tests/test_narrative_rollback_overlap.py) — direct import
@@ -337,11 +329,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_re0_capture.py](../../../../../../tests/test_re0_capture.py) — direct import
   - `test_252_on_the_downgraded_head_adds_its_column_keeps_every_row_and_changes_nothing_else`
   - `test_migration_252_adds_one_nullable_checked_column_to_a_ledger_table`
-  - `test_the_head_fixture_holds_252_in_rollback_mode_with_no_active_seconds`
 - [tests/test_reader_ca2_fix_orchestrator.py](../../../../../../tests/test_reader_ca2_fix_orchestrator.py) — direct import
   - `test_223_adds_only_the_earlier_opening_column`
 - [tests/test_reader_rw3b_migration.py](../../../../../../tests/test_reader_rw3b_migration.py) — direct import
-  - `test_the_head_fixture_is_at_head_in_rollback_mode_with_empty_rw3b_tables`
 - [tests/test_reader_rw7a_migration.py](../../../../../../tests/test_reader_rw7a_migration.py) — direct import
   - `test_the_head_fixture_is_at_217_in_rollback_mode_with_empty_rw7a_tables`
 - [tests/test_reader_session_digests_migration.py](../../../../../../tests/test_reader_session_digests_migration.py) — direct import
@@ -350,7 +340,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_retrieval_spaces_migration.py](../../../../../../tests/test_retrieval_spaces_migration.py) — direct import
   - `test_220_adds_three_tables_and_alters_nothing`
   - `test_220_on_the_durability_lane`
-  - `test_the_head_fixture_holds_220_in_rollback_mode`
 - [tests/test_reveal_ledger.py](../../../../../../tests/test_reveal_ledger.py) — direct import
   - `test_migration_154_adds_the_ledger_and_the_question_event_columns`
 - [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
@@ -362,14 +351,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_245_adds_exactly_its_objects_and_the_table_is_append_only`
   - `test_245_is_the_head_and_its_table_a_receipt_ad_classifies`
   - `test_245_on_the_durability_lane`
-  - `test_the_head_fixture_holds_245_in_rollback_mode_with_an_empty_table`
 - [tests/test_ro4_traces_migration.py](../../../../../../tests/test_ro4_traces_migration.py) — direct import
   - `test_246_adds_exactly_its_objects_and_the_table_is_append_only`
   - `test_246_is_the_head_and_its_table_a_receipt`
   - `test_246_widens_the_contract_change_class_keeping_every_row`
-  - `test_the_head_fixture_holds_246_in_rollback_mode_with_an_empty_table`
-- [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
-  - `test_migration_186_keeps_its_trigger_which_nothing_writes_now`
 - [tests/test_router_objective_migration.py](../../../../../../tests/test_router_objective_migration.py) — direct import
   - `test_243_exists_and_its_tables_are_receipts`
   - `test_the_head_fixture_holds_243_in_rollback_mode_with_empty_tables_and_null_columns`
@@ -380,7 +365,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rw5c_migration.py](../../../../../../tests/test_rw5c_migration.py) — direct import
   - `test_238_is_applied_and_the_table_is_classified`
   - `test_238_upgrades_a_copy_of_237_under_the_durable_pragmas`
-  - `test_the_head_fixture_is_past_238_in_rollback_mode_with_an_empty_table`
 - [tests/test_section_coverage_migration.py](../../../../../../tests/test_section_coverage_migration.py) — direct import
   - `test_222_adds_one_table_and_alters_nothing`
   - `test_222_on_the_durability_lane`
@@ -404,7 +388,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_surface_mint.py](../../../../../../tests/test_surface_mint.py) — direct import
 - [tests/test_t1_batch_origin_migration.py](../../../../../../tests/test_t1_batch_origin_migration.py) — direct import
   - `test_218_adds_the_batch_origin_column_and_nothing_else`
-  - `test_the_head_fixture_is_at_head_in_rollback_mode`
 - [tests/test_table_roles.py](../../../../../../tests/test_table_roles.py) — direct import
   - `test_migration_head_user_tables_match_role_registry_exactly`
   - `test_synthetic_unclassified_table_fails_registry_check`
@@ -412,7 +395,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_te3a_migration.py](../../../../../../tests/test_te3a_migration.py) — direct import
   - `test_249_is_the_head_and_the_table_stays_a_receipt_ad_reads_by_its_rules`
   - `test_249_widens_the_kind_and_keeps_every_row_key_index_and_trigger`
-  - `test_the_head_fixture_holds_249_in_rollback_mode`
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
   - `test_migration_020_allows_teach_back_on_existing_db`
 - [tests/test_teacher_te1_migration.py](../../../../../../tests/test_teacher_te1_migration.py) — direct import
@@ -424,12 +406,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_248_applies_under_production_pragmas`
   - `test_248_changes_exactly_its_objects_and_keeps_every_row`
   - `test_248_is_the_head_and_adds_no_table`
-  - `test_the_head_fixture_holds_248_in_rollback_mode`
 - [tests/test_teacher_te2log_migration.py](../../../../../../tests/test_teacher_te2log_migration.py) — direct import
   - `test_247_adds_exactly_its_objects`
   - `test_247_is_the_head_and_its_tables_receipts_denied_to_ad`
   - `test_247_on_the_durability_lane`
-  - `test_the_head_fixture_holds_247_in_rollback_mode_with_empty_tables`
 - [tests/test_today_surfaces.py](../../../../../../tests/test_today_surfaces.py) — direct import
   - `test_overconfidence_probe_origin_survives_target_selection`
   - `test_overconfidence_probe_records_origin`
