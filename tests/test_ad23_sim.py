@@ -19,9 +19,9 @@ import pytest
 from learnloop.adaptive_difficulty import priors as P
 from learnloop.sim import ad_gates as G
 
-# Full runs at the pre-registered n: the slow lane, in every landing gate. tests/test_ad23_sim_smoke.py runs each
-# scenario small while iterating.
-pytestmark = pytest.mark.slow
+# Full runs at the pre-registered n: the arc-close gate (refactor step A6), and so the slow lane too; landing gates
+# leave them out. tests/test_ad23_sim_smoke.py runs each scenario small, in every landing gate.
+pytestmark = pytest.mark.arc_close
 
 FAILED_GATE = "pre-registered gate fails (docs/reviews/adaptive-difficulty-ad23.md §3): "
 #: Owner decision 2026-10-19 (the review's §3.4): the successor merges with these gates kept as

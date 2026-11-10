@@ -460,6 +460,13 @@ def pytest_sessionfinish(session, exitstatus):
     session.exitstatus = pytest.ExitCode.TESTS_FAILED
 
 
+def pytest_itemcollected(item):
+    """Every ``arc_close`` test is also ``slow``, so ``-m "not slow"`` while iterating leaves it out without a second mark
+    to keep in step. This runs before ``-m`` deselects anything (that happens in ``pytest_collection_modifyitems``)."""
+    if item.get_closest_marker("arc_close") is not None and item.get_closest_marker("slow") is None:
+        item.add_marker(pytest.mark.slow)
+
+
 def pytest_collection_modifyitems(config, items):
     """Skip the ``owner_vaults`` lane unless ``LEARNLOOP_OWNER_VAULTS`` names its copies."""
     from tests.owner_vaults import OWNER_VAULTS_ENV, OWNER_VAULTS_SKIP_REASON, owner_vaults_root

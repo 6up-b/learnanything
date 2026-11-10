@@ -35,7 +35,7 @@ def _env(tmp_path, version: str):
     return env, runtime
 
 
-@pytest.mark.slow
+@pytest.mark.arc_close
 def test_two_weeks_after_the_batch(tmp_path):
     version = ROUTER_FOLLOWUPS_ALGORITHM_VERSION
     days = int(os.environ.get("LEARNLOOP_ROFU_DAYS", "15"))

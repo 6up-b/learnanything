@@ -168,7 +168,7 @@ def test_the_report_states_the_claim_and_lists_versions_and_w_hats_history(tmp_p
     assert "learned_tail" in json.loads(result.output)["router_objective"]
 
 
-@pytest.mark.slow
+@pytest.mark.arc_close
 def test_a_few_weeks_on_a_copy_shaped_synthetic_vault(tmp_path):
     """Two weeks and a day by default (``LEARNLOOP_RO6_DAYS`` for more), one day a week without a session, the default
     arms (the coin 0.05 each way, one embedded check a day), both policies answering. Printed for the stage record:

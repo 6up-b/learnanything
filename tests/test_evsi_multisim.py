@@ -568,7 +568,7 @@ def test_the_counted_card_row_starts_at_the_vocabulary_and_follows_the_counts(ee
         MF.counted_row(mis, question, counts, 8.0)[question.correct]
 
 
-@pytest.mark.slow
+@pytest.mark.arc_close
 def test_cli_multisim_quick_fits_every_family_and_reports_claims(eedi, tmp_path):
     result = CliRunner().invoke(app, [
         "evsi", "multisim", "--eedi-2024", str(eedi["bank_dir"]), "--eedi-2020", str(eedi["responses_dir"]),
