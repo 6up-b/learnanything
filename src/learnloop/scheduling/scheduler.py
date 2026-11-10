@@ -201,18 +201,20 @@ def build_due_queue(
     reward, the seeded exploration draws over that order, and the composition
     (teach-back cap, goal quota, requested floor, follow-ups, contrast pairs)
     reorders it. ``persist_explanations`` marks a serving build: it alone
-    reconciles supply, records the slate and writes the slate's decision record,
-    and a read does none of these.
+    reconciles supply and, for a session, records the slate and the slate's
+    decision record; a read does none of these.
     """
 
     now = (clock or SystemClock()).now().astimezone(UTC)
     session = session or SchedulerSession()
     config = vault.config
+    # The slate's record goes with the slate row: a sessionless build (a plan read with no session, the TUI) writes
+    # neither, so a read that changes nothing still commits nothing and the plan's memo stays warm.
+    records_slate = persist_explanations and session.session_id is not None
     # Reason codes for the candidates the loop withholds, recorded when a caller
-    # logs the offer and for a persisting build's slate record. Never consulted
-    # by the build.
+    # logs the offer and for the slate's record. Never consulted by the build.
     traced_exclusions = offer_trace.exclusions if offer_trace is not None else None
-    if traced_exclusions is None and persist_explanations:
+    if traced_exclusions is None and records_slate:
         traced_exclusions = {}
 
     def withheld(reason: str, item_id: str) -> None:
@@ -986,8 +988,8 @@ def build_due_queue(
         )
         if voi.voi_stopping_active(config, voi.SITE_TEACH_BACK):
             offer_trace.teach_back_exclusion_reason = "teach_back_value_below_minutes_cost"
-    if persist_explanations:
-        # ADR-017: one record per persisting build, after everything it decided; a read writes none.
+    if records_slate and traced_slate_id is not None:
+        # ADR-017: one record per slate row, after everything the build decided.
         record_slate(
             repository,
             served=queue,

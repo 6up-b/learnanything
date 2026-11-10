@@ -2,12 +2,12 @@
 
 What each group pins:
 
-* one ``slate`` record per persisting queue build: the head and the rule that put it first, the ranked candidates
+* one ``slate`` record per slate row (a persisting queue build with a session): the head and the rule that put it first, the ranked candidates
   after it with their reward and propensity, and every candidate the build kept off the slate, counted by rule with
   up to ten ids each, including the composition's and the cold lane's; a placement check's unusable candidates
   by rule (the map's S15); ids, numbers and codes only;
 * reads write none: a build with ``persist_explanations=False`` (``why``, the knowledge map, the facet chart, the
-  staged comparator, the simulator) leaves no record;
+  staged comparator, the simulator) leaves no record, and nor does a sessionless one, which records no slate;
 * a record never changes what is served: with the write failing the queue is the same, and a warning names the
   trace;
 * ``why``: ``slate:<id>`` reads the record; ``item:<id>`` says which slates named the item and, off today's slate,
@@ -115,6 +115,9 @@ def test_reads_write_no_slate_record(tmp_path):
     assert build_due_queue(vault, repository, clock=_at(5), session=session, persist_explanations=False)
     build_due_queue(vault, repository, clock=_at(5), persist_explanations=False)
     explain_practice_item(vault, repository, "pi_eig_easy")
+    # A sessionless build records no slate row, so no record either: a plan read that changes nothing commits
+    # nothing (``test_curriculum_c1_fix_round3``'s memo depends on it).
+    build_due_queue(vault, repository, clock=_at(5))
     assert _all_records(paths) == []
     # The same build persisting writes exactly one.
     build_due_queue(vault, repository, clock=_at(5), session=session)

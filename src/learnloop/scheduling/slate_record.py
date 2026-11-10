@@ -5,7 +5,7 @@ ranked, with its scores. What no row held is the other half of "why x and not
 y": the items the build withheld before ranking (an exam reservation, a put-away
 learning object, a probe surface held in reserve, a revealed cold task, a
 teach-back over the cap) and the items a placement check could not be chosen
-from. One ``slate`` record per persisting build carries them, counted by rule
+from. One ``slate`` record per slate row (a persisting build with a session) carries them, counted by rule
 with a few ids each, so ``learnloop why`` can say why an item never reached the
 slate (the question of daily-loop bug 2).
 
