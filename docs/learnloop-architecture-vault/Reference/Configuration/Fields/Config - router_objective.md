@@ -30,10 +30,10 @@ source_paths:
   - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
+  - "tests/router_mixture_helpers.py"
   - "tests/router_model_fakes.py"
   - "tests/rw5c_fixtures.py"
   - "tests/split_live_helpers.py"
-  - "tests/test_ad1_codex_review_fixes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/router-objective"
@@ -122,10 +122,10 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
+- `tests/router_mixture_helpers.py`
 - `tests/router_model_fakes.py`
 - `tests/rw5c_fixtures.py`
 - `tests/split_live_helpers.py`
-- `tests/test_ad1_codex_review_fixes.py`
 
 ## Extension and modification guidance
 
