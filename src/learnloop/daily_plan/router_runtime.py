@@ -593,10 +593,11 @@ def seen(entry: Any, *, may_defer: bool, decided_wall: str | None = None) -> dic
 
 
 def note_failure(exc: BaseException, entry: Any, *, may_defer: bool, waited_ms: int | None,
-                 extra: Mapping[str, Mapping[str, Any]] | None = None) -> None:
+                 extra: Mapping[str, Mapping[str, Any]] | None = None, as_of: str | None = None) -> None:
     """Hang each model's result summary on a chooser's exception (``boundary_records.FAILURE_NOTE``): the chooser's
     own record dies with the exception, and ``engine.decide`` falls back to the rule, so this is how the fallback's
-    record still names what the models answered. Never raises: the exception is what decides the fallback."""
+    record still names what the models answered (and ``as_of``, the attempt its boundary key named). Never raises:
+    the exception is what decides the fallback."""
 
     try:
         results = entry.results() if entry is not None else {}
@@ -604,7 +605,8 @@ def note_failure(exc: BaseException, entry: Any, *, may_defer: bool, waited_ms: 
         for name, summary in (extra or {}).items():
             models.setdefault(name, dict(summary))
         setattr(exc, FAILURE_NOTE, {**seen(entry, may_defer=may_defer), "models": models,
-                                    "boundary_key": getattr(entry, "key", None), "waited_ms": waited_ms})
+                                    "boundary_key": getattr(entry, "key", None), "waited_ms": waited_ms,
+                                    "as_of": as_of})
     except Exception:  # noqa: BLE001 - the fallback stands without the note
         LOG.debug("router: the failed decision's models were not noted", exc_info=True)
 

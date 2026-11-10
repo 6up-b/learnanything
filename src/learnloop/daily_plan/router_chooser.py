@@ -424,13 +424,14 @@ class RouterChooser:
         if not ready and not serving_on(config):
             return deterministic("not_ready", models={name: {"status": NOT_READY, "error": readiness.get(name)}
                                                       for name in (DECIDER, LLM)})
+        as_of = _latest_attempt(self.repository)
         key = _hash({
             "v": KEY_VERSION, "kind": "plan_block", "plan_id": state.plan_id,
             "state": {"minutes_left": round(state.minutes_left, 3), "items_left": state.items_left,
                       "lanes": {lane: round(value, 3) for lane, value in sorted(state.lane_minutes_left.items())},
                       "kind": state.kind},
             "support": [by_id[ref].log_row() if ref in by_id else ref for ref in support],
-            "staged": staged.candidate_id, "as_of": _latest_attempt(self.repository),
+            "staged": staged.candidate_id, "as_of": as_of,
             "version": config.algorithms.algorithm_version, "settings": settings, "ready": ready,
         })
         if not ready:
@@ -447,7 +448,7 @@ class RouterChooser:
                 return self._decide(no_models, state, staged, record, support, by_id, readiness, settings,
                                     decided_by="not_ready")
 
-            return self._noting(no_models, unasked)
+            return self._noting(no_models, unasked, as_of=as_of)
         entry = self.runtime.lookup(self.scope, key)
         if entry is None:
             entry = self._start(key, state, feasible, support, by_id, ready)
@@ -457,21 +458,26 @@ class RouterChooser:
             self._freeze_objective(record, staged, feasible, support)
             return self._decide(entry, state, staged, record, support, by_id, readiness, settings)
 
-        return self._noting(entry, answered)
+        return self._noting(entry, answered, as_of=as_of)
 
     def _noting(self, entry: Any, decide: Callable[[], BlockChoice],
-                extra: Mapping[str, Mapping[str, Any]] | None = None) -> BlockChoice:
+                extra: Mapping[str, Mapping[str, Any]] | None = None, *, as_of: str | None = None) -> BlockChoice:
         """The decision proper. If it raises, its models' results ride on the exception (``FAILURE_NOTE``): the
-        container falls back to the rule, and without them its record could not say what the models had answered."""
+        container falls back to the rule, and without them its record could not say what the models had answered.
+
+        ``as_of``, the newest attempt the boundary key named, rides on the choice's ``provenance`` either way: the
+        record names it as the decision's trigger, where a read at write time could name an attempt that committed
+        after the decision saw its inputs."""
 
         try:
-            return decide()
+            choice = decide()
         except DecisionPending:
             raise
         except Exception as exc:
             waited = int(round(max(self.runtime.clock() - entry.started, 0.0) * 1000))
-            note_failure(exc, entry, may_defer=self.may_defer, waited_ms=waited, extra=extra)
+            note_failure(exc, entry, may_defer=self.may_defer, waited_ms=waited, extra=extra, as_of=as_of)
             raise
+        return replace(choice, provenance={**dict(choice.provenance or {}), "as_of": as_of})
 
     def _freeze_objective(self, record: dict[str, Any], staged: BlockChoice, feasible: Sequence[BlockCandidate],
                           support: Sequence[str]) -> None:

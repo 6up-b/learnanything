@@ -2789,8 +2789,11 @@ def _write_boundary_records(env: PlanEnv, connection: Any, decision: Decision, *
     neither the write nor its lock wait can change it, and a record that fails is dropped with a warning."""
 
     try:
-        trigger = _trigger_attempt(connection)
-        parent = (decision.seen or {}).get("parent_record") or _attempt_record(connection, trigger)
+        seen = decision.seen or {}
+        # The attempt the router's boundary key named when it captured its inputs. Read again here, in the block's
+        # transaction, the newest attempt could be one that committed while the chooser waited on its models.
+        trigger = seen["as_of"] if "as_of" in seen else _trigger_attempt(connection)
+        parent = seen.get("parent_record") or _attempt_record(connection, trigger)
         records = boundary_records.plan_block_records(decision, block_id=block_id, detail_id=detail_id,
                                                       config=env.vault.config, stop=stop, parent_id=parent,
                                                       trigger_attempt=trigger)

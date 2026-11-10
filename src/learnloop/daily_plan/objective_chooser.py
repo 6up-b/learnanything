@@ -1472,7 +1472,8 @@ class ObjectiveChooser(RouterChooser):
 
         computed = entry.material.get("numeric")
         return self._noting(entry, decided, extra={NUMERIC: {
-            "status": computed.status, "latency_ms": computed.latency_ms}} if computed is not None else None)
+            "status": computed.status, "latency_ms": computed.latency_ms}} if computed is not None else None,
+            as_of=identity["as_of"])
 
     def _defer_carry(self, numeric: "NumericPolicy", entry: Any, decision_id: str) -> "NumericPolicy":
         """The follow-up batch's item 4 (RO6's open items 1 and 3): a decision served before its carried valuation

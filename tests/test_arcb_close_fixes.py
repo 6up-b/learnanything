@@ -218,3 +218,46 @@ def test_why_lesson_finds_the_record_the_real_lesson_budget_builder_writes(tmp_p
     [record] = [item for item in _why(paths.root, "lesson:lesson_42")["records"] if item["kind"] == "spend_admission"]
     assert (record["subject_kind"], record["subject_id"]) == ("lesson", "lesson_42")
     assert (record["status"], record["decided_by"], record["rule"]) == ("refused", "lesson_envelope", "max_calls")
+
+
+# -- 5. the trigger attempt is the one the chooser captured -------------------------------------------------------
+
+
+def test_a_plan_block_names_the_attempt_its_chooser_saw_not_one_committed_while_it_waited(tmp_path: Path):
+    """Attempt B commits while the chooser waits on its models (after it captured ``as_of`` = A, before the block's
+    transaction): before the fix the record re-read the newest attempt there and named B, with B's record as parent."""
+
+    from datetime import timedelta
+
+    from learnloop.daily_plan.engine import advance
+    from tests.daily_plan_fakes import record_attempt
+    from tests.router_mixture_helpers import mixture_env
+    from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
+
+    armed: dict[str, object] = {}
+
+    def answer(request):
+        if armed.pop("step", None) is not None and "first" in armed:
+            step = armed["first"]
+            armed["b"] = record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"],
+                                        env.clock.now() + timedelta(minutes=1), session_id=env.session_id)
+        return FakeLLM.default_answer(request)
+
+    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM(answer=answer)))
+    last_attempt = None
+    for index in range(12):
+        armed.update(step=True)
+        with provenance.trace_scope(f"TRACE_AS_OF_{index}"):
+            _record, step = advance(env, serve=True)
+        if "b" in armed:
+            break
+        assert step is not None and step["kind"] == "item"
+        armed["first"] = step
+        env.clock.advance(2)
+        last_attempt = record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"],
+                                      env.clock.now(), session_id=env.session_id)
+    assert armed.get("b") and last_attempt, "the models were never asked while an attempt existed"
+    with connect(env.repository.sqlite_path, read_only=True) as connection:
+        blocks = provenance.read(connection, f"TRACE_AS_OF_{index}", kind="plan_block")
+    assert blocks and all(block.facts.get("trigger_attempt") == last_attempt for block in blocks), \
+        [block.facts.get("trigger_attempt") for block in blocks]
