@@ -108,7 +108,10 @@ from learnloop.daily_plan.types import (
     PlanState,
     ReadingTarget,
 )
+from learnloop import provenance
+from learnloop.daily_plan import boundary_records
 from learnloop.daily_plan import measurement as objectives
+from learnloop.daily_plan.boundary_records import FAILURE_NOTE, wall_now
 from learnloop.data_capture import prefilter
 from learnloop.router_objective import ask_availability, decision_state
 from learnloop.scheduling.fsrs import forgetting_curve
@@ -2409,6 +2412,9 @@ class Decision:
     #: Router R2a: the chooser's own record (its card, mode, policy), kept
     #: even when its choice fell back; None from DL1's chooser.
     router_record: Mapping[str, Any] | None = None
+    #: For the decision's record only (``boundary_records``): the wall time the choice was taken, the prefetch's
+    #: trace, and on a chooser's exception its type, where it was raised and its models' results (never its message).
+    seen: Mapping[str, Any] | None = None
 
 
 def _items_left(record: PlanRecord, *, forced_items: int = 0) -> int | None:
@@ -2652,7 +2658,8 @@ def decide(
     offer: BlockCandidate | None = None,
     contest: BlockCandidate | None = None,
 ) -> Decision:
-    """§6.8 at one boundary: redistribution, feasibility, choice, fallback. Pure.
+    """§6.8 at one boundary: redistribution, feasibility, choice, fallback. Writes nothing, but is not pure: the
+    chooser may read the vault, start the router's model threads and wait on them (``router.timeout_seconds``).
 
     ``forced_*`` are the items the container places in this block whatever is
     chosen (requests first, mid-plan follow-ups): they come out of the plan's
@@ -2706,6 +2713,10 @@ def decide(
     except Exception as exc:  # noqa: BLE001 - a broken chooser falls back (rule 2)
         choice = BlockChoice(candidate_id=f"<error: {type(exc).__name__}>", chosen_by="lane_quota", propensity=None, why="", why_kind="computed")
         reason = "chooser_error"
+        seen = _chooser_failure(exc)
+    else:
+        seen = dict(choice.provenance or {})
+    seen.setdefault("decided_wall", wall_now())
     router_record = getattr(choice, "router_record", None)
     feasible_ids = {candidate.candidate_id for candidate in feasible}
     valid = choice.candidate_id in feasible_ids or (choice.candidate_id == STOP_FOR_TODAY and stop_offered)
@@ -2740,7 +2751,36 @@ def decide(
         stop_offered=stop_offered,
         source_record=source_record,
         router_record=router_record,
+        seen=seen,
     )
+
+
+def _chooser_failure(exc: Exception) -> dict[str, Any]:
+    """What the fallback's record keeps of a chooser's exception: its type, where it was raised and the models'
+    results the router noted on it. The message can quote what the code read, so it goes to the log at DEBUG only."""
+
+    where = provenance.where(exc)
+    log = logging.getLogger(__name__)
+    log.warning("the block chooser failed, the rule chose (trace %s): %s at %s", provenance.current_trace(),
+                type(exc).__name__, where)
+    log.debug("the block chooser's exception (trace %s)", provenance.current_trace(), exc_info=exc)
+    return {**dict(getattr(exc, FAILURE_NOTE, None) or {}), "error_type": type(exc).__name__, "error_where": where}
+
+
+def _write_boundary_records(env: PlanEnv, connection: Any, decision: Decision, *, block_id: str,
+                            detail_id: str | None, stop: bool) -> None:
+    """The decision's records, on the block's connection inside its transaction: the decision is already made, so
+    neither the write nor its lock wait can change it, and a record that fails is dropped with a warning."""
+
+    try:
+        records = boundary_records.plan_block_records(decision, block_id=block_id, detail_id=detail_id,
+                                                      config=env.vault.config, stop=stop)
+    except Exception as exc:  # noqa: BLE001 - a record never changes the decision it describes
+        logging.getLogger(__name__).warning("plan_block decision records not built (trace %s): %s",
+                                            provenance.current_trace(), type(exc).__name__)
+        return
+    for record in records:
+        provenance.write(connection, record)
 
 
 #: Who may be named on a chooser's choice (§6.8): never ``learner_pick``,
@@ -3122,7 +3162,7 @@ def _boundary(
                     env, record, status="complete", reason=choice.why or "nothing more worth doing today",
                     stop_detail=detail, log_decision=True, router_record=router_record,
                     prefilter=context.prefilter, frozen=frozen, decision_state=state_receipt,
-                    after_held=True,
+                    after_held=True, decision=decision,
                 )
                 # Its offer rides on the held step (Codex re-review of V2, F7).
                 raise PlanWaiting(_held_step(env, _reload(env, record.id)))
@@ -3131,7 +3171,7 @@ def _boundary(
         _close(
             env, record, status="complete", reason=choice.why or "nothing more worth doing today",
             stop_detail=detail, log_decision=True, router_record=router_record, prefilter=context.prefilter,
-            frozen=frozen, decision_state=state_receipt,
+            frozen=frozen, decision_state=state_receipt, decision=decision,
         )
         return None
     # IH2: an offer that beat the follow-ups holds nothing, and they stay available to a later decision.
@@ -3207,6 +3247,7 @@ def _boundary(
         if decision_ref is None and logged is not None:
             decision_ref = logged
             detail["decision_ref"] = logged
+        _write_boundary_records(env, connection, decision, block_id=block_id, detail_id=logged, stop=False)
         # TE3b: a lesson offer's block has no measurement slot of its own (its delayed checks are the lesson's).
         is_offer = subtype == LESSON_OFFER_SUBTYPE
         if superseding is not None and not is_offer:
@@ -3715,6 +3756,7 @@ def _close(
     frozen: objectives.FrozenObjective | None = None,
     decision_state: Any = None,
     after_held: bool = False,
+    decision: Decision | None = None,
 ) -> None:
     """Close the plan. A chooser's stop (``stop_detail``: the candidate set,
     chooser, propensity and fallback) is appended as a stop receipt, so a plan
@@ -3724,7 +3766,9 @@ def _close(
 
     ``after_held`` (mobile v2 §2.2, Codex review of V2 F4; only under a device): the stop is
     recorded exactly as above, but the plan stays open while work a device left for the desktop is
-    open, and closes on this stop once it is done (:func:`_stop_pending`)."""
+    open, and closes on this stop once it is done (:func:`_stop_pending`).
+
+    ``decision``: the boundary's, whose records are written with the stop (``boundary_records``)."""
 
     now = env.now_iso()
     with env.repository.atomic(), env.repository.connection() as connection:
@@ -3756,6 +3800,9 @@ def _close(
                 if decision_ref is None and logged is not None:
                     decision_ref = logged
                     detail["decision_ref"] = logged
+                if decision is not None:
+                    _write_boundary_records(env, connection, decision, block_id=receipt_id, detail_id=logged,
+                                            stop=True)
                 if logged is not None and objectives.applies(frozen, objectives.ARM_STOP):
                     objectives.record(env.vault, env.repository, connection, decision_id=logged,
                                       decision_kind="plan_block", frozen=frozen, arm=objectives.ARM_STOP,

@@ -43,7 +43,7 @@ waiting likelier, never force an interruption the rules would not place (G4).
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 import hashlib
 import json
@@ -77,6 +77,9 @@ from learnloop.daily_plan.router_runtime import (
     RouterRuntime,
     call_decider,
     call_llm,
+    note_failure,
+    seen,
+    wall_now,
 )
 from learnloop.ids import new_ulid
 from learnloop.router import mixture as mx
@@ -437,15 +440,38 @@ class RouterChooser:
             card = _build_card(self.card_builder, state, feasible)
             material = {"card": card, "evidence": list(rq.evidence_from_card(card.json)),
                         "decided_at": self._now_iso()}
-            self._freeze_objective(record, staged, feasible, support)
-            return self._decide(_NoModels(key, material, self.runtime.clock()), state, staged, record, support, by_id,
-                                readiness, settings, decided_by="not_ready")
+            no_models = _NoModels(key, material, self.runtime.clock())
+
+            def unasked() -> BlockChoice:
+                self._freeze_objective(record, staged, feasible, support)
+                return self._decide(no_models, state, staged, record, support, by_id, readiness, settings,
+                                    decided_by="not_ready")
+
+            return self._noting(no_models, unasked)
         entry = self.runtime.lookup(self.scope, key)
         if entry is None:
             entry = self._start(key, state, feasible, support, by_id, ready)
         _await(self.runtime, entry, may_defer=self.may_defer, timeout=float(config.router.timeout_seconds))
-        self._freeze_objective(record, staged, feasible, support)
-        return self._decide(entry, state, staged, record, support, by_id, readiness, settings)
+
+        def answered() -> BlockChoice:
+            self._freeze_objective(record, staged, feasible, support)
+            return self._decide(entry, state, staged, record, support, by_id, readiness, settings)
+
+        return self._noting(entry, answered)
+
+    def _noting(self, entry: Any, decide: Callable[[], BlockChoice],
+                extra: Mapping[str, Mapping[str, Any]] | None = None) -> BlockChoice:
+        """The decision proper. If it raises, its models' results ride on the exception (``FAILURE_NOTE``): the
+        container falls back to the rule, and without them its record could not say what the models had answered."""
+
+        try:
+            return decide()
+        except DecisionPending:
+            raise
+        except Exception as exc:
+            waited = int(round(max(self.runtime.clock() - entry.started, 0.0) * 1000))
+            note_failure(exc, entry, may_defer=self.may_defer, waited_ms=waited, extra=extra)
+            raise
 
     def _freeze_objective(self, record: dict[str, Any], staged: BlockChoice, feasible: Sequence[BlockCandidate],
                           support: Sequence[str]) -> None:
@@ -494,6 +520,7 @@ class RouterChooser:
         material = entry.material
         card: _Card = material["card"]
         results = _results(entry, readiness)
+        results_at = wall_now()  # a model answering after this was discarded (``why``)
         distributions = {
             name: dict(result.parsed.distribution) for name, result in results.items()
             if result.status == ANSWERED and result.parsed is not None
@@ -587,6 +614,7 @@ class RouterChooser:
             why=why or staged.why,
             why_kind=why_kind,  # type: ignore[arg-type]
             router_record=record,
+            provenance=seen(entry, may_defer=self.may_defer, decided_wall=results_at),
         )
 
 

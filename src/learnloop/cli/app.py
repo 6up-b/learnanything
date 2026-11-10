@@ -2488,7 +2488,7 @@ def why(
         explanation = _why_records(repository, target, kind)
     else:
         explanation = _why_records(repository, target, kind)
-        if not explanation["records"] and kind is None:
+        if not explanation["records"] and not explanation["model_calls"] and kind is None:
             # Not a record or a trace: an item no longer in the vault's files keeps its last explanation.
             explanation = _why_scheduler_explanation(loaded, repository, target)
     if explanation is None:
@@ -2527,29 +2527,42 @@ def _why_scheduler_explanation(loaded, repository, practice_item_id: str) -> dic
 
 
 def _why_records(repository, target: str, kind: str | None) -> dict[str, Any]:
-    """The records ``target`` names and their traces' model calls, joined by ``trace_id`` (no payloads)."""
+    """The records ``target`` names and their traces' model calls, joined by ``trace_id`` (no payloads); the calls that
+    answered after their decision was taken (``discarded``) and the router calls no decision names (``unclaimed``)."""
 
-    from learnloop.db.stores.provenance import trace_model_calls
+    from learnloop.db.stores.provenance import discarded_calls, trace_model_calls, unclaimed_calls
 
     with repository.connection() as connection:
         records = provenance.read(connection, target, kind=kind)
         traces = sorted({record.trace_id for record in records if record.trace_id})
-        calls = trace_model_calls(connection, traces)
+        if not records and kind is None and target != "latest" and target.partition(":")[0] not in provenance.SUBJECT_KINDS \
+                and trace_model_calls(connection, [target]):
+            traces = [target]  # a trace whose models answered and nothing was decided (a key changed, an eviction)
+        # A decision prefetched by an earlier request asked its models under that request's trace.
+        prefetch = sorted({str(record.facts["prefetch_trace"]) for record in records
+                           if record.facts.get("prefetch_trace")} - set(traces))
+        calls = trace_model_calls(connection, [*traces, *prefetch])
+        unclaimed = unclaimed_calls(connection, records, calls)
     return {
         "version": 1,
         "source": "decision_records",
         "target": target,
         "traces": traces,
+        "prefetch_traces": prefetch,
         "records": [record.as_dict() for record in records],
         "model_calls": calls,
+        "discarded": discarded_calls(records, calls),
+        "unclaimed": unclaimed,
     }
 
 
 def _echo_why_records(explanation: dict[str, Any]) -> None:
     records = explanation["records"]
-    if not records:
+    if not records and not explanation["model_calls"]:
         typer.echo(f"No decision records for {explanation['target']}.")
         return
+    if not records:
+        typer.echo(f"No decision records for {explanation['target']}; its model calls follow.")
     for record in records:
         parts = [record["created_at"], record["kind"], record["status"]]
         parts += [f"{name}={record[name]}" for name in ("chosen_ref", "decided_by", "rule", "subject_kind",
@@ -2564,6 +2577,13 @@ def _echo_why_records(explanation: dict[str, Any]) -> None:
         for call in explanation["model_calls"]:
             typer.echo(f"  {call['started_at']} -> {call['finished_at']}  {call['purpose']}  {call['status']}"
                        f"  {call['model']}  {call['id']}")
+    for late in explanation.get("discarded") or ():
+        when = "still out" if late["late_ms"] is None else f"answered {late['late_ms'] / 1000:.1f} s late"
+        typer.echo(f"Discarded: {late['call_id']} ({late['purpose']}, {late['model']}) {when}, after decision "
+                   f"{late['record_id']}")
+    for call in explanation.get("unclaimed") or ():
+        typer.echo(f"Unclaimed: {call['call_id']} ({call['purpose']}, {call['model']}, {call['status']}): no decision "
+                   f"names its boundary key {call['boundary_key']}")
 
 @app.command()
 def show(

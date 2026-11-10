@@ -198,6 +198,10 @@ class BlockChoice:
     #: container copies it to the ``plan_block`` logger, which writes it with
     #: the block, in the block's transaction; the chooser never writes rows.
     router_record: Mapping[str, Any] | None = field(default=None, compare=False, hash=False)
+    #: What the decision's record needs and no persisted row carries: the wall time the models' answers were taken
+    #: (a receipt finishing later was discarded) and the trace that started the prefetch. Kept off
+    #: ``router_record``, which the router's ledger stores as it is.
+    provenance: Mapping[str, Any] | None = field(default=None, compare=False, hash=False)
 
 
 class BlockChooser(Protocol):

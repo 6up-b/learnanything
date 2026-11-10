@@ -74,6 +74,12 @@ FSRS maintains item/card memory and produces forgetting risk/intervals from revi
 
 During an in-progress diagnostic episode, only admitted instruments bound to the locked hypothesis set receive probe EIG. Predictive EIG is primary when the target set is adequate; normalized hypothesis EIG is fallback. The score is familiarity-discounted and logged separately from coverage value.
 
+## The daily plan's block router
+
+Today's plan picks its next block at each block boundary (`daily_plan.engine.decide`), separately from the scheduler's slate. The plan policy's chooser draws from the staged frame's top-k support: the objective chooser (`daily_plan/objective_chooser.py`) mixes the router LLM's policy with the numeric policy and logs the Decider and the staged rule as advice, and below its tag the R2 mixture (`daily_plan/router_chooser.py`) mixes the Decider and the LLM. The models run in background threads keyed by the decision's boundary key (`daily_plan/router_runtime.py`), from the prefetch at Today's open or after feedback. A read whose models are still out leaves the boundary open. A serve waits up to `router.timeout_seconds`, and a model still out is a timeout whose share goes to the staged rule. If the chooser raises, the lane-quota rule chooses (`fallback_reason = chooser_error`). `decide` writes nothing, but it is not pure: its chooser reads the vault, starts the model threads and waits on them.
+
+The container logs each decision as a `plan_block` row in `router_decisions` in the block's own transaction. Since refactor B2 it also writes the decision's records there (ADR-017; `daily_plan/boundary_records.py`). A `plan_block` record is `chosen`, or `fallback` with the rule that made it. It names the support with each option's probability and why it lost, the configured waits and how long the serve waited, the boundary key and the prefetch's trace. On a crash it adds the exception's type and `module:function:line`, never its message. Each component (Decider, LLM, numeric, staged) gets a child `model_answer` record: `chosen`, `timeout`, `failed`, `refused`, `excluded` or `discarded`. `learnloop why <trace>` reads the calls of the serving trace and the prefetch's trace, and lists every call that finished after the decision as discarded. See [[Inspect Persistent State]].
+
 ## Explainability and evaluation
 
 `ScheduledItem` carries component values, readiness, selected mode/intent, plain-English reasons, and optional reward debug. `explain_practice_item` exposes why an item did or did not rank.

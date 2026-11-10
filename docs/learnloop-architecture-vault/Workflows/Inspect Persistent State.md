@@ -177,6 +177,8 @@ These resolve filesystem configuration and SQLite state together. `data-quality`
 
 For a trace it lists the `decision_records` (kind, status, what won, who decided and the rule, the alternatives and the inputs as numbers and codes) and the trace's model calls, joined by `model_call_receipts.trace_id` (ids, purposes, statuses and times, never the prompt or the output). Every sidecar RPC, phone request, MCP tool call and CLI command runs under one trace, and the sidecar's structured log events carry its `trace_id`, so a log line joins the same rows. Calls before migration 253 have no `trace_id`: an older router decision reaches its calls only through its boundary key (`router_decisions.detail_json` names it; the calls' `owner_id` holds it).
 
+A plan block decision (`plan_block`, with a `model_answer` per component; [[Scheduling and Selection#The daily plan's block router]]) may have been prefetched by an earlier request: its `facts.prefetch_trace` names that trace, and `why` reads that trace's calls too (`prefetch_traces`). Its `created_at` is the moment the decision took its models' answers, so `why` lists under `discarded` each call of those traces for its boundary key that started before it and finished after it (`late_ms`), or hadn't finished when asked (`late_ms` null). The discarded list is computed when `why` runs; nothing extra is written.
+
 The same join in SQL:
 
 ```sql

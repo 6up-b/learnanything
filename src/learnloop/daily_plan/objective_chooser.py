@@ -77,6 +77,8 @@ from learnloop.daily_plan.router_runtime import (
     RouterRuntime,
     call_decider,
     call_llm,
+    seen,
+    wall_now,
 )
 from learnloop.daily_plan.staged_frame import StagedChooser
 from learnloop.daily_plan.types import (
@@ -1463,9 +1465,14 @@ class ObjectiveChooser(RouterChooser):
             # (the answer carries its own carried valuation, ``numeric.carried``, when one is pending)
             entry = _NoModels(key, {"card": card, "evidence": list(rq.evidence_from_card(card.json)),
                                     "decided_at": now_iso, "numeric": numeric}, self.runtime.clock())
-        self._freeze_objective(record, staged, feasible, support)
-        return self._decide_objective(entry, state, staged, staged_ref, record, support, by_id, feasible, readiness,
-                                      settings, now_iso)
+        def decided() -> BlockChoice:
+            self._freeze_objective(record, staged, feasible, support)
+            return self._decide_objective(entry, state, staged, staged_ref, record, support, by_id, feasible,
+                                          readiness, settings, now_iso)
+
+        computed = entry.material.get("numeric")
+        return self._noting(entry, decided, extra={NUMERIC: {
+            "status": computed.status, "latency_ms": computed.latency_ms}} if computed is not None else None)
 
     def _defer_carry(self, numeric: "NumericPolicy", entry: Any, decision_id: str) -> "NumericPolicy":
         """The follow-up batch's item 4 (RO6's open items 1 and 3): a decision served before its carried valuation
@@ -1547,6 +1554,7 @@ class ObjectiveChooser(RouterChooser):
         material = entry.material
         card = material["card"]
         results = entry.results()
+        results_at = wall_now()  # a model answering after this was discarded (``why``)
         for name in (DECIDER, LLM):
             if name not in results:
                 results[name] = ComponentResult(name=name, status=NOT_READY, error=str(readiness.get(name) or "not_ready"))
@@ -1692,6 +1700,7 @@ class ObjectiveChooser(RouterChooser):
             objective_trace=trace,
             **_card_fields(card),
         )
+        provenance = seen(entry, may_defer=self.may_defer, decided_wall=results_at)
         if coin is not None:
             # The router's ledger logs each candidate's probability of being served: under the coin, the served
             # distribution (exact); the mix's own μ stays beside it.
@@ -1702,12 +1711,12 @@ class ObjectiveChooser(RouterChooser):
             record["ro5_assignments"] = pending_assignments
             return BlockChoice(candidate_id=served_ref, chosen_by="mixture", propensity=coin.served_propensity,
                                why=why or staged.why, why_kind=why_kind,  # type: ignore[arg-type]
-                               router_record=record)
+                               router_record=record, provenance=provenance)
         return BlockChoice(
             candidate_id=drawn.chosen, chosen_by="mixture",
             propensity=1.0 if drawn.deterministic else drawn.propensity,
             why=why or staged.why, why_kind=why_kind,  # type: ignore[arg-type]
-            router_record=record,
+            router_record=record, provenance=provenance,
         )
 
     def _session_minutes(self, now_iso: str) -> float | None:

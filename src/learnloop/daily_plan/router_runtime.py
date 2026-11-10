@@ -63,6 +63,8 @@ import time
 from typing import Any
 
 from learnloop.ai.spend import SpendLimitExceeded
+from learnloop.daily_plan.boundary_records import FAILURE_NOTE, wall_now
+from learnloop.provenance import current_trace
 from learnloop.daily_plan.types import DecisionPending
 from learnloop.router import requests as rq
 
@@ -150,6 +152,9 @@ class Prefetch:
     lock: threading.Lock = field(default_factory=threading.Lock)
     #: components whose call has started (a job that fails before them fails them)
     started_components: set[str] = field(default_factory=set)
+    #: The trace of the request that started the job: its model calls carry it, and the request that serves the
+    #: decision may be a later one (Today's open prefetches what the next Next serves).
+    trace_id: str | None = None
 
     def answered(self, name: str) -> bool:
         event = self.events.get(name)
@@ -483,7 +488,8 @@ class RouterRuntime:
             if existing is not None:
                 return existing
             now = self.clock()
-            entry = Prefetch(key=key, kind=kind, started=now, deadline=now + float(budget), material=material)
+            entry = Prefetch(key=key, kind=kind, started=now, deadline=now + float(budget), material=material,
+                             trace_id=current_trace())
             for name in components:
                 entry.events[name] = threading.Event()
             self._entries[f"{scope}:{key}"] = entry
@@ -551,6 +557,33 @@ def _finish(entry: Prefetch, result: ComponentResult) -> None:
 
 def _ms(started: float) -> int:
     return int(round((time.monotonic() - started) * 1000))
+
+
+# -- what a decision's record reads ---------------------------------------------------------------
+
+def seen(entry: Any, *, may_defer: bool, decided_wall: str | None = None) -> dict[str, Any]:
+    """What a decision's record needs from its prefetch that no persisted row carries: the trace that started it and
+    the wall time its answers were taken (``BlockChoice.provenance``)."""
+
+    return {"prefetch_trace": getattr(entry, "trace_id", None), "decided_wall": decided_wall or wall_now(),
+            "may_defer": bool(may_defer)}
+
+
+def note_failure(exc: BaseException, entry: Any, *, may_defer: bool, waited_ms: int | None,
+                 extra: Mapping[str, Mapping[str, Any]] | None = None) -> None:
+    """Hang each model's result summary on a chooser's exception (``boundary_records.FAILURE_NOTE``): the chooser's
+    own record dies with the exception, and ``engine.decide`` falls back to the rule, so this is how the fallback's
+    record still names what the models answered. Never raises: the exception is what decides the fallback."""
+
+    try:
+        results = entry.results() if entry is not None else {}
+        models = {name: result.summary() for name, result in sorted(results.items())}
+        for name, summary in (extra or {}).items():
+            models.setdefault(name, dict(summary))
+        setattr(exc, FAILURE_NOTE, {**seen(entry, may_defer=may_defer), "models": models,
+                                    "boundary_key": getattr(entry, "key", None), "waited_ms": waited_ms})
+    except Exception:  # noqa: BLE001 - the fallback stands without the note
+        LOG.debug("router: the failed decision's models were not noted", exc_info=True)
 
 
 def call_decider(
