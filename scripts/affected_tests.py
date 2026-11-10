@@ -17,7 +17,10 @@ the arc-close gate runs the rest. The rule, in order:
    import it, through at most ``--depth`` other ``src`` modules (default 1: the
    tests that import it, and the tests that import a module importing it). Test
    helper modules (``tests/*.py`` not named ``test_*``) are glue, so passing
-   through one costs nothing.
+   through one costs nothing; so is the step from a registry package (one whose
+   ``__init__`` imports its submodules, like ``learnloop_sidecar.handlers``) to a
+   module that runs ``import <package>`` to fill the registry
+   (``learnloop_sidecar.server``).
 3. A changed non-Python file under ``src/`` (a prompt, a doctrine page, a static
    asset): treated as a change to the modules in the nearest directory holding
    any, which is where the code that reads it lives.
@@ -133,6 +136,8 @@ class Graph:
         self.path_of.pop(None, None)
         self.modules = set(self.path_of)
         self.imports: dict[str, set[str]] = {}
+        #: (module, package) for each ``import package`` statement (the package itself, not a module in it).
+        self.package_imports: set[tuple[str, str]] = set()
         for name, path in self.path_of.items():
             self.imports[name] = self._read(name, path)
         self.importers: dict[str, set[str]] = defaultdict(set)
@@ -170,6 +175,8 @@ class Graph:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     deps.update(self._known(alias.name))
+                    if self.path_of.get(alias.name, "").endswith("__init__.py"):
+                        self.package_imports.add((name, alias.name))
             elif isinstance(node, ast.ImportFrom):
                 if node.level:
                     anchor = package.split(".")
@@ -186,9 +193,18 @@ class Graph:
         deps.discard(name)
         return deps
 
+    def _registry_use(self, importer: str, package: str) -> bool:
+        """``importer`` runs ``import package`` and the package's ``__init__`` imports its own submodules: a
+        registry the importer uses (``learnloop_sidecar.server`` and the handlers filling ``METHOD_REGISTRY``)."""
+
+        return (importer, package) in self.package_imports and \
+            any(dep.startswith(f"{package}.") for dep in self.imports.get(package, ()))
+
     def tests_reaching(self, roots: set[str], depth: int) -> set[str]:
         """Test modules importing one of ``roots`` through at most ``depth`` other ``src`` modules; a test helper
-        module on the way costs nothing (rule 2)."""
+        module on the way costs nothing (rule 2), and nor does the step from a registry package to the module
+        importing it for its registry: a test of ``learnloop_sidecar.server`` reaches a handler module through
+        the handlers package and the server, and is one step from it, not two."""
 
         best = dict.fromkeys(roots, 0)
         frontier = sorted(roots)
@@ -200,7 +216,8 @@ class Graph:
                     if _is_test_module(importer):
                         found.add(importer)
                         continue
-                    cost = best[module] + (0 if importer.startswith("tests") else 1)
+                    free = importer.startswith("tests") or self._registry_use(importer, module)
+                    cost = best[module] + (0 if free else 1)
                     if cost > depth or best.get(importer, depth + 1) <= cost:
                         continue
                     best[importer] = cost

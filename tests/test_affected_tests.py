@@ -73,6 +73,15 @@ def test_a_module_named_by_its_source_path_reaches_the_tests_of_the_code_naming_
     assert "learnloop.source_retrieval.note_gaps" in graph.imports["tests.test_notes_never_read"]
 
 
+def test_a_module_a_package_registers_reaches_the_tests_of_the_registry(selector):
+    # learnloop_sidecar/handlers/__init__.py imports every handler to fill METHOD_REGISTRY;
+    # tests/test_sidecar_epigraphs.py reaches its handler only through learnloop_sidecar.server.
+    module, graph = selector
+    assert "learnloop_sidecar.server" not in graph.imports["learnloop_sidecar.handlers.epigraphs"]
+    selected = module.select(["src/learnloop_sidecar/handlers/epigraphs.py"], graph)["tests"]
+    assert "tests/test_sidecar_epigraphs.py" in selected
+
+
 def test_a_module_attribute_string_names_its_module(selector):
     # "learnloop.daily_plan.estimates:load_duration_evidence" names the module before the colon.
     module, graph = selector
