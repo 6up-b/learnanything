@@ -69,7 +69,7 @@ The architecture map (`docs/reviews/architecture-map-2026-11-08.md` §4.3, §4.6
 
 "What happened next" is not a column: it is the next record whose `parent_id` is this one, the detail row's own outcome, or a presentation and attempt reached from the subject.
 
-**A record never changes a decision.** `provenance.write(connection, record)` joins the caller's transaction; `db.stores.provenance.write_decision` takes its own short one. Either way a failed write logs a warning with the trace id and returns; it never raises into the decision. A record holds no prose: no learner text, item text, prompt or model output (`provenance.check_no_prose`, and a test that plants item text). Payloads stay in `model_call_receipts`, under their existing retention.
+**A record never changes a decision.** `provenance.write(connection, record)` joins the caller's transaction in a savepoint. `db.stores.provenance.write_decision` (and `refusal_records.write`; both are `provenance.write_through`) writes through a repository: it joins a transaction the caller holds on a pinned or atomic connection without ever committing it, and takes a short one of its own otherwise (arc B fix 2). A path on a wall-clock budget holding no transaction uses `write_decision_without_waiting`, a connection of its own with no busy wait, so a lock held elsewhere drops the record rather than holding the decision (the router's spend guard, arc B fix 1). Either way a failed write logs a warning with the trace id and returns; it never raises into the decision. Record and trace ids come from a ULID stream of their own (`provenance.new_record_id`), never from `ids.new_ulid`, which also mints the router's decision id and so its draw seed: a record never moves the next decision's id (arc B fix 3). A record holds no prose: no learner text, item text, prompt or model output (`provenance.check_no_prose`, and a test that plants item text). Payloads stay in `model_call_receipts`, under their existing retention.
 
 ### The trace id
 
@@ -80,7 +80,7 @@ A ULID in a `ContextVar` (`provenance.current_trace()`), **born** once per learn
 - the MCP server, per tool call (`learnloop_mcp.server`'s `run`);
 - the CLI, per command (the root callback).
 
-It is **carried** by the `ContextVar`: threads started in a copied context (the router's jobs, background exam grading) inherit it. The post-attempt worker's long-lived threads open one scope per job, so a job never carries the RPC that first woke the worker. **Across a queue** (B7): each enqueue that inserts a row (`post_attempt_jobs`, `learner_text_gap_jobs`, `followup_generation_jobs`, and IH2's requeue) writes a `job_enqueued` record (`subject = job:<id>`) in its transaction, and the job's processor, once it has leased the row, continues that record's trace (`db.stores.provenance.continue_job_trace`, which switches the worker's scope in place with `provenance.continue_trace`). The record is the job's cause (`provenance.current_cause()`), so the job's own records name it as their `parent_id`. Submit, grade, diagnosis and follow-up generation therefore share one trace; a job queued before B7, or whose record did not write, keeps a trace of its own.
+It is **carried** by the `ContextVar`: threads started in a copied context (the router's jobs, background exam grading) inherit it, and the sidecar's request-started jobs (`BackgroundJobs.spawn`: hints, Reader cue discovery, library asks, reading paths) run under the trace of the request that started them, as does each queued figure prefetch trigger under the trace that queued it (arc B fix 7). The post-attempt worker's long-lived threads open one scope per job, so a job never carries the RPC that first woke the worker. **Across a queue** (B7): each enqueue that inserts a row (`post_attempt_jobs`, `learner_text_gap_jobs`, `followup_generation_jobs`, and IH2's requeue) writes a `job_enqueued` record (`subject = job:<id>`) in its transaction, and the job's processor, once it has leased the row, continues that record's trace (`db.stores.provenance.continue_job_trace`, which switches the worker's scope in place with `provenance.continue_trace`). The record is the job's cause (`provenance.current_cause()`), so the job's own records name it as their `parent_id`. Submit, grade, diagnosis and follow-up generation therefore share one trace; a job queued before B7, or whose record did not write, keeps a trace of its own.
 
 **Model calls** carry it in a real column, `model_call_receipts.trace_id` (nullable), set when the call starts (`ai.execution`) and written by `record_model_event`. That closes break 2 without moving the decision id, which feeds the mix's seed. **Logs** carry it: the sidecar's `log_event` adds `trace_id` to every structured event.
 
@@ -88,7 +88,7 @@ It is **carried** by the `ContextVar`: threads started in a copied context (the 
 
 Writing a record changes no replayed meaning, each with a test (`tests/test_provenance.py`):
 
-- the role is `RECEIPT` (`db/table_roles.py`): append-only (two triggers refuse UPDATE and DELETE), never cleared by rebuild;
+- the role is `RECEIPT` (`db/table_roles.py`): append-only (two triggers refuse DELETE and every UPDATE but retention's, below), never cleared by rebuild;
 - no replay or rebuild code can reach the table: the import closure of the rebuild orchestrator and the upgrade chain never imports `learnloop.provenance` or the store, and no module in that closure names `decision_records`;
 - AD's guard classifies it `DENIED` (`adaptive_difficulty/protected_tables.py`), so no AD operation reads it;
 - `model_call_receipts.trace_id` is nullable and no projection reads it.
@@ -103,7 +103,7 @@ The same reader serves the sidecar's read-only `why.get` RPC (ids, numbers and c
 
 ### Storage and protection
 
-Rows are small: ids, numbers and capped lists, exclusions aggregated by rule. The strategy's estimate is at most about 1 KB a row and about 30 rows per attempt cycle; B6 measures it on a copy-shaped journey, and tightens what it records by rule if growth passes 5% of a vault's database a month. `router.payload_retention_days` may prune `alternatives_json` and `facts_json` on old rows and keep the row. No model context reads the table and no grader context can.
+Rows are small: ids, numbers and capped lists, exclusions aggregated by rule. The strategy's estimate is at most about 1 KB a row and about 30 rows per attempt cycle; B6 measures it on a copy-shaped journey, and tightens what it records by rule if growth passes 5% of a vault's database a month. `router.payload_retention_days` prunes `alternatives_json` and `facts_json` on old rows and keeps the row (migration 254, arc B fix 8): the no-update trigger lets through only an update that sets those two columns to their fixed placeholders (`[]` and `{"payload_pruned":true}`) on a row over a day old, with every identity column unchanged; deletes stay refused. `db.stores.provenance.prune_old_decision_payloads` runs it from startup maintenance with the vault's setting. No model context reads the table and no grader context can.
 
 ## Consequences
 
