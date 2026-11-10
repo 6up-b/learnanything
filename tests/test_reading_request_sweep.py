@@ -550,7 +550,7 @@ def test_the_sweep_ends_with_a_host_nobody_uses(tmp_path, fast_sweep):
     root, ctx, _source_id, _extraction_id = _added_book(tmp_path)
     host = DurableIngestJobs()
     host.bind(Repository(ctx.repository.sqlite_path), root, background=True, clock=CLOCK, services=fake_services())
-    assert _wait_for(lambda: host._reading_sweep_thread is not None and host._reading_sweep_thread.is_alive())
+    assert _wait_for(lambda: host._reading_sweep_thread is not None and host._reading_sweep_thread.is_alive())  # noqa: F821  the lambda runs before the del below
     thread = host._reading_sweep_thread
     del host
     gc.collect()

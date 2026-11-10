@@ -2514,7 +2514,7 @@ def _observation_support_scores(
 
 def _probe_production_admissibility(
     repository: Repository, *, probe_attempt_id: str | None
-) -> "ProductionAdmissibility | None":
+) -> "ProductionAdmissibility | None":  # noqa: F821  imported in the body; postponed annotations never evaluate it
     """Was the probe answer produced before anything was revealed to it?
 
     ``None`` when there is no probe attempt to assess (an out-of-band

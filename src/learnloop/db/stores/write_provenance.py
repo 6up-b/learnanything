@@ -483,7 +483,7 @@ def grading_inputs(connection: Any, attempt_id: str, *, shown_history: Iterable[
 #: shown}``. A text written from the grader's output inside that transaction
 #: (an error hunt's candidate, a cause materialized with the grade) folds the
 #: grading in before its row is written at the end of the transaction.
-_PENDING_GRADINGS: ContextVar[Mapping[str, tuple[str, ...]]] = ContextVar("pending_gradings", default={})
+_PENDING_GRADINGS: ContextVar[Mapping[str, tuple[str, ...]]] = ContextVar("pending_gradings", default={})  # noqa: B039  never mutated: every writer copies it into a new dict and sets that
 
 
 @contextmanager

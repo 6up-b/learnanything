@@ -765,7 +765,7 @@ class EmbeddingAdapter:
             chunk = list(missing[start:start + size])
             decoded = self._send(self.pin.query_endpoint, self._query_body(chunk), method="query",
                                  texts=[query.text for query in chunk], items=len(chunk),
-                                 parse=lambda body, count=len(chunk): self._parse_queries(body, count))
+                                 parse=lambda body, count=len(chunk): self._parse_queries(body, count))  # noqa: B008  binds the value now on purpose, so the closure doesn't read a later one
             for query, (row, vector) in zip(chunk, decoded, strict=True):
                 found[query.text] = vector
                 self.store.put(self.query_space, query_vector_key(self.query_encoder_id, query.text), [vector],

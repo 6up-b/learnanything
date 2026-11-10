@@ -68,7 +68,7 @@ def _record_command_model_calls(ctx: typer.Context) -> None:
 
 @app.command()
 def init(
-    path: Annotated[Path, typer.Argument(help="Vault directory to create.")] = Path("."),
+    path: Annotated[Path, typer.Argument(help="Vault directory to create.")] = Path("."),  # noqa: B008  Path is immutable, so one shared default is safe
     force: Annotated[
         bool,
         typer.Option(

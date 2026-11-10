@@ -16145,7 +16145,7 @@ class Repository(
         decoded: list[dict[str, Any]] = []
         for row in rows:
             payload = dict(row)
-            for field in ("trace", "item_context", "detail"):
+            for field in ("trace", "item_context", "detail"):  # noqa: F402  a local loop variable; this function never calls dataclasses.field()
                 payload[field] = _loads(payload.pop(f"{field}_json"), None)
             decoded.append(payload)
         return decoded
@@ -16221,7 +16221,7 @@ class Repository(
         decoded: dict[str, dict[str, Any]] = {}
         for row in rows:
             payload = dict(row)
-            for field in ("target_refs", "preserve_refs", "definition"):
+            for field in ("target_refs", "preserve_refs", "definition"):  # noqa: F402  a local loop variable; this function never calls dataclasses.field()
                 payload[field] = _loads(payload.pop(f"{field}_json"), None)
             decoded[str(payload["repair_class_id"])] = payload
         return decoded
@@ -17015,7 +17015,7 @@ class Repository(
         if row is None:
             return None
         payload = dict(row)
-        for field in (
+        for field in (  # noqa: F402  a local loop variable; this function never calls dataclasses.field()
             "hypothesis_ids",
             "avoided_affordances",
             "capability_update",
@@ -27661,7 +27661,7 @@ def _decode_error_event(row: sqlite3.Row) -> dict[str, Any]:
 
 def _decode_causal_hypothesis(row: sqlite3.Row) -> dict[str, Any]:
     payload = dict(row)
-    for field in (
+    for field in (  # noqa: F402  a local loop variable; this function never calls dataclasses.field()
         "target_ref",
         "applicability",
         "postdictive_claims",
@@ -27673,7 +27673,7 @@ def _decode_causal_hypothesis(row: sqlite3.Row) -> dict[str, Any]:
 
 def _decode_causal_discriminating_observation(row: sqlite3.Row) -> dict[str, Any]:
     payload = dict(row)
-    for field in (
+    for field in (  # noqa: F402  a local loop variable; this function never calls dataclasses.field()
         "blind_bundle_ids",
         "classified_as",
         "observed_features",

@@ -2415,7 +2415,7 @@ def materialize_causal_episode(
             model=model,
             # Built only when a new version is appended (an idempotent
             # replay re-append reads no write-time record).
-            provenance=lambda refs=spec.get("provenance_refs"): _statement_provenance(repository, attempt_id, refs),
+            provenance=lambda refs=spec.get("provenance_refs"): _statement_provenance(repository, attempt_id, refs),  # noqa: B008  binds the value now on purpose, so the closure doesn't read a later one
             provenance_writer="causal_materialization",
             clock=clock,
         )

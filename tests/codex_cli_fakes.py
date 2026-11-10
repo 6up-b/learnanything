@@ -450,7 +450,7 @@ def stub_isolation_probe(monkeypatch, client, *, config_servers=()) -> list[tupl
         if subcommand[:2] == ("debug", "prompt-input"):
             launch = launch_context.get("launch")
             home = str(launch.codex_home) if launch is not None else "/nonexistent-codex-home"
-            return json.dumps(render_prompt_input(overrides, cwd=str(cwd), codex_home=home))
+            return json.dumps(render_prompt_input(overrides, cwd=str(cwd), codex_home=home))  # noqa: F821  defined by exec(_RENDERER) above
         if subcommand[:2] == ("mcp", "list"):
             return json.dumps([
                 {"name": name, "enabled": f"mcp_servers.{name}.enabled=false" not in overrides}

@@ -77,7 +77,8 @@ def test_report3_is_aggregate_only_and_read_only(tmp_path):
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     files = payload["reports"]
-    text = open(files["json"], encoding="utf-8").read() + open(files["markdown"], encoding="utf-8").read()
+    with open(files["json"], encoding="utf-8") as json_file, open(files["markdown"], encoding="utf-8") as markdown_file:
+        text = json_file.read() + markdown_file.read()
     for identity in ("lo_diag", "lo_eigen_basics", "lo_spectral", "pi_diag", "An answer."):
         assert identity not in text
     assert hashlib.sha256(paths.sqlite_path.read_bytes()).hexdigest() == digest

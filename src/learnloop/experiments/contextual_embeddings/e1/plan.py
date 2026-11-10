@@ -197,7 +197,7 @@ def money_estimate(vaults: Mapping[str, Mapping[str, Any]], gaps: Mapping[str, M
             share = len(e1_pins.V2_ARMS) * float(novelty["mean_new_given_any"]) / slots
         else:
             p_any, share = 1.0, a.new_candidate_share
-        for case, share, adjudicated, reached in (("expected", share, a.adjudicated_share, p_any),
+        for case, share, adjudicated, reached in (("expected", share, a.adjudicated_share, p_any),  # noqa: B020  the tuple is built from share before the loop rebinds it
                                                   ("worst", 1.0, 1.0, 1.0)):
             new = max(1, math.ceil(slots * share))
             asked = math.ceil(questions * reached)

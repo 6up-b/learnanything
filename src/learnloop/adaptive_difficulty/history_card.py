@@ -494,7 +494,7 @@ def build_sections(vault: Any, connection: Any, item: Any, *, served_at: str, vi
     card = history_card(vault, connection, item, served_at=served_at, view=view, incumbent=None,
                         answers=answer_excerpts_enabled(vault), attempts_read=scope_attempts, evidence_ids=True)
     recent = []
-    for entry in card["recent_attempts"]:
+    for entry in card["recent_attempts"]:  # noqa: F402  a local loop variable; this function never calls the imported entry()
         attempt_id = str(entry.get("evidence_id", "")).partition(":")[2]
         reason = protected.get(attempt_id)
         if reason:
@@ -755,7 +755,7 @@ def evidence_ids(state: Mapping[str, Any]) -> set[str]:
 
     found: set[str] = set()
     for entries in (state.get("history") or {}).values():
-        for entry in entries:
+        for entry in entries:  # noqa: F402  a local loop variable; this function never calls the imported entry()
             if entry.get("evidence_id"):
                 found.add(str(entry["evidence_id"]))
     return found

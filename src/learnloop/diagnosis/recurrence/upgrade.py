@@ -64,6 +64,7 @@ from learnloop.params import parameter_registry as registry_service
 from learnloop.substrate.p0_projection import activate_p0_projection
 from learnloop.substrate.recurrence_groups import activate_recurrence_groups, prepare_recurrence_groups
 from learnloop.vault.loader import load_vault
+from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 
 LOG = logging.getLogger(__name__)

@@ -151,5 +151,6 @@ def test_a_chain_past_the_depth_cap_is_a_validation_error():
 def test_the_depth_cap_is_the_same_in_typescript():
     source = (G.__file__.replace("src/learnloop/figures/grammar.py",
                                  "apps/learnloop-tauri/src/screens/reader/figures/figureGrammar.ts"))
-    text = open(source, encoding="utf-8").read()
+    with open(source, encoding="utf-8") as handle:
+        text = handle.read()
     assert re.search(rf"export const MAX_EXPANDED_DEPTH = {G.MAX_EXPANDED_DEPTH};", text)

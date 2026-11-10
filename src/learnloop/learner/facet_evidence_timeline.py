@@ -1017,7 +1017,7 @@ def _observation_events(
     vault: LoadedVault,
     repository: Repository,
     canonical_facet: str,
-) -> list[FacetEvidenceEvent]:
+) -> list[ObservationEvent]:
     """Compatibility wrapper for callers that inspect one facet's events."""
     snapshot = _with_p0_masses(
         vault, repository, load_facet_timeline_snapshot(repository)
