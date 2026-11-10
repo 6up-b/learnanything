@@ -136,7 +136,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/placement|learnloop.db.stores.placement]] | [[Reference/Modules/learnloop/db/stores/placement#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/db/stores/plan_presentations|learnloop.db.stores.plan_presentations]] | [[Reference/Modules/learnloop/db/stores/plan_presentations#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
 | [[Reference/Modules/learnloop/db/stores/practice_index|learnloop.db.stores.practice_index]] | [[Reference/Modules/learnloop/db/stores/practice_index#^module-purpose|purpose]] | `ACTIVE` | 17 | 8 |
-| [[Reference/Modules/learnloop/db/stores/provenance|learnloop.db.stores.provenance]] | [[Reference/Modules/learnloop/db/stores/provenance#^module-purpose|purpose]] | `ACTIVE` | 13 | 4 |
+| [[Reference/Modules/learnloop/db/stores/provenance|learnloop.db.stores.provenance]] | [[Reference/Modules/learnloop/db/stores/provenance#^module-purpose|purpose]] | `ACTIVE` | 15 | 4 |
 | [[Reference/Modules/learnloop/db/stores/reader_cue_links|learnloop.db.stores.reader_cue_links]] | [[Reference/Modules/learnloop/db/stores/reader_cue_links#^module-purpose|purpose]] | `ACTIVE` | 2 | 11 |
 | [[Reference/Modules/learnloop/db/stores/reader_digests|learnloop.db.stores.reader_digests]] | [[Reference/Modules/learnloop/db/stores/reader_digests#^module-purpose|purpose]] | `ACTIVE` | 4 | 13 |
 | [[Reference/Modules/learnloop/db/stores/reading_paths|learnloop.db.stores.reading_paths]] | [[Reference/Modules/learnloop/db/stores/reading_paths#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
@@ -162,7 +162,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 53 static module edges
+- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 54 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 28 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 26 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 23 static module edges
@@ -181,11 +181,11 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/_package|learnloop]] — 9 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 9 static module edges
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 9 static module edges
+- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 7 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 7 static module edges
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 7 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 7 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 6 static module edges
-- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 6 static module edges
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 6 static module edges
@@ -230,7 +230,7 @@ flowchart LR
     n_learnloop_db["learnloop.db"]
     n_learnloop_hints["learnloop.hints"]
     n_learnloop_teacher["learnloop.teacher"]
-    n_learnloop_source_retrieval -->|53| center
+    n_learnloop_source_retrieval -->|54| center
     n_learnloop -->|9| center
     center -->|34| n_learnloop
     n_learnloop_adaptive_difficulty -->|28| center
