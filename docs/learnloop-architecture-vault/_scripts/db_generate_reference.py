@@ -1049,6 +1049,7 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "placement.enabled": "Kill switch for F2 placement at mvp-0.11 and later; off restores the predecessor's opening probes, serving and ordering and ignores recorded assumptions.",
     "placement.initial_probes": "Opens the predecessor's opening diagnostic episode per new LO while placement stays on (D11 default off).",
     "placement.unevidenced_return": "Kill switch for mvp-0.56: an answered item with no due time, on an LO with no evidence, starts as learning under placement; off (or below the tag) serves mvp-0.55 exactly.",
+    "figures.prefetch.pressed_waits": "Kill switch for mvp-0.58 (the figure wait estimate): a prebuild's W is the pressed builds' author calls shrunk toward the pre-builder's own calls by a prior worth one measurement, and the minutes a usage-limit pause blocked count foreground calls only (prefetch_decision_v2); off (or below the tag) decides as mvp-0.57 exactly.",
     "placement.assumed_first_interval_days": "Days from an assumed-known decision to its first review, which is the check (D6).",
     "placement.fast_track_min_correct": "Clean full-marks first answers fast-track needs before the probability test (D6, at least 2).",
     "placement.fast_track_q": "Probability the active predictor must give that the LO's ability exceeds the known threshold (D6).",
