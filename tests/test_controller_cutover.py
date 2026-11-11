@@ -295,3 +295,24 @@ def test_rollback_switch_returns_owned_to_legacy(run):
     action = cut.staged_next_action(repo, receipt.run_id, vault=vault, session=_session(),
                                     live=True, clock=CLOCK)
     assert action.authority == "legacy"
+
+
+def test_a_standing_decisions_persisted_trace_names_the_same_veto():
+    """A decision reloaded from its row has no feasibility report; its trace's exclusions decide the veto, and an
+    ownership-only refusal is still not one."""
+
+    def standing(exclusions):
+        return sp.DecisionResult(
+            decision_id="d", already=True, action=A.STOP, subtype=A.STOP_NO_FEASIBLE_ACTIVITY,
+            staged_rule="no_feasible_activity", chosen_candidate_ref=None,
+            stop_reason=A.STOP_NO_FEASIBLE_ACTIVITY, snapshot_hash="h",
+            trace={"exclusions": exclusions},
+        )
+
+    owned_only = {"b": [{"constraint_key": sp.OWNERSHIP_REFUSAL_KEY, "reason": "not_owned_by_staged_controller"}]}
+    assert cut._constraint_or_evsi_veto(standing(owned_only)) is None
+    real = {
+        **owned_only,
+        "a": [{"constraint_key": "assessment_reservation", "reason": "reserved_assessment_surface"}],
+    }
+    assert cut._constraint_or_evsi_veto(standing(real)) == "constraint:assessment_reservation:reserved_assessment_surface"

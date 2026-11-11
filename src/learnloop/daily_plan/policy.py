@@ -21,7 +21,7 @@
 
 Every entry point that builds a :class:`~learnloop.daily_plan.engine.PlanEnv`
 that makes block decisions goes through :func:`policy_for` (the sidecar's plan
-RPCs). The P2 bridge's switch is :func:`bridge_active`: it needs no plan.
+RPCs).
 """
 
 from __future__ import annotations
@@ -33,21 +33,16 @@ from learnloop.daily_plan.chooser import LaneQuotaChooser
 from learnloop.daily_plan.engine import DEFAULT_POLICY, PlanPolicy, plan_active
 
 
-def bridge_active(vault: Any) -> bool:
-    """``golden_path.advance`` goes through the P2 bridge (D13): the R2a
-    successor or later with the router's kill switch on."""
+def router_active(vault: Any) -> bool:
+    """The router composes Today: the plan serves, the vault is at the R2a successor or later, and the router's
+    kill switch (``router.enabled``) is on."""
 
     config = vault.config
     return (
-        config.algorithms.algorithm_version in ROUTER_STAGED_FRAME_VERSIONS
+        plan_active(vault)
+        and config.algorithms.algorithm_version in ROUTER_STAGED_FRAME_VERSIONS
         and bool(getattr(config.router, "enabled", False))
     )
-
-
-def router_active(vault: Any) -> bool:
-    """The router composes Today: the plan serves and the bridge's switch holds."""
-
-    return plan_active(vault) and bridge_active(vault)
 
 
 def mixture_active(vault: Any) -> bool:
@@ -198,4 +193,4 @@ def _lesson_offer_builder(vault: Any, repository: Any) -> Any:
     return build
 
 
-__all__ = ["bridge_active", "mixture_active", "objective_active", "policy_for", "prefetch_can_start", "router_active"]
+__all__ = ["mixture_active", "objective_active", "policy_for", "prefetch_can_start", "router_active"]
