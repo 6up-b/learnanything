@@ -1558,7 +1558,6 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/workbench/ladder|learnloop.workbench.ladder]] — imports `Repository`
 - [[Reference/Modules/learnloop/workbench/route_example|learnloop.workbench.route_example]] — imports `Repository`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `Repository`
-- [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]] — imports `Repository`
 - [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `Repository`
 - [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] — imports `Repository`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `Repository`
@@ -1623,7 +1622,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 402 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 401 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -3379,7 +3378,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_uses_full_intervention_followup_policy`
   - `test_stale_practice_acknowledgement_preserves_newer_checkpoint`
   - `test_submission_that_loses_a_commit_race_answers_with_the_winner`
-- [tests/test_sidecar_epigraphs.py](../../../../../../tests/test_sidecar_epigraphs.py) — direct import
 - [tests/test_sidecar_golden_path_assessment.py](../../../../../../tests/test_sidecar_golden_path_assessment.py) — direct import
   - `test_practice_only_assess_open_returns_stable_error`
 - [tests/test_sidecar_idle_threads.py](../../../../../../tests/test_sidecar_idle_threads.py) — direct import

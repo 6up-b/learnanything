@@ -282,7 +282,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `CoverageError`, `Library`, `read_protection`; statically calls `Library`, `read_protection`
 - [[Reference/Modules/learnloop/teacher/diagnosed_sources|learnloop.teacher.diagnosed_sources]] — imports `module`; statically calls `search_sections`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `CoverageError`, `Library`; statically calls `Library`
-- [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]] — imports `module`; statically calls `Library`, `LibraryCache`, `admission_problem`, `correct`, `correspondents`, `dismiss`, `enabled`, `judge`, `peek`, `section_learning_objects`
+- [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]] — imports `module`; statically calls `LibraryCache`, `correct`, `correspondents`, `dismiss`, `enabled`, `peek`
 - [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] — imports `module`; statically calls `Library`, `admission_problem`, `judge`
 - [[Reference/Modules/learnloop_sidecar/handlers/side_by_side|learnloop_sidecar.handlers.side_by_side]] — imports `module`; statically calls `enabled`, `section_text`
 
@@ -337,6 +337,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/deliverable_fixtures.py](../../../../../../tests/deliverable_fixtures.py) — direct import
+- [tests/section_coverage_fixtures.py](../../../../../../tests/section_coverage_fixtures.py) — direct import
 - [tests/test_coverage_on_extract.py](../../../../../../tests/test_coverage_on_extract.py) — direct import
   - `test_an_extraction_queues_the_job_only_while_both_switches_are_on`
   - `test_one_live_job_at_a_time`
@@ -425,7 +426,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rr_f1_a_role_changed_on_disk_during_a_cli_judgment_keeps_nothing`
   - `test_rr_f1_the_cli_batch_reads_source_sets_from_disk_before_each_lo`
 - [tests/test_section_coverage_rpcs.py](../../../../../../tests/test_section_coverage_rpcs.py) — direct import
-  - `test_a_failed_job_relays_an_openrouter_offer_keyed_by_curriculum_cover`
   - `test_cover_source_judges_and_caps_a_metered_run`
   - `test_cover_source_refuses_a_withheld_reading`
 

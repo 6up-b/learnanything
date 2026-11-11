@@ -73,12 +73,12 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/ai/disclosures|learnloop.ai.disclosures]] | [[Reference/Modules/learnloop/ai/disclosures#^module-purpose|purpose]] | `ACTIVE` | 3 | 7 |
 | [[Reference/Modules/learnloop/ai/embedding|learnloop.ai.embedding]] | [[Reference/Modules/learnloop/ai/embedding#^module-purpose|purpose]] | `ACTIVE` | 10 | 3 |
 | [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] | [[Reference/Modules/learnloop/ai/errors#^module-purpose|purpose]] | `ACTIVE` | 111 | 94 |
-| [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] | [[Reference/Modules/learnloop/ai/execution#^module-purpose|purpose]] | `ACTIVE` | 131 | 100 |
+| [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] | [[Reference/Modules/learnloop/ai/execution#^module-purpose|purpose]] | `ACTIVE` | 130 | 100 |
 | [[Reference/Modules/learnloop/ai/isolation|learnloop.ai.isolation]] | [[Reference/Modules/learnloop/ai/isolation#^module-purpose|purpose]] | `ACTIVE` | 4 | 21 |
 | [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]] | [[Reference/Modules/learnloop/ai/multimodal#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/ai/native_media|learnloop.ai.native_media]] | [[Reference/Modules/learnloop/ai/native_media#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 | [[Reference/Modules/learnloop/ai/output_budget|learnloop.ai.output_budget]] | [[Reference/Modules/learnloop/ai/output_budget#^module-purpose|purpose]] | `ACTIVE` | 26 | 5 |
-| [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] | [[Reference/Modules/learnloop/ai/plan_fallback#^module-purpose|purpose]] | `ACTIVE` | 34 | 20 |
+| [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] | [[Reference/Modules/learnloop/ai/plan_fallback#^module-purpose|purpose]] | `ACTIVE` | 33 | 19 |
 | [[Reference/Modules/learnloop/ai/review_spend|learnloop.ai.review_spend]] | [[Reference/Modules/learnloop/ai/review_spend#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
 | [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] | [[Reference/Modules/learnloop/ai/routing#^module-purpose|purpose]] | `ACTIVE` | 60 | 37 |
 | [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] | [[Reference/Modules/learnloop/ai/runs#^module-purpose|purpose]] | `ACTIVE` | 10 | 1 |
@@ -111,7 +111,7 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 55 static module edges
 - [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 43 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 41 static module edges
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 39 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 37 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 32 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 30 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 24 static module edges
@@ -176,7 +176,7 @@ flowchart LR
     center -->|12| n_learnloop_ai_providers
     n_learnloop_cli -->|55| center
     n_learnloop_ops -->|41| center
-    n_learnloop_sidecar_handlers -->|39| center
+    n_learnloop_sidecar_handlers -->|37| center
     n_learnloop_adaptive_difficulty -->|32| center
     n_learnloop_practice_index -->|30| center
     n_learnloop_hints -->|24| center

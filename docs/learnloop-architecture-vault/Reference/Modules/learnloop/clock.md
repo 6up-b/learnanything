@@ -1998,7 +1998,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_contract.py](../../../../../tests/test_sidecar_contract.py) — direct import
   - `test_inspector_opens_probe_episode_drilldown`
   - `test_knowledge_field_is_recipe_topological_and_uses_pooled_ready`
-- [tests/test_sidecar_epigraphs.py](../../../../../tests/test_sidecar_epigraphs.py) — direct import
 - [tests/test_sidecar_ingest_m3.py](../../../../../tests/test_sidecar_ingest_m3.py) — direct import
 - [tests/test_sidecar_knowledge_model.py](../../../../../tests/test_sidecar_knowledge_model.py) — direct import
 - [tests/test_sidecar_probe.py](../../../../../tests/test_sidecar_probe.py) — direct import

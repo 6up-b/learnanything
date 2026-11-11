@@ -83,7 +83,6 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `analyze_source_outcomes`; statically calls `analyze_source_outcomes`
 - [[Reference/Modules/learnloop/ops/maintenance_feed|learnloop.ops.maintenance_feed]] — imports `analyze_source_outcomes`, `source_outcome_notices`; statically calls `analyze_source_outcomes`, `source_outcome_notices`
-- [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `analyze_source_outcomes`; statically calls `analyze_source_outcomes`
 
 ## Dependencies
 
@@ -104,7 +103,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/ops/maintenance_feed|learnloop.ops.maintenance_feed]], [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/ops/maintenance_feed|learnloop.ops.maintenance_feed]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

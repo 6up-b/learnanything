@@ -216,7 +216,6 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/source_retrieval/student_data|learnloop.source_retrieval.student_data]] — imports `module`; statically calls `is_granted`, `quiet`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `module`, `quiet`; statically calls `quiet`, `revoke_all`
 - [[Reference/Modules/learnloop_sidecar/handlers/chatgpt_plan|learnloop_sidecar.handlers.chatgpt_plan]] — imports `module`; statically calls `answer_offer`, `granted_origins`, `granted_tasks`, `offer_profile`, `revoke`
-- [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]] — imports `module`; statically calls `note_unit`, `relay_hint`, `unit`, `unit_origin`, `unit_stamp`, `unit_token`
 - [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] — imports `module`; statically calls `note_unit`, `relay_hint`, `unit`, `unit_origin`, `unit_stamp`, `unit_token`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `module`; statically calls `unit_origin`, `unit_token`
 - [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `module`; statically calls `status_as`
@@ -250,7 +249,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/render|learnloop.cli.render]] and 29 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/render|learnloop.cli.render]] and 28 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -327,8 +326,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_every_paid_role_resolves_to_the_plan_and_asks_before_openrouter`
 - [tests/test_plan_first_transport_today_quiet.py](../../../../../../tests/test_plan_first_transport_today_quiet.py) — direct import
   - `test_the_probe_pool_sweep_asks_nothing_and_honours_no_grant`
-- [tests/test_section_coverage_rpcs.py](../../../../../../tests/test_section_coverage_rpcs.py) — direct import
-  - `test_a_failed_job_relays_an_openrouter_offer_keyed_by_curriculum_cover`
 - [tests/test_teacher_te1_successor.py](../../../../../../tests/test_teacher_te1_successor.py) — direct import
   - `test_no_openrouter_offer_for_a_lesson_until_its_price_is_set`
 

@@ -21,7 +21,6 @@ source_paths:
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/content/synthesis/vault_epigraphs.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop_sidecar/handlers/epigraphs.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -99,7 +98,6 @@ Database triggers:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/content/synthesis/vault_epigraphs.py`
-- `src/learnloop_sidecar/handlers/epigraphs.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -111,7 +109,6 @@ Database triggers:
 - `tests/test_provider_resolution_parity.py`
 - `tests/test_structured_transport_parity.py`
 - `tests/test_vault_epigraphs.py`
-- `tests/test_sidecar_epigraphs.py`
 - `tests/test_source_append.py`
 - `tests/test_source_set_synthesis.py`
 

@@ -78,7 +78,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/cli/practice_index|learnloop.cli.practice_index]] — imports `coverage_report`; statically calls `coverage_report`
 - [[Reference/Modules/learnloop/instructional/harvest|learnloop.instructional.harvest]] — imports `coverage_targets`; statically calls `coverage_targets`
-- [[Reference/Modules/learnloop_sidecar/handlers/practice_index|learnloop_sidecar.handlers.practice_index]] — imports `coverage_report`; statically calls `coverage_report`
 
 ## Dependencies
 
@@ -102,7 +101,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/practice_index|learnloop.cli.practice_index]], [[Reference/Modules/learnloop/instructional/harvest|learnloop.instructional.harvest]], [[Reference/Modules/learnloop_sidecar/handlers/practice_index|learnloop_sidecar.handlers.practice_index]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/practice_index|learnloop.cli.practice_index]], [[Reference/Modules/learnloop/instructional/harvest|learnloop.instructional.harvest]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

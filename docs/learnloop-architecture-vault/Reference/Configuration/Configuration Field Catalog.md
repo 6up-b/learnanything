@@ -9,9 +9,9 @@ aliases:
   - "learnloop.toml field MOC"
 config_schema_version: 2
 algorithm_version: "mvp-0.9"
-section_count: 81
-field_count: 1196
-field_status_counts: {"ACTIVE": 1170, "COMPAT": 7, "DORMANT": 15, "LEGACY": 4}
+section_count: 80
+field_count: 1181
+field_status_counts: {"ACTIVE": 1161, "COMPAT": 1, "DORMANT": 15, "LEGACY": 4}
 generated: true
 source_paths:
   - "src/learnloop/config/schema.py"
@@ -32,17 +32,17 @@ The section notes below enumerate every leaf in the effective configuration of a
 
 ## Runtime and refactor status
 
-Every one of the 1196 effective leaves has a semantic Function, a runtime/refactor Status, and concrete schema or consumer anchors. Status is about authority, not truthiness:
+Every one of the 1181 effective leaves has a semantic Function, a runtime/refactor Status, and concrete schema or consumer anchors. Status is about authority, not truthiness:
 
 | Status | Effective leaves | Meaning |
 |---|---:|---|
-| `ACTIVE` | 1170 | Canonical typed input to current behavior. |
+| `ACTIVE` | 1161 | Canonical typed input to current behavior. |
 | `DORMANT` | 15 | Implemented but shadow-only, default-inert, or behind a shipped-off activation gate. |
-| `COMPAT` | 7 | Effective compatibility seam retained while canonical behavior uses another field or route. |
+| `COMPAT` | 1 | Effective compatibility seam retained while canonical behavior uses another field or route. |
 | `LEGACY` | 4 | Read only by a frozen historical replay path. |
 
 > [!warning] Compatibility aliases are not effective leaves
-> One-way aliases and discarded retired keys are listed under **Compatibility-only inputs** in the affected section notes. They are accepted inputs, but do not survive as additional leaves in the 1196-path effective model. See [[Legacy Configuration Compatibility]].
+> One-way aliases and discarded retired keys are listed under **Compatibility-only inputs** in the affected section notes. They are accepted inputs, but do not survive as additional leaves in the 1181-path effective model. See [[Legacy Configuration Compatibility]].
 
 ## Sections
 
@@ -55,9 +55,9 @@ Every one of the 1196 effective leaves has a semantic Function, a runtime/refact
 | [[Config - scheduler|`scheduler`]] | 40 | Learning policy; see [[Learning System]] |
 | [[Config - goals|`goals`]] | 2 | Learning policy; see [[Learning System]] |
 | [[Config - hypothesis|`hypothesis`]] | 6 | Runtime configuration |
-| [[Config - mastery|`mastery`]] | 25 | Learning policy; see [[Learning System]] |
+| [[Config - mastery|`mastery`]] | 23 | Learning policy; see [[Learning System]] |
 | [[Config - probe|`probe`]] | 62 | Learning policy; see [[Learning System]] |
-| [[Config - recall_coverage|`recall_coverage`]] | 81 | Learning policy; see [[Learning System]] |
+| [[Config - recall_coverage|`recall_coverage`]] | 75 | Learning policy; see [[Learning System]] |
 | [[Config - facet_diagnostic|`facet_diagnostic`]] | 4 | Runtime configuration |
 | [[Config - misconceptions|`misconceptions`]] | 7 | Runtime configuration |
 | [[Config - practice_generation|`practice_generation`]] | 4 | Runtime configuration |
@@ -72,7 +72,7 @@ Every one of the 1196 effective leaves has a semantic Function, a runtime/refact
 | [[Config - embedding|`embedding`]] | 24 | Runtime configuration |
 | [[Config - graph_nomination|`graph_nomination`]] | 7 | Runtime configuration |
 | [[Config - source_retrieval|`source_retrieval`]] | 19 | Runtime configuration |
-| [[Config - facet_identity|`facet_identity`]] | 14 | Runtime configuration |
+| [[Config - facet_identity|`facet_identity`]] | 13 | Runtime configuration |
 | [[Config - project|`project`]] | 12 | Runtime configuration |
 | [[Config - field|`field`]] | 5 | Runtime configuration |
 | [[Config - families|`families`]] | 2 | Runtime configuration |
@@ -84,12 +84,11 @@ Every one of the 1196 effective leaves has a semantic Function, a runtime/refact
 | [[Config - router_objective|`router_objective`]] | 52 | Runtime configuration |
 | [[Config - followup|`followup`]] | 2 | Runtime configuration |
 | [[Config - pf|`pf`]] | 14 | Runtime configuration |
-| [[Config - plan|`plan`]] | 22 | Runtime configuration |
+| [[Config - plan|`plan`]] | 21 | Runtime configuration |
 | [[Config - intent|`intent`]] | 7 | Runtime configuration |
 | [[Config - capture|`capture`]] | 1 | Runtime configuration |
 | [[Config - capabilities|`capabilities`]] | 6 | Runtime configuration |
-| [[Config - locks|`locks`]] | 2 | Runtime configuration |
-| [[Config - error_impacts|`error_impacts`]] | 9 | Runtime configuration |
+| [[Config - error_impacts|`error_impacts`]] | 6 | Runtime configuration |
 | [[Config - fitting|`fitting`]] | 6 | Runtime configuration |
 | [[Config - trace_evidence|`trace_evidence`]] | 2 | Runtime configuration |
 | [[Config - diagnostic_augmentation|`diagnostic_augmentation`]] | 3 | Runtime configuration |

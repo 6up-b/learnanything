@@ -70,8 +70,8 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/sources/role_authority|learnloop.content.sources.role_authority]] | [[Reference/Modules/learnloop/content/sources/role_authority#^module-purpose|purpose]] | `ACTIVE` | 12 | 4 |
 | [[Reference/Modules/learnloop/content/sources/source_deletion|learnloop.content.sources.source_deletion]] | [[Reference/Modules/learnloop/content/sources/source_deletion#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]] | [[Reference/Modules/learnloop/content/sources/source_library#^module-purpose|purpose]] | `ACTIVE` | 2 | 16 |
-| [[Reference/Modules/learnloop/content/sources/source_outcome_analytics|learnloop.content.sources.source_outcome_analytics]] | [[Reference/Modules/learnloop/content/sources/source_outcome_analytics#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
-| [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] | [[Reference/Modules/learnloop/content/sources/source_outline#^module-purpose|purpose]] | `ACTIVE` | 34 | 19 |
+| [[Reference/Modules/learnloop/content/sources/source_outcome_analytics|learnloop.content.sources.source_outcome_analytics]] | [[Reference/Modules/learnloop/content/sources/source_outcome_analytics#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
+| [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] | [[Reference/Modules/learnloop/content/sources/source_outline#^module-purpose|purpose]] | `ACTIVE` | 34 | 20 |
 | [[Reference/Modules/learnloop/content/sources/source_refs|learnloop.content.sources.source_refs]] | [[Reference/Modules/learnloop/content/sources/source_refs#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]] | [[Reference/Modules/learnloop/content/sources/span_aliases#^module-purpose|purpose]] | `ACTIVE` | 14 | 5 |
 
@@ -91,7 +91,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 27 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 26 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 23 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 18 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 15 static module edges
@@ -134,7 +134,7 @@ flowchart LR
     n_learnloop["learnloop"]
     n_learnloop_content_authoring["learnloop.content.authoring"]
     n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
-    n_learnloop_sidecar_handlers -->|27| center
+    n_learnloop_sidecar_handlers -->|26| center
     n_learnloop_source_retrieval -->|23| center
     center -->|1| n_learnloop_source_retrieval
     n_learnloop_reader -->|18| center

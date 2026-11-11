@@ -70,7 +70,7 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 | [[Reference/Modules/learnloop/ops/content_fixes|learnloop.ops.content_fixes]] | [[Reference/Modules/learnloop/ops/content_fixes#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/ops/debug_time|learnloop.ops.debug_time]] | [[Reference/Modules/learnloop/ops/debug_time#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/ops/debug_time_store|learnloop.ops.debug_time_store]] | [[Reference/Modules/learnloop/ops/debug_time_store#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] | [[Reference/Modules/learnloop/ops/doctor#^module-purpose|purpose]] | `ACTIVE` | 2 | 48 |
+| [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] | [[Reference/Modules/learnloop/ops/doctor#^module-purpose|purpose]] | `ACTIVE` | 2 | 49 |
 | [[Reference/Modules/learnloop/ops/embedding_backfill|learnloop.ops.embedding_backfill]] | [[Reference/Modules/learnloop/ops/embedding_backfill#^module-purpose|purpose]] | `ACTIVE` | 13 | 22 |
 | [[Reference/Modules/learnloop/ops/embedding_compare|learnloop.ops.embedding_compare]] | [[Reference/Modules/learnloop/ops/embedding_compare#^module-purpose|purpose]] | `ACTIVE` | 3 | 10 |
 | [[Reference/Modules/learnloop/ops/family_proposals|learnloop.ops.family_proposals]] | [[Reference/Modules/learnloop/ops/family_proposals#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |

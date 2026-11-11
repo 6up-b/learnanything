@@ -59,7 +59,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/practice_index/admission|learnloop.practice_index.admission]] | [[Reference/Modules/learnloop/practice_index/admission#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/practice_index/catalog|learnloop.practice_index.catalog]] | [[Reference/Modules/learnloop/practice_index/catalog#^module-purpose|purpose]] | `ACTIVE` | 7 | 0 |
 | [[Reference/Modules/learnloop/practice_index/contracts|learnloop.practice_index.contracts]] | [[Reference/Modules/learnloop/practice_index/contracts#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
-| [[Reference/Modules/learnloop/practice_index/coverage|learnloop.practice_index.coverage]] | [[Reference/Modules/learnloop/practice_index/coverage#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
+| [[Reference/Modules/learnloop/practice_index/coverage|learnloop.practice_index.coverage]] | [[Reference/Modules/learnloop/practice_index/coverage#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/practice_index/dossiers|learnloop.practice_index.dossiers]] | [[Reference/Modules/learnloop/practice_index/dossiers#^module-purpose|purpose]] | `ACTIVE` | 2 | 5 |
 | [[Reference/Modules/learnloop/practice_index/evaluation|learnloop.practice_index.evaluation]] | [[Reference/Modules/learnloop/practice_index/evaluation#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/practice_index/listwise|learnloop.practice_index.listwise]] | [[Reference/Modules/learnloop/practice_index/listwise#^module-purpose|purpose]] | `ACTIVE` | 13 | 3 |
@@ -94,7 +94,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 13 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 7 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 5 static module edges
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 5 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 4 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 3 static module edges
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 2 static module edges

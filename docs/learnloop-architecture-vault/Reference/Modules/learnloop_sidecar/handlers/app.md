@@ -39,7 +39,7 @@ Up: [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.ha
 
 ## Why this module exists
 
-This module keeps app behavior inside its owning package, [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]]. Its public surface centers on `InitializeParams`, `RefreshVaultFilesInput`, `initialize`, `shutdown`, `rpc_ping`, `rpc_health`, `load_vault_handler`, `reload_vault_handler` and 4 more public symbols.
+This module keeps app behavior inside its owning package, [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]]. Its public surface centers on `InitializeParams`, `RefreshVaultFilesInput`, `initialize`, `shutdown`, `rpc_ping`, `load_vault_handler`, `reload_vault_handler`, `refresh_vault_files` and 3 more public symbols.
 
 The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/app.py](../../../../../../src/learnloop_sidecar/handlers/app.py) |
-| Source lines | 197 |
+| Source lines | 191 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -62,18 +62,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `initialize(ctx: SidecarContext, params: InitializeParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 52)
 - `shutdown(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 73)
 - `rpc_ping(_ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 80) — Process-level readiness probe that deliberately requires no vault.
-- `rpc_health(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 97)
-- `load_vault_handler(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 103)
-- `reload_vault_handler(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 108)
-- `refresh_vault_files(ctx: SidecarContext, params: RefreshVaultFilesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 114) — Rust watcher handoff: incrementally refresh supported changed files.
-- `get_runtime_health(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 123)
-- `get_config(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 129)
-- `get_review_counts(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 176) — Counts behind the nav-tab badges: what is waiting on the learner.
+- `load_vault_handler(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 97)
+- `reload_vault_handler(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 102)
+- `refresh_vault_files(ctx: SidecarContext, params: RefreshVaultFilesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 108) — Rust watcher handoff: incrementally refresh supported changed files.
+- `get_runtime_health(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 117)
+- `get_config(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 123)
+- `get_review_counts(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 170) — Counts behind the nav-tab badges: what is waiting on the learner.
 
 ### Module constants
 
-- `_BADGE_COUNT_QUERIES` ([src/learnloop_sidecar/handlers/app.py](../../../../../../src/learnloop_sidecar/handlers/app.py), line 141)
-- `_MAINTAIN_BADGE_KEYS` ([src/learnloop_sidecar/handlers/app.py](../../../../../../src/learnloop_sidecar/handlers/app.py), line 167)
+- `_BADGE_COUNT_QUERIES` ([src/learnloop_sidecar/handlers/app.py](../../../../../../src/learnloop_sidecar/handlers/app.py), line 135)
+- `_MAINTAIN_BADGE_KEYS` ([src/learnloop_sidecar/handlers/app.py](../../../../../../src/learnloop_sidecar/handlers/app.py), line 161)
 
 ## Internal implementation anchors
 
