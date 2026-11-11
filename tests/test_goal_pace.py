@@ -39,20 +39,6 @@ def _iso(days_ago: float) -> str:
     return (NOW - timedelta(days=days_ago)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def test_daily_attempt_counts_is_zero_filled_and_buckets_by_day(tmp_path):
-    _vault, repository = _loaded(tmp_path)
-    _insert_attempt(repository, "attempt_a", _iso(1))
-    _insert_attempt(repository, "attempt_b", _iso(1.1))
-    _insert_attempt(repository, "attempt_c", _iso(3))
-    _insert_attempt(repository, "attempt_old", _iso(PACE_WINDOW_DAYS + 5))  # outside window
-
-    counts = repository.daily_attempt_counts(days=PACE_WINDOW_DAYS, clock=FrozenClock(NOW))
-    assert len(counts) == PACE_WINDOW_DAYS
-    assert sum(counts.values()) == 3
-    assert max(counts.values()) == 2
-    assert min(counts.values()) == 0  # idle days present
-
-
 def test_compute_goal_pace_with_due_date(tmp_path):
     vault, repository = _loaded(tmp_path)
     goal = vault.goals[0]

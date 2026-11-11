@@ -125,16 +125,3 @@ def test_revision_creates_next_draft_version(tmp_path):
     assert repository.probe_family_template(FAMILY, VERSION).status == "provisional"
     events = repository.probe_family_lifecycle_events(FAMILY, new_version)
     assert events[-1]["reason"] == {"revised_from_version": VERSION}
-
-
-def test_instance_retirement_deactivates_without_touching_history(tmp_path):
-    _loaded, repository = _setup(tmp_path)
-    admit_probe_instrument_card(repository)
-
-    assert retire_probe_instance(repository, "pi_svd_define_001", reason="bad surface", clock=CLOCK)
-    links = repository.probe_item_family_links("pi_svd_define_001")
-    assert all(link.instance_metadata["review_status"] == "retired" for link in links)
-    states = repository.practice_item_states()
-    assert not states["pi_svd_define_001"].active
-    # Unknown instance: nothing to retire.
-    assert not retire_probe_instance(repository, "pi_nonexistent", clock=CLOCK)

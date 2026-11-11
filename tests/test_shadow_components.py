@@ -9,12 +9,13 @@ the composed-selector telemetry is TIME-BOXED (retires after its registered hori
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.scheduling import controller_snapshot as cs
-from learnloop.scheduling import prequential
 from learnloop.scheduling import shadow_components as sc
 from learnloop.vault.loader import load_vault
 
@@ -29,6 +30,12 @@ def repo(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     load_vault(paths.root)
     return Repository(paths.sqlite_path)
+
+
+def _report(*, log_loss, effective_sample, report_hash="rh"):
+    # Promotion reads only these two fields of a held-out report, by getattr.
+    return SimpleNamespace(metrics={"log_loss": log_loss, "effective_sample": effective_sample},
+                           report_hash=report_hash)
 
 
 def _candidate(ref="c1", minutes=4.0):
@@ -72,11 +79,7 @@ def test_monolithic_action_chooser_refuses_even_a_wide_margin_report(repo):
     # effective sample -- and assert the STRUCTURAL guard still refuses (U-025 §7.4). No
     # amount of evidence can promote the composed action chooser; the previous test only
     # exercised the empty-args path.
-    wide_margin = prequential.PrequentialReport(
-        target_kind="composed_selector", component=None, horizon_kind=prequential.HORIZON_KIND,
-        metrics={"log_loss": 0.01, "effective_sample": 100_000}, splits={},
-        sample_count=100_000, report_hash="rh_wide",
-    )
+    wide_margin = _report(log_loss=0.01, effective_sample=100_000, report_hash="rh_wide")
     outcome = sc.promote_action_chooser(
         repo, component="composed_selector", report=wide_margin, incumbent_log_loss=0.90, clock=CLOCK
     )
@@ -87,12 +90,7 @@ def test_monolithic_action_chooser_refuses_even_a_wide_margin_report(repo):
 
 def test_component_promotion_emits_u022_evidence_and_feeds_inputs_only(repo):
     # A challenger report that clearly beats the incumbent on log-loss.
-    report = prequential.PrequentialReport(
-        target_kind="predictive_component:retrievability", component="retrievability",
-        horizon_kind=prequential.HORIZON_KIND,
-        metrics={"log_loss": 0.20, "effective_sample": 40}, splits={},
-        sample_count=40, report_hash="rh",
-    )
+    report = _report(log_loss=0.20, effective_sample=40)
     outcome = sc.promote_component(
         repo, component="retrievability", report=report, incumbent_log_loss=0.50, clock=CLOCK
     )
@@ -107,12 +105,7 @@ def test_component_promotion_emits_u022_evidence_and_feeds_inputs_only(repo):
 
 
 def test_component_promotion_refuses_without_enough_evidence(repo):
-    report = prequential.PrequentialReport(
-        target_kind="predictive_component:expected_success", component="expected_success",
-        horizon_kind=prequential.HORIZON_KIND,
-        metrics={"log_loss": 0.20, "effective_sample": 0}, splits={},
-        sample_count=0, report_hash="rh",
-    )
+    report = _report(log_loss=0.20, effective_sample=0)
     outcome = sc.promote_component(
         repo, component="expected_success", report=report, incumbent_log_loss=0.50, clock=CLOCK
     )
@@ -120,12 +113,7 @@ def test_component_promotion_refuses_without_enough_evidence(repo):
 
 
 def test_component_promotion_refuses_when_not_beating_incumbent(repo):
-    report = prequential.PrequentialReport(
-        target_kind="predictive_component:expected_duration", component="expected_duration",
-        horizon_kind=prequential.HORIZON_KIND,
-        metrics={"log_loss": 0.49, "effective_sample": 50}, splits={},
-        sample_count=50, report_hash="rh",
-    )
+    report = _report(log_loss=0.49, effective_sample=50)
     outcome = sc.promote_component(
         repo, component="expected_duration", report=report, incumbent_log_loss=0.50, clock=CLOCK
     )

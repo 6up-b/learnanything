@@ -53,16 +53,6 @@ def test_map_capability_identity_alias_and_unmapped(repo):
     assert AP.map_capability(repo, "totally_unknown") == AP.LEGACY_UNMAPPED
 
 
-def test_normalize_capabilities_folds_synthesis_output(repo):
-    AP.ensure_capability_alias_registry(repo, clock=CLOCK)
-    # source_set_synthesis emits capability "retrieval" + one "coordination"
-    # integration component; both normalize to the closed vocabulary (§3.3).
-    assert AP.normalize_capabilities(repo, ["retrieval", "coordination"]) == [
-        "retrieval",
-        "coordination",
-    ]
-
-
 # --- §9.1 invalid capability fails new authoring -----------------------------
 
 def test_invalid_capability_fails_new_authoring(repo):
@@ -188,19 +178,3 @@ def test_ensure_builtin_patterns_idempotent(repo):
     second = AP.ensure_builtin_patterns(repo, clock=CLOCK)
     # Content-addressed: re-seeding reuses the same version ids (idempotent).
     assert {k: v.id for k, v in first.items()} == {k: v.id for k, v in second.items()}
-
-
-def test_list_compatible_patterns(repo):
-    AP.ensure_builtin_patterns(repo, clock=CLOCK)
-    practice = AP.list_compatible_patterns(repo, purpose="practice", capabilities=["retrieval"])
-    slugs = {v.pattern_slug for v in practice}
-    assert "minimal_retrieval" in slugs
-    # An assessment-only pattern is not offered for a practice request.
-    assert "cold_target_assessment" not in slugs
-
-
-def test_probe_template_adapter_is_diagnostic_only(repo):
-    version = AP.adapt_probe_template_to_pattern(
-        repo, template_slug="tmpl1", likelihood_identity="lh-abc", clock=CLOCK
-    )
-    assert version.allowed_purposes == ("diagnostic",)

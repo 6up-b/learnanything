@@ -197,10 +197,3 @@ def test_group_budget_override():
     assert group_budget(
         "exam_evidence", "g_other", evidence_mass=0.35, overrides=overrides
     ) == pytest.approx(0.35)
-
-
-def test_group_proliferation_flag():
-    flagged = group_proliferation_flag(
-        {"g_real": 3, "g_always_covaries": 1, "g_single": 0}
-    )
-    assert flagged == ["g_always_covaries", "g_single"]

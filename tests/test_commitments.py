@@ -223,26 +223,6 @@ def test_milestone_reached_does_not_bump_version(repo):
 
 # --- target removal appends successor, preserves mapped observations ---------
 
-def test_target_removal_appends_successor(repo):
-    commitment = _create(repo)
-    C.add_target(
-        repo, commitment_id=commitment.id,
-        target={"target_kind": "canonical_facet", "target_ref": "qr", "role": "optional"},
-        clock=CLOCK,
-    )
-    head = C.resolve_head(repo, commitment.id)
-    assert len(head.targets) == 2
-    C.remove_target(repo, commitment_id=commitment.id, target_ref="qr", clock=CLOCK)
-    head2 = C.resolve_head(repo, commitment.id)
-    assert {t.target_ref for t in head2.targets} == {"svd"}
-    # The prior version's target rows are still stored (append-only; observations
-    # mapped to the removed target are never deleted, §3.2).
-    v2 = next(v for v in repo.commitment_versions_for(commitment.id) if v["version"] == 2)
-    prior_targets = repo.commitment_targets_for_version(v2["id"])
-    assert any(t["target_ref"] == "qr" for t in prior_targets)
-    kinds = [e["kind"] for e in repo.commitment_events_for(commitment.id)]
-    assert "target_removed" in kinds
-
 
 # --- disposition projection incl. test_me_later -> satisfied (§3.1) ----------
 

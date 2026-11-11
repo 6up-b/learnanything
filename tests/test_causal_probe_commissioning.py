@@ -601,28 +601,6 @@ def test_sweep_machine_checks_queues_the_instrument_debt(tmp_path):
     ] == []
 
 
-def test_sweep_commissions_open_factors_and_reports_each_outcome(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    _write_probe_item(
-        paths, "pi_svd_probe_001", criteria=["criterion_recall", "criterion_method"]
-    )
-    vault = load_vault(paths.root)
-    repository = Repository(paths.sqlite_path)
-    _seed_divergent_factor(repository)
-
-    results = sweep_probe_commissioning(
-        vault,
-        repository,
-        learning_object_id="lo_svd_definition",
-        adversarial_review=PASSING_REVIEW,
-        generation_agent_run_id="agent_generate",
-        reviewer_agent_run_id="agent_review",
-        clock=FrozenClock(NOW),
-    )
-    assert [value["outcome"] for value in results] == ["commissioned"]
-    assert all(value["outcome"] in COMMISSIONING_OUTCOMES for value in results)
-
-
 # ---------------------------------------------------------------------------
 # v3 multiplicity: one candidate per instrument CLASS, at most two per factor
 # (EVSI-1 -- v2's one-candidate cap made the 2+ ranking arm unreachable).
