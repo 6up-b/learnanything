@@ -481,6 +481,21 @@ Spend comes from backup-API copies of the Nov 9 backup (`learnloop.db.copies.cop
 | KX4 | **appends from chapter 3 on never auto-apply** | **confirmed, and the chapter number is incidental:** every append (any build after the first applied one) auto-applies only provenance links that pass `_auto_applies` (`content/synthesis/source_append.py:679-681`); concepts, facets and LOs from `_normalize` never enter `auto_apply_ids` (`:607`) and stay pending (`:487-488`). Whether that's "chapter 3" depends on how many chapters the first build took. | no spend; learner friction ("N changes need a look"). Auto-applying them is the owner's call (spec §10.2-10.3) |
 | KX5 | **the manifest hash is provenance, cache key and reuse key at once** | **confirmed.** The module says so (`content/synthesis/synthesis_manifests.py:8-13`); `agent_runs.input_context_hash = manifest_hash` (`content/synthesis/source_set_synthesis.py:2226`, `content/synthesis/source_append.py:320`). **Over-invalidates:** `task_graph_hash` (every practice item, `content/synthesis/synthesis_manifests.py:111-134`), `algorithm_version` (`:137-140`), token budgets, whole dumps of `facet_identity` (through `identity_dump`, which survives removals but not additions, `config/retired.py:119-128`) and `graph_nomination` (`content/synthesis/graph_nomination.py:484`). **Under-invalidates:** append's `revision_diff` (`content/synthesis/source_append.py:274-289` omits it), the structuring prompt version, inventory content (only labels, §3.1), model settings beyond provider and model. **Always null:** `asset_hashes`, `extractor_versions`, `lock_fingerprint`. A hit returns the old proposal; an append hit never applies it (`content/synthesis/source_append.py:322-327`). | arc C's incident: removing one unread field moved the key, so finished runs weren't reused (`b77257f189`); for append, the curriculum snapshot changes after every applied append, so append reuse rarely hits anyway |
 
+**The Sep 6 ingestion review's findings at this tip** (`docs/reviews/2026-09-06-ingestion-review.md`):
+
+| # | finding | status | evidence |
+|---|---|---|---|
+| 1 | a surviving worker overwrites its replacement's result | fixed | owner-checked finish and guarded writes (`db/stores/ingest_queue.py:519-534`, `content/pipeline/runner.py:1029`) |
+| 2 | a dead worker's job stays running until restart | fixed | expiry on each drain tick (`content/pipeline/runner.py:816-836`) |
+| 3 | parallel inventory discards paid lanes | fixed | per-window checkpoints as they land (`content/pipeline/jobs.py:1626`) |
+| 4 | input ceiling exceeded; no output limit on the request | **bootstrap fixed** (per-pass reserve and `generation_limit`, `content/synthesis/source_set_synthesis.py:2836-2849`); **append open** (KX2) | |
+| 5 | nested retries (nine requests) | fixed | SDK retries off (`ai/providers/openai_chat.py:293`) |
+| 6 | truncation treated as JSON repair | addressed at the cited line only | `finish_reason == "length"` detected (`ai/providers/openai_chat.py:582`); the repair path wasn't re-read |
+| 7 | a cached synthesis skips a requested apply | **bootstrap fixed** (`content/synthesis/source_set_synthesis.py:2244`); **append open** (`content/synthesis/source_append.py:322-327`) | |
+| 8 | legacy reuse ignores instructions and model | fixed | `canonical_ingest_context_hash` identity version 2 (`content/pipeline/source_ingestion.py:980-997`) |
+| 9 | Codex HTTP adapter uses the health-check timeout | resolved by deletion | `ai/providers/` has no `codex_http.py` |
+| 10 | telemetry can't establish savings | largely fixed | `model_call_receipts` keeps cache, reasoning, finish reason, response id and cost columns; inventory usage is still an estimate (`content/synthesis/source_unit_inventory.py:741-745`) |
+
 **Other spend-relevant gaps found on the way:** the structuring pass, persona fire calls and epigraphs are uncheckpointed (§3.4); the persona gate's provider failure is silent (KD5); arXiv imports read the abstract page only (KD3).
 
 ## 8. The vault notes for these packages
