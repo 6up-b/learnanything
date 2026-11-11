@@ -102,6 +102,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_mcp_cli.py](../../../../../tests/test_mcp_cli.py) — direct import
   - `test_serve_binds_loopback_only_and_names_the_missing_extra`
+- [tests/test_tui_extra.py](../../../../../tests/test_tui_extra.py) — direct import
+  - `test_today_names_the_extra_only_for_textual`
 
 ## Modification guidance
 
