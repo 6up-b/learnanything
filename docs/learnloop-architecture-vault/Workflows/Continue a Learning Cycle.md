@@ -24,7 +24,7 @@ source_paths:
   - src/learnloop/db/repositories.py
   - tests/test_session_attempt_attribution.py
   - tests/test_sidecar_contract.py
-  - tests/test_reentry_short_session.py
+  - tests/test_staged_policy_short_session.py
 tags:
   - learnloop/workflow
   - learnloop/session
