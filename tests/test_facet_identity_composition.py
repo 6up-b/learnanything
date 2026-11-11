@@ -106,7 +106,7 @@ def test_facets_with_evidence_merge_whatever_the_retired_lock_key_says(tmp_path)
     from learnloop.config.schema import FacetIdentityConfig
     from tests.helpers import append_config_toml
 
-    assert FacetIdentityConfig().merge_locked_facets is True  # kept, unread, for the snapshots
+    assert "merge_locked_facets" not in FacetIdentityConfig.model_fields  # removed; an old TOML's key is ignored
     paths, vault, repository = _vault_with_duplicate(tmp_path)
     _lock_shared(vault, repository)
     append_config_toml(paths.root, "[facet_identity]\nmerge_locked_facets = false")

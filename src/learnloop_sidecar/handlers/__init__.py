@@ -18,7 +18,6 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     deliverables,
     diagnosis_card,
     diagnostic,
-    epigraphs,
     exams,
     facet_detail,
     facet_identity,

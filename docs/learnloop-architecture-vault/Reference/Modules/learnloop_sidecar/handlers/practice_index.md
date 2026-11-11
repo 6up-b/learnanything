@@ -50,30 +50,28 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/practice_index.py](../../../../../../src/learnloop_sidecar/handlers/practice_index.py) |
-| Source lines | 148 |
+| Source lines | 136 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class FindPracticeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/practice_index.py), line 20)
-- `class CallerInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/practice_index.py), line 44) — Who is asking.
-- `class FindPracticeRpcInput(FindPracticeInput)` ([source](../../../../../../src/learnloop_sidecar/handlers/practice_index.py), line 52)
-- `class PracticeUsageInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/practice_index.py), line 57)
-- `class PracticeCoverageInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/practice_index.py), line 65)
-- `find_practice_rpc(ctx: SidecarContext, params: FindPracticeRpcInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice_index.py), line 74) — Ranked practice proposals for a request; the scheduler still serves.
-- `plan_minutes_estimator(vault: Any, repository: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/practice_index.py), line 109) — The daily plan's minutes estimator, built by the adapter (the service never imports the plan).
-- `record_practice_usage_rpc(ctx: SidecarContext, params: PracticeUsageInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice_index.py), line 130) — A learner tap on a proposal (practised, skipped, too easy, not what I asked).
-- `get_practice_coverage(ctx: SidecarContext, params: PracticeCoverageInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice_index.py), line 145) — Facets with few admissible items (targets for more practice).
+- `class FindPracticeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/practice_index.py), line 19)
+- `class CallerInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/practice_index.py), line 43) — Who is asking.
+- `class FindPracticeRpcInput(FindPracticeInput)` ([source](../../../../../../src/learnloop_sidecar/handlers/practice_index.py), line 51)
+- `class PracticeUsageInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/practice_index.py), line 56)
+- `find_practice_rpc(ctx: SidecarContext, params: FindPracticeRpcInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice_index.py), line 69) — Ranked practice proposals for a request; the scheduler still serves.
+- `plan_minutes_estimator(vault: Any, repository: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/practice_index.py), line 104) — The daily plan's minutes estimator, built by the adapter (the service never imports the plan).
+- `record_practice_usage_rpc(ctx: SidecarContext, params: PracticeUsageInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice_index.py), line 125) — A learner tap on a proposal (practised, skipped, too easy, not what I asked).
 
 ### Module constants
 
-- `FRONTEND_CALLER_KINDS` ([src/learnloop_sidecar/handlers/practice_index.py](../../../../../../src/learnloop_sidecar/handlers/practice_index.py), line 70)
+- `FRONTEND_CALLER_KINDS` ([src/learnloop_sidecar/handlers/practice_index.py](../../../../../../src/learnloop_sidecar/handlers/practice_index.py), line 65)
 
 ## Internal implementation anchors
 
-- `_injected(vault: Any, repository: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice_index.py), line 118) — The service's arms and valuer, injected (practice_index never imports them), with the daily plan's minutes estimator built here (the service never imports the plan).
+- `_injected(vault: Any, repository: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice_index.py), line 113) — The service's arms and valuer, injected (practice_index never imports them), with the daily plan's minutes estimator built here (the service never imports the plan).
 
 ## Who imports or calls it
 
@@ -93,7 +91,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/instructional/policy|learnloop.instructional.policy]] — imports `caller_for`, `caller_for_question_event`; calls `caller_for`, `caller_for_question_event`
 - [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]] — imports `propose_practice`, `service_enabled`; calls `propose_practice`, `service_enabled`
 - [[Reference/Modules/learnloop/instructional/wiring|learnloop.instructional.wiring]] — imports `find_practice_injections`; calls `find_practice_injections`
-- [[Reference/Modules/learnloop/practice_index/coverage|learnloop.practice_index.coverage]] — imports `coverage_report`; calls `coverage_report`
 - [[Reference/Modules/learnloop/practice_index/retrieval|learnloop.practice_index.retrieval]] — imports `IntentUnavailable`, `PracticeConstraints`, `find_practice`; calls `find_practice`
 - [[Reference/Modules/learnloop/practice_index/usage|learnloop.practice_index.usage]] — imports `LEARNER_SIGNALS`, `record_practice_usage`; calls `record_practice_usage`
 - [[Reference/Modules/learnloop/source_retrieval/policy|learnloop.source_retrieval.policy]] — imports `PolicyRefused`

@@ -2938,6 +2938,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_unmarked_reading_of_a_protected_book_is_withheld_from_every_model_visible_path`
 - [tests/test_residual_diagnostics.py](../../../../../../tests/test_residual_diagnostics.py) — direct import
   - `test_positive_residual_dependence_flags_missing_factor`
+- [tests/test_retired_config_keys_load.py](../../../../../../tests/test_retired_config_keys_load.py) — direct import
+  - `test_an_old_config_setting_every_removed_key_loads_as_if_it_did_not`
 - [tests/test_reveal_ledger.py](../../../../../../tests/test_reveal_ledger.py) — direct import
   - `test_a_reveal_inside_a_live_repair_is_attributed_to_its_episode`
   - `test_a_revealed_cold_item_cannot_burn_its_cold_measurement`

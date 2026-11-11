@@ -26,7 +26,7 @@ def test_recall_calibration_examples_are_config_backed():
         "arithmetic_slip",
         "ambiguous_item",
     ]
-    assert config.recall_coverage.severity_examples["arithmetic_slip"].target_error_type == "arithmetic_slip"
+    assert config.recall_coverage.severity_examples["arithmetic_slip"].expected_error_type == "arithmetic_slip"
 
 
 def test_recall_calibration_harness_is_deterministic_and_in_band(tmp_path):

@@ -240,7 +240,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/workbench/route_example|learnloop.workbench.route_example]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop_sidecar/handlers/chatgpt_plan|learnloop_sidecar.handlers.chatgpt_plan]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop_sidecar/handlers/compare_scope|learnloop_sidecar.handlers.compare_scope]] — imports `new_ulid`; statically calls `new_ulid`
-- [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop_sidecar/handlers/exams|learnloop_sidecar.handlers.exams]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `new_ulid`; statically calls `new_ulid`

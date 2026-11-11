@@ -46,30 +46,28 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/reader_followups.py](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py) |
-| Source lines | 238 |
+| Source lines | 214 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `prepare_followups(ctx: SidecarContext, vault: Any, repository: Any) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 71) — Before the day's plan: re-value the pending follow-ups (once a local day, no model call) and start planning any ended session in the background.
-- `class ReaderFollowupsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 150)
-- `reader_followups(ctx: SidecarContext, params: ReaderFollowupsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 158) — "Coming up": a dated timeline, never a count.
-- `class FollowupUndoInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 171)
-- `reader_followup_undo(ctx: SidecarContext, params: FollowupUndoInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 177) — Undo one scheduled check; ``reason`` is the optional "why?".
-- `class FollowupUndoAllInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 187)
-- `reader_followup_undo_all(ctx: SidecarContext, params: FollowupUndoAllInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 193)
-- `class FollowupRestoreInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 201)
-- `reader_followup_restore(ctx: SidecarContext, params: FollowupRestoreInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 206) — Undo a retirement (or an undo): the check is pending again.
-- `class FollowupsPlanInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 217)
-- `reader_followups_plan(ctx: SidecarContext, params: FollowupsPlanInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 222) — Plan the ended sessions' follow-ups now (synchronously; paid relevance calls).
+- `prepare_followups(ctx: SidecarContext, vault: Any, repository: Any) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 68) — Before the day's plan: re-value the pending follow-ups (once a local day, no model call) and start planning any ended session in the background.
+- `class ReaderFollowupsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 147)
+- `reader_followups(ctx: SidecarContext, params: ReaderFollowupsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 155) — "Coming up": a dated timeline, never a count.
+- `class FollowupUndoInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 168)
+- `reader_followup_undo(ctx: SidecarContext, params: FollowupUndoInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 174) — Undo one scheduled check; ``reason`` is the optional "why?".
+- `class FollowupUndoAllInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 184)
+- `reader_followup_undo_all(ctx: SidecarContext, params: FollowupUndoAllInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 190)
+- `class FollowupRestoreInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 198)
+- `reader_followup_restore(ctx: SidecarContext, params: FollowupRestoreInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 203) — Undo a retirement (or an undo): the check is pending again.
 
 ### Module constants
 
-- `READER_RW6B_RPCS` ([src/learnloop_sidecar/handlers/reader_followups.py](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 42)
-- `JOB_NAME` ([src/learnloop_sidecar/handlers/reader_followups.py](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 49)
-- `_PLANNING` ([src/learnloop_sidecar/handlers/reader_followups.py](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 50)
+- `READER_RW6B_RPCS` ([src/learnloop_sidecar/handlers/reader_followups.py](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 40)
+- `JOB_NAME` ([src/learnloop_sidecar/handlers/reader_followups.py](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 46)
+- `_PLANNING` ([src/learnloop_sidecar/handlers/reader_followups.py](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 47)
 
 ### Explicit exports
 
@@ -81,10 +79,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_now() -> datetime` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 53)
-- `_search(vault: Any, repository: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 57)
-- `_valuer(vault: Any, repository: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 65)
-- `_require_on(vault: Any) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 145)
+- `_now() -> datetime` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 50)
+- `_search(vault: Any, repository: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 54)
+- `_valuer(vault: Any, repository: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 62)
+- `_require_on(vault: Any) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 142)
 
 ## Who imports or calls it
 

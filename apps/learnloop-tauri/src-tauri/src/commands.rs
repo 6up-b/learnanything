@@ -97,11 +97,6 @@ pub async fn load_vault(
     Ok(result)
 }
 
-#[tauri::command]
-pub async fn reload_vault(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "reload_vault", json!({})).await
-}
-
 sidecar_passthrough!(create_vault, "create_vault");
 
 #[tauri::command]
@@ -116,11 +111,6 @@ sidecar_passthrough!(set_learner_profile, "set_learner_profile");
 #[tauri::command]
 pub async fn get_runtime_health(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
     blocking_sidecar_call(sidecar, "get_runtime_health", json!({})).await
-}
-
-#[tauri::command]
-pub async fn get_config(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_config", json!({})).await
 }
 
 sidecar_passthrough!(start_session, "start_session");
@@ -138,8 +128,6 @@ pub async fn get_session(
 ) -> Result<Value, CommandError> {
     blocking_sidecar_call(sidecar, "get_session", json!({"sessionId": session_id})).await
 }
-
-sidecar_passthrough!(update_session_checkpoint, "update_session_checkpoint");
 
 #[tauri::command]
 pub async fn clear_session_checkpoint(
@@ -262,9 +250,8 @@ sidecar_passthrough!(practice_record_hint_reveal, "practice.record_hint_reveal")
 sidecar_passthrough!(record_ask_availability, "record_ask_availability");
 // Instruct hand-off IH1: a lesson offer's card or page rendered (an `offer_shown` event on its block).
 sidecar_passthrough!(record_offer_shown, "record_offer_shown");
-// Router objective RO4: the "why" surface's trace on demand, and a goal's use weights.
+// Router objective RO4: the "why" surface's trace on demand.
 sidecar_passthrough!(router_objective_explain, "router_objective_explain");
-sidecar_passthrough!(set_goal_use_weight, "set_goal_use_weight");
 
 // Adaptive hints H2a/H2b: the practice screen's hint panel (a hint is a job:
 // request, read-and-deliver, cancel), a discriminating question's answer, and
@@ -364,11 +351,6 @@ pub async fn get_concept_graph(sidecar: State<'_, SidecarManager>) -> Result<Val
 #[tauri::command]
 pub async fn get_vault_tree(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
     blocking_sidecar_call(sidecar, "get_vault_tree", json!({})).await
-}
-
-#[tauri::command]
-pub async fn get_recent_ingests(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_recent_ingests", json!({})).await
 }
 
 sidecar_passthrough!(classify_ingest_source, "classify_ingest_source");
@@ -523,15 +505,11 @@ pub async fn get_source_coverage(
     .await
 }
 
-sidecar_passthrough!(start_inventory, "start_inventory");
-
 sidecar_passthrough!(create_study_map, "create_study_map");
 
 sidecar_passthrough!(build_study_map, "build_study_map");
 
 sidecar_passthrough!(append_source, "append_source");
-
-sidecar_passthrough!(refresh_revision, "refresh_revision");
 
 sidecar_passthrough!(maintenance_feed, "maintenance_feed");
 
@@ -996,8 +974,6 @@ sidecar_passthrough!(start_calibration_session, "start_calibration_session");
 
 sidecar_passthrough!(placement_self_report, "placement_self_report");
 
-sidecar_passthrough!(get_placement_state, "get_placement_state");
-
 sidecar_passthrough!(start_quick_check, "start_quick_check");
 
 // Daily-loop DL1: the finite daily plan (spec_daily_loop_v1.md §6, §7).
@@ -1022,14 +998,12 @@ sidecar_passthrough!(plan_something_else, "plan_something_else");
 // Canonical sources (spec_source_practice_and_probes_v1): proposals, passages,
 // comparisons, textbook-exercise imports and the tutor's tool runs. Desktop only.
 sidecar_passthrough!(find_practice, "find_practice");
-sidecar_passthrough!(record_practice_usage, "record_practice_usage");
 sidecar_passthrough!(record_proposal_impressions, "record_proposal_impressions");
 sidecar_passthrough!(import_source_exercise, "import_source_exercise");
 sidecar_passthrough!(get_source_exercise_import, "get_source_exercise_import");
 sidecar_passthrough!(run_source_tool, "run_source_tool");
 sidecar_passthrough!(record_source_offer_shown, "record_source_offer_shown");
 sidecar_passthrough!(find_sources, "find_sources");
-sidecar_passthrough!(compare_sources, "compare_sources");
 
 sidecar_passthrough!(get_today_headline, "get_today_headline");
 
@@ -1139,16 +1113,6 @@ pub async fn dismiss_claim(
 }
 
 #[tauri::command]
-pub async fn export_claims(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "export_claims", json!({})).await
-}
-
-#[tauri::command]
-pub async fn purge_claims(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "purge_claims", json!({})).await
-}
-
-#[tauri::command]
 pub async fn get_review_log(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
     blocking_sidecar_call(sidecar, "get_review_log", json!({})).await
 }
@@ -1192,14 +1156,6 @@ pub async fn start_remediation_treatment(
     .await
 }
 
-#[tauri::command]
-pub async fn get_remediation(
-    episode_id: String,
-    sidecar: State<'_, SidecarManager>,
-) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_remediation", json!({"episodeId": episode_id})).await
-}
-
 sidecar_passthrough!(get_forecast_track_record, "get_forecast_track_record");
 
 #[tauri::command]
@@ -1238,7 +1194,6 @@ sidecar_passthrough!(preview_blueprint_readiness, "preview_blueprint_readiness")
 // each command forwards its `input` Value straight through to the dotted method.
 
 // blueprint.* (exemplar selection + blueprint review)
-sidecar_passthrough!(blueprint_register, "blueprint.register");
 sidecar_passthrough!(blueprint_review, "blueprint.review");
 sidecar_passthrough!(blueprint_get_version, "blueprint.get_version");
 sidecar_passthrough!(
@@ -1258,32 +1213,21 @@ sidecar_passthrough!(golden_path_assess_open, "golden_path.assess_open");
 sidecar_passthrough!(golden_path_assess_submit, "golden_path.assess_submit");
 sidecar_passthrough!(golden_path_assess_result, "golden_path.assess_result");
 sidecar_passthrough!(golden_path_restore, "golden_path.restore");
-sidecar_passthrough!(golden_path_boundary_diff, "golden_path.boundary_diff");
 sidecar_passthrough!(golden_path_depth_invitation, "golden_path.depth_invitation");
 sidecar_passthrough!(golden_path_accept_edge, "golden_path.accept_edge");
 sidecar_passthrough!(golden_path_decline_edge, "golden_path.decline_edge");
 
 // diagnostic.* (pre-authored pack + bounded baseline + two-tier triage)
-sidecar_passthrough!(diagnostic_pack_assemble, "diagnostic.pack_assemble");
-sidecar_passthrough!(diagnostic_pack_admit, "diagnostic.pack_admit");
-sidecar_passthrough!(diagnostic_pack_review, "diagnostic.pack_review");
-sidecar_passthrough!(diagnostic_pack_list, "diagnostic.pack_list");
-sidecar_passthrough!(diagnostic_baseline_enter, "diagnostic.baseline_enter");
-sidecar_passthrough!(diagnostic_boundary_view, "diagnostic.boundary_view");
 sidecar_passthrough!(diagnostic_triage, "diagnostic.triage");
 sidecar_passthrough!(diagnostic_triage_status, "diagnostic.triage_status");
 sidecar_passthrough!(diagnostic_triage_decide, "diagnostic.triage_decide");
-sidecar_passthrough!(diagnostic_triage_override, "diagnostic.triage_override");
 
 // ladder.* (pattern ladder) + practice_pool.* (rotating practice)
 sidecar_passthrough!(ladder_policy, "ladder.policy");
 sidecar_passthrough!(ladder_status, "ladder.status");
 sidecar_passthrough!(ladder_enter, "ladder.enter");
 sidecar_passthrough!(ladder_advance, "ladder.advance");
-sidecar_passthrough!(practice_pool_assemble, "practice_pool.assemble");
-sidecar_passthrough!(practice_pool_admit_surface, "practice_pool.admit_surface");
 sidecar_passthrough!(practice_pool_review, "practice_pool.review");
-sidecar_passthrough!(practice_pool_status, "practice_pool.status");
 sidecar_passthrough!(practice_pool_next_surface, "practice_pool.next_surface");
 sidecar_passthrough!(practice_pool_for_run, "practice_pool.for_run");
 sidecar_passthrough!(practice_pool_seed_for_run, "practice_pool.seed_for_run");
@@ -1305,7 +1249,6 @@ sidecar_passthrough!(reader_submit_question, "reader.submit_question");
 sidecar_passthrough!(reader_skip_question, "reader.skip_question");
 sidecar_passthrough!(reader_choose_disposition, "reader.choose_disposition");
 sidecar_passthrough!(reader_restore_source, "reader.restore_source");
-sidecar_passthrough!(reader_routing_prior, "reader.routing_prior");
 sidecar_passthrough!(reader_prompt_contract, "reader.prompt_contract");
 // reader.* (P3 slice 1: render views, block health, annotations, capture/outbox)
 sidecar_passthrough!(reader_render_view, "reader.render_view");
@@ -1335,7 +1278,6 @@ sidecar_passthrough!(
 sidecar_passthrough!(reader_search_sources, "reader.search_sources");
 // Local contextual retrieval P1: an opened library search result (a relevance signal).
 sidecar_passthrough!(reader_retrieval_open, "reader.retrieval_open");
-sidecar_passthrough!(reader_span_learning_objects, "reader.span_learning_objects");
 sidecar_passthrough!(reader_manual_anchor, "reader.manual_anchor");
 // reader.* (reader workbench RW1a: inquiry status, reconnect and its
 // passage-scoped quick check, and the Reader's funnel activity)
@@ -1355,7 +1297,6 @@ sidecar_passthrough!(reader_cue_impressions, "reader.cue_impressions");
 sidecar_passthrough!(reader_cue_tap, "reader.cue_tap");
 // Reader workbench RW2a (the resumable scratchpad): desktop only.
 sidecar_passthrough!(workbench_open, "workbench.open");
-sidecar_passthrough!(workbench_get, "workbench.get");
 sidecar_passthrough!(workbench_save_step, "workbench.save_step");
 sidecar_passthrough!(workbench_set_book, "workbench.set_book");
 sidecar_passthrough!(workbench_leave, "workbench.leave");
@@ -1391,8 +1332,7 @@ sidecar_passthrough!(reader_recap, "reader.recap");
 sidecar_passthrough!(reader_recap_event, "reader.recap_event");
 sidecar_passthrough!(reader_wrap_up, "reader.wrap_up");
 sidecar_passthrough!(reader_wrap_up_offer, "reader.wrap_up_offer");
-// Reader workbench RW6b part 1 (cold follow-ups: "Coming up", undo, undo all, restore): desktop only.
-sidecar_passthrough!(reader_followups, "reader.followups");
+// Reader workbench RW6b part 1 (cold follow-ups: undo, undo all, restore): desktop only.
 sidecar_passthrough!(reader_followup_undo, "reader.followup_undo");
 sidecar_passthrough!(reader_followup_undo_all, "reader.followup_undo_all");
 sidecar_passthrough!(reader_followup_restore, "reader.followup_restore");
@@ -1427,10 +1367,9 @@ sidecar_passthrough!(reader_kept_comparisons, "reader.kept_comparisons");
 sidecar_passthrough!(reader_reading_path, "reader.reading_path");
 sidecar_passthrough!(reader_reading_path_set_depth, "reader.reading_path_set_depth");
 sidecar_passthrough!(reader_reading_path_override, "reader.reading_path_override");
-// Reader CA5a (find this section in my other books: the correspondents read and
-// C0a's "not about this" correction): desktop only.
+// Reader CA5a (find this section in my other books: the correspondents read, the
+// peek and its "not about this"): desktop only.
 sidecar_passthrough!(reader_correspondents, "reader.correspondents");
-sidecar_passthrough!(curriculum_coverage_correct, "curriculum.coverage_correct");
 sidecar_passthrough!(reader_correspondent_peek, "reader.correspondent_peek");
 sidecar_passthrough!(reader_correspondent_dismiss, "reader.correspondent_dismiss");
 // Reader CA5: also in your books (the line's hide preferences; Settings brings it back).
@@ -1444,10 +1383,8 @@ sidecar_passthrough!(curriculum_set_scope, "curriculum.set_scope");
 sidecar_passthrough!(curriculum_scope, "curriculum.scope");
 sidecar_passthrough!(curriculum_scope_decide, "curriculum.scope_decide");
 sidecar_passthrough!(curriculum_set_depth, "curriculum.set_depth");
-sidecar_passthrough!(curriculum_path, "curriculum.path");
 sidecar_passthrough!(curriculum_guide_slice, "curriculum.guide_slice");
 sidecar_passthrough!(curriculum_path_override, "curriculum.path_override");
-sidecar_passthrough!(curriculum_ready, "curriculum.ready");
 sidecar_passthrough!(curriculum_ready_check, "curriculum.ready_check");
 sidecar_passthrough!(curriculum_also_about, "curriculum.also_about");
 // Curriculum C2: your notes, linked (desktop only).
@@ -1500,15 +1437,12 @@ sidecar_passthrough!(reader_dose_offer, "reader.dose_offer");
 sidecar_passthrough!(reader_dose_offer_event, "reader.dose_offer_event");
 sidecar_passthrough!(adaptive_difficulty_readiness, "adaptive_difficulty.readiness");
 sidecar_passthrough!(adaptive_difficulty_why_item, "adaptive_difficulty.why_item");
-sidecar_passthrough!(reader_block_health, "reader.block_health");
 sidecar_passthrough!(reader_block_original_region, "reader.block_original_region");
 // Reader CA1 (the problem as printed): the item's crop view and the transcription
 // report; desktop only (no phone RPC in v1, D20).
 sidecar_passthrough!(practice_as_printed, "practice.as_printed");
 sidecar_passthrough!(practice_report_transcription, "practice.report_transcription");
-sidecar_passthrough!(reader_translate_selection, "reader.translate_selection");
 sidecar_passthrough!(reader_capture, "reader.capture");
-sidecar_passthrough!(reader_create_annotation, "reader.create_annotation");
 sidecar_passthrough!(reader_edit_annotation, "reader.edit_annotation");
 sidecar_passthrough!(
     reader_delete_intent_annotation,
@@ -1517,36 +1451,24 @@ sidecar_passthrough!(
 // reader-pdf-selection: undo a highlight's delete (a withdrawing event).
 sidecar_passthrough!(reader_restore_annotation, "reader.restore_annotation");
 sidecar_passthrough!(reader_reanchor, "reader.reanchor");
-sidecar_passthrough!(reader_annotation_history, "reader.annotation_history");
 sidecar_passthrough!(reader_source_annotations, "reader.source_annotations");
-sidecar_passthrough!(reader_outbox_status, "reader.outbox_status");
 sidecar_passthrough!(reader_drain_outbox, "reader.drain_outbox");
 // P3 slice 2: palette + demand-paged synthesis + source objects.
 sidecar_passthrough!(reader_invoke_preset, "reader.invoke_preset");
 sidecar_passthrough!(reader_set_mode, "reader.set_mode");
 sidecar_passthrough!(reader_question_control, "reader.question_control");
-sidecar_passthrough!(reader_enqueue_request, "reader.enqueue_request");
-sidecar_passthrough!(reader_request_status, "reader.request_status");
-sidecar_passthrough!(reader_cancel_request, "reader.cancel_request");
 sidecar_passthrough!(reader_retry_request, "reader.retry_request");
 sidecar_passthrough!(reader_source_requests, "reader.source_requests");
-sidecar_passthrough!(reader_drain_requests, "reader.drain_requests");
 sidecar_passthrough!(reader_source_objects, "reader.source_objects");
-sidecar_passthrough!(reader_review_source_object, "reader.review_source_object");
-sidecar_passthrough!(reader_link_relation, "reader.link_relation");
 sidecar_passthrough!(reader_proposal_inbox, "reader.proposal_inbox");
 sidecar_passthrough!(reader_accept_proposal, "reader.accept_proposal");
 sidecar_passthrough!(reader_reject_proposal, "reader.reject_proposal");
 // P3 slice 3: authoring + coach + maintenance, arcs + depth + primes, restoration.
 sidecar_passthrough!(reader_author_qa, "reader.author_qa");
 sidecar_passthrough!(reader_coach_lint, "reader.coach_lint");
-sidecar_passthrough!(reader_maintain, "reader.maintain");
 sidecar_passthrough!(reader_arc, "reader.arc");
 sidecar_passthrough!(reader_set_depth_policy, "reader.set_depth_policy");
 sidecar_passthrough!(reader_pause_arc, "reader.pause_arc");
-sidecar_passthrough!(reader_shrink_envelope, "reader.shrink_envelope");
-sidecar_passthrough!(reader_prime, "reader.prime");
-sidecar_passthrough!(reader_restore, "reader.restore");
 
 #[cfg(test)]
 mod tests {

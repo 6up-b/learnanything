@@ -82,7 +82,7 @@ def test_shared_facet_certifies_with_fewer_attempts(mvp07):
 
     surface_groups, _mass = repository.facet_independence_evidence(SHARED)
     # Shared parent reached the 2-group coverage threshold in 2 attempts.
-    assert surface_groups >= vault.config.locks.facet_surface_groups == 2
+    assert surface_groups >= 2
 
     # The per-LO keying, on the same two attempts, has one surface each — it would
     # take two attempts PER LO (four total) to match the shared parent's coverage.

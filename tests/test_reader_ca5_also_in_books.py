@@ -30,6 +30,7 @@ from tests.section_coverage_fixtures import (
     build_coverage_vault,
     cite,
     hold_out,
+    judge_section,
     table_counts,
 )
 
@@ -59,7 +60,7 @@ def _judged(tmp_path, *, two=False, notation="uses row vectors", config=""):
     judge = CoverageJudgeFake(treatments={"5.1 Eigenvectors and eigenvalues": "introduces",
                                           "5.2 The characteristic equation": "develops"}, notation=notation)
     ctx = _ctx(paths, coverage_judge_client=judge)
-    call(ctx, "curriculum.cover", FIND)
+    judge_section(ctx, FIND)
     return paths, repository, ctx, judge
 
 

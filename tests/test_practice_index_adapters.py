@@ -125,8 +125,6 @@ def test_sidecar_rpcs(vault_paths):
                                        "practiceItemId": item_id, "signal": "bogus"})
     with pytest.raises(SidecarError):
         call("find_practice", {"query": "x", "minDifficulty": 0.9, "maxDifficulty": 0.1})
-    coverage = call("get_practice_coverage", {"minEligible": 3})
-    assert coverage["targets"] == [] and coverage["facets"] == 6
 
 
 def _schema_166_rollback_database(paths) -> None:

@@ -347,6 +347,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_doctor_reports_the_e1_state_with_its_fix`
   - `test_f7_a_carry_over_that_fails_is_finished_later_never_lost`
   - `test_f7_doctor_fix_state_finishes_a_carry_over_left_owed`
+- [tests/test_retired_config_keys_load.py](../../../../../../tests/test_retired_config_keys_load.py) — direct import
+  - `test_doctor_still_names_the_retired_lock_settings`
 - [tests/test_ro1_projection.py](../../../../../../tests/test_ro1_projection.py) — direct import
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_a_retired_proof_check_route_is_ignored_and_reported`

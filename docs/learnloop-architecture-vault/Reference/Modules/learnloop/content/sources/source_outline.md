@@ -148,6 +148,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/section_coverage_fixtures.py](../../../../../../../tests/section_coverage_fixtures.py) — direct import
 - [tests/test_exam_protection_landing.py](../../../../../../../tests/test_exam_protection_landing.py) — direct import
   - `test_a_book_picked_as_an_exam_in_its_outline_builds_nothing`
   - `test_the_reading_step_never_offers_a_held_out_section_of_a_book_in_no_source_set`

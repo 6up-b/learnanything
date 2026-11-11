@@ -36,7 +36,7 @@ Up: [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.ha
 
 ## Why this module exists
 
-This module keeps ingest behavior inside its owning package, [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]]. Its public surface centers on `validate_budget`, `validated_budget_overrides`, `ClassifyIngestSourceInput`, `StartIngestInput`, `IngestJobInput`, `SourcePageRangeInput`, `StartImportBatchInput`, `IngestBatchInput` and 69 more public symbols.
+This module keeps ingest behavior inside its owning package, [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]]. Its public surface centers on `validate_budget`, `validated_budget_overrides`, `ClassifyIngestSourceInput`, `StartIngestInput`, `IngestJobInput`, `SourcePageRangeInput`, `StartImportBatchInput`, `IngestBatchInput` and 67 more public symbols.
 
 The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/ingest.py](../../../../../../src/learnloop_sidecar/handlers/ingest.py) |
-| Source lines | 1623 |
+| Source lines | 1608 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -115,22 +115,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `refresh_revision_rpc(ctx: SidecarContext, params: RefreshRevisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1219) — Adopt a new source revision (§10.4).
 - `class ExamReadinessInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1247)
 - `exam_readiness_rpc(ctx: SidecarContext, params: ExamReadinessInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1252) — Lightweight deterministic exam-readiness-by-task-family report (§15).
-- `class SourceOutcomesInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1262)
-- `source_outcomes_rpc(ctx: SidecarContext, params: SourceOutcomesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1267) — Provenance-outcome associations (§11) — report-only, additive suggestions.
-- `class MaintenanceFeedInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1277)
-- `maintenance_feed_rpc(ctx: SidecarContext, params: MaintenanceFeedInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1282) — Generate + return the maintenance feed (§11), deterministic from state.
-- `class MaintenanceNoticeActionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1297)
-- `maintenance_notice_action_rpc(ctx: SidecarContext, params: MaintenanceNoticeActionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1304) — Dismiss or snooze a notice WITHOUT changing source or curriculum state (§11).
-- `class ListConflictsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1317)
-- `list_source_conflicts_rpc(ctx: SidecarContext, params: ListConflictsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1322) — List source conflicts by status (§10.2) for the conflict review surface.
-- `class ResolveConflictInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1364)
-- `resolve_source_conflict_rpc(ctx: SidecarContext, params: ResolveConflictInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1372) — Resolve an open conflict (§10.2) — never applies either competing side.
-- `class PlanQuickAddInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1386)
-- `class ConfirmQuickAddInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1392)
-- `plan_quick_add_rpc(ctx: SidecarContext, params: PlanQuickAddInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1406) — Quick add step 1 (§1): the single-confirmation plan for an imported source.
-- `confirm_quick_add_rpc(ctx: SidecarContext, params: ConfirmQuickAddInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1438) — Quick add step 2 (§1): the post-confirmation step.
-- `start_inventory(ctx: SidecarContext, params: StartInventoryInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1516) — Enqueue a role-aware unit-inventory batch (§7).
-- `get_recent_ingests(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1572) — Canonical-source notes staged by `learnloop ingest` / `ingest-exam`.
+- `class MaintenanceFeedInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1262)
+- `maintenance_feed_rpc(ctx: SidecarContext, params: MaintenanceFeedInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1267) — Generate + return the maintenance feed (§11), deterministic from state.
+- `class MaintenanceNoticeActionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1282)
+- `maintenance_notice_action_rpc(ctx: SidecarContext, params: MaintenanceNoticeActionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1289) — Dismiss or snooze a notice WITHOUT changing source or curriculum state (§11).
+- `class ListConflictsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1302)
+- `list_source_conflicts_rpc(ctx: SidecarContext, params: ListConflictsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1307) — List source conflicts by status (§10.2) for the conflict review surface.
+- `class ResolveConflictInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1349)
+- `resolve_source_conflict_rpc(ctx: SidecarContext, params: ResolveConflictInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1357) — Resolve an open conflict (§10.2) — never applies either competing side.
+- `class PlanQuickAddInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1371)
+- `class ConfirmQuickAddInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1377)
+- `plan_quick_add_rpc(ctx: SidecarContext, params: PlanQuickAddInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1391) — Quick add step 1 (§1): the single-confirmation plan for an imported source.
+- `confirm_quick_add_rpc(ctx: SidecarContext, params: ConfirmQuickAddInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1423) — Quick add step 2 (§1): the post-confirmation step.
+- `start_inventory(ctx: SidecarContext, params: StartInventoryInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1501) — Enqueue a role-aware unit-inventory batch (§7).
+- `get_recent_ingests(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1557) — Canonical-source notes staged by `learnloop ingest` / `ingest-exam`.
 
 ### Module constants
 
@@ -149,11 +147,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_phone_cards(vault: Any, repository: Any, cards: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 611) — Mobile v2 V4: the library as a phone origin gets it (``get_source_library``).
 - `_source_set_or_error(vault, set_id: str)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 924)
 - `_validated_brief(raw: dict[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 988) — Strict brief validation at the RPC boundary (typed error, camel→snake).
-- `_validate_inventory_output_budget(value: int | None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1539)
-- `_artifact_title(artifact: dict[str, Any], revision: dict[str, Any] | None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1543) — The card and Reader title.
-- `_reload_completed_jobs(ctx: SidecarContext, jobs: list[dict[str, Any]]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1552)
-- `_note_path_from_ref(ref: Any) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1561)
-- `_subject_title(vault, subject_id: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1621)
+- `_validate_inventory_output_budget(value: int | None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1524)
+- `_artifact_title(artifact: dict[str, Any], revision: dict[str, Any] | None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1528) — The card and Reader title.
+- `_reload_completed_jobs(ctx: SidecarContext, jobs: list[dict[str, Any]]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1537)
+- `_note_path_from_ref(ref: Any) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1546)
+- `_subject_title(vault, subject_id: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1606)
 
 ## Who imports or calls it
 
@@ -181,7 +179,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/content/proposals/conflict_resolution|learnloop.content.proposals.conflict_resolution]] — imports `ConflictResolutionError`, `conflict_with_audit`, `resolve_conflict`; calls `conflict_with_audit`, `resolve_conflict`
 - [[Reference/Modules/learnloop/content/sources/role_authority|learnloop.content.sources.role_authority]] — imports `is_scope_only_role`; calls `is_scope_only_role`
 - [[Reference/Modules/learnloop/content/sources/source_deletion|learnloop.content.sources.source_deletion]] — imports `SourceDeletionError`, `delete_source`, `plan_source_deletion`; calls `delete_source`, `plan_source_deletion`
-- [[Reference/Modules/learnloop/content/sources/source_outcome_analytics|learnloop.content.sources.source_outcome_analytics]] — imports `analyze_source_outcomes`; calls `analyze_source_outcomes`
 - [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] — imports `OutlineNotFound`, `build_source_outline`, `resolve_extraction_id`; calls `build_source_outline`, `resolve_extraction_id`
 - [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]] — imports `is_span_locator`, `locator_key`; calls `is_span_locator`, `locator_key`
 - [[Reference/Modules/learnloop/content/synthesis/brief|learnloop.content.synthesis.brief]] — imports `BriefValidationError`, `validate_brief`; calls `validate_brief`

@@ -575,19 +575,6 @@ def test_the_rpcs_read_the_timeline_and_undo(tmp_path):
         ctx.close()
 
 
-def test_the_plan_rpc_refuses_with_the_switch_off(tmp_path):
-    from learnloop_sidecar.errors import SidecarError
-
-    vault, _repo, _session = _seeded(tmp_path, config="[followups]\nenabled = false\n")
-    ctx = context(vault.root)
-    try:
-        with pytest.raises(SidecarError) as refused:
-            call(ctx, "reader.followups_plan", {})
-        assert refused.value.code == "followups_disabled"
-    finally:
-        ctx.close()
-
-
 # -- back to where you studied this (§9.3 item 9, G49) -------------------------------------------
 
 

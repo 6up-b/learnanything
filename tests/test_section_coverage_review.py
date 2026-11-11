@@ -542,8 +542,7 @@ def test_landing_f1_admission_refuses_a_vault_whose_source_sets_did_not_load(vau
 
 
 @pytest.mark.parametrize("kind", CORRUPTIONS)
-def test_landing_f1_the_pressed_check_and_the_read_api_refuse(tmp_path, kind):
-    from learnloop_sidecar.errors import SidecarError
+def test_landing_f1_the_read_api_refuses(tmp_path, kind):
     from tests.reading_path_fixtures import call, context
 
     paths, repository = build_coverage_vault(tmp_path / "vault")
@@ -551,9 +550,6 @@ def test_landing_f1_the_pressed_check_and_the_read_api_refuse(tmp_path, kind):
     judge = CoverageJudgeFake()
     ctx = context(paths.root, coverage_inline=True, coverage_judge_client=judge)
     before = table_counts(repository)
-    with pytest.raises(SidecarError) as pressed:
-        call(ctx, "curriculum.cover", {"extraction_id": "ext_book", "section_id": BOOK_EIGEN})
-    assert pressed.value.code == "withheld"
     view = call(ctx, "reader.correspondents", {"extraction_id": "ext_book", "section_id": BOOK_EIGEN})
     assert view["status"] == "withheld"
     assert judge.calls == 0 and table_counts(repository) == before

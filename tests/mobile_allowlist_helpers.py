@@ -49,7 +49,6 @@ MAIN_SIDECAR_RPCS = (
     "record_diagnosis_feedback",
     "find_practice",
     "record_practice_usage",
-    "get_practice_coverage",
     "placement_self_report",
     "get_placement_state",
     "start_quick_check",

@@ -166,8 +166,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_reader_question_transcript_can_be_resumed`
 - [tests/test_reveal_ledger.py](../../../../../tests/test_reveal_ledger.py) — direct import
   - `test_reopening_feedback_does_not_charge_again`
-- [tests/test_section_coverage_rpcs.py](../../../../../tests/test_section_coverage_rpcs.py) — direct import
-  - `test_a_failed_job_relays_an_openrouter_offer_keyed_by_curriculum_cover`
 - [tests/test_sidecar_animation.py](../../../../../tests/test_sidecar_animation.py) — direct import
 - [tests/test_sidecar_append.py](../../../../../tests/test_sidecar_append.py) — direct import
 - [tests/test_sidecar_blueprint_picker.py](../../../../../tests/test_sidecar_blueprint_picker.py) — direct import
@@ -175,7 +173,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_sidecars_eof_cancels_a_running_discovery`
 - [tests/test_sidecar_contract.py](../../../../../tests/test_sidecar_contract.py) — direct import
 - [tests/test_sidecar_diagnostic.py](../../../../../tests/test_sidecar_diagnostic.py) — direct import
-- [tests/test_sidecar_epigraphs.py](../../../../../tests/test_sidecar_epigraphs.py) — direct import
 - [tests/test_sidecar_golden_path.py](../../../../../tests/test_sidecar_golden_path.py) — direct import
 - [tests/test_sidecar_idle_threads.py](../../../../../tests/test_sidecar_idle_threads.py) — direct import
   - `test_the_sidecars_eof_closes_its_context`
