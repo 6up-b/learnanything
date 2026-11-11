@@ -5,7 +5,7 @@ aliases:
 status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
+last_reviewed: 2026-11-11
 source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
 source_commit_timestamp: "2026-08-17T12:05:21-04:00"
 source_paths:
@@ -54,6 +54,15 @@ The import/build steps preserve the identity chain described by [[Source Authori
 - [[Goals Exams and Certification Workflow]]
 - [[Rebuild and Shadow Compare]]
 - [[Doctor Migrations and Recovery]]
+
+## Retired journeys
+
+- **The Golden Path** (P2's narrow staged run: exemplar selection, an atomic confirmation, a bounded diagnostic
+  baseline, triage, the pattern ladder, a rotating practice pool, a cold held-out assessment, restoration and one depth
+  invitation). Its screen was hidden behind a compile-time flag and was removed in refactor C5 with its 39 sidecar
+  methods, so no screen, key, palette command, phone or MCP route reaches it. Its tables stay, and a vault's stored runs
+  still load: the Reader's goal guidance reads a goal's run, and `reader.restore` still composes a run's restoration.
+  Record: `docs/reviews/refactor-c5.md`.
 
 ## Observable examples
 
