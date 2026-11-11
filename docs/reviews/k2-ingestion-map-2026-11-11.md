@@ -164,8 +164,8 @@ No vault YAML is written on this path, and no model is called except for GLM-OCR
 3. **Enqueue** one batch: `inventory` then `bootstrap_synthesis` with `{"source_set_id", "brief", "mode": "auto", "apply"}` (`:1645-1661`). **No `new_revision_ids`, no unit ids for the synthesis job.**
 4. **Route** (`handle_bootstrap_synthesis`, `content/pipeline/jobs.py:1836`): `mode=auto` with an applied map for the subject goes to append (`:1865-1872`, §2.6); the test is "any learning object carries the subject" (`content/synthesis/source_append.py:97`), with a second copy of that rule in `content/pipeline/build_plan.py:140`.
 5. **Inputs** `_collect_inputs` (`content/synthesis/source_set_synthesis.py:249`): the exam predicate over all source sets (`:263`); per member, the current extraction and its IR; inventories **by revision** (`db/repositories.py:20661`), chosen per unit by `_best_inventory` (`content/synthesis/source_set_synthesis.py:225`, §7 KX3); exam units feed only the exam profile, held-out spans go to the leakage gate.
-6. **Manifest before the run** (`:2207`): `build_manifest` (`content/synthesis/synthesis_manifests.py:139`) hashes 20 fields (`:35-56`), including `facet_identity` and `graph_nomination` dumps in `scope`, the budgets, `algorithm_version` and three vault snapshot hashes. **Persisted** `synthesis_manifests`; its hash is the agent run's `input_context_hash` (`:2222`).
-7. **Reuse** a completed run with the same hash (`_reusable_bootstrap_run`, `:2226`) and apply its proposal if asked (`:2244`; Sep 6 finding 7 fixed here). Otherwise **persist** `agent_runs` (running) and `synthesis_runs` (`:2252-2268`).
+6. **Manifest before the run** (`:2207`): `build_manifest` (`content/synthesis/synthesis_manifests.py:142`) hashes 20 fields (`:35-56`), including `facet_identity` and `graph_nomination` dumps in `scope`, the budgets, `algorithm_version` and three vault snapshot hashes. **Persisted** `synthesis_manifests`; its hash is the agent run's `input_context_hash` (`content/synthesis/source_set_synthesis.py:2226`).
+7. **Reuse** a completed run with the same hash (`_reusable_bootstrap_run`, `content/synthesis/source_set_synthesis.py:1978`, called at `:2230`) and apply its proposal if asked (`:2244`; Sep 6 finding 7 fixed here). Otherwise **persist** `agent_runs` (running) and `synthesis_runs` (`:2252-2268`).
 8. **Shards** (`_run_synthesis`, `:2791`): inventories packed into shards of `synthesis_shard_input_tokens` (40,000) by `_shards` (`:460`); each shard's pass is checkpointed (`_shard_checkpoint_key`, `:3035`, and `synthesis_pass` checkpoints, `:2855`); a total-input preflight counts only passes that will run (`:2836-2838`); each pass runs under `generation_limit` (`:2849`) and is saved before its budget check. One span-request round (`:2883`) may follow.
 9. **Concept-graph structuring** (`_model_graph_structuring`, `:3164`): one call over the merged candidate, skipped with a recorded reason at the input ceiling or a zero budget (`:3212-3245`), **not checkpointed** (`:3255`); registry merges are recorded in `judgment_ledger` before use (`:3262-3283`).
 10. **Facet identity** (`_facet_identity_plan`, `:2042`; §2.7), then the candidate is saved (`save_synthesis_candidate`, `:2285`).
@@ -241,3 +241,87 @@ The **legacy canonical lane** (`legacy_ingest`, `exam_ingest`) is a third synthe
 | KD5 | medium | **The persona gate falls back to a string comparison on any provider error, silently,** inside every bootstrap and append's instrument gates. | `content/authoring/persona_gate.py:540-551` |
 | KD6 | low | **No pasted-transcript path, and the phone photo isn't a source.** Transcripts must be files; a photo's quick-add needs a source imported elsewhere. | `ingest/resolution.py:17`, `:67`; `learnloop_sidecar/handlers/ingest.py:1423` |
 | KD7 | low | **The extraction request hash contains the revision's ULID,** so the same bytes in two vaults (or after a sync) never share an extraction cache entry. | `ingest/hashing.py:59-86` |
+
+## 3. Boundaries, duplicated predicates, jobs and leases, checkpoints
+
+### 3.1 Where the stages meet, and what each boundary passes
+
+| boundary | what crosses | can each side change alone? |
+|---|---|---|
+| extraction → inventory | the planner's payload `{extraction_id, units:[{unit_id, role}]}` (`content/pipeline/add_source.py:1645-1650`); inventory rows keyed on revision, unit id and unit semantic hash (`migrations/041_source_unit_inventories.sql:32-33`) | **No.** Unit ids are ordinal per extraction; a re-read that renumbers units re-pays every inventory, and nothing on either side records which extraction a unit id came from beyond the row's rebinding (`db/repositories.py:20553-20560`). |
+| inventory → synthesis | inventories **by revision** (`db/repositories.py:20661`), picked per unit by `_best_inventory` (`content/synthesis/source_set_synthesis.py:225`); the manifest records only `"schema|prompt"` labels per `revision:unit` (`:357-361`, `:377-379`) | **No.** Synthesis ignores the row's extraction, semantic hash, provider and model, and labels each entry with the *current* extraction id (`:388-398`), so an inventory change (prompt, model, re-read) doesn't reach synthesis, and synthesis can't say which row it used. |
+| synthesis → facet identity | the merged candidate in, a `FacetIdentityPlan` out (`:2042`); the plan's retirements are consumed inside `_normalize` (`:884-920`) | **Partly.** The judge is its own package, but applying its verdicts is stage 4-6 of `_normalize`, and the subpackages import each other both ways (§1.2). |
+| synthesis → apply | `proposed_patch_items` rows with client ids, plus a list of auto-apply ids (`content/synthesis/source_append.py:454`, `:487`) | **Yes, mostly.** The row vocabulary is the contract; apply knows nothing of synthesis. The weak point is apply itself (§2.8). |
+| pipeline → retrieval | after an extraction, `jobs.py` imports nine `source_retrieval` modules to ask each derived index whether it's owed a job (`source_vectors`, `local_index`, `fallback_space`, `section_coverage`, `student_encoder`, `feedback`, `dense`, `spaces`, `corpus`) | **No.** Each new derived index adds a job type, a handler and its import to `jobs.py` (`content/pipeline/jobs.py:2282-2301`, `:3928-3931`). |
+| pipeline → exam predicate | the planner, synthesis, the Reader's import and the canonical import each call `content/sources/exam_material.py` directly (`content/pipeline/add_source.py:1422`, `content/synthesis/source_set_synthesis.py:263`, `content/pipeline/jobs.py:3250`) | One predicate, several doors: K1's finding, not repeated here (`docs/reviews/refactor-k1.md`). |
+| desktop → sidecar | 30 RPC methods from four components (`IngestScreen.tsx`, `OutlineAndPlan.tsx`, `IngestActivity.tsx`, `AddToCollection.tsx`) through `METHOD_REGISTRY` (`learnloop_sidecar/registry.py:20-33`) | **No:** the frontend re-implements at least eight backend rules (§3.2). |
+
+### 3.2 Duplicated predicates
+
+| predicate | copies | disagree? |
+|---|---|---|
+| which inventory to use | `_best_inventory`, `content/synthesis/source_set_synthesis.py:225` and `content/synthesis/source_coverage.py:42` (same body) | no, both pick the oldest (§7) |
+| create or update ("does the subject have a map?") | `subject_has_applied_study_map`, `content/synthesis/source_append.py:97`; `subject_has_study_map`, `content/pipeline/build_plan.py:140` ("the single routing rule", `:143-144`) | same rule today, two copies; the Build a Study Map note describes a third version (§8) |
+| token estimate of JSON | `_shards` (`content/synthesis/source_set_synthesis.py:467`, escapes non-ASCII), `_output_tokens` (`content/synthesis/source_append.py:571-575`, escapes), `_result_tokens` (`content/synthesis/source_set_synthesis.py:2974`, doesn't: "would overcharge CJK or math-symbol output") | **yes**: maths-heavy text gets more, smaller shards and a tighter append budget than bootstrap's passes |
+| assessment-only roles | `content/sources/role_authority.py:217` `{exam}`; `apps/learnloop-tauri/src/components/OutlineAndPlan.tsx:38` `{exam, problem_set}`; role lists copied in `OutlineAndPlan.tsx:26-36` and `AddToCollection.tsx:14-24` | **yes** |
+| retry-synthesis eligibility | `content/pipeline/jobs.py:5346-5355` (failed, blocked or cancelled, every inventory complete); `apps/learnloop-tauri/src/components/IngestActivity.tsx:351-355` (failed only) | **yes**: a cancelled synthesis is offered "resume", not retry |
+| budget bounds | `learnloop_sidecar/handlers/ingest.py:34-41` (`BUDGET_BOUNDS`, whose comment says the frontend reads them); hard-coded in `IngestActivity.tsx:364-372`, `:548-576` | copies; `OutlineAndPlan.tsx:867-888` does read them |
+| source kind | `ingest/resolution.py:11-72`; `apps/learnloop-tauri/src/screens/IngestScreen.tsx:37-50` (cites a file that doesn't exist), whose classifier map omits `image` (`:716-723`), as does `dto.ts:3313` | **yes** for images |
+| native-PDF page ranges | `learnloop_sidecar/handlers/ingest.py:193-194` (allowed when native is unready and fallback is on); `IngestScreen.tsx:598-599`, `:1208-1211` (never) | **yes** |
+| page-range parsing | `learnloop_sidecar/handlers/ingest.py:338-361`; `apps/learnloop-tauri/src/components/PageRangeSelector.tsx:4-18` | copies |
+| "an import finished" | `IngestActivity.tsx:95-105` tests `jobType === "import_source"`, which no job has; it works through a regex on the workflow name | latent |
+| `detect_source_kind` | `ingest/detect.py:6` (the new categories; tests only) and `content/pipeline/source_ingestion.py:669` (legacy kinds; no caller in `src`) | not duplicates, but two dead-ish wrappers with one name |
+| lease heartbeat | `content/authoring/source_exercise_import.py:781-806` and `source_retrieval/reading_paths.py:819-841` are the same function with different constants (§3.3) | copies |
+
+### 3.3 Job and lease mechanisms
+
+**The coverage audit's "four reimplementations" holds, and undercounts.** In scope or touching it there are **six lease stores** and **five threaded heartbeat loops**:
+
+| | mechanism | store | heartbeat | on expiry | fencing | clock |
+|---|---|---|---|---|---|---|
+| A | the ingest drain (`IngestRunner`, `content/pipeline/runner.py:556`; host `DurableIngestJobs`, `content/pipeline/jobs.py:4030`) | `ingest_jobs` (`migrations/033_durable_ingest_jobs.sql`); claim `db/stores/ingest_queue.py:374` under the vault lock | 15 s thread (`content/pipeline/runner.py:567`, `:1126-1151`), TTL 120 s (`:566`) | job **fails** as interrupted; the learner resumes (`:771-795`); expiry runs at startup and each drain tick (`:730`, `:816-836`) | strongest: every write on the job thread passes `guard_ingest_writes` (`:1029`), finish is owner-checked (`db/stores/ingest_queue.py:519-534`); Sep 6 findings 1 and 2 fixed | injected |
+| B | shared judge claims (`db/stores/judgment_claims.py:37`) | `judgment_work_claims` | per user (below) | the next claimer takes over with epoch + 1 (`:68-80`) | `complete_claim` owner and epoch (`:103-114`) | per user |
+| B1 | canonical key check, on B | | 30 s thread (`content/authoring/source_exercise_import.py:781-806`), TTL 120 s | | `holds_claim` called **without `now`** (`:820`, `:838`), so a lapsed but unclaimed lease still commits | wall, on purpose (`:729-732`) |
+| B2 | reading-path judge, on B | | 30 s thread (`source_retrieval/reading_paths.py:819-841`), TTL 300 s | | same gap (`:919`) | wall |
+| C | service spend reservations (`source_retrieval/service_spend.py`) | `source_service_spend` | 60 s process-wide thread (`:91-147`), TTL 300 s | reconcile with receipts or release at the next admission (`db/stores/source_service.py:1548`) | process token only, no epoch | **mixed**: reserves with the injected clock (`source_retrieval/service_spend.py:194`), renews with `datetime.now` (`:125`) |
+| D | follow-up generation (`followup_run/jobs.py:71`) | `followup_generation_jobs` | **none**, TTL 900 s | re-leased, at most twice | finish only | injected |
+| E | phone jobs (`capture/jobs.py`) | `mobile_jobs` | none, no TTL | requeued when the host's boot id differs (`:216-218`) | none (`:163-171`) | — |
+
+Plus the reading sweep thread (`content/pipeline/jobs.py:4511`), three quick-check lanes (`:5518`), the inventory pool (`:1644`), the Reader import's unguarded key-check thread (`:3322`), the Marker and text-layer worker processes, and outside scope the post-attempt jobs, the approach-map claims and the reader requests. The semantics differ: A fails and waits for a person; B, D and E retry by themselves; C reconciles money.
+
+**Two processes on one vault.** The sidecar and a CLI drain can both run A: claims serialize on the vault lock and the single-writer check, and a CLI's stale-lease recovery can fail a desktop job whose heartbeat stalled, since live attempts are tracked per process (`content/pipeline/runner.py:511-548`). The phone host doesn't bind ingest (`learnloop_sidecar/context.py:322-326`) but runs the post-attempt worker on the same vault.
+
+### 3.4 Checkpoints and reuse keys
+
+**Six checkpoint recipes, three run-level reuse keys, and four paid calls with neither** on the ingestion and synthesis path. All six write the same table (`model_work_checkpoints`, through `db/stores/model_calls.py:144-156`); what differs is the key:
+
+| checkpoint | key | prompt identity | output budget in key | settings |
+|---|---|---|---|---|
+| GLM-OCR window (`ingest/extractors/glm_ocr.py:416-420`) | asset SHA, pages, backend, two model names | n/a | no | backend only |
+| inventory window (`content/synthesis/source_unit_inventory.py:715-730`) | `content_key` | **rendered** prompt | **no** ("a validated window is reusable under any budget") | `model_settings` |
+| synthesis pass (`content/synthesis/source_set_synthesis.py:3035-3075`) | hand-rolled SHA-256 | **label** (`prompt_version`) plus the inputs: brief, registry index, exam profile, shard, ordinal | **no** ("a retry with revised ceilings ... must survive") | `model_settings` |
+| facet judge, LLM (`content/facet_identity/judge.py:710-721`) | `content_key` | rendered prompt plus schema | **yes** ("as everywhere under the policy") | settings, effort |
+| facet judge, Decider (`:974-979`) | `content_key` | question set, input hash, instructions, options | n/a | model |
+| legacy window (`content/pipeline/source_ingestion.py:502`) | `content_key` | rendered prompt plus schema | no | provider and model only |
+
+| run-level reuse | key |
+|---|---|
+| bootstrap | the manifest hash = `agent_runs.input_context_hash` (`content/synthesis/synthesis_manifests.py:1-18`, `:35-56`) |
+| append | the same recipe (`content/synthesis/source_append.py:315-319`) |
+| legacy | `canonical_ingest_context_hash` (`content/pipeline/source_ingestion.py:980`) |
+
+**No checkpoint and no reuse key:** the append reconciliation and its span round (`content/synthesis/source_append.py:84`), the concept-graph structuring pass (`content/synthesis/source_set_synthesis.py:3255`), the persona fire calls (`content/authoring/persona_gate.py:541`), the epigraphs (`content/synthesis/vault_epigraphs.py:66`). Outside synthesis, the Reader's import dedupes by prompt instead.
+
+`ai/execution.py` already holds the shared pieces (`content_key`, `:175`; `model_settings`, `:179`; `generation_limit`, `:304`; `record_model_calls`, `:276`). Each site composes them differently, and the judge's comment states a policy ("everywhere") that two neighbouring sites contradict in their own comments.
+
+### Findings
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| KB1 | high | **The inventory → synthesis boundary loses identity.** Synthesis picks inventories by revision and unit id alone and records labels, so it can neither use nor name the row it used (§7 KX3). | `content/synthesis/source_set_synthesis.py:225`, `:357-398`; `db/repositories.py:20661-20667` |
+| KB2 | high | **Six lease stores and five heartbeat loops with different expiry semantics, fencing and clocks;** two are verbatim copies, two commit after a lapse, one mixes clocks, two have no heartbeat. A bug fixed in one (Sep 6 findings 1 and 2, fixed in A) stays in the others. | §3.3 |
+| KB3 | high | **Six checkpoint recipes and four uncheckpointed paid calls.** The recipes disagree on whether the prompt is rendered or labelled and whether the output budget belongs in the key; the append, structuring, persona and epigraph calls have none, so a retry re-pays them. | §3.4 |
+| KB4 | medium | **The desktop re-implements at least eight backend rules, three of which disagree** (assessment roles, retry eligibility, image kind, native page ranges). | §3.2 |
+| KB5 | medium | **Three token estimators**, two escaping non-ASCII and one not. | §3.2 |
+| KB6 | medium | **Every derived index is wired through `jobs.py`** (nine `source_retrieval` imports, a job type and a handler each). | §3.1 |
+| KB7 | low | Two create-or-update rules, two `_best_inventory`, two `detect_source_kind`, one stale `import_source` test in the desktop. | §3.2 |
