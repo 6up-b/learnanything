@@ -348,7 +348,10 @@ def test_f10_a_check_answered_between_settles_keeps_one_due_and_is_terminal(tmp_
     env.clock.advance(1)
     _answer(env, objective["practice_item_id"], objective["learning_object_id"])
     env.clock.advance(1)
-    settle_answered_checks(env.vault, env.repository)
+    # The test's clock, not the wall clock: on the wall clock the check's
+    # satisfied row is stamped days after the fake instant, and the test fails
+    # from the day the wall clock passes the fixture's dates.
+    settle_answered_checks(env.vault, env.repository, clock=env.clock)
     M.settle(env.vault, env.repository, clock=env.clock)
     events = _events(env)[decision_id]
     assert [event["state"] for event in events] == ["due", "answered"]
