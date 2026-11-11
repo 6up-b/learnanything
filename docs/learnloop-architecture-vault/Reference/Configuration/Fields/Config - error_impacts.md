@@ -26,9 +26,9 @@ source_paths:
   - "tests/causal_p2_acceptance_helpers.py"
   - "tests/causal_shadow_selection_helpers.py"
   - "tests/certification_cold_probe_helpers.py"
+  - "tests/conftest.py"
   - "tests/device_eligibility_helpers.py"
   - "tests/diagnosis_context_helpers.py"
-  - "tests/diagnosis_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/error-impacts"
@@ -81,9 +81,9 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/causal_p2_acceptance_helpers.py`
 - `tests/causal_shadow_selection_helpers.py`
 - `tests/certification_cold_probe_helpers.py`
+- `tests/conftest.py`
 - `tests/device_eligibility_helpers.py`
 - `tests/diagnosis_context_helpers.py`
-- `tests/diagnosis_fakes.py`
 
 ## Extension and modification guidance
 

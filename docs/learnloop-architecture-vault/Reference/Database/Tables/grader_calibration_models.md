@@ -137,7 +137,9 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/conftest.py`
 - `tests/test_grade_resolution_pipeline.py`
+- `tests/test_outcome_schema_ids.py`
 - `tests/teacher_te2_review_fixes_helpers.py`
 - `tests/test_observation_ledger_bulk.py`
 

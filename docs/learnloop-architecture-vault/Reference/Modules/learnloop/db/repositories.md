@@ -2758,9 +2758,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_register_with_vault_root_retains_bytes`
 - [tests/test_outcome_schema_ids.py](../../../../../../tests/test_outcome_schema_ids.py) — direct import
   - `test_each_bound_is_repeatable_for_its_own_seed`
+  - `test_production_mints_a_new_random_calibration_model_id_for_each_vault_and_keeps_it`
   - `test_production_mints_a_new_random_ulid_for_each_vault_and_keeps_it`
   - `test_the_bound_stays_inside_its_limits_on_every_seed_and_mass_with_it`
   - `test_the_lane_fixes_only_the_id_and_production_still_inserts_the_row`
+  - `test_the_lane_fixes_only_the_model_ids_so_two_vaults_draw_the_same_bound`
 - [tests/test_output_budget.py](../../../../../../tests/test_output_budget.py) — direct import
   - `test_paid_calls_fail_on_a_second_truncation`
   - `test_paid_calls_retry_a_truncation_once_at_double_the_admitted_budget`
