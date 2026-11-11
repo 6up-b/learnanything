@@ -24,9 +24,12 @@ os.environ.setdefault("OMP_NUM_THREADS", "1")
 
 # Keep the 4,000+ fixture vaults off the capacity-constrained system temp
 # volume. PYTEST_DEBUG_TEMPROOT controls pytest's numbered tmp_path roots when
-# --basetemp is not supplied, while still allowing CI to override it.
-_TEMP_ROOT = Path(__file__).resolve().parent.parent / ".pytest_tmp"
-_TEMP_ROOT.mkdir(parents=True, exist_ok=True)
+# --basetemp is not supplied, while still allowing CI to override it. Each run
+# gets its own directory under .pytest_tmp, deleted when the run ends
+# (tests/session_tmp.py; LEARNLOOP_KEEP_TEST_TMP=1 keeps it).
+from tests import session_tmp as _session_tmp
+
+_TEMP_ROOT = _session_tmp.session_root(Path(__file__).resolve().parent.parent / ".pytest_tmp")
 os.environ.setdefault("PYTEST_DEBUG_TEMPROOT", str(_TEMP_ROOT))
 
 # Isolate tests from machine-global learnloop settings. Point LEARNLOOP_CONFIG_DIR
@@ -462,6 +465,14 @@ def pytest_sessionfinish(session, exitstatus):
     if reporter is not None:
         reporter.write_line(f"ERROR: {message}", red=True)
     session.exitstatus = pytest.ExitCode.TESTS_FAILED
+
+
+def pytest_unconfigure(config):
+    """The run that made this run's scratch directory deletes it (tests/session_tmp.py); workers leave it alone."""
+    kept = _session_tmp.finish(_TEMP_ROOT)
+    reporter = config.pluginmanager.get_plugin("terminalreporter")
+    if kept and reporter is not None:
+        reporter.write_line(kept)
 
 
 def pytest_itemcollected(item):
