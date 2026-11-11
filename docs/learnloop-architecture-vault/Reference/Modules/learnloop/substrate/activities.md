@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/activities.py](../../../../../../src/learnloop/substrate/activities.py) |
-| Source lines | 1207 |
+| Source lines | 1189 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -99,8 +99,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `activate_family_version(repository: Repository, *, family_version_id: str) -> None` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1069) — Activate a drafted family version (§5.1 stage 6).
 - `link_cross_purpose_families(repository: Repository, *, family_version_id: str, links: Sequence[Mapping[str, Any]], clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1104) — Attach typed cross-purpose family links (§3.6).
 - `pin_card_authoring(repository: Repository, *, card_version_id: str, family_version_id: str | None=None, pattern_version_id: str | None=None, task_feature_schema_version_id: str | None=None, task_features: Mapping[str, Any] | None=None, capability: str | None=None, outcome_schema_id: str | None=None, outcome_schema_version: int | None=None, surface_policy: str | None=None, surface_variation_bounds: Mapping[str, Any] | None=None, angle_identity: Mapping[str, Any] | None=None, generator_version: str | None=None, gate_policy_version: str | None=None, expected_burden: Mapping[str, Any] | None=None, calibration_metadata: Mapping[str, Any] | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1128) — Pin the P1 card-version authoring contract (§3.7) as a side row keyed by the P0 immutable card version id.
-- `resolve_progression_policy(repository: Repository, family_version_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1177) — Resolve the progression policy pinned on a family version (§3.6, §6).
-- `inspect_angle_coverage(repository: Repository, family_version_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1195) — Inspect a family version's declared angle inventory and coverage targets (§5.4, §6 CLI parity).
+- `inspect_angle_coverage(repository: Repository, family_version_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1177) — Inspect a family version's declared angle inventory and coverage targets (§5.4, §6 CLI parity).
 
 ### Module constants
 
@@ -164,16 +163,12 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/scheduling/controller_store|learnloop.scheduling.controller_store]] — imports `canonical_json`; statically calls `canonical_json`
 - [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]] — imports `fingerprint_of`, `surface_hash`; statically calls `fingerprint_of`, `surface_hash`
 - [[Reference/Modules/learnloop/scheduling/kinship_feature|learnloop.scheduling.kinship_feature]] — imports `canonical_hash`; statically calls `canonical_hash`
-- [[Reference/Modules/learnloop/scheduling/predictive_targets|learnloop.scheduling.predictive_targets]] — imports `canonical_hash`; statically calls `canonical_hash`
-- [[Reference/Modules/learnloop/scheduling/progression|learnloop.scheduling.progression]] — imports `canonical_hash`, `canonical_json`, `resolve_progression_policy`; statically calls `canonical_hash`, `canonical_json`, `resolve_progression_policy`
-- [[Reference/Modules/learnloop/scheduling/progression_policy|learnloop.scheduling.progression_policy]] — imports `canonical_hash`, `canonical_json`; statically calls `canonical_hash`, `canonical_json`
 - [[Reference/Modules/learnloop/scheduling/shadow_components|learnloop.scheduling.shadow_components]] — imports `canonical_hash`; statically calls `canonical_hash`
 - [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]] — imports `canonical_hash`; statically calls `canonical_hash`
 - [[Reference/Modules/learnloop/source_retrieval/kept_comparisons|learnloop.source_retrieval.kept_comparisons]] — imports `log_interaction_event`; statically calls `log_interaction_event`
 - [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] — imports `log_interaction_event`; statically calls `log_interaction_event`
 - [[Reference/Modules/learnloop/substrate/activity_patterns|learnloop.substrate.activity_patterns]] — imports `canonical_hash`, `canonical_json`; statically calls `canonical_hash`, `canonical_json`
 - [[Reference/Modules/learnloop/substrate/compat/activity_backfill|learnloop.substrate.compat.activity_backfill]] — imports `_CONSUMING_PURPOSES`, `_PURPOSE_TO_LEGACY_KIND`, `administration_snapshot_hash`, `canonical_hash`, `canonical_json`, `card_contract_hash`, `card_semantic_payload`, `fingerprint_of`, `resolve_legacy_item`, `surface_hash`, `surface_payload`; statically calls `administration_snapshot_hash`, `canonical_hash`, `canonical_json`, `card_contract_hash`, `card_semantic_payload`, `fingerprint_of`, `resolve_legacy_item`, `surface_hash`, `surface_payload`
-- [[Reference/Modules/learnloop/substrate/compat/substrate_cutover|learnloop.substrate.compat.substrate_cutover]] — imports `module`; statically calls `canonical_hash`, `canonical_json`, `evidence_eligibility_for`
 - [[Reference/Modules/learnloop/substrate/families|learnloop.substrate.families]] — imports `canonical_hash`, `canonical_json`, `resolve_legacy_item`; statically calls `canonical_hash`, `canonical_json`, `resolve_legacy_item`
 - [[Reference/Modules/learnloop/substrate/family_memory|learnloop.substrate.family_memory]] — imports `canonical_json`; statically calls `canonical_json`
 - [[Reference/Modules/learnloop/substrate/surface_mint|learnloop.substrate.surface_mint]] — imports `canonical_json`; statically calls `canonical_json`
@@ -210,7 +205,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]], [[Reference/Modules/learnloop/attempts/outcome_schemas|learnloop.attempts.outcome_schemas]] and 55 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]], [[Reference/Modules/learnloop/attempts/outcome_schemas|learnloop.attempts.outcome_schemas]] and 51 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -228,7 +223,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_family_purpose_immutable_in_place`
   - `test_inspect_angle_coverage`
   - `test_pin_card_authoring`
-  - `test_resolve_progression_policy`
 - [tests/test_activity_families.py](../../../../../../tests/test_activity_families.py) — direct import
   - `test_apply_undo_preserves_cards_and_owner_edits`
 - [tests/test_activity_substrate.py](../../../../../../tests/test_activity_substrate.py) — direct import
@@ -292,8 +286,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_intent_fix_round6.py](../../../../../../tests/test_intent_fix_round6.py) — direct import
   - `test_f19_a_check_on_a_seen_probe_surface_is_refused_under_every_policy`
   - `test_f19_dl1_pair_plans_are_otherwise_unchanged`
-- [tests/test_journey6.py](../../../../../../tests/test_journey6.py) — direct import
-  - `test_journey6_end_to_end_on_fresh_mvp08_vault`
 - [tests/test_kinship_feature.py](../../../../../../tests/test_kinship_feature.py) — direct import
 - [tests/test_laddered_stems.py](../../../../../../tests/test_laddered_stems.py) — direct import
 - [tests/test_library_ask_review.py](../../../../../../tests/test_library_ask_review.py) — direct import
@@ -306,7 +298,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_arc_and_salience_heads_rebuild_deterministically`
 - [tests/test_pf_generation.py](../../../../../../tests/test_pf_generation.py) — direct import
   - `test_ensemble_publishes_verified_survivors_as_ordinary_family_items`
-- [tests/test_progression.py](../../../../../../tests/test_progression.py) — direct import
 - [tests/test_reader_authoring.py](../../../../../../tests/test_reader_authoring.py) — direct import
 - [tests/test_reader_branches.py](../../../../../../tests/test_reader_branches.py) — direct import
   - `test_deep_branch_bounds_prompt_history_without_losing_saved_links`
@@ -325,7 +316,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_follow_up_a_hard_constraint_refuses_is_declined_by_name`
 - [tests/test_sidecar_reader.py](../../../../../../tests/test_sidecar_reader.py) — direct import
   - `test_reader_ask_history_rpc_returns_durable_exchanges`
-- [tests/test_substrate_cutover.py](../../../../../../tests/test_substrate_cutover.py) — direct import
 - [tests/test_surface_mint.py](../../../../../../tests/test_surface_mint.py) — direct import
 - [tests/test_surface_pool.py](../../../../../../tests/test_surface_pool.py) — direct import
   - `test_familiar_practice_is_never_reported_fresh`

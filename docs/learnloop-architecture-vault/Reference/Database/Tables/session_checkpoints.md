@@ -102,7 +102,6 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/hints/state.py`
 - `src/learnloop/placement/decisions.py`
-- `src/learnloop/scheduling/reentry_adapter.py`
 - `src/learnloop/scheduling/reentry_summary.py`
 - `src/learnloop_sidecar/context.py`
 - `src/learnloop_sidecar/handlers/inspector.py`

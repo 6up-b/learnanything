@@ -2839,7 +2839,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_hidden_escalation_card_plans_no_escalated_repair`
   - `test_the_escalation_card_switch_hides_the_block`
 - [tests/test_recurrence_merge_composition.py](../../../../../../tests/test_recurrence_merge_composition.py) — direct import
-- [tests/test_reentry_short_session.py](../../../../../../tests/test_reentry_short_session.py) — direct import
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
 - [tests/test_registry_audit.py](../../../../../../tests/test_registry_audit.py) — direct import
 - [tests/test_regrade_contract_replay.py](../../../../../../tests/test_regrade_contract_replay.py) — direct import
@@ -3359,6 +3358,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
 - [tests/test_staged_policy_evsi.py](../../../../../../tests/test_staged_policy_evsi.py) — direct import
+- [tests/test_staged_policy_short_session.py](../../../../../../tests/test_staged_policy_short_session.py) — direct import
 - [tests/test_state_signals.py](../../../../../../tests/test_state_signals.py) — direct import
 - [tests/test_state_sync.py](../../../../../../tests/test_state_sync.py) — direct import
   - `test_state_sync_enters_probe_for_new_active_goal_learning_object`

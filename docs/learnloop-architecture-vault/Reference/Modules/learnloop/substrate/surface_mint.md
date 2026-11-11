@@ -127,8 +127,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_item_fingerprints.py](../../../../../../tests/test_item_fingerprints.py) — direct import
   - `test_generic_rotation_claims_never_take_pf_generation_jobs`
-- [tests/test_journey6.py](../../../../../../tests/test_journey6.py) — direct import
-  - `test_journey6_end_to_end_on_fresh_mvp08_vault`
 - [tests/test_surface_mint.py](../../../../../../tests/test_surface_mint.py) — direct import
   - `test_admit_candidate_without_passing_gate_raises`
   - `test_admit_marks_surface_admitted_and_rotation_eligible`

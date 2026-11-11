@@ -27,7 +27,7 @@ source_paths:
   - "src/learnloop/learner/familiarity.py"
   - "src/learnloop/substrate/activities.py"
   - "src/learnloop/substrate/compat/activity_backfill.py"
-  - "src/learnloop/substrate/compat/substrate_cutover.py"
+  - "src/learnloop/substrate/surface_mint.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -117,7 +117,6 @@ Indexes and uniqueness:
 - `src/learnloop/learner/familiarity.py`
 - `src/learnloop/substrate/activities.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
-- `src/learnloop/substrate/compat/substrate_cutover.py`
 - `src/learnloop/substrate/surface_mint.py`
 
 > [!note] Static-reference boundary
@@ -129,13 +128,10 @@ Indexes and uniqueness:
 - `tests/test_activity_substrate.py`
 - `tests/test_contamination_report.py`
 - `tests/test_cross_seam_exposure.py`
-- `tests/test_progression.py`
 - `tests/test_proposal_impressions.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_assessment_enforcement.py`
 - `tests/test_familiarity.py`
-- `tests/test_journey6.py`
-- `tests/test_substrate_cutover.py`
 - `tests/test_surface_mint.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

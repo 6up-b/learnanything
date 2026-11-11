@@ -19,7 +19,6 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/curriculum/depth_transition.py"
   - "src/learnloop/substrate/card_lineage.py"
-  - "src/learnloop/substrate/compat/substrate_cutover.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -96,7 +95,6 @@ Indexes and uniqueness:
 
 - `src/learnloop/curriculum/depth_transition.py`
 - `src/learnloop/substrate/card_lineage.py`
-- `src/learnloop/substrate/compat/substrate_cutover.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

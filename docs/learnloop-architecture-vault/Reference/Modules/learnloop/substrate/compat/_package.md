@@ -7,7 +7,6 @@ version: "1.0.0"
 source_paths:
   - "src/learnloop/substrate/compat/__init__.py"
   - "src/learnloop/substrate/compat/activity_backfill.py"
-  - "src/learnloop/substrate/compat/substrate_cutover.py"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.substrate.compat"
@@ -47,17 +46,15 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/substrate/compat/__init__|learnloop.substrate.compat]] | [[Reference/Modules/learnloop/substrate/compat/__init__#^module-purpose|purpose]] | `COMPAT` | 0 | 0 |
 | [[Reference/Modules/learnloop/substrate/compat/activity_backfill|learnloop.substrate.compat.activity_backfill]] | [[Reference/Modules/learnloop/substrate/compat/activity_backfill#^module-purpose|purpose]] | `COMPAT` | 1 | 2 |
-| [[Reference/Modules/learnloop/substrate/compat/substrate_cutover|learnloop.substrate.compat.substrate_cutover]] | [[Reference/Modules/learnloop/substrate/compat/substrate_cutover#^module-purpose|purpose]] | `COMPAT` | 0 | 2 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 4 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 2 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 2 static module edges
-- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 2 static module edges
-- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 1 static module edge
+- [[Reference/Modules/learnloop/_package|learnloop]] — 1 static module edge
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 1 static module edge
+- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 1 static module edge
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 1 static module edge
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 1 static module edge
 
 ### Packages that import this package
@@ -75,14 +72,12 @@ flowchart LR
     n_learnloop["learnloop"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_learner["learnloop.learner"]
-    n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_substrate -->|1| center
-    center -->|4| n_learnloop_substrate
-    center -->|2| n_learnloop
-    center -->|2| n_learnloop_db
-    center -->|2| n_learnloop_learner
-    center -->|1| n_learnloop_scheduling
+    center -->|1| n_learnloop_substrate
+    center -->|1| n_learnloop
+    center -->|1| n_learnloop_db
+    center -->|1| n_learnloop_learner
     center -->|1| n_learnloop_vault
 ```
 

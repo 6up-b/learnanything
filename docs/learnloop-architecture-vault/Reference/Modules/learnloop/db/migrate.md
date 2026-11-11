@@ -226,7 +226,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_it_adds_the_table_its_indexes_and_triggers_and_nothing_else`
   - `test_it_applies_under_production_pragmas`
   - `test_the_head_fixture_holds_it_in_rollback_mode`
-- [tests/test_journey6.py](../../../../../../tests/test_journey6.py) — direct import
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
   - `test_judgment_ledger_accepts_the_decider_with_provenance`
   - `test_migration_175_preserves_every_judgment_and_its_references`
@@ -326,7 +325,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_practice_index_adapters.py](../../../../../../tests/test_practice_index_adapters.py) — direct import
 - [tests/test_probe_migration.py](../../../../../../tests/test_probe_migration.py) — direct import
   - `test_migration_closes_in_progress_phases_as_superseded`
-- [tests/test_progression.py](../../../../../../tests/test_progression.py) — direct import
 - [tests/test_question_promotions.py](../../../../../../tests/test_question_promotions.py) — direct import
   - `test_027_rebuild_preserves_existing_rows`
   - `test_learner_claims_accepts_tutor_gap_declaration_source`
@@ -389,7 +387,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_switch_fails_clearly_and_leaves_the_mode_unchanged_while_a_reader_is_open`
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
   - `test_migration_179_widens_the_reveal_kinds_and_keeps_the_ledger`
-- [tests/test_substrate_cutover.py](../../../../../../tests/test_substrate_cutover.py) — direct import
 - [tests/test_surface_mint.py](../../../../../../tests/test_surface_mint.py) — direct import
 - [tests/test_t1_batch_origin_migration.py](../../../../../../tests/test_t1_batch_origin_migration.py) — direct import
   - `test_218_adds_the_batch_origin_column_and_nothing_else`

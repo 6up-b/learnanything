@@ -125,7 +125,6 @@ Indexes and uniqueness:
 - `tests/test_depth_transition.py`
 - `tests/test_golden_path_assessment.py`
 - `tests/test_intent_checks.py`
-- `tests/test_journey6.py`
 - `tests/test_question_promotions.py`
 - `tests/test_tutor_promotion_service.py`
 

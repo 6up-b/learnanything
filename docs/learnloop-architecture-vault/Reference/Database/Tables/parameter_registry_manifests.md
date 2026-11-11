@@ -108,6 +108,7 @@ Indexes and uniqueness:
 - `tests/test_recurrence_commands.py`
 - `tests/test_regrade_contract_upgrade.py`
 - `tests/test_p0_cutover_mvp08.py`
+- `tests/test_registry_audit.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

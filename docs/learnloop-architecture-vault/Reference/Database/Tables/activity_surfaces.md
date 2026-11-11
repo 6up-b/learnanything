@@ -138,14 +138,11 @@ Indexes and uniqueness:
 - `tests/test_contamination_report.py`
 - `tests/test_familiarity.py`
 - `tests/test_item_authoring.py`
-- `tests/test_journey6.py`
 - `tests/test_kinship_feature.py`
 - `tests/test_laddered_stems.py`
 - `tests/test_library_ask_review.py`
 - `tests/test_p2_leakage_suite.py`
-- `tests/test_progression.py`
 - `tests/test_reader_dialogue.py`
-- `tests/test_substrate_cutover.py`
 - `tests/test_surface_mint.py`
 - `tests/test_surface_pool.py`
 

@@ -236,9 +236,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_source_locator_only_commitment_covers_no_item`
   - `test_retired_commitments_drop_out`
   - `test_satisfying_a_check_does_not_move_its_choice_time`
-- [tests/test_journey6.py](../../../../../../tests/test_journey6.py) — direct import
-  - `test_journey6_end_to_end_on_fresh_mvp08_vault`
-  - `test_journey6_passive_action_cannot_create_commitment`
 - [tests/test_reader_adoption_ownership.py](../../../../../../tests/test_reader_adoption_ownership.py) — direct import
   - `test_crash_before_the_link_reuses_the_commitments_own_card`
   - `test_retiring_a_question_keeps_a_card_another_commitment_still_requests`

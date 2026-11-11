@@ -127,8 +127,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_unreviewed_or_missing_edge_is_refused`
 - [tests/test_golden_path_assessment.py](../../../../../../tests/test_golden_path_assessment.py) — direct import
   - `test_harness_activation_activates_exactly_one_edge`
-- [tests/test_journey6.py](../../../../../../tests/test_journey6.py) — direct import
-  - `test_journey6_end_to_end_on_fresh_mvp08_vault`
 
 ## Modification guidance
 

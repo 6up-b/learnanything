@@ -84,7 +84,6 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]] — imports `module`; statically calls `classify_edit`
 - [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]] — imports `module`; statically calls `append_minor_successor`, `classify_edit`, `fork_card`, `merge_lineage`, `split_lineage`, `start_lineage`
 - [[Reference/Modules/learnloop/substrate/administration_adapters|learnloop.substrate.administration_adapters]] — imports `module`; statically calls `rebuild_card_state`
-- [[Reference/Modules/learnloop/substrate/compat/substrate_cutover|learnloop.substrate.compat.substrate_cutover]] — imports `module`; statically calls `start_lineage`
 
 ## Dependencies
 
@@ -106,7 +105,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]], [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]], [[Reference/Modules/learnloop/substrate/administration_adapters|learnloop.substrate.administration_adapters]], [[Reference/Modules/learnloop/substrate/compat/substrate_cutover|learnloop.substrate.compat.substrate_cutover]].
+Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]], [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]], [[Reference/Modules/learnloop/substrate/administration_adapters|learnloop.substrate.administration_adapters]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -126,12 +125,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_semantic_change_forks`
   - `test_unknown_changed_component_is_parked_for_review`
   - `test_wording_only_edit_is_surface_preserving`
-- [tests/test_journey6.py](../../../../../../tests/test_journey6.py) — direct import
-  - `test_journey6_end_to_end_on_fresh_mvp08_vault`
 - [tests/test_reader_authoring.py](../../../../../../tests/test_reader_authoring.py) — direct import
   - `test_cosmetic_edit_retains_state_only_through_classifier`
   - `test_split_merge_spawn_create_lineage`
-- [tests/test_substrate_cutover.py](../../../../../../tests/test_substrate_cutover.py) — direct import
 
 ## Modification guidance
 
