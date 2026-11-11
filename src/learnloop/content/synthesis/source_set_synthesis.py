@@ -38,7 +38,6 @@ from pydantic import ValidationError
 
 from learnloop.ai.execution import content_key, declared_budgets, generation_limit, model_settings
 from learnloop.clock import Clock, utc_now_iso
-from learnloop.config.retired import identity_dump
 from learnloop.content.synthesis.ai_contracts import (
     CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION,
     SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
@@ -2106,6 +2105,32 @@ def plan_study_map_embedding(root: Path, source_set_id: str) -> dict[str, Any]:
     return {"source_set_id": source_set_id, **plan, "facet_identity": ingest_dry_run(vault)}
 
 
+def bootstrap_scope(
+    vault: LoadedVault, brief: Any, *, nominator: GraphNominator | None, facet_identity_client: Any = None,
+) -> Any:
+    """The ``scope`` a bootstrap synthesis hashes into its manifest, whose hash is the completed-run cache key: a
+    byte that moves here at a fixed input starts a paid run again (``tests/test_identity_pins.py``)."""
+
+    scope: Any = brief.get("scope") if isinstance(brief, dict) else None
+    if nominator is not None:
+        # What the nominator can show the structuring model is run identity:
+        # the switch, its configuration, the registry prompt and the
+        # registry's definitions and index state. Off, the scope (and so the
+        # manifest hash) is the pre-T5 one.
+        scope = {
+            "brief_scope": scope,
+            "graph_nomination": nominator.identity(prompt_version=CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION),
+        }
+    # Facet identity (handoff §4): the judge's identity is run identity, so a
+    # cached run is reused only under the same switch, route and policy. Off,
+    # the scope (and the manifest hash) is the pre-change one.
+    if vault.config.facet_identity.enabled:
+        from learnloop.content.facet_identity.judge import manifest_identity
+
+        scope = {"scope": scope, "facet_identity": manifest_identity(vault.config, client=facet_identity_client)}
+    return scope
+
+
 def _create_study_map(
     vault: LoadedVault,
     repository: Repository,
@@ -2173,33 +2198,9 @@ def _create_study_map(
     nominator = GraphNominator.for_ingest(
         vault, repository, client_factory=embedding_client_factory,
     )
-    scope: Any = brief.get("scope") if isinstance(brief, dict) else None
-    if nominator is not None:
-        # What the nominator can show the structuring model is run identity:
-        # the switch, its configuration, the registry prompt and the
-        # registry's definitions and index state. Off, the scope (and so the
-        # manifest hash) is the pre-T5 one.
-        scope = {
-            "brief_scope": scope,
-            "graph_nomination": nominator.identity(prompt_version=CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION),
-        }
-    # Facet identity (handoff §4): the judge's identity is run identity, so a
-    # cached run is reused only under the same switch, route and policy. Off,
-    # the scope (and the manifest hash) is the pre-change one.
+    scope = bootstrap_scope(vault, brief, nominator=nominator, facet_identity_client=facet_identity_client)
     one_facet_per_skill = bool(vault.config.facet_identity.enabled)
     synthesis_prompt_version = source_set_synthesis_prompt_version(one_facet_per_skill)
-    if one_facet_per_skill:
-        from learnloop.content.facet_identity.judge import PROMPT_VERSION as _FI_PROMPT, resolve_route
-
-        scope = {
-            "scope": scope,
-            "facet_identity": {
-                "prompt_version": _FI_PROMPT,
-                "route": resolve_route(vault.config, client=facet_identity_client).as_dict(),
-                # With its retired fields: a run cached before a field went is still this request's.
-                "config": identity_dump(vault.config.facet_identity),
-            },
-        }
 
     # 2. immutable manifest BEFORE the agent run.
     provider = getattr(client, "provider_name", None) or getattr(client, "provider_type", None) or "codex"

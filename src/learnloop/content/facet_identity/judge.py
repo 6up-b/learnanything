@@ -1177,6 +1177,21 @@ def resolve_route(
                       reasoning_effort=policy_reasoning_effort(config, ROUTE))
 
 
+def manifest_identity(config: Any, *, client: Any = None) -> dict[str, Any]:
+    """The judge's identity as bootstrap synthesis and append hash it into their manifest (handoff §4), so a
+    cached run is reused only under the same route and policy. The manifest hash is the completed-run cache key:
+    a byte that moves here at a fixed input starts a paid run again (``tests/test_identity_pins.py``)."""
+
+    from learnloop.config.retired import identity_dump
+
+    return {
+        "prompt_version": PROMPT_VERSION,
+        "route": resolve_route(config, client=client).as_dict(),
+        # With its retired fields: a run cached before a field went is still this request's.
+        "config": identity_dump(config.facet_identity),
+    }
+
+
 def build_judge(
     vault: Any, repository: Any, *, owner_id: str, caps: SpendCaps, client: Any = None,
     cancelled: Callable[[], bool] | None = None, input_price: float | None = None,

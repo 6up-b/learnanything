@@ -1,0 +1,851 @@
+# The shape of every type a compared identity dumps whole: field, annotation, default (and retired fields),
+# with the sites that dump it (tests/identity_pins_helpers.py SHAPE_ROOTS). Generated; never edit by hand.
+# Regenerate only with a deliberate bump: uv run python tests/test_identity_pins.py --write
+
+["learnloop.config.schema:AIProviderConfig"]
+sites = ["A22", "A6", "A7", "A8"]
+fields = [
+  "(extra=allow)",
+  "type: str = \"codex_sdk\"",
+  "model: str | None = null",
+  "base_url: str | None = null",
+  "reasoning_effort: str | None = null",
+  "timeout_seconds: int | None = null",
+  "input_modalities: list[str] = []",
+  "subclass learnloop.config.schema:ChatGPTPlanProviderConfig",
+  "subclass learnloop.config.schema:DeciderProviderConfig",
+  "subclass learnloop.config.schema:OpenAICompatibleProviderConfig",
+  "subclass learnloop.config.schema:VoyageContextualEmbeddingProviderConfig",
+  "subclass learnloop.config.schema:_CodexProviderConfig",
+]
+
+["learnloop.config.schema:ChatGPTPlanProviderConfig"]
+sites = ["A22", "A6", "A7", "A8"]
+fields = [
+  "(extra=ignore)",
+  "type: Literal['chatgpt_plan'] = \"chatgpt_plan\"",
+  "model: str | None = null",
+  "base_url: str | None = null",
+  "reasoning_effort: str | None = null",
+  "timeout_seconds: int | None = null",
+  "input_modalities: list[str] = []",
+  "enabled: bool = true",
+  "response_format: Literal['json_schema', 'json_object'] = \"json_schema\"",
+  "usage_limit_pause_minutes: int = 15",
+  "workspace_mode: Literal['tools', 'inline'] = \"inline\"",
+  "max_tool_rounds: int = 16",
+  "max_entry_chars: int = 24000",
+  "max_workspace_chars: int = 400000",
+]
+
+["learnloop.config.schema:CodexHTTPProviderConfig"]
+sites = ["A22", "A6", "A7", "A8"]
+fields = [
+  "(extra=ignore)",
+  "type: Literal['http'] = \"http\"",
+  "model: str | None = null",
+  "base_url: str | None = null",
+  "reasoning_effort: str | None = null",
+  "timeout_seconds: int | None = null",
+  "input_modalities: list[str] = []",
+  "checkout_path: str | None = null",
+  "revision: str | None = null",
+  "startup_command: str | None = null",
+  "startup_timeout_seconds: int | None = null",
+  "healthcheck_timeout_seconds: int | None = null",
+  "reasoning_summary: str | None = null",
+  "sdk_python_path: str | None = null",
+  "sdk_codex_bin: str | None = null",
+  "sdk_launch_command: str | None = null",
+  "healthcheck_path: str | None = null",
+  "authoring_path: str | None = null",
+  "canonical_ingest_path: str | None = null",
+  "grading_path: str | None = null",
+  "tutor_qa_path: str | None = null",
+  "teach_back_path: str | None = null",
+  "teach_back_authoring_path: str | None = null",
+  "misconception_match_path: str | None = null",
+]
+
+["learnloop.config.schema:CodexSDKProviderConfig"]
+sites = ["A22", "A6", "A7", "A8"]
+fields = [
+  "(extra=ignore)",
+  "type: Literal['codex_sdk'] = \"codex_sdk\"",
+  "model: str | None = null",
+  "base_url: str | None = null",
+  "reasoning_effort: str | None = null",
+  "timeout_seconds: int | None = null",
+  "input_modalities: list[str] = []",
+  "checkout_path: str | None = null",
+  "revision: str | None = null",
+  "startup_command: str | None = null",
+  "startup_timeout_seconds: int | None = null",
+  "healthcheck_timeout_seconds: int | None = null",
+  "reasoning_summary: str | None = null",
+  "sdk_python_path: str | None = null",
+  "sdk_codex_bin: str | None = null",
+  "sdk_launch_command: str | None = null",
+  "healthcheck_path: str | None = null",
+  "authoring_path: str | None = null",
+  "canonical_ingest_path: str | None = null",
+  "grading_path: str | None = null",
+  "tutor_qa_path: str | None = null",
+  "teach_back_path: str | None = null",
+  "teach_back_authoring_path: str | None = null",
+  "misconception_match_path: str | None = null",
+]
+
+["learnloop.config.schema:DeciderProviderConfig"]
+sites = ["A22", "A6", "A7", "A8"]
+fields = [
+  "(extra=ignore)",
+  "type: Literal['decider'] = \"decider\"",
+  "model: str | None = null",
+  "base_url: str | None = null",
+  "reasoning_effort: str | None = null",
+  "timeout_seconds: int | None = null",
+  "input_modalities: list[str] = []",
+  "api: Literal['openrouter', 'perplexity'] = \"openrouter\"",
+  "api_key_env: str | None = null",
+  "http_referer: str | None = null",
+  "x_title: str | None = null",
+  "price_per_million_input: float = 0.02",
+  "max_input_tokens: int = 262144",
+]
+
+["learnloop.config.schema:FacetIdentityConfig"]
+sites = ["A1"]
+fields = [
+  "(extra=None)",
+  "enabled: bool = true",
+  "max_group_size: int = 40",
+  "shortlist_top_k: int = 4",
+  "attach_top_k: int = 4",
+  "reword_confirm: bool = true",
+  "max_calls: int = 24",
+  "max_facets: int = 400",
+  "max_pairs: int = 20000",
+  "max_retries: int = 2",
+  "max_total_tokens: int = 600000",
+  "max_cost_usd: float = 0.5",
+  "price_per_million_input: float | None = null",
+  "price_per_million_output: float | None = null",
+  "retired merge_locked_facets: bool = true",
+]
+
+["learnloop.config.schema:GraphNominationConfig"]
+sites = ["A3"]
+fields = [
+  "(extra=None)",
+  "enabled: bool = true",
+  "top_k: int = 5",
+  "embed_new_text: bool = true",
+  "max_query_texts: int = 256",
+  "max_query_calls: int = 8",
+  "max_query_tokens: int = 200000",
+  "max_query_cost_usd: float = 0.05",
+]
+
+["learnloop.config.schema:MasteryConfig"]
+sites = ["C1", "C2"]
+fields = [
+  "(extra=None)",
+  "base_observation_variance: float = 1.0",
+  "sigma2_drift: float = 0.01",
+  "p_max: float = 4.0",
+  "cold_start_prior_logit_variance: float = 3.0",
+  "claim_prior_min_variance: float = 2.0",
+  "claim_fixes_enabled: bool = true",
+  "display_strong_threshold: float = 0.6",
+  "display_developing_threshold: float = 0.35",
+  "irt: MasteryIRTConfig = MasteryIRTConfig({\"b_abs_max\": 4.0, \"b_learning_rate_scale\": 0.2, \"b_max_step\": 0.25, \"b_prior_variance\": 0.25, \"b_var_min\": 0.01, \"difficulty_default\": 0.0, \"difficulty_from_prior\": true, \"difficulty_prior_scale\": 2.5, \"discrimination_default\": 1.0, \"eb_difficulty_enabled\": false, \"enabled\": true, \"max_logit_step\": 4.0, \"mu_abs_max\": 5.0, \"p_clip\": 0.0001, \"priming_b_offset\": 2.0})",
+]
+
+["learnloop.config.schema:MasteryIRTConfig"]
+sites = ["C1", "C2"]
+fields = [
+  "(extra=None)",
+  "enabled: bool = true",
+  "discrimination_default: float = 1.0",
+  "difficulty_default: float = 0.0",
+  "difficulty_from_prior: bool = true",
+  "difficulty_prior_scale: float = 2.5",
+  "b_abs_max: float = 4.0",
+  "p_clip: float = 0.0001",
+  "mu_abs_max: float = 5.0",
+  "max_logit_step: float = 4.0",
+  "priming_b_offset: float = 2.0",
+  "eb_difficulty_enabled: bool = false",
+  "b_prior_variance: float = 0.25",
+  "b_learning_rate_scale: float = 0.2",
+  "b_max_step: float = 0.25",
+  "b_var_min: float = 0.01",
+  "retired discrimination_min: float = 0.2",
+  "retired discrimination_max: float = 3.0",
+]
+
+["learnloop.config.schema:OpenAICompatibleProviderConfig"]
+sites = ["A22", "A6", "A7", "A8"]
+fields = [
+  "(extra=ignore)",
+  "type: Literal['openai_chat'] = \"openai_chat\"",
+  "model: str | None = null",
+  "base_url: str | None = null",
+  "reasoning_effort: str | None = null",
+  "timeout_seconds: int | None = null",
+  "input_modalities: list[str] = []",
+  "api_key_env: str | None = null",
+  "response_format: str | None = null",
+  "thinking: str | None = null",
+  "max_tokens: int | None = null",
+  "subclass learnloop.config.schema:OpenAIEmbeddingProviderConfig",
+  "subclass learnloop.config.schema:OpenRouterProviderConfig",
+]
+
+["learnloop.config.schema:OpenAIEmbeddingProviderConfig"]
+sites = ["A22", "A6", "A7", "A8"]
+fields = [
+  "(extra=ignore)",
+  "type: Literal['openai_embedding'] = \"openai_embedding\"",
+  "model: str = \"qwen/qwen3-embedding-8b\"",
+  "base_url: str = \"https://openrouter.ai/api/v1\"",
+  "reasoning_effort: str | None = null",
+  "timeout_seconds: int | None = null",
+  "input_modalities: list[str] = []",
+  "api_key_env: str = \"OPENROUTER_API_KEY\"",
+  "response_format: str | None = null",
+  "thinking: str | None = null",
+  "max_tokens: int | None = null",
+  "dimensions: int = 4096",
+  "max_input_tokens: int = 32768",
+]
+
+["learnloop.config.schema:OpenRouterProviderConfig"]
+sites = ["A22", "A6", "A7", "A8"]
+fields = [
+  "(extra=ignore)",
+  "type: Literal['openrouter'] = \"openrouter\"",
+  "model: str | None = null",
+  "base_url: str | None = null",
+  "reasoning_effort: str | None = null",
+  "timeout_seconds: int | None = null",
+  "input_modalities: list[str] = []",
+  "api_key_env: str | None = null",
+  "response_format: str | None = null",
+  "thinking: str | None = null",
+  "max_tokens: int | None = null",
+  "http_referer: str | None = null",
+  "x_title: str | None = null",
+]
+
+["learnloop.config.schema:RouterWeights"]
+sites = ["C3", "C6"]
+fields = [
+  "(extra=forbid)",
+  "staged: float = 0.3333333333333333",
+  "decider: float = 0.3333333333333333",
+  "llm: float = 0.3333333333333333",
+]
+
+["learnloop.config.schema:VoyageContextualEmbeddingProviderConfig"]
+sites = ["A22", "A6", "A7", "A8"]
+fields = [
+  "(extra=ignore)",
+  "type: Literal['voyage_contextual_embedding'] = \"voyage_contextual_embedding\"",
+  "model: str = \"voyage-context-4\"",
+  "base_url: str = \"https://api.voyageai.com/v1\"",
+  "reasoning_effort: str | None = null",
+  "timeout_seconds: int | None = null",
+  "input_modalities: list[str] = []",
+  "api_key_env: str = \"VOYAGE_API_KEY\"",
+  "dimensions: int = 1024",
+]
+
+["learnloop.config.schema:_CodexProviderConfig"]
+sites = ["A22", "A6", "A7", "A8"]
+fields = [
+  "(extra=ignore)",
+  "type: str = \"codex_sdk\"",
+  "model: str | None = null",
+  "base_url: str | None = null",
+  "reasoning_effort: str | None = null",
+  "timeout_seconds: int | None = null",
+  "input_modalities: list[str] = []",
+  "checkout_path: str | None = null",
+  "revision: str | None = null",
+  "startup_command: str | None = null",
+  "startup_timeout_seconds: int | None = null",
+  "healthcheck_timeout_seconds: int | None = null",
+  "reasoning_summary: str | None = null",
+  "sdk_python_path: str | None = null",
+  "sdk_codex_bin: str | None = null",
+  "sdk_launch_command: str | None = null",
+  "healthcheck_path: str | None = null",
+  "authoring_path: str | None = null",
+  "canonical_ingest_path: str | None = null",
+  "grading_path: str | None = null",
+  "tutor_qa_path: str | None = null",
+  "teach_back_path: str | None = null",
+  "teach_back_authoring_path: str | None = null",
+  "misconception_match_path: str | None = null",
+  "subclass learnloop.config.schema:CodexHTTPProviderConfig",
+  "subclass learnloop.config.schema:CodexSDKProviderConfig",
+]
+
+["learnloop.content.facet_identity.judge:Pricing"]
+sites = ["A2"]
+fields = [
+  "input_per_million: float | None required",
+  "output_per_million: float | None required",
+  "source: str required",
+]
+
+["learnloop.content.pipeline.ai_contracts:CanonicalIngestContext"]
+sites = ["A13"]
+fields = [
+  "vault_root: str required",
+  "source_kind: Literal['website_page', 'youtube_video', 'arxiv_html', 'textbook_chapter'] required",
+  "canonical_source: dict required",
+  "chunks: list[learnloop.content.pipeline.ai_contracts.SourceChunk] required",
+  "target_subject: str | None = null",
+  "target_learning_object_ids: list[str] = []",
+  "concepts: list[dict] = []",
+  "learning_objects: list[dict] = []",
+  "extraction_plan: ExtractionPlan = \"ExtractionPlan(create_learning_objects_first=True, attach_practice_items=True, attach_concept_edges=True, attach_rubric_drafts=True, allow_generative_practice_items=True, require_source_ref_per_item=True, learning_object_required=True)\"",
+  "instructions: str | None = null",
+]
+
+["learnloop.content.pipeline.ai_contracts:ExtractionPlan"]
+sites = ["A13"]
+fields = [
+  "create_learning_objects_first: bool = true",
+  "attach_practice_items: bool = true",
+  "attach_concept_edges: bool = true",
+  "attach_rubric_drafts: bool = true",
+  "allow_generative_practice_items: bool = true",
+  "require_source_ref_per_item: bool = true",
+  "learning_object_required: bool = true",
+]
+
+["learnloop.content.pipeline.ai_contracts:SourceChunk"]
+sites = ["A13"]
+fields = [
+  "locator: str required",
+  "text: str required",
+  "chunk_kind: Literal['prose', 'heading', 'code', 'math', 'caption'] = \"prose\"",
+  "heading_path: list[str] = []",
+  "label: str | None = null",
+  "ordinal: int = 0",
+]
+
+["learnloop.content.synthesis.ai_contracts:SourceSetSynthesisContext"]
+sites = ["A14"]
+fields = [
+  "source_set_id: str required",
+  "subject_id: str required",
+  "mode: str required",
+  "brief: dict = {}",
+  "unit_inventories: list = []",
+  "exam_profile: dict = {}",
+  "registry_index: dict = {}",
+  "resolved_spans: list = []",
+  "shard_ordinal: int = 0",
+  "shard_count: int = 1",
+  "one_facet_per_skill: bool = false",
+]
+
+["learnloop.content.synthesis.ai_contracts:SourceUnitInventoryContext"]
+sites = ["A15"]
+fields = [
+  "unit_id: str required",
+  "semantic_hash: str required",
+  "role: str required",
+  "inventory_profile: str required",
+  "unit_view: dict = {}",
+]
+
+["learnloop.field.success_head:HeadPriors"]
+sites = ["C2"]
+fields = [
+  "bias_variance: float = 1.0",
+  "ability_mean: float = 1.0",
+  "ability_variance: float = 0.25",
+  "feature_variance: float = 0.25",
+  "tag_variance: float = 0.25",
+  "embedding_variance: float = 0.25",
+  "difficulty_mean: float = -1.0",
+  "difficulty_variance: float = 0.25",
+  "recency_half_life_days: float = 1.0",
+]
+
+["learnloop.field.types:ArmConstants"]
+sites = ["C2"]
+fields = [
+  "general_variance: float = 0.75",
+  "lo_variance: float = 2.25",
+  "practice_gamma: float = 0.2",
+  "offset_variance: float = 0.25",
+  "retrievability_beta: float = 0.5",
+  "hint_step: float = 0.2",
+  "hint_floor: float = 0.2",
+  "early_help_cap: float = 0.3",
+  "signal_scale: float = 1.0",
+  "signal_daily_cap: float = 0.3",
+  "family_variance: float = 0.5",
+]
+
+["learnloop.field.types:ItemFeatures"]
+sites = ["C2p"]
+fields = [
+  "item_id: str required",
+  "lo_id: str required",
+  "observed_at: str required",
+  "subject_id: str = \"default\"",
+  "a: float = 1.0",
+  "b: float = 0.0",
+  "difficulty_source: str = \"authored\"",
+  "difficulty_variance: float = 0.0",
+  "primed: bool = false",
+  "cold: bool = true",
+  "capability: str | None = null",
+  "variant_relation: str | None = null",
+  "family_id: str | None = null",
+  "retrievability: float | None = null",
+  "facet_id: str | None = null",
+  "facet_share: float = 1.0",
+  "variant_distance: float | None = null",
+]
+
+["learnloop.vault.models:ActivityFamily"]
+sites = ["A19"]
+fields = [
+  "(extra=allow)",
+  "schema_version: int = 1",
+  "id: str required",
+  "purpose: Literal['practice'] = \"practice\"",
+  "learning_object_id: str required",
+  "idea_statement: str required",
+  "retrieval_target: str required",
+  "source_kind: Literal['generator', 'ensemble', 'source_anchored', 'authored'] = \"authored\"",
+  "reference: FamilyReference = FamilyReference({\"check\": null, \"verification\": \"unverified\"})",
+  "generator: dict[str, Any] | None = null",
+  "provenance: Provenance = Provenance({\"origin\": \"human\", \"source_refs\": []})",
+  "created_at: str required",
+  "updated_at: str required",
+]
+
+["learnloop.vault.models:Blueprint"]
+sites = ["A4", "B6"]
+fields = [
+  "(extra=allow)",
+  "id: str required",
+  "weight: float = 1.0",
+  "recipes: list[BlueprintRecipe] = []",
+]
+
+["learnloop.vault.models:BlueprintRecipe"]
+sites = ["A4"]
+fields = [
+  "(extra=allow)",
+  "id: str required",
+  "composition: Literal['conjunctive'] = \"conjunctive\"",
+  "all_of: list[RecipeComponent] = []",
+  "any_of: list[RecipeComponent] = []",
+  "integration: RecipeComponent | None = null",
+]
+
+["learnloop.vault.models:CanonicalExercise"]
+sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6"]
+fields = [
+  "(extra=allow)",
+  "source_id: str required",
+  "revision_id: str | None = null",
+  "extraction_id: str required",
+  "span_ids: list[str] required",
+  "label: str | None = null",
+  "relation: Literal['verbatim', 'variant_of'] = \"verbatim\"",
+]
+
+["learnloop.vault.models:Concept"]
+sites = ["B6"]
+fields = [
+  "(extra=allow)",
+  "title: str required",
+  "type: Literal['concept', 'procedure', 'skill', 'misconception'] = \"concept\"",
+  "aliases: list[str] = []",
+  "description: str | None = null",
+  "tags: list[str] = []",
+  "created_at: str required",
+  "updated_at: str required",
+  "id: str | None = null",
+]
+
+["learnloop.vault.models:CriterionTarget"]
+sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6"]
+fields = [
+  "(extra=allow)",
+  "facet: str required",
+  "capability: str required",
+  "role: Literal['primary', 'supporting'] = \"primary\"",
+]
+
+["learnloop.vault.models:DifferingComponent"]
+sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6"]
+fields = [
+  "(extra=allow)",
+  "facet: str required",
+  "capability: str required",
+  "structural_change: str | None = null",
+]
+
+["learnloop.vault.models:DiscriminationProfile"]
+sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6"]
+fields = [
+  "(extra=allow)",
+  "id: str required",
+  "hypothesis: str required",
+  "observable_signature: str required",
+  "misconception_id: str | None = null",
+  "facet_id: str | None = null",
+  "fails_criteria: list[str] = []",
+  "distinguishing_features: list[str] = []",
+  "source: Literal['misconception_registry', 'facet_error_signature', 'authored'] = \"authored\"",
+]
+
+["learnloop.vault.models:ErrorHuntContract"]
+sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6"]
+fields = [
+  "(extra=allow)",
+  "worked_solution_md: str required",
+  "planted_errors: list[PlantedError] = []",
+]
+
+["learnloop.vault.models:ErrorType"]
+sites = ["B6"]
+fields = [
+  "(extra=allow)",
+  "id: str required",
+  "title: str required",
+  "description: str | None = null",
+  "related_concepts: list[str] = []",
+  "severity_default: float = 0.5",
+  "is_misconception: bool = false",
+  "tags: list[str] = []",
+  "created_at: str required",
+  "updated_at: str required",
+]
+
+["learnloop.vault.models:EvidenceFacet"]
+sites = ["A10", "A3", "B6"]
+fields = [
+  "(extra=allow)",
+  "id: str required",
+  "title: str | None = null",
+  "aliases: list[str] = []",
+  "description: str | None = null",
+  "tags: list[str] = []",
+  "concept_id: str | None = null",
+  "kind: Optional[Literal['definition', 'proposition', 'procedure_contract', 'applicability_condition', 'interpretation']] = null",
+  "claim: str | None = null",
+  "preconditions: list[str] = []",
+  "postconditions: list[str] = []",
+  "applicability: list[str] = []",
+  "positive_examples: list[str] = []",
+  "negative_examples: list[str] = []",
+  "non_goals: list[str] = []",
+  "error_signatures: list[str] = []",
+  "instructional_repairs: list[str] = []",
+  "status: Literal['proposed', 'reviewed', 'retired'] = \"reviewed\"",
+  "version: int = 1",
+  "semantic_fingerprint: str | None = null",
+  "provenance: FacetProvenance = FacetProvenance({\"origin\": \"manual\", \"source_refs\": []})",
+]
+
+["learnloop.vault.models:EvidenceFingerprint"]
+sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6"]
+fields = [
+  "(extra=allow)",
+  "source_family: str | None = null",
+  "shared_stimulus_id: str | None = null",
+  "representation: str | None = null",
+  "solution_recipe_family: str | None = null",
+  "answer_structure: str | None = null",
+]
+
+["learnloop.vault.models:FacetProvenance"]
+sites = ["A10", "A3", "B6"]
+fields = [
+  "(extra=allow)",
+  "origin: Literal['sourceset_synthesis', 'manual', 'facet_normalization'] = \"manual\"",
+  "source_refs: list[SourceRef] = []",
+]
+
+["learnloop.vault.models:FamilyReference"]
+sites = ["A19"]
+fields = [
+  "(extra=allow)",
+  "verification: Literal['verified', 'unverified'] = \"unverified\"",
+  "check: str | None = null",
+]
+
+["learnloop.vault.models:GoalExamConfig"]
+sites = ["B7"]
+fields = [
+  "(extra=allow)",
+  "enabled: bool = false",
+  "item_count: int = 20",
+]
+
+["learnloop.vault.models:GoalFacetScope"]
+sites = ["B7"]
+fields = [
+  "(extra=allow)",
+  "concepts: list[str] = []",
+  "facets: list[str] = []",
+]
+
+["learnloop.vault.models:HintPolicy"]
+sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6"]
+fields = [
+  "(extra=allow)",
+  "max_useful_hints: int = 0",
+  "fsrs_rating_cap_by_hint: dict[int | str, str] = {}",
+  "mastery_alpha_dampening_by_hint: dict[int | str, float] = {}",
+  "coverage_surface_dampening_by_hint: dict[int | str, float] = {}",
+]
+
+["learnloop.vault.models:LadderedStemContract"]
+sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6"]
+fields = [
+  "(extra=allow)",
+  "stem_id: str required",
+  "part_index: int required",
+  "part_count: int = 1",
+  "stimulus_md: str | None = null",
+]
+
+["learnloop.vault.models:LearningObject"]
+sites = ["A4", "B6"]
+fields = [
+  "(extra=allow)",
+  "schema_version: int = 1",
+  "id: str required",
+  "title: str required",
+  "subjects: list[str] required",
+  "concept: str required",
+  "knowledge_type: str required",
+  "status: Literal['active', 'dormant', 'resolved'] = \"active\"",
+  "contradicts: str | None = null",
+  "summary: str required",
+  "prerequisites: list[str] = []",
+  "confusables: list[str] = []",
+  "blueprints: list[Blueprint] = []",
+  "difficulty_prior: float | None = null",
+  "difficulty_source: Optional[Literal['author', 'llm_estimate', 'empirical', 'calibrated']] = null",
+  "tags: list[str] = []",
+  "provenance: Provenance = Provenance({\"origin\": \"human\", \"source_refs\": []})",
+  "created_at: str required",
+  "updated_at: str required",
+]
+
+["learnloop.vault.models:PlantedError"]
+sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6"]
+fields = [
+  "(extra=allow)",
+  "id: str required",
+  "step_ref: str required",
+  "source: Literal['misconception_registry', 'facet_error_signature'] required",
+  "error_signature: str required",
+  "required_repair: str required",
+  "misconception_id: str | None = null",
+  "facet_id: str | None = null",
+]
+
+["learnloop.vault.models:PracticeItem"]
+sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6"]
+fields = [
+  "(extra=allow)",
+  "schema_version: int = 1",
+  "id: str required",
+  "learning_object_id: str required",
+  "subjects: list[str] | None = null",
+  "practice_mode: str required",
+  "attempt_types_allowed: list[Literal['independent_attempt', 'hinted_attempt', 'dont_know', 'diagnostic_probe', 'guided_walkthrough', 'reconstruction_after_walkthrough', 'skip', 'self_report', 'open_text', 'exam_evidence', 'teach_back', 'exam_attempt']] = []",
+  "evidence_facets: list[str] = []",
+  "evidence_weights: dict[str, float] = {}",
+  "criterion_facet_weights: dict[str, dict[str, float]] = {}",
+  "trace_contract: TraceContract | None = null",
+  "variant_contract: VariantAuthoringContract | None = null",
+  "teach_back_source: TeachBackSourceContract | None = null",
+  "prompt: str required",
+  "expected_answer: str | dict[str, Any] required",
+  "difficulty: float | None = null",
+  "difficulty_source: Optional[Literal['author', 'llm_estimate', 'empirical', 'calibrated', 'solver_panel']] = null",
+  "expected_minutes: float | None = null exclude_if",
+  "tags: list[str] = []",
+  "hints: list[str] = []",
+  "hint_policy: HintPolicy = HintPolicy({\"coverage_surface_dampening_by_hint\": {}, \"fsrs_rating_cap_by_hint\": {}, \"mastery_alpha_dampening_by_hint\": {}, \"max_useful_hints\": 0})",
+  "retrieval_demand: float | None = null",
+  "transfer_distance: float | None = null",
+  "scaffold_level: float | None = null",
+  "capability: Optional[Literal['retrieval', 'schema_interpretation', 'procedure_execution', 'method_selection', 'coordination']] = null",
+  "task_features: dict[str, Any] | None = null",
+  "task_feature_schema: str | None = null",
+  "surface_family: str | None = null",
+  "evidence_fingerprint: EvidenceFingerprint = EvidenceFingerprint({\"answer_structure\": null, \"representation\": null, \"shared_stimulus_id\": null, \"solution_recipe_family\": null, \"source_family\": null})",
+  "misconception_consistent_answer: str | None = null",
+  "discrimination_profiles: list[DiscriminationProfile] = []",
+  "contrast_of: str | None = null",
+  "differing_component: DifferingComponent | None = null",
+  "error_hunt: ErrorHuntContract | None = null",
+  "laddered_stem: LadderedStemContract | None = null",
+  "repair_targets: list[str] = []",
+  "grading_rubric: Rubric | None = null",
+  "required_method: RequiredMethod | None = null exclude_if",
+  "status: Literal['active', 'retired'] = \"active\"",
+  "status_reason: str | None = null",
+  "provenance: Provenance = Provenance({\"origin\": \"human\", \"source_refs\": []})",
+  "created_at: str required",
+  "updated_at: str required",
+  "family_id: str | None = null",
+  "variant_relation: Optional[Literal['same_target', 'isomorph', 'near', 'far']] = null",
+  "canonical_exercise: CanonicalExercise | None = null exclude_if",
+]
+
+["learnloop.vault.models:Provenance"]
+sites = ["A11-A12", "A19", "A4", "A9", "B1-B3", "B4-B5", "B6"]
+fields = [
+  "(extra=allow)",
+  "origin: Literal['human', 'codex_proposal', 'canonical_extract', 'import', 'probe_remint'] = \"human\"",
+  "source_refs: list[SourceRef] = []",
+]
+
+["learnloop.vault.models:RecipeComponent"]
+sites = ["A4"]
+fields = [
+  "(extra=allow)",
+  "facet: str required",
+  "capability: str required",
+  "modality: Literal['hard', 'path_specific', 'facilitating', 'instructional_order'] = \"hard\"",
+]
+
+["learnloop.vault.models:RequiredMethod"]
+sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6"]
+fields = [
+  "(extra=allow)",
+  "name: str required",
+  "criterion_ids: list[str] = []",
+  "learning_object_id: str | None = null exclude_if",
+  "concept_id: str | None = null exclude_if",
+  "facet_id: str | None = null exclude_if",
+  "statement: Literal['instruction', 'source'] = \"instruction\" exclude_if",
+  "decided_by: Optional[Literal['judgment', 'owner']] = null exclude_if",
+  "judgment_id: str | None = null exclude_if",
+]
+
+["learnloop.vault.models:Rubric"]
+sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6"]
+fields = [
+  "(extra=allow)",
+  "max_points: int = 4",
+  "criteria: list[RubricCriterion] = []",
+  "fatal_errors: list[RubricFatalError] = []",
+]
+
+["learnloop.vault.models:RubricCriterion"]
+sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6"]
+fields = [
+  "(extra=allow)",
+  "id: str required",
+  "points: float required",
+  "description: str required",
+  "tier: Literal['core', 'transfer'] = \"core\"",
+  "targets: list[CriterionTarget] = []",
+  "depends_on: list[str] = []",
+  "correlation_group: str | None = null",
+  "recipe_ids: list[str] = []",
+  "measurement_status: Optional[Literal['direct', 'supporting', 'composite', 'item_local', 'no_canonical_facet']] = null",
+]
+
+["learnloop.vault.models:RubricFatalError"]
+sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6"]
+fields = [
+  "(extra=allow)",
+  "id: str required",
+  "description: str required",
+  "max_grade: int required",
+  "misconception_id: str | None = null",
+]
+
+["learnloop.vault.models:SourceRef"]
+sites = ["A10", "A19", "A3", "B6"]
+fields = [
+  "(extra=allow)",
+  "ref_type: Literal['note', 'canonical_source', 'existing_entity', 'session', 'manual_context'] required",
+  "ref_id: str required",
+  "path: str | None = null",
+  "locator: str | None = null",
+  "quote: str | None = null",
+  "quote_hash: str | None = null",
+  "source_id: str | None = null",
+  "revision_id: str | None = null",
+  "extraction_id: str | None = null",
+  "span_ids: list[str] = []",
+  "span_hash: str | None = null",
+  "section_id: str | None = null",
+  "learning_object_ids: list[str] = []",
+]
+
+["learnloop.vault.models:TeachBackSourceContract"]
+sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6"]
+fields = [
+  "(extra=allow)",
+  "source_practice_item_id: str required",
+  "source_updated_at: str required",
+  "compiler_version: str required",
+  "quest_id: str | None = null",
+  "quest_sentence: str | None = null",
+  "quest_basis: Optional[Literal['explicit_intent', 'exam_goal', 'practice_goal', 'legacy_title', 'provided']] = null",
+  "quest_connection: Literal['connected', 'not_relevant', 'no_quest'] = \"no_quest\"",
+  "authoring_mode: Literal['ai', 'deterministic_fallback'] = \"deterministic_fallback\"",
+]
+
+["learnloop.vault.models:TraceContract"]
+sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6"]
+fields = [
+  "(extra=allow)",
+  "status: Literal['available', 'no_reliable_decomposition'] = \"available\"",
+  "recipes: list[TraceRecipe] = []",
+]
+
+["learnloop.vault.models:TraceRecipe"]
+sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6"]
+fields = [
+  "(extra=allow)",
+  "id: str required",
+  "checkpoints: list[str] = []",
+  "dependencies: dict[str, list[str]] = {}",
+]
+
+["learnloop.vault.models:VariantAuthoringContract"]
+sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6"]
+fields = [
+  "(extra=allow)",
+  "variant_kind: Literal['easier', 'harder', 'rung_shift'] required",
+  "intended_manipulations: list[VariantManipulation] = []",
+  "incidental_changes: list[str] = []",
+  "held_constant: list[str] = []",
+  "preserves_checkpoints: list[str] = []",
+  "deepens_checkpoints: list[str] = []",
+  "drops_checkpoints: list[str] = []",
+]
+
+["learnloop.vault.models:VariantManipulation"]
+sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6"]
+fields = [
+  "(extra=allow)",
+  "axis: str required",
+  "direction: Literal['increase', 'decrease', 'hold'] required",
+  "rationale: str | None = null",
+]

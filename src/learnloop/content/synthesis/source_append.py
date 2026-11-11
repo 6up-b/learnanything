@@ -31,7 +31,6 @@ from pathlib import Path
 from typing import Any
 
 from learnloop.clock import Clock, utc_now_iso
-from learnloop.config.retired import identity_dump
 from learnloop.content.synthesis.ai_contracts import (
     AppendReconciliation,
     AppendReconciliationContext,
@@ -279,14 +278,9 @@ def _append(
         "neighborhood": neighborhood.as_manifest_record(),
     }
     if one_facet_per_skill:
-        from learnloop.content.facet_identity.judge import PROMPT_VERSION as _FI_PROMPT, resolve_route
+        from learnloop.content.facet_identity.judge import manifest_identity
 
-        append_scope["facet_identity"] = {
-            "prompt_version": _FI_PROMPT,
-            "route": resolve_route(vault.config, client=facet_identity_client).as_dict(),
-            # With its retired fields: a run cached before a field went is still this request's.
-            "config": identity_dump(vault.config.facet_identity),
-        }
+        append_scope["facet_identity"] = manifest_identity(vault.config, client=facet_identity_client)
     manifest = build_manifest(
         vault,
         source_set_id=source_set.id,

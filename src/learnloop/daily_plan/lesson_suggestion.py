@@ -501,6 +501,20 @@ def _target(vault: Any, scored: Sequence[LS.ScoredCandidate], seed: str) -> LS.T
     return LS.tiebreak_target(scored, chosen_ref=assignment.variant, tied=tied, margin=RL.EPSILON_TIE_MARGIN)
 
 
+def draw_inputs(config: Any, state: LS.AcceptanceState, context: LS.Context,
+                scored: Sequence[LS.ScoredCandidate]) -> dict[str, Any]:
+    """What the day's draw seed hashes with the day (``LS.seed_for``) and its row stores as ``snapshot_hash``:
+    a byte that moves here at a fixed input draws a different card (``tests/test_identity_pins.py``)."""
+
+    router = config.router
+    return {"version": LS.SUGGESTION_VERSION, "priors_version": LS.PRIORS_VERSION,
+            "context": context.as_dict(), "candidates": [s.candidate.as_dict() for s in scored],
+            "updates": state.updates, "epsilon": router.epsilon_min, "k": router.k,
+            "ceiling": int(router.lesson_suggestions.ceiling_per_day),
+            "mode": router.mode, "weights": router.weights.model_dump(),
+            "algorithm_version": config.algorithms.algorithm_version}
+
+
 def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
                      session_id: str | None = None) -> dict[str, Any] | None:
     """Today's suggestion card, drawing the day's decision on the first call; None when there is none.
@@ -550,12 +564,7 @@ def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
             scored = LS.score(state, context, dated, k=config.k)
             ceiling = int(config.lesson_suggestions.ceiling_per_day)
             shown_today = sum(1 for d in decisions if _shown(d) and d["day"] == today)
-            inputs = {"version": LS.SUGGESTION_VERSION, "priors_version": LS.PRIORS_VERSION,
-                      "context": context.as_dict(), "candidates": [s.candidate.as_dict() for s in scored],
-                      "updates": state.updates, "epsilon": config.epsilon_min, "k": config.k, "ceiling": ceiling,
-                      "mode": config.mode, "weights": config.weights.model_dump(),
-                      "algorithm_version": vault.config.algorithms.algorithm_version}
-            snapshot = LS.canonical_hash(inputs)
+            snapshot = LS.canonical_hash(draw_inputs(vault.config, state, context, scored))
             seed = LS.seed_for(today, snapshot)
             target = _target(vault, scored, seed)
             result = LS.draw(scored, target=target, seed=seed, ceiling_bound=shown_today >= ceiling)
