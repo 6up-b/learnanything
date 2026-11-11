@@ -139,3 +139,23 @@ top-level `[codex]` table, loaded with `normalize_config_input` as `load_config`
 Full values are in the test file. The same script run on this branch's tip gives byte-identical output for every
 row (and on `daadef09dd` a different value for every row). The judge route and the three prompt versions are equal
 at base and tip; only the `config` entry moved.
+
+## 4. Tests and proofs
+
+- Fail-first (`c2b3d2e7a2` = `daadef09dd`'s code plus the new tests): 10 of 12 fail — both synthesis scopes
+  (default and legacy bootstrap, append), both "run completed before arc C is reused" scenarios (bootstrap: a new
+  agent run starts, `reused` is `False`; append likewise), the predictor version hashes (default, legacy), the
+  embedding-compare report name, the config identity helper (absent), and `test_eval_harness`'s restored digests;
+  the two passing ones check the recorded literal and the test's own pre-arc-C reconstruction against the base
+  digests. At this branch's fix all pass, with one more guard (retired fields stay off the models and out of
+  every plain dump).
+- Targeted: `scripts/affected_tests.py --base daadef09dd` selects 1,283 test files (`config/schema.py` is imported
+  nearly everywhere), so an explicit list of 206 files was run instead: every test file naming the config models,
+  `load_config`, the affected predictors, `config_hash` or `version_hash`, plus every synthesis, source-append,
+  placement, forecast, valuation, field, eval-harness, embedding-compare, facet-identity and retired-key file,
+  `test_effective_defaults_golden`, `test_architecture` and `test_test_layout` (`-n 4 -m "not arc_close"`):
+  4,184 passed, 38 skipped, 2 xfailed. Rerun on the final tip: the structural and new files, 73 passed.
+- `ruff check`: clean. `lint-imports --no-cache`: 42 kept, 0 broken.
+- References: `generate_all.py` after the source commit (the new `config/retired.py` note, moved `schema.py`
+  cites), committed; a second run changes nothing. `validate_vault` (2,260 notes), `module_validate` (PASS),
+  `desktop_validate` (324 + 6), `db_validate_reference` (no errors).
