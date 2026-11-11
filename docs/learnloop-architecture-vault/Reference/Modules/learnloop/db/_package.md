@@ -56,7 +56,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] | [[Reference/Modules/learnloop/db/connection#^module-purpose|purpose]] | `ACTIVE` | 181 | 252 |
 | [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]] | [[Reference/Modules/learnloop/db/copies#^module-purpose|purpose]] | `ACTIVE` | 10 | 67 |
 | [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] | [[Reference/Modules/learnloop/db/migrate#^module-purpose|purpose]] | `ACTIVE` | 10 | 91 |
-| [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 398 | 729 |
+| [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 395 | 723 |
 | [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] | [[Reference/Modules/learnloop/db/scopes#^module-purpose|purpose]] | `ACTIVE` | 16 | 5 |
 | [[Reference/Modules/learnloop/db/storage|learnloop.db.storage]] | [[Reference/Modules/learnloop/db/storage#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
 | [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] | [[Reference/Modules/learnloop/db/table_roles#^module-purpose|purpose]] | `ACTIVE` | 6 | 85 |
@@ -79,15 +79,15 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 65 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 48 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 27 static module edges
-- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 26 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 26 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 25 static module edges
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 25 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 24 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 21 static module edges
-- [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 19 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 19 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 19 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 18 static module edges
+- [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 17 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 17 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 16 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 16 static module edges
@@ -141,24 +141,24 @@ flowchart LR
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_cli["learnloop.cli"]
-    n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_instructional["learnloop.instructional"]
+    n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_learner["learnloop.learner"]
-    n_learnloop_curriculum["learnloop.curriculum"]
     n_learnloop_db_stores["learnloop.db.stores"]
+    n_learnloop_ops["learnloop.ops"]
     n_learnloop_source_retrieval -->|65| center
     n_learnloop_diagnosis -->|48| center
     n_learnloop_cli -->|27| center
-    n_learnloop_substrate -->|26| center
     n_learnloop_sidecar_handlers -->|26| center
     n_learnloop_instructional -->|25| center
+    n_learnloop_substrate -->|25| center
     n_learnloop_scheduling -->|24| center
     n_learnloop_learner -->|21| center
-    n_learnloop_curriculum -->|19| center
     n_learnloop_db_stores -->|5| center
     center -->|14| n_learnloop_db_stores
+    n_learnloop_ops -->|19| center
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

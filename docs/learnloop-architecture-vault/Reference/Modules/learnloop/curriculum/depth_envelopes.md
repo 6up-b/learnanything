@@ -98,7 +98,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_p3_journeys.py](../../../../../../tests/test_p3_journeys.py) — imports consumer [[Reference/Modules/learnloop/curriculum/commitment_arcs|learnloop.curriculum.commitment_arcs]]
 - [tests/test_depth_transition.py](../../../../../../tests/test_depth_transition.py) — imports consumer [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]]
 - [tests/test_golden_path_assessment.py](../../../../../../tests/test_golden_path_assessment.py) — imports consumer [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]]
-- [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — imports consumer [[Reference/Modules/learnloop/curriculum/golden_path_restoration|learnloop.curriculum.golden_path_restoration]]
 
 ## Modification guidance
 

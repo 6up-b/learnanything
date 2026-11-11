@@ -1215,13 +1215,11 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/curriculum/depth_rungs|learnloop.curriculum.depth_rungs]] — imports `Repository`
 - [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]] — imports `Repository`
 - [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]] — imports `Repository`
-- [[Reference/Modules/learnloop/curriculum/golden_path_compose|learnloop.curriculum.golden_path_compose]] — imports `Repository`
 - [[Reference/Modules/learnloop/curriculum/golden_path_confirm|learnloop.curriculum.golden_path_confirm]] — imports `Repository`
 - [[Reference/Modules/learnloop/curriculum/golden_path_restoration|learnloop.curriculum.golden_path_restoration]] — imports `Repository`
 - [[Reference/Modules/learnloop/curriculum/golden_path_run|learnloop.curriculum.golden_path_run]] — imports `Repository`
 - [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] — imports `Repository`
 - [[Reference/Modules/learnloop/curriculum/integration_backfill|learnloop.curriculum.integration_backfill]] — imports `Repository`
-- [[Reference/Modules/learnloop/curriculum/pattern_ladder|learnloop.curriculum.pattern_ladder]] — imports `Repository`
 - [[Reference/Modules/learnloop/curriculum/rung_backfill|learnloop.curriculum.rung_backfill]] — imports `Repository`
 - [[Reference/Modules/learnloop/curriculum/task_blueprints|learnloop.curriculum.task_blueprints]] — imports `Repository`
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `Repository`
@@ -1498,7 +1496,6 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] — imports `Repository`
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `PracticeItemState`, `Repository`
 - [[Reference/Modules/learnloop/substrate/surface_mint|learnloop.substrate.surface_mint]] — imports `Repository`
-- [[Reference/Modules/learnloop/substrate/surface_pool|learnloop.substrate.surface_pool]] — imports `Repository`
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `Repository`
 - [[Reference/Modules/learnloop/tutor/durable_promotion|learnloop.tutor.durable_promotion]] — imports `Repository`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `Repository`
@@ -1578,7 +1575,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 393 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 390 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1681,7 +1678,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/router_r2a_serving_helpers.py](../../../../../../tests/router_r2a_serving_helpers.py) — direct import
 - [tests/router_staged_p2_helpers.py](../../../../../../tests/router_staged_p2_helpers.py) — direct import
 - [tests/section_coverage_fixtures.py](../../../../../../tests/section_coverage_fixtures.py) — direct import
-- [tests/sidecar_golden_path_assessment_helpers.py](../../../../../../tests/sidecar_golden_path_assessment_helpers.py) — direct import
 - [tests/sidecar_quick_add_helpers.py](../../../../../../tests/sidecar_quick_add_helpers.py) — direct import
 - [tests/sidecar_reader_helpers.py](../../../../../../tests/sidecar_reader_helpers.py) — direct import
 - [tests/sidecar_reader_p3_helpers.py](../../../../../../tests/sidecar_reader_p3_helpers.py) — direct import
@@ -2150,8 +2146,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_deactivating_a_practised_learning_object_is_still_invalid`
   - `test_independent_surface_groups_and_mass_no_longer_lock_a_facet`
   - `test_rename_alias_is_always_sanctioned`
-- [tests/test_daily_loop_golden_path_lifecycle.py](../../../../../../tests/test_daily_loop_golden_path_lifecycle.py) — direct import
-  - `test_assess_open_refuses_a_parked_lo_without_burning_the_surface`
 - [tests/test_daily_loop_lo_lifecycle_serving.py](../../../../../../tests/test_daily_loop_lo_lifecycle_serving.py) — direct import
   - `test_exam_start_does_not_administer_items_of_an_lo_put_away_after_reservation`
 - [tests/test_daily_loop_reader_authored_practice.py](../../../../../../tests/test_daily_loop_reader_authored_practice.py) — direct import
@@ -2793,8 +2787,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_reject_accepted_concept_create_blocks_when_referenced`
   - `test_reject_accepted_concept_create_removes_concept`
   - `test_reject_proposal_item_does_not_mutate_yaml`
-- [tests/test_pattern_ladder.py](../../../../../../tests/test_pattern_ladder.py) — direct import
-  - `test_kill_resume_mid_ladder_rebuilds_position_from_events`
 - [tests/test_persistence_open.py](../../../../../../tests/test_persistence_open.py) — direct import
   - `test_repository_attach_can_open_a_writable_scratch_copy`
   - `test_repository_attach_skips_migrations_and_can_be_physically_read_only`
@@ -3301,7 +3293,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_video_renderer_request_completes_through_the_queue`
 - [tests/test_sidecar_append.py](../../../../../../tests/test_sidecar_append.py) — direct import
   - `test_list_source_conflicts_enriches_extraction_ids`
-- [tests/test_sidecar_blueprint_picker.py](../../../../../../tests/test_sidecar_blueprint_picker.py) — direct import
 - [tests/test_sidecar_close_cancels_jobs.py](../../../../../../tests/test_sidecar_close_cancels_jobs.py) — direct import
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — direct import
   - `test_cached_submission_recovery_precedes_ended_session_and_removed_item_checks`
@@ -3326,8 +3317,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_uses_full_intervention_followup_policy`
   - `test_stale_practice_acknowledgement_preserves_newer_checkpoint`
   - `test_submission_that_loses_a_commit_race_answers_with_the_winner`
-- [tests/test_sidecar_golden_path_assessment.py](../../../../../../tests/test_sidecar_golden_path_assessment.py) — direct import
-  - `test_practice_only_assess_open_returns_stable_error`
 - [tests/test_sidecar_idle_threads.py](../../../../../../tests/test_sidecar_idle_threads.py) — direct import
   - `test_the_lease_heartbeat_ends_when_its_last_lease_is_dropped`
 - [tests/test_sidecar_ingest_m3.py](../../../../../../tests/test_sidecar_ingest_m3.py) — direct import
@@ -3447,7 +3436,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_seen_stem_backfill_embeds_retired_and_earlier_texts_only_explicitly`
   - `test_without_vectors_the_embedding_arms_abstain_and_say_so`
 - [tests/test_surface_mint.py](../../../../../../tests/test_surface_mint.py) — direct import
-- [tests/test_surface_pool.py](../../../../../../tests/test_surface_pool.py) — direct import
 - [tests/test_surfaced_belief_corrections.py](../../../../../../tests/test_surfaced_belief_corrections.py) — direct import
 - [tests/test_surprise.py](../../../../../../tests/test_surprise.py) — direct import
 - [tests/test_synthesis_manifests.py](../../../../../../tests/test_synthesis_manifests.py) — direct import

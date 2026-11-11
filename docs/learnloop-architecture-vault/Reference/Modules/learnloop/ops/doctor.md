@@ -339,6 +339,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_head_fixture_predecessor_to_successor_path`
 - [tests/test_registry_audit.py](../../../../../../tests/test_registry_audit.py) — direct import
   - `test_a_stored_row_for_a_removed_spec_stays_readable`
+  - `test_a_stored_row_of_a_removed_parameter_still_loads`
 - [tests/test_regrade_contract_upgrade.py](../../../../../../tests/test_regrade_contract_upgrade.py) — direct import
   - `test_an_upgrade_interrupted_after_publication_is_resumed`
   - `test_head_fixture_predecessor_to_successor_path`

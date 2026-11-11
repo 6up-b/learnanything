@@ -24,7 +24,6 @@ source_paths:
   - "src/learnloop/reader/reader_authoring.py"
   - "src/learnloop/substrate/activities.py"
   - "src/learnloop/substrate/compat/activity_backfill.py"
-  - "src/learnloop/substrate/surface_pool.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -100,7 +99,6 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/substrate/activities.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
-- `src/learnloop/substrate/surface_pool.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
