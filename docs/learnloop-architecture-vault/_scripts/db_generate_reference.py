@@ -183,6 +183,7 @@ PURPOSE_OVERRIDES: dict[str, str] = {
 
 STATUS_OVERRIDES: dict[str, tuple[str, str]] = {
     "practice_item_state": ("active-historical-seam", "Still read and written while activity_card_state is only a partial successor."),
+    "hypothesis_sets": ("active", "Live despite its COMPAT role: the probe paths write locked hypothesis sets and read them back. The role is on the owner's J1 table list."),
     "controller_shadow_predictions": ("dormant-shadow", "Executable telemetry only; schema-enforced authority is always none."),
     "controller_prequential_reports": ("dormant-shadow", "Evaluation over shadow telemetry; it has no live selection authority."),
     "shadow_component_events": ("dormant-shadow", "Deliberately firewalled component lifecycle telemetry."),

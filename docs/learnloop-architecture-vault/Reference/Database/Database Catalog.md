@@ -39,18 +39,18 @@ This is the exhaustive map of the 397 user tables at migration head 254. Use [[T
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 166 |
 | [[Table Roles#Derived|`derived`]] | 26 |
 | [[Table Roles#Receipt|`receipt`]] | 96 |
-| [[Table Roles#Workflow|`workflow`]] | 99 |
-| [[Table Roles#Compat|`compat`]] | 10 |
+| [[Table Roles#Workflow|`workflow`]] | 100 |
+| [[Table Roles#Compat|`compat`]] | 9 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 384 |
+| `active` | 385 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
-| `legacy-preserved` | 6 |
+| `legacy-preserved` | 5 |
 
 ## DERIVED tables
 
@@ -143,7 +143,7 @@ Learner beliefs, mastery, recall, and capability projections. This is a navigati
 - [[Reference/Database/Tables/facet_recall_state|facet_recall_state]] — `derived` · `active` · Materializes canonical per-facet recall evidence and uncertainty for the current knowledge model. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `facet_id`, `practice_item_id`, `algorithm_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/facet_registry_saves|facet_registry_saves]] — `workflow` · `active` · Gives facet registry save a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `status`, `abandoned_at`, making the operational relationship explicit.
 - [[Reference/Database/Tables/facet_uncertainty|facet_uncertainty]] — `compat` · `legacy-preserved` · Gives facet uncertainty a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It keeps an older vault or replay contract readable while new writes use the refactored path. Rows bind `learning_object_id`, `facet_id`, `opened_by_attempt_id`, making the operational relationship explicit.
-- [[Reference/Database/Tables/hypothesis_sets|hypothesis_sets]] — `compat` · `legacy-preserved` · Gives hypothesis set a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It keeps an older vault or replay contract readable while new writes use the refactored path. Rows bind `learning_object_id`, `probe_phase_id`, `algorithm_version`, making the operational relationship explicit.
+- [[Reference/Database/Tables/hypothesis_sets|hypothesis_sets]] — `compat` · `active` · Gives hypothesis set a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It keeps an older vault or replay contract readable while new writes use the refactored path. Rows bind `learning_object_id`, `probe_phase_id`, `algorithm_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/intervention_needs|intervention_needs]] — `workflow` · `active` · Queues an identified supply gap for intervention so learner-facing mastery and capability decisions use a reproducible evidence projection. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `attempt_id`, `learning_object_id`, `practice_item_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/learner_claims|learner_claims]] — `raw_ledger` · `active` · Stores learner-supplied prior claims, including the optional initialization-wizard claim. It supplies replay-stable input rather than a disposable cache. Rows bind `scope_id`, `claim_type`, `scope_type`, making the operational relationship explicit.
 - [[Reference/Database/Tables/learner_gap_check_advances|learner_gap_check_advances]] — `receipt` · `active` · Gives learner gap check advance a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `gap_id`, `learning_object_id`, `assumption_id`, making the operational relationship explicit.
@@ -514,7 +514,7 @@ Maintenance, generic observations, and optional generated media. This is a navig
 - [[Reference/Database/Tables/practice_eval_queries|practice_eval_queries]] — `workflow` · `active` · Gives practice eval querie a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `seed_id`, `model_id`, `run_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/practice_index_evaluations|practice_index_evaluations]] — `receipt` · `active` · Gives practice index evaluation a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `run_id`, `manifest_hash`, `winner`, making the operational relationship explicit.
 - [[Reference/Database/Tables/practice_index_proposals|practice_index_proposals]] — `receipt` · `active` · Gives practice index proposal a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `query_id`, `rerank_status`, `algorithm_version`, making the operational relationship explicit.
-- [[Reference/Database/Tables/practice_item_state|practice_item_state]] — `compat` · `active-historical-seam` · Preserves the still-used historical practice-item scheduling seam while card state remains a partial successor. It keeps an older vault or replay contract readable while new writes use the refactored path. Rows bind `practice_item_id`, `content_hash`, `difficulty`, making the operational relationship explicit.
+- [[Reference/Database/Tables/practice_item_state|practice_item_state]] — `workflow` · `active-historical-seam` · Preserves the still-used historical practice-item scheduling seam while card state remains a partial successor. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `practice_item_id`, `content_hash`, `difficulty`, making the operational relationship explicit.
 - [[Reference/Database/Tables/practice_pool_events|practice_pool_events]] — `receipt` · `active` · Preserves an append-only chronology of practice pool so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `pool_id`, `surface_slug`, `kind`, making the operational relationship explicit.
 - [[Reference/Database/Tables/practice_pool_surfaces|practice_pool_surfaces]] — `raw_ledger` · `active` · Gives practice pool surface a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `pool_id`, `surface_id`, `admission_status`, making the operational relationship explicit.
 - [[Reference/Database/Tables/practice_pools|practice_pools]] — `raw_ledger` · `active` · Gives practice pool a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `blueprint_version_id`, `content_hash`, `pool_slug`, making the operational relationship explicit.

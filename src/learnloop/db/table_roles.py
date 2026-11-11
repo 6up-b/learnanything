@@ -10,7 +10,8 @@ state whose only replay input is co-located in the same row.  Those rows are
 inputs to later computation and must never be cleared by the rebuild umbrella.
 ``RECEIPT`` is reserved for historical audit/decision artifacts, while mutable
 queues, sessions, leases, and other in-flight lifecycle state are
-``WORKFLOW``.  Only state intended to be cleared and recomputed is
+``WORKFLOW``, as is live overwritten state that rebuild must not clear
+wholesale (``practice_item_state``).  Only state intended to be cleared and recomputed is
 ``DERIVED``.  ``COMPAT`` tables are frozen legacy or abandoned seams retained
 for existing vaults.
 """
@@ -487,9 +488,15 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # Content-addressed copy of each practice-item revision the scheduler
     # scored; selection decision features join to it by content hash.
     ("practice_item_snapshots", TableRole.RECEIPT),
-    # Migration 075 defines this as the active legacy compatibility projection;
-    # activity_card_state is its partial successor.
-    ("practice_item_state", TableRole.COMPAT),
+    # Live overwritten state, not a frozen seam: every attempt writes the item's
+    # FSRS head here and the objective reads it. Not DERIVED, because clearing
+    # it would lose ``active``, the serving lifecycle that state sync,
+    # retirement and the probe lifecycle set outside the attempt ledger; per-LO
+    # replay resets the rest and keeps ``active`` (substrate/replay.py). Not a
+    # ledger or receipt either: rows are overwritten, so dataset export and
+    # adjudication evidence leave it out. activity_card_state is its partial
+    # successor.
+    ("practice_item_state", TableRole.WORKFLOW),
     ("practice_pool_events", TableRole.RECEIPT),
     ("practice_pool_surfaces", TableRole.RAW_LEDGER),
     ("practice_pools", TableRole.RAW_LEDGER),

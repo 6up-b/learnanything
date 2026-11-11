@@ -9,7 +9,7 @@ aliases:
   - "table hypothesis_sets"
 table_name: "hypothesis_sets"
 table_role: "compat"
-functionality_status: "legacy-preserved"
+functionality_status: "active"
 domain_family: "learner-state"
 introduced_in: "001_initial.sql"
 generated: true
@@ -27,14 +27,14 @@ source_paths:
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/compat"
-  - "learnloop/status/legacy-preserved"
+  - "learnloop/status/active"
   - "learnloop/domain/learner-state"
 ---
 
 # `hypothesis_sets`
 
-> [!warning] Legacy Preserved
-> Frozen compatibility state remains readable for older vaults and is not a deletion candidate.
+> [!info] Active
+> Live despite its COMPAT role: the probe paths write locked hypothesis sets and read them back. The role is on the owner's J1 table list.
 
 ## Why it exists
 
@@ -45,7 +45,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 ## Persistence and lifecycle contract
 
 - **Role:** `compat` — Frozen compatibility state retained for old vaults or an incomplete replacement seam.
-- **Functionality status:** `legacy-preserved`.
+- **Functionality status:** `active`.
 - **Introduced by:** `migrations/001_initial.sql`.
 - **Schema touched by:** `001_initial.sql`, `121_causal_probe_coherence.sql`, `123_causal_prior_basis.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.

@@ -8,7 +8,7 @@ aliases:
   - "state.sqlite practice_item_state"
   - "table practice_item_state"
 table_name: "practice_item_state"
-table_role: "compat"
+table_role: "workflow"
 functionality_status: "active-historical-seam"
 domain_family: "operations"
 introduced_in: "001_initial.sql"
@@ -29,7 +29,7 @@ source_paths:
   - "src/learnloop/content/authoring/practice_generation.py"
 tags:
   - "learnloop/database/table"
-  - "learnloop/database/role/compat"
+  - "learnloop/database/role/workflow"
   - "learnloop/status/active-historical-seam"
   - "learnloop/domain/operations"
 ---
@@ -41,13 +41,13 @@ tags:
 
 ## Why it exists
 
-Preserves the still-used historical practice-item scheduling seam while card state remains a partial successor. It keeps an older vault or replay contract readable while new writes use the refactored path. Rows bind `practice_item_id`, `content_hash`, `difficulty`, making the operational relationship explicit. ^table-purpose
+Preserves the still-used historical practice-item scheduling seam while card state remains a partial successor. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `practice_item_id`, `content_hash`, `difficulty`, making the operational relationship explicit. ^table-purpose
 
-It belongs to the **operations** navigation family. The family context lives in [[Database Catalog#Operations]]. Its persistence behavior follows [[Table Roles#Compat]].
+It belongs to the **operations** navigation family. The family context lives in [[Database Catalog#Operations]]. Its persistence behavior follows [[Table Roles#Workflow]].
 
 ## Persistence and lifecycle contract
 
-- **Role:** `compat` — Frozen compatibility state retained for old vaults or an incomplete replacement seam.
+- **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active-historical-seam`.
 - **Introduced by:** `migrations/001_initial.sql`.
 - **Schema touched by:** `001_initial.sql`, `075_card_lineage_state.sql`.
@@ -168,7 +168,6 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 2. Update `src/learnloop/db/table_roles.py` in the same change. A new table without a role fails the migration-head registry test.
 3. Keep SQL access at the repository/store boundary; put policy in the domain callers listed above.
 4. Preserve append-only triggers and historical rows. Do not infer that an empty fixture table is safe to drop.
-5. Compatibility retirement requires production-vault telemetry and an explicit owner decision; code detachment and schema changes are separate gates.
 
 ## Live schema DDL
 
@@ -192,7 +191,7 @@ CREATE TABLE practice_item_state (
 ## Related notes
 
 - [[Database Catalog#Operations|Sibling tables in this family]]
-- [[Table Roles#Compat|compat policy]]
+- [[Table Roles#Workflow|workflow policy]]
 - [[Rebuild Ownership]]
 - [[State and Persistence]]
 - [[Vault Lifecycle]]

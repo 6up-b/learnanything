@@ -185,6 +185,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_head_163_database_upgrades_to_snapshots_and_fk_free_adjudications`
 - [tests/test_pfc_unassessed_readers.py](../../../../../../tests/test_pfc_unassessed_readers.py) — direct import
   - `test_retention_reads_the_pfc_flag_as_informational`
+- [tests/test_table_roles.py](../../../../../../tests/test_table_roles.py) — direct import
+  - `test_the_role_consumers_treat_compat_and_workflow_alike`
 
 ## Modification guidance
 

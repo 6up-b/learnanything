@@ -64,4 +64,22 @@ def test_mixed_authoritative_artifacts_are_not_claimed_as_rebuildable():
     assert role_for_table("probe_item_calibrations") is TableRole.RAW_LEDGER
     assert role_for_table("soft_kinship_features") is TableRole.RAW_LEDGER
     assert role_for_table("source_block_health") is TableRole.RAW_LEDGER
-    assert role_for_table("practice_item_state") is TableRole.COMPAT
+    assert role_for_table("practice_item_state") is TableRole.WORKFLOW
+
+
+def test_the_role_consumers_treat_compat_and_workflow_alike():
+    """J1 moved ``practice_item_state`` from COMPAT to WORKFLOW without changing behaviour.
+
+    Three readers of the registry act on a role: rebuild clears and replays only DERIVED tables, and dataset export
+    and adjudication evidence take only RAW_LEDGER and RECEIPT tables (export adds a fixed workflow list). Neither
+    COMPAT nor WORKFLOW is in any of those sets, so a move between them changes no output; the other readers only
+    check that a table is registered.
+    """
+
+    from learnloop.db.stores.collection import _EVIDENCE_ROLES
+    from learnloop.substrate.dataset import _CAPTURED_WORKFLOW_TABLES
+
+    for acting in ({TableRole.DERIVED}, set(_EVIDENCE_ROLES)):
+        assert TableRole.COMPAT not in acting and TableRole.WORKFLOW not in acting
+    assert set(_EVIDENCE_ROLES) == {TableRole.RAW_LEDGER, TableRole.RECEIPT}
+    assert "practice_item_state" not in _CAPTURED_WORKFLOW_TABLES
