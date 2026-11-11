@@ -136,7 +136,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_codex_estimate_falls_back_to_input_plus_output_tokens`
   - `test_codex_route_dry_run_shows_an_estimate_without_a_price`
   - `test_codex_run_still_stops_a_runaway_at_the_call_cap`
-  - `test_fake_codex_run_succeeds_and_receipts_carry_estimated_only`
   - `test_route_availability_never_changes_preview_model`
 - [tests/test_integration_daily_loop_field.py](../../../../../../tests/test_integration_daily_loop_field.py) — direct import
   - `test_retired_reader_card_is_never_a_family_candidate`

@@ -279,7 +279,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_checkpoint_ladder_and_window_counts_are_recorded`
   - `test_codex_timeout_releases_lease_and_continues_draining`
   - `test_default_inventory_client_defaults_to_codex_and_errors_when_unavailable`
-  - `test_default_synthesis_client_gives_codex_sdk_an_eight_minute_timeout`
   - `test_delete_finished_ingest_batches_removes_queue_history_only`
   - `test_dependency_failure_blocks_downstream`
   - `test_explicit_transcription_route_uses_named_profile_without_legacy_switch`

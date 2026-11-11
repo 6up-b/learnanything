@@ -174,8 +174,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_compare_harness_uses_the_policy_budget_and_retries_a_truncation`
 - [tests/test_pf_cli.py](../../../../../../tests/test_pf_cli.py) — direct import
   - `test_list_routes_resolve_in_order_and_fall_back_to_the_active_provider`
-- [tests/test_pf_generation.py](../../../../../../tests/test_pf_generation.py) — direct import
-  - `test_a_codex_pf_turn_starts_outside_the_vault_with_tools_off_and_never_reuses_unisolated_work`
 - [tests/test_pf_verify_extraction_parity.py](../../../../../../tests/test_pf_verify_extraction_parity.py) — direct import
 - [tests/test_recurrence_benchmarks.py](../../../../../../tests/test_recurrence_benchmarks.py) — direct import
   - `test_b1_and_b3_run_through_the_real_phase_5a_harness_once_merged`

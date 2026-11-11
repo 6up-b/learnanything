@@ -18,7 +18,6 @@ source_paths:
   - "tests/test_config_refactor.py"
   - "src/learnloop/ai/plan_fallback.py"
   - "src/learnloop/attempts/grading_support.py"
-  - "tests/codex_cli_fakes.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
@@ -30,6 +29,7 @@ source_paths:
   - "tests/practice_index_fakes.py"
   - "tests/reader_source_identity_guard_helpers.py"
   - "tests/router_model_fakes.py"
+  - "tests/rw5c_fixtures.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/proof-check"
@@ -50,7 +50,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `proof_check.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for mvp-0.20's own-route rules. On, the blind grader's prompt grades every criterion on the learner's own route and marks down only by quoting the failing step, and a server-side rule leaves a mark-down on a divergent route that quotes nothing from the learner's words, an omitted criterion, or one the grader declares it cannot verify unassessed (holding the grade for review when nothing is then assessed and nothing validated) and appends the verdict to judgment_ledger: one grading call. Off, new answers grade as mvp-0.19 now does (whose grading is mvp-0.16's: mvp-0.17's separate route check was removed on 2026-10-13). Dormant below mvp-0.20; replay reads the blind record and evidence rows, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3307`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/attempts/grading_support.py:257` |
+| `proof_check.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for mvp-0.20's own-route rules. On, the blind grader's prompt grades every criterion on the learner's own route and marks down only by quoting the failing step, and a server-side rule leaves a mark-down on a divergent route that quotes nothing from the learner's words, an omitted criterion, or one the grader declares it cannot verify unassessed (holding the grade for review when nothing is then assessed and nothing validated) and appends the verdict to judgment_ledger: one grading call. Off, new answers grade as mvp-0.19 now does (whose grading is mvp-0.16's: mvp-0.17's separate route check was removed on 2026-10-13). Dormant below mvp-0.20; replay reads the blind record and evidence rows, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3301`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/attempts/grading_support.py:257` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Every effective default is one line of `tests/goldens/effective_defaults.toml`, so a changed default shows up in review, where the `algorithms.algorithm_version` decision is made, instead of every default being dumped into each vault.
@@ -59,7 +59,6 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
-- `tests/codex_cli_fakes.py`
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
@@ -71,6 +70,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/practice_index_fakes.py`
 - `tests/reader_source_identity_guard_helpers.py`
 - `tests/router_model_fakes.py`
+- `tests/rw5c_fixtures.py`
 
 ## Extension and modification guidance
 

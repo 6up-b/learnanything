@@ -21,7 +21,6 @@ source_paths:
   - "src/learnloop/placement/decisions.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/cli/probability_arms.py"
-  - "tests/codex_cli_fakes.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
@@ -33,6 +32,7 @@ source_paths:
   - "tests/pfc_unassessed_readers_helpers.py"
   - "tests/practice_index_fakes.py"
   - "tests/quick_check_helpers.py"
+  - "tests/reader_source_identity_guard_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/field"
@@ -53,11 +53,11 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `field.enabled` | `false` | boolean | modeled default or validator seed | Allows explicitly requested paid field experiments; never changes serving or evidence. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3597`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/cli/field_classification.py:101` |
-| `field.active_predictor` | `"mastery_ekf"` | string | explicit template decision | Pins the serving interface to mastery_ekf in F1; challengers require a later algorithm successor. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3598`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/placement/decisions.py:80` |
-| `field.legacy_fallback` | `"exclude"` | string | explicit template decision | Excludes missing historical attribution revisions by default; current_content is explicit and labeled reconstructed. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3599`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/field/outcomes.py:241` |
-| `field.question_classification_enabled` | `false` | boolean | explicit template decision | Additional opt-in for bounded classification of missing question metadata; replay only reads cached output. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3600`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/cli/field_classification.py:101` |
-| `field.llm_probability_enabled` | `false` | boolean | explicit template decision | Additional opt-in for offline probability preparation; ordinary replay uses a store-free cached arm and never calls a model. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3601`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/cli/probability_arms.py:154` |
+| `field.enabled` | `false` | boolean | modeled default or validator seed | Allows explicitly requested paid field experiments; never changes serving or evidence. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3591`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/cli/field_classification.py:101` |
+| `field.active_predictor` | `"mastery_ekf"` | string | explicit template decision | Pins the serving interface to mastery_ekf in F1; challengers require a later algorithm successor. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3592`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/placement/decisions.py:80` |
+| `field.legacy_fallback` | `"exclude"` | string | explicit template decision | Excludes missing historical attribution revisions by default; current_content is explicit and labeled reconstructed. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3593`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/field/outcomes.py:241` |
+| `field.question_classification_enabled` | `false` | boolean | explicit template decision | Additional opt-in for bounded classification of missing question metadata; replay only reads cached output. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3594`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/cli/field_classification.py:101` |
+| `field.llm_probability_enabled` | `false` | boolean | explicit template decision | Additional opt-in for offline probability preparation; ordinary replay uses a store-free cached arm and never calls a model. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3595`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/cli/probability_arms.py:154` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Every effective default is one line of `tests/goldens/effective_defaults.toml`, so a changed default shows up in review, where the `algorithms.algorithm_version` decision is made, instead of every default being dumped into each vault.
@@ -66,7 +66,6 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
-- `tests/codex_cli_fakes.py`
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
@@ -78,6 +77,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/pfc_unassessed_readers_helpers.py`
 - `tests/practice_index_fakes.py`
 - `tests/quick_check_helpers.py`
+- `tests/reader_source_identity_guard_helpers.py`
 
 ## Extension and modification guidance
 

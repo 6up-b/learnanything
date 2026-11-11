@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/experiments/contextual_embeddings/live.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/live.py) |
-| Source lines | 270 |
+| Source lines | 267 |
 | Owning package | [[Reference/Modules/learnloop/experiments/contextual_embeddings/_package|learnloop.experiments.contextual_embeddings]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -84,7 +84,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] — imports `DEFAULT_EMBEDDING_PROVIDER`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/adapters|learnloop.experiments.contextual_embeddings.adapters]] — imports `Receipts`, `UrllibTransport`, `VectorStore`; calls `Receipts`, `UrllibTransport`, `VectorStore`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/bank|learnloop.experiments.contextual_embeddings.bank]] — imports `logged_questions`; calls `logged_questions`
-- [[Reference/Modules/learnloop/experiments/contextual_embeddings/boundary|learnloop.experiments.contextual_embeddings.boundary]] — imports `classify`, `quiet_provider_logs`, `require_codex_lockdown`, `require_no_codex_roles`, `safe_message`; calls `classify`, `quiet_provider_logs`, `require_codex_lockdown`, `require_no_codex_roles`, `safe_message`
+- [[Reference/Modules/learnloop/experiments/contextual_embeddings/boundary|learnloop.experiments.contextual_embeddings.boundary]] — imports `classify`, `quiet_provider_logs`, `require_no_codex_roles`, `safe_message`; calls `classify`, `quiet_provider_logs`, `require_no_codex_roles`, `safe_message`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/budget|learnloop.experiments.contextual_embeddings.budget]] — imports `E0Ledger`, `authorized_ledger`; calls `authorized_ledger`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/callers|learnloop.experiments.contextual_embeddings.callers]] — imports `Checkpoints`, `LiveRoleCaller`, `canary_models`; calls `Checkpoints`, `LiveRoleCaller`, `canary_models`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/corpus|learnloop.experiments.contextual_embeddings.corpus]] — imports `_inside_local_root`, `build_snapshot`, `open_copy`; calls `_inside_local_root`, `build_snapshot`, `open_copy`
@@ -125,9 +125,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_h3_two_paid_runs_with_different_run_directories_share_one_budget`
   - `test_h8_an_error_body_echoing_the_key_never_reaches_logs_errors_or_the_cli`
   - `test_m12_an_unexpected_failure_still_writes_the_aggregate_report`
-- [tests/test_e0_review_round4_followup.py](../../../../../../../tests/test_e0_review_round4_followup.py) — direct import
-  - `test_the_paid_cli_refuses_when_the_lockdown_is_not_in_force`
-  - `test_the_paid_run_refuses_when_the_lockdown_is_not_importable`
 - [tests/test_e0_review_round6.py](../../../../../../../tests/test_e0_review_round6.py) — direct import
   - `test_l7_the_paid_run_refuses_a_run_directory_outside_fixtures_local`
 - [tests/test_e1_harness.py](../../../../../../../tests/test_e1_harness.py) — direct import

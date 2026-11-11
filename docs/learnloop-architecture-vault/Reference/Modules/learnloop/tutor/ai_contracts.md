@@ -194,7 +194,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_authoring_contract.py](../../../../../../tests/test_authoring_contract.py) — direct import
   - `test_prompt_interpolates_the_shared_vocabulary`
 - [tests/test_codex_output_schema.py](../../../../../../tests/test_codex_output_schema.py) — direct import
-  - `test_sdk_teach_back_authoring_passes_source_and_quest_to_prompt`
 - [tests/test_dialogue_causal_join.py](../../../../../../tests/test_dialogue_causal_join.py) — direct import
   - `test_tutor_answer_round_trips_extraction_fields_and_legacy_payloads`
 - [tests/test_field_signal_production_paths.py](../../../../../../tests/test_field_signal_production_paths.py) — direct import

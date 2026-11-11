@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/experiments/contextual_embeddings/runner.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/runner.py) |
-| Source lines | 642 |
+| Source lines | 636 |
 | Owning package | [[Reference/Modules/learnloop/experiments/contextual_embeddings/_package|learnloop.experiments.contextual_embeddings]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -110,7 +110,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `provider_for_task`; calls `provider_for_task`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/bank|learnloop.experiments.contextual_embeddings.bank]] — imports `logged_questions`, `plan_seeds`, `smoke_bank`, `writer_prompt`; calls `logged_questions`, `plan_seeds`, `smoke_bank`, `writer_prompt`
-- [[Reference/Modules/learnloop/experiments/contextual_embeddings/boundary|learnloop.experiments.contextual_embeddings.boundary]] — imports `require_codex_lockdown`, `require_no_codex_roles`; calls `require_codex_lockdown`, `require_no_codex_roles`
+- [[Reference/Modules/learnloop/experiments/contextual_embeddings/boundary|learnloop.experiments.contextual_embeddings.boundary]] — imports `require_no_codex_roles`; calls `require_no_codex_roles`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/budget|learnloop.experiments.contextual_embeddings.budget]] — imports `canonical_ledger_dir`, `prior_spend`; calls `canonical_ledger_dir`, `prior_spend`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/corpus|learnloop.experiments.contextual_embeddings.corpus]] — imports `CopyHandle`, `CorpusSnapshot`, `_inside_local_root`, `alias`, `build_snapshot`, `open_copy`; calls `_inside_local_root`, `alias`, `build_snapshot`, `open_copy`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/credentials|learnloop.experiments.contextual_embeddings.credentials]] — imports `module`; calls `availability`, `load_env_files`
@@ -160,10 +160,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_h8_an_error_body_echoing_the_key_never_reaches_logs_errors_or_the_cli`
   - `test_m10_the_dry_run_reports_the_planned_codex_requests`
   - `test_m12_an_unexpected_failure_still_writes_the_aggregate_report`
-- [tests/test_e0_review_round4_followup.py](../../../../../../../tests/test_e0_review_round4_followup.py) — direct import
-  - `test_the_paid_cli_refuses_when_the_lockdown_is_not_in_force`
 - [tests/test_e0_review_round5.py](../../../../../../../tests/test_e0_review_round5.py) — direct import
-  - `test_the_paid_preflight_passes_with_every_pin_verified_zero_codex_and_the_lockdown`
+  - `test_the_paid_preflight_passes_with_every_pin_verified_and_zero_codex`
   - `test_the_plan_has_zero_codex_requests_and_the_paid_ledger_refuses_any`
 - [tests/test_e1_harness.py](../../../../../../../tests/test_e1_harness.py) — direct import
 

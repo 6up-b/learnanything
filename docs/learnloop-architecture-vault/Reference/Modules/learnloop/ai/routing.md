@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/routing.py](../../../../../../src/learnloop/ai/routing.py) |
-| Source lines | 888 |
+| Source lines | 887 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -67,13 +67,13 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - `configured_fallback(config: LearnLoopConfig, primary: str | None) -> str | None` ([source](../../../../../../src/learnloop/ai/routing.py), line 492) — ``ai.fallback_provider`` as a fallback for ``primary``, or ``None`` when it may not be one.
 - `is_plan_profile(config: LearnLoopConfig, provider_name: str | None) -> bool` ([source](../../../../../../src/learnloop/ai/routing.py), line 519) — Whether ``provider_name`` is a ChatGPT-plan (``chatgpt_plan``) profile.
 - `route_profile_mismatch(config: LearnLoopConfig, provider_name: str, task: AITask | None) -> str | None` ([source](../../../../../../src/learnloop/ai/routing.py), line 526) — Why ``provider_name`` cannot serve ``task``, or ``None`` when it can.
-- `is_embedding_profile(config: LearnLoopConfig, provider_name: str) -> bool` ([source](../../../../../../src/learnloop/ai/routing.py), line 575)
-- `is_decider_profile(config: LearnLoopConfig, provider_name: str) -> bool` ([source](../../../../../../src/learnloop/ai/routing.py), line 580)
-- `serves_read_only_workspace(config: LearnLoopConfig, provider_name: str | None) -> bool` ([source](../../../../../../src/learnloop/ai/routing.py), line 585) — Whether the profile ``provider_name`` can serve a read-only workspace (by its type).
-- `is_generation_profile(config: LearnLoopConfig, provider_name: str) -> bool` ([source](../../../../../../src/learnloop/ai/routing.py), line 592) — Whether a configured name can serve a chat/generation route.
-- `runtime_for_provider(vault_root: Path, config: LearnLoopConfig, provider_name: str, *, task: AITask | None=None) -> AIRuntimeReport` ([source](../../../../../../src/learnloop/ai/routing.py), line 606) — Return one provider-neutral readiness report for any configured name.
-- `client_for_provider(vault_root: Path, config: LearnLoopConfig, provider_name: str, *, timeout_seconds: int | None=None, task: AITask | None=None) -> Any | None` ([source](../../../../../../src/learnloop/ai/routing.py), line 638) — Build a configured provider client, returning no client for manual mode.
-- `ready_client_for_task(vault_root: Path, config: LearnLoopConfig, task: AITask, *, explicit: str | None=None, allow_env: bool=True, timeout_seconds: int | None=None) -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 672) — Resolve selection, readiness, fallback, and construction exactly once.
+- `is_embedding_profile(config: LearnLoopConfig, provider_name: str) -> bool` ([source](../../../../../../src/learnloop/ai/routing.py), line 574)
+- `is_decider_profile(config: LearnLoopConfig, provider_name: str) -> bool` ([source](../../../../../../src/learnloop/ai/routing.py), line 579)
+- `serves_read_only_workspace(config: LearnLoopConfig, provider_name: str | None) -> bool` ([source](../../../../../../src/learnloop/ai/routing.py), line 584) — Whether the profile ``provider_name`` can serve a read-only workspace (by its type).
+- `is_generation_profile(config: LearnLoopConfig, provider_name: str) -> bool` ([source](../../../../../../src/learnloop/ai/routing.py), line 591) — Whether a configured name can serve a chat/generation route.
+- `runtime_for_provider(vault_root: Path, config: LearnLoopConfig, provider_name: str, *, task: AITask | None=None) -> AIRuntimeReport` ([source](../../../../../../src/learnloop/ai/routing.py), line 605) — Return one provider-neutral readiness report for any configured name.
+- `client_for_provider(vault_root: Path, config: LearnLoopConfig, provider_name: str, *, timeout_seconds: int | None=None, task: AITask | None=None) -> Any | None` ([source](../../../../../../src/learnloop/ai/routing.py), line 637) — Build a configured provider client, returning no client for manual mode.
+- `ready_client_for_task(vault_root: Path, config: LearnLoopConfig, task: AITask, *, explicit: str | None=None, allow_env: bool=True, timeout_seconds: int | None=None) -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 671) — Resolve selection, readiness, fallback, and construction exactly once.
 
 ### Module constants
 
@@ -120,9 +120,9 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 ## Internal implementation anchors
 
 - `_route_list(value: Any) -> list[str]` ([source](../../../../../../src/learnloop/ai/routing.py), line 422)
-- `_plan_unavailable(vault_root: Path, config: LearnLoopConfig, selection: AIProviderSelection, primary: ResolvedClient, *, task: AITask, timeout_seconds: int | None) -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 738) — The plan cannot serve ``task``: ask about OpenRouter, or use it when the learner chose so.
-- `_resolve_selected_provider(vault_root: Path, config: LearnLoopConfig, selection: AIProviderSelection, provider_name: str, *, task: AITask, timeout_seconds: int | None, fallback_from: str | None=None) -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 797)
-- `_manual_resolution(selection: AIProviderSelection, *, fallback_from: str | None=None, message: str='Manual mode selected; AI is disabled for this workflow.') -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 838)
+- `_plan_unavailable(vault_root: Path, config: LearnLoopConfig, selection: AIProviderSelection, primary: ResolvedClient, *, task: AITask, timeout_seconds: int | None) -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 737) — The plan cannot serve ``task``: ask about OpenRouter, or use it when the learner chose so.
+- `_resolve_selected_provider(vault_root: Path, config: LearnLoopConfig, selection: AIProviderSelection, provider_name: str, *, task: AITask, timeout_seconds: int | None, fallback_from: str | None=None) -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 796)
+- `_manual_resolution(selection: AIProviderSelection, *, fallback_from: str | None=None, message: str='Manual mode selected; AI is disabled for this workflow.') -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 837)
 
 ## Who imports or calls it
 
@@ -241,6 +241,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../tests/test_chatgpt_plan_workspace.py) — direct import
   - `test_a_paused_plan_never_falls_back_to_codex`
   - `test_the_plan_serves_a_workspace_and_takes_the_callers_deadline`
+- [tests/test_codex_transport_retired.py](../../../../../../tests/test_codex_transport_retired.py) — direct import
+  - `test_an_old_config_naming_codex_loads_and_every_entry_refuses_it_clearly`
 - [tests/test_curriculum_c0b_landing.py](../../../../../../tests/test_curriculum_c0b_landing.py) — direct import
   - `test_ii_compare_scope_and_the_scope_resolver_are_separate_routes`
 - [tests/test_decider_landing.py](../../../../../../tests/test_decider_landing.py) — direct import
@@ -283,18 +285,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_plan_first_transport.py](../../../../../../tests/test_plan_first_transport.py) — direct import
   - `test_a_background_jobs_offer_reaches_the_read_that_finds_it_done`
   - `test_a_plan_call_that_fails_for_availability_offers_openrouter_for_that_route`
+  - `test_an_old_opt_in_still_loads_and_admits_nothing`
   - `test_every_fallback_provider_and_env_override_never_resolves_to_codex`
   - `test_every_routing_value_for_every_task_never_resolves_to_codex`
   - `test_every_task_under_code_defaults_resolves_tool_free_and_never_codex`
   - `test_f1_a_configured_metered_fallback_provider_is_never_used_silently_for_a_plan_route`
   - `test_f2_openrouter_is_offered_only_when_the_feature_could_use_it`
   - `test_f4_grants_are_per_vault_per_offer_and_the_env_grant_is_the_cli_commands_only`
-  - `test_f6_codex_is_never_a_fallback_through_the_direct_readers_opt_in_or_not`
+  - `test_f6_codex_is_never_a_fallback_through_the_direct_readers`
   - `test_f8_an_error_that_is_not_a_sidecar_error_keeps_the_offer`
   - `test_fix_l2_a_quiet_status_read_never_points_at_an_offer_it_did_not_make`
   - `test_rr_f2_a_feature_that_needs_its_own_price_is_not_served_by_another_features_grant`
   - `test_the_cli_json_carries_the_hint`
-  - `test_the_opt_in_admits_codex_and_codex_is_still_never_a_fallback`
   - `test_the_sidecar_attaches_the_typed_hint_and_ai_use_fallback_records_the_choice`
   - `test_unavailable_offers_openrouter_only_when_configured_and_sends_nothing_unasked`
 - [tests/test_plan_first_transport_grant_scope.py](../../../../../../tests/test_plan_first_transport_grant_scope.py) — direct import

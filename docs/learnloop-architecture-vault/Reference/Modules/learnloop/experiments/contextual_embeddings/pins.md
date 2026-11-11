@@ -250,7 +250,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_each_post_is_admitted_first_at_its_hard_maximum_and_settled_from_usage`
   - `test_preflight_only_reports_names_and_checks_with_zero_network_and_no_value`
   - `test_the_key_is_in_one_header_only_and_errors_are_allowlisted`
-  - `test_the_paid_preflight_passes_with_every_pin_verified_zero_codex_and_the_lockdown`
+  - `test_the_paid_preflight_passes_with_every_pin_verified_and_zero_codex`
   - `test_the_paid_run_refuses_any_codex_role`
   - `test_the_service_copies_route_their_source_routes_to_openrouter_haiku`
   - `test_two_independent_labellers_a_different_adjudicator_and_no_codex_role`

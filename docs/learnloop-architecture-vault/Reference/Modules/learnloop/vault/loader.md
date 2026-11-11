@@ -868,8 +868,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_unknown_repair_suggestion_target_family_routes_to_manual_review`
   - `test_unknown_target_criterion_routes_to_manual_review`
   - `test_valid_codex_grade_validates`
-- [tests/test_codex_runtime.py](../../../../../../tests/test_codex_runtime.py) — direct import
-  - `test_doctor_only_checks_provider_health_when_explicitly_requested`
+- [tests/test_codex_transport_retired.py](../../../../../../tests/test_codex_transport_retired.py) — direct import
+  - `test_an_attempt_graded_by_codex_replays_identically`
+  - `test_an_old_config_naming_codex_loads_and_every_entry_refuses_it_clearly`
 - [tests/test_cold_retry_reschedule.py](../../../../../../tests/test_cold_retry_reschedule.py) — direct import
   - `test_a_shadow_rebuild_is_zero_with_the_fresh_retries_present`
   - `test_replay_schedules_nothing_and_leaves_the_lane_as_live_left_it`
@@ -1455,7 +1456,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_triage_records_tier_one_basis_on_the_result_and_the_event`
 - [tests/test_family_memory_projection.py](../../../../../../tests/test_family_memory_projection.py) — direct import
 - [tests/test_family_proposals.py](../../../../../../tests/test_family_proposals.py) — direct import
-  - `test_fake_codex_run_succeeds_and_receipts_carry_estimated_only`
   - `test_isomorph_is_preserved_in_authored_members`
   - `test_reject_identity_excludes_unrelated_pairs`
   - `test_two_agreeing_passes_apply_and_one_step_undo`
@@ -2439,8 +2439,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_mixture_draws_over_the_same_candidates_in_every_session`
   - `test_the_plans_scheduler_session_at_mvp024`
 - [tests/test_plan_first_transport.py](../../../../../../tests/test_plan_first_transport.py) — direct import
+  - `test_doctor_only_checks_provider_health_when_explicitly_requested`
   - `test_f1_a_configured_metered_fallback_provider_is_never_used_silently_for_a_plan_route`
-  - `test_f6_codex_is_never_a_fallback_through_the_direct_readers_opt_in_or_not`
+  - `test_f6_codex_is_never_a_fallback_through_the_direct_readers`
   - `test_f9_refused_codex_profiles_are_not_offered_as_grading_providers`
 - [tests/test_plan_first_transport_grant_scope.py](../../../../../../tests/test_plan_first_transport_grant_scope.py) — direct import
   - `test_a_grant_counts_only_in_the_learners_request_or_a_job_carrying_it`

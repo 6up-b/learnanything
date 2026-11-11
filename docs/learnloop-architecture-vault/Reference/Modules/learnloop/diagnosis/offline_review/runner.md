@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/offline_review/runner.py](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py) |
-| Source lines | 1978 |
+| Source lines | 1980 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -62,66 +62,66 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `value_of(self, name: str) -> Any` (line 174; public) — A field, or ``settings.<field>``, by dotted name.
 - `class ReviewClients` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 183)
 - `route_profiles(vault: LoadedVault) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 202) — Each review route's configured provider, from config only (no client).
-- `resolve_review_clients(vault: LoadedVault) -> ReviewClients` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 227) — Ready clients for every review route; a missing one is a note, not an error.
-- `eligible_attempts(vault: LoadedVault, repository: Repository, *, since: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 245) — Model-graded practice attempts with an error, an answer and a known item.
-- `data_check(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 295)
-- `select_sample(rows: Sequence[Mapping[str, Any]], size: int, seed: int) -> list[Mapping[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 309) — Stratified across LOs and time quartiles; deterministic for a seed.
-- `unavailable_arms(*, embedding_ready: bool, workspace_ready: bool) -> dict[str, str]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 350) — Arms the routes cannot run, with the honest reason (§12.1).
-- `plan_review(vault: LoadedVault, repository: Repository, options: ReviewOptions, *, clients: ReviewClients | None=None, skip_arms: Mapping[str, str] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 361) — Targets and a per-route call/token estimate.
-- `estimate_spend(plan: Mapping[str, Any], spend: ReviewSpend) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 495) — The plan's admission estimate per route; ``admissible`` false names why.
-- `class IncompatibleResume(ValueError)` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 554) — A resume would mix configurations within one run.
-  - `__init__(self, reasons: Sequence[str]) -> None` (line 557; internal)
-- `prompt_versions() -> dict[str, str]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 562)
-- `vault_content_hash(vault: LoadedVault) -> str` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 576) — What every grading and diagnosis context reads from the vault's files.
-- `decider_route_profile(vault: LoadedVault) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 596) — The Decider's settings a run prices and binds, from config only; None when links stay with the LLM.
-- `register_decider_route(spend: ReviewSpend, profile: Mapping[str, Any] | None) -> None` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 618) — Price the Decider's route at its listed input price (no output allowance), as each request is.
-- `route_bindings(clients: ReviewClients, config: Any | None=None) -> dict[str, dict[str, Any] | None]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 632) — Per review route, the settings that change what its requests produce.
-- `run_binding(vault: LoadedVault, clients: ReviewClients) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 660)
-- `resume_options(persisted: Mapping[str, Any], options: ReviewOptions, explicit_options: Iterable[str] | None) -> ReviewOptions` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 669) — The run's persisted options; an explicit different value is refused.
-- `binding_mismatches(persisted: Mapping[str, Any] | None, current: Mapping[str, Any]) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 705) — Why ``current`` would mix with the run's recorded binding (empty = none).
-- `class ReviewRun` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 732) — One run directory: the scratch copy, its run row and the spend meter.
-  - `__init__(self, vault: LoadedVault, run_dir: Path, options: ReviewOptions, clients: ReviewClients, spend: ReviewSpend, *, progress: Callable[[str], None] | None=None) -> None` (line 735; internal)
-  - `plain_store(self) -> VaultHistoryStore` (line 757; public) — The scratch copy's history without blind overlays (loaded once).
-  - `open(self, source_sqlite: Path, *, binding: Mapping[str, Any] | None=None) -> None` (line 766; public)
-  - `_write(self) -> Iterator[sqlite3.Connection]` (line 834; internal)
-  - `_rows(self, table: str, *, order_by: str='rowid', **where: Any) -> list[dict[str, Any]]` (line 838; internal)
-  - `paid(self, route: str, purpose: str, *, stage: str, input_tokens: int, subject_id: str | None=None, arm: str | None=None) -> Iterator[None]` (line 846; public)
-  - `guard_for(self, route: str, *, stage: str, subject_id: str | None, arm: str | None) -> Callable[[str, int], Any]` (line 884; public)
-  - `stage_targets(self, plan: Mapping[str, Any]) -> None` (line 892; public)
-  - `_stage_done(self, name: str) -> bool` (line 917; internal)
-  - `_mark_stage(self, name: str) -> None` (line 921; internal)
-  - `stage_planted(self) -> None` (line 927; public)
-  - `_insert_case(self, case: PlantedCase) -> None` (line 935; internal) — Checkpoint one planted case (and its target) as soon as it exists.
-  - `_stage_planted(self) -> None` (line 971; internal)
-  - `planted_cases(self) -> dict[str, PlantedCase]` (line 1022; public)
-  - `target_answer(self, target: Mapping[str, Any], planted: Mapping[str, PlantedCase]) -> str` (line 1028; public)
-  - `blind_grade(self, *, attempt_id: str, item: PracticeItem, answer: str, purpose: str, stage: str) -> dict[str, Any] | None` (line 1035; public) — Blind-grade one answer once; returns the validated record or None.
-  - `_joint_history(self, item: PracticeItem, prior: Sequence[HistoryAttempt]) -> list[dict[str, Any]]` (line 1083; internal) — Today's C4 filter (same facet AND same surface family), as of the attempt.
-  - `joint_grade(self, *, attempt_id: str, item: PracticeItem, answer: str, prior: Sequence[HistoryAttempt], purpose: str, stage: str) -> tuple[GradingProposal | None, dict[str, Any] | None]` (line 1110; public) — Today's joint grader (C4 history, causal fields) on one answer.
-  - `real_store(self) -> VaultHistoryStore` (line 1168; public)
-  - `stage_grades(self) -> None` (line 1176; public)
-  - `_insert_diagnosis(self, target_id: str, arm: str, mode: str, *, status: str, proposal: Mapping[str, Any] | None, provider: str | None=None, model: str | None=None, prompt_version: str | None=None, outcome: DiagnosisOutcome | None=None, error: str | None=None) -> str` (line 1202; internal)
-  - `_retriever(self) -> EmbeddingHistoryRetriever | None` (line 1246; internal)
-  - `_sweep_store(self, case: PlantedCase, base: StaticHistoryStore, budget: int, real: VaultHistoryStore) -> StaticHistoryStore` (line 1256; internal) — Planted needles interleaved among real distractors sized to ``budget``.
-  - `stage_diagnoses(self) -> None` (line 1286; public)
-  - `_ledger_has(self, task: str, left_kind: str, left_id: str, pass_index: int, revision: str) -> bool` (line 1386; internal) — Whether this judgment pass ran on exactly these inputs (``revision``).
-  - `_judge_model(self) -> str` (line 1406; internal)
-  - `_links_tier1(self) -> bool` (line 1409; internal) — mvp-0.22 (Tier 1): the Decider judges pattern links, the LLM its fallback.
-  - `_append(self, connection: sqlite3.Connection, *, judge: str='llm', judge_model: str | None=None, **values: Any) -> None` (line 1414; internal)
-  - `_item_view(self, item: PracticeItem) -> dict[str, Any]` (line 1418; internal)
-  - `stage_judge(self) -> None` (line 1429; public)
-  - `_judge_links(self, target, rows, answer, item, planted, index) -> None` (line 1507; internal)
-  - `_judge_planted(self, target, rows, case: PlantedCase, item, answer, index) -> None` (line 1590; internal)
-  - `stage_probes(self) -> None` (line 1635; public)
-  - `_record_probe(self, probe: str, item: PracticeItem, *, status: str, known: float | None, maximum: float | None, blind_score: float | None, detail: Mapping[str, Any]) -> None` (line 1675; internal)
-  - `_persisted_draft(previous: Mapping[str, Any] | None, model: type) -> tuple[Any | None, str | None]` (line 1695; internal) — The draft and probe id of a drafted or grading-failed probe, for grading.
-  - `_generate(self, purpose: str, prompt: str, request: Callable[[Any, str], Any], subject: str) -> Any | None` (line 1705; internal)
-  - `_draft(self, probe: str, item: PracticeItem, previous: Mapping[str, Any] | None, model: type, purpose: str, prompt: Callable[[], str], request: Callable[[Any, str], Any], maximum: float, extra: Mapping[str, Any] | None=None) -> tuple[Any, str] | None` (line 1714; internal) — The probe's draft: a persisted one, else a new one checkpointed AT ONCE.
-  - `_probe_valid_alternative(self, item: PracticeItem, previous: Mapping[str, Any] | None=None) -> None` (line 1747; internal)
-  - `_probe_synthetic(self, item: PracticeItem, previous: Mapping[str, Any] | None=None) -> None` (line 1770; internal)
-  - `_probe_paraphrase(self, item: PracticeItem, target: Mapping[str, Any], original: Mapping[str, Any], previous: Mapping[str, Any] | None=None) -> None` (line 1796; internal)
-  - `finish(self, status: str) -> dict[str, Any]` (line 1816; public)
-- `run_review(vault: LoadedVault, *, source_sqlite: Path, run_dir: Path, options: ReviewOptions, clients: ReviewClients, caps: SpendCaps, price_per_million: float | None=None, cancelled: Callable[[], bool] | None=None, progress: Callable[[str], None] | None=None, explicit_options: Iterable[str] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 1841) — Run (or resume) every stage; returns the manifest and stage status.
+- `resolve_review_clients(vault: LoadedVault) -> ReviewClients` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 229) — Ready clients for every review route; a missing one is a note, not an error.
+- `eligible_attempts(vault: LoadedVault, repository: Repository, *, since: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 247) — Model-graded practice attempts with an error, an answer and a known item.
+- `data_check(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 297)
+- `select_sample(rows: Sequence[Mapping[str, Any]], size: int, seed: int) -> list[Mapping[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 311) — Stratified across LOs and time quartiles; deterministic for a seed.
+- `unavailable_arms(*, embedding_ready: bool, workspace_ready: bool) -> dict[str, str]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 352) — Arms the routes cannot run, with the honest reason (§12.1).
+- `plan_review(vault: LoadedVault, repository: Repository, options: ReviewOptions, *, clients: ReviewClients | None=None, skip_arms: Mapping[str, str] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 363) — Targets and a per-route call/token estimate.
+- `estimate_spend(plan: Mapping[str, Any], spend: ReviewSpend) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 497) — The plan's admission estimate per route; ``admissible`` false names why.
+- `class IncompatibleResume(ValueError)` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 556) — A resume would mix configurations within one run.
+  - `__init__(self, reasons: Sequence[str]) -> None` (line 559; internal)
+- `prompt_versions() -> dict[str, str]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 564)
+- `vault_content_hash(vault: LoadedVault) -> str` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 578) — What every grading and diagnosis context reads from the vault's files.
+- `decider_route_profile(vault: LoadedVault) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 598) — The Decider's settings a run prices and binds, from config only; None when links stay with the LLM.
+- `register_decider_route(spend: ReviewSpend, profile: Mapping[str, Any] | None) -> None` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 620) — Price the Decider's route at its listed input price (no output allowance), as each request is.
+- `route_bindings(clients: ReviewClients, config: Any | None=None) -> dict[str, dict[str, Any] | None]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 634) — Per review route, the settings that change what its requests produce.
+- `run_binding(vault: LoadedVault, clients: ReviewClients) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 662)
+- `resume_options(persisted: Mapping[str, Any], options: ReviewOptions, explicit_options: Iterable[str] | None) -> ReviewOptions` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 671) — The run's persisted options; an explicit different value is refused.
+- `binding_mismatches(persisted: Mapping[str, Any] | None, current: Mapping[str, Any]) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 707) — Why ``current`` would mix with the run's recorded binding (empty = none).
+- `class ReviewRun` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 734) — One run directory: the scratch copy, its run row and the spend meter.
+  - `__init__(self, vault: LoadedVault, run_dir: Path, options: ReviewOptions, clients: ReviewClients, spend: ReviewSpend, *, progress: Callable[[str], None] | None=None) -> None` (line 737; internal)
+  - `plain_store(self) -> VaultHistoryStore` (line 759; public) — The scratch copy's history without blind overlays (loaded once).
+  - `open(self, source_sqlite: Path, *, binding: Mapping[str, Any] | None=None) -> None` (line 768; public)
+  - `_write(self) -> Iterator[sqlite3.Connection]` (line 836; internal)
+  - `_rows(self, table: str, *, order_by: str='rowid', **where: Any) -> list[dict[str, Any]]` (line 840; internal)
+  - `paid(self, route: str, purpose: str, *, stage: str, input_tokens: int, subject_id: str | None=None, arm: str | None=None) -> Iterator[None]` (line 848; public)
+  - `guard_for(self, route: str, *, stage: str, subject_id: str | None, arm: str | None) -> Callable[[str, int], Any]` (line 886; public)
+  - `stage_targets(self, plan: Mapping[str, Any]) -> None` (line 894; public)
+  - `_stage_done(self, name: str) -> bool` (line 919; internal)
+  - `_mark_stage(self, name: str) -> None` (line 923; internal)
+  - `stage_planted(self) -> None` (line 929; public)
+  - `_insert_case(self, case: PlantedCase) -> None` (line 937; internal) — Checkpoint one planted case (and its target) as soon as it exists.
+  - `_stage_planted(self) -> None` (line 973; internal)
+  - `planted_cases(self) -> dict[str, PlantedCase]` (line 1024; public)
+  - `target_answer(self, target: Mapping[str, Any], planted: Mapping[str, PlantedCase]) -> str` (line 1030; public)
+  - `blind_grade(self, *, attempt_id: str, item: PracticeItem, answer: str, purpose: str, stage: str) -> dict[str, Any] | None` (line 1037; public) — Blind-grade one answer once; returns the validated record or None.
+  - `_joint_history(self, item: PracticeItem, prior: Sequence[HistoryAttempt]) -> list[dict[str, Any]]` (line 1085; internal) — Today's C4 filter (same facet AND same surface family), as of the attempt.
+  - `joint_grade(self, *, attempt_id: str, item: PracticeItem, answer: str, prior: Sequence[HistoryAttempt], purpose: str, stage: str) -> tuple[GradingProposal | None, dict[str, Any] | None]` (line 1112; public) — Today's joint grader (C4 history, causal fields) on one answer.
+  - `real_store(self) -> VaultHistoryStore` (line 1170; public)
+  - `stage_grades(self) -> None` (line 1178; public)
+  - `_insert_diagnosis(self, target_id: str, arm: str, mode: str, *, status: str, proposal: Mapping[str, Any] | None, provider: str | None=None, model: str | None=None, prompt_version: str | None=None, outcome: DiagnosisOutcome | None=None, error: str | None=None) -> str` (line 1204; internal)
+  - `_retriever(self) -> EmbeddingHistoryRetriever | None` (line 1248; internal)
+  - `_sweep_store(self, case: PlantedCase, base: StaticHistoryStore, budget: int, real: VaultHistoryStore) -> StaticHistoryStore` (line 1258; internal) — Planted needles interleaved among real distractors sized to ``budget``.
+  - `stage_diagnoses(self) -> None` (line 1288; public)
+  - `_ledger_has(self, task: str, left_kind: str, left_id: str, pass_index: int, revision: str) -> bool` (line 1388; internal) — Whether this judgment pass ran on exactly these inputs (``revision``).
+  - `_judge_model(self) -> str` (line 1408; internal)
+  - `_links_tier1(self) -> bool` (line 1411; internal) — mvp-0.22 (Tier 1): the Decider judges pattern links, the LLM its fallback.
+  - `_append(self, connection: sqlite3.Connection, *, judge: str='llm', judge_model: str | None=None, **values: Any) -> None` (line 1416; internal)
+  - `_item_view(self, item: PracticeItem) -> dict[str, Any]` (line 1420; internal)
+  - `stage_judge(self) -> None` (line 1431; public)
+  - `_judge_links(self, target, rows, answer, item, planted, index) -> None` (line 1509; internal)
+  - `_judge_planted(self, target, rows, case: PlantedCase, item, answer, index) -> None` (line 1592; internal)
+  - `stage_probes(self) -> None` (line 1637; public)
+  - `_record_probe(self, probe: str, item: PracticeItem, *, status: str, known: float | None, maximum: float | None, blind_score: float | None, detail: Mapping[str, Any]) -> None` (line 1677; internal)
+  - `_persisted_draft(previous: Mapping[str, Any] | None, model: type) -> tuple[Any | None, str | None]` (line 1697; internal) — The draft and probe id of a drafted or grading-failed probe, for grading.
+  - `_generate(self, purpose: str, prompt: str, request: Callable[[Any, str], Any], subject: str) -> Any | None` (line 1707; internal)
+  - `_draft(self, probe: str, item: PracticeItem, previous: Mapping[str, Any] | None, model: type, purpose: str, prompt: Callable[[], str], request: Callable[[Any, str], Any], maximum: float, extra: Mapping[str, Any] | None=None) -> tuple[Any, str] | None` (line 1716; internal) — The probe's draft: a persisted one, else a new one checkpointed AT ONCE.
+  - `_probe_valid_alternative(self, item: PracticeItem, previous: Mapping[str, Any] | None=None) -> None` (line 1749; internal)
+  - `_probe_synthetic(self, item: PracticeItem, previous: Mapping[str, Any] | None=None) -> None` (line 1772; internal)
+  - `_probe_paraphrase(self, item: PracticeItem, target: Mapping[str, Any], original: Mapping[str, Any], previous: Mapping[str, Any] | None=None) -> None` (line 1798; internal)
+  - `finish(self, status: str) -> dict[str, Any]` (line 1818; public)
+- `run_review(vault: LoadedVault, *, source_sqlite: Path, run_dir: Path, options: ReviewOptions, clients: ReviewClients, caps: SpendCaps, price_per_million: float | None=None, cancelled: Callable[[], bool] | None=None, progress: Callable[[str], None] | None=None, explicit_options: Iterable[str] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 1843) — Run (or resume) every stage; returns the manifest and stage status.
 
 ### Module constants
 
@@ -139,7 +139,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_JOINT_HISTORY_LIMIT` ([src/learnloop/diagnosis/offline_review/runner.py](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 126)
 - `REVIEW_ROUTES` ([src/learnloop/diagnosis/offline_review/runner.py](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 192)
 - `_SUBSCRIPTION_PROFILE_TYPES` ([src/learnloop/diagnosis/offline_review/runner.py](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 199)
-- `DECIDER_ROUTE` ([src/learnloop/diagnosis/offline_review/runner.py](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 593)
+- `DECIDER_ROUTE` ([src/learnloop/diagnosis/offline_review/runner.py](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 595)
 
 ### Explicit exports
 
@@ -174,8 +174,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_placeholder_blind(item: PracticeItem, vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 337)
-- `_isolates(client: Any) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 1836)
+- `_placeholder_blind(item: PracticeItem, vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 339)
+- `_isolates(client: Any) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/offline_review/runner.py), line 1838)
 
 ## Who imports or calls it
 
@@ -203,6 +203,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]] — imports `GRADING_PROMPT_VERSION`, `GradingProposal`, `grading_prompt`; calls `grading_prompt`
 - [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] — imports `BLIND_GRADING_PROMPT_VERSION`, `blind_grading_context`, `blind_grading_context_hash`, `blind_grading_prompt`, `request_blind_grading_proposal`, `validate_blind_grading_proposal`; calls `blind_grading_context`, `blind_grading_context_hash`, `blind_grading_prompt`, `request_blind_grading_proposal`, `validate_blind_grading_proposal`
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `GradingValidationError`, `build_grading_context`, `grading_context_hash`, `request_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`; calls `build_grading_context`, `grading_context_hash`, `request_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`
+- [[Reference/Modules/learnloop/config/compat|learnloop.config.compat]] — imports `codex_profile_value`; calls `codex_profile_value`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]] — imports `backup_database`; calls `backup_database`
 - [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] — imports `UPGRADE_SCRATCH_COPY`, `apply_migrations`, `upgrade_allowance`; calls `apply_migrations`, `upgrade_allowance`
@@ -262,8 +263,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_review_round_trip_under_production_durability`
   - `test_sampling_is_seeded_and_stratified`
   - `test_snapshot_arm_is_skipped_with_a_note_without_the_capability`
-- [tests/test_diagnosis_isolation.py](../../../../../../../tests/test_diagnosis_isolation.py) — direct import
-  - `test_a_review_refuses_a_grader_or_diagnoser_that_cannot_isolate`
 - [tests/test_teacher_te0_fix_round2.py](../../../../../../../tests/test_teacher_te0_fix_round2.py) — direct import
   - `test_a_held_review_grade_reads_held_for_review_in_a_later_targets_history`
 - [tests/test_teacher_te0_review_fixes.py](../../../../../../../tests/test_teacher_te0_review_fixes.py) — direct import

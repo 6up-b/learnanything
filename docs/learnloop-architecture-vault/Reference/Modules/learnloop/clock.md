@@ -850,6 +850,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_codex_graded_attempt_proposes_unknown_error_type`
   - `test_codex_graded_attempt_uses_same_update_path_with_tier_three_evidence`
   - `test_codex_recall_wording_uses_recall_failure_not_new_error_type`
+- [tests/test_codex_transport_retired.py](../../../../../tests/test_codex_transport_retired.py) — direct import
+  - `test_an_attempt_graded_by_codex_replays_identically`
 - [tests/test_cold_retry_reschedule.py](../../../../../tests/test_cold_retry_reschedule.py) — direct import
   - `test_an_assisted_certification_probe_is_left_as_the_predecessor_leaves_it`
   - `test_off_or_below_the_tag_the_assisted_retry_is_left_open_exactly_as_the_predecessor`

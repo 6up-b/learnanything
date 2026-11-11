@@ -37,7 +37,7 @@ Up: [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] · Root: [[Module C
 
 ## Why this module exists
 
-`learnloop.ai.agent_harness` exists within [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] to own the behavior summarized by its module contract: The Codex agent harness is refused for serving unless the owner opts in.
+`learnloop.ai.agent_harness` exists within [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] to own the behavior summarized by its module contract: A Codex (agent-harness) profile is refused for every task.
 
 The authoritative system-level explanation remains in [[AI Architecture]], [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -48,35 +48,30 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/agent_harness.py](../../../../../../src/learnloop/ai/agent_harness.py) |
-| Source lines | 72 |
+| Source lines | 65 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class AgentHarnessRefused(AIProviderUnavailable)` ([source](../../../../../../src/learnloop/ai/agent_harness.py), line 27) — A Codex (agent-harness) profile was selected without the owner's opt-in.
-- `is_agent_harness_type(profile_type: str | None) -> bool` ([source](../../../../../../src/learnloop/ai/agent_harness.py), line 31)
-- `is_agent_harness_profile(profile: Any) -> bool` ([source](../../../../../../src/learnloop/ai/agent_harness.py), line 35)
-- `refusal_message(provider_name: str) -> str` ([source](../../../../../../src/learnloop/ai/agent_harness.py), line 39)
-- `harness_refusal(provider_name: str, profile: Any, *, opt_in: bool) -> str | None` ([source](../../../../../../src/learnloop/ai/agent_harness.py), line 48) — Why ``profile`` may not serve, or ``None`` when it may (not Codex, or opted in).
-- `require_harness_opt_in(provider_name: str, profile: Any, *, opt_in: bool) -> None` ([source](../../../../../../src/learnloop/ai/agent_harness.py), line 56) — Raise :class:`AgentHarnessRefused` for a Codex profile without the opt-in.
-
-### Module constants
-
-- `OPT_IN_SETTING` ([src/learnloop/ai/agent_harness.py](../../../../../../src/learnloop/ai/agent_harness.py), line 24)
+- `class AgentHarnessRefused(AIProviderUnavailable)` ([source](../../../../../../src/learnloop/ai/agent_harness.py), line 22) — A Codex (agent-harness) profile was selected; it serves nothing.
+- `is_agent_harness_type(profile_type: str | None) -> bool` ([source](../../../../../../src/learnloop/ai/agent_harness.py), line 26)
+- `is_agent_harness_profile(profile: Any) -> bool` ([source](../../../../../../src/learnloop/ai/agent_harness.py), line 30)
+- `refusal_message(provider_name: str) -> str` ([source](../../../../../../src/learnloop/ai/agent_harness.py), line 34)
+- `harness_refusal(provider_name: str, profile: Any) -> str | None` ([source](../../../../../../src/learnloop/ai/agent_harness.py), line 42) — Why ``profile`` may not serve, or ``None`` when it is not a Codex profile.
+- `refuse_agent_harness(provider_name: str, profile: Any) -> None` ([source](../../../../../../src/learnloop/ai/agent_harness.py), line 50) — Raise :class:`AgentHarnessRefused` for a Codex profile.
 
 ### Explicit exports
 
 `__all__` declares:
 
 - `AgentHarnessRefused`
-- `OPT_IN_SETTING`
 - `harness_refusal`
 - `is_agent_harness_profile`
 - `is_agent_harness_type`
 - `refusal_message`
-- `require_harness_opt_in`
+- `refuse_agent_harness`
 
 ## Internal implementation anchors
 
@@ -87,7 +82,7 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]] — imports `require_harness_opt_in`; statically calls `require_harness_opt_in`
+- [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]] — imports `refuse_agent_harness`; statically calls `refuse_agent_harness`
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `harness_refusal`, `is_agent_harness_profile`; statically calls `harness_refusal`, `is_agent_harness_profile`
 - [[Reference/Modules/learnloop/ai/runtime|learnloop.ai.runtime]] — imports `harness_refusal`; statically calls `harness_refusal`
 - [[Reference/Modules/learnloop/ops/plan_transport|learnloop.ops.plan_transport]] — imports `is_agent_harness_profile`; statically calls `is_agent_harness_profile`
@@ -118,10 +113,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_codex_lockdown_round2.py](../../../../../../tests/test_codex_lockdown_round2.py) — direct import
-  - `test_an_http_profile_is_refused_by_the_lockdown`
+- [tests/http_provider_double.py](../../../../../../tests/http_provider_double.py) — direct import
+- [tests/test_codex_transport_retired.py](../../../../../../tests/test_codex_transport_retired.py) — direct import
+  - `test_an_old_config_naming_codex_loads_and_every_entry_refuses_it_clearly`
+- [tests/test_e0_review_round4_followup.py](../../../../../../tests/test_e0_review_round4_followup.py) — direct import
+  - `test_the_label_passes_never_reach_a_codex_turn`
 - [tests/test_plan_first_transport.py](../../../../../../tests/test_plan_first_transport.py) — direct import
-  - `test_a_harness_profile_without_the_opt_in_raises_before_any_process`
+  - `test_a_harness_profile_raises_before_any_process`
+  - `test_an_old_opt_in_still_loads_and_admits_nothing`
+- [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — direct import
+  - `test_sidecar_submit_attempt_never_falls_back_to_codex_when_routed_ai_unavailable`
 
 ## Modification guidance
 

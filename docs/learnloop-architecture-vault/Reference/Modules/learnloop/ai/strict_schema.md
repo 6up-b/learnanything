@@ -83,7 +83,6 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] — imports `strict_output_schema`; statically calls `strict_output_schema`
-- [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] — imports `strict_output_schema`; statically calls `strict_output_schema`
 - [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] — imports `strict_output_schema`; statically calls `strict_output_schema`
 - [[Reference/Modules/learnloop/ai/providers/structured_output|learnloop.ai.providers.structured_output]] — imports `strict_output_schema`; statically calls `strict_output_schema`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `strict_output_schema`; statically calls `strict_output_schema`
@@ -106,7 +105,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]], [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]], [[Reference/Modules/learnloop/ai/providers/structured_output|learnloop.ai.providers.structured_output]], [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]].
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]], [[Reference/Modules/learnloop/ai/providers/structured_output|learnloop.ai.providers.structured_output]], [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

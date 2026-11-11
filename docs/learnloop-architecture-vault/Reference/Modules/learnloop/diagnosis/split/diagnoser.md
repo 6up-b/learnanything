@@ -123,8 +123,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../../tests/test_chatgpt_plan_workspace.py) — direct import
   - `test_a_snapshot_diagnosis_on_the_plan_records_exactly_what_it_read`
-- [tests/test_codex_lockdown_round3.py](../../../../../../../tests/test_codex_lockdown_round3.py) — direct import
-  - `test_a_snapshot_diagnosis_on_codex_is_inlined_and_gives_the_same_structured_output`
 - [tests/test_diagnosis_history_modes.py](../../../../../../../tests/test_diagnosis_history_modes.py) — direct import
   - `test_every_mode_keeps_s3_and_validates_evidence_ids`
   - `test_snapshot_is_unavailable_without_the_capability`

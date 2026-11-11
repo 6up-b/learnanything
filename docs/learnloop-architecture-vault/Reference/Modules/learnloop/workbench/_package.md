@@ -52,8 +52,8 @@ For system intent, use [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/workbench/__init__|learnloop.workbench]] | [[Reference/Modules/learnloop/workbench/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/workbench/bridge|learnloop.workbench.bridge]] | [[Reference/Modules/learnloop/workbench/bridge#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
-| [[Reference/Modules/learnloop/workbench/check|learnloop.workbench.check]] | [[Reference/Modules/learnloop/workbench/check#^module-purpose|purpose]] | `ACTIVE` | 5 | 6 |
-| [[Reference/Modules/learnloop/workbench/compare_methods|learnloop.workbench.compare_methods]] | [[Reference/Modules/learnloop/workbench/compare_methods#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
+| [[Reference/Modules/learnloop/workbench/check|learnloop.workbench.check]] | [[Reference/Modules/learnloop/workbench/check#^module-purpose|purpose]] | `ACTIVE` | 5 | 5 |
+| [[Reference/Modules/learnloop/workbench/compare_methods|learnloop.workbench.compare_methods]] | [[Reference/Modules/learnloop/workbench/compare_methods#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/workbench/help_outcomes|learnloop.workbench.help_outcomes]] | [[Reference/Modules/learnloop/workbench/help_outcomes#^module-purpose|purpose]] | `ACTIVE` | 1 | 5 |
 | [[Reference/Modules/learnloop/workbench/ladder|learnloop.workbench.ladder]] | [[Reference/Modules/learnloop/workbench/ladder#^module-purpose|purpose]] | `ACTIVE` | 4 | 0 |
 | [[Reference/Modules/learnloop/workbench/passage_draw|learnloop.workbench.passage_draw]] | [[Reference/Modules/learnloop/workbench/passage_draw#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |

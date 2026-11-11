@@ -120,6 +120,7 @@ Indexes and uniqueness:
 
 - `tests/causal_p2_acceptance_helpers.py`
 - `tests/test_causal_p2_acceptance.py`
+- `tests/test_codex_transport_retired.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_migrations.py`
 - `tests/test_sim_teach_back.py`

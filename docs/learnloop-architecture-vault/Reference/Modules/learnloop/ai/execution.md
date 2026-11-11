@@ -106,8 +106,6 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] — imports `active_request_gate`, `gate_model_requests`; statically calls `active_request_gate`, `gate_model_requests`
 - [[Reference/Modules/learnloop/ai/output_budget|learnloop.ai.output_budget]] — imports `annotate_calls`; statically calls `annotate_calls`
 - [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] — imports `model_call`, `report_call_usage`, `single_request_active`; statically calls `model_call`, `report_call_usage`, `single_request_active`
-- [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] — imports `generation_limit`, `observed_sdk_turn`, `output_limit`, `report_call_usage`, `single_request_active`; statically calls `generation_limit`, `output_limit`, `report_call_usage`, `single_request_active`
-- [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]] — imports `report_call_usage`; statically calls `report_call_usage`
 - [[Reference/Modules/learnloop/ai/providers/decider|learnloop.ai.providers.decider]] — imports `model_call`, `report_call_usage`; statically calls `model_call`, `report_call_usage`
 - [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] — imports `model_call`, `report_call_usage`, `single_request_active`, `truncation_retry_permitted`; statically calls `model_call`, `report_call_usage`, `single_request_active`, `truncation_retry_permitted`
 - [[Reference/Modules/learnloop/ai/providers/openai_embedding|learnloop.ai.providers.openai_embedding]] — imports `model_call`, `report_call_usage`; statically calls `model_call`, `report_call_usage`
@@ -250,7 +248,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 126 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 124 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -272,6 +270,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/followups_batch5_lesson_helpers.py](../../../../../../tests/followups_batch5_lesson_helpers.py) — direct import
 - [tests/hint_fakes.py](../../../../../../tests/hint_fakes.py) — direct import
 - [tests/hint_outcome_helpers.py](../../../../../../tests/hint_outcome_helpers.py) — direct import
+- [tests/http_provider_double.py](../../../../../../tests/http_provider_double.py) — direct import
 - [tests/library_ask_fixtures.py](../../../../../../tests/library_ask_fixtures.py) — direct import
 - [tests/local_embeddings_fakes.py](../../../../../../tests/local_embeddings_fakes.py) — direct import
 - [tests/notes_fixtures.py](../../../../../../tests/notes_fixtures.py) — direct import
@@ -299,8 +298,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ai_compare.py](../../../../../../tests/test_ai_compare.py) — direct import
   - `test_a_json_repair_carries_the_budget_of_the_request_it_repairs`
 - [tests/test_ai_single_request.py](../../../../../../tests/test_ai_single_request.py) — direct import
-  - `test_codex_single_request_disables_regeneration_and_repair_only_in_scope`
-  - `test_codex_single_request_fails_closed_before_sdk_startup`
   - `test_openai_single_request_disables_retry_and_repair_only_in_scope`
   - `test_single_request_is_nested_context_local_and_restored_after_failure`
 - [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — direct import
@@ -315,12 +312,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_workspace_turn_never_runs_under_a_single_request_budget`
   - `test_inline_mode_sends_every_file_and_records_every_file`
   - `test_tool_rounds_serve_files_and_record_each_served_entry`
-- [tests/test_codex_tool_lockdown.py](../../../../../../tests/test_codex_tool_lockdown.py) — direct import
-  - `test_a_failure_before_any_usage_reports_nothing_new`
-  - `test_a_guardian_review_is_counted_and_refuses_the_answer`
-  - `test_an_ordinary_turn_reports_exactly_what_it_did_before`
-  - `test_sub_agent_threads_are_refused_and_their_tokens_counted`
-  - `test_tokens_reported_before_an_ordinary_failure_reach_the_receipt_and_the_settle`
 - [tests/test_contamination_report.py](../../../../../../tests/test_contamination_report.py) — direct import
 - [tests/test_decider_client.py](../../../../../../tests/test_decider_client.py) — direct import
   - `test_a_malformed_paid_answer_keeps_its_usage_on_the_receipt`
@@ -368,7 +359,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_held_grade_composition.py](../../../../../../tests/test_held_grade_composition.py) — direct import
   - `test_the_hardcase_harness_retries_a_truncated_grade_once_at_double`
 - [tests/test_ingestion_checkpoints.py](../../../../../../tests/test_ingestion_checkpoints.py) — direct import
-  - `test_codex_does_not_repair_when_reported_output_consumed_the_budget`
   - `test_retry_policy_records_each_failed_request_with_unknown_usage`
   - `test_truncation_or_exhausted_repair_budget_records_usage_without_repaying`
 - [tests/test_interaction_signals.py](../../../../../../tests/test_interaction_signals.py) — direct import
@@ -400,8 +390,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_owner_set_budget_is_never_exceeded_and_its_truncation_is_logged`
   - `test_inside_a_caller_budget_the_transport_leaves_the_retry_to_the_caller`
   - `test_the_route_effort_wins_over_a_profile_that_disables_thinking`
-- [tests/test_pf_generation.py](../../../../../../tests/test_pf_generation.py) — direct import
-  - `test_a_codex_pf_turn_starts_outside_the_vault_with_tools_off_and_never_reuses_unisolated_work`
 - [tests/test_pf_verify_extraction_parity.py](../../../../../../tests/test_pf_verify_extraction_parity.py) — direct import
 - [tests/test_plan_first_transport.py](../../../../../../tests/test_plan_first_transport.py) — direct import
   - `test_admission_equals_wire_and_every_body_keeps_the_grammar`

@@ -386,7 +386,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_plan_first_transport.py](../../../../../../../tests/test_plan_first_transport.py) — direct import
   - `test_f1_a_configured_metered_fallback_provider_is_never_used_silently_for_a_plan_route`
   - `test_f3_the_question_build_asks_and_a_grant_serves_it_priced_as_metered`
-  - `test_f6_codex_is_never_a_fallback_through_the_direct_readers_opt_in_or_not`
+  - `test_f6_codex_is_never_a_fallback_through_the_direct_readers`
   - `test_rr_f1_the_connection_status_never_offers_and_shows_a_granted_build`
 - [tests/test_plan_first_transport_offer_grants_r5.py](../../../../../../../tests/test_plan_first_transport_offer_grants_r5.py) — direct import
 - [tests/test_reading_hardening_2_fixes.py](../../../../../../../tests/test_reading_hardening_2_fixes.py) — direct import

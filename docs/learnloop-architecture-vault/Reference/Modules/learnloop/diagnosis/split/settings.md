@@ -121,8 +121,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/recurrence_fakes.py](../../../../../../../tests/recurrence_fakes.py) — direct import
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../../tests/test_chatgpt_plan_workspace.py) — direct import
   - `test_a_snapshot_diagnosis_on_the_plan_records_exactly_what_it_read`
-- [tests/test_codex_lockdown_round3.py](../../../../../../../tests/test_codex_lockdown_round3.py) — direct import
-  - `test_a_snapshot_diagnosis_on_codex_is_inlined_and_gives_the_same_structured_output`
 - [tests/test_diagnose_review.py](../../../../../../../tests/test_diagnose_review.py) — direct import
   - `test_a_resume_restores_the_persisted_experiment_and_refuses_changes`
 - [tests/test_diagnosis_context.py](../../../../../../../tests/test_diagnosis_context.py) — direct import

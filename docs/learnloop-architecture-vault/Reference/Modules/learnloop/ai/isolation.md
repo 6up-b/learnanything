@@ -118,7 +118,6 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] — imports `TOOL_FREE`
-- [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] — imports `TOOL_ISOLATION`, `ToolIsolation`, `ToolIsolationUnavailable`, `agent_home`, `current_tool_isolation`, `sandboxed_command`, `write_launcher`; statically calls `ToolIsolationUnavailable`, `agent_home`, `current_tool_isolation`, `sandboxed_command`, `write_launcher`
 - [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] — imports `TOOL_FREE`
 - [[Reference/Modules/learnloop/projects/ai_runtime|learnloop.projects.ai_runtime]] — imports `ToolIsolation`, `isolation_mode`, `tool_isolation`; statically calls `ToolIsolation`, `isolation_mode`, `tool_isolation`
 
@@ -140,7 +139,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]], [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]], [[Reference/Modules/learnloop/projects/ai_runtime|learnloop.projects.ai_runtime]].
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]], [[Reference/Modules/learnloop/projects/ai_runtime|learnloop.projects.ai_runtime]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -169,29 +168,19 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_launcher_passes_its_arguments_through_the_sandbox`
   - `test_a_state_location_under_any_host_bind_in_the_home_is_refused`
   - `test_a_working_directory_that_holds_the_agent_home_is_refused`
-  - `test_a_workspace_outside_the_sandbox_is_inlined_and_never_mounted`
   - `test_an_argument_that_names_the_setting_in_an_unread_form_is_refused`
   - `test_an_escaped_setting_name_in_toml_1_0_is_read`
   - `test_an_executable_package_that_holds_the_agent_home_is_refused`
-  - `test_an_isolated_turn_passes_its_profile_through_the_sandbox_launcher`
-  - `test_an_isolated_turn_runs_its_permission_profile_inside_the_sandbox`
   - `test_an_unparseable_config_that_could_spell_the_setting_with_an_escape_is_refused`
-  - `test_codex_refuses_an_isolated_request_without_bubblewrap`
   - `test_command_line_overrides_of_the_state_databases_are_parsed_like_codex`
   - `test_every_config_layer_that_moves_the_state_databases_is_checked`
   - `test_isolation_fails_closed_without_bubblewrap`
   - `test_only_the_executable_itself_is_mounted_not_its_directory`
   - `test_short_option_overrides_with_an_equals_sign_are_read_like_clap`
   - `test_the_agent_keeps_its_credentials_and_its_working_directory`
-  - `test_the_codex_app_server_launches_inside_the_sandbox`
   - `test_the_sandbox_pins_the_agent_home_and_state_locations`
 - [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
   - `test_capabilities_isolated_tool_free_and_bounded`
-- [tests/test_codex_isolation_mcp_check.py](../../../../../../tests/test_codex_isolation_mcp_check.py) — direct import
-  - `test_a_check_the_sandbox_refuses_refuses_the_turn`
-  - `test_an_interrupt_stops_a_check_running_inside_the_sandbox`
-  - `test_the_check_runs_inside_the_sandbox_in_the_turns_own_directory`
-  - `test_the_installed_codex_pins_a_server_only_an_unseen_ancestor_project_disables`
 - [tests/test_figures_final_round.py](../../../../../../tests/test_figures_final_round.py) — direct import
 - [tests/test_plan_first_transport.py](../../../../../../tests/test_plan_first_transport.py) — direct import
   - `test_unavailable_offers_openrouter_only_when_configured_and_sends_nothing_unasked`

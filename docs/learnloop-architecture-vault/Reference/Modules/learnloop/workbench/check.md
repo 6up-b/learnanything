@@ -192,7 +192,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_codex_tool_lockdown.py](../../../../../../tests/test_codex_tool_lockdown.py) — direct import
 - [tests/test_reader_rw2b_fix5.py](../../../../../../tests/test_reader_rw2b_fix5.py) — direct import
   - `test_item3_the_snapshot_and_the_check_view_carry_a_full_text_fingerprint`
 - [tests/test_reader_rw2b_review.py](../../../../../../tests/test_reader_rw2b_review.py) — direct import

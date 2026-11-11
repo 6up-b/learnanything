@@ -74,7 +74,7 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] — imports `structured_output_regeneration_prompt`, `structured_output_repair_prompt`; statically calls `structured_output_regeneration_prompt`, `structured_output_repair_prompt`
+No live LearnLoop module directly imports this module in the static graph.
 
 ## Dependencies
 
@@ -94,26 +94,16 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]].
+No live LearnLoop module imports it directly; its current reach is tests, repository tooling, dynamic registration, or explicit manual invocation where documented above.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
+No direct or one-hop consumer test was found by static import analysis.
 
-- [tests/codex_cli_fakes.py](../../../../../../../tests/codex_cli_fakes.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_ai_config.py](../../../../../../../tests/test_ai_config.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_ai_single_request.py](../../../../../../../tests/test_ai_single_request.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_ai_tool_isolation.py](../../../../../../../tests/test_ai_tool_isolation.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_codex_attempt_flow.py](../../../../../../../tests/test_codex_attempt_flow.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_codex_cli_0164_lockdown.py](../../../../../../../tests/test_codex_cli_0164_lockdown.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_codex_cli_0165_lockdown.py](../../../../../../../tests/test_codex_cli_0165_lockdown.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_codex_cli_0166_lockdown.py](../../../../../../../tests/test_codex_cli_0166_lockdown.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_codex_http_client.py](../../../../../../../tests/test_codex_http_client.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_codex_isolation_mcp_check.py](../../../../../../../tests/test_codex_isolation_mcp_check.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_codex_lockdown_frozen.py](../../../../../../../tests/test_codex_lockdown_frozen.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_codex_lockdown_round2.py](../../../../../../../tests/test_codex_lockdown_round2.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
+> [!caution] Test gap signal
+> Treat this as a navigation signal, not proof that behavior is untested: dynamic and higher-level coverage is outside this static map. Add focused coverage when changing isolated behavior here.
 
 ## Modification guidance
 

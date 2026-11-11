@@ -152,8 +152,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/split_live_helpers.py](../../../../../../../tests/split_live_helpers.py) — direct import
-- [tests/test_codex_lockdown_round3.py](../../../../../../../tests/test_codex_lockdown_round3.py) — direct import
-  - `test_a_snapshot_diagnosis_on_codex_is_inlined_and_gives_the_same_structured_output`
 - [tests/test_diagnosis_contract.py](../../../../../../../tests/test_diagnosis_contract.py) — direct import
   - `test_generation_order_differs_by_mode_and_normalizes`
   - `test_prompt_rules_by_mode`

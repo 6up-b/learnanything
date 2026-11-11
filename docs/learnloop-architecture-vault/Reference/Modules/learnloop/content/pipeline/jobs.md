@@ -449,7 +449,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_compose_display_title_variants`
   - `test_default_inventory_client_defaults_to_codex_and_errors_when_unavailable`
   - `test_default_inventory_client_routes_via_canonical_ingest`
-  - `test_default_synthesis_client_gives_codex_sdk_an_eight_minute_timeout`
   - `test_default_synthesis_client_resolves_openrouter_in_inherited_new_vault`
   - `test_explicit_transcription_route_uses_named_profile_without_legacy_switch`
   - `test_fetch_metadata_only_resolves_youtube`

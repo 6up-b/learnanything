@@ -175,11 +175,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_codex_score_and_max_are_derived_from_criterion_points`
   - `test_repair_suggestion_target_families_are_canonicalized`
   - `test_unknown_repair_suggestion_target_family_routes_to_manual_review`
-- [tests/test_codex_http_client.py](../../../../../../tests/test_codex_http_client.py) — direct import
-  - `test_http_codex_client_health_and_grading_round_trip`
 - [tests/test_codex_output_schema.py](../../../../../../tests/test_codex_output_schema.py) — direct import
   - `test_discriminated_target_ref_is_a_flat_nullable_any_of`
   - `test_discriminated_target_ref_still_round_trips_after_sanitizing`
+- [tests/test_codex_transport_retired.py](../../../../../../tests/test_codex_transport_retired.py) — direct import
+  - `test_an_attempt_graded_by_codex_replays_identically`
 - [tests/test_deferred_regrade.py](../../../../../../tests/test_deferred_regrade.py) — direct import
   - `test_deferred_regrade_replays_targeted_error_attribution_facets`
 - [tests/test_diagnostic_augmentation.py](../../../../../../tests/test_diagnostic_augmentation.py) — direct import

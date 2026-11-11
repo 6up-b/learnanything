@@ -94,9 +94,9 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 4 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 4 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 3 static module edges
+- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 3 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 3 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 2 static module edges
-- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 2 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 2 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 2 static module edges
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 2 static module edges
@@ -135,7 +135,7 @@ flowchart LR
     n_learnloop_figures["learnloop.figures"]
     n_learnloop_reader["learnloop.reader"]
     n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
-    n_learnloop_db["learnloop.db"]
+    n_learnloop_config["learnloop.config"]
     n_learnloop_sidecar_handlers -->|344| center
     center -->|6| n_learnloop_sidecar_handlers
     center -->|14| n_learnloop
@@ -146,7 +146,7 @@ flowchart LR
     center -->|4| n_learnloop_figures
     center -->|4| n_learnloop_reader
     center -->|3| n_learnloop_adaptive_difficulty
-    center -->|3| n_learnloop_db
+    center -->|3| n_learnloop_config
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

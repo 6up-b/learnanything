@@ -171,9 +171,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../../tests/test_chatgpt_plan_workspace.py) — direct import
   - `test_inline_mode_serves_a_workspace_over_its_budget_in_tools_mode`
   - `test_rejected_workspace_tools_name_the_inline_setting`
+- [tests/test_lo_general.py](../../../../../../../tests/test_lo_general.py) — direct import
+  - `test_rebuild_deterministic_and_no_external_io`
+- [tests/test_openai_chat_client.py](../../../../../../../tests/test_openai_chat_client.py) — direct import
+  - `test_structured_providers_share_one_transport_surface`
 - [tests/test_plan_first_transport.py](../../../../../../../tests/test_plan_first_transport.py) — direct import
   - `test_doctor_names_a_configured_slug_the_account_does_not_list`
   - `test_f7_an_explicit_inline_never_sends_tools_and_a_tools_turn_caps_its_resent_input`
+- [tests/test_provider_resolution_parity.py](../../../../../../../tests/test_provider_resolution_parity.py) — direct import
+  - `test_diagnostic_fire_uses_the_structured_completion_path`
+- [tests/test_structured_transport_parity.py](../../../../../../../tests/test_structured_transport_parity.py) — direct import
+  - `test_structured_providers_expose_no_feature_named_methods`
 
 ## Modification guidance
 

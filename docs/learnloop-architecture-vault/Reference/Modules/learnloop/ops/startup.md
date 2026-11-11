@@ -47,16 +47,16 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ops/startup.py](../../../../../../src/learnloop/ops/startup.py) |
-| Source lines | 116 |
+| Source lines | 109 |
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class StartupMaintenanceResult` ([source](../../../../../../src/learnloop/ops/startup.py), line 23)
-  - `as_dict(self) -> dict[str, object]` (line 30; public)
-- `run_startup_maintenance(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> StartupMaintenanceResult` ([source](../../../../../../src/learnloop/ops/startup.py), line 39)
+- `class StartupMaintenanceResult` ([source](../../../../../../src/learnloop/ops/startup.py), line 16)
+  - `as_dict(self) -> dict[str, object]` (line 23; public)
+- `run_startup_maintenance(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> StartupMaintenanceResult` ([source](../../../../../../src/learnloop/ops/startup.py), line 32)
 
 ## Internal implementation anchors
 
@@ -76,7 +76,6 @@ No private top-level function or class definition is declared in this file.
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] — imports `quiet`; calls `quiet`
-- [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] — imports `CodexRuntimeReport`
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `ready_client_for_task`, `runtime_for_provider`; calls `ready_client_for_task`, `runtime_for_provider`
 - [[Reference/Modules/learnloop/ai/runtime|learnloop.ai.runtime]] — imports `AIRuntimeReport`
 - [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]] — imports `expire_clarifications`, `resolve_awaiting_regrades`; calls `expire_clarifications`, `resolve_awaiting_regrades`
@@ -90,7 +89,7 @@ No private top-level function or class definition is declared in this file.
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `typing`
+- Standard library: `__future__`, `dataclasses`
 - Third party: none imported directly
 
 ## Larger workflow participation

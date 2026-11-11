@@ -189,8 +189,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_shared_fakes_answer_the_blind_and_diagnosis_purposes`
   - `test_validator_accepts_reanchors_and_keeps_blind_fields`
   - `test_validator_rejects_unknown_criterion_and_duplicate_trace_ids`
-- [tests/test_diagnosis_isolation.py](../../../../../../tests/test_diagnosis_isolation.py) — direct import
-  - `test_the_blind_grader_always_asks_for_an_isolated_turn`
 - [tests/test_embedding_compare.py](../../../../../../tests/test_embedding_compare.py) — direct import
 - [tests/test_forecast_receipts.py](../../../../../../tests/test_forecast_receipts.py) — direct import
 - [tests/test_grading_support.py](../../../../../../tests/test_grading_support.py) — direct import

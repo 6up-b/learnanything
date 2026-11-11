@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ops/plan_transport.py](../../../../../../src/learnloop/ops/plan_transport.py) |
-| Source lines | 179 |
+| Source lines | 172 |
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -57,14 +57,14 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `class CodexPin` ([source](../../../../../../src/learnloop/ops/plan_transport.py), line 36) — One setting of ``learnloop.toml`` that names a Codex profile, and its rewrite.
   - `as_dict(self) -> dict[str, Any]` (line 44; public)
 - `codex_pins(root: Path, config: LearnLoopConfig) -> list[CodexPin]` ([source](../../../../../../src/learnloop/ops/plan_transport.py), line 70) — Every setting written in ``root/learnloop.toml`` that names a Codex profile.
-- `finding_message(pin: CodexPin) -> str` ([source](../../../../../../src/learnloop/ops/plan_transport.py), line 114)
-- `metered_fallback_message(config: LearnLoopConfig) -> str | None` ([source](../../../../../../src/learnloop/ops/plan_transport.py), line 127) — Why ``ai.fallback_provider`` is not used while the ChatGPT plan serves, or ``None`` (review F1).
-- `fix_codex_pins(root: Path, config: LearnLoopConfig, *, dry_run: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/plan_transport.py), line 160) — Rewrite every :func:`codex_pins` setting in place (comments and layout kept).
+- `finding_message(pin: CodexPin) -> str` ([source](../../../../../../src/learnloop/ops/plan_transport.py), line 108)
+- `metered_fallback_message(config: LearnLoopConfig) -> str | None` ([source](../../../../../../src/learnloop/ops/plan_transport.py), line 120) — Why ``ai.fallback_provider`` is not used while the ChatGPT plan serves, or ``None`` (review F1).
+- `fix_codex_pins(root: Path, config: LearnLoopConfig, *, dry_run: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/plan_transport.py), line 153) — Rewrite every :func:`codex_pins` setting in place (comments and layout kept).
 
 ### Module constants
 
 - `FINDING_CODE` ([src/learnloop/ops/plan_transport.py](../../../../../../src/learnloop/ops/plan_transport.py), line 32)
-- `METERED_FALLBACK_CODE` ([src/learnloop/ops/plan_transport.py](../../../../../../src/learnloop/ops/plan_transport.py), line 124)
+- `METERED_FALLBACK_CODE` ([src/learnloop/ops/plan_transport.py](../../../../../../src/learnloop/ops/plan_transport.py), line 117)
 
 ### Explicit exports
 
@@ -82,7 +82,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - `_is_codex(config: LearnLoopConfig, name: str) -> bool` ([source](../../../../../../src/learnloop/ops/plan_transport.py), line 48)
 - `_plan_profile_for(config: LearnLoopConfig, name: str, task: str | None=None) -> str` ([source](../../../../../../src/learnloop/ops/plan_transport.py), line 52) — The plan profile of the same tier as Codex profile ``name`` (on route ``task``).
-- `_plan_entries(config: LearnLoopConfig) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/ops/plan_transport.py), line 154)
+- `_plan_entries(config: LearnLoopConfig) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/ops/plan_transport.py), line 147)
 
 ## Who imports or calls it
 

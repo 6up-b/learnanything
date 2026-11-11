@@ -159,8 +159,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rw6b2_f3_the_narration_lease_is_the_enforced_bound_plus_the_claim_margin`
 - [tests/test_diagnose_review_spend.py](../../../../../../../tests/test_diagnose_review_spend.py) — direct import
   - `test_transport_retries_are_admitted_too`
-- [tests/test_diagnosis_isolation.py](../../../../../../../tests/test_diagnosis_isolation.py) — direct import
-  - `test_openai_chat_transports_are_isolated_by_construction`
 - [tests/test_figure_region.py](../../../../../../../tests/test_figure_region.py) — direct import
   - `test_the_openai_chat_transport_sends_image_parts_only_for_an_image_profile`
 - [tests/test_ingestion_checkpoints.py](../../../../../../../tests/test_ingestion_checkpoints.py) — direct import

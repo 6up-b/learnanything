@@ -16,8 +16,8 @@ source_paths:
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
-  - "src/learnloop/ai/providers/codex_http.py"
   - "src/learnloop/ingest/extractors/glm_ocr.py"
+  - "src/learnloop_sidecar/context.py"
   - "tests/ad1_fix_round4_helpers.py"
   - "tests/ad23_contract_helpers.py"
   - "tests/approach_map_fakes.py"
@@ -50,7 +50,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `schema_version` | `2` | integer | explicit template decision | Selects the accepted learnloop.toml schema and activates one-way normalization for older schema-1 input. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4819`; `src/learnloop/ai/providers/codex_http.py:79`; `src/learnloop/ingest/extractors/glm_ocr.py:292` |
+| `schema_version` | `2` | integer | explicit template decision | Selects the accepted learnloop.toml schema and activates one-way normalization for older schema-1 input. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4813`; `src/learnloop/ingest/extractors/glm_ocr.py:292`; `src/learnloop_sidecar/context.py:888` |
 
 ## Compatibility-only inputs
 

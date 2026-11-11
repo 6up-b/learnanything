@@ -235,7 +235,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_llm_judge_reads_and_rewrites_and_its_verdicts_reach_the_ledger`
 - [tests/test_plan_first_transport.py](../../../../../../../tests/test_plan_first_transport.py) — direct import
   - `test_f1_a_configured_metered_fallback_provider_is_never_used_silently_for_a_plan_route`
-  - `test_f6_codex_is_never_a_fallback_through_the_direct_readers_opt_in_or_not`
+  - `test_f6_codex_is_never_a_fallback_through_the_direct_readers`
 - [tests/test_required_method_rereview.py](../../../../../../../tests/test_required_method_rereview.py) — direct import
   - `test_f14_the_generation_guidance_leaves_the_sentence_to_the_writer`
 

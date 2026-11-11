@@ -222,7 +222,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_route_falls_back_to_the_active_provider_and_an_override_keeps_the_cap`
 - [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
   - `test_billing_class_is_subscription`
-- [tests/test_codex_tool_lockdown.py](../../../../../../tests/test_codex_tool_lockdown.py) — direct import
 - [tests/test_curriculum_c1_round5_followups.py](../../../../../../tests/test_curriculum_c1_round5_followups.py) — direct import
   - `test_c1_r5_followup_a_the_refresh_resolves_its_route_once_and_judge_sends_on_it`
 - [tests/test_e0_review_round5.py](../../../../../../tests/test_e0_review_round5.py) — direct import

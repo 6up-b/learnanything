@@ -71,8 +71,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]] — imports `AIProviderConfig`
 - [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] — imports `LearnLoopConfig`
 - [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] — imports `AIProviderConfig`
-- [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] — imports `AIProviderConfig`, `CodexConfig`; statically calls `CodexConfig`
-- [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]] — imports `AIProviderConfig`, `CodexConfig`
 - [[Reference/Modules/learnloop/ai/providers/decider|learnloop.ai.providers.decider]] — imports `AIProviderConfig`
 - [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] — imports `AIProviderConfig`
 - [[Reference/Modules/learnloop/ai/providers/openai_embedding|learnloop.ai.providers.openai_embedding]] — imports `AIProviderConfig`
@@ -156,7 +154,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/chatgpt_plan/routes|learnloop.ai.chatgpt_plan.routes]], [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]], [[Reference/Modules/learnloop/ai/disclosures|learnloop.ai.disclosures]], [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]], [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] and 65 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/chatgpt_plan/routes|learnloop.ai.chatgpt_plan.routes]], [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]], [[Reference/Modules/learnloop/ai/disclosures|learnloop.ai.disclosures]], [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]], [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] and 63 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -181,13 +179,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_default_config_seeds_openrouter_profile`
   - `test_default_config_ships_blank_codex_checkout_path`
   - `test_error_impacts_max_sharpening_maps_to_recall_coverage_runtime_field`
-  - `test_global_ai_timeout_is_applied_to_codex_sdk_profiles`
   - `test_in_memory_defaults_match_persisted_algorithm_and_codex_profile`
   - `test_legacy_codex_config_maps_to_ai_profile`
   - `test_legacy_codex_routes_upgrade_to_workload_specific_effort_profiles`
   - `test_pdf_native_engine_and_input_modalities_parse`
   - `test_shell_env_wins_over_global_settings_file`
-  - `test_sparse_codex_ai_profile_uses_current_codex_defaults`
 - [tests/test_ai_runtime.py](../../../../../../tests/test_ai_runtime.py) — direct import
   - `test_ai_runtime_reports_missing_provider`
   - `test_openai_chat_runtime_uses_vault_dotenv`
@@ -196,17 +192,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_openrouter_runtime_requires_api_key`
   - `test_vault_dotenv_does_not_override_shell_env`
 - [tests/test_ai_single_request.py](../../../../../../tests/test_ai_single_request.py) — direct import
-  - `test_codex_single_request_disables_regeneration_and_repair_only_in_scope`
-  - `test_codex_single_request_fails_closed_before_sdk_startup`
   - `test_openai_single_request_disables_retry_and_repair_only_in_scope`
 - [tests/test_ai_tool_isolation.py](../../../../../../tests/test_ai_tool_isolation.py) — direct import
-  - `test_a_workspace_outside_the_sandbox_is_inlined_and_never_mounted`
-  - `test_an_isolated_turn_passes_its_profile_through_the_sandbox_launcher`
-  - `test_an_isolated_turn_runs_its_permission_profile_inside_the_sandbox`
-  - `test_codex_refuses_an_isolated_request_without_bubblewrap`
   - `test_project_routes_give_a_confinable_agent_the_vault_and_repos_as_hidden`
   - `test_project_routes_mark_an_unconfinable_agent_not_ready`
-  - `test_the_codex_app_server_launches_inside_the_sandbox`
 - [tests/test_blueprint_projection.py](../../../../../../tests/test_blueprint_projection.py) — direct import
 - [tests/test_characterization_mastery_reliability.py](../../../../../../tests/test_characterization_mastery_reliability.py) — direct import
   - `test_error_impact_turns_reliability_into_observation_weight`
@@ -219,44 +208,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_paused_plan_never_falls_back_to_codex`
   - `test_disclosures_name_the_plan_when_it_is_the_active_provider`
   - `test_the_plan_serves_a_workspace_and_takes_the_callers_deadline`
-- [tests/test_cli_generate_practice.py](../../../../../../tests/test_cli_generate_practice.py) — direct import
-  - `test_provider_timeout_override_reaches_codex_sdk_client`
-- [tests/test_codex_cli_0164_lockdown.py](../../../../../../tests/test_codex_cli_0164_lockdown.py) — direct import
-- [tests/test_codex_cli_0165_lockdown.py](../../../../../../tests/test_codex_cli_0165_lockdown.py) — direct import
-- [tests/test_codex_cli_0166_lockdown.py](../../../../../../tests/test_codex_cli_0166_lockdown.py) — direct import
-- [tests/test_codex_http_client.py](../../../../../../tests/test_codex_http_client.py) — direct import
-  - `test_http_codex_client_health_and_grading_round_trip`
-  - `test_http_codex_client_misconception_match_bare_payload`
-  - `test_http_codex_client_misconception_match_round_trip`
-- [tests/test_codex_isolation_mcp_check.py](../../../../../../tests/test_codex_isolation_mcp_check.py) — direct import
-  - `test_an_interrupt_stops_a_check_running_inside_the_sandbox`
-  - `test_the_check_runs_inside_the_sandbox_in_the_turns_own_directory`
-  - `test_the_installed_codex_addresses_path_characters_but_not_dots`
-  - `test_the_installed_codex_passes_the_launch_check`
-  - `test_the_installed_codex_pins_a_server_only_an_unseen_ancestor_project_disables`
-- [tests/test_codex_lockdown_round2.py](../../../../../../tests/test_codex_lockdown_round2.py) — direct import
-  - `test_every_legacy_operation_is_refused_even_on_an_existing_client`
-  - `test_the_http_runtime_check_never_runs_its_health_request_or_startup_command`
-  - `test_the_legacy_provider_http_is_refused_by_the_lockdown`
-- [tests/test_codex_lockdown_round3.py](../../../../../../tests/test_codex_lockdown_round3.py) — direct import
-- [tests/test_codex_output_schema.py](../../../../../../tests/test_codex_output_schema.py) — direct import
-  - `test_http_adapter_strips_the_usage_envelope_but_not_a_bad_field`
-  - `test_sdk_authoring_path_passes_strict_schema_to_codex`
-  - `test_sdk_codex_client_logs_full_prompt_and_response`
-  - `test_sdk_codex_turn_timeout_interrupts_and_returns`
-  - `test_sdk_reader_preset_regenerates_when_app_server_rejects_hex_escape`
-  - `test_sdk_reader_preset_repairs_invalid_unicode_json_once`
-  - `test_sdk_teach_back_authoring_passes_source_and_quest_to_prompt`
-- [tests/test_codex_runtime.py](../../../../../../tests/test_codex_runtime.py) — direct import
-  - `test_codex_runtime_ready_when_checkout_revision_and_health_pass`
-  - `test_codex_runtime_reports_auth_required`
-  - `test_codex_runtime_reports_missing_checkout`
-  - `test_codex_runtime_reports_revision_mismatch`
-  - `test_codex_runtime_reports_startup_timeout`
-  - `test_codex_runtime_reports_unavailable_without_transport_or_failed_health`
-  - `test_codex_runtime_starts_app_server_after_initial_health_failure`
-- [tests/test_codex_tool_lockdown.py](../../../../../../tests/test_codex_tool_lockdown.py) — direct import
-  - `test_an_enable_flag_for_an_unclassified_feature_refuses_the_turn`
+- [tests/test_codex_transport_retired.py](../../../../../../tests/test_codex_transport_retired.py) — direct import
+  - `test_a_legacy_codex_table_loads_to_the_profile_it_did_at_the_base`
 - [tests/test_cold_start_revision.py](../../../../../../tests/test_cold_start_revision.py) — direct import
   - `test_channel_doubt_never_inverts_direction_on_easy_items`
   - `test_interpretation_variance_broadens_not_blocks`
@@ -288,11 +241,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_session_budget_is_hard`
 - [tests/test_diagnose_review_spend.py](../../../../../../tests/test_diagnose_review_spend.py) — direct import
   - `test_transport_retries_are_admitted_too`
-- [tests/test_diagnosis_history_modes.py](../../../../../../tests/test_diagnosis_history_modes.py) — direct import
-  - `test_codex_workspace_replaces_the_vault_root`
-- [tests/test_diagnosis_isolation.py](../../../../../../tests/test_diagnosis_isolation.py) — direct import
-  - `test_a_launch_override_gets_the_overrides_before_app_server`
-  - `test_configured_mcp_servers_are_listed_and_disabled`
 - [tests/test_e0_review_round3.py](../../../../../../tests/test_e0_review_round3.py) — direct import
   - `test_f21_omitted_embedding_usage_keeps_the_reservation_through_the_real_wrapper`
 - [tests/test_embedding_route_isolation.py](../../../../../../tests/test_embedding_route_isolation.py) — direct import
@@ -341,7 +289,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_openrouter_transcription_setting_routes_audio_via_chat`
 - [tests/test_ingest_transcription.py](../../../../../../tests/test_ingest_transcription.py) — direct import
 - [tests/test_ingestion_checkpoints.py](../../../../../../tests/test_ingestion_checkpoints.py) — direct import
-  - `test_codex_does_not_repair_when_reported_output_consumed_the_budget`
   - `test_retry_policy_records_each_failed_request_with_unknown_usage`
   - `test_truncation_or_exhausted_repair_budget_records_usage_without_repaying`
 - [tests/test_irt_difficulty.py](../../../../../../tests/test_irt_difficulty.py) — direct import
@@ -387,7 +334,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_template_keeps_ai_comments_on_ai_and_no_project_jargon`
 - [tests/test_openrouter_client.py](../../../../../../tests/test_openrouter_client.py) — direct import
 - [tests/test_output_budget.py](../../../../../../tests/test_output_budget.py) — direct import
-  - `test_codex_turns_take_the_routes_effort_for_that_turn_only`
 - [tests/test_pdf_extraction.py](../../../../../../tests/test_pdf_extraction.py) — direct import
   - `test_cache_key_excludes_api_key`
   - `test_explicit_marker_engine_requires_marker`
@@ -399,11 +345,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_marker_upgrade_changes_cache_key`
   - `test_native_engine_is_rejected_by_legacy_extractor`
   - `test_resolved_pdf_config_overrides_and_validates`
-- [tests/test_pf_generation.py](../../../../../../tests/test_pf_generation.py) — direct import
-  - `test_a_codex_pf_turn_starts_outside_the_vault_with_tools_off_and_never_reuses_unisolated_work`
 - [tests/test_plan_first_transport.py](../../../../../../tests/test_plan_first_transport.py) — direct import
-  - `test_a_harness_profile_without_the_opt_in_raises_before_any_process`
+  - `test_a_harness_profile_raises_before_any_process`
   - `test_a_plan_call_that_fails_for_availability_offers_openrouter_for_that_route`
+  - `test_an_old_opt_in_still_loads_and_admits_nothing`
   - `test_code_defaults_name_the_plan_tiers_with_the_codex_efforts_and_slugs`
   - `test_doctor_reports_each_pinned_codex_setting_and_fix_rewrites_it`
   - `test_every_fallback_provider_and_env_override_never_resolves_to_codex`
@@ -414,13 +359,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_the_question_build_asks_and_a_grant_serves_it_priced_as_metered`
   - `test_f4_grants_are_per_vault_per_offer_and_the_env_grant_is_the_cli_commands_only`
   - `test_f5_doctor_fix_keeps_the_tier_of_a_legacy_codex_route_value`
-  - `test_f6_codex_is_never_a_fallback_through_the_direct_readers_opt_in_or_not`
+  - `test_f6_codex_is_never_a_fallback_through_the_direct_readers`
   - `test_f7_an_explicit_inline_never_sends_tools_and_a_tools_turn_caps_its_resent_input`
   - `test_fix_l2_a_quiet_status_read_never_points_at_an_offer_it_did_not_make`
-  - `test_readiness_of_a_refused_codex_profile_runs_no_health_check`
+  - `test_readiness_of_a_codex_profile_is_the_refusal`
   - `test_rr_f2_a_feature_that_needs_its_own_price_is_not_served_by_another_features_grant`
   - `test_the_cli_json_carries_the_hint`
-  - `test_the_opt_in_admits_codex_and_codex_is_still_never_a_fallback`
   - `test_unavailable_offers_openrouter_only_when_configured_and_sends_nothing_unasked`
 - [tests/test_plan_first_transport_grant_scope.py](../../../../../../tests/test_plan_first_transport_grant_scope.py) — direct import
 - [tests/test_plan_first_transport_offer_grants.py](../../../../../../tests/test_plan_first_transport_offer_grants.py) — direct import
@@ -446,7 +390,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_metered_output_limit_reaches_the_provider_request_and_its_repair`
   - `test_project_grading_runs_at_high_effort_by_default`
   - `test_project_route_defaults_to_grading_then_active`
-  - `test_the_effective_grading_request_carries_high_effort`
 - [tests/test_project_hooks.py](../../../../../../tests/test_project_hooks.py) — direct import
   - `test_auto_sweep_is_throttled_at_plan_build`
   - `test_auto_sweep_never_raises`
@@ -463,7 +406,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_config_matrix_executes_all_six_production_resolution_paths`
   - `test_explicit_and_environment_selections_suppress_fallback`
   - `test_manual_is_a_typed_no_client_outcome`
-  - `test_named_codex_profile_identity_survives_provider_construction`
   - `test_provider_resolution_config_matrix_is_uniform`
 - [tests/test_reader_dialogue.py](../../../../../../tests/test_reader_dialogue.py) — direct import
   - `test_reader_enabled_by_default`
@@ -523,8 +465,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_openai_embedding_client_sends_the_request_timeout`
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
   - `test_chat_transport_executes_every_feature_operation`
-  - `test_legacy_http_supports_exactly_eight_operations_and_degrades_the_rest`
-  - `test_sdk_transport_executes_every_feature_operation`
 - [tests/test_surprise.py](../../../../../../tests/test_surprise.py) — direct import
   - `test_fsrs_interval_factor_within_bounds`
 - [tests/test_t6_followup_composition.py](../../../../../../tests/test_t6_followup_composition.py) — direct import

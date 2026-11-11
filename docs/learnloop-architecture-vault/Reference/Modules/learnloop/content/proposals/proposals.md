@@ -235,8 +235,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_refresh_door_reports_the_same_errors_as_the_generation_door`
 - [tests/test_cli_generate_practice.py](../../../../../../../tests/test_cli_generate_practice.py) — direct import
   - `test_accepting_diagnostic_proposal_queues_today_followup`
-- [tests/test_codex_output_schema.py](../../../../../../../tests/test_codex_output_schema.py) — direct import
-  - `test_sdk_authoring_path_passes_strict_schema_to_codex`
 - [tests/test_conjunctive_instruments.py](../../../../../../../tests/test_conjunctive_instruments.py) — direct import
 - [tests/test_diagnostic_generation.py](../../../../../../../tests/test_diagnostic_generation.py) — direct import
   - `test_generate_diagnostic_accepted_and_reviewed`

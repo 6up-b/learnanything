@@ -127,8 +127,6 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
 - [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]] — imports `OperationClient`
 - [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] — imports `BOUNDED_STRUCTURED_COMPLETION`, `INTERRUPT`, `ISOLATED_TURN`, `READ_ONLY_WORKSPACE`, `STRUCTURED_COMPLETION`, `StructuredRequest`
-- [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] — imports `INTERRUPT`, `ISOLATED_TURN`, `READ_ONLY_WORKSPACE`, `STRUCTURED_COMPLETION`, `StructuredRequest`
-- [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]] — imports `StructuredRequest`, `WireResult`, `prompt_safe`; statically calls `prompt_safe`
 - [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] — imports `BOUNDED_STRUCTURED_COMPLETION`, `IMAGE_INPUT`, `ISOLATED_TURN`, `MEDIA_MARKDOWN`, `MEDIA_TRANSCRIPTION`, `STRUCTURED_COMPLETION`, `StructuredRequest`
 - [[Reference/Modules/learnloop/ai/providers/openai_embedding|learnloop.ai.providers.openai_embedding]] — imports `EMBEDDING`
 - [[Reference/Modules/learnloop/ai/providers/openrouter_video|learnloop.ai.providers.openrouter_video]] — imports `VIDEO_GENERATION`
@@ -261,7 +259,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]], [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]] and 109 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]], [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]] and 107 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -277,6 +275,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/figure_fixtures.py](../../../../../../tests/figure_fixtures.py) — direct import
 - [tests/hint_fakes.py](../../../../../../tests/hint_fakes.py) — direct import
 - [tests/hint_outcome_helpers.py](../../../../../../tests/hint_outcome_helpers.py) — direct import
+- [tests/http_provider_double.py](../../../../../../tests/http_provider_double.py) — direct import
 - [tests/notes_fixtures.py](../../../../../../tests/notes_fixtures.py) — direct import
 - [tests/practice_index_fakes.py](../../../../../../tests/practice_index_fakes.py) — direct import
 - [tests/reader_active_reading_helpers.py](../../../../../../tests/reader_active_reading_helpers.py) — direct import
@@ -299,21 +298,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_capabilities_isolated_tool_free_and_bounded`
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../tests/test_chatgpt_plan_workspace.py) — direct import
   - `test_the_plan_serves_a_workspace_and_takes_the_callers_deadline`
-- [tests/test_codex_cli_0164_lockdown.py](../../../../../../tests/test_codex_cli_0164_lockdown.py) — direct import
-- [tests/test_codex_cli_0165_lockdown.py](../../../../../../tests/test_codex_cli_0165_lockdown.py) — direct import
-- [tests/test_codex_cli_0166_lockdown.py](../../../../../../tests/test_codex_cli_0166_lockdown.py) — direct import
-- [tests/test_codex_isolation_mcp_check.py](../../../../../../tests/test_codex_isolation_mcp_check.py) — direct import
-  - `test_a_turn_that_did_not_ask_for_isolation_is_checked_and_locked_down_too`
-  - `test_the_check_runs_inside_the_request_deadline`
-  - `test_the_turn_gets_only_what_the_check_left_of_the_deadline`
-- [tests/test_codex_lockdown_round2.py](../../../../../../tests/test_codex_lockdown_round2.py) — direct import
-  - `test_every_legacy_operation_is_refused_even_on_an_existing_client`
-- [tests/test_codex_lockdown_round3.py](../../../../../../tests/test_codex_lockdown_round3.py) — direct import
-  - `test_a_snapshot_diagnosis_on_codex_is_inlined_and_gives_the_same_structured_output`
-- [tests/test_codex_tool_lockdown.py](../../../../../../tests/test_codex_tool_lockdown.py) — direct import
-  - `test_a_workspace_that_is_the_vault_is_refused`
-  - `test_a_workspace_turn_may_only_add_commands`
-  - `test_tokens_reported_before_an_ordinary_failure_reach_the_receipt_and_the_settle`
 - [tests/test_diagnose_review_spend.py](../../../../../../tests/test_diagnose_review_spend.py) — direct import
   - `test_a_json_repair_is_a_second_admitted_request_on_a_metered_route`
   - `test_admitted_repairs_are_charged_and_capped_by_the_admitted_output`
@@ -323,18 +307,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_route_allowance_is_enforced_when_the_profile_sets_no_limit`
   - `test_transport_retries_are_admitted_too`
 - [tests/test_diagnosis_history_modes.py](../../../../../../tests/test_diagnosis_history_modes.py) — direct import
-  - `test_codex_workspace_replaces_the_vault_root`
   - `test_snapshot_is_unavailable_without_the_capability`
-- [tests/test_diagnosis_isolation.py](../../../../../../tests/test_diagnosis_isolation.py) — direct import
-  - `test_a_launch_override_gets_the_overrides_before_app_server`
-  - `test_a_review_refuses_a_grader_or_diagnoser_that_cannot_isolate`
-  - `test_a_snapshot_turn_runs_under_the_profile_never_the_builtin_sandbox`
-  - `test_a_turn_that_did_not_ask_for_isolation_never_starts_in_the_vault`
-  - `test_an_isolated_turn_without_a_workspace_starts_in_an_empty_directory`
-  - `test_an_sdk_that_cannot_take_config_overrides_fails_closed`
-  - `test_isolated_operations_are_refused_by_a_transport_that_cannot_isolate`
-  - `test_openai_chat_transports_are_isolated_by_construction`
-  - `test_unlisted_mcp_servers_fail_closed`
 - [tests/test_diagnosis_replay.py](../../../../../../tests/test_diagnosis_replay.py) — direct import
   - `test_replay_makes_zero_model_and_embedding_calls`
 - [tests/test_e0_review_round2.py](../../../../../../tests/test_e0_review_round2.py) — direct import
@@ -354,7 +327,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_public_import_inventory_dependency_resolves_extraction_and_units`
   - `test_same_vault_rebind_preserves_kill_codex_interrupt_handle`
 - [tests/test_ingestion_checkpoints.py](../../../../../../tests/test_ingestion_checkpoints.py) — direct import
-  - `test_codex_does_not_repair_when_reported_output_consumed_the_budget`
   - `test_retry_policy_records_each_failed_request_with_unknown_usage`
   - `test_truncation_or_exhausted_repair_budget_records_usage_without_repaying`
 - [tests/test_learner_blindness_relax.py](../../../../../../tests/test_learner_blindness_relax.py) — direct import
@@ -373,7 +345,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_second_truncation_fails_and_is_never_accepted`
   - `test_an_admitting_caller_lets_the_transport_retry_a_truncation_at_double`
   - `test_an_owner_set_budget_is_never_exceeded_and_its_truncation_is_logged`
-  - `test_codex_turns_take_the_routes_effort_for_that_turn_only`
   - `test_inside_a_caller_budget_the_transport_leaves_the_retry_to_the_caller`
   - `test_slice1_review_spend_admits_the_transports_truncation_retry_at_double`
   - `test_the_route_effort_wins_over_a_profile_that_disables_thinking`
@@ -391,8 +362,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reading_hardening_review_fixes.py](../../../../../../tests/test_reading_hardening_review_fixes.py) — direct import
   - `test_f1_kill_codex_interrupts_nothing_when_its_settle_fails`
 - [tests/test_recurrence_benchmarks.py](../../../../../../tests/test_recurrence_benchmarks.py) — direct import
-- [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
-  - `test_legacy_http_supports_exactly_eight_operations_and_degrades_the_rest`
 - [tests/test_stuck_prompt_replay.py](../../../../../../tests/test_stuck_prompt_replay.py) — direct import
   - `test_a_joint_stuck_reading_survives_rebuild_with_no_model_call`
   - `test_a_stuck_vault_rebuilds_to_a_fixed_point_with_no_model_call`

@@ -18,7 +18,6 @@ source_paths:
   - "tests/test_config_refactor.py"
   - "src/learnloop/ai/plan_fallback.py"
   - "src/learnloop/daily_plan/router_reader.py"
-  - "tests/codex_cli_fakes.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
@@ -30,6 +29,7 @@ source_paths:
   - "tests/practice_index_fakes.py"
   - "tests/reader_passage_check_helpers.py"
   - "tests/reader_source_identity_guard_helpers.py"
+  - "tests/router_model_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/reader-inquiry"
@@ -50,10 +50,10 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `reader_inquiry.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for reader workbench RW1a (content and display, no successor): branching Ask (a follow-up names its parent and sees only its ancestors), inquiry status on the root question with reopen, the detour strip and Alt+arrow return stack, the reconnect line and its passage-scoped quick check, and the Reader activity the reader report reads. Off: today's flat Ask rail, and every RPC RW1a extends answers byte-identically. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2286`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/daily_plan/router_reader.py:109` |
-| `reader_inquiry.max_checks_per_day` | `100` | integer | modeled default or validator seed | Caps checks per day allowed by reader workbench RW1a: branching Ask, inquiry status with reopen, the return stack and detour strip, the reconnect line with its passage-scoped quick check, and the Reader's funnel activity (content and display only). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2287`; `src/learnloop/ai/plan_fallback.py:138` |
-| `reader_inquiry.max_usd_per_check` | `0.5` | number | modeled default or validator seed | Caps usd per check allowed by reader workbench RW1a: branching Ask, inquiry status with reopen, the return stack and detour strip, the reconnect line with its passage-scoped quick check, and the Reader's funnel activity (content and display only). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2288`; `src/learnloop/ai/plan_fallback.py:138` |
-| `reader_inquiry.metered_price_per_million` | `null` | nullable | modeled default or validator seed | Controls metered price per million in reader workbench RW1a: branching Ask, inquiry status with reopen, the return stack and detour strip, the reconnect line with its passage-scoped quick check, and the Reader's funnel activity (content and display only), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2289`; `src/learnloop/ai/plan_fallback.py:138` |
+| `reader_inquiry.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for reader workbench RW1a (content and display, no successor): branching Ask (a follow-up names its parent and sees only its ancestors), inquiry status on the root question with reopen, the detour strip and Alt+arrow return stack, the reconnect line and its passage-scoped quick check, and the Reader activity the reader report reads. Off: today's flat Ask rail, and every RPC RW1a extends answers byte-identically. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2280`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/daily_plan/router_reader.py:109` |
+| `reader_inquiry.max_checks_per_day` | `100` | integer | modeled default or validator seed | Caps checks per day allowed by reader workbench RW1a: branching Ask, inquiry status with reopen, the return stack and detour strip, the reconnect line with its passage-scoped quick check, and the Reader's funnel activity (content and display only). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2281`; `src/learnloop/ai/plan_fallback.py:138` |
+| `reader_inquiry.max_usd_per_check` | `0.5` | number | modeled default or validator seed | Caps usd per check allowed by reader workbench RW1a: branching Ask, inquiry status with reopen, the return stack and detour strip, the reconnect line with its passage-scoped quick check, and the Reader's funnel activity (content and display only). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2282`; `src/learnloop/ai/plan_fallback.py:138` |
+| `reader_inquiry.metered_price_per_million` | `null` | nullable | modeled default or validator seed | Controls metered price per million in reader workbench RW1a: branching Ask, inquiry status with reopen, the return stack and detour strip, the reconnect line with its passage-scoped quick check, and the Reader's funnel activity (content and display only), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2283`; `src/learnloop/ai/plan_fallback.py:138` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Every effective default is one line of `tests/goldens/effective_defaults.toml`, so a changed default shows up in review, where the `algorithms.algorithm_version` decision is made, instead of every default being dumped into each vault.
@@ -62,7 +62,6 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
-- `tests/codex_cli_fakes.py`
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
@@ -74,6 +73,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/practice_index_fakes.py`
 - `tests/reader_passage_check_helpers.py`
 - `tests/reader_source_identity_guard_helpers.py`
+- `tests/router_model_fakes.py`
 
 ## Extension and modification guidance
 

@@ -203,7 +203,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/source_service_fakes.py](../../../../../../../tests/source_service_fakes.py) — direct import
 - [tests/test_key_ladder_labels.py](../../../../../../../tests/test_key_ladder_labels.py) — direct import
 - [tests/test_pf_generation.py](../../../../../../../tests/test_pf_generation.py) — direct import
-  - `test_a_codex_pf_turn_starts_outside_the_vault_with_tools_off_and_never_reuses_unisolated_work`
   - `test_a_new_round_asks_the_proposers_again_with_its_own_generation_seed`
   - `test_a_program_that_fails_its_tests_is_retried_then_the_family_publishes_nothing`
   - `test_a_quote_check_without_its_span_support_verdict_is_never_verified`

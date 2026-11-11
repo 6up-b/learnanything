@@ -128,9 +128,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_codex_output_schema.py](../../../../../../tests/test_codex_output_schema.py) — direct import
-  - `test_sdk_reader_preset_regenerates_when_app_server_rejects_hex_escape`
-  - `test_sdk_reader_preset_repairs_invalid_unicode_json_once`
 - [tests/test_exam_protection.py](../../../../../../tests/test_exam_protection.py) — direct import
   - `test_a_reader_preset_on_held_out_material_fails_before_any_model_call`
 - [tests/test_ingest_jobs.py](../../../../../../tests/test_ingest_jobs.py) — direct import

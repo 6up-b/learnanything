@@ -119,8 +119,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/reader_requests_helpers.py](../../../../../../tests/reader_requests_helpers.py) — direct import
 - [tests/structured_ai.py](../../../../../../tests/structured_ai.py) — direct import
 - [tests/test_codex_output_schema.py](../../../../../../tests/test_codex_output_schema.py) — direct import
-  - `test_sdk_reader_preset_regenerates_when_app_server_rejects_hex_escape`
-  - `test_sdk_reader_preset_repairs_invalid_unicode_json_once`
 - [tests/test_openai_chat_client.py](../../../../../../tests/test_openai_chat_client.py) — direct import
 - [tests/test_reader_active_reading.py](../../../../../../tests/test_reader_active_reading.py) — direct import
   - `test_a_reconstruction_expects_the_selected_derivation`

@@ -219,8 +219,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/learner_blindness_relax_helpers.py](../../../../../../../tests/learner_blindness_relax_helpers.py) — direct import
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../../tests/test_chatgpt_plan_workspace.py) — direct import
-- [tests/test_codex_lockdown_round3.py](../../../../../../../tests/test_codex_lockdown_round3.py) — direct import
-  - `test_a_snapshot_diagnosis_on_codex_is_inlined_and_gives_the_same_structured_output`
 - [tests/test_diagnosis_context.py](../../../../../../../tests/test_diagnosis_context.py) — direct import
   - `test_a_stored_grade_without_criterion_rows_is_still_a_non_pass`
   - `test_assembly_and_hash_are_deterministic`

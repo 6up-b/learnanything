@@ -19,18 +19,18 @@ source_paths:
   - "src/learnloop/ai/plan_fallback.py"
   - "src/learnloop_sidecar/context.py"
   - "src/learnloop/followup_run/decision_view.py"
-  - "tests/codex_cli_fakes.py"
   - "tests/reader_rw3a_landing_helpers.py"
   - "tests/test_ai_config.py"
   - "tests/test_ai_runtime.py"
   - "tests/test_chatgpt_plan_workspace.py"
-  - "tests/test_codex_cli_0164_lockdown.py"
-  - "tests/test_codex_cli_0165_lockdown.py"
-  - "tests/test_codex_cli_0166_lockdown.py"
-  - "tests/test_codex_isolation_mcp_check.py"
-  - "tests/test_codex_lockdown_frozen.py"
-  - "tests/test_codex_lockdown_round2.py"
-  - "tests/test_codex_lockdown_round3.py"
+  - "tests/test_diagnosis_input_provenance.py"
+  - "tests/test_e0_credentials.py"
+  - "tests/test_followup_successor.py"
+  - "tests/test_mobile_doctor.py"
+  - "tests/test_mobile_https.py"
+  - "tests/test_mobile_rpc.py"
+  - "tests/test_plan_first_transport.py"
+  - "tests/test_reader_rw3a_landing.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/ui"
@@ -51,9 +51,9 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `ui.practice_feedback` | `"simple"` | string | modeled default or validator seed | Controls practice feedback in how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish ("classic" restores the screens exactly), and UX Phase 2's kill switch of the four-place shell, Under the hood, the notices and the palette's > prefix ("classic" keeps the ten-tab shell exactly), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4476`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop_sidecar/context.py:970` |
-| `ui.shell` | `"simple"` | string | modeled default or validator seed | Controls shell in how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish ("classic" restores the screens exactly), and UX Phase 2's kill switch of the four-place shell, Under the hood, the notices and the palette's > prefix ("classic" keeps the ten-tab shell exactly), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4477`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop_sidecar/context.py:970` |
-| `ui.show_router_decisions` | `true` | boolean | modeled default or validator seed | Turns show router decisions behavior on or off within how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish ("classic" restores the screens exactly), and UX Phase 2's kill switch of the four-place shell, Under the hood, the notices and the palette's > prefix ("classic" keeps the ten-tab shell exactly). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4480`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/followup_run/decision_view.py:27` |
+| `ui.practice_feedback` | `"simple"` | string | modeled default or validator seed | Controls practice feedback in how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish ("classic" restores the screens exactly), and UX Phase 2's kill switch of the four-place shell, Under the hood, the notices and the palette's > prefix ("classic" keeps the ten-tab shell exactly), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4470`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop_sidecar/context.py:970` |
+| `ui.shell` | `"simple"` | string | modeled default or validator seed | Controls shell in how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish ("classic" restores the screens exactly), and UX Phase 2's kill switch of the four-place shell, Under the hood, the notices and the palette's > prefix ("classic" keeps the ten-tab shell exactly), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4471`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop_sidecar/context.py:970` |
+| `ui.show_router_decisions` | `true` | boolean | modeled default or validator seed | Turns show router decisions behavior on or off within how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish ("classic" restores the screens exactly), and UX Phase 2's kill switch of the four-place shell, Under the hood, the notices and the palette's > prefix ("classic" keeps the ten-tab shell exactly). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4474`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/followup_run/decision_view.py:27` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Every effective default is one line of `tests/goldens/effective_defaults.toml`, so a changed default shows up in review, where the `algorithms.algorithm_version` decision is made, instead of every default being dumped into each vault.
@@ -62,18 +62,18 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
-- `tests/codex_cli_fakes.py`
 - `tests/reader_rw3a_landing_helpers.py`
 - `tests/test_ai_config.py`
 - `tests/test_ai_runtime.py`
 - `tests/test_chatgpt_plan_workspace.py`
-- `tests/test_codex_cli_0164_lockdown.py`
-- `tests/test_codex_cli_0165_lockdown.py`
-- `tests/test_codex_cli_0166_lockdown.py`
-- `tests/test_codex_isolation_mcp_check.py`
-- `tests/test_codex_lockdown_frozen.py`
-- `tests/test_codex_lockdown_round2.py`
-- `tests/test_codex_lockdown_round3.py`
+- `tests/test_diagnosis_input_provenance.py`
+- `tests/test_e0_credentials.py`
+- `tests/test_followup_successor.py`
+- `tests/test_mobile_doctor.py`
+- `tests/test_mobile_https.py`
+- `tests/test_mobile_rpc.py`
+- `tests/test_plan_first_transport.py`
+- `tests/test_reader_rw3a_landing.py`
 
 ## Extension and modification guidance
 

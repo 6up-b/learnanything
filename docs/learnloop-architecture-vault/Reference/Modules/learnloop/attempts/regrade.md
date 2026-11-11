@@ -47,31 +47,31 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/regrade.py](../../../../../../src/learnloop/attempts/regrade.py) |
-| Source lines | 847 |
+| Source lines | 841 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class DeferredRegradeResult` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 59)
-  - `as_dict(self) -> dict[str, int | str | None]` (line 65; public)
-- `run_deferred_regrades(vault: LoadedVault, repository: Repository, *, runtime: CodexRuntimeReport, codex_client: AIProviderClient | None, limit: int | None=None, clock: Clock | None=None) -> DeferredRegradeResult` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 74)
-- `run_deferred_ai_regrades(vault: LoadedVault, repository: Repository, *, runtime: AIRuntimeReport, ai_client: AIProviderClient | None, limit: int | None=None, clock: Clock | None=None) -> DeferredRegradeResult` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 95)
-- `regrade_attempt(vault: LoadedVault, repository: Repository, attempt: dict, *, runtime, client: AIProviderClient, grading_source: str, clock: Clock | None, clarification_exchange: dict[str, str] | None=None, purpose: str='grading_regrade') -> 'ValidatedCodexGrade'` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 154) — Re-grade one attempt, superseding its evidence and replaying the LO.
+- `class DeferredRegradeResult` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 53)
+  - `as_dict(self) -> dict[str, int | str | None]` (line 59; public)
+- `run_deferred_regrades(vault: LoadedVault, repository: Repository, *, runtime: AIRuntimeReport, codex_client: AIProviderClient | None, limit: int | None=None, clock: Clock | None=None) -> DeferredRegradeResult` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 68)
+- `run_deferred_ai_regrades(vault: LoadedVault, repository: Repository, *, runtime: AIRuntimeReport, ai_client: AIProviderClient | None, limit: int | None=None, clock: Clock | None=None) -> DeferredRegradeResult` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 89)
+- `regrade_attempt(vault: LoadedVault, repository: Repository, attempt: dict, *, runtime, client: AIProviderClient, grading_source: str, clock: Clock | None, clarification_exchange: dict[str, str] | None=None, purpose: str='grading_regrade') -> 'ValidatedCodexGrade'` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 148) — Re-grade one attempt, superseding its evidence and replaying the LO.
 
 ### Module constants
 
-- `LOGGER` ([src/learnloop/attempts/regrade.py](../../../../../../src/learnloop/attempts/regrade.py), line 51)
-- `ALL_GRADER_TIERS` ([src/learnloop/attempts/regrade.py](../../../../../../src/learnloop/attempts/regrade.py), line 55)
+- `LOGGER` ([src/learnloop/attempts/regrade.py](../../../../../../src/learnloop/attempts/regrade.py), line 45)
+- `ALL_GRADER_TIERS` ([src/learnloop/attempts/regrade.py](../../../../../../src/learnloop/attempts/regrade.py), line 49)
 
 ## Internal implementation anchors
 
-- `_run_deferred_agent_regrades(vault: LoadedVault, repository: Repository, *, runtime, client: AIProviderClient | None, missing_client_reason: str, grading_source: str, limit: int | None, clock: Clock | None) -> DeferredRegradeResult` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 116)
-- `_publish_regrade(vault: LoadedVault, repository: Repository, attempt: dict, *, item, learning_object, validated: ValidatedCodexGrade, agent_run_id: str, new_evidence_rows: list[dict], first_new_evidence_id: str, supersede_tiers: tuple[int, ...], new_score: int, rubric, bind_frozen: Any | None, cite_contract: bool=False, primary_error_type: str | None, content_events: list[dict], blind_record: dict | None, prior_blind: dict | None, blind_context_hash: str | None, grader_identity_overrides: dict[str, tuple[str, str] | None] | None, clock: Clock | None, grading_source: str='ai') -> None` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 562) — Every write of one regrade, in order, inside the caller's transaction.
-- `_agent_run_provider_fields(client: AIProviderClient, runtime) -> dict[str, str | None]` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 816)
-- `_manual_review_reason(existing: str | None, attempt: dict) -> str | None` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 832)
-- `_disagreement_summary(old_evidence, new_evidence_rows, old_score: int, new_score: int) -> str` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 844)
+- `_run_deferred_agent_regrades(vault: LoadedVault, repository: Repository, *, runtime, client: AIProviderClient | None, missing_client_reason: str, grading_source: str, limit: int | None, clock: Clock | None) -> DeferredRegradeResult` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 110)
+- `_publish_regrade(vault: LoadedVault, repository: Repository, attempt: dict, *, item, learning_object, validated: ValidatedCodexGrade, agent_run_id: str, new_evidence_rows: list[dict], first_new_evidence_id: str, supersede_tiers: tuple[int, ...], new_score: int, rubric, bind_frozen: Any | None, cite_contract: bool=False, primary_error_type: str | None, content_events: list[dict], blind_record: dict | None, prior_blind: dict | None, blind_context_hash: str | None, grader_identity_overrides: dict[str, tuple[str, str] | None] | None, clock: Clock | None, grading_source: str='ai') -> None` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 556) — Every write of one regrade, in order, inside the caller's transaction.
+- `_agent_run_provider_fields(client: AIProviderClient, runtime) -> dict[str, str | None]` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 810)
+- `_manual_review_reason(existing: str | None, attempt: dict) -> str | None` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 826)
+- `_disagreement_summary(old_evidence, new_evidence_rows, old_score: int, new_score: int) -> str` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 838)
 
 ## Who imports or calls it
 
@@ -88,7 +88,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]] — imports `AIProviderClient`
 - [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `CodexUnavailable`
-- [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] — imports `CodexRuntimeReport`
 - [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] — imports `finish_agent_run`; calls `finish_agent_run`
 - [[Reference/Modules/learnloop/ai/runtime|learnloop.ai.runtime]] — imports `AIRuntimeReport`
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `REGRADE_CONTRACT_VERSIONS`, `SOURCE_REFERENCE_GATE_VERSIONS`

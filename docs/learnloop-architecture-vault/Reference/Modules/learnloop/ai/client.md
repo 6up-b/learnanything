@@ -48,16 +48,16 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/client.py](../../../../../../src/learnloop/ai/client.py) |
-| Source lines | 124 |
+| Source lines | 107 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `make_ai_provider_client(config: LearnLoopConfig, vault_root: Path, *, provider_name: str | None=None, timeout_seconds: int | None=None) -> AIProviderClient` ([source](../../../../../../src/learnloop/ai/client.py), line 18)
-- `make_ai_provider_client_from_profile(provider_name: str, profile: AIProviderConfig, vault_root: Path, *, agent_harness_opt_in: bool=False) -> AIProviderClient` ([source](../../../../../../src/learnloop/ai/client.py), line 43) — Build one client for ``profile``: the single AI client factory.
-- `make_video_generation_client(config: LearnLoopConfig, vault_root: Path, *, provider_name: str, http: Any=None) -> Any` ([source](../../../../../../src/learnloop/ai/client.py), line 99) — Build the text-to-video client for an OpenRouter profile.
+- `make_ai_provider_client(config: LearnLoopConfig, vault_root: Path, *, provider_name: str | None=None, timeout_seconds: int | None=None) -> AIProviderClient` ([source](../../../../../../src/learnloop/ai/client.py), line 17)
+- `make_ai_provider_client_from_profile(provider_name: str, profile: AIProviderConfig, vault_root: Path) -> AIProviderClient` ([source](../../../../../../src/learnloop/ai/client.py), line 40) — Build one client for ``profile``: the single AI client factory.
+- `make_video_generation_client(config: LearnLoopConfig, vault_root: Path, *, provider_name: str, http: Any=None) -> Any` ([source](../../../../../../src/learnloop/ai/client.py), line 82) — Build the text-to-video client for an OpenRouter profile.
 
 ## Internal implementation anchors
 
@@ -81,12 +81,9 @@ No private top-level function or class definition is declared in this file.
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/ai/agent_harness|learnloop.ai.agent_harness]] — imports `require_harness_opt_in`; calls `require_harness_opt_in`
+- [[Reference/Modules/learnloop/ai/agent_harness|learnloop.ai.agent_harness]] — imports `refuse_agent_harness`; calls `refuse_agent_harness`
 - [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIProviderUnavailable`; calls `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] — imports `ChatGPTPlanProviderClient`; calls `ChatGPTPlanProviderClient`
-- [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] — imports `CodexSDKProviderClient`; calls `CodexSDKProviderClient`
-- [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]] — imports `HttpAdapterProviderClient`; calls `HttpAdapterProviderClient`
-- [[Reference/Modules/learnloop/ai/providers/codex_lockdown|learnloop.ai.providers.codex_lockdown]] — imports `module`; calls `refuse_legacy_http_transport`
 - [[Reference/Modules/learnloop/ai/providers/decider|learnloop.ai.providers.decider]] — imports `DeciderProviderClient`; calls `DeciderProviderClient`
 - [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] — imports `OpenAIChatProviderClient`; calls `OpenAIChatProviderClient`
 - [[Reference/Modules/learnloop/ai/providers/openai_embedding|learnloop.ai.providers.openai_embedding]] — imports `OpenAIEmbeddingProviderClient`; calls `OpenAIEmbeddingProviderClient`
@@ -114,13 +111,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_ai_config.py](../../../../../../tests/test_ai_config.py) — direct import
-  - `test_global_ai_timeout_is_applied_to_codex_sdk_profiles`
+- [tests/http_provider_double.py](../../../../../../tests/http_provider_double.py) — direct import
 - [tests/test_approach_map_replay.py](../../../../../../tests/test_approach_map_replay.py) — direct import
 - [tests/test_assumed_known.py](../../../../../../tests/test_assumed_known.py) — direct import
   - `test_placement_receipts_survive_rebuild_with_zero_model_calls`
-- [tests/test_codex_lockdown_round2.py](../../../../../../tests/test_codex_lockdown_round2.py) — direct import
-  - `test_an_http_profile_is_refused_by_the_lockdown`
+- [tests/test_codex_transport_retired.py](../../../../../../tests/test_codex_transport_retired.py) — direct import
+  - `test_an_old_config_naming_codex_loads_and_every_entry_refuses_it_clearly`
 - [tests/test_daily_plan_replay.py](../../../../../../tests/test_daily_plan_replay.py) — direct import
   - `test_rebuild_ignores_the_plan_and_calls_no_model`
 - [tests/test_embedding_store.py](../../../../../../tests/test_embedding_store.py) — direct import
@@ -139,11 +135,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_openrouter_video_client.py](../../../../../../tests/test_openrouter_video_client.py) — direct import
   - `test_factory_requires_an_openrouter_profile`
 - [tests/test_plan_first_transport.py](../../../../../../tests/test_plan_first_transport.py) — direct import
-  - `test_a_harness_profile_without_the_opt_in_raises_before_any_process`
+  - `test_a_harness_profile_raises_before_any_process`
+  - `test_an_old_opt_in_still_loads_and_admits_nothing`
 - [tests/test_practice_index_dossiers.py](../../../../../../tests/test_practice_index_dossiers.py) — direct import
   - `test_rebuild_preserves_dossiers_and_calls_no_model`
-- [tests/test_provider_resolution_parity.py](../../../../../../tests/test_provider_resolution_parity.py) — direct import
-  - `test_named_codex_profile_identity_survives_provider_construction`
 - [tests/test_router_outcomes.py](../../../../../../tests/test_router_outcomes.py) — direct import
   - `test_the_replayer_rebuilds_router_outcomes_deterministically_with_no_model_call`
 - [tests/test_router_r2a_serving.py](../../../../../../tests/test_router_r2a_serving.py) — direct import

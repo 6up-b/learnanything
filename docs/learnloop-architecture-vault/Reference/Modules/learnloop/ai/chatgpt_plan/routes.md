@@ -109,7 +109,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_assessment_enforcement.py](../../../../../../../tests/test_assessment_enforcement.py) — imports consumer [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]]
 - [tests/test_calibration.py](../../../../../../../tests/test_calibration.py) — imports consumer [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]]
 - [tests/test_chatgpt_plan_cli.py](../../../../../../../tests/test_chatgpt_plan_cli.py) — imports consumer [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]]
-- [tests/test_codex_runtime.py](../../../../../../../tests/test_codex_runtime.py) — imports consumer [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]]
+- [tests/test_codex_transport_retired.py](../../../../../../../tests/test_codex_transport_retired.py) — imports consumer [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]]
 - [tests/test_concepts.py](../../../../../../../tests/test_concepts.py) — imports consumer [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]]
 - [tests/test_contract_reachability.py](../../../../../../../tests/test_contract_reachability.py) — imports consumer [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]]
 - [tests/test_contrast_pairs.py](../../../../../../../tests/test_contrast_pairs.py) — imports consumer [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]]

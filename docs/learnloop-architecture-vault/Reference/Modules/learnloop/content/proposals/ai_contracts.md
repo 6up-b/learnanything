@@ -182,7 +182,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_persist_authoring_proposal_records_agent_run`
 - [tests/test_codex_output_schema.py](../../../../../../../tests/test_codex_output_schema.py) — direct import
   - `test_authoring_payload_rejects_unknown_attempt_type`
-  - `test_sdk_authoring_path_passes_strict_schema_to_codex`
   - `test_strict_schema_preserves_a_field_named_title`
   - `test_trace_recipe_dependencies_travel_as_pairs`
   - `test_undeclared_field_inside_a_proposal_item_names_the_payload_model`

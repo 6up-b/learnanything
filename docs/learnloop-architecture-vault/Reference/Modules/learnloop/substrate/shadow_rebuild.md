@@ -130,6 +130,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_approach_map_replay.py](../../../../../../tests/test_approach_map_replay.py) — direct import
   - `test_rebuild_and_replay_call_no_model_and_never_read_approach_maps`
 - [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — direct import
+- [tests/test_codex_transport_retired.py](../../../../../../tests/test_codex_transport_retired.py) — direct import
+  - `test_an_attempt_graded_by_codex_replays_identically`
 - [tests/test_cold_retry_reschedule.py](../../../../../../tests/test_cold_retry_reschedule.py) — direct import
   - `test_a_shadow_rebuild_is_zero_with_the_fresh_retries_present`
 - [tests/test_curriculum_c0b_landing.py](../../../../../../tests/test_curriculum_c0b_landing.py) — direct import

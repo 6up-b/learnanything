@@ -179,7 +179,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_codex_tool_lockdown.py](../../../../../../tests/test_codex_tool_lockdown.py) — direct import
 - [tests/test_compare_methods.py](../../../../../../tests/test_compare_methods.py) — direct import
   - `test_an_imported_exercise_with_a_book_solution_shows_the_books_passage_as_a_source_review`
   - `test_book_solution_reads_the_checked_span_ids_and_never_exam_material`

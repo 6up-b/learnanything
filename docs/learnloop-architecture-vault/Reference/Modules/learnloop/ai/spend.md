@@ -288,7 +288,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_iv_with_the_student_off_rw5ds_grounding_retrieval_is_p1s`
 - [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
   - `test_billing_class_is_subscription`
-- [tests/test_codex_tool_lockdown.py](../../../../../../tests/test_codex_tool_lockdown.py) — direct import
 - [tests/test_contamination_report.py](../../../../../../tests/test_contamination_report.py) — direct import
   - `test_caps_admit_before_any_call`
   - `test_dry_run_changes_nothing_and_builds_no_client`
@@ -310,8 +309,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_transport_retries_are_admitted_too`
 - [tests/test_diagnosis_embeddings.py](../../../../../../tests/test_diagnosis_embeddings.py) — direct import
   - `test_backfill_embeds_db_recipes_only_when_named`
-- [tests/test_diagnosis_isolation.py](../../../../../../tests/test_diagnosis_isolation.py) — direct import
-  - `test_a_review_refuses_a_grader_or_diagnoser_that_cannot_isolate`
 - [tests/test_e0_budget.py](../../../../../../tests/test_e0_budget.py) — direct import
   - `test_the_ledger_is_a_spend_envelope_for_reused_production_paths`
 - [tests/test_e0_review_round2.py](../../../../../../tests/test_e0_review_round2.py) — direct import
@@ -341,7 +338,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_codex_route_dry_run_shows_an_estimate_without_a_price`
   - `test_codex_run_still_stops_a_runaway_at_the_call_cap`
   - `test_each_retry_spends_and_never_echoes_provider_error`
-  - `test_fake_codex_run_succeeds_and_receipts_carry_estimated_only`
   - `test_metered_route_keeps_the_physical_request_bound_and_full_caps`
   - `test_route_availability_never_changes_preview_model`
   - `test_unknown_price_fails_closed_even_with_high_cap`

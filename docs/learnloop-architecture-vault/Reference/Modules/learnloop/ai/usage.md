@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/usage.py](../../../../../../src/learnloop/ai/usage.py) |
-| Source lines | 308 |
+| Source lines | 259 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -59,20 +59,18 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
   - `__add__(self, other: TokenUsage) -> TokenUsage` (line 47; internal)
   - `total_tokens(self) -> int` (line 55; public)
 - `class TokenUsageAccounting` ([source](../../../../../../src/learnloop/ai/usage.py), line 59) — Per-client token accumulator mixed into every provider client.
-  - `_usage_mutex(self) -> threading.Lock` (line 80; internal)
-  - `record_token_usage(self, input_tokens: int, output_tokens: int) -> None` (line 90; public) — Add one model call's reported usage.
-  - `consume_usage(self) -> TokenUsage` (line 104; public) — Read and reset.
-  - `snapshot_usage(self) -> TokenUsage` (line 118; public) — Read without draining the enclosing run's accounting.
-- `snapshot_client_usage(client: Any | None) -> TokenUsage` ([source](../../../../../../src/learnloop/ai/usage.py), line 124)
-- `class UsageMeter` ([source](../../../../../../src/learnloop/ai/usage.py), line 132) — Provider-reported usage of the calls a client made since the meter started.
-  - `__init__(self, client: Any | None)` (line 141; internal)
-  - `reported(self) -> TokenUsage` (line 145; public)
-  - `output_charge(self, estimate: int) -> int` (line 153; public)
-- `consume_client_usage(client: Any | None) -> TokenUsage` ([source](../../../../../../src/learnloop/ai/usage.py), line 157) — Drain ``client``'s accumulator, tolerating clients that have none.
-- `usage_from_chat_response(response: Any) -> tuple[int, int]` ([source](../../../../../../src/learnloop/ai/usage.py), line 178) — Pull (input, output) tokens off an OpenAI-shaped chat completion.
-- `receipt_fields_from_chat_response(response: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ai/usage.py), line 200) — The call-receipt view of an OpenAI-shaped chat completion.
-- `usage_from_codex_turn(result: Any) -> tuple[int, int]` ([source](../../../../../../src/learnloop/ai/usage.py), line 227) — Pull (input, output) tokens off a Codex SDK ``TurnResult``.
-- `receipt_fields_from_codex_turn(result: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ai/usage.py), line 251) — The call-receipt view of a Codex turn's usage; empty when none was reported.
+  - `_usage_mutex(self) -> threading.Lock` (line 79; internal)
+  - `record_token_usage(self, input_tokens: int, output_tokens: int) -> None` (line 89; public) — Add one model call's reported usage.
+  - `consume_usage(self) -> TokenUsage` (line 103; public) — Read and reset.
+  - `snapshot_usage(self) -> TokenUsage` (line 117; public) — Read without draining the enclosing run's accounting.
+- `snapshot_client_usage(client: Any | None) -> TokenUsage` ([source](../../../../../../src/learnloop/ai/usage.py), line 123)
+- `class UsageMeter` ([source](../../../../../../src/learnloop/ai/usage.py), line 131) — Provider-reported usage of the calls a client made since the meter started.
+  - `__init__(self, client: Any | None)` (line 140; internal)
+  - `reported(self) -> TokenUsage` (line 144; public)
+  - `output_charge(self, estimate: int) -> int` (line 152; public)
+- `consume_client_usage(client: Any | None) -> TokenUsage` ([source](../../../../../../src/learnloop/ai/usage.py), line 156) — Drain ``client``'s accumulator, tolerating clients that have none.
+- `usage_from_chat_response(response: Any) -> tuple[int, int]` ([source](../../../../../../src/learnloop/ai/usage.py), line 177) — Pull (input, output) tokens off an OpenAI-shaped chat completion.
+- `receipt_fields_from_chat_response(response: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ai/usage.py), line 199) — The call-receipt view of an OpenAI-shaped chat completion.
 
 ### Module constants
 
@@ -80,11 +78,10 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 ## Internal implementation anchors
 
-- `_codex_turn_breakdown(result: Any) -> Any` ([source](../../../../../../src/learnloop/ai/usage.py), line 265)
-- `_attr_or_key(payload: Any, name: str) -> Any` ([source](../../../../../../src/learnloop/ai/usage.py), line 275)
-- `_coerce_tokens(value: Any) -> int` ([source](../../../../../../src/learnloop/ai/usage.py), line 281) — Non-negative int or 0.
-- `_optional_tokens(value: Any) -> int | None` ([source](../../../../../../src/learnloop/ai/usage.py), line 293)
-- `_optional_cost(value: Any) -> float | None` ([source](../../../../../../src/learnloop/ai/usage.py), line 303)
+- `_attr_or_key(payload: Any, name: str) -> Any` ([source](../../../../../../src/learnloop/ai/usage.py), line 226)
+- `_coerce_tokens(value: Any) -> int` ([source](../../../../../../src/learnloop/ai/usage.py), line 232) — Non-negative int or 0.
+- `_optional_tokens(value: Any) -> int | None` ([source](../../../../../../src/learnloop/ai/usage.py), line 244)
+- `_optional_cost(value: Any) -> float | None` ([source](../../../../../../src/learnloop/ai/usage.py), line 254)
 
 ## Who imports or calls it
 
@@ -92,8 +89,6 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] — imports `TokenUsageAccounting`
-- [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] — imports `TokenUsageAccounting`, `UsageMeter`, `receipt_fields_from_codex_turn`, `usage_from_codex_turn`; statically calls `UsageMeter`, `receipt_fields_from_codex_turn`, `usage_from_codex_turn`
-- [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]] — imports `TokenUsageAccounting`, `receipt_fields_from_chat_response`, `usage_from_chat_response`; statically calls `receipt_fields_from_chat_response`, `usage_from_chat_response`
 - [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] — imports `TokenUsageAccounting`, `receipt_fields_from_chat_response`, `usage_from_chat_response`; statically calls `receipt_fields_from_chat_response`, `usage_from_chat_response`
 - [[Reference/Modules/learnloop/ai/providers/openai_embedding|learnloop.ai.providers.openai_embedding]] — imports `receipt_fields_from_chat_response`; statically calls `receipt_fields_from_chat_response`
 - [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] — imports `TokenUsage`, `consume_client_usage`; statically calls `consume_client_usage`
@@ -123,13 +118,14 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]], [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]], [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]], [[Reference/Modules/learnloop/ai/providers/openai_embedding|learnloop.ai.providers.openai_embedding]] and 8 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]], [[Reference/Modules/learnloop/ai/providers/openai_embedding|learnloop.ai.providers.openai_embedding]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] and 6 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
 - [tests/facet_identity_fakes.py](../../../../../../tests/facet_identity_fakes.py) — direct import
+- [tests/http_provider_double.py](../../../../../../tests/http_provider_double.py) — direct import
 - [tests/structured_ai.py](../../../../../../tests/structured_ai.py) — direct import
 - [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — direct import
   - `test_accounting_state_is_per_instance`
@@ -142,7 +138,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_finish_agent_run_without_a_client_leaves_cost_untouched`
   - `test_grading_path_persists_actual_tokens`
   - `test_usage_from_chat_response_never_raises`
-  - `test_usage_from_codex_turn_prefers_the_thread_total`
   - `test_usage_readers_leave_the_open_receipt_alone`
 - [tests/test_chatgpt_plan_cli.py](../../../../../../tests/test_chatgpt_plan_cli.py) — direct import
   - `test_latency_stops_a_later_metered_provider_once_the_shared_cap_is_spent`

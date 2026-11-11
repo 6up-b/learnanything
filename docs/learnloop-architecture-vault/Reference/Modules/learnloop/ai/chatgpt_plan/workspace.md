@@ -112,7 +112,6 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] — imports `INSTRUCTIONS_INLINE`, `INSTRUCTIONS_TOOLS`, `NAMESPACE`, `ServedWorkspace`, `WorkspaceTooLarge`; statically calls `ServedWorkspace`
-- [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] — imports `INSTRUCTIONS_INLINE`, `ServedWorkspace`, `WorkspaceTooLarge`; statically calls `ServedWorkspace`
 
 ## Dependencies
 
@@ -132,7 +131,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]].
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -145,8 +144,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_workspace_character_budget_and_the_listing_are_bounded`
   - `test_the_workspace_never_reaches_outside_its_root`
   - `test_tool_rounds_serve_files_and_record_each_served_entry`
-- [tests/test_codex_lockdown_round3.py](../../../../../../../tests/test_codex_lockdown_round3.py) — direct import
-  - `test_a_snapshot_diagnosis_on_codex_is_inlined_and_gives_the_same_structured_output`
 - [tests/test_plan_first_transport.py](../../../../../../../tests/test_plan_first_transport.py) — direct import
 
 ## Modification guidance

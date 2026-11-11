@@ -99,9 +99,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ai/decisions|learnloop.ai.decisions]] — imports `AIInvalidOutput`
 - [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `AIInterrupted`, `AIOutputTruncated`
 - [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] — imports `AIInterrupted`, `AIInvalidOutput`, `AIOutputTruncated`, `AIProviderUnavailable`, `AITurnTimeout`; statically calls `AIInterrupted`, `AIInvalidOutput`, `AIOutputTruncated`, `AIProviderUnavailable`, `AITurnTimeout`
-- [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] — imports `AIInvalidOutput`, `AIOutputTruncated`, `AIProviderUnavailable`, `CodexInterrupted`, `CodexTurnTimeout`, `CodexUnavailable`; statically calls `AIInvalidOutput`, `AIOutputTruncated`, `AIProviderUnavailable`, `CodexInterrupted`, `CodexTurnTimeout`, `CodexUnavailable`
-- [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]] — imports `AIInvalidOutput`, `AIProviderUnavailable`, `CodexUnavailable`; statically calls `AIInvalidOutput`, `AIProviderUnavailable`, `CodexUnavailable`
-- [[Reference/Modules/learnloop/ai/providers/codex_lockdown|learnloop.ai.providers.codex_lockdown]] — imports `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/ai/providers/decider|learnloop.ai.providers.decider]] — imports `AIInterrupted`, `AIProviderUnavailable`; statically calls `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] — imports `AIInvalidOutput`, `AIOutputTruncated`, `CodexUnavailable`; statically calls `AIInvalidOutput`, `AIOutputTruncated`, `CodexUnavailable`
 - [[Reference/Modules/learnloop/ai/providers/openai_embedding|learnloop.ai.providers.openai_embedding]] — imports `AIProviderUnavailable`; statically calls `AIProviderUnavailable`
@@ -217,7 +214,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] and 106 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] and 103 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -229,6 +226,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/diagnosis_fakes.py](../../../../../../tests/diagnosis_fakes.py) — direct import
 - [tests/embedding_fakes.py](../../../../../../tests/embedding_fakes.py) — direct import
 - [tests/facet_identity_fakes.py](../../../../../../tests/facet_identity_fakes.py) — direct import
+- [tests/http_provider_double.py](../../../../../../tests/http_provider_double.py) — direct import
 - [tests/library_ask_fixtures.py](../../../../../../tests/library_ask_fixtures.py) — direct import
 - [tests/passage_cue_fakes.py](../../../../../../tests/passage_cue_fakes.py) — direct import
 - [tests/practice_index_fakes.py](../../../../../../tests/practice_index_fakes.py) — direct import
@@ -239,12 +237,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — direct import
   - `test_chat_client_counts_tokens_of_a_call_whose_body_is_unusable`
 - [tests/test_ai_single_request.py](../../../../../../tests/test_ai_single_request.py) — direct import
-  - `test_codex_single_request_disables_regeneration_and_repair_only_in_scope`
-  - `test_codex_single_request_fails_closed_before_sdk_startup`
   - `test_openai_single_request_disables_retry_and_repair_only_in_scope`
 - [tests/test_ai_tool_isolation.py](../../../../../../tests/test_ai_tool_isolation.py) — direct import
   - `test_an_unconfinable_agent_is_refused_before_any_request`
-  - `test_codex_refuses_an_isolated_request_without_bubblewrap`
 - [tests/test_chat_total_transport_deadline.py](../../../../../../tests/test_chat_total_transport_deadline.py) — direct import
   - `test_f2_delayed_response_headers_are_cancelled_at_the_deadline_not_abandoned`
   - `test_f2_rereview_partial_sends_inside_one_write_are_bounded_by_the_total_deadline`
@@ -269,30 +264,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_inline_mode_serves_a_workspace_over_its_budget_in_tools_mode`
   - `test_the_deadline_covers_every_round`
   - `test_the_round_budget_asks_for_the_answer_then_fails_closed`
-- [tests/test_codex_isolation_mcp_check.py](../../../../../../tests/test_codex_isolation_mcp_check.py) — direct import
-  - `test_a_check_that_fails_or_times_out_refuses_the_turn`
-  - `test_a_check_the_sandbox_refuses_refuses_the_turn`
-  - `test_a_feature_toggle_that_turns_an_isolation_feature_back_on_refuses_the_turn`
-  - `test_a_missing_codex_cli_refuses_the_turn`
-  - `test_a_server_nothing_disables_refuses_the_turn`
-  - `test_an_argument_after_app_server_the_check_cannot_read_refuses_the_turn`
-  - `test_an_interrupt_during_the_check_stops_it_and_nothing_launches`
-  - `test_an_interrupt_stops_a_check_running_inside_the_sandbox`
-  - `test_connectors_or_plugins_left_on_refuse_the_turn`
-  - `test_the_check_runs_inside_the_request_deadline`
-  - `test_the_installed_codex_addresses_path_characters_but_not_dots`
-  - `test_the_turn_gets_only_what_the_check_left_of_the_deadline`
-- [tests/test_codex_lockdown_round3.py](../../../../../../tests/test_codex_lockdown_round3.py) — direct import
-  - `test_an_export_over_the_inline_budget_refuses_before_launch`
-- [tests/test_codex_output_schema.py](../../../../../../tests/test_codex_output_schema.py) — direct import
-  - `test_http_adapter_strips_the_usage_envelope_but_not_a_bad_field`
-  - `test_sdk_codex_turn_timeout_interrupts_and_returns`
-  - `test_sdk_reader_preset_regenerates_when_app_server_rejects_hex_escape`
-- [tests/test_codex_tool_lockdown.py](../../../../../../tests/test_codex_tool_lockdown.py) — direct import
-  - `test_a_failure_before_any_usage_reports_nothing_new`
-  - `test_a_tool_item_refuses_the_answer`
-  - `test_a_workspace_that_is_the_vault_is_refused`
-  - `test_tokens_reported_before_an_ordinary_failure_reach_the_receipt_and_the_settle`
 - [tests/test_decider_client.py](../../../../../../tests/test_decider_client.py) — direct import
   - `test_a_transport_error_echoing_a_key_reaches_neither_receipt_nor_caller`
   - `test_an_unreachable_endpoint_is_recorded_as_network_without_a_status`
@@ -302,11 +273,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f6_a_failed_coverage_shows_failed_and_try_again_recovers`
 - [tests/test_diagnosis_history_modes.py](../../../../../../tests/test_diagnosis_history_modes.py) — direct import
   - `test_snapshot_is_unavailable_without_the_capability`
-- [tests/test_diagnosis_isolation.py](../../../../../../tests/test_diagnosis_isolation.py) — direct import
-  - `test_an_sdk_that_cannot_take_config_overrides_fails_closed`
-  - `test_isolated_operations_are_refused_by_a_transport_that_cannot_isolate`
-  - `test_the_blind_grader_always_asks_for_an_isolated_turn`
-  - `test_unlisted_mcp_servers_fail_closed`
 - [tests/test_diagnostic_gate.py](../../../../../../tests/test_diagnostic_gate.py) — direct import
 - [tests/test_embedding_backfill.py](../../../../../../tests/test_embedding_backfill.py) — direct import
 - [tests/test_embedding_route_isolation.py](../../../../../../tests/test_embedding_route_isolation.py) — direct import
@@ -340,7 +306,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ingest_runner.py](../../../../../../tests/test_ingest_runner.py) — direct import
   - `test_codex_timeout_releases_lease_and_continues_draining`
 - [tests/test_ingestion_checkpoints.py](../../../../../../tests/test_ingestion_checkpoints.py) — direct import
-  - `test_codex_does_not_repair_when_reported_output_consumed_the_budget`
   - `test_inventory_retry_reuses_validated_window_after_interruption`
   - `test_parallel_inventory_drains_checkpoints_and_stops_new_units_after_failure`
   - `test_truncation_or_exhausted_repair_budget_records_usage_without_repaying`
@@ -439,8 +404,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_evidence_pass_retry_reuses_first_paid_pass`
 - [tests/test_source_space_resolver.py](../../../../../../tests/test_source_space_resolver.py) — direct import
 - [tests/test_source_vector_backfill.py](../../../../../../tests/test_source_vector_backfill.py) — direct import
-- [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
-  - `test_legacy_http_supports_exactly_eight_operations_and_degrades_the_rest`
 - [tests/test_t6_followup_composition.py](../../../../../../tests/test_t6_followup_composition.py) — direct import
 - [tests/test_t6_followup_review.py](../../../../../../tests/test_t6_followup_review.py) — direct import
   - `test_paid_calls_fail_a_truncation_at_the_profile_maximum_without_another_request`

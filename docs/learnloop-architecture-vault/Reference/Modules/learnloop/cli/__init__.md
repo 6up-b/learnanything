@@ -142,7 +142,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_cli_generate_practice.py](../../../../../../tests/test_cli_generate_practice.py) — direct import
   - `test_populate_goal_uses_a_15_minute_provider_timeout`
-  - `test_provider_timeout_override_reaches_codex_sdk_client`
 - [tests/test_cli_ingest.py](../../../../../../tests/test_cli_ingest.py) — direct import
   - `test_ascii_spinner_writes_elapsed_status_for_tty`
 - [tests/test_facet_identity_ingest.py](../../../../../../tests/test_facet_identity_ingest.py) — direct import

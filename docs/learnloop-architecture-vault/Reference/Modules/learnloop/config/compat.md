@@ -36,7 +36,7 @@ Up: [[Reference/Modules/learnloop/config/_package|learnloop.config]] · Root: [[
 
 ## Why this module exists
 
-`learnloop.config.compat` exists within [[Reference/Modules/learnloop/config/_package|learnloop.config]] to own the behavior summarized by its module contract: One-way normalization and runtime aliases for legacy configuration.
+`learnloop.config.compat` exists within [[Reference/Modules/learnloop/config/_package|learnloop.config]] to own the behavior summarized by its module contract: One-way normalization of legacy configuration.
 
 The authoritative system-level explanation remains in [[Configuration]], [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -47,32 +47,29 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/config/compat.py](../../../../../../src/learnloop/config/compat.py) |
-| Source lines | 323 |
+| Source lines | 282 |
 | Owning package | [[Reference/Modules/learnloop/config/_package|learnloop.config]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class CodexConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/compat.py), line 33) — Deprecated runtime view over the canonical ``ai.providers.codex`` profile.
-- `discard_retired_provider_settings(data: Any) -> Any` ([source](../../../../../../src/learnloop/config/compat.py), line 62) — Drop provider keys that were parsed historically but never consumed.
-- `normalize_provider_profile(value: Any) -> Any` ([source](../../../../../../src/learnloop/config/compat.py), line 72) — Canonicalize provider type aliases before union discrimination.
-- `normalize_ai_input(data: Any) -> Any` ([source](../../../../../../src/learnloop/config/compat.py), line 85) — Normalize every named provider while preserving non-mapping inputs.
-- `normalize_config_input(data: Any) -> Any` ([source](../../../../../../src/learnloop/config/compat.py), line 100) — Translate accepted legacy shapes into the canonical schema input.
-- `ai_provider_from_codex(config: CodexConfig) -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/compat.py), line 211) — Translate the deprecated Codex runtime object to a typed profile.
-- `codex_config_view(config: LearnLoopConfig) -> CodexConfig` ([source](../../../../../../src/learnloop/config/compat.py), line 243) — Build the non-serialized ``config.codex`` compatibility alias.
+- `discard_retired_provider_settings(data: Any) -> Any` ([source](../../../../../../src/learnloop/config/compat.py), line 54) — Drop provider keys that were parsed historically but never consumed.
+- `normalize_provider_profile(value: Any) -> Any` ([source](../../../../../../src/learnloop/config/compat.py), line 64) — Canonicalize provider type aliases before union discrimination.
+- `normalize_ai_input(data: Any) -> Any` ([source](../../../../../../src/learnloop/config/compat.py), line 77) — Normalize every named provider while preserving non-mapping inputs.
+- `normalize_config_input(data: Any) -> Any` ([source](../../../../../../src/learnloop/config/compat.py), line 92) — Translate accepted legacy shapes into the canonical schema input.
+- `codex_profile_value(config: Any, field: str) -> Any` ([source](../../../../../../src/learnloop/config/compat.py), line 203) — The ``codex`` profile's ``field``, or the old runtime view's default for it.
 
 ### Module constants
 
-- `_PROVIDER_TYPE_ALIASES` ([src/learnloop/config/compat.py](../../../../../../src/learnloop/config/compat.py), line 26)
+- `_PROVIDER_TYPE_ALIASES` ([src/learnloop/config/compat.py](../../../../../../src/learnloop/config/compat.py), line 18)
+- `_LEGACY_CODEX_TABLE_DEFAULTS` ([src/learnloop/config/compat.py](../../../../../../src/learnloop/config/compat.py), line 29)
 
 ### Explicit exports
 
 `__all__` declares:
 
-- `CodexConfig`
-- `ai_provider_from_codex`
-- `codex_config_view`
+- `codex_profile_value`
 - `discard_retired_provider_settings`
 - `normalize_ai_input`
 - `normalize_config_input`
@@ -80,33 +77,32 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 
 ## Internal implementation anchors
 
-- `_provider_profile_from_legacy_codex(value: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/compat.py), line 254)
-- `_profile_from_legacy_openrouter_audio(audio: dict[str, Any], providers: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/compat.py), line 262)
-- `_normalize_codex_aliases(ai: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/compat.py), line 285)
+- `_provider_profile_from_legacy_codex(value: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/compat.py), line 215)
+- `_profile_from_legacy_openrouter_audio(audio: dict[str, Any], providers: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/compat.py), line 223)
+- `_normalize_codex_aliases(ai: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/compat.py), line 246)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `codex_profile_value`; statically calls `codex_profile_value`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `module`
 - [[Reference/Modules/learnloop/config/loader|learnloop.config.loader]] — imports `normalize_config_input`; statically calls `normalize_config_input`
-- [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] — imports `CodexConfig`, `codex_config_view`, `discard_retired_provider_settings`, `normalize_ai_input`, `normalize_config_input`; statically calls `codex_config_view`, `discard_retired_provider_settings`, `normalize_ai_input`, `normalize_config_input`
-
-### Repository tooling consumers
-
-- [scripts/benchmark_chatgpt_plan_latency.py](../../../../../../scripts/benchmark_chatgpt_plan_latency.py); calls `CodexConfig`
+- [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] — imports `discard_retired_provider_settings`, `normalize_ai_input`, `normalize_config_input`; statically calls `discard_retired_provider_settings`, `normalize_ai_input`, `normalize_config_input`
+- [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] — imports `codex_profile_value`; statically calls `codex_profile_value`
+- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `codex_profile_value`; statically calls `codex_profile_value`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] — imports `AIProviderConfig`, `AudioIngestConfig`, `CodexHTTPProviderConfig`, `CodexSDKProviderConfig`, `DEFAULT_CODEX_MODEL`, `DEFAULT_CODEX_REASONING_EFFORT`, `LEGACY_CODEX_MODEL`, `LEGACY_CODEX_TASK_ROUTES`, `LearnLoopConfig`, `OPENROUTER_TRANSCRIPTION_PROVIDER`, `openrouter_provider`; calls `AudioIngestConfig`, `openrouter_provider`
+- [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] — imports `AIProviderConfig`, `AudioIngestConfig`, `DEFAULT_CODEX_MODEL`, `DEFAULT_CODEX_REASONING_EFFORT`, `LEGACY_CODEX_MODEL`, `LEGACY_CODEX_TASK_ROUTES`, `OPENROUTER_TRANSCRIPTION_PROVIDER`, `openrouter_provider`; calls `AudioIngestConfig`, `openrouter_provider`
 
 ### Platform and third-party dependencies
 
 - Standard library: `__future__`, `typing`
-- Third party: `pydantic`
+- Third party: none imported directly
 
 ## Larger workflow participation
 
@@ -114,14 +110,23 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/config/__init__|learnloop.config]], [[Reference/Modules/learnloop/config/loader|learnloop.config.loader]], [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/config/__init__|learnloop.config]], [[Reference/Modules/learnloop/config/loader|learnloop.config.loader]], [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]], [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_ai_config.py](../../../../../../tests/test_ai_config.py) — direct import
+  - `test_codex_checkout_path_env_override_applies_to_codex_and_ai_provider`
+  - `test_codex_checkout_path_loaded_from_global_settings_file`
+  - `test_default_config_contains_ai_codex_profile`
+  - `test_default_config_ships_blank_codex_checkout_path`
+  - `test_in_memory_defaults_match_persisted_algorithm_and_codex_profile`
+  - `test_legacy_codex_routes_upgrade_to_workload_specific_effort_profiles`
+  - `test_shell_env_wins_over_global_settings_file`
 - [tests/test_config_refactor.py](../../../../../../tests/test_config_refactor.py) — direct import
   - `test_config_responsibilities_have_canonical_module_owners`
+  - `test_legacy_codex_is_input_only_and_sidecar_does_not_reexport_it`
 
 ## Modification guidance
 

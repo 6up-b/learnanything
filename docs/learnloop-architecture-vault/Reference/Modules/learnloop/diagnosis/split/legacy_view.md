@@ -121,7 +121,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/diagnose_review_helpers.py](../../../../../../../tests/diagnose_review_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]]
 - [tests/test_coordinated_migrations.py](../../../../../../../tests/test_coordinated_migrations.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]]
 - [tests/test_diagnose_review.py](../../../../../../../tests/test_diagnose_review.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]]
-- [tests/test_diagnosis_isolation.py](../../../../../../../tests/test_diagnosis_isolation.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]]
 - [tests/test_teacher_te0_fix_round2.py](../../../../../../../tests/test_teacher_te0_fix_round2.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]]
 - [tests/test_teacher_te0_review_fixes.py](../../../../../../../tests/test_teacher_te0_review_fixes.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]]
 - [tests/test_tier1_decider.py](../../../../../../../tests/test_tier1_decider.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]]
@@ -130,6 +129,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_diagnosis_pipeline.py](../../../../../../../tests/test_diagnosis_pipeline.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]]
 - [tests/test_diagnosis_replay.py](../../../../../../../tests/test_diagnosis_replay.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]]
 - [tests/test_followup_fg1c_codex_review.py](../../../../../../../tests/test_followup_fg1c_codex_review.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]]
+- [tests/test_hypothesis_marks_context.py](../../../../../../../tests/test_hypothesis_marks_context.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]]
 
 ## Modification guidance
 
