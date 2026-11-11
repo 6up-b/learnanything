@@ -459,13 +459,11 @@ def test_the_causal_quick_check_stops_the_episode_being_ignored(tmp_path):
 
 
 def test_an_ignored_episode_feeds_no_reader_that_scores_it(tmp_path, monkeypatch):
-    """F6: the intervention trigger, tutor Q&A and the staged controller's
-    robust value read the ignored episode as absent."""
+    """F6: the intervention trigger and tutor Q&A read the ignored episode as absent."""
 
     from types import SimpleNamespace
 
     from learnloop.diagnosis import followups
-    from learnloop.scheduling import state_signals
     from learnloop.tutor.tutor_qa import _diagnostic_decision_for
 
     paths, vault, repository = _upgraded(tmp_path, before_upgrade=_in_progress_lo_diag)
@@ -488,12 +486,6 @@ def test_an_ignored_episode_feeds_no_reader_that_scores_it(tmp_path, monkeypatch
     monkeypatch.setattr(repository, "probe_episodes_for_learning_object", lambda _lo: [closed])
     item = vault.practice_items["pi_diag_mid"]
     assert _diagnostic_decision_for(vault, repository, item, "practice") == typed
-
-    monkeypatch.setattr(state_signals, "_commitment_learning_object_ids", lambda *_args: {"lo_diag"})
-    assert state_signals.decision_relevant_robust_value(repository, None, "c") == state_signals.OPEN_EPISODE_ROBUST_VALUE
-    assert state_signals.decision_relevant_robust_value(
-        repository, None, "c", ignored_episode_ids=ignored_opening_episode_ids(vault, repository),
-    ) == 0.0
 
 
 def test_a_notice_raised_before_placement_is_held_not_resolved(tmp_path):

@@ -161,33 +161,6 @@ def test_f3_a_list_that_served_no_head_still_decides_nothing_and_reads_no_ad(tmp
     assert state["ad"]["status"] == DS.AD_NOT_READ and state["omitted"]["reason"] == "offer_not_served"
 
 
-def test_f3_a_staged_decision_keeps_its_ad_numbers(tmp_path, monkeypatch):
-    from learnloop.adaptive_difficulty.readiness import decision_state_fields
-    from learnloop.db.stores.router import ROUTER_LOG_VERSION
-    from learnloop.scheduling import controller_cutover as CC
-
-    paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, LATEST_ALGORITHM_VERSION)
-    repository, vault = Repository(paths.sqlite_path), load_vault(paths.root)
-    lo = next(iter(vault.learning_objects))
-    row = {
-        "id": "staged1", "receipt_key": "staged_p2:staged1", "decision_kind": "staged_p2", "surface": "live", "mode": "staged",
-        "policy": "staged", "algorithm_version": "mvp-0.44", "log_version": ROUTER_LOG_VERSION, "session_id": None,
-        "snapshot_hash": "h", "candidates_json": json.dumps([{"ref": "x", "kind": "block", "learning_object_ids": [lo]}]),
-        "exclusions_json": "{}", "candidate_count": 1, "chosen_ref": "x", "propensity": 1.0,
-        "propensity_kind": "deterministic", "learner_pick": 0, "detail_json": "{}", "created_at": "2026-11-04T09:00:00Z",
-    }
-    monkeypatch.setattr("learnloop.router.decisions.build_staged_p2_decision", lambda *_a, **_k: row)
-    monkeypatch.setattr(CC.sp, "ladder_eligibility", lambda *_a, **_k: {})
-    CC._log_staged_decision(
-        vault, repository, SimpleNamespace(chosen_candidate_ref=None, trace={}, decision_id="staged1"),
-        snapshot=SimpleNamespace(session_id=None), signals=None,
-        canonical=SimpleNamespace(to_state="x", reason="r", terminal=False),
-        action=SimpleNamespace(authority="a", veto_reason=None), run_id="r", commitment_id=None, clock=None,
-        ad_fields=lambda los: decision_state_fields(vault, repository, list(los)))
-    _assert_ad_kept(_state(repository, "staged1"), lo)
-
-
 def test_f3_a_lesson_suggestion_keeps_its_ad_numbers_read_before_its_transaction(tmp_path, monkeypatch):
     from learnloop.router import lesson_suggestions as LS
     from tests.teacher_te1b_suggestions_helpers import _clock, _decisions, _suggestion, _vault

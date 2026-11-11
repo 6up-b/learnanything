@@ -19,7 +19,6 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.scheduling import constraint_engine as ce
-from learnloop.scheduling import controller_cutover as cut
 from learnloop.scheduling import controller_snapshot as cs
 from learnloop.scheduling import staged_policy as sp
 from learnloop.substrate.activities import (
@@ -55,6 +54,34 @@ def _add_item(root, item_id, *, prompt="Prompt.", stimulus=None):
     upsert_practice_item(root, payload, clock=CLOCK)
 
 
+def _two_controllers_open(repo_factory, open_one):
+    """Two concurrent administrations at one surface through two connections (the two controllers), aligned at a
+    barrier: which opened fresh, which observed the winner's committed exposure (``already_open``), and any error.
+    The in-lock recheck in ``open_administration_atomic`` is the authority; this only watches it."""
+
+    barrier = threading.Barrier(2)
+    results: list = [None, None]
+    errors: list = [None, None]
+
+    def worker(i: int) -> None:
+        repo = repo_factory()
+        try:
+            barrier.wait(timeout=5)
+            results[i] = open_one(repo)
+        except BaseException as exc:  # noqa: BLE001 -- surfaced in the report
+            errors[i] = exc
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=10)
+    opened = [r for r in results if r is not None and not getattr(r, "already_open", False)]
+    deferred = [r for r in results if r is not None and getattr(r, "already_open", False)]
+    return {"results": results, "errors": [type(e).__name__ if e else None for e in errors],
+            "fresh_opens": len(opened), "deferred": len(deferred)}
+
+
 @pytest.fixture
 def env(tmp_path):
     root = tmp_path / "vault"
@@ -76,15 +103,10 @@ def test_same_surface_exactly_one_wins_via_shared_ledger(env):
     resolved = resolve_legacy_item(vault, repo, vault.practice_items["pi_a"], purpose="assessment", clock=CLOCK)
     reservation = reserve_surface(repo, surface_id=resolved.surface_id, purpose="assessment", clock=CLOCK)
 
-    def probe():
-        return cut.cross_seam_exposure_probe(
-            lambda: Repository(paths.sqlite_path),
-            open_administration=lambda r: open_administration(
-                r, resolved=resolved, reservation=reservation, clock=CLOCK
-            ),
-        )
-
-    report = probe()
+    report = _two_controllers_open(
+        lambda: Repository(paths.sqlite_path),
+        lambda r: open_administration(r, resolved=resolved, reservation=reservation, clock=CLOCK),
+    )
     assert report["errors"] == [None, None]
     assert report["fresh_opens"] == 1  # exactly one wins
     assert report["deferred"] == 1     # the loser defers, not a second exposure

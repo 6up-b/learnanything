@@ -634,26 +634,3 @@ def _staged_row():
         "snapshot_hash": "h", "candidates_json": "[]", "exclusions_json": "{}", "candidate_count": 0, "chosen_ref": "x",
         "propensity": 1.0, "propensity_kind": "deterministic", "learner_pick": 0, "detail_json": "{}", "created_at": _at(minutes=0),
     }
-
-
-def test_f8_the_staged_decisions_receipt_commits_with_it(tmp_path, monkeypatch):
-    """Reproduced first: ``staged_p2`` used the same two transactions."""
-
-    from learnloop.scheduling import controller_cutover as CC
-
-    paths = create_basic_vault(tmp_path / "vault")
-    repository = Repository(paths.sqlite_path)
-    vault = load_vault(paths.root)
-    row = _staged_row()
-    monkeypatch.setattr("learnloop.router.decisions.build_staged_p2_decision", lambda *_a, **_k: row)
-    monkeypatch.setattr(CC.sp, "ladder_eligibility", lambda *_a, **_k: {})
-    seen: list[int] = []
-    _spy_on_commit(monkeypatch, paths.sqlite_path, seen)
-    CC._log_staged_decision(
-        vault, repository, SimpleNamespace(chosen_candidate_ref=None, trace={}, decision_id="staged1"),
-        snapshot=SimpleNamespace(session_id=None), signals=None,
-        canonical=SimpleNamespace(to_state="x", reason="r", terminal=False),
-        action=SimpleNamespace(authority="a", veto_reason=None), run_id="r", commitment_id=None, clock=None)
-    assert seen == [0]
-    with repository.connection() as connection:
-        assert PF.read(connection, "staged1") is not None

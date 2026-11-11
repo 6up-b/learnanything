@@ -37,11 +37,7 @@ def test_every_sentence_is_plain(code, topic):
     assert why.jargon_in(text) == [], (code, text)
 
 
-def test_the_deferral_and_details_lines_are_plain():
-    for reason in ("constraint:hard_exposure_collision:exact_surface_collision",
-                   "constraint:assessment_reservation:reserved_assessment_surface",
-                   "constraint:same_facet_dispersion:same_facet_back_to_back", "evsi:waiting", None):
-        assert why.jargon_in(why.deferral_sentence(reason)) == [], reason
+def test_the_details_line_is_plain():
     assert why.jargon_in(why.DETAILS_STAGED) == []
 
 
