@@ -33,7 +33,7 @@ Legacy input is translated **one way** into the canonical typed model before run
 
 | Legacy input | Canonical result | Precedence |
 |---|---|---|
-| `[codex]` | `[ai.providers.codex]` typed as SDK or HTTP | Existing canonical provider wins |
+| `[codex]` | `[ai.providers.codex]` typed as SDK or HTTP, every key it leaves out at the old runtime view's default (`config/compat.py`'s `_LEGACY_CODEX_TABLE_DEFAULTS`) | Existing canonical provider wins |
 | provider type `codex_http` / `http_adapter` | `type = "http"` | Normalized before union discrimination |
 | provider type `openai_compatible` | `type = "openai_chat"` | Normalized before union discrimination |
 | provider without `type` | `codex_sdk` | Preserves old custom Codex profiles |
@@ -58,14 +58,15 @@ These values parse for old files but are removed before the runtime model is ser
 - `recall_coverage.facet_recall_prior_pseudo_count` and `coverage_epsilon`;
 - `ingest.budgets.evidence_span_input_tokens`;
 - `ingest.native.enabled`, `ingest.native.audio`, and `ingest.native.pdf` (translated as above, then removed);
-- provider `auth_mode`.
+- provider `auth_mode`;
+- `ai.agent_harness_opt_in` (the Codex opt-in, retired with the Codex transport in refactor C4; ignored, so a Codex profile is refused even where it is still set).
 
 > [!note] Parse-and-ignore is deliberate
 > These knobs had no active behavioral reader or represented retired architecture. Keeping them as modeled fields would imply functionality that does not exist.
 
 ## Runtime compatibility views
 
-`config.codex` remains a non-serialized property derived from `ai.providers.codex` for compatibility callers. Runtime code should not add new reads through this view; new provider behavior belongs to the canonical AI configuration and [[AI Architecture]].
+The `config.codex` view (`CodexConfig`) left with the Codex transport (refactor C4). The few displays that read it (the desktop's `health.codex` block, a route report naming `codex`) call `codex_profile_value(config, field)`, which reads the `codex` profile and falls back to the old view's default, so they show what they did. Every Codex profile is refused at every entry ([[ADR-018 The Codex transport is retired]]); new provider behavior belongs to the canonical AI configuration and [[AI Architecture]].
 
 ## Modification guidance
 

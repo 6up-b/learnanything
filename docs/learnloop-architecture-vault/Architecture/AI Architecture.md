@@ -6,13 +6,14 @@ aliases:
 status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
-last_reviewed: 2026-09-23
+last_reviewed: 2026-11-10
 source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
 source_commit_timestamp: "2026-09-23T13:06:55-04:00"
 source_paths:
   - src/learnloop/ai/transport.py
   - src/learnloop/ai/routing.py
   - src/learnloop/ai/client.py
+  - src/learnloop/ai/agent_harness.py
   - src/learnloop/ai/providers
   - tests/test_structured_transport_parity.py
   - tests/test_provider_resolution_parity.py
@@ -40,9 +41,7 @@ flowchart LR
     B --> P
     P --> X[execute_structured_operation]
     X -->|structured_completion| SC[complete StructuredRequest]
-    X -->|retained HTTP operation| LH[complete_legacy]
     SC --> V[feature-owned Pydantic result]
-    LH --> V
 ```
 
 `ResolvedClient` preserves requested selection, actual provider, fallback source, runtime report, and the first-class `manual` outcome. Named profiles such as `codex_low` remain in provenance even when profiles share a provider type.
@@ -85,19 +84,22 @@ This shape means operation 24 does not require editing every provider class.
 - `OperationClient` exposes provider identity and `supports(capability)`.
 - `StructuredTransport.complete(StructuredRequest)` is the only common structured completion method.
 - Optional media transcription, media-to-Markdown, and interruption are explicit capabilities.
-- The retained HTTP adapter is intentionally narrower: it supports exactly eight legacy endpoint operations through generic `complete_legacy`, and rejects all others before egress.
+- `execute_structured_operation` still dispatches a `complete_legacy` operation for a client that declares one. Since the HTTP adapter left (refactor C4) only the end-to-end tests' in-process double does (`tests/http_provider_double.py`).
 - Strict-schema helpers extract and validate model output without giving providers feature semantics.
 
 ## Provider implementations
 
 | Type | Role |
 |---|---|
-| `codex_sdk` | Codex SDK structured completion; default profile type when omitted |
-| `http` | retained endpoint adapter with exact declared legacy capabilities |
+| `chatgpt_plan` | LearnLoop's own tool-free client on the ChatGPT plan: the default for every serving route (one `POST /v1/responses` per admitted request, `store: false`, no tools), including a served read-only workspace |
 | `openai_chat` | OpenAI-compatible chat structured completion and optional media |
-| `openrouter` | OpenRouter profile/client path, including explicit transcription configuration |
+| `openrouter` | OpenRouter profile/client path, including explicit transcription configuration; the plan's asked-for fallback |
+| `decider` | typed choice questions on OpenRouter (decision routes only; never a chat fallback) |
+| `openai_embedding` | embeddings (the embedding route only) |
+| `voyage_contextual_embedding` | the source-retrieval fallback space's embeddings; serves no AI task |
+| `codex_sdk`, `http` | **retired** (refactor C4, [[ADR-018 The Codex transport is retired]]): an old config naming one still loads, and the client factory, readiness and routing all answer with the refusal of `learnloop.ai.agent_harness`; never a fallback. `codex_sdk` is still the type a profile without `type` is read as, so such a profile is refused too |
 
-Legacy `http_adapter` is accepted as an input spelling and normalized to `http`; dead auth-mode keys are accepted and ignored. See [[Config - ai]].
+Legacy `http_adapter` and `codex_http` are accepted as input spellings and normalized to `http`; dead auth-mode keys are accepted and ignored. `learnloop doctor --fix` moves a route that pins a Codex profile to the plan profile of the same tier. See [[Config - ai]].
 
 ## Output trust boundary
 
@@ -139,7 +141,8 @@ Validated inventory windows and synthesis passes are cached in [[model_work_chec
 
 ## Tests
 
-- `tests/test_structured_transport_parity.py` — all feature operations through SDK/chat, zero feature methods, exact-eight HTTP support.
+- `tests/test_structured_transport_parity.py` — all feature operations through the chat transport, zero feature methods.
+- `tests/test_plan_first_transport.py` and `tests/test_codex_transport_retired.py` — no task resolves to Codex; an old config naming Codex loads and is refused at every entry; a Codex-graded attempt replays identically.
 - `tests/test_provider_resolution_parity.py` — profile/manual/fallback behavior through six production entry paths.
 - `tests/test_ai_config.py` and `tests/test_config_refactor.py` — profile normalization and defaults.
 - provider client suites — strict schema, usage, media, and endpoint behavior.

@@ -11,7 +11,7 @@ source_commit_timestamp: "2026-08-17T12:05:21-04:00"
 source_paths:
   - src/learnloop/ai/routing.py
   - tests/test_structured_transport_parity.py
-  - src/learnloop/ai/providers/codex_http.py
+  - src/learnloop/ai/agent_harness.py
 tags:
   - learnloop/reference
   - learnloop/ai
@@ -52,13 +52,9 @@ This is the current structured-operation ledger. Operation meaning lives in the 
 
 The parity oracle intentionally has 23 rows. `media_transcription` and `media_markdown` are optional transport capabilities rather than structured feature operations; their routes are transcription and canonical ingest respectively.
 
-## Legacy HTTP subset
+## Legacy HTTP subset (retired)
 
-The retained endpoint adapter supports exactly these eight capability labels and no others:
-
-`authoring`, `canonical_ingest`, `grading`, `tutor_qa`, `teach_back`, `teach_back_authoring`, `misconception_match`, and `promotion_analysis`.
-
-Unsupported operations raise locally before any HTTP request.
+The endpoint-per-operation HTTP adapter, which supported eight of these operations, left with the rest of the Codex transport (refactor C4, `docs/reviews/refactor-c4.md`; [[ADR-018 The Codex transport is retired]]). An `http` profile an old config still names is refused at every entry. The end-to-end tests keep a copy of that client as their in-process model (`tests/http_provider_double.py`).
 
 ## How to locate a contract
 
@@ -69,7 +65,6 @@ Open the owning implementation in [[Module Catalog]], then follow its feature `a
 1. Define the operation in the owning feature.
 2. Map it to a semantic task route.
 3. Add one parity ledger row with representative valid output.
-4. Verify SDK and chat transport parity.
-5. Decide explicitly whether legacy HTTP supports it; default is unsupported/no egress.
-6. Add semantic validation and persistence tests in the owner.
+4. Verify chat transport parity.
+5. Add semantic validation and persistence tests in the owner.
 

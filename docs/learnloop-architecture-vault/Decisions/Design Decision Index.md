@@ -32,13 +32,14 @@ These notes capture the accepted decision, its context, consequences, and execut
 | [[ADR-008 Coordinated atomic migrations and read-only inspection]] | safe concurrent opens and physically read-only doctor |
 | [[ADR-009 Architecture rules are executable ratchets]] | boundaries fail CI instead of relying on memory |
 | [[ADR-010 Production telemetry before retirement]] | no gated state deletion without owner-vault evidence |
-| [[ADR-011 Retain legacy HTTP as a narrow capability]] | compatibility without weakening the structured protocol |
+| [[ADR-011 Retain legacy HTTP as a narrow capability]] | superseded by ADR-018; kept the HTTP adapter to an exact eight operations |
 | [[ADR-012 Freeze the compatibility substrate]] | old vaults stay green without expanding legacy behavior |
 | [[ADR-013 One authority per media modality]] | native PDF/audio ingestion has one switch per modality and one shared readiness judgement |
 | [[ADR-014 SQLite stays in DELETE journal mode]] | superseded by ADR-015; listed the checks a switch to WAL needed |
 | [[ADR-015 SQLite runs in WAL mode with synchronous FULL]] | WAL with fsynced commits, a one-way switch in the migration path, backup-API copies and explicit checkpoints |
 | [[ADR-016 Learner-blind grading with an asynchronous diagnoser]] | mvp-0.10 grades blind and diagnoses asynchronously; causal fields come from the diagnosis ledger on read |
 | [[ADR-017 One decision record, one trace id, one entry point]] | `decision_records` (a receipt nothing replays), a trace id per learner-visible action carried to model calls and logs, and a read-only `learnloop why` |
+| [[ADR-018 The Codex transport is retired]] | the Codex SDK, HTTP adapter and lockdown are gone; an old config naming Codex loads and every entry refuses it |
 
 ## Source of accepted decisions
 
