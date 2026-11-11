@@ -254,11 +254,13 @@ def seed_ids(monkeypatch: Any, seed: int = 7) -> None:
     monkeypatch.setattr(ids.secrets, "randbits", random.Random(seed).getrandbits)
     # Decision records draw their ids and traces from a stream of their own (``provenance.new_record_id``), so the
     # seeded stream the golden pinned is untouched by them.
-    # This golden pins the seeded id stream, schema ids included, so the lane's fixed schema ids (conftest) step aside.
+    # This golden pins the seeded id stream, schema and calibration-model ids included, so the lane's fixed ids
+    # (conftest) step aside.
     from learnloop.db.repositories import Repository
     from tests import conftest
 
     monkeypatch.setattr(Repository, "ensure_outcome_schema", conftest._production_ensure_outcome_schema)
+    monkeypatch.setattr(Repository, "insert_calibration_model", conftest._production_insert_calibration_model)
 
 
 #: The id stream the golden was pinned on: no ``voi_forecasts`` receipt draws

@@ -242,8 +242,9 @@ for _module in list(sys.modules.values()):
 # that hash seeds the certainty bound's draws. So a test's effective mass depended on the run: about 1 vault in 600 got a
 # bound below its certainty, and a dont_know read 0.690 instead of 0.7 (see docs/reviews/test-suite-audit.md). Production's
 # ensure_outcome_schema runs here unchanged, its real insert included; only the one id it mints is fixed, per slug, so
-# every test's draws are the same on every run. tests/test_outcome_schema_ids.py pins the real random id and the bound's
-# limits over many seeds. In production a vault's id, and so its draws, are fixed once minted.
+# every test's draws are the same on every run (with the calibration model's id, fixed below). tests/test_outcome_schema_ids.py
+# pins the real random ids and the bound's limits over many seeds. In production a vault's ids, and so its draws, are
+# fixed once minted.
 from learnloop.db import repositories as _repositories  # noqa: E402
 
 _production_ensure_outcome_schema = _repositories.Repository.ensure_outcome_schema
@@ -256,9 +257,15 @@ def _schema_id_for(slug: str) -> str:
     return ("01SCHEMA" + digest.translate(str.maketrans("", "", "ILOU")))[:26]
 
 
-def _new_ulid_or_fixed_schema_id():
+def _new_ulid_or_fixed_id():
     slug = getattr(_minting_schema, "slug", None)
-    return _production_new_ulid() if slug is None else _schema_id_for(slug)
+    if slug is not None:
+        return _schema_id_for(slug)
+    model_id = getattr(_minting_model, "model_id", None)
+    if model_id is not None:
+        _minting_model.model_id = None  # the model's own id only: its alpha rows' ids stay random
+        return model_id
+    return _production_new_ulid()
 
 
 def _ensure_outcome_schema_fixed_id(self, *, slug, kind, clock=None):
@@ -269,8 +276,33 @@ def _ensure_outcome_schema_fixed_id(self, *, slug, kind, clock=None):
         _minting_schema.slug = None
 
 
-_repositories.new_ulid = _new_ulid_or_fixed_schema_id
+# The calibration model's own id is the hash's other random input: resolve_calibration_model hashes each contributing
+# model's [id, content_hash], so with fixed schema ids a vault's draws still followed its global prior's random id (the
+# AD3 reading test's two vaults got different bounds about 1 run in 60, and so different facet recall). Its minted id is
+# fixed too: the model's content hash, behind the vault's count of models before it, so ids still sort in creation order
+# as production's monotonic ULIDs do (rows are ordered by created_at, id, and a frozen clock ties every created_at).
+_production_insert_calibration_model = _repositories.Repository.insert_calibration_model
+_minting_model = threading.local()
+
+
+def _calibration_model_id_for(content_hash: str, models_before: int) -> str:
+    digest = hashlib.sha256(content_hash.encode("utf-8")).hexdigest().upper()
+    return (f"01GCM{models_before:06d}" + digest)[:26]
+
+
+def _insert_calibration_model_fixed_id(self, *, model, alphas, clock=None):
+    with self.connection() as connection:
+        (models_before,) = connection.execute("SELECT COUNT(*) FROM grader_calibration_models").fetchone()
+    _minting_model.model_id = _calibration_model_id_for(str(model["content_hash"]), int(models_before))
+    try:
+        return _production_insert_calibration_model(self, model=model, alphas=alphas, clock=clock)
+    finally:
+        _minting_model.model_id = None
+
+
+_repositories.new_ulid = _new_ulid_or_fixed_id
 _repositories.Repository.ensure_outcome_schema = _ensure_outcome_schema_fixed_id
+_repositories.Repository.insert_calibration_model = _insert_calibration_model_fixed_id
 
 
 # Two pure functions that cost 26% of a sample's time after the connection work, and repeat their inputs across tests.

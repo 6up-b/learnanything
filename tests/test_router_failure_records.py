@@ -33,7 +33,7 @@ from learnloop.daily_plan.engine import advance, build_plan
 from learnloop.daily_plan.policy import policy_for
 
 from tests.router_mixture_helpers import B, mixture_env, rows
-from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
+from tests.router_model_fakes import FakeDecider, FakeLLM, block_drawing_seed, fake_runtime
 from tests.ro4_objective_serving_helpers import policy_answer
 
 TAG = ROUTER_OBJECTIVE_ALGORITHM_VERSION
@@ -293,15 +293,21 @@ def test_records_hold_codes_only_and_an_id_that_is_not_a_code_is_hashed():
 
 
 def test_a_record_that_cannot_be_built_never_blocks_the_block(tmp_path, monkeypatch, caplog):
-    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM(answer=policy_answer)), version=TAG)
+    # The decision seed is pinned to one that draws a block (as RO6's chooser tests do): with the live seed (a random
+    # decision id) the mix drew stop_for_today at this boundary in about 1 run in 13, and the step was "done", not an item.
+    runtime = fake_runtime(decider=FakeDecider(), llm=FakeLLM(answer=policy_answer), seed=block_drawing_seed())
+    env = mixture_env(tmp_path, runtime, version=TAG)
+    calls: list[str] = []
 
     def broken(*_args, **_kwargs):
+        calls.append("plan_block_records")
         raise ValueError(SECRET)
 
     monkeypatch.setattr(boundary_records, "plan_block_records", broken)
     with provenance.trace_scope("TRACE_BROKEN"):
         build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
         _record, step = advance(env, serve=True)
+    assert calls  # the records were attempted and failed on this very block
     assert step is not None and step["kind"] == "item" and rows(env)
     with env.repository.connection() as connection:
         assert provenance.read(connection, "TRACE_BROKEN") == []
