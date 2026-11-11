@@ -26,9 +26,9 @@ from learnloop.placement.rules import DIAGNOSIS_WAIT_DAYS
 from learnloop.source_retrieval import deliverable_path as DP
 from tests.deliverable_fixtures import DeliverableFake
 from tests.reading_path_fixtures import call, context
-from tests.test_curriculum_c1_fix_round2 import _no_refresh
-from tests.test_curriculum_c1_fix_round3 import _env, _raw
-from tests.test_curriculum_c1_plan_follows_path import PRIMARIES, _c1
+from tests.curriculum_c1_fix_round2_helpers import _no_refresh
+from tests.curriculum_c1_fix_round3_helpers import _env, _raw
+from tests.curriculum_c1_plan_follows_path_helpers import PRIMARIES, _c1
 
 
 def _queued(env, after_wait_start: timedelta) -> str:

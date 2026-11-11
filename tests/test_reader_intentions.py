@@ -26,9 +26,9 @@ from learnloop.reader import reader_quick_check as RQC
 from learnloop.vault.loader import load_vault
 from tests.helpers import NOW
 from tests.reader_fixtures import notes_source, transcript_source
-from tests.test_reader_active_reading import ActiveClient
-from tests.test_reader_guidance import _setup
-from tests.test_reader_intent import FakeDecider, _prefer
+from tests.reader_active_reading_helpers import ActiveClient
+from tests.reader_guidance_helpers import _setup
+from tests.reader_intent_helpers import FakeDecider, _prefer
 
 ROOT = Path(__file__).resolve().parents[1]
 NOTES_RAIL = ROOT / "apps" / "learnloop-tauri" / "src" / "screens" / "reader" / "NotesRail.tsx"

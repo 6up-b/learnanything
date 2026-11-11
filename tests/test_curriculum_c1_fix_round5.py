@@ -14,10 +14,10 @@ from __future__ import annotations
 import pytest
 
 from learnloop.source_retrieval import deliverable_path as DP
-from tests.deliverable_fixtures import DeliverableFake, PlanDeliverableFake
+from tests.deliverable_fixtures import PlanDeliverableFake
 from tests.helpers import append_config_toml
 from tests.reading_path_fixtures import call, context
-from tests.test_curriculum_c1_plan_follows_path import (
+from tests.curriculum_c1_plan_follows_path_helpers import (
     C1_OFF,
     CURRICULUM_OFF,
     GUIDE_OFF,
@@ -27,20 +27,9 @@ from tests.test_curriculum_c1_plan_follows_path import (
     _c1,
     _split,
 )
+from tests.curriculum_c1_fix_round5_helpers import MeteredFake, _rows
 
 PRICED = "\n[source_retrieval]\nllm_price_per_million = 1.0\n"
-
-
-class MeteredFake(DeliverableFake):
-    """A metered path-judge route (an API key billed per token)."""
-
-    provider_name = "fake_metered_deliverable"
-    provider_type = "openai_compatible"
-
-
-def _rows(c1) -> int:
-    with c1.repository.connection() as connection:
-        return connection.execute("SELECT COUNT(*) FROM deliverable_path_sections").fetchone()[0]
 
 
 # -- Medium 1: plan route only -----------------------------------------------------------------------------

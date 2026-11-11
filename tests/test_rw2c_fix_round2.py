@@ -38,9 +38,10 @@ from learnloop.workbench.help_outcomes import help_outcomes
 from tests.approach_map_fakes import ITEM, LO
 from tests.hint_fakes import WriterFake
 from tests.rw2c_base_sequence import SWITCHES, without_later_stage_keys
-from tests.test_help_outcomes import FACET, _facets, _grading, _insert, _only, _row, _snapshot, _vault, _verdicts, _world
-from tests.test_workbench_route_example import ROUTE, FindFake
+from tests.help_outcomes_helpers import FACET, _facets, _grading, _insert, _only, _row, _snapshot, _vault, _verdicts, _world
+from tests.workbench_route_example_helpers import ROUTE, FindFake
 from tests.workbench_help_fakes import call, help_rows, open_problem, run_job, sidecar, wb_answer
+from tests.rw2c_fix_round2_helpers import _Spans, _span
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = "7e7bdff1b"
@@ -49,27 +50,6 @@ BASE = "7e7bdff1b"
 def _switches_off(paths) -> None:
     toml = paths.root / "learnloop.toml"
     toml.write_text(toml.read_text() + "\n[workbench]\n" + "".join(f"{name} = false\n" for name in SWITCHES))
-
-
-class _Spans:
-    """T6's ``TutorSpanProvider`` faked: verified picks named by the manifest's
-    ``span_keys`` and, optionally, referenced blocks appended after them."""
-
-    def __init__(self, verified, referenced=()):
-        self.verified = [dict(span) for span in verified]
-        self.referenced = [dict(span, relation="referenced") for span in referenced]
-        self.calls = 0
-
-    def __call__(self, vault, repository, *, context, question_md, learning_object_ids, item):
-        self.calls += 1
-        return self.verified + self.referenced, {
-            "basis": "retrieved_verified",
-            "span_keys": [f"{span['extraction_id']}/{span['span_id']}" for span in self.verified]}
-
-
-def _span(span_id, extraction_id="ext", **extra):
-    return {"span_id": span_id, "extraction_id": extraction_id, "label": f"Book · §{span_id}", "text": "a step",
-            **extra}
 
 
 # -- 1 (High): the example after a hint re-reads the live vault after its wait ----------------

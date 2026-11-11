@@ -36,7 +36,7 @@ from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, Extract
 from learnloop.ingest.originals import store_original_bytes
 from learnloop.reader.as_printed import NO_CROP, _is_label
 from learnloop.vault.yaml_io import read_yaml, write_yaml
-from tests.test_reader_ca1_as_printed import (  # noqa: F401 - fixtures
+from tests.reader_ca1_as_printed_helpers import (  # noqa: F401 - fixtures
     BLUE,
     GREEN,
     RED,
@@ -47,8 +47,8 @@ from tests.test_reader_ca1_as_printed import (  # noqa: F401 - fixtures
     cold,
     warm,
 )
-from tests.test_reader_ca1_astra_fixes import _mark_every_block_owned, _owned
-from tests.test_source_inventory import _persist
+from tests.reader_ca1_astra_fixes_helpers import _mark_every_block_owned, _owned
+from tests.source_inventory_helpers import _persist
 
 EXT = "ext_ca1_rereview"
 NOW_ISO = "2026-01-01T00:00:00Z"
@@ -119,7 +119,7 @@ def _import(paths, repository, spans: list[str], statement: str, answer: str, *,
             roles: dict[str, str] | None = None) -> str:
     from learnloop.content.authoring import exercise_authoring as EX
     from learnloop.content.authoring.ai_contracts import ExerciseAuthoring, FigureRolePayload
-    from tests.test_exercise_authoring import FakeClient, _item, _write_facet_registry
+    from tests.exercise_authoring_helpers import FakeClient, _item, _write_facet_registry
 
     _write_facet_registry(paths.root.parent)
     raw = {"nodes": [{"spanId": span, "quote": _text(span)} for span in spans]}

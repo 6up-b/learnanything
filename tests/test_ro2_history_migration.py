@@ -17,14 +17,9 @@ from learnloop.adaptive_difficulty import protected_tables as T
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.ro2_history_migration_helpers import RO2_ADDED_OBJECTS, TABLE
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-TABLE = "ad_history_forecast_draws"
-#: What 245 adds: earlier migrations' "nothing else changed" diffs on the way to head read this.
-RO2_ADDED_OBJECTS = frozenset({
-    TABLE, "idx_ad_history_forecast_draws_presentation", f"{TABLE}_no_update", f"{TABLE}_no_delete",
-    f"sqlite_autoindex_{TABLE}_1", f"sqlite_autoindex_{TABLE}_2",
-})
 
 
 def test_245_is_the_head_and_its_table_a_receipt_ad_classifies():

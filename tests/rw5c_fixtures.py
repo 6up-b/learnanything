@@ -10,7 +10,7 @@ from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, Extract
 from learnloop.vault.writer import upsert_source_set
 from tests.figure_fixtures import seed_probability_book
 from tests.source_service_fakes import build_textbook_vault, set_config
-from tests.test_source_inventory import _persist
+from tests.source_inventory_helpers import _persist
 
 EXTRACTION = "ext_math"
 FLAGSHIP_TEX = (r"f(x) = \begin{cases} p \lambda e^{\lambda x} & x < 0 \\ (1-p)\lambda e^{-\lambda x} & x \ge 0 \end{cases}")

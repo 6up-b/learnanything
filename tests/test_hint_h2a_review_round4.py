@@ -14,7 +14,7 @@ from learnloop.hints.contracts import Target, check_output
 from learnloop.hints.state import assemble_state
 from learnloop.hints.writer import HintWriterOutputV1
 from tests.hint_fakes import ITEM, WORK, assists, good_answer
-from tests.test_hint_h2a_review_round2 import _ask, _setup
+from tests.hint_h2a_review_round2_helpers import _ask, _setup
 
 
 def _walkthrough(start: str, route: str, target: str, *, valid: bool = False):

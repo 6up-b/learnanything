@@ -30,7 +30,7 @@ def test_the_rpcs_are_registered_desktop_only():
 
 
 def _ctx(tmp_path, version=TEACHER_PROBES_ALGORITHM_VERSION):
-    from tests.test_teacher_te1_successor import _Ctx
+    from tests.teacher_te1_successor_helpers import _Ctx
 
     paths, repository = build_teacher_vault(tmp_path / "vault", version=version)
     return paths, repository, _Ctx(paths, repository)

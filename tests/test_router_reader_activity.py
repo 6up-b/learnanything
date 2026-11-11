@@ -38,8 +38,8 @@ from learnloop.reader import reader_sessions as RS
 from learnloop.router.card import build_card
 from learnloop.vault.loader import load_vault
 from tests.recap_fixtures import EXT, ask, at, iso
-from tests.test_reader_digest_narrative import NarrativeFake
-from tests.test_reader_followups import FakeSearch, _candidate, _now, _plan, _seeded
+from tests.reader_digest_narrative_helpers import NarrativeFake
+from tests.reader_followups_helpers import FakeSearch, _candidate, _now, _plan, _seeded
 
 LO = "lo_svd_definition"
 QUESTION = "Why three factors and not two?"
@@ -172,7 +172,7 @@ def _with_section(inputs, activity):
 
 
 def test_the_section_is_in_the_typed_card_its_text_and_its_hash():
-    from tests.test_router_card import _inputs
+    from tests.router_card_helpers import _inputs
 
     inputs = _inputs(3)
     without = build_card(inputs)
@@ -191,7 +191,7 @@ def test_the_section_is_in_the_typed_card_its_text_and_its_hash():
 
 
 def test_nothing_to_say_leaves_the_predecessor_card_byte_for_byte():
-    from tests.test_router_card import _inputs
+    from tests.router_card_helpers import _inputs
 
     empty = {**ACTIVITY, "open_inquiries": [], "candidate_actions": [], "narrative": None}
     assert RR.for_card(empty) is None and RR.for_card(None) is None
@@ -207,7 +207,7 @@ def test_the_card_copy_is_bounded_and_says_what_it_left_out():
     assert [e["question_excerpt"] for e in section["open_inquiries"]] == [
         f"q{i}" for i in range(3, RR.CARD_LIST_LIMIT + 3)]  # the newest
     assert section["omitted"] == {"open_inquiries": 3}
-    from tests.test_router_card import _inputs
+    from tests.router_card_helpers import _inputs
 
     assert "(3 older reader entries left out)" in build_card(_with_section(_inputs(1), many)).text
 
@@ -227,7 +227,7 @@ def _busy(inquiries: int = RR.CARD_LIST_LIMIT) -> dict:
 
 @pytest.mark.parametrize("budget", [1_000, 1_500, 2_000])
 def test_the_reader_section_fits_wherever_the_predecessor_card_fits(budget):
-    from tests.test_router_card import _inputs
+    from tests.router_card_helpers import _inputs
 
     inputs = _inputs(3)
     predecessor = build_card(inputs, token_budget=budget)
@@ -240,7 +240,7 @@ def test_the_reader_section_fits_wherever_the_predecessor_card_fits(budget):
 
 
 def test_the_budget_trims_reader_entries_deterministically_and_says_so():
-    from tests.test_router_card import _inputs
+    from tests.router_card_helpers import _inputs
 
     inputs = _with_section(_inputs(3), _busy())
     full = build_card(inputs, token_budget=10**6)
@@ -265,7 +265,7 @@ def test_the_budget_trims_reader_entries_deterministically_and_says_so():
 
 def test_the_router_reads_the_section_and_the_kill_switch_restores_the_predecessor(tmp_path, monkeypatch):
     from learnloop.daily_plan.engine import _live_context, decide, get_or_create_today
-    from tests.test_router_card import _card_world
+    from tests.router_card_helpers import _card_world
 
     env = _card_world(tmp_path, monkeypatch)
     gatherer = env.policy.chooser.card_builder
@@ -293,7 +293,7 @@ def test_the_router_reads_the_section_and_the_kill_switch_restores_the_predecess
 
 def test_the_plan_stores_the_card_with_its_reader_section(tmp_path, monkeypatch):
     from learnloop.daily_plan.engine import build_plan
-    from tests.test_router_card import _card_world, _stored_card
+    from tests.router_card_helpers import _card_world, _stored_card
 
     env = _card_world(tmp_path, monkeypatch)
     monkeypatch.setattr(RR, "reader_activity_for_card", lambda *_a, **_k: dict(ACTIVITY))
@@ -305,7 +305,7 @@ def test_the_plan_stores_the_card_with_its_reader_section(tmp_path, monkeypatch)
 
 def test_an_unreadable_section_is_named_in_the_unknowns(tmp_path, monkeypatch):
     from learnloop.daily_plan.engine import _live_context, decide, get_or_create_today
-    from tests.test_router_card import _card_world
+    from tests.router_card_helpers import _card_world
 
     env = _card_world(tmp_path, monkeypatch)
     gatherer = env.policy.chooser.card_builder
@@ -327,7 +327,7 @@ def test_an_unreadable_section_is_named_in_the_unknowns(tmp_path, monkeypatch):
 
 def test_narration_switched_off_after_a_narrative_was_saved_shows_it_nowhere(reader_world):
     from tests.helpers import append_config_toml
-    from tests.test_router_card import _inputs
+    from tests.router_card_helpers import _inputs
 
     vault, repo, row, *_rest = reader_world
     assert RR.reader_activity_for_card(vault, repo, [LO], iso(400))["narrative"] is not None

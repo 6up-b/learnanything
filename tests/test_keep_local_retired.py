@@ -119,7 +119,7 @@ def test_the_reader_asks_about_a_book_carrying_the_retired_choice(tmp_path, monk
     from types import SimpleNamespace
 
     from learnloop_sidecar.handlers import ai_providers
-    from tests.test_reader_requests import _FakePresetClient
+    from tests.reader_requests_helpers import _FakePresetClient
 
     monkeypatch.setattr(ai_providers, "ready_canonical_ingest_provider",
                         lambda vault: ("stub", SimpleNamespace(ready=True), object()))

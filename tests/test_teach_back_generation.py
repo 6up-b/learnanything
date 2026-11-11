@@ -17,7 +17,7 @@ from learnloop.db.repositories import Repository
 from learnloop.content.proposals.proposals import _practice_item_rubric_errors, persist_authoring_proposal
 
 from tests.helpers import NOW, create_basic_vault
-from tests.test_cli_generate_practice import _ProposalServer, _complete_probe, _configure_codex
+from tests.cli_generate_practice_helpers import _ProposalServer, _complete_probe, _configure_codex
 
 # The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
 # H3); these tests drive an in-process HTTP server through it as a provider double.

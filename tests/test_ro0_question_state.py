@@ -15,7 +15,7 @@ from learnloop.tutor.tutor_qa import ask_question
 from learnloop.vault.loader import load_vault
 from tests.daily_plan_fakes import record_attempt
 from tests.helpers import NOW, append_config_toml, create_basic_vault
-from tests.test_question_context import FakeTutorClient
+from tests.question_context_helpers import FakeTutorClient
 
 CLOCK = FrozenClock(NOW)
 ITEM = "pi_svd_define_001"

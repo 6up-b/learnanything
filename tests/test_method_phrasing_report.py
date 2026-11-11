@@ -37,7 +37,7 @@ from learnloop.vault.yaml_io import write_yaml
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault, patch_plan_ready
 from tests.structured_ai import StructuredClientFake, _request_context
-from tests.test_required_method_items import _add_concept_and_lo
+from tests.required_method_items_helpers import _add_concept_and_lo
 
 CLOCK = FrozenClock(NOW)
 COFACTOR = "Uses cofactor expansion along the first row to compute det(A)."

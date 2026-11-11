@@ -42,8 +42,8 @@ from learnloop.vault.yaml_io import write_yaml
 from tests.helpers import NOW, set_algorithm_version
 from tests.recap_fixtures import at
 from tests.split_live_helpers import ReadyRuntime
-from tests.test_goal_certification_any_of import COMP_A, LO_ID, _component, _item, build_vault
-from tests.test_reader_recap_review_r2 import (
+from tests.goal_certification_any_of_helpers import COMP_A, LO_ID, _component, _item, build_vault
+from tests.reader_recap_review_r2_helpers import (
     EMBEDDED_ITEM,
     RECALL_ITEM,
     _assisted_session,
@@ -51,7 +51,7 @@ from tests.test_reader_recap_review_r2 import (
     _embedded_world,
     _self_graded,
 )
-from tests.test_regrade_contract_replay import PointsGrader
+from tests.regrade_contract_replay_helpers import PointsGrader
 
 
 def _stamp(minutes: float) -> str:
@@ -240,7 +240,7 @@ def test_f1_r3_the_as_of_hold_agrees_with_the_upgrade_on_every_shape(tmp_path):
     regrades). The predicate holds exactly the two the upgrade's replay held."""
 
     from learnloop.learner.facet_evidence_timeline import _epoch_held_as_of
-    from tests.test_regrade_contract_upgrade import CLOCK, _legacy_vault
+    from tests.regrade_contract_upgrade_helpers import CLOCK, _legacy_vault
 
     paths, vault, repository = _legacy_vault(tmp_path)
     assert upgrade_to_mvp026(paths.root, clock=CLOCK).upgraded

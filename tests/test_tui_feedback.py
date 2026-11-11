@@ -208,7 +208,7 @@ class _GradingServer:
 
 def test_committed_model_grade_is_not_regraded_when_a_later_step_fails(tmp_path, monkeypatch):
     from learnloop.ai.runtime import AIRuntimeReport
-    from tests.test_diagnostic_augmentation import (
+    from tests.diagnostic_augmentation_helpers import (
         _proposal,
         _SequenceDiagnostician,
         fail_after_the_joint_grade_commits,
@@ -254,7 +254,7 @@ def _commit_grade_behind_the_screen(practice, client, runtime, monkeypatch):
     """
 
     from learnloop.attempts.attempts import complete_attempt_with_ai_required
-    from tests.test_diagnostic_augmentation import fail_after_the_joint_grade_commits
+    from tests.diagnostic_augmentation_helpers import fail_after_the_joint_grade_commits
 
     with monkeypatch.context() as patch:
         fail_after_the_joint_grade_commits(patch)
@@ -267,7 +267,7 @@ def _commit_grade_behind_the_screen(practice, client, runtime, monkeypatch):
 
 def _grading_fake(monkeypatch):
     from learnloop.ai.runtime import AIRuntimeReport
-    from tests.test_diagnostic_augmentation import _proposal, _SequenceDiagnostician
+    from tests.diagnostic_augmentation_helpers import _proposal, _SequenceDiagnostician
 
     client = _SequenceDiagnostician([lambda context: _proposal(context.attempt_id)] * 3)
     runtime = AIRuntimeReport(status="ready", active_provider="diagnostician", provider_type="openai_chat", model="claude-4")

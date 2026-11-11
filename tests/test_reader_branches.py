@@ -10,8 +10,8 @@ from learnloop.reader import reader_dialogue as RD
 from learnloop.substrate.activities import log_interaction_event
 from learnloop.tutor.ai_contracts import TutorCitation
 from learnloop.vault.loader import load_vault
-from tests.test_reader_dialogue import _CLOCK, _setup
-from tests.test_sidecar_reader import _init, _rpc, _setup as _rpc_setup
+from tests.reader_dialogue_helpers import _CLOCK, _setup
+from tests.sidecar_reader_helpers import _init, _rpc, _setup as _rpc_setup
 
 
 def _ask(vault, repo, client, question, parent=None, **kwargs):

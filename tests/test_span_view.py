@@ -15,7 +15,7 @@ from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
 from learnloop.reader.span_view import SpanViewError, build_span_view
 
-from tests.test_source_inventory import _persist, _register_revision
+from tests.source_inventory_helpers import _persist, _register_revision
 
 _CLOCK = FrozenClock(datetime(2026, 7, 13, 12, 0, 0, tzinfo=UTC))
 

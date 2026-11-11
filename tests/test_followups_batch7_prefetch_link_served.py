@@ -29,8 +29,8 @@ from learnloop.substrate.activities import log_interaction_event
 from learnloop_sidecar import prefetch_runtime as RT
 from tests import rich_fixtures as RF
 from tests.figure_fixtures import EXTRACTION, build, rows
-from tests.test_figures_prefetch import decisions
-from tests.test_followups_batch6_prefetch_plan_wait import RICH_ONLY, _prebuild_jobs, _rig
+from tests.figures_prefetch_helpers import decisions
+from tests.followups_batch6_prefetch_plan_wait_helpers import RICH_ONLY, _prebuild_jobs, _rig
 
 DAY = datetime(2099, 3, 1, 12, tzinfo=UTC)
 TRIGGER = PF.Trigger("offer", "tutor:q1", blocks=((EXTRACTION, "p3"),))

@@ -1,40 +1,11 @@
 from __future__ import annotations
 
-import io
 import json
 
 from learnloop.config import load_config
-from learnloop_sidecar.server import serve
 
 from tests.helpers import create_basic_vault
-
-
-def _rpc(messages: list[dict]) -> list[dict]:
-    stdin = io.StringIO("".join(json.dumps(message) + "\n" for message in messages))
-    stdout = io.StringIO()
-    serve(stdin, stdout)
-    return [json.loads(line) for line in stdout.getvalue().splitlines()]
-
-
-def _settings_rpc(vault_root, *messages):
-    payload = [
-        {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {"vaultPath": str(vault_root)},
-        }
-    ]
-    payload.extend(
-        {
-            "jsonrpc": "2.0",
-            "id": index + 2,
-            "method": name,
-            "params": params,
-        }
-        for index, (name, params) in enumerate(messages)
-    )
-    return _rpc(payload)[1:]
+from tests.settings_sidecar_helpers import _settings_rpc
 
 
 def test_config_and_settings_report_ai_routes(tmp_path, monkeypatch):

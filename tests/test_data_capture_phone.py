@@ -16,7 +16,7 @@ from learnloop.data_capture import prefilter
 from learnloop.db.connection import connect
 from learnloop.db.stores import data_capture as store
 
-from tests.test_device_eligibility import IMAGE, ORIGIN, PLAIN, _call, _ids, _world
+from tests.device_eligibility_helpers import IMAGE, ORIGIN, PLAIN, _call, _ids, _world
 
 pytestmark = pytest.mark.durability
 TAG = "mvp-0.44"

@@ -28,7 +28,7 @@ from learnloop.router_objective import tail_serve as TS
 from learnloop.router_objective import value as V
 
 from tests.router_mixture_helpers import served_horizon  # noqa: F401 - a fixture
-from tests.test_ro6_codex_review import (CFG, FAR, STOP, _logged, _quiet, _row, _trace, _value_actions,  # noqa: F401
+from tests.ro6_codex_review_helpers import (CFG, FAR, STOP, _logged, _quiet, _row, _trace, _value_actions,  # noqa: F401
                                          _value_inputs, utc)
 
 AT = "2026-11-01T00:00:00Z"
@@ -93,7 +93,7 @@ def test_f1_the_contrasts_read_every_window_complete(monkeypatch):
 def test_f1_a_complete_return_leaves_an_unknown_dated_use_out_and_keeps_a_window_with_no_checkable_use(tmp_path):
     from learnloop.algorithm_versions import ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
 
-    from tests.test_ro1_availability_reads import AFTER, CUTOFF, LO, _seeded
+    from tests.ro1_availability_reads_helpers import AFTER, CUTOFF, LO, _seeded
 
     vault, repository = _seeded(tmp_path, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION, None)
     trace = {"evaluation": {"window_days": 9, "c0": 0.0, "uses": {"topics": [], "dated": [
@@ -176,9 +176,9 @@ def test_f3_the_chooser_values_the_candidates_again_at_the_carried_cutoff(tmp_pa
 
     from tests.router_mixture_helpers import mixture_env, run
     from tests.router_model_fakes import FakeLLM, fake_runtime
-    from tests.test_ro4_objective_serving import policy_answer
+    from tests.ro4_objective_serving_helpers import policy_answer
 
-    from tests.test_ro6_landing import block_drawing_seed
+    from tests.router_model_fakes import block_drawing_seed
 
     # Enough items for a second block decision whatever the blocks' sizes (the first has no earlier decision). RO6's
     # landing ruling R8: the decision seed is pinned to one that draws a block at every boundary, so the run has two

@@ -20,11 +20,11 @@ from learnloop.router_objective import preferences as PF
 from learnloop.scheduling.device_eligibility import PlanStepFilter
 
 from tests.router_mixture_helpers import rows
-from tests.test_ih2_lessons_compete import _env, _open_offer, draw  # noqa: F401 - the fixture
-from tests.test_ih6_workbench_open_item import _phone_workbench
-from tests.test_instruct_handoff_ih0 import make_world  # noqa: F401 - the fixture
-from tests.test_mobile_phone_contract import _has
-from tests.test_te3b_offers import offerable  # noqa: F401 - the fixture
+from tests.ih2_lessons_compete_helpers import _env, _open_offer, draw  # noqa: F401 - the fixture
+from tests.ih6_workbench_open_item_helpers import _phone_workbench
+from tests.instruct_handoff_ih0_helpers import make_world  # noqa: F401 - the fixture
+from tests.mobile_phone_contract_helpers import _has
+from tests.te3b_offers_helpers import offerable  # noqa: F401 - the fixture
 
 #: What the phone's screens read of a plan-on reply (``practice/SomethingElse.tsx``, ``today/PlanToday.tsx``, ``App.openStep``).
 #: The recorded contract's journey runs with the plan off, where these replies say only ``enabled``.

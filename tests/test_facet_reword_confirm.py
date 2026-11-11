@@ -25,11 +25,9 @@ that "a confirm this reword is better" than a refusal:
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
 
 import pytest
 
-from learnloop.clock import FrozenClock, utc_now_iso
 from learnloop.content.facet_identity import actions as facet_actions
 from learnloop.content.facet_identity import authority
 from learnloop.content.facet_identity.actions import (
@@ -47,9 +45,8 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_source_set
 from learnloop.vault.yaml_io import read_yaml, yaml_to_string
 
-from tests.helpers import seed_explanatory_source
-from tests.test_facet_identity_actions import SHARED, _vault_with_duplicate
-from tests.test_facet_reword_paths import (
+from tests.facet_identity_actions_helpers import SHARED, _vault_with_duplicate
+from tests.facet_reword_paths_helpers import (
     NEW_SPAN,
     SYMMETRY,
     SYMMETRY_CLAIM,
@@ -57,64 +54,24 @@ from tests.test_facet_reword_paths import (
     _facet_restructure,
     _sidecar,
 )
-from tests.test_facet_rewords import NEW_CLAIM, OLD_CLAIM, _entry, _facet_update_proposal
-from tests.test_source_append import FakeAppendClient, _bootstrap_and_add
+from tests.facet_rewords_helpers import NEW_CLAIM, OLD_CLAIM, _entry, _facet_update_proposal
+from tests.source_append_helpers import FakeAppendClient, _bootstrap_and_add
+from tests.facet_reword_confirm_helpers import (
+    THIRD_CLAIM,
+    _CLOCK,
+    _held,
+    _pending,
+    _proposal,
+    _seed,
+    _support,
+)
 
-_CLOCK = FrozenClock(datetime(2026, 10, 13, 14, 0, 0, tzinfo=UTC))
 NOW = "2026-10-13T14:00:00Z"
 SUBJECT = "linear-algebra"
-THIRD_CLAIM = "A = U Sigma V^T, with the singular values on Sigma's diagonal in decreasing order."
 EXAM_TEXT = "Final exam, question 3: show that every matrix has a singular value decomposition."
 
 
 # --- setup ---------------------------------------------------------------------------------
-
-
-def _seed(paths, repository, role: str, name: str, *, text: str | None = None) -> dict[str, str]:
-    """A source-set member of ``role`` with one span; returns a citation of it."""
-
-    citation = seed_explanatory_source(
-        paths.root, repository, source_id=f"src_{name}", revision_id=f"rev_{name}",
-        extraction_id=f"ext_{name}", unit_id=f"unit_{name}", role=role,
-    )
-    if text is not None:
-        from learnloop.ingest.ir import DocumentBlock
-
-        ir = repository.load_document_ir(citation["extraction_id"])
-        ir.blocks = [DocumentBlock.build(span_id="s1", block_type="Text", ordinal=1, section_path=["root"],
-                                         text=text)]
-        repository.persist_document_ir(citation["extraction_id"], ir)
-    return citation
-
-
-def _support(*citations, label: str = "reword") -> list[dict]:
-    return [{"from": label, "citations": [dict(citation) for citation in citations]}]
-
-
-def _proposal(repository, payload: dict, *, operation: str = "update") -> str:
-    """A facet proposal exactly as given (no citation added)."""
-
-    now = utc_now_iso(_CLOCK)
-    agent_run_id = repository.insert_agent_run({
-        "purpose": "test_confirm", "provider": "learner", "provider_type": "learner",
-        "started_at": now, "completed_at": now, "status": "completed",
-    })
-    item = {
-        "client_item_id": f"facet_{operation}_1", "item_type": "facet", "operation": operation,
-        "target_entity_type": "facet" if operation == "update" else None,
-        "target_entity_id": payload["id"] if operation == "update" else None, "payload": payload,
-        "source_ref_ids": [], "audit": {"origin": "test"}, "decision": "pending",
-        "validation_status": "valid", "validation_errors": [], "depends_on_client_item_ids": [],
-        "dependency_status": "pending", "created_at": now, "updated_at": now,
-    }
-    return repository.persist_proposal_batch({
-        "agent_run_id": agent_run_id, "purpose": "test_reword_confirm", "summary": "reword",
-        "source_refs": [], "status_cache": "pending", "created_at": now, "updated_at": now,
-    }, [item])
-
-
-def _pending(repository, root) -> list[dict]:
-    return facet_actions.pending_reword_confirms(repository, load_vault(root))
 
 
 def _ledger(repository, task: str) -> list[dict]:
@@ -123,15 +80,6 @@ def _ledger(repository, task: str) -> list[dict]:
             "SELECT * FROM judgment_ledger WHERE task = ? ORDER BY created_at, id", (task,),
         ).fetchall()
     return [dict(row) for row in rows]
-
-
-def _held(paths, repository, payload: dict | None = None) -> dict:
-    """An uncited reword of SHARED, accepted: it waits for the owner's confirm."""
-
-    patch_id = _proposal(repository, payload or {"id": SHARED, "claim": NEW_CLAIM})
-    apply_accepted_items(paths.root, patch_id, clock=_CLOCK)
-    (confirm,) = _pending(repository, paths.root)
-    return confirm
 
 
 # --- 1. a reword without explanatory support waits for the owner's confirm -------------------
@@ -256,7 +204,7 @@ def test_a_pending_proposal_the_old_code_refused_becomes_a_confirm_naming_the_fa
 
 def test_a_confirm_refuses_when_the_facets_wording_changed_since(tmp_path, monkeypatch):
     from learnloop import decider_judgments as tier1
-    from tests.test_tier1_decider import FixedDecider
+    from tests.tier1_decider_helpers import FixedDecider
     monkeypatch.setattr(tier1, 'client_for', lambda *args: FixedDecider({'facet_span_support': 'supports'}))
     paths, _vault, repository = _vault_with_duplicate(tmp_path)
     confirm = _held(paths, repository)
@@ -589,7 +537,7 @@ def test_a_confirm_whose_support_became_exam_material_is_refused(tmp_path):
 def test_an_exam_span_cited_under_the_wrong_unit_is_refused_not_held(tmp_path, named_unit):
     """A misdeclared citation supports nothing, but never turns exam material into "uncited"."""
 
-    from tests.test_facet_authority_review import _add_split_chapter
+    from tests.facet_authority_review_helpers import _add_split_chapter
 
     root, repo = _bootstrap_and_add(tmp_path)
     _add_split_chapter(repo, root, [{"unit_id": "chapter#Theory"},
@@ -727,7 +675,7 @@ def test_claim_definition_preconditions_and_non_goals_stay_meaning(tmp_path, cha
 
 def test_a_cited_reword_records_its_sources_on_the_facets_history(tmp_path, monkeypatch):
     from learnloop import decider_judgments as tier1
-    from tests.test_tier1_decider import FixedDecider
+    from tests.tier1_decider_helpers import FixedDecider
     monkeypatch.setattr(tier1, 'client_for', lambda *args: FixedDecider({'facet_span_support': 'supports'}))
     paths, _vault, repository = _vault_with_duplicate(tmp_path)
     text = _seed(paths, repository, "primary_textbook", "text")
@@ -758,4 +706,3 @@ def test_the_chokepoint_judges_titles_and_examples_without_an_explanatory_citati
         )
         assert (verdict.code, verdict.allowed) == (code, allowed), change
         assert verdict.confirmable is (code == "unsupported_reword")
-

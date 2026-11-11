@@ -226,7 +226,7 @@ def test_video_renderer_runtime_and_request_gate(tmp_path, monkeypatch):
 def test_video_renderer_request_completes_through_the_queue(tmp_path, monkeypatch):
     import learnloop.content.pipeline.jobs as job_module
     from tests.media_fakes import tiny_mp4
-    from tests.test_concept_animation_service import _FakeStoryboardClient, _FakeVideoClient, _storyboard
+    from tests.concept_animation_service_helpers import _FakeStoryboardClient, _FakeVideoClient, _storyboard
 
     vault_root = _video_vault(tmp_path, monkeypatch)
     clips = [tiny_mp4(frames=6, fps=15) for _ in range(3)]

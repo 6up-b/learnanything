@@ -16,8 +16,8 @@ from learnloop.db.repositories import Repository
 from learnloop.reader import reader_dialogue as RD
 from learnloop.vault.loader import load_vault
 from tests.helpers import append_config_toml
-from tests.test_reader_dialogue import _CLOCK, _setup
-from tests.test_sidecar_reader import _init, _rpc, _setup as _rpc_setup
+from tests.reader_dialogue_helpers import _CLOCK, _setup
+from tests.sidecar_reader_helpers import _init, _rpc, _setup as _rpc_setup
 
 # main@09c9f8d3's reader.ask result keys (handlers/reader.py) and the flat
 # ask_history projection (reader_dialogue.ask_history).

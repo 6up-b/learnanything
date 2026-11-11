@@ -9,7 +9,7 @@ from learnloop.content.pipeline.runner import IngestRunner, JobSpec, RunnerServi
 from learnloop.vault.loader import add_note
 
 from tests.helpers import create_basic_vault
-from tests.test_tutor_promotion_service import _attach_proposal
+from tests.tutor_promotion_service_helpers import _attach_proposal
 
 
 class _AnalysisClient(StructuredClientFake):

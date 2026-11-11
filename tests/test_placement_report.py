@@ -13,7 +13,7 @@ from learnloop.db.connection import connect
 from learnloop.placement.decisions import reconcile_fast_track, record_self_report
 from learnloop.placement.report import placement_report
 
-from tests.test_assumed_known import LOW_Q, _answer, _at, _queue, _setup
+from tests.assumed_known_helpers import LOW_Q, _answer, _at, _queue, _setup
 
 CHECK = 14 * 24 * 60 + 5
 

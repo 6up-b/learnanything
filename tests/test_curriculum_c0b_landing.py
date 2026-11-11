@@ -37,7 +37,7 @@ from tests.deliverable_fixtures import DeliverableFake, build_deliverable_vault,
 from tests.helpers import NOW
 from tests.reading_path_fixtures import call, context, normalized
 from tests.section_coverage_fixtures import BOOK_EIGEN, CoverageJudgeFake
-from tests.test_reader_ca3_compare_anywhere import BOOKS, ScopeDecider
+from tests.reader_ca3_compare_anywhere_helpers import BOOKS, ScopeDecider
 from tests.ux_phase1_support import set_config
 
 ORIGIN = ("ext_book", BOOK_EIGEN)

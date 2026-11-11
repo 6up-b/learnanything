@@ -109,7 +109,7 @@ def test_a_follow_up_interrupts_logger_that_raises_leaves_a_record(tmp_path, mon
     from learnloop.daily_plan.engine import advance
     from tests.router_mixture_helpers import rows
     from tests.router_model_fakes import FakeDecider, fake_runtime, first_option, seed_with_first_uniform
-    from tests.test_router_g4_restraint import DECIDER_ONLY, PAST_THE_FLOOR, _followup_env
+    from tests.router_g4_restraint_helpers import DECIDER_ONLY, PAST_THE_FLOOR, _followup_env
 
     def exploding(*_args, **_kwargs):
         raise RuntimeError(SECRET)
@@ -191,7 +191,7 @@ def test_a_cap_record_that_cannot_be_built_still_refuses(tmp_path, monkeypatch, 
 def test_a_lesson_closed_with_budget_names_the_request_and_the_limit(tmp_path):
     """Fail-first: before B8 the close receipt said ``budget`` and the gate's refusal was kept nowhere."""
 
-    from tests.test_teacher_te1_review_fixes import _metered, _turn
+    from tests.teacher_te1_review_fixes_helpers import _metered, _turn
 
     reads = {"message": "Let me read.", "requests": [{"action": "read_source", "refs": ["ext_book/ch_det"]}]}
     paths, repository, fake, lesson_id, cap = _metered(tmp_path, [reads, {"message": "Read it."}], cap_factor=1.5)
@@ -287,8 +287,8 @@ def test_the_gap_readings_figure_gate_records_its_refusal_in_the_jobs_trace(tmp_
     """Fail-first (B5's open item): the job's gate got no repository, so its refusal wrote no record."""
 
     from learnloop.diagnosis.text_gaps.jobs import process_next_gap_job
-    from tests.test_figures_scope_redesign import _Counter, _gap_clients, _gap_job
-    from tests.test_figures_switch_off import _switch
+    from tests.figures_scope_redesign_helpers import _Counter, _gap_clients, _gap_job
+    from tests.figures_switch_off_helpers import _switch
 
     paths, repository, _ctx, _found = _gap_job(tmp_path)
     counter = _Counter(lambda: _switch(paths.root, "figures", False), 1)

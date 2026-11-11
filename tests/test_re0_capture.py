@@ -23,13 +23,12 @@ from learnloop.recognition import cue as C
 from learnloop.recognition import ledger as L
 from learnloop.recognition import report as R
 
-from tests.test_exam_seeding import _exam_vault
+from tests.exam_seeding_helpers import _exam_vault
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.re0_capture_helpers import RE0_ALTERED_TABLES
 
 ROOT = Path(__file__).resolve().parents[1]
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-#: What 252 alters (one column on a ledger table): earlier migrations' "nothing else changed" diffs on the way to head read this.
-RE0_ALTERED_TABLES = frozenset({"practice_attempts"})
 NOW =datetime(2026, 5, 19, 15, 30, 7, tzinfo=UTC)
 WINDOW_HOURS = 6.0
 SESSION_GAP = 60.0

@@ -1,7 +1,6 @@
 """PF-b generate -> verify -> filter -> select -> publish (Slice 2 §5.3-§5.4, §13 PF gates)."""
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import hashlib
 import json
 from pathlib import Path
@@ -10,57 +9,22 @@ import pytest
 
 from learnloop.ai.errors import AIInterrupted
 from learnloop.ai.spend import SpendCaps
-from learnloop.clock import FrozenClock
 from learnloop.content.authoring import pf_contracts as C
 from learnloop.content.authoring.pf_sandbox import sandbox_available
 from learnloop.db.stores import pf as store
 from learnloop.ops import pf_generation
-from learnloop.ops.pf_generation import GenerationOptions, generate_practice, panel_difficulty, publish_backlog
+from learnloop.ops.pf_generation import panel_difficulty, publish_backlog
 from learnloop.substrate.activities import resolve_legacy_item
 from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.loader import load_vault
 from tests.pf_fakes import PFFake, clients, enable_pf, proposal, seed_pf_vault
+from tests.pf_generation_helpers import CAPS, DAY, NEXT_DAY, all_calls, ledger, rows, run
 
 needs_bwrap = pytest.mark.skipif(not sandbox_available(), reason="bubblewrap is not installed")
-
-CAPS = SpendCaps(max_candidates=100, max_pairs=2000, max_calls=2000, max_total_tokens=100_000_000,
-                 max_estimated_usd=10_000)
-DAY = FrozenClock(datetime(2026, 10, 12, 12, 0, tzinfo=UTC))
-NEXT_DAY = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
-
-
-def run(paths, *, path="ensemble", caps=CAPS, price=1.0, fakes=None, clock=DAY, dry_run=False, **options):
-    options.setdefault("round", "r1")
-    return generate_practice(
-        load_vault(paths.root), caps=caps, options=GenerationOptions(path=path, **options),
-        dry_run=dry_run, price_per_million=price, clients=fakes if fakes is not None else clients(),
-        clock=clock,
-    )
-
-
-def all_calls(fakes) -> int:
-    seen, total = set(), 0
-    for value in fakes.values():
-        for fake in value if isinstance(value, list) else [value]:
-            if id(fake) not in seen:
-                seen.add(id(fake))
-                total += len(fake.calls)
-    return total
-
 
 @pytest.fixture
 def pf(tmp_path):
     return seed_pf_vault(tmp_path / "vault")
-
-
-def rows(repository, where="1=1", params=()):
-    with repository.connection() as connection:
-        return store.candidates(connection, where=where, params=params)
-
-
-def ledger(repository, task):
-    with repository.connection() as connection:
-        return [dict(row) for row in connection.execute("SELECT * FROM judgment_ledger WHERE task=?", (task,))]
 
 
 def test_dry_run_makes_no_calls_migrations_or_writes(pf):

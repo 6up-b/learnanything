@@ -31,7 +31,7 @@ from learnloop.db.repositories import Repository
 from learnloop.ingest.hashing import extraction_request_hash, extraction_result_hash
 from learnloop.ingest.ir import IR_SCHEMA_VERSION
 
-from tests.test_reread_safety import (  # noqa: F401 -- fixtures are used by name
+from tests.reread_safety_helpers import (  # noqa: F401 -- fixtures are used by name
     _EXAM_Q,
     _Q1,
     _Q2,
@@ -48,6 +48,11 @@ from tests.test_reread_safety import (  # noqa: F401 -- fixtures are used by nam
     _unprotected_copies,
     exam_book,
     paper_book,
+)
+from tests.exam_protection_identity_helpers import (
+    _EXAM_MEMBER,
+    _cached_inventory,
+    _older_build_with_membership,
 )
 
 
@@ -228,7 +233,7 @@ def _interrupted_older_reading(repo: Repository, clock) -> None:
 @pytest.fixture
 def blank_book(tmp_path):
     from tests.helpers import create_basic_vault
-    from tests.test_source_inventory import _register_revision
+    from tests.source_inventory_helpers import _register_revision
 
     paths = create_basic_vault(tmp_path / "vault")
     repo = Repository(paths.sqlite_path)
@@ -283,7 +288,7 @@ def test_a_scope_naming_a_reading_it_cannot_be_on_fails_closed(exam_book, named)
     """A scope naming a reading that does not exist, belongs to another book or
     to another revision than it says, is as ambiguous as a legacy one."""
 
-    from tests.test_source_inventory import _register_revision
+    from tests.source_inventory_helpers import _register_revision
 
     repo, clock = exam_book["repo"], exam_book["clock"]
     extraction, scope_revision = "extNowhere", "rev_x"
@@ -462,8 +467,8 @@ def test_f15_the_plans_reading_step_never_offers_held_out_material_in_either_ord
     from learnloop.content.synthesis.source_unit_selection import save_unit_selection
     from learnloop_sidecar.context import SidecarContext
     from tests.helpers import create_daily_plan_vault
-    from tests.test_reread_safety import call
-    from tests.test_ux_phase1_round2_review import _seed_book
+    from tests.reread_safety_helpers import call
+    from tests.ux_phase1_round2_review_helpers import _seed_book
 
     paths = create_daily_plan_vault(tmp_path / "vault", plan_toml=toml or None)
     extraction_id = _seed_book(paths)
@@ -877,23 +882,6 @@ def _rerun_migration_225(repo: Repository, write_cache) -> None:
     assert [migration.version for migration in apply_migrations(repo.sqlite_path)] == [204]
 
 
-def _cached_inventory(repo: Repository, inventory_id: str, extraction_id: str, unit_id: str, spans, *,
-                      profile: str = "combined", semantic_hash: str | None = None, prompt_version: str = "p",
-                      model: str = "f", usage: str = '{"calls": 1}') -> None:
-    """A cache row a model run of an older build wrote (no ledger row beside it)."""
-
-    import json
-
-    with repo.connection() as connection:
-        connection.execute(
-            "INSERT INTO source_unit_inventories(id, source_revision_id, extraction_id, unit_id, unit_semantic_hash, "
-            "inventory_profile, inventory_schema_version, prompt_version, provider, model, inventory_json, usage_json, "
-            "created_at) VALUES (?, 'rev_x', ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, '2026-10-14T09:00:00Z')",
-            (inventory_id, extraction_id, unit_id, semantic_hash or f"sha256:{inventory_id}", profile, prompt_version,
-             model, model, json.dumps({"assessment_signals": [{"held_out": True, "span_ids": list(spans)}]}), usage))
-        connection.commit()
-
-
 _TWO_QUESTIONS = {"x0": ("SectionHeader", 1, ["Question 1"], "Question 1"), "x1": ("Text", 1, ["Question 1"], _Q1),
                   "x2": ("SectionHeader", 2, ["Question 2"], "Question 2"), "x3": ("Text", 2, ["Question 2"], _Q2)}
 
@@ -1120,9 +1108,9 @@ def _plan_with_a_held_out_contents(tmp_path, monkeypatch, toml: str | None, *, s
     from learnloop.content.synthesis.source_unit_selection import save_unit_selection
     from learnloop_sidecar.context import SidecarContext
     from tests.helpers import create_daily_plan_vault
-    from tests.test_exam_protection_review import _switch_off
-    from tests.test_reread_safety import call
-    from tests.test_ux_phase1_round2_review import _seed_book
+    from tests.exam_protection_review_helpers import _switch_off
+    from tests.reread_safety_helpers import call
+    from tests.ux_phase1_round2_review_helpers import _seed_book
 
     paths = create_daily_plan_vault(tmp_path / "vault", plan_toml=toml)
     if switch_off:
@@ -1190,26 +1178,6 @@ def test_the_ledgers_exam_roles_are_the_role_authoritys(tmp_path):
 # --- Codex re-review of extraction identity ------------------------------------------------
 
 
-def _older_build_with_membership(exam_book, member, *, profile: str = "combined") -> None:
-    """A vault an older build wrote: no ledger (migration 204 not applied), a
-    cache row with a held-out signal on A's Exam unit, and B read; the book's
-    membership in ``source_sets.yaml`` is ``member`` (None: no set)."""
-
-    from learnloop.vault.writer import upsert_source_set
-
-    repo, clock, root = exam_book["repo"], exam_book["clock"], exam_book["root"]
-    _persist(repo, _exam_reading_b(), revision_id="rev_x", extraction_id="extXB", clock=clock)
-    with repo.connection() as connection:
-        connection.execute("DROP TRIGGER source_held_out_signal_marks_no_update")
-        connection.execute("DROP TABLE source_held_out_signal_marks")
-        connection.execute("DELETE FROM schema_migrations WHERE version = 204")
-        connection.commit()
-    _cached_inventory(repo, "inv_q", "extXA", "u1", ["x1"], profile=profile)
-    if member is not None:
-        upsert_source_set(root, {"id": "set_x", "subject_id": "linear-algebra", "title": "Exam prep",
-                                 "members": [member]})
-
-
 def _hand_edit_members(root: Path, members) -> None:
     """The owner edits ``sources/source_sets.yaml`` in a text editor: no vault writer runs."""
 
@@ -1221,7 +1189,6 @@ def _hand_edit_members(root: Path, members) -> None:
     path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
 
 
-_EXAM_MEMBER = {"source_id": "src_x", "revision_id": "rev_x", "default_role": "exam", "scope": []}
 _SCOPED_MEMBER = {"source_id": "src_x", "revision_id": "rev_x", "default_role": "primary_textbook",
                   "scope_extraction_id": "extXA", "scope_revision_id": "rev_x",
                   "scope": [{"unit_id": "u1", "role_override": "exam"}]}

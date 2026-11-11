@@ -12,6 +12,7 @@ import pytest
 from learnloop.teacher import service as S
 from learnloop.vault.loader import load_vault
 from tests.teacher_fakes import TeacherFake, build_teacher_vault, clients
+from tests.followups_batch5_lesson_helpers import lesson_envelope_refuses
 
 
 def _rows(repository, sql, params=()):
@@ -151,26 +152,9 @@ def test_d_resume_after_a_help_action_with_a_read_follow_up_makes_no_call(tmp_pa
 # --- E: a figures daily-budget refusal marks only the visual unavailable (P4b) ----------------------------
 
 
-class _MeteredRequest:
-    """A physical metered request (an OpenRouter-like client with no owner price)."""
-
-    provider_name = "openrouter_test"
-    provider_type = "openrouter"
-
-
-def lesson_envelope_refuses(_context):
-    """The figure author's physical request goes through the active request gates: with a per-lesson cap
-    and no price, the LESSON's envelope refuses it (``refusal`` recorded) before anything is sent."""
-
-    from learnloop.ai.execution import model_call
-
-    with model_call(_MeteredRequest(), purpose="figure_author", prompt="draw it"):
-        raise AssertionError("the lesson's envelope admitted a request it should refuse")
-
-
 def _visual_lesson(tmp_path, author_answers):
     from tests.figure_fixtures import AuthorFake
-    from tests.test_reader_rw5d_p4b_teacher_visuals import _builder, _clients, _spec, visual_turn
+    from tests.reader_rw5d_p4b_teacher_visuals_helpers import _builder, _clients, _spec, visual_turn
 
     paths, repository = build_teacher_vault(tmp_path / "vault")
     author = AuthorFake(list(author_answers) or [_spec()])
@@ -192,7 +176,7 @@ def _visual_payloads(repository, lesson_id):
 
 def test_e_the_figures_daily_budget_refusing_a_visual_leaves_the_lesson_open(tmp_path):
     from learnloop.ai.spend import SpendLimitExceeded
-    from tests.test_reader_rw5d_p4b_teacher_visuals import _clients
+    from tests.reader_rw5d_p4b_teacher_visuals_helpers import _clients
 
     # The figures' shared daily envelope refuses the author's request before it is sent (the figure
     # service reports it as ``capped``, raised from the SpendLimitExceeded).
@@ -213,7 +197,7 @@ def test_e_the_figures_daily_budget_refusing_a_visual_leaves_the_lesson_open(tmp
 
 
 def test_e_the_lesson_envelope_refusing_a_visual_still_closes_the_lesson_with_budget(tmp_path):
-    from tests.test_reader_rw5d_p4b_teacher_visuals import _clients
+    from tests.reader_rw5d_p4b_teacher_visuals_helpers import _clients
     from tests.ux_phase1_support import set_config
 
     paths, repository, fake, author, build, lesson_id = _visual_lesson(tmp_path, [lesson_envelope_refuses])

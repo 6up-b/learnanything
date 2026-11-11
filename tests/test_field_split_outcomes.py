@@ -16,22 +16,12 @@ from learnloop.substrate.canonical_projection import UNVERIFIED_CRITERION_BLOCK
 
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.split_live_helpers import ReadyRuntime, drain_jobs, split_vault, submit
-from tests.test_grading_support import _ZeroWithoutAttribution
+from tests.grading_support_helpers import _ZeroWithoutAttribution
+from tests.field_split_outcomes_helpers import _ZeroEverythingWithoutAttribution
 
 # A different route to the reference's final answer: PF-c's final-answer check
 # verifies it, so an unlocated mark-down is recorded unverified.
 VERIFYING_ANSWER = "A different route.\nFinal answer: U Sigma V^T"
-
-
-class _ZeroEverythingWithoutAttribution(ReviewFakeClient):
-    """Marks every criterion down to zero, naming no error at all."""
-
-    def _blind_grading(self, request, context):
-        result = super()._blind_grading(request, context)
-        evidence = [row.model_copy(update={"points_awarded": 0.0}) for row in result.criterion_evidence]
-        return result.model_copy(
-            update={"criterion_evidence": evidence, "rubric_score": 0, "error_attributions": []}
-        )
 
 
 class _SetupOnly(ReviewFakeClient):

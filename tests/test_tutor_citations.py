@@ -7,47 +7,10 @@ the feature degrades to no citations when no links exist.
 
 from __future__ import annotations
 
-from tests.structured_ai import StructuredClientFake
-
-from datetime import UTC, datetime
-
-from learnloop.clock import FrozenClock
-from learnloop.tutor.ai_contracts import TutorAnswer, TutorCitation
-from learnloop.content.synthesis.source_set_synthesis import create_study_map
+from learnloop.tutor.ai_contracts import TutorCitation
 from learnloop.tutor.tutor_qa import ask_question
-from learnloop.vault.loader import load_vault
 
-from tests.test_source_set_synthesis import FakeSynthesisClient, _setup
-
-_CLOCK = FrozenClock(datetime(2026, 7, 14, 12, 0, 0, tzinfo=UTC))
-_ITEM_ID = "pi_identify_symmetry"
-
-
-class _CitingTutorClient(StructuredClientFake):
-    provider_name = "fake_tutor"
-    provider_type = "fake"
-    model = "fake-model"
-
-    def __init__(self, citations):
-        self._citations = citations
-        self.contexts = []
-
-    def run_tutor_qa(self, context):
-        self.contexts.append(context)
-        return TutorAnswer(
-            answer_md="A symmetric matrix satisfies A^T = A.",
-            question_type="mechanism",
-            facets=list(context.candidate_facets),
-            citations=self._citations,
-        )
-
-
-def _mapped_vault(tmp_path, *, with_exam=True):
-    root, repo = _setup(tmp_path, with_exam=with_exam)
-    create_study_map(root, "set_la", client=FakeSynthesisClient(), repository=repo,
-                     clock=_CLOCK, apply=True, brief={"outcome": "exam prep"})
-    return load_vault(root), repo
-
+from tests.tutor_citations_helpers import _CLOCK, _CitingTutorClient, _ITEM_ID, _mapped_vault
 
 def test_tutor_context_carries_semantic_authority_spans(tmp_path):
     vault, repo = _mapped_vault(tmp_path)

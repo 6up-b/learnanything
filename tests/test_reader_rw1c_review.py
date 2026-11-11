@@ -25,20 +25,8 @@ import pytest
 from learnloop.tutor import reader_modes
 from tests.reader_tutor_fakes import ROOT_QUESTION, LookupTutor, ask, call, reader_ctx, spans_given
 from tests.source_service_fakes import set_item_answer, table_counts
-from tests.test_reader_tutor_retrieval import _bound_session, _workbench_steps
-
-ITEM = "pi_determinant_2"
-
-
-def _rebind(paths, ctx):
-    """A fresh context after the item's YAML changed (the vault reloads)."""
-
-    from tests.library_ask_fixtures import context
-
-    fresh = context(paths.root)
-    fresh.reader_tutor_rerank_client = ctx.reader_tutor_rerank_client
-    return fresh
-
+from tests.reader_tutor_retrieval_helpers import _bound_session, _workbench_steps
+from tests.reader_rw1c_review_helpers import ITEM, _bound_to, _cold_attempt, _rebind
 
 # --- F1: a bound Reader question is help on the item ----------------------------------------------
 
@@ -259,15 +247,6 @@ def test_another_way_shown_set_reaches_the_request(tmp_path, monkeypatch, intent
 # --- Re-review (Codex re-review of 015e02706) ---------------------------------------------------------
 
 
-def _cold_attempt(repository, vault, attempt_id: str, session_id: str | None) -> None:
-    item = vault.practice_items[ITEM]
-    repository.insert_practice_attempt({
-        "id": attempt_id, "practice_item_id": item.id, "learning_object_id": item.learning_object_id,
-        "practice_mode": "short_answer", "attempt_type": "independent_attempt", "session_id": session_id,
-        "created_at": "2026-01-01T00:00:00Z",
-    })
-
-
 def _cold_row(repository, answer: dict) -> dict:
     """The cold path's practice row for this Ask (not on the wire: read from the store)."""
 
@@ -404,17 +383,6 @@ def test_a_displayed_excerpt_is_debited_once(tmp_path, monkeypatch):
 
 
 # --- Fix round 3 (orchestrator): the replacement row must count where the bound question would --------
-
-
-def _bound_to(repository, item_id: str, practice_session_id: str) -> str:
-    """A workbench session bound to the item and to one practice session (its submit counts there)."""
-
-    session = _bound_session(repository, item_id)
-    with repository.connection() as connection:
-        connection.execute("UPDATE workbench_sessions SET practice_session_id = ? WHERE id = ?",
-                           (practice_session_id, session))
-        connection.commit()
-    return session
 
 
 def _later_attempt(repository, vault, attempt_id: str, session_id: str) -> dict:

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from learnloop.db.repositories import Repository
 from learnloop.reader import source_objects as SO
-from tests.test_source_inventory import _register_revision
+from tests.source_inventory_helpers import _register_revision
 
 
 def _repo(tmp_path: Path) -> Repository:

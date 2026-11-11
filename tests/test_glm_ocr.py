@@ -36,6 +36,7 @@ from learnloop.ingest import extractors
 from learnloop.ingest.extractors import glm_ocr as glm
 from learnloop.ingest.extractors.base import ExtractionContext
 from learnloop.ingest.ir import render_ir_markdown
+from tests.glm_ocr_helpers import ARXIV_OUTLINE, _drain_beside_the_reader, _jobs, hosted, region
 
 KEY = "fake-zai-key-123456"
 
@@ -64,31 +65,6 @@ def png(size=(1000, 1400)) -> bytes:
     out = io.BytesIO()
     Image.new("RGB", size, "white").save(out, format="PNG")
     return out.getvalue()
-
-
-def region(index, label, content, bbox=None, *, native=None, width=1224, height=1584):
-    item = {"index": index, "label": label, "content": content, "bbox_2d": bbox, "width": width, "height": height}
-    if native:
-        item["native_label"] = native
-    return item
-
-
-def hosted(pages: int = 1, *, usage=True) -> dict:
-    """A layout_parsing response: one region list per page, pixel boxes on a
-    1224x1584 render of a 612x792-point page (scale 2)."""
-
-    result = {
-        "id": "task_1", "created": 1760000000, "model": "glm-ocr", "request_id": "req_1",
-        "md_results": "\n\n".join(f"Page {p}" for p in range(pages)),
-        "layout_details": [
-            [region(0, "text", f"Page {p}", [122, 158, 1102, 317])] for p in range(pages)
-        ],
-        "data_info": {"num_pages": pages, "pages": [{"width": 1224, "height": 1584}] * pages},
-    }
-    if usage:
-        result["usage"] = {"prompt_tokens": 1000, "completion_tokens": 200, "total_tokens": 1200,
-                           "prompt_tokens_details": {"cached_tokens": 100}}
-    return result
 
 
 def ok(**config) -> ExtractionContext:
@@ -656,17 +632,6 @@ class socket_closed_port:
 # -- the durable import, the Reader and the legacy path ------------------------------------
 
 
-def _jobs(repo, root):
-    from learnloop.content.pipeline.jobs import DurableIngestJobs
-    from learnloop.content.pipeline.runner import RunnerServices
-    from tests.ux_phase1_support import CLOCK
-
-    jobs = DurableIngestJobs()
-    jobs.bind(repo, root, background=False, clock=CLOCK, services=RunnerServices(background_key_checks=False))
-    jobs._ensure_worker = lambda: None
-    return jobs
-
-
 def test_an_add_asks_once_naming_z_ai_then_reads_and_records_the_spend(monkeypatch, tmp_path):
     from learnloop.content.pipeline.add_source import AddSourceOptions, metered_spend_usd
     from learnloop.vault.loader import load_vault
@@ -893,7 +858,7 @@ def test_remote_documents_download_raw_so_nothing_is_read_before_the_ok(monkeypa
 
 def test_settings_save_the_key_and_report_it(monkeypatch, tmp_path):
     from learnloop.config import global_settings_path
-    from tests.test_ux_phase1_add_source import _held_ctx, call
+    from tests.ux_phase1_add_source_helpers import _held_ctx, call
     from tests.ux_phase1_support import fresh_library
 
     # A settings.env of this test's own: the session-wide isolated one is
@@ -999,7 +964,7 @@ def test_r2_f2_an_import_without_the_ok_reads_locally_and_offers_text_recognitio
 
 def test_r2_f2_the_card_reads_it_again_with_text_recognition_after_the_ok(monkeypatch, tmp_path):
     from learnloop.content.pipeline.runner import JobSpec
-    from tests.test_ux_phase1_add_source import _draining_ctx, call
+    from tests.ux_phase1_add_source_helpers import _draining_ctx, call
     from tests.ux_phase1_support import fresh_library
 
     monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global_settings"))
@@ -1032,7 +997,7 @@ def test_r2_f2_the_card_reads_it_again_with_text_recognition_after_the_ok(monkey
 
 def test_r2_f3_an_earlier_whole_file_ok_never_covers_z_ai(monkeypatch, tmp_path):
     from learnloop.content.pipeline import add_source as core
-    from tests.test_ux_phase1_add_source import _draining_ctx, call
+    from tests.ux_phase1_add_source_helpers import _draining_ctx, call
     from tests.ux_phase1_support import fresh_library, grant_consent
 
     monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global_settings"))
@@ -1349,7 +1314,7 @@ def test_r3_f10_a_local_repair_of_an_image_sends_nothing_and_says_why(monkeypatc
 @pytest.mark.parametrize("kind", ["scan", "image"])
 def test_r3_f2_a_scan_or_image_imported_without_the_ok_asks_for_it_on_its_card(monkeypatch, tmp_path, kind):
     from learnloop.content.pipeline.runner import JobSpec
-    from tests.test_ux_phase1_add_source import _draining_ctx, call
+    from tests.ux_phase1_add_source_helpers import _draining_ctx, call
     from tests.ux_phase1_support import fresh_library
 
     monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global_settings"))
@@ -1532,18 +1497,6 @@ def test_every_glm_ocr_reading_queues_the_source_block_backfill(monkeypatch, tmp
 # as code; and no footnote, page number or equation number in any answer.
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "glm_ocr"
-# The PDF outline of arXiv:2302.11517v2 (its bookmarks), zero-based pages.
-ARXIV_OUTLINE = [
-    {"title": title, "heading_level": level, "page_id": page}
-    for title, level, page in (
-        ("Introduction", 1, 0), ("Related Works", 1, 0), ("Medical Image Segmentation", 2, 0),
-        ("Hard Exudate Detection", 2, 1), ("Contrastive Learning", 2, 1), ("Methodology", 1, 1),
-        ("Patch-wise Density Contrasting", 2, 1), ("Discriminative Edge Inspection", 2, 2),
-        ("Experiments", 1, 2), ("Experimental Setup", 2, 2), ("Results and Discussion", 2, 3),
-        ("Conclusion and Future Works", 1, 3), ("Compliance with Ethical Standards", 1, 3),
-        ("Acknowledgement", 1, 4), ("References", 1, 4),
-    )
-]
 BOOK_OUTLINE = [
     {"title": "Vector Things", "heading_level": 1, "page_id": 0},
     {"title": "Lists and Tuples", "heading_level": 2, "page_id": 0},
@@ -2057,36 +2010,6 @@ def test_q3_text_layer_boxes_follow_the_rotated_crop_box_the_reader_draws_in():
 
 
 # -- the Codex review of the content-quality stage (docs/reviews/glm-ocr-quality-codex-review.md) --
-
-
-def _drain_beside_the_reader(extract, path):
-    """Run ``extract`` on a thread named like the import drain while the
-    Reader keeps rendering ``path``'s first page on this one; returns what
-    ``extract`` returned and how many pages the Reader rendered meanwhile."""
-
-    from learnloop.reader import span_view
-
-    done, read = threading.Event(), {}
-
-    def drain():
-        try:
-            read["value"] = extract()
-        except BaseException as exc:  # noqa: BLE001 - re-raised below, on the test's thread
-            read["error"] = exc
-        finally:
-            done.set()
-
-    worker = threading.Thread(target=drain, name="learnloop-ingest-drain")
-    worker.start()
-    renders = 0
-    while not done.is_set() or not renders:
-        image, _ = span_view._local_pdf_page_render(path, 0)
-        assert image and image.startswith("data:image/png;base64,")
-        renders += 1
-    worker.join()
-    if "error" in read:
-        raise read["error"]
-    return read["value"], renders
 
 
 def _footnote_pdf_answer(body):

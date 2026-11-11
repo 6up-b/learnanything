@@ -246,7 +246,7 @@ def test_c2b_f2_a_candidate_protected_before_the_request_refuses_it(tmp_path, mo
     protection on the live snapshot and refuses; nothing is sent or written."""
 
     from tests.section_coverage_fixtures import table_counts
-    from tests.test_notes_linked import _deliverable
+    from tests.notes_linked_helpers import _deliverable
 
     paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
     vault = load_vault(paths.root)
@@ -374,7 +374,7 @@ def test_c2b_r3_f3_one_money_cap_for_the_whole_run(tmp_path, monkeypatch):
 
 def test_c2b_r3_f4_several_named_subjects_send_the_grouped_form_for_those(tmp_path, monkeypatch):
     from learnloop.source_retrieval import deliverables as DL
-    from tests.test_curriculum_c2b_past_papers import _two_subject_vault
+    from tests.curriculum_c2b_past_papers_helpers import _two_subject_vault
 
     paths, repository = _two_subject_vault(tmp_path)
     vault = load_vault(paths.root)

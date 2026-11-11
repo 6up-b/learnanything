@@ -23,7 +23,7 @@ from typing import Any
 
 from learnloop import reader_learner_state as RLS
 from learnloop.vault.loader import load_vault
-from tests.test_learner_blindness_relax import _ask, _attempt, _reader, _seed_learner
+from tests.learner_blindness_relax_helpers import _ask, _attempt, _reader, _seed_learner
 
 NOW = "2026-10-01T00:00:00Z"
 
@@ -271,7 +271,7 @@ def test_an_earlier_workbench_trace_counts_its_item_and_leaves_the_record_incomp
     from learnloop.diagnosis.split import prior_analysis as PA
     from learnloop.diagnosis.split.provenance import diagnosis_record
     from tests.diagnosis_split_helpers import build_diagnosis_vault, seed_history
-    from tests.test_learner_blindness_relax import _assembled
+    from tests.learner_blindness_relax_helpers import _assembled
 
     paths = build_diagnosis_vault(tmp_path / "vault")
     vault, repository = seed_history(paths)

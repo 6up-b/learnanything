@@ -266,7 +266,7 @@ def _negative_rows(count, offset=0):
 
 
 def test_judge_accuracy_comes_from_labelled_pairs_judged_at_both_tiers(tmp_path):
-    from tests.test_embedding_compare import benchmark
+    from tests.embedding_compare_helpers import benchmark
 
     vault, _, paths = seed_pf_vault(tmp_path / "vault")
     append_config_toml(paths.root, '[pf.scaling]\ncheap = ["codex"]\nfrontier = ["codex"]')

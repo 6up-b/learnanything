@@ -30,7 +30,8 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
 from tests.helpers import NOW, add_followup_item, create_placement_vault
-from tests.test_rebuild_equivalence import _answer, _at
+from tests.rebuild_equivalence_helpers import _answer, _at
+from tests.rebuild_equivalence_review_helpers import _rebuilt, _two_attempt_history
 
 #: The vault-wide and per-LO state a direct replay rewrites.
 DERIVED = (
@@ -188,7 +189,7 @@ def _answer_at(vault, repository, item_id, *, minutes, points, attempt_id):
 )
 def test_two_same_second_attempts_committed_in_reverse_id_order_rebuild_to_live(tmp_path):
     from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
-    from tests.test_rebuild_equivalence import _mastery, _vault
+    from tests.rebuild_equivalence_helpers import _mastery, _vault
 
     paths, vault, repository = _vault(tmp_path)
     # B (the later id) commits first; A (the earlier id) commits in the same second.
@@ -218,32 +219,6 @@ PREDECESSOR = CLAIM_FIXES_ALGORITHM_VERSION
 SWITCH_OFF = "\n[replay]\nledger_bounded = false\n"
 
 
-def _two_attempt_history(tmp_path, name, *, version, config=""):
-    """The LP-min record's oracle case at ``version``: two attempts on one
-    item with no claim, whose replay differed from live below the tag."""
-
-    from tests.helpers import append_config_toml
-
-    paths = create_placement_vault(tmp_path / name, version=version)
-    add_followup_item(paths.root)
-    if config:
-        append_config_toml(paths.root, config)
-    repository = Repository(paths.sqlite_path)
-    vault = load_vault(paths.root)
-    sync_vault_state(vault, repository, clock=_at(0))
-    _answer(vault, repository, "pi_svd_define_001", minutes=1, points=4.0)
-    _answer(vault, repository, "pi_svd_define_001", minutes=61, points=2.0)
-    return paths, vault, repository
-
-
-def _rebuilt(vault, repository):
-    from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
-    from tests.test_rebuild_equivalence import _mastery
-
-    rebuild_all_derived_state(vault, repository)
-    return _mastery(repository)
-
-
 def test_the_successor_is_one_constant_after_its_predecessor():
     from learnloop.replay_ledger_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
@@ -264,7 +239,7 @@ def test_the_switch_is_on_by_default_and_classified():
 
 
 def test_a_live_write_is_the_same_below_and_at_the_tag(tmp_path):
-    from tests.test_rebuild_equivalence import _mastery
+    from tests.rebuild_equivalence_helpers import _mastery
 
     _paths, _vault, below = _two_attempt_history(tmp_path, "below", version=PREDECESSOR)
     _paths, _vault, at = _two_attempt_history(tmp_path, "at", version=TAG)
@@ -276,7 +251,7 @@ def test_below_the_tag_replay_is_the_predecessors(tmp_path):
     whole ledger (and so differs from live on this history), exactly as
     before the successor."""
 
-    from tests.test_rebuild_equivalence import _mastery
+    from tests.rebuild_equivalence_helpers import _mastery
 
     _paths, vault, repository = _two_attempt_history(tmp_path, "below", version=PREDECESSOR)
     live = _mastery(repository)
@@ -284,7 +259,7 @@ def test_below_the_tag_replay_is_the_predecessors(tmp_path):
 
 
 def test_at_the_tag_replay_reproduces_live_and_the_switch_restores_the_predecessor(tmp_path):
-    from tests.test_rebuild_equivalence import _mastery
+    from tests.rebuild_equivalence_helpers import _mastery
 
     _paths, vault, repository = _two_attempt_history(tmp_path, "on", version=TAG)
     live = _mastery(repository)
@@ -303,7 +278,7 @@ def test_upgrade_from_the_predecessor_rebuilds_to_live_and_through_the_chain(tmp
 
     from learnloop.cli.app import app
     from learnloop.replay_ledger_upgrade import upgrade_to_replay_ledger
-    from tests.test_rebuild_equivalence import _mastery
+    from tests.rebuild_equivalence_helpers import _mastery
 
     paths, vault, repository = _two_attempt_history(tmp_path, "direct", version=PREDECESSOR)
     live = _mastery(repository)
@@ -335,7 +310,7 @@ def test_upgrade_from_the_predecessor_rebuilds_to_live_and_through_the_chain(tmp
 def test_a_failed_activation_leaves_the_predecessor_and_a_dead_one_resumes(tmp_path, monkeypatch):
     import learnloop.replay_ledger_upgrade as upgrade_module
     from tests.helpers import set_algorithm_version
-    from tests.test_rebuild_equivalence import _mastery
+    from tests.rebuild_equivalence_helpers import _mastery
 
     paths, vault, repository = _two_attempt_history(tmp_path, "vault", version=PREDECESSOR)
     live = _mastery(repository)
@@ -367,7 +342,7 @@ def _died_after_publication(tmp_path, name):
     activation that published the tag and died before its commit."""
 
     from tests.helpers import set_algorithm_version
-    from tests.test_rebuild_equivalence import _mastery
+    from tests.rebuild_equivalence_helpers import _mastery
 
     paths, vault, repository = _two_attempt_history(tmp_path, name, version=PREDECESSOR)
     live = _mastery(repository)
@@ -383,7 +358,7 @@ def test_a_startup_receipt_after_a_died_activation_does_not_hide_it(tmp_path):
 
     from learnloop.replay_ledger_upgrade import upgrade_to_replay_ledger
     from learnloop.substrate.canonical_projection_rollout import refresh_canonical_projection_on_startup
-    from tests.test_rebuild_equivalence import _mastery
+    from tests.rebuild_equivalence_helpers import _mastery
 
     paths, repository, live = _died_after_publication(tmp_path, "startup")
     assert refresh_canonical_projection_on_startup(load_vault(paths.root), repository) is not None
@@ -399,7 +374,7 @@ def test_a_startup_receipt_after_a_died_activation_does_not_hide_it(tmp_path):
 
 def test_a_died_activation_with_no_rebuild_receipt_is_completed(tmp_path):
     from learnloop.replay_ledger_upgrade import upgrade_to_replay_ledger
-    from tests.test_rebuild_equivalence import _mastery
+    from tests.rebuild_equivalence_helpers import _mastery
 
     paths, repository, live = _died_after_publication(tmp_path, "none")
     with repository.connection() as connection:
@@ -416,7 +391,7 @@ def test_a_partial_rebuild_under_the_tag_does_not_complete_the_activation(tmp_pa
 
     from learnloop.replay_ledger_upgrade import upgrade_to_replay_ledger
     from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
-    from tests.test_rebuild_equivalence import _mastery
+    from tests.rebuild_equivalence_helpers import _mastery
 
     paths, repository, live = _died_after_publication(tmp_path, "partial")
     rebuild_all_derived_state(load_vault(paths.root), repository, learning_object_ids=["lo_diag"])

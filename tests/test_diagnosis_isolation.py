@@ -19,9 +19,8 @@ import json
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
-from types import ModuleType, SimpleNamespace
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -48,6 +47,7 @@ from learnloop.ai.providers.codex_lockdown import catalog_pin_path
 from tests.codex_cli_fakes import stub_isolation_probe
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.diagnosis_split_helpers import build_diagnosis_vault, seed_history
+from tests.diagnosis_isolation_helpers import _fake_sdk
 
 CODEX = shutil.which("codex")
 needs_codex = pytest.mark.skipif(CODEX is None, reason="the Codex CLI is not installed")
@@ -161,67 +161,6 @@ def test_isolated_overrides_switch_the_tools_off(tmp_path, layout):
 
 
 # -- the transport ------------------------------------------------------------------
-
-
-def _fake_sdk(monkeypatch, captured: dict[str, Any], *, overrides_field: bool = True):
-    class FakeCodex:
-        def __init__(self, config):
-            from tests.codex_cli_fakes import FakeSdkClient
-
-            self._client = FakeSdkClient()
-            captured["app_config"] = config.kwargs
-            workspace = Path(config.kwargs["cwd"])
-            captured["workspace_listing"] = sorted(path.name for path in workspace.iterdir())
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return None
-
-        def close(self):
-            return None
-
-        def thread_start(self, **kwargs):
-            captured["thread_start"] = kwargs
-            return FakeThread()
-
-    class FakeThread:
-        def turn(self, prompt, **kwargs):
-            captured["turn"] = kwargs
-            return SimpleNamespace(run=lambda: SimpleNamespace(final_response='{"links": []}', items=[]), interrupt=lambda: None)
-
-    if overrides_field:
-        class SdkAppConfig:
-            def __init__(self, *, codex_bin=None, launch_args_override=None, config_overrides=(), cwd=None, env=None, client_name="", client_title=""):
-                self.kwargs = {"codex_bin": codex_bin, "launch_args_override": launch_args_override, "config_overrides": tuple(config_overrides), "cwd": cwd}
-    else:
-        class SdkAppConfig:
-            def __init__(self, *, codex_bin=None, launch_args_override=None, cwd=None, env=None, client_name="", client_title=""):
-                self.kwargs = {"codex_bin": codex_bin, "cwd": cwd}
-
-    class ReasoningSummary:
-        @classmethod
-        def model_validate(cls, value):
-            return value
-
-    from enum import Enum
-
-    class ReasoningEffort(Enum):
-        low = "low"
-
-    openai_codex = ModuleType("openai_codex")
-    openai_codex.Codex = FakeCodex
-    from tests.codex_cli_fakes import FakeApprovalMode
-    openai_codex.ApprovalMode = FakeApprovalMode
-    openai_codex.CodexConfig = SdkAppConfig
-    types = ModuleType("openai_codex.types")
-    types.Personality = SimpleNamespace(pragmatic="pragmatic")
-    types.ReasoningEffort = ReasoningEffort
-    types.ReasoningSummary = ReasoningSummary
-    openai_codex.types = types
-    monkeypatch.setitem(sys.modules, "openai_codex", openai_codex)
-    monkeypatch.setitem(sys.modules, "openai_codex.types", types)
 
 
 def _client(tmp_path, monkeypatch, *, mcp=("filesystem",)) -> SdkCodexClient:

@@ -14,7 +14,6 @@ import json
 
 import pytest
 
-import learnloop.reader.span_view as SV
 from learnloop_sidecar.errors import SidecarError
 from tests.figure_fixtures import (
     EXTRACTION,
@@ -28,36 +27,8 @@ from tests.figure_fixtures import (
     rows,
     set_config,
 )
-
-PAGE_RENDERS: list[object] = []
-
-
-@pytest.fixture
-def crops(monkeypatch):
-    """The PDF crop as a recorder: each crop's bytes name its box; a whole
-    page render is recorded too (it must never be sent)."""
-
-    made: list[list[float]] = []
-
-    def crop(path, page, bbox):
-        made.append([float(value) for value in bbox])
-        data = ("CROP:" + json.dumps([round(float(value), 2) for value in bbox])).encode()
-        return "data:image/png;base64," + base64.b64encode(data).decode("ascii"), [612.0, 792.0]
-
-    def page_render(path, page):
-        PAGE_RENDERS.append((path, page))
-        return "data:image/png;base64," + base64.b64encode(b"WHOLE PAGE").decode("ascii"), [612.0, 792.0]
-
-    monkeypatch.setattr(SV, "_original_pdf_for", lambda repo, extraction_id: "book.pdf")
-    monkeypatch.setattr(SV, "_original_pdf_path", lambda repo, revision, uri: "book.pdf")
-    monkeypatch.setattr(SV, "_local_pdf_block_crop", crop)
-    monkeypatch.setattr(SV, "_local_pdf_page_render", page_render)
-    PAGE_RENDERS.clear()
-    return made
-
-
-REGION = {"spanId": "p4", "bbox": [150.0, 120.0, 260.0, 220.0]}
-
+from tests.figure_region_helpers import PAGE_RENDERS, REGION
+from tests.figure_region_helpers import crops  # noqa: F401 - fixtures, used by parameter name
 
 def test_a_region_sends_only_its_crop(tmp_path, crops):
     paths, repository = build_figure_vault(tmp_path / "vault")

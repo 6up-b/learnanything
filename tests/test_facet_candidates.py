@@ -50,7 +50,7 @@ def test_harvest_is_deterministic(tmp_path):
 def test_harvests_candidates_from_unit_inventories(tmp_path):
     # KM §3.3 seam: once ING M4 inventory rows exist, harvesting reads their
     # claims/concept mentions as candidates (never canonical).
-    from tests.test_source_inventory import (
+    from tests.source_inventory_helpers import (
         FakeInventoryClient,
         _block,
         _ir,

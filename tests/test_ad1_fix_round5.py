@@ -18,8 +18,8 @@ from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 
 from tests.ad_fakes import AuditDecider, ForecastLLM, ad_plan_vault, ad_receipts, rows
-from tests.test_ad1_codex_rereview_fixes import _exercise, _hold_out, _served_with_history, _set_fields
-from tests.test_ad1_fix_round4 import EXAM_SET, _add_exam_scope, _builds, _bulk_vault
+from tests.ad1_codex_rereview_fixes_helpers import _exercise, _hold_out, _served_with_history, _set_fields
+from tests.ad1_fix_round4_helpers import EXAM_SET, _add_exam_scope, _builds, _bulk_vault
 
 # -- V1 [High]: a reload during the protection check ----------------------------------------------
 
@@ -355,7 +355,7 @@ def test_the_draft_keeps_hint_seen_under_its_retry_key(tmp_path, config):
     delivered. ``hintSeen`` is kept with the retry key whatever the switches;
     ``hintsUsed`` is unchanged."""
 
-    from tests.test_ad1_attempt_columns import _checkpoint, _save_draft, _sidecar
+    from tests.ad1_attempt_columns_helpers import _checkpoint, _save_draft, _sidecar
 
     _paths, ctx, session_id = _sidecar(tmp_path, config=config)
     _save_draft(ctx, session_id, "k1", "A = U", hintsUsed=0, hintSeen=True)

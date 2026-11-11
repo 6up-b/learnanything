@@ -17,103 +17,33 @@ import tomllib
 import pytest
 
 from learnloop.attempts import salience_firewall as SF
-from learnloop.clock import FrozenClock
 from learnloop.content.synthesis.source_unit_selection import save_unit_selection
 from learnloop.db.repositories import Repository
-from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
 from learnloop.reader import reader_cues as RCU
 from learnloop.reader import reader_inquiry as RI
 from learnloop.reader.reader_guidance import build_guide_plan
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import SourceRef
-from learnloop.vault.writer import upsert_practice_item
-from tests.helpers import NOW, NOW_ISO, add_followup_item, append_config_toml, create_basic_vault
+from tests.helpers import NOW_ISO, add_followup_item, append_config_toml, create_basic_vault
 from tests.reader_fixtures import transcript_source
-from tests.test_reader_inquiry_status import table_counts
-from tests.test_sidecar_reader import _init, _rpc
-from tests.test_source_inventory import _persist, _register_revision
+from tests.reader_inquiry_status_helpers import table_counts
+from tests.sidecar_reader_helpers import _init, _rpc
+from tests.reader_cues_helpers import (
+    STATEMENT,
+    _CLOCK,
+    _active_error,
+    _answered_cue,
+    _attempt,
+    _cue_vault,
+    _plan_and_cues,
+)
 
-_CLOCK = FrozenClock(NOW)
-STATEMENT = "SVD is the same as eigendecomposition"
 #: Trait words and, about the learner's work, verdict words (spec G16, UX U6).
 BANNED = re.compile(
     r"\b(weak|you don'?t understand|you struggle|you always|wrong|error|errors|mistake|mistakes|"
     r"confused|failed|failure|overdue)\b",
     re.IGNORECASE,
 )
-
-
-def _ir() -> DocumentIR:
-    """Two sections: u1 (s0-s3) is read, u2 (s4-s5) holds the exercises."""
-
-    text = {
-        "s1": "The singular value decomposition writes A as U Sigma V transpose.",
-        "s2": "The columns of U and V are orthonormal.",
-        "s3": "Sigma holds the singular values on its diagonal.",
-        "s5": "Exercise 2.1: compute the SVD of a 2 by 2 matrix.",
-    }
-    blocks = [
-        DocumentBlock.build(span_id="s0", block_type="Section", text="Singular value decomposition",
-                            ordinal=0, page=1, section_path=["SVD"]),
-        *[DocumentBlock.build(span_id=span, block_type="Text", text=text[span], ordinal=index + 1, page=1,
-                              section_path=["SVD"]) for index, span in enumerate(("s1", "s2", "s3"))],
-        DocumentBlock.build(span_id="s4", block_type="Section", text="Exercises", ordinal=4, page=2,
-                            section_path=["Exercises"]),
-        DocumentBlock.build(span_id="s5", block_type="Text", text=text["s5"], ordinal=5, page=2,
-                            section_path=["Exercises"]),
-    ]
-    units = [
-        DocumentUnit(unit_id="u1", label="SVD", ordinal=0, semantic_hash="sha256:svd", page_start=1, page_end=1,
-                     span_ids=["s0", "s1", "s2", "s3"]),
-        DocumentUnit(unit_id="u2", label="Exercises", ordinal=1, semantic_hash="sha256:ex", page_start=2,
-                     page_end=2, span_ids=["s4", "s5"]),
-    ]
-    return DocumentIR(extractor="marker", extractor_version="1", units=units, blocks=blocks, assets=[],
-                      health=ExtractionHealth())
-
-
-def _refs(spans) -> list[SourceRef]:
-    return [SourceRef(ref_type="canonical_source", ref_id="src1", locator=f"span:ext1/{span}",
-                      source_id="src1", extraction_id="ext1") for span in spans]
-
-
-def _active_error(repository: Repository, *, error_id: str = "err-svd", attempt_id: str | None = None) -> None:
-    event = {
-        "id": error_id, "learning_object_id": "lo_svd_definition", "error_type": "conceptual_slip",
-        "severity": 0.9, "is_misconception": True, "status": "active", "created_at": NOW_ISO,
-        "misconception_statement": STATEMENT,
-    }
-    if attempt_id:
-        event["attempt_id"] = attempt_id
-    repository.insert_error_event(event)
-
-
-def _cue_vault(tmp_path, *, cite=("s1", "s2", "s3", "s5"), error: bool = True, on_disk: bool = False, config: str = ""):
-    """The basic vault with ``ext1`` (two sections) and pi_svd_define_001
-    citing ``cite``; an active error on its LO makes every cited passage a
-    ``recent_misunderstanding`` passage of the Guide."""
-
-    root = tmp_path / "vault"
-    paths = create_basic_vault(root)
-    if config:
-        append_config_toml(root, config)
-    repository = Repository(paths.sqlite_path)
-    _register_revision(repository, source_id="src1", revision_id="rev1")
-    _persist(repository, _ir(), revision_id="rev1", extraction_id="ext1")
-    vault = load_vault(root)
-    item = vault.practice_items["pi_svd_define_001"]
-    item.provenance.source_refs = _refs(cite)
-    if on_disk:
-        upsert_practice_item(root, item, clock=_CLOCK)
-        vault = load_vault(root)
-    if error:
-        _active_error(repository)
-    return root, vault, repository
-
-
-def _plan_and_cues(vault, repository):
-    plan = build_guide_plan(vault, repository, extraction_id="ext1")
-    return plan, RCU.guide_cues(vault, repository, extraction_id="ext1", plan=plan)
 
 
 # -- G30: the margin and the rail agree ---------------------------------------------------------
@@ -246,7 +176,7 @@ def test_cue_copy_is_fixed_templates_that_never_judge_the_learner(tmp_path):
 def test_a_split_cue_names_the_diagnosers_statement_as_the_rail_does(tmp_path):
     from learnloop.diagnosis.split.jobs import DONE, diagnosis_status
     from tests.split_live_helpers import drain_jobs, submit
-    from tests.test_reader_guidance import _DIAGNOSED, _StatementFake, _cite_extraction, _graded_vault_with_extraction
+    from tests.reader_guidance_helpers import _DIAGNOSED, _StatementFake, _cite_extraction, _graded_vault_with_extraction
 
     _paths, vault, repository = _graded_vault_with_extraction(tmp_path, version="mvp-0.10")
     client = _StatementFake()
@@ -276,17 +206,6 @@ def test_a_split_cue_names_the_diagnosers_statement_as_the_rail_does(tmp_path):
 
 
 # -- "Open" shows the earlier work: the learner's own answer (review F7) -------------------------
-
-
-def _attempt(repository: Repository, *, attempt_id: str, answer: str | None) -> None:
-    repository.insert_practice_attempt({
-        "id": attempt_id, "practice_item_id": "pi_svd_define_001", "learning_object_id": "lo_svd_definition",
-        "subject": "linear-algebra", "concept": "singular_value_decomposition", "practice_mode": "short_answer",
-        "attempt_type": "independent_attempt", "learner_answer_md": answer, "evidence_facets": ["recall"],
-        "evidence_weights": {"recall": 1.0}, "rubric_score": 1, "correctness": 0.25, "confidence": 3,
-        "latency_seconds": 30, "hints_used": 0, "error_type": "conceptual_slip", "grader_confidence": 1.0,
-        "created_at": NOW_ISO, "updated_at": NOW_ISO,
-    })
 
 
 def test_open_carries_the_cited_attempts_answer_in_the_learners_words(tmp_path):
@@ -501,16 +420,6 @@ def test_check_me_proposes_one_item_on_the_cues_learning_object(tmp_path):
     assert check["learningObjectId"] == "lo_svd_definition"
     assert check["proposalId"]
     assert [e["payload"]["event"] for e in _cue_events(repository)] == ["cue_check_me"]
-
-
-def _answered_cue() -> dict:
-    """A cue whose earlier work is an answer to pi_svd_define_001."""
-
-    return {
-        "cue_id": "cue_answered", "span_id": "s1", "learning_object_id": "lo_svd_definition",
-        "learning_object_title": "SVD definition", "target_id": "err-svd",
-        "earlier": {"practice_item_id": "pi_svd_define_001"},
-    }
 
 
 def test_check_me_never_offers_the_question_the_learner_answered(tmp_path):

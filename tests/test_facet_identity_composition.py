@@ -56,8 +56,8 @@ from learnloop.vault.yaml_io import read_yaml, write_yaml
 from tests.decider_fakes import fake_decisions
 from tests.facet_identity_fakes import FakeFacetJudge
 from tests.helpers import append_config_toml
-from tests.test_facet_identity import _regression_vault, _study_judge
-from tests.test_facet_identity_actions import DUP, SHARED, _lock_shared, _merge, _vault_with_duplicate
+from tests.facet_identity_helpers import _regression_vault, _study_judge
+from tests.facet_identity_actions_helpers import DUP, SHARED, _lock_shared, _merge, _vault_with_duplicate
 
 _CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, 0, tzinfo=UTC))
 SHARED_CLAIM = "SVD factorizes into U, Sigma, V^T."
@@ -131,7 +131,7 @@ def test_dedupe_applies_a_set_with_evidence(tmp_path):
 
 
 def test_an_absorb_into_a_registered_facet_grows_its_examples_whatever_its_history(tmp_path):
-    from tests.test_facet_identity_ingest import _attach_absorb
+    from tests.facet_identity_ingest_helpers import _attach_absorb
 
     _root, repo, result, restated = _attach_absorb(tmp_path, absorb_as="example")
     (action,) = result.facet_identity["actions"]
@@ -463,8 +463,8 @@ def _t5_bootstrap(tmp_path, *, facet_identity: bool):
     from learnloop.vault.writer import upsert_facet
 
     from tests.embedding_fakes import BagOfWordsEmbedder
-    from tests.test_graph_nomination_ingest import _backfill
-    from tests.test_source_set_synthesis import FakeSynthesisClient, _setup
+    from tests.graph_nomination_ingest_helpers import _backfill
+    from tests.source_set_synthesis_helpers import FakeSynthesisClient, _setup
 
     root, repo = _setup(tmp_path)
     upsert_facet(root, {

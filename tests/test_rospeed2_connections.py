@@ -18,7 +18,6 @@ Fakes only; no model call.
 from __future__ import annotations
 
 from contextlib import closing
-from dataclasses import fields, is_dataclass
 import json
 from pathlib import Path
 import sqlite3
@@ -29,6 +28,7 @@ import pytest
 
 from learnloop.db import connection as DBC
 from learnloop.db.connection import connect, reused_connections
+from tests.rospeed2_connections_helpers import _canon
 
 # These pin production's own pool, so production's connect path must run around it.
 pytestmark = pytest.mark.fresh_connections
@@ -195,28 +195,6 @@ def test_no_lock_and_no_stale_snapshot_under_wal(tmp_path):
 # -- the journey: every value equal with and without the pool ------------------------------------------------------
 
 
-def _canon(value: Any) -> Any:
-    """A value as exact JSON (floats by their bits)."""
-
-    import numpy as np
-
-    if is_dataclass(value) and not isinstance(value, type):
-        return {"__type": type(value).__name__, **{f.name: _canon(getattr(value, f.name)) for f in fields(value)}}
-    if isinstance(value, dict):
-        return {str(key): _canon(item) for key, item in sorted(value.items(), key=lambda kv: str(kv[0]))}
-    if isinstance(value, (list, tuple)):
-        return [_canon(item) for item in value]
-    if isinstance(value, np.ndarray):
-        return [_canon(item) for item in value.tolist()]
-    if isinstance(value, (float, np.floating)):
-        return float(value).hex()
-    if isinstance(value, (np.integer,)):
-        return int(value)
-    if isinstance(value, (set, frozenset)):
-        return sorted(_canon(item) for item in value)
-    return value
-
-
 @pytest.mark.slow
 def test_every_build_card_and_fit_of_the_jobs_is_the_same_with_the_pool(tmp_path, monkeypatch):
     """Each prefetch job's input builds, its decision card and its combiner fit, recomputed at once with the pool
@@ -225,7 +203,7 @@ def test_every_build_card_and_fit_of_the_jobs_is_the_same_with_the_pool(tmp_path
     from learnloop.daily_plan import objective_card as OCARD
     from learnloop.daily_plan import objective_inputs as OI
 
-    from tests.test_rospeed_join import _journey
+    from tests.rospeed_join_helpers import _journey
 
     compared: dict[str, int] = {"build": 0, "card": 0, "fit": 0}
 
@@ -330,7 +308,7 @@ def test_the_pool_completes_more_draws_by_one_deadline_and_switched_off_is_mains
     from learnloop.adaptive_difficulty import reading_cache
     from learnloop.daily_plan import objective_chooser as OC
 
-    from tests.test_rospeed_join import _journey
+    from tests.rospeed_join_helpers import _journey
 
     real = OC.run_numeric
     found: dict[str, Any] = {}
@@ -434,7 +412,7 @@ def test_switched_off_the_job_opens_a_connection_at_every_connect(tmp_path, monk
 
     from learnloop.daily_plan import objective_inputs as OI
 
-    from tests.test_rospeed_join import _journey
+    from tests.rospeed_join_helpers import _journey
 
     seen: list[bool] = []
     real_build = OI.build
@@ -459,7 +437,7 @@ def test_switched_off_the_job_opens_a_connection_at_every_connect(tmp_path, monk
 def test_the_job_opens_a_handful_of_connections(tmp_path, monkeypatch):
     from learnloop.daily_plan import objective_chooser as OC
 
-    from tests.test_rospeed_join import _journey
+    from tests.rospeed_join_helpers import _journey
 
     counter = {"n": 0}
     opens: list[int] = []
@@ -563,7 +541,7 @@ def test_r2_the_numeric_seed_is_mains_whatever_the_speed_switches(tmp_path, monk
     from learnloop.router_objective_switches import FOLLOWUP_SWITCHES
 
     import tests.router_mixture_helpers as RMH
-    from tests.test_rospeed_join import _journey
+    from tests.rospeed_join_helpers import _journey
 
     assert tuple(key for key in FOLLOWUP_SWITCHES if key not in ("held_reading_map", "pooled_connections")) == \
         _MAIN_SWITCHES

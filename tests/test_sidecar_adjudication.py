@@ -24,8 +24,8 @@ from learnloop.diagnosis.diagnosis_adjudication import (
 )
 from learnloop_sidecar.errors import SidecarError
 
-from tests.test_durable_promotion_arms import CLOCK, LO_ID, STATEMENT, _failure
-from tests.test_km2_write_path import build_mvp07_vault
+from tests.durable_promotion_arms_helpers import CLOCK, LO_ID, STATEMENT, _failure
+from tests.km2_write_path_helpers import build_mvp07_vault
 
 
 @pytest.fixture()

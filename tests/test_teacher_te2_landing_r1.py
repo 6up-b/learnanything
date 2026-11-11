@@ -26,8 +26,8 @@ from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
 from tests.split_live_helpers import ReadyRuntime
 from tests.teacher_fakes import close_turn
-from tests.test_teacher_te2_probes import _Lesson, _probe, probe_turn
-from tests.test_teacher_te2_review_fixes import _cells, _identity_model
+from tests.teacher_te2_probes_helpers import _Lesson, _probe, probe_turn
+from tests.teacher_te2_review_fixes_helpers import _cells, _identity_model
 from tests.ux_phase1_support import set_config
 
 
@@ -185,7 +185,7 @@ def test_fg1s_presentation_path_stamps_the_submissions_identity_and_its_regrade_
         serve_presentation,
     )
     from learnloop.ids import new_ulid
-    from tests.test_probe_robust_cutover import CLOCK, ITEM_ID, LO_ID, _load
+    from tests.probe_robust_cutover_helpers import CLOCK, ITEM_ID, LO_ID, _load
 
     loaded, repository = _load(tmp_path, version=LATEST_ALGORITHM_VERSION)
     first_gih, first_model = _identity_model(repository, prompt=BLIND_CALIBRATION_PROMPT_VERSION,

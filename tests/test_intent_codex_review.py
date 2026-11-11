@@ -222,7 +222,8 @@ def test_f3_an_lo_check_planned_item_exposed_after_planning_is_displaced(iv):
 
 def test_f4_a_held_grade_never_becomes_the_anchor_through_the_real_attempt_path(tmp_path):
     from tests.split_live_helpers import split_vault
-    from tests.test_held_grade_evidence import ITEM, VERSION, _graded_apply, _held_apply
+    from tests.held_grade_evidence_helpers import _graded_apply, _held_apply
+    from tests.route_rules_in_grader_helpers import ITEM, VERSION
 
     _paths, vault, repository = split_vault(tmp_path, version=VERSION)
     reviewed = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)
@@ -309,7 +310,7 @@ def test_f6_the_chooser_takes_the_master_block_first_in_re_entry():
 
 
 def _reading_intent_vault(tmp_path, monkeypatch):
-    from tests.test_daily_plan_reading import _seed_as_you_read
+    from tests.daily_plan_reading_helpers import _seed_as_you_read
 
     import learnloop.reader.recap as recap
 

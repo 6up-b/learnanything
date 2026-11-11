@@ -32,7 +32,7 @@ from tests.daily_plan_fakes import MovableClock, make_env, record_attempt, sched
 from tests.diagnosis_split_helpers import at
 from tests.helpers import create_daily_plan_vault
 from tests.split_live_helpers import drain_jobs, split_vault, submit
-from tests.test_placement_diagnosis_decides import WRONG, _Diagnosed
+from tests.placement_diagnosis_decides_helpers import WRONG, _Diagnosed
 
 LO = "lo_svd_compute"
 DUE_HOURS = 14 * 24

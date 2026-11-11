@@ -55,7 +55,7 @@ def test_list_source_conflicts_enriches_extraction_ids(tmp_path: Path):
     from learnloop.vault.loader import load_vault
     from learnloop.vault.paths import VaultPaths
 
-    from tests.test_source_inventory import _block, _ir, _persist, _register_revision
+    from tests.source_inventory_helpers import _block, _ir, _persist, _register_revision
 
     clock = FrozenClock(datetime(2026, 7, 14, 12, 0, 0, tzinfo=UTC))
     vault_root = tmp_path / "vault"

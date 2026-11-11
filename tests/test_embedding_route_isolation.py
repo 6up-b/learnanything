@@ -16,7 +16,7 @@ from learnloop.vault.loader import load_vault
 from learnloop_sidecar.context import _settings_ready, available_grading_providers
 from tests.helpers import create_basic_vault, patch_plan_ready
 from tests.openai_fakes import install_fake_openai
-from tests.test_settings_sidecar import _settings_rpc
+from tests.settings_sidecar_helpers import _settings_rpc
 
 EMBEDDING_PROFILE = "openrouter_embedding"
 

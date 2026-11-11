@@ -26,7 +26,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, set_algorithm_version
-from tests.test_km2_write_path import build_mvp07_vault
+from tests.km2_write_path_helpers import build_mvp07_vault
 
 ITEM = "pi_svd_ambiguous_001"  # one criterion, two candidate facets, no attribution
 

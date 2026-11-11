@@ -18,18 +18,10 @@ from learnloop.adaptive_difficulty import protected_tables as PT
 from learnloop.db.migrate import discover_migrations
 from learnloop.db.table_roles import TableRole, role_for_table
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.learner_notes_migration_helpers import C2_ADDED_OBJECTS
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-#: Every schema object 229 adds (it alters nothing): the earlier migrations' "nothing
-#: else changed" diffs on the way to head read these.
-C2_ADDED_OBJECTS = frozenset({
-    "learner_notes", "sqlite_autoindex_learner_notes_1", "sqlite_autoindex_learner_notes_2",
-    "idx_learner_notes_key", "learner_notes_no_update", "learner_notes_no_delete",
-    "learner_note_links", "sqlite_autoindex_learner_note_links_1", "idx_learner_note_links_note",
-    "idx_learner_note_links_lo", "idx_learner_note_links_reading", "learner_note_links_no_update",
-    "learner_note_links_no_delete",
-})
 TABLES = ("learner_notes", "learner_note_links")
 
 

@@ -38,8 +38,8 @@ from learnloop.instructional.valuation import (
 )
 from learnloop.scheduling import action_loss as AL
 from tests.recap_fixtures import EXT, at
-from tests.test_reader_followups import FakeSearch, NOW_MIN, _candidate, _now, _plan, _seeded
-from tests.test_reader_followups_rereview import _PerCall
+from tests.reader_followups_helpers import FakeSearch, NOW_MIN, _candidate, _now, _plan, _seeded
+from tests.reader_followups_rereview_helpers import _PerCall
 
 A = "pi_svd_define_002"
 B = "pi_svd_define_003"

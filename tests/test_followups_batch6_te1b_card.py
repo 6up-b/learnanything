@@ -12,9 +12,9 @@ from __future__ import annotations
 from learnloop.daily_plan import lesson_suggestion as SG
 from learnloop.router.card import SUGGESTION_SECTION
 from learnloop.vault.loader import load_vault
-from tests.test_teacher_te1b_landing_r2 import _start, _today, _without
-from tests.test_teacher_te1b_review_fixes import _card
-from tests.test_teacher_te1b_suggestions import _clock, _rows, _vault, no_network, shown  # noqa: F401
+from tests.teacher_te1b_landing_r2_helpers import _start, _today, _without
+from tests.teacher_te1b_review_fixes_helpers import _card
+from tests.teacher_te1b_suggestions_helpers import _clock, _rows, _vault, no_network, shown  # noqa: F401
 
 
 # --- (1) the preference lines ------------------------------------------------------------------------

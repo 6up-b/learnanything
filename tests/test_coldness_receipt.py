@@ -915,7 +915,7 @@ def test_prescribe_handler_records_the_delivery(tmp_path):
     from learnloop_sidecar.handlers.remediation import prescribe_remediation_handler
     from learnloop_sidecar.handlers.remediation import EpisodeInput
 
-    from tests.test_source_inventory import _persist, _register_revision
+    from tests.source_inventory_helpers import _persist, _register_revision
 
     from learnloop.ingest.ir import (
         DocumentBlock,

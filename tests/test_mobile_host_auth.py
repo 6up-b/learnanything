@@ -3,32 +3,15 @@ import asyncio
 import json
 
 import pytest
+from tests.mobile_host_auth_helpers import mobile  # noqa: F401 - fixtures, used by parameter name
 
 pytest.importorskip("starlette")
 from starlette.testclient import TestClient
 from typer.testing import CliRunner
 
 from learnloop import capture
-from learnloop.db.repositories import Repository
 from learnloop_mobile.cli import app as cli
-from learnloop_mobile.config import MobileConfig
 from learnloop_mobile.host import SchemaMismatch, create_app
-from tests.helpers import create_basic_vault
-
-
-@pytest.fixture
-def mobile(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    config = MobileConfig(enabled=True, vault=paths.root, hostname="desktop.tail.ts.net",
-                          owner_login="owner@example.com")
-    app = create_app(config)
-    repo = Repository.attach(paths.sqlite_path)
-    pending = capture.create_pairing(repo, scope="app")
-    device = capture.exchange_pairing(repo, secret=pending["secret"])
-    headers = {"Tailscale-User-Login": config.owner_login,
-               "Authorization": f"Bearer {device['token']}"}
-    with TestClient(app, base_url=f"https://{config.hostname}") as client:
-        yield client, app.state.host, repo, device, headers
 
 
 def raw_request(host, headers, *, path="/api/v1/capture", chunks=None):
@@ -291,7 +274,7 @@ def test_malformed_json_is_bounded_invalid_request(mobile, body):
 def test_every_method_outside_the_m2_row_is_http_denied(mobile):
     from learnloop_sidecar import handlers  # noqa: F401
     from learnloop_sidecar.registry import METHOD_REGISTRY
-    from tests.test_mobile_allowlist import PHONE_ALLOWED
+    from tests.mobile_allowlist_helpers import PHONE_ALLOWED
     client, host, _, _, headers = mobile
     assert METHOD_REGISTRY
     for method in sorted(set(METHOD_REGISTRY) - PHONE_ALLOWED):
@@ -304,7 +287,7 @@ def test_every_method_outside_the_m2_row_is_http_denied(mobile):
 def test_desktop_only_and_main_rpcs_are_http_denied_for_every_phone_scope(mobile, scope):
     from learnloop_sidecar import handlers  # noqa: F401
     from learnloop_sidecar.registry import METHOD_REGISTRY
-    from tests.test_mobile_allowlist import (
+    from tests.mobile_allowlist_helpers import (
         DAILY_PLAN_EXTENDED_RPCS,
         DAILY_PLAN_RPCS,
         DESKTOP_ONLY_CAPTURE_RPCS,

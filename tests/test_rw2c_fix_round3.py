@@ -25,10 +25,10 @@ from learnloop.hints.report_workbench import workbench_unaided_progress
 from learnloop.workbench import compare_methods
 from learnloop.workbench.help_outcomes import help_outcomes
 from tests.hint_fakes import WriterFake, reveals
-from tests.test_compare_methods import _submitted
-from tests.test_help_outcomes import FACET, _facets, _insert, _only, _row
-from tests.test_rw2c_fix_round2 import _Spans, _span
-from tests.test_workbench_route_example import ROUTE, FindFake
+from tests.compare_methods_helpers import _submitted
+from tests.help_outcomes_helpers import FACET, _facets, _insert, _only, _row
+from tests.rw2c_fix_round2_helpers import _Spans, _span
+from tests.workbench_route_example_helpers import ROUTE, FindFake
 from tests.workbench_help_fakes import CheckFake, call, help_rows, open_problem, run_job, sidecar, wb_answer
 
 

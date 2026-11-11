@@ -26,7 +26,7 @@ from learnloop.vault.writer import upsert_source_set
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.ingest import BuildStudyMapInput, build_study_map_rpc
 
-from tests.test_source_inventory import FakeInventoryClient, _block, _ir, _persist, _register_revision
+from tests.source_inventory_helpers import FakeInventoryClient, _block, _ir, _persist, _register_revision
 
 _CLOCK = FrozenClock(datetime(2026, 7, 14, 12, 0, 0, tzinfo=UTC))
 

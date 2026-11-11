@@ -38,7 +38,7 @@ from learnloop.vault.yaml_io import write_yaml
 
 from tests.daily_plan_fakes import make_env, scheduled
 from tests.helpers import create_daily_plan_vault
-from tests.test_voi_stopping import _classify, _ctx, _probe
+from tests.voi_stopping_helpers import _classify, _ctx, _probe
 
 
 # ── F2: the predictive objective, recomputed on each posterior branch ────────
@@ -129,7 +129,7 @@ def test_the_predictive_information_matches_the_probe_episodes_own_objective(tmp
     a predictive-objective probe its held-out targets."""
 
     from learnloop.diagnosis.probe_episodes import eligible_instruments, episode_posterior
-    from tests.test_voi_stopping import LO, _build, _long_probe_vault
+    from tests.voi_stopping_helpers import LO, _build, _long_probe_vault
 
     vault, repository = _long_probe_vault(tmp_path, "mvp-0.21")
     episode = repository.open_probe_episode(LO)
@@ -199,7 +199,7 @@ def test_project_probes_are_admitted_against_the_minutes_left_after_requests(tmp
     split and chooser): the request takes fifteen of twenty minutes, so A
     cannot be planned; B is valued without A and planned, not stop_for_today."""
 
-    from tests.test_daily_plan_build import _run_to_end
+    from tests.daily_plan_build_helpers import _run_to_end
 
     env, _record, provider = _requested_plan(tmp_path)
     try:
@@ -450,13 +450,13 @@ def _gate_abstains(monkeypatch):
 
 
 def _gate_vault(tmp_path, version="mvp-0.21", toml=""):
-    from tests.test_voi_stopping import _long_probe_vault
+    from tests.voi_stopping_helpers import _long_probe_vault
 
     return _long_probe_vault(tmp_path, version, toml)
 
 
 def test_the_robust_gate_does_not_end_an_episode_while_value_decides(tmp_path, monkeypatch):
-    from tests.test_voi_stopping import _answer_probe, _minutes
+    from tests.voi_stopping_helpers import _answer_probe, _minutes
 
     vault, repository = _gate_vault(tmp_path)
     _gate_abstains(monkeypatch)
@@ -475,7 +475,7 @@ def test_the_robust_gate_does_not_end_an_episode_while_value_decides(tmp_path, m
     ],
 )
 def test_the_gate_still_ends_an_episode_where_value_does_not_decide_or_the_switch_is_on(tmp_path, monkeypatch, version, toml):
-    from tests.test_voi_stopping import _answer_probe, _minutes
+    from tests.voi_stopping_helpers import _answer_probe, _minutes
 
     vault, repository = _gate_vault(tmp_path, version, toml)
     _gate_abstains(monkeypatch)
@@ -486,7 +486,7 @@ def test_the_gate_still_ends_an_episode_where_value_does_not_decide_or_the_switc
 
 def test_a_calibration_session_keeps_the_robust_gate(tmp_path, monkeypatch):
     from learnloop.diagnosis import calibration_sessions
-    from tests.test_voi_stopping import _answer_probe, _minutes
+    from tests.voi_stopping_helpers import _answer_probe, _minutes
 
     vault, repository = _gate_vault(tmp_path)
     _gate_abstains(monkeypatch)
@@ -497,7 +497,7 @@ def test_a_calibration_session_keeps_the_robust_gate(tmp_path, monkeypatch):
 
 
 def test_a_value_stop_records_the_gates_verdict_as_a_counterfactual(tmp_path, monkeypatch):
-    from tests.test_voi_stopping import _answer_probe, _minutes
+    from tests.voi_stopping_helpers import _answer_probe, _minutes
 
     vault, repository = _gate_vault(tmp_path)
     _gate_abstains(monkeypatch)
@@ -523,7 +523,7 @@ def test_a_value_continue_past_the_gate_carries_its_verdict_on_the_committed_rec
 
     from learnloop.diagnosis import probe_episodes as pe
     from learnloop.scheduling import scheduler as S
-    from tests.test_voi_stopping import CLOCK, _answer_probe, _minutes
+    from tests.voi_stopping_helpers import CLOCK, _answer_probe, _minutes
 
     vault, repository = _gate_vault(tmp_path)
     _gate_abstains(monkeypatch)
@@ -624,7 +624,7 @@ def test_the_batch_value_equals_the_product_tables_evsi_on_the_real_credible_set
     from learnloop.diagnosis.probe_robust import instrument_ensemble, load_pinned_channel
     from learnloop.diagnosis.robust_composition import robust_quantile
     from learnloop.scheduling import evsi as EV
-    from tests.test_voi_stopping import LO, _long_probe_vault
+    from tests.voi_stopping_helpers import LO, _long_probe_vault
     from tests.voi_restore_scenarios import seed_ids
 
     seed_ids(monkeypatch)
@@ -742,7 +742,7 @@ def test_the_lookahead_on_a_predictive_objective_episode_serves_the_incumbents_p
     top-ranked check."""
 
     from learnloop.diagnosis.probe_episodes import eligible_instruments, episode_posterior
-    from tests.test_voi_stopping import LO, _long_probe_vault
+    from tests.voi_stopping_helpers import LO, _long_probe_vault
     from tests.voi_restore_scenarios import seed_ids
 
     seed_ids(monkeypatch)  # the credible sets are seeded by ids
@@ -860,7 +860,7 @@ def test_no_count_cap_reappears(tmp_path, monkeypatch):
     the session cap (4) and the lookahead's depth (3) while value pays; none
     of the study's switches is a count of observations."""
 
-    from tests.test_voi_stopping import _answer_probe, _long_probe_vault, _minutes, _qualifying
+    from tests.voi_stopping_helpers import _answer_probe, _long_probe_vault, _minutes, _qualifying
 
     vault, repository = _long_probe_vault(tmp_path, "mvp-0.21")
     _minutes(monkeypatch, 0.0001)
@@ -896,7 +896,7 @@ def _share_stimuli(vault, repository, groups):
     from learnloop.substrate.state_sync import sync_vault_state
     from learnloop.vault.loader import load_vault
     from learnloop.vault.yaml_io import read_yaml
-    from tests.test_voi_stopping import CLOCK
+    from tests.voi_stopping_helpers import CLOCK
 
     # Written directly: the vault writer's merge keeps an existing
     # ``evidence_fingerprint`` (not in its key order), so an upsert cannot
@@ -918,7 +918,7 @@ def _paying_lookahead_episode(tmp_path, monkeypatch, groups=None):
     batch would."""
 
     from learnloop.diagnosis.probe_episodes import eligible_instruments, episode_posterior
-    from tests.test_voi_stopping import _long_probe_vault
+    from tests.voi_stopping_helpers import _long_probe_vault
     from tests.voi_restore_scenarios import seed_ids
 
     seed_ids(monkeypatch)
@@ -954,7 +954,7 @@ def test_a_lookahead_batch_never_holds_two_checks_on_one_surface(tmp_path, monke
     assert lookahead["paid"] is False and decision.decision == voi.STOP
     assert all(not value.method.startswith(voi.METHOD_LOOKAHEAD_PREFIX) for value in decision.candidates)
     # The batch could not have been realized: answering one leaves none.
-    from tests.test_voi_stopping import _answer_probe
+    from tests.voi_stopping_helpers import _answer_probe
 
     _minutes_patch(monkeypatch, 0.0001)
     _answer_probe(vault, repository, score=0)

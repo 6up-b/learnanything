@@ -25,7 +25,7 @@ from learnloop.db.stores.source_block_fts import extraction_units
 from learnloop.source_retrieval import corpus
 from learnloop.vault.loader import load_vault
 
-from tests.test_ux_phase1_landing import _added_book, _hold_out, _reading_book, _section_spans
+from tests.ux_phase1_landing_helpers import _added_book, _hold_out, _reading_book, _section_spans
 from tests.ux_phase1_support import CLOCK, route
 
 
@@ -103,7 +103,7 @@ def test_the_reading_step_never_offers_a_held_out_section_of_a_book_in_no_source
 
 
 def _held_out_citation(paths, repo):
-    from tests.test_facet_reword_confirm import _seed
+    from tests.facet_reword_confirm_helpers import _seed
 
     held = _seed(paths, repo, "primary_textbook", "held", text="HELD OUT: the exam's worked SVD answer.")
     save_unit_selection(repo, held["extraction_id"], [held["unit_id"]],
@@ -115,10 +115,10 @@ def test_the_span_support_check_never_sends_held_out_text_to_the_decider(tmp_pat
     import json
 
     from learnloop.content.proposals.patches import apply_accepted_items
-    from tests.test_facet_identity_actions import SHARED
-    from tests.test_facet_reword_confirm import _proposal, _support
-    from tests.test_facet_rewords import NEW_CLAIM, _entry
-    from tests.test_facet_span_support import SpanDecider, _span_vault
+    from tests.facet_identity_actions_helpers import SHARED
+    from tests.facet_reword_confirm_helpers import _proposal, _support
+    from tests.facet_rewords_helpers import NEW_CLAIM, _entry
+    from tests.facet_span_support_helpers import SpanDecider, _span_vault
 
     client = SpanDecider("supports")
     paths, repo, citation = _span_vault(tmp_path, monkeypatch, client)
@@ -134,11 +134,11 @@ def test_the_span_support_check_never_sends_held_out_text_to_the_decider(tmp_pat
 
 def test_a_reword_resting_only_on_held_out_text_never_reaches_the_decider(tmp_path, monkeypatch):
     from learnloop.content.proposals.patches import PatchApplicationError, apply_accepted_items
-    from tests.test_facet_identity_actions import SHARED
-    from tests.test_facet_reword_confirm import _proposal, _support
-    from tests.test_facet_rewords import NEW_CLAIM, _entry
-    from tests.test_facet_span_support import SpanDecider, _span_vault
-    from tests.test_tier1_decider import _rows
+    from tests.facet_identity_actions_helpers import SHARED
+    from tests.facet_reword_confirm_helpers import _proposal, _support
+    from tests.facet_rewords_helpers import NEW_CLAIM, _entry
+    from tests.facet_span_support_helpers import SpanDecider, _span_vault
+    from tests.tier1_decider_helpers import _rows
 
     client = SpanDecider("supports")
     paths, repo, _citation = _span_vault(tmp_path, monkeypatch, client)

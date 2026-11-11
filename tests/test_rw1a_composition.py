@@ -26,8 +26,8 @@ from learnloop.ai.errors import AIOutputTruncated
 from learnloop.ai.execution import single_request_active
 from learnloop.reader import reader_quick_check as RQC
 from tests.helpers import append_config_toml
-from tests.test_reader_guidance import _setup as _guide_setup
-from tests.test_reader_passage_check import RecordingClient, _author, _inquiry_rows, _receipts, _root, _spend
+from tests.reader_guidance_helpers import _setup as _guide_setup
+from tests.reader_passage_check_helpers import RecordingClient, _author, _inquiry_rows, _receipts, _root, _spend
 
 
 class TruncatingClient(RecordingClient):

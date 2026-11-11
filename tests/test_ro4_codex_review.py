@@ -145,7 +145,7 @@ def test_f8_ad_reports_the_reading_dose_position_only_when_asked(tmp_path):
     from learnloop.adaptive_difficulty import readiness as RD
 
     from tests.ad23_fakes import LO, ad23_vault, restamp
-    from tests.test_ad3_reading import _opportunity
+    from tests.ad3_reading_helpers import _opportunity
 
     paths = ad23_vault(tmp_path, items=("pi_r1", "pi_r2", "pi_r3"), config="[router]\nenabled = false\n")
     with closing(connect(paths.sqlite_path)) as connection:
@@ -200,7 +200,7 @@ def test_f9_the_drawn_options_forecast_is_resolved_and_reported(tmp_path):
     from learnloop.router_objective import objective_report
     from learnloop.router_objective import trace as T
 
-    from tests.test_ro2_history_resolve import _attempt, _iso
+    from tests.ro2_history_resolve_helpers import _attempt, _iso
 
     from tests.ad_fakes import ad_plan_vault, plan_env
     from tests.ad_fakes import rows as ad_rows

@@ -8,12 +8,10 @@ import json
 from datetime import timedelta
 
 from learnloop.clock import FrozenClock
-from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
-    ResolvedGrade,
     apply_attempt,
 )
 from learnloop.diagnosis.calibration_sessions import (
@@ -36,62 +34,9 @@ from learnloop_sidecar.server import serve
 from tests.helpers import (
     NOW,
     NOW_ISO,
-    admit_probe_instrument_card,
     append_config_toml,
-    create_basic_vault,
 )
-
-LO_ID = "lo_svd_definition"
-ITEM_ID = "pi_svd_define_001"
-CLOCK = FrozenClock(NOW)
-
-
-def _setup(tmp_path, *, with_card: bool = True):
-    vault_root = tmp_path / "vault"
-    paths = create_basic_vault(vault_root)
-    loaded = load_vault(vault_root)
-    repository = Repository(paths.sqlite_path)
-    if with_card:
-        admit_probe_instrument_card(repository)
-    return vault_root, loaded, repository
-
-
-def _grade(score: int) -> ResolvedGrade:
-    return ResolvedGrade(
-        rubric_score=score,
-        criterion_points={"correctness": float(score)},
-        evidence_rows=[],
-        error_attributions=[],
-        grader_confidence=1.0,
-        confidence=4,
-        manual_review_reason=None,
-    )
-
-
-def _submit(loaded, repository, *, score=4, attempt_type="independent_attempt",
-            presentation_id=None, answer_confidence=None, session_id=None, clock=CLOCK,
-            item_id=ITEM_ID):
-    attempt_id = new_ulid()
-    result = apply_attempt(
-        loaded,
-        repository,
-        ApplyAttemptInput(
-            draft=AttemptDraft(
-                practice_item_id=item_id,
-                learner_answer_md="answer",
-                attempt_type=attempt_type,
-                session_id=session_id,
-                probe_presentation_id=presentation_id,
-                answer_confidence=answer_confidence,
-            ),
-            attempt_id=attempt_id,
-            grade=_grade(score),
-            grading_source="ai",
-        ),
-        clock=clock,
-    )
-    return attempt_id, result
-
+from tests.probe_orchestration_remainder_helpers import CLOCK, ITEM_ID, LO_ID, _grade, _setup, _submit
 
 # --- §6.5 re-probe: repeated prediction errors --------------------------------------
 

@@ -684,8 +684,8 @@ def test_grading_reads_the_contract_the_answer_was_graded_under(tmp_path):
     from learnloop.attempts.blind_grading import blind_grading_prompt
     from learnloop.cli import ai_compare
     from learnloop.diagnosis.split.live import live_history_store
-    from tests.test_required_method_grading import ITEM, METHOD, _edit_item, _method_vault
-    from tests.test_route_rules_in_grader import ALTERNATIVE, DivergentGrader
+    from tests.required_method_grading_helpers import ITEM, METHOD, _edit_item, _method_vault
+    from tests.route_rules_in_grader_helpers import ALTERNATIVE, DivergentGrader
 
     paths, vault, repository = _method_vault(tmp_path)
     presented = vault.practice_items[ITEM].prompt

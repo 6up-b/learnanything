@@ -25,7 +25,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import set_algorithm_version
 from tests.split_live_helpers import at, drain_jobs, split_vault
-from tests.test_stuck_prompt import StuckFake, _draft, _grade
+from tests.stuck_prompt_helpers import StuckFake, _draft, _grade
 
 pytestmark = pytest.mark.durability
 

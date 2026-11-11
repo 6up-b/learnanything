@@ -44,17 +44,17 @@ from learnloop.vault.writer import upsert_source_set
 
 from tests.facet_identity_fakes import FakeFacetJudge
 from tests.helpers import append_config_toml
-from tests.test_facet_authority import EXAM_CLAIM, EXAM_CONDITION, EXAM_SPAN, _consolidation, _meaning
-from tests.test_facet_identity_actions import SHARED, _vault_with_duplicate
-from tests.test_facet_identity_ingest import DEF_CLAIM
-from tests.test_facet_reword_confirm import (
+from tests.facet_authority_helpers import EXAM_CLAIM, EXAM_CONDITION, EXAM_SPAN, _consolidation, _meaning
+from tests.facet_identity_actions_helpers import SHARED, _vault_with_duplicate
+from tests.facet_identity_ingest_helpers import DEF_CLAIM
+from tests.facet_reword_confirm_helpers import (
     _held,
     _pending,
     _proposal,
     _seed,
     _support,
 )
-from tests.test_facet_reword_paths import (
+from tests.facet_reword_paths_helpers import (
     NEW_SPAN,
     SYMMETRY,
     SYMMETRY_CLAIM,
@@ -63,8 +63,8 @@ from tests.test_facet_reword_paths import (
     _facet_restructure,
     _sidecar,
 )
-from tests.test_facet_rewords import NEW_CLAIM, OLD_CLAIM, _entry, _facet_update_proposal
-from tests.test_source_append import FakeAppendClient, _bootstrap_and_add
+from tests.facet_rewords_helpers import NEW_CLAIM, OLD_CLAIM, _entry, _facet_update_proposal
+from tests.source_append_helpers import FakeAppendClient, _bootstrap_and_add
 
 _CLOCK = FrozenClock(datetime(2026, 10, 13, 16, 0, 0, tzinfo=UTC))
 EXAM_RESTATED = "On the final exam, a matrix is symmetric when flipping it across the diagonal changes nothing."

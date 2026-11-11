@@ -18,7 +18,7 @@ from learnloop.vault.loader import load_vault
 from tests.notes_fixtures import add_annotation
 from tests.reading_path_fixtures import call
 from tests.section_coverage_fixtures import hold_out
-from tests.test_notes_linked import _deliverable, _lines
+from tests.notes_linked_helpers import _deliverable, _lines
 
 #: A synthetic sentinel in the note written beside Lay's eigenvector section.
 LAY_SENTINEL = "LAYNOTESENTINEL-91c2"
@@ -74,7 +74,7 @@ def _lay_reading(tmp_path, monkeypatch):
     ext_book's eigenvalue passage, and its snapshot read for gaps (a belief named)."""
 
     from learnloop.tutor.ai_contracts import LearnerGap
-    from tests.test_notes_as_learner_text import GAPS_ON, PlanGapFake, _clients, _gaps, _run
+    from tests.notes_as_learner_text_helpers import GAPS_ON, PlanGapFake, _clients, _gaps, _run
 
     paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path, config=GAPS_ON)
     ctx.post_attempt_worker.autostart = False
@@ -227,7 +227,7 @@ def test_c2b_final_verify_f1_the_notes_guard_judges_a_candidate_by_every_anchor_
 
     from learnloop.source_retrieval import section_coverage as SC
     from learnloop.source_retrieval import vault_notes as VN
-    from tests.test_notes_linked import _Published, _target
+    from tests.notes_linked_helpers import _Published, _target
 
     paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
     key = _lay_note(repository)

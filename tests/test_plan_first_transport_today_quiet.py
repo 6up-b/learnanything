@@ -27,7 +27,7 @@ from learnloop.clock import FrozenClock
 
 from tests.helpers import NOW, create_basic_vault, seed_due_item
 from tests.openai_fakes import install_fake_openai
-from tests.test_router_offer_log import _TEACH_BACK_ITEM
+from tests.router_offer_log_helpers import _TEACH_BACK_ITEM
 
 OFFER_KEYS = ("fallbackAvailable", "fallback_available", "fallbackTasks", "fallback_tasks")
 

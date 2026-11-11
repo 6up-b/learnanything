@@ -26,7 +26,7 @@ from learnloop.vault.paths import VaultPaths
 from tests.daily_plan_fakes import MovableClock, record_attempt, seed_due
 from tests.helpers import create_daily_plan_vault
 from tests.intent_fakes import NOW, make_intent_vault
-from tests.test_daily_plan_build import _assert_finite, _run_to_end
+from tests.daily_plan_build_helpers import _assert_finite, _run_to_end
 
 
 def _env(iv, at) -> PlanEnv:

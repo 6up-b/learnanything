@@ -43,6 +43,7 @@ from tests.query_student_fakes import (
     write_bank,
 )
 from tests.source_retrieval_fakes import HashingEmbedder, loaded
+from tests.query_student_helpers import _adopt, _space
 
 
 @pytest.fixture(autouse=True)
@@ -214,13 +215,6 @@ def test_the_worker_writes_teacher_targets_as_int8_shards(tmp_path):
     expected = model.encode_queries(["what is a basis"])[0][0]
     assert np.array_equal(array[0], expected.astype(np.int8)) and not array[1].any()
     assert not (tmp_path / "q0000.npy.partial").exists() and "vectors" not in json.dumps(output["query_shards"])
-
-
-# -- synthetic questions -----------------------------------------------------------------------------------
-def _space(paths):
-    manifest, space, reason = Q.context(loaded(paths))
-    assert manifest is not None, reason
-    return space
 
 
 def test_passages_hold_permitted_text_only_and_never_a_bank_support(tmp_path):
@@ -601,15 +595,6 @@ def test_the_query_process_refuses_outside_its_4g_scope_and_under_the_host_floor
     assert student_server.choose_device(job, gpu=lambda: gpu, lock_free=lambda _p: True)[0] == "cuda:0"
     assert student_server.choose_device(job, gpu=lambda: gpu, lock_free=lambda _p: False)[0] == "cpu"
     assert student_server.choose_device(job, gpu=lambda: {"free_mib": 3_000}, lock_free=lambda _p: True)[0] == "cpu"
-
-
-def _adopt(root, space, *, base=SP.PRIMARY_BASE, sha="a" * 64):
-    set_up_bases(root)
-    directory = E.checkpoint_dir(root, space, sha)
-    directory.mkdir(parents=True, exist_ok=True)
-    (directory / "student.json").write_text(json.dumps({"canaries": {}}), encoding="utf-8")
-    E.adoption_path(root, space).write_text(json.dumps({"checkpoint_sha256": sha, "base_name": base}), encoding="utf-8")
-    return sha
 
 
 def test_the_adopted_student_starts_lazily_serves_and_queues_the_teacher_replay(tmp_path, monkeypatch):

@@ -18,15 +18,13 @@ Every model is a fake; nothing leaves the machine.
 """
 from __future__ import annotations
 
-import json
-
 from learnloop.daily_plan import engine as E
 from learnloop.source_retrieval import deliverable_path as DP
 from learnloop.vault.loader import load_vault
 from tests.deliverable_fixtures import DeliverableFake
 from tests.helpers import append_config_toml
 from tests.reading_path_fixtures import call, context
-from tests.test_curriculum_c1_plan_follows_path import (
+from tests.curriculum_c1_plan_follows_path_helpers import (
     C1_OFF,
     PRIMARIES,
     RW7B_OFF,
@@ -38,12 +36,8 @@ from tests.test_curriculum_c1_plan_follows_path import (
     _split,
     _step,
 )
-from tests.test_rw7b_codex_review_fixes import _blocks, _stage_reading
-
-
-def _ended(repository, block_id) -> list[dict]:
-    _blocks_, events = _blocks(repository)
-    return [json.loads(e["detail_json"]) for e in events if e["block_id"] == block_id and e["kind"] == "block_ended"]
+from tests.rw7b_codex_review_fixes_helpers import _stage_reading
+from tests.curriculum_c1_codex_review_fixes_helpers import NEAR_PRIMARIES, _ended
 
 
 # -- F1: a refresh's withdrawn block does not stop the kill switch -----------------------------------
@@ -214,9 +208,6 @@ def test_f3_without_a_new_judgment_the_stale_plan_stays_and_reads_no_path(tmp_pa
 
 
 # -- F4: a nearer deliverable refreshed while a farther one was followed -----------------------------
-
-
-NEAR_PRIMARIES = {"Eigenvalues": "Chapter 5 Eigenvalues", "Determinants": "Chapter 3 Determinants"}
 
 
 def test_f4_a_nearer_stale_deliverable_refreshed_is_adopted_over_the_farther_fresh_one(tmp_path, monkeypatch):

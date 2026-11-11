@@ -26,7 +26,7 @@ import pytest
 from learnloop.content.authoring.pf_sandbox import sandbox_available
 from learnloop.workbench.symbolic import CHECKED, MODEL, SymbolicClaim, run_checks
 from tests.hint_fakes import ITEM, WORK, ChooserFake, WriterFake, prefer
-from tests.test_hint_h2b_review import grader  # noqa: F401 - the blind grader fixture
+from tests.hint_h2b_review_helpers import grader  # noqa: F401 - the blind grader fixture
 from tests.workbench_help_fakes import FUNCTION_FREE_PROMPT, call, open_problem, run_job, sidecar, wb_answer
 
 needs_bwrap = pytest.mark.skipif(not sandbox_available(), reason="bubblewrap is not installed")

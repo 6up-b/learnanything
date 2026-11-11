@@ -44,9 +44,9 @@ from tests.followup_serve_helpers import (
 from tests.helpers import append_config_toml
 from tests.router_model_fakes import fake_runtime
 from tests.split_live_helpers import drain_jobs, fake_client, split_vault, submit
-from tests.test_causal_p2_acceptance import LO_ID, SOURCE_ITEM
-from tests.test_followup_router import ITEM, _env, _gate, _ready, _workflow
-from tests.test_probe_surface_mint import FakeSurfacesClient
+from tests.causal_p2_acceptance_helpers import LO_ID, SOURCE_ITEM
+from tests.followup_router_helpers import ITEM, _env, _gate, _ready, _workflow
+from tests.probe_surface_mint_helpers import FakeSurfacesClient
 
 LATER = FrozenClock(CLOCK.now() + timedelta(hours=2))
 SENTINEL = "SENTINEL_MATRIX_7"
@@ -482,7 +482,7 @@ def test_f5_a_check_waiting_on_the_item_doesnt_stop_the_probe_lane(tmp_path, mon
 
 def test_f6_a_crash_right_after_completion_still_has_the_job(tmp_path, monkeypatch):
     from learnloop.attempts import post_attempt
-    from tests.test_causal_p2_acceptance import _divergent_failure
+    from tests.causal_p2_acceptance_helpers import _divergent_failure
 
     vault, repository, _paths = rival_causes_vault(tmp_path)
     result = _divergent_failure(vault, repository, attempt_id="att_crash")
@@ -567,7 +567,7 @@ def test_f6_a_job_that_ended_with_its_workflow_pending_says_it_failed(journey):
 
 def test_f6_a_shadow_vault_has_its_workflows_job_at_once(tmp_path, monkeypatch):
     from learnloop.attempts import post_attempt
-    from tests.test_causal_p2_acceptance import _divergent_failure
+    from tests.causal_p2_acceptance_helpers import _divergent_failure
 
     vault, repository, _paths = rival_causes_vault(tmp_path)
     monkeypatch.setattr(post_attempt, "_shadow_diagnosis_enabled", lambda _vault: True)

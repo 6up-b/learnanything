@@ -45,8 +45,9 @@ from learnloop.substrate.activities import log_interaction_event
 from learnloop.vault.loader import load_vault
 from tests import rich_fixtures as RF
 from tests.figure_fixtures import EQUATION_TEXT, EXTRACTION, AuthorFake, build, call, context, flagship, rows, set_config
-from tests.test_figure_rich_job import WHY, _Rig
-from tests.test_figures_prefetch import TWO, JudgeFake, decisions, env_for, make_vault, plan_record, switch
+from tests.figure_rich_job_helpers import WHY, _Rig
+from tests.figures_prefetch_helpers import TWO, JudgeFake, decisions, env_for, make_vault, plan_record, switch
+from tests.figures_prefetch_review_fixes_helpers import _planned_lesson
 
 
 @pytest.fixture(autouse=True)
@@ -321,7 +322,7 @@ def test_f7_a_prebuilds_rich_job_yields_to_foreground_work(tmp_path, monkeypatch
 
 def test_f7_a_prebuilds_rich_job_in_flight_holds_the_next_prebuild_and_the_judge(tmp_path, monkeypatch):
     rig = _rich_rig(tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY, flagship(kind="illustrative"))])
-    from tests.test_figures_prefetch import seed_wait
+    from tests.figures_prefetch_helpers import seed_wait
 
     seed_wait(rig.repository)
     FS.build_prefetch_figure(rig.vault, rig.repository, _prefetch_request(), author_client=rig.author,
@@ -716,7 +717,7 @@ def test_f16_the_gate_waits_before_it_reads_the_vault_it_checks():
 def test_f17_a_speculative_prebuilds_plan_wait_is_retried_by_the_reader_read(tmp_path, monkeypatch):
     from learnloop.ai.errors import AIProviderUnavailable
     from learnloop_sidecar.handlers.figures import _rich_spawner
-    from tests.test_figure_rich_rpc import _ctx
+    from tests.figure_rich_rpc_helpers import _ctx
 
     _paths, repository, ctx, _author, rich_author = _ctx(
         tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY)],
@@ -864,35 +865,11 @@ def test_r1_a_queued_speculative_fuller_is_marked_speculative(tmp_path, monkeypa
 # very request the lesson's step makes, so delivery reuses it with no author call
 # ---------------------------------------------------------------------------
 
-def _planned_lesson(tmp_path, author):
-    from learnloop.teacher import service as S
-    from tests.teacher_fakes import TeacherFake, build_teacher_vault, plan_turn
-    from tests.test_figures_prefetch import seed_wait
-    from tests.test_reader_rw5d_p4b_teacher_visuals import GOAL, _aliases, _builder, _clients
-
-    def plan_with_visual(context):
-        turn = plan_turn(context)
-        turn["requests"][0]["plan"][0]["visual"] = {"goal": GOAL, "anchors": _aliases(context)[:1]}
-        return turn
-
-    def step(context):
-        return {"message": "Step one.", "visual": {"goal": "", "anchors": [], "planned_node": "n1"}}
-
-    paths, repository = build_teacher_vault(tmp_path / "vault")
-    set_config(paths, "figures", prefetch_enabled=True)
-    seed_wait(repository)
-    fake = TeacherFake([plan_with_visual, step])
-    build = _builder(paths, repository, author)
-    view = S.open_lesson(load_vault(paths.root), repository, entry="learning_object", learning_object_ids=["lo_eigen"],
-                         clients=_clients(fake, build))
-    return paths, repository, fake, build, view
-
-
 def test_r5_a_planned_visual_is_prebuilt_and_the_lesson_step_reuses_it_with_no_author_call(tmp_path):
     from learnloop.teacher import service as S
     from learnloop.teacher import visuals as TV
     from learnloop.teacher.service import load_state
-    from tests.test_reader_rw5d_p4b_teacher_visuals import GOAL, _clients, _spec
+    from tests.reader_rw5d_p4b_teacher_visuals_helpers import GOAL, _clients, _spec
 
     author = AuthorFake([_spec()])
     paths, repository, fake, build, view = _planned_lesson(tmp_path, author)
@@ -947,6 +924,6 @@ def test_r5_a_planned_visual_on_a_held_out_passage_is_not_a_candidate(tmp_path, 
 
 
 def _spec_for_r5():
-    from tests.test_reader_rw5d_p4b_teacher_visuals import _spec
+    from tests.reader_rw5d_p4b_teacher_visuals_helpers import _spec
 
     return _spec()

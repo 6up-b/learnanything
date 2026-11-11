@@ -34,63 +34,27 @@ from learnloop.ai.execution import content_key
 from learnloop.figures import routes as R
 from learnloop.figures import service as FS
 from learnloop.figures import spec as S
-from learnloop.source_retrieval.find_sources import SourceHits
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers import figures as FH
 from tests.figure_fixtures import (
     EXTRACTION,
     AuthorFake,
     build,
-    build_figure_vault,
     call,
-    context,
     flagship,
     rows,
     set_config,
 )
-
-READING_AT = {"extractionId": EXTRACTION, "spanId": "p2"}
-GOAL = "show how the mass left of zero moves as p changes"
-
-
-class FindFake:
-    """The grounding retrieval: records every call, answers with ``hits`` (keys) and ``status``."""
-
-    def __init__(self, hits: list[tuple[str, str]] | None = None, *, status: str = "ok",
-                 fail: BaseException | None = None) -> None:
-        self.hits = list(hits or [])
-        self.status = status
-        self.fail = fail
-        self.calls: list[dict[str, Any]] = []
-
-    def __call__(self, vault: Any, repository: Any, query: str, **kwargs: Any) -> SourceHits:
-        self.calls.append({"query": query, **kwargs})
-        if self.fail is not None:
-            raise self.fail
-        return SourceHits(intent="explain", policy="reading", status=self.status, manifest={"query_hash": "q"},
-                          hits=[{"extraction_id": e, "span_id": s, "source_title": f"Book {e}", "section": "§1",
-                                 "page": 1, "text": "..."} for e, s in self.hits])
-
-
-def _vault(tmp_path):
-    return build_figure_vault(tmp_path / "vault")
-
-
-def _ctx(paths, *, author=None, find=None):
-    ctx = context(paths.root, author=author or AuthorFake())
-    if find is not None:
-        ctx.figure_find_sources = find
-    return ctx
-
-
-def show_me(ctx, goal: str = GOAL, **params: Any) -> dict[str, Any]:
-    return build(ctx, {"goalText": goal, "readingAt": READING_AT, "origin": "show_me", **params},
-                 rpc="figure.request")
-
-
-def _requests(repository) -> list[dict[str, Any]]:
-    return rows(repository, "figure_requests")
-
+from tests.figures_show_me_helpers import (
+    FindFake,
+    GOAL,
+    READING_AT,
+    _ctx,
+    _requests,
+    _tutor_ask,
+    _vault,
+    show_me,
+)
 
 # ---------------------------------------------------------------------------
 # G-SM1: the switch and the minimum request
@@ -267,7 +231,7 @@ def test_exam_passages_never_reach_the_author_and_an_exam_home_is_refused(tmp_pa
 
 def test_a_retrieved_passage_held_out_later_withholds_the_figure(tmp_path, monkeypatch):
     from learnloop.content.sources import exam_material as EM
-    from tests.test_figures_codex_review import _HeldSpans
+    from tests.figures_codex_review_helpers import _HeldSpans
 
     paths, _repository = _vault(tmp_path)
     author = AuthorFake([flagship(kind="illustrative")])
@@ -295,7 +259,7 @@ def test_a_missed_predictions_text_rechecks_the_retrieved_passages(tmp_path, mon
     from learnloop.diagnosis.text_gaps.provenance import figure_prediction_record
     from learnloop.diagnosis.text_gaps.sources import figure_prediction_row, figure_prediction_withheld
     from learnloop.vault.loader import load_vault
-    from tests.test_figures_codex_review import _HeldSpans
+    from tests.figures_codex_review_helpers import _HeldSpans
 
     paths, repository = _vault(tmp_path)
     ctx = _ctx(paths, author=AuthorFake([flagship(kind="illustrative")]), find=FindFake([("ext_book", "s2")]))
@@ -425,25 +389,6 @@ def test_the_build_job_belongs_to_figure_request_for_t1s_offer(tmp_path):
 # ---------------------------------------------------------------------------
 # G-SM5 and G-SM7: the tutor's figure goal
 # ---------------------------------------------------------------------------
-
-def _tutor_ask(tmp_path, monkeypatch, *, figure_goal: str | None, show_me: bool = True):
-    import learnloop_sidecar.handlers.reader as reader_handler
-    from tests.reader_tutor_fakes import KeepContaining, LookupTutor, Ready
-
-    paths, repository = _vault(tmp_path)
-    if not show_me:
-        set_config(paths, "figures", show_me_enabled=False)
-    tutor = LookupTutor(answer_md="P(X <= 0) = p, whatever lambda is.", cite=lambda _c: [(EXTRACTION, "p6")])
-    tutor.figure_goal = figure_goal
-    author = AuthorFake([flagship(kind="illustrative")])
-    find = FindFake([("ext_book", "s2")])
-    ctx = _ctx(paths, author=author, find=find)
-    ctx.reader_tutor_rerank_client = KeepContaining("whatever")
-    monkeypatch.setattr(reader_handler, "ready_tutor_qa_provider", lambda vault: ("fake", Ready(), tutor))
-    answer = call(ctx, "reader.ask", {"extractionId": EXTRACTION, "spanId": "p6", "question": "why is it p?",
-                                      "selectionSpanIds": ["p6"], "selectionQuote": "P(X <= 0) = p"})
-    return paths, repository, ctx, tutor, author, find, answer
-
 
 def test_the_tutors_goal_is_a_button_and_its_press_builds_from_the_cited_passages(tmp_path, monkeypatch):
     goal = "vary p and watch the mass left of zero follow it"

@@ -41,8 +41,8 @@ from learnloop.vault.yaml_io import read_yaml
 from tests.daily_plan_fakes import MovableClock, iso, seed_due
 from tests.helpers import create_daily_plan_vault
 from tests.source_service_fakes import build_textbook_vault
-from tests.test_exam_protection_review import _switch_off
-from tests.test_router_card import LAST, _attempt, _card, _card_world, _hypothesis
+from tests.exam_protection_review_helpers import _switch_off
+from tests.router_card_helpers import LAST, _attempt, _card, _card_world, _hypothesis
 
 A = ROUTER_STAGED_FRAME_ALGORITHM_VERSION
 PAST = datetime(2026, 10, 1, 9, 0, tzinfo=UTC)

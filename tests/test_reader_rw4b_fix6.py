@@ -35,8 +35,8 @@ from learnloop_sidecar.handlers import daily_plan as plan_handler
 from learnloop_sidecar.handlers import workbench as handler
 from tests.daily_plan_fakes import NOW, iso, make_env, scheduled, seed_due
 from tests.helpers import create_daily_plan_vault
-from tests.test_hint_h2b_review import grader  # noqa: F401 - the blind grader fixture
-from tests.test_learner_pick_proposal import _call, _draw, _interventions, ctx  # noqa: F401 - the proposal fixture
+from tests.hint_h2b_review_helpers import grader  # noqa: F401 - the blind grader fixture
+from tests.learner_pick_proposal_helpers import _call, _draw, _interventions, ctx  # noqa: F401 - the proposal fixture
 
 #: The keyed receipt's kind (``engine.PICK_KEYED``), named here so the
 #: fail-before run reads counts, not a missing name.

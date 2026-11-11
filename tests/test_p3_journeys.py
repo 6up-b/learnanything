@@ -24,7 +24,7 @@ from learnloop.attempts.salience_firewall import SalienceEvidenceRejected, rejec
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault
-from tests.test_source_inventory import _persist, _register_revision
+from tests.source_inventory_helpers import _persist, _register_revision
 
 _CLOCK = FrozenClock(NOW)
 

@@ -25,7 +25,6 @@ from __future__ import annotations
 import json
 import sqlite3
 from datetime import UTC, datetime
-from pathlib import Path
 
 import pytest
 
@@ -37,22 +36,16 @@ from learnloop.daily_plan.policy import policy_for
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import Repository
 from learnloop_sidecar.context import SidecarContext
-from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.owner_vaults import owner_vault, working_vault_params
 from tests.daily_plan_fakes import MovableClock, make_env, record_attempt
 from tests.helpers import append_config_toml, create_daily_plan_vault, set_algorithm_version
-from tests.test_daily_plan_build import _seed_wide, _wide_items, _wide_vault
+from tests.daily_plan_build_helpers import _seed_wide, _wide_items, _wide_vault
+from tests.router_r2a_serving_helpers import FROZEN, _call, _hold_cold_check, _plan_trace
 
 # The owner's working vaults: backup-API copies in the owner_vaults lane (S0).
 WORKING_FIXTURES = working_vault_params()
-FROZEN = datetime(2026, 10, 12, 9, 30, tzinfo=UTC)
 A = ROUTER_STAGED_FRAME_ALGORITHM_VERSION
-
-
-def _call(ctx, name, params):
-    spec = METHOD_REGISTRY[name]
-    return spec.handler(ctx, spec.params_model.model_validate(params))
 
 
 def _routed_env(tmp_path, *, version: str = A, toml: str | None = None):
@@ -105,22 +98,6 @@ def test_with_nothing_refused_the_staged_frame_serves_dl1s_blocks_in_dl1s_order(
 
 
 # -- G2: irreversible ------------------------------------------------------------------
-
-
-def _hold_cold_check(env, item_id: str) -> None:
-    """An open cold retry holds ``item_id``: serving it spends the check."""
-
-    from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
-
-    assert "cold_retry" in COLD_FOLLOWUP_TASK_KINDS
-    with env.repository.connection() as connection:
-        connection.execute(
-            "INSERT INTO followup_tasks(id, kind, case_kind, case_ref, not_before, status, selected_item_id, "
-            "created_at, updated_at) VALUES ('task_cold', 'cold_retry', 'misconception', 'case_1', "
-            "'2026-10-12T08:00:00Z', 'pending', ?, '2026-10-12T08:00:00Z', '2026-10-12T08:00:00Z')",
-            (item_id,),
-        )
-        connection.commit()
 
 
 def _plan_rows(env) -> list[dict]:
@@ -424,54 +401,6 @@ def test_presentations_and_cards_survive_production_pragmas(tmp_path):
 
 
 # -- G8: the kill switch on the owner's working vaults' copies ------------------------
-
-
-def _strip_ids(detail: dict) -> dict:
-    return {key: value for key, value in detail.items() if key not in ("decision_ref",)}
-
-
-def _plan_trace(root: Path) -> list[tuple]:
-    ctx = SidecarContext()
-    ctx.load(root)
-    ctx.grading_provider_override = "manual"
-    # A fixed session id: the scheduler's seeded exploration hashes it, so two
-    # copies compare only when they serve the same session.
-    session_id = "s_g8"
-    with Repository(root / "state.sqlite").connection() as connection:
-        # An owner copy keeps the owner's own planned blocks (built at their versions, by
-        # their router): the trace is the blocks this serve builds, not those.
-        earlier = {row[0] for row in connection.execute("SELECT id FROM attention_blocks")}
-        connection.execute("UPDATE sessions SET ended_at = ? WHERE ended_at IS NULL", ("2026-10-12T09:00:00Z",))
-        connection.execute(
-            "INSERT INTO sessions(id, started_at, available_minutes) VALUES (?, '2026-10-12T09:30:00Z', 25)",
-            (session_id,),
-        )
-        connection.commit()
-    trace = []
-    for _ in range(4):
-        result = _call(ctx, "next_plan_item", {"sessionId": session_id, "serve": True})
-        step = result["step"]
-        if step["kind"] != "item":
-            break
-        _call(ctx, "next_plan_item", {"sessionId": session_id, "skipPracticeItemId": step["practiceItemId"]})
-    vault, repository = ctx.require_vault()
-    with repository.connection() as connection:
-        for row in connection.execute(
-            "SELECT b.id, b.lane, b.chosen_by, e.detail_json FROM attention_blocks b "
-            "JOIN attention_block_events e ON e.block_id = b.id AND e.kind = 'block_chosen' "
-            "WHERE b.daily_plan_id IS NOT NULL ORDER BY b.created_at, b.plan_ordinal"
-        ):
-            if row["id"] in earlier:
-                continue
-            items = [
-                json.loads(event["detail_json"])["practice_item_id"]
-                for event in connection.execute(
-                    "SELECT detail_json FROM attention_block_events WHERE block_id = ? AND kind = 'item_planned' "
-                    "ORDER BY event_ordinal", (row["id"],)
-                )
-            ]
-            trace.append((row["lane"], row["chosen_by"], tuple(items), _strip_ids(json.loads(row["detail_json"]))))
-    return trace
 
 
 @pytest.mark.parametrize("fixture", WORKING_FIXTURES)

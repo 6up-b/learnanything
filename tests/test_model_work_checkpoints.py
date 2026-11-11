@@ -12,8 +12,8 @@ from learnloop.content.pipeline.runner import IngestRunner, JobSpec, RunnerServi
 from learnloop.content.synthesis import source_unit_inventory as inventory
 from learnloop.content.synthesis.source_set_synthesis import StudyMapError, create_study_map
 from learnloop.db.repositories import Repository
-from tests.test_source_inventory import FakeInventoryClient, _block, _ir, _persist, _register_revision, _CLOCK
-from tests.test_source_set_synthesis import FakeSynthesisClient, _default_payload, _setup
+from tests.source_inventory_helpers import FakeInventoryClient, _block, _ir, _persist, _register_revision, _CLOCK
+from tests.source_set_synthesis_helpers import FakeSynthesisClient, _default_payload, _setup
 
 
 def _checkpoint_rows(repo, purpose):

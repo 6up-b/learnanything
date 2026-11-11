@@ -9,7 +9,7 @@ from learnloop.experiments.contextual_embeddings import pins
 from learnloop.tutor.context_delivery import BlockSource
 from learnloop.tutor.tutor_qa import _reader_source_spans
 from tests.e0_fakes import build_e0_vault
-from tests.test_tutor_delivery_fixes import THEOREM, _span_of, _vault
+from tests.tutor_delivery_fixes_helpers import THEOREM, _span_of, _vault
 
 
 from tests.e0_fakes import verified_prices  # noqa: F401 - the fixture below

@@ -15,13 +15,10 @@ import pytest
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
+from tests.teacher_te2_migration_helpers import REBUILT
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
 PREVIOUS = Path(__file__).resolve().parents[1] / "migrations" / "247_lesson_episodes.sql"
-REBUILT = ("followup_generation_jobs", "generated_probe_items", "learner_text_gaps", "learner_text_gap_jobs")
-#: What 248 alters (earlier migrations' "nothing else changed" diffs on the way to head read this): the four rebuilt
-#: tables, lesson_episodes (its new column) and its close-once trigger. It adds no object.
-TE2_ALTERED_TABLES = frozenset({*REBUILT, "lesson_episodes", "lesson_episodes_close_once"})
 _LESSON = ("INSERT INTO lessons(id, driver, origin, entry, goal_text, goal_json, learning_object_ids_json, "
            "doctrine_version, brief_version, algorithm_version, opened_at) VALUES ('les_1', 'desktop', 'learner_pick', "
            "'learning_object', 'g', '{}', '[]', 'd', 'b', 'mvp-0.50', '2026-11-06T10:00:00Z')")

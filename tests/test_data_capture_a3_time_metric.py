@@ -19,7 +19,8 @@ from learnloop.router.first_delayed_success import LABEL, METRIC_VERSION, summar
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import create_basic_vault
-from tests.test_router_outcomes import A, B, LO, _reveal
+from tests.router_outcomes_helpers import A, B, LO, _reveal
+from tests.data_capture_a3_time_metric_helpers import _attempt, _reader_visit
 
 T0 = datetime(2026, 5, 19, 12, 0, tzinfo=UTC)
 AS_OF = "2026-07-01T00:00:00Z"
@@ -35,18 +36,6 @@ def world(tmp_path):
     vault = load_vault(paths.root)
     vault.goals = []  # the basic vault's goal would enroll every LO: each test says what enrolls it
     return vault, Repository(paths.sqlite_path)
-
-
-def _attempt(repository, attempt_id, *, item=A, at, correctness=1.0, latency=120, session="s1", hints=0,
-             presentation=None, attempt_type="independent_attempt"):
-    with repository.connection() as connection:
-        connection.execute(
-            "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, practice_mode, attempt_type, hints_used,"
-            " correctness, latency_seconds, manual_review, created_at, session_id, primed, evidence_origin, plan_presentation_id)"
-            " VALUES (?,?,?,?,?,?,?,?,0,?,?,0,'human',?)",
-            (attempt_id, item, LO, "short_answer", attempt_type, hints, correctness, latency, at, session, presentation),
-        )
-        connection.commit()
 
 
 def _trajectory(world, lo=LO):
@@ -115,17 +104,6 @@ def test_observed_active_time_is_kept_apart_from_elapsed(world):
     assert row.reached and row.attempts_bound_to_a_presentation == 1
     assert row.active_attempt_seconds == 150 and row.elapsed_attempt_seconds == 600
     assert row.active_minutes == 2.5 and row.elapsed_minutes == 10.0
-
-
-def _reader_visit(repository, visit, *, opened, closed, active):
-    with repository.connection() as connection:
-        for event_id, kind, at, payload in (
-                (f"{visit}o", "reader_view_opened", opened, {"visit_id": visit}),
-                (f"{visit}c", "reader_view_closed", closed, {"visit_id": visit, "active_seconds": active})):
-            connection.execute(
-                "INSERT INTO interaction_events(id, kind, payload_json, origin, created_at, occurred_at, received_at)"
-                " VALUES (?,?,?,'learner',?,?,?)", (event_id, kind, json.dumps(payload), at, at, at))
-        connection.commit()
 
 
 def test_reader_active_time_joins_when_a_reading_names_the_lo_else_it_is_unattributed(world):

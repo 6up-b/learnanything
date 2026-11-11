@@ -204,7 +204,7 @@ def test_r1_f10_a_later_skip_never_moves_a_past_completion_rate():
 def _score_trace(connection):
     import json
 
-    from tests.test_ro5_checks import _row, _trace
+    from tests.ro5_checks_helpers import _row, _trace
 
     row = _row()
     connection.execute("INSERT INTO router_objective_traces VALUES ('t1', ?, 'plan_block', ?, ?, ?, 'answered', "
@@ -260,7 +260,7 @@ def test_r11_a_price_trace_appended_after_the_closure_never_moves_a_closed_score
     from learnloop.router_objective import scores as S
     from learnloop.router_objective import weight as W
 
-    from tests.test_ro5_checks import _row, _trace
+    from tests.ro5_checks_helpers import _row, _trace
 
     connection = _ledger_db()
     row = _row()  # decided January 1 at 10:00, its window closing January 3 at 10:00
@@ -404,7 +404,7 @@ def _fg1_env(tmp_path, *, version: str = TAG, toml: str | None = ARMS_OFF, llm=N
 
     from tests.daily_plan_fakes import record_attempt
     from tests.router_model_fakes import FakeLLM
-    from tests.test_daily_plan_build import _wide_items
+    from tests.daily_plan_build_helpers import _wide_items
 
     llm = llm or FakeLLM()
     env = mixture_env(tmp_path, fake_runtime(llm=llm, seed=seed), version=version, toml=toml,
@@ -445,7 +445,7 @@ def _fg1_decide(env, monkeypatch):
 
     from learnloop.followup_run import router
 
-    from tests.test_followup_router import _workflow
+    from tests.followup_router_helpers import _workflow
 
     row = _workflow(env)
     monkeypatch.setattr(router, "hard_refusal", lambda *_a, **_k: None)
@@ -463,7 +463,7 @@ def test_r5_1_at_the_tag_fg1s_gate_is_the_two_policy_mix_with_its_trace(tmp_path
     from learnloop.router import requests as rq
 
     from tests.router_model_fakes import FakeLLM, block_drawing_seed, options_in
-    from tests.test_ro4_objective_serving import policy_answer
+    from tests.ro4_objective_serving_helpers import policy_answer
 
     # RO6's landing ruling R14: a seed pinned to serve a block first (unpinned, a first draw of stop left no block
     # open: the first advance returned "done", seen once under --durable-sqlite).
@@ -509,8 +509,8 @@ def test_r8_each_arm_can_be_drawn_with_its_logged_probability_and_no_interventio
     from learnloop.followup_serve import identity
 
     from tests.router_model_fakes import FakeLLM, block_drawing_seed
-    from tests.test_followup_router import _row, _workflow
-    from tests.test_ro4_objective_serving import policy_answer
+    from tests.followup_router_helpers import _row, _workflow
+    from tests.ro4_objective_serving_helpers import policy_answer
 
     # Router speed, item 4 (RO6's landing ruling R14, as the R5 (1) test above): a seed pinned to serve a block first.
     # Unpinned, the plan's first draw was a stop about one run in six, so no block was open (``'done' == 'item'`` at
@@ -554,7 +554,7 @@ def test_r5_1_no_room_to_wait_asks_now_deterministically_and_asks_no_model(tmp_p
     from learnloop.daily_plan.router_chooser import INSERT_NOW
     from learnloop.followup_run import router
 
-    from tests.test_followup_router import _row
+    from tests.followup_router_helpers import _row
 
     env, llm = _fg1_env(tmp_path)
     clients = __import__("types").SimpleNamespace(runtime=env.policy.restraint.runtime)

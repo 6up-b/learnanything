@@ -36,7 +36,7 @@ from learnloop.ops.vault_upgrade import rewrite_algorithm_version
 from learnloop.vault.loader import load_vault
 from tests.helpers import create_placement_vault
 from tests.recap_fixtures import EXT, at
-from tests.test_reader_followups import FakeSearch, _candidate, _now, _plan, _seeded
+from tests.reader_followups_helpers import FakeSearch, _candidate, _now, _plan, _seeded
 
 TAG = READER_FOLLOWUPS_ALGORITHM_VERSION
 PREDECESSOR = COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION

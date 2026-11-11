@@ -15,7 +15,7 @@ from learnloop.daily_plan.policy import policy_for
 
 from tests.daily_plan_fakes import MovableClock, make_env, record_attempt
 from tests.helpers import append_config_toml
-from tests.test_daily_plan_build import _seed_wide, _wide_items, _wide_vault
+from tests.daily_plan_build_helpers import _seed_wide, _wide_items, _wide_vault
 
 B = ROUTER_MIXTURE_ALGORITHM_VERSION
 

@@ -1309,8 +1309,8 @@ def test_fix_l1_the_rpc_gates_of_priced_features_offer_and_honour_no_grant_their
     from learnloop.reader import reader_dialogue as RD
     from learnloop_sidecar.handlers import reader as reader_handlers
     from tests.openai_fakes import install_fake_openai
-    from tests.test_reader_guidance import _setup as guide_setup
-    from tests.test_sidecar_reader import _setup as reader_setup
+    from tests.reader_guidance_helpers import _setup as guide_setup
+    from tests.sidecar_reader_helpers import _setup as reader_setup
 
     fake_openai = install_fake_openai(monkeypatch, '{"ok": true, "note": "openrouter"}')
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-never-sent")

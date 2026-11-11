@@ -16,50 +16,18 @@ replay's whole second is R14, a known difference of its own, and not this one.
 from __future__ import annotations
 
 from dataclasses import asdict
-from datetime import UTC, datetime
-from types import SimpleNamespace
 
 import pytest
 
-from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, INTERVAL_FACTOR_ALGORITHM_VERSION
-from learnloop.clock import SystemClock
 from learnloop.diagnosis.split.jobs import drain
 from learnloop.followup_serve import workflow as wf
 from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.substrate.shadow_rebuild import shadow_rebuild
 from learnloop.vault.loader import load_vault
-from learnloop_sidecar.context import SidecarContext
 
-from tests.followup_serve_helpers import BlindRivalClient, live_shape_vault
-from tests.test_followup_rival_factor import _Ready, _call, _generate, _miss
-
-ZERO = {"mastery": 0, "facet": 0, "schedule": 0}
-INSTANT = datetime(2026, 11, 4, 15, 0, 0, tzinfo=UTC)
-
-
-def _summary(result):
-    assert result.live_database_unchanged
-    return result.learner_state_diff["summary"]
-
-
-@pytest.fixture(params=[FOLLOWUP_SERVE_ALGORITHM_VERSION, INTERVAL_FACTOR_ALGORITHM_VERSION])
-def desk(tmp_path, monkeypatch, request):
-    # FG1's tag and RO1's successor: neither changes the fold, so the answer holds at both.
-    monkeypatch.setattr(SystemClock, "now", lambda self: INSTANT)
-    paths, vault, repository = live_shape_vault(tmp_path, version=request.param)
-    # The seeded vault predates the tag: rebuild it, as the owner does after an upgrade, so the
-    # shadow starts at 0/0/0 and whatever it reads afterwards is the journey's.
-    rebuild_derived_state(vault, repository)
-    assert _summary(shadow_rebuild(load_vault(paths.root))) == ZERO
-    ctx = SidecarContext()
-    ctx.load(paths.root)
-    ctx.post_attempt_worker.autostart = False
-    client = BlindRivalClient()
-    monkeypatch.setattr("learnloop_sidecar.handlers.practice.ready_grading_provider",
-                        lambda *_a, **_k: ("fake", _Ready(), client))
-    session = _call(ctx, "start_session", {"available_minutes": 30})
-    return SimpleNamespace(ctx=ctx, client=client, session=session.get("sessionId") or session["session_id"], paths=paths)
-
+from tests.followup_rival_factor_helpers import _call, _generate, _miss
+from tests.followup_fg1d_probe_shadow_helpers import ZERO, _summary
+from tests.followup_fg1d_probe_shadow_helpers import desk  # noqa: F401 - fixtures, used by parameter name
 
 def _probe_cells(repository, item_id):
     return [row for row in repository.canonical_facet_recall_states() if row.practice_item_id == item_id]

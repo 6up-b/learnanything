@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -12,7 +11,6 @@ from learnloop.cli import app
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.vault.loader import load_vault
-from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import EmptyParams
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.capture import (
@@ -23,27 +21,13 @@ from learnloop_sidecar.handlers.ingest import ConfirmQuickAddInput, confirm_quic
 from learnloop_sidecar.handlers.item_authoring import AuthorPracticeItemInput, author_practice_item
 from learnloop_sidecar.handlers.tutor_qa import AskTutorQuestionInput, ask_tutor_question
 from tests.helpers import create_basic_vault, seed_due_item
-from tests.test_sidecar_quick_add import _seed_extraction
-from tests.test_sidecar_tutor_qa import _TutorServer, _tutor_vault
+from tests.sidecar_quick_add_helpers import _seed_extraction
+from tests.sidecar_tutor_qa_helpers import _TutorServer, _tutor_vault
+from tests.capture_desktop_helpers import _capture, _context
 
 # The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
 # H3); these tests drive an in-process HTTP server through it as a provider double.
 pytestmark = pytest.mark.usefixtures("legacy_codex_http_double")
-
-
-def _capture(root: Path, *, url: str | None = None) -> tuple[Repository, str]:
-    repository = Repository(root / "state.sqlite")
-    receipt = create_capture(
-        repository, root=root, client_capture_id=new_ulid(),
-        kind="url" if url else "text", url=url, text=None if url else "Why eigenvectors?",
-    )
-    return repository, receipt["capture_id"]
-
-
-def _context(root: Path) -> SidecarContext:
-    ctx = SidecarContext()
-    ctx.load(root, maintenance=False)
-    return ctx
 
 
 @pytest.mark.parametrize("success", [False, True])

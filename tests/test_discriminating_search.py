@@ -7,7 +7,6 @@ import json
 import pytest
 
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.instructional.discriminating import make_valuer
 from learnloop.instructional.exercises import exercise_candidates
 from learnloop.instructional.exposure import apply_dominance, independent_check_eligibility
 from learnloop.instructional.practice import propose_practice
@@ -21,18 +20,7 @@ from learnloop.practice_index.retrieval import (
 )
 from learnloop.source_retrieval.policy import CallerContext
 from tests.source_service_fakes import FakeServiceLLM, build_textbook_vault, call, loaded, set_config, table_counts
-
-
-@dataclass
-class _Estimate:
-    minutes: float
-
-    def as_dict(self):
-        return {"minutes": self.minutes, "prior_source": "test"}
-
-
-def estimator(item_id, mode, expected):
-    return _Estimate(12.0 if mode == "proof" else 2.0)
+from tests.discriminating_search_helpers import _valuer, estimator
 
 
 @pytest.fixture
@@ -43,10 +31,6 @@ def textbook(tmp_path):
         correction_statement="Swapping two rows multiplies the determinant by -1", target_facet="facet_determinant",
         severity=0.8)
     return paths, repository, spans, misconception
-
-
-def _valuer(llm):
-    return make_valuer(estimator=estimator, screen_client=llm, judge_client=llm)
 
 
 # -- typed constraints -----------------------------------------------------------------------

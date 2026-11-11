@@ -33,7 +33,7 @@ from learnloop.source_retrieval.corpus import (
 )
 from learnloop.source_retrieval.tutor import PinnedSpanProvider
 from tests.source_service_fakes import build_textbook_vault, loaded
-from tests.test_facet_authority import _GUARDED_CALLS, _REGISTRY_FILE_MODULES, _called, _python_sources
+from tests.facet_authority_helpers import _GUARDED_CALLS, _REGISTRY_FILE_MODULES, _called, _python_sources
 
 #: The sources track's modules that create practice, proposals, imports or
 #: needs (main, mvp-0.18/0.19). Each must be parsed by the bypass test.
@@ -142,7 +142,7 @@ def test_a_held_out_split_child_withholds_its_whole_raw_parent(tmp_path):
 def test_an_exam_members_material_is_exam_to_both_predicates(tmp_path):
     paths, repository, _spans = build_textbook_vault(tmp_path / "vault")
     vault = loaded(paths)
-    from tests.test_sources_merge_composition import _exam_span
+    from tests.sources_merge_composition_helpers import _exam_span
 
     exam = ("ext_exam", _exam_span(repository))
     assert exam_withheld(vault, repository, [exam]) == frozenset({exam})

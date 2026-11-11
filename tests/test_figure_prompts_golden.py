@@ -15,7 +15,7 @@ from pathlib import Path
 
 from learnloop.figures import prefetch as PF
 from tests.figure_fixtures import AuthorFake, build, build_figure_vault, context, flagship, half_density
-from tests.test_figures_prefetch import JudgeFake, env_for, make_vault, mains, plan_record  # noqa: F401 - mains: autouse
+from tests.figures_prefetch_helpers import JudgeFake, env_for, make_vault, mains, plan_record  # noqa: F401 - mains: autouse
 
 GOLDEN = Path(__file__).parent / "fixtures" / "figure_prompts_golden.json"
 WRITE = os.environ.get("FIGURE_PROMPTS_WRITE_GOLDEN") == "1"

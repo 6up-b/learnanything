@@ -16,13 +16,9 @@ import pytest
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.mobile_jobs_migration_helpers import M2A_ADDED_OBJECTS
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-#: What 239 adds (its table, its autoindexes, its indexes).
-M2A_ADDED_OBJECTS = frozenset({
-    "mobile_jobs", "sqlite_autoindex_mobile_jobs_1", "sqlite_autoindex_mobile_jobs_2",
-    "mobile_jobs_request", "mobile_jobs_open",
-})
 
 
 def _names(connection: sqlite3.Connection) -> set[str]:

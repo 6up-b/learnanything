@@ -32,7 +32,7 @@ from tests.recap_fixtures import call as call_rpc
 from tests.recap_fixtures import context as _context
 from tests.source_service_fakes import build_textbook_vault, set_config  # re-exported
 from learnloop.vault.writer import upsert_source_set  # noqa: E402 - re-exported
-from tests.test_source_inventory import _persist
+from tests.source_inventory_helpers import _persist
 
 EXTRACTION = "ext_prob"
 DENSITY_TEXT = ("The two-sided exponential has density f_X(x) = p\\lambda e^{\\lambda x} for x < 0 and "

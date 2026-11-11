@@ -31,7 +31,7 @@ from learnloop.ops.settings_store import apply_config_updates
 from learnloop.substrate.activities import log_interaction_event
 from learnloop.vault.loader import load_vault
 from tests.figure_fixtures import EXTRACTION, AuthorFake, rows
-from tests.test_figures_prefetch import TWO, count, decisions, env_for, make_vault, mains, switch  # noqa: F401
+from tests.figures_prefetch_helpers import TWO, count, decisions, env_for, make_vault, mains, switch  # noqa: F401
 
 DAY_ONE = datetime(2099, 3, 1, 12, tzinfo=UTC)
 DAY_TWO = DAY_ONE + timedelta(days=1)
@@ -275,8 +275,8 @@ def test_a_resumed_planned_visual_is_the_lesson_steps_own_request(tmp_path, defe
     never asks for. It is the very request the step will make, as a fresh one is (landing ruling R5)."""
 
     from learnloop.teacher import service as S
-    from tests.test_figures_prefetch_review_fixes import _planned_lesson
-    from tests.test_reader_rw5d_p4b_teacher_visuals import _clients, _spec
+    from tests.figures_prefetch_review_fixes_helpers import _planned_lesson
+    from tests.reader_rw5d_p4b_teacher_visuals_helpers import _clients, _spec
 
     author = AuthorFake([_spec()])
     paths, repository, fake, build, view = _planned_lesson(tmp_path, author)
@@ -303,8 +303,8 @@ def test_a_resumed_planned_visual_is_the_lesson_steps_own_request(tmp_path, defe
 
 
 def test_a_planned_visual_the_lesson_no_longer_plans_is_not_built(tmp_path, monkeypatch):
-    from tests.test_figures_prefetch_review_fixes import _planned_lesson
-    from tests.test_reader_rw5d_p4b_teacher_visuals import _spec
+    from tests.figures_prefetch_review_fixes_helpers import _planned_lesson
+    from tests.reader_rw5d_p4b_teacher_visuals_helpers import _spec
 
     author = AuthorFake([_spec()])
     paths, repository, _fake, _build, view = _planned_lesson(tmp_path, author)

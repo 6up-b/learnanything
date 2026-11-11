@@ -44,7 +44,7 @@ from learnloop_sidecar.handlers.remediation import ProbeOfferInput, RepairStatus
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.helpers import NOW, admit_probe_instrument_card
-from tests.test_causal_orchestrator import (
+from tests.causal_orchestrator_helpers import (
     CLOCK,
     LO_ID,
     PROBE_ITEM,
@@ -52,7 +52,7 @@ from tests.test_causal_orchestrator import (
     _seed_factor,
     _vault,
 )
-from tests.test_sidecar_contract import _rpc
+from tests.sidecar_contract_helpers import _rpc
 
 #: Every field `CausalRepairStatusDto` (apps/learnloop-tauri/src/api/dto.ts)
 #: declares as required. The Tauri client reads these by name.

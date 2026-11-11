@@ -21,14 +21,13 @@ rules). Replay reads every record as written. Fakes only; no network.
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import pytest
 import yaml
 
 from learnloop.algorithm_versions import (
     LATEST_ALGORITHM_VERSION,
-    METHOD_EXPLICIT_ALGORITHM_VERSION,
     METHOD_EXPLICIT_VERSIONS,
     ROUTER_MIXTURE_ALGORITHM_VERSION,
 )
@@ -47,7 +46,6 @@ from learnloop.attempts.grading_support import (
     route_rules_active,
 )
 from learnloop.attempts.regrade import regrade_attempt
-from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
 from learnloop.diagnosis.split.jobs import diagnosis_status
 from learnloop.substrate.canonical_projection import project_canonical_facet_state, unassessed_evidence_row
@@ -56,37 +54,23 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.models import Rubric
 
 from tests.split_live_helpers import ReadyRuntime, split_vault, submit
-from tests.test_route_rules_in_grader import ALTERNATIVE, DivergentGrader, FullCreditGrader
+from tests.route_rules_in_grader_helpers import ALTERNATIVE, DivergentGrader, FullCreditGrader
+from tests.required_method_grading_helpers import (
+    CLOCK,
+    ITEM,
+    METHOD,
+    VERSION,
+    _edit_item,
+    _method_vault,
+    _projection,
+    _require_method,
+    _support,
+)
 
-VERSION = METHOD_EXPLICIT_ALGORITHM_VERSION
 #: The immediate predecessor: its grading is mvp-0.20's own-route rules.
 PREDECESSOR = ROUTER_MIXTURE_ALGORITHM_VERSION
-ITEM = "pi_svd_compute_001"  # setup (2) + result (2); its LO's concept (SVD) is a procedure
-METHOD = "singular value decomposition"
-CLOCK = FrozenClock(datetime(2026, 11, 1, 12, 0, tzinfo=UTC))
 SUBMITTED = CLOCK.now() - timedelta(hours=1)  # before CLOCK's regrades (see test_route_rules_in_grader)
 KILL_SWITCH = "[required_method]\nenabled = false"
-
-
-def _require_method(paths, item_id: str = ITEM, criterion_ids=("setup",)) -> None:
-    """Make ``item_id`` a method item: the required method (round 3: its
-    instruction is rendered from the field, the statement is unchanged)."""
-
-    path = paths.practice_item_path("linear-algebra", item_id)
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    data["required_method"] = {"name": METHOD, "criterion_ids": list(criterion_ids),
-                               "learning_object_id": data["learning_object_id"]}
-    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
-
-
-def _method_vault(tmp_path, *, version=VERSION, config="", seed=True):
-    paths, _vault, repository = split_vault(tmp_path, version=version, config=config, seed=seed)
-    _require_method(paths)
-    return paths, load_vault(paths.root), repository
-
-
-def _support(repository, attempt_id):
-    return repository.latest_blind_grade_record(attempt_id)["record"]["grading_support"]
 
 
 # -- the version and the switch ---------------------------------------------------------
@@ -371,14 +355,6 @@ def test_a_regrade_at_the_successor_keeps_the_method_rule_and_a_full_credit_regr
     assert _support(repository, result.attempt_id)["proof_route_check"]["method_route_criterion_ids"] == []
 
 
-def _projection(repository):
-    return sorted(
-        (cell.facet_id, cell.capability, round(cell.direct_positive_mass, 12),
-         round(cell.direct_negative_mass, 12), round(cell.certification_credit, 12))
-        for cell in repository.facet_capability_evidence_all()
-    )
-
-
 def test_replay_reproduces_method_grades_without_a_model(tmp_path, monkeypatch):
     _paths, vault, repository = _method_vault(tmp_path)
     submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
@@ -525,18 +501,6 @@ def test_a_regrade_never_acquires_a_required_method_added_after_the_answer(tmp_p
 
 
 # -- re-review F1: a regrade grades the one contract its method was frozen with -------------
-
-
-def _edit_item(paths, *, prompt: str | None = None, setup_description: str | None = None,
-               item_id: str = ITEM) -> None:
-    path = paths.practice_item_path("linear-algebra", item_id)
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if prompt is not None:
-        data["prompt"] = prompt
-    if setup_description is not None:
-        [setup] = [criterion for criterion in data["grading_rubric"]["criteria"] if criterion["id"] == "setup"]
-        setup["description"] = setup_description
-    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
 
 
 def _contract_versions(repository, attempt_id, *, since: set[str] | None = None):

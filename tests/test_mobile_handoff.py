@@ -149,7 +149,7 @@ def test_a_desktop_start_over_a_phone_session_asks_and_replace_is_its_answer(wor
 
 
 def test_adopting_with_a_draft_on_an_item_the_phone_cannot_show_is_refused(world):
-    from tests.test_mobile_rpc import _add_item
+    from tests.mobile_rpc_helpers import _add_item
 
     phone, desktop, repository, paths, _host = world
     _add_item(paths, repository, "pi_figure", "See ![it](figures/a.png).")

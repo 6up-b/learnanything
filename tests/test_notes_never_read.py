@@ -145,7 +145,7 @@ def test_no_generation_grading_evidence_or_ad_module_reaches_the_notes_modules()
 
 
 def test_a_linked_sentinel_note_never_reaches_coverage_scope_or_path_judges(tmp_path):
-    from tests.test_notes_linked import _deliverable, _lines
+    from tests.notes_linked_helpers import _deliverable, _lines
 
     coverage = CoverageJudgeFake()
     deliverable = DeliverableFake(primaries={"Eigenvalues": "Chapter 5 Eigenvalues"})

@@ -23,7 +23,7 @@ from learnloop.content.pipeline.jobs import DurableIngestJobs
 from learnloop.content.pipeline.runner import IngestRunner, JobSpec
 from learnloop.db.repositories import Repository
 
-from tests.test_reading_request_sweep import (
+from tests.reading_request_sweep_helpers import (
     ScriptedClock,
     _background,
     _later,
@@ -35,7 +35,7 @@ from tests.test_reading_request_sweep import (
     fast_sweep,  # noqa: F401 - a fixture
     stopped,  # noqa: F401 - a fixture
 )
-from tests.test_ux_phase1_round2_review import _added_book
+from tests.ux_phase1_round2_review_helpers import _added_book
 from tests.ux_phase1_support import CLOCK, fake_services
 
 

@@ -25,8 +25,8 @@ from learnloop.curriculum import commitments as C
 from learnloop.db.stores import reader_digests as RDG
 from learnloop.instructional import reader_followups as RF
 from tests.recap_fixtures import EXT, at
-from tests.test_reader_followups import NOW_MIN, _attempt, _candidate, _now, _plan, _seeded
-from tests.test_reader_followups_round4 import (
+from tests.reader_followups_helpers import NOW_MIN, _attempt, _candidate, _now, _plan, _seeded
+from tests.reader_followups_round4_helpers import (
     QD,
     QR,
     A,
@@ -35,7 +35,7 @@ from tests.test_reader_followups_round4 import (
     _due,
     _studied_related_example,
 )
-from tests.test_reader_followups_round5 import _discrimination_still_needs_it, _shared
+from tests.reader_followups_round5_helpers import _discrimination_still_needs_it, _shared
 
 B = "pi_svd_define_003"
 

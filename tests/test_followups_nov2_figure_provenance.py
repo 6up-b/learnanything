@@ -34,7 +34,7 @@ from learnloop.figures import service as FS
 from learnloop.vault.loader import load_vault
 from tests.figure_fixtures import EXTRACTION, AuthorFake, build, context, flagship, rows
 from tests.reading_path_fixtures import call
-from tests.test_learner_data_relax_2 import _history_world, _make_exam_material, _plain_vault, _rich_history_rig, \
+from tests.learner_data_relax_2_helpers import _history_world, _make_exam_material, _plain_vault, _rich_history_rig, \
     _rich_row, _switch_off
 
 
@@ -287,7 +287,7 @@ def test_a_fresh_figure_for_a_marked_row_is_reused_after_the_panels_are_switched
     still drawable. Now the lookup also searches each other setting's
     recorded-inputs key: the same figure, no call."""
 
-    from tests.test_figures_rw5b_review import _panels
+    from tests.figures_rw5b_review_helpers import _panels
 
     world, ctx, author, job = _quick_world(tmp_path, monkeypatch)
     legacy_id = job["result"]["figure"]["figureId"]
@@ -382,7 +382,7 @@ def test_a_rich_revision_with_nothing_inherited_carries_no_record(tmp_path, monk
     so the revision's payload is exactly as before (no key)."""
 
     from tests import rich_fixtures as RF
-    from tests.test_figure_rich_job import WHY, _Rig
+    from tests.figure_rich_job_helpers import WHY, _Rig
 
     rig = _Rig(tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY)], [RF.scene_output(), RF.scene_output()])
     rig.build()
@@ -407,7 +407,7 @@ def test_a_lesson_figure_keeps_its_record_and_is_rechecked_by_its_learner_inputs
 
     from learnloop.teacher import service as S
     from learnloop.teacher import visuals as V
-    from tests.test_reader_rw5d_p4b_teacher_visuals import _open, visual_turn
+    from tests.reader_rw5d_p4b_teacher_visuals_helpers import _open, visual_turn
 
     paths, repository, _fake, _author, view, _ = _open(tmp_path, [visual_turn])
     [entry] = [e for e in view["feed"] if e["kind"] == "figure"]

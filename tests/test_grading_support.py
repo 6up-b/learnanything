@@ -31,6 +31,7 @@ from learnloop.vault.loader import load_vault
 from tests.diagnosis_fakes import ReviewFakeClient, prompt_payload
 from tests.diagnosis_split_helpers import build_diagnosis_vault
 from tests.split_live_helpers import split_vault, submit
+from tests.grading_support_helpers import _ZeroWithoutAttribution
 
 
 def _proposal(points: dict[str, float], *, quote: str | None = "U Sigma V", criterion: str = "result", scope: str = "valid_measurement"):
@@ -205,24 +206,6 @@ def test_worked_solution_references_check_against_their_numeric_conclusion():
     # A bare reference is compared whole, as before.
     assert reference_final_answer("4") is None
     assert final_answer_check("Final answer: 4", "4") == {"status": "matches_reference", "method": "exact_match"}
-
-
-class _ZeroWithoutAttribution(ReviewFakeClient):
-    """Marks ``result`` down to zero on any answer, naming no error at all."""
-
-    def _blind_grading(self, request, context):
-        result = super()._blind_grading(request, context)
-        evidence = [
-            row.model_copy(update={"points_awarded": 0.0}) if row.criterion_id == "result" else row
-            for row in result.criterion_evidence
-        ]
-        return result.model_copy(
-            update={
-                "criterion_evidence": evidence,
-                "rubric_score": int(sum(row.points_awarded for row in evidence)),
-                "error_attributions": [],
-            }
-        )
 
 
 def _negative_mass(repository, facet: str) -> float:

@@ -11,15 +11,12 @@ import pytest
 
 from learnloop.db.stores import followup_serve as store
 from learnloop.diagnosis.causal_attribution import OPEN_SET_CAUSE_ID
-from learnloop.diagnosis.split.jobs import drain
-from learnloop.followup_run import jobs, router
+from learnloop.followup_run import router
 from learnloop.followup_serve import identity, workflow as wf
 from learnloop_sidecar import handlers  # noqa: F401 - registers the methods
 from learnloop_sidecar.context import SidecarContext
-from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.followup_serve_helpers import (
-    LIVE_ITEM,
     OFF,
     TAG,
     AuthorFake,
@@ -29,23 +26,9 @@ from tests.followup_serve_helpers import (
     live_shape_vault,
     run_jobs,
 )
+from tests.followup_rival_factor_helpers import _Ready, _call, _generate, _miss
 
 SHAPES = ["no_target", "no_repair", "other_criterion", "trivial"]
-
-
-class _Ready:
-    ready = True
-    status = "ready"
-    active_provider = "fake"
-    provider_type = "codex_sdk"
-    model = "fake-model"
-    provider_revision = None
-    message = None
-
-
-def _call(ctx, name, params):
-    spec = METHOD_REGISTRY[name]
-    return spec.handler(ctx, spec.params_model.model_validate(params))
 
 
 def _reasons(repository, workflow_id):
@@ -66,26 +49,6 @@ def desk(tmp_path, monkeypatch):
                         lambda *_a, **_k: ("fake", _Ready(), client))
     session = _call(ctx, "start_session", {"available_minutes": 30})
     return SimpleNamespace(ctx=ctx, client=client, session=session.get("sessionId") or session["session_id"], paths=paths)
-
-
-def _miss(desk, shape):
-    desk.client.shape = shape
-    vault, repository = desk.ctx.require_vault()
-    result = _call(desk.ctx, "submit_attempt", {
-        "sessionId": desk.session, "practiceItemId": LIVE_ITEM, "answerMd": "A = U Sigma V wrong",
-        "attemptType": "independent_attempt", "latencySeconds": 60,
-    })
-    attempt_id = result.get("attemptId") or result["attempt_id"]
-    drain(vault, repository, client_factory=lambda: desk.client, embedding_factory=lambda: None)
-    return attempt_id
-
-
-def _generate(desk, fake=None):
-    vault, repository = desk.ctx.require_vault()
-    fake = fake or AuthorFake()
-    while jobs.process_next_job(vault, repository, owner="test", clients=author_clients(fake)) is not None:
-        pass
-    return fake
 
 
 def _factors(repository, attempt_id, status="open"):

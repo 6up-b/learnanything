@@ -21,15 +21,13 @@ bubblewrap sandbox (skipped where bubblewrap is unavailable).
 
 from __future__ import annotations
 
-import re
-
 import pytest
 
 from learnloop.content.authoring import pf_sandbox
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import figures as figure_store
 from learnloop.diagnosis.text_gaps import sources as gap_sources
-from learnloop.diagnosis.text_gaps.jobs import process_next_gap_job, sweep_backlog
+from learnloop.diagnosis.text_gaps.jobs import sweep_backlog
 from learnloop.figures import grammar as G
 from learnloop.figures import service as FS
 from learnloop.figures import spec as S
@@ -45,22 +43,10 @@ from tests.figure_fixtures import (
     rows,
     sandbox_ready,
 )
-from tests.test_figures_codex_review import _clients, _gap_jobs, _gap_rows, _hold_out, _missed_prediction
+from tests.figures_codex_review_helpers import _clients, _gap_jobs, _gap_rows, _hold_out, _missed_prediction
+from tests.figures_fix_round2_helpers import _drain, _gaps_switch, _job_rows
 
 needs_sandbox = pytest.mark.skipif(not sandbox_ready(), reason="bubblewrap is not available here")
-
-
-def _job_rows(repository):
-    with repository.connection() as connection:
-        return [dict(row) for row in connection.execute(
-            "SELECT source_kind, source_id, state, last_error FROM learner_text_gap_jobs ORDER BY created_at, id")]
-
-
-def _drain(root, repository, clients):
-    outcomes = []
-    while (outcome := process_next_gap_job(root, repository, owner="t", clients=clients)) is not None:
-        outcomes.append(outcome)
-    return outcomes
 
 
 # ---------------------------------------------------------------------------
@@ -240,21 +226,6 @@ def test_f7_a_build_committed_between_the_reads_is_reused_inside_the_lock(tmp_pa
 # ---------------------------------------------------------------------------
 # F5: the backlog reconciles an explanation saved while gap reading was off
 # ---------------------------------------------------------------------------
-
-def _gaps_switch(paths, enabled: bool) -> None:
-    config = paths.root / "learnloop.toml"
-    text = config.read_text(encoding="utf-8")
-    value = "true" if enabled else "false"
-    section = re.search(r"(?ms)^\[learner_text_gaps\]\n(.*?)(?=^\[|\Z)", text)
-    if section is None:
-        text = text.rstrip("\n") + f"\n\n[learner_text_gaps]\nenabled = {value}\n"
-    elif re.search(r"(?m)^enabled = ", section.group(1)):
-        body = re.sub(r"(?m)^enabled = \w+", f"enabled = {value}", section.group(1), count=1)
-        text = text[:section.start(1)] + body + text[section.end(1):]
-    else:
-        text = text[:section.start(1)] + f"enabled = {value}\n" + text[section.start(1):]
-    config.write_text(text, encoding="utf-8")
-
 
 def test_f5_off_save_on_sweep_reads_the_explanation_once(tmp_path):
     paths, repository, ctx, found = _missed_prediction(tmp_path)

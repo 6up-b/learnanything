@@ -22,31 +22,11 @@ from learnloop.daily_plan import engine as E
 from learnloop.vault.loader import load_vault
 from tests.helpers import append_config_toml
 from tests.reading_path_fixtures import call, context
-from tests.test_plan_follows_path import GUIDE_OFF, OFF, _split, _vault
-from tests.test_rw7b_codex_review_fixes import LABELS, _stage_reading
+from tests.plan_follows_path_helpers import GUIDE_OFF, OFF, _split, _vault
+from tests.rw7b_codex_review_fixes_helpers import LABELS, _stage_reading
+from tests.rw7b_fix_round2_helpers import _plan_row, _skip_to_done
 
 EVERY_ENRICHMENT = {section: "enrichment" for section in ("sec_eigen", "sec_spectral", "sec_diag", "sec_history")}
-
-
-def _plan_row(repository) -> dict:
-    with repository.connection() as connection:
-        [row] = connection.execute(
-            "SELECT status, stop_reason, completed_at FROM daily_plans ORDER BY created_at, id").fetchall()
-    return dict(row)
-
-
-def _skip_to_done(ctx, session_id) -> dict:
-    """Skip every practice item the plan serves until it has nothing left."""
-
-    for _ in range(40):
-        step = call(ctx, "next_plan_item", {"sessionId": session_id, "serve": False})["step"]
-        if step["kind"] == "done":
-            return step
-        assert step["kind"] == "item", step
-        call(ctx, "next_plan_item", {"sessionId": session_id, "skipPracticeItemId": step["practiceItemId"],
-                                     "serve": False})
-    raise AssertionError("the plan never finished")
-
 
 
 # -- Medium: a plan auto-completed because the path excluded every reading -----------------------------

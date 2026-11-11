@@ -48,8 +48,8 @@ from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.helpers import NOW
-from tests.test_learner_report_superseded import _vault
-from tests.test_rebuild_equivalence import ZERO, _shadow_summary
+from tests.learner_report_superseded_helpers import _vault
+from tests.rebuild_equivalence_helpers import ZERO, _shadow_summary
 
 PHONE = "dev_phone"
 
@@ -216,7 +216,7 @@ def test_landing_iii_upgrade_to_mvp037_archives_the_denial_log_exactly_once(tmp_
     naming the command's start and target; a second, refused run leaves the
     log written since in place."""
 
-    from tests.test_ad_denial_log import OLD_LINE, _archives, _upgrade, _write_log
+    from tests.ad_denial_log_helpers import OLD_LINE, _archives, _upgrade, _write_log
     from tests.helpers import create_placement_vault
     from learnloop.adaptive_difficulty import denial_log as D
     from learnloop.adaptive_difficulty import operation as O
@@ -245,7 +245,7 @@ def test_landing_iii_upgrade_to_mvp037_archives_the_denial_log_exactly_once(tmp_
 def test_landing_iii_a_refused_chained_upgrade_to_mvp037_leaves_the_log_in_place(tmp_path, monkeypatch):
     """A chain the first link refuses (a vault older than the chain) archives nothing."""
 
-    from tests.test_ad_denial_log import OLD_LINE, _archives, _upgrade, _write_log
+    from tests.ad_denial_log_helpers import OLD_LINE, _archives, _upgrade, _write_log
     from tests.helpers import create_placement_vault
 
     _denial_cli(monkeypatch)

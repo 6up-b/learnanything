@@ -22,7 +22,7 @@ from learnloop.db.repositories import Repository
 from learnloop.goals.certification import DEMONSTRATED_CREDIT
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
-from tests.test_km3_projections import LO_ID, NOW, _attempt, build_blueprint_vault
+from tests.km3_projections_helpers import LO_ID, NOW, _attempt, build_blueprint_vault
 
 
 def _cell(facet, capability, *, credit=0.0, direct=0.0):

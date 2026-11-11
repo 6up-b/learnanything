@@ -17,18 +17,16 @@ import json
 
 import pytest
 
-from learnloop.algorithm_versions import CLAIM_FIXES_ALGORITHM_VERSION, SUCCESSOR_CHAIN
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.learner.mastery import reanchor_mastery_from_claim
-from learnloop.ops.vault_upgrade import rewrite_algorithm_version
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 
 from tests.helpers import NOW
-from tests.test_assumed_known import _answer
-from tests.test_lp_claim_fixes_review import (
+from tests.assumed_known_helpers import _answer
+from tests.lp_claim_fixes_review_helpers import (
     ITEM,
     LO,
     _all_mastery,
@@ -42,10 +40,7 @@ from tests.test_lp_claim_fixes_review import (
     _rebuild,
     _vault,
 )
-
-TAG = CLAIM_FIXES_ALGORITHM_VERSION
-PREDECESSOR = SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1]
-
+from tests.lp_claim_fixes_rereview_helpers import PREDECESSOR, TAG, _interrupted
 
 # ── F2: completed at every opener that may write; refused by every other ────
 
@@ -66,19 +61,6 @@ def _expected_after_activation(tmp_path):
     clean = _predecessor_vault_with_claims(tmp_path, "clean")
     assert upgrade_to_claim_fixes(clean.root).upgraded
     return _all_mastery(clean.sqlite_path)
-
-
-def _interrupted(tmp_path, name):
-    """The state a death between the publication and the commit leaves.
-
-    The successor's label over the predecessor's database, with the journal
-    (``test_f2_a_death_between_publication_and_commit_is_completed_from_the_journal``
-    produces it with a real death; this builds the same three facts directly)."""
-
-    paths = _predecessor_vault_with_claims(tmp_path, name)
-    _journal(paths).write_text(json.dumps({"predecessor": PREDECESSOR, "target": TAG}), encoding="utf-8")
-    rewrite_algorithm_version(paths.root / "learnloop.toml", PREDECESSOR, TAG, durable=True)
-    return paths
 
 
 def _open_vault_repository(paths):
@@ -409,7 +391,7 @@ def test_f9_a_miss_the_diagnosis_timeout_decides_carries_its_line_reopened_after
 
     from tests.diagnosis_split_helpers import at
     from tests.split_live_helpers import drain_jobs, split_vault
-    from tests.test_placement_diagnosis_decides import DUE_HOURS, LO as SPLIT_LO, _Diagnosed, _miss
+    from tests.placement_diagnosis_decides_helpers import DUE_HOURS, LO as SPLIT_LO, _Diagnosed, _miss
 
     _paths, vault, repository = split_vault(tmp_path, version=TAG, seed=False)
     record_self_report(vault, repository, learning_object_ids=[SPLIT_LO], report="know_this", clock=FrozenClock(at(0)))

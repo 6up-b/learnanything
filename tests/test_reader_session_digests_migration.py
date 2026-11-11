@@ -17,16 +17,10 @@ from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover
 from learnloop.db.stores import reader_digests as RDG
 from learnloop.db.table_roles import TableRole, role_for_table
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.reader_session_digests_migration_helpers import RW6B_ADDED_OBJECTS
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-#: Every schema object 227 adds: the earlier migrations' "nothing else
-#: changed" diffs on the way to head read these.
-RW6B_ADDED_OBJECTS = frozenset({
-    "reader_session_digests", "sqlite_autoindex_reader_session_digests_1",
-    "sqlite_autoindex_reader_session_digests_2", "idx_reader_session_digests_extraction",
-    "idx_reader_session_digests_ended",
-})
 
 
 def _schema(path: Path) -> dict[str, str | None]:

@@ -10,7 +10,7 @@ from learnloop.followup_serve.gates import effective_auto_generate_on_entry, gen
 
 from tests.followup_serve_helpers import CLOCK, BlindRivalClient, OFF, TAG, miss_with_rivals, rival_causes_vault, run_jobs
 from tests.split_live_helpers import drain_jobs, split_vault, submit
-from tests.test_causal_p2_acceptance import _divergent_failure
+from tests.causal_p2_acceptance_helpers import _divergent_failure
 
 
 def _workflows(repository):
@@ -133,7 +133,7 @@ def test_an_exam_sitting_records_eligibility_inside_its_cap(tmp_path):
 
 def test_a_generated_probe_attempt_opens_no_workflow(tmp_path):
     from learnloop.followup_serve import identity
-    from tests.test_causal_p2_acceptance import SOURCE_ITEM
+    from tests.causal_p2_acceptance_helpers import SOURCE_ITEM
 
     vault, repository, _paths = rival_causes_vault(tmp_path)
     identity.register(repository, practice_item_id=SOURCE_ITEM, revision="r", source="manual", clock=CLOCK)

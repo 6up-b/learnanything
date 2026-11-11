@@ -32,9 +32,6 @@ from learnloop.db.table_roles import TableRole, role_for_table
 from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
 
 NOW = "2026-10-18T10:00:00Z"
-#: The objects 231 redefines (rebuilt in place, same names; it adds nothing): the earlier
-#: migrations' "nothing else changed" diffs on the way to head read these.
-C5_ALTERED_TABLES = frozenset({"learner_text_gaps", "learner_text_gap_jobs"})
 KINDS_229 = ("tutor_question", "stuck_answer", "diagnosis", "workbench_text", "reader_formative", "hint_feedback")
 TABLES = ("learner_text_gaps", "learner_text_gap_jobs", "learner_text_gap_reversals",
           "learner_gap_check_advances", "learner_gap_commitments")

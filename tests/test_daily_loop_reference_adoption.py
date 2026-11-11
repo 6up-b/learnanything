@@ -16,9 +16,8 @@ from learnloop.curriculum import commitments as C
 from learnloop.db.repositories import Repository
 from learnloop.reader import reader_authoring as AUTH
 from learnloop.vault.loader import load_vault
-from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.test_daily_loop_reader_authored_practice import (
+from tests.daily_loop_reader_authored_practice_helpers import (
     ANSWER,
     CLOCK,
     LO_ID,
@@ -27,21 +26,7 @@ from tests.test_daily_loop_reader_authored_practice import (
     _queue_ids,
     _reader_vault,
 )
-
-
-def _cite_passage(paths, *, status: str = "active") -> None:
-    lo_path = paths.learning_object_path("linear-algebra", LO_ID)
-    lo = read_yaml(lo_path)
-    lo["provenance"]["source_refs"] = [{
-        "ref_type": "canonical_source", "ref_id": "src1", "locator": "span:ext1/s1",
-        "source_id": "src1", "extraction_id": "ext1",
-    }]
-    lo["status"] = status
-    write_yaml(lo_path, lo)
-
-
-def _learner_cards(paths) -> list:
-    return [item for item in load_vault(paths.root).practice_items.values() if item.prompt == QUESTION]
+from tests.daily_loop_reference_adoption_helpers import _cite_passage, _learner_cards
 
 
 def test_reference_question_becomes_practice_once_an_lo_cites_its_passage(tmp_path):

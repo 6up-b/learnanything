@@ -28,43 +28,23 @@ from learnloop.reader import reader_cues as RCU
 from learnloop.router.card import STEM_LIMIT
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import RequiredMethod
-from learnloop.vault.required_method import answered_prompt, answered_question, required_method_instruction
+from learnloop.vault.required_method import answered_prompt, answered_question
 
 from tests.helpers import add_followup_item
-
-METHOD = "singular value decomposition"
-SENTENCE = required_method_instruction(METHOD)
-LONG = "Let A be the 2 by 2 matrix with rows (3, 0) and (4, 5). " * 12
-
+from tests.method_explicit_landing_helpers import (
+    LONG,
+    METHOD,
+    SENTENCE,
+    _graded_attempt_under,
+    _graded_under_method,
+)
 
 # -- the learner state card (router R2a) ---------------------------------------------------------
 
 
-def _graded_under_method(env, attempt_id: str, item_id: str, *, prompt: str, method: str | None) -> str:
-    """Grade ``attempt_id`` under a pinned contract that showed ``prompt`` and froze ``method``."""
-
-    from learnloop.learner.assessment_contracts import snapshot_for_presentation
-    from tests.test_router_card import LAST
-    from tests.daily_plan_fakes import iso
-
-    update = {"prompt": prompt}
-    if method is not None:
-        update["required_method"] = RequiredMethod(name=method, criterion_ids=["correctness"])
-    item = env.vault.practice_items[item_id].model_copy(update=update)
-    version_id = snapshot_for_presentation(env.repository, env.vault, item)
-    with env.repository.connection() as connection:
-        connection.execute(
-            "INSERT INTO grading_evidence(id, attempt_id, criterion_id, points_awarded, grader_tier, created_at, "
-            "assessment_contract_version_id, grading_revision) VALUES (?, ?, 'correctness', 4, 1, ?, ?, 0)",
-            (f"ge_{attempt_id}", attempt_id, iso(LAST), version_id),
-        )
-        connection.commit()
-    return version_id
-
-
 def test_the_card_shows_the_frozen_methods_sentence_whole_after_a_shortened_statement(tmp_path, monkeypatch):
     from tests.daily_plan_fakes import iso
-    from tests.test_router_card import LAST, OWN_ANSWER, _attempt, _card, _card_world
+    from tests.router_card_helpers import LAST, OWN_ANSWER, _attempt, _card, _card_world
 
     env = _card_world(tmp_path, monkeypatch)
     _attempt(env, "att_method", "pi_a", "lo_m1", iso(LAST), answer=OWN_ANSWER, correctness=1.0)
@@ -86,7 +66,7 @@ def test_the_card_shows_no_sentence_for_a_contract_that_froze_no_method(tmp_path
     none (the learner was never asked to use it)."""
 
     from tests.daily_plan_fakes import iso
-    from tests.test_router_card import LAST, OLD_STEM, OWN_ANSWER, _attempt, _card, _card_world
+    from tests.router_card_helpers import LAST, OLD_STEM, OWN_ANSWER, _attempt, _card, _card_world
 
     env = _card_world(tmp_path, monkeypatch)
     _attempt(env, "att_old", "pi_a", "lo_m1", iso(LAST), answer=OWN_ANSWER, correctness=1.0)
@@ -100,28 +80,8 @@ def test_the_card_shows_no_sentence_for_a_contract_that_froze_no_method(tmp_path
 # -- RW3a: "Open" and "check me" ------------------------------------------------------------------
 
 
-def _graded_attempt_under(repository, vault, *, attempt_id: str, prompt: str, method: str | None) -> None:
-    from learnloop.learner.assessment_contracts import snapshot_for_presentation
-    from tests.helpers import NOW_ISO
-    from tests.test_reader_cues import _attempt
-
-    _attempt(repository, attempt_id=attempt_id, answer="SVD is the eigendecomposition.")
-    update = {"prompt": prompt}
-    if method is not None:
-        update["required_method"] = RequiredMethod(name=method, criterion_ids=["correctness"])
-    item = vault.practice_items["pi_svd_define_001"].model_copy(update=update)
-    version_id = snapshot_for_presentation(repository, vault, item)
-    with repository.connection() as connection:
-        connection.execute(
-            "INSERT INTO grading_evidence(id, attempt_id, criterion_id, points_awarded, grader_tier, created_at, "
-            "assessment_contract_version_id, grading_revision) VALUES (?, ?, 'correctness', 1, 1, ?, ?, 0)",
-            (f"ge_{attempt_id}", attempt_id, NOW_ISO, version_id),
-        )
-        connection.commit()
-
-
 def test_open_shows_the_answered_question_with_its_frozen_method_whole(tmp_path):
-    from tests.test_reader_cues import _active_error, _cue_vault, _plan_and_cues
+    from tests.reader_cues_helpers import _active_error, _cue_vault, _plan_and_cues
 
     _root, vault, repository = _cue_vault(tmp_path, error=False)
     _graded_attempt_under(repository, vault, attempt_id="att-method", prompt=LONG, method=METHOD)
@@ -137,7 +97,7 @@ def test_open_shows_the_answered_question_with_its_frozen_method_whole(tmp_path)
 def test_open_without_a_method_is_unchanged(tmp_path):
     """No method anywhere: the item's question as it is now, clipped as before."""
 
-    from tests.test_reader_cues import _active_error, _cue_vault, _plan_and_cues
+    from tests.reader_cues_helpers import _active_error, _cue_vault, _plan_and_cues
 
     _root, vault, repository = _cue_vault(tmp_path, error=False)
     _graded_attempt_under(repository, vault, attempt_id="att-plain", prompt="Define SVD.", method=None)
@@ -151,7 +111,7 @@ def test_check_me_keeps_the_sentence_whole_when_it_clips(tmp_path):
     from learnloop.vault.writer import upsert_practice_item
     from learnloop_sidecar.handlers.reader import check_me_proposal
     from tests.helpers import NOW
-    from tests.test_reader_cues import _answered_cue, _cue_vault
+    from tests.reader_cues_helpers import _answered_cue, _cue_vault
 
     root, _vault, repository = _cue_vault(tmp_path, on_disk=True)
     add_followup_item(root)
@@ -250,7 +210,7 @@ def test_switched_off_the_llm_judge_decides_the_statement(tmp_path):
     from learnloop.content.proposals.method_statement_judge import resolve_statement_judge
     from tests.helpers import append_config_toml, create_basic_vault
     from tests.structured_ai import StructuredClientFake
-    from tests.test_required_method_authority import StatementDecider
+    from tests.required_method_authority_helpers import StatementDecider
 
     class LLM(StructuredClientFake):
         provider_name = "llm-fake"

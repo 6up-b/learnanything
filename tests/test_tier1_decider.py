@@ -14,60 +14,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from learnloop.ai.decisions import ChoiceAnswer, ChoiceQuestion, DecisionResult
+from learnloop.ai.decisions import ChoiceQuestion
 from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.config.schema import LearnLoopConfig
 from learnloop.db.repositories import Repository
-
-
-class Decider:
-    """A Decider double whose choice field disagrees with its probability argmax."""
-
-    model = "fake/decider"
-    provider_name = "fake"
-    provider_type = "decider"
-    settings = SimpleNamespace(price_per_million_input=0.02)
-
-    def __init__(self, error: Exception | None = None):
-        self.error = error
-        self.calls: list = []
-
-    def decide(self, state, questions, *, purpose):
-        self.calls.append((state, questions, purpose))
-        if self.error:
-            raise self.error
-        answers = {}
-        for name, question in questions.items():
-            assert isinstance(question, ChoiceQuestion)
-            options = list(question.options)
-            probabilities = {k: (0.8 if i == len(options) - 1 else 0.2 / (len(options) - 1))
-                             for i, k in enumerate(options)}
-            # Deliberately disagree with the probability argmax.
-            answers[name] = ChoiceAnswer(options[0], probabilities)
-        return DecisionResult(answers, self.model, 100, 0, 0.000002)
-
-
-class FixedDecider(Decider):
-    """Answers each question with ``choices[purpose]`` (or ``choices[name]``) at 0.9."""
-
-    def __init__(self, choices):
-        super().__init__()
-        self.choices = choices
-
-    def decide(self, state, questions, *, purpose):
-        self.calls.append((purpose, state))
-        answers = {}
-        for name, question in questions.items():
-            choice = self.choices.get(purpose, self.choices.get(name, next(iter(question.options))))
-            assert choice in question.options
-            n = len(question.options)
-            answers[name] = ChoiceAnswer(choice, {k: (1.0 if n == 1 else 0.9) if k == choice else 0.1 / (n - 1)
-                                                  for k in question.options})
-        return DecisionResult(answers, self.model, 100, 0, 0.000002)
-
-
-def _no_decider(*_args):
-    raise AIProviderUnavailable("Decider unavailable")
+from tests.tier1_decider_helpers import Decider, FixedDecider, TiedDecider, _no_decider, _rows
 
 
 def _config(**switches) -> LearnLoopConfig:
@@ -76,12 +27,6 @@ def _config(**switches) -> LearnLoopConfig:
     for name, value in switches.items():
         setattr(config.decider_routes, name, value)
     return config
-
-
-def _rows(repository, task=None):
-    with repository.connection() as connection:
-        query = "SELECT * FROM judgment_ledger" + (" WHERE task = ?" if task else "") + " ORDER BY rowid"
-        return [dict(row) for row in connection.execute(query, (task,) if task else ())]
 
 
 # -- the shared decision ----------------------------------------------------------------------------
@@ -312,7 +257,7 @@ def test_gap_pairs_reuse_the_deciders_verdict_and_defer_on_a_stopped_fallback(tm
 
 @pytest.mark.parametrize("mode", ["decider", "unavailable", "disabled"])
 def test_text_gap_kind_authority(tmp_path, mode):
-    from tests.test_learner_text_gaps import EIGEN_GAP, _ask, _run, _vault
+    from tests.learner_text_gaps_helpers import EIGEN_GAP, _ask, _run, _vault
     from tests.text_gap_fakes import GapLLMFake, GapTutor, word_match
 
     toml = "[decider_routes]\nlearner_gap_kind = false\nlearner_gap_judge = false\n" if mode == "disabled" else ""
@@ -334,7 +279,7 @@ def test_text_gap_kind_is_reused_never_paid_for_twice(tmp_path):
     from learnloop.diagnosis.text_gaps.pipeline import PipelineClients
     from learnloop.diagnosis.text_gaps.sources import tutor_question_text
     from learnloop.vault.loader import load_vault
-    from tests.test_learner_text_gaps import EIGEN_GAP, _ask, _vault
+    from tests.learner_text_gaps_helpers import EIGEN_GAP, _ask, _vault
     from tests.text_gap_fakes import GapLLMFake, GapTutor
 
     root, repo = _vault(tmp_path, version="mvp-0.22")
@@ -400,7 +345,7 @@ def test_contamination(tmp_path, monkeypatch, task, mode):
     from learnloop.ops.contamination.judge import OPERATIONS, JudgeRequest, run_judgments
     from learnloop.vault.loader import load_vault
     from tests.helpers import create_basic_vault
-    from tests.test_contamination_report import Judge
+    from tests.contamination_report_helpers import Judge
 
     paths = create_basic_vault(tmp_path / "vault")
     vault = load_vault(paths.root, load_environment=False)
@@ -542,19 +487,6 @@ def test_only_new_authoritative_decider_links_reach_recurrence(tmp_path):
 # -- review fixes ------------------------------------------------------------------------------------
 
 
-class TiedDecider(Decider):
-    """Its two first options share the top probability (and its choice field names the first)."""
-
-    def decide(self, state, questions, *, purpose):
-        self.calls.append((state, questions, purpose))
-        answers = {}
-        for name, question in questions.items():
-            options = list(question.options)
-            probabilities = {k: (0.5 if i < 2 else 0.0) for i, k in enumerate(options)}
-            answers[name] = ChoiceAnswer(options[0], probabilities)
-        return DecisionResult(answers, self.model, 100, 0, 0.000002)
-
-
 def test_a_tied_top_option_is_no_answer_and_hands_over(tmp_path):
     """Review F8: a tie for the top probability is no clear answer; the first option never wins it."""
 
@@ -627,7 +559,7 @@ def test_a_predecessor_second_opinion_is_never_reused_as_the_tier1_verdict(tmp_p
 def test_the_learner_text_gaps_decider_switch_still_keeps_learner_text_from_the_decider(tmp_path):
     """Review F5: ``learner_text_gaps.decider_enabled = false`` holds at mvp-0.22 too."""
 
-    from tests.test_learner_text_gaps import EIGEN_GAP, _ask, _run, _vault
+    from tests.learner_text_gaps_helpers import EIGEN_GAP, _ask, _run, _vault
     from tests.text_gap_fakes import GapLLMFake, GapTutor, word_match
 
     root, repo = _vault(tmp_path, version="mvp-0.22", toml="[learner_text_gaps]\ndecider_enabled = false\n")
@@ -664,7 +596,7 @@ def test_contamination_one_routes_switch_restores_its_old_checkpoints_budget_che
     from learnloop import decider_judgments as tier1
     from learnloop.ai.execution import content_key
     from learnloop.ai.spend import SpendCaps
-    from tests.test_contamination_report import Judge, run, tutor_vault
+    from tests.contamination_report_helpers import Judge, run, tutor_vault
 
     _paths, loaded, repository, _event = tutor_vault.__wrapped__(tmp_path)
     loaded.config.algorithms.algorithm_version = "mvp-0.21"

@@ -11,7 +11,7 @@ from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, Extract
 from learnloop.reader import annotations as ANN
 from learnloop.reader import reader_restoration as REST
 from learnloop.attempts.salience_firewall import SalienceEvidenceRejected, reject_salience
-from tests.test_source_inventory import _persist, _register_revision
+from tests.source_inventory_helpers import _persist, _register_revision
 
 
 def _ir(blocks, extractor_version="1"):

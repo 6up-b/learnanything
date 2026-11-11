@@ -21,8 +21,9 @@ from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 
 from tests.ad_fakes import AuditDecider, ForecastLLM, ad_plan_vault, rows
-from tests.test_ad1_codex_rereview_fixes import _exercise, _served_with_history, _set_fields
-from tests.test_ad1_fix_round4 import EXAM_SET, _add_exam_scope, _builds, _bulk_vault
+from tests.ad1_codex_rereview_fixes_helpers import _exercise, _served_with_history, _set_fields
+from tests.ad1_fix_round4_helpers import EXAM_SET, _add_exam_scope, _builds, _bulk_vault
+from tests.ad1_fix_round6_helpers import _Moving
 
 
 # -- V1-a [High]: the vault and its generation are published as one snapshot ---------------------
@@ -153,21 +154,6 @@ def test_the_last_confirmation_runs_after_the_outer_gate_and_the_receipt(tmp_pat
 # -- V3 [Medium]: a transient refusal is stale, retried, never settled -----------------------------
 
 
-class _Moving:
-    """A live-vault provider whose generation moves when told to."""
-
-    def __init__(self, vault):
-        self.vault, self.current, self.always = vault, 0, False
-
-    def __call__(self):
-        return self.vault
-
-    def generation(self):
-        if self.always:
-            self.current += 1
-        return self.current
-
-
 AUDIT_ONLY = "[adaptive_difficulty]\noutside_forecasters = []\n"
 
 
@@ -246,7 +232,7 @@ def test_four_interrupted_checks_are_stale_and_retried(tmp_path):
 def test_a_stale_refusal_reports_stale_and_held_out_content_reports_protected(tmp_path, monkeypatch):
     from learnloop.adaptive_difficulty.outside import Clients, forecast_item
 
-    from tests.test_ad1_codex_rereview_fixes import _hold_out
+    from tests.ad1_codex_rereview_fixes_helpers import _hold_out
 
     paths = ad_plan_vault(tmp_path)
     _set_fields(paths, "pi_m1a", canonical_exercise=_exercise("span_a"))

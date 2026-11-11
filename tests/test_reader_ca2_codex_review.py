@@ -29,91 +29,24 @@ from contextlib import closing
 import pytest
 
 import learnloop_sidecar.handlers  # noqa: F401 - registers the RPCs
-from learnloop.algorithm_versions import ONE_ASK_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.tutor.ai_contracts import TutorAnswer, TutorCitation
+from learnloop.tutor.ai_contracts import TutorCitation
 from learnloop.tutor.tutor_qa import (
     WITHHELD_ANSWER_MD,
     QuestionLimitReached,
     ask_question,
     hint_equivalents_for_submission,
 )
-from learnloop.vault.loader import load_vault
 from learnloop_sidecar.context import SidecarContext
-from learnloop_sidecar.registry import METHOD_REGISTRY
 from tests.ad23_fakes import cold_followup
-from tests.helpers import NOW, create_basic_vault
-from tests.structured_ai import StructuredClientFake
+from tests.helpers import NOW
 from tests.ux_phase1_support import set_config
-
-ITEM = "pi_svd_define_001"
-TAG = ONE_ASK_ALGORITHM_VERSION
-
-
-class FakeTutor(StructuredClientFake):
-    provider_name = "fake_tutor"
-    provider_type = "fake"
-    model = "fake-model"
-
-    def __init__(self, question_type: str = "mechanism", answer_md: str = "Think about the shapes.",
-                 cite_first: bool = False) -> None:
-        self.question_type = question_type
-        self.answer_md = answer_md
-        self.cite_first = cite_first
-        self.contexts: list = []
-
-    def run_tutor_qa(self, context):
-        self.contexts.append(context)
-        citations = []
-        if self.cite_first and context.source_spans:
-            span = context.source_spans[0]
-            citations = [TutorCitation(extraction_id=str(span["extraction_id"]), span_id=str(span["span_id"]))]
-        return TutorAnswer(answer_md=self.answer_md, question_type=self.question_type,
-                           facets=list(context.candidate_facets), citations=citations)
-
-
-class PlanTutor(FakeTutor):
-    """The ChatGPT plan's transport, as the spend module recognises it."""
-
-    provider_type = "chatgpt_plan"
-
-
-def _call(ctx, name, params):
-    spec = METHOD_REGISTRY[name]
-    return spec.handler(ctx, spec.params_model.model_validate(params))
-
-
-def _vault(tmp_path, updates: dict | None = None):
-    paths = create_basic_vault(tmp_path / "vault")
-    set_config(paths.root, {("algorithms", "algorithm_version"): TAG, **(updates or {})})
-    return paths, load_vault(paths.root), Repository(paths.sqlite_path)
-
-
-@pytest.fixture
-def sidecar(tmp_path, monkeypatch):
-    import learnloop_sidecar.handlers.tutor_qa as handler
-
-    holder: dict = {"tutor": FakeTutor(question_type="clarification")}
-
-    class Ready:
-        ready = True
-
-    monkeypatch.setattr(handler, "ready_tutor_qa_provider", lambda vault: ("fake", Ready(), holder["tutor"]))
-
-    def build(updates: dict | None = None, tutor: FakeTutor | None = None, name: str = "vault"):
-        if tutor is not None:
-            holder["tutor"] = tutor
-        paths, _vault_, _repository = _vault(tmp_path / name, updates)
-        ctx = SidecarContext()
-        ctx.load(paths.root)
-        return paths, ctx, holder["tutor"]
-
-    return build
-
+from tests.reader_ca2_codex_review_helpers import FakeTutor, ITEM, PlanTutor, TAG, _call, _expected, _vault
+from tests.reader_ca2_codex_review_helpers import sidecar  # noqa: F401 - fixtures, used by parameter name
 
 def _workbench(repository, item_id: str = ITEM) -> str:
-    from tests.test_reader_tutor_retrieval import _bound_session
+    from tests.reader_tutor_retrieval_helpers import _bound_session
 
     return _bound_session(repository, item_id)
 
@@ -229,11 +162,6 @@ def test_a_workbench_of_another_item_is_refused(sidecar):
 # -- F2 (K9): worked help is never served on the spot --------------------------------------------------
 
 
-def _expected(vault) -> str:
-    expected = vault.practice_items[ITEM].expected_answer
-    return expected if isinstance(expected, str) else str(expected)
-
-
 def test_an_answer_that_gives_the_answer_away_is_withheld_with_the_take_step(sidecar):
     _paths, ctx, tutor = sidecar(tutor=FakeTutor(question_type="strategy"))
     vault, repository = ctx.require_vault()
@@ -340,7 +268,7 @@ def test_a_free_clarification_is_listed_for_its_own_attempt_only(sidecar):
 
 
 def test_a_cited_passage_carries_its_excerpt_as_provided_and_stores_it(tmp_path):
-    from tests.test_tutor_citations import _CLOCK, _ITEM_ID, _CitingTutorClient, _mapped_vault
+    from tests.tutor_citations_helpers import _CLOCK, _ITEM_ID, _CitingTutorClient, _mapped_vault
 
     vault, repository = _mapped_vault(tmp_path)
     assert vault.config.ask.panel_enabled

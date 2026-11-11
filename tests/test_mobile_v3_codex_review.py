@@ -22,7 +22,7 @@ from learnloop.followup_serve import identity, workflow as wf
 from learnloop.followup_serve.gates import PHONE_SURFACE, SERVING_SURFACE
 from learnloop_sidecar.request_origin import RequestOrigin
 
-from tests.test_mobile_v3_probes import PHONE, TAG, _adopt, _call, _ready, _refused, _world, world  # noqa: F401
+from tests.mobile_v3_probes_helpers import PHONE, TAG, _adopt, _call, _ready, _refused, _world, world  # noqa: F401
 
 
 @pytest.fixture
@@ -38,7 +38,7 @@ def plan_world(tmp_path, monkeypatch):
 
     from tests.helpers import create_daily_plan_vault, set_algorithm_version
     from tests.mobile_host_helpers import HOSTNAME, CountingGrader, Phone, config_for, install_grader, pair
-    from tests.test_mobile_v2_plan import DAY, ITEMS, _held_prompt
+    from tests.mobile_v2_plan_helpers import DAY, ITEMS, _held_prompt
 
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: DAY)
     paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=ITEMS)
@@ -190,7 +190,7 @@ def _phone_plan_probe(world, monkeypatch):
     from learnloop.diagnosis.split.jobs import drain
     from learnloop.followup_run import router
 
-    from tests.test_followup_rival_factor import _generate
+    from tests.followup_rival_factor_helpers import _generate
 
     real = router.decide
     monkeypatch.setattr(router, "decide", lambda *a, **k: replace(real(*a, **k), chosen_ref=router.ASK_NOW,
@@ -288,7 +288,7 @@ def _make_probe(repository, item_id: str) -> None:
 def _phone_step_probe(plan_world):
     """The phone's first plan step (served to the current app), made a generated probe before its door opens."""
 
-    from tests.test_mobile_v2_plan import _next
+    from tests.mobile_v2_plan_helpers import _next
 
     phone, _host, repository, _paths = plan_world
     session_id = phone.start()["sessionId"]
@@ -317,7 +317,7 @@ def test_f3_a_v2_app_gets_v2s_doors_from_a_v3_host_and_burns_nothing(plan_world)
 
 
 def test_f3_a_v2_apps_plan_step_holds_a_generated_probe_for_the_desktop(plan_world):
-    from tests.test_mobile_v2_plan import _next
+    from tests.mobile_v2_plan_helpers import _next
 
     phone, _host, repository, _paths = plan_world
     session_id = phone.start()["sessionId"]

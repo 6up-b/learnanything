@@ -33,9 +33,9 @@ from learnloop.content.synthesis.source_set_synthesis import StudyMapError, crea
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault
-from tests.test_source_append import FakeAppendClient, _bootstrap_and_add, _first_new_span
-from tests.test_source_ingestion import _FakeCanonicalClient, _proposal_payload, _source_file
-from tests.test_source_set_synthesis import (
+from tests.source_append_helpers import FakeAppendClient, _bootstrap_and_add, _first_new_span
+from tests.source_ingestion_helpers import _FakeCanonicalClient, _proposal_payload, _source_file
+from tests.source_set_synthesis_helpers import (
     _CLOCK,
     FakeSynthesisClient,
     _default_payload,

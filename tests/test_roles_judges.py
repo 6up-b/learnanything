@@ -25,6 +25,7 @@ from learnloop.source_retrieval import library_ask as LA
 from learnloop.source_retrieval import passage_cues as PC
 from tests.library_ask_fixtures import OrganizerFake, call, context
 from tests.passage_cue_fakes import CueJudgeFake, build_cue_vault, loaded, set_config
+from tests.roles_judges_helpers import _proposals
 
 QUESTION = "why does the determinant change sign when two rows are swapped"
 #: The base tree's (a12ba5ba9) JSON schemas of the two judges' RW3b/RW4a
@@ -40,15 +41,6 @@ BASE_SCHEMA_SHA = {
 def library(tmp_path):
     paths, repository, spans = build_cue_vault(tmp_path / "vault")
     return paths, repository, spans
-
-
-def _proposals(repository) -> list[dict]:
-    with repository.connection() as connection:
-        return [{**dict(row), "content": json.loads(row["content_json"])} for row in connection.execute(
-            "SELECT v.source_object_id, v.version_ordinal, v.authorial_role, v.object_type, v.status, "
-            "v.content_json, c.span_id FROM source_object_versions v "
-            "JOIN source_object_citations c ON c.source_object_version_id = v.id "
-            "ORDER BY v.source_object_id, v.version_ordinal")]
 
 
 def _sha(text: str) -> str:

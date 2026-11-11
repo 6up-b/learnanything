@@ -16,7 +16,7 @@ from learnloop.db.repositories import Repository
 from learnloop.reader import reader_authoring as AUTH
 from learnloop.vault.loader import load_vault
 
-from tests.test_daily_loop_reader_authored_practice import (
+from tests.daily_loop_reader_authored_practice_helpers import (
     ANSWER,
     CLOCK,
     LO_ID,

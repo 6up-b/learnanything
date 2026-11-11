@@ -17,30 +17,9 @@ from learnloop.diagnosis.split import jobs as jobs_module
 from learnloop.diagnosis.split.jobs import DONE, diagnosis_status
 from learnloop.tui.screens.feedback import FeedbackScreen
 
-from tests.diagnosis_fakes import ReviewFakeClient
 from tests.helpers import NOW_ISO
 from tests.split_live_helpers import drain_jobs, split_vault, submit
-
-_DIAGNOSED = "The learner thinks V needs no transpose in the SVD."
-
-
-class _StatementFake(ReviewFakeClient):
-    """The M1 fake, with the diagnoser naming a misconception statement."""
-
-    def __init__(self, *, causal_class: str = "learner_state", **kwargs):
-        super().__init__(**kwargs)
-        self.causal_class = causal_class
-
-    def _diagnosis(self, request, context):
-        result = super()._diagnosis(request, context)
-        events = [
-            event.model_copy(
-                update={"misconception_statement": _DIAGNOSED, "causal_class": self.causal_class}
-            )
-            for event in result.event_diagnoses
-        ]
-        return result.model_copy(update={"event_diagnoses": events})
-
+from tests.active_errors_overlay_helpers import _DIAGNOSED, _StatementFake
 
 def test_overlaid_read_carries_the_diagnosers_statement_and_verdict(tmp_path):
     _paths, vault, repository = split_vault(tmp_path, seed=False)

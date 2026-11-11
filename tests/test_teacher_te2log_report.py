@@ -18,7 +18,7 @@ from learnloop.teacher import service as S
 from learnloop.teacher.report import COVERAGE_FIELDS, report
 from learnloop.vault.loader import load_vault
 from tests.teacher_fakes import TeacherFake, build_teacher_vault, check_turn, clients, landed_turn, plan_turn
-from tests.test_teacher_te2log_receipt import T0, _iso, _run
+from tests.teacher_te2log_receipt_helpers import T0, _iso, _run
 
 
 def _cold(paths, repository, item, days, right=True):

@@ -26,12 +26,11 @@ from learnloop.router_objective import value as V
 
 from tests.router_mixture_helpers import mixture_env, rows, run
 from tests.router_model_fakes import fake_runtime
-from tests.test_ro4_value import W
+from tests.ro4_value_helpers import W
+from tests.ro5_stop_coin_helpers import ARMS_OFF
 
 TAG = ROUTER_CALIBRATION_ALGORITHM_VERSION
 OLD = ROUTER_OBJECTIVE_ALGORITHM_VERSION
-ARMS_OFF = ("[router_objective]\nstop_coin = 0.0\ncheck_rate = \"off\"\npick_open_share = 0.0\n"
-            "fitted_models = false\n")
 SUPPORT = ["a", "b", SC.STOP]
 MU = {"a": 0.5, "b": 0.3, SC.STOP: 0.2}
 

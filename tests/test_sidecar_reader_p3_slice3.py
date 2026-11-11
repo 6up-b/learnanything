@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tests.test_sidecar_reader_p3 import _rpc, _setup
+from tests.sidecar_reader_p3_helpers import _rpc, _setup
 
 _SEL = {"nodes": [{"spanId": "s1", "quote": "Symmetric"}]}
 

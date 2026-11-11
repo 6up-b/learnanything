@@ -19,7 +19,7 @@ import pytest
 from learnloop_sidecar.handlers import practice
 from learnloop_sidecar.handlers.workbench import WorkbenchOpenInput
 from tests.hint_fakes import ITEM, WORK, ChooserFake, assists, prefer
-from tests.test_hint_h2b_review import (  # noqa: F401 - ``grader`` is a fixture
+from tests.hint_h2b_review_helpers import (  # noqa: F401 - ``grader`` is a fixture
     _attempt,
     _call,
     _hint,

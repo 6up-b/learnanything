@@ -15,7 +15,7 @@ import learnloop_sidecar.handlers.practice as practice
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.registry import METHOD_REGISTRY
 from tests.hint_fakes import ChooserFake, WriterFake, assists
-from tests.test_hint_telemetry import ITEM, _call, _dump, _scenario, _scrub, _vault, frozen  # noqa: F401
+from tests.hint_telemetry_helpers import ITEM, _call, _dump, _scenario, _scrub, _vault, frozen  # noqa: F401
 
 ADAPTIVE_OFF = "[hints]\nadaptive_enabled = false\n"
 
@@ -95,7 +95,7 @@ def test_the_served_item_and_its_cold_check_fields_are_unchanged_by_the_switch(t
         session_id = _call(ctx, "start_session", {"energy": "medium"})["sessionId"]
         return _scrub(_call(ctx, "get_practice_item", {"practiceItemId": ITEM, "sessionId": session_id}), root)
 
-    from tests.test_hint_telemetry import _deterministic_ids
+    from tests.hint_telemetry_helpers import _deterministic_ids
 
     _deterministic_ids(monkeypatch)
     on = serve(_vault(tmp_path, name="on").root)

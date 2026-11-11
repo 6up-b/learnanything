@@ -32,7 +32,7 @@ def test_a_miss_with_two_rivals_generates_one_pinned_probe(tmp_path):
 def test_protected_and_reserved_items_never_reach_the_prompt(tmp_path, monkeypatch):
     from learnloop import learner_protection
     from learnloop.diagnosis import ai_contracts
-    from tests.test_causal_p2_acceptance import COLD_ITEM, PROBE_ITEM
+    from tests.causal_p2_acceptance_helpers import COLD_ITEM, PROBE_ITEM
 
     vault, repository, _paths = rival_causes_vault(tmp_path)
     _result, outcome = miss_with_rivals(vault, repository)
@@ -152,7 +152,7 @@ def _entered(vault, repository, lo_id):
 def test_entry_enqueues_deduplicated_work_and_never_calls_a_model_inline(tmp_path):
     from learnloop.db.stores import followup_serve as store
     from learnloop.diagnosis.probe_episodes import enter_episode
-    from tests.test_causal_p2_acceptance import LO_ID
+    from tests.causal_p2_acceptance_helpers import LO_ID
 
     vault, repository, _paths = rival_causes_vault(tmp_path)
     fake = AuthorFake()
@@ -171,8 +171,8 @@ def test_entry_enqueues_deduplicated_work_and_never_calls_a_model_inline(tmp_pat
 
 def test_a_mint_under_fg1_is_model_written_single_use_and_needs_no_review(tmp_path):
     from learnloop.followup_serve import queue
-    from tests.test_causal_p2_acceptance import LO_ID
-    from tests.test_probe_surface_mint import FakeSurfacesClient
+    from tests.causal_p2_acceptance_helpers import LO_ID
+    from tests.probe_surface_mint_helpers import FakeSurfacesClient
 
     vault, repository, _paths = rival_causes_vault(tmp_path)
     episode = repository.open_probe_episode(LO_ID) or _entered(vault, repository, LO_ID)

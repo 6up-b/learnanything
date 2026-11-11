@@ -48,8 +48,8 @@ from learnloop_sidecar.registry import METHOD_REGISTRY
 from tests.helpers import NOW, NOW_ISO, create_basic_vault
 from tests.structured_ai import StructuredClientFake
 from tests.ux_phase1_support import set_config
+from tests.reader_ca2_one_ask_helpers import ITEM, _attempt
 
-ITEM = "pi_svd_define_001"
 TAG = ONE_ASK_ALGORITHM_VERSION
 
 
@@ -162,7 +162,7 @@ def test_without_help_the_cold_rules_are_unchanged():
 
 
 def _repair_at(tmp_path, *, converts: bool):
-    from tests.test_remediation_cold_retry import _setup
+    from tests.remediation_cold_retry_helpers import _setup
 
     vault, repository, misconception_id = _setup(tmp_path)
     set_config(vault.root, {("algorithms", "algorithm_version"): TAG,
@@ -172,7 +172,7 @@ def _repair_at(tmp_path, *, converts: bool):
 
 def test_a_hinted_cold_retry_is_practice_with_help_and_never_consumes_the_measurement(tmp_path):
     from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-    from tests.test_remediation_cold_retry import NOW as REPAIR_NOW, _drive_to_cold_scheduled
+    from tests.remediation_cold_retry_helpers import NOW as REPAIR_NOW, _drive_to_cold_scheduled
 
     vault, repository, misconception_id = _repair_at(tmp_path, converts=True)
     episode, _primed, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
@@ -198,7 +198,7 @@ def test_switched_off_a_hinted_cold_retry_is_refused_as_before(tmp_path):
         SelfGradeInput,
         complete_self_graded_attempt,
     )
-    from tests.test_remediation_cold_retry import NOW as REPAIR_NOW, _drive_to_cold_scheduled
+    from tests.remediation_cold_retry_helpers import NOW as REPAIR_NOW, _drive_to_cold_scheduled
 
     vault, repository, misconception_id = _repair_at(tmp_path, converts=False)
     _episode, _primed, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
@@ -221,7 +221,7 @@ def test_an_assisted_attempt_is_recognised():
 
 def test_a_due_cold_follow_up_is_served_with_the_take_step(tmp_path):
     from learnloop.intent.checks import HELP_LADDER_HEADER, cold_followup_view
-    from tests.test_remediation_cold_retry import NOW as REPAIR_NOW, _drive_to_cold_scheduled
+    from tests.remediation_cold_retry_helpers import NOW as REPAIR_NOW, _drive_to_cold_scheduled
 
     vault, repository, misconception_id = _repair_at(tmp_path, converts=True)
     _episode, _primed, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
@@ -251,9 +251,9 @@ def test_the_bound_cold_ask_follows_the_rule(cold_every, substantive):
 def test_the_readers_cold_paths_count_a_clarification_only_under_the_predecessor(tmp_path, monkeypatch,
                                                                                 converts, question_type):
     from tests.reader_tutor_fakes import LookupTutor, ask, reader_ctx
-    from tests.test_reader_rw1c_review import ITEM as READER_ITEM, _bound_to, _cold_attempt
+    from tests.reader_rw1c_review_helpers import ITEM as READER_ITEM, _bound_to, _cold_attempt
 
-    from tests.test_reader_rw1c_review import _rebind
+    from tests.reader_rw1c_review_helpers import _rebind
 
     tutor = LookupTutor(question_type=question_type)
     paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
@@ -419,7 +419,7 @@ def test_panel_off_the_sidecar_asks_as_before(sidecar):
 
 def test_a_steps_question_names_its_items_workbench_and_its_step(sidecar):
     from learnloop_sidecar.errors import SidecarError
-    from tests.test_reader_tutor_retrieval import _bound_session
+    from tests.reader_tutor_retrieval_helpers import _bound_session
 
     paths, ctx, tutor = sidecar()
     _vault_, repository = ctx.require_vault()
@@ -461,16 +461,6 @@ def test_the_reader_asks_in_the_help_styles_mode(tmp_path, monkeypatch):
 
 
 # -- K6: earlier on this question ----------------------------------------------------------------------
-
-
-def _attempt(repository, attempt_id: str, created_at: str, *, hints: int = 0) -> None:
-    with repository.connection() as connection:
-        connection.execute(
-            "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
-            "learner_answer_md, hints_used, created_at, session_id, rubric_score) "
-            "VALUES (?, ?, 'lo_svd_definition', 'short_answer', 'independent_attempt', 'my answer', ?, ?, 'sess_1', 3)",
-            (attempt_id, ITEM, hints, created_at))
-        connection.commit()
 
 
 def _question(repository, event_id: str, created_at: str, *, context: str = "practice",

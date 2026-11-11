@@ -34,7 +34,7 @@ from learnloop.ingest.locators import (
     parse_block_span,
 )
 from learnloop.content.sources.source_library import register_source_revision
-from tests.test_source_ingestion_adapters import _make_pdf_bytes
+from tests.source_ingestion_adapters_helpers import _make_pdf_bytes
 
 _CLOCK = FrozenClock(datetime(2026, 7, 13, 12, 0, 0, tzinfo=UTC))
 

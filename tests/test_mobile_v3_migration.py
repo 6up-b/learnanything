@@ -16,11 +16,9 @@ import pytest
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.mobile_v3_migration_helpers import TABLE, V3_ALTERED_TABLES
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-TABLE = "help_assists"
-#: What 250 alters (its table's text: the surface list): earlier migrations' "alters nothing else" diffs read this.
-V3_ALTERED_TABLES = frozenset({TABLE})
 #: The objects 250 drops and recreates (same names and definitions).
 V3_REBUILT_OBJECTS = frozenset({
     TABLE, "sqlite_autoindex_help_assists_1", "idx_help_assists_session_item", "idx_help_assists_attempt",

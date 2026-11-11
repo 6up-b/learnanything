@@ -36,7 +36,7 @@ from learnloop.practice_index.paid import plan_route, resolve_client
 from learnloop.vault.loader import load_vault
 
 from tests.openai_fakes import install_fake_openai
-from tests.test_plan_first_transport_paid_roles import _priced_vault, _routed_tasks
+from tests.plan_first_transport_paid_roles_helpers import _priced_vault, _routed_tasks
 
 KEY_TASK = "source_solution_match"
 

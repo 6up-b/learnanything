@@ -23,35 +23,14 @@ from learnloop.workbench.check import session_calls
 from tests.approach_map_fakes import EXPECTED, ITEM
 from tests.hint_fakes import WriterFake
 from tests.workbench_help_fakes import STEP_2, call, help_rows, open_problem, run_job, sidecar, wb_answer
+from tests.workbench_route_example_helpers import FindFake, OTHER, ROUTE
 
-ROUTE = {"span_id": "w2", "extraction_id": "ext", "source_title": "Book A", "section": "3.4", "page": 41,
-         "text": "Example 3.4: take the CDF first, then read the boundary.", "role": "worked_example",
-         "verdict": "follows_learner_route"}
-OTHER = {"span_id": "w1", "extraction_id": "ext", "source_title": "Book A", "section": "3.2", "page": 39,
-         "text": "Example 3.2: integrate the density directly.", "role": "worked_example",
-         "verdict": "worked_example"}
 LEAK = {"span_id": "w3", "extraction_id": "ext", "source_title": "Book A", "section": "3.5",
         "text": EXPECTED, "role": "worked_example", "verdict": "follows_learner_route"}
 EXERCISE = {"span_id": "x1", "extraction_id": "ext", "source_title": "Book A", "section": "3.9",
             "text": "Exercise 3.9", "role": "exercise", "verdict": "follows_learner_route"}
 UNRELATED = {"span_id": "u1", "extraction_id": "ext", "source_title": "Book B", "text": "Something else",
              "role": "worked_example", "verdict": "unrelated"}
-
-
-class FindFake:
-    """``find_sources(intent="worked_example")``, faked at the Reader's seam."""
-
-    def __init__(self, hits, status="verified"):
-        self.hits = hits
-        self.status = status
-        self.calls = []
-
-    def __call__(self, vault, repository, query, *, caller, learner_work_md, owner_id):
-        self.calls.append({"query": query, "caller": caller, "learner_work_md": learner_work_md,
-                           "owner_id": owner_id})
-        policy, _reason = derive_policy(caller)
-        return SimpleNamespace(hits=[dict(hit) for hit in self.hits], policy=policy, status="ok",
-                               manifest={"verification": {"status": self.status}, "policy": policy})
 
 
 def _setup(tmp_path, config="", hits=(OTHER, ROUTE), **kwargs):

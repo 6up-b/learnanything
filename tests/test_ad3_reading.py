@@ -27,10 +27,10 @@ from learnloop.attempts.salience_firewall import (
 from learnloop.daily_plan.engine import advance, build_plan
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
-from learnloop.db.stores import ad_receipts
 from learnloop.vault.loader import load_vault
 
-from tests.ad23_fakes import LO, SEEDED, ad23_vault, answer, env_for, restamp, rows
+from tests.ad23_fakes import ad23_vault, answer, env_for, restamp, rows
+from tests.ad3_reading_helpers import _opportunity
 
 KIND = "worked_example"
 
@@ -119,15 +119,6 @@ def test_an_in_passage_answer_graded_as_an_attempt_takes_its_increment_not_gamma
     assert view.bank.S[0, cell, gamma] == pytest.approx(plain.bank.S[0, cell, gamma], abs=1e-12)
     assert view.bank.mu[0, facet] != pytest.approx(plain.bank.mu[0, facet])
     assert view.windows[("in_passage_question", "f0")][0] == pytest.approx(1.0)
-
-
-def _opportunity(connection: Any, *, key: str, kind: str, subkind: str, source_table: str, at: str,
-                 lo: str = LO, doses: dict[str, float] | None = None) -> None:
-    ad_receipts.insert_reading_opportunity(connection, {
-        "protection_epoch": SEEDED, "opportunity_key": key, "kind": kind, "subkind": subkind, "source_table": source_table,
-        "source_id": key, "source_written_at": at, "learning_object_id": lo,
-        "facet_doses": doses or {"recall": 1.0}, "dose_offer_id": None, "mapping_version": "ad_reading_map_v1",
-        "sweep": "backfill", "sweep_ref": None, "swept_at": at})
 
 
 def _reading_vault(tmp_path, *, ad: str = ""):
@@ -255,7 +246,7 @@ def test_a_question_counts_once_and_no_verdict_reaches_evidence(tmp_path):
     """(3) A changed verdict appends a ledger row and moves nothing (AD1's sweep records only the
     first). (4) ``reject_salience`` still refuses the verdict's receipt record."""
 
-    from tests.test_ad1_reading_opportunities import _question, _setup, _sweep, at
+    from tests.ad1_reading_opportunities_helpers import _question, _setup, _sweep, at
     from learnloop.reader import reader_quick_check as RQC
 
     paths, vault, repo = _setup(tmp_path)

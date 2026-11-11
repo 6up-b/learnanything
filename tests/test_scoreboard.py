@@ -370,7 +370,7 @@ def _two_learning_object_vault(tmp_path):
     """
 
     from learnloop.vault.yaml_io import write_yaml
-    from tests.test_km2_write_path import _item, _lo, _rubric
+    from tests.km2_write_path_helpers import _item, _lo, _rubric
 
     paths = create_basic_vault(tmp_path / "vault")
     write_yaml(
@@ -692,7 +692,7 @@ def _canonical_vault(tmp_path):
     from learnloop.vault.yaml_io import write_yaml
 
     from tests.helpers import set_algorithm_version, write_facets
-    from tests.test_km2_write_path import _item, _rubric
+    from tests.km2_write_path_helpers import _item, _rubric
 
     paths = create_basic_vault(tmp_path / "vault")
     write_yaml(paths.goals_path, {"schema_version": 2, "goals": []})
@@ -735,7 +735,7 @@ def test_cells_cleared_per_question_divides_by_questions_served(tmp_path, monkey
 
     from learnloop.learner import contract_reachability
     from learnloop.diagnosis import scoreboard as board
-    from tests.test_km2_write_path import _attempt as _km2_attempt
+    from tests.km2_write_path_helpers import _attempt as _km2_attempt
 
     vault, repository, _paths = _canonical_vault(tmp_path)
     _km2_attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, FrozenClock(NOW))

@@ -24,7 +24,7 @@ from learnloop.scheduling import randomization_layer as RL
 from learnloop.teacher import service as S
 from learnloop.vault.loader import load_vault
 from tests.teacher_fakes import TeacherFake, clients, plan_turn
-from tests.test_teacher_te1b_suggestions import _clock, _decisions, _suggestion, _vault, no_network, shown  # noqa: F401
+from tests.teacher_te1b_suggestions_helpers import _clock, _decisions, _suggestion, _vault, no_network, shown  # noqa: F401
 from tests.ux_phase1_support import set_config
 
 

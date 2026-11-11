@@ -26,7 +26,7 @@ from learnloop.figures import prefetch as PF
 from learnloop.figures import prefetch_model as PM
 from learnloop.figures import service as FS
 from tests.figure_fixtures import EXTRACTION, AuthorFake
-from tests.test_figures_prefetch import TWO, JudgeFake, count, decisions, env_for, make_vault, mains, plan_record  # noqa: F401
+from tests.figures_prefetch_helpers import TWO, JudgeFake, count, decisions, env_for, make_vault, mains, plan_record  # noqa: F401
 
 NOON = datetime(2099, 1, 15, 12, 0, tzinfo=UTC)
 PLAN = "dp_1"

@@ -8,7 +8,7 @@ from pathlib import Path
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
 from learnloop.reader import annotations as ANN
-from tests.test_source_inventory import _persist, _register_revision
+from tests.source_inventory_helpers import _persist, _register_revision
 
 
 def _ir(blocks: list[DocumentBlock], extractor_version: str = "1") -> DocumentIR:

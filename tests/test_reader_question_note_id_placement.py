@@ -19,8 +19,8 @@ from learnloop import learner_protection as protection
 from learnloop.diagnosis.text_gaps.provenance import reading_sources
 
 from tests.daily_plan_fakes import iso
-from tests.test_mcp_c1a_landing import LAST, _card_inputs, _world
-from tests.test_router_card_reading_gaps import _exam_passage, _gap
+from tests.mcp_c1a_landing_helpers import LAST, _card_inputs, _world
+from tests.router_card_reading_gaps_helpers import _exam_passage, _gap
 
 
 def _question(env, question_id: str, *, context: str, note_id: str | None,

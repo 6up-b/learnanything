@@ -26,80 +26,9 @@ from learnloop.attempts.attempts import (
     auto_primed_draft,
     complete_self_graded_attempt,
 )
-from learnloop.clock import FrozenClock, utc_now_iso
+from learnloop.clock import FrozenClock
 from learnloop import serve_eligibility as se
-
-START = datetime(2026, 10, 12, 10, 0, tzinfo=UTC)
-SUCCESSOR = "mvp-0.27"
-
-
-def _iso(moment: datetime) -> str:
-    return utc_now_iso(FrozenClock(moment))
-
-
-def _at_version(root, version: str = SUCCESSOR, *, enabled: bool = True) -> None:
-    """Pin a test vault's ``algorithm_version`` (the basic vault is mvp-0.6,
-    the daily-plan vault mvp-0.14) and, optionally, turn the switch off."""
-
-    import re
-
-    toml = root / "learnloop.toml"
-    text, count = re.subn(r'algorithm_version = "[^"]+"', f'algorithm_version = "{version}"', toml.read_text(), count=1)
-    assert count == 1
-    if not enabled:
-        text += "\n[eligibility]\nenabled = false\n"
-    toml.write_text(text)
-
-
-def _repair(tmp_path, version: str = SUCCESSOR, *, enabled: bool = True):
-    """``test_remediation_cold_retry._setup`` at ``version``."""
-
-    from learnloop.vault.loader import load_vault
-    from tests.test_remediation_cold_retry import _setup
-
-    vault, repository, misconception_id = _setup(tmp_path)
-    _at_version(vault.root, version, enabled=enabled)
-    return load_vault(vault.root), repository, misconception_id
-
-
-def _basic(tmp_path, version: str = SUCCESSOR, *, enabled: bool = True):
-    from tests.helpers import create_basic_vault, seed_due_item
-
-    paths = create_basic_vault(tmp_path / "vault")
-    seed_due_item(paths)
-    _at_version(paths.root, version, enabled=enabled)
-    return paths
-
-
-def _one_cold_item_plan(
-    tmp_path, *, reveal_kind: str = "tutor_answer", reveal_ago=timedelta(hours=26), start=START,
-    version: str = SUCCESSOR, enabled: bool = True,
-):
-    """§12.9's reproduction (``test_f1k_a_non_routine_reveal_never_starves_the_plan``'s
-    setup): one eligible item, a cold retry created a day ago and due for an
-    hour, and a non-routine reveal of the item made before the task."""
-
-    from tests.daily_plan_fakes import MovableClock, make_env, scheduled, seed_due
-    from tests.helpers import create_daily_plan_vault
-
-    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={"lo_c": [("pi_cold", 1.0)]})
-    _at_version(paths.root, version, enabled=enabled)
-    clock = MovableClock(start)
-    env = make_env(paths.root, [scheduled("pi_cold", "lo_c", priority=0.9, followup_kind="cold_retry")],
-                   clock=clock, session_id="s_one")
-    seed_due(env.repository, "pi_cold", due=start - timedelta(days=2), last=start - timedelta(days=9))
-    task = env.repository.create_followup_task(
-        kind="cold_retry", case_kind="misconception", case_ref="ep_one",
-        not_before=_iso(start - timedelta(hours=1)), expires_at=_iso(start + timedelta(days=30)),
-        selected_item_id="pi_cold", clock=FrozenClock(start - timedelta(days=1)),
-    )
-    env.repository.insert_reveal_event(
-        {"practice_item_id": "pi_cold", "learning_object_id": "lo_c", "source_kind": reveal_kind,
-         "amount": 1.0, "basis": reveal_kind},
-        clock=FrozenClock(start - reveal_ago),
-    )
-    return env, clock, task
-
+from tests.serve_eligibility_helpers import _at_version, _basic, _iso, _one_cold_item_plan, _repair
 
 def _answer(env, item_id: str, moment: datetime, *, hints: int = 0):
     return complete_self_graded_attempt(
@@ -158,7 +87,7 @@ def test_the_queue_serves_a_cold_retry_submit_would_prime_as_practice_and_ends_i
 
     from learnloop.diagnosis.causal_orchestrator import sweep_expired_cold_retries
     from learnloop.scheduling.scheduler import build_due_queue
-    from tests.test_remediation_cold_retry import NOW, _drive_to_cold_scheduled
+    from tests.remediation_cold_retry_helpers import NOW, _drive_to_cold_scheduled
 
     vault, repository, misconception_id = _repair(tmp_path)
     _episode, _primed, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
@@ -206,7 +135,7 @@ def test_submit_refusal_names_the_change_since_the_serve(tmp_path):
     """Served as the cold check; then the tutor shows the answer before the
     learner submits. Submit refuses, and says why: the reveal, by kind and time."""
 
-    from tests.test_remediation_cold_retry import NOW, _drive_to_cold_scheduled
+    from tests.remediation_cold_retry_helpers import NOW, _drive_to_cold_scheduled
 
     vault, repository, misconception_id = _repair(tmp_path)
     _episode, _primed, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
@@ -338,7 +267,7 @@ def test_q33_an_exam_seeded_before_a_later_reveal_is_not_primed(tmp_path):
 
     from learnloop.goals.exam_seeding import seed_exam_attempts
     from learnloop.vault.loader import load_vault
-    from tests.test_exam_seeding import LIVE_NOW, _exam_vault, _outcomes
+    from tests.exam_seeding_helpers import LIVE_NOW, _exam_vault, _outcomes
 
     root, loaded, repository = _exam_vault(tmp_path)
     _at_version(root)
@@ -472,7 +401,7 @@ def test_submit_exposure_is_the_sql_total_row_for_row(tmp_path, seed):
 
     from learnloop.attempts.reveal_ledger import POST_ATTEMPT_REVEAL_KINDS, ROUTINE_ANSWER_DISPLAY_BASES
     from learnloop.reveal_coverage import routine_covered_from
-    from tests.test_remediation_cold_retry import _setup
+    from tests.remediation_cold_retry_helpers import _setup
 
     rng = random.Random(seed)
     vault, repository, _misconception = _setup(tmp_path)
@@ -519,7 +448,7 @@ def test_the_real_serve_paths_agree_with_submit(tmp_path, seed):
     unassisted answer after any serve path's decision is never refused."""
 
     from learnloop.scheduling.scheduler import build_due_queue, cold_check_serve_hold
-    from tests.test_remediation_cold_retry import NOW, _drive_to_cold_scheduled
+    from tests.remediation_cold_retry_helpers import NOW, _drive_to_cold_scheduled
 
     rng = random.Random(seed)
     vault, repository, misconception_id = _repair(tmp_path)
@@ -626,7 +555,7 @@ def test_no_probe_is_committed_for_an_item_submit_would_prime(tmp_path, revealed
 
     from learnloop.diagnosis.probe_episodes import commit_item_presentation, enter_episode, episode_hypothesis_set
     from learnloop.vault.loader import load_vault
-    from tests.test_probe_orchestration_remainder import CLOCK, ITEM_ID, LO_ID, _setup
+    from tests.probe_orchestration_remainder_helpers import CLOCK, ITEM_ID, LO_ID, _setup
 
     root, loaded, repository = _setup(tmp_path)
     _at_version(root)

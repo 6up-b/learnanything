@@ -21,8 +21,8 @@ from learnloop.router import suggestion_report as SR
 from learnloop.teacher import service as S
 from learnloop.vault.loader import load_vault
 from tests.teacher_fakes import TeacherFake, clients, plan_turn
-from tests.test_teacher_te1b_landing_r2 import _start, _today
-from tests.test_teacher_te1b_suggestions import _clock, _vault, no_network, shown  # noqa: F401
+from tests.teacher_te1b_landing_r2_helpers import _start, _today
+from tests.teacher_te1b_suggestions_helpers import _clock, _vault, no_network, shown  # noqa: F401
 
 
 # --- (2) the ITT split: the pure core ------------------------------------------------------------------

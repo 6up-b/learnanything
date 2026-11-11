@@ -88,7 +88,7 @@ def test_the_recap_stays_when_protection_changed_elsewhere(tmp_path):
 
 
 def test_an_item_the_earlier_lesson_was_shown_now_reserved_for_an_exam_drops_its_recap(tmp_path):
-    from tests.test_teacher_te1_review_fixes import _rows
+    from tests.teacher_te1_review_fixes_helpers import _rows
 
     paths, repository, first = _first_lesson(tmp_path, read_lay=False)
     opened = S.load_state(repository, first)

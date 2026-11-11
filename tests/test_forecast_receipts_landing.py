@@ -32,7 +32,7 @@ from learnloop.scheduling import forecast_receipts as FR
 
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.split_live_helpers import ReadyRuntime, at, drain_jobs, split_vault, submit
-from tests.test_forecast_receipts import (
+from tests.forecast_receipts_helpers import (
     WRONG,
     ITEM,
     _answer,
@@ -41,7 +41,7 @@ from tests.test_forecast_receipts import (
     _present,
     _receipts,
 )
-from tests.test_route_rules_in_grader import FullCreditGrader
+from tests.route_rules_in_grader_helpers import FullCreditGrader
 
 
 def _counts(connection, diagnosis_id: str) -> tuple[int, int, int]:

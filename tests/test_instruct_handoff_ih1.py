@@ -23,7 +23,7 @@ from learnloop.router_objective import mix
 
 from tests.router_mixture_helpers import mixture_env, rows
 from tests.router_model_fakes import fake_runtime
-from tests.test_te3b_offers import (  # noqa: F401 - fixtures
+from tests.te3b_offers_helpers import (  # noqa: F401 - fixtures
     OFFER, TAG, _first_decision, _objective_rows, _policy_arm_seed, offer_drawn, offerable)
 
 

@@ -49,7 +49,7 @@ from tests.diagnosis_split_helpers import at
 from tests.helpers import NOW_ISO
 from tests.mcp_world import LO, PEER, PEER_ANSWER, c4_receipt, generated_world, payload_text, pinned_answer
 from tests.split_live_helpers import drain_jobs, split_vault, submit
-from tests.test_diagnosis_input_provenance import (
+from tests.diagnosis_input_provenance_helpers import (
     SVD_RIGHT,
     SVD_WRONG,
     ProvenanceFake,
@@ -65,7 +65,7 @@ from tests.test_diagnosis_input_provenance import (
     _wp,
     world,  # noqa: F401 -- a fixture
 )
-from tests.test_reread_safety_landing import _protect_the_first_reading, reread_world  # noqa: F401 -- a fixture
+from tests.reread_safety_landing_helpers import _protect_the_first_reading, reread_world  # noqa: F401 -- a fixture
 
 SUMMARY = "The learner drops the sign of a cofactor."
 STATEMENT = "Thinks the sign of a cofactor never changes"
@@ -400,7 +400,7 @@ def test_a_method_explicit_question_records_the_contract_it_was_presented_with(w
     from learnloop.tutor.tutor_qa import _question_contract
     from learnloop.vault.required_method import answered_prompt, method_instruction, presented_prompt
     from learnloop.vault.yaml_io import read_yaml, write_yaml
-    from tests.test_diagnosis_input_provenance import _gap, _question
+    from tests.diagnosis_input_provenance_helpers import _gap, _question
 
     path = world.paths.practice_item_path("linear-algebra", "pi_own")
     payload = read_yaml(path)
@@ -457,7 +457,7 @@ def test_q14_on_a_vault_the_coordinator_upgrades_the_receipt_commits_with_the_gr
     from learnloop.substrate.state_sync import sync_vault_state
     from learnloop.vault.repository import vault_repository
     from tests.helpers import create_basic_vault
-    from tests.test_diagnostic_augmentation import _proposal, _SequenceDiagnostician
+    from tests.diagnostic_augmentation_helpers import _proposal, _SequenceDiagnostician
 
     paths = create_basic_vault(tmp_path / "vault")
     with connect(paths.sqlite_path) as connection:

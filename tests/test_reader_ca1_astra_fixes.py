@@ -31,9 +31,8 @@ import learnloop_sidecar.handlers  # noqa: F401 - registers the RPCs
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
 from learnloop.ingest.originals import store_original_bytes
 from learnloop.reader.as_printed import NO_CROP
-from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
-from tests.test_reader_ca1_as_printed import (  # noqa: F401 - fixtures
+from tests.reader_ca1_as_printed_helpers import (  # noqa: F401 - fixtures
     BLUE,
     GREEN,
     ITEM,
@@ -44,7 +43,8 @@ from tests.test_reader_ca1_as_printed import (  # noqa: F401 - fixtures
     book,
     warm,
 )
-from tests.test_source_inventory import _persist
+from tests.source_inventory_helpers import _persist
+from tests.reader_ca1_astra_fixes_helpers import _mark_every_block_owned, _owned
 
 SOL = "ext_ca1_solution"
 NOW_ISO = "2026-01-01T00:00:00Z"
@@ -94,7 +94,7 @@ def _seed(root, repository, *, display_title: str | None = "Strang") -> None:
 def _import(paths, repository, nodes: list[tuple[str, str]], statements: list[str], **item) -> list[str]:
     from learnloop.content.authoring import exercise_authoring as EX
     from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
-    from tests.test_exercise_authoring import FakeClient, _item, _write_facet_registry
+    from tests.exercise_authoring_helpers import FakeClient, _item, _write_facet_registry
 
     _write_facet_registry(paths.root.parent)
     raw = {"nodes": [{"spanId": span, "quote": quote} for span, quote in nodes]}
@@ -115,11 +115,6 @@ def solved(book):
 def _view(ctx, item_id: str) -> dict:
     ctx.reload(maintenance=False)
     return _call(ctx, "practice.as_printed", {"practiceItemId": item_id, "render": True})
-
-
-def _owned(paths, item_id: str) -> list:
-    refs = load_vault(paths.root).practice_items[item_id].provenance.source_refs
-    return [ref.model_extra.get("owned") for ref in refs]
 
 
 # -- (A) the Astra scenario: a single-item import of a problem and its separate solution -------------
@@ -147,16 +142,6 @@ def test_a_paraphrased_single_statement_owns_nothing_and_offers_only_the_charged
     view = _view(ctx, item_id)
     assert view["kind"] == "page" and view["crops"] == [] and view["notice"] == NO_CROP
     assert view["originalPage"]["extractionId"] == SOL
-
-
-def _mark_every_block_owned(paths, item_id: str) -> None:
-    """The rule before this fix: a single-item import marked every block it was given."""
-
-    path = next(paths.root.rglob(f"{item_id}.yaml"))
-    payload = read_yaml(path)
-    for ref in payload["provenance"]["source_refs"]:
-        ref["owned"] = True
-    write_yaml(path, payload)
 
 
 def test_an_item_marked_by_the_old_rule_never_crops_its_solution_block(solved, warm):
@@ -251,7 +236,7 @@ def test_a_selection_level_edit_of_the_whole_passage_never_crops_the_solution(so
 
     from learnloop.content.authoring import exercise_authoring as EX
     from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
-    from tests.test_exercise_authoring import FakeClient, _item, _write_facet_registry
+    from tests.exercise_authoring_helpers import FakeClient, _item, _write_facet_registry
 
     paths, ctx, repository = solved
     _write_facet_registry(paths.root.parent)

@@ -15,7 +15,7 @@ from learnloop.content.synthesis.synthesis_eval import (
 from learnloop.content.synthesis.source_set_synthesis import create_study_map
 from learnloop.vault.loader import load_vault
 
-from tests.test_source_set_synthesis import FakeSynthesisClient, _setup
+from tests.source_set_synthesis_helpers import FakeSynthesisClient, _setup
 
 
 def test_gold_file_loads_and_is_prompt_versioned():

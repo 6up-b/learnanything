@@ -10,7 +10,7 @@ from learnloop.vault.paths import VaultPaths
 from tests.helpers import NOW_ISO
 from tests.router_mixture_helpers import mixture_env, run
 from tests.router_model_fakes import fake_runtime
-from tests.test_question_context import FakeTutorClient
+from tests.question_context_helpers import FakeTutorClient
 
 GOAL = {"id": "g1", "title": "A goal", "status": "active", "priority": 0.5, "due_at": None, "created_at": NOW_ISO,
         "updated_at": NOW_ISO, "facet_scope": {"concepts": []}, "target_recall": 0.8}

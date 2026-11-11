@@ -226,7 +226,7 @@ def test_a_frozen_outside_state_is_sent_only_at_its_epoch(tmp_path, monkeypatch)
     since then, even of a span nothing in the card quotes, expires it (owner decision 2026-10-21),
     and nothing reaches either model."""
 
-    from tests.test_ad1_codex_rereview_fixes import _forecast, _served_with_history
+    from tests.ad1_codex_rereview_fixes_helpers import _forecast, _served_with_history
 
     paths, step = _served_with_history(tmp_path)
     from learnloop.content.sources import exam_material
@@ -278,8 +278,8 @@ def test_a_history_item_newly_protected_by_its_own_provenance_expires_the_frozen
     protects). The frozen state is never sent (failed before: the epoch digested the material only,
     so it was unchanged and the history went out)."""
 
-    from tests.test_ad1_codex_rereview_fixes import _exercise, _forecast, _served_with_history, _set_fields
-    from tests.test_ad1_codex_rereview_fixes import _hold_out as hold
+    from tests.ad1_codex_rereview_fixes_helpers import _exercise, _forecast, _served_with_history, _set_fields
+    from tests.ad1_codex_rereview_fixes_helpers import _hold_out as hold
 
     hold(monkeypatch, "already_held")
     paths, step = _served_with_history(tmp_path)
@@ -300,7 +300,7 @@ def test_a_commission_drawn_under_other_protection_is_not_open(tmp_path, monkeyp
     from learnloop.db.connection import connect
 
     from tests.ad23_fakes import ad23_vault, selections, set_item
-    from tests.test_ad2_serving import _generation_prompt
+    from tests.ad2_serving_helpers import _generation_prompt
 
     paths = ad23_vault(tmp_path, items=("pi_g1", "pi_g2"))
     set_item(paths, "pi_g2", canonical_exercise={"source_id": "src_epoch", "extraction_id": EXTRACTION,
@@ -331,7 +331,7 @@ def test_a_reading_receipt_recorded_under_other_protection_is_mapped_again(tmp_p
     from learnloop.db.connection import connect
 
     from tests.ad23_fakes import set_item
-    from tests.test_ad_projection import EXT, LO as PLO, P, _iso, _mixed_section, T0
+    from tests.ad_projection_helpers import EXT, LO as PLO, P, _iso, _mixed_section, T0
 
     # A clean reading (the withheld material lies in another extraction): read as stored (round 8).
     paths = _mixed_section(tmp_path)
@@ -376,7 +376,7 @@ def test_frozen_serve_signals_trained_on_a_newly_protected_answer_are_not_replay
 
     from tests.ad23_fakes import LO, ad23_vault, answer, env_for
     from tests.daily_plan_fakes import iso
-    from tests.test_ad23_fix_r8 import _reserve
+    from tests.ad23_fix_r8_helpers import _reserve
 
     paths = ad23_vault(tmp_path, items=("pi_x", "pi_y"), config="[router]\nenabled = false\n")
     env, clock = env_for(paths, items=("pi_x",))
@@ -430,7 +430,7 @@ def test_a_protected_pending_proposal_never_holds_a_commission_open(tmp_path, mo
     from learnloop.db.connection import connect
 
     from tests.ad23_fakes import LO, ad23_vault, selections
-    from tests.test_ad2_serving import _generation_prompt
+    from tests.ad2_serving_helpers import _generation_prompt
 
     _hold(monkeypatch, HELD)
     paths = ad23_vault(tmp_path, items=("pi_g1",))

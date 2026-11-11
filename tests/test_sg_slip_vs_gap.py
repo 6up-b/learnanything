@@ -36,8 +36,8 @@ from tests.daily_plan_fakes import iso
 from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version
 from tests.router_mixture_helpers import join_carried_valuations, mixture_env, rows, run
 from tests.router_model_fakes import fake_runtime
-from tests.test_ih4_preferences_inform_router import _numbers, _pin, _traces
-from tests.test_te3b_offers import OFFER, offerable  # noqa: F401 - the fixture
+from tests.ih4_preferences_inform_router_helpers import _numbers, _pin, _traces
+from tests.te3b_offers_helpers import OFFER, offerable  # noqa: F401 - the fixture
 
 TAG = SLIP_GAP_ALGORITHM_VERSION
 OLD = FAILURE_SHARE_ALGORITHM_VERSION

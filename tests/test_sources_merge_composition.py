@@ -19,16 +19,8 @@ from learnloop.outcome_contract import GRADE_HELD_FOR_REVIEW, HELD_ROW_KEY
 from learnloop.source_retrieval.tutor import PinnedSpanProvider
 from learnloop.substrate.intervention_outcomes import COLD_STATES, MEASURED_COLD_STATES, outcome_for
 from tests.source_service_fakes import FakeServiceLLM, build_service_vault, build_textbook_vault, loaded
-from tests.test_intervention_outcomes_replayer import T0, _attempt as _outcome_attempt, _intervention
-
-
-def _exam_span(repository) -> str:
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        row = connection.execute(
-            "SELECT span_id FROM source_document_blocks WHERE extraction_id = 'ext_exam' AND text LIKE 'Exam question%'"
-        ).fetchone()
-    assert row is not None
-    return str(row[0])
+from tests.intervention_outcomes_replayer_helpers import T0, _attempt as _outcome_attempt, _intervention
+from tests.sources_merge_composition_helpers import _exam_span
 
 
 def _self_graded(paths, repository, item_id, *, points, hints=0):

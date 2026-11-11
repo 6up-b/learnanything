@@ -23,37 +23,31 @@ from learnloop.adaptive_difficulty import protected_tables as PT
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.stores import help_assists as store
 from learnloop.db.table_roles import TableRole, role_for_table
-from tests.test_ro1_availability import RO1_ALTERED_TABLES
-from tests.test_te3a_migration import TE3A_ALTERED_TABLES
-from tests.test_learner_gap_unlinked_migration import UNLINKED_ALTERED_TABLES
-from tests.test_learner_notes_vault_origin_migration import C2B_ALTERED_TABLES
+from tests.ro1_availability_helpers import RO1_ALTERED_TABLES
+from tests.te3a_migration_helpers import TE3A_ALTERED_TABLES
+from tests.learner_gap_unlinked_migration_helpers import UNLINKED_ALTERED_TABLES
+from tests.learner_notes_vault_origin_migration_helpers import C2B_ALTERED_TABLES
 
 # TE1's 234 and TE1b's 236 follow on the way to head (composed in tests/test_teacher_te1b_migration.py).
-from tests.test_teacher_te1b_migration import TE1_AND_TE1B_ADDED_OBJECTS as TE1_ADDED_OBJECTS
-from tests.test_teacher_te1b_migration import TE1_AND_TE1B_ALTERED_TABLES as TE1_ALTERED_TABLES
-from tests.test_figure_prefetch_migration import P5_ADDED_OBJECTS
-from tests.test_data_capture_migration import DATA_CAPTURE_ADDED_OBJECTS
-from tests.test_followup_migration import FOLLOWUP_ADDED_OBJECTS
-from tests.test_hypothesis_marks_migration import MARKS_ADDED_OBJECTS
-from tests.test_router_objective_migration import RO0_ADDED_OBJECTS
-from tests.test_ro2_history_migration import RO2_ADDED_OBJECTS
-from tests.test_ro4_traces_migration import RO4_ADDED_OBJECTS
-from tests.test_teacher_te2log_migration import TE2LOG_ADDED_OBJECTS
-from tests.test_ih3_migration import IH3_ADDED_OBJECTS
-from tests.test_decision_records_migration import B1_ADDED_OBJECTS, B1_ALTERED_TABLES
-from tests.test_teacher_te2_migration import TE2_ALTERED_TABLES
-from tests.test_mobile_jobs_migration import M2A_ADDED_OBJECTS
-from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
+from tests.teacher_te1b_migration_helpers import TE1_AND_TE1B_ADDED_OBJECTS as TE1_ADDED_OBJECTS
+from tests.teacher_te1b_migration_helpers import TE1_AND_TE1B_ALTERED_TABLES as TE1_ALTERED_TABLES
+from tests.figure_prefetch_migration_helpers import P5_ADDED_OBJECTS
+from tests.data_capture_migration_helpers import DATA_CAPTURE_ADDED_OBJECTS
+from tests.followup_migration_helpers import FOLLOWUP_ADDED_OBJECTS
+from tests.hypothesis_marks_migration_helpers import MARKS_ADDED_OBJECTS
+from tests.router_objective_migration_helpers import RO0_ADDED_OBJECTS
+from tests.ro2_history_migration_helpers import RO2_ADDED_OBJECTS
+from tests.ro4_traces_migration_helpers import RO4_ADDED_OBJECTS
+from tests.teacher_te2log_migration_helpers import TE2LOG_ADDED_OBJECTS
+from tests.ih3_migration_helpers import IH3_ADDED_OBJECTS
+from tests.decision_records_migration_helpers import B1_ADDED_OBJECTS, B1_ALTERED_TABLES
+from tests.teacher_te2_migration_helpers import TE2_ALTERED_TABLES
+from tests.mobile_jobs_migration_helpers import M2A_ADDED_OBJECTS
+from tests.rw5c_migration_helpers import RW5C_ADDED_OBJECTS
 from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
+from tests.help_assist_figures_migration_helpers import P3_ADDED_OBJECTS, P3_ALTERED_TABLES
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-#: What 232 alters and adds: the earlier migrations' "nothing else changed"
-#: diffs on the way to head read these.
-#: Codex review F7/F9: figure_predictions is rebuilt too (nullable
-#: extraction_id, assist_id, explained_at; the explanation trigger fixes assist_id).
-P3_ALTERED_TABLES = frozenset({"help_assists", "help_assists_identity_fixed", "figure_predictions",
-                               "figure_predictions_explanation_once"})
-P3_ADDED_OBJECTS = frozenset({"idx_help_assists_figure", "idx_figure_predictions_assist"})
 
 
 def test_232_is_the_figures_migration_and_help_assists_stays_a_raw_ledger():

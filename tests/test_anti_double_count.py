@@ -20,7 +20,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW
-from tests.test_km3_projections import (
+from tests.km3_projections_helpers import (
     COMP_A,
     INTEG,
     LO_ID,

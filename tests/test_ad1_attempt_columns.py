@@ -19,28 +19,11 @@ from pydantic import ValidationError
 import learnloop_sidecar.handlers  # noqa: F401 - registers the RPCs
 from learnloop.db.repositories import Repository
 from learnloop_sidecar.context import SidecarContext, config_dto
-from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.helpers import append_config_toml, create_basic_vault
+from tests.ad1_attempt_columns_helpers import ITEM, _call, _checkpoint, _save_draft, _sidecar
 
-ITEM = "pi_svd_define_001"
 SELF_GRADE = {"criterionPoints": {"correctness": 4}, "confidence": 4}
-
-
-def _call(ctx, name: str, params: dict):
-    spec = METHOD_REGISTRY[name]
-    return spec.handler(ctx, spec.params_model.model_validate(params))
-
-
-def _sidecar(tmp_path, *, config: str = ""):
-    paths = create_basic_vault(tmp_path / "vault")
-    if config:
-        append_config_toml(paths.root, config)
-    ctx = SidecarContext()
-    ctx.load(paths.root)
-    ctx.grading_provider_override = "manual"
-    session = _call(ctx, "start_session", {"energy": "medium"})
-    return paths, ctx, session["sessionId"]
 
 
 def _submit(ctx, session_id, key, **extra):
@@ -104,15 +87,6 @@ def test_the_attempt_layer_validates_the_tap_and_the_marker(tmp_path):
 def _reveal(ctx, session_id, key, answer):
     return _call(ctx, "practice.record_hint_reveal", {"sessionId": session_id, "practiceItemId": ITEM,
                                                       "submissionId": key, "authoredIndex": 0, "answerMd": answer})
-
-
-def _save_draft(ctx, session_id, key, answer, **extra):
-    return _call(ctx, "save_practice_draft", {"sessionId": session_id, "practiceItemId": ITEM, "answerMd": answer,
-                                              "hintsUsed": 1, "submissionId": key, **extra})
-
-
-def _checkpoint(ctx, session_id):
-    return _call(ctx, "get_session", {"sessionId": session_id})["checkpoint"]
 
 
 def test_first_hint_progress_recorded_and_missing_is_null(tmp_path):

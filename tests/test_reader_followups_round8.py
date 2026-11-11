@@ -19,10 +19,10 @@ from learnloop.curriculum import commitments as C
 from learnloop.db.stores import reader_digests as RDG
 from learnloop.instructional import reader_followups as RF
 from tests.recap_fixtures import at, iso
-from tests.test_reader_followups import NOW_MIN, _now
-from tests.test_reader_followups_round4 import QD, QR, A, _check, _due
-from tests.test_reader_followups_round5 import _shared
-from tests.test_reader_followups_round7 import B, _dropped_retention
+from tests.reader_followups_helpers import NOW_MIN, _now
+from tests.reader_followups_round4_helpers import QD, QR, A, _check, _due
+from tests.reader_followups_round5_helpers import _shared
+from tests.reader_followups_round7_helpers import B, _dropped_retention
 
 
 def _discrimination_stops_retention_needs_it(question, item_id):

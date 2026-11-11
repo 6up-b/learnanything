@@ -21,8 +21,9 @@ import pytest
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.context import SidecarError
 
-from tests.test_ux_phase1_add_source import _draining_ctx, _held_ctx, call
+from tests.ux_phase1_add_source_helpers import _draining_ctx, _held_ctx, call
 from tests.ux_phase1_support import fresh_library, grant_consent, write_book, write_pdf
+from tests.ux_phase1_usability_round2_helpers import _pdf_with_units
 
 # What a learner may never read on these surfaces (spec §9), in the backend's
 # own words too.
@@ -118,19 +119,6 @@ def test_adding_with_text_recognition_that_is_not_installed_says_how_to_get_it(t
 # ---------------------------------------------------------------------------
 
 
-def _pdf_with_units(repo, source_id: str, labels: list[str], *, pages: int = 11) -> None:
-    from tests.test_source_inventory import _block, _ir, _persist, _register_revision
-
-    _register_revision(repo, source_id=source_id, revision_id=f"rev_{source_id}")
-    per_unit = max(1, pages // max(1, len(labels)))
-    units = []
-    for index, label in enumerate(labels):
-        page = min(pages - 1, index * per_unit)
-        units.append((f"u{index + 1}", label, [_block(f"s{index + 1}", f"{label} text about tutoring.", page=page)],
-                      f"sha256:{source_id}{index}", page))
-    _persist(repo, _ir(units), revision_id=f"rev_{source_id}", extraction_id=f"ext_{source_id}")
-
-
 def test_a_pdf_with_an_abstract_is_a_paper(tmp_path):
     from learnloop.content.pipeline.add_source import source_kind_noun
     from tests.ux_phase1_support import repository
@@ -146,7 +134,7 @@ def test_a_pdf_with_an_abstract_is_a_paper(tmp_path):
 
 def test_a_first_build_promises_no_minutes_it_cannot_know(tmp_path):
     from learnloop.content.pipeline.add_source import source_status_line
-    from tests.test_ux_phase1_review_fixes import _add, _drain, _jobs
+    from tests.ux_phase1_review_fixes_helpers import _add, _drain, _jobs
     from tests.ux_phase1_support import fake_services
 
     root = fresh_library(tmp_path)

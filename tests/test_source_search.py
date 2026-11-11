@@ -8,7 +8,7 @@ from pathlib import Path
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
 from learnloop.reader.source_search import search_sources
-from tests.test_source_inventory import _persist, _register_revision
+from tests.source_inventory_helpers import _persist, _register_revision
 
 
 def _ingest_source(repo: Repository, *, source_id: str, revision_id: str,

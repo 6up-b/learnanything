@@ -34,7 +34,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.ad23_fakes import ad23_vault, answer, env_for
 from tests.ad_reachable_reads import Reached, schema_tables
-from tests.test_ad_guard_offer_receipts import AT, seed_learner_pick
+from tests.ad_guard_offer_receipts_helpers import AT, seed_learner_pick
 
 ITEMS = ("pi_e1", "pi_e2", "pi_e3")
 #: Every serving label field's attribution gives (``field.outcomes._serving``).
@@ -185,7 +185,7 @@ def test_every_table_the_code_running_inside_an_operation_names_is_classified(tm
     ``raw_grade_events`` (``Repository.raw_grade_events_by_ids``: the replay resolved the grades'
     measurement masses outside the view)."""
 
-    from tests import test_ad23_contract as C
+    from tests import ad23_contract_helpers as C
 
     protected, _absent = C.make_copies(tmp_path / "pipeline", coupled=False)
     C._hold_out(monkeypatch)

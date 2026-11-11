@@ -52,7 +52,7 @@ from learnloop.substrate.canonical_projection import (
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.diagnosis_split_helpers import at
 from tests.split_live_helpers import ReadyRuntime, drain_jobs, split_vault, submit
-from tests.test_grading_support import _ZeroWithoutAttribution
+from tests.grading_support_helpers import _ZeroWithoutAttribution
 
 LO = "lo_svd_compute"
 CORRECT = "B = U Sigma V^T"
@@ -325,7 +325,7 @@ def test_a_record_written_before_the_rule_keeps_m2s_reading(tmp_path, monkeypatc
     (unmarked stamp, no ``assessed_shortfall``, the grader's own sum) is read
     by M2's points inference: still unassessed, which keeps the topic."""
 
-    from tests.test_pfc_unassessed_readers import _as_the_base_implementation_wrote_it
+    from tests.pfc_unassessed_readers_helpers import _as_the_base_implementation_wrote_it
 
     _paths, vault, repository = _assumed(tmp_path)
     with monkeypatch.context() as patch:

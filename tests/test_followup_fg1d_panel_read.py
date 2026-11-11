@@ -16,8 +16,8 @@ from learnloop.followup_run import marks as panel
 from learnloop.followup_serve import workflow as wf
 from learnloop_sidecar.dto import to_camel
 
-from tests.test_followup_fg1d_probe_shadow import desk  # noqa: F401 - the fixture
-from tests.test_followup_rival_factor import _call, _generate, _miss
+from tests.followup_fg1d_probe_shadow_helpers import desk  # noqa: F401 - the fixture
+from tests.followup_rival_factor_helpers import _call, _generate, _miss
 
 
 def _journey(desk):

@@ -11,7 +11,7 @@ from learnloop.content.sources.pdf_extraction import PdfExtractionError, extract
 from learnloop.content.pipeline.source_ingestion import SourceIngestionError, _resolved_pdf_config
 
 from tests.marker_fakes import fake_marker  # noqa: F401 - fixture
-from tests.test_source_ingestion_adapters import _make_pdf_bytes
+from tests.source_ingestion_adapters_helpers import _make_pdf_bytes
 
 
 _MARKDOWN = "# Chapter 3\n\nEigenvalues satisfy\n\n$$Av = \\lambda v$$\n"

@@ -30,8 +30,9 @@ from learnloop.vault.paths import VaultPaths
 
 from tests.followup_serve_helpers import CLOCK
 from tests.helpers import append_config_toml
-from tests.test_followup_journey import _call, _generate, journey  # noqa: F401 - the fixture
-from tests.test_hypothesis_marks import MARKS_OFF, _mark, _released, _serve_and_answer
+from tests.followup_journey_helpers import _call, _generate, journey  # noqa: F401 - the fixture
+from tests.hypothesis_marks_helpers import MARKS_OFF, _mark, _released, _serve_and_answer
+from tests.hypothesis_marks_context_helpers import _report, _versions
 
 NOW = "2099-01-01T00:00:00Z"
 LATER = type(CLOCK)(CLOCK.now() + timedelta(days=3))
@@ -52,10 +53,6 @@ def _feasible(result):
 def _card(vault, repository, result, *, now=NOW):
     state, feasible = _feasible(result)
     return build_card(CardGatherer(vault, repository, session_id="s1").inputs(state, feasible, now_iso=now))
-
-
-def _versions(marks):
-    return [row["hypothesisVersionId"] for row in marks["hypotheses"]]
 
 
 # -- the learner state card --------------------------------------------------------------------------
@@ -168,15 +165,6 @@ def test_a_rediagnosis_reads_the_marks_on_its_own_attempt(journey):
 
 
 # -- the report --------------------------------------------------------------------------------------
-
-
-def _report(vault):
-    path = VaultPaths(vault.root, vault.config).sqlite_path
-    from learnloop.db.repositories import Repository
-
-    with closing(connect(path, read_only=True)) as connection:
-        connection.execute("BEGIN")
-        return hypothesis_marks_section(connection, vault, Repository.attach(path, read_only=True), success_correctness=0.7)
 
 
 def test_the_report_measures_marks_against_the_probe_each_labelled_conditional(journey):

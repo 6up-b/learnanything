@@ -26,7 +26,7 @@ from learnloop.vault.loader import load_vault
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.registry import METHOD_REGISTRY
 from tests.hint_fakes import ITEM, WORK, ChooserFake, WriterFake, hint_vault, prefer, store_map
-from tests.test_hint_outcome import OutcomeFake
+from tests.hint_outcome_helpers import OutcomeFake
 
 PARTIAL = {"criterionPoints": {"cdf": 2, "value": 0}, "confidence": 3}
 REPLY_TEXT = "the plus one is the part I meant, honestly"

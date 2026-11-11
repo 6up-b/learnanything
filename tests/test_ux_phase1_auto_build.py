@@ -23,7 +23,6 @@ from learnloop.content.pipeline.add_source import (
     source_status_line,
     undo_source_questions,
 )
-from learnloop.content.pipeline.jobs import DurableIngestJobs
 from learnloop.content.sources.source_outline import build_source_outline, resolve_extraction_id
 from learnloop.vault.loader import load_vault
 
@@ -32,23 +31,16 @@ from tests.ux_phase1_support import (
     fake_services,
     fresh_library,
     grant_consent,
-    repository,
     route,
     set_config,
     write_book,
 )
+from tests.ux_phase1_auto_build_helpers import _jobs
 
 DENY = (
     "vault", "extraction", "extract", "synthesis", "inventory", "proposal", "token",
     "study map", "facet", "learning object", "canonical", "ingest", "sidecar", "consent",
 )
-
-
-def _jobs(root, services):
-    repo = repository(root)
-    jobs = DurableIngestJobs()
-    jobs.bind(repo, root, background=False, clock=CLOCK, services=services)
-    return repo, jobs
 
 
 def _add(root, jobs, source, **options):

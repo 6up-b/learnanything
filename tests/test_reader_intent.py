@@ -30,24 +30,12 @@ from learnloop.reader import reader_dialogue as RD
 from learnloop.reader import reader_intent as RI
 from tests.helpers import NOW, append_config_toml
 from tests.recap_fixtures import call, context
-from types import SimpleNamespace
 
-from tests.router_model_fakes import FakeDecider as _FakeDecider
-from tests.test_reader_guidance import _setup
-
-
-class FakeDecider(_FakeDecider):
-    """The router's fake Decider at the Decider's listed input price."""
-
-    settings = SimpleNamespace(price_per_million_input=0.02)
+from tests.reader_guidance_helpers import _setup
+from tests.reader_intent_helpers import FakeDecider, ON, _prefer
 
 
 CLOCK = FrozenClock(NOW)
-ON = RI.Availability(active_reading=True, workbench=True, sources=True)
-
-
-def _prefer(option: str):
-    return lambda refs: {ref: (0.9 if ref == option else 0.1 / max(1, len(refs) - 1)) for ref in refs}
 
 
 def _route(vault, repo, text="why are the densities weighted by p?", *, decider=None, speculative=False,

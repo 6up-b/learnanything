@@ -19,8 +19,8 @@ from learnloop.source_retrieval import deliverables as DL
 from learnloop.vault.loader import load_vault
 from tests.deliverable_fixtures import PlanDeliverableFake
 from tests.helpers import append_config_toml
-from tests.test_curriculum_c1_fix_round5 import MeteredFake, _rows
-from tests.test_curriculum_c1_plan_follows_path import C1_OFF, PRIMARIES, _c1
+from tests.curriculum_c1_fix_round5_helpers import MeteredFake, _rows
+from tests.curriculum_c1_plan_follows_path_helpers import C1_OFF, PRIMARIES, _c1
 
 
 def _stale(tmp_path, monkeypatch):

@@ -40,7 +40,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import append_config_toml, create_daily_plan_vault
 from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime, first_option, seed_with_first_uniform
-from tests.test_plan_determinism import (  # noqa: F401 - ``frozen`` is a fixture
+from tests.plan_determinism_helpers import (  # noqa: F401 - ``frozen`` is a fixture
     EXTRA,
     FITS,
     PAIR,

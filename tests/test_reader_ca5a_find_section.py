@@ -423,7 +423,7 @@ def test_a_peeked_paragraph_that_is_the_replacement_surfaces_source_is_skipped_b
     from tests.helpers import NOW
     from tests.section_coverage_fixtures import LAY
     from tests.source_retrieval_fakes import seed_source
-    from tests.test_cold_retry_reschedule import ASSISTED_AT, _answer, _repair, _spare, _table, _tasks
+    from tests.cold_retry_reschedule_helpers import ASSISTED_AT, _answer, _repair, _spare, _table, _tasks
     from tests.ux_phase1_support import set_config
 
     vault, repository, episode, _primed, cold_item = _repair(tmp_path)

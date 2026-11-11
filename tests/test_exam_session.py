@@ -3,7 +3,6 @@ from __future__ import annotations
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.attempts.attempts import ResolvedGrade
 from learnloop.goals.exam_pool import reserve_exam_pool, reserved_item_ids
 from learnloop.goals.exam_session import (
     ExamSessionError,
@@ -17,6 +16,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault, seed_due_item
+from tests.exam_session_helpers import _grade
 
 LO_ID = "lo_svd_definition"
 GOAL_ID = "goal_linear_algebra_ml"
@@ -55,18 +55,6 @@ def _vault(tmp_path):
     _add_item(vault_root, "pi_exam_b", facets=["apply"], difficulty=0.6)
     repository = seed_due_item(paths)
     return load_vault(vault_root), paths, repository
-
-
-def _grade(rubric_score: int) -> ResolvedGrade:
-    return ResolvedGrade(
-        rubric_score=rubric_score,
-        criterion_points={"correctness": float(rubric_score)},
-        evidence_rows=[],
-        error_attributions=[],
-        grader_confidence=1.0,
-        confidence=4,
-        manual_review_reason=None,
-    )
 
 
 def _reserved_and_started(tmp_path):

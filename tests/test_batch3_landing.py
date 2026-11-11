@@ -25,7 +25,6 @@ The interactions the landing checks:
 """
 from __future__ import annotations
 
-import json
 import multiprocessing
 import os
 
@@ -34,9 +33,7 @@ from typer.testing import CliRunner
 
 from learnloop.algorithm_versions import (
     LATEST_ALGORITHM_VERSION,
-    ONE_ASK_ALGORITHM_VERSION,
     ONE_ASK_VERSIONS,
-    REPLAY_LEDGER_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
 from learnloop.db.repositories import Repository
@@ -44,11 +41,8 @@ from learnloop.ops.vault_upgrade import rewrite_algorithm_version
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 
-from tests.test_hint_h2b_review import grader  # noqa: F401 - the blind grader fixture
-
-TAG = ONE_ASK_ALGORITHM_VERSION
-PREDECESSOR = REPLAY_LEDGER_ALGORITHM_VERSION
-
+from tests.hint_h2b_review_helpers import grader  # noqa: F401 - the blind grader fixture
+from tests.batch3_landing_helpers import PREDECESSOR, TAG, _activated, _interrupted, _journal, _vault_at
 
 @pytest.fixture(autouse=True)
 def _cli_process(monkeypatch):
@@ -60,29 +54,8 @@ def _cli_process(monkeypatch):
     monkeypatch.setattr(activation_journal, "_COMPLETER", _complete_interrupted_activation)
 
 
-def _journal(paths):
-    return paths.sqlite_path.with_name(paths.sqlite_path.name + ".claim-fixes-activation")
-
-
-def _vault_at(tmp_path, name, version):
-    from tests.helpers import create_placement_vault
-
-    return create_placement_vault(tmp_path / name, version=version)
-
-
 def _version(paths) -> str:
     return load_vault(paths.root).config.algorithms.algorithm_version
-
-
-def _activated(paths, version=TAG) -> bool:
-    import sqlite3
-    from contextlib import closing
-
-    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
-        return connection.execute(
-            "SELECT 1 FROM derived_state_rebuilds WHERE scope = 'p0_projection_activation' AND algorithm_version = ?",
-            (version,),
-        ).fetchone() is not None
 
 
 # -- the chain -------------------------------------------------------------------------------------
@@ -124,17 +97,6 @@ def test_a_bare_upgrade_targets_the_latest_through_mvp035(tmp_path):
 
 
 # -- the journalled activation ----------------------------------------------------------------------
-
-
-def _interrupted(tmp_path, name):
-    """What a death between the publication and the commit leaves: the tag's
-    label over the predecessor's database, with the journal naming both."""
-
-    paths = _vault_at(tmp_path, name, PREDECESSOR)
-    _journal(paths).write_text(json.dumps({"predecessor": PREDECESSOR, "target": TAG}), encoding="utf-8")
-    rewrite_algorithm_version(paths.root / "learnloop.toml", PREDECESSOR, TAG, durable=True)
-    assert not _activated(paths)
-    return paths
 
 
 def _die_after_publication(root):
@@ -249,7 +211,7 @@ def test_a_failure_after_the_rename_leaves_the_predecessor_and_no_journal(tmp_pa
 
 def test_an_mvp034_journal_is_handed_to_its_own_upgrade_then_the_tag_activates(tmp_path):
     from learnloop.one_ask_upgrade import complete_interrupted_activation, upgrade_to_one_ask
-    from tests.test_rbeq_pr2_landing import _interrupted as rbeq_interrupted
+    from tests.rbeq_pr2_landing_helpers import _interrupted as rbeq_interrupted
 
     paths, _live = rbeq_interrupted(tmp_path, "rbeq")
     assert _version(paths) == PREDECESSOR and _journal(paths).exists()
@@ -282,7 +244,7 @@ def _question_events(repository) -> int:
 def test_i_a_figure_goal_from_the_ask_rail_or_the_tutor_never_spends_an_ask_question(tmp_path, monkeypatch):
     from learnloop.tutor.tutor_qa import question_usage
     from tests.figure_fixtures import AuthorFake, build, flagship
-    from tests.test_figures_show_me import GOAL, READING_AT, FindFake, _ctx, _tutor_ask
+    from tests.figures_show_me_helpers import GOAL, READING_AT, FindFake, _ctx, _tutor_ask
 
     goal = "vary p and watch the mass left of zero follow it"
     paths, repository, ctx, _tutor, author, _find, answer = _tutor_ask(tmp_path, monkeypatch, figure_goal=goal)
@@ -317,7 +279,8 @@ def test_i_a_figure_goal_from_the_ask_rail_or_the_tutor_never_spends_an_ask_ques
 def _workbench_submit_shadow(tmp_path, *, opened: bool):
     from learnloop.substrate.shadow_rebuild import shadow_rebuild
     from tests.hint_fakes import ITEM as CDF_ITEM
-    from tests.test_reader_ca2_fix_orchestrator import _attempt, _call, _draft, _open, _row, _step, _steps_sidecar
+    from tests.reader_ca2_fix_orchestrator_helpers import _call, _open, _row, _step
+    from tests.reader_ca2_codex_rereview_helpers import _attempt, _draft, _steps_sidecar
 
     paths, ctx, session = _steps_sidecar(tmp_path)
     assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
@@ -370,7 +333,7 @@ def test_iii_a_figure_grant_never_meters_an_ask_and_an_ask_grant_meters_it_under
     from learnloop.figures.routes import AUTHOR_TASK
     from learnloop.tutor.tutor_qa import question_usage
     from tests.openai_fakes import install_fake_openai
-    from tests.test_plan_first_transport_paid_roles import _priced_vault
+    from tests.plan_first_transport_paid_roles_helpers import _priced_vault
 
     monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "config"))  # the plan is signed out
     for name in ("LEARNLOOP_AI_PROVIDER", "LEARNLOOP_AI_FALLBACK", "OPENAI_API_KEY", "DEEPSEEK_API_KEY"):
@@ -427,7 +390,7 @@ def test_iv_with_the_student_off_rw5ds_grounding_retrieval_is_p1s(tmp_path, monk
     from tests.ux_phase1_support import set_config
     from tests.query_student_fakes import student_vault
     from tests.source_retrieval_fakes import HashingEmbedder, loaded
-    from tests.test_query_student import _adopt, _space
+    from tests.query_student_helpers import _adopt, _space
 
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))  # the student's data root, per test
     paths, repository, root, _model, _report = student_vault(

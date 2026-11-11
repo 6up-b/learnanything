@@ -19,7 +19,6 @@ The admission sweeps enumerate every request (fakes that enter
 from __future__ import annotations
 
 import re
-from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -27,7 +26,6 @@ import pytest
 from learnloop.ai.execution import model_call
 from learnloop.figures import routes as R
 from learnloop.figures import service as FS
-from learnloop.tutor.ai_contracts import LearnerGap
 from learnloop.vault.loader import load_vault
 from tests.figure_fixtures import (
     EQUATION_TEXT,
@@ -41,8 +39,8 @@ from tests.figure_fixtures import (
     flagship,
     rows,
 )
-from tests.test_figures_switch_off import _switch
-from tests.text_gap_fakes import ChoiceDecider, GapLLMFake
+from tests.figures_switch_off_helpers import _switch
+from tests.figures_scope_redesign_helpers import _Counter, _gap_clients, _gap_job
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -170,16 +168,6 @@ def test_no_code_path_can_store_or_render_verified_or_checked():
 # Class B: the admission sweep (every physical request)
 # ---------------------------------------------------------------------------
 
-class _Counter:
-    def __init__(self, flip=None, after: int | None = None) -> None:
-        self.flip, self.after, self.admitted = flip, after, 0
-
-    def entered(self) -> None:
-        self.admitted += 1
-        if self.after is not None and self.admitted == self.after and self.flip is not None:
-            self.flip()
-
-
 class _GatedAuthor(AuthorFake):
     """An author that answers inside ``model_call``, so the installed gate admits it."""
 
@@ -273,50 +261,6 @@ def test_a_sidecar_reload_stops_a_running_build(tmp_path):
     assert rows(repository, "interactive_figures") == []
 
 
-class _GatedReader(GapLLMFake):
-    def __init__(self, counter: _Counter, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self.counter = counter
-
-    def complete(self, request):
-        with model_call(self, purpose=request.purpose, prompt=request.prompt):
-            self.counter.entered()
-            return super().complete(request)
-
-
-class _GatedDecider(ChoiceDecider):
-    """The in-process Decider double, its ``model_call`` counted."""
-
-    def __init__(self, counter: _Counter, **kwargs) -> None:
-        super().__init__(**kwargs)
-        original = self._model_call
-
-        @contextmanager
-        def counted(client, **call):
-            with original(client, **call) as metadata:
-                counter.entered()
-                yield metadata
-
-        self._model_call = counted
-
-
-def _gap_clients(counter: _Counter):
-    from learnloop.diagnosis.text_gaps.pipeline import PipelineClients
-
-    reading = LearnerGap(kind="prerequisite", prerequisite_name="Eigenvectors",
-                         prerequisite_line="Vectors a matrix only scales.")
-    llm = _GatedReader(counter, reading=reading)
-    decider = _GatedDecider(counter, kind="prerequisite")
-    return PipelineClients(judge=lambda: llm, reader=lambda: llm, decider=lambda: decider, drafter=lambda: llm,
-                           tutor=None, embedder=None)
-
-
-def _gap_job(tmp_path):
-    from tests.test_figures_codex_review import _missed_prediction
-
-    return _missed_prediction(tmp_path)
-
-
 def _gap_requests(tmp_path) -> int:
     from learnloop.diagnosis.text_gaps.jobs import process_next_gap_job
 
@@ -354,4 +298,3 @@ def test_a_figure_reading_makes_no_request_after_figures_are_switched_off(tmp_pa
         again = process_next_gap_job(paths.root, repository, owner="t", clients=_gap_clients(counter))
         assert (again.state, again.error) == ("skipped", None) and counter.admitted == after
         assert found["predictionId"] == again.source_id
-

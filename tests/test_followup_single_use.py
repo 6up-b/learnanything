@@ -101,11 +101,11 @@ def test_state_sync_shares_one_predicate(tmp_path):
 
 
 def test_remint_refuses_the_identity(tmp_path):
-    from tests.test_causal_p2_acceptance import _divergent_failure
+    from tests.causal_p2_acceptance_helpers import _divergent_failure
 
     vault, repository, paths = rival_causes_vault(tmp_path)
     result = _divergent_failure(vault, repository, attempt_id="att_remint")
-    from tests.test_causal_p2_acceptance import SOURCE_ITEM
+    from tests.causal_p2_acceptance_helpers import SOURCE_ITEM
 
     identity.register(repository, practice_item_id=SOURCE_ITEM, revision="r", source="manual", clock=CLOCK)
     raw = vault.practice_items[SOURCE_ITEM].model_copy(update={"practice_mode": "diagnostic_probe"})
@@ -134,8 +134,8 @@ def test_an_exam_never_reserves_one(tmp_path):
     from learnloop.clock import FrozenClock
     from learnloop.followup_serve import identity as fg1_identity
     from learnloop.goals.exam_pool import release_exam_pool, reserve_exam_pool
-    from tests.test_exam_pool import NOW
-    from tests.test_exam_protection_review import _reserved_pool
+    from tests.exam_pool_helpers import NOW
+    from tests.exam_protection_review_helpers import _reserved_pool
 
     paths, repository = _reserved_pool(tmp_path)
     vault = load_vault(paths.root)

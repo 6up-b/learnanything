@@ -122,7 +122,7 @@ def build_vault(root, readings: dict[str, tuple[str, Sequence[Element]]], *, lea
     the sections ``completed``."""
 
     from tests.ad23_fakes import ad23_vault
-    from tests.test_source_inventory import _persist
+    from tests.source_inventory_helpers import _persist
 
     paths = ad23_vault(root, items=tuple(items))
     made = _iso(T0 - timedelta(days=7))

@@ -12,62 +12,20 @@ machine.
 """
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
 from learnloop.reader import reader_dialogue as RD
 from learnloop.reader import source_identity as SI
 from learnloop.vault.loader import load_vault
-from learnloop_sidecar.errors import SidecarError
 from tests.helpers import NOW, append_config_toml, create_basic_vault
-from tests.reading_path_fixtures import call, context, table_counts
-from tests.test_source_inventory import _persist, _register_revision
+from tests.reading_path_fixtures import call, context
+from tests.source_inventory_helpers import _persist, _register_revision
+from tests.reader_source_identity_guard_helpers import MISMATCH, _SWITCHES, _ir, _refused
+from tests.reader_source_identity_guard_helpers import twins  # noqa: F401 - fixtures, used by parameter name
 
-MISMATCH = "span_extraction_mismatch"
 _CLOCK = FrozenClock(NOW)
-
-#: Every switch the guarded handlers sit behind (the guard runs right after them).
-_SWITCHES = """
-[tutor_qa]
-reader_enabled = true
-[reader_inquiry]
-enabled = true
-[reader_intent]
-enabled = true
-[reader_active_reading]
-enabled = true
-[workbench]
-enabled = true
-[figures]
-enabled = true
-show_me_enabled = true
-offers_enabled = true
-[library_ask]
-enabled = true
-[source_service]
-enabled = true
-[reader_compare]
-enabled = true
-"""
-
-
-def _ir(prefix: str, count: int) -> DocumentIR:
-    spans = [f"{prefix}{index}" for index in range(count)]
-    blocks = [
-        DocumentBlock.build(span_id=span, block_type="Text", text=f"Passage {span} about symmetric matrices.",
-                            ordinal=index, page=1, bbox=[10.0, 10.0 + 40 * index, 200.0, 40.0 + 40 * index],
-                            section_path=["Ch1"])
-        for index, span in enumerate(spans)
-    ]
-    unit = DocumentUnit(unit_id=f"u_{prefix}", label=f"Section {prefix}", ordinal=0, semantic_hash=f"sha256:{prefix}",
-                        page_start=1, page_end=1, span_ids=spans)
-    return DocumentIR(extractor="marker", extractor_version="1", units=[unit], blocks=blocks, assets=[],
-                      health=ExtractionHealth())
-
 
 @pytest.fixture
 def books(tmp_path):
@@ -79,17 +37,6 @@ def books(tmp_path):
     _register_revision(repository, source_id="src_b", revision_id="rev_b")
     _persist(repository, _ir("b", 2), revision_id="rev_b", extraction_id="ext_b")
     return paths, repository
-
-
-def _refused(ctx, repository, method: str, params: dict[str, Any]) -> SidecarError:
-    """The call is refused with the typed mismatch, and nothing is written."""
-
-    before = table_counts(repository)
-    with pytest.raises(SidecarError) as raised:
-        call(ctx, method, params)
-    assert raised.value.code == MISMATCH, (method, raised.value.code, raised.value.message)
-    assert table_counts(repository) == before, method
-    return raised.value
 
 
 def _exchange(paths, repository, extraction_id: str, span_id: str) -> str:
@@ -284,32 +231,6 @@ def test_library_ask_compare_and_tutor_pins(books):
 # Production extractors number every book's blocks the same way (s0, s1, ...), so a passage id alone is not
 # its book. Two synthetic books, ``ext_x`` (src_x) and ``ext_y`` (src_y), both have s0, s1, s2, each with its
 # own render view.
-
-
-def _view(repository, *, source_id: str, revision_id: str, extraction_id: str) -> str:
-    return repository.insert_render_view({
-        "id": f"rv_{extraction_id}", "source_id": source_id, "revision_id": revision_id, "extraction_id": extraction_id,
-        "renderer_version": "1", "schema_version": "1", "content_hash": f"sha256:{extraction_id}",
-        "request_hash": f"req_{extraction_id}",
-    })
-
-
-@pytest.fixture
-def twins(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    append_config_toml(paths.root, _SWITCHES)
-    repository = Repository(paths.sqlite_path)
-    for book in ("x", "y"):
-        _register_revision(repository, source_id=f"src_{book}", revision_id=f"rev_{book}")
-        _persist(repository, _ir("s", 3), revision_id=f"rev_{book}", extraction_id=f"ext_{book}")
-        _view(repository, source_id=f"src_{book}", revision_id=f"rev_{book}", extraction_id=f"ext_{book}")
-    # A later reading of book x (a re-extraction of the same source, another revision).
-    with repository.connection() as connection:
-        connection.execute("INSERT INTO source_revisions(id, source_id, asset_hash, created_at) VALUES (?,?,?,?)",
-                           ("rev_x2", "src_x", "sha256:x2", NOW.isoformat()))
-        connection.commit()
-    _persist(repository, _ir("s", 3), revision_id="rev_x2", extraction_id="ext_x2")
-    return paths, repository
 
 
 Y_S1 = {"nodes": [{"spanId": "s1", "quote": "Passage s1"}]}

@@ -201,7 +201,7 @@ def test_at_run_time_ad_loads_a_reading_only_through_its_chokepoint(tmp_path, mo
     from learnloop.db.connection import connect
     from learnloop.db.repositories import Repository
     from learnloop.vault.loader import load_vault
-    from tests.test_ro2_ad_document_ir import SERVED, _textbook_with_span_question
+    from tests.ro2_ad_document_ir_helpers import SERVED, _textbook_with_span_question
 
     inside = {"depth": 0}
     loads: list[bool] = []
@@ -307,7 +307,7 @@ def test_ro4s_reading_action_maps_its_section_through_the_chokepoint(tmp_path, m
     from learnloop.daily_plan.types import BlockCandidate, ReadingTarget
     from learnloop.db.repositories import Repository
     from learnloop.vault.loader import load_vault
-    from tests.test_ro2_ad_document_ir import _textbook_with_span_question
+    from tests.ro2_ad_document_ir_helpers import _textbook_with_span_question
 
     paths, repository, extraction, _span, unit = _textbook_with_span_question(tmp_path, ROUTER_OBJECTIVE_ALGORITHM_VERSION)
     inside = {"depth": 0}

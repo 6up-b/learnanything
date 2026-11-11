@@ -38,35 +38,13 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
 from tests.helpers import NOW_ISO, create_basic_vault
+from tests.contract_commissioning_helpers import LO_ID, _write_blueprint
 
 # The basic vault's only item is `short_answer` on facet "recall", compiling to
 # `schema_interpretation` (capability_mapping.MODE_CAPABILITY_DEFAULTS). Same
 # anchor test_contract_reachability.py uses, so the ladder positions line up.
 INSTRUMENT_FACET = "recall"
 INSTRUMENT_CAPABILITY = "schema_interpretation"
-LO_ID = "lo_svd_definition"
-
-
-def _write_blueprint(paths, components, *, integration=None, recipe_id="r1"):
-    lo_path = paths.learning_object_path("linear-algebra", LO_ID)
-    data = read_yaml(lo_path)
-    recipe = {
-        "id": recipe_id,
-        "composition": "conjunctive",
-        "all_of": [
-            {"facet": facet, "capability": capability, "modality": modality}
-            for facet, capability, modality in components
-        ],
-    }
-    if integration is not None:
-        recipe["integration"] = {
-            "facet": integration[0],
-            "capability": integration[1],
-            "modality": "hard",
-        }
-    data["blueprints"] = [{"id": "bp1", "weight": 1.0, "recipes": [recipe]}]
-    write_yaml(lo_path, data)
-    return paths
 
 
 def _seed_cold_mastery(repository: Repository) -> None:

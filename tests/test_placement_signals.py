@@ -19,7 +19,7 @@ from learnloop.vault.models import Note
 
 from tests.helpers import NOW
 from tests.structured_ai import StructuredClientFake
-from tests.test_assumed_known import LOW_Q, _answer, _at, _decisions, _queue, _setup, _snapshot
+from tests.assumed_known_helpers import LOW_Q, _answer, _at, _decisions, _queue, _setup, _snapshot
 
 
 class FakeTutor(StructuredClientFake):

@@ -31,17 +31,13 @@ from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import MIGRATION_HEAD_FIXTURE, append_config_toml, set_algorithm_version
-from tests.test_exam_seeding import EXAM_DATE, _exam_vault, _outcomes
+from tests.exam_seeding_helpers import EXAM_DATE, _exam_vault, _outcomes
+from tests.ro1_availability_helpers import NEW_COLUMNS
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
 TAG = INTERVAL_FACTOR_ALGORITHM_VERSION
 PREDECESSOR = FOLLOWUP_SERVE_ALGORITHM_VERSION
 IMPORTED_AT = datetime(2026, 5, 19, 15, 30, 7, tzinfo=UTC)
-NEW_COLUMNS = {"practice_attempts": {"received_at", "received_at_source"},
-               "derived_state_rebuilds": {"projection_switches_json"}}
-#: What 244 alters (no object is added): earlier migrations' "nothing else changed" diffs on the way to head
-#: read this.
-RO1_ALTERED_TABLES = frozenset(NEW_COLUMNS)
 
 
 def _columns(connection, table: str) -> set[str]:

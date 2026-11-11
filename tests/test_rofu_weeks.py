@@ -19,9 +19,9 @@ from learnloop.router_objective import tail_data as TD
 from learnloop.vault.loader import load_vault
 
 from tests.router_model_fakes import FakeLLM, fake_runtime
-from tests.test_ro4_objective_serving import policy_answer
-from tests.test_ro5_calibration import _week_env
-from tests.test_ro6_tail_data import _days
+from tests.ro4_objective_serving_helpers import policy_answer
+from tests.ro5_calibration_helpers import _week_env
+from tests.ro6_tail_data_helpers import _days
 
 
 def _env(tmp_path, version: str):

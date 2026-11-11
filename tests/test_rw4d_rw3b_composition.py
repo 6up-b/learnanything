@@ -36,7 +36,7 @@ from learnloop.source_retrieval.corpus import exam_withheld
 from learnloop_sidecar.errors import SidecarError
 from tests.library_ask_fixtures import call, context
 from tests.passage_cue_fakes import CueJudgeFake, build_cue_vault, loaded, set_config, snake
-from tests.test_compare_sources_keep import PINS, QUESTION, _block_text, _fake_service
+from tests.compare_sources_keep_helpers import PINS, QUESTION, _block_text, _fake_service
 
 #: ext_book's chapter 3 holds the pinned ext_book:s6 (header s6, then s7-s9).
 BOOK_UNITS = ["ch_eigen", "ch_det", "ch_orth"]

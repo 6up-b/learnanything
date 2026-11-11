@@ -25,7 +25,7 @@ from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.helpers import create_daily_plan_vault
 from tests.mobile_host_helpers import HOSTNAME, Phone, config_for, pair, poll_job, rows
-from tests.test_daily_plan_reading import DAY1, _Clock, _seed_as_you_read, _sections
+from tests.daily_plan_reading_helpers import DAY1, _Clock, _seed_as_you_read, _sections
 
 READER_APP = ("phone_probes", "phone_reader")
 

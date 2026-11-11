@@ -9,7 +9,6 @@ its newest version that can still be drawn. Fakes only: no model is called.
 from __future__ import annotations
 
 import json
-import re
 
 import pytest
 
@@ -18,22 +17,10 @@ from learnloop.figures import service as FS
 from learnloop.source_retrieval import library_ask as LA
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
-from tests.figure_fixtures import EXTRACTION, AuthorFake, build, call, context, rows, set_config
+from tests.figure_fixtures import EXTRACTION, AuthorFake, build, call, context, rows
 from tests.figure_panels_corpus import gradient_field
-from tests.test_figure_offers import ExplorableOrganizer, _ask, _vault
-
-
-def _panels(paths, on: bool) -> None:
-    """Flip ``figures.advanced_panels_enabled`` (set_config appends, and a
-    TOML key may be set only once)."""
-
-    config = paths.root / "learnloop.toml"
-    text = config.read_text(encoding="utf-8")
-    if "advanced_panels_enabled = " in text:
-        config.write_text(re.sub(r"advanced_panels_enabled = (true|false)",
-                                 f"advanced_panels_enabled = {'true' if on else 'false'}", text), encoding="utf-8")
-    else:
-        set_config(paths, "figures", advanced_panels_enabled=on)
+from tests.figure_offers_helpers import ExplorableOrganizer, _ask, _vault
+from tests.figures_rw5b_review_helpers import _panels
 
 
 def _offered_library(paths, repository) -> str:

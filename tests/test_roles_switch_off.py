@@ -17,10 +17,8 @@ wall-clock fields are left out. Fakes only.
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import os
-import re
 from pathlib import Path
 from typing import Any
 
@@ -29,21 +27,11 @@ import pytest
 from tests.library_ask_fixtures import OrganizerFake, ask_rows, call, context, table_counts
 from tests.passage_cue_fakes import CueJudgeFake, build_cue_vault, loaded, set_config
 from tests.source_service_fakes import FakeServiceLLM
+from tests.roles_switch_off_helpers import _normalized, _sha, _without
 
 GOLDEN = Path(__file__).parent / "fixtures" / "roles_switch_off_a12ba5ba9.json"
 WRITE = os.environ.get("RW4E_WRITE_GOLDEN") == "1"
-_ULID = re.compile(r"[0-9A-HJKMNP-TV-Z]{26}")
 PROPOSAL_TABLES = ["source_objects", "source_object_versions", "source_object_citations", "source_object_relations"]
-VOLATILE = {"createdAt", "created_at", "timingsMs", "timings_ms", "latencyMs", "latency_ms", "elapsedMs",
-            "elapsed_ms", "durationMs", "duration_ms", "started_at", "finished_at",
-            # A hash over the targets' refs, which carry a fresh episode ULID per run.
-            "targets_key", "targetsKey"}
-#: Ids hashed from a ULID-bearing target ref (a fresh episode per run): replaced
-#: by their order of appearance, as ULIDs are.
-_HASHED = re.compile(r"plink_[0-9a-f]{32}")
-#: A cue target's state key (24 hex digits): a hash over its episode's state,
-#: which carries the run's clock; replaced by order of appearance.
-_STATE = re.compile(r"\b[0-9a-f]{24}\b")
 QUESTION = "why does the determinant change sign when two rows are swapped"
 #: The proposals the tip's vault holds before the run: a contrast on the
 #: row-swap passage RW3b's misconception targets, an intuition and a
@@ -61,36 +49,9 @@ SEEDED = (
 )
 
 
-def _normalized(value: Any) -> Any:
-    text = json.dumps(value, sort_keys=True, ensure_ascii=False, default=str)
-    seen: dict[str, str] = {}
-
-    def swap(match: re.Match[str]) -> str:
-        return seen.setdefault(match.group(0), f"<ULID{len(seen)}>")
-
-    text = _ULID.sub(swap, text)
-    links: dict[str, str] = {}
-    text = _HASHED.sub(lambda match: links.setdefault(match.group(0), f"<LINK{len(links)}>"), text)
-    states: dict[str, str] = {}
-    text = _STATE.sub(lambda match: states.setdefault(match.group(0), f"<STATE{len(states)}>"), text)
-    return json.loads(text)
-
-
-def _without(value: Any) -> Any:
-    if isinstance(value, dict):
-        return {key: _without(item) for key, item in value.items() if key not in VOLATILE}
-    if isinstance(value, list):
-        return [_without(item) for item in value]
-    return value
-
-
 def _rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [{key: (json.loads(value) if key.endswith("_json") and isinstance(value, str) else value)
              for key, value in row.items()} for row in rows]
-
-
-def _sha(texts: list[str]) -> list[str]:
-    return [hashlib.sha256(text.encode("utf-8")).hexdigest() for text in texts]
 
 
 def _seed(vault: Any, repository: Any) -> None:

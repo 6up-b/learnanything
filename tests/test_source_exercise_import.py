@@ -13,6 +13,7 @@ from learnloop.vault.hashes import practice_item_hash, reference_content_hash
 from tests.source_service_fakes import (
     FakeServiceLLM, build_textbook_vault, loaded, service_clients, set_config,
 )
+from tests.source_exercise_import_helpers import _ProcessDeath, _checks, _import, _row
 
 needs_bwrap = pytest.mark.skipif(not pf_sandbox.sandbox_available(), reason="bubblewrap is not installed")
 
@@ -20,11 +21,6 @@ needs_bwrap = pytest.mark.skipif(not pf_sandbox.sandbox_available(), reason="bub
 @pytest.fixture
 def textbook(tmp_path):
     return build_textbook_vault(tmp_path / "vault")
-
-
-def _import(paths, repository, span, llm, **kwargs):
-    return SEI.import_source_exercise(paths.root, repository, extraction_id="ext_text", span_ids=[span],
-                                      caller=kwargs.pop("caller", "learner"), clients=service_clients(llm), **kwargs)
 
 
 def test_the_books_solution_writes_and_verifies_the_key(textbook):
@@ -151,20 +147,6 @@ def test_a_model_failure_while_authoring_fails_the_import_and_is_receipted(textb
 
 
 # -- Codex sources-build review F5: process death around both commit boundaries -------------------
-
-
-class _ProcessDeath(BaseException):
-    """Stands for the process exiting: nothing after it runs, nothing catches it."""
-
-
-def _row(repository, import_id):
-    with repository.connection() as connection:
-        return import_row(connection, import_id)
-
-
-def _checks(repository, item_id):
-    with repository.connection() as connection:
-        return key_checks_for_item(connection, item_id)
 
 
 @pytest.mark.parametrize("boundary", ["after_vault_write", "inside_written_commit"])

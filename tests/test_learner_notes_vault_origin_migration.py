@@ -31,8 +31,6 @@ from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
 
 NOW = "2026-11-01T10:00:00Z"
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-#: The objects 233 redefines (rebuilt in place, same name; it adds nothing).
-C2B_ALTERED_TABLES = frozenset({"learner_notes"})
 
 
 def _database_at_232(tmp_path: Path) -> Path:

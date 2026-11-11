@@ -28,7 +28,8 @@ from learnloop.db.stores import reader_digests as RDG
 from learnloop.instructional import reader_followups as RF
 from learnloop.scheduling.intent.followup_gate import followup_gate
 from tests.recap_fixtures import EXT, at, iso
-from tests.test_reader_followups import FakeSearch, NOW_MIN, _candidate, _now, _plan, _seeded
+from tests.reader_followups_helpers import FakeSearch, NOW_MIN, _candidate, _now, _plan, _seeded
+from tests.reader_followups_rereview_helpers import _PerCall
 
 ITEM = "pi_svd_define_002"
 OTHER = "pi_svd_define_003"
@@ -198,22 +199,6 @@ def test_f13_a_failure_after_the_exposure_retirement_loses_neither_the_check_nor
 
 
 # -- F14: a resumed search conditions on the live check (round 3) ---------------------------------------
-
-
-class _PerCall(FakeSearch):
-    """Call ``n`` values ``rounds[n]``; every call but the last stops on its budget.
-    Perfect-information tables: a second check with the same information adds none."""
-
-    def __init__(self, rounds):
-        super().__init__([])
-        self.rounds = rounds
-
-    def __call__(self, query, constraints, *, caller, **kwargs):
-        self.candidates = self.rounds[min(len(self.calls), len(self.rounds) - 1)]
-        result = dict(super().__call__(query, constraints, caller=caller, **kwargs))
-        if len(self.calls) < len(self.rounds):
-            result["paging"] = {"outcome": "budget", "cursor": {"judged_items": []}}
-        return result
 
 
 def test_f14_a_resumed_search_conditions_on_the_live_check_and_retires_nothing(tmp_path):

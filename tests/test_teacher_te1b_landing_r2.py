@@ -21,27 +21,8 @@ from learnloop.teacher import service as S
 from learnloop.teacher.brief import protection_state
 from learnloop.vault.loader import load_vault
 from tests.teacher_fakes import TeacherFake, clients, plan_turn
-from tests.test_teacher_te1b_suggestions import _clock, _decisions, _rows, _vault, no_network, shown  # noqa: F401
-
-
-def _today(vault, repository, clock):
-    return SG.today_suggestion(vault, repository, clock=clock)
-
-
-def _start(paths, repository, response="accepted", **kwargs):
-    card = _today(load_vault(paths.root), repository, _clock())
-    started = SG.respond(load_vault(paths.root), repository, decision_id=card["decision_id"], response=response,
-                         clock=_clock(hours=1), **kwargs)
-    return card, started["lesson"]
-
-
-def _without(paths, learning_object_ids):
-    """The vault as loaded now, with the reserved LOs gone (edited out of the vault's content)."""
-
-    vault = load_vault(paths.root)
-    for lo in learning_object_ids:
-        del vault.learning_objects[lo]
-    return vault
+from tests.teacher_te1b_suggestions_helpers import _clock, _decisions, _rows, _vault, no_network, shown  # noqa: F401
+from tests.teacher_te1b_landing_r2_helpers import _start, _today, _without
 
 
 def _all_responses(repository, decision_id):

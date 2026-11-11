@@ -13,16 +13,13 @@ import time
 from types import SimpleNamespace
 
 import pytest
-import yaml
 
 from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 
 from tests.ad_fakes import AuditDecider, ForecastLLM, ad_plan_vault, ad_receipts, rows
-from tests.test_ad1_codex_rereview_fixes import _exercise, _metered_vault, _set_fields
-
-EXAM_SET = "exam_scope_added"
-
+from tests.ad1_codex_rereview_fixes_helpers import _exercise, _metered_vault, _set_fields
+from tests.ad1_fix_round4_helpers import EXAM_SET, _add_exam_scope, _builds, _bulk_vault
 
 # -- V1 [High]: protection is resolved from the vault loaded now --------------------------------
 
@@ -41,19 +38,6 @@ def _exam_scope_holds_out(monkeypatch, *spans: str) -> None:
         return held if any(getattr(entry, "id", None) == EXAM_SET for entry in sets) else exam_material.Material()
 
     monkeypatch.setattr(exam_material, "held_out_material", predicate)
-
-
-def _add_exam_scope(paths) -> None:
-    """The owner's source-set edit: an exam scope, in the vault's own file."""
-
-    from learnloop.vault.paths import VaultPaths
-
-    target = VaultPaths(paths.root, load_vault(paths.root).config).source_sets_path
-    payload = yaml.safe_load(target.read_text(encoding="utf-8")) if target.exists() else None
-    payload = payload or {"schema_version": 1, "source_sets": []}
-    payload["source_sets"].append({"id": EXAM_SET, "subject_id": "linear-algebra", "title": "The final exam"})
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
 
 
 class _ReloadingDecider(AuditDecider):
@@ -128,15 +112,6 @@ def test_another_vault_or_none_loaded_refuses(tmp_path):
 # -- V2 [Medium]: one bounded preparation queue per vault ---------------------------------------
 
 
-def _bulk_vault(paths, count: int):
-    real = load_vault(paths.root)
-    base = real.practice_items["pi_m1a"]
-    items = {f"pi_bulk_{index:04d}": base.model_copy(update={"id": f"pi_bulk_{index:04d}",
-                                                             "prompt": f"Imported stem {index}."})
-             for index in range(count)}
-    return SimpleNamespace(practice_items=items, config=real.config, root=real.root, source_sets=[])
-
-
 class _Recorder:
     """Stands in for the audit and the forecast: records each revision per run, optionally holding."""
 
@@ -170,14 +145,6 @@ def _patch_preparation(monkeypatch, recorder: _Recorder) -> None:
 
     monkeypatch.setattr(feature_audit, "audit_revision", recorder.audit)
     monkeypatch.setattr(background, "forecast_item", recorder.forecast)
-
-
-def _builds(paths):
-    from learnloop.hints.map_builder import BackgroundBuilds
-
-    builds = BackgroundBuilds()
-    builds.bind(paths.sqlite_path)
-    return builds
 
 
 def test_an_import_of_1000_revisions_prepares_at_most_20_per_run(tmp_path, monkeypatch):
@@ -307,7 +274,7 @@ def test_a_reader_tutor_exchange_is_recorded_under_its_answer_mode(tmp_path):
 
     from learnloop.reader import reader_dialogue as RD
 
-    from tests.test_ad1_reading_opportunities import LO_A, _opportunities, _setup, _sweep, at
+    from tests.ad1_reading_opportunities_helpers import LO_A, _opportunities, _setup, _sweep, at
 
     paths, vault, repo = _setup(tmp_path)
     asked = RD.ask(vault, repo, RD.StubReaderClient(answer_md="Because."), extraction_id="ext1", span_id="s1",

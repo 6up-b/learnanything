@@ -37,7 +37,7 @@ from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, Extract
 from learnloop.ingest.originals import store_original_bytes
 from learnloop.reader.as_printed import FIGURE_LABEL, NO_CROP
 from learnloop.vault.yaml_io import read_yaml, write_yaml
-from tests.test_reader_ca1_as_printed import (  # noqa: F401 - fixtures
+from tests.reader_ca1_as_printed_helpers import (  # noqa: F401 - fixtures
     BLUE,
     GREEN,
     GREY,
@@ -49,7 +49,7 @@ from tests.test_reader_ca1_as_printed import (  # noqa: F401 - fixtures
     cold,
     warm,
 )
-from tests.test_source_inventory import _persist
+from tests.source_inventory_helpers import _persist
 
 EXT = "ext_ca1_redesign"
 NOW_ISO = "2026-01-01T00:00:00Z"
@@ -182,7 +182,7 @@ def _import(paths, repository, spans: list[str], statement: str, answer: str, *,
 
     from learnloop.content.authoring import exercise_authoring as EX
     from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
-    from tests.test_exercise_authoring import FakeClient, _item, _write_facet_registry
+    from tests.exercise_authoring_helpers import FakeClient, _item, _write_facet_registry
 
     _write_facet_registry(paths.root.parent)
     raw = {"nodes": [{"spanId": span, "quote": _text(span)} for span in spans]}
@@ -473,7 +473,7 @@ def test_figure_roles_are_validated_never_widened():
 
 def test_two_claims_for_one_figure_resolve_away_from_stimulus():
     from learnloop.content.authoring.exercise_authoring import _claimed_roles
-    from tests.test_exercise_authoring import _item
+    from tests.exercise_authoring_helpers import _item
 
     for claims in (["stimulus", "answer"], ["answer", "stimulus"]):
         entry = _item(figure_roles=[FigureRolePayload(span_id="f", role=role) for role in claims])
@@ -483,7 +483,7 @@ def test_two_claims_for_one_figure_resolve_away_from_stimulus():
 def test_a_split_never_gives_one_item_a_figure_another_calls_its_answer(seeded, cold):
     from learnloop.content.authoring import exercise_authoring as EX
     from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
-    from tests.test_exercise_authoring import FakeClient, _item, _write_facet_registry
+    from tests.exercise_authoring_helpers import FakeClient, _item, _write_facet_registry
 
     paths, ctx, repository = seeded
     _write_facet_registry(paths.root.parent)
@@ -508,7 +508,7 @@ def test_a_split_never_gives_one_item_a_figure_another_calls_its_answer(seeded, 
                                     ["stimulus", "unrelated", "answer"]])
 def test_a_duplicate_answer_claim_is_never_lost(claims):
     from learnloop.content.authoring.exercise_authoring import _answer_figures, _claimed_roles
-    from tests.test_exercise_authoring import _item
+    from tests.exercise_authoring_helpers import _item
 
     entry = _item(figure_roles=[FigureRolePayload(span_id="f", role=role) for role in claims])
     assert _claimed_roles(entry) == {"f": "worked" if "worked" in claims else "answer"}
@@ -519,7 +519,7 @@ def test_a_duplicate_answer_claim_is_never_lost(claims):
 def test_a_sibling_never_owns_a_figure_one_item_calls_its_answer_among_duplicates(seeded, cold, claims):
     from learnloop.content.authoring import exercise_authoring as EX
     from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
-    from tests.test_exercise_authoring import FakeClient, _item, _write_facet_registry
+    from tests.exercise_authoring_helpers import FakeClient, _item, _write_facet_registry
 
     paths, ctx, repository = seeded
     _write_facet_registry(paths.root.parent)
@@ -704,7 +704,7 @@ def test_and_in_a_check_on_your_own(seeded, cold):
 def _sibling_answer_import(paths, repository) -> str:
     from learnloop.content.authoring import exercise_authoring as EX
     from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
-    from tests.test_exercise_authoring import FakeClient, _item, _write_facet_registry
+    from tests.exercise_authoring_helpers import FakeClient, _item, _write_facet_registry
 
     _write_facet_registry(paths.root.parent)
     raw = {"nodes": [{"spanId": span, "quote": _text(span)} for span in ("tq", "fs", "fx", "tz")]}

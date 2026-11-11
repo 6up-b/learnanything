@@ -22,7 +22,7 @@ from learnloop.tutor import ai_contracts as C
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
 from tests.figure_fixtures import EXTRACTION, AuthorFake, build, call, context, rows
-from tests.test_figure_offers import ExplorableOrganizer, _ask, _tutor_event, _vault
+from tests.figure_offers_helpers import ExplorableOrganizer, _ask, _tutor_event, _vault
 
 
 def _press(paths, offer_ref: str, span: str = "p3") -> tuple[dict, AuthorFake]:

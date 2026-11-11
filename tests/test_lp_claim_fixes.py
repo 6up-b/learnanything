@@ -51,8 +51,8 @@ from learnloop.vault.repository import open_vault_repository
 
 from tests.helpers import NOW, append_config_toml, create_placement_vault, set_algorithm_version
 from tests.owner_vaults import owner_vault, working_vault_params
-from tests.test_assumed_known import _answer
-from tests.test_tutor_promotion_service import _AnalysisClient, _insert_event
+from tests.assumed_known_helpers import _answer
+from tests.tutor_promotion_service_helpers import _AnalysisClient, _insert_event
 
 TAG = CLAIM_FIXES_ALGORITHM_VERSION
 #: The predecessor as the upgrade names it (one constant; the landing renumbers).

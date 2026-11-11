@@ -398,7 +398,7 @@ def test_landing_r1_a_probe_lesson_freezes_every_display_and_its_receipt_is_judg
     from learnloop.teacher import probes as PR
     from learnloop.teacher import service as S
     from tests.teacher_fakes import close_turn
-    from tests.test_teacher_te2_probes import _Lesson, _probe, probe_turn
+    from tests.teacher_te2_probes_helpers import _Lesson, _probe, probe_turn
 
     lesson = _Lesson(tmp_path, [probe_turn])
     lesson.generate()

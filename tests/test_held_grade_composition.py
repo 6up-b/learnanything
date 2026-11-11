@@ -40,7 +40,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault
 from tests.split_live_helpers import split_vault, submit
-from tests.test_route_rules_in_grader import (
+from tests.route_rules_in_grader_helpers import (
     ALTERNATIVE,
     CLOCK,
     ITEM,
@@ -236,7 +236,7 @@ def test_the_evsi_report_realizes_no_outcome_from_a_held_attempt(tmp_path):
     from learnloop.diagnosis.probe_episodes import enter_episode
     from learnloop.evsi_calibration import live_report as LR
 
-    from tests.test_probe_robust_cutover import CLOCK as PROBE_CLOCK, _load, _record_full_score_probe
+    from tests.probe_robust_cutover_helpers import CLOCK as PROBE_CLOCK, _load, _record_full_score_probe
 
     loaded, repository = _load(tmp_path)
     episode = enter_episode(loaded, repository, "lo_svd_definition", clock=PROBE_CLOCK)
@@ -315,7 +315,7 @@ def test_the_hardcase_harness_plans_the_grader_at_its_routes_policy_budget(tmp_p
     from learnloop.ai.spend import SpendCaps
     from learnloop.diagnosis.grading_hardcases import HARDCASE_ROUTES, run_hardcases
 
-    from tests.test_grading_hardcases import _vault
+    from tests.grading_hardcases_helpers import _vault
 
     vault = _vault(tmp_path)
     caps = SpendCaps(max_candidates=0, max_pairs=0, max_retries=2, max_calls=500,
@@ -335,7 +335,7 @@ def test_the_hardcase_harness_retries_a_truncated_grade_once_at_double(tmp_path)
     from learnloop.ai.spend import SpendCaps
     from learnloop.diagnosis.grading_hardcases import run_hardcases
 
-    from tests.test_grading_hardcases import JudgeFake, _vault
+    from tests.grading_hardcases_helpers import JudgeFake, _vault
 
     class TruncatingOnce(JudgeFake):
         def __init__(self, *args, **kwargs):

@@ -41,22 +41,12 @@ from learnloop.vault.loader import load_vault
 
 from tests.diagnosis_fakes import FakeEmbeddingClient, ReviewFakeClient
 from tests.diagnosis_split_helpers import build_diagnosis_vault, seed_history
-
-CAPS = SpendCaps(max_calls=2000, max_candidates=500, max_total_tokens=10**8, max_estimated_usd=10.0)
-OPTIONS = ReviewOptions(sample_size=10, planted_per_shape=1, repeat_subset=2, sweep_budgets=(2_000,), probe_items=2)
-
+from tests.diagnose_review_helpers import CAPS, OPTIONS, _run
 
 def _snapshot_tables(path: Path) -> dict[str, int]:
     with closing(sqlite3.connect(path)) as connection:
         names = [row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")]
         return {name: connection.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0] for name in names}
-
-
-def _run(paths, vault, run_dir, *, client=None, options=OPTIONS, caps=CAPS, cancelled=None):
-    client = client or ReviewFakeClient()
-    clients = ReviewClients(grading=client, diagnosis=client, judge=client, generator=client, embedding=FakeEmbeddingClient())
-    result = run_review(vault, source_sqlite=paths.sqlite_path, run_dir=run_dir, options=options, clients=clients, caps=caps, cancelled=cancelled)
-    return client, result
 
 
 @pytest.fixture(scope="module")

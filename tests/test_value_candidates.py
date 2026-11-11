@@ -159,7 +159,7 @@ def test_an_instrument_only_request_matches_robust_selection(tmp_path, items):
     from learnloop.instructional.valuation import episode_problem, item_input, value_problem
     from learnloop.vault.loader import load_vault
     from tests.helpers import NOW, admit_probe_instrument_card, create_basic_vault, set_algorithm_version
-    from tests.test_probe_predictive_eig import _add_item
+    from tests.probe_predictive_eig_helpers import _add_item
 
     root = tmp_path / "vault"
     paths = create_basic_vault(root)

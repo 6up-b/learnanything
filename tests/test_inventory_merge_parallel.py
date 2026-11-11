@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import threading
 
-from tests.test_source_inventory import (
+from tests.source_inventory_helpers import (
     _CLOCK,
     FakeInventoryClient,
     _block,

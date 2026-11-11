@@ -17,8 +17,8 @@ from learnloop_sidecar.registry import METHOD_REGISTRY
 from tests.helpers import append_config_toml, create_basic_vault
 from tests.router_mixture_helpers import mixture_env, run
 from tests.router_model_fakes import fake_runtime, seed_with_first_uniform
-from tests.test_data_capture_successor import _blocks, _canonical_rows
-from tests.test_router_g4_restraint import PAST_THE_FLOOR
+from tests.data_capture_successor_helpers import _blocks, _canonical_rows
+from tests.router_g4_restraint_helpers import PAST_THE_FLOOR
 
 OFF = "[router_objective]\nreceipts = false\n"
 NEW_TABLES = ("session_receipts", "decision_state_receipts", "goal_lifecycle_events")

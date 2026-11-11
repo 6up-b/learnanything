@@ -29,7 +29,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.chatgpt_plan_fakes import fake_chatgpt, sign_in
 from tests.openai_fakes import install_fake_openai
-from tests.test_plan_first_transport_paid_roles import LEARNER, _priced_vault, isolated, learner_request  # noqa: F401
+from tests.plan_first_transport_paid_roles_helpers import LEARNER, _priced_vault, isolated, learner_request  # noqa: F401
 
 AD_TASKS = ("ad_forecast_llm", "ad_feature_audit", "ad_relatedness")
 

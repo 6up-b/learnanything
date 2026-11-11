@@ -32,15 +32,15 @@ from learnloop.content.pipeline.runner import IngestRunner
 from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.db.repositories import Repository
 
-from tests.test_reading_request_sweep import (
+from tests.reading_request_sweep_helpers import (
     _deferred_behind_a_queued_build,
     _later,
     _pending,
     _planner_chapters,
     _planners,
 )
-from tests.test_ux_phase1_add_source import call
-from tests.test_ux_phase1_round2_review import _added_book
+from tests.ux_phase1_add_source_helpers import call
+from tests.ux_phase1_round2_review_helpers import _added_book
 from tests.ux_phase1_support import BOOK_MARKDOWN, CLOCK, fake_services, write_book
 
 _SYNTHESIS = ("bootstrap_synthesis", "append_synthesis")

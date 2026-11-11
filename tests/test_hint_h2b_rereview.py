@@ -21,7 +21,7 @@ from learnloop.clock import parse_utc
 from learnloop.hints import map_builder, outcome
 from learnloop.vault.loader import load_vault
 from tests.hint_fakes import ITEM, assists, judgments
-from tests.test_hint_h2b_review import (  # noqa: F401 - ``grader`` is a fixture
+from tests.hint_h2b_review_helpers import (  # noqa: F401 - ``grader`` is a fixture
     _attempt,
     _call,
     _hint,
@@ -32,7 +32,7 @@ from tests.test_hint_h2b_review import (  # noqa: F401 - ``grader`` is a fixture
     _wb_submit,
     grader,
 )
-from tests.test_hint_outcome import OutcomeFake
+from tests.hint_outcome_helpers import OutcomeFake
 
 
 # -- F1: close the problem, work in steps again, submit ------------------------------------------

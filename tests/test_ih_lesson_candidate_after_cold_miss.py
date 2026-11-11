@@ -33,7 +33,7 @@ from learnloop.teacher import service as S
 from learnloop.vault.loader import load_vault
 from tests.helpers import append_config_toml
 from tests.teacher_fakes import TeacherFake, clients, plan_turn
-from tests.test_teacher_te1b_suggestions import LOS, _vault
+from tests.teacher_te1b_suggestions_helpers import LOS, _vault
 
 TAG = FAILURE_SHARE_ALGORITHM_VERSION
 OLD = PHONE_PROBES_ALGORITHM_VERSION

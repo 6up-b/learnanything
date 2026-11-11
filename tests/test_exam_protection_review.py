@@ -48,39 +48,21 @@ from learnloop.scheduling.scheduler import build_due_queue
 from learnloop.scheduling.serving_exclusions import routine_serving_exclusions
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import SourceRef
-from learnloop.vault.paths import VaultPaths
-from learnloop.vault.writer import upsert_practice_item
-from learnloop.vault.yaml_io import read_yaml
 from tests.source_retrieval_fakes import seed_source
 from tests.source_service_fakes import build_textbook_vault, loaded
-from tests.test_source_inventory import _block, _ir, _persist
+from tests.source_inventory_helpers import _block, _ir, _persist
 from tests.helpers import MIGRATION_HEAD_FIXTURE
-
-CLOCK = FrozenClock(datetime(2026, 10, 13, tzinfo=UTC))
-
+from tests.exam_protection_review_helpers import (
+    CLOCK,
+    _problem_book,
+    _reserved_pool,
+    _switch_off,
+    _with_exercise,
+)
 
 @pytest.fixture
 def textbook(tmp_path):
     return build_textbook_vault(tmp_path / "vault")
-
-
-def _with_exercise(root, practice_item_id: str, *, source_id: str, extraction_id: str, span_id: str) -> None:
-    """Give an item the canonical exercise an import records."""
-
-    vault = load_vault(root)
-    path = next(VaultPaths(vault.root, vault.config).root.rglob(f"{practice_item_id}.yaml"))
-    payload = read_yaml(path)
-    payload["canonical_exercise"] = {"source_id": source_id, "extraction_id": extraction_id,
-                                     "span_ids": [span_id], "relation": "verbatim"}
-    upsert_practice_item(root, payload, clock=CLOCK)
-
-
-def _problem_book(repository) -> None:
-    """``ext_problems``: a problems unit (``s1`` header, ``s2`` problem) and a notes unit (``s4``, ``s5``)."""
-
-    seed_source(repository, source_id="src_problems", revision_id="rev_problems", extraction_id="ext_problems",
-                title="Problem book", units={"ex": ("Problems", [("Problem 1: compute 7 times 6.", 1)]),
-                                             "notes": ("Notes", [("Multiplication is repeated addition.", 2)])})
 
 
 def _hold_out_problems(repository) -> None:
@@ -103,24 +85,11 @@ def _reveal(repository, item_id: str) -> None:
         connection.commit()
 
 
-def _switch_off(root) -> None:
-    """``goals.held_out_selection = false`` (under the vault's ``[goals]`` table when it has one)."""
-
-    config = root / "learnloop.toml"
-    text = config.read_text(encoding="utf-8")
-    if "\n[goals]\n" in text:
-        text = text.replace("\n[goals]\n", "\n[goals]\nheld_out_selection = false\n", 1)
-    else:
-        text = text.rstrip("\n") + "\n\n[goals]\nheld_out_selection = false\n"
-    config.write_text(text, encoding="utf-8")
-    assert load_vault(root).config.goals.held_out_selection is False
-
-
 # --- F1: held-out material stays out of routine practice -----------------------------------------
 
 
 def _due_pool(tmp_path):
-    from tests.test_exam_pool import _vault_with_items
+    from tests.exam_pool_helpers import _vault_with_items
 
     vault, paths, repository = _vault_with_items(tmp_path)
     for item_id in ("pi_pool_recall_easy", "pi_pool_apply_mid", "pi_pool_derive_hard"):
@@ -134,7 +103,7 @@ def _due_pool(tmp_path):
 
 
 def _queue(root, repository) -> set[str]:
-    from tests.test_exam_pool import NOW
+    from tests.exam_pool_helpers import NOW
 
     return {entry.practice_item_id for entry in build_due_queue(load_vault(root), repository, clock=FrozenClock(NOW),
                                                                 persist_explanations=False)}
@@ -354,7 +323,7 @@ def _exam_question_span(repository) -> str:
 
 def test_a_held_out_assessment_signal_is_held_out_for_the_reader_and_the_gate_alike(textbook):
     from learnloop.tutor.tutor_qa import HeldOutMaterialRefused, ask_question
-    from tests.test_exam_protection import _RecordingReaderTutor
+    from tests.exam_protection_helpers import _RecordingReaderTutor
 
     paths, repository, _spans = textbook
     question = _exam_question_span(repository)
@@ -432,23 +401,9 @@ def test_pf_never_forwards_a_held_out_parent_quote(textbook, shape):
 # --- F5: an exam item exposed after its reservation ---------------------------------------------
 
 
-def _reserved_pool(tmp_path):
-    from learnloop.goals.exam_pool import reserve_exam_pool
-    from tests.test_exam_pool import NOW, _vault_with_items
-
-    vault, paths, repository = _vault_with_items(tmp_path)
-    _problem_book(repository)
-    _with_exercise(paths.root, "pi_pool_apply_mid", source_id="src_problems", extraction_id="ext_problems",
-                   span_id="s2")
-    vault = load_vault(paths.root)
-    report = reserve_exam_pool(vault, repository, vault.goals[0], item_count=3, clock=FrozenClock(NOW))
-    assert {"pi_pool_apply_mid", "pi_pool_derive_hard"} <= set(report.reserved_item_ids)
-    return paths, repository
-
-
 def test_an_exam_item_exposed_after_its_reservation_is_withdrawn_before_the_exam_starts(tmp_path):
     from learnloop.goals.exam_session import start_exam
-    from tests.test_exam_pool import NOW
+    from tests.exam_pool_helpers import NOW
 
     paths, repository = _reserved_pool(tmp_path)
     _expose(repository, "ext_problems", "s2")  # its exercise read in the Reader
@@ -472,7 +427,7 @@ def test_an_exam_item_exposed_after_its_reservation_is_withdrawn_before_the_exam
 
 def test_a_pool_every_item_of_which_was_exposed_is_reserved_afresh(tmp_path):
     from learnloop.goals.exam_pool import reserve_exam_pool
-    from tests.test_exam_pool import NOW
+    from tests.exam_pool_helpers import NOW
 
     paths, repository = _reserved_pool(tmp_path)
     first = set(repository.reserved_exam_pool_item_ids())
@@ -518,8 +473,8 @@ def test_with_the_switch_off_shown_material_is_selected_as_before(tmp_path):
 
     from learnloop.goals.certification_cold_probe import select_held_out_probe_item
     from learnloop.goals.exam_pool import reserve_exam_pool
-    from tests.test_certification_cold_probe import HELD_OUT_ITEM, _certify
-    from tests.test_exam_pool import NOW, _vault_with_items
+    from tests.certification_cold_probe_helpers import HELD_OUT_ITEM, _certify
+    from tests.exam_pool_helpers import NOW, _vault_with_items
 
     vault, paths, repository = _vault_with_items(tmp_path / "pool")
     _problem_book(repository)
@@ -550,7 +505,7 @@ def test_with_the_switch_off_the_cold_retry_is_the_predecessor_s(tmp_path):
         start_remediation_episode,
         start_remediation_treatment,
     )
-    from tests.test_remediation_cold_retry import NOW, _setup
+    from tests.remediation_cold_retry_helpers import NOW, _setup
 
     def treat(root, *, reveal=None, switch_off=False):
         vault, repository, misconception_id = _setup(root)
@@ -571,7 +526,7 @@ def test_with_the_switch_off_the_cold_retry_is_the_predecessor_s(tmp_path):
 
 def test_with_the_switch_off_an_exposed_exam_item_is_administered_as_before(tmp_path):
     from learnloop.goals.exam_session import start_exam
-    from tests.test_exam_pool import NOW
+    from tests.exam_pool_helpers import NOW
 
     paths, repository = _reserved_pool(tmp_path)
     _expose(repository, "ext_problems", "s2")
@@ -586,7 +541,7 @@ def test_the_switch_never_reaches_what_a_model_is_shown(textbook):
     """The switch is the serving rules' only: the Reader still refuses held-out material."""
 
     from learnloop.tutor.tutor_qa import HeldOutMaterialRefused, ask_question
-    from tests.test_exam_protection import _RecordingReaderTutor
+    from tests.exam_protection_helpers import _RecordingReaderTutor
 
     paths, repository, spans = textbook
     save_unit_selection(repository, "ext_text", list(spans), exam_use_modes={"worked": "held_out_evaluation"})
@@ -633,7 +588,7 @@ def test_replay_never_reads_the_switch(tmp_path):
 
 def _started_exam(tmp_path):
     from learnloop.goals.exam_session import start_exam
-    from tests.test_exam_pool import NOW
+    from tests.exam_pool_helpers import NOW
 
     paths, repository = _reserved_pool(tmp_path)
     vault = load_vault(paths.root)
@@ -655,8 +610,8 @@ def test_an_exam_item_exposed_during_the_exam_is_withdrawn_on_resume_and_its_ans
         record_exam_answer,
         start_exam,
     )
-    from tests.test_exam_pool import NOW
-    from tests.test_exam_session import _grade
+    from tests.exam_pool_helpers import NOW
+    from tests.exam_session_helpers import _grade
 
     paths, repository, session = _started_exam(tmp_path)
     session_id = session["session_id"]
@@ -693,8 +648,8 @@ def test_an_exam_item_exposed_during_the_exam_is_withdrawn_on_resume_and_its_ans
 
 def test_an_exam_answer_given_before_its_item_was_exposed_stands(tmp_path):
     from learnloop.goals.exam_session import finish_exam, queue_exam_answer, record_exam_answer, start_exam
-    from tests.test_exam_pool import NOW
-    from tests.test_exam_session import _grade
+    from tests.exam_pool_helpers import NOW
+    from tests.exam_session_helpers import _grade
 
     paths, repository, session = _started_exam(tmp_path)
     session_id = session["session_id"]
@@ -775,7 +730,7 @@ def test_a_sitting_every_unanswered_item_of_which_was_exposed_is_closed_and_its_
 
     from learnloop.goals.exam_pool import reserve_exam_pool
     from learnloop.goals.exam_session import ExamSessionError, start_exam
-    from tests.test_exam_pool import NOW
+    from tests.exam_pool_helpers import NOW
 
     paths, repository, session = _started_exam(tmp_path)
     session_id = session["session_id"]
@@ -804,7 +759,7 @@ def test_the_report_of_an_automatically_closed_sitting_is_its_closure_report(tmp
     claims nothing was withdrawn."""
 
     from learnloop.goals.exam_session import ExamSessionError, exam_report, start_exam
-    from tests.test_exam_pool import NOW
+    from tests.exam_pool_helpers import NOW
 
     paths, repository, session = _started_exam(tmp_path)
     session_id = session["session_id"]
@@ -827,7 +782,7 @@ def test_the_report_of_an_automatically_closed_sitting_is_its_closure_report(tmp
 
 def test_with_the_switch_off_an_item_exposed_mid_exam_is_administered_as_before(tmp_path):
     from learnloop.goals.exam_session import queue_exam_answer, start_exam
-    from tests.test_exam_pool import NOW
+    from tests.exam_pool_helpers import NOW
 
     paths, repository, session = _started_exam(tmp_path)
     _expose(repository, "ext_problems", "s2")

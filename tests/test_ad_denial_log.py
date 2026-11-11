@@ -16,10 +16,8 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from pathlib import Path
 
 import pytest
-from typer.testing import CliRunner
 
 from learnloop.adaptive_difficulty import denial_log as D
 from learnloop.adaptive_difficulty import operation as O
@@ -29,14 +27,11 @@ from learnloop.algorithm_versions import (
     REPLAY_LEDGER_ALGORITHM_VERSION,
 )
 from learnloop.vault.loader import load_vault
+from tests.ad_denial_log_helpers import OLD_LINE, _archives, _upgrade, _write_log
 
 TAG = ONE_ASK_ALGORITHM_VERSION
 PREDECESSOR = REPLAY_LEDGER_ALGORITHM_VERSION
 OLDER = CLAIM_FIXES_ALGORITHM_VERSION
-
-OLD_LINE = {"epoch": "e1", "reader": "learnloop.adaptive_difficulty.replay", "table": "practice_attempts",
-            "verb": "read", "why": "derived"}
-
 
 @pytest.fixture(autouse=True)
 def _cli_process(monkeypatch):
@@ -52,22 +47,6 @@ def _vault_at(tmp_path, version):
     from tests.helpers import create_placement_vault
 
     return create_placement_vault(tmp_path / "v", version=version)
-
-
-def _write_log(paths, lines) -> Path:
-    log = D.denial_log_path(paths.sqlite_path)
-    log.write_text("".join(json.dumps(line, sort_keys=True) + "\n" for line in lines), encoding="utf-8")
-    return log
-
-
-def _archives(paths) -> list[Path]:
-    return D.archived_logs(paths.sqlite_path)
-
-
-def _upgrade(paths, to):
-    from learnloop.cli import app
-
-    return CliRunner().invoke(app, ["upgrade", "--to", to, "--vault", str(paths.root)])
 
 
 # -- 1. cleared at upgrade -------------------------------------------------------------------------
@@ -168,7 +147,7 @@ def test_an_archive_name_already_taken_gets_a_counter(tmp_path):
 
 
 def test_a_new_denial_line_names_the_refused_operation(tmp_path, monkeypatch):
-    from tests.test_ad_guard import _slot_serve
+    from tests.ad_guard_helpers import _slot_serve
 
     seen: list[O.Operation] = []
     monkeypatch.setattr(O, "OBSERVERS", [seen.append])

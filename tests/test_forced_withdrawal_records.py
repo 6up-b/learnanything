@@ -39,11 +39,11 @@ from learnloop.daily_plan.engine import advance
 
 from tests.router_mixture_helpers import mixture_env, rows
 from tests.router_model_fakes import FakeDecider, fake_runtime, first_option, seed_with_first_uniform
-from tests.test_ih2_lessons_compete import OFF, OLD, QUIET, _env as _ih2_env, _open_offer, _ready_probe
-from tests.test_ih2_lessons_compete import TAG as IH2_TAG
-from tests.test_ih2_lessons_compete import draw  # noqa: F401 - the fixture
-from tests.test_router_g4_restraint import DECIDER_ONLY, PAST_THE_FLOOR, _followup_env
-from tests.test_te3b_offers import OFFER, offerable  # noqa: F401 - the fixture
+from tests.ih2_lessons_compete_helpers import OFF, OLD, QUIET, _env as _ih2_env, _open_offer, _ready_probe
+from tests.ih2_lessons_compete_helpers import TAG as IH2_TAG
+from tests.ih2_lessons_compete_helpers import draw  # noqa: F401 - the fixture
+from tests.router_g4_restraint_helpers import DECIDER_ONLY, PAST_THE_FLOOR, _followup_env
+from tests.te3b_offers_helpers import OFFER, offerable  # noqa: F401 - the fixture
 
 SECRET = "the learner wrote about eigenvalues here"
 
@@ -240,8 +240,8 @@ def test_a_failed_check_draw_placement_and_lesson_builder_are_the_boundarys_chil
 
 
 def test_the_days_check_block_writes_its_own_plan_block_record(tmp_path, offerable):
-    from tests.test_te3b_offers import TAG as TE3B_TAG
-    from tests.test_te3b_offers import _first_decision
+    from tests.te3b_offers_helpers import TAG as TE3B_TAG
+    from tests.te3b_offers_helpers import _first_decision
 
     env = mixture_env(tmp_path, fake_runtime(), version=TE3B_TAG)
     _first_decision(env)
@@ -264,7 +264,7 @@ def _block_of(env, row: dict[str, Any]) -> str:
 
 def _ad_env(tmp_path):
     from tests.ad23_fakes import ad23_vault, env_for, intent_gated
-    from tests.test_ad23_inversion import HARD, ITEMS, ROUTERS
+    from tests.ad23_inversion_helpers import HARD, ITEMS, ROUTERS
 
     paths = ad23_vault(tmp_path, items=ITEMS, features={"pi_h": HARD}, config=ROUTERS["staged"])
     env, clock = env_for(paths, items=ITEMS)
@@ -347,7 +347,7 @@ def test_a_cold_check_served_as_practice_or_displaced_leaves_a_record(tmp_path, 
 def test_a_head_mismatch_publishes_the_offer_and_records_both_heads(tmp_path, monkeypatch):
     from learnloop_sidecar.handlers import queue as queue_handler
 
-    from tests.test_router_offer_log import _call, _decisions, _served, _two_due_items
+    from tests.router_offer_log_helpers import _call, _decisions, _served, _two_due_items
 
     paths, repository, ctx, session_id = _two_due_items(tmp_path)
     monkeypatch.setattr(queue_handler, "_served_head", lambda dtos: "pi_not_the_head")

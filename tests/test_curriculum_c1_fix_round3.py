@@ -27,10 +27,11 @@ from learnloop.source_retrieval import deliverable_path as DP
 from learnloop.vault.loader import load_vault
 from tests.deliverable_fixtures import DeliverableFake, PlanDeliverableFake
 from tests.reading_path_fixtures import call, context
-from tests.test_curriculum_c1_codex_review_fixes import _ended
-from tests.test_curriculum_c1_fix_round2 import _no_refresh
-from tests.test_curriculum_c1_plan_follows_path import PRIMARIES, _at, _c1, _split
-from tests.test_rw7b_codex_review_fixes import _stage_reading
+from tests.curriculum_c1_codex_review_fixes_helpers import _ended
+from tests.curriculum_c1_fix_round2_helpers import _no_refresh
+from tests.curriculum_c1_plan_follows_path_helpers import PRIMARIES, _at, _c1, _split
+from tests.rw7b_codex_review_fixes_helpers import _stage_reading
+from tests.curriculum_c1_fix_round3_helpers import _env, _raw
 
 
 # -- Medium 1: C1's invariant before DL2's intent ending -----------------------------------------------
@@ -77,21 +78,6 @@ def test_m1_a_paused_reading_with_history_keeps_dl2s_intent_ending(tmp_path, mon
 
 
 # -- Medium 2: the whole database ------------------------------------------------------------------------
-
-
-def _env(c1):
-    return E.PlanEnv(load_vault(c1.paths.root), c1.repository)
-
-
-def _raw(c1, sql, params=()):
-    """A write from another connection (as a background job or another process makes it)."""
-
-    connection = sqlite3.connect(c1.paths.sqlite_path)
-    try:
-        connection.execute(sql, params)
-        connection.commit()
-    finally:
-        connection.close()
 
 
 JOB = ("INSERT INTO post_attempt_jobs(id, attempt_id, kind, job_key, attempt_completed_at, state, payload_json, "

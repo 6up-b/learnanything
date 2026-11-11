@@ -27,20 +27,14 @@ from learnloop.db.connection import connect
 from learnloop.router.card import CARD_VERSION, PREDECESSOR_CARD_VERSION, build_card
 
 from tests.approach_map_fakes import ITEM, LO
-from tests.test_teacher_te0_confidence_events import (
+from tests.teacher_te0_confidence_events_helpers import (
     _attempt,
     _card_inputs,
     _gathered_card,
     _tutor_context,
     _vault,
 )
-
-HELD_SUPPORT = {
-    "proof_route_check": {"status": "checked", "held_for_review": True, "version": "proof-route-check-v3"},
-    "valid_alternative_gate_applied": True,
-    "assessed_shortfall": False,
-}
-
+from tests.teacher_te0_review_fixes_helpers import HELD_SUPPORT
 
 def _switch_off(vault):
     from dataclasses import replace as dc_replace
@@ -129,7 +123,7 @@ def test_a_regrade_between_the_reads_never_mixes_revisions_in_the_tutor_and_hint
 
 @pytest.mark.durability
 def test_a_regrade_between_the_reads_never_mixes_revisions_on_the_card(tmp_path, monkeypatch):
-    from tests.test_router_card import _card, _card_world
+    from tests.router_card_helpers import _card, _card_world
 
     env = _card_world(tmp_path, monkeypatch)
     _attempt(env.repository.sqlite_path, "att_rg", at="2026-10-10T09:00:00Z", correctness=0.0, hedge="hedged",
@@ -231,7 +225,7 @@ def test_the_offline_runner_renders_the_confidence_block_into_each_arms_prompt(t
 
     monkeypatch.setattr(runner_module, "run_diagnosis", spy)
     from tests.diagnosis_split_helpers import build_diagnosis_vault, seed_history
-    from tests.test_diagnose_review import OPTIONS, _run
+    from tests.diagnose_review_helpers import OPTIONS, _run
     from learnloop.diagnosis.offline_review.runner import ReviewOptions
 
     paths = build_diagnosis_vault(tmp_path / "vault")

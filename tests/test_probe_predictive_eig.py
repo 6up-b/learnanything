@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.probe_episodes import (
     commit_presentation,
@@ -18,13 +17,11 @@ from learnloop.diagnosis.probe_families import (
     validate_and_compile_card,
 )
 from learnloop.vault.loader import load_vault
-from learnloop.vault.writer import upsert_practice_item
 
-from tests.helpers import NOW, NOW_ISO, admit_probe_instrument_card, create_basic_vault
+from tests.helpers import admit_probe_instrument_card, create_basic_vault
+from tests.probe_predictive_eig_helpers import CLOCK, LO_ID, _add_item
 
-LO_ID = "lo_svd_definition"
 ITEM_ID = "pi_svd_define_001"
-CLOCK = FrozenClock(NOW)
 
 
 def _compiled(rows=None):
@@ -76,29 +73,6 @@ def test_predictive_eig_requires_held_out_targets():
     )
     assert self_only.target_count == 0
     assert self_only.eig_nats == 0.0
-
-
-def _add_item(vault_root, item_id, surface_family):
-    upsert_practice_item(
-        vault_root,
-        {
-            "id": item_id,
-            "learning_object_id": LO_ID,
-            "practice_mode": "short_answer",
-            "attempt_types_allowed": ["diagnostic_probe", "dont_know"],
-            "evidence_facets": ["recall"],
-            "prompt": f"Prompt for {item_id}.",
-            "expected_answer": "Answer.",
-            "surface_family": surface_family,
-            "grading_rubric": {
-                "max_points": 4,
-                "criteria": [{"id": "correctness", "points": 4, "description": "Correct."}],
-            },
-            "created_at": NOW_ISO,
-            "updated_at": NOW_ISO,
-        },
-        clock=CLOCK,
-    )
 
 
 def test_predictive_objective_is_default_and_persisted(tmp_path):

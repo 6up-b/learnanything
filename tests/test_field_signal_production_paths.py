@@ -138,7 +138,7 @@ def _practice_screen_payload(session_id, *, attempt_progress):
     ("no_draft", True), ("draft_started", False), (None, False),
 ])
 def test_practice_screen_payload_marks_help_before_work(tmp_path, attempt_progress, early):
-    from tests.test_sidecar_tutor_qa import _TutorServer, _init, _rpc, _tutor_vault
+    from tests.sidecar_tutor_qa_helpers import _TutorServer, _init, _rpc, _tutor_vault
 
     server = _TutorServer(question_type="strategy")
     server.start()

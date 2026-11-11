@@ -18,7 +18,7 @@ from learnloop.vault.loader import load_vault
 import learnloop.clock as clock_module
 from tests.daily_plan_fakes import NOW, MovableClock, make_env, record_attempt
 from tests.split_live_helpers import enable_embeddings
-from tests.test_daily_plan_build import _seed_wide, _wide_items, _wide_vault
+from tests.daily_plan_build_helpers import _seed_wide, _wide_items, _wide_vault
 
 PLAN_TABLES = ("daily_plans",)
 

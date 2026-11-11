@@ -35,8 +35,8 @@ from learnloop.vault.loader import load_vault
 from tests.helpers import NOW, create_basic_vault, set_algorithm_version
 from tests.router_mixture_helpers import mixture_env
 from tests.router_model_fakes import fake_runtime
-from tests.test_data_capture_a2_measurement import _objectives, _picker, _reading_decision, _reading_env
-from tests.test_question_context import FakeTutorClient
+from tests.data_capture_a2_measurement_helpers import _objectives, _picker, _reading_decision, _reading_env
+from tests.question_context_helpers import FakeTutorClient
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 VERSIONS = [LESSON_SUGGESTIONS_ALGORITHM_VERSION, DATA_CAPTURE_ALGORITHM_VERSION, LATEST_ALGORITHM_VERSION]

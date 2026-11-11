@@ -30,10 +30,7 @@ from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 
 from tests.ad_fakes import ForecastLLM, ad_plan_vault, plan_env, rows
-
-
-def _iso(moment) -> str:
-    return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
+from tests.ro2_history_resolve_helpers import _attempt, _iso
 
 
 def _setup(tmp_path):
@@ -55,17 +52,6 @@ def _setup(tmp_path):
     assert {o.status for o in outcomes} == {"ok"}
     unseen = [item for item in ("pi_m1a", "pi_m1b", "pi_m1c") if item != presentation["practice_item_id"]]
     return paths, pid, start, unseen
-
-
-def _attempt(paths, attempt_id, item, created_at, *, correctness=1.0, presentation=None, hints=0):
-    """A graded attempt through the real pipeline (AD reads only graded answers), at ``created_at``;
-    returns its id (``attempt_id`` names it in the test only)."""
-
-    from learnloop.clock import parse_utc
-    from tests.ad23_fakes import answer
-
-    return answer(paths, item, correct=correctness >= 0.8, presentation_id=presentation, hints=hints,
-                  clock=FrozenClock(parse_utc(created_at)))
 
 
 def _resolve(paths, now):

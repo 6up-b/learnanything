@@ -13,7 +13,6 @@ from __future__ import annotations
 import json
 
 import pytest
-import yaml
 
 from learnloop.clock import FrozenClock
 from learnloop.content.proposals.ai_contracts import AuthoringProposal
@@ -38,6 +37,7 @@ from learnloop.vault.required_method import (
 from learnloop.vault.yaml_io import write_yaml
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault
+from tests.required_method_items_helpers import _add_concept_and_lo
 
 STAMP = "2026-10-13T00:00:00Z"
 
@@ -208,19 +208,6 @@ def test_method_names_match_on_content_tokens():
 
 
 # -- method targets from metadata -------------------------------------------------------
-
-
-def _add_concept_and_lo(paths, concept_id: str, concept_type: str, lo_id: str) -> None:
-    concepts = yaml.safe_load(paths.concepts_path.read_text(encoding="utf-8"))
-    concepts["concepts"][concept_id] = {
-        "title": concept_id.replace("_", " ").title(), "type": concept_type, "aliases": [], "description": "d",
-        "tags": [], "created_at": NOW_ISO, "updated_at": NOW_ISO,
-    }
-    write_yaml(paths.concepts_path, concepts)
-    write_yaml(paths.learning_object_path("linear-algebra", lo_id), {
-        "schema_version": 1, "id": lo_id, "title": lo_id, "subjects": ["linear-algebra"], "concept": concept_id,
-        "knowledge_type": "concept", "status": "active", "summary": "s", "created_at": NOW_ISO, "updated_at": NOW_ISO,
-    })
 
 
 def _write_facets(paths, facets: list[dict]) -> None:
@@ -532,7 +519,7 @@ def _setup_requiring_statement(tmp_path):
 
     from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
 
-    from tests.test_source_inventory import _persist, _register_revision
+    from tests.source_inventory_helpers import _persist, _register_revision
 
     paths = create_basic_vault(tmp_path / "vault")
     repository = Repository(paths.sqlite_path)
@@ -567,8 +554,8 @@ def test_an_imported_exercise_keeps_a_required_method_only_by_its_one_time_judgm
     from learnloop.content.proposals.ai_contracts import RequiredMethodPayload
     from learnloop.content.proposals.method_statement_judge import resolve_statement_judge
 
-    from tests.test_exercise_authoring import FakeClient, _item as exercise_item, _write_facet_registry
-    from tests.test_required_method_authority import ALLOWS, REQUIRES, StatementDecider
+    from tests.exercise_authoring_helpers import FakeClient, _item as exercise_item, _write_facet_registry
+    from tests.required_method_authority_helpers import ALLOWS, REQUIRES, StatementDecider
 
     method = RequiredMethodPayload(name=name, criterion_ids=["factorization"])
     repository = _setup_requiring_statement(tmp_path)
@@ -607,7 +594,7 @@ def test_synthesis_publishes_a_required_method_presented_with_the_canonical_sent
     from learnloop.content.synthesis.ai_contracts import SynthRequiredMethod
     from learnloop.content.synthesis.source_set_synthesis import create_study_map
 
-    from tests.test_source_set_synthesis import _CLOCK, FakeSynthesisClient, _default_payload, _setup
+    from tests.source_set_synthesis_helpers import _CLOCK, FakeSynthesisClient, _default_payload, _setup
 
     def builder(context, _calls):
         payload = _default_payload(context)

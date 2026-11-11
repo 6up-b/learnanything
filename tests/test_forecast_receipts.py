@@ -32,8 +32,7 @@ import pytest
 from typer.testing import CliRunner
 
 from learnloop.algorithm_versions import METHOD_EXPLICIT_ALGORITHM_VERSION as METHOD_VERSION
-from learnloop.attempts.attempts import AttemptDraft, complete_attempt_with_ai_required
-from learnloop.attempts.post_attempt import run_post_attempt_pipeline
+from learnloop.attempts.attempts import AttemptDraft
 from learnloop.attempts.regrade import regrade_attempt
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
@@ -55,96 +54,33 @@ from learnloop.vault.loader import load_vault
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.helpers import NOW
 from tests.split_live_helpers import ReadyRuntime, append_config, at, drain_jobs, split_vault, submit
-from tests.test_causal_cold_outcomes import _attempt, _setup, _to_treatment
-from tests.test_route_rules_in_grader import (
+from tests.causal_cold_outcomes_helpers import _attempt, _setup, _to_treatment
+from tests.route_rules_in_grader_helpers import (
     ALTERNATIVE,
     VERSION as ROUTE_RULES_VERSION,
     DivergentUnlocatedGrader,
     FullCreditGrader,
 )
+from tests.forecast_receipts_helpers import (
+    ITEM,
+    WRONG,
+    _answer,
+    _diagnosed,
+    _diagnosis_resolution,
+    _present,
+    _receipts,
+)
 
-ITEM = "pi_svd_compute_001"
-WRONG = "A = U Sigma V wrong"
 RIGHT = "A = U Sigma V^T"
 
 
 # -- helpers ----------------------------------------------------------------------------------
 
 
-def _present(repository: Repository, item: str, *, block: str, when) -> str:
-    """One served plan item (router R2a's receipt), the presentation an answer binds to."""
-
-    served = when.strftime("%Y-%m-%dT%H:%M:%SZ")
-    with repository.connection() as connection:
-        connection.execute(
-            "INSERT INTO attention_blocks(id, action, budget_minutes, content_hash, created_at) "
-            "VALUES (?, 'practice', 10, 'hash', ?)",
-            (block, served),
-        )
-        connection.execute(
-            "INSERT INTO plan_presentations(id, block_id, practice_item_id, origin, served_at) "
-            "VALUES (?, ?, ?, 'chooser', ?)",
-            (f"pp_{block}", block, item, served),
-        )
-        connection.commit()
-    return f"pp_{block}"
-
-
-def _answer(vault, repository, client, *, answer: str, when, presentation_id: str | None = None, **draft):
-    """A graded attempt through the live door, bound to a plan presentation when given."""
-
-    draft = AttemptDraft(
-        practice_item_id=ITEM,
-        learner_answer_md=answer,
-        attempt_type="independent_attempt",
-        plan_presentation_id=presentation_id,
-        **draft,
-    )
-    clock = FrozenClock(when)
-    result = complete_attempt_with_ai_required(
-        vault, repository, draft, runtime=ReadyRuntime(), ai_client=client, clock=clock
-    )
-    run_post_attempt_pipeline(vault, repository, result=result, session_id=None, clock=clock)
-    return result
-
-
-def _receipts(repository: Repository, kind: str | None = None) -> list[dict]:
-    with repository.connection() as connection:
-        return receipt_store.list_receipts(connection, kind=kind)
-
-
 def _only(rows, kind):
     matching = [(receipt, resolution) for receipt, resolution in rows if receipt["kind"] == kind]
     assert len(matching) == 1, matching
     return matching[0]
-
-
-def _diagnosed(tmp_path, *, version: str = "mvp-0.10", config: str = "", method: bool = False):
-    """A split vault with one wrong answer diagnosed (its forecast written).
-
-    ``method``: the item is method-explicit (at the method-explicit
-    successor), so a regrade reads and cites its assessment contract."""
-
-    paths, vault, repository = split_vault(tmp_path, version=version, config=config)
-    if method:
-        from tests.test_required_method_grading import _require_method
-
-        _require_method(paths)
-        vault = load_vault(paths.root)
-    client = ReviewFakeClient()
-    diagnosed = submit(vault, repository, client, answer=WRONG, when=at(20))
-    drain_jobs(vault, repository, client, clock=FrozenClock(at(20.5)))
-    return paths, vault, repository, diagnosed
-
-
-def _diagnosis_resolution(vault, attempt_id: str) -> dict:
-    rows = [
-        (receipt, resolution)
-        for receipt, resolution in resolved_receipts(vault)
-        if receipt["kind"] == FR.DIAGNOSIS_NEXT_OBSERVATION and receipt["source_attempt_id"] == attempt_id
-    ]
-    assert len(rows) == 1, rows
-    return rows[0][1]
 
 
 # -- written in the decision's transaction, before any outcome ---------------------------------

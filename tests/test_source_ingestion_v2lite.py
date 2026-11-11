@@ -33,7 +33,7 @@ from learnloop.content.synthesis.source_unit_selection import save_unit_selectio
 from learnloop.vault.yaml_io import read_markdown_with_frontmatter
 
 from tests.helpers import NOW, create_basic_vault
-from tests.test_source_ingestion import _FakeCanonicalClient, _source_file
+from tests.source_ingestion_helpers import _FakeCanonicalClient, _source_file
 
 # Distinct, long-enough (> min_content_chars) sentinels per unit so we can prove
 # which units reached synthesis.

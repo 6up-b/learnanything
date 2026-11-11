@@ -119,7 +119,7 @@ def _vault(tmp_path):
 
     from tests.helpers import create_daily_plan_vault
     from tests.source_service_fakes import seed_textbook
-    from tests.test_source_inventory import _persist
+    from tests.source_inventory_helpers import _persist
 
     paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={lo: [(f"pi_{lo}", 2.0)] for lo in LOS},
                                     version=LESSON_OFFERS_ALGORITHM_VERSION)
@@ -218,7 +218,7 @@ def test_the_held_map_is_the_landing_codes_through_protection_source_and_vault_c
         tmp_path, monkeypatch, protected, observed):
     from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-    from tests.test_source_inventory import _persist
+    from tests.source_inventory_helpers import _persist
 
     paths, repository = _vault(tmp_path)
     vault = _load(paths)

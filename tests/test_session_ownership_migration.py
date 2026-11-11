@@ -17,16 +17,10 @@ import pytest
 from learnloop.db.migrate import discover_migrations
 from learnloop.db.table_roles import TableRole, role_for_table
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.session_ownership_migration_helpers import PR4_ADDED_OBJECTS
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-#: Every schema object 226 adds, and the table it alters: the earlier
-#: migrations' "nothing else changed" diffs on the way to head read these.
-PR4_ADDED_OBJECTS = frozenset({
-    "session_handoffs", "sqlite_autoindex_session_handoffs_1", "idx_session_handoffs_session",
-    "session_handoffs_no_update", "session_handoffs_no_delete",
-})
-PR4_ALTERED_TABLES = frozenset({"sessions"})
 
 _SESSIONS_BEFORE = """
 CREATE TABLE sessions (

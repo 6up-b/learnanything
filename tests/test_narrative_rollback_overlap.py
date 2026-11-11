@@ -20,9 +20,9 @@ from learnloop.db import connection as DBC
 from learnloop.db import migrate as DBM
 from learnloop.db.connection import connect
 from learnloop.instructional import reader_digest as RN
-from tests.test_curriculum_c1_plan_follows_path import _c1
-from tests.test_reader_digest_narrative import NarrativeFake
-from tests.test_reader_rw6b_p2_landing import _digest, _digest_row
+from tests.curriculum_c1_plan_follows_path_helpers import _c1
+from tests.reader_digest_narrative_helpers import NarrativeFake
+from tests.reader_rw6b_p2_landing_helpers import _digest, _digest_row
 
 pytestmark = pytest.mark.durability
 

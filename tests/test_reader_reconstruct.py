@@ -13,27 +13,14 @@ import json
 
 import pytest
 
-from learnloop.clock import FrozenClock
 from learnloop.curriculum import commitments as C
 from learnloop.reader import active_reading as AR
 from learnloop.reader import reader_quick_check as RQC
-from learnloop.reader.ai_contracts import ReadingActiveCheck
 from learnloop.vault.loader import load_vault
-from tests.helpers import NOW
 from tests.recap_fixtures import call, context, table_counts
-from tests.test_reader_active_reading import ActiveClient
-from tests.test_reader_guidance import _setup
-
-CLOCK = FrozenClock(NOW)
-LO = "lo_svd_definition"
-
-
-def _reconstruct(repo):
-    client = ActiveClient(ReadingActiveCheck(question_md="Derive the SVD's form without looking at the book.",
-                                             span_ids=["s1"]))
-    return RQC.author_selection_question(repo, client, extraction_id="ext1", anchor_span_ids=["s1", "s2"],
-                                         style="reconstruct", clock=CLOCK, owner="job_r")
-
+from tests.reader_active_reading_helpers import ActiveClient
+from tests.reader_guidance_helpers import _setup
+from tests.reader_reconstruct_helpers import CLOCK, LO, _reconstruct
 
 def _commitments(repo):
     with repo.connection() as connection:
@@ -116,7 +103,7 @@ def test_every_rw1b_event_is_salience_only_refused_as_evidence_and_never_client_
 
     from learnloop.attempts import salience_firewall as SF
     from learnloop.reader import reader_inquiry as RI
-    from tests.test_reader_intent import FakeDecider, _prefer
+    from tests.reader_intent_helpers import FakeDecider, _prefer
 
     vault, _repo = _setup(tmp_path)
     ctx = context(vault.root)

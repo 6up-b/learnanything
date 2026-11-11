@@ -8,7 +8,6 @@ learning family.
 
 from __future__ import annotations
 
-import csv
 import json
 import os
 from dataclasses import replace
@@ -42,7 +41,8 @@ from learnloop.evsi_calibration.family_fit import (
 from learnloop.evsi_calibration.response_fit import FitSettings, fit_response_model
 from learnloop.evsi_calibration.simulate import SimulationSettings, loss_table_for, run_simulation
 from learnloop.evsi_calibration.world import HYP_KNOWS, HYP_OTHER, build_scenarios, hand_set_row
-from tests.test_evsi_calibration_sim import SUBJECT, write_eedi_2020, write_eedi_2024
+from tests.evsi_calibration_sim_helpers import write_eedi_2020, write_eedi_2024
+from tests.evsi_multisim_helpers import _write_long_bank
 
 FAST = FamilyFitSettings(lca_iterations=300, cdm_iterations=150, nrm_iterations=40, lta_iterations=80,
                          bootstrap=30, workers=1)
@@ -430,27 +430,6 @@ def test_the_package_with_every_piece_put_back_is_the_successor(eedi):
     assert P.decide("voi_proposed", _state(scenario, belief, settings), settings).question_id == highest
     assert P.decide("voi_p_top_value", _state(scenario, belief, settings), settings).question_id == top_ref
     assert P.decide("evsi_lookahead", _state(scenario, belief, settings), settings).question_id == top_ref
-
-
-def _write_long_bank(directory, questions: int):
-    """The synthetic 2024 bank's label patterns repeated: one subject with
-    ``questions`` questions (more than the old 25-check bound)."""
-
-    write_eedi_2024(directory)
-    labels = [
-        ("A", {"B": 10, "C": 11}), ("B", {"A": 10, "D": 12}), ("C", {"A": 11, "B": 12}),
-        ("D", {"A": 10}), ("A", {"C": 11, "D": 12}), ("B", {"C": 10}), ("C", {"D": 11}), ("D", {"B": 12}),
-    ]
-    with (directory / "train.csv").open("w", newline="") as handle:
-        writer = csv.writer(handle)
-        writer.writerow(["QuestionId", "ConstructId", "ConstructName", "SubjectId", "SubjectName", "CorrectAnswer",
-                         "QuestionText", "AnswerAText", "AnswerBText", "AnswerCText", "AnswerDText",
-                         "MisconceptionAId", "MisconceptionBId", "MisconceptionCId", "MisconceptionDId"])
-        for index in range(questions):
-            correct, mis = labels[index % len(labels)]
-            writer.writerow([index, 100 + index, "Order of operations", SUBJECT, "BIDMAS", correct, f"Q{index}",
-                             "a", "b", "c", "d"] + [f"{float(mis[o]):.1f}" if o in mis else "" for o in "ABCD"])
-    return directory
 
 
 def test_the_multi_family_study_runs_every_episode_without_a_count_bound(eedi, tmp_path):

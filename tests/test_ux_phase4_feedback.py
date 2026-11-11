@@ -41,27 +41,21 @@ from learnloop_sidecar.handlers.serializers import feedback_bundle
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.helpers import create_basic_vault, seed_due_item
 from tests.split_live_helpers import ReadyRuntime, split_vault
-from tests.test_held_grade_evidence import T, _graded_apply, _held_apply
-from tests.test_route_rules_in_grader import ITEM as SPLIT_ITEM
-from tests.test_route_rules_in_grader import VERSION, FullCreditGrader
-
-ITEM = "pi_svd_define_001"
-
-
-@pytest.fixture()
-def ctx(tmp_path):
-    import learnloop_sidecar.handlers  # noqa: F401
-    from learnloop_sidecar.context import SidecarContext
-
-    paths = create_basic_vault(tmp_path / "vault")
-    seed_due_item(paths)
-    context = SidecarContext()
-    context.load(paths.root)
-    # Never a real grading provider: "manual" is a never-ready runtime.
-    context.grading_provider_override = "manual"
-    context.paths = paths
-    return context
-
+from tests.held_grade_evidence_helpers import T, _graded_apply, _held_apply
+from tests.route_rules_in_grader_helpers import ITEM as SPLIT_ITEM
+from tests.route_rules_in_grader_helpers import VERSION, FullCreditGrader
+from tests.ux_phase4_feedback_helpers import (
+    ITEM,
+    _administration_receipts,
+    _due_cold_task,
+    _exposure,
+    _feedback_answer,
+    _iso,
+    _later,
+    _one_item_plan,
+    _served_items,
+)
+from tests.ux_phase4_feedback_helpers import ctx  # noqa: F401 - fixtures, used by parameter name
 
 def _call(ctx, name: str, params: dict):
     from learnloop_sidecar.registry import METHOD_REGISTRY
@@ -143,8 +137,8 @@ def test_the_bundle_carries_the_question_as_it_was_given(tmp_path):
 
     from learnloop.db.repositories import Repository
     from learnloop.vault.writer import upsert_practice_item
-    from tests.test_durable_promotion_arms import _failure
-    from tests.test_km2_write_path import build_mvp07_vault
+    from tests.durable_promotion_arms_helpers import _failure
+    from tests.km2_write_path_helpers import build_mvp07_vault
 
     paths = build_mvp07_vault(tmp_path / "vault")
 
@@ -385,20 +379,6 @@ def _next_attempt_primed(repository, *, submission_id=None, answer="a later answ
         clock=clock,
     )
     return draft.primed
-
-
-def _later(**delta) -> FrozenClock:
-    """A clock ``delta`` after now (the ledger rows here are stamped now)."""
-
-    from datetime import UTC, datetime
-
-    return FrozenClock(datetime.now(UTC) + timedelta(**delta))
-
-
-def _iso(clock: FrozenClock) -> str:
-    from learnloop.clock import utc_now_iso
-
-    return utc_now_iso(clock)
 
 
 # -- F1: the full answer on feedback is an exposure ------------------------------------------
@@ -855,7 +835,7 @@ def test_f5_an_answer_with_no_contract_is_unrecorded(ctx):
 
 
 def test_f6_the_regrade_history_says_the_grade_it_replaced_was_held(tmp_path):
-    from tests.test_held_grade_evidence import VALIDATING, _held_live
+    from tests.held_grade_evidence_helpers import VALIDATING, _held_live
 
     _paths, vault, repository = split_vault(tmp_path, version=VERSION)
     held = _held_live(vault, repository)
@@ -890,8 +870,8 @@ def test_f5_a_method_explicit_answer_keeps_its_question_key_and_rubric_together(
 
     from learnloop.db.repositories import Repository
     from learnloop.vault.writer import upsert_practice_item
-    from tests.test_durable_promotion_arms import _failure
-    from tests.test_km2_write_path import build_mvp07_vault
+    from tests.durable_promotion_arms_helpers import _failure
+    from tests.km2_write_path_helpers import build_mvp07_vault
 
     paths = build_mvp07_vault(tmp_path / "vault")
 
@@ -1336,27 +1316,6 @@ def test_f10_a_contest_key_resent_with_an_edited_reason_is_refused_never_dropped
 # the rows that schedule writes through the production readers.
 
 
-def _feedback_answer(ctx, *, then: FrozenClock) -> str:
-    vault, repository = ctx.require_vault()
-    return complete_self_graded_attempt(
-        vault, repository,
-        AttemptDraft(practice_item_id=ITEM, learner_answer_md="my answer", attempt_type="independent_attempt"),
-        SelfGradeInput(criterion_points={"correctness": 0}, confidence=3),
-        clock=then,
-    ).attempt_id
-
-
-def _exposure(ctx, attempt_id: str, display_id: str, *, clock: FrozenClock) -> None:
-    from learnloop.attempts.reveal_ledger import record_feedback_answer_display_reveal
-
-    vault, repository = ctx.require_vault()
-    record_feedback_answer_display_reveal(
-        repository, attempt_id=attempt_id, practice_item_id=ITEM,
-        learning_object_id=vault.practice_items[ITEM].learning_object_id,
-        display_id=display_id, clock=clock,
-    )
-
-
 def _admissible_now(ctx, *, clock: FrozenClock | None = None) -> bool:
     from learnloop.attempts.reveal_ledger import production_admissibility
 
@@ -1552,7 +1511,7 @@ def test_f9f_a_blind_regrade_keeps_the_maximum_recorded_with_it_after_the_questi
     the grade out of that recorded maximum, never the item's new one."""
 
     from learnloop.vault.writer import upsert_practice_item
-    from tests.test_held_grade_evidence import _graded_apply
+    from tests.held_grade_evidence_helpers import _graded_apply
 
     paths, vault, repository = split_vault(tmp_path, version=VERSION)
     _graded_apply(vault, repository, SPLIT_ITEM, {"setup": 1.0, "result": 1.0}, attempt_id="att_g", when=T)
@@ -1974,7 +1933,7 @@ def test_f1i_the_scheduler_never_serves_a_cold_retry_that_submit_would_refuse(tm
     import random
 
     from learnloop.attempts.attempts import auto_primed_draft
-    from tests.test_remediation_cold_retry import NOW, _cold_lane_ids, _drive_to_cold_scheduled, _setup
+    from tests.remediation_cold_retry_helpers import NOW, _cold_lane_ids, _drive_to_cold_scheduled, _setup
 
     rng = random.Random(seed)
     vault, repository, misconception_id = _setup(tmp_path)
@@ -2249,16 +2208,6 @@ def _plan_with_a_cold_check(tmp_path, name: str):
     return env, clock
 
 
-def _served_items(env) -> list[str]:
-    import json
-
-    with env.repository.connection() as connection:
-        rows = connection.execute(
-            "SELECT detail_json FROM attention_block_events WHERE kind = 'item_served' ORDER BY created_at, event_ordinal"
-        ).fetchall()
-    return [json.loads(row[0])["practice_item_id"] for row in rows]
-
-
 def _would_be_primed(env, item_id: str, clock) -> bool:
     from learnloop.attempts.attempts import auto_primed_draft
 
@@ -2407,22 +2356,6 @@ def test_f1k_a_malformed_identity_exempts_nothing(ctx, identity):
 # -- C: a read-only detail never opens a cold administration ------------------------------------
 
 
-def _administration_receipts(repository) -> int:
-    with repository.connection() as connection:
-        return int(connection.execute(
-            "SELECT COUNT(*) FROM coldness_receipts WHERE stage = 'administration'"
-        ).fetchone()[0])
-
-
-def _due_cold_task(ctx, *, case_ref: str = "ep_detail") -> dict:
-    _vault, repository = ctx.require_vault()
-    return repository.create_followup_task(
-        kind="cold_retry", case_kind="misconception", case_ref=case_ref,
-        not_before=_iso(_later(hours=-1)), expires_at=_iso(_later(days=30)), selected_item_id=ITEM,
-        clock=_later(days=-1),
-    )
-
-
 def test_f1k_a_read_only_detail_never_opens_a_cold_administration(ctx):
     """Feedback and the inspector read an item's detail without a session: no
     cold administration is opened and no receipt written, whatever the item's
@@ -2465,7 +2398,7 @@ def test_f1k_no_probe_is_committed_for_an_item_inside_routine_display_coverage(t
     still never attempted, a probe candidate)."""
 
     from learnloop.diagnosis.probe_episodes import commit_item_presentation, enter_episode, episode_hypothesis_set
-    from tests.test_probe_orchestration_remainder import CLOCK, ITEM_ID, LO_ID, _setup
+    from tests.probe_orchestration_remainder_helpers import CLOCK, ITEM_ID, LO_ID, _setup
 
     _root, loaded, repository = _setup(tmp_path)
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
@@ -2692,7 +2625,7 @@ def test_f1l_a_presentation_committed_before_a_display_is_not_served_inside_its_
         enter_episode,
         serve_presentation,
     )
-    from tests.test_probe_orchestration_remainder import CLOCK, ITEM_ID, LO_ID, _setup
+    from tests.probe_orchestration_remainder_helpers import CLOCK, ITEM_ID, LO_ID, _setup
 
     _root, loaded, repository = _setup(tmp_path)
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
@@ -2726,8 +2659,8 @@ def test_f1l_the_quick_check_never_presents_an_item_inside_routine_display_cover
     presented first, as before (control)."""
 
     from tests.helpers import NOW
-    from tests.test_assumed_known import _answer, _setup as placement_setup
-    from tests.test_quick_check import _best_item, _progress, _start
+    from tests.assumed_known_helpers import _answer, _setup as placement_setup
+    from tests.quick_check_helpers import _best_item, _progress, _start
 
     _paths, vault, repository = placement_setup(tmp_path, version=version)
     best = _best_item(vault, repository, ["lo_diag"])
@@ -2765,7 +2698,7 @@ def test_f1l_the_sim_skips_a_covered_instrument_instead_of_aborting_the_run(tmp_
 
     from learnloop.diagnosis import probe_episodes
     from learnloop.sim.diagnostic_validation import PLANTED_TYPES, run_probe_validation
-    from tests.test_sim_probe_validation import _vault_with_confusable
+    from tests.sim_probe_validation_helpers import _vault_with_confusable
 
     refused: list[str] = []
     original = probe_episodes.refuse_routine_display_covered
@@ -2800,7 +2733,7 @@ def test_f1l_a_refused_causal_offer_leaves_the_episode_and_its_presentation_unch
     from learnloop.diagnosis.causal_orchestrator import accept_probe_offer
     from learnloop.diagnosis.probe_episodes import commit_item_presentation, enter_episode, episode_hypothesis_set
     from tests.helpers import admit_probe_instrument_card
-    from tests.test_causal_orchestrator import CLOCK, LO_ID, PROBE_ITEM, _activate_probe_candidate, _seed_factor, _vault
+    from tests.causal_orchestrator_helpers import CLOCK, LO_ID, PROBE_ITEM, _activate_probe_candidate, _seed_factor, _vault
 
     vault, repository, _root = _vault(tmp_path, with_probe_item=True)
     factor_id, first_id, second_id = _seed_factor(repository)
@@ -2837,7 +2770,7 @@ def test_f1l_a_precommitted_block_stamps_its_surviving_members_size_and_indices(
     target is reachable."""
 
     from learnloop.diagnosis.probe_episodes import enter_episode, plan_precommitted_block
-    from tests.test_probe_policy import CLOCK, ITEM_2, ITEM_ID, LO_ID, _setup as policy_setup
+    from tests.probe_policy_helpers import CLOCK, ITEM_2, ITEM_ID, LO_ID, _setup as policy_setup
 
     loaded, repository = policy_setup(tmp_path, items=(ITEM_ID, ITEM_2))
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
@@ -2851,31 +2784,6 @@ def test_f1l_a_precommitted_block_stamps_its_surviving_members_size_and_indices(
 
 
 # -- F: a temporary hold never finishes the plan ------------------------------------------------
-
-
-def _one_item_plan(tmp_path, display_age: timedelta):
-    from datetime import UTC, datetime
-
-    from tests.daily_plan_fakes import MovableClock, make_env, scheduled, seed_due
-    from tests.helpers import create_daily_plan_vault
-
-    start = datetime(2026, 10, 12, 10, 0, tzinfo=UTC)
-    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={"lo_c": [("pi_cold", 1.0)]})
-    clock = MovableClock(start)
-    env = make_env(paths.root, [scheduled("pi_cold", "lo_c", priority=0.9, followup_kind="cold_retry")],
-                   clock=clock, session_id="s_wait")
-    seed_due(env.repository, "pi_cold", due=start - timedelta(days=2), last=start - timedelta(days=9))
-    env.repository.create_followup_task(
-        kind="cold_retry", case_kind="misconception", case_ref="ep_wait",
-        not_before=_iso(FrozenClock(start - timedelta(hours=1))), expires_at=_iso(FrozenClock(start + timedelta(days=30))),
-        selected_item_id="pi_cold", clock=FrozenClock(start - timedelta(days=1)),
-    )
-    env.repository.insert_reveal_event(
-        {"practice_item_id": "pi_cold", "learning_object_id": "lo_c", "source_kind": "answer_display",
-         "amount": 1.0, "basis": "feedback_full_answer:desktop:display_wait"},
-        clock=FrozenClock(start - display_age),
-    )
-    return env, clock
 
 
 def test_f1l_a_hold_that_lifts_today_waits_instead_of_finishing_the_plan(tmp_path):

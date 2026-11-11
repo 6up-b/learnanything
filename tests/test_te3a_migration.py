@@ -18,11 +18,9 @@ from learnloop.adaptive_difficulty.protected_tables import PROTECTED, ROLES
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.te3a_migration_helpers import TABLE
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-TABLE = "ad_reading_opportunities"
-#: What 249 alters (its table's text: the kind list): earlier migrations' "alters nothing else" diffs read this.
-TE3A_ALTERED_TABLES = frozenset({TABLE})
 #: The objects 249 drops and recreates (same names): earlier migrations' "nothing else changed" diffs read this.
 TE3A_REBUILT_OBJECTS = frozenset({
     TABLE, "idx_ad_reading_opportunities_lo", "idx_ad_reading_opportunities_written",

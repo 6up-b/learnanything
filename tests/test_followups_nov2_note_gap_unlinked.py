@@ -23,7 +23,7 @@ from learnloop.tutor.ai_contracts import LearnerGap
 from learnloop.vault.loader import load_vault
 from tests.reading_path_fixtures import call
 from tests.notes_fixtures import edit_annotation
-from tests.test_notes_as_learner_text import CAPTURED, CLOCK, TYPED, PlanGapFake, _clients, _gaps, _linked, _run, \
+from tests.notes_as_learner_text_helpers import CAPTURED, CLOCK, TYPED, PlanGapFake, _clients, _gaps, _linked, _run, \
     _snapshots, _typed_line
 from tests.text_gap_fakes import word_match
 

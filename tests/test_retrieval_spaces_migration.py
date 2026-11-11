@@ -24,46 +24,40 @@ from learnloop.db.stores.retrieval_spaces import (
 )
 from learnloop.db.table_roles import TableRole, tables_for_role
 from learnloop.substrate.rebuild_orchestrator import derived_table_owners
-from tests.test_ro1_availability import RO1_ALTERED_TABLES
-from tests.test_te3a_migration import TE3A_ALTERED_TABLES
-from tests.test_learner_claim_application_migration import CLAIM_POINT_ALTERED_TABLES
-from tests.test_section_coverage_migration import C0A_ADDED_OBJECTS
-from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
-from tests.test_session_ownership_migration import PR4_ADDED_OBJECTS, PR4_ALTERED_TABLES
-from tests.test_learner_note_source_kind_migration import C5_ALTERED_TABLES
-from tests.test_learner_gap_unlinked_migration import UNLINKED_ALTERED_TABLES
-from tests.test_help_assist_work_md_migration import DR2_ALTERED_TABLES
-from tests.test_help_assist_figures_migration import P3_ADDED_OBJECTS, P3_ALTERED_TABLES
-from tests.test_reader_session_digests_migration import RW6B_ADDED_OBJECTS
-from tests.test_deliverable_curriculum_migration import C0B_ADDED_OBJECTS
-from tests.test_learner_notes_migration import C2_ADDED_OBJECTS
+from tests.ro1_availability_helpers import RO1_ALTERED_TABLES
+from tests.te3a_migration_helpers import TE3A_ALTERED_TABLES
+from tests.learner_claim_application_migration_helpers import CLAIM_POINT_ALTERED_TABLES
+from tests.section_coverage_migration_helpers import C0A_ADDED_OBJECTS
+from tests.figure_requests_migration_helpers import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
+from tests.session_ownership_migration_helpers import PR4_ADDED_OBJECTS, PR4_ALTERED_TABLES
+from tests.learner_note_source_kind_migration_helpers import C5_ALTERED_TABLES
+from tests.learner_gap_unlinked_migration_helpers import UNLINKED_ALTERED_TABLES
+from tests.help_assist_work_md_migration_helpers import DR2_ALTERED_TABLES
+from tests.help_assist_figures_migration_helpers import P3_ADDED_OBJECTS, P3_ALTERED_TABLES
+from tests.reader_session_digests_migration_helpers import RW6B_ADDED_OBJECTS
+from tests.deliverable_curriculum_migration_helpers import C0B_ADDED_OBJECTS
+from tests.learner_notes_migration_helpers import C2_ADDED_OBJECTS
 # TE1's 234 and TE1b's 236 follow on the way to head (composed in tests/test_teacher_te1b_migration.py).
-from tests.test_teacher_te1b_migration import TE1_AND_TE1B_ADDED_OBJECTS as TE1_ADDED_OBJECTS
-from tests.test_teacher_te1b_migration import TE1_AND_TE1B_ALTERED_TABLES as TE1_ALTERED_TABLES
-from tests.test_reader_ca2_fix_orchestrator import CA2_ALTERED_TABLES
-from tests.test_figure_prefetch_migration import P5_ADDED_OBJECTS
-from tests.test_data_capture_migration import DATA_CAPTURE_ADDED_OBJECTS
-from tests.test_followup_migration import FOLLOWUP_ADDED_OBJECTS
-from tests.test_hypothesis_marks_migration import MARKS_ADDED_OBJECTS
-from tests.test_router_objective_migration import RO0_ADDED_OBJECTS
-from tests.test_ro2_history_migration import RO2_ADDED_OBJECTS
-from tests.test_ro4_traces_migration import RO4_ADDED_OBJECTS
-from tests.test_teacher_te2log_migration import TE2LOG_ADDED_OBJECTS
-from tests.test_ih3_migration import IH3_ADDED_OBJECTS
-from tests.test_decision_records_migration import B1_ADDED_OBJECTS, B1_ALTERED_TABLES
-from tests.test_mobile_jobs_migration import M2A_ADDED_OBJECTS
-from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
+from tests.teacher_te1b_migration_helpers import TE1_AND_TE1B_ADDED_OBJECTS as TE1_ADDED_OBJECTS
+from tests.teacher_te1b_migration_helpers import TE1_AND_TE1B_ALTERED_TABLES as TE1_ALTERED_TABLES
+from tests.reader_ca2_fix_orchestrator_helpers import CA2_ALTERED_TABLES
+from tests.figure_prefetch_migration_helpers import P5_ADDED_OBJECTS
+from tests.data_capture_migration_helpers import DATA_CAPTURE_ADDED_OBJECTS
+from tests.followup_migration_helpers import FOLLOWUP_ADDED_OBJECTS
+from tests.hypothesis_marks_migration_helpers import MARKS_ADDED_OBJECTS
+from tests.router_objective_migration_helpers import RO0_ADDED_OBJECTS
+from tests.ro2_history_migration_helpers import RO2_ADDED_OBJECTS
+from tests.ro4_traces_migration_helpers import RO4_ADDED_OBJECTS
+from tests.teacher_te2log_migration_helpers import TE2LOG_ADDED_OBJECTS
+from tests.ih3_migration_helpers import IH3_ADDED_OBJECTS
+from tests.decision_records_migration_helpers import B1_ADDED_OBJECTS, B1_ALTERED_TABLES
+from tests.mobile_jobs_migration_helpers import M2A_ADDED_OBJECTS
+from tests.rw5c_migration_helpers import RW5C_ADDED_OBJECTS
 from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
+from tests.retrieval_spaces_migration_helpers import P1_ADDED_OBJECTS
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
 NEW_TABLES = {"embedding_spaces", "retrieval_feedback", "retrieval_fusion_posteriors"}
-#: Every schema object 220 adds: the earlier migrations' "nothing else" diffs on the way to head read this.
-P1_ADDED_OBJECTS = frozenset({
-    "embedding_spaces", "sqlite_autoindex_embedding_spaces_1",
-    "retrieval_feedback", "sqlite_autoindex_retrieval_feedback_1", "retrieval_feedback_receipt",
-    "retrieval_feedback_owner", "retrieval_feedback_no_update", "retrieval_feedback_no_delete",
-    "retrieval_fusion_posteriors", "sqlite_autoindex_retrieval_fusion_posteriors_1",
-})
 
 
 def _database_at(tmp_path: Path, version: int) -> Path:

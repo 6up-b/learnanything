@@ -34,7 +34,7 @@ from tests.daily_plan_fakes import record_attempt
 from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version
 from tests.router_mixture_helpers import mixture_env, rows
 from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
-from tests.test_daily_plan_build import _wide_items
+from tests.daily_plan_build_helpers import _wide_items
 
 TAG = FAILURE_SHARE_ALGORITHM_VERSION
 OLD = PHONE_PROBES_ALGORITHM_VERSION

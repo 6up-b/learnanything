@@ -28,8 +28,8 @@ from learnloop.evsi_calibration.eedi import load_eedi_2024, load_neurips_2020
 from learnloop.evsi_calibration.response_fit import FitSettings, fit_response_model
 from learnloop.evsi_calibration.simulate import SimulationSettings, run_simulation
 from learnloop.evsi_calibration.world import build_scenarios
-from tests.test_evsi_calibration_sim import write_eedi_2020, write_eedi_2024
-from tests.test_evsi_multisim import _write_long_bank
+from tests.evsi_calibration_sim_helpers import write_eedi_2020, write_eedi_2024
+from tests.evsi_multisim_helpers import _write_long_bank
 
 
 @pytest.fixture(scope="module")

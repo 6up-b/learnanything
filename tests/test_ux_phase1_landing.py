@@ -22,35 +22,11 @@ from types import SimpleNamespace
 import pytest
 
 from learnloop.content.pipeline import add_source as core
-from learnloop.content.pipeline.add_source import AddSourceOptions, add_source, outline_chapters
-from learnloop.content.sources.source_outline import build_source_outline, resolve_extraction_id
-from learnloop.content.synthesis.source_unit_selection import save_unit_selection
+from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.vault.loader import load_vault
 
-from tests.ux_phase1_support import CLOCK, fake_services, fresh_library, grant_consent, repository, route, set_config, write_book
-
-
-def _added_book(tmp_path):
-    from learnloop.content.pipeline.jobs import DurableIngestJobs
-
-    root = fresh_library(tmp_path)
-    grant_consent(root)
-    set_config(root, {("ingest", "auto_build"): False})
-    repo = repository(root)
-    jobs = DurableIngestJobs()
-    jobs.bind(repo, root, background=False, clock=CLOCK, services=fake_services())
-    item = add_source(load_vault(root), jobs, str(write_book(tmp_path)), AddSourceOptions(), clock=CLOCK)
-    set_config(root, {("ingest", "auto_build"): True})
-    return root, repo, item["source_id"]
-
-
-def _hold_out(repo, source_id, label):
-    extraction_id = resolve_extraction_id(repo, source_id)
-    outline = build_source_outline(repo, extraction_id)
-    chapter = next(chapter for chapter in outline_chapters(outline) if chapter.label == label)
-    save_unit_selection(repo, extraction_id, [unit.unit_id for unit in outline.units],
-                        exam_use_modes={chapter.unit_id: "held_out_evaluation"}, clock=CLOCK)
-    return chapter
+from tests.ux_phase1_support import CLOCK, route
+from tests.ux_phase1_landing_helpers import _added_book, _hold_out, _reading_book, _section_spans
 
 
 def test_an_automatic_build_never_takes_a_held_out_unit_as_teaching(tmp_path):
@@ -82,24 +58,6 @@ def test_a_book_that_is_exam_material_builds_nothing(tmp_path, monkeypatch):
     assert report["status"] == "nothing_to_build"
 
 
-def _reading_book(tmp_path):
-    from learnloop.db.repositories import Repository
-    from tests.helpers import create_daily_plan_vault
-    from tests.test_ux_phase1_round2_review import _section_ids, _seed_book
-
-    paths = create_daily_plan_vault(tmp_path / "vault")
-    extraction_id = _seed_book(paths)
-    repo = Repository(paths.sqlite_path)
-    return paths, repo, extraction_id, _section_ids(repo, extraction_id)
-
-
-def _section_spans(repo, extraction_id, section_id):
-    from learnloop.reader.reader_guidance import extraction_sections
-
-    rows, _blocks, _spans = extraction_sections(repo.load_document_ir(extraction_id))
-    return next(list(row["span_ids"]) for row in rows if str(row["id"]) == section_id)
-
-
 def test_the_reading_step_never_offers_exam_material(tmp_path):
     from learnloop.daily_plan.reading import next_reading_target
 
@@ -124,7 +82,7 @@ def test_todays_plan_reads_mains_exam_predicate_for_the_reading_step(tmp_path, m
     import learnloop.clock as clock_module
     from learnloop.source_retrieval import corpus
     from learnloop_sidecar.context import SidecarContext
-    from tests.test_ux_phase1_add_source import call
+    from tests.ux_phase1_add_source_helpers import call
 
     paths, repo, extraction_id, ids = _reading_book(tmp_path)
     held = frozenset((extraction_id, span) for span in _section_spans(repo, extraction_id, ids["1-vectors"]))
@@ -183,8 +141,8 @@ def test_a_book_with_the_retired_keep_local_gets_its_passage_check_when_asked(tm
     from learnloop.db.repositories import Repository
     from learnloop.reader import reader_dialogue as RD
     from learnloop_sidecar.handlers import reader
-    from tests.test_sidecar_reader import _init, _rpc
-    from tests.test_sidecar_reader import _setup as _rpc_setup
+    from tests.sidecar_reader_helpers import _init, _rpc
+    from tests.sidecar_reader_helpers import _setup as _rpc_setup
 
     root_dir = _rpc_setup(tmp_path)
     monkeypatch.setattr(reader, "ready_tutor_qa_provider",
@@ -209,9 +167,9 @@ def test_a_book_with_the_retired_keep_local_gets_its_passage_check_when_asked(tm
 
 def test_a_queued_passage_check_runs_for_a_book_with_the_retired_keep_local(tmp_path):
     from learnloop.content.pipeline.jobs import handle_reader_quick_check
-    from tests.test_reader_reconnect import FakeClient, _ask
-    from tests.test_reader_reconnect import _setup as _reconnect_setup
-    from tests.test_reader_dialogue import _CLOCK
+    from tests.reader_reconnect_helpers import FakeClient, _ask
+    from tests.reader_reconnect_helpers import _setup as _reconnect_setup
+    from tests.reader_dialogue_helpers import _CLOCK
 
     vault, repo = _reconnect_setup(tmp_path)
     root = _ask(vault, repo, "Root", selection_span_ids=["s1"], selection_quote_md="A^T = A")

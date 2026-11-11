@@ -22,8 +22,8 @@ from learnloop.ops.pf_calls import ROLE_TASKS
 from learnloop.source_retrieval.dense import clear_cache
 from learnloop.source_retrieval.suites import register_suites
 from tests.source_retrieval_fakes import FakeSourceLLM, HashingEmbedder, _blocks, loaded, seed_source
-from tests.test_source_inventory import _persist
-from tests.test_source_retrieval_tutor import CitingTutor, ask, setup
+from tests.source_inventory_helpers import _persist
+from tests.source_retrieval_tutor_helpers import CitingTutor, ask, setup
 
 QWEN = "qwen/qwen3-embedding-8b"
 ROOMY = SpendCaps(max_candidates=10_000, max_pairs=10_000, max_retries=2, max_calls=5_000,

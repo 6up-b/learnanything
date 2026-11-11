@@ -321,7 +321,7 @@ def test_a_commission_drawn_outside_a_job_names_none(tmp_path):
     """A synchronous generation run (no durable job) draws a commission with no job: its clock
     starts at the draw, as it generated there."""
 
-    from tests.test_ad2_serving import _generation_prompt
+    from tests.ad2_serving_helpers import _generation_prompt
 
     paths = ad23_vault(tmp_path, items=("pi_g1",), config=ROUTER_OFF)
     _generation_prompt(paths)
@@ -338,7 +338,7 @@ def test_a_commission_drawn_outside_a_job_names_none(tmp_path):
 def _land(paths, item_id: str, commission: dict[str, Any], at: datetime) -> None:
     from learnloop.adaptive_difficulty.generation import rung_features
 
-    from tests.test_ad2_serving import _land as land
+    from tests.ad2_serving_helpers import _land as land
 
     point = {**rung_features(commission["chosen_point"]), "tools": ["closed_book"]}
     land(paths, item_id, point, _iso(at), capability=commission["cell_capability"])
@@ -367,7 +367,7 @@ def test_an_item_that_landed_before_expiry_gets_its_receipt_at_a_later_serve(tmp
 
     from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 
-    from tests.test_ad2_serving import _generation_prompt
+    from tests.ad2_serving_helpers import _generation_prompt
 
     paths = ad23_vault(tmp_path, items=("pi_g1",), config=ROUTER_OFF)
     _generation_prompt(paths)
@@ -395,7 +395,7 @@ def test_an_item_that_lands_after_expiry_gets_a_marked_receipt_and_a_later_draw_
 
     from learnloop.adaptive_difficulty.generation import commission_point
 
-    from tests.test_ad2_serving import _generation_prompt
+    from tests.ad2_serving_helpers import _generation_prompt
 
     paths = ad23_vault(tmp_path, items=("pi_g1",), config=ROUTER_OFF)
     _generation_prompt(paths)

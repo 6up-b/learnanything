@@ -14,7 +14,7 @@ from learnloop.vault.loader import load_vault
 
 import pytest
 
-from tests.test_reader_guidance import _place_question, _setup
+from tests.reader_guidance_helpers import _place_question, _setup
 
 
 class FakeClient(StructuredClientFake):

@@ -11,30 +11,14 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.db.repositories import Repository
 from learnloop.reader import reader_dialogue as RD
 from learnloop.reader import reader_inquiry as RI
 from learnloop.vault.loader import load_vault
 from tests.helpers import append_config_toml
 from tests.reader_fixtures import notes_source, transcript_source
-from tests.test_reader_dialogue import _CLOCK, _setup
-from tests.test_sidecar_reader import _init, _rpc, _setup as _rpc_setup
-
-# The tables RW1a may write: the event envelope and the questions it already
-# writes for every Ask. Nothing else changes when a status flips (G2).
-_ALLOWED = {"interaction_events", "question_events", "schema_migrations"}
-
-
-def table_counts(repo: Repository) -> dict[str, int]:
-    with repo.connection() as connection:
-        names = [row[0] for row in connection.execute(
-            "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
-        )]
-        return {
-            name: connection.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]
-            for name in names if name not in _ALLOWED and not name.startswith("source_block_fts")
-        }
-
+from tests.reader_dialogue_helpers import _CLOCK, _setup
+from tests.sidecar_reader_helpers import _init, _rpc, _setup as _rpc_setup
+from tests.reader_inquiry_status_helpers import table_counts
 
 def _ask(vault, repo, question, parent=None, *, extraction_id="ext1", span_id="s1"):
     return RD.ask(vault, repo, RD.StubReaderClient(), extraction_id=extraction_id, span_id=span_id,

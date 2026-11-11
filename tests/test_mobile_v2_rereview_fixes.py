@@ -16,6 +16,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
+from tests.mobile_v2_rereview_fixes_helpers import _phone_to_pending_stop, _record
 
 pytest.importorskip("starlette")
 
@@ -25,8 +26,8 @@ from learnloop.db.stores import plan_presentations as presentations
 from learnloop.ids import new_ulid
 
 from tests.mobile_host_helpers import rows
-from tests.test_mobile_v2_plan import DAY, HELD, _call, _desktop, _dont_know, _next, plan_world  # noqa: F401
-from tests.test_mobile_v2_review_fixes import _stop_past_held_work, _stops
+from tests.mobile_v2_plan_helpers import DAY, HELD, _call, _desktop, _dont_know, _next, plan_world  # noqa: F401
+from tests.mobile_v2_review_fixes_helpers import _stop_past_held_work, _stops
 
 
 # -- F5 ---------------------------------------------------------------------------------------------
@@ -39,7 +40,7 @@ def test_f5_a_check_restored_from_its_checkpoint_the_next_day_stays_cold(tmp_pat
     from learnloop.scheduling.device_eligibility import PlanStepFilter
 
     from tests.daily_plan_fakes import record_attempt
-    from tests.test_ro5_checks import _env
+    from tests.ro5_checks_helpers import _env
 
     env = _env(tmp_path)
     env.device = PlanStepFilter(device_filter=None)
@@ -152,22 +153,6 @@ def test_f6_a_phones_sessionless_write_with_its_session_where_it_was_goes_throug
 
 
 # -- F7 ---------------------------------------------------------------------------------------------
-
-
-def _phone_to_pending_stop(phone, session_id: str, drawn: list) -> dict:
-    for index in range(12):
-        reply = _next(phone, session_id, f"f7_next_{index}")
-        step = reply["step"]
-        if step is None or step["kind"] != "item":
-            break
-        _dont_know(phone, session_id, step, f"f7_dk_{index}")
-    if not drawn:
-        pytest.skip("the phone never crossed a boundary past held work")  # pragma: no cover
-    return reply
-
-
-def _record(repository):
-    return engine.latest_today(engine.PlanEnv(vault=None, repository=repository))
 
 
 def test_f7_the_stop_drawn_past_held_work_is_offered_on_the_phone(plan_world, monkeypatch):

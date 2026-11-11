@@ -38,7 +38,7 @@ def _at_first_boundary(tmp_path, monkeypatch, then: Callable[..., Any]) -> Any:
 
     from tests.router_mixture_helpers import mixture_env, run
     from tests.router_model_fakes import FakeLLM, block_drawing_seed, fake_runtime
-    from tests.test_ro4_objective_serving import policy_answer
+    from tests.ro4_objective_serving_helpers import policy_answer
 
     real_choose = OC.ObjectiveChooser.choose
     outcome: list[Any] = []

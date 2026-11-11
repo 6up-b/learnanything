@@ -28,7 +28,6 @@ from learnloop.daily_plan import objective_chooser as OC
 from learnloop.daily_plan.engine import advance
 from learnloop.daily_plan.staged_frame import StagedChooser
 from learnloop.db.stores import router as router_store
-from learnloop.db.stores import router_objective as trace_store
 from learnloop.db.stores import router_suggestions as SUG
 from learnloop.ops.capture_report import build_report, lines
 from learnloop.params.parameter_registry import classify_config_path
@@ -48,11 +47,12 @@ from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_
 from tests.router_mixture_helpers import join_carried_valuations, mixture_env, rows, run
 from tests.router_mixture_helpers import served_horizon  # noqa: F401 - a fixture
 from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
-from tests.test_ih_numeric_seed import spy  # noqa: F401 - the fixture
-from tests.test_instruct_handoff_ih0 import make_world  # noqa: F401 - the fixture
-from tests.test_ro4_objective_serving import policy_answer
-from tests.test_rospeed2_connections import _canon
-from tests.test_te3b_offers import OFFER, offerable  # noqa: F401 - the fixture
+from tests.ih_numeric_seed_helpers import spy  # noqa: F401 - the fixture
+from tests.instruct_handoff_ih0_helpers import make_world  # noqa: F401 - the fixture
+from tests.ro4_objective_serving_helpers import policy_answer
+from tests.rospeed2_connections_helpers import _canon
+from tests.te3b_offers_helpers import OFFER, offerable  # noqa: F401 - the fixture
+from tests.ih4_preferences_inform_router_helpers import _numbers, _pin, _traces
 
 TAG = FAILURE_SHARE_ALGORITHM_VERSION
 OLD = PHONE_PROBES_ALGORITHM_VERSION
@@ -123,28 +123,6 @@ def _insert(env, pid: str, kind: str, *, at: str | None = None, decision: str | 
 def _preferences(env) -> list[dict[str, Any]]:
     with env.repository.connection() as connection:
         return router_store.learner_preference_rows(connection)
-
-
-def _traces(env) -> list[dict[str, Any]]:
-    with env.repository.connection() as connection:
-        return [trace_store.trace(connection, row["decision_id"])["trace"] for row in trace_store.traces(connection)
-                if row["decision_kind"] == "plan_block"]
-
-
-def _pin(monkeypatch) -> Any:
-    """RO5's method: the plan's and the attempt's fresh ids and the version out of the key, so twin plans seed alike."""
-
-    real_hash = OC._hash
-    monkeypatch.setattr(OC, "_hash", lambda value: real_hash(
-        {k: v for k, v in value.items() if k not in ("version", "plan_id")} if isinstance(value, dict) else value))
-    monkeypatch.setattr(OC, "_latest_attempt", lambda _repository: "pinned-attempt")
-    return lambda _key, _decision: "pinned-seed"
-
-
-def _numbers(trace: dict[str, Any]) -> dict[str, Any]:
-    return {"candidates": {ref: entry.get("terms") for ref, entry in trace["candidates"].items()},
-            "mu": trace["mixing"]["mu"], "numeric": {key: trace["policies"]["numeric"][key] for key in ("choice", "tie")},
-            "residual": {key: (trace.get("residual") or {}).get(key) for key in ("w_hat", "fit", "candidates")}}
 
 
 # -- the switch --------------------------------------------------------------------------------------------------------
@@ -444,7 +422,7 @@ def test_the_replay_reads_only_what_was_known_at_the_moment():
 
 
 def test_no_module_of_this_stage_branches_on_a_score_or_a_stuck_flag():
-    from tests.test_ih2_lessons_compete import EVIDENCE_WORDS, _names_in
+    from tests.ih2_lessons_compete_helpers import EVIDENCE_WORDS, _names_in
 
     root = pathlib.Path(PF.__file__).resolve().parents[1]
     for relative in ("router_objective/preferences.py", "router_objective/preference_report.py"):

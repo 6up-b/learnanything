@@ -10,7 +10,7 @@ from learnloop.db.repositories import Repository
 from learnloop.db.scopes import JobOwnershipLost, guard_ingest_writes
 from learnloop.db.stores.ingest_queue import JobOwner
 from learnloop.vault_lock import vault_mutation_lock
-from tests.test_ingest_runner import _clock, _ok_handler, _runner
+from tests.ingest_runner_helpers import _clock, _ok_handler, _runner
 
 
 def _claim(repository, worker, seconds):
@@ -307,7 +307,7 @@ def test_synthesis_run_hygiene_runs_at_startup_but_not_on_drain_ticks(tmp_path):
 def test_a_replaced_ingest_cannot_publish_its_source_note_or_goal_linkage(tmp_path):
     from learnloop.content.pipeline import source_ingestion
     from tests.helpers import create_basic_vault
-    from tests.test_source_ingestion import _youtube_source
+    from tests.source_ingestion_helpers import _youtube_source
 
     paths = create_basic_vault(tmp_path / 'vault')
     runner = _runner(paths.root, handlers={'fake': _ok_handler({})})
@@ -336,7 +336,7 @@ def test_a_replaced_ingest_cannot_create_a_subject(tmp_path):
     from learnloop.content.pipeline import source_ingestion
     from learnloop.vault.loader import load_vault
     from tests.helpers import create_basic_vault
-    from tests.test_source_ingestion import _youtube_source
+    from tests.source_ingestion_helpers import _youtube_source
 
     paths = create_basic_vault(tmp_path / 'vault')
     runner = _runner(paths.root, handlers={'fake': _ok_handler({})})

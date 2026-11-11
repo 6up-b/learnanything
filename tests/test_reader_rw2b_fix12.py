@@ -25,7 +25,7 @@ import learnloop_sidecar.handlers.practice as practice_handler
 from learnloop.attempts.hint_fold import ServerHintFold, refolded_draft
 from learnloop.content.authoring.pf_sandbox import sandbox_available
 from tests.hint_fakes import ITEM, WORK, ChooserFake, WriterFake, prefer
-from tests.test_hint_h2b_review import grader  # noqa: F401 - the blind grader fixture
+from tests.hint_h2b_review_helpers import grader  # noqa: F401 - the blind grader fixture
 from tests.workbench_help_fakes import (FUNCTION_FREE_PROMPT, CheckFake, call, help_rows, open_problem, run_job,
                                         sidecar, step_check, wb_answer)
 

@@ -32,10 +32,10 @@ from tests.teacher_fakes import (
     landed_turn,
     plan_turn,
 )
-from tests.test_reader_rw5d_p4b_teacher_visuals import TE1_DOCTRINE_SHA256, TE1_SCHEMA_SHA256, _schema_sha
+from tests.reader_rw5d_p4b_teacher_visuals_helpers import TE1_DOCTRINE_SHA256, TE1_SCHEMA_SHA256, _schema_sha
+from tests.teacher_te2log_episodes_helpers import HYPOTHESIS, detour_turn
 
 T0 = datetime(2026, 11, 5, 15, 0, tzinfo=UTC)
-HYPOTHESIS = "WOMBATHYPOTHESIS treats the eigenvalue as the eigenvector"
 
 
 def _rows(repository, sql, params=()):
@@ -47,11 +47,6 @@ def _episodes(repository):
     with repository.connection() as connection:
         cursor = connection.execute("SELECT * FROM lesson_episodes ORDER BY opened_at, id")
         return [{d[0]: v for d, v in zip(cursor.description, row, strict=True)} for row in cursor.fetchall()]
-
-
-def detour_turn(node="n1", repair="reteach", p=0.7, hypothesis=HYPOTHESIS, message="Let's look at it another way."):
-    return {"message": message, "requests": [
-        {"action": "note_detour", "node": node, "hypothesis": hypothesis, "repair": repair, "p": p}]}
 
 
 def foundation_plan(context, *, note=False):

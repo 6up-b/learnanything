@@ -7,7 +7,6 @@ an observation and renders as a visible correction step.
 
 from __future__ import annotations
 
-from learnloop.clock import FrozenClock
 from learnloop.learner.facet_evidence_timeline import (
     ObservationEvent,
     facet_evidence_timeline,
@@ -15,8 +14,8 @@ from learnloop.learner.facet_evidence_timeline import (
     fold_demonstrated_timeline,
 )
 
-from tests.helpers import NOW
-from tests.test_km3_projections import COMP_A, INTEG, blueprint_vault  # noqa: F401
+from tests.km3_projections_helpers import COMP_A, INTEG, blueprint_vault  # noqa: F401
+from tests.facet_evidence_timeline_helpers import _attempt
 
 
 def _obs(attempt_id, at, *, kind="observation", group="g", assisted=False, caps=None):
@@ -105,27 +104,6 @@ def test_recompute_from_scratch_equals_incremental_render():
 
 
 # -- End-to-end extraction over a real vault (with a regrade) ------------------
-
-
-def _attempt(vault, repository, item_id, criterion, *, hints_used=0, clock=None):
-    from learnloop.attempts.attempts import (
-        AttemptDraft,
-        SelfGradeInput,
-        complete_self_graded_attempt,
-    )
-
-    return complete_self_graded_attempt(
-        vault,
-        repository,
-        AttemptDraft(
-            practice_item_id=item_id,
-            learner_answer_md="An answer.",
-            attempt_type="independent_attempt",
-            hints_used=hints_used,
-        ),
-        SelfGradeInput(criterion_points={"c1": criterion}, fatal_errors=[], confidence=4),
-        clock=clock or FrozenClock(NOW),
-    )
 
 
 def test_timeline_rises_on_real_unassisted_demonstration(blueprint_vault):

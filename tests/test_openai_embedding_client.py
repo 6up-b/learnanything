@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import tomllib
-from types import SimpleNamespace
 
 import pytest
 
@@ -16,14 +15,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from tests.helpers import create_basic_vault
 from tests.openai_fakes import install_fake_openai
-
-
-def response(*vectors, indices=None):
-    return SimpleNamespace(
-        data=[SimpleNamespace(index=index, embedding=vector) for index, vector in
-              zip(indices if indices is not None else range(len(vectors)), vectors, strict=True)],
-        usage=SimpleNamespace(prompt_tokens=12, total_tokens=12),
-    )
+from tests.openai_embedding_client_helpers import response
 
 
 def client(monkeypatch, *responses, **profile):
@@ -211,7 +203,7 @@ def test_readiness_factory_and_authoritative_embedding_model(tmp_path, monkeypat
 
 
 def test_privacy_disclosure_is_effective_config_and_settings(tmp_path):
-    from tests.test_settings_sidecar import _settings_rpc
+    from tests.settings_sidecar_helpers import _settings_rpc
 
     vault = create_basic_vault(tmp_path / "vault")
     disclosure = vault.config.model_dump()["embedding"]["privacy_disclosure"]

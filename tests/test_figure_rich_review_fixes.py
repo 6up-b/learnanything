@@ -31,7 +31,7 @@ from learnloop.figures import rich as RICH
 from learnloop.figures import service as FS
 from tests import rich_fixtures as RF
 from tests.figure_fixtures import EXTRACTION, flagship, rows
-from tests.test_figure_rich_job import WHY, _ledger, _Rig
+from tests.figure_rich_job_helpers import WHY, _ledger, _Rig
 
 
 def _quick_answer():

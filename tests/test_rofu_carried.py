@@ -17,7 +17,7 @@ from learnloop.router_objective import tail_data as TD
 from learnloop.router_objective import tail_serve as TS
 
 from tests.router_model_fakes import block_drawing_seed
-from tests.test_ro6_codex_review import CFG, FAR, STOP, _quiet, _row, _trace, utc  # noqa: F401
+from tests.ro6_codex_review_helpers import CFG, FAR, STOP, _quiet, _row, _trace, utc  # noqa: F401
 
 TAG = ROUTER_FOLLOWUPS_ALGORITHM_VERSION
 WIDTH = len(LT.NAMES)
@@ -214,7 +214,7 @@ def test_with_models_the_wait_returns_and_the_next_prefetch_runs_it(tmp_path, mo
     from tests.daily_plan_fakes import record_attempt
     from tests.router_mixture_helpers import mixture_env
     from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
-    from tests.test_ro4_objective_serving import policy_answer
+    from tests.ro4_objective_serving_helpers import policy_answer
 
     gate, reached = threading.Event(), threading.Event()
     real = OC.V.evaluate

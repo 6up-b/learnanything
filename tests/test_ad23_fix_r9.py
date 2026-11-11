@@ -22,7 +22,7 @@ from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 
 from tests.ad23_fakes import COUPLED, ProposalLLM, ad23_vault, rows
-from tests.test_ad23_contract import T0, _hold_out, _predicate_raises, _protect, _copy_item  # noqa: F401
+from tests.ad23_contract_helpers import T0, _hold_out, _predicate_raises, _protect, _copy_item  # noqa: F401
 
 
 def test_an_attempt_on_a_held_out_answered_revision_is_filtered_at_the_source(tmp_path, monkeypatch):
@@ -33,7 +33,7 @@ def test_an_attempt_on_a_held_out_answered_revision_is_filtered_at_the_source(tm
 
     from learnloop.adaptive_difficulty.material_view import detached_view as material_view
 
-    from tests.test_ad23_contract import _base
+    from tests.ad23_contract_helpers import _base
 
     paths = _base(tmp_path)
     _protect(paths)
@@ -54,7 +54,7 @@ def test_a_commissioned_request_quoting_withheld_material_is_refused_before_it_i
 
     from learnloop.adaptive_difficulty.generation import CommissionedRequestGuard, ProtectedRequest
 
-    from tests.test_ad23_contract import _base
+    from tests.ad23_contract_helpers import _base
 
     paths = _base(tmp_path)
     _protect(paths)

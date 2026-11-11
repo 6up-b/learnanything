@@ -36,7 +36,7 @@ from learnloop.db.stores import reader_digests as RDG
 from learnloop.instructional import reader_followups as RF
 from learnloop.vault.loader import load_vault
 from tests.recap_fixtures import EXT, at, iso
-from tests.test_reader_followups import (
+from tests.reader_followups_helpers import (
     FakeSearch,
     NOW_MIN,
     _attempt,

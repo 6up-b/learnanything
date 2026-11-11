@@ -43,7 +43,7 @@ from learnloop.vault.paths import VaultPaths
 from tests.daily_plan_fakes import MovableClock, iso, record_attempt, seed_due
 from tests.helpers import append_config_toml, create_daily_plan_vault
 from tests.intent_fakes import NOW, make_intent_vault
-from tests.test_intent_fix_round4 import _as_teach_back, _never_worth_its_minutes
+from tests.intent_fix_round4_helpers import _as_teach_back, _never_worth_its_minutes
 
 STAGED = '[router]\nmode = "staged"\n'
 DUE_DAY = NOW + timedelta(days=8)

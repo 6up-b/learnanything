@@ -37,8 +37,8 @@ from tests.figure_fixtures import (
     flagship,
     sandbox_ready,
 )
-from tests.test_figures_codex_review import _clients, _gap_jobs, _missed_prediction
-from tests.test_figures_fix_round2 import _drain, _gaps_switch, _job_rows
+from tests.figures_codex_review_helpers import _clients, _gap_jobs, _missed_prediction
+from tests.figures_fix_round2_helpers import _drain, _gaps_switch, _job_rows
 
 needs_sandbox = pytest.mark.skipif(not sandbox_ready(), reason="bubblewrap is not available here")
 

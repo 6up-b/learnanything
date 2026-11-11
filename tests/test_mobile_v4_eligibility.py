@@ -35,7 +35,7 @@ def store(tmp_path):
     from learnloop.ingest.originals import store_original_bytes
     from learnloop.vault.loader import load_vault
     from tests.helpers import create_basic_vault
-    from tests.test_mobile_v4_reader import add_book
+    from tests.mobile_v4_reader_helpers import add_book
 
     paths = create_basic_vault(tmp_path / "vault")
     repository = Repository(paths.sqlite_path)

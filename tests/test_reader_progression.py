@@ -16,7 +16,7 @@ from learnloop.vault.yaml_io import read_yaml, write_yaml
 from learnloop.content.pipeline.jobs import DurableIngestJobs
 
 from tests.helpers import create_basic_vault
-from tests.test_reader_guidance import _setup
+from tests.reader_guidance_helpers import _setup
 
 
 def test_reader_source_refs_preserve_bounded_span_context(tmp_path):

@@ -28,52 +28,17 @@ from learnloop.daily_plan.engine import (
     learner_pick,
 )
 from learnloop.daily_plan.types import BlockChoice, STOP_FOR_TODAY
-from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import Repository
 from learnloop_sidecar.context import SidecarContext
-from learnloop_sidecar.registry import METHOD_REGISTRY
 from tests.owner_vaults import owner_vault, working_vault_params
 from tests.daily_plan_fakes import MovableClock, make_env, record_attempt, scheduled
-from tests.helpers import append_config_toml, create_daily_plan_vault, set_algorithm_version
-from tests.test_daily_plan_build import _assert_finite, _seed_wide, _wide_items, _wide_vault
+from tests.helpers import create_daily_plan_vault
+from tests.daily_plan_build_helpers import _assert_finite, _seed_wide, _wide_items, _wide_vault
+from tests.daily_plan_kill_switch_helpers import _call, _copy, _today_reads
 
 # The owner's working vaults: backup-API copies in the owner_vaults lane (S0).
 WORKING_FIXTURES = working_vault_params()
 FROZEN = datetime(2026, 10, 12, 9, 30, tzinfo=UTC)
-_VOLATILE = {"schedulerSlateId", "schedulerCandidateId", "generatedAt"}
-
-
-def _call(ctx, name, params):
-    spec = METHOD_REGISTRY[name]
-    return spec.handler(ctx, spec.params_model.model_validate(params))
-
-
-def _served(value):
-    if isinstance(value, dict):
-        return {key: _served(item) for key, item in value.items() if key not in _VOLATILE}
-    if isinstance(value, list):
-        return [_served(item) for item in value]
-    return value
-
-
-def _copy(tmp_path, fixture, name, *, version, toml=None):
-    root = tmp_path / name
-    copy_tree_with_databases(owner_vault(fixture), root)
-    set_algorithm_version(type("Paths", (), {"root": root})(), version)
-    if toml:
-        append_config_toml(root, toml)
-    ctx = SidecarContext()
-    ctx.load(root)
-    ctx.grading_provider_override = "manual"
-    return ctx, root
-
-
-def _today_reads(ctx):
-    return {
-        "queue": _served(_call(ctx, "get_today_queue", {})),
-        "queue_25": _served(_call(ctx, "get_today_queue", {"availableMinutes": 25})),
-        "start": _served(_call(ctx, "get_start_summary", {})),
-    }
 
 
 def _plan_rows(root):

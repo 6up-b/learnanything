@@ -23,16 +23,7 @@ from datetime import timedelta
 
 import pytest
 
-from learnloop.attempts.attempts import (
-    ApplyAttemptInput,
-    AttemptDraft,
-    ResolvedGrade,
-    apply_attempt,
-    calculate_rubric_score,
-    unverified_attribution_json,
-)
 from learnloop.attempts.blind_grading import BlindErrorAttribution
-from learnloop.attempts.grading import resolved_rubric
 from learnloop.attempts.grading_support import HELD_REVIEW_REASON, apply_route_rule
 from learnloop.attempts.regrade import regrade_attempt
 from learnloop.clock import FrozenClock
@@ -42,9 +33,6 @@ from learnloop.db.repositories import Repository
 from learnloop.diagnosis.split.jobs import diagnosis_status
 from learnloop.outcome_contract import GRADE_HELD_FOR_REVIEW, grade_held_for_review
 from learnloop.substrate.canonical_projection import (
-    UNASSESSED_INTERPRETATION,
-    UNVERIFIED_INTERPRETATION_KEY,
-    held_for_review_attempts,
     pfc_assessments,
     unassessed_evidence_row,
 )
@@ -52,7 +40,7 @@ from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
 
 from tests.split_live_helpers import ReadyRuntime, drain_jobs, split_vault, submit
-from tests.test_route_rules_in_grader import (
+from tests.route_rules_in_grader_helpers import (
     ALTERNATIVE,
     ANSWER,
     CLOCK,
@@ -60,160 +48,28 @@ from tests.test_route_rules_in_grader import (
     RUBRIC,
     VERSION,
     DivergentUnlocatedGrader,
-    FullCreditGrader,
     _first_scheduled_attempt,
     _proposal,
     _schedule,
     _support,
 )
-
-#: The gate version and review reason of mvp-0.17's route-check records (the
-#: synthetic holds below are such records: history the predicate still reads).
-PROOF_CHECK_VERSION = "proof-route-check-v3"
-PROOF_ROUTE_REVIEW_REASON = "proof_route_check_flag"
+from tests.held_grade_evidence_helpers import (
+    HOLDING,
+    PROOF_CHECK_VERSION,
+    T,
+    VALIDATING,
+    _graded_apply,
+    _held_apply,
+    _held_live,
+    _hold_by_regrade,
+    _iso,
+    attempt_grade_held,
+    held_attempt_ids,
+)
 
 #: ``outcome_contract.HOLD_KEPT_FROM_KEY`` (spelled out so this module imports
 #: on the commit before the fix, where the fail-first run read it).
 HOLD_KEPT_FROM_KEY = "hold_kept_from"
-
-
-def held_attempt_ids(repository, attempt_ids=None) -> frozenset[str]:
-    """The ledger's held set (``learnloop.held_grades``), through the name the
-    merge composed (``canonical_projection.held_for_review_attempts``)."""
-
-    with repository.connection() as connection:
-        return held_for_review_attempts(connection, attempt_ids)
-
-
-def attempt_grade_held(repository, attempt_id) -> bool:
-    return attempt_id in held_attempt_ids(repository, (attempt_id,))
-
-
-#: The grader alone holds a divergent, unlocated grade (nothing assessed,
-#: nothing validated) and releases it once it validates the route.
-HOLDING = DivergentUnlocatedGrader
-VALIDATING = FullCreditGrader
-
-
-def _iso(when) -> str:
-    return when.isoformat().replace("+00:00", "Z")
-
-
-def _held_support(rubric) -> dict:
-    every = sorted(criterion.id for criterion in rubric.criteria)
-    return {
-        "proof_route_check": {
-            "status": "checked", "applied": True, "held_for_review": True,
-            "version": PROOF_CHECK_VERSION, "unverified_criterion_ids": every,
-            "unlocated_criterion_ids": every,
-        },
-        "unverified_criterion_ids": every,
-        "valid_alternative_gate_applied": True,
-        "valid_alternative_gate": {"final_answer": False, "proof_route": True},
-        "assessed_shortfall": False,
-        UNVERIFIED_INTERPRETATION_KEY: UNASSESSED_INTERPRETATION,
-    }
-
-
-def _held_apply(
-    vault, repository, item_id, points, *, attempt_id, when, attempt_type="independent_attempt",
-    presentation_id=None, answer_confidence=None, record=True, error_attributions=(),
-):
-    """A held grade through the shared attempt step, as the live door hands it
-    (every criterion unassessed, the grader's own score, ``grade_held_for_review``),
-    then its blind record (written after the step, as the live door does)."""
-
-    rubric = resolved_rubric(vault, vault.practice_items[item_id])
-    every = tuple(sorted(criterion.id for criterion in rubric.criteria))
-    result = apply_attempt(
-        vault,
-        repository,
-        ApplyAttemptInput(
-            draft=AttemptDraft(
-                practice_item_id=item_id, learner_answer_md="a route of my own",
-                attempt_type=attempt_type, probe_presentation_id=presentation_id,
-                answer_confidence=answer_confidence,
-            ),
-            attempt_id=attempt_id,
-            grade=ResolvedGrade(
-                rubric_score=calculate_rubric_score(rubric, dict(points), []),
-                criterion_points=dict(points),
-                evidence_rows=[
-                    {
-                        "id": f"ge_{attempt_id}_{cid}", "criterion_id": cid,
-                        "points_awarded": float(value), "evidence": "grader", "notes": None,
-                        "local_grader_id": "test", "grader_tier": 3, "created_at": _iso(when),
-                        "attribution_json": unverified_attribution_json(),
-                    }
-                    for cid, value in points.items()
-                ],
-                error_attributions=list(error_attributions),
-                grader_confidence=0.9,
-                confidence=3,
-                manual_review_reason=PROOF_ROUTE_REVIEW_REASON,
-                feedback_md="held",
-            ),
-            grading_source="ai",
-            unverified_criterion_ids=every,
-            grade_held_for_review=True,
-        ),
-        clock=FrozenClock(when),
-    )
-    if record:
-        repository.insert_blind_grade_record(
-            attempt_id=attempt_id, agent_run_id=None, grading_prompt_version="blind-test",
-            output_schema_version="BlindGradingProposal", context_hash=f"ctx-{attempt_id}",
-            record={
-                "practice_item_id": item_id, "rubric_score": result.rubric_score,
-                "max_points": rubric.max_points,
-                "criteria": [{"criterion_id": cid, "points_awarded": value} for cid, value in points.items()],
-                "error_attributions": [], "fatal_errors": [],
-                "grading_support": _held_support(rubric),
-            },
-            clock=FrozenClock(when),
-        )
-    return result
-
-
-def _graded_apply(
-    vault, repository, item_id, points, *, attempt_id, when, answer_confidence=None, error_attributions=(),
-):
-    """An ordinary (assessed) model grade through the shared attempt step."""
-
-    rubric = resolved_rubric(vault, vault.practice_items[item_id])
-    return apply_attempt(
-        vault,
-        repository,
-        ApplyAttemptInput(
-            draft=AttemptDraft(
-                practice_item_id=item_id, learner_answer_md="an answer",
-                attempt_type="independent_attempt", answer_confidence=answer_confidence,
-            ),
-            attempt_id=attempt_id,
-            grade=ResolvedGrade(
-                rubric_score=calculate_rubric_score(rubric, dict(points), []),
-                criterion_points=dict(points),
-                evidence_rows=[
-                    {
-                        "id": f"ge_{attempt_id}_{cid}", "criterion_id": cid,
-                        "points_awarded": float(value), "evidence": "grader", "notes": None,
-                        "local_grader_id": "test", "grader_tier": 3, "created_at": _iso(when),
-                    }
-                    for cid, value in points.items()
-                ],
-                error_attributions=list(error_attributions),
-                grader_confidence=0.9,
-                confidence=3,
-                manual_review_reason=None,
-                feedback_md="graded",
-            ),
-            grading_source="ai",
-        ),
-        clock=FrozenClock(when),
-    )
-
-
-T = CLOCK.now()
 
 
 # -- THE predicate ---------------------------------------------------------------------------
@@ -320,21 +176,13 @@ def test_f1_the_shortfall_is_recomputed_over_the_validated_grade():
 # -- F2: a regrade that validates nothing never releases a hold -----------------------------------
 
 
-def _held_live(vault, repository):
-    _first_scheduled_attempt(vault, repository)
-    held = submit(vault, repository, HOLDING(), answer=ALTERNATIVE + " (again)",
-                  when=T + timedelta(days=3))
-    assert attempt_grade_held(repository, held.attempt_id)
-    return held
-
-
 @pytest.mark.parametrize("clarified", [False, True], ids=["regrade", "clarification"])
 def test_f2_a_regrade_that_validates_nothing_keeps_the_hold(tmp_path, clarified):
     """mvp-0.17 kept a hold when the regrade's separate check failed (F2). The
     rule has no separate call: a failed grading call writes nothing (the hold
     stays), and a regrade whose grader again locates nothing holds again."""
 
-    from tests.test_pfc_unassessed_readers import _field_outcomes
+    from tests.pfc_unassessed_readers_helpers import _field_outcomes
 
     _paths, vault, repository = split_vault(tmp_path, version=VERSION)
     held = _held_live(vault, repository)
@@ -388,7 +236,7 @@ def test_f3_a_held_cold_probe_abstains_from_certification_validation(tmp_path, p
         schedule_certification_cold_probes,
     )
     from tests.helpers import NOW
-    from tests.test_certification_cold_probe import HELD_OUT_ITEM, _certify, _tasks
+    from tests.certification_cold_probe_helpers import HELD_OUT_ITEM, _certify, _tasks
 
     _paths, vault, repository, _certificate = _certify(tmp_path)
     schedule_certification_cold_probes(vault, repository, clock=FrozenClock(NOW))
@@ -410,7 +258,7 @@ def test_f3_a_held_cold_probe_abstains_from_certification_validation(tmp_path, p
 
 
 def test_f4_a_validating_regrade_leaves_no_stale_unassessed_row(tmp_path):
-    from tests.test_pfc_unassessed_readers import _field_outcomes
+    from tests.pfc_unassessed_readers_helpers import _field_outcomes
 
     _paths, vault, repository = split_vault(tmp_path, version=VERSION)
     held = _held_live(vault, repository)
@@ -577,8 +425,8 @@ def test_f9_f10_held_grades_build_no_failure_streak_and_move_no_item_quality(tmp
 
 def test_f11_a_held_probe_answer_moves_no_episode_posterior(tmp_path):
     from learnloop.diagnosis.probe_episodes import enter_episode, episode_posterior
-    from tests.test_probe_episodes import CLOCK as PROBE_CLOCK
-    from tests.test_probe_episodes import ITEM_ID, LO_ID, _commit, _setup
+    from tests.probe_episodes_helpers import CLOCK as PROBE_CLOCK
+    from tests.probe_episodes_helpers import ITEM_ID, LO_ID, _commit, _setup
 
     _root, loaded, repository = _setup(tmp_path)
     episode = enter_episode(loaded, repository, LO_ID, clock=PROBE_CLOCK)
@@ -621,8 +469,8 @@ def _readers():
     from learnloop.substrate.data_quality import data_quality_report
     from learnloop.substrate.dataset import outcome_records
     from learnloop.tutor.question_signal import _base_failure_rate
-    from tests.test_pfc_unassessed_readers import _field_outcomes
-    from tests.test_route_rules_in_grader import _projection
+    from tests.pfc_unassessed_readers_helpers import _field_outcomes
+    from tests.route_rules_in_grader_helpers import _projection
 
     def schedule(vault, repository, paths):
         state = repository.practice_item_state(ITEM)
@@ -910,43 +758,6 @@ def test_review_f1_the_ledger_reads_the_evidence_as_the_attempt_step_does(tmp_pa
     assert _schedule(repository) == before
 
 
-def _hold_by_regrade(vault, repository, attempt_id, when):
-    """The ledger a regrade INTO a hold leaves on an assessed attempt (review
-    F1's supersession): every criterion re-graded unassessed over the machine
-    tiers it replaces, the grader's own 0, and a held blind record. Readers
-    that read the ledger see exactly what ``regrade_attempt`` writes; the
-    vaults these readers live in run no route check of their own."""
-
-    attempt = repository.fetch_practice_attempt(attempt_id)
-    rubric = resolved_rubric(vault, vault.practice_items[attempt["practice_item_id"]])
-    rows = [
-        {
-            "id": f"ge_hold_{attempt_id}_{criterion.id}", "criterion_id": criterion.id,
-            "points_awarded": 0.0, "evidence": "regraded, held", "notes": None, "agent_run_id": None,
-            "local_grader_id": None, "grader_tier": 3, "created_at": _iso(when),
-            "attribution_json": unverified_attribution_json(),
-        }
-        for criterion in rubric.criteria
-    ]
-    repository.insert_regrade_evidence(
-        attempt_id=attempt_id, new_evidence_rows=rows, superseded_by_evidence_id=rows[0]["id"],
-        supersede_tiers=(1, 3), clock=FrozenClock(when),
-    )
-    repository.insert_blind_grade_record(
-        attempt_id=attempt_id, agent_run_id=None, grading_prompt_version="blind-test",
-        output_schema_version="BlindGradingProposal", context_hash=f"ctx-hold-{attempt_id}",
-        record={
-            "practice_item_id": attempt["practice_item_id"], "rubric_score": 0,
-            "max_points": rubric.max_points,
-            "criteria": [{"criterion_id": criterion.id, "points_awarded": 0.0} for criterion in rubric.criteria],
-            "error_attributions": [], "fatal_errors": [], "regrade": True,
-            "grading_support": _held_support(rubric),
-        },
-        clock=FrozenClock(when),
-    )
-    assert attempt_grade_held(repository, attempt_id)
-
-
 def test_review_f2_a_scored_cold_probe_regraded_into_a_hold_abstains(tmp_path):
     """Review F2: a certification probe scored on submission, then held by a
     regrade, leaves its receipt as recorded, but no current reader takes its
@@ -963,7 +774,7 @@ def test_review_f2_a_scored_cold_probe_regraded_into_a_hold_abstains(tmp_path):
         schedule_certification_cold_probes,
     )
     from tests.helpers import NOW
-    from tests.test_certification_cold_probe import HELD_OUT_ITEM, _certify, _tasks
+    from tests.certification_cold_probe_helpers import HELD_OUT_ITEM, _certify, _tasks
 
     _paths, vault, repository, _certificate = _certify(tmp_path)
     schedule_certification_cold_probes(vault, repository, clock=FrozenClock(NOW))
@@ -1023,8 +834,8 @@ def test_review_f3_diagnostic_observations_held_by_a_regrade_qualify_nothing(tmp
     from learnloop.diagnosis.probe_audit import eig_calibration_report
     from learnloop.diagnosis.probe_episodes import episode_posterior
     from learnloop.vault.paths import VaultPaths
-    from tests.test_p2_acceptance import CLOCK as GP_CLOCK
-    from tests.test_p2_acceptance import _admit_probe_card, _drive_probe_item, _reviewed_pack
+    from tests.p2_acceptance_helpers import CLOCK as GP_CLOCK
+    from tests.p2_acceptance_helpers import _admit_probe_card, _drive_probe_item, _reviewed_pack
 
     fx = build_golden_path_fixture(tmp_path / "vault")
     vault = load_vault(fx.root)

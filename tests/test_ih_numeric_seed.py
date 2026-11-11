@@ -15,7 +15,6 @@ Fakes only; no model call.
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -28,7 +27,7 @@ from learnloop.daily_plan.router_chooser import INSERT_NOW
 
 from tests.router_mixture_helpers import mixture_env
 from tests.router_model_fakes import FakeDecider, FakeLLM, block_drawing_seed, fake_runtime
-from tests.test_ih2_lessons_compete import (
+from tests.ih2_lessons_compete_helpers import (
     NO_CHECKS,
     OFF,
     OFF_NO_CHECKS,
@@ -41,41 +40,11 @@ from tests.test_ih2_lessons_compete import (
     _run_lane,
     draw,  # noqa: F401 - the fixture
 )
-from tests.test_daily_plan_build import _wide_items
-from tests.test_instruct_handoff_ih0 import make_world  # noqa: F401 - the fixture
-from tests.test_ro4_objective_serving import policy_answer
-from tests.test_rospeed2_connections import _canon
-from tests.test_te3b_offers import OFFER, offerable  # noqa: F401 - the fixture
-
-
-@pytest.fixture
-def spy(monkeypatch):
-    """Every boundary identity hashed (the dict the prefetch key hashes, its snapshot naming every switch; the seed's own
-    hash names fewer, so it is not one), and every numeric run with its seed and its evaluation at a fixed draw count."""
-
-    real_hash, real_numeric = OC._hash, OC.run_numeric
-    control = SimpleNamespace(identities=[], runs=[])
-
-    def recording(value):
-        if (isinstance(value, dict) and str(value.get("kind", "")).startswith("objective_")
-                and "held_reading_map" in (value.get("objective") or {}).get("followup_switches", {})):
-            control.identities.append(value)
-        return real_hash(value)
-
-    def numeric(vault, repository, **kwargs):
-        fixed = {**kwargs, "keep_going": lambda: False, "forecasts": None, "publish": None, "defer_carried": None,
-                 "deadline": None}
-
-        def values(seed: str) -> Any:
-            return _canon(real_numeric(vault, repository, **{**fixed, "seed": seed}).evaluation.valued)
-
-        # Evaluated only for the run a test asserts on: a journey to a boundary makes many.
-        control.runs.append({"seed": kwargs["seed"], "support": list(kwargs["support"]), "values": values})
-        return real_numeric(vault, repository, **kwargs)
-
-    monkeypatch.setattr(OC, "_hash", recording)
-    monkeypatch.setattr(OC, "run_numeric", numeric)
-    return control
+from tests.daily_plan_build_helpers import _wide_items
+from tests.instruct_handoff_ih0_helpers import make_world  # noqa: F401 - the fixture
+from tests.ro4_objective_serving_helpers import policy_answer
+from tests.te3b_offers_helpers import OFFER, offerable  # noqa: F401 - the fixture
+from tests.ih_numeric_seed_helpers import spy  # noqa: F401 - fixtures, used by parameter name
 
 
 def _models() -> dict[str, Any]:
@@ -278,6 +247,6 @@ def test_with_the_switch_off_the_block_still_seeds_from_its_identity(tmp_path, d
 
 
 def _tag() -> str:
-    from tests.test_ih2_lessons_compete import TAG
+    from tests.ih2_lessons_compete_helpers import TAG
 
     return TAG

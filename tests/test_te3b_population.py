@@ -86,7 +86,7 @@ from typing import Any  # noqa: E402
 from learnloop.daily_plan import lesson_suggestion as SG  # noqa: E402
 from tests.router_mixture_helpers import mixture_env  # noqa: E402
 from tests.router_model_fakes import fake_runtime  # noqa: E402
-from tests.test_te3b_offers import _first_decision, offerable  # noqa: E402,F401
+from tests.te3b_offers_helpers import _first_decision, offerable  # noqa: E402,F401
 
 def _with(vault, *, version: str | None = None, in_objective: bool | None = None):
     """The same vault (the same database, the same pinned state) under another version or switch."""

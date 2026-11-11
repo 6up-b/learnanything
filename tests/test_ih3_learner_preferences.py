@@ -30,7 +30,7 @@ from learnloop.scheduling.device_eligibility import PlanStepFilter
 from tests.daily_plan_fakes import record_attempt
 from tests.router_mixture_helpers import mixture_env, rows
 from tests.router_model_fakes import fake_runtime
-from tests.test_te3b_offers import OFFER, offerable  # noqa: F401 - the fixture
+from tests.te3b_offers_helpers import OFFER, offerable  # noqa: F401 - the fixture
 
 TAG = FAILURE_SHARE_ALGORITHM_VERSION
 OLD = PHONE_PROBES_ALGORITHM_VERSION

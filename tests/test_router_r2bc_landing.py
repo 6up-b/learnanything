@@ -42,9 +42,9 @@ from tests.practice_index_fakes import EMBED_DIMS, HashingEmbedder
 from tests.router_mixture_helpers import B, mixture_env, rows, run
 from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime, first_option, seed_with_first_uniform
 from tests.split_live_helpers import enable_embeddings
-from tests.test_daily_plan_build import _wide_items
-from tests.test_reader_rw3a_landing import CASES, _call, _check_me, _counts, _picked, _world
-from tests.test_source_vector_backfill import SECOND, _backfill_jobs, _Extractor, _import, _runner
+from tests.daily_plan_build_helpers import _wide_items
+from tests.reader_rw3a_landing_helpers import CASES, _call, _check_me, _counts, _picked, _world
+from tests.source_vector_backfill_helpers import SECOND, _backfill_jobs, _Extractor, _import, _runner
 
 assert B == ROUTER_MIXTURE_ALGORITHM_VERSION == "mvp-0.24"
 

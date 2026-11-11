@@ -26,10 +26,10 @@ from learnloop.content.proposals.patches import PatchApplicationError, apply_acc
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, yaml_to_string
 
-from tests.test_facet_authority import _CLOCK, EXAM_CLAIM, NEW_CLAIM, _facet_proposal, _support
-from tests.test_facet_authority_review import _add_split_chapter, _authority_verdicts, _block_ref
-from tests.test_facet_identity_actions import SELECT, SHARED, _vault_with_duplicate
-from tests.test_source_set_synthesis import _setup
+from tests.facet_authority_helpers import _CLOCK, EXAM_CLAIM, NEW_CLAIM, _facet_proposal, _support
+from tests.facet_authority_review_helpers import _add_split_chapter, _authority_verdicts, _block_ref
+from tests.facet_identity_actions_helpers import SELECT, SHARED, _vault_with_duplicate
+from tests.source_set_synthesis_helpers import _setup
 
 SPLIT_SCOPE = [{"unit_id": "chapter#Theory"}, {"unit_id": "chapter#Exam", "role_override": "exam"}]
 EXAM_HALF_REF = _block_ref("ext_split", "s2", source_id="src_split", revision_id="rev_split")

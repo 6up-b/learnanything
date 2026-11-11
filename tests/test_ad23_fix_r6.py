@@ -38,7 +38,7 @@ def _at(value: str) -> datetime:
 
 
 def _first_commission(tmp_path) -> tuple[Any, dict[str, Any]]:
-    from tests.test_ad2_serving import _generation_prompt
+    from tests.ad2_serving_helpers import _generation_prompt
 
     paths = ad23_vault(tmp_path, items=("pi_g1",), config=ROUTER_OFF)
     _generation_prompt(paths)
@@ -61,7 +61,7 @@ def _draw(paths, like: dict[str, Any], *, key: str, created_at: str, point: dict
 
 
 def _land(paths, item_id: str, point: dict[str, Any], at: str, capability: str) -> None:
-    from tests.test_ad2_serving import _land as land
+    from tests.ad2_serving_helpers import _land as land
 
     land(paths, item_id, {**rung_features(point), "tools": ["closed_book"]}, at, capability=capability)
 

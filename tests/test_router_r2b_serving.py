@@ -80,7 +80,7 @@ def test_a_decider_naming_an_option_it_was_not_asked_is_rejected(tmp_path):
 
 
 def test_an_irreversible_block_is_never_an_option(tmp_path):
-    from tests.test_router_r2a_serving import _hold_cold_check
+    from tests.router_r2a_serving_helpers import _hold_cold_check
 
     llm = FakeLLM()
     env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=llm))
@@ -582,7 +582,7 @@ def test_the_switches_at_the_successor_serve_their_predecessors_on_fixture_copie
     from learnloop.db.copies import copy_tree_with_databases
 
     from tests.helpers import append_config_toml, set_algorithm_version
-    from tests.test_router_r2a_serving import _plan_trace
+    from tests.router_r2a_serving_helpers import _plan_trace
 
     source = owner_vault(fixture)
     if not (source / "state.sqlite").exists():

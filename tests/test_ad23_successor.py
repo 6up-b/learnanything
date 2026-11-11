@@ -83,7 +83,7 @@ def test_promoted_predictor_off_makes_coupling_and_reading_moot_for_draws(tmp_pa
     """With the LO view live, the draws are the same whatever ``learned_coupling``,
     ``reading_opportunities`` and ``reading_self_check`` say."""
 
-    from tests.test_ad3_subject_view import _scenario, _scores
+    from tests.ad3_subject_view_helpers import _scenario, _scores
 
     off = "promoted_predictor = false\n"
     base = _scenario(tmp_path, "a", seen=True, ad=off)

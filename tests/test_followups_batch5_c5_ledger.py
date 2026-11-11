@@ -14,7 +14,7 @@ from learnloop.diagnosis.text_gaps.contract import KIND_TASK
 from learnloop.diagnosis.text_gaps.report import build_report
 from learnloop.tutor.ai_contracts import LearnerGap
 from learnloop.vault.loader import load_vault
-from tests.test_notes_as_learner_text import TYPED, _clients, _linked, _run, _snapshots
+from tests.notes_as_learner_text_helpers import TYPED, _clients, _linked, _run, _snapshots
 from tests.text_gap_fakes import ChoiceDecider, GapLLMFake, word_match
 
 #: The columns every judge's verdict fills (the shared writers' shape).

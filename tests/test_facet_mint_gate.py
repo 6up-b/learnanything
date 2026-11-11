@@ -252,7 +252,7 @@ def test_ingest_aliases_a_collapsing_candidate_into_a_registered_facet(tmp_path)
     from learnloop.vault.paths import VaultPaths
     from learnloop.vault.yaml_io import write_yaml
 
-    from tests.test_source_set_synthesis import _CLOCK, FakeSynthesisClient, _setup
+    from tests.source_set_synthesis_helpers import _CLOCK, FakeSynthesisClient, _setup
 
     root, repo = _setup(tmp_path)
     # A registered facet whose error signatures SUBSUME the candidate's and whose

@@ -21,45 +21,19 @@ from __future__ import annotations
 import ast
 import inspect
 import json
-from datetime import UTC, datetime
 
 from learnloop import learner_protection as protection
-from learnloop.daily_plan.policy import policy_for
-from learnloop.daily_plan.router_card import CardGatherer
-from learnloop.daily_plan.types import BlockCandidate, PlanState
 from learnloop.learner_context import HELD_BACK, learning_context
 from learnloop.router.card import STEM_LIMIT
 
-from tests.daily_plan_fakes import MovableClock, iso, make_env, scheduled, seed_due
-from tests.helpers import create_daily_plan_vault
-from tests.test_method_explicit_landing import LONG, METHOD, SENTENCE, _graded_under_method
-from tests.test_router_card import A, LAST, OWN_ANSWER, PAST, _attempt, _item
+from tests.daily_plan_fakes import iso
+from tests.method_explicit_landing_helpers import LONG, METHOD, SENTENCE, _graded_under_method
+from tests.router_card_helpers import A, LAST, OWN_ANSWER, _attempt
+from tests.mcp_c1a_landing_helpers import NOW, _card_inputs, _world
 
-NOW = datetime(2026, 10, 12, 9, 0, tzinfo=UTC)
-NOW_ISO = iso(NOW)
 CAUSE = "CAUSE_STATEMENT_A_DIAGNOSER_WROTE_5120"
 EXAM_CAUSE = "CAUSE_REVISED_FROM_AN_EXAM_ANSWER_7781"
 GAP_WORDS = "LEARNER_WORDS_ABOUT_THE_EXAM_QUESTION_3307"
-
-
-def _world(tmp_path, monkeypatch):
-    """Two topics: lo_m1 (pi_a) and lo_m2 (pi_b, and pi_cold, held by an open cold retry)."""
-
-    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={"lo_m1": [], "lo_m2": []}, version=A)
-    _item(paths, "pi_a", "lo_m1", prompt="Compute the determinant of A.", expected="kept")
-    _item(paths, "pi_b", "lo_m2", prompt="Name a basis of R^2.", expected="e1, e2")
-    _item(paths, "pi_cold", "lo_m2", prompt="Is this set a basis?", expected="no")
-    clock = MovableClock()
-    env = make_env(paths.root, [scheduled("pi_a", "lo_m1", forgetting_risk=0.6),
-                                scheduled("pi_b", "lo_m2", forgetting_risk=0.6)], clock=clock, session_id="s1")
-    for item in ("pi_a", "pi_b"):
-        seed_due(env.repository, item, due=PAST, last=LAST)
-    from learnloop.content.sources import exam_material as EM
-
-    monkeypatch.setattr(EM, "exam_material",
-                        lambda _vault, _repo: EM.ExamMaterial(material=EM.Material(), held_out=EM.Material()))
-    env.policy = policy_for(env.vault, env.repository, session_id="s1", clock=clock)
-    return env
 
 
 def _cold_retry(env, item_id: str) -> None:
@@ -94,19 +68,6 @@ def _gap(env, gap_id: str, attempt_id: str, item_id: str, words: str) -> None:
             (gap_id, f"q_{gap_id}", attempt_id, item_id, words, A, iso(LAST)),
         )
         connection.commit()
-
-
-def _card_inputs(env):
-    state = PlanState(plan_id="p", kind="normal", minutes_budget=25.0, minutes_left=25.0,
-                      lane_minutes_left={"maintain": 10.0}, days_since_last_activity=0, streak_days=1,
-                      current_block_id=None)
-    feasible = [BlockCandidate(
-        candidate_id="maintain:x", lane="maintain", action="maintain", subtype=None,
-        learning_object_ids=("lo_m1", "lo_m2"), item_ids=("pi_a", "pi_b"), reading=None, est_minutes=4.0,
-        planner_value=1.0, reason="review", annotations={"reason_code": "review", "reversible": True},
-    )]
-    return CardGatherer(env.vault, env.repository, clock=env.clock, session_id="s1").inputs(
-        state, feasible, now_iso=NOW_ISO)
 
 
 def _chat(env) -> dict:
@@ -225,8 +186,8 @@ def test_a_teach_back_on_an_item_a_cold_check_holds_is_never_summarized(tmp_path
 
     from tests.router_mixture_helpers import mixture_env
     from tests.router_model_fakes import fake_runtime
-    from tests.test_daily_plan_build import _wide_items
-    from tests.test_router_r2c_teach_back import _summary_llm, _teach_back
+    from tests.daily_plan_build_helpers import _wide_items
+    from tests.router_r2c_teach_back_helpers import _summary_llm, _teach_back
 
     calls: list = []
     runtime = fake_runtime(llm=_summary_llm(calls))

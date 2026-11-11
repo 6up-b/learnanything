@@ -33,8 +33,8 @@ import pytest
 
 from learnloop.db.connection import connect
 
-from tests.test_required_method_round3_review import _upsert, gated_successor  # noqa: F401
-from tests.test_required_method_round3_rereview import _clear, _contract, pre_fix  # noqa: F401
+from tests.required_method_round3_review_helpers import _upsert, gated_successor  # noqa: F401
+from tests.required_method_round3_rereview_helpers import _clear, _contract, pre_fix  # noqa: F401
 
 
 def _lose_the_graded_rubric(paths, repository, item_id: str) -> None:
@@ -83,8 +83,8 @@ def test_an_unrebuildable_method_binding_needs_a_fresh_check_whatever_another_re
     certifies nothing."""
 
     from learnloop.db.stores.source_service import reference_content_hash
-    from tests.test_reference_gate_imports import _bindings, _regrade, _status
-    from tests.test_required_method_rereview import _check, _make_historical
+    from tests.reference_gate_imports_helpers import _bindings, _regrade, _status
+    from tests.required_method_rereview_helpers import _check, _make_historical
 
     paths, repository, item_id, _criterion, attempt, legacy_hash = pre_fix
     if contract == "historical":
@@ -118,8 +118,8 @@ def test_a_contract_without_a_recorded_hash_leaves_the_cleared_question_needing_
     question never reaches it."""
 
     from learnloop.db.stores.source_service import effective_key_status, reference_status_for_item
-    from tests.test_reference_gate_imports import _bindings, _regrade, _status
-    from tests.test_required_method_rereview import _check, _make_historical
+    from tests.reference_gate_imports_helpers import _bindings, _regrade, _status
+    from tests.required_method_rereview_helpers import _check, _make_historical
 
     paths, repository, item_id, _criterion, attempt, legacy_hash = pre_fix
     _make_historical(repository, attempt.attempt_id)
@@ -147,9 +147,9 @@ def test_a_contract_frozen_now_records_its_key_identity_and_binds_exactly_withou
 
     from learnloop.db.stores.source_service import KEY_IDENTITY, KEY_IDENTITY_FIELD, reference_content_hash
     from tests.source_service_fakes import loaded
-    from tests.test_reference_gate_imports import _attempt, _bindings, _regrade, _status
-    from tests.test_required_method_rereview import _check
-    from tests.test_required_method_round3_review import _method_import
+    from tests.reference_gate_imports_helpers import _attempt, _bindings, _regrade, _status
+    from tests.required_method_rereview_helpers import _check
+    from tests.required_method_round3_review_helpers import _method_import
 
     paths, repository, spans = gated_successor
     item_id, criterion = _method_import(paths, repository, spans, "mathematical induction")
@@ -180,8 +180,8 @@ def test_a_branch_contract_recorded_since_review_f1_binds_exactly_only_when_it_i
 
     from learnloop.db.stores.source_service import KEY_IDENTITY_FIELD, reference_content_hash
     from tests.source_service_fakes import loaded
-    from tests.test_reference_gate_imports import _attempt, _bindings, _regrade, _status
-    from tests.test_required_method_round3_review import _method_import
+    from tests.reference_gate_imports_helpers import _attempt, _bindings, _regrade, _status
+    from tests.required_method_round3_review_helpers import _method_import
 
     paths, repository, spans = gated_successor
     item_id, criterion = _method_import(paths, repository, spans, "mathematical induction")

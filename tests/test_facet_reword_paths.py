@@ -40,8 +40,17 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml, yaml_to_string
 
-from tests.test_facet_identity_actions import SHARED, _belief, _lock_shared, _vault_with_duplicate
-from tests.test_facet_rewords import NEW_CLAIM, OLD_CLAIM, _entry, _facet_update_proposal
+from tests.facet_identity_actions_helpers import SHARED, _belief, _lock_shared, _vault_with_duplicate
+from tests.facet_rewords_helpers import NEW_CLAIM, OLD_CLAIM, _entry, _facet_update_proposal
+from tests.facet_reword_paths_helpers import (
+    NEW_SPAN,
+    SYMMETRY,
+    SYMMETRY_CLAIM,
+    TEXT_SPAN,
+    _call,
+    _facet_restructure,
+    _sidecar,
+)
 
 _CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, 0, tzinfo=UTC))
 THIRD_CLAIM = "A = U Sigma V^T, with the singular values on Sigma's diagonal in decreasing order."
@@ -175,22 +184,6 @@ def test_an_interrupted_reword_undo_records_the_verdict_once(tmp_path, monkeypat
 
 
 # --- F1: the Library editor writes facets.yaml through the reword record --------------------
-
-
-def _sidecar(paths):
-    import learnloop_sidecar.handlers  # noqa: F401 - registers methods
-    from learnloop_sidecar.context import SidecarContext
-
-    ctx = SidecarContext()
-    ctx.load(paths.root)
-    return ctx
-
-
-def _call(ctx, name, params):
-    from learnloop_sidecar.registry import METHOD_REGISTRY
-
-    spec = METHOD_REGISTRY[name]
-    return spec.handler(ctx, spec.params_model.model_validate(params))
 
 
 def _edited_registry(paths, **changes) -> str:
@@ -348,44 +341,6 @@ def test_a_library_reword_whose_write_never_landed_is_withdrawn_by_recovery(tmp_
 
 # --- F2: an append restructure can reword a facet ------------------------------------------
 
-SYMMETRY = "facet_symmetry_definition"
-SYMMETRY_CLAIM = "A real square matrix A is symmetric exactly when it equals its transpose: A^T = A."
-
-#: The span the appended member (``_bootstrap_and_add``: ``src_alt``/``rev_alt``) provides;
-#: its role is whatever ``add_role`` the test gave the member.
-NEW_SPAN = {"extraction_id": "ext_alt", "unit_id": "chapter_symmetry_alt", "span_id": "s1"}
-#: A span of the bootstrap's ``primary_textbook`` member (``src_text``/``rev_text``).
-TEXT_SPAN = {"extraction_id": "ext_text", "unit_id": "chapter_symmetry", "span_id": "s1"}
-
-
-def _facet_restructure(operation: str = "update", target: str = SYMMETRY, *, citations=(NEW_SPAN,)):
-    """The response a provider returns under the strict schema (validated, not constructed)."""
-
-    from learnloop.content.synthesis.ai_contracts import AppendReconciliation
-
-    def builder(_context, _n):
-        return AppendReconciliation.model_validate({
-            "summary": "the new source states the definition precisely",
-            "restructures": [{
-                "client_item_id": "reword_symmetry", "target_entity_type": "facet",
-                "target_entity_id": target, "operation": operation,
-                "expected_target_hash": "", "payload": {},
-                "facet_wording": {
-                    "kind": None, "claim": SYMMETRY_CLAIM, "description": "",
-                    "preconditions": [], "postconditions": [], "applicability": [], "non_goals": [],
-                    # The model's own role claim is ignored: the role comes from the extraction.
-                    "provenance": [
-                        {"revision_id": "", "source_id": "", "locator": "", "relation": "support",
-                         "role": "primary_textbook", **span}
-                        for span in citations
-                    ],
-                },
-            }],
-        })
-
-    return builder
-
-
 def test_the_append_schema_lets_a_provider_reword_a_facet():
     from learnloop.ai.strict_schema import strict_output_schema
     from learnloop.content.synthesis.ai_contracts import AppendReconciliation
@@ -403,7 +358,7 @@ def test_the_append_schema_lets_a_provider_reword_a_facet():
 def test_an_append_facet_restructure_applies_as_a_facet_version_with_undo(tmp_path):
     from learnloop.content.synthesis.source_append import append_source
 
-    from tests.test_source_append import FakeAppendClient, _bootstrap_and_add
+    from tests.source_append_helpers import FakeAppendClient, _bootstrap_and_add
 
     root, repo = _bootstrap_and_add(tmp_path)
     old = load_vault(root).evidence_facets[SYMMETRY]
@@ -438,7 +393,7 @@ def test_an_append_facet_restructure_refuses_when_the_facet_changed_since(tmp_pa
     from learnloop.content.proposals.patches import PatchApplicationError
     from learnloop.content.synthesis.source_append import append_source
 
-    from tests.test_source_append import FakeAppendClient, _bootstrap_and_add
+    from tests.source_append_helpers import FakeAppendClient, _bootstrap_and_add
 
     root, repo = _bootstrap_and_add(tmp_path)
     result = append_source(root, "set_la", client=FakeAppendClient(builder=_facet_restructure()),
@@ -456,7 +411,7 @@ def test_an_append_facet_restructure_refuses_when_the_facet_changed_since(tmp_pa
 def test_an_append_facet_restructure_that_cannot_apply_is_dropped_with_a_diagnostic(tmp_path, operation, target):
     from learnloop.content.synthesis.source_append import append_source
 
-    from tests.test_source_append import FakeAppendClient, _bootstrap_and_add
+    from tests.source_append_helpers import FakeAppendClient, _bootstrap_and_add
 
     root, repo = _bootstrap_and_add(tmp_path)
     result = append_source(root, "set_la", client=FakeAppendClient(builder=_facet_restructure(operation, target)),
@@ -496,7 +451,7 @@ def test_an_exam_only_facet_reword_hard_fails_the_exam_authority_gate(tmp_path):
     from learnloop.content.synthesis.source_append import append_source
     from learnloop.content.synthesis.source_set_synthesis import StudyMapError
 
-    from tests.test_source_append import FakeAppendClient, _bootstrap_and_add
+    from tests.source_append_helpers import FakeAppendClient, _bootstrap_and_add
 
     root, repo = _bootstrap_and_add(tmp_path, add_role="exam")
     old = load_vault(root).evidence_facets[SYMMETRY]
@@ -522,7 +477,7 @@ def test_an_uncited_facet_reword_waits_for_the_owners_confirm(tmp_path, add_role
     from learnloop.content.facet_identity.actions import pending_reword_confirms
     from learnloop.content.synthesis.source_append import append_source
 
-    from tests.test_source_append import FakeAppendClient, _bootstrap_and_add
+    from tests.source_append_helpers import FakeAppendClient, _bootstrap_and_add
 
     root, repo = _bootstrap_and_add(tmp_path, add_role=add_role)
     result = append_source(root, "set_la", client=FakeAppendClient(builder=_facet_restructure(citations=())),
@@ -542,7 +497,7 @@ def test_an_uncited_facet_reword_waits_for_the_owners_confirm(tmp_path, add_role
 def test_a_facet_reword_an_explanatory_span_corroborates_passes_the_gate(tmp_path):
     from learnloop.content.synthesis.source_append import append_source
 
-    from tests.test_source_append import FakeAppendClient, _bootstrap_and_add
+    from tests.source_append_helpers import FakeAppendClient, _bootstrap_and_add
 
     root, repo = _bootstrap_and_add(tmp_path, add_role="exam")
     result = append_source(
@@ -562,7 +517,7 @@ def test_a_facet_reword_an_explanatory_span_corroborates_passes_the_gate(tmp_pat
 def test_a_cited_facet_reword_records_its_spans_in_the_facets_provenance(tmp_path):
     from learnloop.content.synthesis.source_append import append_source
 
-    from tests.test_source_append import FakeAppendClient, _bootstrap_and_add
+    from tests.source_append_helpers import FakeAppendClient, _bootstrap_and_add
 
     root, repo = _bootstrap_and_add(tmp_path)
     old = load_vault(root).evidence_facets[SYMMETRY]
@@ -595,7 +550,7 @@ def test_a_cited_facet_reword_records_its_spans_in_the_facets_provenance(tmp_pat
 def test_a_facet_reword_citation_that_does_not_resolve_is_dropped_not_fatal(tmp_path, with_good_citation):
     from learnloop.content.synthesis.source_append import append_source
 
-    from tests.test_source_append import FakeAppendClient, _bootstrap_and_add
+    from tests.source_append_helpers import FakeAppendClient, _bootstrap_and_add
 
     bad = {"extraction_id": "ext_not_in_the_set", "unit_id": "u9", "span_id": "s9"}
     citations = (bad, NEW_SPAN) if with_good_citation else (bad,)

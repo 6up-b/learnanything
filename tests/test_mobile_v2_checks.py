@@ -19,7 +19,7 @@ from learnloop.scheduling.device_eligibility import DESKTOP_ONLY_MODE, PlanStepF
 
 from tests.daily_plan_fakes import record_attempt
 from tests.router_mixture_helpers import run
-from tests.test_ro5_checks import _env
+from tests.ro5_checks_helpers import _env
 
 
 class _HoldsTheChecks(PlanStepFilter):

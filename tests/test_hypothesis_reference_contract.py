@@ -12,7 +12,7 @@ from learnloop.instructional.tools import run_tool, tool_schemas
 from learnloop.instructional.valuation import HypothesisRef, NAMED_GAPS_MODULE, open_hypotheses
 from learnloop.source_retrieval.policy import CallerContext
 from tests.source_service_fakes import FakeServiceLLM, build_textbook_vault, loaded
-from tests.test_discriminating_search import _valuer
+from tests.discriminating_search_helpers import _valuer
 
 
 @pytest.fixture

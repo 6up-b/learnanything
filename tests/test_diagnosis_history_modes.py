@@ -16,7 +16,6 @@ from learnloop.config import CodexConfig
 from learnloop.diagnosis.split.context import (
     assemble_diagnosis_context,
     cacheable_prefix,
-    current_attempt_from,
 )
 from learnloop.diagnosis.split.diagnoser import SKIPPED_NO_WORKSPACE, run_diagnosis
 from learnloop.diagnosis.split.history import VaultHistoryStore
@@ -27,7 +26,8 @@ from learnloop.diagnosis.offline_review.judge import DiagnosisJudgment
 from learnloop.vault.loader import load_vault
 
 from tests.diagnosis_fakes import FakeEmbeddingClient, ReviewFakeClient
-from tests.diagnosis_split_helpers import blind_record, build_diagnosis_vault, seed_history
+from tests.diagnosis_split_helpers import build_diagnosis_vault, seed_history
+from tests.diagnosis_history_modes_helpers import _current
 
 PROSE = ("Feedback.", "The final factor is not transposed.", "transpose_confusion")
 
@@ -37,20 +37,6 @@ def seeded(tmp_path):
     paths = build_diagnosis_vault(tmp_path / "vault")
     vault, repository = seed_history(paths)
     return paths, vault, repository
-
-
-def _current(vault, store, attempt_id="att_06_svd_fail"):
-    attempt = store.attempt(attempt_id)
-    item = vault.practice_items[attempt.practice_item_id]
-    record = blind_record(
-        score=2, max_points=4, criteria={"setup": 2, "result": 0},
-        attributions=[{"error_type": "conceptual_slip", "evidence": "Blind evidence here.",
-                       "first_divergence": {"anchor_kind": "span", "criterion_id": "result", "quote": attempt.learner_answer_md.split()[-1]},
-                       "target_evidence_families": ["recall"], "resolution_status": "unresolved", "validity_scope": "valid_measurement"}],
-        local_analysis="Blind local reading of this answer.",
-    )
-    return item, current_attempt_from(vault, item, attempt_id=attempt_id, completed_at=attempt.completed_at,
-                                      learner_answer_md=attempt.learner_answer_md, blind_grade=record)
 
 
 # -- full ---------------------------------------------------------------------------
@@ -174,7 +160,7 @@ def test_codex_workspace_replaces_the_vault_root(tmp_path, monkeypatch):
     shown is every export file, reported as served."""
 
     from learnloop.diagnosis.offline_review.judge import LinkJudgment
-    from tests.test_diagnosis_isolation import _fake_sdk
+    from tests.diagnosis_isolation_helpers import _fake_sdk
 
     vault_root = tmp_path / "vault"
     vault_root.mkdir()

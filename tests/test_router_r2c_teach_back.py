@@ -18,37 +18,9 @@ from learnloop.daily_plan.types import PlanState
 from learnloop.router.requests import evidence_from_card
 
 from tests.router_mixture_helpers import mixture_env
-from tests.router_model_fakes import FakeLLM, fake_runtime
-from tests.test_daily_plan_build import _wide_items
-
-TRANSCRIPT = (
-    "# Teach-back transcript\n\n## Opening explanation\n\nA basis spans the space and is independent.\n\n"
-    "## Follow-up 1 (criterion: c_independence)\n\n**Student asked:** Why independent?\n\n"
-    "**Learner answered:** So no vector is redundant, I think.\n"
-)
-
-
-def _summary_llm(calls):
-    def answer(request):
-        calls.append(request)
-        return {"explained_correctly": ["a basis spans the space"],
-                "missing_or_wrong": ["why independence makes the coordinates unique"],
-                "learner_words": ["no vector is redundant"]}
-
-    return FakeLLM(answer=answer)
-
-
-def _teach_back(env, attempt_id="att_tb_1", item="pi_m1a", lo="lo_m1", at="2026-10-11T09:00:00Z"):
-    with env.repository.connection() as connection:
-        connection.execute(
-            "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
-            "correctness, hints_used, primed, latency_seconds, created_at, session_id, learner_answer_md) "
-            "VALUES (?, ?, ?, 'teach_back', 'teach_back', 0.5, 0, 0, 300, ?, 's0', ?)",
-            (attempt_id, item, lo, at, TRANSCRIPT),
-        )
-        connection.commit()
-    return attempt_id
-
+from tests.router_model_fakes import fake_runtime
+from tests.daily_plan_build_helpers import _wide_items
+from tests.router_r2c_teach_back_helpers import _summary_llm, _teach_back
 
 def _card(env):
     state = PlanState(plan_id="p", kind="normal", minutes_budget=25.0, minutes_left=25.0,

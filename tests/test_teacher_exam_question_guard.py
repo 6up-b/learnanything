@@ -247,7 +247,7 @@ def test_a_logged_field_quoting_a_reserved_stem_is_withheld_by_location(tmp_path
     reading."""
 
     from learnloop.algorithm_versions import TEACHER_PROBES_ALGORITHM_VERSION
-    from tests.test_teacher_te2_probes import probe_turn
+    from tests.teacher_te2_probes_helpers import probe_turn
 
     lesson = _Lesson(tmp_path / "plan", [_quoting("plan.id", EXAM_STEM), plan_turn])
     (withheld, ok) = lesson.teacher_turns()
@@ -338,8 +338,8 @@ def test_the_inline_graders_feedback_quoting_a_reserved_stem_is_not_shown(tmp_pa
 
 def test_a_lesson_probes_grader_feedback_quoting_a_reserved_stem_is_not_shown(tmp_path):
     from tests.teacher_fakes import RESERVED_SENTINEL
-    from tests.test_teacher_te2_probes import _Lesson as ProbeLesson
-    from tests.test_teacher_te2_probes import probe_turn
+    from tests.teacher_te2_probes_helpers import _Lesson as ProbeLesson
+    from tests.teacher_te2_probes_helpers import probe_turn
 
     stem = f"{RESERVED_SENTINEL}: compute it."
     lesson = ProbeLesson(tmp_path, [probe_turn])
@@ -356,7 +356,7 @@ def test_a_lesson_probes_grader_feedback_quoting_a_reserved_stem_is_not_shown(tm
 
 
 def test_a_figure_quoting_a_reserved_stem_is_not_shown(tmp_path, monkeypatch):
-    import tests.test_reader_rw5d_p4b_teacher_visuals as RV
+    import tests.reader_rw5d_p4b_teacher_visuals_helpers as RV
     from learnloop.teacher import visuals as V
     from tests.figure_fixtures import AuthorFake
 

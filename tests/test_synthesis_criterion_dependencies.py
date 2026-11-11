@@ -36,7 +36,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.test_source_set_synthesis import FakeSynthesisClient, _default_payload, _setup
+from tests.source_set_synthesis_helpers import FakeSynthesisClient, _default_payload, _setup
 
 _CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, 0, tzinfo=UTC))
 

@@ -24,7 +24,7 @@ from learnloop.vault.paths import VaultPaths
 from learnloop.vault.writer import upsert_facet
 
 from tests.helpers import set_algorithm_version
-from tests.test_source_set_synthesis import FakeSynthesisClient, _setup
+from tests.source_set_synthesis_helpers import FakeSynthesisClient, _setup
 
 _CLOCK = FrozenClock(datetime(2026, 7, 13, 12, 0, 0, tzinfo=UTC))
 

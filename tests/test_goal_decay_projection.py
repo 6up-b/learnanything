@@ -14,43 +14,16 @@ from learnloop.db.repositories import Repository
 from learnloop.goals.goal_projection import goal_report, projected_ready_mean_at
 from learnloop.vault.loader import load_vault
 from learnloop.vault.repository import open_vault_repository
-from learnloop.vault.writer import upsert_practice_item
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault, seed_due_item
+from tests.helpers import NOW, create_basic_vault, seed_due_item
 from tests.owner_vaults import owner_vaults, require_owner_vault
+from tests.goal_decay_projection_helpers import _add_application_item
 
 # The golden below is pinned to the FROZEN vault, not the live one. Pointing it
 # at `fixtures/linear_algebra` made the suite fail the moment anyone practised
 # or created a goal in the working vault — which is what that vault is for.
 # A backup-API copy in the owner_vaults lane since S0 (tests/owner_vaults.py):
 # ``linear_algebra_legacy``, read through require_owner_vault.
-
-
-def _add_application_item(root) -> None:
-    """A second active item on the same LO whose facet has no FSRS state."""
-
-    upsert_practice_item(
-        root,
-        {
-            "id": "pi_svd_apply_001",
-            "learning_object_id": "lo_svd_definition",
-            "subjects": None,
-            "practice_mode": "short_answer",
-            "attempt_types_allowed": ["independent_attempt"],
-            "evidence_facets": ["application"],
-            "evidence_weights": {"application": 1.0},
-            "prompt": "Apply SVD to compress a matrix.",
-            "expected_answer": "Truncate to the top singular values.",
-            "grading_rubric": {
-                "max_points": 4,
-                "criteria": [{"id": "correctness", "points": 4, "description": "Correct."}],
-                "fatal_errors": [],
-            },
-            "created_at": NOW_ISO,
-            "updated_at": NOW_ISO,
-        },
-        clock=FrozenClock(NOW),
-    )
 
 
 def test_do_nothing_projection_is_monotone_non_increasing_for_decay_facets(tmp_path):

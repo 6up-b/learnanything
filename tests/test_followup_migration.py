@@ -11,32 +11,11 @@ import sqlite3
 import pytest
 
 from learnloop.db.migrate import applied_versions, discover_migrations
-from learnloop.db.table_roles import TABLE_ROLES, TableRole
+from learnloop.db.table_roles import TABLE_ROLES
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.followup_migration_helpers import FOLLOWUP_ADDED_OBJECTS, ROLES
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-ROLES = {
-    "followup_workflows": TableRole.WORKFLOW,
-    "followup_generation_jobs": TableRole.WORKFLOW,
-    "followup_workflow_events": TableRole.RECEIPT,
-    "generated_probe_items": TableRole.RAW_LEDGER,
-    "generated_probe_burns": TableRole.RAW_LEDGER,
-    "router_decision_bindings": TableRole.RECEIPT,
-}
-FOLLOWUP_ADDED_OBJECTS = frozenset({
-    *ROLES,
-    "followup_workflows_state", "followup_workflows_session", "followup_workflows_item",
-    "followup_workflow_events_workflow", "followup_workflow_events_no_update", "followup_workflow_events_no_delete",
-    "followup_generation_jobs_order", "generated_probe_items_workflow", "generated_probe_items_no_delete",
-    "generated_probe_items_no_update", "generated_probe_burns_no_update", "generated_probe_burns_no_delete",
-    "router_decision_bindings_item", "router_decision_bindings_no_update", "router_decision_bindings_no_delete",
-    # Autoindexes of the UNIQUE constraints.
-    "sqlite_autoindex_followup_workflows_1", "sqlite_autoindex_followup_workflows_2",
-    "sqlite_autoindex_followup_workflow_events_1", "sqlite_autoindex_followup_generation_jobs_1",
-    "sqlite_autoindex_followup_generation_jobs_2", "sqlite_autoindex_generated_probe_items_1",
-    "sqlite_autoindex_generated_probe_burns_1", "sqlite_autoindex_generated_probe_burns_2",
-    "sqlite_autoindex_router_decision_bindings_1", "sqlite_autoindex_router_decision_bindings_2",
-})
 
 
 def test_241_is_applied_and_its_tables_have_their_roles():

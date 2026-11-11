@@ -23,12 +23,11 @@ from learnloop.hints.state import assemble_state
 from learnloop.hints.writer import HintWriterOutputV1, empty_output
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.context import SidecarContext
-from learnloop_sidecar.registry import METHOD_REGISTRY
 from tests.approach_map_fakes import add_attempt, edge, good_map, node
 from tests.hint_fakes import ITEM, WORK, ChooserFake, WriterFake, assists, good_answer, hint_vault, prefer, \
     reveals, store_map
+from tests.hint_h2a_review_helpers import ARGMAX, _call, _request, _sidecar
 
-ARGMAX = '[hints]\nchoice_policy = "argmax"\n'
 SELF_GRADE = {"criterionPoints": {"cdf": 2, "value": 0}, "confidence": 3}
 
 
@@ -83,30 +82,6 @@ def _three_routes() -> dict:
 # ---------------------------------------------------------------------------
 # F1: polling a completed submission never exposes an unrecorded hint
 # ---------------------------------------------------------------------------
-
-def _call(ctx, name, params):
-    spec = METHOD_REGISTRY[name]
-    return spec.handler(ctx, spec.params_model.model_validate(params))
-
-
-def _sidecar(tmp_path):
-    paths = hint_vault(tmp_path, config=ARGMAX)
-    store_map(paths)
-    ctx = SidecarContext()
-    ctx.load(paths.root)
-    ctx.grading_provider_override = "manual"
-    ctx.hints_inline = False
-    ctx.hint_seed = "e"
-    session = _call(ctx, "start_session", {"energy": "medium"})["sessionId"]
-    return paths, ctx, session
-
-
-def _request(ctx, session, option: str, writer):
-    ctx.hint_writer_client = writer
-    ctx.hint_chooser_client = ChooserFake(prefer(option, 0.9))
-    return _call(ctx, "practice.request_hint", {"sessionId": session, "practiceItemId": ITEM,
-                                                "submissionId": "k1", "answerMd": WORK})
-
 
 def _submit(ctx, session):
     return _call(ctx, "submit_attempt", {

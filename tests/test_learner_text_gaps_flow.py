@@ -11,9 +11,7 @@ import json
 import pytest
 
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
-from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_gaps as store
 from learnloop.diagnosis.text_gaps.jobs import enqueue, process_next_gap_job, sweep_backlog
 from learnloop.diagnosis.text_gaps.pipeline import PipelineClients, process_learner_text
@@ -26,41 +24,20 @@ from learnloop.diagnosis.text_gaps.sources import (
 from learnloop.placement.decisions import record_self_report
 from learnloop.placement.state import load_placement_state
 from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
-from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.tutor.ai_contracts import LearnerGap
 from learnloop.tutor.tutor_qa import ask_question
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, append_config_toml, create_placement_vault, set_algorithm_version
 from tests.text_gap_fakes import ChoiceDecider, GapLLMFake, GapTutor, word_match
+from tests.learner_text_gaps_flow_helpers import EIGEN_GAP, _at, _clients, _setup
 
-EIGEN_GAP = LearnerGap(prerequisite_name="Eigenvalues", prerequisite_line="Scalars a matrix scales its eigenvectors by.",
-                       kind="prerequisite")
 DAY = 24 * 60
 CHECK = 14 * DAY + 5
 
 
-def _at(minutes: float) -> FrozenClock:
-    return FrozenClock(NOW + timedelta(minutes=minutes))
-
-
 def _iso(minutes: float) -> str:
     return (NOW + timedelta(minutes=minutes)).isoformat().replace("+00:00", "Z")
-
-
-def _setup(tmp_path, *, version="mvp-0.16", toml="", name="vault"):
-    paths = create_placement_vault(tmp_path / name, version=version)
-    if toml:
-        append_config_toml(paths.root, toml)
-    repository = Repository(paths.sqlite_path)
-    sync_vault_state(load_vault(paths.root), repository, clock=FrozenClock(NOW))
-    return paths.root, repository
-
-
-def _clients(llm=None, decider=None, tutor=None) -> PipelineClients:
-    llm = llm or GapLLMFake()
-    return PipelineClients(judge=lambda: llm, reader=lambda: llm, decider=(lambda: decider) if decider else None,
-                           drafter=lambda: llm, tutor=(lambda: tutor) if tutor else None, embedder=None)
 
 
 def _gap(root, repository, *, minutes, item="pi_spec_easy", gap=EIGEN_GAP, llm=None):

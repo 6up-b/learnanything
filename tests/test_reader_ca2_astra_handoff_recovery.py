@@ -24,8 +24,8 @@ from learnloop.db.stores import workbench as store
 from learnloop.reader import workbench as WB
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.errors import SidecarError
-from tests.test_reader_ca2_astra_handoff import BOX, LIMIT, _ask, _metered, _open_steps, _transcript, _used
-from tests.test_reader_ca2_codex_review import ITEM, FakeTutor, _call, sidecar  # noqa: F401 - fixture
+from tests.reader_ca2_astra_handoff_helpers import BOX, LIMIT, _ask, _metered, _open_steps, _transcript, _used
+from tests.reader_ca2_codex_review_helpers import ITEM, FakeTutor, _call, sidecar  # noqa: F401 - fixture
 
 
 def _fail_handoff_writes(monkeypatch) -> None:

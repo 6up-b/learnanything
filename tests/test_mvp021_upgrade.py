@@ -66,7 +66,7 @@ from learnloop.voi_stopping_upgrade import upgrade_to_mvp021
 
 from tests.helpers import MIGRATION_HEAD_FIXTURE, NOW, append_config_toml, create_placement_vault, set_algorithm_version
 from tests.split_live_helpers import split_vault
-from tests.test_recurrence_commands import _pass_guard
+from tests.recurrence_commands_helpers import _pass_guard
 
 HEAD = MIGRATION_HEAD_FIXTURE
 CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))

@@ -18,7 +18,7 @@ from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION, ROU
 from learnloop.router_objective import learned_tail as LT
 from learnloop.router_objective import tail_data as TD
 
-from tests.test_ro6_codex_review import FAR, STOP, _quiet, _row, _trace
+from tests.ro6_codex_review_helpers import FAR, STOP, _quiet, _row, _trace
 
 
 def _config(version: str = ROUTER_FOLLOWUPS_ALGORITHM_VERSION, *, on: bool = True) -> SimpleNamespace:

@@ -15,7 +15,7 @@ from learnloop.sim.profiles import profile_from_mapping
 from learnloop.sim.runner import prepare_run_vault, run_simulation
 from learnloop.sim.student import SyntheticStudent
 
-from tests.test_simulation import build_sim_vault
+from tests.simulation_helpers import build_sim_vault
 
 GOAL_ID = "goal_algebra"
 

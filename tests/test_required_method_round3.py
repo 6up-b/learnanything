@@ -51,6 +51,7 @@ from learnloop.vault.required_method import required_method_problems
 from learnloop_sidecar.handlers.serializers import item_presentation
 
 from tests.helpers import create_basic_vault
+from tests.required_method_round3_helpers import _family_rows
 
 ITEM = "pi_svd_define_001"
 METHOD = "cofactor expansion"
@@ -184,7 +185,7 @@ def test_the_reader_quick_check_and_the_tutors_practice_tool_render_the_instruct
     from learnloop.instructional.tools import _practice_view, _Withhold
     from learnloop.reader.reader_guidance import build_guide_plan
     from learnloop.vault.models import RequiredMethod
-    from tests.test_reader_guidance import _place_question, _setup
+    from tests.reader_guidance_helpers import _place_question, _setup
 
     vault, repository = _setup(tmp_path)
     _place_question(repository)
@@ -205,8 +206,8 @@ def test_a_published_pf_variant_is_presented_with_the_parents_instruction(tmp_pa
     the field it inherited."""
 
     from tests.pf_fakes import clients
-    from tests.test_pf_generation import run
-    from tests.test_required_method_authority import VARIANT_CONSISTENT, StatementDecider, _pf_method_vault
+    from tests.pf_generation_helpers import run
+    from tests.required_method_authority_helpers import VARIANT_CONSISTENT, StatementDecider, _pf_method_vault
 
     _needs_bwrap()
     _repository, paths = _pf_method_vault(tmp_path)
@@ -284,8 +285,8 @@ def test_f19_a_changed_inherited_default_leaves_a_historical_regrade_unverified(
 
     from learnloop.db.stores.source_service import reference_content_hash
     from tests.source_service_fakes import loaded
-    from tests.test_reference_gate_imports import _attempt, _bindings, _regrade, _status
-    from tests.test_required_method_rereview import (
+    from tests.reference_gate_imports_helpers import _attempt, _bindings, _regrade, _status
+    from tests.required_method_rereview_helpers import (
         _check, _edit_and_materialize, _inherited_rubric_item, _make_historical,
     )
 
@@ -349,10 +350,10 @@ def test_f20_a_missing_judgment_alone_fits_max_calls_one(tmp_path):
 
     from learnloop.ai.errors import AIProviderUnavailable
     from tests.pf_fakes import clients, enable_pf
-    from tests.test_pf_generation import all_calls, rows, run
-    from tests.test_required_method_authority import VARIANT_CONSISTENT, StatementDecider, _pf_method_vault
-    from tests.test_required_method_reopened import _mint_status
-    from tests.test_required_method_rereview import FailingOnceDecider
+    from tests.pf_generation_helpers import all_calls, rows, run
+    from tests.required_method_authority_helpers import VARIANT_CONSISTENT, StatementDecider, _pf_method_vault
+    from tests.required_method_reopened_helpers import _mint_status
+    from tests.required_method_rereview_helpers import FailingOnceDecider
 
     _needs_bwrap()
     repository, paths = _pf_method_vault(tmp_path)
@@ -384,9 +385,9 @@ def test_f20_a_resumable_job_resolves_no_pipeline_route_and_plans_no_pipeline_wo
 
     from learnloop.ai.errors import AIProviderUnavailable
     from tests.pf_fakes import clients, enable_pf
-    from tests.test_pf_generation import run
-    from tests.test_required_method_authority import VARIANT_CONSISTENT, StatementDecider, _pf_method_vault
-    from tests.test_required_method_rereview import FailingOnceDecider
+    from tests.pf_generation_helpers import run
+    from tests.required_method_authority_helpers import VARIANT_CONSISTENT, StatementDecider, _pf_method_vault
+    from tests.required_method_rereview_helpers import FailingOnceDecider
 
     _needs_bwrap()
     _repository, paths = _pf_method_vault(tmp_path)
@@ -407,12 +408,6 @@ def test_f20_a_resumable_job_resolves_no_pipeline_route_and_plans_no_pipeline_wo
 # -- F22: selection is persisted whole, with a completion marker --------------------------------
 
 
-def _family_rows(repository):
-    from tests.test_pf_generation import rows
-
-    return [row for row in rows(repository) if row["generation_path"] != "single_shot"]
-
-
 def test_f22_an_interrupted_selection_is_finished_before_any_judgment(tmp_path, monkeypatch):
     """The verify's reproduction: the run stops after the first candidate's
     selection update commits. The rerun never takes that for a finished
@@ -422,9 +417,9 @@ def test_f22_an_interrupted_selection_is_finished_before_any_judgment(tmp_path, 
     from learnloop.ai.errors import AIInterrupted
     from learnloop.ops import pf_generation
     from tests.pf_fakes import clients, enable_pf
-    from tests.test_pf_generation import rows, run
-    from tests.test_required_method_authority import VARIANT_CONSISTENT, StatementDecider, _pf_method_vault
-    from tests.test_required_method_reopened import _mint_status
+    from tests.pf_generation_helpers import rows, run
+    from tests.required_method_authority_helpers import VARIANT_CONSISTENT, StatementDecider, _pf_method_vault
+    from tests.required_method_reopened_helpers import _mint_status
 
     _needs_bwrap()
     repository, paths = _pf_method_vault(tmp_path)
@@ -465,9 +460,9 @@ def test_f22_a_partial_selection_left_by_an_earlier_run_is_finished_first(tmp_pa
 
     from learnloop.ai.errors import AIProviderUnavailable
     from tests.pf_fakes import clients, enable_pf
-    from tests.test_pf_generation import all_calls, run
-    from tests.test_required_method_authority import VARIANT_CONSISTENT, StatementDecider, _pf_method_vault
-    from tests.test_required_method_reopened import FailingDecider, _mint_status
+    from tests.pf_generation_helpers import all_calls, run
+    from tests.required_method_authority_helpers import VARIANT_CONSISTENT, StatementDecider, _pf_method_vault
+    from tests.required_method_reopened_helpers import FailingDecider, _mint_status
 
     _needs_bwrap()
     repository, paths = _pf_method_vault(tmp_path)

@@ -39,24 +39,16 @@ from tests.exam_scope_fixtures import (
     PAPER,
     PARTLY_PROTECTED,
     PAST_PAPER_LOS,
-    SENTINEL_WORDS,
-    SENTINELS,
     SPANS,
     SYLLABUS_MARKER,
     build_exam_scope_vault,
     protect_items,
 )
 from tests.section_coverage_fixtures import CoverageJudgeFake, table_counts
+from tests.curriculum_c3_exam_scoping_helpers import ALL_LOS, _clean, _deliverable
 
-ALL_LOS = ("lo_det", "lo_eigen", "lo_inner", "lo_matrices", "lo_spectral", "lo_vectors")
 OFF = "[curriculum]\nexam_units_in_scope = false"
 LA = ("linear-algebra",)
-
-
-def _deliverable(paths, repository, sentence="Only my midterm: eigenvalues, determinants and matrix computations",
-                 **kwargs):
-    created = DL.create_deliverable(load_vault(paths.root), repository, sentence, **kwargs)
-    return created["goal_id"], load_vault(paths.root)
 
 
 def _rows(repository, sql, params=()):
@@ -76,11 +68,6 @@ def _names_section(value, extraction_id, section_ids) -> bool:
     if isinstance(value, (list, tuple)):
         return any(_names_section(v, extraction_id, section_ids) for v in value)
     return False
-
-
-def _clean(text: str) -> None:
-    for sentinel in (*SENTINELS, *SENTINEL_WORDS):
-        assert sentinel not in text, sentinel
 
 
 # --- the syllabus role ---------------------------------------------------------------------

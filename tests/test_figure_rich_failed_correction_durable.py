@@ -20,8 +20,8 @@ from learnloop.figures import rich as RICH
 from learnloop.figures import service as FS
 from tests import rich_fixtures as RF
 from tests.figure_fixtures import EXTRACTION, flagship
-from tests.test_figure_rich_job import WHY, _Rig
-from tests.test_figure_rich_rereview_fixes import WRONG, _first_animation, _revision
+from tests.figure_rich_job_helpers import WHY, _Rig
+from tests.figure_rich_rereview_fixes_helpers import WRONG, _first_animation, _revision
 
 
 def _age_out(monkeypatch, *job_ids):

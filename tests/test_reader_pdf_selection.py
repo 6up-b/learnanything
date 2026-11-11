@@ -42,7 +42,7 @@ ARXIV_CREDIT = (
 
 def arxiv_ir() -> DocumentIR:
     from learnloop.ingest.extractors import glm_ocr as glm
-    from tests.test_glm_ocr import ARXIV_OUTLINE
+    from tests.glm_ocr_helpers import ARXIV_OUTLINE
 
     answer = json.loads((ROOT / "tests" / "fixtures" / "glm_ocr" / "arxiv_2302_11517_trimmed.json").read_text("utf-8"))
     return glm.responses_to_ir([(answer, [0, 1, 2, 3, 4])], sizes=[(612.0, 792.0)] * 5, outline=ARXIV_OUTLINE,
@@ -97,7 +97,7 @@ def two_books(tmp_path):
     reading (``ext_arxiv``), each its own source."""
 
     from tests.helpers import create_basic_vault
-    from tests.test_source_inventory import _persist, _register_revision
+    from tests.source_inventory_helpers import _persist, _register_revision
 
     paths = create_basic_vault(tmp_path / "vault")
     repo = Repository(paths.sqlite_path)
@@ -146,7 +146,7 @@ def test_a_pdf_highlight_round_trips_through_capture_to_the_place_it_is_drawn(tw
     with the open reading: the placement carries the same span and code
     points the model draws the region boxes from."""
 
-    from tests.test_sidecar_reader_p3 import _rpc
+    from tests.sidecar_reader_p3_helpers import _rpc
 
     nodes = next(s for s in _contract()["selections"] if s["name"] == "letters outside the BMP on a scan")["nodes"]
     out = _rpc(two_books["root"], [
@@ -170,7 +170,7 @@ def test_a_pdf_highlight_round_trips_through_capture_to_the_place_it_is_drawn(tw
 
 # --- placements through a re-read (the one alias authority) -------------------------------
 
-from tests.test_reread_safety import EXACT, MOVED, _reread, studied  # noqa: E402,F401 - the fixture
+from tests.reread_safety_helpers import EXACT, MOVED, _reread, studied  # noqa: E402,F401 - the fixture
 
 
 def _placements(repo, extraction_id):
@@ -264,7 +264,7 @@ def test_a_segment_naming_a_block_whose_text_changed_is_flagged_not_drawn(studie
 def test_the_reader_is_told_which_passages_are_held_out(studied):
     from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL
     from learnloop_sidecar.context import SidecarContext
-    from tests.test_reread_safety import call
+    from tests.reread_safety_helpers import call
 
     ctx = SidecarContext()
     ctx.load(studied["root"])
@@ -277,7 +277,7 @@ def test_the_reader_is_told_which_passages_are_held_out(studied):
 def test_a_reading_held_back_by_rule_4_is_withheld_whole(studied):
     from learnloop.content.sources.exam_material import HELD_BACK_REFUSAL
     from learnloop_sidecar.context import SidecarContext
-    from tests.test_reread_safety import call
+    from tests.reread_safety_helpers import call
 
     _reread(studied)
     ctx = SidecarContext()
@@ -287,7 +287,7 @@ def test_a_reading_held_back_by_rule_4_is_withheld_whole(studied):
 
 
 def test_a_book_with_no_exam_material_has_no_protection(two_books):
-    from tests.test_sidecar_reader_p3 import _rpc
+    from tests.sidecar_reader_p3_helpers import _rpc
 
     out = _rpc(two_books["root"], [("reader.render_view", {"extractionId": "ext_syn"}),
                                    ("reader.pdf_view", {"extractionId": "ext_syn"})])
@@ -303,7 +303,7 @@ def test_a_removed_highlight_comes_back_on_undo_with_its_anchor_and_history(two_
     naming that delete, lists it again, placed exactly where it was. Nothing
     is hard-deleted."""
 
-    from tests.test_sidecar_reader_p3 import _rpc
+    from tests.sidecar_reader_p3_helpers import _rpc
 
     nodes = next(s for s in _contract()["selections"] if s["name"] == "a hyphenated word")["nodes"]
     capture = ("reader.capture", {"sourceId": "src_syn", "revisionId": "rev_syn", "extractionId": "ext_syn",
@@ -410,7 +410,7 @@ def test_a_restore_racing_a_second_delete_leaves_it_hidden(two_books, monkeypatc
 
 
 def test_an_undo_must_name_a_delete_of_that_annotation(two_books):
-    from tests.test_sidecar_reader_p3 import _rpc
+    from tests.sidecar_reader_p3_helpers import _rpc
 
     repo = two_books["repo"]
     annotation_id = _highlight(repo)

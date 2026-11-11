@@ -90,7 +90,7 @@ def test_protection_holds_on_the_llm_policys_card(tmp_path):
     from learnloop.daily_plan.objective_card import decision_card
     from learnloop.daily_plan.types import BlockCandidate
 
-    from tests.test_ro2_history_protection import SENTINEL, SERVED, _textbook
+    from tests.ro2_history_protection_helpers import SENTINEL, SERVED, _textbook
 
     paths, repository, _spans, vault = _textbook(tmp_path)
     lo = vault.practice_items["pi_eigen_2"].learning_object_id

@@ -13,6 +13,10 @@ import pytest
 # Fails a test that leaves a thread running (tests/thread_guard.py).
 pytest_plugins = ["tests.thread_guard"]
 
+# The tests/*_helpers.py modules hold what test files share, assertions included (refactor step T1 moved them out
+# of the test files): pytest rewrites their asserts as it does a test file's, so a failure still shows its operands.
+pytest.register_assert_rewrite(*sorted(f"tests.{path.stem}" for path in Path(__file__).parent.glob("*_helpers.py")))
+
 # Small matrices gain nothing from OpenBLAS threads, and under xdist each worker's pool competes with the others
 # (the AD sims used 20% more CPU with them). Set before anything imports numpy.
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")

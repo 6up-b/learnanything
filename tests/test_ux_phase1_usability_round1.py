@@ -31,8 +31,8 @@ from learnloop.vault.loader import add_subject, load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.writer import upsert_source_set
 from learnloop.vault.yaml_io import read_yaml, write_yaml
-from tests.test_source_inventory import FakeInventoryClient, _block, _ir, _persist, _register_revision
-from tests.test_source_set_synthesis import FakeSynthesisClient, _default_payload, _setup
+from tests.source_inventory_helpers import FakeInventoryClient, _block, _ir, _persist, _register_revision
+from tests.source_set_synthesis_helpers import FakeSynthesisClient, _default_payload, _setup
 
 _CLOCK = FrozenClock(datetime(2026, 7, 13, 12, 0, 0, tzinfo=UTC))
 
@@ -137,9 +137,9 @@ def test_u2_pdf_view_lists_each_passages_page_for_a_text_only_extraction(tmp_pat
     from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth, PageHealth
     from learnloop.ingest.originals import store_original_bytes
     from tests.helpers import create_basic_vault
-    from tests.test_sidecar_reader_p3 import _rpc
-    from tests.test_source_inventory import _persist as persist_ir
-    from tests.test_source_inventory import _register_revision as register
+    from tests.sidecar_reader_p3_helpers import _rpc
+    from tests.source_inventory_helpers import _persist as persist_ir
+    from tests.source_inventory_helpers import _register_revision as register
 
     root = tmp_path / "vault"
     paths = create_basic_vault(root)
@@ -182,7 +182,7 @@ def test_u2_pdf_view_lists_each_passages_page_for_a_text_only_extraction(tmp_pat
 
 def _added_book(tmp_path):
     from learnloop.content.sources.source_outline import resolve_extraction_id
-    from tests.test_ux_phase1_add_source import _draining_ctx, call
+    from tests.ux_phase1_add_source_helpers import _draining_ctx, call
     from tests.ux_phase1_support import fresh_library, grant_consent, write_book
 
     root = fresh_library(tmp_path)
@@ -207,7 +207,7 @@ def test_u4_the_reading_step_skips_the_table_of_contents(tmp_path):
 def test_u4_reading_through_a_section_moves_the_reading_step_on(tmp_path):
     from learnloop.daily_plan.reading import next_reading_target
     from learnloop.reader.reader_guidance import extraction_sections
-    from tests.test_ux_phase1_add_source import call
+    from tests.ux_phase1_add_source_helpers import call
 
     _root, ctx, _source_id, extraction_id = _added_book(tmp_path)
     sections, _blocks, _spans = extraction_sections(ctx.repository.load_document_ir(extraction_id))
@@ -222,7 +222,7 @@ def test_u4_reading_through_a_section_moves_the_reading_step_on(tmp_path):
 
 def test_u4_reaching_a_section_keeps_the_questions_a_chapter_ahead(tmp_path, monkeypatch):
     from learnloop.content.pipeline import add_source as core
-    from tests.test_ux_phase1_add_source import call
+    from tests.ux_phase1_add_source_helpers import call
 
     _root, ctx, _source_id, extraction_id = _added_book(tmp_path)
     seen: list[str] = []
@@ -241,7 +241,7 @@ def test_u4_reaching_a_section_keeps_the_questions_a_chapter_ahead(tmp_path, mon
 
 
 def _added_scan(tmp_path):
-    from tests.test_ux_phase1_add_source import _draining_ctx, call
+    from tests.ux_phase1_add_source_helpers import _draining_ctx, call
     from tests.ux_phase1_support import fresh_library, grant_consent, write_pdf
 
     root = fresh_library(tmp_path)
@@ -253,7 +253,7 @@ def _added_scan(tmp_path):
 
 
 def _card(ctx, source_id):
-    from tests.test_ux_phase1_add_source import call
+    from tests.ux_phase1_add_source_helpers import call
 
     return next(c for c in call(ctx, "get_source_library", {})["sources"] if c["sourceId"] == source_id)
 
@@ -288,7 +288,7 @@ def test_u7_a_scan_says_plainly_when_text_recognition_is_not_installed(tmp_path,
 
 def test_u7_reading_a_scan_with_text_recognition_also_builds_its_questions(tmp_path, monkeypatch):
     from learnloop.content.pipeline import add_source as core
-    from tests.test_ux_phase1_add_source import call
+    from tests.ux_phase1_add_source_helpers import call
 
     monkeypatch.setattr(core, "text_recognition_available", lambda **_kwargs: True)
     root, ctx, source_id = _added_scan(tmp_path)
@@ -373,7 +373,7 @@ def test_u10_a_book_card_names_its_subject_by_title(tmp_path):
 def test_a_link_being_fetched_has_a_readable_name(tmp_path, source, title):
     from learnloop.content.pipeline.add_source import AddSourceOptions, add_source, pending_adds
     from learnloop.content.pipeline.runner import IngestRunnerError
-    from tests.test_ux_phase1_auto_build import _jobs
+    from tests.ux_phase1_auto_build_helpers import _jobs
     from tests.ux_phase1_support import fake_services, fresh_library
 
     def unreachable(source, category, ctx):
@@ -392,7 +392,7 @@ def test_u4_the_reading_step_continues_where_the_learner_left_off(tmp_path):
     stopped")."""
 
     from learnloop.daily_plan.reading import next_reading_target
-    from tests.test_ux_phase1_add_source import call
+    from tests.ux_phase1_add_source_helpers import call
 
     _root, ctx, _source_id, extraction_id = _added_book(tmp_path)
     # u3 is "2 Conditional probability"; the learner read part of it.

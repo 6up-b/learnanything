@@ -20,13 +20,13 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.content.synthesis.source_unit_selection import save_unit_selection
-from learnloop.db.repositories import Repository
 from learnloop.reader import reader_dialogue as RD
 from learnloop.tutor.context_delivery import BlockSource, follow_references
 from learnloop.tutor.tutor_qa import ask_question
 from learnloop.vault.loader import load_vault
-from tests.helpers import append_config_toml, create_basic_vault
+from tests.helpers import append_config_toml
 from tests.source_retrieval_fakes import seed_source
+from tests.tutor_delivery_fixes_helpers import CHAPTER, THEOREM, _span_of, _vault
 
 # The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
 # H3); these tests drive an in-process HTTP server through it as a provider double.
@@ -38,44 +38,6 @@ LONG = (
     "A real symmetric matrix has an orthonormal basis of eigenvectors, and the change of basis to that "
     "eigenbasis is an orthogonal matrix whose transpose is its inverse. "
 ) * 12  # about 2,000 characters: past every preview cut (240, 600, 900)
-
-#: One chapter: a header (s1) then nine paragraphs s2..s10. The Ask is about s6.
-CHAPTER = [
-    ("Paragraph two sets up the notation for the chapter.", 1),
-    ("Paragraph three defines the transpose of a matrix.", 1),
-    ("Paragraph four says a matrix is symmetric when it equals its transpose.", 1),
-    ("Paragraph five, right before the step: assume A^T = A and Av = tv.", 1),
-    ("Paragraph six, the step: hence t is real, by Theorem 3.2 and Lemma 9.9.", 2),
-    ("Paragraph seven, right after the step: so the eigenvalues are real numbers.", 2),
-    ("Paragraph eight extends the result to Hermitian matrices.", 2),
-    ("Paragraph nine gives an example with a 2 by 2 matrix.", 2),
-    ("Paragraph ten summarises the section.", 2),
-]
-THEOREM = ("Theorem 3.2 (Spectral theorem). Every real symmetric matrix A has real eigenvalues "
-           "and an orthonormal basis of eigenvectors.")
-
-
-def _vault(tmp_path, *, chapter=CHAPTER, extra_units=None, config: str | None = None):
-    paths = create_basic_vault(tmp_path / "vault")
-    if config:
-        append_config_toml(paths.root, config)
-    repository = Repository(paths.sqlite_path)
-    units = dict(extra_units or {})
-    units["ch_sym"] = ("Chapter 4 Symmetric matrices", list(chapter))
-    seed_source(repository, source_id="src_text", revision_id="rev_text", extraction_id="ext_text",
-                title="Linear Algebra Text", units=units)
-    return paths, repository
-
-
-def _span_of(repository, text_start: str, extraction_id: str = "ext_text") -> str:
-    with repository.connection() as connection:
-        row = connection.execute(
-            "SELECT span_id FROM source_document_blocks WHERE extraction_id = ? AND text LIKE ?",
-            (extraction_id, text_start + "%"),
-        ).fetchone()
-    assert row is not None, text_start
-    return str(row["span_id"])
-
 
 def _ask(paths, repository, span_id, **kwargs):
     tutor = RD.StubReaderClient()
@@ -305,7 +267,7 @@ def _retrieval_vault(tmp_path, *, hold_out_theorem: bool = False, long_text: str
 def _ask_practice(paths, repository):
     from learnloop.source_retrieval.tutor import TutorSpanProvider
     from tests.source_retrieval_fakes import FakeSourceLLM, HashingEmbedder, loaded
-    from tests.test_source_retrieval_tutor import CitingTutor
+    from tests.source_retrieval_tutor_helpers import CitingTutor
 
     llm = FakeSourceLLM()
     provider = TutorSpanProvider(embedder=HashingEmbedder(), rewrite_client=llm, rerank_client=llm, clock=CLOCK)
@@ -445,7 +407,7 @@ def test_the_t6_labeller_counts_a_trim_at_the_passage_budget(tmp_path):
 def test_a_pinned_passage_arrives_whole_with_the_theorem_it_cites(tmp_path):
     from learnloop.source_retrieval.tutor import PinnedSpanProvider
     from tests.source_retrieval_fakes import loaded
-    from tests.test_source_retrieval_tutor import CitingTutor
+    from tests.source_retrieval_tutor_helpers import CitingTutor
 
     paths, repository = _retrieval_vault(tmp_path)
     long_span = _span_of(repository, "Why the eigenvalues", "ext_spec")
@@ -488,7 +450,7 @@ def _seed_hinted(repository, *, source_id: str, revision_id: str, extraction_id:
 
     from learnloop.ingest.block_roles import classify_block_role
     from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
-    from tests.test_source_inventory import _persist
+    from tests.source_inventory_helpers import _persist
 
     if register:
         with repository.connection() as connection:
@@ -540,7 +502,7 @@ def _linked_vault(tmp_path, rows: list[tuple[str, str]], *, teaching_span: str):
 
 def _ask_linked(paths, repository, *, item: str = "pi_eigen_1", injected: bool = True):
     from tests.source_retrieval_fakes import loaded
-    from tests.test_source_retrieval_tutor import CitingTutor
+    from tests.source_retrieval_tutor_helpers import CitingTutor
 
     tutor = CitingTutor()
     extra: dict = {}
@@ -608,7 +570,7 @@ def test_without_the_adapters_rules_a_linked_spans_references_are_not_followed(t
 def test_the_sidecar_injects_the_linked_reference_rules(tmp_path, monkeypatch):
     from learnloop.source_retrieval.tutor import linked_reference_filter
     from learnloop_sidecar.handlers import tutor_qa as handler
-    from tests.test_sidecar_tutor_qa import _TutorServer, _init, _rpc, _tutor_vault
+    from tests.sidecar_tutor_qa_helpers import _TutorServer, _init, _rpc, _tutor_vault
 
     seen: list[dict] = []
     real = handler.ask_question
@@ -817,7 +779,7 @@ LEAD_REFUSED = "an exercise or solution, while the item is being practised"
 
 
 def _seed_ir(repository, ir, *, source_id: str, revision_id: str, extraction_id: str) -> None:
-    from tests.test_source_inventory import _persist
+    from tests.source_inventory_helpers import _persist
 
     with repository.connection() as connection:
         connection.execute(

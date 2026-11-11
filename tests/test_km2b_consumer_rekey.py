@@ -23,7 +23,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.models import Goal, GoalFacetScope
 
 from tests.helpers import NOW, NOW_ISO
-from tests.test_km2_write_path import SHARED, _attempt, build_mvp07_vault
+from tests.km2_write_path_helpers import SHARED, _attempt, build_mvp07_vault
 
 DEFINE_LO = "lo_svd_definition"
 APPLY_LO = "lo_svd_application"

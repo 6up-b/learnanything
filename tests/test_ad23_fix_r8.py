@@ -42,6 +42,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.ad23_fakes import LO, SEEDED, ad23_vault, ad_epoch, answer, env_for, restamp, rows, selections, set_item
 from tests.daily_plan_fakes import iso
+from tests.ad23_fix_r8_helpers import _reserve
 
 ROUTER_OFF = "[router]\nenabled = false\n"
 EXTRACTION = "ext_r8"
@@ -70,10 +71,6 @@ def _predicate_raises(monkeypatch) -> None:
         raise RuntimeError("held-out source sets unreadable")
 
     monkeypatch.setattr(exam_material, "held_out_material", broken)
-
-
-def _reserve(monkeypatch, *item_ids: str) -> None:
-    monkeypatch.setattr(Repository, "reserved_exam_pool_item_ids", lambda _self: list(item_ids))
 
 
 def _attempt(paths, item_id: str, *, at: datetime, latency: int | None = None, session: str | None = "s1",
@@ -262,7 +259,7 @@ def test_a_withheld_items_metadata_never_reaches_an_ad_generation_target(tmp_pat
 
 
 def _slot_vault(tmp_path):
-    from tests.test_ad2_serving import HARD
+    from tests.ad2_serving_helpers import HARD
 
     items = ("pi_a", "pi_held")
     paths = ad23_vault(tmp_path, items=items, features={"pi_a": HARD}, config=ROUTER_OFF)
@@ -327,8 +324,8 @@ def test_the_dose_arm_never_offers_or_returns_a_held_out_question(tmp_path, monk
     from learnloop.content.sources import exam_material
     from learnloop.db.stores import ad_serving
 
-    from tests.test_ad1_reading_opportunities import _question, at
-    from tests.test_ad3_dose_arm import _arm, _boundary, _mapping
+    from tests.ad1_reading_opportunities_helpers import _question, at
+    from tests.ad3_dose_arm_helpers import _arm, _boundary, _mapping
 
     paths, vault, repo = _arm(tmp_path)
     question = _question(repo, "recall", 1, answer=False)
@@ -445,7 +442,7 @@ def test_report_sensitivity_never_re_forecasts_a_withheld_item(tmp_path, monkeyp
 
     from learnloop.adaptive_difficulty import predict as PR
 
-    from tests.test_ad2_serving import HARD
+    from tests.ad2_serving_helpers import HARD
 
     items = ("pi_h1", "pi_e1", "pi_e2")
     paths = ad23_vault(tmp_path, items=items, features={"pi_h1": HARD}, config=ROUTER_OFF)
@@ -491,8 +488,8 @@ def test_the_dose_moderator_window_closes_only_at_a_visible_graded_attempt(tmp_p
 
     from learnloop.adaptive_difficulty import dose as D
 
-    from tests.test_ad1_reading_opportunities import ITEM, LO_A, at
-    from tests.test_ad3_dose_arm import _arm, _boundary, _draws, _mapping
+    from tests.ad1_reading_opportunities_helpers import ITEM, LO_A, at
+    from tests.ad3_dose_arm_helpers import _arm, _boundary, _draws, _mapping
 
     paths, vault, repo = _arm(tmp_path)
     with closing(connect(paths.sqlite_path)) as connection:
@@ -562,8 +559,8 @@ def test_with_the_predicate_unavailable_the_report_discloses_zero_observations(t
 def test_with_the_predicate_unavailable_the_dose_arm_draws_nothing(tmp_path, monkeypatch):
     from learnloop.adaptive_difficulty import dose as D
 
-    from tests.test_ad1_reading_opportunities import at
-    from tests.test_ad3_dose_arm import _arm, _boundary, _draws, _mapping
+    from tests.ad1_reading_opportunities_helpers import at
+    from tests.ad3_dose_arm_helpers import _arm, _boundary, _draws, _mapping
 
     paths, vault, repo = _arm(tmp_path)
     _predicate_raises(monkeypatch)

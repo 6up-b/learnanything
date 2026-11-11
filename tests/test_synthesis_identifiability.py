@@ -14,7 +14,7 @@ from learnloop.learner.identifiability import (
 )
 from learnloop.content.synthesis.source_set_synthesis import create_study_map
 
-from tests.test_source_set_synthesis import FakeSynthesisClient, _default_payload, _setup
+from tests.source_set_synthesis_helpers import FakeSynthesisClient, _default_payload, _setup
 
 
 def test_duplicate_signature_distinct_repairs_generates_discriminator():

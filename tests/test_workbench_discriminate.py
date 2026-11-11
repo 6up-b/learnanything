@@ -25,12 +25,6 @@ from tests.hint_fakes import ChooserFake, WriterFake, prefer
 from tests.workbench_help_fakes import CheckFake, call, check_answer, help_rows, open_problem, run_job, sidecar, wb_answer
 
 
-def _rival_check() -> CheckFake:
-    """The default check: step 2 questionable with two rival readings."""
-
-    return CheckFake()
-
-
 def _one_rival(context):
     payload = check_answer(context)
     payload["error_readings"] = payload["error_readings"][:1]

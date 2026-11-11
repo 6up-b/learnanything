@@ -20,8 +20,8 @@ import pytest
 from learnloop.ai.decisions import ChoiceAnswer, DecisionResult
 from learnloop.db.repositories import Repository
 
-from tests.test_facet_span_support import LockProbe, SpanDecider, _span_vault
-from tests.test_tier1_decider import _rows
+from tests.facet_span_support_helpers import LockProbe, SpanDecider, _span_vault
+from tests.tier1_decider_helpers import _rows
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 
@@ -95,9 +95,9 @@ def test_a_link_recorded_at_main_mvp020_or_mvp021_has_no_decider_authority(tmp_p
 
 
 def _cited_reword_proposal(repo, citation):
-    from tests.test_facet_identity_actions import SHARED
-    from tests.test_facet_reword_confirm import _proposal, _support
-    from tests.test_facet_rewords import NEW_CLAIM
+    from tests.facet_identity_actions_helpers import SHARED
+    from tests.facet_reword_confirm_helpers import _proposal, _support
+    from tests.facet_rewords_helpers import NEW_CLAIM
 
     return _proposal(repo, {"id": SHARED, "claim": NEW_CLAIM, "meaning_support": _support(citation)})
 
@@ -120,8 +120,8 @@ def test_an_automatic_builds_apply_asks_the_span_check_before_the_vault_lock(tmp
     from learnloop import decider_judgments as tier1
     from learnloop.content.facet_identity import actions
     from learnloop.vault.loader import load_vault
-    from tests.test_facet_identity_actions import SHARED
-    from tests.test_facet_rewords import NEW_CLAIM, _entry
+    from tests.facet_identity_actions_helpers import SHARED
+    from tests.facet_rewords_helpers import NEW_CLAIM, _entry
 
     paths, repo, citation = _span_vault(tmp_path, monkeypatch, None)
     client = LockProbe(choice, paths.root)
@@ -147,8 +147,8 @@ def test_a_book_carrying_the_retired_keep_local_is_asked_like_any_other(tmp_path
     from learnloop.content.facet_identity import actions
     from learnloop.content.proposals.patches import apply_accepted_items
     from learnloop.vault.loader import load_vault
-    from tests.test_facet_identity_actions import SHARED
-    from tests.test_facet_rewords import NEW_CLAIM, _entry
+    from tests.facet_identity_actions_helpers import SHARED
+    from tests.facet_rewords_helpers import NEW_CLAIM, _entry
 
     client = SpanDecider("supports")
     paths, repo, citation = _span_vault(tmp_path, monkeypatch, client)
@@ -201,8 +201,8 @@ def test_inside_an_automatic_builds_request_gate_the_span_check_is_admitted_and_
     from learnloop.content.facet_identity import actions
     from learnloop.content.pipeline.add_source import _request_gate
     from learnloop.vault.loader import load_vault
-    from tests.test_facet_identity_actions import SHARED
-    from tests.test_facet_rewords import NEW_CLAIM, _entry
+    from tests.facet_identity_actions_helpers import SHARED
+    from tests.facet_rewords_helpers import NEW_CLAIM, _entry
 
     paths, repo, citation = _span_vault(tmp_path, monkeypatch, None)
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")

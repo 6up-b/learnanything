@@ -112,7 +112,7 @@ def test_tutor_citations_and_remediation_delivery(textbook):
 
 
 def test_a_value_intent_pick_keeps_both_verdicts(textbook):
-    from tests.test_discriminating_search import _valuer
+    from tests.discriminating_search_helpers import _valuer
 
     paths, repository, _spans = textbook
     misconception = repository.insert_misconception(

@@ -25,24 +25,9 @@ from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_mi
     upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
 from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
+from tests.ad23_migration_helpers import AD23_ADDED_OBJECTS, NEW_TABLES
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-NEW_TABLES = {"ad_selections", "ad_commission_results", "ad_dose_offers", "ad_relatedness_runs",
-              "ad_coupling_versions", "ad_state", "ad_attempt_trace", "item_forecast_scores"}
-#: What 214 adds (the earlier migrations' "nothing else changed" diffs on the way to head read it).
-AD23_ADDED_OBJECTS = frozenset(NEW_TABLES | {
-    "ad_selections_no_update", "ad_selections_no_delete", "idx_ad_selections_cell", "idx_ad_selections_block",
-    "ad_commission_results_no_update", "ad_commission_results_no_delete",
-    "ad_dose_offers_no_update", "ad_dose_offers_no_delete", "idx_ad_dose_offers_draw", "idx_ad_dose_offers_created",
-    "ad_relatedness_runs_no_update", "ad_relatedness_runs_no_delete", "idx_ad_relatedness_runs_subject",
-    "ad_coupling_versions_no_update", "ad_coupling_versions_no_delete",
-    "sqlite_autoindex_ad_selections_1", "sqlite_autoindex_ad_selections_2",
-    "sqlite_autoindex_ad_commission_results_1", "sqlite_autoindex_ad_commission_results_2",
-    "sqlite_autoindex_ad_dose_offers_1", "sqlite_autoindex_ad_dose_offers_2",
-    "sqlite_autoindex_ad_relatedness_runs_1", "sqlite_autoindex_ad_relatedness_runs_2",
-    "sqlite_autoindex_ad_coupling_versions_1", "sqlite_autoindex_ad_coupling_versions_2",
-    "sqlite_autoindex_ad_state_1", "sqlite_autoindex_ad_attempt_trace_1", "sqlite_autoindex_item_forecast_scores_1",
-})
 #: The AD1 receipts 214 stamps with the protection epoch (the AD23 redesign, round 2).
 EPOCH_STAMPED = {"item_serve_inputs", "ad_reading_opportunities"}
 ROLES = {
@@ -209,14 +194,14 @@ def test_a_vault_at_218_without_214_gets_it(tmp_path) -> None:
     assert [migration.version for migration in applied] == [214, *range(249, migration_head() + 1)]
     after = _schema(database)
     # Instruct hand-off IH3's 251 (its own table) follows on the way to head.
-    from tests.test_ih3_migration import IH3_ADDED_OBJECTS
-    from tests.test_decision_records_migration import B1_ADDED_OBJECTS
+    from tests.ih3_migration_helpers import IH3_ADDED_OBJECTS
+    from tests.decision_records_migration_helpers import B1_ADDED_OBJECTS
 
     assert set(after) - set(before) - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS == AD23_ADDED_OBJECTS
     # Phone V3's 250 (help_assists' surface CHECK) runs after them too.
-    from tests.test_mobile_v3_migration import V3_ALTERED_TABLES
+    from tests.mobile_v3_migration_helpers import V3_ALTERED_TABLES
     # RE0's 252 (practice_attempts.active_seconds) and refactor B1's 253 (model_call_receipts.trace_id) last.
-    from tests.test_re0_capture import RE0_ALTERED_TABLES
-    from tests.test_decision_records_migration import B1_ALTERED_TABLES
+    from tests.re0_capture_helpers import RE0_ALTERED_TABLES
+    from tests.decision_records_migration_helpers import B1_ALTERED_TABLES
 
     assert {name for name in before if before[name] != after.get(name)} == EPOCH_STAMPED | V3_ALTERED_TABLES | RE0_ALTERED_TABLES | B1_ALTERED_TABLES

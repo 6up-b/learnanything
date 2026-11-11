@@ -22,11 +22,7 @@ from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 
 from tests.ad_fakes import ForecastLLM, AuditDecider, ad_plan_vault, ad_receipts, plan_env, rows
-
-
-class MeteredLLM(ForecastLLM):
-    provider_name = "fake_metered"
-    provider_type = "openrouter"
+from tests.ad1_outside_and_cli_helpers import MeteredLLM
 
 
 def _serve(paths):

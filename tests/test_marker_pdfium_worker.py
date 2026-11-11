@@ -21,8 +21,8 @@ import uuid
 import pytest
 
 from tests.marker_fakes import fake_marker  # noqa: F401 - fixture
-from tests.test_glm_ocr import _drain_beside_the_reader
-from tests.test_source_ingestion_adapters import _make_pdf_bytes
+from tests.glm_ocr_helpers import _drain_beside_the_reader
+from tests.source_ingestion_adapters_helpers import _make_pdf_bytes
 
 LINES = ["Eigenvalues are scalars.", "Every square matrix has a characteristic polynomial."]
 

@@ -37,20 +37,16 @@ from learnloop.db.connection import connect
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import create_basic_vault
+from tests.required_method_round3_review_helpers import _method_import, _needs_bwrap, _stretch_stem, _upsert
+from tests.required_method_round3_review_helpers import (  # noqa: F401 - fixtures, used by parameter name
+    gated_successor,
+)
 
 ITEM = "pi_svd_define_001"
 METHOD = "cofactor expansion"
 SENTENCE = "Use cofactor expansion in your answer."
 #: A statement well past every model context's character budget (400 to 700).
 LONG_STEM = "Let A be the 4x4 matrix with entries a_ij = i + 2j. " * 30 + "Compute det(A)."
-
-
-def _upsert(paths, item_id: str, **fields) -> None:
-    from learnloop.vault.writer import upsert_practice_item
-
-    data = load_vault(paths.root).practice_items[item_id].model_dump(mode="json")
-    data.update(fields)
-    upsert_practice_item(paths.root, data)
 
 
 # -- F1: the answer key names the required method ------------------------------------------------
@@ -80,38 +76,6 @@ def test_f1_the_reference_key_identity_carries_the_required_method(tmp_path):
     hashes = [reference_content_hash(value) for value in (item, induction, generating, ungraded)]
     assert len(set(hashes)) == 4
     assert reference_content_hash(decided) == reference_content_hash(induction)
-
-
-@pytest.fixture
-def gated_successor(tmp_path, monkeypatch):
-    from learnloop.algorithm_versions import METHOD_EXPLICIT_ALGORITHM_VERSION
-    from learnloop.content.authoring import pf_sandbox
-    from tests.helpers import set_algorithm_version
-    from tests.source_service_fakes import build_textbook_vault
-
-    paths, repository, spans = build_textbook_vault(tmp_path / "vault")
-    set_algorithm_version(paths, METHOD_EXPLICIT_ALGORITHM_VERSION)
-    monkeypatch.setattr(pf_sandbox, "_sandbox_bwrap_path", lambda: None)
-    return paths, repository, spans
-
-
-def _method_import(paths, repository, spans, name: str) -> tuple[str, str]:
-    """A verified textbook exercise whose (owner-decided) required method is
-    ``name``, its key checked for exactly that question."""
-
-    from learnloop.db.stores.source_service import reference_content_hash
-    from tests.source_service_fakes import loaded
-    from tests.test_reference_gate_imports import _verified_import
-    from tests.test_required_method_rereview import _check
-
-    item_id = _verified_import(paths, repository, spans)
-    item = loaded(paths).practice_items[item_id]
-    criterion = loaded(paths).rubric_for_item(item).criteria[0].id
-    _upsert(paths, item_id, required_method={"name": name, "criterion_ids": [criterion], "statement": "source",
-                                             "decided_by": "owner"})
-    _check(repository, item_id, reference_content_hash(loaded(paths).practice_items[item_id]), "book_solution",
-           "rkc_method_checked", "2026-01-01T00:00:00Z")
-    return item_id, criterion
 
 
 def _override(paths, repository, item_id: str, name: str, criterion: str) -> None:
@@ -153,8 +117,8 @@ def test_f1_a_dispute_of_the_new_method_never_reaches_the_contract_frozen_under_
 
     from learnloop.db.stores.source_service import reference_content_hash
     from tests.source_service_fakes import loaded
-    from tests.test_reference_gate_imports import _attempt, _bindings, _regrade, _status
-    from tests.test_required_method_rereview import _check
+    from tests.reference_gate_imports_helpers import _attempt, _bindings, _regrade, _status
+    from tests.required_method_rereview_helpers import _check
 
     paths, repository, spans = gated_successor
     item_id, criterion = _method_import(paths, repository, spans, "mathematical induction")
@@ -211,8 +175,8 @@ def answered(request, tmp_path):
 
     import learnloop_sidecar.handlers  # noqa: F401 - register methods
     from learnloop_sidecar.context import SidecarContext
-    from tests.test_durable_promotion_arms import _failure
-    from tests.test_km2_write_path import build_mvp07_vault
+    from tests.durable_promotion_arms_helpers import _failure
+    from tests.km2_write_path_helpers import build_mvp07_vault
 
     then, now = HISTORY_CASES[request.param]
     paths = build_mvp07_vault(tmp_path / "vault")
@@ -344,7 +308,7 @@ def test_f5_the_source_tutors_verifier_reads_the_whole_instruction(tmp_path):
     (it was the bare stem), the statement shortened, never the instruction."""
 
     from tests.source_retrieval_fakes import loaded
-    from tests.test_source_retrieval_tutor import CitingTutor, ask, provider, setup
+    from tests.source_retrieval_tutor_helpers import CitingTutor, ask, provider, setup
 
     paths, repository = setup(tmp_path)
     item = loaded(paths).practice_items["pi_eigen_1"]
@@ -387,13 +351,6 @@ def test_f5_find_sources_keeps_the_instruction_of_a_long_stem(tmp_path):
 # -- F6/F7: resume needs no judge for recorded verdicts, and is estimated from what is persisted -----
 
 
-def _needs_bwrap():
-    from learnloop.content.authoring.pf_sandbox import sandbox_available
-
-    if not sandbox_available():
-        pytest.skip("bubblewrap is not installed")
-
-
 def test_f6_a_job_whose_every_verdict_is_recorded_publishes_without_a_judge(tmp_path, monkeypatch):
     """The run stops after the last verdict is ledgered, before publication.
     The rerun plans no judgment and publishes from the ledger, even with no
@@ -402,9 +359,9 @@ def test_f6_a_job_whose_every_verdict_is_recorded_publishes_without_a_judge(tmp_
     from learnloop.ai.errors import AIInterrupted
     from learnloop.ops import pf_generation
     from tests.pf_fakes import clients, enable_pf
-    from tests.test_pf_generation import rows, run
-    from tests.test_required_method_authority import VARIANT_CONSISTENT, StatementDecider, _pf_method_vault
-    from tests.test_required_method_reopened import _mint_status
+    from tests.pf_generation_helpers import rows, run
+    from tests.required_method_authority_helpers import VARIANT_CONSISTENT, StatementDecider, _pf_method_vault
+    from tests.required_method_reopened_helpers import _mint_status
 
     _needs_bwrap()
     repository, paths = _pf_method_vault(tmp_path)
@@ -440,16 +397,6 @@ def test_f6_a_job_whose_every_verdict_is_recorded_publishes_without_a_judge(tmp_
     assert len(rows(repository, "status='published'")) == 2
 
 
-def _stretch_stem(repository, candidate_id: str, stem: str) -> None:
-    with closing(connect(repository.sqlite_path)) as connection:
-        with connection:
-            payload = json.loads(connection.execute("SELECT payload_json FROM pf_candidates WHERE id=?",
-                                                    (candidate_id,)).fetchone()[0])
-            payload["stem"] = stem
-            connection.execute("UPDATE pf_candidates SET payload_json=? WHERE id=?",
-                               (json.dumps(payload, sort_keys=True), candidate_id))
-
-
 def test_f7_a_resume_is_estimated_from_the_persisted_unfinished_stem(tmp_path):
     """A selected variant much longer than its parent waits for its
     judgment. Its estimate is the variant's, and a token cap between the
@@ -458,9 +405,9 @@ def test_f7_a_resume_is_estimated_from_the_persisted_unfinished_stem(tmp_path):
     from learnloop.ai.errors import AIProviderUnavailable
     from learnloop.content.proposals.method_statement_judge import planned_tokens
     from tests.pf_fakes import clients, enable_pf
-    from tests.test_pf_generation import rows, run
-    from tests.test_required_method_authority import VARIANT_CONSISTENT, StatementDecider, _pf_method_vault
-    from tests.test_required_method_rereview import FailingOnceDecider
+    from tests.pf_generation_helpers import rows, run
+    from tests.required_method_authority_helpers import VARIANT_CONSISTENT, StatementDecider, _pf_method_vault
+    from tests.required_method_rereview_helpers import FailingOnceDecider
 
     _needs_bwrap()
     repository, paths = _pf_method_vault(tmp_path)
@@ -494,10 +441,10 @@ def test_f7_a_selection_to_finish_is_estimated_from_its_survivors(tmp_path):
 
     from learnloop.ai.errors import AIProviderUnavailable
     from tests.pf_fakes import clients, enable_pf
-    from tests.test_pf_generation import run
-    from tests.test_required_method_authority import VARIANT_CONSISTENT, StatementDecider, _pf_method_vault
-    from tests.test_required_method_reopened import FailingDecider
-    from tests.test_required_method_round3 import _family_rows
+    from tests.pf_generation_helpers import run
+    from tests.required_method_authority_helpers import VARIANT_CONSISTENT, StatementDecider, _pf_method_vault
+    from tests.required_method_reopened_helpers import FailingDecider
+    from tests.required_method_round3_helpers import _family_rows
 
     _needs_bwrap()
     repository, paths = _pf_method_vault(tmp_path)
@@ -555,8 +502,8 @@ def _snapshot(repository, data: dict, created_at: str) -> str:
 
 def _historical_inline_attempt(gated_successor):
     from tests.source_service_fakes import loaded
-    from tests.test_reference_gate_imports import _attempt, _status
-    from tests.test_required_method_rereview import _make_historical
+    from tests.reference_gate_imports_helpers import _attempt, _status
+    from tests.required_method_rereview_helpers import _make_historical
 
     paths, repository, spans = gated_successor
     item_id, criterion = _method_import(paths, repository, spans, "mathematical induction")
@@ -573,7 +520,7 @@ def test_f8_an_unrelated_later_revision_never_unverifies_a_historical_inline_con
     """The verify's reproduction: a later snapshot of the same item with a
     completely different question and an inherited rubric."""
 
-    from tests.test_reference_gate_imports import _bindings, _regrade, _status
+    from tests.reference_gate_imports_helpers import _bindings, _regrade, _status
 
     paths, repository, item, attempt = _historical_inline_attempt(gated_successor)
     unrelated = {**item.model_dump(mode="json"), "prompt": "A different question entirely.",
@@ -588,7 +535,7 @@ def test_f8_a_revision_of_the_graded_question_that_inherited_still_fails_closed(
     """Control: a recorded revision of the SAME question with no rubric of its
     own may be the one graded, under a default nobody can recover."""
 
-    from tests.test_reference_gate_imports import _bindings, _regrade, _status
+    from tests.reference_gate_imports_helpers import _bindings, _regrade, _status
 
     paths, repository, item, attempt = _historical_inline_attempt(gated_successor)
     _snapshot(repository, {**item.model_dump(mode="json"), "grading_rubric": None}, "2099-01-01T00:00:00Z")
@@ -603,7 +550,7 @@ def test_f8_the_attempt_time_revision_settles_it(gated_successor):
     before the attempt) pinning the inline revision, a same-question
     revision that inherited later never unverifies it."""
 
-    from tests.test_reference_gate_imports import _bindings, _regrade, _status
+    from tests.reference_gate_imports_helpers import _bindings, _regrade, _status
 
     paths, repository, item, attempt = _historical_inline_attempt(gated_successor)
     pinned = _snapshot(repository, item.model_dump(mode="json"), "2000-01-01T00:00:00Z")

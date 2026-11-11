@@ -19,7 +19,6 @@ import os
 import sqlite3
 import subprocess
 import sys
-from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -40,13 +39,18 @@ from learnloop.vault.writer import upsert_practice_item
 from learnloop_sidecar.context import SidecarContext
 
 from tests.helpers import NOW, create_basic_vault
+from tests.state_sync_scheduling_race_helpers import (
+    ATTEMPT_CLOCK,
+    PROBE,
+    SUBJECT,
+    _add_diagnostic_probe,
+    _commit_probe_attempt,
+)
 
 pytestmark = pytest.mark.durability
 
 ITEM = "pi_svd_define_001"
-SUBJECT = "linear-algebra"
 SYNC_CLOCK = FrozenClock(NOW)
-ATTEMPT_CLOCK = FrozenClock(NOW + timedelta(hours=1))
 SCHEDULING_FIELDS = ("difficulty", "stability", "retrievability", "due_at", "last_attempt_at")
 
 
@@ -363,10 +367,6 @@ def test_an_attempt_from_a_second_process_survives_a_concurrent_content_sync(tmp
 # that the lock is held (a second connection's ``BEGIN IMMEDIATE`` is refused
 # at once) and commits the change after the sync instead.
 
-PROBE = "pi_diag_transposed_factor"
-PROBE_LO = "lo_svd_definition"
-
-
 def _write_lock_held(sqlite_path: Path) -> bool:
     with connect(sqlite_path) as probe:
         probe.execute("PRAGMA busy_timeout = 0")
@@ -378,88 +378,6 @@ def _write_lock_held(sqlite_path: Path) -> bool:
             return True
         probe.rollback()
     return False
-
-
-def _add_diagnostic_probe(paths, prompt: str = "Which SVD factor is transposed in the product?") -> None:
-    from learnloop.vault.yaml_io import write_yaml
-
-    from tests.helpers import NOW_ISO
-
-    write_yaml(
-        paths.practice_item_path(SUBJECT, PROBE),
-        {
-            "schema_version": 1,
-            "id": PROBE,
-            "learning_object_id": PROBE_LO,
-            "subjects": None,
-            "practice_mode": "diagnostic_probe",
-            "attempt_types_allowed": ["diagnostic_probe", "dont_know"],
-            "evidence_facets": ["recall"],
-            "evidence_weights": {"recall": 1.0},
-            "prompt": prompt,
-            "expected_answer": "V",
-            "difficulty": 0.5,
-            "tags": [],
-            "hints": [],
-            "hint_policy": {
-                "max_useful_hints": 0,
-                "fsrs_rating_cap_by_hint": {},
-                "mastery_alpha_dampening_by_hint": {},
-            },
-            "grading_rubric": {
-                "max_points": 4,
-                "criteria": [
-                    {"id": "correctness", "points": 4, "description": "Correct selection."}
-                ],
-                "fatal_errors": [],
-            },
-            "provenance": {"origin": "human", "source_refs": []},
-            "created_at": NOW_ISO,
-            "updated_at": NOW_ISO,
-        },
-    )
-
-
-def _commit_probe_attempt(vault, sqlite_path: Path) -> None:
-    """A real diagnostic administration through its own Repository: it retires the probe."""
-
-    from learnloop.attempts.attempts import ApplyAttemptInput, ResolvedGrade, apply_attempt
-
-    from tests.helpers import NOW_ISO
-
-    apply_attempt(
-        vault,
-        Repository(sqlite_path),
-        ApplyAttemptInput(
-            draft=AttemptDraft(
-                practice_item_id=PROBE,
-                learner_answer_md="U",
-                attempt_type="diagnostic_probe",
-            ),
-            attempt_id="att_probe_after_decision_read",
-            grade=ResolvedGrade(
-                rubric_score=2,
-                criterion_points={"correctness": 2},
-                evidence_rows=[
-                    {
-                        "id": "ge_att_probe_after_decision_read",
-                        "criterion_id": "correctness",
-                        "points_awarded": 2.0,
-                        "evidence": "Named a factor but not the transposed one.",
-                        "notes": None,
-                        "local_grader_id": "test",
-                        "grader_tier": 1,
-                        "created_at": NOW_ISO,
-                    }
-                ],
-                error_attributions=[],
-                grader_confidence=0.9,
-                confidence=3,
-                manual_review_reason=None,
-            ),
-        ),
-        clock=ATTEMPT_CLOCK,
-    )
 
 
 def _change_after_read(monkeypatch, repository: Repository, method: str, change, *, when=None) -> dict:

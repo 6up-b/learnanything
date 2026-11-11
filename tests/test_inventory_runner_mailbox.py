@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from learnloop.db.repositories import Repository
-from tests.test_source_inventory import FakeInventoryClient, _block, _ir, _persist, _register_revision, _CLOCK
+from tests.source_inventory_helpers import FakeInventoryClient, _block, _ir, _persist, _register_revision, _CLOCK
 
 
 def test_keyboard_interrupt_during_parallel_inventory_releases_waiting_workers(tmp_path, monkeypatch):

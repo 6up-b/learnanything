@@ -24,22 +24,11 @@ from tests.practice_index_fakes import (
     build_practice_vault,
     enable_practice_index,
 )
+from tests.practice_index_find_helpers import CAPS, _index
 
-CAPS = SpendCaps(max_candidates=1000, max_calls=100, max_total_tokens=10_000_000, max_estimated_usd=1.0)
 QUERY = "eigenvalues of a matrix"
 OWN_TABLES = {"practice_index_proposals", "judgment_ledger", "embedding_vectors",
               "model_call_receipts", "model_work_checkpoints", "sqlite_sequence"}
-
-
-def _index(paths, *, embeddings=True):
-    vault = load_vault(paths.root)
-    llm, embedder = FakePracticeLLM(), HashingEmbedder()
-    assert generate_dossiers(vault, caps=CAPS, client=llm)["status"] == "complete"
-    if embeddings:
-        vault = load_vault(paths.root)
-        report = backfill_embeddings(vault, caps=CAPS, client_factory=lambda: embedder)
-        assert report["status"] == "complete", report
-    return load_vault(paths.root), Repository(paths.sqlite_path), llm, embedder
 
 
 @pytest.fixture

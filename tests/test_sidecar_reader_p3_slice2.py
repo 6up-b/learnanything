@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tests.test_sidecar_reader_p3 import _rpc, _setup
+from tests.sidecar_reader_p3_helpers import _rpc, _setup
 
 
 def test_invoke_preset_commit_enqueues_synthesis_and_proposes(tmp_path: Path) -> None:

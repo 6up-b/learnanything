@@ -21,8 +21,8 @@ from learnloop.router import lesson_suggestions as LS
 
 from tests.daily_plan_fakes import record_attempt, scheduled
 from tests.router_mixture_helpers import rows
-from tests.test_daily_plan_build import _wide_items
-from tests.test_ih2_lessons_compete import (  # noqa: F401 - ``draw`` is a fixture
+from tests.daily_plan_build_helpers import _wide_items
+from tests.ih2_lessons_compete_helpers import (  # noqa: F401 - ``draw`` is a fixture
     FOLLOWUP_ITEM,
     NO_CHECKS,
     OFF_NO_CHECKS,
@@ -37,7 +37,7 @@ from tests.test_ih2_lessons_compete import (  # noqa: F401 - ``draw`` is a fixtu
     _run_lane,
     draw,
 )
-from tests.test_te3b_offers import OFFER, offerable  # noqa: F401 - the fixture
+from tests.te3b_offers_helpers import OFFER, offerable  # noqa: F401 - the fixture
 
 pytestmark = pytest.mark.usefixtures("offerable")
 

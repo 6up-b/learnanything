@@ -31,7 +31,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.writer import upsert_source_set
 from tests.helpers import append_config_toml, create_basic_vault
-from tests.test_source_inventory import _persist
+from tests.source_inventory_helpers import _persist
 
 LONG_BLOCK = ("The span of a list of vectors is the set of all linear combinations of that list, and it is the "
               "smallest subspace containing every vector of the list. ") * 30

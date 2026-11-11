@@ -31,7 +31,7 @@ from learnloop.db.migrate import (
 from learnloop.db.repositories import Repository
 
 from tests.helpers import create_basic_vault
-from tests.test_reread_safety import exam_book  # noqa: F401 -- a fixture
+from tests.reread_safety_helpers import exam_book  # noqa: F401 -- a fixture
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _SCANNED = [_REPO_ROOT / "src", _REPO_ROOT / "scripts"]
@@ -354,7 +354,7 @@ def test_f8_the_coordinator_upgrades_under_its_allowance_and_qualifies(exam_book
 
     import learnloop.migration_coordinator as coordinator_module
     from learnloop.db.migrate import UPGRADE_BY_COORDINATOR, upgrade_authority
-    from tests.test_exam_protection_identity import _EXAM_MEMBER, _older_build_with_membership
+    from tests.exam_protection_identity_helpers import _EXAM_MEMBER, _older_build_with_membership
 
     repo, root = exam_book["repo"], exam_book["root"]
     _older_build_with_membership(exam_book, _EXAM_MEMBER)

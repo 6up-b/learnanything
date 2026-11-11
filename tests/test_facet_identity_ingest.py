@@ -14,10 +14,7 @@ from learnloop.content.facet_identity.judge import TASK
 from learnloop.content.synthesis.ai_contracts import (
     SOURCE_SET_SYNTHESIS_FACET_IDENTITY_PROMPT_VERSION,
     SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
-    SynthCriterion,
-    SynthCriterionTarget,
     SynthFacet,
-    SynthPracticeItem,
     SynthRecipeComponent,
     source_set_synthesis_prompt,
 )
@@ -30,37 +27,8 @@ from learnloop.vault.yaml_io import read_yaml
 
 from tests.facet_identity_fakes import FakeFacetJudge
 from tests.helpers import append_config_toml, write_facets
-from tests.test_source_set_synthesis import _CLOCK, FakeSynthesisClient, _default_payload, _setup
-
-DEF_CLAIM = "A real square matrix is symmetric exactly when A^T = A."
-DUP_ID = "facet_symmetry_definition_restated"
-DUP_CLAIM = "A real square matrix A is symmetric if and only if it equals its transpose."
-
-
-def _with_duplicate(context, _ordinal):
-    payload = _default_payload(context)
-    prov = payload.facets[0].provenance
-    payload.facets.append(SynthFacet(
-        client_item_id="f_def_dup", id=DUP_ID, concept_client_id="c_sym", kind="definition",
-        claim=DUP_CLAIM, preconditions=["the matrix is square"], positive_examples=["[[1,2],[2,1]]"],
-        error_signatures=["checks only the diagonal"], instructional_repairs=["compare entries across the diagonal"],
-        provenance=prov,
-    ))
-    payload.blueprints[0].recipes[0].all_of.append(
-        SynthRecipeComponent(facet_client_id="f_def_dup", capability="retrieval"))
-    payload.practice_items.append(SynthPracticeItem(
-        client_item_id="pi_3", id="pi_transpose_check", learning_object_client_id="lo_diag",
-        practice_mode="retrieval", prompt="When does A equal its transpose?", expected_answer="When a_ij = a_ji.",
-        evidence_facet_client_ids=["f_def_dup"],
-        criteria=[SynthCriterion(
-            id="states_transpose_condition", points=1.0, description="States a_ij = a_ji.",
-            correlation_group="transpose_condition",
-            targets=[SynthCriterionTarget(facet_client_id="f_def_dup", capability="retrieval", role="primary")],
-        )],
-        provenance=prov,
-    ))
-    return payload
-
+from tests.source_set_synthesis_helpers import _CLOCK, FakeSynthesisClient, _setup
+from tests.facet_identity_ingest_helpers import DEF_CLAIM, DUP_CLAIM, DUP_ID, _attach_absorb, _with_duplicate
 
 class _RecordingSynthesisClient(FakeSynthesisClient):
     def __init__(self, **kwargs):
@@ -264,7 +232,7 @@ def test_append_attaches_a_new_facet_to_the_registered_one_it_restates(tmp_path)
     from learnloop.content.synthesis.ai_contracts import AppendReconciliation, SynthSpanRef
     from learnloop.content.synthesis.source_append import append_source
 
-    from tests.test_source_append import FakeAppendClient, _bootstrap_and_add, _first_new_span
+    from tests.source_append_helpers import FakeAppendClient, _bootstrap_and_add, _first_new_span
 
     root, repo = _bootstrap_and_add(tmp_path)
     # The bootstrap's probe episodes used to lock the registered facet; facet
@@ -314,44 +282,6 @@ def test_append_attaches_a_new_facet_to_the_registered_one_it_restates(tmp_path)
 
 
 # --- review F2: attach never adds a precondition (facet locks are gone) ----------
-
-
-def _attach_absorb(tmp_path, *, absorb_as, strict=False):
-    from learnloop.content.synthesis.ai_contracts import AppendReconciliation, SynthSpanRef
-    from learnloop.content.synthesis.source_append import append_source
-
-    from tests.test_source_append import FakeAppendClient, _bootstrap_and_add, _first_new_span
-
-    root, repo = _bootstrap_and_add(tmp_path)
-    if strict:
-        # Review F2's strict lock policy: a retired key nothing reads any more.
-        append_config_toml(root, "[facet_identity]\nmerge_locked_facets = false")
-    restated = "Symmetry of a real square matrix means it coincides with its transpose."
-
-    def builder(context, _n):
-        ext, unit, span = _first_new_span(context)
-        ref = SynthSpanRef(extraction_id=ext, unit_id=unit, span_id=span, relation="primary", role="primary_textbook")
-        return AppendReconciliation(
-            summary="restated definition",
-            facets=[SynthFacet(client_item_id="f_new", id="facet_symmetry_restated",
-                               concept_id="concept_symmetric_matrix", kind="definition", claim=restated,
-                               provenance=[ref])],
-        )
-
-    judge = FakeFacetJudge(clusters=[[DEF_CLAIM, restated]], action="absorb")
-    if absorb_as == "precondition":
-        original = judge.complete
-
-        def as_precondition(request):
-            verdict = original(request)
-            for decided in verdict.sets:
-                decided.absorb_as = "precondition"
-            return verdict
-
-        judge.complete = as_precondition  # type: ignore[method-assign]
-    result = append_source(root, "set_la", client=FakeAppendClient(builder=builder), new_revision_ids=["rev_alt"],
-                           repository=repo, clock=_CLOCK, facet_identity_client=judge)
-    return root, repo, result, restated
 
 
 def test_an_absorbed_precondition_never_grows_a_registered_facet(tmp_path):
@@ -478,7 +408,7 @@ def test_the_synthesize_dry_run_plans_the_ingest_judge(tmp_path, monkeypatch):
 def test_the_append_dry_run_plans_the_ingest_judge(tmp_path):
     from learnloop.content.synthesis.source_append import plan_append_embedding
 
-    from tests.test_source_append import _bootstrap_and_add
+    from tests.source_append_helpers import _bootstrap_and_add
 
     root, _repo = _bootstrap_and_add(tmp_path)
     config = root / "learnloop.toml"
@@ -493,7 +423,7 @@ def test_the_dedupe_dry_run_never_migrates_the_database(tmp_path, monkeypatch):
     import learnloop.db.repositories as repositories
     from learnloop.content.facet_identity.dedupe import run_dedupe
 
-    from tests.test_facet_identity import _regression_vault, _study_judge
+    from tests.facet_identity_helpers import _regression_vault, _study_judge
 
     root, repository, data = _regression_vault(tmp_path / "vault")
 

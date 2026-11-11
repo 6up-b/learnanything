@@ -11,7 +11,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 
 from tests.helpers import create_basic_vault
-from tests.test_patch_applier import _seed_agent_and_proposal
+from tests.patch_applier_helpers import _seed_agent_and_proposal
 
 
 def test_doctor_json_contract(tmp_path):

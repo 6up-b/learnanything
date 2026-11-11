@@ -18,8 +18,8 @@ from learnloop.reader import annotations as ANN
 from learnloop.reader import reader_capture as RC
 from learnloop.reader import reader_intent as RI
 from learnloop.reader import reader_requests as RR
-from tests.test_reader_guidance import _setup
-from tests.test_reader_requests import _FakePresetClient
+from tests.reader_guidance_helpers import _setup
+from tests.reader_requests_helpers import _FakePresetClient
 
 SELECTION = {"nodes": [{"span_id": "s1", "quote": "The singular"}]}
 

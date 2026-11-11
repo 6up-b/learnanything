@@ -31,13 +31,10 @@ from typing import Any
 import pytest
 
 from learnloop.adaptive_difficulty import history_resolve as HR
-from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION
 from learnloop.clock import parse_utc
 from learnloop.daily_plan import objective_inputs as OI
 from learnloop.router_objective import combiner_data as CD
-
-TAG = ROUTER_FOLLOWUPS_ALGORITHM_VERSION
-
+from tests.rospeed_join_helpers import _journey
 
 # -- the code at 516db1d862, verbatim but for names --------------------------------------------------------------
 
@@ -320,20 +317,6 @@ def test_the_parsed_traces_are_bounded(monkeypatch):
 # -- the fit, on a journey's real traces, with cold outcomes answered through the real pipeline -------------------
 
 
-def _journey(tmp_path, steps: int = 3):
-    """A journey at the tag, both policies answering through fakes. Three steps: the first decisions' blocks, so
-    their untouched topics are still untouched (a later answer on one is a cold outcome with no exposure between)."""
-
-    from tests.router_mixture_helpers import mixture_env, run
-    from tests.router_model_fakes import FakeLLM, block_drawing_seed, fake_runtime
-    from tests.test_ro4_objective_serving import policy_answer
-
-    env = mixture_env(tmp_path, fake_runtime(llm=FakeLLM(answer=policy_answer), seed=block_drawing_seed()),
-                      version=TAG)
-    run(env, steps=steps)
-    return env
-
-
 def _answer(env, item_id: str, *, correct: bool, at) -> str:
     """A cold outcome graded through the real pipeline (a self-grade), at ``at``."""
 
@@ -357,7 +340,7 @@ def _regrade(env, attempt_id: str, when, *, correct: bool) -> None:
     from learnloop.attempts.grading import resolved_rubric
     from learnloop.clock import FrozenClock
 
-    from tests.test_held_grade_evidence import _iso
+    from tests.held_grade_evidence_helpers import _iso
 
     attempt = env.repository.fetch_practice_attempt(attempt_id)
     rubric = resolved_rubric(env.vault, env.vault.practice_items[attempt["practice_item_id"]])
@@ -428,7 +411,7 @@ def test_the_fit_is_the_landing_codes_through_regrades_holds_late_outcomes_and_l
     _regrade(env, answered[0], start + timedelta(hours=6), correct=False)
     fits["regraded"] = _both(env, now, monkeypatch)
     # a hold: the second cold outcome regraded into a hold for review (a held blind record)
-    from tests.test_held_grade_evidence import _hold_by_regrade
+    from tests.held_grade_evidence_helpers import _hold_by_regrade
 
     _hold_by_regrade(env.vault, env.repository, answered[1], start + timedelta(hours=7))
     fits["held"] = _both(env, now, monkeypatch)
@@ -535,7 +518,7 @@ def _change(env, start, answered, change: str) -> None:
     if change == "regrade":  # the success re-graded a failure
         _regrade(env, answered[0], start + timedelta(hours=6), correct=False)
     else:  # the success regraded into a hold for review (a held blind record)
-        from tests.test_held_grade_evidence import _hold_by_regrade
+        from tests.held_grade_evidence_helpers import _hold_by_regrade
 
         _hold_by_regrade(env.vault, env.repository, answered[0], start + timedelta(hours=7))
 

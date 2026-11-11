@@ -30,7 +30,6 @@ import re
 import pytest
 
 from learnloop.db.connection import connect
-from learnloop.db.stores.source_block_fts import blocks_by_key
 from learnloop.db.stores.source_service import insert_comparison
 from learnloop.content.synthesis.source_unit_selection import save_unit_selection
 from learnloop.source_retrieval import kept_comparisons as KC
@@ -39,12 +38,11 @@ from learnloop.source_retrieval.library_ask import LibraryAskError
 from learnloop_sidecar.errors import SidecarError
 from tests.library_ask_fixtures import ask_rows, build_library_vault, call, context, set_config, table_counts
 from tests.source_service_fakes import FakeServiceLLM, learning_state_tables
+from tests.compare_sources_keep_helpers import PINS, QUESTION, _block_text, _fake_service
 
-QUESTION = "why does the determinant change sign when two rows are swapped"
 PROPOSAL_TABLES = ["source_objects", "source_object_versions", "source_object_citations", "source_object_relations"]
 #: What a keep may change: the proposals, the ask row's keep, one salience-only event.
 KEEP_WRITES = set(PROPOSAL_TABLES) | {"interaction_events"}
-PINS = ["ext_book:s6", "ext_text:t3"]
 
 
 def _all_counts(repository) -> dict[str, int]:
@@ -71,15 +69,6 @@ def _rows(repository, sql: str, *args) -> list[dict]:
         return [dict(row) for row in connection.execute(sql, args)]
 
 
-def _fake_service(monkeypatch, llm=None):
-    import learnloop.instructional.sources as service
-
-    real = service.propose_comparison
-    llm = llm or FakeServiceLLM()
-    monkeypatch.setattr(service, "propose_comparison", lambda *a, **k: real(*a, client=llm, verify_client=llm, **k))
-    return llm
-
-
 @pytest.fixture
 def library(tmp_path):
     paths, repository, spans = build_library_vault(tmp_path / "vault")
@@ -99,12 +88,6 @@ def compared(library, monkeypatch):
     table = call(ctx, "reader.library_compare", {"askId": asked["askId"], "pinnedSpanKeys": PINS})
     assert table["status"] == "ok" and table["comparisonId"] and table["kept"] is None
     return paths, ctx, repository, spans, asked, table
-
-
-def _block_text(repository, key: str) -> str:
-    extraction, span = key.split(":", 1)
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        return blocks_by_key(connection, [(extraction, span)])[(extraction, span)].text
 
 
 def _stored(monkeypatch, ctx, repository, ask_id: str, relations: list[dict], *, keys=PINS, extra_sources=(),

@@ -18,17 +18,9 @@ from learnloop.adaptive_difficulty.protected_tables import DENIED, ROLES
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.teacher_te2log_migration_helpers import EPISODES, INTERVALS, TE2LOG_ADDED_OBJECTS
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-EPISODES = "lesson_episodes"
-INTERVALS = "lesson_activity_intervals"
-#: What 247 adds: earlier migrations' "nothing else changed" diffs on the way to head read this.
-TE2LOG_ADDED_OBJECTS = frozenset({
-    EPISODES, "idx_lesson_episodes_lesson", "idx_lesson_episodes_lo", f"{EPISODES}_close_once",
-    f"{EPISODES}_no_delete", f"sqlite_autoindex_{EPISODES}_1", f"sqlite_autoindex_{EPISODES}_2",
-    INTERVALS, "idx_lesson_activity_intervals_lesson", f"{INTERVALS}_no_update", f"{INTERVALS}_no_delete",
-    f"sqlite_autoindex_{INTERVALS}_1", f"sqlite_autoindex_{INTERVALS}_2",
-})
 _LESSON = ("INSERT INTO lessons(id, driver, origin, entry, goal_text, goal_json, learning_object_ids_json, "
            "doctrine_version, brief_version, algorithm_version, opened_at) VALUES ('les_1', 'desktop', 'learner_pick', "
            "'learning_object', 'g', '{}', '[]', 'd', 'b', 'mvp-0.49', '2026-11-05T10:00:00Z')")

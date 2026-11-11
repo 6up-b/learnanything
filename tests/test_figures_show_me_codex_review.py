@@ -28,8 +28,8 @@ from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers import figures as FH
 from tests.figure_fixtures import EXTRACTION, AuthorFake, build, call, flagship, rows, set_config
 from tests.source_service_fakes import insert_question
-from tests.test_figures_codex_review import _HeldSpans
-from tests.test_figures_show_me import GOAL, READING_AT, FindFake, _ctx, _requests, _vault, show_me
+from tests.figures_codex_review_helpers import _HeldSpans
+from tests.figures_show_me_helpers import GOAL, READING_AT, FindFake, _ctx, _requests, _vault, show_me
 
 
 def _hold(monkeypatch, *keys: tuple[str, str]) -> None:
@@ -175,7 +175,7 @@ def test_f2_rereview_a_valid_goal_offer_with_a_different_host_is_refused(tmp_pat
     ``hostRef.questionEventId`` is not overwritten by ``offerRef``: the two
     references are compared as supplied, before any normalization."""
 
-    from tests.test_figures_show_me import _tutor_ask
+    from tests.figures_show_me_helpers import _tutor_ask
 
     goal = "vary p and watch the mass left of zero follow it"
     _paths, repository, ctx, _tutor, author, _find, answer = _tutor_ask(tmp_path, monkeypatch, figure_goal=goal)
@@ -318,7 +318,7 @@ def test_f5_a_goal_only_figures_prediction_is_read_with_its_grounding_passages(t
 def test_f5_the_gap_reader_is_sent_the_grounding_passage(tmp_path, monkeypatch):
     from learnloop.diagnosis.text_gaps import sources as gap_sources
     from learnloop.diagnosis.text_gaps.jobs import process_next_gap_job
-    from tests.test_figures_codex_review import _clients
+    from tests.figures_codex_review_helpers import _clients
 
     paths, repository = _vault(tmp_path)
     ctx = _ctx(paths, author=AuthorFake([flagship(kind="illustrative")]), find=FindFake([("ext_book", "s2")]))
@@ -362,7 +362,7 @@ def test_f6_the_tutors_goal_has_one_ledger_row_and_the_press_reads_it(tmp_path, 
         figure_goal_digest,
         tutor_figure_goal_judgment_id,
     )
-    from tests.test_figures_show_me import _tutor_ask
+    from tests.figures_show_me_helpers import _tutor_ask
 
     goal = "vary p and watch the mass left of zero follow it"
     _paths, repository, ctx, tutor, author, _find, answer = _tutor_ask(tmp_path, monkeypatch, figure_goal=goal)
@@ -393,7 +393,7 @@ def test_f6_the_tutors_goal_has_one_ledger_row_and_the_press_reads_it(tmp_path, 
 
 def test_f6_a_goal_in_the_view_with_no_ledger_row_is_refused(tmp_path, monkeypatch):
     from learnloop.figure_admission import TUTOR_FIGURE_GOAL_TASK
-    from tests.test_figures_show_me import _tutor_ask
+    from tests.figures_show_me_helpers import _tutor_ask
 
     goal = "vary p and watch the mass left of zero follow it"
     _paths, repository, ctx, _tutor, author, _find, answer = _tutor_ask(tmp_path, monkeypatch, figure_goal=goal)
@@ -412,7 +412,7 @@ def test_f6_a_goal_in_the_view_with_no_ledger_row_is_refused(tmp_path, monkeypat
 
 def test_f6_no_goal_writes_no_goal_row(tmp_path, monkeypatch):
     from learnloop.figure_admission import TUTOR_FIGURE_GOAL_TASK
-    from tests.test_figures_show_me import _tutor_ask
+    from tests.figures_show_me_helpers import _tutor_ask
 
     _paths, repository, *_rest = _tutor_ask(tmp_path, monkeypatch, figure_goal=None)
     with repository.connection() as connection:
@@ -475,7 +475,7 @@ def test_f9_the_grounding_cap_is_registered_and_audited():
 # ---------------------------------------------------------------------------
 
 def test_f8_every_cited_passage_names_its_source(tmp_path, monkeypatch):
-    from tests.test_figures_show_me import _tutor_ask
+    from tests.figures_show_me_helpers import _tutor_ask
 
     paths, _repository = _vault(tmp_path)
     ctx = _ctx(paths, author=AuthorFake([flagship(kind="illustrative")]), find=FindFake([("ext_book", "s2")]))

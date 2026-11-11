@@ -31,10 +31,10 @@ from learnloop.ops.capture_report import build_report, lines
 from learnloop.vault.paths import VaultPaths
 
 from tests.followup_serve_helpers import CLOCK, live_miss, live_shape_vault
-from tests.test_followup_journey import _generate, journey  # noqa: F401 - the fixture
-from tests.test_followup_rival_factor import BlindRivalClient
-from tests.test_hypothesis_marks import _released
-from tests.test_hypothesis_marks_context import _report, _versions
+from tests.followup_journey_helpers import _generate, journey  # noqa: F401 - the fixture
+from tests.followup_serve_helpers import BlindRivalClient
+from tests.hypothesis_marks_helpers import _released
+from tests.hypothesis_marks_context_helpers import _report, _versions
 
 EXAM_ITEM = "pi_exam_protected_001"
 LATER_CUTOFF = "2099-01-01T00:00:00Z"

@@ -13,7 +13,7 @@ from learnloop.config import AIProviderConfig
 from learnloop.db.repositories import Repository
 from learnloop.content.synthesis import source_unit_inventory as inventory
 from tests.openai_fakes import install_fake_openai
-from tests.test_source_inventory import FakeInventoryClient, _block, _ir, _persist, _register_revision, _CLOCK
+from tests.source_inventory_helpers import FakeInventoryClient, _block, _ir, _persist, _register_revision, _CLOCK
 
 
 class Answer(WireModel):

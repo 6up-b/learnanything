@@ -22,7 +22,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 from learnloop_sidecar.context import SidecarContext
 from tests.helpers import append_config_toml, create_basic_vault
-from tests.test_reader_ca1_as_printed import (  # noqa: F401 - fixtures
+from tests.reader_ca1_as_printed_helpers import (  # noqa: F401 - fixtures
     BLUE,
     EXTRACTION,
     GREEN,
@@ -38,7 +38,7 @@ from tests.test_reader_ca1_as_printed import (  # noqa: F401 - fixtures
     book,
     warm,
 )
-from tests.test_source_inventory import _persist
+from tests.source_inventory_helpers import _persist
 
 NOW_ISO = "2026-01-01T00:00:00Z"
 
@@ -190,7 +190,7 @@ def test_render_and_region_belong_to_the_multi_block_form():
 
 def _import_selection(paths, repository, *, region=None) -> str:
     from learnloop.content.authoring import exercise_authoring as EX
-    from tests.test_exercise_authoring import FakeClient, _item, _write_facet_registry
+    from tests.exercise_authoring_helpers import FakeClient, _item, _write_facet_registry
     from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
 
     _write_facet_registry(paths.root.parent)
@@ -435,7 +435,7 @@ def test_the_feed_upsert_of_other_notices_is_unchanged(book, warm):
 def _split_selection(paths, repository, *, edited_text: str | None = None) -> tuple[str, str]:
     from learnloop.content.authoring import exercise_authoring as EX
     from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
-    from tests.test_exercise_authoring import FakeClient, _item, _write_facet_registry
+    from tests.exercise_authoring_helpers import FakeClient, _item, _write_facet_registry
 
     _write_facet_registry(paths.root.parent)
     raw = {"nodes": [{"spanId": "e1", "quote": "block e1"}, {"spanId": "e2", "quote": "block e2"},
@@ -573,7 +573,7 @@ def test_two_exercises_split_from_one_block_get_no_free_crop_and_keep_the_page(b
 
     from learnloop.content.authoring import exercise_authoring as EX
     from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
-    from tests.test_exercise_authoring import FakeClient, _item, _write_facet_registry
+    from tests.exercise_authoring_helpers import FakeClient, _item, _write_facet_registry
 
     paths, ctx, repository = book
     _seed_shared_book(paths.root, repository)
@@ -600,7 +600,7 @@ def test_a_split_over_disjoint_and_shared_blocks_withholds_only_the_sharing_item
 
     from learnloop.content.authoring import exercise_authoring as EX
     from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
-    from tests.test_exercise_authoring import FakeClient, _item, _write_facet_registry
+    from tests.exercise_authoring_helpers import FakeClient, _item, _write_facet_registry
 
     paths, ctx, repository = book
     _seed_shared_book(paths.root, repository)
@@ -630,7 +630,7 @@ def test_a_split_with_an_unanchored_sibling_owns_nothing(book, warm):
     paths, ctx, repository = book
     from learnloop.content.authoring import exercise_authoring as EX
     from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
-    from tests.test_exercise_authoring import FakeClient, _item, _write_facet_registry
+    from tests.exercise_authoring_helpers import FakeClient, _item, _write_facet_registry
 
     _write_facet_registry(paths.root.parent)
     raw = {"nodes": [{"spanId": "e1", "quote": "block e1"}, {"spanId": "e2", "quote": "block e2"}]}

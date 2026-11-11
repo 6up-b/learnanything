@@ -24,54 +24,44 @@ from learnloop.db.connection import connect
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, \
     upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
-from tests.test_figures_migration import RW5A_ADDED_OBJECTS
-from tests.test_reader_rw3b_migration import RW3B_ADDED_OBJECTS
-from tests.test_reader_rw7a_migration import RW7A_ADDED_OBJECTS
-from tests.test_t1_batch_origin_migration import T1_ALTERED_TABLES
-from tests.test_rw2d_receipts_migration import RW2D_ADDED_OBJECTS, RW2D_ALTERED_TABLES
-from tests.test_retrieval_spaces_migration import P1_ADDED_OBJECTS
-from tests.test_section_coverage_migration import C0A_ADDED_OBJECTS
+from tests.figures_migration_helpers import RW5A_ADDED_OBJECTS
+from tests.reader_rw3b_migration_helpers import RW3B_ADDED_OBJECTS
+from tests.reader_rw7a_migration_helpers import RW7A_ADDED_OBJECTS
+from tests.t1_batch_origin_migration_helpers import T1_ALTERED_TABLES
+from tests.rw2d_receipts_migration_helpers import RW2D_ADDED_OBJECTS, RW2D_ALTERED_TABLES
+from tests.retrieval_spaces_migration_helpers import P1_ADDED_OBJECTS
+from tests.section_coverage_migration_helpers import C0A_ADDED_OBJECTS
 
-from tests.test_ad23_migration import AD23_ADDED_OBJECTS
-from tests.test_learner_claim_application_migration import CLAIM_POINT_ALTERED_TABLES
-from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS
-from tests.test_session_ownership_migration import PR4_ADDED_OBJECTS, PR4_ALTERED_TABLES
-from tests.test_learner_note_source_kind_migration import C5_ALTERED_TABLES
-from tests.test_learner_gap_unlinked_migration import UNLINKED_ALTERED_TABLES
-from tests.test_help_assist_work_md_migration import DR2_ALTERED_TABLES
-from tests.test_help_assist_figures_migration import P3_ADDED_OBJECTS, P3_ALTERED_TABLES
-from tests.test_reader_session_digests_migration import RW6B_ADDED_OBJECTS
-from tests.test_deliverable_curriculum_migration import C0B_ADDED_OBJECTS
-from tests.test_learner_notes_migration import C2_ADDED_OBJECTS
+from tests.ad23_migration_helpers import AD23_ADDED_OBJECTS
+from tests.learner_claim_application_migration_helpers import CLAIM_POINT_ALTERED_TABLES
+from tests.figure_requests_migration_helpers import RW5D_ADDED_OBJECTS
+from tests.session_ownership_migration_helpers import PR4_ADDED_OBJECTS, PR4_ALTERED_TABLES
+from tests.learner_note_source_kind_migration_helpers import C5_ALTERED_TABLES
+from tests.learner_gap_unlinked_migration_helpers import UNLINKED_ALTERED_TABLES
+from tests.help_assist_work_md_migration_helpers import DR2_ALTERED_TABLES
+from tests.help_assist_figures_migration_helpers import P3_ADDED_OBJECTS, P3_ALTERED_TABLES
+from tests.reader_session_digests_migration_helpers import RW6B_ADDED_OBJECTS
+from tests.deliverable_curriculum_migration_helpers import C0B_ADDED_OBJECTS
+from tests.learner_notes_migration_helpers import C2_ADDED_OBJECTS
 # TE1's 234 and TE1b's 236 follow on the way to head (composed in tests/test_teacher_te1b_migration.py).
-from tests.test_teacher_te1b_migration import TE1_AND_TE1B_ADDED_OBJECTS as TE1_ADDED_OBJECTS
-from tests.test_teacher_te1b_migration import TE1_AND_TE1B_ALTERED_TABLES as TE1_ALTERED_TABLES
-from tests.test_figure_prefetch_migration import P5_ADDED_OBJECTS
-from tests.test_data_capture_migration import DATA_CAPTURE_ADDED_OBJECTS
-from tests.test_followup_migration import FOLLOWUP_ADDED_OBJECTS
-from tests.test_hypothesis_marks_migration import MARKS_ADDED_OBJECTS
-from tests.test_router_objective_migration import RO0_ADDED_OBJECTS
-from tests.test_ro2_history_migration import RO2_ADDED_OBJECTS
-from tests.test_ro4_traces_migration import RO4_ADDED_OBJECTS
-from tests.test_teacher_te2log_migration import TE2LOG_ADDED_OBJECTS
-from tests.test_ih3_migration import IH3_ADDED_OBJECTS
-from tests.test_decision_records_migration import B1_ADDED_OBJECTS, B1_ALTERED_TABLES
-from tests.test_mobile_jobs_migration import M2A_ADDED_OBJECTS
-from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
+from tests.teacher_te1b_migration_helpers import TE1_AND_TE1B_ADDED_OBJECTS as TE1_ADDED_OBJECTS
+from tests.teacher_te1b_migration_helpers import TE1_AND_TE1B_ALTERED_TABLES as TE1_ALTERED_TABLES
+from tests.figure_prefetch_migration_helpers import P5_ADDED_OBJECTS
+from tests.data_capture_migration_helpers import DATA_CAPTURE_ADDED_OBJECTS
+from tests.followup_migration_helpers import FOLLOWUP_ADDED_OBJECTS
+from tests.hypothesis_marks_migration_helpers import MARKS_ADDED_OBJECTS
+from tests.router_objective_migration_helpers import RO0_ADDED_OBJECTS
+from tests.ro2_history_migration_helpers import RO2_ADDED_OBJECTS
+from tests.ro4_traces_migration_helpers import RO4_ADDED_OBJECTS
+from tests.teacher_te2log_migration_helpers import TE2LOG_ADDED_OBJECTS
+from tests.ih3_migration_helpers import IH3_ADDED_OBJECTS
+from tests.decision_records_migration_helpers import B1_ADDED_OBJECTS, B1_ALTERED_TABLES
+from tests.mobile_jobs_migration_helpers import M2A_ADDED_OBJECTS
+from tests.rw5c_migration_helpers import RW5C_ADDED_OBJECTS
 from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
+from tests.ad1_migration_helpers import AD1_ALTERED_TABLES
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-#: What 213 adds and alters: the earlier migrations' "nothing else changed"
-#: diffs on the way to head read these (tests/test_approach_maps_schema.py,
-#: test_help_assists_schema.py, test_library_asks_migration.py).
-AD1_ADDED_OBJECTS = frozenset({
-    "item_serve_inputs", "ad_reading_opportunities", "item_forecast_payloads",
-    "idx_item_serve_inputs_item", "idx_item_serve_inputs_plan", "item_serve_inputs_no_update",
-    "item_serve_inputs_no_delete", "idx_ad_reading_opportunities_lo", "idx_ad_reading_opportunities_written",
-    "ad_reading_opportunities_no_update", "ad_reading_opportunities_no_delete", "idx_item_forecast_payloads_created",
-})
-#: ``question_events`` gains ``answered_at`` (Codex review F4) and ``answer_mode`` (fix round 4, V5).
-AD1_ALTERED_TABLES = frozenset({"practice_attempts", "question_events"})
 NEW_TABLES = {"item_serve_inputs", "ad_reading_opportunities", "item_forecast_payloads"}
 NEW_OBJECTS = NEW_TABLES | {
     "idx_item_serve_inputs_item", "idx_item_serve_inputs_plan", "item_serve_inputs_no_update",

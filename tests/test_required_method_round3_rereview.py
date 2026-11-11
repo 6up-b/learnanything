@@ -24,87 +24,12 @@ import pytest
 
 from learnloop.ai.spend import SpendCaps
 from learnloop.db.connection import connect
-from learnloop.db.stores.source_service import reference_content_hash as _METHOD_AWARE_HASH
 
-from tests.test_required_method_round3_review import _needs_bwrap, _stretch_stem, _upsert, gated_successor  # noqa: F401
-
-INDUCTION = "mathematical induction"
-
-
-def _legacy_hash(item) -> str:
-    """The key identity before review F1: the method was not part of it."""
-
-    return _METHOD_AWARE_HASH(item.model_copy(update={"required_method": None}))
-
-
-def _contract(repository, attempt_id: str) -> dict:
-    version_id = next(row.assessment_contract_version_id for row in repository.fetch_grading_evidence(attempt_id)
-                      if row.assessment_contract_version_id is not None)
-    return dict(repository.fetch_assessment_contract_version(version_id)["contract"])
-
-
-def _without_contract_identity(repository, attempt_id: str) -> None:
-    """The attempt's contract as the code before the final verify froze it:
-    without the key identity of its hash."""
-
-    version_id = next(row.assessment_contract_version_id for row in repository.fetch_grading_evidence(attempt_id)
-                      if row.assessment_contract_version_id is not None)
-    contract = dict(repository.fetch_assessment_contract_version(version_id)["contract"])
-    contract.pop("key_identity", None)
-    with closing(connect(repository.sqlite_path)) as connection:
-        with connection:
-            connection.execute("UPDATE assessment_contract_versions SET contract_json=? WHERE id=?",
-                               (json.dumps(contract, sort_keys=True), version_id))
-
-
-def _checks(repository, item_id: str) -> list[dict]:
-    from learnloop.db.stores.source_service import key_checks_for_item
-
-    with closing(connect(repository.sqlite_path)) as connection:
-        connection.row_factory = __import__("sqlite3").Row
-        return key_checks_for_item(connection, item_id)
-
-
-@pytest.fixture
-def pre_fix(gated_successor, monkeypatch):
-    """A verified exercise answered under induction by the code before the
-    fix: its import check, the check of its induction revision and its
-    contract all carry the legacy hash, and neither a check nor the contract
-    records an identity (contracts record it since the final verify)."""
-
-    from learnloop.db.stores import source_service
-    from learnloop.learner import assessment_contracts
-    from tests.source_service_fakes import loaded
-    from tests.test_reference_gate_imports import _attempt, _status, _verified_import
-    from tests.test_required_method_rereview import _check
-
-    paths, repository, spans = gated_successor
-    with monkeypatch.context() as legacy:
-        legacy.setattr(source_service, "reference_content_hash", _legacy_hash)
-        legacy.setattr(assessment_contracts, "_reference_content_hash", _legacy_hash)
-        legacy.setattr(source_service, "_identity_fields", lambda legacy_identity=False: {}, raising=False)
-        item_id = _verified_import(paths, repository, spans)
-        criterion = loaded(paths).rubric_for_item(loaded(paths).practice_items[item_id]).criteria[0].id
-        _upsert(paths, item_id, required_method={"name": INDUCTION, "criterion_ids": [criterion],
-                                                 "statement": "source", "decided_by": "owner"})
-        induction = loaded(paths).practice_items[item_id]
-        legacy_hash = _legacy_hash(induction)
-        _check(repository, item_id, legacy_hash, "book_solution", "rkc_prefix_induction", "2026-01-01T00:00:00Z")
-        attempt = _attempt(paths, repository, item_id, criterion=criterion)
-        assert _status(repository, attempt.attempt_id) == "verified"
-    _without_contract_identity(repository, attempt.attempt_id)
-    assert _contract(repository, attempt.attempt_id)["reference_content_hash"] == legacy_hash
-    assert "key_identity" not in _contract(repository, attempt.attempt_id)
-    assert all("key_identity" not in check["verification"] for check in _checks(repository, item_id))
-    return paths, repository, item_id, criterion, attempt, legacy_hash
-
-
-def _clear(paths, item_id: str):
-    from tests.source_service_fakes import loaded
-
-    _upsert(paths, item_id, required_method=None)
-    return loaded(paths).practice_items[item_id]
-
+from tests.required_method_round3_review_helpers import _needs_bwrap, _stretch_stem, _upsert, gated_successor  # noqa: F401
+from tests.required_method_round3_rereview_helpers import _clear
+from tests.required_method_round3_rereview_helpers import (  # noqa: F401 - fixtures, used by parameter name
+    pre_fix,
+)
 
 # -- F1 (reopened): legacy identities never meet the cleared question -------------------------------
 
@@ -117,7 +42,7 @@ def test_f1_a_cleared_method_is_never_verified_by_a_check_of_the_method_question
     from learnloop.db.stores.source_service import (
         effective_key_status, reference_content_hash, reference_status_for_item,
     )
-    from tests.test_required_method_rereview import _check
+    from tests.required_method_rereview_helpers import _check
 
     paths, repository, item_id, _criterion, _attempt, legacy_hash = pre_fix
     cleared = _clear(paths, item_id)
@@ -135,8 +60,8 @@ def test_f1_a_dispute_of_the_cleared_question_never_reaches_the_answer_graded_un
     (same hash as the legacy contract recorded); the regrade of the
     induction answer keeps the binding it had."""
 
-    from tests.test_reference_gate_imports import _bindings, _regrade, _status
-    from tests.test_required_method_rereview import _check
+    from tests.reference_gate_imports_helpers import _bindings, _regrade, _status
+    from tests.required_method_rereview_helpers import _check
 
     paths, repository, item_id, _criterion, attempt, legacy_hash = pre_fix
     _clear(paths, item_id)
@@ -153,8 +78,8 @@ def test_f1_the_legacy_contract_keeps_its_checks_and_meets_its_own_question_unde
 
     from learnloop.db.stores.source_service import reference_content_hash
     from tests.source_service_fakes import loaded
-    from tests.test_reference_gate_imports import _bindings, _regrade, _status
-    from tests.test_required_method_rereview import _check
+    from tests.reference_gate_imports_helpers import _bindings, _regrade, _status
+    from tests.required_method_rereview_helpers import _check
 
     paths, repository, item_id, _criterion, attempt, _legacy = pre_fix
     _regrade(paths, repository, attempt.attempt_id)
@@ -172,8 +97,8 @@ def test_f1_a_historical_method_contract_keeps_its_legacy_checks(pre_fix):
     F19) is rebuilt under the method-aware identity; the checks of its
     revision under the legacy identity still bind it."""
 
-    from tests.test_reference_gate_imports import _bindings, _regrade, _status
-    from tests.test_required_method_rereview import _make_historical
+    from tests.reference_gate_imports_helpers import _bindings, _regrade, _status
+    from tests.required_method_rereview_helpers import _make_historical
 
     paths, repository, _item_id, _criterion, attempt, _legacy = pre_fix
     _make_historical(repository, attempt.attempt_id)
@@ -189,7 +114,7 @@ def test_f1_checks_record_their_identity_and_an_item_without_a_method_keeps_its_
 
     from learnloop.db.stores.source_service import key_checks_for_item, reference_status_for_item
     from tests.source_service_fakes import build_textbook_vault, loaded
-    from tests.test_reference_gate_imports import _verified_import
+    from tests.reference_gate_imports_helpers import _verified_import
 
     paths, repository, spans = build_textbook_vault(tmp_path / "vault")
     item_id = _verified_import(paths, repository, spans)
@@ -218,7 +143,7 @@ def test_f1_a_ladder_result_committed_later_keeps_the_identity_it_was_computed_u
 
     from learnloop.content.authoring import source_exercise_import as SEI
     from tests.source_service_fakes import FakeServiceLLM, build_textbook_vault, service_clients
-    from tests.test_source_exercise_import import _ProcessDeath, _checks, _import, _row
+    from tests.source_exercise_import_helpers import _ProcessDeath, _checks, _import, _row
 
     paths, repository, spans = build_textbook_vault(tmp_path / "vault")
     real = SEI._commit_written
@@ -255,10 +180,10 @@ def test_f9_the_resume_budgets_the_largest_judgment_estimates_not_the_longest_st
     from learnloop.ai.errors import AIProviderUnavailable
     from learnloop.content.proposals.method_statement_judge import planned_tokens
     from tests.pf_fakes import clients, enable_pf
-    from tests.test_pf_generation import run
-    from tests.test_required_method_authority import VARIANT_CONSISTENT, StatementDecider, _pf_method_vault
-    from tests.test_required_method_reopened import FailingDecider
-    from tests.test_required_method_round3 import _family_rows
+    from tests.pf_generation_helpers import run
+    from tests.required_method_authority_helpers import VARIANT_CONSISTENT, StatementDecider, _pf_method_vault
+    from tests.required_method_reopened_helpers import FailingDecider
+    from tests.required_method_round3_helpers import _family_rows
 
     _needs_bwrap()
     repository, paths = _pf_method_vault(tmp_path)

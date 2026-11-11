@@ -246,7 +246,7 @@ def test_an_exam_sittings_miss_reaches_the_probe_lane_after_the_sitting(tmp_path
 
     from learnloop.attempts.post_attempt import run_exam_sitting_pipeline
     from tests.followup_serve_helpers import rival_causes_vault
-    from tests.test_causal_p2_acceptance import _divergent_failure
+    from tests.causal_p2_acceptance_helpers import _divergent_failure
 
     vault, repository, _paths = rival_causes_vault(tmp_path)
     result = _divergent_failure(vault, repository, attempt_id="att_exam_0")

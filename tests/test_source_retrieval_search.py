@@ -287,8 +287,8 @@ def test_the_typing_search_says_whether_enter_would_search_by_meaning(tmp_path, 
 def test_quick_add_with_retrieval_off_plans_exactly_as_before(tmp_path):
     from learnloop.content.pipeline.quick_add import _keywords, plan_quick_add
     from learnloop.vault.loader import add_subject, init_vault, load_vault
-    from tests.test_quick_add import _CLOCK, _register_source
-    from tests.test_source_inventory import _block, _ir, _persist
+    from tests.quick_add_helpers import _CLOCK, _register_source
+    from tests.source_inventory_helpers import _block, _ir, _persist
     from learnloop.db.repositories import Repository
     from learnloop.ingest.resolution import resolve_source
 
@@ -323,7 +323,7 @@ def test_quick_add_with_retrieval_off_plans_exactly_as_before(tmp_path):
 def test_with_retrieval_off_reader_answers_carry_no_suggestion_field(tmp_path):
     from learnloop.source_retrieval.suggest import suggested_learning_objects
     from learnloop.tutor.tutor_qa import ask_question
-    from tests.test_source_retrieval_tutor import CLOCK, ReaderTutor
+    from tests.source_retrieval_tutor_helpers import CLOCK, ReaderTutor
 
     paths, repository = build_retrieval_vault(tmp_path / "vault")
     append_config_toml(paths.root, "[source_retrieval]\nenabled = false\n")

@@ -21,7 +21,6 @@ from typer.testing import CliRunner
 
 from learnloop.cli import app
 from learnloop.db.repositories import Repository
-from learnloop.db.stores import voi_forecasts as store
 from learnloop.diagnosis import causal_diagnostic_selector as CDS
 from learnloop.diagnosis import probe_robust as pr
 from learnloop.diagnosis import voi_forecasting as DV
@@ -35,13 +34,9 @@ from learnloop.scheduling import voi_forecasts as VF
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import append_config_toml
-from tests.test_causal_shadow_selection import CLOCK, LO_ID, PASSING_REVIEW, _seed_factor, _vault
-from tests.test_probe_robust_cutover import _contrast_instrument, _load, _record_full_score_probe
-
-
-def _forecasts(repository: Repository) -> list[dict]:
-    with repository.connection() as connection:
-        return store.list_forecasts(connection)
+from tests.causal_shadow_selection_helpers import CLOCK, LO_ID, PASSING_REVIEW, _seed_factor, _vault
+from tests.probe_robust_cutover_helpers import _contrast_instrument, _load, _record_full_score_probe
+from tests.voi_forecasts_helpers import _STAGED_PRIOR, _attempt, _forecasts, _separating, _staged_loss
 
 
 # -- the ledger --------------------------------------------------------------------------------
@@ -198,22 +193,6 @@ def _staged_world(tmp_path, *, logging: bool = True):
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=CLOCK)
     return vault, repository, SchedulerSession(session_id="s1", available_minutes=15)
-
-
-_STAGED_PRIOR = {"memory_lapse": 0.5, "false_belief_or_confusion": 0.5}
-
-
-def _staged_loss():
-    return AL.build_loss_table(
-        routes=[{"reason": "memory_lapse", "first_intervention": "reveal"},
-                {"reason": "false_belief_or_confusion", "first_intervention": "contrast"}],
-        duration_overrides={"reveal": 2.0, "contrast": 4.0},
-    )
-
-
-def _separating(prefix: str) -> dict:
-    return {"memory_lapse": {f"{prefix}1": 0.9, f"{prefix}2": 0.1},
-            "false_belief_or_confusion": {f"{prefix}1": 0.1, f"{prefix}2": 0.9}}
 
 
 def _staged_decide(vault, repository, session, refs, *, randomize=False, seed=None):
@@ -657,14 +636,6 @@ def test_loss_table_is_byte_identical_without_unresolved_minutes():
     assert measured.loss("h2", "a1") == pytest.approx(6.0)
     assert measured.loss("h1", "a1") == 0.0
     AL.assert_derived(measured)
-
-
-def _attempt(connection, attempt_id: str, created_at: str, latency: int | None) -> None:
-    connection.execute(
-        "INSERT INTO practice_attempts (id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
-        "latency_seconds, created_at) VALUES (?, 'pi_svd_define_001', ?, 'short_answer', 'independent_attempt', ?, ?)",
-        (attempt_id, LO_ID, latency, created_at),
-    )
 
 
 def test_unresolved_cost_shrinks_the_eedi_prior_toward_personal_history(tmp_path):

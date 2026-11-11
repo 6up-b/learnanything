@@ -9,7 +9,7 @@ apart from the DTO's ``help`` key. Fakes only.
 
 from __future__ import annotations
 
-from tests.test_hint_h2b_review import grader  # noqa: F401 - the blind grader fixture
+from tests.hint_h2b_review_helpers import grader  # noqa: F401 - the blind grader fixture
 from tests.workbench_help_fakes import call, help_rows, open_problem, sidecar
 
 

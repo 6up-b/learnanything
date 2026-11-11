@@ -620,7 +620,7 @@ def test_kick_reader_drain_runs_model_synthesis_foreground(tmp_path):
     requests with the injected client — the loop that previously never ran."""
 
     from learnloop.reader import reader_requests as RR
-    from tests.test_reader_requests import _FakePresetClient, _ingest
+    from tests.reader_requests_helpers import _FakePresetClient, _ingest
 
     repo = Repository(tmp_path / "state.sqlite")
     _ingest(repo)
@@ -647,7 +647,7 @@ def test_background_reader_drain_records_model_call_receipts(tmp_path):
     import time
 
     from learnloop.reader import reader_requests as RR
-    from tests.test_reader_requests import _FakePresetClient, _ingest
+    from tests.reader_requests_helpers import _FakePresetClient, _ingest
 
     repo = Repository(tmp_path / "state.sqlite")
     _ingest(repo)
@@ -678,7 +678,7 @@ def test_background_reader_drain_records_model_call_receipts(tmp_path):
 
 def test_kick_reader_drain_leaves_requests_queued_without_provider(tmp_path):
     from learnloop.reader import reader_requests as RR
-    from tests.test_reader_requests import _ingest
+    from tests.reader_requests_helpers import _ingest
 
     repo = Repository(tmp_path / "state.sqlite")
     _ingest(repo)

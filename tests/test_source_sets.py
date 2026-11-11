@@ -16,7 +16,7 @@ from learnloop.content.synthesis.source_unit_selection import default_exam_use_m
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.writer import upsert_source_set
 
-from tests.test_source_inventory import (
+from tests.source_inventory_helpers import (
     FakeInventoryClient,
     _block,
     _ir,

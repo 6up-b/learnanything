@@ -22,7 +22,7 @@ from learnloop.vault.loader import load_vault
 from tests.daily_plan_fakes import MovableClock
 from tests.router_mixture_helpers import mixture_env, rows, run
 from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
-from tests.test_daily_plan_build import _seed_wide, _wide_vault
+from tests.daily_plan_build_helpers import _seed_wide, _wide_vault
 
 TAG = DATA_CAPTURE_ALGORITHM_VERSION
 OLD = LESSON_SUGGESTIONS_ALGORITHM_VERSION
@@ -225,7 +225,7 @@ def test_receipts_are_keyed_by_the_decision_once(tmp_path):
 
 def test_a_followups_interrupt_decision_has_the_builds_receipt(tmp_path):
     from tests.router_model_fakes import first_option, seed_with_first_uniform
-    from tests.test_router_g4_restraint import DECIDER_ONLY, PAST_THE_FLOOR, _followup_env
+    from tests.router_g4_restraint_helpers import DECIDER_ONLY, PAST_THE_FLOOR, _followup_env
 
     runtime = fake_runtime(decider=FakeDecider(choice=first_option, p_yes=0.0),
                            seed=seed_with_first_uniform(at_least=PAST_THE_FLOOR))

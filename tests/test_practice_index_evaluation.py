@@ -22,7 +22,7 @@ from tests.practice_index_fakes import (
     build_practice_vault,
     enable_practice_index,
 )
-from tests.test_practice_index_find import _index
+from tests.practice_index_find_helpers import _index
 
 CAPS = SpendCaps(max_candidates=500, max_pairs=4000, max_calls=400, max_retries=4,
                  max_total_tokens=10_000_000, max_estimated_usd=1.0)

@@ -39,7 +39,7 @@ from learnloop.vault.repository import open_vault_repository
 from tests.openai_fakes import FakeTruncated, install_fake_openai
 from tests.practice_index_fakes import build_practice_vault, enable_practice_index
 from tests.source_retrieval_fakes import EXAM_QUESTION, FakeSourceLLM, HashingEmbedder, loaded
-from tests.test_source_retrieval_tutor import CLOCK, QUESTION, CitingTutor, ask, setup
+from tests.source_retrieval_tutor_helpers import CLOCK, QUESTION, CitingTutor, ask, setup
 
 REWRITE = json.dumps({"passage": "Eigenvalues solve det(A - tI) = 0.", "keywords": ["eigenvalue"]})
 CUT = FakeTruncated('{"passage": "Eigenvalues solve')

@@ -18,38 +18,18 @@ from learnloop.curriculum import commitments as C
 from learnloop.db.stores import reader_digests as RDG
 from learnloop.instructional import reader_followups as RF
 from tests.recap_fixtures import at
-from tests.test_reader_followups import _attempt, _candidate, _now, _plan, _seeded
-from tests.test_reader_followups_round4 import (
-    QD,
+from tests.reader_followups_helpers import _attempt, _now
+from tests.reader_followups_round4_helpers import (
     QR,
     A,
-    _ByIntent,
     _check,
     _due,
-    _questions,
     _studied_related_example,
 )
+from tests.reader_followups_round5_helpers import _discrimination_still_needs_it, _shared
 
 #: ``scheduling.intent.followup_gate.LICENSING_UNREADABLE`` (a literal, so the repro runs on the base).
 LICENSING_UNREADABLE = "licensing_unreadable"
-
-
-def _shared(tmp_path, monkeypatch):
-    """Retention creates A (its provenance), discrimination shares it."""
-
-    vault, repo, session = _seeded(tmp_path)
-    _questions(monkeypatch)
-    row = _plan(vault, repo, session, _ByIntent({"retention": [[_candidate(A, 1.0, 0.0, 3.0)]],
-                                                 "discriminate": [[_candidate(A, 1.0, 0.0, 3.0)]]}))
-    [commitment_id] = row["followup_commitment_ids"]
-    assert [entry["question"] for entry in row["valuation"]["chosen"][0]["licensing"]] == [QR, QD]
-    return vault, repo, row, commitment_id
-
-
-def _discrimination_still_needs_it(question, item_id):
-    if question["intent"] == "discriminate":
-        return {"problems": [{"verdict": "act", "reason": "positive_robust_net_value", "checks": [{"ref": item_id}]}]}
-    return {"problems": [{"verdict": "stop", "reason": "lcb_value_below_minutes_cost", "checks": []}]}
 
 
 def test_f17_a_retention_question_reopened_since_the_revaluation_still_tightens_the_gate(tmp_path, monkeypatch):

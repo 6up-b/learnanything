@@ -33,7 +33,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
 from tests.helpers import NOW_ISO
-from tests.test_rebuild_equivalence import ZERO, _answer, _at, _shadow_summary, _vault
+from tests.rebuild_equivalence_helpers import ZERO, _answer, _at, _shadow_summary, _vault
 
 APPLY_ITEM = "pi_svd_apply_001"
 

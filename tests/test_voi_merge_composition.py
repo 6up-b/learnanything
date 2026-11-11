@@ -32,7 +32,7 @@ from learnloop.daily_plan.lanes import register_scheduled_check_provider, unregi
 
 from tests.daily_plan_fakes import make_env
 from tests.helpers import create_basic_vault
-from tests.test_voi_stopping import (
+from tests.voi_stopping_helpers import (
     CLOCK,
     INFORMATIVE,
     ROUTES,
@@ -214,8 +214,8 @@ def test_misconception_labels_are_charged_the_learners_recurrence_measured_cost(
     """With the learner's own recurrence history, the misconception's charge is
     Part C's measured (shrunk) estimate, never a per-label guess."""
 
-    from tests.test_causal_shadow_selection import CLOCK as SHADOW_CLOCK, LO_ID, _vault
-    from tests.test_voi_forecasts import _attempt
+    from tests.causal_shadow_selection_helpers import CLOCK as SHADOW_CLOCK, LO_ID, _vault
+    from tests.voi_forecasts_helpers import _attempt
 
     _vault_obj, repository = _vault(tmp_path)
     with repository.connection() as connection:
@@ -476,7 +476,7 @@ def test_teach_back_offers_log_one_forecast_per_teach_back_per_offer(tmp_path, m
 
 
 def test_plan_blocks_log_project_probe_value_decisions_with_r1s_decision_ref(tmp_path):
-    from tests.test_voi_stopping import _plan_with_probes
+    from tests.voi_stopping_helpers import _plan_with_probes
 
     planned, details = _plan_with_probes(tmp_path, "mvp-0.21")
     assert len(planned) == 5
@@ -710,7 +710,7 @@ def test_the_report_scores_a_project_probe_through_r1s_plan_block(tmp_path):
     from learnloop.ids import new_ulid
     from tests.daily_plan_fakes import record_attempt
     from tests.helpers import create_daily_plan_vault
-    from tests.test_voi_stopping import _probe_items
+    from tests.voi_stopping_helpers import _probe_items
 
     paths = create_daily_plan_vault(
         tmp_path / "plan", learning_objects={"lo_repo": [(f"pi_probe_{i}", 1.0) for i in range(5)]},

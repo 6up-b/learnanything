@@ -51,11 +51,11 @@ from learnloop.algorithm_versions import METHOD_EXPLICIT_ALGORITHM_VERSION as ME
 from learnloop.held_grades import held_attempt_ids
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.split_live_helpers import ReadyRuntime, at
-from tests.test_diagnosis_input_provenance import _question, world  # noqa: F401 - world is a fixture
-from tests.test_ux_phase4_feedback import ctx  # noqa: F401 - ctx is a fixture
-from tests.test_forecast_receipts import ITEM, WRONG, _answer, _diagnosed, _diagnosis_resolution, _present
-from tests.test_route_rules_in_grader import ALTERNATIVE, DivergentUnlocatedGrader, FullCreditGrader
-from tests.test_route_rules_in_grader import VERSION as ROUTE_RULES_VERSION
+from tests.diagnosis_input_provenance_helpers import _question, world  # noqa: F401 - world is a fixture
+from tests.ux_phase4_feedback_helpers import ctx  # noqa: F401 - ctx is a fixture
+from tests.forecast_receipts_helpers import ITEM, WRONG, _answer, _diagnosed, _diagnosis_resolution, _present
+from tests.route_rules_in_grader_helpers import ALTERNATIVE, DivergentUnlocatedGrader, FullCreditGrader
+from tests.route_rules_in_grader_helpers import VERSION as ROUTE_RULES_VERSION
 
 REASON = "I did transpose V; the last line says so"
 
@@ -268,7 +268,7 @@ def test_a_cold_check_on_a_direct_open_is_served_as_on_main_unless_a_routine_dis
     from learnloop.attempts.attempts import AUTO_PRIME_REVEAL_THRESHOLD, reveal_total_for_submission
     from learnloop.attempts.reveal_ledger import record_reveal
     from learnloop_sidecar.registry import METHOD_REGISTRY
-    from tests.test_ux_phase4_feedback import (
+    from tests.ux_phase4_feedback_helpers import (
         ITEM,
         _administration_receipts,
         _due_cold_task,
@@ -317,7 +317,7 @@ def test_a_waiting_plan_writes_nothing_and_the_served_item_binds_its_presentatio
     from datetime import timedelta
 
     from learnloop.daily_plan.engine import advance, get_or_create_today
-    from tests.test_ux_phase4_feedback import _one_item_plan, _served_items
+    from tests.ux_phase4_feedback_helpers import _one_item_plan, _served_items
 
     def counts(env) -> dict[str, int]:
         with env.repository.connection() as connection:
@@ -355,7 +355,7 @@ def _r2b_env_with_a_lifting_hold(tmp_path, decider, *, items=None):
     from learnloop.clock import FrozenClock
     from tests.router_mixture_helpers import mixture_env
     from tests.router_model_fakes import fake_runtime, seed_with_first_uniform
-    from tests.test_ux_phase4_feedback import _iso
+    from tests.ux_phase4_feedback_helpers import _iso
 
     env = mixture_env(
         tmp_path, fake_runtime(decider=decider, seed=seed_with_first_uniform(at_least=0.5)), items=items,

@@ -19,7 +19,7 @@ from learnloop.cli import app
 from learnloop.content.pipeline.add_source import auto_build_spend_report, latest_auto_outcome
 from learnloop.vault.loader import load_vault
 
-from tests.test_ux_phase1_review_fixes import _add, _build_batches, _jobs, _metered, _receipt
+from tests.ux_phase1_review_fixes_helpers import _add, _build_batches, _jobs, _metered, _receipt
 from tests.ux_phase1_support import CLOCK, fake_services, fresh_library, set_config, write_book
 
 

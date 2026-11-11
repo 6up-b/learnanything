@@ -26,7 +26,7 @@ from learnloop.hints import service as hint_service
 from learnloop.hints import workbench as hint_workbench
 from learnloop.reader import workbench as WB
 from tests.hint_fakes import receipts
-from tests.test_hint_h2b_review import grader  # noqa: F401 - the blind grader fixture
+from tests.hint_h2b_review_helpers import grader  # noqa: F401 - the blind grader fixture
 from tests.workbench_help_fakes import call, help_rows, open_problem, run_job, sidecar
 
 ROOT = Path(__file__).resolve().parents[1]

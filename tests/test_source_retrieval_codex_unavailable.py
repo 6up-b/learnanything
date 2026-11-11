@@ -22,7 +22,7 @@ from learnloop.source_retrieval.library import search_library
 from learnloop.source_retrieval.tutor import TutorSpanProvider
 from tests.helpers import append_config_toml
 from tests.source_retrieval_fakes import HashingEmbedder, loaded
-from tests.test_source_retrieval_tutor import CLOCK, QUESTION, CitingTutor, ask, setup
+from tests.source_retrieval_tutor_helpers import CLOCK, QUESTION, CitingTutor, ask, setup
 
 T6_LLM_ROUTES = ("source_query_rewrite", "source_rerank")
 

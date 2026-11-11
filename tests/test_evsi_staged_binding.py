@@ -28,7 +28,7 @@ from learnloop.scheduling.scheduler import SchedulerSession
 
 from tests.daily_plan_fakes import MovableClock, iso, make_env, scheduled, seed_due
 from tests.helpers import create_daily_plan_vault
-from tests.test_voi_forecasts import _STAGED_PRIOR, _forecasts, _separating, _staged_loss
+from tests.voi_forecasts_helpers import _STAGED_PRIOR, _forecasts, _separating, _staged_loss
 
 PAST = datetime(2026, 10, 1, 9, 0, tzinfo=UTC)
 LAST = datetime(2026, 9, 20, 9, 0, tzinfo=UTC)

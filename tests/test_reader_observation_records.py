@@ -20,7 +20,7 @@ from learnloop.reader import reader_sessions as RS
 from learnloop.reader import recap as RC
 from learnloop.vault.loader import load_vault
 from tests.recap_fixtures import EXT, T0, ask, still_unclear, table_counts, visit
-from tests.test_reader_dialogue import _setup
+from tests.reader_dialogue_helpers import _setup
 
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE_PACKAGES = (

@@ -32,33 +32,8 @@ from learnloop.source_retrieval import reading_paths as RP
 from learnloop.vault.loader import load_vault
 from tests.helpers import append_config_toml
 from tests.reading_path_fixtures import EXT, PathJudgeFake, call, context
-from tests.test_plan_follows_path import GUIDE_OFF, OFF, _split, _vault
-
-LABELS = {"sec_eigen": "enrichment", "sec_spectral": "prerequisite"}
-
-
-def _blocks(repository):
-    with repository.connection() as connection:
-        blocks = [dict(row) for row in connection.execute(
-            "SELECT id, action, reading_json FROM attention_blocks ORDER BY rowid")]
-        events = [dict(row) for row in connection.execute(
-            "SELECT block_id, kind, detail_json FROM attention_block_events ORDER BY rowid")]
-    return blocks, events
-
-
-def _stage_reading(ctx, session_id):
-    """Skip the plan's items (prefetch only) until its reading block is the
-    current, staged and unstarted block."""
-
-    for _ in range(20):
-        step = call(ctx, "next_plan_item", {"sessionId": session_id, "serve": False})["step"]
-        if step["kind"] == "reading":
-            return step
-        assert step["kind"] == "item", step
-        call(ctx, "next_plan_item", {"sessionId": session_id, "skipPracticeItemId": step["practiceItemId"],
-                                     "serve": False})
-    raise AssertionError("no reading step")
-
+from tests.plan_follows_path_helpers import GUIDE_OFF, OFF, _split, _vault
+from tests.rw7b_codex_review_fixes_helpers import LABELS, _blocks, _stage_reading
 
 # -- F1: the kill switch reaches plans already built --------------------------------------------------
 
@@ -156,7 +131,7 @@ def test_f1_a_started_path_reading_is_kept(tmp_path, monkeypatch):
 
 
 def test_f2_a_judgment_for_an_older_state_is_stale_and_the_plan_keeps_the_order(tmp_path, monkeypatch):
-    from tests.test_reading_paths import _practised
+    from tests.reading_paths_helpers import _practised
 
     paths, repository, _ = _vault(tmp_path, monkeypatch, labels={"sec_eigen": "enrichment"})
     fresh = RP.plan_path(load_vault(paths.root), repository, EXT)

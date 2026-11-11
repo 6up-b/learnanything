@@ -9,61 +9,16 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 from learnloop.followup_serve import identity, workflow as wf
 from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar import handlers  # noqa: F401 - registers the methods
-from learnloop_sidecar.registry import METHOD_REGISTRY
 
-from tests.followup_serve_helpers import CLOCK, OFF, AuthorFake, author_clients, miss_with_rivals, rival_causes_vault, run_jobs
-
-
-class _Runtime:
-    ready = True
-    status = "ready"
-    message = None
-
-
-def _call(ctx, name, params):
-    spec = METHOD_REGISTRY[name]
-    return spec.handler(ctx, spec.params_model.model_validate(params))
-
-
-@pytest.fixture
-def journey(tmp_path, monkeypatch):
-    monkeypatch.setattr(
-        "learnloop_sidecar.handlers.practice.ready_grading_provider",
-        lambda *_args, **_kw: ("fake", _Runtime(), object()),
-    )
-    vault, repository, paths = rival_causes_vault(tmp_path)
-    ctx = SidecarContext()
-    ctx.load(paths.root)
-    ctx.post_attempt_worker.autostart = False
-    vault, repository = ctx.require_vault()
-    result, outcome = miss_with_rivals(vault, repository)
-    return ctx, vault, repository, result, outcome
-
-
-def _generate(ctx, repository, *, fake=None):
-    vault, _ = ctx.require_vault()
-    run_jobs(vault, repository, clients=author_clients(fake or AuthorFake()))
-
-
-def _answer(ctx, repository, row, *, points):
-    vault, _ = ctx.require_vault()
-    probe = complete_self_graded_attempt(
-        vault, repository,
-        AttemptDraft(practice_item_id=row["practice_item_id"], learner_answer_md="An answer.",
-                     attempt_type="diagnostic_probe", probe_presentation_id=row["presentation_id"]),
-        SelfGradeInput(criterion_points=points, confidence=3),
-        clock=CLOCK,
-    )
-    run_post_attempt_pipeline(vault, repository, result=probe, followup_surface="desktop", clock=CLOCK)
-    return probe
+from tests.followup_serve_helpers import CLOCK, OFF, AuthorFake, miss_with_rivals, rival_causes_vault
+from tests.followup_journey_helpers import _answer, _bundle_without_ids, _call, _forced, _generate
+from tests.followup_journey_helpers import journey  # noqa: F401 - fixtures, used by parameter name
 
 
 def _refused(ctx, name, params, code=identity.GENERATED_PROBE_CLOSED):
@@ -248,12 +203,6 @@ def test_the_probes_feedback_points_back_at_what_was_held(journey):
     assert _call(ctx, "get_feedback", {"attemptId": probe.attempt_id})["heldFeedbackAttemptId"] == result.attempt_id
 
 
-def _forced(monkeypatch, chosen):
-    from learnloop.followup_run import router
-
-    monkeypatch.setattr(router, "decide", lambda *_a, **_k: router.FollowupDecision(chosen, chosen, "mixture"))
-
-
 def test_a_wait_releases_now_labels_the_probe_exposed_and_its_answer_cant_close_the_factor(journey, monkeypatch):
     from learnloop.followup_run import router
 
@@ -308,13 +257,6 @@ def test_with_no_plan_a_ready_probe_heads_todays_queue(tmp_path):
     first = queue["sections"][0]["items"][0]
     assert first["practiceItemId"] == row["practice_item_id"]
     assert identity.closed_probe_ids(repository) == frozenset()  # listing never burns
-
-
-def _bundle_without_ids(bundle):
-    # hypothesisMarks is FG1c's, and its order hangs off episode keys that differ between two vaults;
-    # tests/test_hypothesis_marks.py holds its own on-and-off comparison.
-    drop = {"attemptId", "generatedAt", "feedbackLastShownAt", "feedbackFirstShownAt", "nextDueAt", "hypothesisMarks"}
-    return {key: value for key, value in bundle.items() if key not in drop}
 
 
 def test_with_the_switch_off_the_replies_match_the_predecessor(tmp_path):

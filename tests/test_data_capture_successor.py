@@ -7,7 +7,6 @@ blocks and the router's rows (receipts stay additive in their own tables).
 from __future__ import annotations
 
 import inspect
-import re
 
 import pytest
 
@@ -24,9 +23,10 @@ from learnloop.daily_plan.engine import advance, build_plan
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import create_basic_vault, set_algorithm_version
-from tests.router_mixture_helpers import mixture_env, rows, run
+from tests.router_mixture_helpers import mixture_env, run
 from tests.router_model_fakes import fake_runtime
 from tests.teacher_fakes import build_teacher_vault
+from tests.data_capture_successor_helpers import _blocks, _canonical_rows
 
 TAG = DATA_CAPTURE_ALGORITHM_VERSION
 OLD = LESSON_SUGGESTIONS_ALGORITHM_VERSION
@@ -111,27 +111,6 @@ def test_the_openers_install_this_links_completion():
     assert "learnloop.figure_wait_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     assert "learnloop.lesson_suggestions_upgrade import complete_interrupted_activation" in inspect.getsource(data_capture_upgrade)
     assert callable(lesson_suggestions_upgrade.complete_interrupted_activation)
-
-
-#: What differs by construction between two runs: fresh ids, and the version label and its hashes.
-_VOLATILE = {"id", "snapshot_hash", "algorithm_version", "seed", "card_hash", "created_at"}
-
-
-def _canonical_rows(env):
-    def scrub(value):
-        if isinstance(value, dict):
-            return {key: scrub(item) for key, item in value.items() if key not in _VOLATILE and "hash" not in key}
-        if isinstance(value, list):
-            return [scrub(item) for item in value]
-        if isinstance(value, str):
-            return re.sub(r"[0-9A-HJKMNP-TV-Z]{26}", "ULID", value)
-        return value
-
-    return [scrub({key: value for key, value in row.items()}) for row in rows(env)]
-
-
-def _blocks(record):
-    return [(block.lane, block.action, tuple(item.practice_item_id for item in block.items)) for block in record.blocks]
 
 
 @pytest.mark.parametrize("variant", ["no_model", "stop_offered"])

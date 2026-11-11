@@ -26,8 +26,8 @@ import pytest
 
 from learnloop.content.pipeline import add_source as core
 
-from tests.test_ux_phase1_add_source import call
-from tests.test_ux_phase1_round2_review import _added_book
+from tests.ux_phase1_add_source_helpers import call
+from tests.ux_phase1_round2_review_helpers import _added_book
 from tests.ux_phase1_support import CLOCK, fake_services
 
 
@@ -183,7 +183,7 @@ def _todays_reading_step(tmp_path, monkeypatch, *, version, toml=""):
     from learnloop.db.repositories import Repository
     from learnloop_sidecar.context import SidecarContext
     from tests.helpers import create_daily_plan_vault
-    from tests.test_ux_phase1_round2_review import _section_ids, _seed_book
+    from tests.ux_phase1_round2_review_helpers import _section_ids, _seed_book
 
     paths = create_daily_plan_vault(tmp_path / "vault", version=version, plan_toml=toml or None)
     extraction_id = _seed_book(paths)

@@ -32,8 +32,8 @@ from learnloop.vault.loader import load_vault
 from tests.deliverable_fixtures import DeliverableFake, PlanDeliverableFake
 from tests.helpers import append_config_toml
 from tests.reading_path_fixtures import call, context
-from tests.test_curriculum_c1_codex_review_fixes import NEAR_PRIMARIES, _ended
-from tests.test_curriculum_c1_plan_follows_path import (
+from tests.curriculum_c1_codex_review_fixes_helpers import NEAR_PRIMARIES, _ended
+from tests.curriculum_c1_plan_follows_path_helpers import (
     C1_OFF,
     PRIMARIES,
     RW7B_OFF,
@@ -44,16 +44,9 @@ from tests.test_curriculum_c1_plan_follows_path import (
     _judge,
     _split,
 )
-from tests.test_rw7b_codex_review_fixes import _blocks, _stage_reading
-from tests.test_rw7b_fix_round2 import _plan_row, _skip_to_done
-
-
-def _no_refresh(ctx) -> None:
-    """Today's daily refresh already ran in this sidecar (nothing runs in the background)."""
-
-    from learnloop_sidecar.handlers.deliverables import _work
-
-    _work(ctx).refresh_day = E.local_date()
+from tests.rw7b_codex_review_fixes_helpers import _blocks, _stage_reading
+from tests.rw7b_fix_round2_helpers import _plan_row, _skip_to_done
+from tests.curriculum_c1_fix_round2_helpers import _no_refresh
 
 
 def _record(c1):

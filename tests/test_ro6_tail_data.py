@@ -28,23 +28,13 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import append_config_toml
 from tests.router_model_fakes import FakeLLM, fake_runtime
-from tests.test_ro4_objective_serving import policy_answer
-from tests.test_ro5_calibration import _end_session, _grade_answers, _new_session, _week_env
-from tests.router_mixture_helpers import run
+from tests.ro4_objective_serving_helpers import policy_answer
+from tests.ro5_calibration_helpers import _week_env
+from tests.ro6_tail_data_helpers import _days
 
 TAG = ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
 REASONS = {TD.NO_LATER_DECISION, TD.CHANGE_POINT, TD.VALUE_MISSING, TD.PAST_CUTOFF, TD.REWARD_OPEN, TD.NO_RESULT,
            TD.CUTOFF_UNMATCHED}
-
-
-def _days(env, runtime, days: range, *, skip: frozenset[int] = frozenset(), steps: int = 60) -> None:
-    for day in days:
-        if day not in skip:
-            session_id = _new_session(env, runtime, day)
-            run(env, steps=steps)
-            _grade_answers(env, day)
-            _end_session(env, session_id)
-        env.clock.advance(24 * 60)
 
 
 def _tag_env(tmp_path, runtime, toml: str | None = None):
@@ -137,7 +127,7 @@ def test_a_row_received_after_the_moment_never_enters_a_feature(tmp_path):
 @pytest.mark.parametrize("toml, sees_exam", [(None, False), ("[router_objective]\navailable_at_reads = false\n", False)],
                          ids=["tag", "switched_off"])
 def test_an_exam_imported_after_the_moment_is_no_reward_yet(tmp_path, toml, sees_exam):
-    from tests.test_ro1_availability_reads import AFTER, CUTOFF, LO, _seeded
+    from tests.ro1_availability_reads_helpers import AFTER, CUTOFF, LO, _seeded
 
     vault, repository = _seeded(tmp_path, TAG, toml)
     with repository.connection() as connection:

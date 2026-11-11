@@ -33,7 +33,7 @@ from learnloop.scheduling.fsrs import interval_for_retention
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version
-from tests.test_ro1_interval_factor import _due, _play, _vault
+from tests.ro1_interval_factor_helpers import _due, _play, _vault
 
 TAG = INTERVAL_FACTOR_ALGORITHM_VERSION
 OLD = FOLLOWUP_SERVE_ALGORITHM_VERSION

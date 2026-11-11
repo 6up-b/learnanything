@@ -22,7 +22,7 @@ from learnloop.source_retrieval import note_links as NL
 from learnloop.source_retrieval import vault_notes as VN
 from learnloop.vault.loader import load_vault
 from tests.reading_path_fixtures import call
-from tests.test_notes_linked import _deliverable, _link_typed_by_hand
+from tests.notes_linked_helpers import _deliverable, _link_typed_by_hand
 
 URI = "file:///home/someone/books/linear_algebra%20done_right.pdf"
 READABLE = "Linear Algebra Done Right"

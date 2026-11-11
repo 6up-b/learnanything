@@ -5,7 +5,7 @@ from learnloop.db.stores.source_service import interventions
 from learnloop.instructional.policy import caller_for
 from learnloop.instructional.practice import propose_practice, record_proposal_pick
 from tests.source_service_fakes import FakeServiceLLM, build_textbook_vault, loaded
-from tests.test_discriminating_search import _valuer
+from tests.discriminating_search_helpers import _valuer
 
 
 def test_a_valued_pick_keeps_predicted_outcomes_regime_and_minutes(tmp_path):
@@ -89,7 +89,7 @@ def test_decision_fields_reach_the_record_and_the_outcome_derives_the_action_cha
     from learnloop.instructional.interventions import _check_entry
     from learnloop.substrate.intervention_outcomes import outcome_for
     from tests.source_service_fakes import build_service_vault
-    from tests.test_intervention_outcomes_replayer import T0, _attempt, _intervention
+    from tests.intervention_outcomes_replayer_helpers import T0, _attempt, _intervention
 
     from datetime import timedelta
 

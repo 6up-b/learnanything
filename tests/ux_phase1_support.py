@@ -23,9 +23,9 @@ from learnloop.ops.settings_store import apply_config_updates
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 
-from tests.test_source_append import FakeAppendClient
-from tests.test_source_inventory import FakeInventoryClient
-from tests.test_source_set_synthesis import FakeSynthesisClient
+from tests.source_append_helpers import FakeAppendClient
+from tests.source_inventory_helpers import FakeInventoryClient
+from tests.source_set_synthesis_helpers import FakeSynthesisClient
 
 CLOCK = FrozenClock(datetime(2026, 10, 13, 9, 0, 0, tzinfo=UTC))
 

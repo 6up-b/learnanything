@@ -6,25 +6,9 @@ from __future__ import annotations
 import copy
 import pytest
 
-from learnloop.clock import FrozenClock
 from learnloop.sim.diagnostic_validation import ValidationReport, run_probe_validation
-from learnloop.vault.loader import load_vault
-from learnloop.vault.writer import upsert_learning_object
 
-from tests.helpers import NOW, create_basic_vault
-
-CLOCK = FrozenClock(NOW)
-
-
-def _vault_with_confusable(tmp_path):
-    vault_root = tmp_path / "vault"
-    create_basic_vault(vault_root)
-    loaded = load_vault(vault_root)
-    payload = loaded.learning_objects["lo_svd_definition"].model_dump()
-    payload["confusables"] = ["eigendecomposition"]
-    upsert_learning_object(vault_root, payload, clock=CLOCK)
-    return vault_root
-
+from tests.sim_probe_validation_helpers import _vault_with_confusable
 
 @pytest.fixture(scope="module")
 def validation_report(tmp_path_factory):

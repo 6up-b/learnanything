@@ -16,15 +16,10 @@ import pytest
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
+from tests.ih3_migration_helpers import IH3_ADDED_OBJECTS, TABLE
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-TABLE = "router_learner_preferences"
 MIGRATION = next(m for m in discover_migrations() if m.name == "router_learner_preferences")
-OBJECTS = frozenset({TABLE, "router_learner_preferences_decision", "router_learner_preferences_session",
-                     "router_learner_preferences_served", "router_learner_preferences_no_update",
-                     "router_learner_preferences_no_delete"})
-#: What 251 adds (with the table's own autoindex): earlier migrations' "nothing else changed" diffs on the way to head read this.
-IH3_ADDED_OBJECTS = OBJECTS | {f"sqlite_autoindex_{TABLE}_1"}
 COLUMNS = ["id", "decision_id", "attempt_id", "session_id", "surface", "offered_json", "chosen_kind", "chosen_ref", "note_md",
            "served_decision_id", "algorithm_version", "created_at"]
 

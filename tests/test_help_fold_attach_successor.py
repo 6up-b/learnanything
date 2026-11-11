@@ -39,8 +39,8 @@ from learnloop.ops.vault_upgrade import rewrite_algorithm_version
 from learnloop.vault.loader import load_vault
 from tests.helpers import create_placement_vault
 from tests.hint_fakes import assists
-from tests.test_followups_nov2_help_fold import _rollover, _submit
-from tests.test_hint_h2a_review_round2 import ARGMAX, _attempt
+from tests.followups_nov2_help_fold_helpers import _rollover, _submit
+from tests.hint_h2a_review_round2_helpers import ARGMAX, _attempt
 
 TAG = HELP_FOLD_ATTACH_ALGORITHM_VERSION
 PREDECESSOR = TEACHER_ALGORITHM_VERSION
@@ -103,8 +103,8 @@ def test_the_same_session_fold_is_the_same_below_and_at_the_tag(tmp_path):
     """Switched off, the predecessor's fold of a same-session keyed hint is unchanged."""
 
     from tests.hint_fakes import store_map
-    from tests.test_followups_nov2_help_fold import _hinted_session, hint_vault
-    from tests.test_hint_h2a_review_round2 import _context
+    from tests.followups_nov2_help_fold_helpers import _hinted_session, hint_vault
+    from tests.hint_h2a_review_round2_helpers import _context
 
     counts = []
     for name, config in (("on", ARGMAX), ("off", OFF)):

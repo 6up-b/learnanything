@@ -21,8 +21,8 @@ from learnloop import confidence_events as CE
 from learnloop.db.connection import connect
 from learnloop.router.card import build_card
 
-from tests.test_teacher_te0_confidence_events import _card_inputs
-from tests.test_teacher_te0_review_fixes import HELD_SUPPORT
+from tests.teacher_te0_confidence_events_helpers import _card_inputs
+from tests.teacher_te0_review_fixes_helpers import HELD_SUPPORT
 
 HELD_EVENT = "marked 5/5 sure; held for review (no score yet)"
 
@@ -44,7 +44,7 @@ def test_a_held_review_grade_reads_held_for_review_in_a_later_targets_history(tm
     from learnloop.diagnosis.offline_review import runner as runner_module
     from learnloop.learner_protection import held_attempts
     from tests.diagnosis_split_helpers import build_diagnosis_vault, seed_history
-    from tests.test_diagnose_review import OPTIONS, _run
+    from tests.diagnose_review_helpers import OPTIONS, _run
 
     real_validate = runner_module.validate_blind_grading_proposal
 
@@ -97,7 +97,7 @@ def test_the_live_history_keeps_the_ledgers_hold(tmp_path):
     from learnloop.diagnosis.split.live import live_history_store
     from learnloop.outcome_contract import GRADE_CONTRACT_UNRECORDED
     from tests.approach_map_fakes import ITEM
-    from tests.test_teacher_te0_confidence_events import _attempt, _vault
+    from tests.teacher_te0_confidence_events_helpers import _attempt, _vault
 
     paths, vault, repository = _vault(tmp_path)
     _attempt(paths.sqlite_path, "att_live", at="2026-10-13T09:00:00Z", correctness=0.0, tap=5)

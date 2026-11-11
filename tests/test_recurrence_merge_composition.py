@@ -25,7 +25,7 @@ from learnloop.vault.loader import load_vault
 from tests.diagnosis_fakes import FakeEmbeddingClient
 from tests.recurrence_fakes import JudgeFake, StatementFake, shares_word
 from tests.split_live_helpers import at, drain_jobs, enable_embeddings, split_vault, submit
-from tests.test_recurrence_commands import CAPS
+from tests.recurrence_commands_helpers import CAPS
 
 V_SAME = "Believes V and V transpose are the same matrix."
 V_REWORDED = "Thinks the last SVD factor never needs transposing."

@@ -37,8 +37,8 @@ from learnloop.diagnosis.split import provenance
 from tests.chatgpt_plan_fakes import Reply, fake_chatgpt, sign_in
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.split_live_helpers import at, drain_jobs, split_vault, submit
-from tests.test_chatgpt_plan_workspace import _diagnosis_answer
-from tests.test_forecast_receipts import WRONG
+from tests.chatgpt_plan_workspace_helpers import _diagnosis_answer
+from tests.forecast_receipts_helpers import WRONG
 
 
 @pytest.fixture(autouse=True)

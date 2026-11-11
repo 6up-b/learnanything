@@ -27,32 +27,14 @@ import pytest
 
 from learnloop.ai import plan_fallback
 from learnloop.ai.errors import AIProviderUnavailable
-from learnloop.content.pipeline.runner import RunnerServices
 from learnloop.figures import rich as RICH
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
 from tests import rich_fixtures as RF
-from tests.figure_fixtures import EXTRACTION, AuthorFake, build, build_figure_vault, call, context, flagship
-from tests.figure_fixtures import set_config
+from tests.figure_fixtures import EXTRACTION, build, call, flagship
+from tests.figure_rich_rpc_helpers import _ctx
 
 WHY = "a narrated video shows the spiral tighten"
-
-
-def _ctx(tmp_path, monkeypatch, author_answers=(), rich_answers=None, *, opt_in="standing", rich=True,
-         foreground=True):
-    paths, repository = build_figure_vault(tmp_path / "vault", rich=rich)
-    if opt_in is not None:
-        set_config(paths, "figures", manim_opt_in=opt_in)
-    RF.ready_manim(monkeypatch)
-    author = AuthorFake(list(author_answers))
-    ctx = context(paths.root, author=author)
-    rich_author = RF.RichAuthorFake(rich_answers)
-    services = RunnerServices(figure_rich_client_factory=lambda job: rich_author, figure_rich_renderer=RF.Renders(),
-                              figure_function_runner=RF.InProcessRunner())
-    ctx.ingest_jobs.bind(ctx.repository, ctx.vault_root, services=services, background=False)
-    if not foreground:
-        monkeypatch.setattr(ctx.ingest_jobs, "_ensure_worker", lambda: None)
-    return paths, repository, ctx, author, rich_author
 
 
 def _contract(ctx):

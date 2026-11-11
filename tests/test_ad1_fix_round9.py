@@ -20,7 +20,7 @@ from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 
 from tests.ad_fakes import AuditDecider, ForecastLLM, ad_plan_vault, rows
-from tests.test_ad1_fix_round4 import _builds
+from tests.ad1_fix_round4_helpers import _builds
 
 FULL = {"complexity": "1", "transfer": "near", "scaffolding": "cue", "span": "single_step",
         "response": "short_constructed"}

@@ -247,7 +247,7 @@ def test_a_pending_tutor_answer_is_stamped_when_it_completes(tmp_path):
     past the sweep's overlap was missed. The pending-to-answered update
     stamps ``answered_at`` once and the sweep reads it."""
 
-    from tests.test_ad1_reading_opportunities import FakeMap, _setup, _sweep, at, iso
+    from tests.ad1_reading_opportunities_helpers import FakeMap, _setup, _sweep, at, iso
 
     paths, vault, repo = _setup(tmp_path)
     mapping = FakeMap()
@@ -290,7 +290,7 @@ def test_a_pending_tutor_answer_is_stamped_when_it_completes(tmp_path):
 def test_the_tutor_turn_stamps_its_answer_on_its_own_clock(tmp_path):
     from learnloop.clock import utc_now_iso
 
-    from tests.test_ad1_reading_opportunities import _setup, at
+    from tests.ad1_reading_opportunities_helpers import _setup, at
 
     _paths, _vault, repo = _setup(tmp_path)
     event = repo.insert_question_event(
@@ -523,7 +523,7 @@ def test_accepted_outside_forecasts_append_one_judgment_each(tmp_path):
 def test_a_refused_forecast_appends_no_judgment(tmp_path):
     from learnloop.adaptive_difficulty.outside import Clients, forecast_item
 
-    from tests.test_ad1_outside_and_cli import MeteredLLM
+    from tests.ad1_outside_and_cli_helpers import MeteredLLM
 
     paths = ad_plan_vault(tmp_path)
     vault = load_vault(paths.root)

@@ -23,8 +23,8 @@ from starlette.testclient import TestClient
 
 from learnloop.scheduling import device_eligibility as DE
 from tests.mobile_host_helpers import HOSTNAME, Phone, pair, poll_job, rows
-from tests.test_reread_safety import _made_on
-from tests.test_mobile_v4_reader import (  # noqa: F401 - the fixture
+from tests.reread_safety_helpers import _made_on
+from tests.mobile_v4_reader_helpers import (  # noqa: F401 - the fixture
     EXTRACTION, READER_APP, add_book, call, desktop, host, job, world,
 )
 
@@ -329,8 +329,9 @@ def test_f5_activity_committed_before_a_crash_is_recorded_once_after_the_restart
 
 def test_f5_a_dose_event_committed_before_a_crash_is_recorded_once_after_the_restart(tmp_path, monkeypatch):
     from tests.ad_fakes import rows as ad_rows
-    from tests.test_ad1_reading_opportunities import FakeMap, _setup
-    from tests.test_ad3_dose_arm import QUIET, _question
+    from tests.ad1_reading_opportunities_helpers import FakeMap, _setup
+    from tests.ad3_dose_arm_helpers import QUIET
+    from tests.ad1_reading_opportunities_helpers import _question
     import learnloop.adaptive_difficulty.reading as reading
 
     mapping = FakeMap()
@@ -519,7 +520,7 @@ def test_f10_a_page_is_phone_eligible_exactly_when_the_page_endpoint_serves_it(w
 def test_f10_a_stored_image_of_an_exam_source_is_not_phone_eligible(world):
     import hashlib
 
-    from tests.test_mobile_v4_reader import _png
+    from tests.mobile_v4_reader_helpers import _png
 
     image = _png()
     add_book(world["root"], world["repo"], source_id="src_photo", revision_id="rev_photo",

@@ -8,8 +8,8 @@ import pytest
 
 from learnloop.daily_plan.engine import build_plan
 from learnloop.router_objective import cold_timing as CT
-from tests.test_data_capture_a2_measurement import _objectives, _picker, _reading_decision, _reading_env
-from tests.test_router_g4_restraint import DECIDER_ONLY
+from tests.data_capture_a2_measurement_helpers import _objectives, _picker, _reading_decision, _reading_env
+from tests.router_g4_restraint_helpers import DECIDER_ONLY
 
 
 @pytest.mark.parametrize(("reason", "expected"), [

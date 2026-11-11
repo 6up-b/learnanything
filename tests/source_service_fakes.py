@@ -108,7 +108,7 @@ from learnloop.ingest.block_roles import classify_block_role as _classify
 from learnloop.ingest.ir import DocumentBlock as _Block, DocumentIR as _IR, DocumentUnit as _Unit, ExtractionHealth as _Health
 from learnloop.vault.writer import upsert_source_set as _upsert_source_set
 from tests.pf_fakes import SYMPY_CHECK, prompt_context, solve_linear
-from tests.test_source_inventory import _persist as _persist_ir
+from tests.source_inventory_helpers import _persist as _persist_ir
 
 TEXTBOOK = {
     "ch5": ("Chapter 5 Eigenvalues", [

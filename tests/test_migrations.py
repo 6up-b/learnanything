@@ -11,6 +11,7 @@ from learnloop.db.migrate import apply_migrations, applied_versions, discover_mi
 from learnloop.db.repositories import Repository
 from tests.owner_vaults import fixture_database_params
 from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
+from tests.migrations_helpers import _insert_attempt
 
 #: These tests build older databases and upgrade them directly: the test
 #: suite's named allowance (F8 of the coordinated-migration verify).
@@ -831,44 +832,6 @@ def test_opening_the_vault_applies_pending_migrations_a_bare_repository_refuses(
     with connect(sqlite_path) as connection:
         _insert_attempt(connection, attempt_id="attempt_open_text", attempt_type="open_text")
         connection.commit()
-
-
-def _insert_attempt(connection, *, attempt_id: str, attempt_type: str) -> None:
-    connection.execute(
-        """
-        INSERT INTO practice_attempts(
-          id, practice_item_id, learning_object_id, subject, concept, practice_mode,
-          attempt_type, learner_answer_md, evidence_facets_json, evidence_weights_json,
-          rubric_score, correctness, confidence, latency_seconds, hints_used,
-          error_type, grader_confidence, manual_review, manual_review_reason,
-          created_at, updated_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            attempt_id,
-            "pi_svd",
-            "lo_svd",
-            "linear-algebra",
-            "singular_value_decomposition",
-            "constructed_response",
-            attempt_type,
-            "answer",
-            "[]",
-            "{}",
-            4,
-            1.0,
-            5,
-            10,
-            0,
-            None,
-            0.9,
-            0,
-            None,
-            "2026-05-19T12:00:00Z",
-            "2026-05-19T12:00:00Z",
-        ),
-    )
 
 
 def test_source_exposure_indexes_present_on_fresh_vault(tmp_path):

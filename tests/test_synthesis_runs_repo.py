@@ -7,7 +7,7 @@ from learnloop.content.synthesis.synthesis_manifests import persist_manifest
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import create_basic_vault
-from tests.test_apply_write_ahead import _seed_lo_and_pi_proposal, LO_ID
+from tests.apply_write_ahead_helpers import _seed_lo_and_pi_proposal, LO_ID
 
 
 def test_synthesis_run_lifecycle(tmp_path):

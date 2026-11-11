@@ -36,10 +36,10 @@ from tests.helpers import NOW, append_config_toml
 from tests.recap_fixtures import (
     EXT, T0, ask, at, call, context, interaction_rows, iso, problem, resolve, table_counts, visit,
 )
-from tests.test_goal_certification_any_of import (
+from tests.goal_certification_any_of_helpers import (
     ALT_X, ALT_Y, COMP_A, LO_ID, _component, _item, build_vault,
 )
-from tests.test_reader_dialogue import _setup
+from tests.reader_dialogue_helpers import _setup
 
 #: A second instrument on COMP_A at a capability no recipe asks for (recall).
 RECALL_ITEM = "pi_comp_a_recall"

@@ -3,7 +3,7 @@ from __future__ import annotations
 from learnloop.db.repositories import Repository
 
 from tests.helpers import create_basic_vault
-from tests.test_sidecar_contract import _rpc
+from tests.sidecar_contract_helpers import _rpc
 
 
 def _initialize(vault_root, request_id: int = 1) -> dict:

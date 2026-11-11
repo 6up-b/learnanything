@@ -198,7 +198,7 @@ def test_past_bug_b2_no_decider_routed_now_leaves_a_record(tmp_path, monkeypatch
 
     from learnloop_sidecar.context import SidecarContext
     from tests.hint_fakes import ITEM, WriterFake, hint_vault
-    from tests.test_owner_capture_1025 import _call, _press
+    from tests.owner_capture_1025_helpers import _call, _press
 
     # The suite turns the hint models off (conftest); the owner's vault has them on and simply routes no Decider.
     if models_on:
@@ -368,8 +368,8 @@ def test_the_follow_up_gates_decision_names_its_rule_arms_and_components(tmp_pat
     from learnloop.daily_plan.router_chooser import NO_INTERVENTION
     from learnloop.followup_run import router
     from tests.router_model_fakes import fake_runtime
-    from tests.test_followup_router import _decide as decide_arm
-    from tests.test_followup_router import _env, _workflow
+    from tests.followup_router_helpers import _decide as decide_arm
+    from tests.followup_router_helpers import _env, _workflow
 
     env, plan = _env(tmp_path, fake_runtime())
     row = _workflow(env)

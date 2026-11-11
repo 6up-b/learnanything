@@ -40,7 +40,6 @@ from learnloop.algorithm_versions import (
     METHOD_EXPLICIT_VERSIONS,
     P0_PROJECTION_VERSIONS,
     PLACEMENT_VERSIONS,
-    REGRADE_CONTRACT_ALGORITHM_VERSION,
     REGRADE_CONTRACT_VERSIONS,
     ROUTE_RULES_VERSIONS,
     ROUTER_MIXTURE_VERSIONS,
@@ -52,14 +51,13 @@ from learnloop.clock import FrozenClock
 from learnloop.grading_epochs import current_epoch, next_grading_revision, ordered_epochs
 from learnloop.held_grades import attempt_grade_held
 from learnloop.outcome_contract import GRADE_CONTRACT_UNRECORDED
-from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.substrate.shadow_rebuild import _learner_state_snapshot
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.handlers.serializers import feedback_bundle
 
-from tests.split_live_helpers import ReadyRuntime, split_vault, submit
-from tests.test_held_grade_evidence import T, _graded_apply
-from tests.test_regrade_contract_replay import (
+from tests.split_live_helpers import ReadyRuntime, submit
+from tests.held_grade_evidence_helpers import T, _graded_apply
+from tests.regrade_contract_replay_helpers import (
     ITEM,
     SIBLING_ITEM,
     PointsGrader,
@@ -68,15 +66,10 @@ from tests.test_regrade_contract_replay import (
     _self_graded_apply,
     _set_result_points,
 )
-from tests.test_route_rules_in_grader import ALTERNATIVE, DivergentUnlocatedGrader
+from tests.route_rules_in_grader_helpers import ALTERNATIVE, DivergentUnlocatedGrader
+from tests.regrade_contract_successor_helpers import JOINT, VERSION, _rebuild, _settle, _vault
 
-VERSION = REGRADE_CONTRACT_ALGORITHM_VERSION
 PREDECESSOR = METHOD_EXPLICIT_ALGORITHM_VERSION
-JOINT = "[diagnosis]\nsplit_enabled = false"
-
-
-def _vault(tmp_path, *, version=VERSION, config=""):
-    return split_vault(tmp_path, version=version, config=config)
 
 
 def _rows(repository, attempt_id, *, superseded=False):
@@ -94,22 +87,6 @@ def _flip(paths, version):
 
     set_algorithm_version(paths, version)
     return load_vault(paths.root)
-
-
-def _rebuild(vault, repository, days=30):
-    return rebuild_all_derived_state(vault, repository, clock=FrozenClock(T + timedelta(days=days)))
-
-
-def _settle(vault, repository, days=30):
-    """Rebuild to the fixed point. A rebuild reaches it in one pass after a
-    regrade (which replays in its own transaction) and in two after a write
-    that does not replay (an adjudication, a label move): replay reads the
-    canonical projection as each attempt's prior, so the first pass reads the
-    projection the change made stale (shown identical at mvp-0.25 in
-    ``test_rebuild_converges_after_an_adjudication_as_it_did_before``)."""
-
-    _rebuild(vault, repository, days)
-    _rebuild(vault, repository, days)
 
 
 def _unversioned(snapshot):
@@ -269,7 +246,8 @@ def test_a_clarification_regrade_cites_its_contract(tmp_path):
 
 
 def test_a_method_explicit_regrade_cites_its_frozen_contract_under_a_new_revision(tmp_path):
-    from tests.test_required_method_grading import DivergentGrader, _edit_item, _method_vault
+    from tests.required_method_grading_helpers import _edit_item, _method_vault
+    from tests.route_rules_in_grader_helpers import DivergentGrader
 
     paths, vault, repository = _method_vault(tmp_path, version=VERSION)
     result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
@@ -370,7 +348,7 @@ def test_a_held_unrecorded_grade_is_no_evidence(tmp_path):
     assert attempt_grade_held(repository, "att_l")
     held = _learner_state_snapshot(repository)
 
-    from tests.test_held_grade_evidence import _held_apply
+    from tests.held_grade_evidence_helpers import _held_apply
 
     other_paths, other_vault, other_repository = _vault(tmp_path / "control", version=VERSION, config=JOINT)
     _held_apply(other_vault, other_repository, ITEM, {"setup": 1.0, "result": 1.0}, attempt_id="att_l", when=T)

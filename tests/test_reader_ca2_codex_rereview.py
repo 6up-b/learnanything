@@ -21,29 +21,22 @@ from contextlib import closing
 import pytest
 
 import learnloop_sidecar.handlers  # noqa: F401 - registers the RPCs
-from learnloop.algorithm_versions import ONE_ASK_ALGORITHM_VERSION
 from learnloop.db.repositories import Repository
 from learnloop.tutor.tutor_qa import WITHHELD_ANSWER_MD, hint_equivalents_for_submission
 from learnloop_sidecar.errors import SidecarError
 from tests.hint_fakes import ITEM as CDF_ITEM, WORK
-from tests.test_hint_h2b_review import grader  # noqa: F401 - the blind grader fixture
-from tests.test_reader_ca2_codex_review import (  # noqa: F401 - the sidecar fixture
+from tests.hint_h2b_review_helpers import grader  # noqa: F401 - the blind grader fixture
+from tests.reader_ca2_codex_review_helpers import (  # noqa: F401 - the sidecar fixture
     ITEM,
     FakeTutor,
     _call,
     _expected,
     sidecar,
 )
-from tests.ux_phase1_support import set_config
-from tests.workbench_help_fakes import STEP_1, STEP_2, sidecar as help_sidecar
+from tests.workbench_help_fakes import STEP_1, STEP_2
+from tests.reader_ca2_codex_rereview_helpers import _attempt, _draft, _steps_sidecar
 
 OTHER_ITEM = "pi_svd_define_001"  # another item of the same vault (create_basic_vault's)
-
-
-def _attempt(paths, attempt_id: str) -> dict:
-    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
-        connection.row_factory = sqlite3.Row
-        return dict(connection.execute("SELECT * FROM practice_attempts WHERE id = ?", (attempt_id,)).fetchone())
 
 
 def _carried(paths, workbench_id: str) -> int:
@@ -55,18 +48,6 @@ def _carried(paths, workbench_id: str) -> int:
         carried, earlier = connection.execute(
             "SELECT carried_hints, earlier_opened_at FROM workbench_sessions WHERE id = ?", (workbench_id,)).fetchone()
         return int(carried) + (1 if earlier else 0)
-
-
-def _steps_sidecar(tmp_path):
-    paths, ctx, session = help_sidecar(tmp_path)
-    set_config(paths.root, {("algorithms", "algorithm_version"): ONE_ASK_ALGORITHM_VERSION})
-    ctx.load(paths.root)
-    return paths, ctx, session
-
-
-def _draft(ctx, session, item: str, key: str, **extra):
-    _call(ctx, "save_practice_draft", {"sessionId": session, "practiceItemId": item, "answerMd": WORK,
-                                       "hintsUsed": 0, "submissionId": key, **extra})
 
 
 def _into_steps(ctx, session, *, carried: int = 0, name_session: bool = True) -> str:

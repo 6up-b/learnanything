@@ -13,7 +13,7 @@ from typer.testing import CliRunner
 from learnloop.ai.execution import report_call_usage
 from learnloop.db.connection import connect
 from tests.helpers import begin_session, configure_codex_http, create_basic_vault, seed_due_item
-from tests.test_source_set_synthesis import FakeSynthesisClient, _setup
+from tests.source_set_synthesis_helpers import FakeSynthesisClient, _setup
 
 import pytest
 

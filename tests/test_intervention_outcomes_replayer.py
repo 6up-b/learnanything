@@ -1,7 +1,7 @@
 """S5 (§11.2, G13): the outcome join rebuilds deterministically from one replayer, with no model call."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 import pytest
 
@@ -11,21 +11,7 @@ from learnloop.instructional.interventions import record_need_served
 from learnloop.substrate.intervention_outcomes import outcome_for, rebuild_intervention_outcomes
 from learnloop.substrate.rebuild_orchestrator import derived_table_owners, rebuild_all_derived_state
 from tests.source_service_fakes import build_service_vault, loaded, table_counts
-
-T0 = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
-
-
-def _intervention(**extra):
-    return {"id": "rti_1", "created_at": T0.isoformat(), "session_id": "s1",
-            "assets": {"practice_item_ids": ["pi_eigen_1"]}, "targets": {"facets": ["facet_eigen"]}, **extra}
-
-
-def _attempt(attempt_id, at, **extra):
-    return {"id": attempt_id, "practice_item_id": "pi_eigen_1", "created_at": at.isoformat(), "session_id": "s1",
-            "correctness": 1.0, "rubric_score": 4, "error_type": None, "attempt_type": "independent_attempt",
-            "hints_used": 0, "primed": 0, "latency_seconds": 90.0, "declared_dont_know": 0,
-            "facets": {"facet_eigen"}, **extra}
-
+from tests.intervention_outcomes_replayer_helpers import T0, _attempt, _intervention
 
 def test_outcome_states(tmp_path):
     paths, _repository = build_service_vault(tmp_path / "vault")

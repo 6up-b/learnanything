@@ -29,7 +29,7 @@ from learnloop.attempts.attempts import (
     complete_self_graded_attempt,
 )
 from learnloop.clock import FrozenClock, utc_now_iso
-from tests.test_serve_eligibility import SUCCESSOR, _at_version, _basic, _one_cold_item_plan, _repair
+from tests.serve_eligibility_helpers import SUCCESSOR, _at_version, _basic, _one_cold_item_plan, _repair
 
 ITEM = "pi_svd_define_001"
 T0 = datetime(2026, 10, 12, 10, 0, 0, tzinfo=UTC)
@@ -188,7 +188,7 @@ def test_f2_a_non_persisting_read_withdraws_nothing(tmp_path):
 
 
 def _f3_setup(tmp_path):
-    from tests.test_remediation_cold_retry import NOW, _drive_to_cold_scheduled
+    from tests.remediation_cold_retry_helpers import NOW, _drive_to_cold_scheduled
 
     vault, repository, misconception_id = _repair(tmp_path)
     _episode, _primed, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
@@ -359,7 +359,7 @@ def test_f4_below_the_tag_or_switched_off_the_12_9_case_is_served_as_on_mvp_026(
 
     from learnloop.scheduling.scheduler import build_due_queue, cold_check_serve_decision
     from learnloop_sidecar.handlers.queue import revalidate_cold_check
-    from tests.test_remediation_cold_retry import NOW, _drive_to_cold_scheduled
+    from tests.remediation_cold_retry_helpers import NOW, _drive_to_cold_scheduled
 
     vault, repository, misconception_id = _repair(tmp_path, version, enabled=enabled)
     _episode, _primed, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
@@ -390,7 +390,7 @@ def test_f4_below_the_tag_or_switched_off_a_practised_cold_check_is_served(tmp_p
     after a practice attempt, as before."""
 
     from learnloop.scheduling.scheduler import build_due_queue
-    from tests.test_remediation_cold_retry import NOW, _drive_to_cold_scheduled
+    from tests.remediation_cold_retry_helpers import NOW, _drive_to_cold_scheduled
 
     vault, repository, misconception_id = _repair(tmp_path, version, enabled=enabled)
     _episode, _primed, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
@@ -409,7 +409,7 @@ def test_f4_below_the_tag_or_switched_off_a_practised_cold_check_is_served(tmp_p
 def test_f4_a_probe_of_an_item_submit_would_prime_is_refused_only_at_the_successor(tmp_path, version, enabled):
     from learnloop.diagnosis.probe_episodes import commit_item_presentation, enter_episode, episode_hypothesis_set
     from learnloop.vault.loader import load_vault
-    from tests.test_probe_orchestration_remainder import CLOCK, ITEM_ID, LO_ID, _setup
+    from tests.probe_orchestration_remainder_helpers import CLOCK, ITEM_ID, LO_ID, _setup
 
     root, loaded, repository = _setup(tmp_path)
     _at_version(root, version, enabled=enabled)
@@ -437,7 +437,7 @@ def test_f4_q33s_bounded_window_is_the_successors(tmp_path, version, enabled):
 
     from learnloop.goals.exam_seeding import seed_exam_attempts
     from learnloop.vault.loader import load_vault
-    from tests.test_exam_seeding import LIVE_NOW, _exam_vault, _outcomes
+    from tests.exam_seeding_helpers import LIVE_NOW, _exam_vault, _outcomes
 
     root, _loaded, repository = _exam_vault(tmp_path)
     _at_version(root, version, enabled=enabled)
@@ -498,7 +498,7 @@ def test_a_cold_check_on_a_direct_open_is_withdrawn_when_its_item_can_no_longer_
     from learnloop.attempts.attempts import AUTO_PRIME_REVEAL_THRESHOLD, reveal_total_for_submission
     from learnloop.attempts.reveal_ledger import record_reveal
     from learnloop_sidecar.registry import METHOD_REGISTRY
-    from tests.test_ux_phase4_feedback import _administration_receipts, _due_cold_task, _feedback_answer, _later
+    from tests.ux_phase4_feedback_helpers import _administration_receipts, _due_cold_task, _feedback_answer, _later
 
     ctx = successor_ctx
 

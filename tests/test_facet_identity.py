@@ -10,14 +10,12 @@ from __future__ import annotations
 import itertools
 import json
 import sqlite3
-from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 from learnloop.ai.spend import SpendCaps
-from learnloop.clock import FrozenClock
 from learnloop.content.facet_identity.actions import list_actions, normalized_entry, undo_action
 from learnloop.content.facet_identity.dedupe import plan_dedupe, run_dedupe
 from learnloop.content.facet_identity.grouping import FacetNode, neighbourhood_groups
@@ -38,55 +36,14 @@ from learnloop.content.facet_identity.plan import build_plan
 from learnloop.content.facet_identity.views import judge_view, union_payload
 from learnloop.content.synthesis.ai_contracts import SourceSetSynthesis, SynthFacet
 from learnloop.content.synthesis.synthesis_gates import facet_tokens, jaccard
-from learnloop.db.repositories import Repository
-from learnloop.vault.loader import add_subject, init_vault, load_vault
-from learnloop.vault.paths import VaultPaths
+from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
 from tests.facet_identity_fakes import FakeDecider, FakeFacetJudge, clusters_from_pairs, regression_data
 from tests.helpers import append_config_toml
-
-_CLOCK = FrozenClock(datetime(2026, 10, 12, 12, 0, 0, tzinfo=UTC))
-_NOW = "2026-10-12T12:00:00Z"
-
+from tests.facet_identity_helpers import _CLOCK, _regression_vault, _study_judge
 
 # --- helpers ------------------------------------------------------------------
-
-
-def _regression_vault(root: Path) -> tuple[Path, Repository, dict]:
-    """A fresh vault holding the study's 39 facets, their concepts and graph."""
-
-    data = regression_data()
-    init_vault(root, clock=_CLOCK)
-    add_subject(root, "vector-spaces", "Vector Spaces", clock=_CLOCK)
-    vault = load_vault(root)
-    paths = VaultPaths(vault.root, vault.config)
-    write_yaml(paths.concepts_path, {"schema_version": 1, "concepts": {
-        concept["id"]: {"title": concept["title"], "type": concept["type"], "aliases": [], "description": None,
-                        "tags": [], "created_at": _NOW, "updated_at": _NOW}
-        for concept in data["concepts"]
-    }})
-    write_yaml(paths.relations_path, {"schema_version": 1, "edges": [
-        {"id": f"edge_{index}", "relation_type": edge["relation_type"], "source": edge["source"],
-         "target": edge["target"], "strength": 1.0, "rationale": None, "created_at": _NOW, "updated_at": _NOW}
-        for index, edge in enumerate(data["edges"])
-    ]})
-    write_yaml(paths.facets_path, {"schema_version": 2, "facets": [
-        {**facet, "aliases": [], "status": "reviewed", "version": 1,
-         "provenance": {"origin": "sourceset_synthesis", "source_refs": []}}
-        for facet in data["facets"]
-    ]})
-    loaded = load_vault(root)
-    assert loaded.issues == []
-    return root, Repository(VaultPaths(loaded.root, loaded.config).sqlite_path), data
-
-
-def _study_judge(data: dict, **kwargs) -> FakeFacetJudge:
-    """A fake judge that merges exactly the study's merge-worthy clusters."""
-
-    claim_of = {facet["id"]: judge_view(facet)["claim"] for facet in data["facets"]}
-    clusters = [[claim_of[facet_id] for facet_id in cluster] for cluster in clusters_from_pairs(data["must_merge"])]
-    return FakeFacetJudge(clusters=clusters, **kwargs)
 
 
 def _ledger(sqlite_path: Path) -> list[sqlite3.Row]:
@@ -514,8 +471,8 @@ def test_an_undone_in_run_merge_stays_apart_when_the_run_is_planned_again(tmp_pa
     from learnloop.content.synthesis.ai_contracts import SourceSetSynthesis
     from learnloop.content.synthesis.source_set_synthesis import create_study_map
 
-    from tests.test_facet_identity_ingest import DEF_CLAIM, DUP_CLAIM, DUP_ID, _with_duplicate
-    from tests.test_source_set_synthesis import FakeSynthesisClient, _setup
+    from tests.facet_identity_ingest_helpers import DEF_CLAIM, DUP_CLAIM, DUP_ID, _with_duplicate
+    from tests.source_set_synthesis_helpers import FakeSynthesisClient, _setup
 
     root, repo = _setup(tmp_path, with_exam=False)
     judge = FakeFacetJudge(clusters=[[DEF_CLAIM, DUP_CLAIM]])

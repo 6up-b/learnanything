@@ -23,7 +23,7 @@ MODEL_WORDS = "matches the book's equation (checked)"
 
 def test_the_frame_and_the_python_labels_are_the_same_words():
     from learnloop.figures import labels as L
-    from tests.test_figure_label_wording import _frame
+    from tests.figure_label_wording_helpers import _frame
 
     frame = _frame("FigureInline.tsx", "FIGURE_FRAME")
     assert frame["bookChecked"] == L.BOOK_CHECKED_LABEL == MODEL_WORDS

@@ -5,8 +5,8 @@ from types import SimpleNamespace
 import pytest
 
 from learnloop_sidecar.handlers.knowledge_map import _facet_current_retentions, _facet_field
-from tests.test_graph_editor_reads import _blueprint_ctx, _call
-from tests.test_km3_projections import COMP_A, INTEG
+from tests.graph_editor_reads_helpers import _blueprint_ctx, _call
+from tests.km3_projections_helpers import COMP_A, INTEG
 
 
 def test_map_untested_rpc_and_demonstrated_readiness(tmp_path):

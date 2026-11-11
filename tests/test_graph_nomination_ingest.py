@@ -39,14 +39,15 @@ from learnloop.vault.writer import upsert_concept, upsert_facet
 
 from tests.embedding_fakes import BagOfWordsEmbedder, ExplodingFactory
 from tests.helpers import append_config_toml
-from tests.test_source_append import FakeAppendClient, _bootstrap_and_add
-from tests.test_source_set_synthesis import (
+from tests.source_append_helpers import FakeAppendClient, _bootstrap_and_add
+from tests.source_set_synthesis_helpers import (
     _CLOCK,
     FakeSynthesisClient,
     _distinct_title_builder,
     _setup,
     _setup_two_chapters,
 )
+from tests.graph_nomination_ingest_helpers import _backfill
 
 REGISTRY_ID = "concept_symmetric_registry"
 
@@ -69,14 +70,6 @@ def _enable(root: Path, *, nominations: bool = True) -> None:
         [facet_identity]
         enabled = false
     """)
-
-
-def _backfill(root: Path, embedder: BagOfWordsEmbedder, recipes: tuple[str, ...]) -> None:
-    report = backfill_embeddings(
-        load_vault(root), caps=SpendCaps(max_candidates=1000, max_total_tokens=10**7),
-        recipes=recipes, client_factory=lambda: embedder,
-    )
-    assert report["status"] == "complete", report
 
 
 def _registry_concept(root: Path, *, type_: str = "concept") -> None:

@@ -26,7 +26,7 @@ from tests.notes_fixtures import add_annotation
 from tests.reading_path_fixtures import call
 from tests.section_coverage_fixtures import hold_out
 from tests.teacher_fakes import TeacherFake, build_teacher_vault, clients, close_turn
-from tests.test_notes_linked import _deliverable
+from tests.notes_linked_helpers import _deliverable
 
 PASSAGE = "The eigenvalues of A are the roots of the characteristic equation det(A - tI) = 0."
 PASSAGE_WORDS = "roots of the characteristic equation"

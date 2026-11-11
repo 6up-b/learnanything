@@ -3,32 +3,16 @@ from __future__ import annotations
 from datetime import timedelta
 
 from learnloop.clock import FrozenClock
-from learnloop.db.repositories import MasteryState, Repository
+from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.diagnosis.followups import (
     evaluate_intervention_followup,
     evaluate_negative_surprise_followup,
 )
 from learnloop.scheduling.scheduler import build_due_queue
-from learnloop.vault.loader import load_vault
 
-from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, add_followup_item, create_basic_vault
-
-
-def _surprising_attempt(vault_root, repository):
-    loaded = load_vault(vault_root)
-    # Seed a confident prior so a wrong answer produces strong negative surprise.
-    repository.upsert_mastery_state(
-        MasteryState("lo_svd_definition", 2.0, 1.0, 3, NOW_ISO, ALGORITHM_VERSION, NOW_ISO)
-    )
-    result = complete_self_graded_attempt(
-        loaded,
-        repository,
-        AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="x"),
-        SelfGradeInput(criterion_points={"correctness": 1}, confidence=4, error_type="conceptual_slip"),
-        clock=FrozenClock(NOW),
-    )
-    return loaded, result
+from tests.helpers import NOW, add_followup_item, create_basic_vault
+from tests.followups_helpers import _surprising_attempt
 
 
 def _evaluate(loaded, repository, result, *, available_minutes=30):

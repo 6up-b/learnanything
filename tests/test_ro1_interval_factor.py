@@ -19,49 +19,17 @@ from learnloop.algorithm_versions import (
 )
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock, parse_utc
-from learnloop.db.repositories import Repository
 from learnloop.router_objective_switches import interval_factor_removed
 from learnloop.scheduling.fsrs import interval_for_retention
 from learnloop.params.fitted_params import resolve_fsrs_weights
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, create_placement_vault
+from tests.helpers import NOW
+from tests.ro1_interval_factor_helpers import _due, _play, _vault
 
 TAG = INTERVAL_FACTOR_ALGORITHM_VERSION
 PREDECESSOR = FOLLOWUP_SERVE_ALGORITHM_VERSION
 OFF = "[scheduler.surprise]\nremove_interval_factor = false\n"
-
-#: (item, points): a hard item answered right (positive surprise, factor > 1) and an easy one answered
-#: badly (negative surprise, factor < 1), then the hard one again a few days later.
-HISTORY = (("pi_eig_hard", 4, 0), ("pi_eig_easy", 1, 0), ("pi_eig_hard", 4, 3))
-
-
-def _vault(tmp_path, version: str, toml: str | None = None):
-    paths = create_placement_vault(tmp_path, version=version, placement_toml=toml)
-    return paths, Repository(paths.sqlite_path)
-
-
-def _play(paths, repository):
-    """The history, returning per attempt (attempt id, item, observed_at, state, surprise row)."""
-
-    out = []
-    for index, (item_id, points, day) in enumerate(HISTORY):
-        observed = NOW + timedelta(days=day, minutes=index)
-        result = complete_self_graded_attempt(
-            load_vault(paths.root),
-            repository,
-            AttemptDraft(practice_item_id=item_id, learner_answer_md="An answer."),
-            SelfGradeInput(criterion_points={"correctness": points}, confidence=4),
-            clock=FrozenClock(observed),
-        )
-        state = repository.practice_item_state(item_id)
-        out.append((result.attempt_id, item_id, observed, state, repository.latest_attempt_surprise(result.attempt_id)))
-    return out
-
-
-def _due(observed, days: float) -> str:
-    return (observed + timedelta(days=days)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
 
 def test_the_gate_is_the_tag_and_the_switch(tmp_path):
     assert TAG == "mvp-0.46" and TAG in INTERVAL_FACTOR_VERSIONS and PREDECESSOR not in INTERVAL_FACTOR_VERSIONS

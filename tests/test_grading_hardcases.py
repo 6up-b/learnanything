@@ -30,40 +30,11 @@ from learnloop.diagnosis.grading_hardcases import (
     run_hardcases,
     write_report,
 )
-from learnloop.vault.loader import load_vault
 
-from tests.diagnosis_fakes import ReviewFakeClient
-from tests.helpers import create_basic_vault
+from tests.grading_hardcases_helpers import JudgeFake, _vault
 
 CAPS = SpendCaps(max_candidates=0, max_pairs=0, max_retries=2, max_calls=500,
                  max_total_tokens=5_000_000, max_estimated_usd=3.0)
-OPENROUTER = (
-    '[ai.providers.haiku]\ntype = "openrouter"\nmodel = "anthropic/claude-haiku-5.5"\n'
-    'api_key_env = "OPENROUTER_API_KEY"\nresponse_format = "json_schema"\n'
-)
-
-
-class JudgeFake(ReviewFakeClient):
-    """A grader that grades every criterion one way: ``generous`` gives full
-    credit; ``strict`` marks everything down without locating an error."""
-
-    def __init__(self, mode, **kwargs):
-        super().__init__(model=f"{mode}-model", **kwargs)
-        self.mode = mode
-
-    def _pf_hardcase_grader(self, request, context):
-        criteria = context["rubric"]["criteria"]
-        full = self.mode == "generous"
-        return request.result_model.model_validate({
-            "local_analysis_md": "fake", "attempt_id": context["attempt_id"],
-            "practice_item_id": context["practice_item_id"],
-            "criterion_evidence": [
-                {"criterion_id": c["id"], "points_awarded": float(c["points"]) if full else 0.0, "evidence": "fake"}
-                for c in criteria
-            ],
-            "rubric_score": int(sum(c["points"] for c in criteria)) if full else 0,
-            "grader_confidence": 0.8,
-        })
 
 
 def test_the_tracked_gold_set_is_valid_and_covers_every_cell():
@@ -130,13 +101,6 @@ def test_outcomes_name_both_errors_and_the_unassessed_middle():
     assert judge_outcome(flawed, flawed_full) == "wrong_acceptance"
     assert judge_outcome(flawed, {**flawed_full, flawed.failing[0]: "short"}) == "caught"
     assert judge_outcome(flawed, {**flawed_full, flawed.failing[0]: "unassessed"}) == "unassessed"
-
-
-def _vault(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    config = paths.root / "learnloop.toml"
-    config.write_text(config.read_text(encoding="utf-8") + "\n" + OPENROUTER, encoding="utf-8")
-    return load_vault(paths.root, load_environment=False)
 
 
 def test_a_dry_run_plans_the_grader_and_builds_no_client(tmp_path, monkeypatch):

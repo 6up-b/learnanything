@@ -28,8 +28,8 @@ from tests.daily_plan_fakes import record_attempt, scheduled
 from tests.helpers import NOW, append_config_toml, create_basic_vault, seed_due_item, set_algorithm_version
 from tests.router_mixture_helpers import mixture_env
 from tests.router_model_fakes import fake_runtime
-from tests.test_daily_plan_build import _wide_items
-from tests.test_question_context import FakeTutorClient
+from tests.daily_plan_build_helpers import _wide_items
+from tests.question_context_helpers import FakeTutorClient
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 PLAN_OFF = "[plan]\nenabled = false\n"
@@ -193,7 +193,7 @@ def test_f3_the_staged_bridge_hands_its_decision_the_ad_reader(tmp_path):
     from learnloop.curriculum import golden_path_run as GPR
     from learnloop_sidecar.context import SidecarContext
     from tests.helpers import _set_algorithm_version_at
-    from tests.test_router_staged_p2 import _run
+    from tests.router_staged_p2_helpers import _run
 
     repository, receipt, vault = _run(tmp_path)
     _set_algorithm_version_at(vault.root, ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
@@ -209,7 +209,7 @@ def test_f3_the_staged_bridge_hands_its_decision_the_ad_reader(tmp_path):
 
 def test_f3_a_lesson_suggestion_keeps_its_ad_numbers_read_before_its_transaction(tmp_path, monkeypatch):
     from learnloop.router import lesson_suggestions as LS
-    from tests.test_teacher_te1b_suggestions import _clock, _decisions, _suggestion, _vault
+    from tests.teacher_te1b_suggestions_helpers import _clock, _decisions, _suggestion, _vault
 
     monkeypatch.setattr(LS, "_uniforms", lambda seed: (0.5, 0.0, 0.0))
     paths, repository = _vault(tmp_path)
@@ -224,7 +224,7 @@ def test_f3_a_lesson_suggestion_keeps_its_ad_numbers_read_before_its_transaction
 
 
 def _fg1(tmp_path):
-    from tests.test_followup_router import _decide, _env, _workflow
+    from tests.followup_router_helpers import _decide, _env, _workflow
 
     env, record = _env(tmp_path, fake_runtime())
     row = _workflow(env)
@@ -438,7 +438,7 @@ def _exposures(repository, where=""):
 
 def test_f7_a_from_your_books_excerpt_names_its_initiator(tmp_path, monkeypatch):
     from tests.reader_tutor_fakes import LookupTutor, ask, reader_ctx
-    from tests.test_reader_tutor_retrieval import _quote_of
+    from tests.reader_tutor_retrieval_helpers import _quote_of
 
     tutor = LookupTutor(excerpt=_quote_of(("ext_book", "s7")))
     _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
@@ -449,7 +449,7 @@ def test_f7_a_from_your_books_excerpt_names_its_initiator(tmp_path, monkeypatch)
 
 
 def test_f7_the_book_beside_a_problem_names_its_initiator(tmp_path):
-    from tests.test_reader_workbench_rw2a import _call, _context, _open, _vault
+    from tests.reader_workbench_rw2a_helpers import _call, _context, _open, _vault
 
     paths, repository = _vault(tmp_path)
     ctx = _context(paths.root)
@@ -479,7 +479,7 @@ def test_f7_the_book_beside_a_problem_names_its_initiator(tmp_path):
 
 def test_f7_the_exercise_list_names_its_initiator(tmp_path):
     from tests.library_ask_fixtures import build_library_vault, context, set_config
-    from tests.test_library_exercises import QUERY, call
+    from tests.library_exercises_helpers import QUERY, call
 
     paths, repository, _spans = build_library_vault(tmp_path)
     set_config(paths, "library_exercises", fallback_enabled=True)
@@ -491,7 +491,7 @@ def test_f7_the_exercise_list_names_its_initiator(tmp_path):
 
 
 def test_f7_off_the_new_paths_write_none_of_it(tmp_path):
-    from tests.test_reader_workbench_rw2a import _call, _context, _open, _vault
+    from tests.reader_workbench_rw2a_helpers import _call, _context, _open, _vault
 
     paths, repository = _vault(tmp_path, config="[router_objective]\nreceipts = false\n")
     ctx = _context(paths.root)

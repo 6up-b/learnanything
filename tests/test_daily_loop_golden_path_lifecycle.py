@@ -17,7 +17,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.test_sidecar_golden_path_assessment import _call, _setup_run
+from tests.sidecar_golden_path_assessment_helpers import _call, _setup_run
 
 LO_ID = "lo_svd_definition"
 

@@ -15,24 +15,23 @@ upgrade, any other is handed to the claim fixes'.
 
 from __future__ import annotations
 
-import json
 import multiprocessing
 import os
 
 import pytest
 
-from learnloop.algorithm_versions import CLAIM_FIXES_ALGORITHM_VERSION, REPLAY_LEDGER_ALGORITHM_VERSION
 from learnloop.db.repositories import Repository
-from learnloop.ops.vault_upgrade import rewrite_algorithm_version
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 
-from tests.test_rebuild_equivalence import _mastery
-from tests.test_rebuild_equivalence_review import _rebuilt, _two_attempt_history
-
-TAG = REPLAY_LEDGER_ALGORITHM_VERSION
-PREDECESSOR = CLAIM_FIXES_ALGORITHM_VERSION
-
+from tests.rebuild_equivalence_helpers import _mastery
+from tests.rbeq_pr2_landing_helpers import (
+    PREDECESSOR,
+    TAG,
+    _interrupted,
+    _journal,
+    _predecessor_with_old_replay,
+)
 
 @pytest.fixture(autouse=True)
 def _cli_process(monkeypatch):
@@ -42,30 +41,6 @@ def _cli_process(monkeypatch):
     from learnloop.cli.runtime import _complete_interrupted_activation
 
     monkeypatch.setattr(activation_journal, "_COMPLETER", _complete_interrupted_activation)
-
-
-def _journal(paths):
-    return paths.sqlite_path.with_name(paths.sqlite_path.name + ".claim-fixes-activation")
-
-
-def _predecessor_with_old_replay(tmp_path, name):
-    """A predecessor vault whose last rebuild left the predecessor's replay
-    (which differs from live on this history), and the live mastery."""
-
-    paths, vault, repository = _two_attempt_history(tmp_path, name, version=PREDECESSOR)
-    live = _mastery(repository)
-    assert _rebuilt(vault, repository) != live
-    return paths, live
-
-
-def _interrupted(tmp_path, name):
-    """The three facts a death between the publication and the commit leaves:
-    the tag's label, the predecessor's database, and the journal naming both."""
-
-    paths, live = _predecessor_with_old_replay(tmp_path, name)
-    _journal(paths).write_text(json.dumps({"predecessor": PREDECESSOR, "target": TAG}), encoding="utf-8")
-    rewrite_algorithm_version(paths.root / "learnloop.toml", PREDECESSOR, TAG, durable=True)
-    return paths, live
 
 
 def _die_after_publication(root):
@@ -215,7 +190,7 @@ def test_a_claim_fixes_journal_is_handed_to_its_own_upgrade_then_the_tag_activat
     to the claim fixes' completion, and the upgrade then activates mvp-0.34."""
 
     from learnloop.replay_ledger_upgrade import complete_interrupted_activation, upgrade_to_replay_ledger
-    from tests.test_lp_claim_fixes_rereview import _interrupted as claim_fixes_interrupted
+    from tests.lp_claim_fixes_rereview_helpers import _interrupted as claim_fixes_interrupted
 
     paths = claim_fixes_interrupted(tmp_path, "lp")
     assert load_vault(paths.root).config.algorithms.algorithm_version == PREDECESSOR

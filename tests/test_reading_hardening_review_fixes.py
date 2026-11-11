@@ -26,7 +26,7 @@ from learnloop.content.pipeline import add_source as core
 from learnloop.content.pipeline.jobs import DurableIngestJobs
 from learnloop.db.repositories import Repository
 
-from tests.test_reading_request_sweep import (
+from tests.reading_request_sweep_helpers import (
     ScriptedClock,
     _background,
     _deferred_behind_a_queued_build,
@@ -37,8 +37,8 @@ from tests.test_reading_request_sweep import (
     _planners,
     _wait_for,
 )
-from tests.test_ux_phase1_add_source import call
-from tests.test_ux_phase1_round2_review import _added_book
+from tests.ux_phase1_add_source_helpers import call
+from tests.ux_phase1_round2_review_helpers import _added_book
 from tests.ux_phase1_support import CLOCK, fake_services
 
 

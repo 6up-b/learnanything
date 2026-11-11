@@ -25,7 +25,7 @@ from learnloop.content.authoring.practice_leakage import (
 from learnloop.content.synthesis.source_set_synthesis import create_study_map
 from learnloop.vault.loader import load_vault
 
-from tests.test_source_set_synthesis import FakeSynthesisClient, _EXAM_QUESTION_WORDING, _setup
+from tests.source_set_synthesis_helpers import FakeSynthesisClient, _EXAM_QUESTION_WORDING, _setup
 
 _CLOCK = FrozenClock(datetime(2026, 7, 14, 12, 0, 0, tzinfo=UTC))
 _LO_ID = "lo_diagonalize_symmetric"

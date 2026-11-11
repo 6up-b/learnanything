@@ -30,36 +30,18 @@ import pytest
 
 from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, INTERVAL_FACTOR_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
-from learnloop.goals.exam_seeding import seed_exam_attempts
-from learnloop.vault.loader import load_vault
-from learnloop.vault.paths import VaultPaths
 
-from tests.helpers import append_config_toml, set_algorithm_version
-from tests.test_exam_seeding import EXAM_DATE, _exam_vault, _outcomes
+from tests.exam_seeding_helpers import EXAM_DATE
+from tests.ro1_availability_reads_helpers import AFTER, CUTOFF, LO, _seeded
 
 TAG = INTERVAL_FACTOR_ALGORITHM_VERSION
 PREDECESSOR = FOLLOWUP_SERVE_ALGORITHM_VERSION
-#: Codex's reproduction: the exam happened on May 1 and was imported on May 19 ...
-IMPORTED_AT = datetime(2026, 5, 19, 15, 30, 7, tzinfo=UTC)
-#: ... and a decision on May 5 could not have known it.
-CUTOFF = "2026-05-05T09:00:00Z"
-AFTER = "2026-05-20T00:00:00Z"
 OFF = "[router_objective]\navailable_at_reads = false\n"
 GATES = pytest.mark.parametrize("version, toml, sees_exam", [
     (TAG, None, False),
     (TAG, OFF, True),
     (PREDECESSOR, None, True),
 ], ids=["tag", "off", "below"])
-LO = "lo_svd_definition"
-
-
-def _seeded(tmp_path, version: str, toml: str | None):
-    vault_root, _loaded, repository = _exam_vault(tmp_path)
-    set_algorithm_version(VaultPaths(vault_root, load_vault(vault_root).config), version)
-    if toml:
-        append_config_toml(vault_root, toml)
-    seed_exam_attempts(load_vault(vault_root), repository, outcomes=_outcomes(), clock=FrozenClock(IMPORTED_AT))
-    return load_vault(vault_root), repository
 
 
 # -- the adaptive-difficulty frozen history card (adaptive_difficulty/outside.py) -----------------------

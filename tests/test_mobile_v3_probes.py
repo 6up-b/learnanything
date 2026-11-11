@@ -28,84 +28,21 @@ from types import SimpleNamespace
 
 import pytest
 
-from learnloop.algorithm_versions import LESSON_OFFERS_ALGORITHM_VERSION, PHONE_PROBES_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LESSON_OFFERS_ALGORITHM_VERSION
 from learnloop.diagnosis.split.jobs import drain
 from learnloop.followup_run.serving import PHONE_HANDOFF_LINE, is_holding
 from learnloop.followup_serve import identity, workflow as wf
 from learnloop.followup_serve.gates import PHONE_SURFACE, SERVING_SURFACE
 from learnloop_sidecar import handlers  # noqa: F401 - registers the methods
 from learnloop_sidecar.context import SidecarContext
-from learnloop_sidecar.errors import SidecarError
-from learnloop_sidecar.registry import METHOD_REGISTRY
 from learnloop_sidecar.request_origin import RequestOrigin
 
-from tests.followup_serve_helpers import LIVE_ITEM, BlindRivalClient, live_shape_vault
-from tests.test_followup_rival_factor import _Ready, _generate
-from tests.test_mobile_v2_plan import plan_world  # noqa: F401 - fixture
+from tests.mobile_v2_plan_helpers import plan_world  # noqa: F401 - fixture
+from tests.mobile_v3_probes_helpers import PHONE, TAG, _adopt, _call, _ready, _refused, _world
+from tests.mobile_v3_probes_helpers import world  # noqa: F401 - fixtures, used by parameter name
 
-TAG = PHONE_PROBES_ALGORITHM_VERSION
-PHONE = RequestOrigin(device_id="dev_phone", phone_probes=True)
 #: The phone as V2 was, and as the host makes it with ``phone_probes = false``.
 V2_PHONE = RequestOrigin(device_id="dev_phone")
-
-
-def _call(ctx, name, params, origin=None):
-    spec = METHOD_REGISTRY[name]
-    with ctx.acting_as(origin):
-        return spec.handler(ctx, spec.params_model.model_validate(params))
-
-
-def _refused(ctx, name, params, origin, code):
-    with pytest.raises(SidecarError) as caught:
-        _call(ctx, name, params, origin)
-    assert caught.value.code == code, caught.value
-    return caught.value
-
-
-def _world(tmp_path, monkeypatch, *, version: str = TAG, owner=PHONE):
-    paths, _vault, _repository = live_shape_vault(tmp_path, version=version)
-    ctx = SidecarContext()
-    ctx.load(paths.root)
-    ctx.post_attempt_worker.autostart = False
-    client = BlindRivalClient()
-    monkeypatch.setattr("learnloop_sidecar.handlers.practice.ready_grading_provider",
-                        lambda *_a, **_k: ("fake", _Ready(), client))
-    session = _call(ctx, "start_session", {"availableMinutes": 30}, owner)["sessionId"]
-    return SimpleNamespace(ctx=ctx, client=client, session=session, paths=paths)
-
-
-@pytest.fixture
-def world(tmp_path, monkeypatch):
-    return _world(tmp_path, monkeypatch)
-
-
-def _miss(world, origin) -> str:
-    vault, repository = world.ctx.require_vault()
-    result = _call(world.ctx, "submit_attempt", {
-        "sessionId": world.session, "practiceItemId": LIVE_ITEM, "answerMd": "A = U Sigma V wrong",
-        "attemptType": "independent_attempt", "latencySeconds": 60,
-    }, origin)
-    attempt_id = result["attemptId"]
-    drain(vault, repository, client_factory=lambda: world.client, embedding_factory=lambda: None)
-    return attempt_id
-
-
-def _ready(world, origin):
-    """A miss on ``origin``'s device with two rival causes, its question generated and ready."""
-
-    attempt_id = _miss(world, origin)
-    _generate(world)
-    world.ctx.reload(maintenance=False)
-    _vault, repository = world.ctx.require_vault()
-    row = wf.attempt_workflow(repository, attempt_id)
-    assert row["state"] == wf.READY and row["practice_item_id"], row
-    return attempt_id, row, repository
-
-
-def _adopt(world, origin):
-    _vault, repository = world.ctx.require_vault()
-    generation = int(repository.fetch_session(world.session).get("owner_generation") or 0)
-    _call(world.ctx, "adopt_session", {"sessionId": world.session, "expectedGeneration": generation}, origin)
 
 
 def _answer(world, item_id: str, presentation_id: str, origin):
@@ -375,7 +312,7 @@ def test_g10_at_the_cap_the_phones_next_admission_is_refused(tmp_path, monkeypat
     first = _call(ctx, "get_probe_contract", {"practiceItemId": "pi_svd_define_001", "sessionId": session_id}, PHONE)
     assert first["active"] is True, first
     # The phone's answer qualifies (recorded as the probe redesign's own tests record one, on this session).
-    from tests.test_probe_orchestration_remainder import _submit
+    from tests.probe_orchestration_remainder_helpers import _submit
 
     vault, _ = ctx.require_vault()
     _submit(vault, repository, score=4, attempt_type="diagnostic_probe", presentation_id=first["presentationId"],
@@ -394,7 +331,7 @@ def test_the_desktops_serving_next_moves_past_a_probe_the_phone_served_and_aband
     refuses it, so its Next must not be stranded on it. It is abandoned (closed, what it held released) and the plan's
     reconcile displaces it; the desktop's step is the next one."""
 
-    from tests.test_mobile_v2_plan import _call as desktop_call, _desktop, _next
+    from tests.mobile_v2_plan_helpers import _call as desktop_call, _desktop, _next
 
     phone, _host, repository, paths = plan_world
     session_id = phone.start()["sessionId"]
@@ -416,7 +353,7 @@ def test_the_desktops_serving_next_moves_past_a_probe_the_phone_served_and_aband
 
 
 def test_a_desktop_serving_next_with_no_phone_burn_abandons_nothing(plan_world):
-    from tests.test_mobile_v2_plan import _call as desktop_call, _desktop
+    from tests.mobile_v2_plan_helpers import _call as desktop_call, _desktop
 
     _phone, _host, repository, paths = plan_world
     ctx = _desktop(paths.root)

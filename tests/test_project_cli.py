@@ -27,7 +27,7 @@ from tests.project_support import (
     make_model_repo,
     project_fake,  # noqa: F401
 )
-from tests.test_project_redaction import AWS_KEY, ENV_SECRET, GITHUB_TOKEN, OPENAI_KEY, _hunk_header_secret_repo
+from tests.project_redaction_helpers import AWS_KEY, ENV_SECRET, GITHUB_TOKEN, OPENAI_KEY, _hunk_header_secret_repo
 
 runner = CliRunner()
 

@@ -274,7 +274,7 @@ def test_an_async_hints_receipts_and_records_share_the_requests_trace(tmp_path: 
     from contextlib import closing
 
     from tests.hint_fakes import WriterFake
-    from tests.test_hint_h2a_review import _request, _sidecar
+    from tests.hint_h2a_review_helpers import _request, _sidecar
 
     paths, ctx, session = _sidecar(tmp_path)
     with closing(sqlite3.connect(paths.sqlite_path)) as connection:

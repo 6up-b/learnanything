@@ -12,7 +12,7 @@ from learnloop.vault.loader import load_vault
 from tests.helpers import set_algorithm_version
 from tests.reading_path_fixtures import call
 from tests.teacher_fakes import TeacherFake, clients
-from tests.test_notes_linked import _deliverable
+from tests.notes_linked_helpers import _deliverable
 from tests.ux_phase1_support import set_config
 
 

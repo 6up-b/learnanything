@@ -64,7 +64,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, NOW_ISO, add_followup_item, create_basic_vault
-from tests.test_km2_write_path import SELECT, SHARED, _attempt, build_mvp07_vault
+from tests.km2_write_path_helpers import SELECT, SHARED, _attempt, build_mvp07_vault
 
 FACTORIZATION_REF = {
     "kind": "facet_capability",

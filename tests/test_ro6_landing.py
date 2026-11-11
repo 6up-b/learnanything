@@ -32,7 +32,7 @@ from learnloop.router_objective import stop_coin as SC
 from learnloop.router_objective import tail_data as TD
 from learnloop.router_objective import tail_serve as TS
 
-from tests.test_ro6_codex_review import (CFG, FAR, STOP, _logged, _quiet, _row, _trace, _value_actions,  # noqa: F401
+from tests.ro6_codex_review_helpers import (CFG, FAR, STOP, _logged, _quiet, _row, _trace, _value_actions,  # noqa: F401
                                          _value_inputs, utc)
 
 RATE = 0.05
@@ -282,7 +282,7 @@ def test_r7_a_served_decision_freezes_its_support_and_the_measurable_tail(tmp_pa
 
     from tests.router_mixture_helpers import mixture_env, run
     from tests.router_model_fakes import FakeLLM, fake_runtime
-    from tests.test_ro4_objective_serving import policy_answer
+    from tests.ro4_objective_serving_helpers import policy_answer
 
     env = mixture_env(tmp_path, fake_runtime(llm=FakeLLM(answer=policy_answer)),
                       version=ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
@@ -512,7 +512,7 @@ def test_r2_a_served_decision_logs_its_objective_under_the_generator_it_served(t
 
     from tests.router_mixture_helpers import mixture_env, run
     from tests.router_model_fakes import FakeLLM, fake_runtime
-    from tests.test_ro4_objective_serving import policy_answer
+    from tests.ro4_objective_serving_helpers import policy_answer
 
     env = mixture_env(tmp_path, fake_runtime(llm=FakeLLM(answer=policy_answer)),
                       version=ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
@@ -604,7 +604,7 @@ def test_r12_with_the_carried_evaluation_blocked_the_choosers_wait_returns(tmp_p
     from tests.daily_plan_fakes import record_attempt
     from tests.router_mixture_helpers import mixture_env
     from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
-    from tests.test_ro4_objective_serving import policy_answer
+    from tests.ro4_objective_serving_helpers import policy_answer
 
     gate, reached = threading.Event(), threading.Event()
     real = OC.V.evaluate

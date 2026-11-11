@@ -2,37 +2,17 @@
 
 from __future__ import annotations
 
-from tests.structured_ai import StructuredClientFake
-
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.tutor.ai_contracts import TutorAnswer
 from learnloop.db.repositories import Repository
 from learnloop.tutor.question_signal import _apply_question_channels, apply_question_observation
 from learnloop.tutor.tutor_qa import ask_question
 from learnloop.vault.loader import load_vault
 from tests.helpers import NOW, create_basic_vault
+from tests.question_context_helpers import FakeTutorClient
 
 CLOCK = FrozenClock(NOW)
-
-
-class FakeTutorClient(StructuredClientFake):
-    provider_name = "fake_tutor"
-    provider_type = "fake"
-    model = "fake-model"
-
-    def __init__(self, *, question_channel="epistemic", question_type="mechanism"):
-        self.question_channel = question_channel
-        self.question_type = question_type
-
-    def run_tutor_qa(self, context):
-        return TutorAnswer(
-            answer_md="Think about the factor shapes.",
-            question_type=self.question_type,
-            facets=list(context.candidate_facets),
-            question_channel=self.question_channel,
-        )
 
 
 def _setup(tmp_path):

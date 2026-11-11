@@ -39,8 +39,8 @@ from learnloop.vault.paths import VaultPaths
 
 from tests.diagnosis_split_helpers import blind_record
 from tests.helpers import NOW, append_config_toml, set_algorithm_version
-from tests.test_ro1_interval_factor import HISTORY, _due, _play, _vault
-from tests.test_ro1_self_report import picked  # noqa: F401 - the module fixture
+from tests.ro1_interval_factor_helpers import HISTORY, _due, _play, _vault
+from tests.ro1_self_report_helpers import picked  # noqa: F401 - the module fixture
 
 TAG = INTERVAL_FACTOR_ALGORITHM_VERSION
 PREDECESSOR = FOLLOWUP_SERVE_ALGORITHM_VERSION
@@ -264,7 +264,7 @@ def test_the_diagnosers_context_is_the_predecessors_below_the_tag_and_switched_o
 
 
 def test_availability_moves_no_due_date_or_mastery(tmp_path):
-    from tests.test_exam_seeding import _exam_vault, _outcomes
+    from tests.exam_seeding_helpers import _exam_vault, _outcomes
 
     results = {}
     for name, version, toml in (("tag", TAG, None), ("off", TAG, _toml({"available_at"})),

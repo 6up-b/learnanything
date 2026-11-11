@@ -30,7 +30,7 @@ from tests.recap_fixtures import (
     EXT, T0, ask, call, close_visit, context, interaction_rows, iso, open_visit, problem, resolve,
     still_unclear, table_counts, visit,
 )
-from tests.test_reader_dialogue import _setup
+from tests.reader_dialogue_helpers import _setup
 
 
 def _now(minutes: float):

@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from tests.library_ask_fixtures import build_library_vault, call, context, set_config
+from tests.figures_switch_off_helpers import _switch
 
 GOLDEN = Path(__file__).parent / "fixtures" / "figures_switch_off.json"
 WRITE = os.environ.get("RW5A_WRITE_GOLDEN") == "1"
@@ -134,7 +135,7 @@ def _report(tmp_path: Path, *, figures: bool | None) -> dict:
 
     from learnloop.reader.reader_report import build_reader_report
     from tests.helpers import NOW
-    from tests.test_reader_report import _seed
+    from tests.reader_report_helpers import _seed
 
     _vault, repo, _old = _seed(tmp_path)
     if figures is None:  # the base tree: no figure tables, no switch
@@ -171,7 +172,7 @@ def test_the_report_cli_follows_the_switch(tmp_path):
     from typer.testing import CliRunner
 
     from learnloop.cli import app
-    from tests.test_reader_report import _seed
+    from tests.reader_report_helpers import _seed
 
     if WRITE:
         pytest.skip("the golden is written by the switch-off case")
@@ -206,23 +207,6 @@ def _flip(root: Path) -> None:
 BACKLOG_GOLDEN = Path(__file__).parent / "fixtures" / "figures_switch_off_backlog.json"
 
 
-def _switch(root: Path, section: str, enabled: bool) -> None:
-    import re
-
-    config = root / "learnloop.toml"
-    text = config.read_text(encoding="utf-8")
-    value = "true" if enabled else "false"
-    found = re.search(rf"(?ms)^\[{section}\]\n(.*?)(?=^\[|\Z)", text)
-    if found is None:
-        text = text.rstrip("\n") + f"\n\n[{section}]\nenabled = {value}\n"
-    elif re.search(r"(?m)^enabled = ", found.group(1)):
-        body = re.sub(r"(?m)^enabled = \w+", f"enabled = {value}", found.group(1), count=1)
-        text = text[:found.start(1)] + body + text[found.end(1):]
-    else:
-        text = text[:found.start(1)] + f"enabled = {value}\n" + text[found.start(1):]
-    config.write_text(text, encoding="utf-8")
-
-
 def _backlog_dry_run(root: Path) -> dict:
     from typer.testing import CliRunner
 
@@ -238,7 +222,7 @@ def test_figures_off_backlog_dry_run_is_the_base_output(tmp_path):
     also holds an unread missed prediction with its explanation (no job), which figures off never sees.
     Plan-first transport T1 re-recorded only the route names (codex_* tiers -> chatgpt_* tiers)."""
 
-    from tests.test_reader_report import _seed
+    from tests.reader_report_helpers import _seed
 
     vault, repo, _old = _seed(tmp_path)
     if WRITE:
@@ -256,7 +240,7 @@ def test_figures_off_backlog_dry_run_is_the_base_output(tmp_path):
 def test_figures_off_queues_and_reads_no_figure_text(tmp_path):
     from learnloop.diagnosis.text_gaps import jobs as gap_jobs
     from learnloop.vault.loader import load_vault
-    from tests.test_figures_codex_review import _clients, _missed_prediction
+    from tests.figures_codex_review_helpers import _clients, _missed_prediction
 
     if WRITE:
         pytest.skip("the golden is written by the switch-off case")
@@ -324,7 +308,7 @@ def test_an_already_queued_figure_job_with_figures_off_is_the_base_output(tmp_pa
     route names (codex_* tiers -> chatgpt_* tiers)."""
 
     from learnloop.diagnosis.text_gaps.jobs import enqueue
-    from tests.test_reader_report import _seed
+    from tests.reader_report_helpers import _seed
 
     vault, repo, _old = _seed(tmp_path)
     enqueue(repo, source_kind="reader_formative", source_id="fpr_off")

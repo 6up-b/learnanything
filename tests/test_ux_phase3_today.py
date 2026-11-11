@@ -12,8 +12,8 @@ import pytest
 
 from learnloop_sidecar.errors import SidecarError
 
-from tests.test_reader_inquiry_status import table_counts
-from tests.test_reader_workbench_rw2a import (  # noqa: F401 - grader is a fixture
+from tests.reader_inquiry_status_helpers import table_counts
+from tests.reader_workbench_rw2a_helpers import (  # noqa: F401 - grader is a fixture
     EXTRACTION,
     OTHER_ITEM,
     _call,
@@ -32,7 +32,7 @@ def _readings(repository) -> None:
     those passages. Sources are still mapped by the fixture below."""
 
     from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
-    from tests.test_source_inventory import _persist
+    from tests.source_inventory_helpers import _persist
 
     def reading(extraction_id: str, source_id: str, revision_id: str, spans: list[str]) -> None:
         with repository.connection() as connection:

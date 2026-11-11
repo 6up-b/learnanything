@@ -11,7 +11,7 @@ import sqlite3
 
 import learnloop_sidecar.handlers.practice as practice_handler
 from tests.hint_fakes import ITEM, WORK, ChooserFake, prefer
-from tests.test_hint_h2b_review import grader  # noqa: F401 - the blind grader fixture
+from tests.hint_h2b_review_helpers import grader  # noqa: F401 - the blind grader fixture
 from tests.workbench_help_fakes import FUNCTION_FREE_PROMPT, call, help_rows, open_problem, run_job, sidecar
 
 
@@ -101,7 +101,7 @@ def test_f15_a_partly_correct_workbench_attempt_with_a_mapped_hint_starts_no_out
     from learnloop.db.repositories import Repository
     from learnloop.hints import outcome
     from learnloop.vault.loader import load_vault
-    from tests.test_hint_outcome import OutcomeFake
+    from tests.hint_outcome_helpers import OutcomeFake
 
     paths, ctx, session = sidecar(tmp_path, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
     wb, _chains = open_problem(ctx)

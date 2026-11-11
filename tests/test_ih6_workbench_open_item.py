@@ -29,7 +29,7 @@ from tests.daily_plan_fakes import iso, record_attempt
 from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version
 from tests.router_mixture_helpers import mixture_env, payloads, rows
 from tests.router_model_fakes import FakeDecider, FakeLLM, block_drawing_seed, fake_runtime
-from tests.test_ih2_lessons_compete import (
+from tests.ih2_lessons_compete_helpers import (
     NO_CHECKS,
     QUIET,
     _env,
@@ -39,10 +39,11 @@ from tests.test_ih2_lessons_compete import (
     _ready_probe,
     draw,  # noqa: F401 - the fixture
 )
-from tests.test_instruct_handoff_ih0 import DECISION_TABLES, JOB_AND_HOST_TABLES, make_world  # noqa: F401 - the fixture
-from tests.test_ro4_objective_serving import policy_answer
-from tests.test_te3b_offers import OFFER, offerable  # noqa: F401 - the fixture
+from tests.instruct_handoff_ih0_helpers import DECISION_TABLES, JOB_AND_HOST_TABLES, make_world  # noqa: F401 - the fixture
+from tests.ro4_objective_serving_helpers import policy_answer
+from tests.te3b_offers_helpers import OFFER, offerable  # noqa: F401 - the fixture
 from learnloop.vault.loader import load_vault
+from tests.ih6_workbench_open_item_helpers import _phone_workbench
 
 TAG = FAILURE_SHARE_ALGORITHM_VERSION
 OLD = PHONE_PROBES_ALGORITHM_VERSION
@@ -662,17 +663,6 @@ def _phone_boundary(world) -> None:
     assert reply["reason"] != "not_a_boundary"
     world.wait_for_job()
     world.quiet_counts()
-
-
-def _phone_workbench(world) -> dict[str, Any]:
-    item = sorted(load_vault(world.paths.root).practice_items)[0]
-    with world.repository.connection() as connection:
-        connection.execute("UPDATE sessions SET started_at = ? WHERE id = ?",
-                           (iso(world.now["at"] - timedelta(minutes=1)), world.session))
-        connection.commit()
-    row, _resumed = WB.open_session(world.repository, origin="plan", entry="plan", stem_md="A question.",
-                                    practice_item_id=item)
-    return row
 
 
 def test_plan_prefetch_reports_the_workbench_and_starts_no_job(make_world):

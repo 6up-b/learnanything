@@ -24,8 +24,8 @@ from learnloop.vault.loader import load_vault
 from learnloop_sidecar.handlers import practice
 from tests.approach_map_fakes import write_item
 from tests.hint_fakes import ITEM, WORK, assists, judgments, receipts, store_map
-from tests.test_hint_h2a_review_round2 import _two_sidecars
-from tests.test_hint_h2b_review import (  # noqa: F401 - ``grader`` is a fixture
+from tests.hint_h2a_review_round2_helpers import _two_sidecars
+from tests.hint_h2b_review_helpers import (  # noqa: F401 - ``grader`` is a fixture
     _attempt,
     _call,
     _hinted_wrong_attempt,
@@ -33,7 +33,7 @@ from tests.test_hint_h2b_review import (  # noqa: F401 - ``grader`` is a fixture
     _sidecar,
     grader,
 )
-from tests.test_hint_outcome import OutcomeFake
+from tests.hint_outcome_helpers import OutcomeFake
 
 
 # -- F12: a hint delivered during grading keeps its submit time ----------------------------------

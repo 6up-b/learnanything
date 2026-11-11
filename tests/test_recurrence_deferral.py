@@ -27,7 +27,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault, set_algorithm_version
 from tests.recurrence_fakes import record_verdict
-from tests.test_causal_factor_deferral import DIAG_REF, ITEM_A, ITEM_B, LO_ID, _write_diag_item
+from tests.causal_factor_deferral_helpers import DIAG_REF, ITEM_A, ITEM_B, LO_ID, _write_diag_item
 
 FIRST = "the learner does not recall which factor is transposed"
 REWORDED = "believes the transpose sits on U rather than on V"

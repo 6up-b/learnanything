@@ -294,7 +294,7 @@ def test_the_sidecar_records_a_rejected_probe_value(tmp_path, monkeypatch):
 
     import learnloop_sidecar.handlers.practice as practice
 
-    from tests.test_voi_stopping import LO, _minutes, _probe_vault
+    from tests.voi_stopping_helpers import LO, _minutes, _probe_vault
 
     paths, vault, repository = _probe_vault(tmp_path, "mvp-0.21")
     _minutes(monkeypatch, 10_000.0)  # no observation pays for ten thousand minutes

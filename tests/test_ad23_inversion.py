@@ -38,11 +38,8 @@ from learnloop.adaptive_difficulty import operation as O
 from learnloop.daily_plan.engine import advance, build_plan
 
 from tests.ad23_fakes import LO, ad23_vault, block_events, cold_followup, commit, env_for, intent_gated, selections
+from tests.ad23_inversion_helpers import HARD, ITEMS, ROUTERS
 
-HARD = {"complexity": 3, "transfer": "far", "scaffolding": "none", "span": "multi_step",
-        "response": "long_constructed", "tools": ["closed_book"]}
-ITEMS = ("pi_h", "pi_e1", "pi_e2")
-ROUTERS = {"staged": "[router]\nmode = \"staged\"\n", "off": "[router]\nenabled = false\n"}
 SENTINEL = "WITHHELD_SENTINEL"
 
 

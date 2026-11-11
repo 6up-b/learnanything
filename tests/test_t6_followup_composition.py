@@ -100,7 +100,7 @@ def test_pf_caller_prices_a_truncation_retry_at_its_doubled_output_budget(tmp_pa
 
 
 def _b1_vault(tmp_path):
-    from tests.test_recurrence_benchmarks import _bench_vault, _eedi
+    from tests.recurrence_benchmarks_helpers import _bench_vault, _eedi
 
     paths, _vault, repository = _bench_vault(tmp_path)
     _eedi(tmp_path / "eedi")
@@ -108,7 +108,7 @@ def _b1_vault(tmp_path):
 
 
 def test_b1_writer_budget_follows_the_policy_and_the_flag(tmp_path):
-    from tests.test_recurrence_benchmarks import B1_WRITER_ROLE, _harness
+    from tests.recurrence_benchmarks_helpers import B1_WRITER_ROLE, _harness
 
     paths, _repository = _b1_vault(tmp_path)
     vault = load_vault(paths.root)
@@ -131,7 +131,7 @@ def test_b1_local_runner_never_lets_the_transport_retry_a_truncated_writer(tmp_p
 
     from tests.diagnosis_fakes import FakeEmbeddingClient
     from tests.openai_fakes import install_fake_openai
-    from tests.test_recurrence_benchmarks import CAPS, _completion, _hypothesis_json, _openrouter_writer
+    from tests.recurrence_benchmarks_helpers import CAPS, _completion, _hypothesis_json, _openrouter_writer
 
     paths, _repository = _b1_vault(tmp_path)
     vault = _openrouter_writer(paths, effort=None)
@@ -345,7 +345,7 @@ class _BudgetedJudge:
 
 @pytest.fixture
 def facet_vault(tmp_path):
-    from tests.test_facet_identity import _regression_vault
+    from tests.facet_identity_helpers import _regression_vault
 
     return _regression_vault(tmp_path / "vault")
 
@@ -353,7 +353,7 @@ def facet_vault(tmp_path):
 def _facet_judge(root, repository, data, *, truncate=0, max_retries=2):
     from learnloop.content.facet_identity.judge import build_judge
 
-    from tests.test_facet_identity import _study_judge
+    from tests.facet_identity_helpers import _study_judge
 
     client = _BudgetedJudge(_study_judge(data), truncate=truncate)
     judge, route = build_judge(load_vault(root), repository, owner_id="run1", client=client,
@@ -364,7 +364,7 @@ def _facet_judge(root, repository, data, *, truncate=0, max_retries=2):
 def test_the_facet_judge_asks_for_and_reserves_the_policy_budget(facet_vault):
     from learnloop.content.facet_identity.dedupe import plan_dedupe, run_dedupe
 
-    from tests.test_facet_identity import _study_judge
+    from tests.facet_identity_helpers import _study_judge
 
     root, repository, data = facet_vault
     judge, route, client = _facet_judge(root, repository, data)

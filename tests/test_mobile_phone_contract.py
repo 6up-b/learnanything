@@ -24,6 +24,7 @@ import pytest
 from learnloop.vault.loader import load_vault
 from learnloop_mobile import client_contract
 from learnloop_mobile.allowlist import ALLOWLIST, check_parameters, validate_envelope
+from tests.mobile_phone_contract_helpers import _has
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "apps" / "learnloop-mobile"
@@ -121,22 +122,6 @@ def test_a_renamed_field_fails_the_model_not_the_phone():
 # -- result shapes ---------------------------------------------------------------------
 
 
-def _has(value: Any, path: str) -> bool:
-    """``a.b``, and ``a[].b`` for every element of the list ``a`` (at least one)."""
-
-    head, _, rest = path.partition(".")
-    many = head.endswith("[]")
-    key = head[:-2] if many else head
-    if not isinstance(value, dict) or key not in value:
-        return False
-    found = value[key]
-    if not rest:
-        return not many or isinstance(found, list)
-    if many:
-        return isinstance(found, list) and bool(found) and all(_has(element, rest) for element in found)
-    return _has(found, rest)
-
-
 def test_the_path_reader_reads_lists_and_absent_keys():
     reply = {"sections": [{"items": [{"id": 1}]}], "nothing": None}
     assert _has(reply, "sections[].items[].id")
@@ -155,7 +140,7 @@ def host_world(tmp_path, monkeypatch):
 
     paths, repository = seeded_vault(tmp_path / "vault")
     # Mobile v2 V4: one book for the Reader's replies (a real PDF in the store, a reading in three sections).
-    from tests.test_mobile_v4_reader import add_book
+    from tests.mobile_v4_reader_helpers import add_book
 
     add_book(paths.root, repository)
     install_grader(monkeypatch, CountingGrader())

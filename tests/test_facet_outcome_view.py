@@ -6,8 +6,8 @@ import pytest
 
 from learnloop.field.outcomes import data_check, load_attempt_rows, load_facet_rows, rebuild_outcome_view
 from tests.helpers import NOW_ISO
-from tests.test_km3_projections import blueprint_vault, COMP_A  # noqa: F401
-from tests.test_facet_evidence_timeline import _attempt
+from tests.km3_projections_helpers import blueprint_vault, COMP_A  # noqa: F401
+from tests.facet_evidence_timeline_helpers import _attempt
 
 
 def _pin_snapshot(connection, vault, attempt_id, item_id="pi_comp_a", *, snapshot_at=NOW_ISO, selection_at=NOW_ISO, demand=None):

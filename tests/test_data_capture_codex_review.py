@@ -28,15 +28,15 @@ from learnloop.diagnosis import voi_stopping as voi
 from learnloop.ops import capture_report as CR
 from learnloop.router import outcomes as RO
 from learnloop.router.first_delayed_success import trajectories
-from learnloop.scheduling.intent.serving import check_date
 from learnloop.scheduling.scheduler import OfferTrace
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import create_basic_vault
-from tests.test_data_capture_a2_measurement import _answer, _arranged_wait, _due_measurement, _events, _objectives
-from tests.test_data_capture_a3_time_metric import _attempt as _timed_attempt
-from tests.test_data_capture_a3_time_metric import _reader_visit
-from tests.test_router_outcomes import A, B, LO, _attempt, _decision
+from tests.data_capture_a2_measurement_helpers import _answer, _arranged_wait, _due_measurement, _events
+from tests.data_capture_a3_time_metric_helpers import _attempt as _timed_attempt
+from tests.data_capture_a3_time_metric_helpers import _reader_visit
+from tests.router_outcomes_helpers import A, B, LO, _attempt, _decision
+from tests.data_capture_codex_review_helpers import _due_hint, _hint_instant, _second_decision, _warm_answer
 
 T0 = datetime(2026, 5, 18, 12, 0, tzinfo=UTC)  # a Monday
 AS_OF = "2026-08-01T00:00:00Z"
@@ -183,32 +183,6 @@ def test_f1_ad_reads_a_span_exposure_on_the_lo_as_the_router_does(world):
 # -- F2: a measurement can satisfy the decision it measures ------------------------------------------------------
 
 
-def _second_decision(env, source_id):
-    with env.repository.atomic(), env.repository.connection() as connection:
-        connection.execute(
-            "INSERT INTO router_decisions SELECT 'd2', 'k2', decision_kind, surface, mode, policy, algorithm_version, log_version,"
-            " session_id, parent_decision_id, scheduler_slate_id, controller_decision_id, snapshot_hash, design, seed,"
-            " candidates_json, exclusions_json, candidate_count, chosen_ref, chosen_practice_item_id, chosen_learning_object_id,"
-            " chosen_scheduler_candidate_id, propensity, propensity_kind, learner_pick, fallback, mixture_weights_json,"
-            " model_distributions_json, sensor_answers_json, question_set_version, model_ids_json, card_hash,"
-            " similar_decision_ids_json, latency_ms, cost_usd, detail_json, ? FROM router_decisions WHERE id = ?",
-            (env.now_iso(), source_id))
-        M.record(env.vault, env.repository, connection, decision_id="d2", decision_kind="plan_interrupt",
-                 frozen=M.freeze_followup("lo_diag", support=["insert_now", "continue_current"]), arm=M.ARM_WAIT,
-                 clock=env.clock)
-    return _objectives(env)["d2"]
-
-
-def _due_hint(env, commitment_id):
-    with env.repository.connection() as connection:
-        return connection.execute(
-            "SELECT due_hint FROM commitment_versions WHERE commitment_id = ?", (commitment_id,)).fetchone()[0]
-
-
-def _hint_instant(hint):
-    return check_date(SimpleNamespace(due_hint=hint, created_at=""), default_days=1)[0]
-
-
 def test_f2_a_check_already_due_is_not_shared_with_a_decision_it_cannot_measure(tmp_path):
     """Reproduced first: shared, then answered an hour later: satisfied, but the decision's ITT rejects it."""
 
@@ -241,16 +215,6 @@ def test_f2_a_new_check_with_a_short_interval_is_dated_past_the_window(tmp_path,
     monkeypatch.setattr("learnloop.delayed_checks.due_days", lambda *_a, **_k: (0.05, "retrievability"))
     env, _decision_id, objective = _arranged_wait(tmp_path)
     assert _hint_instant(_due_hint(env, objective["commitment_id"])) >= env.clock.now() + timedelta(seconds=DC.MIN_DELAY_SECONDS)
-
-
-def _warm_answer(env, objective, *, warm_item="pi_diag_easy"):
-    """The learner practises the LO, then answers the due check minutes later: on their own, and warm."""
-
-    lo = objective["learning_object_id"]
-    _answer(env, warm_item, lo)
-    env.clock.advance(5)
-    _answer(env, objective["practice_item_id"], lo)
-    env.clock.advance(1)
 
 
 def test_f2_a_warm_answer_consumes_the_check_but_keeps_the_measurement_duty(tmp_path):
@@ -320,7 +284,7 @@ def test_f2_a_cold_answer_is_answered_as_before(tmp_path):
 def test_f3_every_evaluated_probe_keeps_its_forecast_in_the_receipt_only(tmp_path, monkeypatch):
     """Reproduced first: rejected candidates reached the receipt as summaries, no likelihood rows."""
 
-    from tests.test_voi_stopping import _build, _minutes, _probe_vault
+    from tests.voi_stopping_helpers import _build, _minutes, _probe_vault
 
     _paths, vault, repository = _probe_vault(tmp_path, "mvp-0.21")
     _minutes(monkeypatch, 10_000.0)  # nothing pays: every candidate is rejected

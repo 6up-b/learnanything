@@ -24,7 +24,7 @@ from learnloop.daily_plan.staged_frame import reason_code
 from learnloop.router import why
 
 from tests.daily_plan_fakes import MovableClock, make_env, record_attempt
-from tests.test_daily_plan_build import _seed_wide, _wide_items, _wide_vault
+from tests.daily_plan_build_helpers import _seed_wide, _wide_items, _wide_vault
 
 TOPICS = ("Eigenvalues", "Eigenvalues and Bases", "Eigenvalues and 2 more topics")
 

@@ -19,13 +19,16 @@ from learnloop.projects.redaction import (
     scan_line,
 )
 from tests.project_support import TempRepo, clock_at, isolated_git  # noqa: F401
+from tests.project_redaction_helpers import (
+    AWS_KEY,
+    ENV_SECRET,
+    GITHUB_TOKEN,
+    OPENAI_KEY,
+    _hunk_header_secret_repo,
+)
 
-AWS_KEY = "AKIAQWERTYUIOPASDFGH"
-OPENAI_KEY = "sk-proj-Zx81kQ0mN3vB7cX2lP9oR4tY6uI1"
-GITHUB_TOKEN = "ghp_aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY3zA5"
 SLACK_TOKEN = "xoxb-123456789012-abcdefghijkl"
 ENTROPY_TOKEN = "Zq8Lr2Vx9Tn4Kp7Wm3Hs6Jd1Fb5Gc0Yt8Qe2Ru"
-ENV_SECRET = "hunter2-the-database-password-123"
 
 
 @pytest.mark.parametrize(
@@ -165,17 +168,6 @@ def test_hunk_header_context_is_scanned_and_coordinates_kept():
     assert "@@ -10,3 +10,4 @@ [REDACTED:api_key_sk]" in redacted
     assert "@@ -30,2 +31,2 @@ def harmless():" in redacted
     assert counter.as_dict() == {"api_key_sk": 1}
-
-
-def _hunk_header_secret_repo(tmp_path):
-    repo = TempRepo(tmp_path / "repo")
-    body = "".join(f"    step_{index} = {index}\n" for index in range(12))
-    repo.write("conn.py", f'def connect(key="{OPENAI_KEY}"):\n{body}    return step_0\n')
-    repo.commit("init", trailer=None)
-    tail = "    total = step_0 + step_11\n    total *= 2\n    total -= step_5\n    total += step_7\n    return total\n"
-    repo.write("conn.py", f'def connect(key="{OPENAI_KEY}"):\n{body}{tail}')
-    repo.commit("Sum the first and last steps")
-    return repo
 
 
 def test_hunk_header_secrets_never_reach_the_store(isolated_git, tmp_path):

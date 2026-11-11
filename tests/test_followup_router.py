@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
-from learnloop.daily_plan.engine import advance, build_plan
-from learnloop.daily_plan.router_chooser import CONTINUE_CURRENT, INSERT_NOW, NO_INTERVENTION, FollowupGate
+from learnloop.daily_plan.engine import advance
+from learnloop.daily_plan.router_chooser import CONTINUE_CURRENT, INSERT_NOW, NO_INTERVENTION
 from learnloop.db.stores import followup_serve as store
 from learnloop.followup_run import router
 from learnloop.followup_serve import identity, workflow as wf
@@ -14,53 +14,9 @@ from learnloop.router import mixture as mx
 from learnloop.router.outcomes import derive_router_outcomes
 
 from tests.daily_plan_fakes import record_attempt
-from tests.followup_serve_helpers import TAG
-from tests.router_mixture_helpers import mixture_env, rows
+from tests.router_mixture_helpers import rows
 from tests.router_model_fakes import fake_runtime
-from tests.test_daily_plan_build import _wide_items
-
-ITEM = "pi_diag_mid"
-
-
-def _env(tmp_path, runtime, *, toml=None):
-    env = mixture_env(tmp_path, runtime, version=TAG, toml=toml, items=lambda: list(_wide_items()))
-    build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
-    record, step = advance(env, serve=True)
-    assert step["kind"] == "item"
-    env.clock.advance(1)
-    record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now(),
-                   session_id=env.session_id)
-    env.clock.advance(1)
-    return env, record
-
-
-def _workflow(env, *, state=wf.PENDING, item=None, decision=None, held=1):
-    record_attempt(env.repository, "pi_m1a", "lo_m1", env.clock.now(), session_id=env.session_id)
-    with env.repository.connection() as connection:
-        attempt_id = connection.execute("SELECT id FROM practice_attempts ORDER BY created_at DESC, id DESC").fetchone()[0]
-    with env.repository.atomic(), env.repository.connection() as connection:
-        store.insert_workflow(connection, {
-            "id": "fw_test", "source_attempt_id": attempt_id, "revision_key": "joint",
-            "learning_object_id": "lo_r1", "session_id": env.session_id, "surface": "desktop", "origin": "practice",
-            "feedback_held": held, "created_at": env.now_iso(),
-        })
-    if item or state != wf.PENDING:
-        wf.move(env.repository, "fw_test", to_state=state, reason="test", practice_item_id=item, decision_id=decision,
-                factor_id="f", clock=env.clock)
-    return wf.get(env.repository, "fw_test")
-
-
-def _gate(env):
-    restraint = env.policy.restraint
-    return FollowupGate(env.vault, env.repository, restraint.runtime, frame=restraint.frame,
-                        card_builder=restraint.card_builder, session_id=env.session_id, clock=env.clock,
-                        may_defer=False)
-
-
-def _row():
-    return {"id": "fw_test", "learning_object_id": "lo_r1", "source_attempt_id": "att_x", "session_id": "s1",
-            "factor_id": "f"}
-
+from tests.followup_router_helpers import ITEM, _decide, _env, _gate, _ready, _row, _workflow
 
 def test_no_intervention_sits_in_the_mixture_with_its_floor(tmp_path):
     env, record = _env(tmp_path, fake_runtime())
@@ -84,14 +40,6 @@ def test_waiting_is_out_of_the_support_when_there_is_no_room(tmp_path):
     outcome = _gate(env).decide_followup(record, record.current_block(), _row(), wait_feasible=False)
     assert set(outcome.record["mixture"]["pi"]) == {INSERT_NOW, NO_INTERVENTION}
     assert outcome.wait_feasible is False
-
-
-def _decide(env, record, chosen):
-    outcome = _gate(env).decide_followup(record, record.current_block(), _row(), wait_feasible=True)
-    return router.FollowupDecision(
-        chosen, chosen, "mixture", propensity=outcome.record["mixture"]["pi"][chosen], record=dict(outcome.record),
-        block_id=record.current_block().id, plan_id=record.id, plan_kind=record.kind, local_date="2026-11-03",
-    )
 
 
 def test_the_decision_row_is_itemless_and_names_the_workflow(tmp_path):
@@ -160,13 +108,6 @@ def test_data_captures_objective_is_frozen_for_every_arm(tmp_path):
 
 
 # -- the plan's end -----------------------------------------------------------------------------
-
-
-def _ready(env, *, state=wf.READY, decision=None):
-    row = _workflow(env, state=state, item=ITEM, decision=decision)
-    identity.register(env.repository, practice_item_id=ITEM, revision="r", source="workflow", workflow_id="fw_test",
-                      clock=env.clock)
-    return row
 
 
 def test_ask_now_is_what_next_opens(tmp_path):

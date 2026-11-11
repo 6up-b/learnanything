@@ -13,34 +13,20 @@ import sqlite3
 
 import pytest
 
-from tests.test_followup_migration import FOLLOWUP_ADDED_OBJECTS
-from tests.test_hypothesis_marks_migration import MARKS_ADDED_OBJECTS
-from tests.test_router_objective_migration import RO0_ADDED_OBJECTS
-from tests.test_ro2_history_migration import RO2_ADDED_OBJECTS
-from tests.test_ro4_traces_migration import RO4_ADDED_OBJECTS
-from tests.test_teacher_te2log_migration import TE2LOG_ADDED_OBJECTS
-from tests.test_ih3_migration import IH3_ADDED_OBJECTS
-from tests.test_decision_records_migration import B1_ADDED_OBJECTS
+from tests.followup_migration_helpers import FOLLOWUP_ADDED_OBJECTS
+from tests.hypothesis_marks_migration_helpers import MARKS_ADDED_OBJECTS
+from tests.router_objective_migration_helpers import RO0_ADDED_OBJECTS
+from tests.ro2_history_migration_helpers import RO2_ADDED_OBJECTS
+from tests.ro4_traces_migration_helpers import RO4_ADDED_OBJECTS
+from tests.teacher_te2log_migration_helpers import TE2LOG_ADDED_OBJECTS
+from tests.ih3_migration_helpers import IH3_ADDED_OBJECTS
+from tests.decision_records_migration_helpers import B1_ADDED_OBJECTS
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.data_capture_migration_helpers import DATA_CAPTURE_ADDED_OBJECTS, TABLES
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-TABLES = ("prefilter_payloads", "prefilter_receipts", "decision_objectives", "decision_measurement_events",
-          "reading_exposure_receipts")
-#: What 240 adds (its tables, autoindexes, indexes and triggers).
-DATA_CAPTURE_ADDED_OBJECTS = frozenset({
-    *TABLES,
-    "sqlite_autoindex_prefilter_payloads_1",
-    "sqlite_autoindex_prefilter_receipts_1", "sqlite_autoindex_prefilter_receipts_2",
-    "sqlite_autoindex_decision_objectives_1",
-    "sqlite_autoindex_decision_measurement_events_1", "sqlite_autoindex_decision_measurement_events_2",
-    "prefilter_receipts_created", "decision_objectives_lo", "decision_objectives_commitment",
-    "decision_measurement_events_decision",
-    "sqlite_autoindex_reading_exposure_receipts_1", "sqlite_autoindex_reading_exposure_receipts_2",
-    "reading_exposure_receipts_source_time",
-    *(f"{table}_no_{verb}" for table in TABLES for verb in ("update", "delete")),
-})
 
 
 def _names(connection: sqlite3.Connection) -> set[str]:

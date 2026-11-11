@@ -15,11 +15,9 @@ work runs inline and the post-attempt worker never starts a thread (jobs are run
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
-from learnloop.clock import FrozenClock
 from learnloop.diagnosis.text_gaps import jobs as J
 from learnloop.diagnosis.text_gaps.contract import (
     NON_SERVING_SOURCE_KINDS,
@@ -37,11 +35,21 @@ from tests.helpers import NOW
 from tests.notes_fixtures import SENTINEL, edit_annotation
 from tests.reading_path_fixtures import call
 from tests.section_coverage_fixtures import table_counts
-from tests.test_notes_linked import _deliverable, _lines
 from tests.text_gap_fakes import ChoiceDecider, GapLLMFake, word_match
+from tests.notes_as_learner_text_helpers import (
+    CAPTURED,
+    CLOCK,
+    GAPS_ON,
+    PlanGapFake,
+    TYPED,
+    _clients,
+    _gaps,
+    _linked,
+    _run,
+    _snapshots,
+    _typed_line,
+)
 
-CLOCK = FrozenClock(NOW)
-GAPS_ON = "[notes]\ngaps_enabled = true\n"
 #: What reading a note may write: gap rows, their jobs, ledger verdicts, receipts and
 #: work claims (the holding pen only for a belief, not exercised here).
 GAP_TABLES = {"learner_text_gaps", "learner_text_gap_jobs", "judgment_ledger", "model_call_receipts",
@@ -52,49 +60,10 @@ NEVER_TABLES = ("practice_attempts", "grading_evidence", "facet_recall_state", "
                 "learner_gap_commitments", "self_reports")
 
 
-class PlanGapFake(GapLLMFake):
-    """The gap reader and judge on the ChatGPT plan."""
-
-    provider_name = "fake_plan_gap"
-    provider_type = "chatgpt_plan"
-    model = "fake/plan-gap"
-
-
 class MeteredGapFake(GapLLMFake):
     provider_name = "fake_metered_gap"
     provider_type = "openrouter"
     model = "fake/metered-gap"
-
-
-def _linked(tmp_path: Path, monkeypatch=None, *, gaps: bool = True, config: str = ""):
-    """C2's deliverable vault with the path's two vault notes linked (the typed Reader note
-    carries ``SENTINEL``; the other is a capture), and the opt-in on (or off)."""
-
-    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path, config=(GAPS_ON if gaps else "") + config)
-    ctx.post_attempt_worker.autostart = False  # jobs are run by hand here
-    lines = _lines(call(ctx, "notes.path", {"goal_id": goal_id}))
-    assert {line["noteKey"] for line in lines} == {corpus["typed"], corpus["captured"]}
-    _CORPUS[str(repository.sqlite_path)] = corpus
-    return paths, repository, ctx, goal_id, corpus, lines
-
-
-#: The corpus of each linked vault (by database), so :func:`_snapshots` can name its notes.
-_CORPUS: dict[str, dict[str, str]] = {}
-TYPED, CAPTURED = "typed", "captured"
-
-
-def _snapshots(repository) -> dict[str, str]:
-    """``{"typed" | "captured": the newest snapshot id}``."""
-
-    corpus = _CORPUS[str(repository.sqlite_path)]
-    names = {corpus[TYPED]: TYPED, corpus[CAPTURED]: CAPTURED}
-    with repository.connection() as connection:
-        return {names[str(row[1])]: str(row[0]) for row in connection.execute(
-            "SELECT id, note_key FROM learner_notes ORDER BY created_at, rowid") if str(row[1]) in names}
-
-
-def _typed_line(lines):
-    return next(line for line in lines if "Av = lv" in line["note"]["text"])
 
 
 def _jobs(repository, kind: str = "learner_note") -> list[tuple]:
@@ -102,21 +71,6 @@ def _jobs(repository, kind: str = "learner_note") -> list[tuple]:
         return [tuple(row) for row in connection.execute(
             "SELECT source_id, state, attempt_count FROM learner_text_gap_jobs WHERE source_kind = ? "
             "ORDER BY created_at, id", (kind,))]
-
-
-def _gaps(repository) -> list[dict]:
-    with repository.connection() as connection:
-        return [dict(row) for row in connection.execute(
-            "SELECT * FROM learner_text_gaps WHERE source_kind = 'learner_note' ORDER BY created_at, id")]
-
-
-def _clients(llm, *, decider=None) -> PipelineClients:
-    return PipelineClients(judge=lambda: llm, reader=lambda: llm, decider=(lambda: decider) if decider else None,
-                           drafter=lambda: llm, tutor=None, embedder=None)
-
-
-def _run(paths, repository, clients, *, source: tuple[str, str] | None = None):
-    return J.process_next_gap_job(paths.root, repository, owner="t", clients=clients, clock=CLOCK, source=source)
 
 
 def _readings(llm) -> list[dict]:
@@ -364,8 +318,8 @@ def test_gc1_exam_sentinels_never_reach_the_gap_model_via_a_notes_context(tmp_pa
     from tests.exam_scope_fixtures import NEVER_ON_A_PATH, PAPER, SPANS, SYLLABUS_MARKER, build_exam_scope_vault
     from tests.notes_fixtures import NoteLinkFake, add_capture
     from tests.section_coverage_fixtures import CoverageJudgeFake
-    from tests.test_curriculum_c3_exam_scoping import ALL_LOS, _clean
-    from tests.test_curriculum_c3_exam_scoping import _deliverable as exam_deliverable
+    from tests.curriculum_c3_exam_scoping_helpers import ALL_LOS, _clean
+    from tests.curriculum_c3_exam_scoping_helpers import _deliverable as exam_deliverable
 
     quoted = PAPER["paper_q1"][1][0][0]
     paths, repository = build_exam_scope_vault(tmp_path / "vault", config=GAPS_ON)

@@ -24,8 +24,8 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.embedding_recipes import EMBEDDING_RECIPES, EmbeddingRecipe
 from learnloop.vault.loader import load_vault
 from tests.helpers import NOW, create_basic_vault
-from tests.test_facet_evidence_timeline import _attempt
-from tests.test_km3_projections import build_blueprint_vault
+from tests.facet_evidence_timeline_helpers import _attempt
+from tests.km3_projections_helpers import build_blueprint_vault
 
 
 ITEMS = ("pi_comp_a", "pi_comp_b", "pi_comp_a", "pi_integrated", "pi_comp_b", "pi_comp_a", "pi_integrated")

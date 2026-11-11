@@ -21,7 +21,7 @@ from pydantic import ValidationError
 from learnloop_sidecar.errors import SidecarError
 from tests.library_ask_fixtures import build_library_vault, call, context, set_config, tutor_with_citations
 from tests.source_service_fakes import seed_textbook
-from tests.test_reader_ca3_codex_review import QUESTION, LastWordsLLM
+from tests.reader_ca3_codex_review_helpers import QUESTION, LastWordsLLM
 
 BLOCKS = 22
 

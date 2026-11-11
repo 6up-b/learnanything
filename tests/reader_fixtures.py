@@ -13,7 +13,7 @@ from learnloop.db.repositories import Repository
 from learnloop.ingest.extractors.normalizers import captions_to_ir
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
 from tests.helpers import NOW
-from tests.test_source_inventory import _persist
+from tests.source_inventory_helpers import _persist
 
 _CLOCK = FrozenClock(NOW)
 

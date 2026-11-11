@@ -21,7 +21,7 @@ from learnloop_sidecar.handlers import practice as practice_handlers
 from tests.approach_map_fakes import LO
 from tests.hint_fakes import ITEM, WORK, ChooserFake, WriterFake, add_hypothesis, assists, good_answer, \
     hint_vault, prefer, reveals, store_map
-from tests.test_hint_h2a_review_round2 import ARGMAX, SELF_GRADE, _ask, _attempt, _call, _context, _setup
+from tests.hint_h2a_review_round2_helpers import ARGMAX, SELF_GRADE, _ask, _attempt, _call, _context, _setup
 
 # ---------------------------------------------------------------------------
 # W1: a keyless submit closes its session's window for a waiting delivery

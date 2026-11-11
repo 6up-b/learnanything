@@ -21,7 +21,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import write_yaml
 
-from tests.test_simulation import NOW_ISO, PLANTED_FACET, build_sim_vault
+from tests.simulation_helpers import NOW_ISO, PLANTED_FACET, build_sim_vault
 
 TEACH_ITEM_ID = "pi_teach_move_terms"
 

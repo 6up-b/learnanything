@@ -17,33 +17,11 @@ from __future__ import annotations
 from learnloop.curriculum import commitments as C
 from learnloop.db.stores import reader_digests as RDG
 from learnloop.instructional import reader_followups as RF
-from tests.recap_fixtures import EXT, at
-from tests.test_reader_followups import NOW_MIN, _candidate, _now, _plan, _seeded
-from tests.test_reader_followups_round4 import QD, QR, A, _ByIntent, _check, _due, _studied_related_example
-from tests.test_reader_followups_round5 import _discrimination_still_needs_it, _shared
-
-B = "pi_svd_define_003"
-
-
-def _dropped_retention(tmp_path, monkeypatch):
-    """Round 6's F18 state: B licensed by [D, R], R no longer in the receipt."""
-
-    vault, repo, session = _seeded(tmp_path)
-    asked = [RF.Question(key=QD, purpose=RF.PURPOSE_DISCRIMINATING, learning_object_ids=["lo_svd_definition"]),
-             RF.Question(key=QR, purpose=RF.PURPOSE_RETENTION, learning_object_ids=["lo_svd_definition"],
-                         facet_ids=["recall"], attempt_ids=["att_book"])]
-    monkeypatch.setattr(RF, "open_questions", lambda *_a, **_k: (list(asked), []))
-    monkeypatch.setattr(RF, "_exposure_scope", lambda *_a, **_k: ["ext_we", EXT])
-    search = _ByIntent({"discriminate": [[_candidate(B, 1.0, 0.0, 3.0)]],
-                        "retention": [[_candidate(B, 1.0, 0.0, 3.0)], [_candidate(B, 1.0, 0.0, 3.0)]]})
-    first = _plan(vault, repo, session, search)
-    retention_entry = next(entry for entry in first["valuation"]["questions"] if entry["key"] == QR)
-    asked[:] = asked[:1]
-    row = _plan(vault, repo, session, search, minutes=NOW_MIN + 60)
-    [commitment_id] = row["followup_commitment_ids"]
-    assert [entry["key"] for entry in row["valuation"]["questions"]] == [QD]
-    return vault, repo, row, commitment_id, retention_entry
-
+from tests.recap_fixtures import at
+from tests.reader_followups_helpers import NOW_MIN, _now
+from tests.reader_followups_round4_helpers import QD, QR, A, _check, _due, _studied_related_example
+from tests.reader_followups_round5_helpers import _discrimination_still_needs_it, _shared
+from tests.reader_followups_round7_helpers import B, _dropped_retention
 
 def test_f19_a_publication_between_the_read_and_the_write_keeps_the_restored_license(tmp_path, monkeypatch):
     vault, repo, row, commitment_id, retention_entry = _dropped_retention(tmp_path, monkeypatch)

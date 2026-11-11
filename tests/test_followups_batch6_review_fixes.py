@@ -26,9 +26,9 @@ from learnloop.router import suggestion_report as SR
 from learnloop.vault.loader import load_vault
 from tests import rich_fixtures as RF
 from tests.figure_fixtures import EXTRACTION, call, set_config
-from tests.test_teacher_te1b_landing_r2 import _start, _today
-from tests.test_teacher_te1b_suggestions import _clock, _vault, no_network, shown  # noqa: F401
-from tests.test_followups_batch6_prefetch_plan_wait import (
+from tests.teacher_te1b_landing_r2_helpers import _start, _today
+from tests.teacher_te1b_suggestions_helpers import _clock, _vault, no_network, shown  # noqa: F401
+from tests.followups_batch6_prefetch_plan_wait_helpers import (
     _due_now,
     _env,
     _pass,
@@ -167,7 +167,7 @@ def test_f1_unreadable_protection_requeues_nothing_and_the_worker_fails_closed(t
 
 def test_f1_the_pass_also_protects_the_stored_plans_open_items(tmp_path, monkeypatch):
     from learnloop.source_retrieval import corpus
-    from tests.test_followups_batch6_verify_fixes import _plan_holds
+    from tests.followups_batch6_verify_fixes_helpers import _plan_holds
 
     paths, repository, _ctx, _rich_author, job = _waiting_rig(tmp_path, monkeypatch)
     vault = load_vault(paths.root)
@@ -319,7 +319,7 @@ def test_f4_a_card_with_a_released_line_moves_its_version_and_te1bs_card_keeps_i
                                                                                          no_network):
     from learnloop.daily_plan import lesson_suggestion as SG
     from learnloop.router.card import CARD_VERSION, SUGGESTION_CARD_SUFFIX, SUGGESTION_RELEASE_CARD_SUFFIX
-    from tests.test_teacher_te1b_review_fixes import _card
+    from tests.teacher_te1b_review_fixes_helpers import _card
 
     paths, repository = _vault(tmp_path)
     card, _lesson = _start(paths, repository)

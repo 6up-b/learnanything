@@ -19,8 +19,8 @@ from learnloop_sidecar.context import SidecarContext
 
 from tests.followup_serve_helpers import CLOCK, miss_with_rivals, rival_causes_vault
 from tests.helpers import append_config_toml
-from tests.test_followup_journey import _Runtime, _answer, _call, _generate, journey  # noqa: F401 - the fixture
-from tests.test_hypothesis_marks import MARKS_OFF, _rows
+from tests.followup_journey_helpers import _Runtime, _answer, _call, _generate, journey  # noqa: F401 - the fixture
+from tests.hypothesis_marks_helpers import MARKS_OFF, _rows
 
 NOON = "2026-07-01T12:00:00Z"
 TWO = "2026-07-01T14:00:00Z"

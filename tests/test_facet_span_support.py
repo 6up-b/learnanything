@@ -14,41 +14,15 @@ import json
 
 import pytest
 
-from learnloop.ai.decisions import ChoiceAnswer, DecisionResult
-
-from tests.test_tier1_decider import Decider, _no_decider, _rows
-
-
-class SpanDecider(Decider):
-    def __init__(self, choice):
-        super().__init__()
-        self.choice = choice
-
-    def decide(self, state, questions, *, purpose):
-        self.calls.append(state)
-        assert purpose == "facet_span_support" and len(questions) == 1
-        options = next(iter(questions.values())).options
-        probabilities = {k: 0.7 if k == self.choice else 0.1 for k in options}
-        # The choice field says supports; only the argmax counts.
-        return DecisionResult({"verdict": ChoiceAnswer("supports", probabilities)}, self.model, 100, 0, 0.000002)
-
-
-def _span_vault(tmp_path, monkeypatch, client, *, role="primary_textbook", text="SVD expresses A = U Sigma V^T."):
-    from learnloop import decider_judgments as tier1
-    from tests.test_facet_identity_actions import _vault_with_duplicate
-    from tests.test_facet_reword_confirm import _seed
-
-    paths, _vault, repo = _vault_with_duplicate(tmp_path)
-    citation = _seed(paths, repo, role, "cited", text=text)
-    monkeypatch.setattr(tier1, "client_for", (lambda *a: client) if client is not None else _no_decider)
-    return paths, repo, citation
+from tests.tier1_decider_helpers import _rows
+from tests.facet_span_support_helpers import LockProbe, SpanDecider, _span_vault
 
 
 def _apply_cited_reword(paths, repo, citation):
     from learnloop.content.proposals.patches import apply_accepted_items
-    from tests.test_facet_identity_actions import SHARED
-    from tests.test_facet_reword_confirm import _proposal, _support
-    from tests.test_facet_rewords import NEW_CLAIM
+    from tests.facet_identity_actions_helpers import SHARED
+    from tests.facet_reword_confirm_helpers import _proposal, _support
+    from tests.facet_rewords_helpers import NEW_CLAIM
 
     patch_id = _proposal(repo, {"id": SHARED, "claim": NEW_CLAIM, "meaning_support": _support(citation)})
     apply_accepted_items(paths.root, patch_id)
@@ -58,8 +32,8 @@ def _apply_cited_reword(paths, repo, citation):
 def test_span_support_applies_only_on_supports_else_the_card_shows_verdict_and_span(tmp_path, monkeypatch, choice):
     from learnloop.content.facet_identity import actions
     from learnloop.vault.loader import load_vault
-    from tests.test_facet_identity_actions import SHARED
-    from tests.test_facet_rewords import NEW_CLAIM, _entry
+    from tests.facet_identity_actions_helpers import SHARED
+    from tests.facet_rewords_helpers import NEW_CLAIM, _entry
 
     client = SpanDecider(choice) if choice else None
     paths, repo, citation = _span_vault(tmp_path, monkeypatch, client)
@@ -89,8 +63,8 @@ def test_span_support_applies_only_on_supports_else_the_card_shows_verdict_and_s
 def test_the_owners_confirm_and_undo_label_the_check(tmp_path, monkeypatch):
     from learnloop.content.facet_identity import actions
     from learnloop.vault.loader import load_vault
-    from tests.test_facet_identity_actions import SHARED
-    from tests.test_facet_rewords import NEW_CLAIM, _entry
+    from tests.facet_identity_actions_helpers import SHARED
+    from tests.facet_rewords_helpers import NEW_CLAIM, _entry
 
     paths, repo, citation = _span_vault(tmp_path, monkeypatch, SpanDecider("partly supports"))
     _apply_cited_reword(paths, repo, citation)
@@ -109,8 +83,8 @@ def test_the_owners_undo_of_a_reword_the_check_let_apply_labels_it(tmp_path, mon
     """A "supports" check applies the reword at once; the owner's undo is the label that says otherwise."""
 
     from learnloop.content.facet_identity import actions
-    from tests.test_facet_identity_actions import SHARED
-    from tests.test_facet_rewords import NEW_CLAIM, _entry
+    from tests.facet_identity_actions_helpers import SHARED
+    from tests.facet_rewords_helpers import NEW_CLAIM, _entry
 
     paths, repo, citation = _span_vault(tmp_path, monkeypatch, SpanDecider("supports"))
     before = _entry(paths, SHARED)["claim"]
@@ -130,8 +104,8 @@ def test_the_owners_undo_of_a_reword_the_check_let_apply_labels_it(tmp_path, mon
 def test_the_check_reads_each_cited_span_once(tmp_path, monkeypatch):
     from learnloop.content.facet_identity import authority
     from learnloop.vault.loader import load_vault
-    from tests.test_facet_identity_actions import SHARED
-    from tests.test_facet_rewords import NEW_CLAIM, _entry
+    from tests.facet_identity_actions_helpers import SHARED
+    from tests.facet_rewords_helpers import NEW_CLAIM, _entry
 
     client = SpanDecider("supports")
     paths, repo, citation = _span_vault(tmp_path, monkeypatch, client)
@@ -162,9 +136,9 @@ def test_exam_only_support_is_refused_before_the_decider_and_the_owner_edit_bypa
     from learnloop import decider_judgments as tier1
     from learnloop.content.facet_identity import authority
     from learnloop.vault.loader import load_vault
-    from tests.test_facet_identity_actions import SHARED, _vault_with_duplicate
-    from tests.test_facet_reword_confirm import _seed
-    from tests.test_facet_rewords import NEW_CLAIM, _entry
+    from tests.facet_identity_actions_helpers import SHARED, _vault_with_duplicate
+    from tests.facet_reword_confirm_helpers import _seed
+    from tests.facet_rewords_helpers import NEW_CLAIM, _entry
 
     paths, _, repo = _vault_with_duplicate(tmp_path)
     citation = _seed(paths, repo, "exam", "exam", text="Never send this exam")
@@ -188,9 +162,9 @@ def test_only_a_registered_facets_meaning_is_checked(tmp_path, monkeypatch):
     from learnloop import decider_judgments as tier1
     from learnloop.content.facet_identity import authority
     from learnloop.vault.loader import load_vault
-    from tests.test_facet_identity_actions import SHARED, _vault_with_duplicate
-    from tests.test_facet_reword_confirm import _seed
-    from tests.test_facet_rewords import NEW_CLAIM, _entry
+    from tests.facet_identity_actions_helpers import SHARED, _vault_with_duplicate
+    from tests.facet_reword_confirm_helpers import _seed
+    from tests.facet_rewords_helpers import NEW_CLAIM, _entry
 
     paths, _, repo = _vault_with_duplicate(tmp_path)
     citation = _seed(paths, repo, "primary_textbook", "text", text="SVD.")
@@ -215,8 +189,8 @@ def test_only_a_registered_facets_meaning_is_checked(tmp_path, monkeypatch):
 def test_the_span_switch_restores_the_cited_reword_and_reword_confirm_off_skips_the_check(tmp_path, monkeypatch):
     from learnloop.content.facet_identity import authority
     from learnloop.vault.loader import load_vault
-    from tests.test_facet_identity_actions import SHARED
-    from tests.test_facet_rewords import NEW_CLAIM, _entry
+    from tests.facet_identity_actions_helpers import SHARED
+    from tests.facet_rewords_helpers import NEW_CLAIM, _entry
 
     paths, repo, citation = _span_vault(tmp_path, monkeypatch, SpanDecider("does not support"))
     vault = load_vault(paths.root, load_environment=False)
@@ -244,8 +218,8 @@ def test_reword_confirm_off_applies_a_cited_reword_whatever_the_decider(tmp_path
     """Review F2: the reword confirm's kill switch restores the old rule; a Decider outage never refuses."""
 
     from tests.helpers import append_config_toml
-    from tests.test_facet_identity_actions import SHARED
-    from tests.test_facet_rewords import NEW_CLAIM, _entry
+    from tests.facet_identity_actions_helpers import SHARED
+    from tests.facet_rewords_helpers import NEW_CLAIM, _entry
 
     paths, repo, citation = _span_vault(tmp_path, monkeypatch, None if client == "unavailable" else SpanDecider(client))
     append_config_toml(paths.root, "[facet_identity]\nreword_confirm = false\n")
@@ -263,8 +237,8 @@ def test_a_confirm_finished_by_recovery_labels_the_check(tmp_path, monkeypatch):
 
     from learnloop.content.facet_identity import actions
     from learnloop.vault.loader import load_vault
-    from tests.test_facet_identity_actions import SHARED
-    from tests.test_facet_rewords import NEW_CLAIM, _entry
+    from tests.facet_identity_actions_helpers import SHARED
+    from tests.facet_rewords_helpers import NEW_CLAIM, _entry
 
     paths, repo, citation = _span_vault(tmp_path, monkeypatch, SpanDecider("partly supports"))
     _apply_cited_reword(paths, repo, citation)
@@ -293,9 +267,9 @@ def test_keeping_a_card_that_went_stale_is_no_label(tmp_path, monkeypatch):
     from learnloop.content.facet_identity import actions
     from learnloop.content.proposals.patches import apply_accepted_items
     from learnloop.vault.loader import load_vault
-    from tests.test_facet_identity_actions import SHARED
-    from tests.test_facet_reword_confirm import THIRD_CLAIM, _proposal, _support
-    from tests.test_facet_rewords import _entry
+    from tests.facet_identity_actions_helpers import SHARED
+    from tests.facet_reword_confirm_helpers import THIRD_CLAIM, _proposal, _support
+    from tests.facet_rewords_helpers import _entry
 
     paths, repo, citation = _span_vault(tmp_path, monkeypatch, SpanDecider("partly supports"))
     _apply_cited_reword(paths, repo, citation)
@@ -314,9 +288,9 @@ def test_a_tie_between_supports_and_another_option_holds_the_reword(tmp_path, mo
 
     from learnloop.content.facet_identity import actions
     from learnloop.vault.loader import load_vault
-    from tests.test_facet_identity_actions import SHARED
-    from tests.test_facet_rewords import _entry
-    from tests.test_tier1_decider import TiedDecider
+    from tests.facet_identity_actions_helpers import SHARED
+    from tests.facet_rewords_helpers import _entry
+    from tests.tier1_decider_helpers import TiedDecider
 
     paths, repo, citation = _span_vault(tmp_path, monkeypatch, TiedDecider())
     before = _entry(paths, SHARED)["claim"]
@@ -327,29 +301,14 @@ def test_a_tie_between_supports_and_another_option_holds_the_reword(tmp_path, mo
     assert "could not tell" in card["message"]
 
 
-class LockProbe(SpanDecider):
-    """Records whether the vault mutation lock was held when the Decider was asked."""
-
-    def __init__(self, choice, root):
-        super().__init__(choice)
-        self.root = root
-        self.holders = []
-
-    def decide(self, state, questions, *, purpose):
-        from learnloop.vault_lock import read_lock_holder
-
-        self.holders.append(read_lock_holder(self.root))
-        return super().decide(state, questions, purpose=purpose)
-
-
 @pytest.mark.parametrize("choice", ["supports", "does not support"])
 def test_the_span_check_is_asked_before_the_vault_lock_is_taken(tmp_path, monkeypatch, choice):
     """Review F1: the Decider's network call never holds the vault mutation lock (others wait 10 s on it)."""
 
     from learnloop.content.facet_identity import actions
     from learnloop.vault.loader import load_vault
-    from tests.test_facet_identity_actions import SHARED
-    from tests.test_facet_rewords import NEW_CLAIM, _entry
+    from tests.facet_identity_actions_helpers import SHARED
+    from tests.facet_rewords_helpers import NEW_CLAIM, _entry
 
     paths, repo, citation = _span_vault(tmp_path, monkeypatch, None)
     client = LockProbe(choice, paths.root)
@@ -371,8 +330,8 @@ def test_a_check_whose_input_changed_under_the_lock_waits_for_the_confirm(tmp_pa
 
     from learnloop.content.facet_identity import authority, span_support
     from learnloop.vault.loader import load_vault
-    from tests.test_facet_identity_actions import SHARED
-    from tests.test_facet_rewords import NEW_CLAIM, _entry
+    from tests.facet_identity_actions_helpers import SHARED
+    from tests.facet_rewords_helpers import NEW_CLAIM, _entry
 
     client = SpanDecider("supports")
     paths, repo, citation = _span_vault(tmp_path, monkeypatch, client)

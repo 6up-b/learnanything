@@ -42,10 +42,10 @@ from learnloop.reader import reader_quick_check as RQC
 from learnloop.vault.loader import load_vault
 from tests.helpers import NOW, append_config_toml
 from tests.recap_fixtures import call, context
-from tests.test_reader_active_reading import ActiveClient
-from tests.test_reader_guidance import _setup
-from tests.test_reader_intent import ON, FakeDecider, _prefer
-from tests.test_reader_reconstruct import LO, _reconstruct
+from tests.reader_active_reading_helpers import ActiveClient
+from tests.reader_guidance_helpers import _setup
+from tests.reader_intent_helpers import ON, FakeDecider, _prefer
+from tests.reader_reconstruct_helpers import LO, _reconstruct
 
 CLOCK = FrozenClock(NOW)
 
@@ -61,7 +61,7 @@ def _ledger(repo):
 
 def test_f1_a_formative_gap_is_not_a_weak_prerequisite_signal(tmp_path):
     from learnloop.field.signals import learner_gap_targets
-    from tests.test_learner_text_gaps_flow import _setup as gap_setup
+    from tests.learner_text_gaps_flow_helpers import _setup as gap_setup
 
     root, repository = gap_setup(tmp_path)
     from learnloop.db.stores import learner_gaps as store
@@ -88,8 +88,8 @@ def test_f1_a_formative_gap_brings_no_check_forward(tmp_path):
     from learnloop.diagnosis.text_gaps.sources import tutor_question_text
     from learnloop.placement.decisions import record_self_report
     from learnloop.tutor.tutor_qa import ask_question
-    from tests.test_learner_text_gaps_flow import EIGEN_GAP, _at, _clients
-    from tests.test_learner_text_gaps_flow import _setup as gap_setup
+    from tests.learner_text_gaps_flow_helpers import EIGEN_GAP, _at, _clients
+    from tests.learner_text_gaps_flow_helpers import _setup as gap_setup
     from tests.text_gap_fakes import GapLLMFake, GapTutor, word_match
 
     root, repository = gap_setup(tmp_path)

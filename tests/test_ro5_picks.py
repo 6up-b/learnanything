@@ -21,7 +21,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, append_config_toml, set_algorithm_version
-from tests.test_km2_write_path import build_mvp07_vault
+from tests.km2_write_path_helpers import build_mvp07_vault
 
 TAG = ROUTER_CALIBRATION_ALGORITHM_VERSION
 

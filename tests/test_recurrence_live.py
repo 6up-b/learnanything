@@ -11,21 +11,8 @@ from learnloop.vault.loader import load_vault
 
 from tests.diagnosis_fakes import FakeEmbeddingClient
 from tests.recurrence_fakes import StatementFake, different, shares_word
-from tests.split_live_helpers import append_config, at, drain_jobs, enable_embeddings, split_vault, submit
-
-V_SAME = "Believes V and V transpose are the same matrix."
-V_REWORDED = "Thinks the last SVD factor never needs transposing."
-V_THIRD = "Writes V where the transpose of V belongs."
-STATEMENTS = {"first": V_SAME, "second": V_REWORDED, "third": V_THIRD}
-
-
-def _vault(tmp_path, *, version="mvp-0.12", config: str = ""):
-    paths, _vault, repository = split_vault(tmp_path, version=version, seed=False, config=config)
-    enable_embeddings(paths.root)
-    toml = paths.root / "learnloop.toml"
-    toml.write_text(toml.read_text(encoding="utf-8").replace("dimensions = 4096", "dimensions = 16"), encoding="utf-8")
-    return paths, load_vault(paths.root), repository
-
+from tests.split_live_helpers import append_config, at, drain_jobs, submit
+from tests.recurrence_live_helpers import STATEMENTS, V_REWORDED, V_SAME, _heads, _vault
 
 def _run(vault, repository, client, embedder, answers):
     results = []
@@ -42,11 +29,6 @@ ANSWERS = [
     ("pi_svd_compute_002", "B = U Sigma V second"),
     ("pi_svd_compute_001", "A = U Sigma V third"),
 ]
-
-
-def _heads(repository, attempt_id):
-    return [row for row in repository.causal_hypotheses_for_attempt(attempt_id)
-            if row["status"] != "open_set" and row["cause_scope"] == "learner_state"]
 
 
 def test_the_judge_merges_reworded_recurrences_and_the_third_escalates(tmp_path):

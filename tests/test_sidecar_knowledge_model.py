@@ -14,7 +14,7 @@ from learnloop.vault.loader import load_vault
 from learnloop_sidecar.server import serve
 
 from tests.helpers import NOW
-from tests.test_km3_projections import COMP_A, INTEG, LO_ID, build_blueprint_vault
+from tests.km3_projections_helpers import COMP_A, INTEG, LO_ID, build_blueprint_vault
 
 
 def _rpc(messages: list[dict]) -> list[dict]:

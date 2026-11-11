@@ -13,34 +13,10 @@ import pytest
 import learnloop_sidecar.handlers  # noqa: F401 -- populate METHOD_REGISTRY
 from learnloop.content.pipeline.add_source import AUTO_STUDY_MAP_JOB
 from learnloop.vault.loader import load_vault
-from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.errors import SidecarError
-from learnloop_sidecar.registry import METHOD_REGISTRY
 
-from tests.ux_phase1_support import CLOCK, fake_services, fresh_library, grant_consent, write_book, write_pdf
-
-
-def call(ctx, name, params):
-    spec = METHOD_REGISTRY[name]
-    return spec.handler(ctx, spec.params_model.model_validate(params))
-
-
-def _held_ctx(root):
-    """A sidecar whose queue only records: nothing drains, so the state right
-    after Add (registered, not yet extracted) can be observed."""
-
-    ctx = SidecarContext()
-    ctx.load(root)
-    ctx.ingest_jobs.bind(ctx.repository, root, background=False, clock=CLOCK, services=fake_services())
-    ctx.ingest_jobs._ensure_worker = lambda: None  # type: ignore[method-assign]
-    return ctx
-
-
-def _draining_ctx(root):
-    ctx = SidecarContext()
-    ctx.load(root)
-    ctx.ingest_jobs.bind(ctx.repository, root, background=False, clock=CLOCK, services=fake_services())
-    return ctx
+from tests.ux_phase1_support import fresh_library, grant_consent, write_book, write_pdf
+from tests.ux_phase1_add_source_helpers import _draining_ctx, _held_ctx, call
 
 
 def test_add_source_opens_a_pdf_at_once_with_its_original(tmp_path):

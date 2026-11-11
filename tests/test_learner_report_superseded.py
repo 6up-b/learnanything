@@ -32,7 +32,6 @@ from learnloop.algorithm_versions import (
     LATEST_ALGORITHM_VERSION,
     ONE_ASK_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
-    SUPERSEDED_CLAIMS_ALGORITHM_VERSION,
     SUPERSEDED_CLAIMS_VERSIONS,
 )
 from learnloop.content.authoring.item_authoring import retire_item
@@ -47,7 +46,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 
 from tests.helpers import add_followup_item, create_placement_vault
-from tests.test_rebuild_equivalence import (
+from tests.rebuild_equivalence_helpers import (
     GAPS,
     ITEMS,
     KINDS,
@@ -59,18 +58,9 @@ from tests.test_rebuild_equivalence import (
     _mastery,
     _shadow_summary,
 )
+from tests.learner_report_superseded_helpers import TAG, _vault
 
-TAG = SUPERSEDED_CLAIMS_ALGORITHM_VERSION
 PREDECESSOR = ONE_ASK_ALGORITHM_VERSION
-
-
-def _vault(tmp_path, version=TAG, name="vault"):
-    paths = create_placement_vault(tmp_path / name, version=version)
-    add_followup_item(paths.root)
-    repository = Repository(paths.sqlite_path)
-    vault = load_vault(paths.root)
-    sync_vault_state(vault, repository, clock=_at(0))
-    return paths, vault, repository
 
 
 def _rows(repository):

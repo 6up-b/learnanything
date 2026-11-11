@@ -43,7 +43,7 @@ from learnloop.vault.writer import upsert_practice_item
 from learnloop.algorithm_versions import ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION, SUPERSEDED_CLAIMS_ALGORITHM_VERSION
 
 from tests.helpers import NOW, create_basic_vault, set_algorithm_version
-from tests.test_state_sync_scheduling_race import (
+from tests.state_sync_scheduling_race_helpers import (
     PROBE,
     _add_diagnostic_probe,
     _commit_probe_attempt,

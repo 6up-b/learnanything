@@ -25,8 +25,8 @@ import pytest
 from learnloop.ai import plan_fallback
 from learnloop.ai.routing import ready_client_for_task
 
-from tests.test_plan_first_transport_offer_grants import Harness, fake_openai, isolated  # noqa: F401
-from tests.test_plan_first_transport_paid_roles import _priced_vault
+from tests.plan_first_transport_offer_grants_helpers import Harness, fake_openai, isolated  # noqa: F401
+from tests.plan_first_transport_paid_roles_helpers import _priced_vault
 
 
 @pytest.fixture
@@ -204,7 +204,7 @@ def book(tmp_path, monkeypatch):
     from learnloop.content.pipeline.add_source import default_authoring_route
     from learnloop_sidecar.context import SidecarContext
 
-    from tests.test_ux_phase1_add_source import call
+    from tests.ux_phase1_add_source_helpers import call
     from learnloop.content.sources.source_outline import resolve_extraction_id
     from tests.ux_phase1_support import CLOCK, fake_services, fresh_library, write_book
 

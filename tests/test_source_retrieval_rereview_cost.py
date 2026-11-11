@@ -148,7 +148,7 @@ def test_the_openai_embedding_client_sends_the_request_timeout(monkeypatch):
     from learnloop.ai.providers.openai_embedding import OpenAIEmbeddingProviderClient
     from learnloop.config import OpenAIEmbeddingProviderConfig
     from tests.openai_fakes import install_fake_openai
-    from tests.test_openai_embedding_client import response
+    from tests.openai_embedding_client_helpers import response
 
     module = install_fake_openai(monkeypatch, embeddings=[response([3, 4]), response([0, 1])])
     monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")

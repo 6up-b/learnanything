@@ -46,28 +46,14 @@ from learnloop.practice_index.retrieval import find_practice
 from learnloop.practice_index.usage import USAGE_TASK
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
-from tests.library_ask_fixtures import build_library_vault, context, finish_job, set_config, table_counts
+from tests.library_ask_fixtures import build_library_vault, context, set_config, table_counts
 from tests.recap_fixtures import call as call_rpc
 from tests.source_service_fakes import LEARNING_STATE_TABLES, FakeServiceLLM
+from tests.library_exercises_helpers import QUERY, call
 
 ROOT = Path(__file__).resolve().parents[1]
-QUERY = "solve for the eigenvalue x"
 #: The solutions' own words (exercise 1's and 2's): never in what the Reader is sent.
 SOLUTION_TEXT = ("so the eigenvalue is x = 5", "so the eigenvalue is x = 3", "Subtracting")
-
-
-#: RW4b's two RPCs answer with a library job (never on the request path).
-JOB_RPCS = frozenset({"reader.exercise_candidates", "reader.find_exercises"})
-
-
-def call(ctx, name: str, params: dict[str, Any]) -> dict[str, Any]:
-    """An RPC as the Reader sees it: RW4b's job RPCs are read until done."""
-
-    result = call_rpc(ctx, name, params)
-    if name in JOB_RPCS:
-        assert set(result) >= {"jobId", "state"}, result  # never answered on the request path
-        return finish_job(ctx, result)
-    return result
 
 
 @pytest.fixture
@@ -767,7 +753,7 @@ def grader(monkeypatch):
 
     import learnloop_sidecar.handlers.practice as practice
     from tests.split_live_helpers import ReadyRuntime
-    from tests.test_stuck_prompt import StuckFake
+    from tests.stuck_prompt_helpers import StuckFake
 
     client = StuckFake()
     monkeypatch.setattr(practice, "ready_grading_provider",

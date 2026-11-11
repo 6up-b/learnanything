@@ -43,10 +43,10 @@ from learnloop.scheduling import scheduler
 from learnloop.scheduling.intent.serving import on_your_own
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
-from learnloop.vault.yaml_io import read_yaml, write_yaml
 from tests.daily_plan_fakes import MovableClock, iso, record_attempt, seed_due
 from tests.helpers import create_daily_plan_vault
 from tests.intent_fakes import ITEM_LO, NOW, make_intent_vault
+from tests.intent_fix_round4_helpers import _as_teach_back, _never_worth_its_minutes
 
 #: The activity policy's legacy assistance channels (never a check on your own).
 ASSISTED_TYPES = {"hinted_attempt", "guided_walkthrough", "reconstruction_after_walkthrough"}
@@ -129,21 +129,6 @@ def test_f13_an_independent_attempt_still_answers(tmp_path):
 
 
 # -- F14 / R2: a due check survives composition and is planned within the minutes ------------------
-
-
-def _as_teach_back(root, item_id):
-    path = next(root.rglob(f"{item_id}.yaml"))
-    payload = read_yaml(path)
-    payload["practice_mode"] = "teach_back"
-    payload["attempt_types_allowed"] = ["teach_back"]
-    write_yaml(path, payload)
-
-
-def _never_worth_its_minutes(monkeypatch):
-    """Every teach-back's value of information below its minutes (the
-    verify's 12.95 value-minutes against 15 cost-minutes, on every build)."""
-
-    monkeypatch.setattr(scheduler, "_teach_back_value_admission", lambda *args, **kwargs: (frozenset(), []))
 
 
 def test_f14_an_item_check_on_a_teach_back_survives_composition(tmp_path, monkeypatch):

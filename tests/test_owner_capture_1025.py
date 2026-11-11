@@ -19,17 +19,12 @@ import pytest
 
 import learnloop_sidecar.handlers  # noqa: F401 - registers the RPCs
 from learnloop_sidecar.context import SidecarContext
-from learnloop_sidecar.registry import METHOD_REGISTRY
 from tests.hint_fakes import ITEM, WORK, WriterFake, hint_vault
 from tests.split_live_helpers import ReadyRuntime
-from tests.test_stuck_prompt import StuckFake
+from tests.stuck_prompt_helpers import StuckFake
+from tests.owner_capture_1025_helpers import _call, _press
 
 STALE = "The scheduler offer does not belong to this item/session or was already consumed."
-
-
-def _call(ctx, name, params):
-    spec = METHOD_REGISTRY[name]
-    return spec.handler(ctx, spec.params_model.model_validate(params))
 
 
 def _rows(paths, sql, params=()):
@@ -190,11 +185,6 @@ def test_b3_a_reattempt_starts_a_fresh_ask_thread(tmp_path, grader):
 
 
 # -- B2: the help style moves the next hint without a Decider ------------------------------------
-
-
-def _press(ctx, session, key):
-    return _call(ctx, "practice.request_hint", {"sessionId": session, "practiceItemId": ITEM, "submissionId": key,
-                                                "answerMd": WORK})["result"]
 
 
 @pytest.mark.parametrize("style, first", [

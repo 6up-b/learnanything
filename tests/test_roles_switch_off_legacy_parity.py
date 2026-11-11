@@ -29,7 +29,7 @@ import pytest
 
 from tests.passage_cue_fakes import CueJudgeFake, build_cue_vault, loaded, set_config
 from tests.source_service_fakes import FakeServiceLLM
-from tests.test_roles_switch_off import _normalized, _sha, _without
+from tests.roles_switch_off_helpers import _normalized, _sha, _without
 
 GOLDEN = Path(__file__).parent / "fixtures" / "roles_switch_off_legacy_a12ba5ba9.json"
 WRITE = os.environ.get("RW4E_WRITE_LEGACY_GOLDEN") == "1"
@@ -173,7 +173,7 @@ def test_legacy_source_objects_with_the_positive_filter_off_are_a12ba5ba9s(tmp_p
 @pytest.mark.skipif(WRITE, reason="the golden is being recorded")
 @pytest.mark.parametrize("switches", [False, True], ids=["switches_off", "switches_on"])
 def test_a_valid_cue_answer_with_a_duplicate_role_is_parsed_and_stored_as_a12ba5ba9_did(tmp_path, switches):
-    from tests.test_roles_judges import _proposals
+    from tests.roles_judges_helpers import _proposals
 
     recorded, repository, _judge = _cue_record(tmp_path, switches)
     golden = _golden()["cue"]

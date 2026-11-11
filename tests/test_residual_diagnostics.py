@@ -9,8 +9,8 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW
-from tests.test_capability_residual import _build_vault, _drive
-from tests.test_km2_write_path import SELECT, SHARED, _attempt, build_mvp07_vault
+from tests.capability_residual_helpers import _build_vault, _drive
+from tests.km2_write_path_helpers import SELECT, SHARED, _attempt, build_mvp07_vault
 
 
 def test_positive_residual_dependence_flags_missing_factor(tmp_path):

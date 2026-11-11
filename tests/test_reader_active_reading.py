@@ -23,14 +23,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from learnloop.ai.transport import ISOLATED_TURN, STRUCTURED_COMPLETION
 from learnloop.clock import FrozenClock
 from learnloop.reader import reader_quick_check as RQC
 from learnloop.reader.ai_contracts import ReadingActiveCheck, ReadingQuickCheck
 from tests.helpers import NOW, append_config_toml
 from tests.recap_fixtures import call, context, table_counts
 from tests.structured_ai import StructuredClientFake
-from tests.test_reader_guidance import _setup
+from tests.reader_guidance_helpers import _setup
+from tests.reader_active_reading_helpers import ActiveClient, EVIDENCE_TABLES
 
 CLOCK = FrozenClock(NOW)
 #: Tables a formative act may write; every other table's count stays put (G36).
@@ -38,27 +38,6 @@ FORMATIVE_WRITES = {
     "reader_authored_questions", "judgment_ledger", "judgment_work_claims", "model_call_receipts",
     "interaction_events", "learner_text_gap_jobs", "learner_text_gaps",
 }
-EVIDENCE_TABLES = ("practice_attempts", "grading_evidence", "facet_recall_state", "facet_capability_evidence",
-                   "probe_observations", "fsrs_states")
-
-
-class ActiveClient(StructuredClientFake):
-    provider_name = "fake"
-    provider_type = "codex_sdk"
-    model = "fake-model"
-
-    def __init__(self, result: ReadingActiveCheck | None = None, *, isolates: bool = True) -> None:
-        self.result = result or ReadingActiveCheck(question_md="What comes next after this line?",
-                                                   next_step_span_ids=["s2"], span_ids=["s2"])
-        self.isolates = isolates
-        self.requests: list = []
-
-    def supports(self, capability: str) -> bool:
-        return self.isolates if capability == ISOLATED_TURN else capability == STRUCTURED_COMPLETION
-
-    def complete(self, request):
-        self.requests.append(request)
-        return self.result
 
 
 def _author(repo, client, *, spans=("s1",), style="next_step"):

@@ -31,9 +31,9 @@ from learnloop.vault.paths import VaultPaths
 from learnloop.why import reader
 
 from tests.helpers import create_basic_vault
-from tests.test_ih2_lessons_compete import draw  # noqa: F401 - the fixture
-from tests.test_te3b_offers import offerable  # noqa: F401 - the fixture
-from tests.test_why_cases import of_kind, stage_case_1, stage_case_2, stage_case_3, stage_case_4, why
+from tests.ih2_lessons_compete_helpers import draw  # noqa: F401 - the fixture
+from tests.te3b_offers_helpers import offerable  # noqa: F401 - the fixture
+from tests.why_cases_helpers import of_kind, stage_case_1, stage_case_2, stage_case_3, stage_case_4, why
 
 PLANTED = "the learner wrote about eigenvalues here"
 
@@ -464,7 +464,7 @@ ALL_CASE_TABLES = ("practice_attempts", "router_decisions", "model_call_receipts
 
 
 def test_an_october_copy_skips_every_real_case_with_its_reason(tmp_path):
-    from tests.test_why_real_cases import skip_reason
+    from tests.why_real_cases_helpers import skip_reason
 
     old = _synthetic_copy(tmp_path / "old.sqlite", tables=ALL_CASE_TABLES, newest="2026-10-26T18:30:11Z")
     for case in (1, 2, 3, 4):
@@ -481,7 +481,7 @@ def test_an_october_copy_skips_every_real_case_with_its_reason(tmp_path):
 
 
 def test_a_copy_past_nov_8_is_never_skipped_even_without_the_rows(tmp_path):
-    from tests.test_why_real_cases import skip_reason
+    from tests.why_real_cases_helpers import skip_reason
 
     fresh = _synthetic_copy(tmp_path / "fresh.sqlite", tables=ALL_CASE_TABLES,
                             newest="2026-11-09T02:08:05.123456+00:00")

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import json
-import threading
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from types import SimpleNamespace
 
 from typer.testing import CliRunner
@@ -11,7 +9,7 @@ import learnloop.cli as cli_module
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
 from learnloop.config import LearnLoopConfig
-from learnloop.db.repositories import MasteryState, Repository
+from learnloop.db.repositories import Repository
 from learnloop.content.proposals.proposals import queue_accepted_diagnostic_followups
 from learnloop.scheduling.scheduler import build_due_queue
 from learnloop.vault.loader import load_vault
@@ -20,11 +18,11 @@ from tests.helpers import (
     ALGORITHM_VERSION,
     NOW,
     NOW_ISO,
-    configure_codex_http,
     create_basic_vault,
 )
 
 import pytest
+from tests.cli_generate_practice_helpers import _ProposalServer, _complete_probe, _configure_codex
 
 # The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
 # H3); these tests drive an in-process HTTP server through it as a provider double.
@@ -345,32 +343,6 @@ def _has_source_ref(refs: list[dict], ref_type: str, ref_id: str) -> bool:
     return any(ref.get("ref_type") == ref_type and ref.get("ref_id") == ref_id for ref in refs)
 
 
-def _complete_probe(sqlite_path) -> None:
-    repository = Repository(sqlite_path)
-    repository.upsert_mastery_state(
-        MasteryState(
-            learning_object_id="lo_svd_definition",
-            logit_mean=0.0,
-            logit_variance=0.5,
-            evidence_count=3,
-            last_evidence_at=NOW_ISO,
-            algorithm_version="mvp-0.1",
-            updated_at=NOW_ISO,
-        )
-    )
-    repository.upsert_probe_state(
-        learning_object_id="lo_svd_definition",
-        status="complete",
-        algorithm_version="mvp-0.1",
-        probe_phase_id="probe_lo_svd_definition",
-        hypothesis_set_id="hypotheses_lo_svd_definition",
-        probe_attempts_completed=3,
-        probe_attempts_target=3,
-        completed_at=NOW_ISO,
-        clock=FrozenClock(NOW),
-    )
-
-
 def _seed_diagnostic_need(repository: Repository, *, need_id: str = "need_svd_recall") -> str:
     return repository.upsert_intervention_need(
         {
@@ -513,61 +485,6 @@ def _diagnostic_proposal_payload() -> dict:
             }
         ],
     }
-
-
-def _configure_codex(vault_root, checkout, base_url: str) -> None:
-    configure_codex_http(vault_root, checkout, base_url)
-
-
-class _ProposalServer:
-    def __init__(self, proposal: dict):
-        self.proposal = proposal
-        self.requests: list[dict] = []
-        self._server = HTTPServer(("127.0.0.1", 0), self._handler())
-        self.base_url = f"http://127.0.0.1:{self._server.server_port}"
-        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
-
-    def start(self) -> None:
-        self._thread.start()
-
-    def stop(self) -> None:
-        self._server.shutdown()
-        self._thread.join(timeout=5)
-        self._server.server_close()
-
-    def _handler(self):
-        owner = self
-
-        class Handler(BaseHTTPRequestHandler):
-            def do_GET(self):  # noqa: N802
-                if self.path != "/health":
-                    self.send_response(404)
-                    self.end_headers()
-                    return
-                self._json({"status": "ready"})
-
-            def do_POST(self):  # noqa: N802
-                length = int(self.headers.get("Content-Length", "0"))
-                body = json.loads(self.rfile.read(length).decode("utf-8"))
-                owner.requests.append({"path": self.path, "body": body})
-                if self.path == "/authoring-proposal":
-                    self._json(owner.proposal)
-                    return
-                self.send_response(404)
-                self.end_headers()
-
-            def log_message(self, *_args):
-                return
-
-            def _json(self, payload: dict) -> None:
-                raw = json.dumps(payload).encode("utf-8")
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(raw)))
-                self.end_headers()
-                self.wfile.write(raw)
-
-        return Handler
 
 
 def test_generate_practice_dry_run_focus_concepts_filters_targets(tmp_path):

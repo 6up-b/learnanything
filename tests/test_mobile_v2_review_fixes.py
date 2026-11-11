@@ -17,10 +17,8 @@ No model and no network.
 
 from __future__ import annotations
 
-import json
-from dataclasses import replace
-
 import pytest
+from tests.mobile_v2_review_fixes_helpers import _stop_past_held_work, _stops
 
 pytest.importorskip("starlette")
 
@@ -29,7 +27,7 @@ from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.request_origin import RequestOrigin
 
 from tests.mobile_host_helpers import rows
-from tests.test_mobile_v2_plan import HELD, _call, _desktop, _dont_know, _next, plan_world  # noqa: F401
+from tests.mobile_v2_plan_helpers import HELD, _call, _desktop, _dont_know, _next, plan_world  # noqa: F401
 
 
 def _desktop_session(paths):
@@ -99,32 +97,6 @@ def test_f2_the_desktops_pick_of_the_same_item_is_served(plan_world):
 
 
 # -- F4 ---------------------------------------------------------------------------------------------
-
-
-def _stop_past_held_work(monkeypatch):
-    """The chooser draws a stop (with its propensity) at any boundary crossed while a block is open:
-    only a device's step crosses one then."""
-
-    real = engine.decide
-    drawn = []
-
-    def decide(record, context, policy, **kwargs):
-        decision = real(record, context, policy, **kwargs)
-        if record.current_block() is None or not decision.feasible:
-            return decision
-        drawn.append(record.id)
-        stop = replace(decision.choice, candidate_id=engine.STOP_FOR_TODAY, propensity=0.25,
-                       why="a forced stop at the phone's boundary")
-        return replace(decision, choice=stop, candidate=None, stop_offered=True)
-
-    monkeypatch.setattr(engine, "decide", decide)
-    return drawn
-
-
-def _stops(repository):
-    return [json.loads(row["detail_json"]) for row in rows(
-        repository, "SELECT detail_json FROM attention_block_events WHERE kind = 'block_chosen'")
-        if json.loads(row["detail_json"]).get("stop_reason")]
 
 
 def test_f4_a_stop_drawn_past_held_work_keeps_that_work_for_the_desktop_and_closes_after_it(plan_world, monkeypatch):
@@ -201,7 +173,7 @@ def test_f5_the_open_randomized_check_is_named_cold_until_it_is_answered(tmp_pat
     from learnloop.scheduling.device_eligibility import PlanStepFilter
 
     from tests.daily_plan_fakes import record_attempt
-    from tests.test_ro5_checks import _env
+    from tests.ro5_checks_helpers import _env
 
     env = _env(tmp_path)
     env.device = PlanStepFilter(device_filter=None)

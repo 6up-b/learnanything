@@ -9,7 +9,7 @@ from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, Extract
 from learnloop.content.sources import block_health as BH
 from learnloop.reader import source_render_views as RV
 from learnloop.reader import span_view as SV
-from tests.test_source_inventory import _persist, _register_revision
+from tests.source_inventory_helpers import _persist, _register_revision
 
 
 def _setup(tmp_path: Path, text: str = "Symmetric matrices have real eigenvalues.") -> Repository:

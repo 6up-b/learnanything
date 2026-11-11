@@ -21,7 +21,7 @@ pytest.importorskip("starlette")
 from learnloop.daily_plan import engine
 
 from tests.mobile_host_helpers import rows
-from tests.test_mobile_v2_plan import _call, _desktop, _next, _phone_day, plan_world  # noqa: F401
+from tests.mobile_v2_plan_helpers import _call, _desktop, _next, _phone_day, plan_world  # noqa: F401
 
 _PLANS = "SELECT id, kind, status, minutes_budget, split_json FROM daily_plans ORDER BY created_at, id"
 

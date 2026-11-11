@@ -19,9 +19,9 @@ from learnloop.attempts.attempts import apply_attempt
 from learnloop.reader import reader_dialogue as RD
 from learnloop.reader import reader_inquiry as RI
 from tests.helpers import append_config_toml
-from tests.test_reader_dialogue import _CLOCK, _setup
-from tests.test_reader_inquiry_status import table_counts
-from tests.test_sidecar_reader import _init, _rpc, _setup as _rpc_setup
+from tests.reader_dialogue_helpers import _CLOCK, _setup
+from tests.reader_inquiry_status_helpers import table_counts
+from tests.sidecar_reader_helpers import _init, _rpc, _setup as _rpc_setup
 
 
 def _client_event(kind: str, event: str | None) -> dict:

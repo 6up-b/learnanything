@@ -146,7 +146,7 @@ def test_lesson_activity_is_a_desktop_only_rpc_that_records_intervals(tmp_path):
     from learnloop_sidecar import handlers  # noqa: F401 - populates the registry
     from learnloop_sidecar.handlers import lesson as H
     from learnloop_sidecar.registry import METHOD_REGISTRY
-    from tests.test_teacher_te1_successor import _Ctx
+    from tests.teacher_te1_successor_helpers import _Ctx
 
     assert H.LESSON_ACTIVITY_RPCS == ("lesson.activity",)
     assert "lesson.activity" in METHOD_REGISTRY and "lesson.activity" not in ALLOWLIST

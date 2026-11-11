@@ -9,8 +9,8 @@ import pytest
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.errors import SidecarError
 from tests.helpers import create_placement_vault, set_algorithm_version
-from tests.test_graph_editor_reads import _blueprint_ctx, _call
-from tests.test_km3_projections import INTEG, LO_ID
+from tests.graph_editor_reads_helpers import _blueprint_ctx, _call
+from tests.km3_projections_helpers import INTEG, LO_ID
 
 
 def _placement_ctx(root, *, version="mvp-0.11"):

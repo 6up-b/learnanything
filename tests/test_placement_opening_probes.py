@@ -145,7 +145,7 @@ def test_an_in_progress_opening_episode_serves_no_probe_and_is_not_parked(tmp_pa
     import learnloop_sidecar.handlers  # noqa: F401 -- registers methods
     from learnloop_sidecar.context import SidecarContext
 
-    from tests.test_graph_editor_reads import _call
+    from tests.graph_editor_reads_helpers import _call
 
     paths, vault, repository = _upgraded(tmp_path)
     episode = repository.open_probe_episode("lo_diag")
@@ -218,7 +218,7 @@ def _sidecar(paths):
 
 
 def _submit_on_lo_diag(ctx, submission_id="s-1"):
-    from tests.test_graph_editor_reads import _call
+    from tests.graph_editor_reads_helpers import _call
 
     session = _call(ctx, "start_session", {"energy": "medium"})
     return _call(ctx, "submit_attempt", {
@@ -239,7 +239,7 @@ def test_an_answer_on_an_ignored_episode_is_not_held_back_for_it(tmp_path, monke
     result and the next-probe peek treat the ignored episode as absent; the
     kill switch defers feedback to it exactly as the predecessor did."""
 
-    from tests.test_graph_editor_reads import _call
+    from tests.graph_editor_reads_helpers import _call
 
     paths, vault, repository = _upgraded(
         tmp_path, placement_toml=placement_toml, before_upgrade=_in_progress_lo_diag,
@@ -279,7 +279,7 @@ def test_the_overconfidence_list_adopts_an_ignored_episode(tmp_path):
     """F2, door 1: "probe me" on an LO whose only open episode is ignored is
     served: the episode is adopted (origin stamped), so it stops being ignored."""
 
-    from tests.test_graph_editor_reads import _call
+    from tests.graph_editor_reads_helpers import _call
 
     paths, vault, repository = _upgraded(tmp_path)
     before = repository.open_probe_episode("lo_diag")
@@ -427,7 +427,7 @@ def test_the_causal_quick_check_stops_the_episode_being_ignored(tmp_path):
     from learnloop.diagnosis.causal_orchestrator import accept_probe_offer
 
     from tests.helpers import admit_probe_instrument_card
-    from tests.test_causal_orchestrator import (
+    from tests.causal_orchestrator_helpers import (
         LO_ID,
         PROBE_ITEM,
         _activate_probe_candidate,

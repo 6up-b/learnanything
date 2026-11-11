@@ -271,7 +271,7 @@ def integration_decisions(tmp_path: Path, monkeypatch: Any, toml: str = "") -> d
     step at two minute costs (pinned per check), with each build's value
     decisions, the queue and each completion."""
 
-    from tests import test_voi_stopping as T
+    from tests import voi_stopping_helpers as T
     from learnloop.scheduling.scheduler import OfferTrace
 
     toml = PINNED_ID_STREAM_TOML + toml
@@ -327,7 +327,7 @@ _GATE_EPISODE_TOML = "[probe.episode]\naction_equivalence_enabled = false\n[prob
 
 
 def _gate_probe_vault(tmp_path: Path, toml: str = ""):
-    from tests import test_voi_stopping as T
+    from tests import voi_stopping_helpers as T
     from tests.helpers import add_followup_item, admit_probe_instrument_card
     from learnloop.substrate.state_sync import sync_vault_state
     from learnloop.vault.loader import load_vault

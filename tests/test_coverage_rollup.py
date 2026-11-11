@@ -9,7 +9,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.models import SourceSet
 
 from tests.helpers import NOW_ISO, create_basic_vault
-from tests.test_goal_decay_projection import _add_application_item
+from tests.goal_decay_projection_helpers import _add_application_item
 
 
 def _source_set() -> SourceSet:

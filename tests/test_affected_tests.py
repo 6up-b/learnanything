@@ -120,10 +120,14 @@ def test_a_changed_test_file_selects_itself_and_a_doc_selects_only_tests_naming_
 
 
 def test_a_test_module_imported_by_another_passes_its_importers_through(selector):
-    # StuckFake (test_stuck_prompt) backs test_hint_h2b_review's grader fixture, which
-    # test_workbench_help_kill_switch imports.
+    # test_p2_leakage_suite reruns test_reader_dialogue's case (tests/test_test_layout.py's one
+    # allowed kind of test-to-test import) and does not import the reader's dialogue itself.
     module, graph = selector
-    changed = "/".join(("tests", "test_stuck_prompt.py"))
+    selected = module.select(["src/learnloop/reader/reader_dialogue.py"], graph, depth=0)["tests"]
+    assert {"tests/test_reader_dialogue.py", "tests/test_p2_leakage_suite.py"} <= set(selected)
+    # StuckFake backs test_hint_h2b_review's grader fixture, which test_workbench_help_kill_switch
+    # imports: both through helper modules since refactor step T1.
+    changed = "/".join(("tests", "stuck_prompt_helpers.py"))
     selected = module.select([changed], graph)["tests"]
     assert {"tests/test_hint_h2b_review.py", "tests/test_workbench_help_kill_switch.py"} <= set(selected)
 

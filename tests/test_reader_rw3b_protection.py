@@ -25,7 +25,7 @@ from learnloop.reader.reader_guidance import build_guide_plan
 from learnloop.source_retrieval import passage_cues as PC
 from tests.passage_cue_fakes import CueJudgeFake, build_cue_vault, loaded, set_config, snake
 from tests.recap_fixtures import call, context
-from tests.test_reader_inquiry_status import table_counts
+from tests.reader_inquiry_status_helpers import table_counts
 
 #: Words only the row-swap passage (t3) says: the held-out sentinel.
 SENTINEL = "multiplies its determinant by -1"

@@ -39,7 +39,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.required_method import presented_prompt
 
 from tests.helpers import create_basic_vault
-from tests.test_required_method_authority import (
+from tests.required_method_authority_helpers import (
     REQUIRES,
     SOURCE_REPRODUCTIONS,
     SVD,
@@ -47,6 +47,7 @@ from tests.test_required_method_authority import (
     _import,
     _ledger,
 )
+from tests.required_method_reopened_helpers import FailingDecider, _mint_status
 
 # -- F15: a judged statement is never rewritten through a proposal ------------------------------
 
@@ -205,8 +206,8 @@ def test_f13_a_later_dispute_of_the_graded_revision_lowers_a_frozen_regrade(gate
     dispute lowers the attempt (and the binding names that revision)."""
 
     from tests.source_service_fakes import loaded
-    from tests.test_reference_gate_imports import _attempt, _bindings, _edit_key, _regrade, _status
-    from tests.test_required_method_authority import _verified_method_import
+    from tests.reference_gate_imports_helpers import _attempt, _bindings, _edit_key, _regrade, _status
+    from tests.required_method_authority_helpers import _verified_method_import
 
     paths, repository, spans = gated_successor
     item_id, criterion = _verified_method_import(paths, repository, spans)
@@ -227,8 +228,8 @@ def test_f13_a_dispute_of_the_edited_revision_never_lowers_the_frozen_regrade(ga
     dispute is of the CURRENT (edited) content, not the content graded."""
 
     from tests.source_service_fakes import loaded
-    from tests.test_reference_gate_imports import _attempt, _bindings, _edit_key, _regrade, _status
-    from tests.test_required_method_authority import _verified_method_import
+    from tests.reference_gate_imports_helpers import _attempt, _bindings, _edit_key, _regrade, _status
+    from tests.required_method_authority_helpers import _verified_method_import
 
     paths, repository, spans = gated_successor
     item_id, criterion = _verified_method_import(paths, repository, spans)
@@ -251,9 +252,9 @@ def test_f13_when_the_graded_revision_cannot_be_rebuilt_it_needs_a_fresh_check(g
 
     from learnloop.vault.writer import upsert_practice_item
     from tests.source_service_fakes import loaded
-    from tests.test_reference_gate_imports import _attempt, _bindings, _regrade, _status
-    from tests.test_required_method_authority import _verified_method_import
-    from tests.test_required_method_rereview import _make_historical
+    from tests.reference_gate_imports_helpers import _attempt, _bindings, _regrade, _status
+    from tests.required_method_authority_helpers import _verified_method_import
+    from tests.required_method_rereview_helpers import _make_historical
 
     paths, repository, spans = gated_successor
     item_id, criterion = _verified_method_import(paths, repository, spans)
@@ -362,21 +363,6 @@ def test_f16_a_generated_update_is_no_owner_verdict(tmp_path):
 # -- F17: a PF judgment failure leaves the job retryable -----------------------------------------
 
 
-class FailingDecider(StatementDecider):
-    def __init__(self, error):
-        super().__init__(REQUIRES)
-        self.error = error
-
-    def decide(self, state, questions, *, purpose):
-        self.calls.append((state, dict(questions)))
-        raise self.error
-
-
-def _mint_status(repository):
-    with repository.connection() as connection:
-        return [row[0] for row in connection.execute("SELECT status FROM surface_mint_requests")]
-
-
 @pytest.mark.parametrize("error", ["timeout", "spend"])
 def test_f17_a_failed_judgment_leaves_the_job_retryable_and_a_rerun_resumes_without_regenerating(tmp_path, error):
     from learnloop.ai.errors import AIProviderUnavailable
@@ -384,8 +370,8 @@ def test_f17_a_failed_judgment_leaves_the_job_retryable_and_a_rerun_resumes_with
     from learnloop.content.authoring.pf_sandbox import sandbox_available
     from learnloop.ops.pf_generation import publish_backlog
     from tests.pf_fakes import clients
-    from tests.test_pf_generation import NEXT_DAY, all_calls, rows, run
-    from tests.test_required_method_authority import VARIANT_CONSISTENT, _pf_method_vault
+    from tests.pf_generation_helpers import NEXT_DAY, all_calls, rows, run
+    from tests.required_method_authority_helpers import VARIANT_CONSISTENT, _pf_method_vault
 
     if not sandbox_available():
         pytest.skip("bubblewrap is not installed")
@@ -419,8 +405,8 @@ def test_f17_a_cancellation_during_the_judgment_is_not_swallowed(tmp_path):
     from learnloop.ai.errors import AIInterrupted
     from learnloop.content.authoring.pf_sandbox import sandbox_available
     from tests.pf_fakes import clients
-    from tests.test_pf_generation import run
-    from tests.test_required_method_authority import _pf_method_vault
+    from tests.pf_generation_helpers import run
+    from tests.required_method_authority_helpers import _pf_method_vault
 
     if not sandbox_available():
         pytest.skip("bubblewrap is not installed")

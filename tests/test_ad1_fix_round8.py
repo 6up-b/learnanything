@@ -18,8 +18,8 @@ from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 
 from tests.ad_fakes import AuditDecider, ForecastLLM, rows
-from tests.test_ad1_codex_rereview_fixes import _served_with_history
-from tests.test_ad1_fix_round6 import _Moving
+from tests.ad1_codex_rereview_fixes_helpers import _served_with_history
+from tests.ad1_fix_round6_helpers import _Moving
 
 INJECTIONS = {
     # the verify's first: a reload before dispatch (StaleSnapshot), then closing the receipt fails

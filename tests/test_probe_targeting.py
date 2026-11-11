@@ -33,7 +33,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version, write_facets
-from tests.test_km2_write_path import SELECT, SHARED, _attempt, _item, _rubric, build_mvp07_vault
+from tests.km2_write_path_helpers import SELECT, SHARED, _attempt, _item, _rubric, build_mvp07_vault
 
 
 def _fake_instrument(

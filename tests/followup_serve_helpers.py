@@ -16,7 +16,7 @@ from learnloop.vault.yaml_io import read_yaml, write_yaml
 
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.helpers import append_config_toml, set_algorithm_version
-from tests.test_causal_p2_acceptance import CLOCK, _acceptance_vault, _divergent_failure
+from tests.causal_p2_acceptance_helpers import CLOCK, _acceptance_vault, _divergent_failure
 
 TAG = FOLLOWUP_SERVE_ALGORITHM_VERSION
 OFF = "\n[followup]\ngenerate_and_serve = false\n"
@@ -61,7 +61,7 @@ def generated_item(vault_root, repository: Repository, item_id: str, *, workflow
     """A real item in the vault with the single-use identity."""
 
     from learnloop.followup_serve import identity
-    from tests.test_causal_p2_acceptance import _extra_item
+    from tests.causal_p2_acceptance_helpers import _extra_item
 
     _extra_item(vault_root, item_id, source_family=f"family-{item_id}", prompt=f"Fresh question {item_id}")
     identity.register(repository, practice_item_id=item_id, revision=f"rev-{item_id}", source=source,

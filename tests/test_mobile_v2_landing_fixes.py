@@ -22,9 +22,9 @@ from learnloop.daily_plan import engine
 from learnloop.router_objective import stop_coin
 
 from tests.mobile_host_helpers import rows
-from tests.test_mobile_v2_plan import _desktop, _call, plan_world  # noqa: F401
-from tests.test_mobile_v2_rereview_fixes import _phone_to_pending_stop, _record
-from tests.test_mobile_v2_review_fixes import _stop_past_held_work
+from tests.mobile_v2_plan_helpers import _desktop, _call, plan_world  # noqa: F401
+from tests.mobile_v2_rereview_fixes_helpers import _phone_to_pending_stop, _record
+from tests.mobile_v2_review_fixes_helpers import _stop_past_held_work
 
 _PLANS = "SELECT id, minutes_budget, remembered_minutes, split_json, status FROM daily_plans"
 

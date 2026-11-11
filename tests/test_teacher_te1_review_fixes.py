@@ -23,14 +23,10 @@ from tests.teacher_fakes import (
     plan_turn,
 )
 from tests.ux_phase1_support import set_config
+from tests.teacher_te1_review_fixes_helpers import _metered, _rows, _spend, _turn
 
 T0 = datetime(2026, 11, 1, 9, 0, tzinfo=UTC)
 KEY = "quokka zebra marmot: two, five"
-
-
-def _rows(repository, sql, params=()):
-    with repository.connection() as connection:
-        return [tuple(row) for row in connection.execute(sql, params).fetchall()]
 
 
 def _open(tmp_path, turns, *, fake: TeacherFake | None = None, **kwargs):
@@ -41,57 +37,7 @@ def _open(tmp_path, turns, *, fake: TeacherFake | None = None, **kwargs):
     return paths, repository, fake, view
 
 
-def _turn(paths, repository, lesson_id, fake, action="reply", **payload):
-    payload = payload or {"text": "go"}
-    return S.take_turn(load_vault(paths.root), repository, lesson_id=lesson_id, action=action, payload=payload,
-                       clients=clients(fake))
-
-
 # --- F1: the per-lesson cap bounds every metered request ----------------------------------------------
-
-
-class MeteredTeacher(TeacherFake):
-    """A teacher and grader on a metered route: each physical request goes through ``model_call`` (the
-    real providers' seam, where the request gate admits it) and reports no usage (its reservation stands)."""
-
-    provider_name = "openrouter_test"
-    provider_type = "fake"  # the settings gate stays open; the spend gate still meters it (not a subscription)
-
-    def complete(self, request: Any) -> Any:
-        from learnloop.ai.execution import model_call
-
-        with model_call(self, purpose=request.purpose, prompt=request.prompt):
-            return super().complete(request)
-
-    def run_blind_grading_proposal(self, context: Any) -> Any:
-        from learnloop.ai.execution import model_call
-
-        with model_call(self, purpose="grading", prompt=json.dumps(str(context))):
-            return super().run_blind_grading_proposal(context)
-
-
-def _spend(repository):
-    return [json.loads(row[0]) for row in _rows(
-        repository, "SELECT p.payload_json FROM lesson_turns t JOIN lesson_turn_payloads p ON p.turn_id = t.id "
-                    "WHERE t.action = 'spend' ORDER BY t.seq")]
-
-
-def _metered(tmp_path, turns, *, cap_factor: float):
-    """Open on a metered route with a price and no cap, then cap the lesson at what it spent plus
-    ``cap_factor`` times the opening request's reservation."""
-
-    paths, repository = build_teacher_vault(tmp_path / "vault")
-    set_config(paths.root, {("teacher", "metered_price_per_million"): 1.0})
-    fake = MeteredTeacher([{"message": "Welcome."}])
-    view = S.open_lesson(load_vault(paths.root), repository, entry="learning_object", learning_object_ids=["lo_eigen"],
-                         clients=clients(fake))
-    first = _spend(repository)
-    assert len(first) == 1 and first[0]["usd"] > 0
-    spent = sum(row["usd"] for row in first)
-    cap = spent + cap_factor * first[0]["estimated_usd"]
-    set_config(paths.root, {("teacher", "max_lesson_cost_usd"): cap})
-    fake.turns = list(turns)
-    return paths, repository, fake, view["lesson_id"], cap
 
 
 def test_f1_a_second_request_in_one_action_is_refused_when_it_would_pass_the_cap(tmp_path):
@@ -410,7 +356,7 @@ def _cold(paths, repository, item_id, at, *, points: int = 4, confidence: int | 
 
 def test_f2_a_held_cold_grade_resolves_nothing_until_released(tmp_path):
     from learnloop.attempts.grade_resolution import append_adjudication_evidence_revision
-    from tests.test_held_grade_evidence import _hold_by_regrade
+    from tests.held_grade_evidence_helpers import _hold_by_regrade
 
     paths, repository = build_teacher_vault(tmp_path / "vault")
     _lesson_with_check(paths, repository, at=T0, retained=0.9)

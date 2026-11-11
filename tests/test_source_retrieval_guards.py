@@ -39,7 +39,7 @@ from tests.source_retrieval_fakes import (
     seed_source,
 )
 from tests.structured_ai import StructuredClientFake
-from tests.test_source_inventory import _block, _ir, _persist
+from tests.source_inventory_helpers import _block, _ir, _persist
 
 CLOCK = FrozenClock(datetime(2026, 10, 12, 12, 0, 0, tzinfo=UTC))
 CAPS = SpendCaps(max_candidates=10_000, max_pairs=0, max_calls=100, max_total_tokens=10**8,

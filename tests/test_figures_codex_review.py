@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import json
 import threading
-from types import SimpleNamespace
 
 import pytest
 
@@ -28,10 +27,8 @@ from learnloop.content.authoring import pf_sandbox
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.text_gaps import sources as gap_sources
 from learnloop.diagnosis.text_gaps.jobs import process_next_gap_job
-from learnloop.diagnosis.text_gaps.pipeline import PipelineClients
 from learnloop.diagnosis.text_gaps.provenance import formative_record
 from learnloop.figures import service as FS
-from learnloop.tutor.ai_contracts import LearnerGap
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers import figures as FH
@@ -45,34 +42,13 @@ from tests.figure_fixtures import (
     flagship,
     rows,
 )
-from tests.test_figure_region import REGION, crops  # noqa: F401 - the crop recorder fixture
-from tests.text_gap_fakes import GapLLMFake
+from tests.figure_region_helpers import REGION, crops  # noqa: F401 - the crop recorder fixture
+from tests.figures_codex_review_helpers import _clients, _gap_jobs, _gap_rows, _hold_out, _missed_prediction
 
 
 # ---------------------------------------------------------------------------
 # F1: the complete input-span manifest
 # ---------------------------------------------------------------------------
-
-class _HeldSpans:
-    """Exam material that holds out exactly these (extraction, span) keys."""
-
-    def __init__(self, held: set[tuple[str, str]]) -> None:
-        self.held = held
-        self.material = SimpleNamespace(reasons={})
-
-    def covers(self, extraction_id: str, span_id: str | None = None) -> bool:
-        return span_id is not None and (str(extraction_id), str(span_id)) in self.held
-
-    def withheld(self, keys):
-        return frozenset(tuple(key) for key in keys if tuple(key) in self.held)
-
-
-def _hold_out(monkeypatch, *spans: str) -> None:
-    from learnloop.content.sources import exam_material as EM
-
-    held = {(EXTRACTION, span) for span in spans}
-    monkeypatch.setattr(EM, "exam_material", lambda _vault, _repository: _HeldSpans(held))
-
 
 def test_f1_a_context_neighbour_held_out_after_authoring_withholds_the_figure(tmp_path, monkeypatch):
     paths, repository = build_figure_vault(tmp_path / "vault")
@@ -150,33 +126,6 @@ def _equivalence(checks):
 # ---------------------------------------------------------------------------
 # F5 and F6: the formative reading of a later "what changed?"; the worker
 # ---------------------------------------------------------------------------
-
-def _clients():
-    llm = GapLLMFake(reading=LearnerGap(kind="wording", prerequisite_name=None, prerequisite_line=None))
-    return llm, PipelineClients(judge=lambda: llm, reader=lambda: llm, decider=None, drafter=lambda: llm,
-                                tutor=None, embedder=None)
-
-
-def _gap_rows(repository):
-    with repository.connection() as connection:
-        return [dict(row) for row in connection.execute(
-            "SELECT source_kind, source_id, learner_text FROM learner_text_gaps ORDER BY created_at, id")]
-
-
-def _gap_jobs(repository):
-    with repository.connection() as connection:
-        return [tuple(row) for row in connection.execute(
-            "SELECT source_kind, source_id, state FROM learner_text_gap_jobs ORDER BY created_at, id")]
-
-
-def _missed_prediction(tmp_path):
-    paths, repository = build_figure_vault(tmp_path / "vault")
-    ctx = context(paths.root, author=AuthorFake([flagship(kind="illustrative")]))
-    figure = build(ctx)["figure"]
-    found = call(ctx, "reader.figure_predict", {"figureId": figure["figureId"], "predictionIndex": 0,
-                                                 "answer": "rises"})
-    return paths, repository, ctx, found
-
 
 def test_f5_an_explanation_after_the_reading_is_read_as_its_own_text(tmp_path):
     paths, repository, ctx, found = _missed_prediction(tmp_path)

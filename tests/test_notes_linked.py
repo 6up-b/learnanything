@@ -8,7 +8,6 @@ fake; background work runs inline (``notes_inline``).
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -17,7 +16,7 @@ from learnloop.source_retrieval import note_links as NL
 from learnloop.source_retrieval import vault_notes as VN
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
-from tests.deliverable_fixtures import DeliverableFake, build_deliverable_vault
+from tests.deliverable_fixtures import build_deliverable_vault
 from tests.notes_fixtures import (
     SENTINEL,
     MeteredNoteLinkFake,
@@ -29,35 +28,11 @@ from tests.notes_fixtures import (
     eigen_notes,
 )
 from tests.reading_path_fixtures import call, context, normalized
-from tests.section_coverage_fixtures import CoverageJudgeFake, table_counts
+from tests.section_coverage_fixtures import table_counts
+from tests.notes_linked_helpers import _Published, _ctx, _deliverable, _lines, _link_typed_by_hand, _target
 
 RPCS = ("notes.path", "notes.marks", "notes.passages", "notes.search", "notes.link", "notes.decide",
         "notes.hidden", "notes.set_gaps")  # followups-nov1c C; curriculum C5's opt-in
-
-
-def _ctx(paths, **attrs):
-    fake = attrs.pop("fake", None) or DeliverableFake(primaries={"Eigenvalues": "Chapter 5 Eigenvalues"})
-    return context(paths.root, deliverable_inline=True, notes_inline=True, coverage_judge_client=CoverageJudgeFake(),
-                   deliverable_scope_client=fake, deliverable_path_client=fake, **attrs)
-
-
-def _deliverable(tmp_path: Path, *, config: str = "", notes: NoteLinkFake | None = None):
-    """A deliverable vault with a judged path for lo_eigen (primary ch_eigen in ext_book),
-    the synthetic vault notes, and the sidecar context."""
-
-    paths, repository = build_deliverable_vault(tmp_path / "vault", config=config)
-    corpus = eigen_notes(repository)
-    notes = notes or NoteLinkFake()
-    ctx = _ctx(paths, note_link_client=notes)
-    created = call(ctx, "curriculum.create_deliverable", {"sentence": "eigenvalues for my midterm"})
-    goal_id = created["goalId"]
-    view = call(ctx, "curriculum.set_depth", {"goal_id": goal_id, "depth": "learn_to_use_it"})
-    assert view["status"] == "ready"
-    return paths, repository, ctx, goal_id, corpus, notes
-
-
-def _lines(out, lo: str = "lo_eigen") -> list:
-    return next((entry["notes"] for entry in out["lines"] if entry["learningObjectId"] == lo), [])
 
 
 def _keys(lines) -> set[str]:
@@ -322,11 +297,6 @@ def test_legacy_tend_snapshots_stay_readable(tmp_path):
 
 # -- Codex review (2026-11-01, C2), adapted to the vault's notes --------------------------------------
 
-def _target(paths, repository, goal_id):
-    vault = load_vault(paths.root)
-    return vault, NL.path_targets(vault, repository, goal_id)[0]
-
-
 def _reconfigured(paths, change):
     """The vault as it loads after the learner changed learnloop.toml (``change``: text to append)."""
 
@@ -418,11 +388,6 @@ def test_f7_returning_to_a_judged_state_shows_that_states_links_without_a_call(t
     assert call(ctx, "notes.marks", {"extraction_id": "ext_book"})["marks"] == []
 
 
-def _link_typed_by_hand(ctx, corpus):
-    return call(ctx, "notes.link", {"note": {"note_key": corpus["typed"]}, "extraction_id": "ext_book",
-                                    "span_id": "s2"})
-
-
 def _hand_texts(ctx):
     marks = call(ctx, "notes.marks", {"extraction_id": "ext_book"})["marks"]
     return [n["note"]["text"] for m in marks for n in m["notes"] if n["byLabel"] == NL.BY_YOU_LABEL]
@@ -509,26 +474,6 @@ def test_f12_verdict_problem_names_each_defect():
     assert "judged twice: n1" in problem and "discusses without about and how: n3" in problem
     good = NL.NoteLinkOutputV1.model_validate({"notes": [{"note": "n1", "verdict": "unrelated"}]})
     assert NL.verdict_problem(good, ["n1"]) is None
-
-
-class _Published:
-    """A loaded-vault provider shaped as the sidecar's (``snapshot()`` and a
-    generation-bound ``admit``): ``publish`` is a settings reload."""
-
-    def __init__(self, vault):
-        self.vault, self.generation = vault, 1
-
-    def publish(self, vault):
-        self.vault, self.generation = vault, self.generation + 1
-
-    def __call__(self):
-        return self.vault
-
-    def snapshot(self):
-        return self.vault, self.generation
-
-    def admit(self, generation):
-        return generation == self.generation
 
 
 def _reload_during_notes_reading(monkeypatch, provider, to):

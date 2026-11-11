@@ -26,7 +26,7 @@ import pytest
 from learnloop.reader import source_identity as SI
 from learnloop_sidecar.errors import SidecarError
 from tests.reading_path_fixtures import call, context
-from tests.test_reader_source_identity_guard import MISMATCH, _refused, twins  # noqa: F401 - the fixture
+from tests.reader_source_identity_guard_helpers import MISMATCH, _refused, twins  # noqa: F401 - the fixture
 
 X = {"sourceId": "src_x", "revisionId": "rev_x", "extractionId": "ext_x"}
 

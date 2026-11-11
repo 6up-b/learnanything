@@ -25,7 +25,7 @@ from tests.recap_fixtures import (
     EXT, T0, ask, at, call, context, cue_tap, interaction_rows, iso, open_visit, problem, resolve, selection,
     table_counts, visit,
 )
-from tests.test_reader_dialogue import _setup
+from tests.reader_dialogue_helpers import _setup
 
 
 def _now(minutes):

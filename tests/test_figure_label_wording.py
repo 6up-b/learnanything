@@ -22,8 +22,6 @@ Fakes only: no model, Manim or bubblewrap runs.
 from __future__ import annotations
 
 import json
-import re
-from pathlib import Path
 
 import pytest
 
@@ -34,10 +32,9 @@ from learnloop.vault.loader import load_vault
 from tests import rich_fixtures as RF
 from tests import sketch_fixtures as F
 from tests.figure_fixtures import EXTRACTION, AuthorFake, build_figure_vault, flagship, rows
-from tests.test_figure_rich_job import WHY, _Rig
+from tests.figure_rich_job_helpers import WHY, _Rig
+from tests.figure_label_wording_helpers import _frame
 
-ROOT = Path(__file__).resolve().parents[1]
-FIGURES_TS = ROOT / "apps/learnloop-tauri/src/screens/reader/figures"
 CLAIM = "matches the book's equation (checked)"
 CLEAN_ASSUMPTION = {"text": "λ > 0 and 0 < p < 1", "span_id": "p2", "quote": "0 < p < 1 and \\lambda > 0"}
 
@@ -80,13 +77,6 @@ def test_the_vocabulary_comes_from_the_code_owned_labels():
     assert RICH.MANIM_NOT_FROM_BOOKS_LABEL is L.MANIM_NOT_FROM_BOOKS_LABEL
     assert RICH.MANIM_NOT_COVERED is L.MANIM_NOT_COVERED
     assert L.CHECK_LABEL_WORDS == ("checked", FS.store.VERIFIED_RW5C)
-
-
-def _frame(name: str, frame: str) -> dict[str, str]:
-    source = (FIGURES_TS / name).read_text(encoding="utf-8")
-    body = source[source.index(f"export const {frame} = {{"):]
-    body = body[:body.index("} as const;")]
-    return dict(re.findall(r'^\s+(\w+): "((?:[^"\\]|\\.)*)",?$', body, flags=re.MULTILINE))
 
 
 def test_the_desktop_frames_carry_the_same_label_strings():

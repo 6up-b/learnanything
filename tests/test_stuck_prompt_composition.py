@@ -30,11 +30,11 @@ from learnloop.substrate.canonical_projection import (
 from tests.diagnosis_fakes import FakeEmbeddingClient
 from tests.recurrence_fakes import StatementFake, shares_word
 from tests.split_live_helpers import ReadyRuntime, at, drain_jobs, split_vault, submit
-from tests.test_pfc_unverified_unassessed import _mapped_split_vault, _mass, _support
-from tests.test_placement_diagnosis_decides import DUE_HOURS, LO, WRONG, _Diagnosed, _state
-from tests.test_recurrence_live import STATEMENTS, _heads
-from tests.test_recurrence_live import _vault as _recurrence_vault
-from tests.test_stuck_prompt import StuckFake, _draft
+from tests.pfc_unverified_unassessed_helpers import _mapped_split_vault, _mass, _support
+from tests.placement_diagnosis_decides_helpers import DUE_HOURS, LO, WRONG, _Diagnosed, _state
+from tests.recurrence_live_helpers import STATEMENTS, _heads
+from tests.recurrence_live_helpers import _vault as _recurrence_vault
+from tests.stuck_prompt_helpers import StuckFake, _draft
 
 R0_JUDGES = {"llm", "verifier", "owner", "diagnoser", "learner_card", "exact_key", "decider"}
 CONFUSED = {"attempts_answer": False, "describes_confusion": True, "confusion_quote": "why V is transposed"}

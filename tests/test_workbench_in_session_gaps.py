@@ -14,7 +14,7 @@ from contextlib import closing
 import json
 import sqlite3
 
-from tests.test_hint_h2b_review import grader  # noqa: F401 - the blind grader fixture
+from tests.hint_h2b_review_helpers import grader  # noqa: F401 - the blind grader fixture
 from tests.workbench_help_fakes import CheckFake, call, check_answer, help_rows, open_problem, run_job, sidecar
 
 

@@ -39,8 +39,8 @@ from learnloop.vault.loader import load_vault
 
 from tests.owner_vaults import owner_vault, working_vault_params
 from tests.helpers import NOW, create_placement_vault, set_algorithm_version
-from tests.test_assumed_known import LOW_Q, _answer, _at, _decisions, _queue, _snapshot
-from tests.test_quick_check import _answer_target, _progress, _start
+from tests.assumed_known_helpers import LOW_Q, _answer, _at, _decisions, _queue, _snapshot
+from tests.quick_check_helpers import _answer_target, _progress, _start
 from tests.workbench_help_fakes import call, help_rows, run_job
 
 TAG = WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION
@@ -345,7 +345,7 @@ def test_review_f1_a_worked_example_after_real_work_is_not_early_help(tmp_path):
     frozen contract gives the target."""
 
     from learnloop.field.workbench_signals import load_workbench_signals
-    from tests.test_workbench_route_example import OTHER, ROUTE, FindFake
+    from tests.workbench_route_example_helpers import OTHER, ROUTE, FindFake
     from tests.workbench_help_fakes import open_problem, sidecar
 
     paths, ctx, _practice = sidecar(tmp_path)
@@ -452,7 +452,7 @@ def test_rereview_f3_the_sidecar_records_the_subject_with_the_contract(tmp_path)
     subject changed keeps it, and a bind to another item clears both."""
 
     from learnloop.reader import workbench as WB
-    from tests.test_reader_workbench_rw2a import ITEM, _context, _open, _vault as _rw2a_vault
+    from tests.reader_workbench_rw2a_helpers import ITEM, _context, _open, _vault as _rw2a_vault
 
     paths, repository = _rw2a_vault(tmp_path)
     ctx = _context(paths.root)
@@ -751,7 +751,7 @@ FROZEN = datetime(2026, 10, 12, 9, 30, tzinfo=UTC)
 
 
 def _fixture_copy(tmp_path, fixture, name, *, version, toml=None, seed=True):
-    from tests.test_daily_plan_kill_switch import _copy
+    from tests.daily_plan_kill_switch_helpers import _copy
 
     ctx, root = _copy(tmp_path, fixture, name, version=version, toml=toml)
     if not seed:
@@ -769,7 +769,7 @@ def _fixture_copy(tmp_path, fixture, name, *, version, toml=None, seed=True):
 
 
 def _reads(ctx):
-    from tests.test_daily_plan_kill_switch import _call, _served, _today_reads
+    from tests.daily_plan_kill_switch_helpers import _call, _served, _today_reads
 
     reads = _today_reads(ctx)
     reads["plan"] = _served(_call(ctx, "get_daily_plan", {}))

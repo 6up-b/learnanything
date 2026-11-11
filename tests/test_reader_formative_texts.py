@@ -30,8 +30,8 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.models import SourceRef
 from tests.helpers import NOW, append_config_toml
 from tests.recap_fixtures import call, context, table_counts
-from tests.test_reader_active_reading import EVIDENCE_TABLES, ActiveClient
-from tests.test_reader_guidance import _setup
+from tests.reader_active_reading_helpers import EVIDENCE_TABLES, ActiveClient
+from tests.reader_guidance_helpers import _setup
 from tests.text_gap_fakes import GapLLMFake
 
 CLOCK = FrozenClock(NOW)

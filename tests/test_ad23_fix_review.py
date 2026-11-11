@@ -31,9 +31,9 @@ from learnloop.vault.loader import load_vault
 
 from tests.ad23_fakes import LO, QUIET, SEEDED, ad23_vault, answer, env_for, restamp, rows, selections
 from tests.split_live_helpers import ReadyRuntime, split_vault
-from tests.test_field_split_outcomes import _ZeroEverythingWithoutAttribution
-from tests.test_pfc_unverified_unassessed import ITEM as PFC_ITEM
-from tests.test_pfc_unverified_unassessed import VERIFYING_ANSWER, _PartialWithoutAttribution
+from tests.field_split_outcomes_helpers import _ZeroEverythingWithoutAttribution
+from tests.pfc_unverified_unassessed_helpers import ITEM as PFC_ITEM
+from tests.pfc_unverified_unassessed_helpers import VERIFYING_ANSWER, _PartialWithoutAttribution
 
 ROUTER_OFF = "[router]\nenabled = false\n"
 
@@ -523,9 +523,9 @@ def test_the_offer_names_the_sections_other_question_and_its_answer_is_the_extra
     from learnloop_sidecar.context import SidecarContext
     from learnloop_sidecar.registry import METHOD_REGISTRY
 
-    from tests.test_ad1_reading_opportunities import _question, _setup
-    from tests.test_ad3_dose_arm import QUIET as DOSE_QUIET
-    from tests.test_ad3_dose_arm import _mapping
+    from tests.ad1_reading_opportunities_helpers import _question, _setup
+    from tests.ad3_dose_arm_helpers import QUIET as DOSE_QUIET
+    from tests.ad3_dose_arm_helpers import _mapping
 
     paths, _vault, repo = _setup(tmp_path, config=DOSE_QUIET + "dose_floor = 0.3\ndose_daily_offers = 100\n")
     ordinary = _question(repo, "recall", 1, answer=False)

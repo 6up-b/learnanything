@@ -16,31 +16,8 @@ from learnloop.daily_plan.engine import advance, build_plan
 from tests.daily_plan_fakes import iso, record_attempt, scheduled
 from tests.router_mixture_helpers import mixture_env, rows
 from tests.router_model_fakes import FakeDecider, fake_runtime, first_option, seed_with_first_uniform
-from tests.test_daily_plan_build import _wide_items
-
-DECIDER_ONLY = "[router.weights]\nstaged = 0.0\ndecider = 1.0\nllm = 0.0\n"
-#: A first stage outside every floor (k * eps <= 7 * 0.02): the draw follows
-#: the Decider, whose block choice is the rule's pick (``first_option``).
-PAST_THE_FLOOR = 0.2
-
-
-def _followup_env(tmp_path, runtime, *, version=None, toml=None):
-    live = list(_wide_items())
-    kwargs = {"version": version} if version else {}
-    env = mixture_env(tmp_path, runtime, toml=toml, items=lambda: live, **kwargs)
-    build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
-    record, step = advance(env, serve=True)
-    assert step["kind"] == "item"
-    assert len(record.current_block().items) >= 2
-    # The learner answers it, and the answer produced a follow-up that was
-    # not in the plan at build.
-    env.clock.advance(1)
-    record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now(),
-                   session_id=env.session_id)
-    live.insert(0, scheduled("pi_diag_mid", "lo_diag", followup_kind="negative_surprise_followup"))
-    env.clock.advance(1)
-    return env
-
+from tests.daily_plan_build_helpers import _wide_items
+from tests.router_g4_restraint_helpers import DECIDER_ONLY, PAST_THE_FLOOR, _followup_env
 
 def test_a_follow_up_joins_the_current_block_today_and_waits_with_a_decider_near_zero(tmp_path):
     # Today (R2a, mvp-0.23): the follow-up joins the current block.
@@ -286,7 +263,7 @@ def _tight_env(tmp_path, runtime, *, budget: float, followup_los: dict[str, list
 
     from tests.daily_plan_fakes import MovableClock, make_env
     from tests.helpers import append_config_toml, create_daily_plan_vault
-    from tests.test_daily_plan_build import _seed_wide
+    from tests.daily_plan_build_helpers import _seed_wide
 
     los = {"lo_m1": [("pi_m1a", 1.0), ("pi_m1b", 1.0)], "lo_m2": [("pi_m2a", 2.0)],
            "lo_r1": [("pi_r1a", 2.0), ("pi_r1b", 2.0)], "lo_p1": [("pi_p1a", 3.0), ("pi_p1b", 3.0)],

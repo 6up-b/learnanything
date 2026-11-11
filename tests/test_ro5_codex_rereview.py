@@ -30,8 +30,8 @@ from learnloop.router_objective import stop_coin as SC
 
 from tests.router_mixture_helpers import run
 from tests.router_model_fakes import FakeLLM
-from tests.test_ro4_objective_serving import policy_answer
-from tests.test_ro5_checks import _env, _row, _trace, grade_checks
+from tests.ro4_objective_serving_helpers import policy_answer
+from tests.ro5_checks_helpers import _env, _row, _trace, grade_checks
 
 
 # -- F2 ------------------------------------------------------------------------------------------------------

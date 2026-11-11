@@ -207,7 +207,7 @@ def test_the_open_factor_takes_the_diagnosis_causes_when_it_lands(tmp_path):
     from learnloop.vault.loader import load_vault
 
     from tests.helpers import set_algorithm_version
-    from tests.test_km2_write_path import build_mvp07_vault
+    from tests.km2_write_path_helpers import build_mvp07_vault
 
     paths = build_mvp07_vault(tmp_path / "vault")
     set_algorithm_version(paths, "mvp-0.10")

@@ -19,43 +19,23 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
-from contextlib import closing
 from pathlib import Path
 
 import pytest
 
 from learnloop import confidence_events as CE
-from learnloop.db.connection import connect
-from learnloop.db.repositories import Repository
-from learnloop.router.card import CARD_VERSION, PREDECESSOR_CARD_VERSION, CardInputs, build_card, canonical_json
-from learnloop.vault.loader import load_vault
+from learnloop.router.card import CARD_VERSION, PREDECESSOR_CARD_VERSION, build_card, canonical_json
 
-from tests.approach_map_fakes import ITEM, LO, map_vault
+from tests.approach_map_fakes import ITEM, LO
+from tests.teacher_te0_confidence_events_helpers import (
+    _attempt,
+    _card_inputs,
+    _gathered_card,
+    _tutor_context,
+    _vault,
+)
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "learnloop"
-
-
-def _attempt(sqlite_path, attempt_id: str, *, at: str, correctness: float | None, tap: int | None = None,
-             hedge: str | None = None, attempt_type: str = "independent_attempt", item_id: str = ITEM,
-             lo_id: str = LO, local_grader_id: str | None = None, answer: str = "my answer") -> None:
-    with closing(connect(sqlite_path)) as connection:
-        connection.execute(
-            "INSERT INTO practice_attempts (id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
-            "learner_answer_md, correctness, rubric_score, created_at, answer_confidence) "
-            "VALUES (?, ?, ?, 'short_answer', ?, ?, ?, ?, ?, ?)",
-            (attempt_id, item_id, lo_id, attempt_type, answer, correctness,
-             None if correctness is None else correctness * 4, at, tap))
-        if hedge is not None:
-            connection.execute(
-                "INSERT INTO grading_evidence (id, attempt_id, criterion_id, points_awarded, grader_tier, created_at, "
-                "learner_confidence, local_grader_id) VALUES (?, ?, 'correctness', ?, 3, ?, ?, ?)",
-                (f"ge_{attempt_id}", attempt_id, (correctness or 0) * 4, at, hedge, local_grader_id))
-        connection.commit()
-
-
-def _vault(tmp_path):
-    paths = map_vault(tmp_path)
-    return paths, load_vault(paths.root), Repository.attach(paths.sqlite_path)
 
 
 # -- the rendering ------------------------------------------------------------------------
@@ -89,27 +69,6 @@ def test_the_limit_is_stated_only_when_the_taps_do_not_span_the_scale():
 # -- the card -----------------------------------------------------------------------------
 
 
-def _card_inputs(**extra) -> CardInputs:
-    entries = [{"attempt_id": f"a{i}", "at": f"2026-10-{i + 1:02d}T09:00:00Z", "learning_object_id": "lo",
-                "topic": "Bases", "kind": "short_answer", "result": ["correct", "incorrect", "held_for_review"][i % 3],
-                "hints_used": i % 2, "key_status": None, "stem": "What is a basis?",
-                "answer": "a spanning independent set"} for i in range(4)]
-    work = extra.pop("work", None)
-    if work:
-        for entry, event in zip(entries, work, strict=False):
-            if event:
-                entry["confidence"] = event
-    return CardInputs(
-        decision={"surface": "daily_plan", "decided_at": "2026-10-12T09:00:00Z"},
-        session={"plan_kind": "normal", "minutes_left": 10, "minutes_budget": 25},
-        candidates=[{"ref": "maintain:1", "kind": "maintain", "est_minutes": 4, "topics": ["Bases"],
-                     "reversible": True, "reason_code": "review"}],
-        learning_objects={"lo": {"title": "Bases", "status": "demonstrated", "evidence": {"graded": 3}}},
-        interaction_7d={"attempts": 3, "hints_used": 1}, unknowns=["never tested: Spans"], recent_work=entries,
-        **extra,
-    )
-
-
 #: A ``learner_state_card_v1`` card built from :func:`_card_inputs` by the
 #: pre-TE0 builder (base e9d4de1aa): its text, and its typed fields without the
 #: version label. TE0's builder must reproduce both with no confidence data.
@@ -137,15 +96,6 @@ def test_the_card_carries_the_events_on_work_lines_and_in_the_seven_day_window()
     assert "- Bases: 2026-10-02 marked 5/5 sure; wrong" in card.text
     assert "(your taps so far are all 5 (2 taps))" in card.text
     assert card.json["confidence_7d"]["lo"][0]["event"] == "marked 5/5 sure; wrong"
-
-
-def _gathered_card(tmp_path, monkeypatch, attempts):
-    from tests.test_router_card import _card, _card_world
-
-    env = _card_world(tmp_path, monkeypatch)
-    for row in attempts:
-        _attempt(env.repository.sqlite_path, **row)
-    return _card(env)
 
 
 def test_the_gathered_card_renders_taps_and_hedge_reads_as_events(tmp_path, monkeypatch):
@@ -204,14 +154,14 @@ def test_protected_past_work_keeps_its_result_and_its_event_but_no_text(tmp_path
 def _hint_world(tmp_path):
     """The hint service's vault with no authored hint, so the writer is asked."""
 
-    from tests.test_hint_service import _setup
+    from tests.hint_service_helpers import _setup
 
     return _setup(tmp_path, config="[hints]\nmax_daily_cost_usd = 0\n", hints=[])
 
 
 def _ask_writer(vault, repository):
     from tests.hint_fakes import ChooserFake, WriterFake, prefer
-    from tests.test_hint_service import _ask
+    from tests.hint_service_helpers import _ask
 
     writer = WriterFake(provider_type="chatgpt_plan")
     _ask(vault, repository, writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.95)))
@@ -272,14 +222,6 @@ def test_a_held_grade_reads_held_for_review_in_the_events(tmp_path, monkeypatch)
 
 
 # -- the tutor ----------------------------------------------------------------------------
-
-
-def _tutor_context(vault, repository, context: str):
-    from learnloop.tutor.tutor_qa import _build_context
-
-    return _build_context(vault, repository, context=context, question_md="Why is F(1/2) the answer?",
-                          candidates=[], thread=[], item=vault.practice_items[ITEM], attempt=None, note=None,
-                          note_id=None, now_iso="2027-01-01T00:00:00Z")
 
 
 def test_the_tutor_reads_the_events_in_practice_contexts(tmp_path):

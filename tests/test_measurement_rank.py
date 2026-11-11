@@ -26,7 +26,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW
-from tests.test_identifiability_doctor import _build_registry_vault
+from tests.identifiability_doctor_helpers import _build_registry_vault
 from tests.owner_vaults import owner_vault, owner_vaults
 
 

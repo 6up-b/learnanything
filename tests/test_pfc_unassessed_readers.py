@@ -42,10 +42,8 @@ from learnloop.attempts.grading import resolved_rubric
 from learnloop.attempts.grading_support import UNVERIFIED_REVIEW_REASON
 from learnloop.attempts.regrade import regrade_attempt
 from learnloop.clock import FrozenClock
-from learnloop.field.outcomes import load_facet_rows
 from learnloop.ids import new_ulid
 from learnloop.substrate.canonical_projection import (
-    UNVERIFIED_CRITERION_BLOCK,
     project_canonical_facet_state,
     unassessed_evidence_row,
 )
@@ -54,8 +52,8 @@ from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.diagnosis_split_helpers import at
 from tests.split_live_helpers import ReadyRuntime, split_vault, submit
-from tests.test_field_split_outcomes import _ZeroEverythingWithoutAttribution
-from tests.test_pfc_unverified_unassessed import (
+from tests.field_split_outcomes_helpers import _ZeroEverythingWithoutAttribution
+from tests.pfc_unverified_unassessed_helpers import (
     CLOCK,
     ITEM,
     VERIFYING_ANSWER,
@@ -64,15 +62,11 @@ from tests.test_pfc_unverified_unassessed import (
     _mapped_split_vault,
     _support,
 )
-
-
-def _field_outcomes(vault, repository, attempt_id: str) -> dict[str, float]:
-    with repository.connection() as connection:
-        return {
-            row.facet_id: row.outcome
-            for row in load_facet_rows(connection, vault, legacy_fallback="current_content")
-            if row.attempt_id == attempt_id
-        }
+from tests.pfc_unassessed_readers_helpers import (
+    _BASE_BLOCK,
+    _as_the_base_implementation_wrote_it,
+    _field_outcomes,
+)
 
 
 def _apply_graded(
@@ -206,7 +200,7 @@ def test_a_cold_retry_with_nothing_assessed_neither_confirms_nor_fails_the_repai
     from learnloop.db.repositories import Repository
     from learnloop.vault.loader import load_vault
     from tests.helpers import NOW, create_basic_vault, set_algorithm_version
-    from tests.test_causal_orchestrator import CLOCK as START, _add_probe_item, _seed_factor
+    from tests.causal_orchestrator_helpers import CLOCK as START, _add_probe_item, _seed_factor
 
     # PF-c rows exist only in the split successor (a canonical-state vault).
     paths = create_basic_vault(tmp_path / "vault")
@@ -282,7 +276,7 @@ def test_the_cold_verification_guard_refuses_an_unassessed_attempt_directly(tmp_
         ColdVerificationPrecondition,
         record_delayed_cold_verification,
     )
-    from tests.test_causal_factor_deferral import (
+    from tests.causal_factor_deferral_helpers import (
         ITEM_A,
         ITEM_B,
         _clock,
@@ -330,8 +324,8 @@ def test_a_pinned_probe_declines_to_classify_an_unassessed_criterion(tmp_path, p
         deterministic_probe_features,
     )
     from learnloop.diagnosis.followups import evaluate_attempt_intervention_followup
-    from tests.test_causal_p2_acceptance import CLOCK as P2_CLOCK
-    from tests.test_causal_p2_acceptance import PROBE_ITEM, _acceptance_vault, _offered_probe
+    from tests.causal_p2_acceptance_helpers import CLOCK as P2_CLOCK
+    from tests.causal_p2_acceptance_helpers import PROBE_ITEM, _acceptance_vault, _offered_probe
 
     vault, repository, _paths = _acceptance_vault(tmp_path)
     _result, factor_id, first_id, _second_id, offer = _offered_probe(
@@ -441,60 +435,6 @@ def test_a_later_diagnosis_cannot_cite_an_unassessed_shortfall_as_a_recurrence(t
 
 
 # -- F5: each record names the interpretation it was written under ------------------------
-
-
-_BASE_BLOCK = json.dumps(
-    {"targets": [], "negative_evidence_blocked": UNVERIFIED_CRITERION_BLOCK},
-    sort_keys=True, separators=(",", ":"),
-)
-
-
-def _as_the_base_implementation_wrote_it(patch) -> None:
-    """The live door exactly as ``mvp-0.10`` shipped before the rule (22023ab4).
-
-    The three write-time differences, and nothing else: the unverified row's
-    block carried no interpretation mark; the grade was the grader's own
-    derived score (kept points included); the gate recorded no
-    ``assessed_shortfall``. The shared step got no unassessed set (the base
-    door handed the unverified ids to ``apply_attempt`` only for stamping),
-    which the wrapper reproduces by stamping the base block itself.
-    """
-
-    from dataclasses import replace
-
-    from learnloop.attempts import attempts as attempts_module
-    from learnloop.attempts import grading_support as support_module
-
-    original_apply = attempts_module.apply_attempt
-
-    def base_apply(vault, repository, attempt, *, clock=None, **kwargs):
-        unverified = set(attempt.unverified_criterion_ids)
-        if unverified:
-            rows = [
-                {**row, "attribution_json": _BASE_BLOCK}
-                if row.get("criterion_id") in unverified and row.get("attribution_json") is None
-                else row
-                for row in attempt.grade.evidence_rows
-            ]
-            attempt = replace(
-                attempt, grade=replace(attempt.grade, evidence_rows=rows), unverified_criterion_ids=()
-            )
-        return original_apply(vault, repository, attempt, clock=clock, **kwargs)
-
-    def base_score(rubric, points, fatal_errors, *, unassessed_criterion_ids, answer_validated=True):
-        return attempts_module.calculate_rubric_score(rubric, dict(points), list(fatal_errors))
-
-    original_run = support_module.request_blind_grading_run
-
-    def base_run(*args, **kwargs):
-        run = original_run(*args, **kwargs)
-        for key in ("assessed_shortfall", "unverified_interpretation"):
-            run.grading_support.pop(key, None)
-        return run
-
-    patch.setattr(attempts_module, "apply_attempt", base_apply)
-    patch.setattr(attempts_module, "assessed_rubric_score", base_score)
-    patch.setattr(support_module, "request_blind_grading_run", base_run)
 
 
 def test_a_record_written_before_the_rule_keeps_its_interpretation_until_regraded(tmp_path, monkeypatch):

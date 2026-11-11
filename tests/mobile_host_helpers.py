@@ -30,7 +30,7 @@ class CountingGrader:
     """The stuck fake, counting provider calls; ``gate`` holds a grade until a test releases it."""
 
     def __new__(cls, *args, **kwargs):
-        from tests.test_stuck_prompt import StuckFake
+        from tests.stuck_prompt_helpers import StuckFake
 
         class _Counting(StuckFake):
             def __init__(self) -> None:

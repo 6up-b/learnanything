@@ -24,7 +24,7 @@ from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.helpers import _set_algorithm_version_at, append_config_toml
-from tests.test_router_staged_p2 import CLOCK, _rows, _run
+from tests.router_staged_p2_helpers import CLOCK, _rows, _run
 
 
 def _call(ctx, name, params):

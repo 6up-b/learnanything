@@ -8,10 +8,8 @@ batches. Deterministic — no network, no real LLM.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from pathlib import Path
 
-from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ingest.resolution import resolve_source
 from learnloop.content.pipeline.runner import RunnerServices
@@ -27,25 +25,9 @@ from learnloop.vault.paths import VaultPaths
 from learnloop.content.pipeline.jobs import QUICK_ADD_PRIORITY, DurableIngestJobs
 
 from tests.helpers import set_algorithm_version
-from tests.test_source_inventory import FakeInventoryClient, _block, _ir, _persist
-from tests.test_source_set_synthesis import FakeSynthesisClient
-
-_CLOCK = FrozenClock(datetime(2026, 7, 13, 12, 0, 0, tzinfo=UTC))
-
-
-def _register_source(repo: Repository, *, source_id: str, revision_id: str, category: str, uri: str) -> None:
-    now = _CLOCK.now().isoformat()
-    with repo.connection() as connection:
-        connection.execute(
-            "INSERT INTO source_artifacts(id, acquisition_kind, canonical_uri, current_revision_id, created_at, updated_at) VALUES (?,?,?,?,?,?)",
-            (source_id, category, uri, revision_id, now, now),
-        )
-        connection.execute(
-            "INSERT INTO source_revisions(id, source_id, asset_hash, original_uri, created_at) VALUES (?,?,?,?,?)",
-            (revision_id, source_id, f"sha256:{source_id}", uri, now),
-        )
-        connection.commit()
-
+from tests.source_inventory_helpers import FakeInventoryClient, _block, _ir, _persist
+from tests.source_set_synthesis_helpers import FakeSynthesisClient
+from tests.quick_add_helpers import _CLOCK, _register_source
 
 def _setup(tmp_path: Path):
     """A vault with one imported textbook (completed extraction, no inventories yet)

@@ -296,7 +296,9 @@ def test_rw6b2_f3_a_dribbling_narration_request_ends_inside_its_lease_and_publis
         tmp_path, monkeypatch, fake_network):
     from learnloop.instructional import reader_digest as RN
     from learnloop.vault.loader import load_vault
-    from tests.test_reader_digest_narrative import _now, _row, _session_with_question, at
+    from tests.reader_digest_narrative_helpers import _row, _session_with_question
+    from tests.reader_followups_helpers import _now
+    from tests.recap_fixtures import at
 
     vault, repo, row = _session_with_question(tmp_path, config="[digest]\nprice_per_million = 1.0\n")
     toml = vault.root / "learnloop.toml"

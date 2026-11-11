@@ -34,7 +34,7 @@ from learnloop.daily_plan.policy import policy_for
 
 from tests.router_mixture_helpers import B, mixture_env, rows
 from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
-from tests.test_ro4_objective_serving import policy_answer
+from tests.ro4_objective_serving_helpers import policy_answer
 
 TAG = ROUTER_OBJECTIVE_ALGORITHM_VERSION
 SECRET = "the learner wrote about eigenvalues here"

@@ -12,33 +12,14 @@ import sqlite3
 
 import pytest
 
-from learnloop.diagnosis.quick_check import QuickCheckError, quick_check_progress, start_quick_check
+from learnloop.diagnosis.quick_check import QuickCheckError, start_quick_check
 from learnloop.diagnosis.calibration_sessions import stop_calibration_session
 from learnloop.placement.decisions import reconcile_fast_track
 from learnloop.placement.predictor import active_predictor
 from learnloop.substrate.state_sync import sync_vault_state
 
-from tests.test_assumed_known import LOW_Q, _answer, _at, _decisions, _queue, _setup
-
-
-def _start(vault, repository, los, *, minutes=1):
-    session_id = repository.create_session(available_minutes=25, clock=_at(0))
-    progress = start_quick_check(
-        vault, repository, session_id=session_id, learning_object_ids=los, clock=_at(minutes),
-    )
-    return session_id, progress
-
-
-def _progress(vault, repository, progress, minutes):
-    return quick_check_progress(vault, repository, progress["calibration_session_id"], clock=_at(minutes))
-
-
-def _answer_target(vault, repository, session_id, progress, minutes, points=4.0):
-    """Answer the item the check presented (only presented items are its answers)."""
-
-    item_id = progress["next_target"]["practice_item_id"]
-    _answer(vault, repository, item_id, points, minutes=minutes, session_id=session_id)
-    return item_id
+from tests.assumed_known_helpers import LOW_Q, _answer, _at, _decisions, _queue, _setup
+from tests.quick_check_helpers import _answer_target, _best_item, _progress, _start
 
 
 def test_quick_check_is_a_short_calibration_session_without_episodes(tmp_path):
@@ -180,13 +161,6 @@ def test_an_abandoned_quick_check_still_feeds_the_split_after_its_budget(tmp_pat
 
 
 # ── Codex review fixes (slice-a-phase-6): exclusions, window, atomic start ───
-
-
-def _best_item(vault, repository, los):
-    predictor = active_predictor(vault, repository)
-    weights = {lo: 1.0 for lo in los}
-    candidates = sorted(i for i, item in vault.practice_items.items() if item.learning_object_id in weights)
-    return sorted(candidates, key=lambda i: (-predictor.conditional_gain(i, [], weights), i))[0]
 
 
 @pytest.mark.parametrize("kind", ["reserved", "held", "owned"])

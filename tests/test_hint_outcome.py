@@ -20,9 +20,6 @@ from typing import Any
 import pytest
 
 import learnloop_sidecar.handlers  # noqa: F401 - registers the RPCs
-from learnloop.ai.execution import report_call_usage
-from learnloop.ai.isolation import TOOL_FREE
-from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION, ISOLATED_TURN, STRUCTURED_COMPLETION
 from learnloop.db.repositories import Repository
 from learnloop.hints import map_builder, outcome
 from learnloop.hints.outcome import OutcomePlacementV1, hint_verdict, place_outcome, validate_placement
@@ -31,41 +28,10 @@ from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.registry import METHOD_REGISTRY
 from tests.approach_map_fakes import good_map
 from tests.hint_fakes import ITEM, WORK, ChooserFake, WriterFake, hint_vault, judgments, prefer, receipts, store_map
-from tests.structured_ai import StructuredClientFake, _request_context
+from tests.hint_outcome_helpers import OutcomeFake, REACHES_CDF
 
 PARTIAL = {"criterionPoints": {"cdf": 2, "value": 0}, "confidence": 3}
 FULL = {"criterionPoints": {"cdf": 2, "value": 2}, "confidence": 3}
-REACHES_CDF = {"route_id": "r_ref", "reached_node_id": "cdf", "quote": "F(x) = x^2 on [0, 1]",
-               "work_matches_a_route": True}
-
-
-class OutcomeFake(StructuredClientFake):
-    provider_name = "fake_outcome"
-    provider_type = "codex_sdk"
-    model = "fake-outcome-model"
-
-    def __init__(self, answers: list[dict[str, Any]] | None = None, *, provider_type: str = "codex_sdk",
-                 gate: threading.Event | None = None) -> None:
-        self.answers = list(answers or [])
-        self.provider_type = provider_type
-        self.gate = gate
-        self.contexts: list[dict[str, Any]] = []
-
-    def supports(self, capability: str) -> bool:
-        return capability in {STRUCTURED_COMPLETION, BOUNDED_STRUCTURED_COMPLETION, ISOLATED_TURN, TOOL_FREE}
-
-    def complete(self, request: Any) -> Any:
-        self.contexts.append(json.loads(json.dumps(_request_context(request.prompt, request.purpose))))
-        if self.gate is not None:
-            assert self.gate.wait(30)
-        report_call_usage({"input_tokens": len(request.prompt) // 4, "output_tokens": 40,
-                           "resolved_model": self.model})
-        answer = self.answers.pop(0) if self.answers else REACHES_CDF
-        return request.result_model.model_validate(answer)
-
-    @property
-    def calls(self) -> int:
-        return len(self.contexts)
 
 
 def _call(ctx, name, params):

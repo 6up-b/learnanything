@@ -18,13 +18,9 @@ from learnloop.adaptive_difficulty import protected_tables as PT
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.rw5c_migration_helpers import RW5C_ADDED_OBJECTS
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-#: What 238 adds (its table, its autoindex, its index and triggers).
-RW5C_ADDED_OBJECTS = frozenset({
-    "figure_source_checks", "sqlite_autoindex_figure_source_checks_1", "idx_figure_source_checks_figure",
-    "figure_source_checks_no_update", "figure_source_checks_no_delete",
-})
 
 
 def _names(connection: sqlite3.Connection) -> set[str]:

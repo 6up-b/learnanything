@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import io
 import json
 import shutil
 import statistics
@@ -14,7 +13,6 @@ from learnloop.content.proposals.patches import apply_accepted_items
 from learnloop.vault.loader import add_note, load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.writer import upsert_concept, upsert_concept_edge, upsert_learning_object
-from learnloop_sidecar.server import serve
 
 from tests.helpers import (
     ALGORITHM_VERSION,
@@ -27,6 +25,7 @@ from tests.helpers import (
     use_init_algorithm_version,
 )
 from tests.owner_vaults import owner_vault, owner_vaults, require_owner_vault
+from tests.sidecar_contract_helpers import _rpc
 
 # The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
 # H3); these tests drive an in-process HTTP server through it as a provider double.
@@ -2653,7 +2652,7 @@ def test_knowledge_field_is_recipe_topological_and_uses_pooled_ready(tmp_path):
     from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
     from learnloop.substrate.state_sync import sync_vault_state
     from tests.helpers import NOW
-    from tests.test_km3_projections import COMP_A, COMP_B, INTEG, build_blueprint_vault
+    from tests.km3_projections_helpers import COMP_A, COMP_B, INTEG, build_blueprint_vault
 
     paths = build_blueprint_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
@@ -3023,13 +3022,6 @@ def test_invalid_pdf_page_expressions_are_rejected(expression):
     with pytest.raises(SidecarError) as exc_info:
         _parse_page_selection(expression)
     assert exc_info.value.code == "invalid_page_range"
-
-
-def _rpc(messages: list[dict]) -> list[dict]:
-    stdin = io.StringIO("".join(json.dumps(message) + "\n" for message in messages))
-    stdout = io.StringIO()
-    serve(stdin, stdout)
-    return [json.loads(line) for line in stdout.getvalue().splitlines()]
 
 
 def test_sidecar_create_vault_initializes_fresh_vault(tmp_path):

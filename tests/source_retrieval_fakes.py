@@ -29,7 +29,7 @@ from learnloop.vault.paths import VaultPaths
 from learnloop.vault.writer import upsert_source_set
 from tests.practice_index_fakes import EMBED_DIMS, HashingEmbedder, build_practice_vault, enable_practice_index
 from tests.pf_fakes import prompt_context
-from tests.test_source_inventory import _persist
+from tests.source_inventory_helpers import _persist
 
 BOOK = {
     "ch_eigen": ("Chapter 5 Eigenvalues", [

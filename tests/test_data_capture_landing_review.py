@@ -27,10 +27,10 @@ from learnloop.router import outcomes as RO
 from learnloop.router.first_delayed_success import trajectories
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 
-from tests.test_data_capture_a2_measurement import _answer, _arranged_wait, _due_measurement, _events, _objectives
-from tests.test_data_capture_codex_rereview import _complete_section, _count, _map_sections, _other_item
-from tests.test_data_capture_codex_review import _warm_answer
-from tests.test_router_g4_restraint import DECIDER_ONLY
+from tests.data_capture_a2_measurement_helpers import _answer, _arranged_wait, _due_measurement, _events, _objectives
+from tests.data_capture_codex_rereview_helpers import _complete_section, _count, _map_sections, _other_item
+from tests.data_capture_codex_review_helpers import _warm_answer
+from tests.router_g4_restraint_helpers import DECIDER_ONLY
 
 AD_OFF = "[adaptive_difficulty]\nenabled = false\n"
 

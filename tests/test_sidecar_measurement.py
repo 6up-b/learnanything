@@ -119,7 +119,7 @@ def _commissioning_ctx(tmp_path):
     from learnloop_sidecar.context import SidecarContext
 
     from tests.helpers import create_basic_vault
-    from tests.test_contract_commissioning import _write_blueprint
+    from tests.contract_commissioning_helpers import _write_blueprint
 
     paths = create_basic_vault(tmp_path / "vault")
     _write_blueprint(paths, [("uninstrumented_facet", "procedure_execution", "hard")])

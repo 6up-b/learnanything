@@ -10,7 +10,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 import pytest
@@ -20,46 +19,16 @@ from learnloop.db.stores import router_objective as store
 from learnloop.router_objective import mix
 
 from tests.router_mixture_helpers import mixture_env, rows, run
-from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime, options_in
+from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
+from tests.ro4_objective_serving_helpers import _blocks, _shape, policy_answer
 
 TAG = ROUTER_OBJECTIVE_ALGORITHM_VERSION
 OLD = INTERVAL_FACTOR_ALGORITHM_VERSION
 
 
-def policy_answer(request: Any) -> dict[str, Any]:
-    """A valid ``router_llm_choice_v3`` answer: every option positive, the first favoured."""
-
-    fields = request.result_model.model_fields
-    if "intervene_now" in fields:
-        return {"intervene_now": 0.4, "rationale": "Finish this first.", "evidence_ids": []}
-    refs = options_in(request.prompt)
-    reference = request.prompt.split("- reference (not an option) [", 1)[1].split("]", 1)[0]
-    return {
-        "options": [{"id": ref, "probability": (0.6 if index == 0 else 0.4 / max(len(refs) - 1, 1)),
-                     "p_cold_1": 0.7, "p_cold_7": 0.65 - 0.01 * index, "p_cold_30": 0.6}
-                    for index, ref in enumerate(refs)],
-        "reference": {"id": reference, "p_cold_1": 0.7, "p_cold_7": 0.6, "p_cold_30": 0.55},
-        "rationale": "This keeps your recent work fresh.", "evidence_ids": [],
-    }
-
-
 def _traces(env) -> list[dict[str, Any]]:
     with env.repository.connection() as connection:
         return [store.trace(connection, row["decision_id"]) for row in store.traces(connection)]
-
-
-def _shape(env) -> list[tuple]:
-    out = []
-    for row in rows(env):
-        detail = row["detail_json"]
-        out.append((row["policy"], row["chosen_ref"], row["propensity"], row["propensity_kind"],
-                    tuple((c["ref"], c.get("propensity")) for c in row["candidates_json"]),
-                    json.dumps(detail.get("mixture"), sort_keys=True, default=str)[:0]))
-    return out
-
-
-def _blocks(record) -> list[tuple]:
-    return [(block.lane, tuple(item.practice_item_id for item in block.items)) for block in record.blocks]
 
 
 def test_off_at_the_tag_is_the_predecessor_exactly(tmp_path):

@@ -282,7 +282,7 @@ def seeded(tmp_path):
 
 
 def _current(vault, store):
-    from tests.test_diagnosis_history_modes import _current as current
+    from tests.diagnosis_history_modes_helpers import _current as current
 
     return current(vault, store)
 

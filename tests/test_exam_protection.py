@@ -56,7 +56,8 @@ from learnloop.vault.writer import upsert_practice_item
 from learnloop.vault.yaml_io import read_yaml
 from tests.source_retrieval_fakes import EXAM_QUESTION, seed_source
 from tests.source_service_fakes import FakeServiceLLM, build_textbook_vault, loaded, service_clients, set_config
-from tests.test_source_inventory import _block, _ir, _persist
+from tests.source_inventory_helpers import _block, _ir, _persist
+from tests.exam_protection_helpers import _RecordingReaderTutor
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -288,7 +289,7 @@ def _as_import(root, practice_item_id: str, *, extraction_id: str = "ext_book", 
 
 def test_an_exposed_import_never_becomes_an_exam_item(tmp_path):
     from learnloop.goals.exam_pool import reserve_exam_pool
-    from tests.test_exam_pool import NOW, _vault_with_items
+    from tests.exam_pool_helpers import NOW, _vault_with_items
 
     vault, paths, repository = _vault_with_items(tmp_path)
     _as_import(paths.root, "pi_pool_apply_mid")
@@ -308,7 +309,7 @@ def test_an_exposed_import_never_becomes_an_exam_item(tmp_path):
 
 def test_an_exposed_import_never_becomes_a_certification_cold_probe(tmp_path):
     from learnloop.goals.certification_cold_probe import select_held_out_probe_item
-    from tests.test_certification_cold_probe import HELD_OUT_ITEM, _certify
+    from tests.certification_cold_probe_helpers import HELD_OUT_ITEM, _certify
 
     paths, vault, repository, certificate = _certify(tmp_path)
     assert select_held_out_probe_item(vault, repository, certificate).practice_item_id == HELD_OUT_ITEM
@@ -325,7 +326,7 @@ def test_a_revealed_item_is_never_the_cold_retry(tmp_path):
         start_remediation_episode,
         start_remediation_treatment,
     )
-    from tests.test_remediation_cold_retry import NOW, _setup
+    from tests.remediation_cold_retry_helpers import NOW, _setup
 
     def treat(root):
         vault, repository, misconception_id = _setup(root)
@@ -352,7 +353,7 @@ def test_a_revealed_item_is_never_the_cold_retry(tmp_path):
 
 def test_a_priced_causal_decision_carries_the_live_repair_class(tmp_path):
     from learnloop.instructional.needs import pending_causal_decision
-    from tests.test_causal_orchestrator import LO_ID, _seed_factor, _vault
+    from tests.causal_orchestrator_helpers import LO_ID, _seed_factor, _vault
 
     vault, repository, _root = _vault(tmp_path)
     factor_id, first, second = _seed_factor(repository)
@@ -453,7 +454,7 @@ def test_a_held_out_textbook_unit_never_feeds_synthesis_as_teaching(tmp_path):
 
     from learnloop.content.synthesis.source_set_synthesis import _collect_inputs
     from learnloop.db.repositories import Repository
-    from tests.test_source_set_synthesis import _setup as synthesis_vault
+    from tests.source_set_synthesis_helpers import _setup as synthesis_vault
 
     root, repo = synthesis_vault(tmp_path, with_exam=False)
     vault = load_vault(root)
@@ -474,8 +475,8 @@ def test_the_exam_half_of_a_split_unit_is_exam_material_and_its_theory_half_stil
     rule's split semantics), for every reader: main's corpus withheld the
     whole extraction because it read raw units only."""
 
-    from tests.test_facet_authority_review import _add_split_chapter
-    from tests.test_source_set_synthesis import _setup as synthesis_vault
+    from tests.facet_authority_review_helpers import _add_split_chapter
+    from tests.source_set_synthesis_helpers import _setup as synthesis_vault
 
     root, repo = synthesis_vault(tmp_path, with_exam=False)
     resolver = _add_split_chapter(repo, root, [{"unit_id": "chapter#Theory"},
@@ -516,42 +517,6 @@ def test_a_repair_never_teaches_from_an_exam_passage(textbook):
 
 
 # --- the Reader's model contexts (held-out material is never explained) -----------------------
-
-
-class _RecordingReaderTutor:
-    """A reader tutor that records every request's manifest spans."""
-
-    provider_name = "fake_tutor"
-    provider_type = "fake"
-    model = "fake-tutor"
-
-    def __init__(self) -> None:
-        self.contexts: list = []
-        self._fake = None
-
-    def supports(self, capability: str) -> bool:
-        from tests.structured_ai import StructuredClientFake
-
-        return StructuredClientFake().supports(capability)
-
-    def complete(self, request):
-        from tests.structured_ai import StructuredClientFake
-        from learnloop.tutor.ai_contracts import TutorAnswer
-
-        owner = self
-
-        class _Answer(StructuredClientFake):
-            def run_tutor_qa(self, context):
-                owner.contexts.append(context)
-                return TutorAnswer(answer_md="Read the worked example again.", question_type="clarification",
-                                   facets=[])
-
-        return _Answer().complete(request)
-
-    def consume_usage(self):
-        from tests.structured_ai import StructuredClientFake
-
-        return StructuredClientFake().consume_usage()
 
 
 def _held_out_exercises(textbook):

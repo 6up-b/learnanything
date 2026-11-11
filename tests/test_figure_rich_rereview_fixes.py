@@ -14,34 +14,11 @@ no model, Manim or bubblewrap runs.
 
 from __future__ import annotations
 
-from learnloop.db.stores import figures as store
 from learnloop.figures import service as FS
 from tests import rich_fixtures as RF
 from tests.figure_fixtures import EXTRACTION, flagship, rows
-from tests.test_figure_rich_job import WHY, _Rig
-
-WRONG = RF.scene_output(declared={**RF.DECLARED, "claims": [
-    {"kind": "equals", "function": "x", "expr": "exp(a*t)*sin(b*t)"}]})
-
-
-def _base(rig, figure_id):
-    with rig.repository.connection() as connection:
-        return store.figure(connection, figure_id)
-
-
-def _first_animation(rig):
-    rig.build()
-    rig.ingest.drain()
-    (first,) = rig.listed()
-    assert first["tier"] == "manim"
-    return first
-
-
-def _revision(rig, figure_id, note, *, different_kind=False):
-    revision = FS.revision_request(rig.repository, _base(rig, figure_id), note)
-    revision.different_kind = different_kind
-    return revision
-
+from tests.figure_rich_job_helpers import WHY, _Rig
+from tests.figure_rich_rereview_fixes_helpers import WRONG, _first_animation, _revision
 
 # --- F13 ----------------------------------------------------------------------
 

@@ -39,9 +39,8 @@ from tests.ad23_fakes import (
     set_item,
 )
 from tests.daily_plan_fakes import iso
+from tests.ad2_serving_helpers import HARD, _generation_prompt, _land
 
-HARD = {"complexity": 3, "transfer": "far", "scaffolding": "none", "span": "multi_step",
-        "response": "long_constructed", "tools": ["closed_book"]}
 ROUTER_OFF = "[router]\nenabled = false\n"
 ROUTER_STAGED = "[router]\nmode = \"staged\"\n"
 
@@ -107,18 +106,6 @@ def test_seed_reproduces_draw():
 
 
 # -- G-AD2-20 -----------------------------------------------------------------------------------
-
-
-def _generation_prompt(paths) -> tuple[Any, str]:
-    from learnloop.content.authoring.practice_generation import (
-        _practice_expansion_instructions,
-        build_practice_expansion_plan,
-    )
-
-    vault = load_vault(paths.root)
-    plan = build_practice_expansion_plan(vault, Repository(paths.sqlite_path), learning_object_ids=[LO],
-                                         require_completed_probe=False)
-    return plan, _practice_expansion_instructions(plan, extra_instructions=None)
 
 
 def test_generation_prompt_has_no_band_language_under_successor(tmp_path):
@@ -328,21 +315,6 @@ def test_draw_after_block_choice_with_pair_propensity(tmp_path):
 
 
 # -- G-AD2-25 -----------------------------------------------------------------------------------
-
-
-def _land(paths, item_id: str, features: dict, at: str, *, capability: str, **extra: Any) -> None:
-    """A generated item landing for the commission's cell (a copy of the LO's item at ``features``)."""
-
-    import yaml
-
-    from tests.ad_fakes import stamp_task_features
-    from tests.helpers import write_yaml
-
-    payload = yaml.safe_load(paths.practice_item_path("linear-algebra", "pi_g1").read_text(encoding="utf-8"))
-    payload.update({"id": item_id, "created_at": at, "updated_at": at, "prompt": f"Question {item_id}."})
-    write_yaml(paths.practice_item_path("linear-algebra", item_id), payload)
-    stamp_task_features(paths, item_id, features, difficulty_source="llm_estimate", **extra)
-    set_item(paths, item_id, capability=capability)
 
 
 def test_commission_result_appended_never_mutates_selection(tmp_path):

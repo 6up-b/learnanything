@@ -24,7 +24,7 @@ from learnloop_sidecar.errors import SidecarError
 from tests.library_ask_fixtures import build_library_vault, call, context, finish_job, set_config, tutor_with_citations
 from tests.recap_fixtures import call as call_rpc
 from tests.source_service_fakes import seed_textbook
-from tests.test_reader_ca3_codex_review import QUESTION, LastWordsLLM, _third
+from tests.reader_ca3_codex_review_helpers import QUESTION, LastWordsLLM, _third
 
 #: The selection's own bound (ANCHOR_SPANS_MAX): the largest anchor a comparison starts from.
 BLOCKS = 40

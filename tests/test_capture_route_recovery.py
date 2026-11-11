@@ -8,9 +8,9 @@ from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers import capture as capture_rpc
 from learnloop_sidecar.handlers import item_authoring, ingest, tutor_qa
-from tests.test_capture_desktop import _capture, _context
-from tests.test_sidecar_quick_add import _seed_extraction
-from tests.test_sidecar_tutor_qa import _TutorServer, _tutor_vault
+from tests.capture_desktop_helpers import _capture, _context
+from tests.sidecar_quick_add_helpers import _seed_extraction
+from tests.sidecar_tutor_qa_helpers import _TutorServer, _tutor_vault
 
 # The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
 # H3); these tests drive an in-process HTTP server through it as a provider double.

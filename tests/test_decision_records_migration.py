@@ -16,17 +16,10 @@ import pytest
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.decision_records_migration_helpers import B1_ADDED_OBJECTS, B1_ALTERED_TABLES, TABLE
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-TABLE = "decision_records"
 MIGRATION = next(m for m in discover_migrations() if m.name == "decision_records")
-OBJECTS = frozenset({TABLE, "decision_records_trace", "decision_records_subject", "decision_records_parent",
-                     "decision_records_kind", "decision_records_no_update", "decision_records_no_delete",
-                     "model_call_receipts_trace"})
-#: What 253 adds (with the table's own autoindex): earlier migrations' "nothing else changed" diffs on the way to head read this.
-B1_ADDED_OBJECTS = OBJECTS | {f"sqlite_autoindex_{TABLE}_1"}
-#: What 253 alters (one nullable column on a receipt table): the same diffs read this.
-B1_ALTERED_TABLES = frozenset({"model_call_receipts"})
 COLUMNS = ["id", "trace_id", "parent_id", "kind", "status", "subject_kind", "subject_id", "chosen_ref", "decided_by", "rule",
            "alternatives_json", "facts_json", "versions_json", "detail_table", "detail_id", "error_type", "error_where",
            "created_at"]

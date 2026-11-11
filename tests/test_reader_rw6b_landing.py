@@ -33,7 +33,7 @@ from learnloop.instructional import reader_followups as RF
 from learnloop.source_retrieval import deliverable_path as DP
 from learnloop.vault.loader import load_vault
 from tests.recap_fixtures import at, iso
-from tests.test_reader_followups import FakeSearch, NOW_MIN, _candidate, _now, _plan, _seeded
+from tests.reader_followups_helpers import FakeSearch, NOW_MIN, _candidate, _now, _plan, _seeded
 from tests.ux_phase1_support import set_config
 
 ITEM = "pi_svd_define_002"

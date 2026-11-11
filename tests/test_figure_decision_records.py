@@ -50,7 +50,7 @@ from tests.figure_fixtures import (
     half_density,
     rows,
 )
-from tests.test_figures_prefetch import TWO, env_for, make_vault, mains, seed_wait  # noqa: F401 - mains: autouse
+from tests.figures_prefetch_helpers import TWO, env_for, make_vault, mains, seed_wait  # noqa: F401 - mains: autouse
 
 GOAL = "slide p and watch the mass left of zero move"
 

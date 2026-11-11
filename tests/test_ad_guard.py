@@ -28,6 +28,7 @@ from learnloop.adaptive_difficulty import operation as O
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
+from tests.ad_guard_helpers import _slot_serve
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "learnloop"
 #: The poisoned operation's exit (round 2), on a tree that has it.
@@ -46,7 +47,7 @@ def observed(monkeypatch):
 
 
 def test_the_ad_pipeline_runs_with_zero_denials(tmp_path, monkeypatch, observed):
-    from tests import test_ad23_contract as C
+    from tests import ad23_contract_helpers as C
 
     protected, _absent = C.make_copies(tmp_path, coupled=False)
     C._hold_out(monkeypatch)
@@ -64,31 +65,6 @@ def test_the_ad_pipeline_runs_with_zero_denials(tmp_path, monkeypatch, observed)
     reads = {table for op in observed for table in op.guard.reads}
     # Its mixed reading is absent (Option B, round 8); its clean reading is read, as stored.
     assert {"practice_attempts", "plan_presentations", "ad_reading_opportunities", "source_document_blocks"} <= reads
-
-
-def _slot_serve(tmp_path, monkeypatch, *, plant: bool):
-    """One plan serve; with ``plant`` AD's request builder (phase 3, inside its operation) first reads
-    ``practice_attempts`` raw on the serve's pinned connection."""
-
-    from learnloop.daily_plan import ad_slot
-    from learnloop.daily_plan.engine import advance, build_plan
-
-    from tests.ad23_fakes import ad23_vault, env_for, selections
-
-    items = ("pi_e1", "pi_e2", "pi_e3")
-    paths = ad23_vault(tmp_path, items=items, config="[router]\nenabled = false\n")
-    env, _clock = env_for(paths, items=items)
-    build_plan(env, kind="normal", budget=3.0, remembered=3, minutes_source="chip")
-    if plant:
-        real = ad_slot._request
-
-        def planted(vault, repository, *args, **kwargs):
-            repository.connection().execute("SELECT * FROM practice_attempts").fetchall()
-            return real(vault, repository, *args, **kwargs)
-
-        monkeypatch.setattr(ad_slot, "_request", planted)
-    _record, step = advance(env, serve=True)
-    return paths, step, selections(paths, kind="serve")
 
 
 def _planted_read_is_refused(tmp_path, monkeypatch) -> None:
@@ -310,8 +286,8 @@ def test_a_denied_dose_response_rolls_the_draw_back(tmp_path, monkeypatch, swall
     from learnloop.scheduling import randomization_layer as RL
     from learnloop_sidecar.handlers import adaptive_difficulty as H
 
-    from tests.test_ad3_dose_arm import _arm, _mapping
-    from tests.test_ad1_reading_opportunities import _question
+    from tests.ad3_dose_arm_helpers import _arm, _mapping
+    from tests.ad1_reading_opportunities_helpers import _question
 
     paths, vault, repo = _arm(tmp_path, config="dose_floor = 0.3\n")
     _question(repo, "recall", 1, answer=False)
@@ -453,7 +429,7 @@ def test_an_exam_reserved_items_contract_is_read_only_through_the_rules(tmp_path
 
     from learnloop.adaptive_difficulty.material_view import MaterialView
 
-    from tests.test_ad23_fix_r8 import _reserve
+    from tests.ad23_fix_r8_helpers import _reserve
 
     paths, vault, repository = _vault(tmp_path)
     contract = '{"prompt": "Question pi_e1.", "expected_answer": "Answer pi_e1."}'
@@ -648,8 +624,8 @@ def test_a_planted_read_swallowed_in_the_dose_decision_yields_no_decision_and_no
 
     from learnloop.adaptive_difficulty import dose as D
 
-    from tests.test_ad3_dose_arm import _arm, _boundary, _mapping
-    from tests.test_ad1_reading_opportunities import _question, at
+    from tests.ad3_dose_arm_helpers import _arm, _boundary, _mapping
+    from tests.ad1_reading_opportunities_helpers import _question, at
 
     paths, vault, repo = _arm(tmp_path)
     _question(repo, "recall", 1, answer=False)

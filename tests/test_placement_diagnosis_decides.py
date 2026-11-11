@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.clock import FrozenClock, utc_now_iso
+from learnloop.clock import FrozenClock
 from learnloop.placement.decisions import record_self_report
 from learnloop.placement.report import placement_report
 from learnloop.placement.rules import (
@@ -42,49 +42,9 @@ from learnloop.vault.loader import load_vault
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.diagnosis_split_helpers import at
 from tests.split_live_helpers import append_config, drain_jobs, split_vault, submit
+from tests.placement_diagnosis_decides_helpers import DUE_HOURS, LO, READ_AT, _Diagnosed, _iso, _miss, _state
 
-LO = "lo_svd_compute"
-WRONG = "A = U Sigma V wrong"
 CORRECT = "B = U Sigma V^T"
-DUE_HOURS = 14 * 24
-
-
-def _iso(hours: float) -> str:
-    return utc_now_iso(FrozenClock(at(hours)))
-
-
-#: When the tests read placement state: after every answer they record, and
-#: within placement.rules.DIAGNOSIS_WAIT_DAYS of every diagnosis they queue.
-READ_AT = _iso(DUE_HOURS + 100)
-
-
-class _Diagnosed(ReviewFakeClient):
-    """The fake grader and diagnoser with a chosen validity and causal class.
-
-    ``validity_scope`` lands on every blind-grade error attribution;
-    ``causal_class`` on every event the diagnoser writes (the M2 validator
-    still forces ``unknown`` off a valid measurement)."""
-
-    def __init__(self, *, validity_scope="valid_measurement", causal_class="learner_state", **kwargs):
-        super().__init__(**kwargs)
-        self.validity_scope = validity_scope
-        self.causal_class = causal_class
-
-    def _blind_grading(self, request, context):
-        result = super()._blind_grading(request, context)
-        return result.model_copy(update={
-            "error_attributions": [
-                row.model_copy(update={"validity_scope": self.validity_scope}) for row in result.error_attributions
-            ],
-        })
-
-    def _diagnosis(self, request, context):
-        result = super()._diagnosis(request, context)
-        return result.model_copy(update={
-            "event_diagnoses": [
-                event.model_copy(update={"causal_class": self.causal_class}) for event in result.event_diagnoses
-            ],
-        })
 
 
 def _assumed(tmp_path, *, config="", los=(LO,)):
@@ -96,23 +56,10 @@ def _assumed(tmp_path, *, config="", los=(LO,)):
     return paths, vault, repository
 
 
-def _state(vault, repository, lo=LO, *, now_iso=READ_AT):
-    state = load_placement_state(vault, repository, now_iso=now_iso)
-    (assumption,) = [a for a in state.assumptions if a.learning_object_id == lo]
-    return assumption, state.intent_by_lo[lo]
-
-
 def _routine(queue) -> set[str]:
     """Items served by routine scheduling (not an explicit follow-up lane)."""
 
     return {s.practice_item_id for s in queue if s.followup_kind is None}
-
-
-def _miss(vault, repository, client, *, item="pi_svd_compute_001", hours=DUE_HOURS + 1, drain=True):
-    result = submit(vault, repository, client, item_id=item, answer=WRONG, when=at(hours))
-    if drain:
-        drain_jobs(vault, repository, client, clock=FrozenClock(at(hours)))
-    return result
 
 
 # ── The check ─────────────────────────────────────────────────────────────────

@@ -28,6 +28,7 @@ from tests.teacher_fakes import (
     landed_and_close_turn,
     plan_turn,
 )
+from tests.teacher_te1_successor_helpers import _Ctx
 
 T0 = datetime(2026, 11, 1, 9, 0, tzinfo=UTC)
 TAG = TEACHER_ALGORITHM_VERSION
@@ -177,19 +178,6 @@ def test_the_cli_installs_this_links_completion():
 
 
 # --- the desktop RPCs ------------------------------------------------------------------------------
-
-
-class _Ctx:
-    def __init__(self, paths, repository):
-        self.paths, self.repository = paths, repository
-        self.grading_provider_override = None
-        self.reloads = 0
-
-    def require_vault(self):
-        return load_vault(self.paths.root), self.repository
-
-    def reload(self, maintenance: bool = True):
-        self.reloads += 1
 
 
 def test_lesson_turn_runs_a_lesson_and_lesson_view_resumes_it(tmp_path, monkeypatch):

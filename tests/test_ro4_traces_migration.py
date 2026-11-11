@@ -14,14 +14,9 @@ import pytest
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.ro4_traces_migration_helpers import RO4_ADDED_OBJECTS, TABLE
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-TABLE = "router_objective_traces"
-#: What 246 adds: earlier migrations' "nothing else changed" diffs on the way to head read this.
-RO4_ADDED_OBJECTS = frozenset({
-    TABLE, "idx_router_objective_traces_local_date", "idx_router_objective_traces_created", f"{TABLE}_no_update",
-    f"{TABLE}_no_delete", f"sqlite_autoindex_{TABLE}_1", f"sqlite_autoindex_{TABLE}_2",
-})
 #: What 246 rebuilds: the goal contract versions widen their change class by 'use_weight_change'.
 RO4_ALTERED_TABLE = "goal_contract_versions"
 _ROW = ("INSERT INTO router_objective_traces(id, decision_id, decision_kind, trace_version, objective_version, "

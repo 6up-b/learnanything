@@ -21,7 +21,6 @@ from learnloop.attempts.attempts import (
     complete_attempt_with_ai_required,
     complete_self_graded_attempt,
 )
-from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 from learnloop.attempts.stuck import (
     STUCK_PROMPT_TEXT,
     STUCK_READING_KEY,
@@ -46,72 +45,15 @@ from learnloop.field.signals import (
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
 
-from tests.diagnosis_fakes import ReviewFakeClient
 from tests.helpers import set_algorithm_version
 from tests.split_live_helpers import ReadyRuntime, at, drain_jobs, split_vault
+from tests.stuck_prompt_helpers import ITEM, RefusingClient, StuckFake, _draft, _grade
 
-ITEM = "pi_svd_compute_001"
 LO = "lo_svd_compute"
-
-
-class StuckFake(ReviewFakeClient):
-    """The M1/M2 fake, plus a stuck reading whenever the prompt asks for one."""
-
-    def __init__(self, *, reading: dict | None = None, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self.reading = reading or {"attempts_answer": True, "describes_confusion": False, "confusion_quote": ""}
-        self.contexts: list[dict] = []
-
-    def _blind_grading(self, request, context):
-        self.contexts.append(context)
-        model = request.result_model
-        if "stuck_reading" not in getattr(model, "model_fields", {}):
-            return super()._blind_grading(request, context)
-        base_model = model.__mro__[1]
-        base = super()._blind_grading(SimpleNamespace(result_model=base_model), context)
-        return model.model_validate({**base.model_dump(mode="json"), "stuck_reading": self.reading})
-
-    def _grading(self, request, context):
-        # The joint grader (split off): the stuck reading when the joint
-        # prompt asks for one (review F3), the plain proposal otherwise.
-        self.contexts.append(context)
-        base = super()._grading(request, context)
-        model = request.result_model
-        if "stuck_reading" not in getattr(model, "model_fields", {}):
-            return base
-        return model.model_validate({**base.model_dump(mode="json"), "stuck_reading": self.reading})
-
-
-class RefusingClient(ReviewFakeClient):
-    """Any model call is a test failure (the empty path has nothing to grade)."""
-
-    def complete(self, request):  # pragma: no cover - must not run
-        raise AssertionError(f"no model call expected, got {request.purpose}")
 
 
 def _stuck_vault(tmp_path, *, config: str = ""):
     return split_vault(tmp_path, version="mvp-0.13", config=config)
-
-
-def _draft(answer: str, *, stuck: bool = True, **kwargs) -> AttemptDraft:
-    return AttemptDraft(
-        practice_item_id=kwargs.pop("item_id", ITEM),
-        learner_answer_md=answer,
-        attempt_type=kwargs.pop("attempt_type", "independent_attempt"),
-        declared_stuck=stuck,
-        **kwargs,
-    )
-
-
-def _grade(vault, repository, client, draft, *, when=21):
-    from learnloop.clock import FrozenClock
-
-    clock = FrozenClock(at(when))
-    result = complete_attempt_with_ai_required(
-        vault, repository, draft, runtime=ReadyRuntime(), ai_client=client, clock=clock
-    )
-    run_post_attempt_pipeline(vault, repository, result=result, clock=clock)
-    return result
 
 
 def _field_row(vault, repository, attempt_id):
@@ -586,7 +528,7 @@ def test_an_empty_stuck_probe_answer_is_the_unanswered_observation(tmp_path):
     from learnloop.attempts.attempts import complete_empty_stuck_attempt
     from learnloop.diagnosis.probe_episodes import enter_episode
 
-    from tests.test_probe_episodes import CLOCK, ITEM_ID, LO_ID, _commit, _setup
+    from tests.probe_episodes_helpers import CLOCK, ITEM_ID, LO_ID, _commit, _setup
 
     _root, loaded, repository = _setup(tmp_path, algorithm_version="mvp-0.13")
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)

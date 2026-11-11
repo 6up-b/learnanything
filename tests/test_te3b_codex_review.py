@@ -30,7 +30,7 @@ from learnloop.router import lesson_suggestions as LS
 from tests.daily_plan_fakes import record_attempt
 from tests.router_mixture_helpers import mixture_env, rows
 from tests.router_model_fakes import fake_runtime
-from tests.test_te3b_offers import TAG, _objective_rows, offer_drawn, offerable  # noqa: F401 - fixtures
+from tests.te3b_offers_helpers import TAG, _objective_rows, offer_drawn, offerable  # noqa: F401 - fixtures
 
 pytestmark = pytest.mark.usefixtures("offerable", "offer_drawn")
 

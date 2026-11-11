@@ -19,22 +19,10 @@ from learnloop.adaptive_difficulty import protected_tables as PT
 from learnloop.db.migrate import discover_migrations
 from learnloop.db.table_roles import TableRole, role_for_table
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.deliverable_curriculum_migration_helpers import C0B_ADDED_OBJECTS
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-#: Every schema object 228 adds (it alters nothing): the earlier migrations' "nothing
-#: else changed" diffs on the way to head read these.
-C0B_ADDED_OBJECTS = frozenset({
-    "deliverable_scope_inputs", "sqlite_autoindex_deliverable_scope_inputs_1", "idx_deliverable_scope_inputs_goal",
-    "deliverable_scope_inputs_no_update", "deliverable_scope_inputs_no_delete",
-    "deliverable_scope_resolutions", "sqlite_autoindex_deliverable_scope_resolutions_1",
-    "idx_deliverable_scope_resolutions_goal", "deliverable_scope_resolutions_no_update",
-    "deliverable_scope_resolutions_no_delete",
-    "deliverable_path_sections", "sqlite_autoindex_deliverable_path_sections_1",
-    "idx_deliverable_path_sections_judged", "idx_deliverable_path_sections_goal",
-    "idx_deliverable_path_sections_reading", "deliverable_path_sections_no_update",
-    "deliverable_path_sections_no_delete",
-})
 TABLES = ("deliverable_scope_inputs", "deliverable_scope_resolutions", "deliverable_path_sections")
 
 

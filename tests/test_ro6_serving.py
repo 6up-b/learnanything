@@ -24,7 +24,7 @@ from learnloop.router_objective import trace as T
 
 from tests.router_mixture_helpers import mixture_env, run
 from tests.router_model_fakes import FakeLLM, fake_runtime
-from tests.test_ro4_objective_serving import _blocks, _shape, policy_answer
+from tests.ro4_objective_serving_helpers import _blocks, _shape, policy_answer
 
 TAG = ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
 OLD = ROUTER_CALIBRATION_ALGORITHM_VERSION

@@ -13,15 +13,13 @@ from __future__ import annotations
 
 import os
 import sqlite3
-from datetime import UTC, datetime, timedelta
 
 import pytest
 from typer.testing import CliRunner
 
-from learnloop.algorithm_versions import METHOD_EXPLICIT_ALGORITHM_VERSION, REGRADE_CONTRACT_ALGORITHM_VERSION
+from learnloop.algorithm_versions import REGRADE_CONTRACT_ALGORITHM_VERSION
 from learnloop.attempts.attempts import unrecorded_epoch_attempts
 from learnloop.cli import app
-from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import Repository
@@ -35,13 +33,11 @@ from learnloop.substrate.shadow_rebuild import _learner_state_snapshot, _semanti
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import MIGRATION_HEAD_FIXTURE, create_placement_vault, set_algorithm_version
-from tests.test_held_grade_evidence import T, _graded_apply
-from tests.test_regrade_contract_replay import ITEM, SIBLING_ITEM, _regrade, _self_graded_apply, _set_result_points
-from tests.test_regrade_contract_successor import JOINT, _settle, _vault
+from tests.regrade_contract_replay_helpers import ITEM, SIBLING_ITEM
+from tests.regrade_contract_successor_helpers import JOINT
+from tests.regrade_contract_upgrade_helpers import CLOCK, PREDECESSOR, _legacy_vault
 
 TARGET = REGRADE_CONTRACT_ALGORITHM_VERSION
-PREDECESSOR = METHOD_EXPLICIT_ALGORITHM_VERSION
-CLOCK = FrozenClock(datetime(2026, 12, 1, 12, 0, tzinfo=UTC))
 HEAD = MIGRATION_HEAD_FIXTURE
 
 
@@ -58,28 +54,6 @@ def _attempt_rows(repository):
 def _evidence(repository):
     with repository.connection() as connection:
         return sorted(tuple(row) for row in connection.execute("SELECT * FROM grading_evidence"))
-
-
-def _legacy_vault(tmp_path, *, config=""):
-    """An mvp-0.25 vault holding the three shapes the successor meets:
-    ``att_keep`` graded and never regraded (cites its contract), ``att_blind``
-    regraded within its original maximum by the blind grader (uncited; the
-    blind record kept its maximum, 8) and ``att_self`` self-graded then
-    regraded on a sibling item (uncited); rebuilt to the predecessor's fixed
-    point."""
-
-    paths, vault, repository = _vault(tmp_path, version=PREDECESSOR, config=config)
-    _graded_apply(vault, repository, ITEM, {"setup": 2.0, "result": 2.0}, attempt_id="att_keep", when=T)
-    _graded_apply(vault, repository, ITEM, {"setup": 1.0, "result": 1.0}, attempt_id="att_blind",
-                  when=T + timedelta(hours=1))
-    _self_graded_apply(vault, repository, SIBLING_ITEM, {"setup": 1.0, "result": 2.0}, attempt_id="att_self",
-                       when=T + timedelta(hours=2))
-    _set_result_points(paths, 6)
-    vault = load_vault(paths.root)
-    _regrade(vault, repository, "att_blind", {"setup": 1.0, "result": 2.0}, when=T + timedelta(days=1))
-    _regrade(vault, repository, "att_self", {"setup": 2.0, "result": 2.0}, when=T + timedelta(days=1, hours=1))
-    _settle(vault, repository)
-    return paths, vault, repository
 
 
 def test_upgrade_holds_exactly_the_unrecorded_epochs_and_rewrites_no_evidence(tmp_path):

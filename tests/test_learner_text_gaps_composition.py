@@ -255,7 +255,7 @@ def test_a_stuck_answer_keeps_its_confusion_signal_and_adds_one_gap_observation(
 
 def test_t6_verified_spans_and_the_tutors_named_gap_both_hold(tmp_path):
     from tests.source_retrieval_fakes import loaded
-    from tests.test_source_retrieval_tutor import CLOCK, QUESTION, CitingTutor, provider, setup
+    from tests.source_retrieval_tutor_helpers import CLOCK, QUESTION, CitingTutor, provider, setup
 
     class NamingTutor(CitingTutor):
         def run_tutor_qa(self, context):

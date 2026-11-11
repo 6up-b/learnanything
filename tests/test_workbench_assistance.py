@@ -30,7 +30,7 @@ from learnloop.hints import workbench as hint_workbench
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
 from tests.hint_fakes import ITEM, WORK, ChooserFake, prefer
-from tests.test_hint_h2b_review import grader  # noqa: F401 - the blind grader fixture
+from tests.hint_h2b_review_helpers import grader  # noqa: F401 - the blind grader fixture
 from tests.workbench_help_fakes import call, help_rows, open_problem, run_job, sidecar
 
 
@@ -242,7 +242,7 @@ def test_the_answer_box_submit_records_an_open_problems_help(tmp_path, grader):
 
 
 def test_a_discriminating_answer_changes_none_of_the_counts(tmp_path, grader):
-    from tests.test_workbench_discriminate import _rival_check
+    from tests.workbench_discriminate_helpers import _rival_check
 
     paths, ctx, session = sidecar(tmp_path, check=_rival_check())
     wb, _chains = open_problem(ctx)

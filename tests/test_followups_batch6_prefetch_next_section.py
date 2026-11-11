@@ -20,8 +20,8 @@ from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, Extract
 from learnloop.source_retrieval import reading_paths as RP
 from learnloop.vault.loader import load_vault
 from tests.figure_fixtures import set_config, upsert_source_set
-from tests.test_figures_prefetch import JudgeFake, decisions, env_for, make_vault
-from tests.test_source_inventory import _persist
+from tests.figures_prefetch_helpers import JudgeFake, decisions, env_for, make_vault
+from tests.source_inventory_helpers import _persist
 
 THREE = "ext_three"
 SECTIONS = (

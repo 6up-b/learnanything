@@ -25,7 +25,10 @@ def main(root: Path) -> dict:
     from learnloop_sidecar.registry import METHOD_REGISTRY
     from tests.hint_fakes import ITEM, WORK, hint_vault
     from tests.split_live_helpers import ReadyRuntime
-    from tests.test_stuck_prompt import StuckFake
+    try:
+        from tests.stuck_prompt_helpers import StuckFake
+    except ModuleNotFoundError:  # the base commit's tree, from before refactor step T1
+        from tests.test_stuck_prompt import StuckFake
 
     attempts_module.AUTO_PRIME_REVEAL_THRESHOLD = 10.0
     grader = StuckFake()

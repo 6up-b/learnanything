@@ -32,7 +32,7 @@ from learnloop.source_retrieval.tutor import TIMED_STEPS, TutorSpanProvider
 from learnloop.tutor.tutor_qa import ask_question
 from tests.helpers import append_config_toml
 from tests.source_retrieval_fakes import FakeSourceLLM, HashingEmbedder, loaded
-from tests.test_source_retrieval_tutor import CLOCK, QUESTION, CitingTutor, setup
+from tests.source_retrieval_tutor_helpers import CLOCK, QUESTION, CitingTutor, setup
 
 CAPS = SpendCaps(max_candidates=10_000, max_pairs=10_000, max_calls=5_000, max_total_tokens=10**9,
                  max_estimated_usd=10**4)

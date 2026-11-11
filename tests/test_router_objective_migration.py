@@ -16,9 +16,9 @@ from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from learnloop.params.parameter_registry import REGISTRY, classify_config_path
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.router_objective_migration_helpers import RO0_ADDED_OBJECTS, TABLES
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-TABLES = ("session_receipts", "decision_state_receipts", "goal_lifecycle_events")
 NEW_COLUMNS = {
     "question_events": {"reveal_state_json"},
     "plan_presentations": {"ask_available"},
@@ -26,13 +26,6 @@ NEW_COLUMNS = {
     "decision_measurement_events": {"non_service_type", "delay_json"},
     "decision_objectives": {"delay_json"},
 }
-RO0_ADDED_OBJECTS = frozenset({
-    *TABLES,
-    "session_receipts_once", "session_receipts_created", "decision_state_receipts_created", "goal_lifecycle_events_goal",
-    "sqlite_autoindex_session_receipts_1", "sqlite_autoindex_decision_state_receipts_1",
-    "sqlite_autoindex_decision_state_receipts_2", "sqlite_autoindex_goal_lifecycle_events_1",
-    *(f"{table}_no_{verb}" for table in TABLES for verb in ("update", "delete")),
-})
 
 
 def test_243_exists_and_its_tables_are_receipts():

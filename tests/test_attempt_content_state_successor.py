@@ -286,7 +286,7 @@ def test_an_mvp035_journal_is_handed_down_the_chain_then_the_tag_activates(tmp_p
     the kept replaced claims' completion, which hands it to CA2's own."""
 
     from learnloop.attempt_content_state_upgrade import complete_interrupted_activation, upgrade_to_attempt_content_state
-    from tests.test_batch3_landing import _interrupted as ca2_interrupted
+    from tests.batch3_landing_helpers import _interrupted as ca2_interrupted
 
     paths = ca2_interrupted(tmp_path, "ca2")
     assert _version(paths) == ONE_ASK_ALGORITHM_VERSION and _journal(paths).exists()

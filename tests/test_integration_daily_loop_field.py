@@ -15,10 +15,10 @@ from learnloop.reader import reader_authoring as AUTH
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml
 
-from tests.test_daily_loop_reader_authored_practice import (
+from tests.daily_loop_reader_authored_practice_helpers import (
     ANSWER, CLOCK, QUESTION, _author, _reader_vault,
 )
-from tests.test_daily_loop_reference_adoption import _cite_passage, _learner_cards
+from tests.daily_loop_reference_adoption_helpers import _cite_passage, _learner_cards
 
 
 def _call(ctx, name, params):

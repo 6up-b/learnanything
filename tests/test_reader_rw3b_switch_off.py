@@ -18,8 +18,8 @@ from pathlib import Path
 import pytest
 
 from tests.helpers import append_config_toml
-from tests.test_reader_cues import _cue_vault
-from tests.test_sidecar_reader import _init, _rpc
+from tests.reader_cues_helpers import _cue_vault
+from tests.sidecar_reader_helpers import _init, _rpc
 
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "reader_rw3a_cues_c9ad9cce1.json"
 #: RW3b's own switches, all off. The base ignores none of them: on the base

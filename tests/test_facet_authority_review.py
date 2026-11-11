@@ -39,13 +39,12 @@ from learnloop.vault.paths import VaultPaths
 from learnloop.vault.writer import upsert_source_set
 from learnloop.vault.yaml_io import read_yaml, yaml_to_string
 
-from tests.test_facet_authority import (
+from tests.facet_authority_helpers import (
     _CLOCK,
     EXAM_CLAIM,
     EXAM_SPAN,
     NEW_CLAIM,
     SUBJECT,
-    TEXT_SPAN,
     _add_two_units,
     _exam_alias_consolidation,
     _exam_vault,
@@ -54,21 +53,13 @@ from tests.test_facet_authority import (
     _source_set,
     _support,
 )
-from tests.test_facet_identity_actions import SELECT, SHARED, _vault_with_duplicate
-from tests.test_facet_reword_paths import SYMMETRY
-from tests.test_source_append import _bootstrap_and_add
-from tests.test_source_inventory import _block, _ir, _persist, _register_revision
-from tests.test_source_set_synthesis import _setup
-
-
-def _block_ref(extraction_id: str, span_id: str, *, source_id: str, revision_id: str, relation: str = "primary") -> dict:
-    """A persisted block-span provenance ref, as a facet payload records one."""
-
-    return {
-        "ref_type": "canonical_source", "ref_id": source_id, "source_id": source_id, "revision_id": revision_id,
-        "extraction_id": extraction_id, "locator": f"span:{extraction_id}/{span_id}",
-        "locator_scheme": "block_span_v1", "relation": relation,
-    }
+from tests.facet_reword_paths_helpers import TEXT_SPAN
+from tests.facet_identity_actions_helpers import SELECT, SHARED, _vault_with_duplicate
+from tests.facet_reword_paths_helpers import SYMMETRY
+from tests.source_append_helpers import _bootstrap_and_add
+from tests.source_inventory_helpers import _persist
+from tests.source_set_synthesis_helpers import _setup
+from tests.facet_authority_review_helpers import _add_split_chapter, _authority_verdicts, _block_ref
 
 
 EXAM_REF = _block_ref("ext_exam", "s1", source_id="src_exam", revision_id="rev_exam")
@@ -178,27 +169,6 @@ def test_a_malformed_meaning_support_is_refused(tmp_path, support):
 
 
 # --- F3: a split unit's children are their own spans, with their own roles ----------------
-
-
-def _add_split_chapter(repo, root, scope):
-    """A textbook chapter the owner split at its level-2 headings: ``Theory`` (s1) and ``Exam`` (s2)."""
-
-    _register_revision(repo, source_id="src_split", revision_id="rev_split")
-    ir = _ir([("chapter", "Chapter", [
-        _block("s1", "Theory: a symmetric matrix equals its transpose.", section=("chapter", "Theory")),
-        _block("s2", "Exam: on the test, symmetric means a positive diagonal.", section=("chapter", "Exam")),
-    ], "sha256:chapter", 3)])
-    _persist(repo, ir, revision_id="rev_split", extraction_id="ext_split")
-    save_unit_selection(repo, "ext_split", ["chapter"],
-                        boundary_overrides=[{"op": "split_at_heading", "unit_id": "chapter"}], clock=_CLOCK)
-    current = _source_set(root)
-    members = [member.model_dump(mode="json", exclude_none=True) for member in current.members]
-    members.append({"source_id": "src_split", "revision_id": "rev_split", "default_role": "primary_textbook",
-                    "scope": scope, "priority": 1, "scope_extraction_id": "ext_split",
-                    "scope_revision_id": "rev_split"})
-    upsert_source_set(root, {"id": "set_la", "subject_id": SUBJECT, "title": "Linear Algebra",
-                             "members": members}, clock=_CLOCK)
-    return authority.CitationResolver.for_source_set(repo, _source_set(root))
 
 
 def test_selecting_one_child_of_a_split_unit_never_selects_its_sibling(tmp_path):
@@ -356,15 +326,6 @@ def test_a_citation_that_does_not_resolve_never_becomes_a_semantic_authority_lin
 
 
 # --- F6: every manual-authority change to a facet's meaning is audited ---------------------
-
-
-def _authority_verdicts(repository) -> list[dict]:
-    with repository.connection() as connection:
-        rows = connection.execute(
-            "SELECT * FROM judgment_ledger WHERE task = ? ORDER BY left_id, created_at, id",
-            (facet_actions.MANUAL_AUTHORITY_TASK,),
-        ).fetchall()
-    return [dict(row) for row in rows]
 
 
 def test_every_library_change_to_a_facets_meaning_records_the_owners_authority_verdict(tmp_path):

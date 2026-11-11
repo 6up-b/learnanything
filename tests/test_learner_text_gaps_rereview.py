@@ -27,7 +27,7 @@ from learnloop.tutor.ai_contracts import LearnerGap
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import append_config_toml
-from tests.test_learner_text_gaps_review import (
+from tests.learner_text_gaps_review_helpers import (
     BELIEF,
     EIGEN_GAP,
     EIGENVECTOR_GAP,

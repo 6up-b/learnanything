@@ -18,20 +18,11 @@ import pytest
 
 from learnloop.adaptive_difficulty import protected_tables as PT
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
-from learnloop.db.table_roles import TableRole, role_for_table
+from learnloop.db.table_roles import role_for_table
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.figure_prefetch_migration_helpers import P5_ADDED_OBJECTS, P5_TABLES
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-P5_TABLES = {"figure_prefetch_decisions": TableRole.RAW_LEDGER, "plan_usage_pauses": TableRole.RAW_LEDGER}
-#: What 237 adds (its tables, their indexes and autoindexes, the triggers, the figure_requests index).
-P5_ADDED_OBJECTS = frozenset({
-    *P5_TABLES,
-    "figure_prefetch_decisions_no_delete", "figure_prefetch_decisions_set_once",
-    "idx_figure_prefetch_decisions_created", "idx_figure_prefetch_decisions_key", "idx_figure_prefetch_decisions_open",
-    "idx_figure_requests_prefetch_decision", "plan_usage_pauses_no_delete", "plan_usage_pauses_no_update",
-    "sqlite_autoindex_figure_prefetch_decisions_1", "sqlite_autoindex_plan_usage_pauses_1",
-    "sqlite_autoindex_plan_usage_pauses_2",
-})
 
 DECISION = ("INSERT INTO figure_prefetch_decisions (id, trigger_kind, trigger_ref, request_key, anchor_json, "
             "model_version, posterior_digest, sampled_eu, propensity, decision, horizon_kind, created_at) VALUES "

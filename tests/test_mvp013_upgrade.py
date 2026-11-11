@@ -43,7 +43,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import MIGRATION_HEAD_FIXTURE, NOW, create_basic_vault, set_algorithm_version
 from tests.split_live_helpers import append_config, split_vault
-from tests.test_recurrence_commands import _pass_guard
+from tests.recurrence_commands_helpers import _pass_guard
 
 HEAD = MIGRATION_HEAD_FIXTURE
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))

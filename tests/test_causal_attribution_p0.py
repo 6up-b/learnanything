@@ -41,7 +41,7 @@ from learnloop.vault.models import (
 from learnloop_sidecar.handlers.serializers import feedback_bundle
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault
-from tests.test_km2_write_path import build_mvp07_vault
+from tests.km2_write_path_helpers import build_mvp07_vault
 
 
 def test_grading_schema_is_prose_first():

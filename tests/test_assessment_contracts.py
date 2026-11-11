@@ -79,7 +79,7 @@ def test_contract_hash_changes_when_targets_change(tmp_path):
 def test_observation_id_attaches_once(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     repository = Repository(paths.sqlite_path)
-    from tests.test_migrations import _insert_attempt
+    from tests.migrations_helpers import _insert_attempt
     from learnloop.db.connection import connect
 
     with connect(paths.sqlite_path) as connection:

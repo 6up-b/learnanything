@@ -13,7 +13,7 @@ from learnloop.ops.capture_report import build_report, lines
 
 from tests.router_mixture_helpers import mixture_env, run
 from tests.router_model_fakes import FakeDecider, fake_runtime, first_option, seed_with_first_uniform
-from tests.test_router_g4_restraint import DECIDER_ONLY, PAST_THE_FLOOR, _followup_env
+from tests.router_g4_restraint_helpers import DECIDER_ONLY, PAST_THE_FLOOR, _followup_env
 from tests.helpers import create_basic_vault
 
 TAG = "mvp-0.44"

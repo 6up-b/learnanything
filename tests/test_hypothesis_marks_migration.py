@@ -13,25 +13,11 @@ import sqlite3
 import pytest
 
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
-from learnloop.db.table_roles import TABLE_ROLES, TableRole
+from learnloop.db.table_roles import TABLE_ROLES
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.hypothesis_marks_migration_helpers import MARKS_ADDED_OBJECTS, ROLES
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-ROLES = {
-    "hypothesis_list_exposures": TableRole.RECEIPT,
-    "hypothesis_exposure_probe_links": TableRole.RECEIPT,
-    "hypothesis_marks": TableRole.RAW_LEDGER,
-}
-MARKS_ADDED_OBJECTS = frozenset({
-    *ROLES,
-    "hypothesis_list_exposures_attempt", "hypothesis_list_exposures_no_update", "hypothesis_list_exposures_no_delete",
-    "hypothesis_exposure_probe_links_attempt", "hypothesis_exposure_probe_links_no_update",
-    "hypothesis_exposure_probe_links_no_delete",
-    "hypothesis_marks_attempt", "hypothesis_marks_learning_object", "hypothesis_marks_no_update", "hypothesis_marks_no_delete",
-    # Autoindexes of the primary keys and the link's UNIQUE.
-    "sqlite_autoindex_hypothesis_list_exposures_1", "sqlite_autoindex_hypothesis_exposure_probe_links_1",
-    "sqlite_autoindex_hypothesis_exposure_probe_links_2", "sqlite_autoindex_hypothesis_marks_1",
-})
 
 
 def _downgraded(database: Path) -> None:

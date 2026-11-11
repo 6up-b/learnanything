@@ -17,6 +17,7 @@ from learnloop.teacher import service as S
 from learnloop.teacher.contracts import TeacherTurnV1
 from learnloop.vault.loader import load_vault
 from tests.teacher_fakes import TeacherFake, build_teacher_vault, clients, plan_turn
+from tests.teacher_te2log_node_held_helpers import held_plan
 
 T0 = datetime(2026, 11, 5, 15, 0, tzinfo=UTC)
 
@@ -24,16 +25,6 @@ T0 = datetime(2026, 11, 5, 15, 0, tzinfo=UTC)
 def _rows(repository, sql, params=()):
     with repository.connection() as connection:
         return [tuple(row) for row in connection.execute(sql, params).fetchall()]
-
-
-def held_plan(context):
-    turn = plan_turn(context)
-    nodes = turn["requests"][0]["plan"]
-    nodes[0]["p_held"] = 0.35
-    nodes.insert(0, {"id": "n0", "statement": "Determinants detect invertibility.", "lo_id": "lo_det",
-                     "anchors": nodes[0]["anchors"], "premises": [], "p_held": 0.8})
-    nodes.append({"id": "nx", "statement": "Something with no topic.", "anchors": [], "premises": [], "p_held": 0.5})
-    return turn
 
 
 def _open(tmp_path, turns, *, config=None):

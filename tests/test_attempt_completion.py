@@ -27,9 +27,9 @@ from learnloop.substrate.data_quality import data_quality_report
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
-from tests import test_probe_block_end as block_setup
+from tests import probe_block_end_helpers as block_setup
 from tests.helpers import create_basic_vault, set_algorithm_version
-from tests.test_diagnostic_augmentation import (
+from tests.diagnostic_augmentation_helpers import (
     _proposal,
     _SequenceDiagnostician,
     fail_after_the_joint_grade_commits,

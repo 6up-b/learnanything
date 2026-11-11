@@ -6,7 +6,7 @@ from pathlib import Path
 
 from learnloop.db.repositories import Repository
 from learnloop.ingest.originals import store_original_bytes
-from tests.test_sidecar_reader_p3 import _rpc, _setup
+from tests.sidecar_reader_p3_helpers import _rpc, _setup
 
 
 def test_pdf_view_manifest_from_originals_store(tmp_path: Path) -> None:

@@ -10,7 +10,6 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
-from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_gaps as store
 from learnloop.diagnosis.text_gaps.actions import UndoError, reverse_gap, would_cycle
 from learnloop.diagnosis.text_gaps.contract import PrerequisiteDraft
@@ -22,33 +21,9 @@ from learnloop.vault.lifecycle import LEARNER_TEXT_GAP_DISABLED, practice_item_s
 from learnloop.vault.loader import add_note, load_vault
 from learnloop.vault.writer import upsert_learning_object
 
-from tests.helpers import NOW, NOW_ISO, append_config_toml, create_placement_vault
+from tests.helpers import NOW, NOW_ISO, append_config_toml
 from tests.text_gap_fakes import ChoiceDecider, GapLLMFake, GapTutor, always, seed_proposal, word_match
-
-EIGEN_GAP = LearnerGap(prerequisite_name="Eigenvalues", prerequisite_line="Scalars a matrix scales its eigenvectors by.",
-                       kind="prerequisite")
-
-
-def _vault(tmp_path, *, version: str = "mvp-0.16", toml: str = ""):
-    paths = create_placement_vault(tmp_path / "vault", version=version)
-    if toml:
-        append_config_toml(paths.root, toml)
-    return paths.root, Repository(paths.sqlite_path)
-
-
-def _ask(root, repository, tutor, *, item="pi_diag_easy", question="What is an eigenvalue? I can't diagonalize."):
-    vault = load_vault(root)
-    return ask_question(vault, repository, tutor, context="practice", question_md=question,
-                        practice_item_id=item, session_id="sess_1", clock=FrozenClock(NOW))
-
-
-def _run(root, repository, event_id, *, llm=None, decider=None, tutor=None):
-    llm = llm or GapLLMFake()
-    clients = PipelineClients(judge=lambda: llm, reader=lambda: llm, decider=(lambda: decider) if decider else None,
-                              drafter=lambda: llm, tutor=(lambda: tutor) if tutor else None, embedder=None)
-    text = tutor_question_text(load_vault(root), repository, event_id)
-    return process_learner_text(root, repository, text, clients=clients, clock=FrozenClock(NOW))
-
+from tests.learner_text_gaps_helpers import EIGEN_GAP, _ask, _run, _vault
 
 def _ledger(repository, task):
     with repository.connection() as connection:

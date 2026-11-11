@@ -37,7 +37,7 @@ import pytest
 from learnloop_sidecar.errors import SidecarError
 from tests.figure_fixtures import AuthorFake, flagship, set_config
 from tests.hint_fakes import ITEM, ChooserFake, WriterFake, assists, prefer, reveals
-from tests.test_figures_help import (
+from tests.figures_help_helpers import (
     GOAL,
     _attempt,
     _call,
@@ -295,7 +295,7 @@ def test_f5_a_chooser_figure_line_switched_off_before_delivery_is_not_shown(tmp_
     from learnloop_sidecar.handlers.hints import _deliver
     from learnloop.hints.service import HintRequestV1
     from tests.hint_fakes import WORK
-    from tests.test_figures_help import _offer
+    from tests.figures_help_helpers import _offer
 
     paths, ctx, session = _sidecar(tmp_path)
     attempt_id = _submit(ctx, session, key="k0")["attemptId"]
@@ -462,7 +462,7 @@ def _rich_attempt(tmp_path, monkeypatch, answers, *, foreground: bool = True):
     from learnloop.content.pipeline.runner import RunnerServices
     from tests import rich_fixtures as RF
     from tests.figure_fixtures import build_figure_vault, context
-    from tests.test_figures_help import FindFake
+    from tests.figures_help_helpers import FindFake
 
     paths, repository = build_figure_vault(tmp_path / "vault", rich=True)
     set_config(paths, "figures", manim_opt_in="standing")

@@ -34,8 +34,8 @@ from learnloop.router_objective import weight as W
 
 from tests.router_mixture_helpers import mixture_env, run
 from tests.router_model_fakes import fake_runtime
-from tests.test_ro5_checks import TAG, _env, _row, _trace, grade_checks
-from tests.test_ro5_stop_coin import ARMS_OFF
+from tests.ro5_checks_helpers import TAG, _env, _row, _trace, grade_checks
+from tests.ro5_stop_coin_helpers import ARMS_OFF
 
 
 # -- F1 ------------------------------------------------------------------------------------------------------
