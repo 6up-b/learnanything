@@ -116,6 +116,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_voi_stopping.py](../../../../../../../tests/test_voi_stopping.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]
 - [tests/test_voi_v2.py](../../../../../../../tests/test_voi_v2.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]
 - [tests/voi_restore_scenarios.py](../../../../../../../tests/voi_restore_scenarios.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]
+- [tests/voi_stopping_helpers.py](../../../../../../../tests/voi_stopping_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]
 
 ## Modification guidance
 

@@ -169,6 +169,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/recurrence_benchmarks_helpers.py](../../../../../../tests/recurrence_benchmarks_helpers.py) — direct import
 - [tests/test_output_budget.py](../../../../../../tests/test_output_budget.py) — direct import
   - `test_the_compare_harness_uses_the_policy_budget_and_retries_a_truncation`
 - [tests/test_pf_cli.py](../../../../../../tests/test_pf_cli.py) — direct import

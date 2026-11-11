@@ -134,7 +134,9 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/ad3_subject_view_helpers.py`
 - `tests/ad_fakes.py`
+- `tests/forecast_receipts_helpers.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_migration.py`
 - `tests/test_ad1_reading_opportunities.py`
@@ -142,7 +144,6 @@ None found by exact static reference scan.
 - `tests/test_ad23_fix_r8.py`
 - `tests/test_ad23_fix_review.py`
 - `tests/test_ad2_model.py`
-- `tests/test_ad3_subject_view.py`
 - `tests/test_ad_epoch.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
@@ -153,7 +154,6 @@ None found by exact static reference scan.
 - `tests/test_forecast_receipts_landing.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
 - `tests/test_ro2_ad_raw_document_reads.py`
-- `tests/test_ro2_history_forecaster.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

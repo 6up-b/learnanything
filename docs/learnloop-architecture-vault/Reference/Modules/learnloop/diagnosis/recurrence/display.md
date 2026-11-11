@@ -116,6 +116,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/ro1_self_report_helpers.py](../../../../../../../tests/ro1_self_report_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]]
 - [tests/test_causal_attribution_p0.py](../../../../../../../tests/test_causal_attribution_p0.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]]
 - [tests/test_causal_attribution_p1.py](../../../../../../../tests/test_causal_attribution_p1.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]]
 - [tests/test_causal_p2_acceptance.py](../../../../../../../tests/test_causal_p2_acceptance.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]]
@@ -127,7 +128,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_dialogue_causal_join.py](../../../../../../../tests/test_dialogue_causal_join.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]]
 - [tests/test_durable_promotion_arms.py](../../../../../../../tests/test_durable_promotion_arms.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]]
 - [tests/test_followup_fg1d_panel_read.py](../../../../../../../tests/test_followup_fg1d_panel_read.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]]
-- [tests/test_followup_live_shape.py](../../../../../../../tests/test_followup_live_shape.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]]
 
 ## Modification guidance
 

@@ -211,10 +211,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/compare_sources_keep_helpers.py](../../../../../../../tests/compare_sources_keep_helpers.py) — direct import
 - [tests/query_student_fakes.py](../../../../../../../tests/query_student_fakes.py) — direct import
 - [tests/test_compare_methods.py](../../../../../../../tests/test_compare_methods.py) — direct import
   - `test_book_solution_reads_the_checked_span_ids_and_never_exam_material`
-- [tests/test_compare_sources_keep.py](../../../../../../../tests/test_compare_sources_keep.py) — direct import
 - [tests/test_e0_review_round4.py](../../../../../../../tests/test_e0_review_round4.py) — direct import
 - [tests/test_embedding_recipe_hash_pins.py](../../../../../../../tests/test_embedding_recipe_hash_pins.py) — direct import
   - `test_slice_2_t6_source_block_recipe_hashes_are_pinned`

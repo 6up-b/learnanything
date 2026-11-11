@@ -110,6 +110,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/rw5c_golden_source.py`
+- `tests/rw5c_migration_helpers.py`
 - `tests/test_rw5c_judgments.py`
 - `tests/test_rw5c_migration.py`
 - `tests/test_rw5c_never_evidence.py`

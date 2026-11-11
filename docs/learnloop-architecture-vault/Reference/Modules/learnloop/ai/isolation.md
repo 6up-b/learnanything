@@ -152,7 +152,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/deliverable_fixtures.py](../../../../../../tests/deliverable_fixtures.py) — direct import
 - [tests/figure_fixtures.py](../../../../../../tests/figure_fixtures.py) — direct import
 - [tests/hint_fakes.py](../../../../../../tests/hint_fakes.py) — direct import
+- [tests/hint_outcome_helpers.py](../../../../../../tests/hint_outcome_helpers.py) — direct import
 - [tests/notes_fixtures.py](../../../../../../tests/notes_fixtures.py) — direct import
+- [tests/reader_digest_narrative_helpers.py](../../../../../../tests/reader_digest_narrative_helpers.py) — direct import
 - [tests/reading_path_fixtures.py](../../../../../../tests/reading_path_fixtures.py) — direct import
 - [tests/section_coverage_fixtures.py](../../../../../../tests/section_coverage_fixtures.py) — direct import
 - [tests/structured_ai.py](../../../../../../tests/structured_ai.py) — direct import
@@ -191,10 +193,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_check_runs_inside_the_sandbox_in_the_turns_own_directory`
   - `test_the_installed_codex_pins_a_server_only_an_unseen_ancestor_project_disables`
 - [tests/test_figures_final_round.py](../../../../../../tests/test_figures_final_round.py) — direct import
-- [tests/test_hint_outcome.py](../../../../../../tests/test_hint_outcome.py) — direct import
 - [tests/test_plan_first_transport.py](../../../../../../tests/test_plan_first_transport.py) — direct import
   - `test_unavailable_offers_openrouter_only_when_configured_and_sends_nothing_unasked`
-- [tests/test_reader_digest_narrative.py](../../../../../../tests/test_reader_digest_narrative.py) — direct import
 - [tests/text_gap_fakes.py](../../../../../../tests/text_gap_fakes.py) — direct import
 - [tests/workbench_help_fakes.py](../../../../../../tests/workbench_help_fakes.py) — direct import
 

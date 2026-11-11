@@ -23,18 +23,18 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/dose.py"
   - "src/learnloop/delayed_checks.py"
   - "src/learnloop/adaptive_difficulty/readiness.py"
+  - "tests/ad1_codex_rereview_fixes_helpers.py"
+  - "tests/ad23_contract_helpers.py"
   - "tests/ad23_fakes.py"
+  - "tests/ad3_subject_view_helpers.py"
   - "tests/ad_fakes.py"
+  - "tests/capability_residual_helpers.py"
+  - "tests/causal_factor_deferral_helpers.py"
+  - "tests/causal_p2_acceptance_helpers.py"
   - "tests/codex_cli_fakes.py"
-  - "tests/local_embeddings_fakes.py"
-  - "tests/mobile_host_helpers.py"
-  - "tests/notes_fixtures.py"
-  - "tests/pf_fakes.py"
-  - "tests/practice_index_fakes.py"
-  - "tests/recap_fixtures.py"
-  - "tests/router_model_fakes.py"
-  - "tests/rw2c_base_sequence.py"
-  - "tests/rw5c_fixtures.py"
+  - "tests/contamination_report_helpers.py"
+  - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/diagnostic_probe_single_use_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/adaptive-difficulty"
@@ -92,18 +92,18 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/ad1_codex_rereview_fixes_helpers.py`
+- `tests/ad23_contract_helpers.py`
 - `tests/ad23_fakes.py`
+- `tests/ad3_subject_view_helpers.py`
 - `tests/ad_fakes.py`
+- `tests/capability_residual_helpers.py`
+- `tests/causal_factor_deferral_helpers.py`
+- `tests/causal_p2_acceptance_helpers.py`
 - `tests/codex_cli_fakes.py`
-- `tests/local_embeddings_fakes.py`
-- `tests/mobile_host_helpers.py`
-- `tests/notes_fixtures.py`
-- `tests/pf_fakes.py`
-- `tests/practice_index_fakes.py`
-- `tests/recap_fixtures.py`
-- `tests/router_model_fakes.py`
-- `tests/rw2c_base_sequence.py`
-- `tests/rw5c_fixtures.py`
+- `tests/contamination_report_helpers.py`
+- `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/diagnostic_probe_single_use_helpers.py`
 
 ## Extension and modification guidance
 

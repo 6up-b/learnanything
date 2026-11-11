@@ -169,7 +169,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/ad23_fakes.py](../../../../../../../tests/ad23_fakes.py) — direct import
+- [tests/data_capture_codex_review_helpers.py](../../../../../../../tests/data_capture_codex_review_helpers.py) — direct import
 - [tests/intent_fakes.py](../../../../../../../tests/intent_fakes.py) — direct import
+- [tests/reader_followups_round4_helpers.py](../../../../../../../tests/reader_followups_round4_helpers.py) — direct import
 - [tests/test_ad23_intent_compose.py](../../../../../../../tests/test_ad23_intent_compose.py) — direct import
   - `test_f2_ad_never_serves_an_item_intent_withholds`
   - `test_property_ad_never_serves_or_clears_what_the_incumbent_withholds`
@@ -179,7 +181,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad23_pool_membership.py](../../../../../../../tests/test_ad23_pool_membership.py) — direct import
   - `test_h_a_due_check_once_leaves_ad_drawing`
 - [tests/test_data_capture_codex_rereview.py](../../../../../../../tests/test_data_capture_codex_rereview.py) — direct import
-- [tests/test_data_capture_codex_review.py](../../../../../../../tests/test_data_capture_codex_review.py) — direct import
 - [tests/test_intent_codex_rereview.py](../../../../../../../tests/test_intent_codex_rereview.py) — direct import
   - `test_f2_below_the_tag_commitments_change_nothing_with_the_switch_on`
   - `test_f2_new_vaults_start_at_the_successor_with_intent_live`
@@ -195,7 +196,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_each_follow_up_is_a_test_me_later_commitment_with_its_provenance`
 - [tests/test_reader_followups_review.py](../../../../../../../tests/test_reader_followups_review.py) — direct import
   - `test_f2_an_automatic_follow_up_never_lands_in_a_scope_the_learner_chose`
-- [tests/test_reader_followups_round4.py](../../../../../../../tests/test_reader_followups_round4.py) — direct import
 - [tests/test_reader_rw6b_landing.py](../../../../../../../tests/test_reader_rw6b_landing.py) — direct import
 
 ## Modification guidance

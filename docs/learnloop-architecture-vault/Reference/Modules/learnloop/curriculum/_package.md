@@ -77,8 +77,8 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]] | [[Reference/Modules/learnloop/curriculum/depth_transition#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]] | [[Reference/Modules/learnloop/curriculum/golden_path_assessment#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/curriculum/golden_path_compose|learnloop.curriculum.golden_path_compose]] | [[Reference/Modules/learnloop/curriculum/golden_path_compose#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/curriculum/golden_path_confirm|learnloop.curriculum.golden_path_confirm]] | [[Reference/Modules/learnloop/curriculum/golden_path_confirm#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
-| [[Reference/Modules/learnloop/curriculum/golden_path_fixture|learnloop.curriculum.golden_path_fixture]] | [[Reference/Modules/learnloop/curriculum/golden_path_fixture#^module-purpose|purpose]] | `ACTIVE` | 1 | 12 |
+| [[Reference/Modules/learnloop/curriculum/golden_path_confirm|learnloop.curriculum.golden_path_confirm]] | [[Reference/Modules/learnloop/curriculum/golden_path_confirm#^module-purpose|purpose]] | `ACTIVE` | 2 | 8 |
+| [[Reference/Modules/learnloop/curriculum/golden_path_fixture|learnloop.curriculum.golden_path_fixture]] | [[Reference/Modules/learnloop/curriculum/golden_path_fixture#^module-purpose|purpose]] | `ACTIVE` | 1 | 13 |
 | [[Reference/Modules/learnloop/curriculum/golden_path_restoration|learnloop.curriculum.golden_path_restoration]] | [[Reference/Modules/learnloop/curriculum/golden_path_restoration#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/curriculum/golden_path_run|learnloop.curriculum.golden_path_run]] | [[Reference/Modules/learnloop/curriculum/golden_path_run#^module-purpose|purpose]] | `ACTIVE` | 6 | 16 |
 | [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] | [[Reference/Modules/learnloop/curriculum/graph_edit_proposals#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
@@ -86,7 +86,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/curriculum/pattern_ladder|learnloop.curriculum.pattern_ladder]] | [[Reference/Modules/learnloop/curriculum/pattern_ladder#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/curriculum/rung_backfill|learnloop.curriculum.rung_backfill]] | [[Reference/Modules/learnloop/curriculum/rung_backfill#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/curriculum/subject_registry|learnloop.curriculum.subject_registry]] | [[Reference/Modules/learnloop/curriculum/subject_registry#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
-| [[Reference/Modules/learnloop/curriculum/task_blueprints|learnloop.curriculum.task_blueprints]] | [[Reference/Modules/learnloop/curriculum/task_blueprints#^module-purpose|purpose]] | `ACTIVE` | 2 | 9 |
+| [[Reference/Modules/learnloop/curriculum/task_blueprints|learnloop.curriculum.task_blueprints]] | [[Reference/Modules/learnloop/curriculum/task_blueprints#^module-purpose|purpose]] | `ACTIVE` | 2 | 10 |
 
 ## Cross-package dependencies
 

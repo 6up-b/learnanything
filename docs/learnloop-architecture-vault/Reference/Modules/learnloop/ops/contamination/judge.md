@@ -128,7 +128,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_contamination_report.py](../../../../../../../tests/test_contamination_report.py) — direct import
+- [tests/contamination_report_helpers.py](../../../../../../../tests/contamination_report_helpers.py) — direct import
 - [tests/test_tier1_decider.py](../../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_contamination`
 

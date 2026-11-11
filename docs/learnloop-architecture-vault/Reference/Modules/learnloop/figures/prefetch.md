@@ -283,6 +283,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/figures_prefetch_helpers.py](../../../../../../tests/figures_prefetch_helpers.py) — direct import
 - [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — direct import
   - `test_each_queued_figure_trigger_runs_under_the_trace_that_queued_it`
 - [tests/test_figure_decision_records.py](../../../../../../tests/test_figure_decision_records.py) — direct import
@@ -397,7 +398,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_rich_only_retry_after_an_orphan_is_linked_and_opening_its_eventual_figure_closes_opened`
   - `test_the_same_retry_whose_pass_died_before_it_linked_is_linked_the_same_way`
   - `test_waiting_on_someone_elses_rich_job_builds_nothing_and_its_figure_is_taken_once_stored`
-- [tests/test_why_cases.py](../../../../../../tests/test_why_cases.py) — direct import
+- [tests/why_cases_helpers.py](../../../../../../tests/why_cases_helpers.py) — direct import
 
 ## Modification guidance
 

@@ -276,8 +276,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/facet_identity_fakes.py](../../../../../../tests/facet_identity_fakes.py) — direct import
 - [tests/figure_fixtures.py](../../../../../../tests/figure_fixtures.py) — direct import
 - [tests/hint_fakes.py](../../../../../../tests/hint_fakes.py) — direct import
+- [tests/hint_outcome_helpers.py](../../../../../../tests/hint_outcome_helpers.py) — direct import
 - [tests/notes_fixtures.py](../../../../../../tests/notes_fixtures.py) — direct import
 - [tests/practice_index_fakes.py](../../../../../../tests/practice_index_fakes.py) — direct import
+- [tests/reader_active_reading_helpers.py](../../../../../../tests/reader_active_reading_helpers.py) — direct import
+- [tests/reader_digest_narrative_helpers.py](../../../../../../tests/reader_digest_narrative_helpers.py) — direct import
+- [tests/reader_passage_check_helpers.py](../../../../../../tests/reader_passage_check_helpers.py) — direct import
 - [tests/reading_path_fixtures.py](../../../../../../tests/reading_path_fixtures.py) — direct import
 - [tests/router_model_fakes.py](../../../../../../tests/router_model_fakes.py) — direct import
 - [tests/section_coverage_fixtures.py](../../../../../../tests/section_coverage_fixtures.py) — direct import
@@ -342,7 +346,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figures_final_round.py](../../../../../../tests/test_figures_final_round.py) — direct import
 - [tests/test_graph_nomination_ingest.py](../../../../../../tests/test_graph_nomination_ingest.py) — direct import
   - `test_kill_switch_restores_the_pre_t5_request`
-- [tests/test_hint_outcome.py](../../../../../../tests/test_hint_outcome.py) — direct import
 - [tests/test_ingest_jobs.py](../../../../../../tests/test_ingest_jobs.py) — direct import
   - `test_reader_drain_client_routes_via_canonical_ingest`
 - [tests/test_ingest_ownership.py](../../../../../../tests/test_ingest_ownership.py) — direct import
@@ -383,9 +386,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probability_prep.py](../../../../../../tests/test_probability_prep.py) — direct import
 - [tests/test_provider_resolution_parity.py](../../../../../../tests/test_provider_resolution_parity.py) — direct import
   - `test_chat_complete_and_declared_media_capabilities_share_one_contract`
-- [tests/test_reader_active_reading.py](../../../../../../tests/test_reader_active_reading.py) — direct import
-- [tests/test_reader_digest_narrative.py](../../../../../../tests/test_reader_digest_narrative.py) — direct import
-- [tests/test_reader_passage_check.py](../../../../../../tests/test_reader_passage_check.py) — direct import
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
   - `test_switch_off_keeps_te1s_prompt_and_turn_schema_byte_identical`
 - [tests/test_reading_hardening_review_fixes.py](../../../../../../tests/test_reading_hardening_review_fixes.py) — direct import

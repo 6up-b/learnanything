@@ -118,6 +118,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/diagnose_review_helpers.py](../../../../../../../tests/diagnose_review_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]]
 - [tests/test_coordinated_migrations.py](../../../../../../../tests/test_coordinated_migrations.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]]
 - [tests/test_diagnose_review.py](../../../../../../../tests/test_diagnose_review.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]]
 - [tests/test_diagnosis_isolation.py](../../../../../../../tests/test_diagnosis_isolation.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]]
@@ -129,7 +130,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_diagnosis_pipeline.py](../../../../../../../tests/test_diagnosis_pipeline.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]]
 - [tests/test_diagnosis_replay.py](../../../../../../../tests/test_diagnosis_replay.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]]
 - [tests/test_followup_fg1c_codex_review.py](../../../../../../../tests/test_followup_fg1c_codex_review.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]]
-- [tests/test_hypothesis_marks_context.py](../../../../../../../tests/test_hypothesis_marks_context.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]]
 
 ## Modification guidance
 

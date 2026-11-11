@@ -129,6 +129,9 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/mcp_world.py`
+- `tests/required_method_rereview_helpers.py`
+- `tests/required_method_round3_rereview_helpers.py`
+- `tests/reread_safety_landing_helpers.py`
 - `tests/test_ad_guard.py`
 - `tests/test_ad_protected_readings.py`
 - `tests/test_ad_protected_tables.py`
@@ -142,10 +145,7 @@ Indexes and uniqueness:
 - `tests/test_re0_capture.py`
 - `tests/test_reader_workbench_rw2a.py`
 - `tests/test_regrade_contract_successor.py`
-- `tests/test_required_method_rereview.py`
 - `tests/test_required_method_round3_final_verify.py`
-- `tests/test_required_method_round3_rereview.py`
-- `tests/test_reread_safety_landing.py`
 - `tests/test_voi_forecasts.py`
 - `tests/test_assessment_contracts.py`
 

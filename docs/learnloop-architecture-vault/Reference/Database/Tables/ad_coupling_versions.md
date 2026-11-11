@@ -101,6 +101,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/ad23_migration_helpers.py`
 - `tests/test_ad23_migration.py`
 - `tests/test_ad3_relatedness.py`
 - `tests/test_ad3_subject_view.py`

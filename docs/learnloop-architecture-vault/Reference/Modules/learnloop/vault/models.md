@@ -460,8 +460,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/method_explicit_landing_helpers.py](../../../../../../tests/method_explicit_landing_helpers.py) — direct import
 - [tests/passage_cue_fakes.py](../../../../../../tests/passage_cue_fakes.py) — direct import
 - [tests/pf_fakes.py](../../../../../../tests/pf_fakes.py) — direct import
+- [tests/reader_cues_helpers.py](../../../../../../tests/reader_cues_helpers.py) — direct import
+- [tests/reader_guidance_helpers.py](../../../../../../tests/reader_guidance_helpers.py) — direct import
+- [tests/required_method_authority_helpers.py](../../../../../../tests/required_method_authority_helpers.py) — direct import
+- [tests/required_method_rereview_helpers.py](../../../../../../tests/required_method_rereview_helpers.py) — direct import
+- [tests/reread_safety_helpers.py](../../../../../../tests/reread_safety_helpers.py) — direct import
+- [tests/ro2_history_protection_helpers.py](../../../../../../tests/ro2_history_protection_helpers.py) — direct import
+- [tests/route_rules_in_grader_helpers.py](../../../../../../tests/route_rules_in_grader_helpers.py) — direct import
 - [tests/test_activity_families.py](../../../../../../tests/test_activity_families.py) — direct import
   - `test_absent_fields_are_byte_identical_to_pre_family_model`
   - `test_ensemble_source_kind_loads_and_round_trips`
@@ -593,7 +602,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_cues.py](../../../../../../tests/test_reader_cues.py) — direct import
   - `test_a_transcript_passage_carries_a_cue_like_any_source`
 - [tests/test_reader_formative_texts.py](../../../../../../tests/test_reader_formative_texts.py) — direct import
-- [tests/test_reader_guidance.py](../../../../../../tests/test_reader_guidance.py) — direct import
 - [tests/test_reader_progression.py](../../../../../../tests/test_reader_progression.py) — direct import
   - `test_reader_source_refs_preserve_bounded_span_context`
 - [tests/test_reader_rw3b_review_fixes.py](../../../../../../tests/test_reader_rw3b_review_fixes.py) — direct import
@@ -608,7 +616,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_item_without_a_required_method_serializes_and_hashes_as_before`
   - `test_validation_names_each_problem`
   - `test_validation_reads_no_sentence_and_flags_a_contradiction`
-- [tests/test_required_method_rereview.py](../../../../../../tests/test_required_method_rereview.py) — direct import
 - [tests/test_required_method_round3.py](../../../../../../tests/test_required_method_round3.py) — direct import
   - `test_the_reader_quick_check_and_the_tutors_practice_tool_render_the_instruction`
 - [tests/test_required_method_round3_review.py](../../../../../../tests/test_required_method_round3_review.py) — direct import
@@ -618,8 +625,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f4_the_practice_index_result_presents_the_question`
   - `test_f4_the_teach_back_author_reads_the_task_as_it_was_set`
   - `test_f5_the_practice_tool_keeps_the_instruction_of_a_long_stem`
-- [tests/test_reread_safety.py](../../../../../../tests/test_reread_safety.py) — direct import
-- [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — direct import
 - [tests/test_ro4_goals.py](../../../../../../tests/test_ro4_goals.py) — direct import
 - [tests/test_rospeed2_section_map.py](../../../../../../tests/test_rospeed2_section_map.py) — direct import
   - `test_r1_an_in_place_vault_edit_made_and_undone_within_one_map_never_reaches_a_later_job`

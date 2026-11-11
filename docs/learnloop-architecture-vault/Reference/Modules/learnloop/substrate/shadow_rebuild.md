@@ -125,6 +125,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/followup_fg1d_probe_shadow_helpers.py](../../../../../../tests/followup_fg1d_probe_shadow_helpers.py) — direct import
+- [tests/rebuild_equivalence_helpers.py](../../../../../../tests/rebuild_equivalence_helpers.py) — direct import
 - [tests/test_approach_map_replay.py](../../../../../../tests/test_approach_map_replay.py) — direct import
   - `test_rebuild_and_replay_call_no_model_and_never_read_approach_maps`
 - [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — direct import
@@ -153,7 +155,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rebuild_shadow_is_zero_with_follow_ups_present`
 - [tests/test_reader_followups_successor.py](../../../../../../tests/test_reader_followups_successor.py) — direct import
   - `test_replay_plans_nothing_and_a_shadow_rebuild_is_zero`
-- [tests/test_rebuild_equivalence.py](../../../../../../tests/test_rebuild_equivalence.py) — direct import
 - [tests/test_reference_gate_imports.py](../../../../../../tests/test_reference_gate_imports.py) — direct import
   - `test_a_shadow_rebuild_at_the_tag_shows_zero_deltas`
   - `test_the_projection_reads_the_recorded_status_on_replay`

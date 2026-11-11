@@ -207,6 +207,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_input_provenance_helpers.py](../../../../../../../tests/diagnosis_input_provenance_helpers.py) — direct import
 - [tests/test_diagnosis_input_provenance.py](../../../../../../../tests/test_diagnosis_input_provenance.py) — direct import
   - `test_f2_the_drafter_folds_a_generated_topic_only_under_the_name_it_was_shown`
   - `test_rereview_f2_the_drafter_checks_its_anchor_and_prerequisite_names`

@@ -168,7 +168,16 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/data_capture_codex_review_helpers.py`
+- `tests/instruct_handoff_ih0_helpers.py`
+- `tests/plan_determinism_helpers.py`
+- `tests/reader_rw3a_landing_helpers.py`
+- `tests/router_card_helpers.py`
 - `tests/router_mixture_helpers.py`
+- `tests/router_offer_log_helpers.py`
+- `tests/router_staged_p2_helpers.py`
+- `tests/teacher_te1b_migration_helpers.py`
+- `tests/teacher_te1b_suggestions_helpers.py`
 - `tests/test_ad2_serving.py`
 - `tests/test_arcb_close_fixes.py`
 - `tests/test_daily_plan_owner_decisions.py`
@@ -179,15 +188,6 @@ None found by exact static reference scan.
 - `tests/test_data_capture_codex_review.py`
 - `tests/test_data_capture_landing_review.py`
 - `tests/test_data_capture_phone.py`
-- `tests/test_device_eligibility.py`
-- `tests/test_dl2_rw4b_keyed_pick_check.py`
-- `tests/test_evsi_router_composition.py`
-- `tests/test_evsi_staged_binding.py`
-- `tests/test_figure_predictions.py`
-- `tests/test_followup_codex_review.py`
-- `tests/test_forced_withdrawal_records.py`
-- `tests/test_ih3_phone_host.py`
-- `tests/test_ih6_workbench_open_item.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

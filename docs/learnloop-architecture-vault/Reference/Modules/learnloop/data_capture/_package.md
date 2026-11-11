@@ -48,7 +48,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/data_capture/__init__|learnloop.data_capture]] | [[Reference/Modules/learnloop/data_capture/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] | [[Reference/Modules/learnloop/data_capture/gates#^module-purpose|purpose]] | `ACTIVE` | 19 | 3 |
 | [[Reference/Modules/learnloop/data_capture/prefilter|learnloop.data_capture.prefilter]] | [[Reference/Modules/learnloop/data_capture/prefilter#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
-| [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] | [[Reference/Modules/learnloop/data_capture/reading_exposures#^module-purpose|purpose]] | `ACTIVE` | 7 | 5 |
+| [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] | [[Reference/Modules/learnloop/data_capture/reading_exposures#^module-purpose|purpose]] | `ACTIVE` | 7 | 6 |
 
 ## Cross-package dependencies
 

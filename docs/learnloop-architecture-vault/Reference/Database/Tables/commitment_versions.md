@@ -136,9 +136,9 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/data_capture_codex_review_helpers.py`
 - `tests/test_data_capture_a2_measurement.py`
 - `tests/test_data_capture_a6_delayed_pick.py`
-- `tests/test_data_capture_codex_review.py`
 - `tests/test_golden_path_confirm.py`
 - `tests/test_intent_checks.py`
 - `tests/test_reader_reconstruct.py`

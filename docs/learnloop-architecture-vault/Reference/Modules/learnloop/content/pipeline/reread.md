@@ -143,6 +143,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reread_safety_helpers.py](../../../../../../../tests/reread_safety_helpers.py) — direct import
 - [tests/test_reread_safety.py](../../../../../../../tests/test_reread_safety.py) — direct import
   - `test_f5_a_legacy_saved_place_after_a_reread_with_no_alias_falls_back_to_the_history`
   - `test_f7_a_carry_over_that_fails_is_finished_later_never_lost`

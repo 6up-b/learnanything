@@ -137,6 +137,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/source_retrieval_tutor_helpers.py](../../../../../../tests/source_retrieval_tutor_helpers.py) — direct import
 - [tests/test_contamination_report.py](../../../../../../tests/test_contamination_report.py) — direct import
   - `test_recipes_embed_only_the_model_text_and_stay_out_of_the_default_backfill`
 - [tests/test_embedding_backfill.py](../../../../../../tests/test_embedding_backfill.py) — direct import
@@ -163,7 +164,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_reverting_sources_selects_the_matching_earlier_dossier`
 - [tests/test_source_retrieval_search.py](../../../../../../tests/test_source_retrieval_search.py) — direct import
   - `test_the_source_recipe_is_never_in_the_default_backfill`
-- [tests/test_source_retrieval_tutor.py](../../../../../../tests/test_source_retrieval_tutor.py) — direct import
 - [tests/test_success_head_cli.py](../../../../../../tests/test_success_head_cli.py) — direct import
   - `test_explicit_backfill_records_must_be_canonical_recipe_texts`
   - `test_loader_clears_ambiguous_identities_and_reads_skeletons_for_current_text`

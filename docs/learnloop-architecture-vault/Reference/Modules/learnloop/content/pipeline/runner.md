@@ -189,7 +189,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_ad23_contract.py](../../../../../../../tests/test_ad23_contract.py) — direct import
+- [tests/ad23_contract_helpers.py](../../../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/figure_rich_job_helpers.py](../../../../../../../tests/figure_rich_job_helpers.py) — direct import
+- [tests/figure_rich_rpc_helpers.py](../../../../../../../tests/figure_rich_rpc_helpers.py) — direct import
+- [tests/glm_ocr_helpers.py](../../../../../../../tests/glm_ocr_helpers.py) — direct import
+- [tests/ingest_runner_helpers.py](../../../../../../../tests/ingest_runner_helpers.py) — direct import
+- [tests/learner_data_relax_2_helpers.py](../../../../../../../tests/learner_data_relax_2_helpers.py) — direct import
+- [tests/plan_first_transport_offer_grants_helpers.py](../../../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import
+- [tests/reread_safety_helpers.py](../../../../../../../tests/reread_safety_helpers.py) — direct import
+- [tests/source_vector_backfill_helpers.py](../../../../../../../tests/source_vector_backfill_helpers.py) — direct import
 - [tests/test_ad23_fix_r5.py](../../../../../../../tests/test_ad23_fix_r5.py) — direct import
   - `test_a_generation_jobs_commission_expires_seven_days_after_the_job_finished`
 - [tests/test_ad23_fix_review.py](../../../../../../../tests/test_ad23_fix_review.py) — direct import
@@ -331,7 +339,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_parallel_inventory_notices_cancellation_without_polling_the_database_constantly`
 - [tests/test_keep_local_retired.py](../../../../../../../tests/test_keep_local_retired.py) — direct import
   - `test_an_import_the_retired_choice_refused_offers_to_get_it_ready`
-- [tests/test_learner_data_relax_2.py](../../../../../../../tests/test_learner_data_relax_2.py) — direct import
 - [tests/test_library_exercises.py](../../../../../../../tests/test_library_exercises.py) — direct import
 - [tests/test_local_index.py](../../../../../../../tests/test_local_index.py) — direct import
   - `test_a_deferred_index_job_is_woken_at_its_retry_time`

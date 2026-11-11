@@ -248,6 +248,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnose_review_helpers.py](../../../../../../../tests/diagnose_review_helpers.py) — direct import
 - [tests/test_coordinated_migrations.py](../../../../../../../tests/test_coordinated_migrations.py) — direct import
   - `test_f8_the_offline_reviews_scratch_copy_is_upgraded_under_its_own_allowance`
 - [tests/test_diagnose_review.py](../../../../../../../tests/test_diagnose_review.py) — direct import

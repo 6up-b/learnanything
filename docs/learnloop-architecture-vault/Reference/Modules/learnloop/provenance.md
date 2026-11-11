@@ -148,7 +148,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_ad23_contract.py](../../../../../tests/test_ad23_contract.py) — direct import
+- [tests/ad23_contract_helpers.py](../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/hint_telemetry_helpers.py](../../../../../tests/hint_telemetry_helpers.py) — direct import
 - [tests/test_arcb_close_fixes.py](../../../../../tests/test_arcb_close_fixes.py) — direct import
   - `test_a_plan_block_names_the_attempt_its_chooser_saw_not_one_committed_while_it_waited`
   - `test_a_record_under_a_pin_with_nothing_open_commits_alone`
@@ -180,7 +181,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_forced_withdrawal_records.py](../../../../../tests/test_forced_withdrawal_records.py) — direct import
   - `test_a_withdrawal_names_the_forced_probe_its_workflow_and_the_next_decision_points_to_it`
   - `test_the_builders_keep_ids_numbers_and_codes_only`
-- [tests/test_hint_telemetry.py](../../../../../tests/test_hint_telemetry.py) — direct import
 - [tests/test_provenance.py](../../../../../tests/test_provenance.py) — direct import
   - `test_a_model_calls_receipt_carries_the_trace_it_started_under`
   - `test_a_phone_request_births_its_trace_and_hands_it_to_the_sidecar`
@@ -246,6 +246,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_why_resolves_goal_and_lesson_subjects`
 - [tests/test_why_real_cases.py](../../../../../tests/test_why_real_cases.py) — direct import
   - `test_case_3_the_figure_stored_failed`
+- [tests/why_cases_helpers.py](../../../../../tests/why_cases_helpers.py) — direct import
 
 ## Modification guidance
 

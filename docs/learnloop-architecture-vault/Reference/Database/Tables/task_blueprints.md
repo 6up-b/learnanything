@@ -95,13 +95,14 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/reader_guidance_helpers.py`
+- `tests/router_staged_p2_helpers.py`
+- `tests/sidecar_golden_path_assessment_helpers.py`
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_controller_cutover.py`
 - `tests/test_golden_path_assessment.py`
 - `tests/test_golden_path_confirm.py`
 - `tests/test_golden_path_run.py`
-- `tests/test_reader_guidance.py`
-- `tests/test_router_staged_p2.py`
 - `tests/test_sidecar_golden_path_assessment.py`
 - `tests/test_task_blueprints.py`
 

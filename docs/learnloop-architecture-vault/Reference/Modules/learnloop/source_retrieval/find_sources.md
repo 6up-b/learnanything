@@ -201,6 +201,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/figures_help_helpers.py](../../../../../../tests/figures_help_helpers.py) — direct import
+- [tests/figures_show_me_helpers.py](../../../../../../tests/figures_show_me_helpers.py) — direct import
 - [tests/reader_tutor_fakes.py](../../../../../../tests/reader_tutor_fakes.py) — direct import
 - [tests/source_service_fakes.py](../../../../../../tests/source_service_fakes.py) — direct import
 - [tests/test_approach_maps.py](../../../../../../tests/test_approach_maps.py) — direct import
@@ -218,8 +220,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_exam_protection_identity.py](../../../../../../tests/test_exam_protection_identity.py) — direct import
   - `test_f12_a_legacy_scope_over_reversed_unit_ids_withholds_every_reading`
   - `test_f3_final_a_cli_upgrade_records_what_membership_qualifies_before_a_hand_edit`
-- [tests/test_figures_help.py](../../../../../../tests/test_figures_help.py) — direct import
-- [tests/test_figures_show_me.py](../../../../../../tests/test_figures_show_me.py) — direct import
 - [tests/test_find_sources_intents.py](../../../../../../tests/test_find_sources_intents.py) — direct import
   - `test_a_low_confidence_proposal_counts_only_when_nothing_better_exists`
   - `test_a_policy_argument_cannot_widen_the_callers`

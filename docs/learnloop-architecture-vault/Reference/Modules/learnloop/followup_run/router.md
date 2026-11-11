@@ -159,6 +159,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/followup_journey_helpers.py](../../../../../../tests/followup_journey_helpers.py) — direct import
+- [tests/followup_router_helpers.py](../../../../../../tests/followup_router_helpers.py) — direct import
+- [tests/ih2_lessons_compete_helpers.py](../../../../../../tests/ih2_lessons_compete_helpers.py) — direct import
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f8_a_crash_after_the_decision_keeps_it_through_the_lease_recovery`
   - `test_f8_a_duplicate_receipt_resolves_to_the_decision_logged`

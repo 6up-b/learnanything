@@ -154,6 +154,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reader_ca2_astra_handoff_helpers.py](../../../../../../tests/reader_ca2_astra_handoff_helpers.py) — direct import
+- [tests/reader_ca2_codex_review_helpers.py](../../../../../../tests/reader_ca2_codex_review_helpers.py) — direct import
 - [tests/test_capture_desktop.py](../../../../../../tests/test_capture_desktop.py) — direct import
   - `test_tutor_route_after_answer_only_and_reference_anchor`
 - [tests/test_capture_route_recovery.py](../../../../../../tests/test_capture_route_recovery.py) — direct import
@@ -163,10 +165,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_tutor_ai_does_not_hold_a_sqlite_writer`
 - [tests/test_learner_text_gaps_flow.py](../../../../../../tests/test_learner_text_gaps_flow.py) — direct import
   - `test_the_sidecar_queues_the_reading_and_the_overlay_shows_it_with_undo`
-- [tests/test_reader_ca2_astra_handoff.py](../../../../../../tests/test_reader_ca2_astra_handoff.py) — direct import
 - [tests/test_reader_ca2_codex_rereview.py](../../../../../../tests/test_reader_ca2_codex_rereview.py) — direct import
   - `test_f13_a_sessionless_reader_question_counts_after_its_session_ends_and_the_problem_resumes`
-- [tests/test_reader_ca2_codex_review.py](../../../../../../tests/test_reader_ca2_codex_review.py) — direct import
 - [tests/test_reader_ca2_one_ask.py](../../../../../../tests/test_reader_ca2_one_ask.py) — direct import
   - `test_the_transcript_offers_earlier_threads_but_never_on_a_cold_check`
 - [tests/test_sidecar_source_retrieval.py](../../../../../../tests/test_sidecar_source_retrieval.py) — direct import

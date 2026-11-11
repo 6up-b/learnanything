@@ -227,6 +227,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/figure_offers_helpers.py](../../../../../../tests/figure_offers_helpers.py) — direct import
+- [tests/learner_text_gaps_helpers.py](../../../../../../tests/learner_text_gaps_helpers.py) — direct import
+- [tests/learner_text_gaps_review_helpers.py](../../../../../../tests/learner_text_gaps_review_helpers.py) — direct import
+- [tests/reader_ca2_astra_handoff_helpers.py](../../../../../../tests/reader_ca2_astra_handoff_helpers.py) — direct import
+- [tests/source_retrieval_tutor_helpers.py](../../../../../../tests/source_retrieval_tutor_helpers.py) — direct import
+- [tests/teacher_te0_confidence_events_helpers.py](../../../../../../tests/teacher_te0_confidence_events_helpers.py) — direct import
 - [tests/test_ad1_fix_round4.py](../../../../../../tests/test_ad1_fix_round4.py) — direct import
   - `test_a_reader_tutor_exchange_is_recorded_under_its_answer_mode`
 - [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — direct import
@@ -264,7 +270,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_text_gaps_flow.py](../../../../../../tests/test_learner_text_gaps_flow.py) — direct import
   - `test_a_job_that_keeps_failing_is_logged_as_failed_without_a_target`
   - `test_the_queue_runs_a_text_once_retries_failures_and_respects_the_switch`
-- [tests/test_learner_text_gaps_review.py](../../../../../../tests/test_learner_text_gaps_review.py) — direct import
 - [tests/test_owner_capture_1025.py](../../../../../../tests/test_owner_capture_1025.py) — direct import
   - `test_b3_a_reattempt_starts_a_fresh_ask_thread`
 - [tests/test_pinned_span_bridge.py](../../../../../../tests/test_pinned_span_bridge.py) — direct import

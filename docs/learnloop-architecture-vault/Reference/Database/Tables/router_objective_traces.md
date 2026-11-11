@@ -135,9 +135,10 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/instruct_handoff_ih0_helpers.py`
+- `tests/ro4_traces_migration_helpers.py`
 - `tests/test_ih2_lessons_compete.py`
 - `tests/test_ih3_phone_host.py`
-- `tests/test_instruct_handoff_ih0.py`
 - `tests/test_ro4_trace_report.py`
 - `tests/test_ro4_traces_migration.py`
 - `tests/test_ro5_checks.py`

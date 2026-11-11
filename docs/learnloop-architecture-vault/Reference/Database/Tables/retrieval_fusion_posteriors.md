@@ -104,6 +104,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/retrieval_spaces_migration_helpers.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_retrieval_spaces_migration.py`
 

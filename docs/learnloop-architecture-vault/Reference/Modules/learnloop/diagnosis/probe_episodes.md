@@ -234,6 +234,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/p2_acceptance_helpers.py](../../../../../../tests/p2_acceptance_helpers.py) — direct import
+- [tests/probe_block_end_helpers.py](../../../../../../tests/probe_block_end_helpers.py) — direct import
+- [tests/probe_episodes_helpers.py](../../../../../../tests/probe_episodes_helpers.py) — direct import
+- [tests/probe_robust_cutover_helpers.py](../../../../../../tests/probe_robust_cutover_helpers.py) — direct import
+- [tests/router_probe_ties_helpers.py](../../../../../../tests/router_probe_ties_helpers.py) — direct import
 - [tests/test_assumed_known.py](../../../../../../tests/test_assumed_known.py) — direct import
   - `test_error_driven_episodes_still_open_under_placement`
 - [tests/test_attempt_completion.py](../../../../../../tests/test_attempt_completion.py) — direct import
@@ -383,7 +388,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_surface_mint.py](../../../../../../tests/test_probe_surface_mint.py) — direct import
   - `test_mint_refuses_a_surface_group_the_learner_has_seen`
   - `test_minted_surface_serves_through_the_probe_branch_and_is_single_use`
-- [tests/test_router_probe_ties.py](../../../../../../tests/test_router_probe_ties.py) — direct import
 - [tests/test_scheduler_probe_eig.py](../../../../../../tests/test_scheduler_probe_eig.py) — direct import
   - `test_short_session_keeps_probe_eig_when_probe_is_only_reason`
 - [tests/test_serve_eligibility.py](../../../../../../tests/test_serve_eligibility.py) — direct import
@@ -436,6 +440,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_batch_value_equals_the_product_tables_evsi_on_the_real_credible_sets`
   - `test_the_lookahead_on_a_predictive_objective_episode_serves_the_incumbents_pick`
   - `test_the_predictive_information_matches_the_probe_episodes_own_objective`
+- [tests/voi_stopping_helpers.py](../../../../../../tests/voi_stopping_helpers.py) — direct import
 
 ## Modification guidance
 

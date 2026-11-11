@@ -122,6 +122,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/p2_acceptance_helpers.py](../../../../../../tests/p2_acceptance_helpers.py) — direct import
 - [tests/test_diagnostic_pack.py](../../../../../../tests/test_diagnostic_pack.py) — direct import
   - `test_boundary_view_projects_blueprint_cells_as_untested`
   - `test_cards_enter_candidate_and_review_requires_admission`

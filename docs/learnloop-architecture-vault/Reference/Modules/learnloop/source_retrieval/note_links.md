@@ -241,6 +241,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/notes_linked_helpers.py](../../../../../../tests/notes_linked_helpers.py) — direct import
 - [tests/test_curriculum_c3_exam_scoping.py](../../../../../../tests/test_curriculum_c3_exam_scoping.py) — direct import
   - `test_gc1_note_link_judge_requests_carry_no_exam_material_from_sources`
 - [tests/test_followups_batch7_note_titles.py](../../../../../../tests/test_followups_batch7_note_titles.py) — direct import

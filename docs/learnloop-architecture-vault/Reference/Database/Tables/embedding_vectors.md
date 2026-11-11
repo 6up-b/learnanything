@@ -114,6 +114,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/contamination_report_helpers.py`
 - `tests/test_architecture.py`
 - `tests/test_contamination_report.py`
 - `tests/test_diagnosis_embeddings.py`

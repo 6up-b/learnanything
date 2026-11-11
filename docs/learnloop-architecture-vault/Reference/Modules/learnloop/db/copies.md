@@ -135,11 +135,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
 - [tests/conftest.py](../../../../../../tests/conftest.py) — direct import
+- [tests/daily_plan_kill_switch_helpers.py](../../../../../../tests/daily_plan_kill_switch_helpers.py) — direct import
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
+- [tests/plan_determinism_helpers.py](../../../../../../tests/plan_determinism_helpers.py) — direct import
+- [tests/plan_follows_path_helpers.py](../../../../../../tests/plan_follows_path_helpers.py) — direct import
 - [tests/test_ad1_migration.py](../../../../../../tests/test_ad1_migration.py) — direct import
   - `test_the_head_fixture_is_at_head_with_empty_ad1_tables`
-- [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — direct import
 - [tests/test_ad23_fix_r5.py](../../../../../../tests/test_ad23_fix_r5.py) — direct import
   - `test_with_the_kill_switch_off_today_projects_the_predecessors_blocks`
 - [tests/test_ad23_successor.py](../../../../../../tests/test_ad23_successor.py) — direct import
@@ -160,7 +163,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_daily_loop_start_minutes.py](../../../../../../tests/test_daily_loop_start_minutes.py) — direct import
   - `test_the_streak_count_is_unchanged_on_fixture_copies`
   - `test_today_queue_serves_the_same_queue_without_energy_on_fixture_copies`
-- [tests/test_daily_plan_kill_switch.py](../../../../../../tests/test_daily_plan_kill_switch.py) — direct import
 - [tests/test_decider_agreement.py](../../../../../../tests/test_decider_agreement.py) — direct import
   - `test_agreement_counts_each_ledger_row_once_across_a_review_runs_vault_copy`
 - [tests/test_decision_records_retention.py](../../../../../../tests/test_decision_records_retention.py) — direct import
@@ -232,7 +234,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_placement_fixture_copies.py](../../../../../../tests/test_placement_fixture_copies.py) — direct import
 - [tests/test_plan_determinism.py](../../../../../../tests/test_plan_determinism.py) — direct import
   - `test_replay_never_reads_the_switch`
-- [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
 - [tests/test_provenance.py](../../../../../../tests/test_provenance.py) — direct import
   - `test_a_rebuild_never_calls_the_record_and_keeps_its_rows`
 - [tests/test_reader_rw3b_migration.py](../../../../../../tests/test_reader_rw3b_migration.py) — direct import

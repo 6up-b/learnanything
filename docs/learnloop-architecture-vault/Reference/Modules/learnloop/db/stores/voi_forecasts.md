@@ -104,8 +104,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_evsi_router_composition.py](../../../../../../../tests/test_evsi_router_composition.py) — direct import
-- [tests/test_voi_forecasts.py](../../../../../../../tests/test_voi_forecasts.py) — direct import
 - [tests/test_voi_merge_composition.py](../../../../../../../tests/test_voi_merge_composition.py) — direct import
+- [tests/voi_forecasts_helpers.py](../../../../../../../tests/voi_forecasts_helpers.py) — direct import
 
 ## Modification guidance
 

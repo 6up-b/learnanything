@@ -142,6 +142,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/ad_ingest_fakes.py`
+- `tests/reader_passage_check_helpers.py`
 - `tests/test_ad_protected_tables.py`
 - `tests/test_data_capture_codex_rereview.py`
 - `tests/test_figure_predictions.py`
@@ -152,8 +153,9 @@ Indexes and uniqueness:
 - `tests/test_ro2_history_protection.py`
 - `tests/test_router_card_reading_gaps.py`
 - `tests/test_salience_firewall.py`
+- `tests/ad1_reading_opportunities_helpers.py`
+- `tests/ad23_contract_helpers.py`
 - `tests/test_ad1_reading_opportunities.py`
-- `tests/test_ad23_contract.py`
 - `tests/test_mobile_phone_contract.py`
 - `tests/test_mobile_v4_codex_review.py`
 - `tests/test_reader_quick_check.py`

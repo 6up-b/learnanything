@@ -20,8 +20,10 @@ source_paths:
   - "src/learnloop/ops/pf_generation.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/ops/embedding_compare.py"
+  - "tests/daily_loop_reader_authored_practice_helpers.py"
   - "tests/followup_serve_helpers.py"
   - "tests/pf_fakes.py"
+  - "tests/teacher_te2_probes_helpers.py"
   - "tests/test_agent_run_tokens.py"
   - "tests/test_cli_attempt.py"
   - "tests/test_contract_frontier_coverage.py"
@@ -30,8 +32,6 @@ source_paths:
   - "tests/test_daily_loop_reader_authored_practice.py"
   - "tests/test_daily_plan_build.py"
   - "tests/test_evsi.py"
-  - "tests/test_facet_identity_composition.py"
-  - "tests/test_failure_triage.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/pf"
@@ -74,8 +74,10 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/daily_loop_reader_authored_practice_helpers.py`
 - `tests/followup_serve_helpers.py`
 - `tests/pf_fakes.py`
+- `tests/teacher_te2_probes_helpers.py`
 - `tests/test_agent_run_tokens.py`
 - `tests/test_cli_attempt.py`
 - `tests/test_contract_frontier_coverage.py`
@@ -84,8 +86,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_daily_loop_reader_authored_practice.py`
 - `tests/test_daily_plan_build.py`
 - `tests/test_evsi.py`
-- `tests/test_facet_identity_composition.py`
-- `tests/test_failure_triage.py`
 
 ## Extension and modification guidance
 

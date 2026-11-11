@@ -148,9 +148,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/data_capture_a2_measurement_helpers.py](../../../../../../../tests/data_capture_a2_measurement_helpers.py) — direct import
 - [tests/test_data_capture_a1_prefilter.py](../../../../../../../tests/test_data_capture_a1_prefilter.py) — direct import
   - `test_a_refused_receipt_never_blocks_the_block`
-- [tests/test_data_capture_a2_measurement.py](../../../../../../../tests/test_data_capture_a2_measurement.py) — direct import
 - [tests/test_data_capture_a4_delayed_completion.py](../../../../../../../tests/test_data_capture_a4_delayed_completion.py) — direct import
 - [tests/test_data_capture_codex_rereview.py](../../../../../../../tests/test_data_capture_codex_rereview.py) — direct import
   - `test_f10_the_store_keeps_one_row_per_episode`

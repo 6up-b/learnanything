@@ -108,6 +108,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/mobile_v4_reader_helpers.py](../../../../../../tests/mobile_v4_reader_helpers.py) — direct import
+- [tests/reader_ca1_as_printed_helpers.py](../../../../../../tests/reader_ca1_as_printed_helpers.py) — direct import
 - [tests/test_capture_domain.py](../../../../../../tests/test_capture_domain.py) — direct import
   - `test_image_sanitization_and_raw_fingerprint`
   - `test_photo_preview_refuses_tampered_hashes_missing_files_and_purge`
@@ -132,7 +134,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_project_redaction.py](../../../../../../tests/test_project_redaction.py) — direct import
   - `test_capture_never_stores_secret_files_or_lines`
   - `test_hunk_header_secrets_never_reach_the_store`
-- [tests/test_reader_ca1_as_printed.py](../../../../../../tests/test_reader_ca1_as_printed.py) — direct import
 - [tests/test_reader_ca1_astra_codex_review.py](../../../../../../tests/test_reader_ca1_astra_codex_review.py) — direct import
 - [tests/test_reader_ca1_astra_fixes.py](../../../../../../tests/test_reader_ca1_astra_fixes.py) — direct import
 - [tests/test_reader_ca1_astra_redesign.py](../../../../../../tests/test_reader_ca1_astra_redesign.py) — direct import

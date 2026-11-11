@@ -130,6 +130,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reader_digest_narrative_helpers.py](../../../../../../tests/reader_digest_narrative_helpers.py) — direct import
+- [tests/reader_followups_helpers.py](../../../../../../tests/reader_followups_helpers.py) — direct import
+- [tests/reader_recap_review_r2_helpers.py](../../../../../../tests/reader_recap_review_r2_helpers.py) — direct import
 - [tests/test_figure_predictions.py](../../../../../../tests/test_figure_predictions.py) — direct import
   - `test_rw6a_lists_a_missed_prediction_as_worth_a_second_look`
 - [tests/test_reader_digest_narrative.py](../../../../../../tests/test_reader_digest_narrative.py) — direct import
@@ -152,7 +155,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_summary_keeps_to_its_session`
   - `test_the_typed_summary_is_deterministic_from_the_ledgers`
   - `test_visits_less_than_30_minutes_apart_are_one_session`
-- [tests/test_reader_recap_review_r2.py](../../../../../../tests/test_reader_recap_review_r2.py) — direct import
 - [tests/test_router_reader_activity.py](../../../../../../tests/test_router_reader_activity.py) — direct import
   - `test_a_narrative_written_after_the_cutoff_is_not_shown_at_it`
   - `test_a_real_missed_prediction_reaches_the_section_through_its_figure`

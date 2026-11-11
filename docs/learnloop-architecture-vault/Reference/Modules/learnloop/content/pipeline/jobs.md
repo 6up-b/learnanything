@@ -381,7 +381,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_ad23_contract.py](../../../../../../../tests/test_ad23_contract.py) — direct import
+- [tests/ad23_contract_helpers.py](../../../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/glm_ocr_helpers.py](../../../../../../../tests/glm_ocr_helpers.py) — direct import
+- [tests/reading_request_sweep_helpers.py](../../../../../../../tests/reading_request_sweep_helpers.py) — direct import
 - [tests/test_ad23_fix_r5.py](../../../../../../../tests/test_ad23_fix_r5.py) — direct import
   - `test_a_generation_jobs_commission_expires_seven_days_after_the_job_finished`
 - [tests/test_ad23_fix_review.py](../../../../../../../tests/test_ad23_fix_review.py) — direct import
@@ -555,7 +557,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_source_space_resolver.py](../../../../../../../tests/test_source_space_resolver.py) — direct import
   - `test_ordinary_use_completes_the_loop_opens_ask_citations_and_the_background_refit`
 - [tests/test_synthesis_sweep_primary_only.py](../../../../../../../tests/test_synthesis_sweep_primary_only.py) — direct import
-- [tests/test_ux_phase1_auto_build.py](../../../../../../../tests/test_ux_phase1_auto_build.py) — direct import
 - [tests/test_ux_phase1_connect_ai.py](../../../../../../../tests/test_ux_phase1_connect_ai.py) — direct import
   - `test_quick_add_reads_the_recorded_ok_instead_of_asking_per_build`
 - [tests/test_ux_phase1_finish.py](../../../../../../../tests/test_ux_phase1_finish.py) — direct import
@@ -564,6 +565,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_queued_passage_check_runs_for_a_book_with_the_retired_keep_local`
 - [tests/test_ux_phase1_review_fixes.py](../../../../../../../tests/test_ux_phase1_review_fixes.py) — direct import
   - `test_f1_sending_a_whole_recording_out_waits_for_its_own_ok`
+- [tests/ux_phase1_auto_build_helpers.py](../../../../../../../tests/ux_phase1_auto_build_helpers.py) — direct import
+- [tests/ux_phase1_landing_helpers.py](../../../../../../../tests/ux_phase1_landing_helpers.py) — direct import
+- [tests/ux_phase1_review_fixes_helpers.py](../../../../../../../tests/ux_phase1_review_fixes_helpers.py) — direct import
 
 ## Modification guidance
 

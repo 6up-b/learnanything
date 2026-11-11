@@ -96,6 +96,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/reader_rw7a_migration_helpers.py`
 - `tests/test_architecture.py`
 - `tests/test_reader_rw7a_migration.py`
 - `tests/test_reading_paths.py`

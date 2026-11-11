@@ -161,6 +161,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/recurrence_commands_helpers.py](../../../../../../../tests/recurrence_commands_helpers.py) — direct import
 - [tests/test_recurrence_commands.py](../../../../../../../tests/test_recurrence_commands.py) — direct import
   - `test_a_citation_that_did_not_validate_merges_nothing_and_is_reported`
   - `test_a_false_merge_blocks_the_switch_and_a_fixed_judge_reruns_through_the_guard`

@@ -213,7 +213,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_diagnosis_input_provenance.py](../../../../../../../tests/test_diagnosis_input_provenance.py) — direct import
+- [tests/diagnosis_input_provenance_helpers.py](../../../../../../../tests/diagnosis_input_provenance_helpers.py) — direct import
+- [tests/learner_text_gaps_helpers.py](../../../../../../../tests/learner_text_gaps_helpers.py) — direct import
+- [tests/learner_text_gaps_review_helpers.py](../../../../../../../tests/learner_text_gaps_review_helpers.py) — direct import
 - [tests/test_figure_predictions.py](../../../../../../../tests/test_figure_predictions.py) — direct import
   - `test_what_changed_is_kept_once_and_read_with_the_missed_prediction`
 - [tests/test_figures_codex_review.py](../../../../../../../tests/test_figures_codex_review.py) — direct import

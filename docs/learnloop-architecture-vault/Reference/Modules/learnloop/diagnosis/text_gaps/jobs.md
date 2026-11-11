@@ -185,6 +185,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/figures_fix_round2_helpers.py](../../../../../../../tests/figures_fix_round2_helpers.py) — direct import
+- [tests/notes_as_learner_text_helpers.py](../../../../../../../tests/notes_as_learner_text_helpers.py) — direct import
 - [tests/test_figure_predictions.py](../../../../../../../tests/test_figure_predictions.py) — direct import
   - `test_the_backlog_sweep_queues_missed_predictions`
 - [tests/test_figures_codex_review.py](../../../../../../../tests/test_figures_codex_review.py) — direct import

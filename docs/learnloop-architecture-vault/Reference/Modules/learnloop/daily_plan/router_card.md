@@ -154,6 +154,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/mcp_c1a_landing_helpers.py](../../../../../../tests/mcp_c1a_landing_helpers.py) — direct import
+- [tests/teacher_te1b_review_fixes_helpers.py](../../../../../../tests/teacher_te1b_review_fixes_helpers.py) — direct import
 - [tests/test_hypothesis_marks_context.py](../../../../../../tests/test_hypothesis_marks_context.py) — direct import
 - [tests/test_mcp_c1a_landing.py](../../../../../../tests/test_mcp_c1a_landing.py) — direct import
   - `test_no_reader_keeps_a_protection_of_its_own`
@@ -165,7 +167,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_card_withholds_what_the_one_exam_predicate_names`
   - `test_the_cards_exam_protection_is_not_behind_the_serving_switch`
 - [tests/test_router_r2c_teach_back.py](../../../../../../tests/test_router_r2c_teach_back.py) — direct import
-- [tests/test_teacher_te1b_review_fixes.py](../../../../../../tests/test_teacher_te1b_review_fixes.py) — direct import
 
 ## Modification guidance
 

@@ -125,8 +125,10 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/ad23_contract_helpers.py`
+- `tests/assumed_known_helpers.py`
 - `tests/figure_fixtures.py`
-- `tests/test_ad23_contract.py`
+- `tests/reader_active_reading_helpers.py`
 - `tests/test_ad2_model.py`
 - `tests/test_ad3_reading.py`
 - `tests/test_ad3_subject_view.py`
@@ -140,11 +142,9 @@ None found by exact static reference scan.
 - `tests/test_migrations.py`
 - `tests/test_notes_as_learner_text.py`
 - `tests/test_post_attempt_worker.py`
-- `tests/test_reader_active_reading.py`
 - `tests/test_reader_branches.py`
 - `tests/test_rebuild_equivalence_review.py`
 - `tests/test_rebuild_orchestrator.py`
-- `tests/test_recall_coverage_interventions.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

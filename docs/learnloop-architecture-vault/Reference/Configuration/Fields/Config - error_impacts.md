@@ -17,18 +17,18 @@ source_paths:
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
   - "src/learnloop/params/parameter_registry.py"
+  - "tests/ad23_contract_helpers.py"
+  - "tests/ad3_reading_helpers.py"
   - "tests/approach_map_fakes.py"
+  - "tests/causal_cold_outcomes_helpers.py"
+  - "tests/causal_factor_deferral_helpers.py"
+  - "tests/causal_orchestrator_helpers.py"
+  - "tests/causal_p2_acceptance_helpers.py"
+  - "tests/causal_shadow_selection_helpers.py"
+  - "tests/certification_cold_probe_helpers.py"
+  - "tests/device_eligibility_helpers.py"
+  - "tests/diagnosis_context_helpers.py"
   - "tests/diagnosis_fakes.py"
-  - "tests/diagnosis_split_helpers.py"
-  - "tests/helpers.py"
-  - "tests/pf_fakes.py"
-  - "tests/router_mixture_helpers.py"
-  - "tests/source_service_fakes.py"
-  - "tests/test_activity_patterns.py"
-  - "tests/test_activity_substrate.py"
-  - "tests/test_ad1_codex_review_fixes.py"
-  - "tests/test_ad1_reading_opportunities.py"
-  - "tests/test_ad23_contract.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/error-impacts"
@@ -75,18 +75,18 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/ad23_contract_helpers.py`
+- `tests/ad3_reading_helpers.py`
 - `tests/approach_map_fakes.py`
+- `tests/causal_cold_outcomes_helpers.py`
+- `tests/causal_factor_deferral_helpers.py`
+- `tests/causal_orchestrator_helpers.py`
+- `tests/causal_p2_acceptance_helpers.py`
+- `tests/causal_shadow_selection_helpers.py`
+- `tests/certification_cold_probe_helpers.py`
+- `tests/device_eligibility_helpers.py`
+- `tests/diagnosis_context_helpers.py`
 - `tests/diagnosis_fakes.py`
-- `tests/diagnosis_split_helpers.py`
-- `tests/helpers.py`
-- `tests/pf_fakes.py`
-- `tests/router_mixture_helpers.py`
-- `tests/source_service_fakes.py`
-- `tests/test_activity_patterns.py`
-- `tests/test_activity_substrate.py`
-- `tests/test_ad1_codex_review_fixes.py`
-- `tests/test_ad1_reading_opportunities.py`
-- `tests/test_ad23_contract.py`
 
 ## Extension and modification guidance
 

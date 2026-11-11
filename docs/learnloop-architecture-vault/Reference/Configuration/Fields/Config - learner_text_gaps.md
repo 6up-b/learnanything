@@ -22,18 +22,18 @@ source_paths:
   - "src/learnloop/diagnosis/text_gaps/pipeline.py"
   - "src/learnloop/diagnosis/text_gaps/actions.py"
   - "src/learnloop/cli/gaps.py"
+  - "tests/ad23_contract_helpers.py"
   - "tests/codex_cli_fakes.py"
   - "tests/conftest.py"
+  - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/figures_fix_round2_helpers.py"
+  - "tests/figures_switch_off_helpers.py"
+  - "tests/followups_batch6_verify_fixes_helpers.py"
+  - "tests/forecast_receipts_helpers.py"
+  - "tests/help_outcomes_helpers.py"
+  - "tests/hint_service_helpers.py"
   - "tests/local_embeddings_fakes.py"
   - "tests/mcp_world.py"
-  - "tests/mobile_host_helpers.py"
-  - "tests/notes_fixtures.py"
-  - "tests/pf_fakes.py"
-  - "tests/practice_index_fakes.py"
-  - "tests/router_model_fakes.py"
-  - "tests/rw2c_base_sequence.py"
-  - "tests/rw5c_fixtures.py"
-  - "tests/split_live_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/learner-text-gaps"
@@ -79,18 +79,18 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/ad23_contract_helpers.py`
 - `tests/codex_cli_fakes.py`
 - `tests/conftest.py`
+- `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/figures_fix_round2_helpers.py`
+- `tests/figures_switch_off_helpers.py`
+- `tests/followups_batch6_verify_fixes_helpers.py`
+- `tests/forecast_receipts_helpers.py`
+- `tests/help_outcomes_helpers.py`
+- `tests/hint_service_helpers.py`
 - `tests/local_embeddings_fakes.py`
 - `tests/mcp_world.py`
-- `tests/mobile_host_helpers.py`
-- `tests/notes_fixtures.py`
-- `tests/pf_fakes.py`
-- `tests/practice_index_fakes.py`
-- `tests/router_model_fakes.py`
-- `tests/rw2c_base_sequence.py`
-- `tests/rw5c_fixtures.py`
-- `tests/split_live_helpers.py`
 
 ## Extension and modification guidance
 

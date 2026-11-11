@@ -146,26 +146,26 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/ad23_contract_helpers.py`
 - `tests/ad_ingest_fakes.py`
+- `tests/ad_projection_helpers.py`
 - `tests/e0_fakes.py`
 - `tests/figure_fixtures.py`
+- `tests/figures_prefetch_helpers.py`
 - `tests/helpers.py`
+- `tests/mobile_v4_reader_helpers.py`
+- `tests/quick_add_helpers.py`
+- `tests/reader_ca1_as_printed_helpers.py`
 - `tests/reader_fixtures.py`
+- `tests/reader_source_identity_guard_helpers.py`
+- `tests/reread_safety_helpers.py`
+- `tests/revision_refresh_helpers.py`
 - `tests/rw5c_fixtures.py`
+- `tests/source_inventory_helpers.py`
 - `tests/source_retrieval_fakes.py`
 - `tests/source_service_fakes.py`
-- `tests/test_ad23_contract.py`
-- `tests/test_ad_projection.py`
 - `tests/test_exam_protection.py`
 - `tests/test_exam_protection_review.py`
-- `tests/test_figures_prefetch.py`
-- `tests/test_followups_batch6_prefetch_next_section.py`
-- `tests/test_followups_batch7_note_titles.py`
-- `tests/test_glm_ocr.py`
-- `tests/test_ingest_runner.py`
-- `tests/test_migrations.py`
-- `tests/test_mobile_v4_reader.py`
-- `tests/test_quick_add.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

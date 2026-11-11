@@ -193,6 +193,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ro6_codex_review_helpers.py](../../../../../../tests/ro6_codex_review_helpers.py) — direct import
 - [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
   - `test_picks_are_never_in_its_cohort_and_an_overridden_draw_is`
 - [tests/test_ro6_codex_rereview.py](../../../../../../tests/test_ro6_codex_rereview.py) — direct import

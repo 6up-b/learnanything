@@ -99,6 +99,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_field_signal_production_paths.py](../../../../../../../tests/test_field_signal_production_paths.py) — imports consumer [[Reference/Modules/learnloop/field/classification|learnloop.field.classification]]
 - [tests/test_interaction_signals.py](../../../../../../../tests/test_interaction_signals.py) — imports consumer [[Reference/Modules/learnloop/field/classification|learnloop.field.classification]]
 - [tests/test_tier1_decider.py](../../../../../../../tests/test_tier1_decider.py) — imports consumer [[Reference/Modules/learnloop/field/classification|learnloop.field.classification]]
+- [tests/pfc_unassessed_readers_helpers.py](../../../../../../../tests/pfc_unassessed_readers_helpers.py) — imports consumer [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]]
 - [tests/test_ad23_fix_review.py](../../../../../../../tests/test_ad23_fix_review.py) — imports consumer [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]]
 - [tests/test_ad23_owner_decisions.py](../../../../../../../tests/test_ad23_owner_decisions.py) — imports consumer [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]]
 - [tests/test_ad_guard_offer_receipts.py](../../../../../../../tests/test_ad_guard_offer_receipts.py) — imports consumer [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]]
@@ -107,7 +108,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_daily_plan_composition.py](../../../../../../../tests/test_daily_plan_composition.py) — imports consumer [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]]
 - [tests/test_daily_plan_owner_decisions.py](../../../../../../../tests/test_daily_plan_owner_decisions.py) — imports consumer [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]]
 - [tests/test_facet_outcome_view.py](../../../../../../../tests/test_facet_outcome_view.py) — imports consumer [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]]
-- [tests/test_family_memory_projection.py](../../../../../../../tests/test_family_memory_projection.py) — imports consumer [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]]
 
 ## Modification guidance
 

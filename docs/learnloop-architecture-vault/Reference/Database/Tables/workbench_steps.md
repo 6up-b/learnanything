@@ -108,6 +108,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/reader_tutor_retrieval_helpers.py`
 - `tests/test_architecture.py`
 - `tests/test_field_workbench_signals.py`
 - `tests/test_library_exercises.py`

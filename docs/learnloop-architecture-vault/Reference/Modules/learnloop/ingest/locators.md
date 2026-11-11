@@ -129,6 +129,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/learner_data_relax_2_helpers.py](../../../../../../tests/learner_data_relax_2_helpers.py) — direct import
 - [tests/library_ask_fixtures.py](../../../../../../tests/library_ask_fixtures.py) — direct import
 - [tests/test_compare_sources.py](../../../../../../tests/test_compare_sources.py) — direct import
   - `test_pins_obey_the_policy_in_a_practice_context`
@@ -142,7 +143,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_facet_ids_target_retrieval_and_verification`
   - `test_post_attempt_opens_the_solution_only_after_the_window_closes_and_records_a_reveal`
   - `test_remediate_reads_correction_refs_and_reports_missing_sources`
-- [tests/test_learner_data_relax_2.py](../../../../../../tests/test_learner_data_relax_2.py) — direct import
 - [tests/test_prescription_passages.py](../../../../../../tests/test_prescription_passages.py) — direct import
 - [tests/test_roles_judges.py](../../../../../../tests/test_roles_judges.py) — direct import
   - `test_rw3b_contrast_list_a_confident_contrast_the_judge_may_not_be_shown_never_blocks_the_low_one`

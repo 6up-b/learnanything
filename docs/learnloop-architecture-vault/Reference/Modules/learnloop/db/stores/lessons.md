@@ -155,6 +155,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/teacher_te2_probes_helpers.py](../../../../../../../tests/teacher_te2_probes_helpers.py) — direct import
+- [tests/teacher_te2log_receipt_helpers.py](../../../../../../../tests/teacher_te2log_receipt_helpers.py) — direct import
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
   - `test_landing_r1_a_probe_lesson_freezes_every_display_and_its_receipt_is_judged_not_failed_closed`
@@ -169,7 +171,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te2log_episodes.py](../../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
   - `test_a_refused_episode_row_rolls_back_alone_and_never_blocks_the_turn`
   - `test_te1s_forecast_node_is_resolved_and_guarded_with_the_switch_off`
-- [tests/test_teacher_te2log_receipt.py](../../../../../../../tests/test_teacher_te2log_receipt.py) — direct import
 
 ## Modification guidance
 

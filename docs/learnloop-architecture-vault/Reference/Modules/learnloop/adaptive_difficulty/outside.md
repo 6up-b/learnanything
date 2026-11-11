@@ -186,6 +186,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad1_codex_rereview_fixes_helpers.py](../../../../../../tests/ad1_codex_rereview_fixes_helpers.py) — direct import
+- [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
 - [tests/test_ad1_codex_rereview_fixes.py](../../../../../../tests/test_ad1_codex_rereview_fixes.py) — direct import
   - `test_an_edit_during_a_preparation_prepares_the_new_revision_too`
   - `test_frozen_inputs_without_their_source_identities_are_never_sent`
@@ -232,7 +234,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_daily_cap_refuses_a_metered_call_once_spent`
 - [tests/test_ad1_send_guard.py](../../../../../../tests/test_ad1_send_guard.py) — direct import
   - `test_a_unit_held_out_while_the_backfill_runs_refuses_its_later_forecasts`
-- [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — direct import
 - [tests/test_ad23_fix_r8.py](../../../../../../tests/test_ad23_fix_r8.py) — direct import
   - `test_z_v1_calibration_never_reads_a_withheld_items_forecast`
 - [tests/test_ad_epoch.py](../../../../../../tests/test_ad_epoch.py) — direct import

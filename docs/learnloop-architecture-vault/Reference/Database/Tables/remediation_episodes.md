@@ -136,6 +136,7 @@ Indexes and uniqueness:
 - `tests/test_learner_protection_predicates.py`
 - `tests/test_migrations.py`
 - `tests/test_remediation_cold_retry.py`
+- `tests/remediation_cold_retry_helpers.py`
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_causal_orchestrator.py`

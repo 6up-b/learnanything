@@ -106,6 +106,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/ad_guard_offer_receipts_helpers.py`
 - `tests/test_ad_guard_offer_receipts.py`
 - `tests/test_collection_dataset.py`
 - `tests/test_facet_outcome_view.py`

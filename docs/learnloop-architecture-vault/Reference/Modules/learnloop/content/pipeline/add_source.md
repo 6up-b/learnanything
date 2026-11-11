@@ -350,6 +350,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reading_request_sweep_helpers.py](../../../../../../../tests/reading_request_sweep_helpers.py) — direct import
+- [tests/reread_safety_helpers.py](../../../../../../../tests/reread_safety_helpers.py) — direct import
 - [tests/test_auto_build_spend_report.py](../../../../../../../tests/test_auto_build_spend_report.py) — direct import
   - `test_a_build_still_running_is_held_back_by_the_guard`
   - `test_the_report_shows_automatic_builds_daily_spend_under_their_guard`
@@ -492,6 +494,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_scan_details_say_how_to_get_text_recognition_plainly`
   - `test_the_estimate_scales_with_the_sections_a_build_covers`
   - `test_the_one_time_ok_names_codex_for_a_library_set_up_with_codex`
+- [tests/ux_phase1_landing_helpers.py](../../../../../../../tests/ux_phase1_landing_helpers.py) — direct import
+- [tests/ux_phase1_review_fixes_helpers.py](../../../../../../../tests/ux_phase1_review_fixes_helpers.py) — direct import
 - [tests/ux_phase1_support.py](../../../../../../../tests/ux_phase1_support.py) — direct import
 
 ## Modification guidance

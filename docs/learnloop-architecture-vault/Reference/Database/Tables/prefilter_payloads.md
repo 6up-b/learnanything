@@ -95,6 +95,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/data_capture_migration_helpers.py`
 - `tests/test_data_capture_a1_prefilter.py`
 - `tests/test_data_capture_migration.py`
 

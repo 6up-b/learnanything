@@ -159,6 +159,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
 - [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — direct import
   - `test_withheld_dose_offers_neither_spend_the_budget_nor_count_as_taken`
 - [tests/test_ad23_fix_r5.py](../../../../../../tests/test_ad23_fix_r5.py) — direct import

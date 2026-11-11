@@ -122,7 +122,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
-- `tests/test_ad23_contract.py`
+- `tests/ad23_contract_helpers.py`
 - `tests/test_causal_attribution_p1.py`
 - `tests/test_common_repair_delivery.py`
 - `tests/test_diagnosis_replay.py`

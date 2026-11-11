@@ -131,6 +131,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/notes_fixtures.py](../../../../../../tests/notes_fixtures.py) — direct import
+- [tests/reread_safety_helpers.py](../../../../../../tests/reread_safety_helpers.py) — direct import
 - [tests/test_annotations.py](../../../../../../tests/test_annotations.py) — direct import
   - `test_ambiguous_selection_becomes_needs_reanchor_and_keeps_text`
   - `test_duplicate_quote_uses_context_or_needs_reanchor`

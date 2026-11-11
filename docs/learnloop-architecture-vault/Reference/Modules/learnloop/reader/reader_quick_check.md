@@ -168,9 +168,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad1_reading_opportunities_helpers.py](../../../../../../tests/ad1_reading_opportunities_helpers.py) — direct import
+- [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/reader_passage_check_helpers.py](../../../../../../tests/reader_passage_check_helpers.py) — direct import
+- [tests/reader_reconstruct_helpers.py](../../../../../../tests/reader_reconstruct_helpers.py) — direct import
+- [tests/reader_report_helpers.py](../../../../../../tests/reader_report_helpers.py) — direct import
 - [tests/test_ad1_reading_opportunities.py](../../../../../../tests/test_ad1_reading_opportunities.py) — direct import
   - `test_reading_opportunities_frozen_and_ordered_by_source_time`
-- [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — direct import
 - [tests/test_ad3_dose_arm.py](../../../../../../tests/test_ad3_dose_arm.py) — direct import
   - `test_a_taken_extra_becomes_a_reading_opportunity_with_the_offer_id`
 - [tests/test_ad3_reading.py](../../../../../../tests/test_ad3_reading.py) — direct import

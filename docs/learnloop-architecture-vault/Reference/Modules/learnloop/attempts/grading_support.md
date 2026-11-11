@@ -224,6 +224,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/pfc_unassessed_readers_helpers.py](../../../../../../tests/pfc_unassessed_readers_helpers.py) — direct import
+- [tests/route_rules_in_grader_helpers.py](../../../../../../tests/route_rules_in_grader_helpers.py) — direct import
 - [tests/test_grading_support.py](../../../../../../tests/test_grading_support.py) — direct import
   - `test_an_unverified_criterion_writes_no_negative_evidence_even_without_an_attribution`
   - `test_gate_keeps_a_located_error_and_never_fires_on_a_wrong_final_answer`

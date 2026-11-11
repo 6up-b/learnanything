@@ -327,26 +327,26 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/ad1_codex_rereview_fixes_helpers.py`
+- `tests/ad1_migration_helpers.py`
+- `tests/ad23_contract_helpers.py`
+- `tests/ad_denial_log_helpers.py`
+- `tests/ad_guard_helpers.py`
+- `tests/ad_guard_offer_receipts_helpers.py`
 - `tests/approach_map_fakes.py`
+- `tests/assumed_known_helpers.py`
 - `tests/daily_plan_fakes.py`
+- `tests/data_capture_a2_measurement_helpers.py`
+- `tests/data_capture_a3_time_metric_helpers.py`
+- `tests/diagnosis_input_provenance_helpers.py`
 - `tests/figure_fixtures.py`
-- `tests/mcp_world.py`
-- `tests/rw2b_fix10_base_sequence.py`
-- `tests/rw2b_fix11_base_sequence.py`
-- `tests/source_service_fakes.py`
-- `tests/test_activity_backfill.py`
-- `tests/test_ad1_attempt_columns.py`
-- `tests/test_ad1_codex_rereview_fixes.py`
-- `tests/test_ad1_codex_review_fixes.py`
-- `tests/test_ad1_migration.py`
-- `tests/test_ad23_contract.py`
-- `tests/test_ad23_inversion.py`
-- `tests/test_ad23_migration.py`
-- `tests/test_ad2_model.py`
-- `tests/test_ad3_relatedness.py`
-- `tests/test_ad_denial_log.py`
-- `tests/test_ad_epoch.py`
-- `tests/test_ad_guard.py`
+- `tests/figures_help_helpers.py`
+- `tests/followup_router_helpers.py`
+- `tests/help_outcomes_helpers.py`
+- `tests/hint_h2a_review_round2_helpers.py`
+- `tests/hint_h2b_review_helpers.py`
+- `tests/ih2_lessons_compete_helpers.py`
+- `tests/learner_blindness_relax_helpers.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

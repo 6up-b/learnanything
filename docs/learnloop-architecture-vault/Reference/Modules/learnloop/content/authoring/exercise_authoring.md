@@ -144,6 +144,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/required_method_authority_helpers.py](../../../../../../../tests/required_method_authority_helpers.py) — direct import
 - [tests/test_curriculum_c3_codex_review.py](../../../../../../../tests/test_curriculum_c3_codex_review.py) — direct import
   - `test_the_one_write_refuses_a_syllabus_draft`
 - [tests/test_exercise_authoring.py](../../../../../../../tests/test_exercise_authoring.py) — direct import
@@ -171,7 +172,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_split_with_an_unanchored_sibling_owns_nothing`
   - `test_two_exercises_split_from_one_block_get_no_free_crop_and_keep_the_page`
 - [tests/test_reader_ca1_unicode_containment.py](../../../../../../../tests/test_reader_ca1_unicode_containment.py) — direct import
-- [tests/test_required_method_authority.py](../../../../../../../tests/test_required_method_authority.py) — direct import
 - [tests/test_required_method_items.py](../../../../../../../tests/test_required_method_items.py) — direct import
   - `test_an_imported_exercise_keeps_a_required_method_only_by_its_one_time_judgment`
 - [tests/test_structured_transport_parity.py](../../../../../../../tests/test_structured_transport_parity.py) — direct import

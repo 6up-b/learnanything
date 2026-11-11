@@ -124,6 +124,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/followups_batch6_prefetch_plan_wait_helpers.py](../../../../../tests/followups_batch6_prefetch_plan_wait_helpers.py) — direct import
 - [tests/test_arcb_close_fixes.py](../../../../../tests/test_arcb_close_fixes.py) — direct import
   - `test_each_queued_figure_trigger_runs_under_the_trace_that_queued_it`
 - [tests/test_figures_prefetch.py](../../../../../tests/test_figures_prefetch.py) — direct import

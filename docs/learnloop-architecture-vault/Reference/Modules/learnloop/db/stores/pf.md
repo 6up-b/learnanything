@@ -117,6 +117,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/approach_map_fakes.py](../../../../../../../tests/approach_map_fakes.py) — direct import
+- [tests/pf_generation_helpers.py](../../../../../../../tests/pf_generation_helpers.py) — direct import
 - [tests/test_item_fingerprints.py](../../../../../../../tests/test_item_fingerprints.py) — direct import
   - `test_skeletons_from_one_model_at_two_prompt_versions_rebuild_without_a_key_collision`
 - [tests/test_pf_generation.py](../../../../../../../tests/test_pf_generation.py) — direct import

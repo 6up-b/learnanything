@@ -154,6 +154,11 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/p2_acceptance_helpers.py`
+- `tests/probe_block_end_helpers.py`
+- `tests/probe_episodes_helpers.py`
+- `tests/probe_robust_cutover_helpers.py`
+- `tests/router_probe_ties_helpers.py`
 - `tests/test_ad_guard_reachable_reads.py`
 - `tests/test_architecture.py`
 - `tests/test_assumed_known.py`
@@ -169,11 +174,6 @@ Indexes and uniqueness:
 - `tests/test_dual_authority_administration.py`
 - `tests/test_evsi_calibration_sim.py`
 - `tests/test_facet_outcome_view.py`
-- `tests/test_followup_codex_review.py`
-- `tests/test_followup_generate_e2e.py`
-- `tests/test_followup_journey.py`
-- `tests/test_grade_resolution_pipeline.py`
-- `tests/test_held_grade_composition.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

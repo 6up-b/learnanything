@@ -120,10 +120,10 @@ Indexes and uniqueness:
 - `tests/test_probe_belief_posterior.py`
 - `tests/test_probe_migration.py`
 - `tests/test_state_sync.py`
-- `tests/test_ad23_contract.py`
+- `tests/ad23_contract_helpers.py`
+- `tests/cli_generate_practice_helpers.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
-- `tests/test_cli_generate_practice.py`
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_e2e_codex_mock.py`
 - `tests/test_practice_leakage.py`

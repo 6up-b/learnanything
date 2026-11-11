@@ -108,6 +108,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/ro2_history_migration_helpers.py`
 - `tests/test_ro2_ad_document_ir.py`
 - `tests/test_ro2_ad_raw_document_reads.py`
 - `tests/test_ro2_history_forecaster.py`

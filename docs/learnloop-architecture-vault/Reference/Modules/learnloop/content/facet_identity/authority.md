@@ -240,6 +240,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/facet_authority_review_helpers.py](../../../../../../../tests/facet_authority_review_helpers.py) — direct import
 - [tests/test_exam_protection.py](../../../../../../../tests/test_exam_protection.py) — direct import
   - `test_exam_material_in_any_revision_of_an_exam_source_is_exam_to_every_reader`
 - [tests/test_facet_authority.py](../../../../../../../tests/test_facet_authority.py) — direct import

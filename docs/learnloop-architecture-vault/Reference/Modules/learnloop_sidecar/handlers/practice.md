@@ -224,7 +224,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/hint_h2b_review_helpers.py](../../../../../../tests/hint_h2b_review_helpers.py) — direct import
 - [tests/mobile_host_helpers.py](../../../../../../tests/mobile_host_helpers.py) — direct import
+- [tests/reader_workbench_rw2a_helpers.py](../../../../../../tests/reader_workbench_rw2a_helpers.py) — direct import
 - [tests/rw2b_fix10_base_sequence.py](../../../../../../tests/rw2b_fix10_base_sequence.py) — direct import
 - [tests/rw2b_fix11_base_sequence.py](../../../../../../tests/rw2b_fix11_base_sequence.py) — direct import
 - [tests/test_approach_maps.py](../../../../../../tests/test_approach_maps.py) — direct import
@@ -246,8 +248,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r1_f10_an_interrupted_answer_box_attach_never_lets_a_problem_take_the_hint`
 - [tests/test_hint_h2b_fix4.py](../../../../../../tests/test_hint_h2b_fix4.py) — direct import
   - `test_f12_a_hint_delivered_during_a_workbench_grade_is_stamped_when_the_attempt_takes_it`
-- [tests/test_hint_h2b_review.py](../../../../../../tests/test_hint_h2b_review.py) — direct import
-  - `test_f7_surface_filters_the_chooser_statistics_and_avoidance`
 - [tests/test_hint_kill_switch.py](../../../../../../tests/test_hint_kill_switch.py) — direct import
   - `test_no_hint_request_reaches_a_model_during_a_diagnostic_block`
 - [tests/test_hint_telemetry.py](../../../../../../tests/test_hint_telemetry.py) — direct import

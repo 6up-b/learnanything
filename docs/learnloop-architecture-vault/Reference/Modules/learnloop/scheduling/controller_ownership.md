@@ -121,6 +121,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/router_staged_p2_helpers.py](../../../../../../tests/router_staged_p2_helpers.py) — direct import
 - [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
   - `test_all_six_cutover_gates_pass_in_order`
   - `test_bridge_goes_live_and_is_decision_equivalent_when_owned`
@@ -147,7 +148,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_wholly_staged_owned_lo_refuses_probe_administration`
 - [tests/test_quick_check.py](../../../../../../tests/test_quick_check.py) — direct import
   - `test_quick_check_never_presents_an_item_routine_serving_excludes`
-- [tests/test_router_staged_p2.py](../../../../../../tests/test_router_staged_p2.py) — direct import
 
 ## Modification guidance
 

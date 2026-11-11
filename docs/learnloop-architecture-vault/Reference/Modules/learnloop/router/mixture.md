@@ -146,6 +146,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/router_model_fakes.py](../../../../../../tests/router_model_fakes.py) — direct import
+- [tests/te3b_offers_helpers.py](../../../../../../tests/te3b_offers_helpers.py) — direct import
 - [tests/test_data_capture_a5_not_ready_floor.py](../../../../../../tests/test_data_capture_a5_not_ready_floor.py) — direct import
   - `test_a_model_that_answers_is_untouched`
   - `test_not_ready_draws_from_the_fallback_distribution_with_its_floor_and_exact_propensity`
@@ -167,7 +168,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_logged_propensity_is_reproducible_from_the_logged_components`
   - `test_the_two_stage_marginal_is_the_mixture`
 - [tests/test_router_r2b_serving.py](../../../../../../tests/test_router_r2b_serving.py) — direct import
-- [tests/test_te3b_offers.py](../../../../../../tests/test_te3b_offers.py) — direct import
 - [tests/test_teacher_te1b_rereview_fixes.py](../../../../../../tests/test_teacher_te1b_rereview_fixes.py) — direct import
   - `test_mixture_mode_draws_the_target_by_the_routers_model_mixture`
 

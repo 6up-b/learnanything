@@ -152,6 +152,8 @@ Database triggers:
 
 - `tests/ad_ingest_fakes.py`
 - `tests/notes_fixtures.py`
+- `tests/reread_safety_helpers.py`
+- `tests/sources_merge_composition_helpers.py`
 - `tests/test_ad_guard.py`
 - `tests/test_ad_protected_tables.py`
 - `tests/test_compare_sources_keep.py`
@@ -168,8 +170,6 @@ Database triggers:
 - `tests/test_notes_c2b_review5.py`
 - `tests/test_reader_branches.py`
 - `tests/test_reader_ca1_astra_fixes.py`
-- `tests/test_reader_ca3_codex_review.py`
-- `tests/test_reader_ca3_compare_anywhere.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

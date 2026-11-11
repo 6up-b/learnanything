@@ -19,17 +19,17 @@ source_paths:
   - "src/learnloop/ai/plan_fallback.py"
   - "src/learnloop/daily_plan/router_reader.py"
   - "tests/codex_cli_fakes.py"
+  - "tests/contamination_report_helpers.py"
+  - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/figures_fix_round2_helpers.py"
+  - "tests/figures_switch_off_helpers.py"
+  - "tests/followups_batch6_prefetch_plan_wait_helpers.py"
   - "tests/local_embeddings_fakes.py"
+  - "tests/mobile_host_auth_helpers.py"
   - "tests/mobile_host_helpers.py"
   - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
-  - "tests/practice_index_fakes.py"
-  - "tests/router_model_fakes.py"
-  - "tests/rw5c_fixtures.py"
-  - "tests/split_live_helpers.py"
-  - "tests/test_ad1_codex_review_fixes.py"
-  - "tests/test_ad1_outside_and_cli.py"
-  - "tests/test_ad23_contract.py"
+  - "tests/pf_generation_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/digest"
@@ -64,17 +64,17 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/codex_cli_fakes.py`
+- `tests/contamination_report_helpers.py`
+- `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/figures_fix_round2_helpers.py`
+- `tests/figures_switch_off_helpers.py`
+- `tests/followups_batch6_prefetch_plan_wait_helpers.py`
 - `tests/local_embeddings_fakes.py`
+- `tests/mobile_host_auth_helpers.py`
 - `tests/mobile_host_helpers.py`
 - `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
-- `tests/practice_index_fakes.py`
-- `tests/router_model_fakes.py`
-- `tests/rw5c_fixtures.py`
-- `tests/split_live_helpers.py`
-- `tests/test_ad1_codex_review_fixes.py`
-- `tests/test_ad1_outside_and_cli.py`
-- `tests/test_ad23_contract.py`
+- `tests/pf_generation_helpers.py`
 
 ## Extension and modification guidance
 

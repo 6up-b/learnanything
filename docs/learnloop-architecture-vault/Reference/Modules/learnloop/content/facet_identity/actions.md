@@ -250,6 +250,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/facet_authority_review_helpers.py](../../../../../../../tests/facet_authority_review_helpers.py) — direct import
+- [tests/facet_identity_actions_helpers.py](../../../../../../../tests/facet_identity_actions_helpers.py) — direct import
+- [tests/facet_reword_confirm_helpers.py](../../../../../../../tests/facet_reword_confirm_helpers.py) — direct import
 - [tests/test_decider_landing.py](../../../../../../../tests/test_decider_landing.py) — direct import
   - `test_a_book_carrying_the_retired_keep_local_is_asked_like_any_other`
   - `test_a_tied_span_check_inside_an_automatic_build_waits_for_the_owner`

@@ -119,9 +119,9 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/required_method_reopened_helpers.py`
 - `tests/test_item_fingerprints.py`
 - `tests/test_pf_generation.py`
-- `tests/test_required_method_reopened.py`
 - `tests/test_surface_mint.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

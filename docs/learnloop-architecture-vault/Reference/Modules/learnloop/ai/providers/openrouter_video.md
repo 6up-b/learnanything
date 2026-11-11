@@ -140,6 +140,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/concept_animation_service_helpers.py](../../../../../../../tests/concept_animation_service_helpers.py) — direct import
 - [tests/test_concept_animation_service.py](../../../../../../../tests/test_concept_animation_service.py) — direct import
   - `test_generate_video_model_clamps_aspect_ratio_and_resumes_from_persisted_jobs`
   - `test_storyboard_total_is_checked_on_the_clamped_durations`

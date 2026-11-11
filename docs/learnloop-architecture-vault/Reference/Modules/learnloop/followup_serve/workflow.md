@@ -217,6 +217,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/followup_router_helpers.py](../../../../../../tests/followup_router_helpers.py) — direct import
+- [tests/hypothesis_marks_helpers.py](../../../../../../tests/hypothesis_marks_helpers.py) — direct import
+- [tests/ih2_lessons_compete_helpers.py](../../../../../../tests/ih2_lessons_compete_helpers.py) — direct import
+- [tests/mobile_v3_probes_helpers.py](../../../../../../tests/mobile_v3_probes_helpers.py) — direct import
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f10_a_failed_workflow_withdraws_what_its_last_run_left`
   - `test_f10_an_interrupted_withdrawal_is_redone_whole`

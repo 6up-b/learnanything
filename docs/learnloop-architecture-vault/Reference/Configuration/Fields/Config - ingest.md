@@ -28,18 +28,18 @@ source_paths:
   - "src/learnloop/cli/app.py"
   - "src/learnloop/ingest/transcription.py"
   - "src/learnloop/content/pipeline/jobs.py"
+  - "tests/ad1_codex_rereview_fixes_helpers.py"
+  - "tests/ad1_fix_round6_helpers.py"
+  - "tests/ad23_contract_helpers.py"
+  - "tests/ad3_subject_view_helpers.py"
   - "tests/ad_fakes.py"
+  - "tests/ad_guard_helpers.py"
+  - "tests/apply_write_ahead_helpers.py"
   - "tests/approach_map_fakes.py"
   - "tests/codex_cli_fakes.py"
   - "tests/conftest.py"
   - "tests/connection_reuse.py"
-  - "tests/daily_plan_fakes.py"
-  - "tests/decider_fakes.py"
-  - "tests/diagnosis_fakes.py"
-  - "tests/embedding_fakes.py"
-  - "tests/exam_scope_fixtures.py"
-  - "tests/figure_fixtures.py"
-  - "tests/helpers.py"
+  - "tests/contamination_report_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/ingest"
@@ -130,18 +130,18 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/ad1_codex_rereview_fixes_helpers.py`
+- `tests/ad1_fix_round6_helpers.py`
+- `tests/ad23_contract_helpers.py`
+- `tests/ad3_subject_view_helpers.py`
 - `tests/ad_fakes.py`
+- `tests/ad_guard_helpers.py`
+- `tests/apply_write_ahead_helpers.py`
 - `tests/approach_map_fakes.py`
 - `tests/codex_cli_fakes.py`
 - `tests/conftest.py`
 - `tests/connection_reuse.py`
-- `tests/daily_plan_fakes.py`
-- `tests/decider_fakes.py`
-- `tests/diagnosis_fakes.py`
-- `tests/embedding_fakes.py`
-- `tests/exam_scope_fixtures.py`
-- `tests/figure_fixtures.py`
-- `tests/helpers.py`
+- `tests/contamination_report_helpers.py`
 
 ## Extension and modification guidance
 

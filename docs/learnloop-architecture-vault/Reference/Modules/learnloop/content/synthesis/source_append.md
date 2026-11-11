@@ -145,6 +145,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/facet_identity_ingest_helpers.py](../../../../../../../tests/facet_identity_ingest_helpers.py) — direct import
 - [tests/test_build_study_map_routing.py](../../../../../../../tests/test_build_study_map_routing.py) — direct import
   - `test_helper_detects_applied_study_map`
 - [tests/test_facet_authority.py](../../../../../../../tests/test_facet_authority.py) — direct import

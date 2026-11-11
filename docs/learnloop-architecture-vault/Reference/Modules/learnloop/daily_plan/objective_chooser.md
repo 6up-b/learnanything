@@ -207,6 +207,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ih2_lessons_compete_helpers.py](../../../../../../tests/ih2_lessons_compete_helpers.py) — direct import
+- [tests/ih4_preferences_inform_router_helpers.py](../../../../../../tests/ih4_preferences_inform_router_helpers.py) — direct import
+- [tests/ih_numeric_seed_helpers.py](../../../../../../tests/ih_numeric_seed_helpers.py) — direct import
 - [tests/router_mixture_helpers.py](../../../../../../tests/router_mixture_helpers.py) — direct import
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_the_switch_defaults_on_is_classified_and_names_itself_in_the_prefetch_key`

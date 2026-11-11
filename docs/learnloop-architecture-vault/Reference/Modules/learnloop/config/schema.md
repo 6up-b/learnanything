@@ -606,12 +606,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_misconception_labels_are_charged_the_learners_recurrence_measured_cost`
   - `test_rank_four_is_off_by_default`
   - `test_rank_four_on_charges_only_misconceptions_confusions_and_unknown_causes`
-- [tests/test_voi_stopping.py](../../../../../../tests/test_voi_stopping.py) — direct import
 - [tests/test_voi_v2.py](../../../../../../tests/test_voi_v2.py) — direct import
   - `test_the_study_switches_default_to_the_recommendation`
 - [tests/test_voyage_fallback.py](../../../../../../tests/test_voyage_fallback.py) — direct import
   - `test_errors_never_carry_the_key_or_the_body`
 - [tests/voi_restore_scenarios.py](../../../../../../tests/voi_restore_scenarios.py) — direct import
+- [tests/voi_stopping_helpers.py](../../../../../../tests/voi_stopping_helpers.py) — direct import
 
 ## Modification guidance
 

@@ -126,6 +126,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/reread_safety_helpers.py](../../../../../../../tests/reread_safety_helpers.py) — imports consumer [[Reference/Modules/learnloop/reader/source_objects|learnloop.reader.source_objects]]
 - [tests/test_compare_sources_keep.py](../../../../../../../tests/test_compare_sources_keep.py) — imports consumer [[Reference/Modules/learnloop/reader/source_objects|learnloop.reader.source_objects]]
 - [tests/test_find_sources_intents.py](../../../../../../../tests/test_find_sources_intents.py) — imports consumer [[Reference/Modules/learnloop/reader/source_objects|learnloop.reader.source_objects]]
 - [tests/test_reread_safety.py](../../../../../../../tests/test_reread_safety.py) — imports consumer [[Reference/Modules/learnloop/reader/source_objects|learnloop.reader.source_objects]]
@@ -136,8 +137,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_whole_comparison_provenance_surfaces.py](../../../../../../../tests/test_whole_comparison_provenance_surfaces.py) — imports consumer [[Reference/Modules/learnloop/reader/source_objects|learnloop.reader.source_objects]]
 - [tests/test_whole_comparison_reuse_provenance.py](../../../../../../../tests/test_whole_comparison_reuse_provenance.py) — imports consumer [[Reference/Modules/learnloop/reader/source_objects|learnloop.reader.source_objects]]
 - [tests/test_reader_ca4_table_by_point.py](../../../../../../../tests/test_reader_ca4_table_by_point.py) — imports consumer [[Reference/Modules/learnloop/source_retrieval/kept_comparisons|learnloop.source_retrieval.kept_comparisons]]
-- [tests/library_ask_fixtures.py](../../../../../../../tests/library_ask_fixtures.py) — imports consumer [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]]
-- [tests/test_figure_offers.py](../../../../../../../tests/test_figure_offers.py) — imports consumer [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]]
+- [tests/figure_offers_helpers.py](../../../../../../../tests/figure_offers_helpers.py) — imports consumer [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]]
 
 ## Modification guidance
 

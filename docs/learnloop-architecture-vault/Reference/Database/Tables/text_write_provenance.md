@@ -99,6 +99,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/diagnosis_input_provenance_helpers.py`
 - `tests/test_chatgpt_plan_landing.py`
 - `tests/test_diagnosis_input_provenance.py`
 - `tests/test_diagnosis_input_provenance_landing.py`

@@ -133,9 +133,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/hint_h2b_review_helpers.py](../../../../../../tests/hint_h2b_review_helpers.py) — imports consumer [[Reference/Modules/learnloop/hints/report|learnloop.hints.report]]
 - [tests/test_figures_help.py](../../../../../../tests/test_figures_help.py) — imports consumer [[Reference/Modules/learnloop/hints/report|learnloop.hints.report]]
 - [tests/test_help_assist_work_md_migration.py](../../../../../../tests/test_help_assist_work_md_migration.py) — imports consumer [[Reference/Modules/learnloop/hints/report|learnloop.hints.report]]
-- [tests/test_hint_h2b_review.py](../../../../../../tests/test_hint_h2b_review.py) — imports consumer [[Reference/Modules/learnloop/hints/report|learnloop.hints.report]]
 - [tests/test_hint_report.py](../../../../../../tests/test_hint_report.py) — imports consumer [[Reference/Modules/learnloop/hints/report|learnloop.hints.report]]
 - [tests/test_hint_telemetry.py](../../../../../../tests/test_hint_telemetry.py) — imports consumer [[Reference/Modules/learnloop/hints/report|learnloop.hints.report]]
 - [tests/test_figures_help_codex_review.py](../../../../../../tests/test_figures_help_codex_review.py) — imports consumer [[Reference/Modules/learnloop/hints/report_workbench|learnloop.hints.report_workbench]]

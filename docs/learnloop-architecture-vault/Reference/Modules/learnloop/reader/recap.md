@@ -181,6 +181,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reader_recap_review_r2_helpers.py](../../../../../../tests/reader_recap_review_r2_helpers.py) — direct import
 - [tests/test_ad23_inversion.py](../../../../../../tests/test_ad23_inversion.py) — direct import
 - [tests/test_intent_codex_review.py](../../../../../../tests/test_intent_codex_review.py) — direct import
 - [tests/test_reader_followups.py](../../../../../../tests/test_reader_followups.py) — direct import

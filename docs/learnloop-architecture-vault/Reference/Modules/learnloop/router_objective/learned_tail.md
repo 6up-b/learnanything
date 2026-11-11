@@ -197,6 +197,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ro6_codex_review_helpers.py](../../../../../../tests/ro6_codex_review_helpers.py) — direct import
 - [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
   - `test_a_planted_w_pref_moves_the_argmax_and_leaves_the_tails_values`
   - `test_missing_terms_are_read_at_the_fill_least_favourable_to_it`

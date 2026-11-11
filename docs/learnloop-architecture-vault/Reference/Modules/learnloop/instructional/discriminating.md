@@ -115,6 +115,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/discriminating_search_helpers.py](../../../../../../tests/discriminating_search_helpers.py) — direct import
 - [tests/test_discriminating_search.py](../../../../../../tests/test_discriminating_search.py) — direct import
   - `test_presentation_order_applies_dominance_inside_the_valued_group`
 - [tests/test_reader_followups_review.py](../../../../../../tests/test_reader_followups_review.py) — direct import

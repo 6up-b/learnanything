@@ -116,6 +116,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/pf_generation_helpers.py](../../../../../../tests/pf_generation_helpers.py) — imports consumer [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]]
 - [tests/test_exam_protection_review.py](../../../../../../tests/test_exam_protection_review.py) — imports consumer [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]]
 - [tests/test_item_fingerprints.py](../../../../../../tests/test_item_fingerprints.py) — imports consumer [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]]
 - [tests/test_pf_generation.py](../../../../../../tests/test_pf_generation.py) — imports consumer [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]]

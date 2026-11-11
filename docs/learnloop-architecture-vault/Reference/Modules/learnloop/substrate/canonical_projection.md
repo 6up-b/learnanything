@@ -176,6 +176,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/held_grade_evidence_helpers.py](../../../../../../tests/held_grade_evidence_helpers.py) — direct import
+- [tests/pfc_unassessed_readers_helpers.py](../../../../../../tests/pfc_unassessed_readers_helpers.py) — direct import
 - [tests/test_ad2_model.py](../../../../../../tests/test_ad2_model.py) — direct import
   - `test_surface_group_mirrors_the_projection`
 - [tests/test_anti_double_count.py](../../../../../../tests/test_anti_double_count.py) — direct import

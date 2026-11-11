@@ -199,6 +199,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reader_intent_helpers.py](../../../../../../tests/reader_intent_helpers.py) — direct import
 - [tests/test_figures_show_me.py](../../../../../../tests/test_figures_show_me.py) — direct import
 - [tests/test_reader_ca3_compare_anywhere.py](../../../../../../tests/test_reader_ca3_compare_anywhere.py) — direct import
   - `test_the_intent_question_set_moves_only_with_the_verb`

@@ -171,6 +171,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/query_student_fakes.py](../../../../../../tests/query_student_fakes.py) — direct import
+- [tests/query_student_helpers.py](../../../../../../tests/query_student_helpers.py) — direct import
 - [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — direct import
   - `test_iv_with_the_student_off_rw5ds_grounding_retrieval_is_p1s`
 - [tests/test_query_student.py](../../../../../../tests/test_query_student.py) — direct import

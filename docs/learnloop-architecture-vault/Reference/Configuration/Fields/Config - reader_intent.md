@@ -20,16 +20,16 @@ source_paths:
   - "src/learnloop_sidecar/handlers/reader_intent.py"
   - "tests/ad_fakes.py"
   - "tests/codex_cli_fakes.py"
+  - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/figures_fix_round2_helpers.py"
+  - "tests/figures_switch_off_helpers.py"
   - "tests/hint_fakes.py"
   - "tests/local_embeddings_fakes.py"
+  - "tests/mobile_host_auth_helpers.py"
   - "tests/mobile_host_helpers.py"
   - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
-  - "tests/router_model_fakes.py"
-  - "tests/rw5c_fixtures.py"
-  - "tests/split_live_helpers.py"
-  - "tests/test_ad1_codex_rereview_fixes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/reader-intent"
@@ -65,16 +65,16 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/ad_fakes.py`
 - `tests/codex_cli_fakes.py`
+- `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/figures_fix_round2_helpers.py`
+- `tests/figures_switch_off_helpers.py`
 - `tests/hint_fakes.py`
 - `tests/local_embeddings_fakes.py`
+- `tests/mobile_host_auth_helpers.py`
 - `tests/mobile_host_helpers.py`
 - `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
-- `tests/router_model_fakes.py`
-- `tests/rw5c_fixtures.py`
-- `tests/split_live_helpers.py`
-- `tests/test_ad1_codex_rereview_fixes.py`
 
 ## Extension and modification guidance
 

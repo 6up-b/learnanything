@@ -181,7 +181,13 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/help_assist_figures_migration_helpers.py`
+- `tests/help_assist_work_md_migration_helpers.py`
+- `tests/help_outcomes_helpers.py`
 - `tests/hint_fakes.py`
+- `tests/hint_telemetry_helpers.py`
+- `tests/mobile_v3_migration_helpers.py`
+- `tests/ro2_history_protection_helpers.py`
 - `tests/rw2c_base_sequence.py`
 - `tests/test_ad23_migration.py`
 - `tests/test_approach_map_replay.py`
@@ -195,12 +201,6 @@ None found by exact static reference scan.
 - `tests/test_help_assist_figures_migration.py`
 - `tests/test_help_assist_work_md_migration.py`
 - `tests/test_help_assists_schema.py`
-- `tests/test_help_outcomes.py`
-- `tests/test_hint_feedback_texts.py`
-- `tests/test_hint_feedback_widening.py`
-- `tests/test_hint_h2a_review_round3.py`
-- `tests/test_hint_h2b_rereview.py`
-- `tests/test_hint_report.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

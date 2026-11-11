@@ -143,6 +143,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/learner_data_relax_2_helpers.py`
 - `tests/library_ask_fixtures.py`
 - `tests/test_apply_write_ahead.py`
 - `tests/test_facet_authority.py`
@@ -150,19 +151,18 @@ Indexes and uniqueness:
 - `tests/test_facet_reword_confirm.py`
 - `tests/test_facet_reword_confirm_review.py`
 - `tests/test_facet_reword_paths.py`
-- `tests/test_learner_data_relax_2.py`
 - `tests/test_migrations.py`
 - `tests/test_source_append.py`
 - `tests/test_source_set_synthesis.py`
 - `tests/test_source_sets.py`
 - `tests/test_tutor_citations.py`
+- `tests/ad23_contract_helpers.py`
+- `tests/reread_safety_helpers.py`
+- `tests/source_retrieval_tutor_helpers.py`
 - `tests/test_ad1_reading_opportunities.py`
-- `tests/test_ad23_contract.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_compare_sources.py`
 - `tests/test_exam_protection.py`
-- `tests/test_find_sources_intents.py`
-- `tests/test_prescription_passages.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -18,18 +18,18 @@ source_paths:
   - "tests/test_config_refactor.py"
   - "src/learnloop/ai/plan_fallback.py"
   - "src/learnloop/reader/reader_cues.py"
+  - "tests/ad23_contract_helpers.py"
   - "tests/approach_map_fakes.py"
   - "tests/codex_cli_fakes.py"
+  - "tests/curriculum_c1_plan_follows_path_helpers.py"
   - "tests/figure_corpus.py"
   - "tests/figure_fixtures.py"
+  - "tests/figure_offers_helpers.py"
   - "tests/figure_panels_corpus.py"
+  - "tests/figures_fix_round2_helpers.py"
+  - "tests/figures_switch_off_helpers.py"
   - "tests/hint_fakes.py"
   - "tests/local_embeddings_fakes.py"
-  - "tests/mobile_host_helpers.py"
-  - "tests/notes_fixtures.py"
-  - "tests/pf_fakes.py"
-  - "tests/practice_index_fakes.py"
-  - "tests/reader_fixtures.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/cues"
@@ -69,18 +69,18 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/ad23_contract_helpers.py`
 - `tests/approach_map_fakes.py`
 - `tests/codex_cli_fakes.py`
+- `tests/curriculum_c1_plan_follows_path_helpers.py`
 - `tests/figure_corpus.py`
 - `tests/figure_fixtures.py`
+- `tests/figure_offers_helpers.py`
 - `tests/figure_panels_corpus.py`
+- `tests/figures_fix_round2_helpers.py`
+- `tests/figures_switch_off_helpers.py`
 - `tests/hint_fakes.py`
 - `tests/local_embeddings_fakes.py`
-- `tests/mobile_host_helpers.py`
-- `tests/notes_fixtures.py`
-- `tests/pf_fakes.py`
-- `tests/practice_index_fakes.py`
-- `tests/reader_fixtures.py`
 
 ## Extension and modification guidance
 

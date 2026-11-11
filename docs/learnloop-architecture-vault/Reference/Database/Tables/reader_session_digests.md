@@ -110,6 +110,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/reader_session_digests_migration_helpers.py`
 - `tests/test_architecture.py`
 - `tests/test_reader_digest_narrative.py`
 - `tests/test_reader_followups.py`

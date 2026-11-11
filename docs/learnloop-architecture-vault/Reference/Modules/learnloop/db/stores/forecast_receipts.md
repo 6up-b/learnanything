@@ -112,6 +112,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/forecast_receipts_helpers.py](../../../../../../../tests/forecast_receipts_helpers.py) — direct import
 - [tests/test_cold_retry_reschedule.py](../../../../../../../tests/test_cold_retry_reschedule.py) — direct import
 - [tests/test_forecast_receipts.py](../../../../../../../tests/test_forecast_receipts.py) — direct import
   - `test_a_failed_receipt_never_breaks_its_diagnosis`

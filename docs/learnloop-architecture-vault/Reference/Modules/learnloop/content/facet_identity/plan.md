@@ -130,7 +130,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_facet_authority.py](../../../../../../../tests/test_facet_authority.py) — direct import
+- [tests/facet_authority_helpers.py](../../../../../../../tests/facet_authority_helpers.py) — direct import
 - [tests/test_facet_identity.py](../../../../../../../tests/test_facet_identity.py) — direct import
   - `test_an_undone_in_run_merge_stays_apart_when_the_run_is_planned_again`
   - `test_in_run_consolidation_of_the_regression_set`

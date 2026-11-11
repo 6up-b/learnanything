@@ -278,6 +278,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/curriculum_c1_plan_follows_path_helpers.py](../../../../../../tests/curriculum_c1_plan_follows_path_helpers.py) — direct import
+- [tests/curriculum_c3_exam_scoping_helpers.py](../../../../../../tests/curriculum_c3_exam_scoping_helpers.py) — direct import
 - [tests/teacher_fakes.py](../../../../../../tests/teacher_fakes.py) — direct import
 - [tests/test_curriculum_c0b_landing.py](../../../../../../tests/test_curriculum_c0b_landing.py) — direct import
   - `test_i_a_dismissal_and_an_also_about_on_one_section_coexist_through_path_rejudgments`

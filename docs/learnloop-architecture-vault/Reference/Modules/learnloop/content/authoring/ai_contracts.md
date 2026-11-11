@@ -124,6 +124,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/concept_animation_service_helpers.py](../../../../../../../tests/concept_animation_service_helpers.py) — direct import
+- [tests/exercise_authoring_helpers.py](../../../../../../../tests/exercise_authoring_helpers.py) — direct import
+- [tests/required_method_authority_helpers.py](../../../../../../../tests/required_method_authority_helpers.py) — direct import
 - [tests/source_service_fakes.py](../../../../../../../tests/source_service_fakes.py) — direct import
 - [tests/structured_ai.py](../../../../../../../tests/structured_ai.py) — direct import
 - [tests/test_authoring_contract.py](../../../../../../../tests/test_authoring_contract.py) — direct import
@@ -161,7 +164,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_split_with_an_unanchored_sibling_owns_nothing`
   - `test_two_exercises_split_from_one_block_get_no_free_crop_and_keep_the_page`
 - [tests/test_reader_ca1_unicode_containment.py](../../../../../../../tests/test_reader_ca1_unicode_containment.py) — direct import
-- [tests/test_required_method_authority.py](../../../../../../../tests/test_required_method_authority.py) — direct import
 - [tests/test_required_method_items.py](../../../../../../../tests/test_required_method_items.py) — direct import
   - `test_an_imported_exercise_keeps_a_required_method_only_by_its_one_time_judgment`
   - `test_authoring_prompts_carry_the_rule_and_moved_their_versions`

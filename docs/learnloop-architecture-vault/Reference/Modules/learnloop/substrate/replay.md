@@ -117,6 +117,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/followup_fg1d_probe_shadow_helpers.py](../../../../../../tests/followup_fg1d_probe_shadow_helpers.py) — direct import
 - [tests/test_anti_double_count.py](../../../../../../tests/test_anti_double_count.py) — direct import
   - `test_anti_double_count_replay_reproduces_identical_state`
 - [tests/test_attempt_content_state_successor.py](../../../../../../tests/test_attempt_content_state_successor.py) — direct import

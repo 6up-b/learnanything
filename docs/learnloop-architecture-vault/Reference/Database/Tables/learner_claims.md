@@ -118,17 +118,19 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/assumed_known_helpers.py`
+- `tests/learner_claim_application_migration_helpers.py`
+- `tests/learner_claim_superseded_migration_helpers.py`
+- `tests/lp_claim_fixes_review_helpers.py`
 - `tests/test_ad23_fix_review.py`
 - `tests/test_ad2_model.py`
 - `tests/test_ad_guard.py`
-- `tests/test_assumed_known.py`
 - `tests/test_field_priors.py`
 - `tests/test_init.py`
 - `tests/test_learner_claim_application_migration.py`
 - `tests/test_learner_claim_superseded_migration.py`
 - `tests/test_learner_report_superseded.py`
 - `tests/test_lp_claim_fixes_rereview.py`
-- `tests/test_lp_claim_fixes_review.py`
 - `tests/test_notes_as_learner_text.py`
 - `tests/test_pr4_superseded_claims_landing.py`
 - `tests/test_question_promotions.py`
@@ -136,8 +138,6 @@ Indexes and uniqueness:
 - `tests/test_retrieval_spaces_migration.py`
 - `tests/test_section_coverage_migration.py`
 - `tests/test_tutor_promotion_service.py`
-- `tests/test_ad23_fix_r8.py`
-- `tests/test_agent_runs.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

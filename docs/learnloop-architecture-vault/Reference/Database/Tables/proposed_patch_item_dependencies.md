@@ -101,10 +101,12 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/apply_write_ahead_helpers.py`
+- `tests/facet_authority_helpers.py`
+- `tests/facet_reword_confirm_helpers.py`
+- `tests/facet_rewords_helpers.py`
+- `tests/patch_applier_helpers.py`
 - `tests/test_apply_write_ahead.py`
-- `tests/test_facet_authority.py`
-- `tests/test_facet_reword_confirm.py`
-- `tests/test_facet_rewords.py`
 - `tests/test_missing_vocabulary_notes.py`
 - `tests/test_patch_applier.py`
 - `tests/test_proposal_dependencies.py`

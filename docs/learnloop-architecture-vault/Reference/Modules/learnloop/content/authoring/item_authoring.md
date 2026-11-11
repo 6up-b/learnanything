@@ -122,6 +122,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reference_gate_imports_helpers.py](../../../../../../../tests/reference_gate_imports_helpers.py) — direct import
 - [tests/test_activity_families.py](../../../../../../../tests/test_activity_families.py) — direct import
   - `test_learner_edit_during_family_publication_is_not_lost`
   - `test_retire_from_a_stale_snapshot_keeps_family_membership`
@@ -166,7 +167,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_hints_only_edit_keeps_the_verification`
   - `test_a_late_background_check_never_verifies_an_edit`
   - `test_an_edited_prompt_or_key_is_unverified_until_rechecked`
-- [tests/test_reference_gate_imports.py](../../../../../../../tests/test_reference_gate_imports.py) — direct import
 - [tests/test_sidecar_blueprint_picker.py](../../../../../../../tests/test_sidecar_blueprint_picker.py) — direct import
 - [tests/test_slate_record.py](../../../../../../../tests/test_slate_record.py) — direct import
 - [tests/test_source_exercise_import.py](../../../../../../../tests/test_source_exercise_import.py) — direct import

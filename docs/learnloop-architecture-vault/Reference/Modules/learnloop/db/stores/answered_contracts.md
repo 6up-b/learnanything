@@ -108,6 +108,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/learner_blindness_relax_helpers.py](../../../../../../../tests/learner_blindness_relax_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../../tests/test_chatgpt_plan_workspace.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
 - [tests/test_codex_lockdown_round3.py](../../../../../../../tests/test_codex_lockdown_round3.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
 - [tests/test_diagnosis_context.py](../../../../../../../tests/test_diagnosis_context.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
@@ -116,7 +117,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_diagnosis_input_provenance.py](../../../../../../../tests/test_diagnosis_input_provenance.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
 - [tests/test_followup_fg1c_codex_review.py](../../../../../../../tests/test_followup_fg1c_codex_review.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
 - [tests/test_hypothesis_marks.py](../../../../../../../tests/test_hypothesis_marks.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
-- [tests/test_learner_blindness_relax.py](../../../../../../../tests/test_learner_blindness_relax.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
 - [tests/test_learner_text_gaps.py](../../../../../../../tests/test_learner_text_gaps.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
 - [tests/test_pfc_unassessed_readers.py](../../../../../../../tests/test_pfc_unassessed_readers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
 - [tests/test_required_method_round3_review.py](../../../../../../../tests/test_required_method_round3_review.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]

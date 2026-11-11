@@ -110,13 +110,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]]
 - [tests/test_ad1_codex_review_fixes.py](../../../../../../tests/test_ad1_codex_review_fixes.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]]
 - [tests/test_ad1_fix_round4.py](../../../../../../tests/test_ad1_fix_round4.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]]
 - [tests/test_ad1_fix_round5.py](../../../../../../tests/test_ad1_fix_round5.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]]
 - [tests/test_ad1_fix_round6.py](../../../../../../tests/test_ad1_fix_round6.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]]
 - [tests/test_ad1_fix_round9.py](../../../../../../tests/test_ad1_fix_round9.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]]
 - [tests/test_ad1_outside_and_cli.py](../../../../../../tests/test_ad1_outside_and_cli.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]]
-- [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]]
 - [tests/test_ad_epoch.py](../../../../../../tests/test_ad_epoch.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]]
 - [tests/test_adaptive_difficulty_ad1.py](../../../../../../tests/test_adaptive_difficulty_ad1.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]]
 - [tests/test_ad1_fix_round7.py](../../../../../../tests/test_ad1_fix_round7.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]]

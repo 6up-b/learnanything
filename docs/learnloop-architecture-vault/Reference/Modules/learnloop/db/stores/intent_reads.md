@@ -123,11 +123,11 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_intent_resolution.py](../../../../../../../tests/test_intent_resolution.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]]
 - [tests/test_reader_followups.py](../../../../../../../tests/test_reader_followups.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]]
 - [tests/ad23_fakes.py](../../../../../../../tests/ad23_fakes.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]]
+- [tests/data_capture_codex_review_helpers.py](../../../../../../../tests/data_capture_codex_review_helpers.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]]
 - [tests/intent_fakes.py](../../../../../../../tests/intent_fakes.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]]
+- [tests/reader_followups_round4_helpers.py](../../../../../../../tests/reader_followups_round4_helpers.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]]
 - [tests/test_ad23_intent_compose.py](../../../../../../../tests/test_ad23_intent_compose.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]]
 - [tests/test_ad23_inversion.py](../../../../../../../tests/test_ad23_inversion.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]]
-- [tests/test_ad23_pool_membership.py](../../../../../../../tests/test_ad23_pool_membership.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]]
-- [tests/test_data_capture_codex_rereview.py](../../../../../../../tests/test_data_capture_codex_rereview.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]]
 
 ## Modification guidance
 

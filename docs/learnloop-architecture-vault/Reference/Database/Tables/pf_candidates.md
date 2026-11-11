@@ -126,6 +126,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/required_method_round3_review_helpers.py`
 - `tests/test_pf_reports.py`
 - `tests/test_required_method_round3.py`
 - `tests/test_required_method_round3_rereview.py`

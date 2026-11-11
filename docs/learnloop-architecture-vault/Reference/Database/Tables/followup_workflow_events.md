@@ -98,6 +98,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/followup_migration_helpers.py`
 - `tests/test_followup_codex_review.py`
 - `tests/test_followup_migration.py`
 - `tests/test_followup_reserved_only.py`

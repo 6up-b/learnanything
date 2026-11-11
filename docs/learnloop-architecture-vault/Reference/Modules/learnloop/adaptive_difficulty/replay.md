@@ -191,6 +191,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
 - [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — direct import
   - `test_goal_focus_follows_the_live_decision_view_with_promoted_predictor_off`
   - `test_the_replay_cache_never_serves_a_snapshot_across_a_protection_change`

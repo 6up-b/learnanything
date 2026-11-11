@@ -19,6 +19,8 @@ source_paths:
   - "src/learnloop/ai/plan_fallback.py"
   - "tests/ad_fakes.py"
   - "tests/facet_identity_fakes.py"
+  - "tests/facet_span_support_helpers.py"
+  - "tests/required_method_authority_helpers.py"
   - "tests/structured_ai.py"
   - "tests/test_ad1_codex_review_fixes.py"
   - "tests/test_ad1_fix_round4.py"
@@ -27,8 +29,6 @@ source_paths:
   - "tests/test_ad1_outside_and_cli.py"
   - "tests/test_ad1_send_guard.py"
   - "tests/test_ad23_t1_routes.py"
-  - "tests/test_adaptive_difficulty_ad1.py"
-  - "tests/test_codex_lockdown_round2.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/decider-routes"
@@ -69,6 +69,8 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/ad_fakes.py`
 - `tests/facet_identity_fakes.py`
+- `tests/facet_span_support_helpers.py`
+- `tests/required_method_authority_helpers.py`
 - `tests/structured_ai.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_fix_round4.py`
@@ -77,8 +79,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ad1_outside_and_cli.py`
 - `tests/test_ad1_send_guard.py`
 - `tests/test_ad23_t1_routes.py`
-- `tests/test_adaptive_difficulty_ad1.py`
-- `tests/test_codex_lockdown_round2.py`
 
 ## Extension and modification guidance
 

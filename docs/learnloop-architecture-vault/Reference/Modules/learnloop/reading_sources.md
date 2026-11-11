@@ -154,13 +154,13 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_rofu_learning.py](../../../../../tests/test_rofu_learning.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]]
 - [tests/test_rospeed2_section_map.py](../../../../../tests/test_rospeed2_section_map.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]]
 - [tests/test_rospeed_join.py](../../../../../tests/test_rospeed_join.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]]
+- [tests/ad1_reading_opportunities_helpers.py](../../../../../tests/ad1_reading_opportunities_helpers.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
+- [tests/ad23_contract_helpers.py](../../../../../tests/ad23_contract_helpers.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 - [tests/test_ad1_fix_round4.py](../../../../../tests/test_ad1_fix_round4.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 - [tests/test_ad1_reading_opportunities.py](../../../../../tests/test_ad1_reading_opportunities.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 - [tests/test_ad23_contract.py](../../../../../tests/test_ad23_contract.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 - [tests/test_ad23_fix_r8.py](../../../../../tests/test_ad23_fix_r8.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 - [tests/test_ad23_fix_review.py](../../../../../tests/test_ad23_fix_review.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
-- [tests/test_ad3_dose_arm.py](../../../../../tests/test_ad3_dose_arm.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
-- [tests/test_ad_epoch.py](../../../../../tests/test_ad_epoch.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]]
 
 ## Modification guidance
 

@@ -24,18 +24,18 @@ source_paths:
   - "src/learnloop/instructional/needs.py"
   - "src/learnloop/instructional/interventions.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
+  - "tests/ad23_contract_helpers.py"
   - "tests/codex_cli_fakes.py"
+  - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/facet_identity_ingest_helpers.py"
+  - "tests/figures_fix_round2_helpers.py"
+  - "tests/figures_switch_off_helpers.py"
   - "tests/helpers.py"
+  - "tests/learner_pick_proposal_helpers.py"
   - "tests/local_embeddings_fakes.py"
   - "tests/mcp_world.py"
+  - "tests/mobile_host_auth_helpers.py"
   - "tests/mobile_host_helpers.py"
-  - "tests/notes_fixtures.py"
-  - "tests/pf_fakes.py"
-  - "tests/practice_index_fakes.py"
-  - "tests/router_mixture_helpers.py"
-  - "tests/router_model_fakes.py"
-  - "tests/rw5c_fixtures.py"
-  - "tests/source_service_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/source-service"
@@ -83,18 +83,18 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/ad23_contract_helpers.py`
 - `tests/codex_cli_fakes.py`
+- `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/facet_identity_ingest_helpers.py`
+- `tests/figures_fix_round2_helpers.py`
+- `tests/figures_switch_off_helpers.py`
 - `tests/helpers.py`
+- `tests/learner_pick_proposal_helpers.py`
 - `tests/local_embeddings_fakes.py`
 - `tests/mcp_world.py`
+- `tests/mobile_host_auth_helpers.py`
 - `tests/mobile_host_helpers.py`
-- `tests/notes_fixtures.py`
-- `tests/pf_fakes.py`
-- `tests/practice_index_fakes.py`
-- `tests/router_mixture_helpers.py`
-- `tests/router_model_fakes.py`
-- `tests/rw5c_fixtures.py`
-- `tests/source_service_fakes.py`
 
 ## Extension and modification guidance
 

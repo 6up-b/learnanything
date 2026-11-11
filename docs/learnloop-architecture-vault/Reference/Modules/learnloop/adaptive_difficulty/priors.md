@@ -229,6 +229,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/rospeed_ad_link_helpers.py](../../../../../../tests/rospeed_ad_link_helpers.py) — direct import
 - [tests/test_ad23_sim.py](../../../../../../tests/test_ad23_sim.py) — direct import
   - `test_hyperparameters_learned_on_synthetic_vaults`
 - [tests/test_ad23_sim_smoke.py](../../../../../../tests/test_ad23_sim_smoke.py) — direct import
@@ -256,7 +257,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rofu_ad_link.py](../../../../../../tests/test_rofu_ad_link.py) — direct import
   - `test_the_link_is_ads_own_predictive_and_inverts_it`
 - [tests/test_rofu_ad_stable.py](../../../../../../tests/test_rofu_ad_stable.py) — direct import
-- [tests/test_rospeed_ad_link.py](../../../../../../tests/test_rospeed_ad_link.py) — direct import
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
   - `test_a_probe_closes_the_lesson_window_on_the_held_link_too`
   - `test_at_the_seeded_prior_the_lesson_q_bar_equals_ro4s_placeholder`

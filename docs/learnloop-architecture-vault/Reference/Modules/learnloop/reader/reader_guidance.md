@@ -131,10 +131,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/daily_plan_reading_helpers.py](../../../../../../tests/daily_plan_reading_helpers.py) — direct import
+- [tests/reader_cues_helpers.py](../../../../../../tests/reader_cues_helpers.py) — direct import
 - [tests/test_ad_protected_readings.py](../../../../../../tests/test_ad_protected_readings.py) — direct import
   - `test_a_clean_reading_is_read_as_the_reader_and_the_incumbent_read_it`
 - [tests/test_curriculum_c1_plan_follows_path.py](../../../../../../tests/test_curriculum_c1_plan_follows_path.py) — direct import
-- [tests/test_daily_plan_reading.py](../../../../../../tests/test_daily_plan_reading.py) — direct import
 - [tests/test_exam_protection.py](../../../../../../tests/test_exam_protection.py) — direct import
   - `test_a_reader_check_over_held_out_material_is_refused_before_any_model_call`
 - [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — direct import
@@ -190,10 +191,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_guide_and_lo_highlights_survive_with_moved_passages_flagged`
 - [tests/test_reread_safety_landing.py](../../../../../../tests/test_reread_safety_landing.py) — direct import
   - `test_a_cue_on_a_reread_resolves_the_cited_passage_and_shows_the_question_with_its_method`
-- [tests/test_ux_phase1_landing.py](../../../../../../tests/test_ux_phase1_landing.py) — direct import
 - [tests/test_ux_phase1_round2_review.py](../../../../../../tests/test_ux_phase1_round2_review.py) — direct import
 - [tests/test_ux_phase1_usability_round1.py](../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
   - `test_u4_reading_through_a_section_moves_the_reading_step_on`
+- [tests/ux_phase1_landing_helpers.py](../../../../../../tests/ux_phase1_landing_helpers.py) — direct import
+- [tests/ux_phase1_round2_review_helpers.py](../../../../../../tests/ux_phase1_round2_review_helpers.py) — direct import
 
 ## Modification guidance
 

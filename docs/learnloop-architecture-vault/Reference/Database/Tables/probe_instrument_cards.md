@@ -105,7 +105,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/helpers.py`
-- `tests/test_p2_acceptance.py`
+- `tests/p2_acceptance_helpers.py`
 - `tests/test_p2_leakage_suite.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

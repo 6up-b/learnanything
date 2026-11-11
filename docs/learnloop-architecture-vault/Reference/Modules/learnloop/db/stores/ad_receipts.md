@@ -152,6 +152,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad23_contract_helpers.py](../../../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/ad3_reading_helpers.py](../../../../../../../tests/ad3_reading_helpers.py) — direct import
 - [tests/test_ad23_contract.py](../../../../../../../tests/test_ad23_contract.py) — direct import
   - `test_a_tutor_exchange_on_a_protected_canonical_note_enters_no_prediction`
   - `test_a_tutor_exchange_whose_recorded_context_quotes_a_protected_span_enters_no_prediction`
@@ -159,7 +161,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad23_fix_r8.py](../../../../../../../tests/test_ad23_fix_r8.py) — direct import
   - `test_a_reading_receipt_whose_source_is_held_out_now_is_not_replayed`
   - `test_the_dose_moderator_window_closes_only_at_a_visible_graded_attempt`
-- [tests/test_ad3_reading.py](../../../../../../../tests/test_ad3_reading.py) — direct import
 - [tests/test_ad_guard.py](../../../../../../../tests/test_ad_guard.py) — direct import
   - `test_a_write_then_a_swallowed_denial_then_an_early_return_keeps_no_ad_rows`
 - [tests/test_data_capture_codex_review.py](../../../../../../../tests/test_data_capture_codex_review.py) — direct import

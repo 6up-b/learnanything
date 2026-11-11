@@ -153,6 +153,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/source_retrieval_tutor_helpers.py](../../../../../../tests/source_retrieval_tutor_helpers.py) — direct import
 - [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — direct import
   - `test_iv_with_the_student_off_rw5ds_grounding_retrieval_is_p1s`
 - [tests/test_embedding_recipe_hash_pins.py](../../../../../../tests/test_embedding_recipe_hash_pins.py) — direct import
@@ -173,7 +174,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_source_recipe_is_never_in_the_default_backfill`
 - [tests/test_source_retrieval_suites.py](../../../../../../tests/test_source_retrieval_suites.py) — direct import
   - `test_source_retrieval_report_compares_against_todays_substring_search`
-- [tests/test_source_retrieval_tutor.py](../../../../../../tests/test_source_retrieval_tutor.py) — direct import
 - [tests/test_source_space_resolver.py](../../../../../../tests/test_source_space_resolver.py) — direct import
 - [tests/test_tutor_delivery_fixes.py](../../../../../../tests/test_tutor_delivery_fixes.py) — direct import
   - `test_the_complete_passages_kill_switch_restores_the_judges_900_characters`

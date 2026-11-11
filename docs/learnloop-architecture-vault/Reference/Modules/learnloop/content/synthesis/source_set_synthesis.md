@@ -203,6 +203,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/facet_authority_helpers.py](../../../../../../../tests/facet_authority_helpers.py) — direct import
+- [tests/source_append_helpers.py](../../../../../../../tests/source_append_helpers.py) — direct import
 - [tests/test_contamination_report.py](../../../../../../../tests/test_contamination_report.py) — direct import
   - `test_exam_leakage_shortlists_nearest_held_out_spans_for_the_judge`
 - [tests/test_curriculum_c3_exam_scoping.py](../../../../../../../tests/test_curriculum_c3_exam_scoping.py) — direct import
@@ -337,10 +339,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_canned_synthesis_scores_perfect_against_matching_gold`
 - [tests/test_synthesis_identifiability.py](../../../../../../../tests/test_synthesis_identifiability.py) — direct import
   - `test_non_identifiable_bootstrap_persists_generation_need`
-- [tests/test_tutor_citations.py](../../../../../../../tests/test_tutor_citations.py) — direct import
 - [tests/test_ux_phase1_usability_round1.py](../../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
   - `test_u1_a_new_books_questions_are_not_refused_for_another_subjects_locks`
   - `test_u1_a_subject_with_a_goal_scoped_facet_rebuilds_too`
+- [tests/tutor_citations_helpers.py](../../../../../../../tests/tutor_citations_helpers.py) — direct import
 
 ## Modification guidance
 

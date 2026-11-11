@@ -128,6 +128,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/router_outcomes_helpers.py](../../../../../../../tests/router_outcomes_helpers.py) — direct import
 - [tests/test_data_capture_a4_delayed_completion.py](../../../../../../../tests/test_data_capture_a4_delayed_completion.py) — direct import
   - `test_the_lesson_suggestion_adapter_reads_the_same_definition`
 - [tests/test_data_capture_codex_review.py](../../../../../../../tests/test_data_capture_codex_review.py) — direct import
@@ -148,7 +149,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_offer_log.py](../../../../../../../tests/test_router_offer_log.py) — direct import
   - `test_a_row_the_ledger_constraints_refuse_raises_instead_of_vanishing`
   - `test_an_unregistered_design_is_refused`
-- [tests/test_router_outcomes.py](../../../../../../../tests/test_router_outcomes.py) — direct import
 - [tests/test_router_r1_composition.py](../../../../../../../tests/test_router_r1_composition.py) — direct import
   - `test_a_refused_plan_row_never_blocks_the_plan`
 - [tests/test_router_r2c_retrieval.py](../../../../../../../tests/test_router_r2c_retrieval.py) — direct import

@@ -143,6 +143,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ro4_value_helpers.py](../../../../../../tests/ro4_value_helpers.py) — direct import
+- [tests/rospeed_ad_link_helpers.py](../../../../../../tests/rospeed_ad_link_helpers.py) — direct import
 - [tests/test_ro4_value.py](../../../../../../tests/test_ro4_value.py) — direct import
   - `test_a_date_inside_a_long_action_is_scored_at_the_date_on_the_state_before_it`
   - `test_a_probe_is_scored_through_its_repair_branches`

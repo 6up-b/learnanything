@@ -476,12 +476,27 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad1_codex_rereview_fixes_helpers.py](../../../../../../tests/ad1_codex_rereview_fixes_helpers.py) — direct import
+- [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/ad3_subject_view_helpers.py](../../../../../../tests/ad3_subject_view_helpers.py) — direct import
+- [tests/ad_guard_helpers.py](../../../../../../tests/ad_guard_helpers.py) — direct import
+- [tests/curriculum_c1_fix_round2_helpers.py](../../../../../../tests/curriculum_c1_fix_round2_helpers.py) — direct import
+- [tests/curriculum_c1_fix_round3_helpers.py](../../../../../../tests/curriculum_c1_fix_round3_helpers.py) — direct import
+- [tests/curriculum_c1_plan_follows_path_helpers.py](../../../../../../tests/curriculum_c1_plan_follows_path_helpers.py) — direct import
+- [tests/daily_plan_build_helpers.py](../../../../../../tests/daily_plan_build_helpers.py) — direct import
 - [tests/daily_plan_fakes.py](../../../../../../tests/daily_plan_fakes.py) — direct import
+- [tests/data_capture_a2_measurement_helpers.py](../../../../../../tests/data_capture_a2_measurement_helpers.py) — direct import
+- [tests/followup_router_helpers.py](../../../../../../tests/followup_router_helpers.py) — direct import
+- [tests/ih2_lessons_compete_helpers.py](../../../../../../tests/ih2_lessons_compete_helpers.py) — direct import
+- [tests/mobile_v2_rereview_fixes_helpers.py](../../../../../../tests/mobile_v2_rereview_fixes_helpers.py) — direct import
+- [tests/mobile_v2_review_fixes_helpers.py](../../../../../../tests/mobile_v2_review_fixes_helpers.py) — direct import
+- [tests/plan_determinism_helpers.py](../../../../../../tests/plan_determinism_helpers.py) — direct import
+- [tests/router_card_helpers.py](../../../../../../tests/router_card_helpers.py) — direct import
+- [tests/router_g4_restraint_helpers.py](../../../../../../tests/router_g4_restraint_helpers.py) — direct import
 - [tests/router_mixture_helpers.py](../../../../../../tests/router_mixture_helpers.py) — direct import
-- [tests/test_ad1_codex_rereview_fixes.py](../../../../../../tests/test_ad1_codex_rereview_fixes.py) — direct import
+- [tests/te3b_offers_helpers.py](../../../../../../tests/te3b_offers_helpers.py) — direct import
 - [tests/test_ad1_codex_review_fixes.py](../../../../../../tests/test_ad1_codex_review_fixes.py) — direct import
 - [tests/test_ad1_outside_and_cli.py](../../../../../../tests/test_ad1_outside_and_cli.py) — direct import
-- [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — direct import
 - [tests/test_ad23_fix_r5.py](../../../../../../tests/test_ad23_fix_r5.py) — direct import
   - `test_with_selection_off_the_projection_offers_a_once_deferred_item`
 - [tests/test_ad23_fix_r8.py](../../../../../../tests/test_ad23_fix_r8.py) — direct import
@@ -1128,7 +1143,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_under_the_router_mixture_a_waiting_plan_asks_no_model_and_logs_no_decision`
 - [tests/test_voi_merge_composition.py](../../../../../../tests/test_voi_merge_composition.py) — direct import
   - `test_the_report_scores_a_project_probe_through_r1s_plan_block`
-- [tests/test_voi_stopping.py](../../../../../../tests/test_voi_stopping.py) — direct import
 - [tests/test_voi_v2.py](../../../../../../tests/test_voi_v2.py) — direct import
   - `test_a_minutes_change_values_probes_against_the_new_minutes_left`
   - `test_a_probe_outside_the_plans_universe_does_not_suppress_one_inside`
@@ -1136,7 +1150,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_skipped_probe_does_not_suppress_its_alternative_on_refresh`
   - `test_requested_probes_and_requests_share_one_request_rule`
   - `test_the_usable_minutes_are_what_the_requests_and_lanes_leave`
-- [tests/test_why_cases.py](../../../../../../tests/test_why_cases.py) — direct import
+- [tests/voi_stopping_helpers.py](../../../../../../tests/voi_stopping_helpers.py) — direct import
+- [tests/why_cases_helpers.py](../../../../../../tests/why_cases_helpers.py) — direct import
 
 ## Modification guidance
 

@@ -91,7 +91,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-- `tests/test_instruct_handoff_ih0.py`
+- `tests/instruct_handoff_ih0_helpers.py`
 - `tests/test_mobile_handoff.py`
 - `tests/test_mobile_host_auth.py`
 - `tests/test_mobile_host_coexistence.py`

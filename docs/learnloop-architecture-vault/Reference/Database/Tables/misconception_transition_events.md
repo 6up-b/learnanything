@@ -102,8 +102,10 @@ Indexes and uniqueness:
 
 - `tests/test_misconception_transitions_intake.py`
 - `tests/test_probability_prep.py`
+- `tests/causal_cold_outcomes_helpers.py`
+- `tests/diagnosis_input_provenance_helpers.py`
 - `tests/passage_cue_fakes.py`
-- `tests/test_causal_cold_outcomes.py`
+- `tests/remediation_cold_retry_helpers.py`
 - `tests/test_cli_json.py`
 - `tests/test_cold_retry_reschedule.py`
 - `tests/test_coldness_receipt.py`
@@ -118,8 +120,6 @@ Indexes and uniqueness:
 - `tests/test_diagnostic_generation.py`
 - `tests/test_discriminating_search.py`
 - `tests/test_error_hunt_items.py`
-- `tests/test_exam_protection.py`
-- `tests/test_find_sources_intents.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -245,6 +245,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/followups_batch6_prefetch_plan_wait_helpers.py](../../../../../../tests/followups_batch6_prefetch_plan_wait_helpers.py) — direct import
 - [tests/rich_fixtures.py](../../../../../../tests/rich_fixtures.py) — direct import
 - [tests/test_figure_label_wording.py](../../../../../../tests/test_figure_label_wording.py) — direct import
   - `test_the_vocabulary_comes_from_the_code_owned_labels`

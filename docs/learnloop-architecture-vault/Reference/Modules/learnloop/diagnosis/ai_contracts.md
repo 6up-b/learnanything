@@ -137,7 +137,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/followup_serve_helpers.py](../../../../../../tests/followup_serve_helpers.py) — direct import
+- [tests/probe_surface_mint_helpers.py](../../../../../../tests/probe_surface_mint_helpers.py) — direct import
 - [tests/structured_ai.py](../../../../../../tests/structured_ai.py) — direct import
+- [tests/teacher_te2_probes_helpers.py](../../../../../../tests/teacher_te2_probes_helpers.py) — direct import
 - [tests/test_codex_http_client.py](../../../../../../tests/test_codex_http_client.py) — direct import
   - `test_http_codex_client_misconception_match_bare_payload`
   - `test_http_codex_client_misconception_match_round_trip`
@@ -156,7 +158,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_chat_complete_and_declared_media_capabilities_share_one_contract`
   - `test_diagnostic_fire_uses_the_structured_completion_path`
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
-- [tests/test_teacher_te2_probes.py](../../../../../../tests/test_teacher_te2_probes.py) — direct import
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_a_decider_cancellation_in_misconception_matching_never_reaches_the_llm`
   - `test_misconception_match`

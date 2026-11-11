@@ -63,7 +63,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/local_embeddings/pins|learnloop.local_embeddings.pins]] | [[Reference/Modules/learnloop/local_embeddings/pins#^module-purpose|purpose]] | `ACTIVE` | 8 | 5 |
 | [[Reference/Modules/learnloop/local_embeddings/setup|learnloop.local_embeddings.setup]] | [[Reference/Modules/learnloop/local_embeddings/setup#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/local_embeddings/student_decision|learnloop.local_embeddings.student_decision]] | [[Reference/Modules/learnloop/local_embeddings/student_decision#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/local_embeddings/student_pins|learnloop.local_embeddings.student_pins]] | [[Reference/Modules/learnloop/local_embeddings/student_pins#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
+| [[Reference/Modules/learnloop/local_embeddings/student_pins|learnloop.local_embeddings.student_pins]] | [[Reference/Modules/learnloop/local_embeddings/student_pins#^module-purpose|purpose]] | `ACTIVE` | 5 | 4 |
 | [[Reference/Modules/learnloop/local_embeddings/student_server|learnloop.local_embeddings.student_server]] | [[Reference/Modules/learnloop/local_embeddings/student_server#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/local_embeddings/student_trainer|learnloop.local_embeddings.student_trainer]] | [[Reference/Modules/learnloop/local_embeddings/student_trainer#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/local_embeddings/worker|learnloop.local_embeddings.worker]] | [[Reference/Modules/learnloop/local_embeddings/worker#^module-purpose|purpose]] | `ACTIVE` | 5 | 4 |

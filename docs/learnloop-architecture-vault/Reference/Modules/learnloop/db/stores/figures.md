@@ -177,7 +177,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_figure_rich_rereview_fixes.py](../../../../../../../tests/test_figure_rich_rereview_fixes.py) — direct import
+- [tests/figure_rich_rereview_fixes_helpers.py](../../../../../../../tests/figure_rich_rereview_fixes_helpers.py) — direct import
+- [tests/learner_data_relax_2_helpers.py](../../../../../../../tests/learner_data_relax_2_helpers.py) — direct import
 - [tests/test_figure_rich_review_fixes.py](../../../../../../../tests/test_figure_rich_review_fixes.py) — direct import
 - [tests/test_figure_wait_estimate.py](../../../../../../../tests/test_figure_wait_estimate.py) — direct import
   - `test_a_rich_figures_calls_are_named_by_the_rich_jobs_own_key_and_a_reuse_never_relabels_a_build`
@@ -197,7 +198,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_rich_revision_with_nothing_inherited_carries_no_record`
 - [tests/test_help_assist_figures_migration.py](../../../../../../../tests/test_help_assist_figures_migration.py) — direct import
   - `test_232_rebuilds_figure_predictions_with_every_row_and_the_attempt_link`
-- [tests/test_learner_data_relax_2.py](../../../../../../../tests/test_learner_data_relax_2.py) — direct import
 - [tests/test_reader_rw5d_p4a_figures_follow.py](../../../../../../../tests/test_reader_rw5d_p4a_figures_follow.py) — direct import
   - `test_the_quiet_read_never_reverifies_an_outdated_sketch_or_writes`
 - [tests/test_rw5c_judgments.py](../../../../../../../tests/test_rw5c_judgments.py) — direct import

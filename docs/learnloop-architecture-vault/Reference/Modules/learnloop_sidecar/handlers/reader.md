@@ -333,14 +333,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/figures_show_me_helpers.py](../../../../../../tests/figures_show_me_helpers.py) — direct import
+- [tests/learner_blindness_relax_helpers.py](../../../../../../tests/learner_blindness_relax_helpers.py) — direct import
 - [tests/reader_tutor_fakes.py](../../../../../../tests/reader_tutor_fakes.py) — direct import
 - [tests/test_compare_sources_keep.py](../../../../../../tests/test_compare_sources_keep.py) — direct import
   - `test_every_registered_handler_reading_source_objects_is_pinned`
   - `test_the_pin_catches_a_second_raw_reader`
 - [tests/test_figures_rw5b_review.py](../../../../../../tests/test_figures_rw5b_review.py) — direct import
   - `test_a_reader_ask_answer_offers_and_its_press_builds_from_its_question_event`
-- [tests/test_figures_show_me.py](../../../../../../tests/test_figures_show_me.py) — direct import
-- [tests/test_learner_blindness_relax.py](../../../../../../tests/test_learner_blindness_relax.py) — direct import
 - [tests/test_method_explicit_landing.py](../../../../../../tests/test_method_explicit_landing.py) — direct import
   - `test_check_me_keeps_the_sentence_whole_when_it_clips`
 - [tests/test_mobile_v4_codex_review.py](../../../../../../tests/test_mobile_v4_codex_review.py) — direct import

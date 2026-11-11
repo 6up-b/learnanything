@@ -98,11 +98,13 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/ad1_codex_rereview_fixes_helpers.py`
+- `tests/ad1_migration_helpers.py`
+- `tests/ad23_contract_helpers.py`
 - `tests/ad_fakes.py`
 - `tests/test_ad1_codex_rereview_fixes.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_migration.py`
-- `tests/test_ad23_contract.py`
 - `tests/test_ad_guard.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`

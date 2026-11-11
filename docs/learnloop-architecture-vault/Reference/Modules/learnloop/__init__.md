@@ -89,9 +89,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/facet_authority_helpers.py](../../../../../tests/facet_authority_helpers.py) — direct import
 - [tests/test_e0_review_round5.py](../../../../../tests/test_e0_review_round5.py) — direct import
   - `test_production_never_imports_the_messages_api_transport`
-- [tests/test_facet_authority.py](../../../../../tests/test_facet_authority.py) — direct import
 - [tests/test_reader_rw2b_fix10.py](../../../../../tests/test_reader_rw2b_fix10.py) — direct import
   - `test_item4_with_help_off_and_no_rw2b_assist_the_counts_equal_the_base_codes`
 - [tests/test_reader_rw2b_fix11.py](../../../../../tests/test_reader_rw2b_fix11.py) — direct import

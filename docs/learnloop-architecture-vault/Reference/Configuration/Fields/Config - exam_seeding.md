@@ -18,18 +18,18 @@ source_paths:
   - "tests/test_config_refactor.py"
   - "src/learnloop/ai/plan_fallback.py"
   - "src/learnloop/goals/exam_seeding.py"
+  - "tests/causal_factor_deferral_helpers.py"
+  - "tests/causal_p2_acceptance_helpers.py"
   - "tests/diagnosis_fakes.py"
   - "tests/diagnosis_split_helpers.py"
-  - "tests/openai_fakes.py"
-  - "tests/teacher_fakes.py"
-  - "tests/test_adaptive_difficulty_ad1.py"
-  - "tests/test_agent_run_tokens.py"
-  - "tests/test_anchor_resolution.py"
-  - "tests/test_attempt_ai_flow.py"
-  - "tests/test_attempt_chain_records.py"
-  - "tests/test_attempts.py"
-  - "tests/test_blind_grading_contract.py"
-  - "tests/test_causal_attribution_exhibit.py"
+  - "tests/diagnostic_augmentation_helpers.py"
+  - "tests/diagnostic_probe_single_use_helpers.py"
+  - "tests/durable_promotion_arms_helpers.py"
+  - "tests/exam_session_helpers.py"
+  - "tests/grading_hardcases_helpers.py"
+  - "tests/guided_redo_helpers.py"
+  - "tests/held_grade_evidence_helpers.py"
+  - "tests/migrations_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/exam-seeding"
@@ -60,18 +60,18 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/causal_factor_deferral_helpers.py`
+- `tests/causal_p2_acceptance_helpers.py`
 - `tests/diagnosis_fakes.py`
 - `tests/diagnosis_split_helpers.py`
-- `tests/openai_fakes.py`
-- `tests/teacher_fakes.py`
-- `tests/test_adaptive_difficulty_ad1.py`
-- `tests/test_agent_run_tokens.py`
-- `tests/test_anchor_resolution.py`
-- `tests/test_attempt_ai_flow.py`
-- `tests/test_attempt_chain_records.py`
-- `tests/test_attempts.py`
-- `tests/test_blind_grading_contract.py`
-- `tests/test_causal_attribution_exhibit.py`
+- `tests/diagnostic_augmentation_helpers.py`
+- `tests/diagnostic_probe_single_use_helpers.py`
+- `tests/durable_promotion_arms_helpers.py`
+- `tests/exam_session_helpers.py`
+- `tests/grading_hardcases_helpers.py`
+- `tests/guided_redo_helpers.py`
+- `tests/held_grade_evidence_helpers.py`
+- `tests/migrations_helpers.py`
 
 ## Extension and modification guidance
 

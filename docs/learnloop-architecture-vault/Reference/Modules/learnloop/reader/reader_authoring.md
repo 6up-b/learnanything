@@ -120,7 +120,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_daily_loop_reader_authored_practice.py](../../../../../../tests/test_daily_loop_reader_authored_practice.py) — direct import
+- [tests/daily_loop_reader_authored_practice_helpers.py](../../../../../../tests/daily_loop_reader_authored_practice_helpers.py) — direct import
 - [tests/test_daily_loop_reader_retire.py](../../../../../../tests/test_daily_loop_reader_retire.py) — direct import
   - `test_retiring_a_reader_question_retires_its_practice_item`
   - `test_retiring_a_reference_only_question_retires_nothing_else`

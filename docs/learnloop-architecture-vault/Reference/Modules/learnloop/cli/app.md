@@ -329,18 +329,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/ad_denial_log_helpers.py](../../../../../../tests/ad_denial_log_helpers.py) — direct import
 - [tests/rw5c_golden_source.py](../../../../../../tests/rw5c_golden_source.py) — direct import
 - [tests/test_ad1_outside_and_cli.py](../../../../../../tests/test_ad1_outside_and_cli.py) — direct import
   - `test_ad_backfill_dry_run_plans_and_writes_nothing`
   - `test_ad_data_check_is_read_only_and_reports_the_tables`
-- [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — direct import
 - [tests/test_ad23_successor.py](../../../../../../tests/test_ad23_successor.py) — direct import
   - `test_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest`
 - [tests/test_ad3_monitoring.py](../../../../../../tests/test_ad3_monitoring.py) — direct import
   - `test_report_cli_is_read_only_dry_run_first`
 - [tests/test_ad3_relatedness.py](../../../../../../tests/test_ad3_relatedness.py) — direct import
   - `test_spend_capped_and_dry_run_first`
-- [tests/test_ad_denial_log.py](../../../../../../tests/test_ad_denial_log.py) — direct import
 - [tests/test_ai_compare.py](../../../../../../tests/test_ai_compare.py) — direct import
   - `test_refusals_and_rejections_quoting_the_learner_never_reach_the_report`
   - `test_the_text_dry_run_prints_the_estimate`
@@ -872,6 +872,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_trace_evidence_and_why_attempt_read_the_same_observations`
 - [tests/test_why_real_cases.py](../../../../../../tests/test_why_real_cases.py) — direct import
   - `test_the_other_vaults_answer_latest_without_error`
+- [tests/why_cases_helpers.py](../../../../../../tests/why_cases_helpers.py) — direct import
 
 ## Modification guidance
 

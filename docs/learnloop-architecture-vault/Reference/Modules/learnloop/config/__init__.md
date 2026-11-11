@@ -163,6 +163,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
+- [tests/plan_first_transport_offer_grants_helpers.py](../../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import
 - [tests/test_ad23_successor.py](../../../../../../tests/test_ad23_successor.py) — direct import
   - `test_every_new_key_is_a_classified_config_leaf`
   - `test_the_switches_compose`

@@ -21,16 +21,16 @@ source_paths:
   - "src/learnloop/content/facet_identity/authority.py"
   - "tests/ad_fakes.py"
   - "tests/codex_cli_fakes.py"
+  - "tests/contamination_report_helpers.py"
+  - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/diagnose_review_helpers.py"
   - "tests/facet_identity_fakes.py"
+  - "tests/figures_fix_round2_helpers.py"
+  - "tests/figures_switch_off_helpers.py"
+  - "tests/graph_nomination_ingest_helpers.py"
   - "tests/hint_fakes.py"
   - "tests/local_embeddings_fakes.py"
-  - "tests/mobile_host_helpers.py"
-  - "tests/notes_fixtures.py"
-  - "tests/pf_fakes.py"
-  - "tests/practice_index_fakes.py"
-  - "tests/router_model_fakes.py"
-  - "tests/rw5c_fixtures.py"
-  - "tests/split_live_helpers.py"
+  - "tests/mobile_host_auth_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/facet-identity"
@@ -75,16 +75,16 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/ad_fakes.py`
 - `tests/codex_cli_fakes.py`
+- `tests/contamination_report_helpers.py`
+- `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/diagnose_review_helpers.py`
 - `tests/facet_identity_fakes.py`
+- `tests/figures_fix_round2_helpers.py`
+- `tests/figures_switch_off_helpers.py`
+- `tests/graph_nomination_ingest_helpers.py`
 - `tests/hint_fakes.py`
 - `tests/local_embeddings_fakes.py`
-- `tests/mobile_host_helpers.py`
-- `tests/notes_fixtures.py`
-- `tests/pf_fakes.py`
-- `tests/practice_index_fakes.py`
-- `tests/router_model_fakes.py`
-- `tests/rw5c_fixtures.py`
-- `tests/split_live_helpers.py`
+- `tests/mobile_host_auth_helpers.py`
 
 ## Extension and modification guidance
 

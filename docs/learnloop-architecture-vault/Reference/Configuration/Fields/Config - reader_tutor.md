@@ -19,6 +19,8 @@ source_paths:
   - "src/learnloop/ai/plan_fallback.py"
   - "src/learnloop_sidecar/handlers/reader_tutor.py"
   - "src/learnloop/tutor/tutor_qa.py"
+  - "tests/learner_blindness_relax_helpers.py"
+  - "tests/reader_source_identity_guard_helpers.py"
   - "tests/test_compare_keep_switch_off.py"
   - "tests/test_figure_offers.py"
   - "tests/test_figures_rpc.py"
@@ -28,9 +30,7 @@ source_paths:
   - "tests/test_reader_inquiry_kill_switch.py"
   - "tests/test_reader_intent.py"
   - "tests/test_reader_rw1c_review.py"
-  - "tests/test_reader_source_identity_guard.py"
   - "tests/test_reader_tutor_offers.py"
-  - "tests/test_reader_tutor_switch_off.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/reader-tutor"
@@ -62,6 +62,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/learner_blindness_relax_helpers.py`
+- `tests/reader_source_identity_guard_helpers.py`
 - `tests/test_compare_keep_switch_off.py`
 - `tests/test_figure_offers.py`
 - `tests/test_figures_rpc.py`
@@ -71,9 +73,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_reader_inquiry_kill_switch.py`
 - `tests/test_reader_intent.py`
 - `tests/test_reader_rw1c_review.py`
-- `tests/test_reader_source_identity_guard.py`
 - `tests/test_reader_tutor_offers.py`
-- `tests/test_reader_tutor_switch_off.py`
 
 ## Extension and modification guidance
 

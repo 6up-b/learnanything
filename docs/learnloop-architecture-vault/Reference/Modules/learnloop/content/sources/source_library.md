@@ -99,11 +99,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/daily_plan_reading_helpers.py](../../../../../../../tests/daily_plan_reading_helpers.py) — direct import
+- [tests/sidecar_quick_add_helpers.py](../../../../../../../tests/sidecar_quick_add_helpers.py) — direct import
 - [tests/test_capture_domain.py](../../../../../../../tests/test_capture_domain.py) — direct import
   - `test_purge_retains_canonical_source_original`
 - [tests/test_capture_originals_race.py](../../../../../../../tests/test_capture_originals_race.py) — direct import
   - `test_source_publication_and_capture_purge_share_writer_reservation`
-- [tests/test_daily_plan_reading.py](../../../../../../../tests/test_daily_plan_reading.py) — direct import
 - [tests/test_ingest_m3.py](../../../../../../../tests/test_ingest_m3.py) — direct import
   - `test_acquisition_preview_reports_recognition_dupes_and_existing`
 - [tests/test_ingest_runner.py](../../../../../../../tests/test_ingest_runner.py) — direct import
@@ -119,7 +120,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_show.py](../../../../../../../tests/test_show.py) — direct import
   - `test_show_adds_imported_source_name_without_replacing_ref_id`
 - [tests/test_sidecar_ingest_m3.py](../../../../../../../tests/test_sidecar_ingest_m3.py) — direct import
-- [tests/test_sidecar_quick_add.py](../../../../../../../tests/test_sidecar_quick_add.py) — direct import
 - [tests/test_sidecar_span_view.py](../../../../../../../tests/test_sidecar_span_view.py) — direct import
 - [tests/test_source_layer.py](../../../../../../../tests/test_source_layer.py) — direct import
   - `test_different_artifacts_same_bytes_distinct_revisions`
@@ -133,7 +133,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_youtube_source_ref_uses_title_captured_during_ingest`
 - [tests/test_span_reanchor.py](../../../../../../../tests/test_span_reanchor.py) — direct import
   - `test_reanchor_aliases_persist`
-- [tests/test_ux_phase1_round2_review.py](../../../../../../../tests/test_ux_phase1_round2_review.py) — direct import
+- [tests/ux_phase1_round2_review_helpers.py](../../../../../../../tests/ux_phase1_round2_review_helpers.py) — direct import
 
 ## Modification guidance
 

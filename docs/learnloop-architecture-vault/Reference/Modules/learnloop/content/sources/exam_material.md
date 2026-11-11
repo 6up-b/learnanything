@@ -319,7 +319,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_ad1_codex_rereview_fixes.py](../../../../../../../tests/test_ad1_codex_rereview_fixes.py) — direct import
+- [tests/ad1_codex_rereview_fixes_helpers.py](../../../../../../../tests/ad1_codex_rereview_fixes_helpers.py) — direct import
+- [tests/ad23_contract_helpers.py](../../../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/figures_codex_review_helpers.py](../../../../../../../tests/figures_codex_review_helpers.py) — direct import
+- [tests/mcp_c1a_landing_helpers.py](../../../../../../../tests/mcp_c1a_landing_helpers.py) — direct import
+- [tests/reread_safety_helpers.py](../../../../../../../tests/reread_safety_helpers.py) — direct import
+- [tests/reread_safety_landing_helpers.py](../../../../../../../tests/reread_safety_landing_helpers.py) — direct import
+- [tests/router_card_helpers.py](../../../../../../../tests/router_card_helpers.py) — direct import
+- [tests/router_card_reading_gaps_helpers.py](../../../../../../../tests/router_card_reading_gaps_helpers.py) — direct import
 - [tests/test_ad1_fix_round4.py](../../../../../../../tests/test_ad1_fix_round4.py) — direct import
 - [tests/test_ad1_fix_round5.py](../../../../../../../tests/test_ad1_fix_round5.py) — direct import
   - `test_a_reload_while_protection_is_built_is_never_judged_by_the_vault_it_replaced`
@@ -395,7 +402,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_unresolvable_mark_withholds_every_extraction_of_its_source`
   - `test_held_out_marks_in_two_extractions_each_hold_their_own_extraction_exactly`
   - `test_the_same_unit_marked_in_two_extractions_withholds_only_that_unit`
-- [tests/test_figures_codex_review.py](../../../../../../../tests/test_figures_codex_review.py) — direct import
 - [tests/test_figures_show_me.py](../../../../../../../tests/test_figures_show_me.py) — direct import
   - `test_a_missed_predictions_text_rechecks_the_retrieved_passages`
   - `test_a_retrieved_passage_held_out_later_withholds_the_figure`
@@ -406,7 +412,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_blindness_relax_codex_review.py](../../../../../../../tests/test_learner_blindness_relax_codex_review.py) — direct import
 - [tests/test_library_ask_review.py](../../../../../../../tests/test_library_ask_review.py) — direct import
   - `test_a_held_out_selection_is_refused_before_any_retrieval`
-- [tests/test_mcp_c1a_landing.py](../../../../../../../tests/test_mcp_c1a_landing.py) — direct import
 - [tests/test_mcp_c1a_review.py](../../../../../../../tests/test_mcp_c1a_review.py) — direct import
   - `test_a_recurrence_group_rooted_in_a_protected_hypothesis_keeps_no_statement`
 - [tests/test_mcp_tools.py](../../../../../../../tests/test_mcp_tools.py) — direct import

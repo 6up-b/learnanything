@@ -224,6 +224,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/approach_map_fakes.py](../../../../../../tests/approach_map_fakes.py) — direct import
+- [tests/concept_animation_service_helpers.py](../../../../../../tests/concept_animation_service_helpers.py) — direct import
+- [tests/contamination_report_helpers.py](../../../../../../tests/contamination_report_helpers.py) — direct import
 - [tests/diagnosis_fakes.py](../../../../../../tests/diagnosis_fakes.py) — direct import
 - [tests/embedding_fakes.py](../../../../../../tests/embedding_fakes.py) — direct import
 - [tests/facet_identity_fakes.py](../../../../../../tests/facet_identity_fakes.py) — direct import
@@ -291,8 +293,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_tool_item_refuses_the_answer`
   - `test_a_workspace_that_is_the_vault_is_refused`
   - `test_tokens_reported_before_an_ordinary_failure_reach_the_receipt_and_the_settle`
-- [tests/test_concept_animation_service.py](../../../../../../tests/test_concept_animation_service.py) — direct import
-- [tests/test_contamination_report.py](../../../../../../tests/test_contamination_report.py) — direct import
 - [tests/test_decider_client.py](../../../../../../tests/test_decider_client.py) — direct import
   - `test_a_transport_error_echoing_a_key_reaches_neither_receipt_nor_caller`
   - `test_an_unreachable_endpoint_is_recorded_as_network_without_a_status`
@@ -457,9 +457,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_cancellation_is_never_a_fallback`
   - `test_a_decider_cancellation_in_misconception_matching_never_reaches_the_llm`
   - `test_links_the_decider_answered_are_never_paid_for_again_when_the_fallback_failed`
-- [tests/test_tutor_promotion_service.py](../../../../../../tests/test_tutor_promotion_service.py) — direct import
 - [tests/test_voyage_fallback.py](../../../../../../tests/test_voyage_fallback.py) — direct import
   - `test_errors_never_carry_the_key_or_the_body`
+- [tests/tier1_decider_helpers.py](../../../../../../tests/tier1_decider_helpers.py) — direct import
+- [tests/tutor_promotion_service_helpers.py](../../../../../../tests/tutor_promotion_service_helpers.py) — direct import
 
 ## Modification guidance
 

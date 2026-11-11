@@ -163,10 +163,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad23_contract_helpers.py](../../../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/help_outcomes_helpers.py](../../../../../../../tests/help_outcomes_helpers.py) — direct import
 - [tests/recurrence_fakes.py](../../../../../../../tests/recurrence_fakes.py) — direct import
 - [tests/test_activity_families.py](../../../../../../../tests/test_activity_families.py) — direct import
   - `test_verifier_rejects_unbound_acceptance`
-- [tests/test_ad23_contract.py](../../../../../../../tests/test_ad23_contract.py) — direct import
 - [tests/test_ad2_model.py](../../../../../../../tests/test_ad2_model.py) — direct import
 - [tests/test_contamination_report.py](../../../../../../../tests/test_contamination_report.py) — direct import
   - `test_owner_verdict_outranks_the_judge`

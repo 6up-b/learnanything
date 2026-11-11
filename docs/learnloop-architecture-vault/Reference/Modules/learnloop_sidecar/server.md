@@ -132,6 +132,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/plan_first_transport_offer_grants_helpers.py](../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import
+- [tests/settings_sidecar_helpers.py](../../../../../tests/settings_sidecar_helpers.py) — direct import
+- [tests/sidecar_contract_helpers.py](../../../../../tests/sidecar_contract_helpers.py) — direct import
+- [tests/sidecar_golden_path_assessment_helpers.py](../../../../../tests/sidecar_golden_path_assessment_helpers.py) — direct import
+- [tests/sidecar_reader_helpers.py](../../../../../tests/sidecar_reader_helpers.py) — direct import
+- [tests/sidecar_reader_p3_helpers.py](../../../../../tests/sidecar_reader_p3_helpers.py) — direct import
+- [tests/sidecar_tutor_qa_helpers.py](../../../../../tests/sidecar_tutor_qa_helpers.py) — direct import
 - [tests/source_service_fakes.py](../../../../../tests/source_service_fakes.py) — direct import
 - [tests/test_approach_maps.py](../../../../../tests/test_approach_maps.py) — direct import
   - `test_m4_shutdown_and_eof_drain_within_their_bound`
@@ -161,7 +168,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_reopening_feedback_does_not_charge_again`
 - [tests/test_section_coverage_rpcs.py](../../../../../tests/test_section_coverage_rpcs.py) — direct import
   - `test_a_failed_job_relays_an_openrouter_offer_keyed_by_curriculum_cover`
-- [tests/test_settings_sidecar.py](../../../../../tests/test_settings_sidecar.py) — direct import
 - [tests/test_sidecar_animation.py](../../../../../tests/test_sidecar_animation.py) — direct import
 - [tests/test_sidecar_append.py](../../../../../tests/test_sidecar_append.py) — direct import
 - [tests/test_sidecar_blueprint_picker.py](../../../../../tests/test_sidecar_blueprint_picker.py) — direct import
@@ -171,7 +177,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_diagnostic.py](../../../../../tests/test_sidecar_diagnostic.py) — direct import
 - [tests/test_sidecar_epigraphs.py](../../../../../tests/test_sidecar_epigraphs.py) — direct import
 - [tests/test_sidecar_golden_path.py](../../../../../tests/test_sidecar_golden_path.py) — direct import
-- [tests/test_sidecar_golden_path_assessment.py](../../../../../tests/test_sidecar_golden_path_assessment.py) — direct import
 - [tests/test_sidecar_idle_threads.py](../../../../../tests/test_sidecar_idle_threads.py) — direct import
   - `test_the_sidecars_eof_closes_its_context`
 - [tests/test_sidecar_ingest_m3.py](../../../../../tests/test_sidecar_ingest_m3.py) — direct import
@@ -180,8 +185,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_ladder.py](../../../../../tests/test_sidecar_ladder.py) — direct import
 - [tests/test_sidecar_probe.py](../../../../../tests/test_sidecar_probe.py) — direct import
 - [tests/test_sidecar_quick_add.py](../../../../../tests/test_sidecar_quick_add.py) — direct import
-- [tests/test_sidecar_reader.py](../../../../../tests/test_sidecar_reader.py) — direct import
-- [tests/test_sidecar_reader_p3.py](../../../../../tests/test_sidecar_reader_p3.py) — direct import
 - [tests/test_sidecar_registry.py](../../../../../tests/test_sidecar_registry.py) — direct import
 - [tests/test_sidecar_source_retrieval.py](../../../../../tests/test_sidecar_source_retrieval.py) — direct import
 - [tests/test_sidecar_span_view.py](../../../../../tests/test_sidecar_span_view.py) — direct import
@@ -190,7 +193,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_transport.py](../../../../../tests/test_sidecar_transport.py) — direct import
   - `test_non_serializable_handler_result_becomes_a_protocol_error_response`
   - `test_unexpected_handler_failure_marks_the_commit_outcome_unknown`
-- [tests/test_sidecar_tutor_qa.py](../../../../../tests/test_sidecar_tutor_qa.py) — direct import
 - [tests/test_source_deletion.py](../../../../../tests/test_source_deletion.py) — direct import
 - [tests/test_source_space_resolver.py](../../../../../tests/test_source_space_resolver.py) — direct import
   - `test_the_open_rpc_records_nothing_with_the_switches_off`

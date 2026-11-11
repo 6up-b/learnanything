@@ -167,6 +167,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/learner_text_gaps_review_helpers.py](../../../../../../../tests/learner_text_gaps_review_helpers.py) — direct import
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
   - `test_the_diagnosis_hypotheses_come_first_my_gap_first_then_the_learners_gaps`
 - [tests/test_learner_text_gaps.py](../../../../../../../tests/test_learner_text_gaps.py) — direct import

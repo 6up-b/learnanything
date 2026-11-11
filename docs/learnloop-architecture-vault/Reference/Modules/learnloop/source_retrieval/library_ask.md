@@ -248,6 +248,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/figure_offers_helpers.py](../../../../../../tests/figure_offers_helpers.py) — direct import
 - [tests/library_ask_fixtures.py](../../../../../../tests/library_ask_fixtures.py) — direct import
 - [tests/test_compare_sources_keep.py](../../../../../../tests/test_compare_sources_keep.py) — direct import
   - `test_a_tutor_keep_checks_its_question_passage_before_any_write`

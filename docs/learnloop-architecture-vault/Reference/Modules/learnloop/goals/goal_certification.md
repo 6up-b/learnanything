@@ -114,6 +114,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reading_paths_helpers.py](../../../../../../tests/reading_paths_helpers.py) — direct import
 - [tests/test_goal_certification_any_of.py](../../../../../../tests/test_goal_certification_any_of.py) — direct import
   - `test_all_of_only_recipe_behaviour_is_unchanged`
   - `test_any_of_only_recipe_does_not_certify_without_evidence`

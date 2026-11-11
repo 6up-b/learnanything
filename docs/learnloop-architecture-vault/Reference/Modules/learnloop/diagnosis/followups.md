@@ -183,6 +183,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/causal_factor_deferral_helpers.py](../../../../../../tests/causal_factor_deferral_helpers.py) — direct import
 - [tests/test_attempt_chain_records.py](../../../../../../tests/test_attempt_chain_records.py) — direct import
   - `test_a_failed_forecast_and_a_failed_post_diagnosis_step_leave_records`
 - [tests/test_causal_attribution_exhibit.py](../../../../../../tests/test_causal_attribution_exhibit.py) — direct import
@@ -253,7 +254,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_success_resets_repeat_failure_gate_and_coverage_is_not_failed`
 - [tests/test_recurrence_deferral.py](../../../../../../tests/test_recurrence_deferral.py) — direct import
 - [tests/test_source_first_needs.py](../../../../../../tests/test_source_first_needs.py) — direct import
-- [tests/test_voi_stopping.py](../../../../../../tests/test_voi_stopping.py) — direct import
+- [tests/voi_stopping_helpers.py](../../../../../../tests/voi_stopping_helpers.py) — direct import
 
 ## Modification guidance
 

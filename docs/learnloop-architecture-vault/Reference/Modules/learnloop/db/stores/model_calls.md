@@ -111,7 +111,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_ad23_contract.py](../../../../../../../tests/test_ad23_contract.py) — direct import
+- [tests/ad23_contract_helpers.py](../../../../../../../tests/ad23_contract_helpers.py) — direct import
 - [tests/test_practice_index_dossiers.py](../../../../../../../tests/test_practice_index_dossiers.py) — direct import
   - `test_a_paid_answer_whose_checkpoint_failed_is_recovered_from_its_receipt`
   - `test_a_receipt_for_another_request_or_an_invalid_answer_is_not_recovered`

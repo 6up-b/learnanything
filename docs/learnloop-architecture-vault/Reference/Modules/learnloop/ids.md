@@ -277,9 +277,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad23_contract_helpers.py](../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/capture_desktop_helpers.py](../../../../../tests/capture_desktop_helpers.py) — direct import
+- [tests/figure_offers_helpers.py](../../../../../tests/figure_offers_helpers.py) — direct import
+- [tests/hint_telemetry_helpers.py](../../../../../tests/hint_telemetry_helpers.py) — direct import
 - [tests/notes_fixtures.py](../../../../../tests/notes_fixtures.py) — direct import
-- [tests/test_ad23_contract.py](../../../../../tests/test_ad23_contract.py) — direct import
-  - `test_an_empty_support_draw_of_a_protected_slot_leaves_the_report_cohort`
+- [tests/p2_acceptance_helpers.py](../../../../../tests/p2_acceptance_helpers.py) — direct import
+- [tests/probe_block_end_helpers.py](../../../../../tests/probe_block_end_helpers.py) — direct import
+- [tests/probe_orchestration_remainder_helpers.py](../../../../../tests/probe_orchestration_remainder_helpers.py) — direct import
+- [tests/probe_robust_cutover_helpers.py](../../../../../tests/probe_robust_cutover_helpers.py) — direct import
+- [tests/reader_tutor_retrieval_helpers.py](../../../../../tests/reader_tutor_retrieval_helpers.py) — direct import
+- [tests/reread_safety_helpers.py](../../../../../tests/reread_safety_helpers.py) — direct import
 - [tests/test_arcb_close_fixes.py](../../../../../tests/test_arcb_close_fixes.py) — direct import
   - `test_the_record_stream_is_monotonic_and_apart_from_the_shared_one`
 - [tests/test_capture_desktop.py](../../../../../tests/test_capture_desktop.py) — direct import
@@ -315,11 +323,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_revealed_item_is_never_the_cold_retry`
   - `test_an_exposed_import_never_becomes_an_exam_item`
 - [tests/test_exam_protection_review.py](../../../../../tests/test_exam_protection_review.py) — direct import
-- [tests/test_figure_offers.py](../../../../../tests/test_figure_offers.py) — direct import
 - [tests/test_figures_rw5b_fix_round2.py](../../../../../tests/test_figures_rw5b_fix_round2.py) — direct import
   - `test_a_forked_ask_offers_and_builds_on_the_fork`
 - [tests/test_goal_contracts.py](../../../../../tests/test_goal_contracts.py) — direct import
-- [tests/test_hint_telemetry.py](../../../../../tests/test_hint_telemetry.py) — direct import
 - [tests/test_ids.py](../../../../../tests/test_ids.py) — direct import
   - `test_a_new_millisecond_restarts_from_fresh_randomness`
   - `test_new_ulid_after_ignores_a_floor_that_is_not_a_ulid_or_is_behind`
@@ -343,7 +349,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_model_grade_lane.py](../../../../../tests/test_model_grade_lane.py) — direct import
 - [tests/test_notes_linked.py](../../../../../tests/test_notes_linked.py) — direct import
   - `test_r6_review_f2_a_clock_correction_and_restart_never_blocks_later_refreshes`
-- [tests/test_p2_acceptance.py](../../../../../tests/test_p2_acceptance.py) — direct import
 - [tests/test_p2_leakage_suite.py](../../../../../tests/test_p2_leakage_suite.py) — direct import
 - [tests/test_pfc_unassessed_readers.py](../../../../../tests/test_pfc_unassessed_readers.py) — direct import
 - [tests/test_probe_audit.py](../../../../../tests/test_probe_audit.py) — direct import
@@ -358,14 +363,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_orchestration_remainder.py](../../../../../tests/test_probe_orchestration_remainder.py) — direct import
   - `test_answer_confidence_out_of_range_is_rejected`
 - [tests/test_probe_policy.py](../../../../../tests/test_probe_policy.py) — direct import
-- [tests/test_probe_robust_cutover.py](../../../../../tests/test_probe_robust_cutover.py) — direct import
 - [tests/test_project_blindness.py](../../../../../tests/test_project_blindness.py) — direct import
   - `test_rendered_prompts_carry_no_provenance_declaration_or_closed_book_origin`
 - [tests/test_project_report.py](../../../../../tests/test_project_report.py) — direct import
 - [tests/test_reader_ca1_as_printed.py](../../../../../tests/test_reader_ca1_as_printed.py) — direct import
 - [tests/test_reader_recap_review_r2.py](../../../../../tests/test_reader_recap_review_r2.py) — direct import
 - [tests/test_reader_tutor_retrieval.py](../../../../../tests/test_reader_tutor_retrieval.py) — direct import
-- [tests/test_reread_safety.py](../../../../../tests/test_reread_safety.py) — direct import
 - [tests/test_ro1_availability.py](../../../../../tests/test_ro1_availability.py) — direct import
   - `test_the_backfill_reads_an_imported_exam_rows_ulid_time_and_leaves_bad_ids_null`
 - [tests/test_router_r2a_landing.py](../../../../../tests/test_router_r2a_landing.py) — direct import
@@ -376,8 +379,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_fg1s_presentation_path_stamps_the_submissions_identity_and_its_regrade_the_replacements`
 - [tests/test_voi_merge_composition.py](../../../../../tests/test_voi_merge_composition.py) — direct import
   - `test_the_report_scores_a_project_probe_through_r1s_plan_block`
-- [tests/test_voi_stopping.py](../../../../../tests/test_voi_stopping.py) — direct import
 - [tests/voi_restore_scenarios.py](../../../../../tests/voi_restore_scenarios.py) — direct import
+- [tests/voi_stopping_helpers.py](../../../../../tests/voi_stopping_helpers.py) — direct import
 
 ## Modification guidance
 

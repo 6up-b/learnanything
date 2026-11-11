@@ -235,6 +235,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reference_gate_imports_helpers.py](../../../../../../../tests/reference_gate_imports_helpers.py) — direct import
+- [tests/source_exercise_import_helpers.py](../../../../../../../tests/source_exercise_import_helpers.py) — direct import
 - [tests/source_service_fakes.py](../../../../../../../tests/source_service_fakes.py) — direct import
 - [tests/test_attach_to_family.py](../../../../../../../tests/test_attach_to_family.py) — direct import
   - `test_a_matching_family_is_joined_and_undone`

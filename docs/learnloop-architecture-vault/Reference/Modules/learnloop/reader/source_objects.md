@@ -123,6 +123,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reread_safety_helpers.py](../../../../../../tests/reread_safety_helpers.py) — direct import
 - [tests/test_compare_sources_keep.py](../../../../../../tests/test_compare_sources_keep.py) — direct import
   - `test_an_unreadable_comparison_is_withheld_whole`
   - `test_source_objects_fail_closed`

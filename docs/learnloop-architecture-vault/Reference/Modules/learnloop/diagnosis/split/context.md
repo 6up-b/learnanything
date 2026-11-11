@@ -177,6 +177,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_context_helpers.py](../../../../../../../tests/diagnosis_context_helpers.py) — direct import
+- [tests/diagnosis_history_modes_helpers.py](../../../../../../../tests/diagnosis_history_modes_helpers.py) — direct import
+- [tests/learner_blindness_relax_helpers.py](../../../../../../../tests/learner_blindness_relax_helpers.py) — direct import
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../../tests/test_chatgpt_plan_workspace.py) — direct import
 - [tests/test_diagnosis_context.py](../../../../../../../tests/test_diagnosis_context.py) — direct import
   - `test_assembly_and_hash_are_deterministic`
@@ -197,7 +200,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_context_hashes_as_before_without_a_figure_trace`
 - [tests/test_followup_fg1c_codex_review.py](../../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
   - `test_f1_a_rediagnosis_records_the_cause_it_was_shown_through_a_mark`
-- [tests/test_learner_blindness_relax.py](../../../../../../../tests/test_learner_blindness_relax.py) — direct import
 - [tests/test_pfc_unassessed_readers.py](../../../../../../../tests/test_pfc_unassessed_readers.py) — direct import
   - `test_a_later_diagnosis_cannot_cite_an_unassessed_shortfall_as_a_recurrence`
 - [tests/test_reader_rw2b_fix15.py](../../../../../../../tests/test_reader_rw2b_fix15.py) — direct import

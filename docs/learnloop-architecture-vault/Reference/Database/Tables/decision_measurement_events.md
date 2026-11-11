@@ -107,11 +107,11 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-- `tests/test_data_capture_migration.py`
+- `tests/data_capture_migration_helpers.py`
+- `tests/teacher_te1b_migration_helpers.py`
 - `tests/test_ro0_codex_verify.py`
 - `tests/test_ro0_row10_cold_timing.py`
 - `tests/test_router_objective_migration.py`
-- `tests/test_teacher_te1b_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -133,22 +133,22 @@ Indexes and uniqueness:
 - `tests/test_migrations.py`
 - `tests/test_ro2_ad_document_ir.py`
 - `tests/test_rospeed2_section_map.py`
+- `tests/daily_plan_reading_helpers.py`
 - `tests/exam_scope_fixtures.py`
+- `tests/facet_reword_confirm_helpers.py`
 - `tests/helpers.py`
+- `tests/reread_safety_helpers.py`
+- `tests/sidecar_quick_add_helpers.py`
+- `tests/source_inventory_helpers.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_ad_projection.py`
 - `tests/test_ad_protected_readings.py`
 - `tests/test_curriculum_c1_plan_follows_path.py`
-- `tests/test_daily_plan_reading.py`
 - `tests/test_exam_protection.py`
 - `tests/test_exam_protection_identity.py`
 - `tests/test_facet_authority_review.py`
-- `tests/test_facet_reword_confirm.py`
 - `tests/test_figures_show_me_codex_review.py`
 - `tests/test_ingest_m3.py`
-- `tests/test_ingest_runner.py`
-- `tests/test_keep_local_retired.py`
-- `tests/test_primed_attempts.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

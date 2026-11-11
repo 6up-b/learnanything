@@ -133,6 +133,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/learner_pick_proposal_helpers.py](../../../../../../../tests/learner_pick_proposal_helpers.py) — direct import
 - [tests/test_discriminating_search.py](../../../../../../../tests/test_discriminating_search.py) — direct import
   - `test_a_pick_with_an_unjudged_worked_example_is_served_as_labelled_practice`
 - [tests/test_learner_pick_proposal.py](../../../../../../../tests/test_learner_pick_proposal.py) — direct import

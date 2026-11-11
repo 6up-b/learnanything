@@ -111,9 +111,10 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/curriculum_c1_fix_round5_helpers.py`
+- `tests/deliverable_curriculum_migration_helpers.py`
 - `tests/test_curriculum_c0b_landing.py`
 - `tests/test_curriculum_c1_codex_review_fixes.py`
-- `tests/test_curriculum_c1_fix_round5.py`
 - `tests/test_curriculum_c1_plan_follows_path.py`
 - `tests/test_curriculum_c3_exam_scoping.py`
 - `tests/test_deliverable_codex_review.py`

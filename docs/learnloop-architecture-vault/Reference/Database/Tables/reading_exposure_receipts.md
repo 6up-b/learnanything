@@ -99,9 +99,9 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/data_capture_migration_helpers.py`
 - `tests/test_data_capture_codex_rereview.py`
 - `tests/test_data_capture_landing_review.py`
-- `tests/test_data_capture_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

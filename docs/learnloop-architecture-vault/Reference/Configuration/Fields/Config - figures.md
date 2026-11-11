@@ -24,16 +24,16 @@ source_paths:
   - "src/learnloop/figures/rich.py"
   - "tests/codex_cli_fakes.py"
   - "tests/conftest.py"
+  - "tests/contamination_report_helpers.py"
+  - "tests/curriculum_c1_plan_follows_path_helpers.py"
   - "tests/figure_fixtures.py"
-  - "tests/local_embeddings_fakes.py"
-  - "tests/mobile_host_helpers.py"
-  - "tests/notes_fixtures.py"
-  - "tests/pf_fakes.py"
-  - "tests/practice_index_fakes.py"
-  - "tests/router_model_fakes.py"
-  - "tests/rw5c_fixtures.py"
-  - "tests/rw5c_golden_source.py"
-  - "tests/split_live_helpers.py"
+  - "tests/figure_rich_job_helpers.py"
+  - "tests/figure_rich_rpc_helpers.py"
+  - "tests/figures_fix_round2_helpers.py"
+  - "tests/figures_help_helpers.py"
+  - "tests/figures_prefetch_helpers.py"
+  - "tests/figures_prefetch_review_fixes_helpers.py"
+  - "tests/figures_rw5b_review_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/figures"
@@ -84,16 +84,16 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/codex_cli_fakes.py`
 - `tests/conftest.py`
+- `tests/contamination_report_helpers.py`
+- `tests/curriculum_c1_plan_follows_path_helpers.py`
 - `tests/figure_fixtures.py`
-- `tests/local_embeddings_fakes.py`
-- `tests/mobile_host_helpers.py`
-- `tests/notes_fixtures.py`
-- `tests/pf_fakes.py`
-- `tests/practice_index_fakes.py`
-- `tests/router_model_fakes.py`
-- `tests/rw5c_fixtures.py`
-- `tests/rw5c_golden_source.py`
-- `tests/split_live_helpers.py`
+- `tests/figure_rich_job_helpers.py`
+- `tests/figure_rich_rpc_helpers.py`
+- `tests/figures_fix_round2_helpers.py`
+- `tests/figures_help_helpers.py`
+- `tests/figures_prefetch_helpers.py`
+- `tests/figures_prefetch_review_fixes_helpers.py`
+- `tests/figures_rw5b_review_helpers.py`
 
 ## Extension and modification guidance
 

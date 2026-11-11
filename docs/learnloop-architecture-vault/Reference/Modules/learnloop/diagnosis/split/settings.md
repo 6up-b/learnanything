@@ -117,6 +117,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/learner_blindness_relax_helpers.py](../../../../../../../tests/learner_blindness_relax_helpers.py) — direct import
 - [tests/recurrence_fakes.py](../../../../../../../tests/recurrence_fakes.py) — direct import
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../../tests/test_chatgpt_plan_workspace.py) — direct import
   - `test_a_snapshot_diagnosis_on_the_plan_records_exactly_what_it_read`

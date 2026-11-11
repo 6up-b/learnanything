@@ -217,6 +217,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/learner_blindness_relax_helpers.py](../../../../../../../tests/learner_blindness_relax_helpers.py) — direct import
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../../tests/test_chatgpt_plan_workspace.py) — direct import
 - [tests/test_codex_lockdown_round3.py](../../../../../../../tests/test_codex_lockdown_round3.py) — direct import
   - `test_a_snapshot_diagnosis_on_codex_is_inlined_and_gives_the_same_structured_output`
@@ -258,7 +259,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_hypothesis_marks.py](../../../../../../../tests/test_hypothesis_marks.py) — direct import
   - `test_the_diagnoser_reads_only_marks_made_before_the_attempt_it_is_on`
   - `test_the_switch_off_keeps_the_diagnosers_context_as_it_was_whatever_rows_exist`
-- [tests/test_learner_blindness_relax.py](../../../../../../../tests/test_learner_blindness_relax.py) — direct import
 - [tests/test_learner_text_gaps.py](../../../../../../../tests/test_learner_text_gaps.py) — direct import
   - `test_a_tutor_question_that_states_a_belief_reaches_the_holding_pen`
 - [tests/test_pfc_unassessed_readers.py](../../../../../../../tests/test_pfc_unassessed_readers.py) — direct import

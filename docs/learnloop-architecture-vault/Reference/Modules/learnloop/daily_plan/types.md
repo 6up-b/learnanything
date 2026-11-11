@@ -169,6 +169,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/daily_plan_build_helpers.py](../../../../../../tests/daily_plan_build_helpers.py) — direct import
+- [tests/mcp_c1a_landing_helpers.py](../../../../../../tests/mcp_c1a_landing_helpers.py) — direct import
+- [tests/teacher_te1b_review_fixes_helpers.py](../../../../../../tests/teacher_te1b_review_fixes_helpers.py) — direct import
 - [tests/test_block_chooser_interface.py](../../../../../../tests/test_block_chooser_interface.py) — direct import
   - `test_stopping_is_only_allowed_when_offered`
   - `test_unknown_ids_and_continue_at_a_boundary_fall_back_and_are_flagged`
@@ -193,7 +196,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_intent_plan.py](../../../../../../tests/test_intent_plan.py) — direct import
   - `test_an_assumed_lo_with_no_commitment_reads_as_keep_for_its_check`
   - `test_committed_los_reach_the_chooser_state_with_their_intent`
-- [tests/test_mcp_c1a_landing.py](../../../../../../tests/test_mcp_c1a_landing.py) — direct import
 - [tests/test_placement_unevidenced_return.py](../../../../../../tests/test_placement_unevidenced_return.py) — direct import
 - [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_a_reading_target_is_stored_as_the_predecessors_unless_the_path_chose_it`
@@ -219,7 +221,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_whole_card_off_and_below_the_tag_is_byte_identical_and_on_differs_by_the_section_alone`
 - [tests/test_te3b_offers.py](../../../../../../tests/test_te3b_offers.py) — direct import
   - `test_a_drawn_offer_is_a_block_answered_on_its_own_decision`
-- [tests/test_teacher_te1b_review_fixes.py](../../../../../../tests/test_teacher_te1b_review_fixes.py) — direct import
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
   - `test_f1m_a_valid_stop_with_work_feasible_is_kept`
 - [tests/test_ux_phase4_landing.py](../../../../../../tests/test_ux_phase4_landing.py) — direct import

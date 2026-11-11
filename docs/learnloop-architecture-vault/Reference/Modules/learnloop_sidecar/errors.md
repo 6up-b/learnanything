@@ -181,6 +181,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/mobile_v3_probes_helpers.py](../../../../../tests/mobile_v3_probes_helpers.py) — direct import
+- [tests/plan_first_transport_offer_grants_helpers.py](../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import
+- [tests/reader_source_identity_guard_helpers.py](../../../../../tests/reader_source_identity_guard_helpers.py) — direct import
 - [tests/test_build_study_map_routing.py](../../../../../tests/test_build_study_map_routing.py) — direct import
   - `test_out_of_range_or_unknown_ceilings_are_refused`
 - [tests/test_capture_desktop.py](../../../../../tests/test_capture_desktop.py) — direct import
@@ -394,7 +397,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v2_review_fixes.py](../../../../../tests/test_mobile_v2_review_fixes.py) — direct import
   - `test_f6_a_desktop_step_whose_session_moved_during_its_work_commits_nothing`
   - `test_f6_the_check_is_a_phone_origins_too`
-- [tests/test_mobile_v3_probes.py](../../../../../tests/test_mobile_v3_probes.py) — direct import
 - [tests/test_mobile_v4_reader.py](../../../../../tests/test_mobile_v4_reader.py) — direct import
   - `test_a_section_range_is_its_blocks_in_the_same_shape`
   - `test_the_phones_ask_and_save_refuse_protected_passages_before_any_model`
@@ -409,7 +411,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_plan_first_transport.py](../../../../../tests/test_plan_first_transport.py) — direct import
   - `test_a_background_jobs_offer_reaches_the_read_that_finds_it_done`
   - `test_the_sidecar_attaches_the_typed_hint_and_ai_use_fallback_records_the_choice`
-- [tests/test_plan_first_transport_offer_grants.py](../../../../../tests/test_plan_first_transport_offer_grants.py) — direct import
 - [tests/test_pr4_superseded_claims_landing.py](../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
   - `test_landing_i_a_too_easy_retirement_during_a_session`
 - [tests/test_practice_index_adapters.py](../../../../../tests/test_practice_index_adapters.py) — direct import
@@ -512,7 +513,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_cached_try_first_tap_is_refused_once_try_first_is_switched_off_and_reloaded`
 - [tests/test_reader_rw4b_fix6.py](../../../../../tests/test_reader_rw4b_fix6.py) — direct import
   - `test_f7_a_finished_help_job_on_a_problem_held_out_since_is_never_delivered`
-- [tests/test_reader_source_identity_guard.py](../../../../../tests/test_reader_source_identity_guard.py) — direct import
 - [tests/test_reader_try_first.py](../../../../../tests/test_reader_try_first.py) — direct import
   - `test_try_first_on_a_cue_that_does_not_offer_it_is_refused`
 - [tests/test_reader_tutor_offers.py](../../../../../tests/test_reader_tutor_offers.py) — direct import

@@ -17,18 +17,18 @@ source_paths:
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
   - "src/learnloop/ai/plan_fallback.py"
+  - "tests/ad23_contract_helpers.py"
   - "tests/ad23_fakes.py"
+  - "tests/ad3_subject_view_helpers.py"
+  - "tests/ad_guard_offer_receipts_helpers.py"
   - "tests/ad_reachable_reads.py"
   - "tests/approach_map_fakes.py"
+  - "tests/data_capture_codex_review_helpers.py"
   - "tests/helpers.py"
   - "tests/hint_fakes.py"
+  - "tests/instruct_handoff_ih0_helpers.py"
   - "tests/intent_fakes.py"
   - "tests/local_embeddings_fakes.py"
-  - "tests/query_student_fakes.py"
-  - "tests/router_mixture_helpers.py"
-  - "tests/test_ad1_codex_review_fixes.py"
-  - "tests/test_ad1_fix_round5.py"
-  - "tests/test_ad1_fix_round7.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/data-capture"
@@ -59,18 +59,18 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/ad23_contract_helpers.py`
 - `tests/ad23_fakes.py`
+- `tests/ad3_subject_view_helpers.py`
+- `tests/ad_guard_offer_receipts_helpers.py`
 - `tests/ad_reachable_reads.py`
 - `tests/approach_map_fakes.py`
+- `tests/data_capture_codex_review_helpers.py`
 - `tests/helpers.py`
 - `tests/hint_fakes.py`
+- `tests/instruct_handoff_ih0_helpers.py`
 - `tests/intent_fakes.py`
 - `tests/local_embeddings_fakes.py`
-- `tests/query_student_fakes.py`
-- `tests/router_mixture_helpers.py`
-- `tests/test_ad1_codex_review_fixes.py`
-- `tests/test_ad1_fix_round5.py`
-- `tests/test_ad1_fix_round7.py`
 
 ## Extension and modification guidance
 

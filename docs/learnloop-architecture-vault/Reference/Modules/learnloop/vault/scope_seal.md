@@ -99,18 +99,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
-- [tests/test_ad1_codex_rereview_fixes.py](../../../../../../tests/test_ad1_codex_rereview_fixes.py) — imports consumer [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]]
+- [tests/ad1_codex_rereview_fixes_helpers.py](../../../../../../tests/ad1_codex_rereview_fixes_helpers.py) — imports consumer [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]]
+- [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — imports consumer [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]]
+- [tests/figures_codex_review_helpers.py](../../../../../../tests/figures_codex_review_helpers.py) — imports consumer [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]]
+- [tests/mcp_c1a_landing_helpers.py](../../../../../../tests/mcp_c1a_landing_helpers.py) — imports consumer [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]]
+- [tests/reread_safety_helpers.py](../../../../../../tests/reread_safety_helpers.py) — imports consumer [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]]
+- [tests/reread_safety_landing_helpers.py](../../../../../../tests/reread_safety_landing_helpers.py) — imports consumer [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]]
+- [tests/router_card_helpers.py](../../../../../../tests/router_card_helpers.py) — imports consumer [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]]
+- [tests/router_card_reading_gaps_helpers.py](../../../../../../tests/router_card_reading_gaps_helpers.py) — imports consumer [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]]
 - [tests/test_ad1_fix_round4.py](../../../../../../tests/test_ad1_fix_round4.py) — imports consumer [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]]
 - [tests/test_ad1_fix_round5.py](../../../../../../tests/test_ad1_fix_round5.py) — imports consumer [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]]
 - [tests/test_ad1_fix_round6.py](../../../../../../tests/test_ad1_fix_round6.py) — imports consumer [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]]
 - [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — imports consumer [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]]
-- [tests/test_ad23_fix_r7.py](../../../../../../tests/test_ad23_fix_r7.py) — imports consumer [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]]
-- [tests/test_ad23_fix_r8.py](../../../../../../tests/test_ad23_fix_r8.py) — imports consumer [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]]
-- [tests/test_ad_epoch.py](../../../../../../tests/test_ad_epoch.py) — imports consumer [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]]
-- [tests/test_ad_projection.py](../../../../../../tests/test_ad_projection.py) — imports consumer [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]]
-- [tests/test_compare_methods.py](../../../../../../tests/test_compare_methods.py) — imports consumer [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]]
-- [tests/test_compare_sources_keep.py](../../../../../../tests/test_compare_sources_keep.py) — imports consumer [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]]
-- [tests/test_curriculum_c3_codex_review.py](../../../../../../tests/test_curriculum_c3_codex_review.py) — imports consumer [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]]
 
 ## Modification guidance
 

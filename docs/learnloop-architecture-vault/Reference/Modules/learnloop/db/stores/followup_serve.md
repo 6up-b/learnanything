@@ -139,6 +139,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/followup_router_helpers.py](../../../../../../../tests/followup_router_helpers.py) — direct import
+- [tests/ih2_lessons_compete_helpers.py](../../../../../../../tests/ih2_lessons_compete_helpers.py) — direct import
 - [tests/test_followup_codex_review.py](../../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f2_another_decisions_card_is_held_too_since_cards_list_open_problems`
   - `test_f4_the_burn_binds_to_the_open_presentation_and_ends_with_it`

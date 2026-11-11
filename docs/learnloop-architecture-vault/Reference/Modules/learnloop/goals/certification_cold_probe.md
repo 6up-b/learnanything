@@ -208,6 +208,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/certification_cold_probe_helpers.py](../../../../../../tests/certification_cold_probe_helpers.py) — direct import
 - [tests/test_certification_cold_probe.py](../../../../../../tests/test_certification_cold_probe.py) — direct import
   - `test_a_fresh_diagnostic_surface_remains_selectable_for_the_probe`
   - `test_a_queued_probe_refuses_an_assisted_attempt`

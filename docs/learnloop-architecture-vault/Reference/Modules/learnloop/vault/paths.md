@@ -264,22 +264,32 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad1_fix_round4_helpers.py](../../../../../../tests/ad1_fix_round4_helpers.py) — direct import
+- [tests/daily_loop_reader_authored_practice_helpers.py](../../../../../../tests/daily_loop_reader_authored_practice_helpers.py) — direct import
 - [tests/daily_plan_fakes.py](../../../../../../tests/daily_plan_fakes.py) — direct import
 - [tests/deliverable_fixtures.py](../../../../../../tests/deliverable_fixtures.py) — direct import
 - [tests/diagnosis_split_helpers.py](../../../../../../tests/diagnosis_split_helpers.py) — direct import
 - [tests/e0_fakes.py](../../../../../../tests/e0_fakes.py) — direct import
+- [tests/exam_protection_review_helpers.py](../../../../../../tests/exam_protection_review_helpers.py) — direct import
 - [tests/exam_scope_fixtures.py](../../../../../../tests/exam_scope_fixtures.py) — direct import
+- [tests/facet_identity_helpers.py](../../../../../../tests/facet_identity_helpers.py) — direct import
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
+- [tests/hypothesis_marks_context_helpers.py](../../../../../../tests/hypothesis_marks_context_helpers.py) — direct import
 - [tests/intent_fakes.py](../../../../../../tests/intent_fakes.py) — direct import
 - [tests/mcp_world.py](../../../../../../tests/mcp_world.py) — direct import
+- [tests/plan_first_transport_offer_grants_helpers.py](../../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import
 - [tests/practice_index_fakes.py](../../../../../../tests/practice_index_fakes.py) — direct import
+- [tests/reader_recap_review_r2_helpers.py](../../../../../../tests/reader_recap_review_r2_helpers.py) — direct import
 - [tests/reading_path_fixtures.py](../../../../../../tests/reading_path_fixtures.py) — direct import
+- [tests/reading_request_sweep_helpers.py](../../../../../../tests/reading_request_sweep_helpers.py) — direct import
+- [tests/ro1_availability_reads_helpers.py](../../../../../../tests/ro1_availability_reads_helpers.py) — direct import
 - [tests/rw5c_golden_source.py](../../../../../../tests/rw5c_golden_source.py) — direct import
 - [tests/section_coverage_fixtures.py](../../../../../../tests/section_coverage_fixtures.py) — direct import
+- [tests/simulation_helpers.py](../../../../../../tests/simulation_helpers.py) — direct import
 - [tests/source_retrieval_fakes.py](../../../../../../tests/source_retrieval_fakes.py) — direct import
 - [tests/source_service_fakes.py](../../../../../../tests/source_service_fakes.py) — direct import
+- [tests/source_set_synthesis_helpers.py](../../../../../../tests/source_set_synthesis_helpers.py) — direct import
 - [tests/teacher_fakes.py](../../../../../../tests/teacher_fakes.py) — direct import
-- [tests/test_ad1_fix_round4.py](../../../../../../tests/test_ad1_fix_round4.py) — direct import
 - [tests/test_ad23_t1_routes.py](../../../../../../tests/test_ad23_t1_routes.py) — direct import
   - `test_inside_an_ad_operation_no_route_asks_and_no_grant_serves`
 - [tests/test_ai_compare.py](../../../../../../tests/test_ai_compare.py) — direct import
@@ -311,18 +321,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_daily_loop_golden_path_lifecycle.py](../../../../../../tests/test_daily_loop_golden_path_lifecycle.py) — direct import
   - `test_assess_open_refuses_a_parked_lo_without_burning_the_surface`
 - [tests/test_daily_loop_lo_lifecycle_serving.py](../../../../../../tests/test_daily_loop_lo_lifecycle_serving.py) — direct import
-- [tests/test_daily_loop_reader_authored_practice.py](../../../../../../tests/test_daily_loop_reader_authored_practice.py) — direct import
 - [tests/test_daily_plan_review_regressions.py](../../../../../../tests/test_daily_plan_review_regressions.py) — direct import
 - [tests/test_diagnostic_generation.py](../../../../../../tests/test_diagnostic_generation.py) — direct import
 - [tests/test_diagnostic_pack.py](../../../../../../tests/test_diagnostic_pack.py) — direct import
 - [tests/test_exam_protection.py](../../../../../../tests/test_exam_protection.py) — direct import
-- [tests/test_exam_protection_review.py](../../../../../../tests/test_exam_protection_review.py) — direct import
 - [tests/test_facet_authority.py](../../../../../../tests/test_facet_authority.py) — direct import
   - `test_an_ingest_consolidation_keeps_exam_only_meaning_out_and_its_undo_cannot_mint_it`
   - `test_the_registry_writer_refuses_exam_only_meaning_whatever_the_caller_declares`
 - [tests/test_facet_authority_review.py](../../../../../../tests/test_facet_authority_review.py) — direct import
   - `test_recovery_settles_an_undo_intent_the_authority_rule_refuses`
-- [tests/test_facet_identity.py](../../../../../../tests/test_facet_identity.py) — direct import
 - [tests/test_facet_identity_ingest.py](../../../../../../tests/test_facet_identity_ingest.py) — direct import
   - `test_a_candidate_matching_a_registered_facet_becomes_its_alias`
   - `test_a_duplicate_candidate_is_merged_before_the_gates_and_undo_re_mints_it`
@@ -375,7 +382,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_persona_gate.py](../../../../../../tests/test_persona_gate.py) — direct import
   - `test_gate_precision_reports_no_data_before_any_prediction`
 - [tests/test_plan_first_transport_grant_scope.py](../../../../../../tests/test_plan_first_transport_grant_scope.py) — direct import
-- [tests/test_plan_first_transport_offer_grants.py](../../../../../../tests/test_plan_first_transport_offer_grants.py) — direct import
 - [tests/test_planted_misgrade.py](../../../../../../tests/test_planted_misgrade.py) — direct import
 - [tests/test_practice_information.py](../../../../../../tests/test_practice_information.py) — direct import
 - [tests/test_probe_orchestration_remainder.py](../../../../../../tests/test_probe_orchestration_remainder.py) — direct import
@@ -387,7 +393,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_golden_path_completes_with_reader_never_invoked`
 - [tests/test_reader_progression.py](../../../../../../tests/test_reader_progression.py) — direct import
   - `test_reader_source_refs_preserve_bounded_span_context`
-- [tests/test_reader_recap_review_r2.py](../../../../../../tests/test_reader_recap_review_r2.py) — direct import
 - [tests/test_reader_recap_review_r3.py](../../../../../../tests/test_reader_recap_review_r3.py) — direct import
 - [tests/test_reader_reconnect.py](../../../../../../tests/test_reader_reconnect.py) — direct import
   - `test_a_landed_inquiry_check_names_its_model_and_prompt_version`
@@ -395,12 +400,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_quick_check_read_reports_its_durable_jobs_state`
 - [tests/test_reader_report.py](../../../../../../tests/test_reader_report.py) — direct import
   - `test_the_passage_quick_check_is_a_model_backed_action_in_the_funnel`
-- [tests/test_reading_request_sweep.py](../../../../../../tests/test_reading_request_sweep.py) — direct import
 - [tests/test_recall_coverage_interventions.py](../../../../../../tests/test_recall_coverage_interventions.py) — direct import
 - [tests/test_ro0_report.py](../../../../../../tests/test_ro0_report.py) — direct import
   - `test_each_row_reports_what_was_written_and_measured_bytes`
 - [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
-- [tests/test_ro1_availability_reads.py](../../../../../../tests/test_ro1_availability_reads.py) — direct import
 - [tests/test_ro1_projection.py](../../../../../../tests/test_ro1_projection.py) — direct import
   - `test_availability_moves_no_due_date_or_mastery`
 - [tests/test_ro1_self_report.py](../../../../../../tests/test_ro1_self_report.py) — direct import
@@ -423,7 +426,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_reader_ask_history_rpc_returns_durable_exchanges`
 - [tests/test_sim_teach_back.py](../../../../../../tests/test_sim_teach_back.py) — direct import
   - `test_runner_completes_session_with_teach_back_item`
-- [tests/test_simulation.py](../../../../../../tests/test_simulation.py) — direct import
 - [tests/test_source_deletion.py](../../../../../../tests/test_source_deletion.py) — direct import
   - `test_delete_keeps_stored_bytes_another_source_still_shares`
 - [tests/test_source_set_synthesis.py](../../../../../../tests/test_source_set_synthesis.py) — direct import

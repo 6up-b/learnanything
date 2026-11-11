@@ -28,18 +28,18 @@ source_paths:
   - "src/learnloop/daily_plan/router_chooser.py"
   - "src/learnloop/daily_plan/policy.py"
   - "src/learnloop/daily_plan/router_retrieval.py"
+  - "tests/ad1_codex_rereview_fixes_helpers.py"
+  - "tests/ad23_contract_helpers.py"
+  - "tests/ad23_inversion_helpers.py"
   - "tests/ad_fakes.py"
   - "tests/approach_map_fakes.py"
   - "tests/chatgpt_plan_fakes.py"
   - "tests/codex_cli_fakes.py"
+  - "tests/compare_sources_keep_helpers.py"
   - "tests/conftest.py"
   - "tests/connection_reuse.py"
-  - "tests/decider_fakes.py"
-  - "tests/diagnosis_fakes.py"
-  - "tests/exam_scope_fixtures.py"
-  - "tests/facet_identity_fakes.py"
-  - "tests/figure_corpus.py"
-  - "tests/figure_property_corpus.py"
+  - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/daily_plan_reading_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/router"
@@ -93,18 +93,18 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/ad1_codex_rereview_fixes_helpers.py`
+- `tests/ad23_contract_helpers.py`
+- `tests/ad23_inversion_helpers.py`
 - `tests/ad_fakes.py`
 - `tests/approach_map_fakes.py`
 - `tests/chatgpt_plan_fakes.py`
 - `tests/codex_cli_fakes.py`
+- `tests/compare_sources_keep_helpers.py`
 - `tests/conftest.py`
 - `tests/connection_reuse.py`
-- `tests/decider_fakes.py`
-- `tests/diagnosis_fakes.py`
-- `tests/exam_scope_fixtures.py`
-- `tests/facet_identity_fakes.py`
-- `tests/figure_corpus.py`
-- `tests/figure_property_corpus.py`
+- `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/daily_plan_reading_helpers.py`
 
 ## Extension and modification guidance
 

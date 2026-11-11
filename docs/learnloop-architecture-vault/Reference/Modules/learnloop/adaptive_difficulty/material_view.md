@@ -273,6 +273,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
 - [tests/ad23_fakes.py](../../../../../../tests/ad23_fakes.py) — direct import
 - [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — direct import
   - `test_a_dose_draw_at_a_protected_origin_is_a_draw_never_made`

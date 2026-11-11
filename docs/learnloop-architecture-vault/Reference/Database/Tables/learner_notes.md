@@ -108,6 +108,9 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/learner_notes_migration_helpers.py`
+- `tests/learner_notes_vault_origin_migration_helpers.py`
+- `tests/notes_as_learner_text_helpers.py`
 - `tests/test_architecture.py`
 - `tests/test_followups_batch5_recap_dependencies.py`
 - `tests/test_followups_batch7_note_titles.py`

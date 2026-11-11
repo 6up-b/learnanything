@@ -105,6 +105,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/ad23_fakes.py`
+- `tests/t1_batch_origin_migration_helpers.py`
 - `tests/test_ad1_migration.py`
 - `tests/test_auto_build_spend_report.py`
 - `tests/test_capture_route_recovery.py`

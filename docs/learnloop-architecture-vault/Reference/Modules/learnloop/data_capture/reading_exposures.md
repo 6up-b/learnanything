@@ -139,7 +139,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_data_capture_a2_measurement.py](../../../../../../tests/test_data_capture_a2_measurement.py) — direct import
+- [tests/data_capture_a2_measurement_helpers.py](../../../../../../tests/data_capture_a2_measurement_helpers.py) — direct import
+- [tests/data_capture_codex_rereview_helpers.py](../../../../../../tests/data_capture_codex_rereview_helpers.py) — direct import
 - [tests/test_data_capture_a3_time_metric.py](../../../../../../tests/test_data_capture_a3_time_metric.py) — direct import
 - [tests/test_data_capture_codex_rereview.py](../../../../../../tests/test_data_capture_codex_rereview.py) — direct import
   - `test_f1_a_completed_section_is_an_exposure_with_ad_off`

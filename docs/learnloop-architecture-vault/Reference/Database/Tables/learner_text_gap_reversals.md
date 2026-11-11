@@ -108,6 +108,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/learner_gap_unlinked_migration_helpers.py`
 - `tests/mcp_world.py`
 - `tests/test_followups_nov2_note_gap_unlinked.py`
 - `tests/test_help_assist_figures_migration.py`

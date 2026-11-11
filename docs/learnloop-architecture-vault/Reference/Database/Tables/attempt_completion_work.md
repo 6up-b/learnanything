@@ -100,7 +100,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-- `tests/test_ad23_contract.py`
+- `tests/ad23_contract_helpers.py`
 - `tests/test_attempt_completion.py`
 - `tests/test_mobile_jobs.py`
 - `tests/test_sidecar_contract.py`

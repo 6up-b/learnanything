@@ -143,6 +143,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/source_vector_backfill_helpers.py](../../../../../../tests/source_vector_backfill_helpers.py) — direct import
 - [tests/test_glm_ocr.py](../../../../../../tests/test_glm_ocr.py) — direct import
   - `test_every_glm_ocr_reading_queues_the_source_block_backfill`
 - [tests/test_notes_vault_search.py](../../../../../../tests/test_notes_vault_search.py) — direct import

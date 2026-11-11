@@ -171,6 +171,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reader_passage_check_helpers.py](../../../../../../tests/reader_passage_check_helpers.py) — direct import
+- [tests/reader_reconnect_helpers.py](../../../../../../tests/reader_reconnect_helpers.py) — direct import
+- [tests/reader_report_helpers.py](../../../../../../tests/reader_report_helpers.py) — direct import
 - [tests/recap_fixtures.py](../../../../../../tests/recap_fixtures.py) — direct import
 - [tests/test_ad1_fix_round4.py](../../../../../../tests/test_ad1_fix_round4.py) — direct import
   - `test_a_reader_tutor_exchange_is_recorded_under_its_answer_mode`
@@ -237,7 +240,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_status_lives_on_the_root_question_and_reopen_is_accepted`
   - `test_status_rpc_and_its_kill_switch`
 - [tests/test_reader_intent.py](../../../../../../tests/test_reader_intent.py) — direct import
-- [tests/test_reader_passage_check.py](../../../../../../tests/test_reader_passage_check.py) — direct import
 - [tests/test_reader_reconnect.py](../../../../../../tests/test_reader_reconnect.py) — direct import
   - `test_a_landed_inquiry_check_names_its_model_and_prompt_version`
   - `test_inquiry_question_action_rpc_records_the_self_check`

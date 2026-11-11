@@ -103,6 +103,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reading_paths_helpers.py](../../../../../../../tests/reading_paths_helpers.py) — direct import
 - [tests/test_reading_paths.py](../../../../../../../tests/test_reading_paths.py) — direct import
 
 ## Modification guidance

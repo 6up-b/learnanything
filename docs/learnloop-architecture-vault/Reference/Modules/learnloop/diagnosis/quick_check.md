@@ -118,6 +118,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/quick_check_helpers.py](../../../../../../tests/quick_check_helpers.py) — direct import
 - [tests/test_assumed_known.py](../../../../../../tests/test_assumed_known.py) — direct import
   - `test_placement_receipts_survive_rebuild_with_zero_model_calls`
 - [tests/test_quick_check.py](../../../../../../tests/test_quick_check.py) — direct import

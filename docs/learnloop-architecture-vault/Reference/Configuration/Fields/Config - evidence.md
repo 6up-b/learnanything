@@ -23,18 +23,18 @@ source_paths:
   - "src/learnloop/substrate/canonical_projection.py"
   - "src/learnloop/goals/exam_readiness.py"
   - "src/learnloop/goals/goal_projection.py"
+  - "tests/ad1_codex_rereview_fixes_helpers.py"
   - "tests/ad23_fakes.py"
+  - "tests/apply_write_ahead_helpers.py"
   - "tests/approach_map_fakes.py"
-  - "tests/daily_plan_fakes.py"
-  - "tests/diagnosis_fakes.py"
-  - "tests/diagnosis_split_helpers.py"
-  - "tests/helpers.py"
-  - "tests/mcp_world.py"
-  - "tests/mobile_host_helpers.py"
-  - "tests/pf_fakes.py"
-  - "tests/practice_index_fakes.py"
-  - "tests/recurrence_fakes.py"
-  - "tests/rw2b_fix10_base_sequence.py"
+  - "tests/assumed_known_helpers.py"
+  - "tests/causal_cold_outcomes_helpers.py"
+  - "tests/causal_factor_deferral_helpers.py"
+  - "tests/causal_orchestrator_helpers.py"
+  - "tests/causal_p2_acceptance_helpers.py"
+  - "tests/causal_shadow_selection_helpers.py"
+  - "tests/certification_cold_probe_helpers.py"
+  - "tests/cold_retry_reschedule_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/evidence"
@@ -101,18 +101,18 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/ad1_codex_rereview_fixes_helpers.py`
 - `tests/ad23_fakes.py`
+- `tests/apply_write_ahead_helpers.py`
 - `tests/approach_map_fakes.py`
-- `tests/daily_plan_fakes.py`
-- `tests/diagnosis_fakes.py`
-- `tests/diagnosis_split_helpers.py`
-- `tests/helpers.py`
-- `tests/mcp_world.py`
-- `tests/mobile_host_helpers.py`
-- `tests/pf_fakes.py`
-- `tests/practice_index_fakes.py`
-- `tests/recurrence_fakes.py`
-- `tests/rw2b_fix10_base_sequence.py`
+- `tests/assumed_known_helpers.py`
+- `tests/causal_cold_outcomes_helpers.py`
+- `tests/causal_factor_deferral_helpers.py`
+- `tests/causal_orchestrator_helpers.py`
+- `tests/causal_p2_acceptance_helpers.py`
+- `tests/causal_shadow_selection_helpers.py`
+- `tests/certification_cold_probe_helpers.py`
+- `tests/cold_retry_reschedule_helpers.py`
 
 ## Extension and modification guidance
 

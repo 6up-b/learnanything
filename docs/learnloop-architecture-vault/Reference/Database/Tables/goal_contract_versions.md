@@ -119,10 +119,10 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/teacher_te1b_migration_helpers.py`
 - `tests/test_data_capture_a3_time_metric.py`
 - `tests/test_data_capture_codex_review.py`
 - `tests/test_ro4_traces_migration.py`
-- `tests/test_teacher_te1b_migration.py`
 - `tests/test_goal_contracts.py`
 - `tests/test_ro4_goals.py`
 

@@ -114,6 +114,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/learner_notes_migration_helpers.py`
 - `tests/test_architecture.py`
 - `tests/test_curriculum_c3_exam_scoping.py`
 - `tests/test_learner_note_source_kind_migration.py`

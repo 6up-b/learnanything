@@ -283,6 +283,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ih6_workbench_open_item_helpers.py](../../../../../../tests/ih6_workbench_open_item_helpers.py) — direct import
+- [tests/reader_followups_helpers.py](../../../../../../tests/reader_followups_helpers.py) — direct import
+- [tests/reader_recap_review_r2_helpers.py](../../../../../../tests/reader_recap_review_r2_helpers.py) — direct import
 - [tests/recap_fixtures.py](../../../../../../tests/recap_fixtures.py) — direct import
 - [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — direct import
   - `test_rereview_f3_the_sidecar_records_the_subject_with_the_contract`
@@ -319,11 +322,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_after_a_restart_the_reader_still_reads_the_answer_box_s_questions`
 - [tests/test_reader_ca2_fix_orchestrator.py](../../../../../../tests/test_reader_ca2_fix_orchestrator.py) — direct import
   - `test_f16_the_session_view_reads_the_problems_own_opening_by_default`
-- [tests/test_reader_followups.py](../../../../../../tests/test_reader_followups.py) — direct import
 - [tests/test_reader_recap.py](../../../../../../tests/test_reader_recap.py) — direct import
 - [tests/test_reader_recap_review.py](../../../../../../tests/test_reader_recap_review.py) — direct import
   - `test_f8_an_abandoned_problem_is_in_the_recap_with_a_reopen`
-- [tests/test_reader_recap_review_r2.py](../../../../../../tests/test_reader_recap_review_r2.py) — direct import
 - [tests/test_reader_rw1c_review.py](../../../../../../tests/test_reader_rw1c_review.py) — direct import
   - `test_a_bound_hint_asked_before_any_practice_session_counts_once`
 - [tests/test_reader_rw4b_admission_idempotency.py](../../../../../../tests/test_reader_rw4b_admission_idempotency.py) — direct import

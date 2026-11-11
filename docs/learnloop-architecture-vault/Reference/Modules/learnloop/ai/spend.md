@@ -272,6 +272,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/contamination_report_helpers.py](../../../../../../tests/contamination_report_helpers.py) — direct import
+- [tests/diagnose_review_helpers.py](../../../../../../tests/diagnose_review_helpers.py) — direct import
+- [tests/graph_nomination_ingest_helpers.py](../../../../../../tests/graph_nomination_ingest_helpers.py) — direct import
+- [tests/pf_generation_helpers.py](../../../../../../tests/pf_generation_helpers.py) — direct import
+- [tests/practice_index_find_helpers.py](../../../../../../tests/practice_index_find_helpers.py) — direct import
+- [tests/recurrence_benchmarks_helpers.py](../../../../../../tests/recurrence_benchmarks_helpers.py) — direct import
+- [tests/recurrence_commands_helpers.py](../../../../../../tests/recurrence_commands_helpers.py) — direct import
+- [tests/source_retrieval_tutor_helpers.py](../../../../../../tests/source_retrieval_tutor_helpers.py) — direct import
 - [tests/test_ai_tool_isolation.py](../../../../../../tests/test_ai_tool_isolation.py) — direct import
 - [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — direct import
   - `test_why_lesson_finds_the_record_the_real_lesson_budget_builder_writes`
@@ -478,7 +486,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_source_retrieval_rereview_cost.py](../../../../../../tests/test_source_retrieval_rereview_cost.py) — direct import
 - [tests/test_source_retrieval_search.py](../../../../../../tests/test_source_retrieval_search.py) — direct import
 - [tests/test_source_retrieval_suites.py](../../../../../../tests/test_source_retrieval_suites.py) — direct import
-- [tests/test_source_retrieval_tutor.py](../../../../../../tests/test_source_retrieval_tutor.py) — direct import
 - [tests/test_source_service_spend_accounting.py](../../../../../../tests/test_source_service_spend_accounting.py) — direct import
   - `test_a_finished_request_counts_its_reported_cost_once`
   - `test_a_released_reservation_cannot_start_its_request`

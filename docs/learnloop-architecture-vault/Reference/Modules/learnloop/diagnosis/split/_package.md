@@ -63,13 +63,13 @@ For system intent, use [[Learning System]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/diagnosis/split/__init__|learnloop.diagnosis.split]] | [[Reference/Modules/learnloop/diagnosis/split/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/diagnosis/split/card|learnloop.diagnosis.split.card]] | [[Reference/Modules/learnloop/diagnosis/split/card#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
-| [[Reference/Modules/learnloop/diagnosis/split/context|learnloop.diagnosis.split.context]] | [[Reference/Modules/learnloop/diagnosis/split/context#^module-purpose|purpose]] | `ACTIVE` | 9 | 12 |
+| [[Reference/Modules/learnloop/diagnosis/split/context|learnloop.diagnosis.split.context]] | [[Reference/Modules/learnloop/diagnosis/split/context#^module-purpose|purpose]] | `ACTIVE` | 9 | 14 |
 | [[Reference/Modules/learnloop/diagnosis/split/contract|learnloop.diagnosis.split.contract]] | [[Reference/Modules/learnloop/diagnosis/split/contract#^module-purpose|purpose]] | `ACTIVE` | 5 | 10 |
 | [[Reference/Modules/learnloop/diagnosis/split/diagnoser|learnloop.diagnosis.split.diagnoser]] | [[Reference/Modules/learnloop/diagnosis/split/diagnoser#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/split/embeddings|learnloop.diagnosis.split.embeddings]] | [[Reference/Modules/learnloop/diagnosis/split/embeddings#^module-purpose|purpose]] | `ACTIVE` | 8 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/split/figure_trace|learnloop.diagnosis.split.figure_trace]] | [[Reference/Modules/learnloop/diagnosis/split/figure_trace#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]] | [[Reference/Modules/learnloop/diagnosis/split/history#^module-purpose|purpose]] | `ACTIVE` | 10 | 17 |
-| [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] | [[Reference/Modules/learnloop/diagnosis/split/jobs#^module-purpose|purpose]] | `ACTIVE` | 19 | 27 |
+| [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] | [[Reference/Modules/learnloop/diagnosis/split/jobs#^module-purpose|purpose]] | `ACTIVE` | 19 | 29 |
 | [[Reference/Modules/learnloop/diagnosis/split/legacy_view|learnloop.diagnosis.split.legacy_view]] | [[Reference/Modules/learnloop/diagnosis/split/legacy_view#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
 | [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]] | [[Reference/Modules/learnloop/diagnosis/split/live#^module-purpose|purpose]] | `ACTIVE` | 8 | 16 |
 | [[Reference/Modules/learnloop/diagnosis/split/pfc_report|learnloop.diagnosis.split.pfc_report]] | [[Reference/Modules/learnloop/diagnosis/split/pfc_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
@@ -77,7 +77,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/split/provenance|learnloop.diagnosis.split.provenance]] | [[Reference/Modules/learnloop/diagnosis/split/provenance#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
 | [[Reference/Modules/learnloop/diagnosis/split/reports|learnloop.diagnosis.split.reports]] | [[Reference/Modules/learnloop/diagnosis/split/reports#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/split/retrieval|learnloop.diagnosis.split.retrieval]] | [[Reference/Modules/learnloop/diagnosis/split/retrieval#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
-| [[Reference/Modules/learnloop/diagnosis/split/settings|learnloop.diagnosis.split.settings]] | [[Reference/Modules/learnloop/diagnosis/split/settings#^module-purpose|purpose]] | `ACTIVE` | 9 | 12 |
+| [[Reference/Modules/learnloop/diagnosis/split/settings|learnloop.diagnosis.split.settings]] | [[Reference/Modules/learnloop/diagnosis/split/settings#^module-purpose|purpose]] | `ACTIVE` | 9 | 13 |
 | [[Reference/Modules/learnloop/diagnosis/split/snapshot|learnloop.diagnosis.split.snapshot]] | [[Reference/Modules/learnloop/diagnosis/split/snapshot#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/split/validation|learnloop.diagnosis.split.validation]] | [[Reference/Modules/learnloop/diagnosis/split/validation#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/split/workbench_trace|learnloop.diagnosis.split.workbench_trace]] | [[Reference/Modules/learnloop/diagnosis/split/workbench_trace#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |

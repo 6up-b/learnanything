@@ -134,12 +134,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/hint_h2b_review_helpers.py](../../../../../../tests/hint_h2b_review_helpers.py) — direct import
 - [tests/test_figures_help.py](../../../../../../tests/test_figures_help.py) — direct import
   - `test_a_report_with_no_figure_has_no_figure_block`
   - `test_the_hints_report_shows_the_figure_kind_with_its_sample_size`
 - [tests/test_help_assist_work_md_migration.py](../../../../../../tests/test_help_assist_work_md_migration.py) — direct import
   - `test_a_served_hint_keeps_the_draft_it_answered_and_the_grader_never_sees_it`
-- [tests/test_hint_h2b_review.py](../../../../../../tests/test_hint_h2b_review.py) — direct import
 - [tests/test_hint_report.py](../../../../../../tests/test_hint_report.py) — direct import
 - [tests/test_hint_telemetry.py](../../../../../../tests/test_hint_telemetry.py) — direct import
   - `test_a_failed_attach_is_repaired_by_recovery_and_never_given_to_the_next_attempt`

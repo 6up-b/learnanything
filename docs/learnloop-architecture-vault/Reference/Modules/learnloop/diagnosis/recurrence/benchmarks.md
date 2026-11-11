@@ -221,6 +221,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/recurrence_benchmarks_helpers.py](../../../../../../../tests/recurrence_benchmarks_helpers.py) — direct import
 - [tests/test_recurrence_benchmarks.py](../../../../../../../tests/test_recurrence_benchmarks.py) — direct import
   - `test_a_blank_hypothesis_is_never_checkpointed_and_a_fresh_run_asks_again`
   - `test_b1_and_b3_run_through_phase_5as_harness_contract`

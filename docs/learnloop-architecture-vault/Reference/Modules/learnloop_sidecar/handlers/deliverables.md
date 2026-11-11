@@ -165,6 +165,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/curriculum_c1_fix_round2_helpers.py](../../../../../../tests/curriculum_c1_fix_round2_helpers.py) — direct import
 - [tests/test_curriculum_c1_codex_review_fixes.py](../../../../../../tests/test_curriculum_c1_codex_review_fixes.py) — direct import
   - `test_f3_without_a_new_judgment_the_stale_plan_stays_and_reads_no_path`
 - [tests/test_curriculum_c1_fix_round2.py](../../../../../../tests/test_curriculum_c1_fix_round2.py) — direct import

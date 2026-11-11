@@ -147,6 +147,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/pfc_unassessed_readers_helpers.py](../../../../../../tests/pfc_unassessed_readers_helpers.py) — direct import
 - [tests/test_ad23_fix_review.py](../../../../../../tests/test_ad23_fix_review.py) — direct import
   - `test_a_historical_regrade_reads_its_current_epoch_not_a_surviving_obsolete_criterion`
 - [tests/test_ad23_owner_decisions.py](../../../../../../tests/test_ad23_owner_decisions.py) — direct import
@@ -190,7 +191,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_placement_and_the_field_read_a_held_attempt_as_unassessed`
 - [tests/test_integration_daily_loop_field.py](../../../../../../tests/test_integration_daily_loop_field.py) — direct import
   - `test_adopted_reader_card_is_untested_on_the_map_with_no_outcome_row`
-- [tests/test_pfc_unassessed_readers.py](../../../../../../tests/test_pfc_unassessed_readers.py) — direct import
 - [tests/test_pfc_unverified_unassessed.py](../../../../../../tests/test_pfc_unverified_unassessed.py) — direct import
   - `test_field_projection_and_timeline_read_unverified_criteria_the_same_way`
 - [tests/test_rebuild_orchestrator.py](../../../../../../tests/test_rebuild_orchestrator.py) — direct import

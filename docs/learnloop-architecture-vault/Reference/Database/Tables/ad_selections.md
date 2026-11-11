@@ -126,6 +126,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/ad23_migration_helpers.py`
 - `tests/test_ad23_contract.py`
 - `tests/test_ad23_migration.py`
 - `tests/test_ad2_model.py`

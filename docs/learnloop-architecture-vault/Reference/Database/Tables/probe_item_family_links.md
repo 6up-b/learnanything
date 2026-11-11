@@ -117,7 +117,7 @@ Indexes and uniqueness:
 - `tests/test_probe_surface_mint.py`
 - `tests/test_state_sync_scheduling_race.py`
 - `tests/helpers.py`
-- `tests/test_p2_acceptance.py`
+- `tests/p2_acceptance_helpers.py`
 - `tests/test_p2_leakage_suite.py`
 - `tests/test_probe_longform_families.py`
 

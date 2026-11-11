@@ -400,6 +400,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_value_gate_reads_the_configured_robust_quantile`
   - `test_when_no_single_check_pays_a_paying_pair_continues_with_its_forecast`
 - [tests/voi_restore_scenarios.py](../../../../../../tests/voi_restore_scenarios.py) — direct import
+- [tests/voi_stopping_helpers.py](../../../../../../tests/voi_stopping_helpers.py) — direct import
 
 ## Modification guidance
 

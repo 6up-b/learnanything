@@ -154,6 +154,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/plan_determinism_helpers.py](../../../../../../tests/plan_determinism_helpers.py) — direct import
 - [tests/test_contrast_pairs.py](../../../../../../tests/test_contrast_pairs.py) — direct import
   - `test_a_member_can_pair_with_an_item_already_in_the_vault`
   - `test_a_member_whose_counterpart_does_not_exist_is_refused`

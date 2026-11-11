@@ -120,8 +120,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_figure_region.py](../../../../../../tests/test_figure_region.py) — direct import
-- [tests/test_glm_ocr.py](../../../../../../tests/test_glm_ocr.py) — direct import
+- [tests/figure_region_helpers.py](../../../../../../tests/figure_region_helpers.py) — direct import
+- [tests/glm_ocr_helpers.py](../../../../../../tests/glm_ocr_helpers.py) — direct import
 - [tests/test_marker_pdfium_worker.py](../../../../../../tests/test_marker_pdfium_worker.py) — direct import
   - `test_the_readers_own_renders_enter_pdfium_one_at_a_time`
 - [tests/test_reader_render_views.py](../../../../../../tests/test_reader_render_views.py) — direct import

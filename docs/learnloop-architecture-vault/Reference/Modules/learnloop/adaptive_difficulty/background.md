@@ -139,6 +139,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
 - [tests/test_ad1_codex_review_fixes.py](../../../../../../tests/test_ad1_codex_review_fixes.py) — direct import
   - `test_overlapping_preparations_audit_a_revision_once`
   - `test_the_watchers_changed_items_are_prepared`
@@ -159,7 +160,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad1_outside_and_cli.py](../../../../../../tests/test_ad1_outside_and_cli.py) — direct import
   - `test_background_jobs_run_off_the_request_path_once_each`
   - `test_without_an_injected_client_the_test_suite_starts_no_ad_job`
-- [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — direct import
 - [tests/test_ad_epoch.py](../../../../../../tests/test_ad_epoch.py) — direct import
   - `test_a_revision_prepared_while_protected_is_prepared_once_it_is_public`
   - `test_the_synchronous_preparation_counts_visible_revisions_only`

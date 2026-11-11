@@ -253,12 +253,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad1_fix_round4_helpers.py](../../../../../../tests/ad1_fix_round4_helpers.py) — direct import
 - [tests/approach_map_fakes.py](../../../../../../tests/approach_map_fakes.py) — direct import
 - [tests/hint_fakes.py](../../../../../../tests/hint_fakes.py) — direct import
 - [tests/test_ad1_codex_review_fixes.py](../../../../../../tests/test_ad1_codex_review_fixes.py) — direct import
   - `test_a_vault_switch_fences_the_feature_audit`
   - `test_a_vault_switch_fences_the_outside_forecasters`
-- [tests/test_ad1_fix_round4.py](../../../../../../tests/test_ad1_fix_round4.py) — direct import
 - [tests/test_ad1_fix_round8.py](../../../../../../tests/test_ad1_fix_round8.py) — direct import
   - `test_any_failure_at_ads_start_receipt_stops_the_dispatch`
   - `test_the_item_forecasts_start_receipt_fails_closed_with_the_right_status`

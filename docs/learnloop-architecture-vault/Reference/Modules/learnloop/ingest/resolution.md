@@ -114,6 +114,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/sidecar_quick_add_helpers.py](../../../../../../tests/sidecar_quick_add_helpers.py) — direct import
 - [tests/test_glm_ocr.py](../../../../../../tests/test_glm_ocr.py) — direct import
   - `test_an_image_import_needs_glm_and_reads_with_it`
 - [tests/test_ingest_transcripts.py](../../../../../../tests/test_ingest_transcripts.py) — direct import
@@ -121,7 +122,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_quick_add.py](../../../../../../tests/test_quick_add.py) — direct import
 - [tests/test_reread_safety.py](../../../../../../tests/test_reread_safety.py) — direct import
   - `test_e1_the_reread_hands_the_import_the_stored_bytes_never_a_store_path`
-- [tests/test_sidecar_quick_add.py](../../../../../../tests/test_sidecar_quick_add.py) — direct import
 - [tests/test_source_retrieval_search.py](../../../../../../tests/test_source_retrieval_search.py) — direct import
   - `test_quick_add_with_retrieval_off_plans_exactly_as_before`
 

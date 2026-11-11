@@ -150,12 +150,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_input_provenance_helpers.py](../../../../../../tests/diagnosis_input_provenance_helpers.py) — direct import
 - [tests/test_causal_attribution_p0.py](../../../../../../tests/test_causal_attribution_p0.py) — direct import
   - `test_event_facet_ids_never_fall_back_to_attempt_facets`
 - [tests/test_codex_http_client.py](../../../../../../tests/test_codex_http_client.py) — direct import
   - `test_http_codex_client_misconception_match_bare_payload`
   - `test_http_codex_client_misconception_match_round_trip`
-- [tests/test_diagnosis_input_provenance.py](../../../../../../tests/test_diagnosis_input_provenance.py) — direct import
 - [tests/test_durable_promotion_arms.py](../../../../../../tests/test_durable_promotion_arms.py) — direct import
   - `test_a_promoted_belief_is_not_resolved_away_by_the_next_posterior_pass`
   - `test_correct_verdict_promotes_the_cause_the_system_asserted`

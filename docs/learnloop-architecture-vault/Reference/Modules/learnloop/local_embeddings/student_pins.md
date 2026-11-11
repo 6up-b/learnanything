@@ -147,6 +147,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/query_student_fakes.py](../../../../../../tests/query_student_fakes.py) — direct import
+- [tests/query_student_helpers.py](../../../../../../tests/query_student_helpers.py) — direct import
 - [tests/test_query_student.py](../../../../../../tests/test_query_student.py) — direct import
   - `test_a_due_replay_is_scheduled_for_a_fully_indexed_library`
   - `test_a_newly_held_out_familys_older_rows_leave_training`

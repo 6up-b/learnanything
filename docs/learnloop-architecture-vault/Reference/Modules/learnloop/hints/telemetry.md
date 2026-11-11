@@ -121,6 +121,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/hint_telemetry_helpers.py](../../../../../../tests/hint_telemetry_helpers.py) — direct import
 - [tests/test_help_assist_work_md_migration.py](../../../../../../tests/test_help_assist_work_md_migration.py) — direct import
   - `test_an_authored_reveal_keeps_the_draft`
 - [tests/test_hint_service.py](../../../../../../tests/test_hint_service.py) — direct import

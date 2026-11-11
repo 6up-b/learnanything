@@ -259,6 +259,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reader_followups_helpers.py](../../../../../../tests/reader_followups_helpers.py) — direct import
+- [tests/reader_followups_round4_helpers.py](../../../../../../tests/reader_followups_round4_helpers.py) — direct import
+- [tests/reader_followups_round7_helpers.py](../../../../../../tests/reader_followups_round7_helpers.py) — direct import
 - [tests/test_curriculum_c1_landing.py](../../../../../../tests/test_curriculum_c1_landing.py) — direct import
 - [tests/test_reader_ca6_side_by_side.py](../../../../../../tests/test_reader_ca6_side_by_side.py) — direct import
   - `test_a_side_by_side_read_holds_a_follow_up_on_a_shown_span_and_only_there`

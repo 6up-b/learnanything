@@ -125,11 +125,12 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-- `tests/test_assumed_known.py`
+- `tests/assumed_known_helpers.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_family_memory_projection.py`
 - `tests/test_held_grade_evidence.py`
-- `tests/test_ux_phase4_feedback.py`
+- `tests/ux_phase4_feedback_helpers.py`
+- `tests/test_assumed_known.py`
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_certification_cold_probe.py`
 - `tests/test_collection_dataset.py`

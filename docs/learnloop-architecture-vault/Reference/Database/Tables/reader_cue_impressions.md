@@ -115,6 +115,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/reader_rw3b_migration_helpers.py`
 - `tests/test_architecture.py`
 - `tests/test_reader_cues_cli_report.py`
 - `tests/test_reader_rw3b_migration.py`

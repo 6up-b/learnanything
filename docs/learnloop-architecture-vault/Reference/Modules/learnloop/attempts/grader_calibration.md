@@ -129,6 +129,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/teacher_te2_review_fixes_helpers.py](../../../../../../tests/teacher_te2_review_fixes_helpers.py) — direct import
 - [tests/test_grade_resolution_pipeline.py](../../../../../../tests/test_grade_resolution_pipeline.py) — direct import
   - `test_asymmetric_planted_channel_produces_nonsymmetric_matrix_and_direction`
   - `test_builtin_schemas_and_heuristic_priors_are_idempotent`

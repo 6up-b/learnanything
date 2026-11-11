@@ -150,6 +150,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/data_capture_a2_measurement_helpers.py](../../../../../../tests/data_capture_a2_measurement_helpers.py) — direct import
 - [tests/test_daily_plan_build.py](../../../../../../tests/test_daily_plan_build.py) — direct import
   - `test_a_single_due_item_is_a_complete_block`
   - `test_blocks_never_exceed_15_minutes_or_the_lane_or_the_plan`
@@ -161,7 +162,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_reentry_orders_assumed_checks_then_deadlines_then_rank`
 - [tests/test_daily_plan_review_regressions.py](../../../../../../tests/test_daily_plan_review_regressions.py) — direct import
   - `test_f1_repair_needs_a_recent_error_not_any_active_one`
-- [tests/test_data_capture_a2_measurement.py](../../../../../../tests/test_data_capture_a2_measurement.py) — direct import
 - [tests/test_intent_codex_review.py](../../../../../../tests/test_intent_codex_review.py) — direct import
   - `test_f6_the_chooser_takes_the_master_block_first_in_re_entry`
 - [tests/test_intent_plan.py](../../../../../../tests/test_intent_plan.py) — direct import
@@ -186,6 +186,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_skipped_probe_does_not_suppress_its_alternative_on_refresh`
   - `test_project_probes_are_admitted_against_the_minutes_left_after_requests`
   - `test_requested_probes_and_requests_share_one_request_rule`
+- [tests/voi_stopping_helpers.py](../../../../../../tests/voi_stopping_helpers.py) — direct import
 
 ## Modification guidance
 

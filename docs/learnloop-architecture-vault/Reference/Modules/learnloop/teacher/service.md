@@ -251,7 +251,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/figures_prefetch_review_fixes_helpers.py](../../../../../../tests/figures_prefetch_review_fixes_helpers.py) — direct import
+- [tests/reader_rw5d_p4b_teacher_visuals_helpers.py](../../../../../../tests/reader_rw5d_p4b_teacher_visuals_helpers.py) — direct import
 - [tests/teacher_fakes.py](../../../../../../tests/teacher_fakes.py) — direct import
+- [tests/teacher_te1_review_fixes_helpers.py](../../../../../../tests/teacher_te1_review_fixes_helpers.py) — direct import
+- [tests/teacher_te2_probes_helpers.py](../../../../../../tests/teacher_te2_probes_helpers.py) — direct import
+- [tests/teacher_te2log_receipt_helpers.py](../../../../../../tests/teacher_te2log_receipt_helpers.py) — direct import
 - [tests/test_figures_prefetch.py](../../../../../../tests/test_figures_prefetch.py) — direct import
   - `test_lesson_trigger_builds_the_planned_visuals_of_nodes_not_yet_reached`
 - [tests/test_figures_prefetch_review_fixes.py](../../../../../../tests/test_figures_prefetch_review_fixes.py) — direct import
@@ -388,7 +393,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_te1s_forecast_node_is_resolved_and_guarded_with_the_switch_off`
 - [tests/test_teacher_te2log_node_held.py](../../../../../../tests/test_teacher_te2log_node_held.py) — direct import
   - `test_each_p_held_is_a_lesson_node_held_forecast_on_its_lo`
-- [tests/test_teacher_te2log_receipt.py](../../../../../../tests/test_teacher_te2log_receipt.py) — direct import
 - [tests/test_teacher_te2log_report.py](../../../../../../tests/test_teacher_te2log_report.py) — direct import
   - `test_the_pool_weights_trajectory_per_forecaster`
 

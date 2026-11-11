@@ -150,6 +150,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/curriculum_c1_plan_follows_path_helpers.py](../../../../../tests/curriculum_c1_plan_follows_path_helpers.py) — direct import
 - [tests/test_ad_denial_log.py](../../../../../tests/test_ad_denial_log.py) — direct import
 - [tests/test_attempt_content_state_successor.py](../../../../../tests/test_attempt_content_state_successor.py) — direct import
   - `test_landing_ii_without_a_completion_an_attach_refuses_and_the_upgrade_still_completes_it`

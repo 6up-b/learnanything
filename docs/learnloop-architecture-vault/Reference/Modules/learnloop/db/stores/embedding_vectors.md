@@ -125,7 +125,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_contamination_report.py](../../../../../../../tests/test_contamination_report.py) — direct import
+- [tests/contamination_report_helpers.py](../../../../../../../tests/contamination_report_helpers.py) — direct import
 - [tests/test_embedding_backfill.py](../../../../../../../tests/test_embedding_backfill.py) — direct import
   - `test_content_reuse_covers_explicit_extra_and_registry_records`
 - [tests/test_embedding_store.py](../../../../../../../tests/test_embedding_store.py) — direct import

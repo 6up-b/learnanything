@@ -100,6 +100,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/figure_prefetch_migration_helpers.py`
 - `tests/test_figure_prefetch_migration.py`
 - `tests/test_figure_wait_estimate.py`
 - `tests/test_figures_prefetch.py`

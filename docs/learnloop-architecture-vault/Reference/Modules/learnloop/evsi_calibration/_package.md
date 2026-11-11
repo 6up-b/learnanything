@@ -61,12 +61,12 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/evsi_calibration/__init__|learnloop.evsi_calibration]] | [[Reference/Modules/learnloop/evsi_calibration/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/evsi_calibration/artifacts|learnloop.evsi_calibration.artifacts]] | [[Reference/Modules/learnloop/evsi_calibration/artifacts#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/evsi_calibration/compare|learnloop.evsi_calibration.compare]] | [[Reference/Modules/learnloop/evsi_calibration/compare#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/evsi_calibration/eedi|learnloop.evsi_calibration.eedi]] | [[Reference/Modules/learnloop/evsi_calibration/eedi#^module-purpose|purpose]] | `ACTIVE` | 9 | 3 |
+| [[Reference/Modules/learnloop/evsi_calibration/eedi|learnloop.evsi_calibration.eedi]] | [[Reference/Modules/learnloop/evsi_calibration/eedi#^module-purpose|purpose]] | `ACTIVE` | 9 | 4 |
 | [[Reference/Modules/learnloop/evsi_calibration/experiments|learnloop.evsi_calibration.experiments]] | [[Reference/Modules/learnloop/evsi_calibration/experiments#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/evsi_calibration/families|learnloop.evsi_calibration.families]] | [[Reference/Modules/learnloop/evsi_calibration/families#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/evsi_calibration/family_data|learnloop.evsi_calibration.family_data]] | [[Reference/Modules/learnloop/evsi_calibration/family_data#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/evsi_calibration/family_fit|learnloop.evsi_calibration.family_fit]] | [[Reference/Modules/learnloop/evsi_calibration/family_fit#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
-| [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]] | [[Reference/Modules/learnloop/evsi_calibration/forecast_report#^module-purpose|purpose]] | `ACTIVE` | 2 | 6 |
+| [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]] | [[Reference/Modules/learnloop/evsi_calibration/forecast_report#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
 | [[Reference/Modules/learnloop/evsi_calibration/live_report|learnloop.evsi_calibration.live_report]] | [[Reference/Modules/learnloop/evsi_calibration/live_report#^module-purpose|purpose]] | `ACTIVE` | 2 | 5 |
 | [[Reference/Modules/learnloop/evsi_calibration/metrics|learnloop.evsi_calibration.metrics]] | [[Reference/Modules/learnloop/evsi_calibration/metrics#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 | [[Reference/Modules/learnloop/evsi_calibration/multifamily|learnloop.evsi_calibration.multifamily]] | [[Reference/Modules/learnloop/evsi_calibration/multifamily#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |

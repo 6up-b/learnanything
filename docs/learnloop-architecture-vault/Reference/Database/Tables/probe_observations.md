@@ -128,11 +128,11 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/figure_fixtures.py`
+- `tests/reader_active_reading_helpers.py`
 - `tests/test_hint_discriminating.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_notes_as_learner_text.py`
 - `tests/test_probe_audit.py`
-- `tests/test_reader_active_reading.py`
 - `tests/test_reader_reconstruct.py`
 - `tests/test_sg_slip_vs_gap.py`
 - `tests/test_workbench_discriminate.py`

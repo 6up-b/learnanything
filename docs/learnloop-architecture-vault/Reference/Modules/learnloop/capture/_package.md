@@ -49,7 +49,7 @@ For system intent, use [[Architecture Overview]].
 
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
-| [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]] | [[Reference/Modules/learnloop/capture/__init__#^module-purpose|purpose]] | `ACTIVE` | 4 | 15 |
+| [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]] | [[Reference/Modules/learnloop/capture/__init__#^module-purpose|purpose]] | `ACTIVE` | 4 | 17 |
 | [[Reference/Modules/learnloop/capture/devices|learnloop.capture.devices]] | [[Reference/Modules/learnloop/capture/devices#^module-purpose|purpose]] | `ACTIVE` | 4 | 0 |
 | [[Reference/Modules/learnloop/capture/errors|learnloop.capture.errors]] | [[Reference/Modules/learnloop/capture/errors#^module-purpose|purpose]] | `ACTIVE` | 6 | 0 |
 | [[Reference/Modules/learnloop/capture/inbox|learnloop.capture.inbox]] | [[Reference/Modules/learnloop/capture/inbox#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |

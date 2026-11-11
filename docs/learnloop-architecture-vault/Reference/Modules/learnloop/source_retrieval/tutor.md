@@ -157,6 +157,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/source_retrieval_tutor_helpers.py](../../../../../../tests/source_retrieval_tutor_helpers.py) — direct import
 - [tests/test_facet_locks_landing.py](../../../../../../tests/test_facet_locks_landing.py) — direct import
   - `test_a_pinned_passage_in_a_held_out_textbook_unit_never_grounds_the_tutor`
 - [tests/test_pinned_span_bridge.py](../../../../../../tests/test_pinned_span_bridge.py) — direct import

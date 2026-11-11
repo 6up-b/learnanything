@@ -167,6 +167,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/facet_identity_fakes.py](../../../../../tests/facet_identity_fakes.py) — direct import
+- [tests/facet_span_support_helpers.py](../../../../../tests/facet_span_support_helpers.py) — direct import
 - [tests/test_adaptive_difficulty_ad1.py](../../../../../tests/test_adaptive_difficulty_ad1.py) — direct import
   - `test_replay_reads_receipts_zero_model_calls`
 - [tests/test_decider_agreement.py](../../../../../tests/test_decider_agreement.py) — direct import

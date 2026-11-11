@@ -179,6 +179,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/lp_claim_fixes_review_helpers.py](../../../../../../tests/lp_claim_fixes_review_helpers.py) — direct import
+- [tests/rebuild_equivalence_review_helpers.py](../../../../../../tests/rebuild_equivalence_review_helpers.py) — direct import
+- [tests/regrade_contract_successor_helpers.py](../../../../../../tests/regrade_contract_successor_helpers.py) — direct import
+- [tests/route_rules_in_grader_helpers.py](../../../../../../tests/route_rules_in_grader_helpers.py) — direct import
 - [tests/test_ad23_fix_r5.py](../../../../../../tests/test_ad23_fix_r5.py) — direct import
   - `test_an_item_that_landed_before_expiry_gets_its_receipt_at_a_later_serve`
 - [tests/test_ad23_fix_r6.py](../../../../../../tests/test_ad23_fix_r6.py) — direct import
@@ -253,7 +257,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import
   - `test_off_is_the_predecessor_on_a_tracked_fixture_copy`
   - `test_owner_copies_off_is_the_predecessor_and_on_reports_the_mastery_deltas`
-- [tests/test_lp_claim_fixes_review.py](../../../../../../tests/test_lp_claim_fixes_review.py) — direct import
 - [tests/test_method_explicit_upgrade.py](../../../../../../tests/test_method_explicit_upgrade.py) — direct import
   - `test_head_fixture_predecessor_to_successor_path`
 - [tests/test_mvp010_upgrade.py](../../../../../../tests/test_mvp010_upgrade.py) — direct import
@@ -339,7 +342,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_case2_a_model_grade_regraded_within_its_original_maximum_replays_its_own_maximum`
   - `test_case3_a_lowered_rubric_that_still_fits_never_rescores_the_regrade`
   - `test_case3_lowering_the_rubric_after_a_regrade_never_fails_the_rebuild`
-- [tests/test_regrade_contract_successor.py](../../../../../../tests/test_regrade_contract_successor.py) — direct import
 - [tests/test_regrade_contract_upgrade.py](../../../../../../tests/test_regrade_contract_upgrade.py) — direct import
   - `test_after_the_upgrade_a_rebuild_settles_and_stays`
   - `test_head_fixture_predecessor_to_successor_path`

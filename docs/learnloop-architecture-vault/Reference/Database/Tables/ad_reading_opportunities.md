@@ -116,8 +116,11 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/ad1_migration_helpers.py`
+- `tests/ad1_reading_opportunities_helpers.py`
 - `tests/ad_fakes.py`
 - `tests/ad_ingest_fakes.py`
+- `tests/te3a_migration_helpers.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_migration.py`
 - `tests/test_ad1_reading_opportunities.py`
@@ -133,9 +136,6 @@ None found by exact static reference scan.
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
 - `tests/test_data_capture_codex_rereview.py`
-- `tests/test_figure_predictions.py`
-- `tests/test_ro2_history_resolve.py`
-- `tests/test_salience_firewall.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

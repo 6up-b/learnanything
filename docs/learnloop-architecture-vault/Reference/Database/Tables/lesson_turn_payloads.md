@@ -92,6 +92,8 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/teacher_te1_migration_helpers.py`
+- `tests/teacher_te1_review_fixes_helpers.py`
 - `tests/test_followups_batch5_lesson.py`
 - `tests/test_followups_batch5_recap_dependencies.py`
 - `tests/test_followups_batch5_recap_protection.py`
@@ -99,8 +101,6 @@ None found by exact static reference scan.
 - `tests/test_te3a_lesson_opportunity.py`
 - `tests/test_teacher_exam_question_guard.py`
 - `tests/test_teacher_te1_lesson.py`
-- `tests/test_teacher_te1_migration.py`
-- `tests/test_teacher_te1_review_fixes.py`
 - `tests/test_teacher_te2_probes.py`
 - `tests/test_teacher_te2log_episodes.py`
 

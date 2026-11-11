@@ -108,6 +108,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/contamination_report_helpers.py](../../../../../../../tests/contamination_report_helpers.py) — direct import
 - [tests/test_contamination_report.py](../../../../../../../tests/test_contamination_report.py) — direct import
   - `test_cli_embed_dry_run_plans_every_t4_recipe`
   - `test_embed_uses_the_phase_1_backfill_with_the_t4_registry`

@@ -124,6 +124,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/sidecar_golden_path_assessment_helpers.py](../../../../../../tests/sidecar_golden_path_assessment_helpers.py) — direct import
 - [tests/test_causal_p2_acceptance.py](../../../../../../tests/test_causal_p2_acceptance.py) — direct import
 - [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
   - `test_advance_live_veto_persists_typed_marker`
@@ -187,7 +188,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_response_shape_is_unchanged_for_the_desktop`
 - [tests/test_router_staged_p2.py](../../../../../../tests/test_router_staged_p2.py) — direct import
   - `test_a_live_staged_decision_logs_continue_the_ladder_and_its_choice`
-- [tests/test_sidecar_golden_path_assessment.py](../../../../../../tests/test_sidecar_golden_path_assessment.py) — direct import
 
 ## Modification guidance
 

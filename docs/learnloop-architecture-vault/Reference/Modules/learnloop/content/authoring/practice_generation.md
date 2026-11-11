@@ -202,11 +202,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad23_contract_helpers.py](../../../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/ad2_serving_helpers.py](../../../../../../../tests/ad2_serving_helpers.py) — direct import
 - [tests/test_ad23_contract.py](../../../../../../../tests/test_ad23_contract.py) — direct import
   - `test_a_goal_over_a_facet_only_a_protected_item_measures_has_no_scope`
   - `test_the_commissioned_generation_path_reads_no_incumbent_diagnosis_or_probe_counts`
 - [tests/test_ad23_fix_r8.py](../../../../../../../tests/test_ad23_fix_r8.py) — direct import
-- [tests/test_ad2_serving.py](../../../../../../../tests/test_ad2_serving.py) — direct import
 - [tests/test_contract_commissioning.py](../../../../../../../tests/test_contract_commissioning.py) — direct import
   - `test_contract_backed_lo_waives_the_completed_probe_gate`
   - `test_deferred_cells_ride_on_the_plan_not_the_prompt`

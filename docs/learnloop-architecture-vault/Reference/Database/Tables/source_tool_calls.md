@@ -120,6 +120,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/teacher_te1_migration_helpers.py`
 - `tests/test_help_assist_figures_migration.py`
 - `tests/test_learner_note_source_kind_migration.py`
 - `tests/test_learner_notes_vault_origin_migration.py`

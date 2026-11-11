@@ -300,13 +300,31 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/ad3_dose_arm_helpers.py](../../../../../../tests/ad3_dose_arm_helpers.py) — direct import
 - [tests/ad_ingest_fakes.py](../../../../../../tests/ad_ingest_fakes.py) — direct import
+- [tests/ad_projection_helpers.py](../../../../../../tests/ad_projection_helpers.py) — direct import
 - [tests/approach_map_fakes.py](../../../../../../tests/approach_map_fakes.py) — direct import
+- [tests/compare_methods_helpers.py](../../../../../../tests/compare_methods_helpers.py) — direct import
+- [tests/compare_sources_keep_helpers.py](../../../../../../tests/compare_sources_keep_helpers.py) — direct import
 - [tests/conftest.py](../../../../../../tests/conftest.py) — direct import
 - [tests/connection_reuse.py](../../../../../../tests/connection_reuse.py) — direct import
+- [tests/help_outcomes_helpers.py](../../../../../../tests/help_outcomes_helpers.py) — direct import
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
 - [tests/hint_fakes.py](../../../../../../tests/hint_fakes.py) — direct import
+- [tests/hypothesis_marks_context_helpers.py](../../../../../../tests/hypothesis_marks_context_helpers.py) — direct import
+- [tests/learner_blindness_relax_helpers.py](../../../../../../tests/learner_blindness_relax_helpers.py) — direct import
+- [tests/learner_text_gaps_review_helpers.py](../../../../../../tests/learner_text_gaps_review_helpers.py) — direct import
+- [tests/plan_follows_path_helpers.py](../../../../../../tests/plan_follows_path_helpers.py) — direct import
 - [tests/query_student_fakes.py](../../../../../../tests/query_student_fakes.py) — direct import
+- [tests/reference_gate_imports_helpers.py](../../../../../../tests/reference_gate_imports_helpers.py) — direct import
+- [tests/required_method_authority_helpers.py](../../../../../../tests/required_method_authority_helpers.py) — direct import
+- [tests/required_method_rereview_helpers.py](../../../../../../tests/required_method_rereview_helpers.py) — direct import
+- [tests/required_method_round3_rereview_helpers.py](../../../../../../tests/required_method_round3_rereview_helpers.py) — direct import
+- [tests/required_method_round3_review_helpers.py](../../../../../../tests/required_method_round3_review_helpers.py) — direct import
+- [tests/reread_safety_helpers.py](../../../../../../tests/reread_safety_helpers.py) — direct import
+- [tests/sources_merge_composition_helpers.py](../../../../../../tests/sources_merge_composition_helpers.py) — direct import
+- [tests/teacher_te0_confidence_events_helpers.py](../../../../../../tests/teacher_te0_confidence_events_helpers.py) — direct import
 - [tests/test_activity_backfill.py](../../../../../../tests/test_activity_backfill.py) — direct import
   - `test_backfill_logs_attempt_duration_interaction_events`
   - `test_backfill_marks_unverifiable_for_missing_item`
@@ -579,7 +597,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_knowledge_map_text_neighbors.py](../../../../../../tests/test_knowledge_map_text_neighbors.py) — direct import
   - `test_item_text_ranks_like_the_store_and_leaves_the_map_geometry_alone`
   - `test_render_never_calls_a_model_or_writes`
-- [tests/test_learner_blindness_relax.py](../../../../../../tests/test_learner_blindness_relax.py) — direct import
 - [tests/test_learner_gap_unlinked_migration.py](../../../../../../tests/test_learner_gap_unlinked_migration.py) — direct import
 - [tests/test_learner_note_source_kind_migration.py](../../../../../../tests/test_learner_note_source_kind_migration.py) — direct import
 - [tests/test_learner_notes_vault_origin_migration.py](../../../../../../tests/test_learner_notes_vault_origin_migration.py) — direct import
@@ -822,7 +839,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_grades_recorded_at_the_predecessor_replay_unchanged_after_the_upgrade`
   - `test_live_another_route_fails_the_method_criterion_with_no_quote`
 - [tests/test_required_method_reopened.py](../../../../../../tests/test_required_method_reopened.py) — direct import
-- [tests/test_required_method_rereview.py](../../../../../../tests/test_required_method_rereview.py) — direct import
 - [tests/test_required_method_round3.py](../../../../../../tests/test_required_method_round3.py) — direct import
   - `test_f22_a_partial_selection_left_by_an_earlier_run_is_finished_first`
 - [tests/test_required_method_round3_final_verify.py](../../../../../../tests/test_required_method_round3_final_verify.py) — direct import
@@ -837,7 +853,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_exam_review_shows_the_question_the_answer_was_given`
   - `test_f7_a_selection_to_finish_is_estimated_from_its_survivors`
   - `test_f8_the_attempt_time_revision_settles_it`
-- [tests/test_reread_safety.py](../../../../../../tests/test_reread_safety.py) — direct import
 - [tests/test_retrieval_spaces_migration.py](../../../../../../tests/test_retrieval_spaces_migration.py) — direct import
   - `test_220_on_the_durability_lane`
 - [tests/test_reveal_ledger.py](../../../../../../tests/test_reveal_ledger.py) — direct import
@@ -995,7 +1010,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
   - `test_migration_020_allows_teach_back_on_existing_db`
   - `test_regrade_teach_back_attempt_without_evidence_falls_back_to_core`
-- [tests/test_teacher_te0_confidence_events.py](../../../../../../tests/test_teacher_te0_confidence_events.py) — direct import
 - [tests/test_teacher_te0_fix_round2.py](../../../../../../tests/test_teacher_te0_fix_round2.py) — direct import
   - `test_a_held_review_grade_reads_held_for_review_in_a_later_targets_history`
   - `test_the_live_history_keeps_the_ledgers_hold`

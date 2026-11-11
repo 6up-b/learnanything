@@ -220,6 +220,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/mcp_world.py](../../../../../../tests/mcp_world.py) — direct import
+- [tests/router_staged_p2_helpers.py](../../../../../../tests/router_staged_p2_helpers.py) — direct import
+- [tests/sidecar_golden_path_assessment_helpers.py](../../../../../../tests/sidecar_golden_path_assessment_helpers.py) — direct import
 - [tests/test_action_loss.py](../../../../../../tests/test_action_loss.py) — direct import
   - `test_durations_fall_back_to_logged_pooled_then_heuristic`
 - [tests/test_activity_contract_extensions.py](../../../../../../tests/test_activity_contract_extensions.py) — direct import
@@ -325,8 +327,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_reserved_assessment_surface_is_refused_on_today`
 - [tests/test_router_g4_restraint.py](../../../../../../tests/test_router_g4_restraint.py) — direct import
   - `test_a_follow_up_a_hard_constraint_refuses_is_declined_by_name`
-- [tests/test_router_staged_p2.py](../../../../../../tests/test_router_staged_p2.py) — direct import
-- [tests/test_sidecar_golden_path_assessment.py](../../../../../../tests/test_sidecar_golden_path_assessment.py) — direct import
 - [tests/test_sidecar_reader.py](../../../../../../tests/test_sidecar_reader.py) — direct import
   - `test_reader_ask_history_rpc_returns_durable_exchanges`
 - [tests/test_substrate_cutover.py](../../../../../../tests/test_substrate_cutover.py) — direct import

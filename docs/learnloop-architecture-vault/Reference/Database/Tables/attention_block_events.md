@@ -111,7 +111,13 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/ad23_contract_helpers.py`
 - `tests/ad23_fakes.py`
+- `tests/instruct_handoff_ih0_helpers.py`
+- `tests/mobile_v2_review_fixes_helpers.py`
+- `tests/plan_follows_path_helpers.py`
+- `tests/router_r2a_serving_helpers.py`
+- `tests/rw7b_codex_review_fixes_helpers.py`
 - `tests/test_ad23_contract.py`
 - `tests/test_ad2_serving.py`
 - `tests/test_curriculum_c1_landing.py`
@@ -125,12 +131,6 @@ None found by exact static reference scan.
 - `tests/test_instruct_handoff_ih0.py`
 - `tests/test_instruct_handoff_ih1.py`
 - `tests/test_mcp_tools.py`
-- `tests/test_migrations.py`
-- `tests/test_mobile_two_process.py`
-- `tests/test_mobile_v2_checks.py`
-- `tests/test_mobile_v2_plan.py`
-- `tests/test_mobile_v2_review_fixes.py`
-- `tests/test_mobile_v4_plan.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

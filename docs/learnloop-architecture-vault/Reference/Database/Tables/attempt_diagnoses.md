@@ -128,12 +128,12 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/help_outcomes_helpers.py`
 - `tests/test_chatgpt_plan_landing.py`
 - `tests/test_curriculum_c1_fix_round3.py`
 - `tests/test_diagnosis_input_provenance.py`
 - `tests/test_forecast_receipts.py`
 - `tests/test_forecast_receipts_landing.py`
-- `tests/test_help_outcomes.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_ih7_lesson_sources_follow_diagnosis.py`
 - `tests/test_learner_text_gaps_flow.py`

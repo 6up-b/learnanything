@@ -120,6 +120,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/router_objective_migration_helpers.py`
 - `tests/test_mobile_v2_landing_fixes.py`
 - `tests/test_mobile_v2_rereview_fixes.py`
 - `tests/test_mobile_v3_carried.py`

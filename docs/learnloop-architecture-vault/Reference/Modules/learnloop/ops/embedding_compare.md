@@ -180,6 +180,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/recurrence_benchmarks_helpers.py](../../../../../../tests/recurrence_benchmarks_helpers.py) — direct import
 - [tests/test_embedding_compare.py](../../../../../../tests/test_embedding_compare.py) — direct import
   - `test_a_larger_dimension_sweep_never_reuses_narrower_cached_vectors`
   - `test_b2_dry_run_sends_nothing_and_writes_nothing`

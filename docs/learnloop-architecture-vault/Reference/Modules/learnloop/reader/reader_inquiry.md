@@ -145,6 +145,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reader_report_helpers.py](../../../../../../tests/reader_report_helpers.py) — direct import
 - [tests/recap_fixtures.py](../../../../../../tests/recap_fixtures.py) — direct import
 - [tests/test_figure_rich_rpc.py](../../../../../../tests/test_figure_rich_rpc.py) — direct import
   - `test_rich_build_cancelled_is_a_salience_only_event_without_words`
@@ -185,7 +186,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_reconnect_yes_resolves_the_root_as_a_self_report`
 - [tests/test_reader_reconstruct.py](../../../../../../tests/test_reader_reconstruct.py) — direct import
   - `test_every_rw1b_event_is_salience_only_refused_as_evidence_and_never_client_recorded`
-- [tests/test_reader_report.py](../../../../../../tests/test_reader_report.py) — direct import
 - [tests/test_reader_tutor_offers.py](../../../../../../tests/test_reader_tutor_offers.py) — direct import
   - `test_a_press_is_a_salience_only_reader_event_counted_by_the_report`
 - [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import

@@ -58,7 +58,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/offline_review/planted|learnloop.diagnosis.offline_review.planted]] | [[Reference/Modules/learnloop/diagnosis/offline_review/planted#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/offline_review/probes|learnloop.diagnosis.offline_review.probes]] | [[Reference/Modules/learnloop/diagnosis/offline_review/probes#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/offline_review/report|learnloop.diagnosis.offline_review.report]] | [[Reference/Modules/learnloop/diagnosis/offline_review/report#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
-| [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] | [[Reference/Modules/learnloop/diagnosis/offline_review/runner#^module-purpose|purpose]] | `ACTIVE` | 6 | 6 |
+| [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] | [[Reference/Modules/learnloop/diagnosis/offline_review/runner#^module-purpose|purpose]] | `ACTIVE` | 6 | 7 |
 | [[Reference/Modules/learnloop/diagnosis/offline_review/spend|learnloop.diagnosis.offline_review.spend]] | [[Reference/Modules/learnloop/diagnosis/offline_review/spend#^module-purpose|purpose]] | `ACTIVE` | 14 | 6 |
 | [[Reference/Modules/learnloop/diagnosis/offline_review/spot_check|learnloop.diagnosis.offline_review.spot_check]] | [[Reference/Modules/learnloop/diagnosis/offline_review/spot_check#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 

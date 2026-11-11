@@ -167,6 +167,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reader_ca3_compare_anywhere_helpers.py](../../../../../../tests/reader_ca3_compare_anywhere_helpers.py) — direct import
 - [tests/test_curriculum_c0b_landing.py](../../../../../../tests/test_curriculum_c0b_landing.py) — direct import
   - `test_ii_compare_scope_and_the_scope_resolver_are_separate_routes`
   - `test_ii_compare_scopes_cap_does_not_stop_the_resolver`

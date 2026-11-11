@@ -148,6 +148,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/followups_batch6_verify_fixes_helpers.py](../../../../../../../tests/followups_batch6_verify_fixes_helpers.py) — direct import
 - [tests/test_followups_batch6_verify_fixes.py](../../../../../../../tests/test_followups_batch6_verify_fixes.py) — direct import
 - [tests/test_router_card.py](../../../../../../../tests/test_router_card.py) — direct import
   - `test_a_resolved_promoted_misconception_is_not_an_open_problem`

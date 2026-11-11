@@ -302,6 +302,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/learner_pick_proposal_helpers.py](../../../../../../../tests/learner_pick_proposal_helpers.py) — direct import
+- [tests/reader_followups_round4_helpers.py](../../../../../../../tests/reader_followups_round4_helpers.py) — direct import
+- [tests/reference_gate_imports_helpers.py](../../../../../../../tests/reference_gate_imports_helpers.py) — direct import
+- [tests/required_method_authority_helpers.py](../../../../../../../tests/required_method_authority_helpers.py) — direct import
+- [tests/required_method_rereview_helpers.py](../../../../../../../tests/required_method_rereview_helpers.py) — direct import
+- [tests/required_method_round3_rereview_helpers.py](../../../../../../../tests/required_method_round3_rereview_helpers.py) — direct import
+- [tests/required_method_round3_review_helpers.py](../../../../../../../tests/required_method_round3_review_helpers.py) — direct import
+- [tests/source_exercise_import_helpers.py](../../../../../../../tests/source_exercise_import_helpers.py) — direct import
 - [tests/test_ad1_fix_round4.py](../../../../../../../tests/test_ad1_fix_round4.py) — direct import
   - `test_an_answer_after_a_vault_switch_writes_no_checkpoint_and_settles_its_spend`
 - [tests/test_compare_methods.py](../../../../../../../tests/test_compare_methods.py) — direct import
@@ -336,7 +344,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_ca1_astra_rereview.py](../../../../../../../tests/test_reader_ca1_astra_rereview.py) — direct import
 - [tests/test_reader_followups_rereview.py](../../../../../../../tests/test_reader_followups_rereview.py) — direct import
 - [tests/test_reader_followups_review.py](../../../../../../../tests/test_reader_followups_review.py) — direct import
-- [tests/test_reader_followups_round4.py](../../../../../../../tests/test_reader_followups_round4.py) — direct import
 - [tests/test_reader_rw3a_landing.py](../../../../../../../tests/test_reader_rw3a_landing.py) — direct import
   - `test_check_me_goes_through_the_plan_path_and_is_logged_once`
 - [tests/test_reader_rw6b_landing.py](../../../../../../../tests/test_reader_rw6b_landing.py) — direct import

@@ -108,14 +108,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reader_guidance_helpers.py](../../../../../../tests/reader_guidance_helpers.py) — direct import
+- [tests/router_staged_p2_helpers.py](../../../../../../tests/router_staged_p2_helpers.py) — direct import
+- [tests/sidecar_golden_path_assessment_helpers.py](../../../../../../tests/sidecar_golden_path_assessment_helpers.py) — direct import
 - [tests/test_causal_p2_acceptance.py](../../../../../../tests/test_causal_p2_acceptance.py) — direct import
 - [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
 - [tests/test_golden_path_assessment.py](../../../../../../tests/test_golden_path_assessment.py) — direct import
 - [tests/test_golden_path_confirm.py](../../../../../../tests/test_golden_path_confirm.py) — direct import
   - `test_unreviewed_blueprint_refused`
 - [tests/test_golden_path_run.py](../../../../../../tests/test_golden_path_run.py) — direct import
-- [tests/test_reader_guidance.py](../../../../../../tests/test_reader_guidance.py) — direct import
-- [tests/test_router_staged_p2.py](../../../../../../tests/test_router_staged_p2.py) — direct import
 - [tests/test_sidecar_golden_path_assessment.py](../../../../../../tests/test_sidecar_golden_path_assessment.py) — direct import
   - `test_practice_only_assess_open_returns_stable_error`
 - [tests/test_task_blueprints.py](../../../../../../tests/test_task_blueprints.py) — direct import

@@ -204,6 +204,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
 - [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — direct import
   - `test_a_run_whose_quoted_revision_was_replaced_then_protected_is_not_used`
   - `test_a_saved_run_proposed_before_its_subject_was_protected_is_not_used`

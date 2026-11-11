@@ -110,6 +110,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/assumed_known_helpers.py`
 - `tests/test_assumed_known.py`
 - `tests/test_mvp011_upgrade.py`
 - `tests/test_reading_paths.py`

@@ -130,8 +130,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/curriculum_c2b_past_papers_helpers.py](../../../../../../../tests/curriculum_c2b_past_papers_helpers.py) — direct import
 - [tests/exam_scope_fixtures.py](../../../../../../../tests/exam_scope_fixtures.py) — direct import
+- [tests/facet_authority_review_helpers.py](../../../../../../../tests/facet_authority_review_helpers.py) — direct import
+- [tests/ro2_history_protection_helpers.py](../../../../../../../tests/ro2_history_protection_helpers.py) — direct import
 - [tests/section_coverage_fixtures.py](../../../../../../../tests/section_coverage_fixtures.py) — direct import
+- [tests/source_set_synthesis_helpers.py](../../../../../../../tests/source_set_synthesis_helpers.py) — direct import
 - [tests/test_ad1_codex_review_fixes.py](../../../../../../../tests/test_ad1_codex_review_fixes.py) — direct import
 - [tests/test_ad3_relatedness.py](../../../../../../../tests/test_ad3_relatedness.py) — direct import
   - `test_relatedness_proposal_reads_no_learner_or_held_out_data`
@@ -232,18 +236,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_source_roles.py](../../../../../../../tests/test_source_roles.py) — direct import
   - `test_a_proposal_held_out_later_is_never_returned`
   - `test_exam_and_held_out_passages_are_never_proposed`
-- [tests/test_source_set_synthesis.py](../../../../../../../tests/test_source_set_synthesis.py) — direct import
 - [tests/test_source_sets.py](../../../../../../../tests/test_source_sets.py) — direct import
   - `test_exam_use_modes_persist_at_selection`
 - [tests/test_tutor_delivery_fixes.py](../../../../../../../tests/test_tutor_delivery_fixes.py) — direct import
   - `test_a_held_out_neighbour_is_skipped_and_the_other_side_still_arrives`
   - `test_references_never_cross_sources_or_reach_held_out_material`
   - `test_the_expanded_delivery_kill_switch_restores_the_predecessors_reader_window`
-- [tests/test_ux_phase1_landing.py](../../../../../../../tests/test_ux_phase1_landing.py) — direct import
 - [tests/test_whole_comparison_provenance_surfaces.py](../../../../../../../tests/test_whole_comparison_provenance_surfaces.py) — direct import
 - [tests/test_whole_comparison_reuse_provenance.py](../../../../../../../tests/test_whole_comparison_reuse_provenance.py) — direct import
   - `test_f1_a_cached_tutor_comparison_checks_the_current_questions_passage`
   - `test_f1_rereview_a_direct_tutor_reuse_persists_its_question_for_later_readers`
+- [tests/ux_phase1_landing_helpers.py](../../../../../../../tests/ux_phase1_landing_helpers.py) — direct import
 
 ## Modification guidance
 

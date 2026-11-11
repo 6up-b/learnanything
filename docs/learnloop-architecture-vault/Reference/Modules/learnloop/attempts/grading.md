@@ -187,6 +187,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/held_grade_evidence_helpers.py](../../../../../../tests/held_grade_evidence_helpers.py) — direct import
+- [tests/regrade_contract_replay_helpers.py](../../../../../../tests/regrade_contract_replay_helpers.py) — direct import
+- [tests/required_method_rereview_helpers.py](../../../../../../tests/required_method_rereview_helpers.py) — direct import
 - [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — direct import
   - `test_chat_client_accumulates_usage_across_calls_and_resets_on_consume`
   - `test_chat_client_counts_tokens_of_a_call_whose_body_is_unusable`
@@ -262,7 +265,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_grading_context_uses_default_rubric_when_inline_rubric_is_omitted`
   - `test_legacy_evidence_coverage_wrapper_is_score_independent`
 - [tests/test_grading_support.py](../../../../../../tests/test_grading_support.py) — direct import
-- [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
 - [tests/test_km4_taxonomy.py](../../../../../../tests/test_km4_taxonomy.py) — direct import
   - `test_mvp07_grader_taxonomy_emits_mechanism_vocabulary`
   - `test_retrieval_boundary_is_mechanism_based_and_domain_neutral`
@@ -299,11 +301,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_feedback_shows_an_unverified_criterion_as_not_assessed`
 - [tests/test_reader_recap_review_r2.py](../../../../../../tests/test_reader_recap_review_r2.py) — direct import
 - [tests/test_reader_workbench_rw2a.py](../../../../../../tests/test_reader_workbench_rw2a.py) — direct import
-- [tests/test_regrade_contract_replay.py](../../../../../../tests/test_regrade_contract_replay.py) — direct import
 - [tests/test_repair_splice.py](../../../../../../tests/test_repair_splice.py) — direct import
 - [tests/test_required_method_grading.py](../../../../../../tests/test_required_method_grading.py) — direct import
   - `test_the_grader_reads_the_frozen_field_never_the_answered_statement`
-- [tests/test_required_method_rereview.py](../../../../../../tests/test_required_method_rereview.py) — direct import
 - [tests/test_required_method_round3.py](../../../../../../tests/test_required_method_round3.py) — direct import
   - `test_f14_a_generated_update_quoting_the_sentence_is_stored_verbatim_and_the_block_rendered`
   - `test_f14_the_grader_renders_the_instruction_the_frozen_contract_presented`

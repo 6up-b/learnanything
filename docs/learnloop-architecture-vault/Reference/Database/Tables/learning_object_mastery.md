@@ -127,7 +127,9 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
-- `tests/test_ad23_contract.py`
+- `tests/ad23_contract_helpers.py`
+- `tests/assumed_known_helpers.py`
+- `tests/lp_claim_fixes_review_helpers.py`
 - `tests/test_ad2_model.py`
 - `tests/test_ad3_reading.py`
 - `tests/test_ad3_subject_view.py`
@@ -145,8 +147,6 @@ Indexes and uniqueness:
 - `tests/test_rebuild_equivalence_review.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_ro1_projection.py`
-- `tests/test_shadow_rebuild.py`
-- `tests/test_table_roles.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

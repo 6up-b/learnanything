@@ -175,7 +175,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ad_fakes.py](../../../../../../tests/ad_fakes.py) — direct import
 - [tests/decider_fakes.py](../../../../../../tests/decider_fakes.py) — direct import
 - [tests/facet_identity_fakes.py](../../../../../../tests/facet_identity_fakes.py) — direct import
+- [tests/facet_span_support_helpers.py](../../../../../../tests/facet_span_support_helpers.py) — direct import
 - [tests/hint_fakes.py](../../../../../../tests/hint_fakes.py) — direct import
+- [tests/reader_ca3_compare_anywhere_helpers.py](../../../../../../tests/reader_ca3_compare_anywhere_helpers.py) — direct import
+- [tests/required_method_authority_helpers.py](../../../../../../tests/required_method_authority_helpers.py) — direct import
 - [tests/router_model_fakes.py](../../../../../../tests/router_model_fakes.py) — direct import
 - [tests/test_decider_client.py](../../../../../../tests/test_decider_client.py) — direct import
   - `test_a_malformed_paid_answer_keeps_its_usage_on_the_receipt`
@@ -195,10 +198,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_requests_refuse_untyped_questions_and_bad_counts`
   - `test_score_answers_must_match_the_rubric`
 - [tests/test_decider_landing.py](../../../../../../tests/test_decider_landing.py) — direct import
-- [tests/test_facet_span_support.py](../../../../../../tests/test_facet_span_support.py) — direct import
-- [tests/test_reader_ca3_compare_anywhere.py](../../../../../../tests/test_reader_ca3_compare_anywhere.py) — direct import
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
-- [tests/test_required_method_authority.py](../../../../../../tests/test_required_method_authority.py) — direct import
 - [tests/test_router_g7_fallback.py](../../../../../../tests/test_router_g7_fallback.py) — direct import
   - `test_an_error_or_an_invalid_answer_falls_back`
 - [tests/test_router_r2b_requests.py](../../../../../../tests/test_router_r2b_requests.py) — direct import
@@ -212,6 +212,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_decider_receipt_and_spend_ignore_llm_output_budget`
   - `test_route_decision_fallback_and_switch`
 - [tests/text_gap_fakes.py](../../../../../../tests/text_gap_fakes.py) — direct import
+- [tests/tier1_decider_helpers.py](../../../../../../tests/tier1_decider_helpers.py) — direct import
 
 ## Modification guidance
 

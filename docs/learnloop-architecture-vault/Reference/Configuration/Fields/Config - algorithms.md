@@ -18,18 +18,18 @@ source_paths:
   - "tests/test_config_refactor.py"
   - "src/learnloop/ad_successor_upgrade.py"
   - "src/learnloop/adaptive_difficulty/history_forecast.py"
-  - "tests/helpers.py"
-  - "tests/intent_fakes.py"
-  - "tests/mcp_world.py"
-  - "tests/test_ad23_contract.py"
-  - "tests/test_ad23_fix_r6.py"
-  - "tests/test_ad23_migration.py"
-  - "tests/test_ad23_owner_decisions.py"
-  - "tests/test_ad23_successor.py"
-  - "tests/test_ad_denial_log.py"
-  - "tests/test_ad_guard_offer_receipts.py"
-  - "tests/test_ad_guard_reachable_reads.py"
-  - "tests/test_administration_adapters.py"
+  - "tests/ad23_contract_helpers.py"
+  - "tests/ad_guard_offer_receipts_helpers.py"
+  - "tests/batch3_landing_helpers.py"
+  - "tests/causal_orchestrator_helpers.py"
+  - "tests/causal_p2_acceptance_helpers.py"
+  - "tests/causal_shadow_selection_helpers.py"
+  - "tests/cli_generate_practice_helpers.py"
+  - "tests/cold_retry_reschedule_helpers.py"
+  - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/data_capture_codex_review_helpers.py"
+  - "tests/data_capture_successor_helpers.py"
+  - "tests/diagnostic_probe_single_use_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/algorithms"
@@ -59,18 +59,18 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
-- `tests/helpers.py`
-- `tests/intent_fakes.py`
-- `tests/mcp_world.py`
-- `tests/test_ad23_contract.py`
-- `tests/test_ad23_fix_r6.py`
-- `tests/test_ad23_migration.py`
-- `tests/test_ad23_owner_decisions.py`
-- `tests/test_ad23_successor.py`
-- `tests/test_ad_denial_log.py`
-- `tests/test_ad_guard_offer_receipts.py`
-- `tests/test_ad_guard_reachable_reads.py`
-- `tests/test_administration_adapters.py`
+- `tests/ad23_contract_helpers.py`
+- `tests/ad_guard_offer_receipts_helpers.py`
+- `tests/batch3_landing_helpers.py`
+- `tests/causal_orchestrator_helpers.py`
+- `tests/causal_p2_acceptance_helpers.py`
+- `tests/causal_shadow_selection_helpers.py`
+- `tests/cli_generate_practice_helpers.py`
+- `tests/cold_retry_reschedule_helpers.py`
+- `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/data_capture_codex_review_helpers.py`
+- `tests/data_capture_successor_helpers.py`
+- `tests/diagnostic_probe_single_use_helpers.py`
 
 ## Extension and modification guidance
 

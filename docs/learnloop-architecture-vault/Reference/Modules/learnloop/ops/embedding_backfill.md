@@ -127,6 +127,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/graph_nomination_ingest_helpers.py](../../../../../../tests/graph_nomination_ingest_helpers.py) — direct import
+- [tests/practice_index_find_helpers.py](../../../../../../tests/practice_index_find_helpers.py) — direct import
+- [tests/source_retrieval_tutor_helpers.py](../../../../../../tests/source_retrieval_tutor_helpers.py) — direct import
 - [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — direct import
   - `test_iv_with_the_student_off_rw5ds_grounding_retrieval_is_p1s`
 - [tests/test_contamination_report.py](../../../../../../tests/test_contamination_report.py) — direct import
@@ -168,7 +171,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_source_retrieval_search.py](../../../../../../tests/test_source_retrieval_search.py) — direct import
 - [tests/test_source_retrieval_suites.py](../../../../../../tests/test_source_retrieval_suites.py) — direct import
   - `test_source_retrieval_report_compares_against_todays_substring_search`
-- [tests/test_source_retrieval_tutor.py](../../../../../../tests/test_source_retrieval_tutor.py) — direct import
 - [tests/test_source_space_resolver.py](../../../../../../tests/test_source_space_resolver.py) — direct import
   - `test_an_unknown_rewrite_is_planned_at_its_largest_encoding_and_never_found_cached`
 - [tests/test_success_head_cli.py](../../../../../../tests/test_success_head_cli.py) — direct import

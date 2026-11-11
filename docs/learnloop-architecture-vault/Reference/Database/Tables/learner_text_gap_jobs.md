@@ -104,9 +104,11 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/figures_codex_review_helpers.py`
+- `tests/figures_fix_round2_helpers.py`
+- `tests/learner_note_source_kind_migration_helpers.py`
+- `tests/teacher_te2_migration_helpers.py`
 - `tests/test_figure_predictions.py`
-- `tests/test_figures_codex_review.py`
-- `tests/test_figures_fix_round2.py`
 - `tests/test_figures_fix_round3.py`
 - `tests/test_figures_fix_round4.py`
 - `tests/test_figures_switch_off.py`
@@ -122,8 +124,6 @@ None found by exact static reference scan.
 - `tests/test_mvp016_upgrade.py`
 - `tests/test_notes_as_learner_text.py`
 - `tests/test_reader_active_reading.py`
-- `tests/test_reader_formative_texts.py`
-- `tests/test_reader_rw1b_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

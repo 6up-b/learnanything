@@ -128,18 +128,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/diagnosis_input_provenance_helpers.py](../../../../../../../tests/diagnosis_input_provenance_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]]
 - [tests/mcp_world.py](../../../../../../../tests/mcp_world.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]]
-- [tests/test_diagnosis_input_provenance.py](../../../../../../../tests/test_diagnosis_input_provenance.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]]
 - [tests/test_diagnosis_input_provenance_landing.py](../../../../../../../tests/test_diagnosis_input_provenance_landing.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]]
 - [tests/test_followups_nov2_note_gap_unlinked.py](../../../../../../../tests/test_followups_nov2_note_gap_unlinked.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]]
 - [tests/test_learner_text_gaps.py](../../../../../../../tests/test_learner_text_gaps.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]]
 - [tests/test_learner_text_gaps_rereview.py](../../../../../../../tests/test_learner_text_gaps_rereview.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]]
 - [tests/test_learner_text_gaps_review.py](../../../../../../../tests/test_learner_text_gaps_review.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]]
 - [tests/test_mcp_c1a_narrow.py](../../../../../../../tests/test_mcp_c1a_narrow.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]]
-- [tests/test_figures_codex_review.py](../../../../../../../tests/test_figures_codex_review.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]]
-- [tests/test_figures_fix_round4.py](../../../../../../../tests/test_figures_fix_round4.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]]
-- [tests/test_figures_scope_redesign.py](../../../../../../../tests/test_figures_scope_redesign.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]]
-- [tests/test_hint_feedback_texts.py](../../../../../../../tests/test_hint_feedback_texts.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]]
+- [tests/figures_codex_review_helpers.py](../../../../../../../tests/figures_codex_review_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]]
+- [tests/figures_scope_redesign_helpers.py](../../../../../../../tests/figures_scope_redesign_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]]
+- [tests/learner_text_gaps_flow_helpers.py](../../../../../../../tests/learner_text_gaps_flow_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]]
+- [tests/learner_text_gaps_helpers.py](../../../../../../../tests/learner_text_gaps_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]]
 
 ## Modification guidance
 

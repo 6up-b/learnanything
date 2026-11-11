@@ -118,6 +118,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/causal_p2_acceptance_helpers.py`
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_migrations.py`

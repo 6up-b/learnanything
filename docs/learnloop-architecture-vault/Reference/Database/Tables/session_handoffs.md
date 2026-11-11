@@ -99,6 +99,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/session_ownership_migration_helpers.py`
 - `tests/test_architecture.py`
 - `tests/test_device_eligibility.py`
 - `tests/test_mobile_handoff.py`

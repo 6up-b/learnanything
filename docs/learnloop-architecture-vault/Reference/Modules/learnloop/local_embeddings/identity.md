@@ -118,6 +118,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/query_student_fakes.py](../../../../../../tests/query_student_fakes.py) — imports consumer [[Reference/Modules/learnloop/source_retrieval/local_index|learnloop.source_retrieval.local_index]]
 - [tests/test_local_index.py](../../../../../../tests/test_local_index.py) — imports consumer [[Reference/Modules/learnloop/source_retrieval/local_index|learnloop.source_retrieval.local_index]]
 - [tests/test_query_student.py](../../../../../../tests/test_query_student.py) — imports consumer [[Reference/Modules/learnloop/source_retrieval/local_index|learnloop.source_retrieval.local_index]]
+- [tests/query_student_helpers.py](../../../../../../tests/query_student_helpers.py) — imports consumer [[Reference/Modules/learnloop/source_retrieval/student_encoder|learnloop.source_retrieval.student_encoder]]
 - [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — imports consumer [[Reference/Modules/learnloop/source_retrieval/student_encoder|learnloop.source_retrieval.student_encoder]]
 
 ## Modification guidance

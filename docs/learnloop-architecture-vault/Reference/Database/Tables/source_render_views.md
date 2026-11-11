@@ -125,8 +125,8 @@ Indexes and uniqueness:
 - `tests/test_p3_journeys.py`
 - `tests/test_reader_render_views.py`
 - `tests/test_rw5c_block_policy.py`
+- `tests/reader_source_identity_guard_helpers.py`
 - `tests/test_ad1_reading_opportunities.py`
-- `tests/test_reader_source_identity_guard.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

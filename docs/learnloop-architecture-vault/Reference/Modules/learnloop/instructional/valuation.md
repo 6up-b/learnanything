@@ -205,6 +205,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reader_followups_helpers.py](../../../../../../tests/reader_followups_helpers.py) — direct import
 - [tests/test_discriminating_search.py](../../../../../../tests/test_discriminating_search.py) — direct import
   - `test_causal_space_excludes_h_other_explicitly`
   - `test_item_tables_are_normalized_and_labelled`
@@ -214,7 +215,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_hypothesis_reference_contract.py](../../../../../../tests/test_hypothesis_reference_contract.py) — direct import
   - `test_every_published_kind_parses_under_the_adapters_contract`
   - `test_named_gaps_map_to_their_targets_and_reversals_name_nothing`
-- [tests/test_reader_followups.py](../../../../../../tests/test_reader_followups.py) — direct import
 - [tests/test_reader_followups_review.py](../../../../../../tests/test_reader_followups_review.py) — direct import
   - `test_f12_a_familiar_sibling_counts_for_less_than_its_undiscounted_value`
 - [tests/test_reader_followups_round3.py](../../../../../../tests/test_reader_followups_round3.py) — direct import

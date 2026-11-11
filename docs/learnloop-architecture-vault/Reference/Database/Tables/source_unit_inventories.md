@@ -122,14 +122,15 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/exam_protection_identity_helpers.py`
 - `tests/test_exam_protection_identity.py`
+- `tests/reread_safety_helpers.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_ad_protected_readings.py`
 - `tests/test_curriculum_c3_exam_scoping.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_ingestion_checkpoints.py`
 - `tests/test_inventory_merge_parallel.py`
-- `tests/test_reread_safety.py`
 - `tests/test_source_inventory.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

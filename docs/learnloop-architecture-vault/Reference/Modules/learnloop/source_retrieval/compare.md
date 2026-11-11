@@ -161,6 +161,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reader_ca3_codex_review_helpers.py](../../../../../../tests/reader_ca3_codex_review_helpers.py) — direct import
 - [tests/source_service_fakes.py](../../../../../../tests/source_service_fakes.py) — direct import
 - [tests/test_compare_sources.py](../../../../../../tests/test_compare_sources.py) — direct import
   - `test_every_source_is_considered_and_uncompared_ones_are_listed`

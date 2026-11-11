@@ -180,6 +180,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/rebuild_equivalence_helpers.py](../../../../../../tests/rebuild_equivalence_helpers.py) — direct import
 - [tests/test_characterization_mastery_reliability.py](../../../../../../tests/test_characterization_mastery_reliability.py) — direct import
 - [tests/test_cold_start_revision.py](../../../../../../tests/test_cold_start_revision.py) — direct import
   - `test_channel_doubt_never_inverts_direction_on_easy_items`
@@ -244,7 +245,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_primed_failure_moves_mean_more_than_cold_failure`
   - `test_primed_success_moves_mean_less_than_cold_success`
   - `test_primed_success_shrinks_variance_less`
-- [tests/test_rebuild_equivalence.py](../../../../../../tests/test_rebuild_equivalence.py) — direct import
 - [tests/test_state_sync.py](../../../../../../tests/test_state_sync.py) — direct import
   - `test_state_sync_seeds_from_weak_learner_claim_below_probe_threshold`
   - `test_state_sync_uses_strong_learner_claim_for_initial_mastery`

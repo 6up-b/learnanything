@@ -216,6 +216,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_workbench_route_example.py](../../../../../../tests/test_workbench_route_example.py) — direct import
   - `test_after_a_level_three_hint_the_example_takes_the_learners_route`
   - `test_the_default_search_is_the_sources_specs_worked_example_intent`
+- [tests/workbench_route_example_helpers.py](../../../../../../tests/workbench_route_example_helpers.py) — direct import
 
 ## Modification guidance
 

@@ -27,18 +27,18 @@ source_paths:
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/diagnosis/split/reports.py"
+  - "tests/ad3_subject_view_helpers.py"
   - "tests/ad_fakes.py"
   - "tests/diagnosis_fakes.py"
+  - "tests/diagnosis_input_provenance_helpers.py"
+  - "tests/followup_fg1d_probe_shadow_helpers.py"
+  - "tests/forecast_receipts_helpers.py"
+  - "tests/held_grade_evidence_helpers.py"
+  - "tests/help_outcomes_helpers.py"
   - "tests/hint_fakes.py"
   - "tests/mcp_world.py"
-  - "tests/router_model_fakes.py"
-  - "tests/test_action_loss.py"
-  - "tests/test_ad1_codex_rereview_fixes.py"
-  - "tests/test_ad1_codex_review_fixes.py"
-  - "tests/test_ad1_fix_round4.py"
-  - "tests/test_ad1_migration.py"
-  - "tests/test_ad1_reading_opportunities.py"
-  - "tests/test_ad1_send_guard.py"
+  - "tests/pfc_unassessed_readers_helpers.py"
+  - "tests/pfc_unverified_unassessed_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/diagnosis"
@@ -91,18 +91,18 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/ad3_subject_view_helpers.py`
 - `tests/ad_fakes.py`
 - `tests/diagnosis_fakes.py`
+- `tests/diagnosis_input_provenance_helpers.py`
+- `tests/followup_fg1d_probe_shadow_helpers.py`
+- `tests/forecast_receipts_helpers.py`
+- `tests/held_grade_evidence_helpers.py`
+- `tests/help_outcomes_helpers.py`
 - `tests/hint_fakes.py`
 - `tests/mcp_world.py`
-- `tests/router_model_fakes.py`
-- `tests/test_action_loss.py`
-- `tests/test_ad1_codex_rereview_fixes.py`
-- `tests/test_ad1_codex_review_fixes.py`
-- `tests/test_ad1_fix_round4.py`
-- `tests/test_ad1_migration.py`
-- `tests/test_ad1_reading_opportunities.py`
-- `tests/test_ad1_send_guard.py`
+- `tests/pfc_unassessed_readers_helpers.py`
+- `tests/pfc_unverified_unassessed_helpers.py`
 
 ## Extension and modification guidance
 

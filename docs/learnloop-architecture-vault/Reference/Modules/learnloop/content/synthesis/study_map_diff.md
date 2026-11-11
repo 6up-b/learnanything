@@ -95,6 +95,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/facet_identity_ingest_helpers.py](../../../../../../../tests/facet_identity_ingest_helpers.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
 - [tests/test_build_study_map_routing.py](../../../../../../../tests/test_build_study_map_routing.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
 - [tests/test_facet_authority.py](../../../../../../../tests/test_facet_authority.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
 - [tests/test_facet_identity_ingest.py](../../../../../../../tests/test_facet_identity_ingest.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]

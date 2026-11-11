@@ -161,7 +161,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/followup_rival_factor_helpers.py](../../../../../../tests/followup_rival_factor_helpers.py) — direct import
 - [tests/followup_serve_helpers.py](../../../../../../tests/followup_serve_helpers.py) — direct import
+- [tests/ih2_lessons_compete_helpers.py](../../../../../../tests/ih2_lessons_compete_helpers.py) — direct import
+- [tests/teacher_te2_probes_helpers.py](../../../../../../tests/teacher_te2_probes_helpers.py) — direct import
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f10_a_failed_workflow_withdraws_what_its_last_run_left`
   - `test_f10_recovery_redoes_a_withdrawal_a_crash_cut_at_the_job_boundary`
@@ -182,9 +185,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f20_an_exit_that_spends_nothing_still_takes_its_own_way_out`
   - `test_f20_what_a_crashed_run_pinned_closes_with_the_exhausted_job`
   - `test_r10_the_retry_is_the_workflows_one_so_no_third_call`
-- [tests/test_followup_rival_factor.py](../../../../../../tests/test_followup_rival_factor.py) — direct import
-- [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
-- [tests/test_teacher_te2_probes.py](../../../../../../tests/test_teacher_te2_probes.py) — direct import
 
 ## Modification guidance
 

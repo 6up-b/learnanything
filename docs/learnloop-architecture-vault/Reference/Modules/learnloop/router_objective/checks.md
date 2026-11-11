@@ -200,6 +200,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ro5_checks_helpers.py](../../../../../../tests/ro5_checks_helpers.py) — direct import
 - [tests/test_forced_withdrawal_records.py](../../../../../../tests/test_forced_withdrawal_records.py) — direct import
   - `test_a_failed_check_draw_placement_and_lesson_builder_are_the_boundarys_children`
   - `test_the_days_check_block_writes_its_own_plan_block_record`

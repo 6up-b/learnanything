@@ -109,8 +109,9 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/te3b_value_helpers.py`
+- `tests/teacher_te2log_migration_helpers.py`
 - `tests/test_te3b_population.py`
-- `tests/test_te3b_value.py`
 - `tests/test_teacher_te2log_activity.py`
 - `tests/test_teacher_te2log_episodes.py`
 - `tests/test_teacher_te2log_migration.py`

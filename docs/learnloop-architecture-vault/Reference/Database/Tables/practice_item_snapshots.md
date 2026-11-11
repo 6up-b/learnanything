@@ -107,6 +107,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/ad23_contract_helpers.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad23_contract.py`
 - `tests/test_adaptive_difficulty_ad1.py`

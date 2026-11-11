@@ -24,16 +24,16 @@ source_paths:
   - "src/learnloop/tutor/question_signal.py"
   - "tests/e0_fakes.py"
   - "tests/figure_fixtures.py"
+  - "tests/figures_prefetch_helpers.py"
+  - "tests/reader_ca1_as_printed_helpers.py"
+  - "tests/reader_ca2_astra_handoff_helpers.py"
+  - "tests/reader_source_identity_guard_helpers.py"
   - "tests/rw5c_fixtures.py"
+  - "tests/sidecar_reader_helpers.py"
+  - "tests/sidecar_reader_p3_helpers.py"
   - "tests/source_retrieval_fakes.py"
   - "tests/source_service_fakes.py"
   - "tests/test_batch3_landing.py"
-  - "tests/test_daily_loop_reader_authored_practice.py"
-  - "tests/test_daily_loop_reader_retire.py"
-  - "tests/test_daily_loop_reference_adoption.py"
-  - "tests/test_e0_delivery.py"
-  - "tests/test_figures_prefetch.py"
-  - "tests/test_followups_batch6_prefetch_next_section.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/tutor-qa"
@@ -79,16 +79,16 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/e0_fakes.py`
 - `tests/figure_fixtures.py`
+- `tests/figures_prefetch_helpers.py`
+- `tests/reader_ca1_as_printed_helpers.py`
+- `tests/reader_ca2_astra_handoff_helpers.py`
+- `tests/reader_source_identity_guard_helpers.py`
 - `tests/rw5c_fixtures.py`
+- `tests/sidecar_reader_helpers.py`
+- `tests/sidecar_reader_p3_helpers.py`
 - `tests/source_retrieval_fakes.py`
 - `tests/source_service_fakes.py`
 - `tests/test_batch3_landing.py`
-- `tests/test_daily_loop_reader_authored_practice.py`
-- `tests/test_daily_loop_reader_retire.py`
-- `tests/test_daily_loop_reference_adoption.py`
-- `tests/test_e0_delivery.py`
-- `tests/test_figures_prefetch.py`
-- `tests/test_followups_batch6_prefetch_next_section.py`
 
 ## Extension and modification guidance
 

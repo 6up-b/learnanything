@@ -120,14 +120,14 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_source_exercise_rpcs.py](../../../../../../tests/test_source_exercise_rpcs.py) — imports consumer [[Reference/Modules/learnloop/instructional/harvest|learnloop.instructional.harvest]]
 - [tests/test_source_first_needs.py](../../../../../../tests/test_source_first_needs.py) — imports consumer [[Reference/Modules/learnloop/instructional/harvest|learnloop.instructional.harvest]]
 - [tests/test_source_service_spend_envelopes.py](../../../../../../tests/test_source_service_spend_envelopes.py) — imports consumer [[Reference/Modules/learnloop/instructional/harvest|learnloop.instructional.harvest]]
+- [tests/reader_followups_helpers.py](../../../../../../tests/reader_followups_helpers.py) — imports consumer [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]]
+- [tests/reader_followups_round4_helpers.py](../../../../../../tests/reader_followups_round4_helpers.py) — imports consumer [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]]
+- [tests/reader_followups_round7_helpers.py](../../../../../../tests/reader_followups_round7_helpers.py) — imports consumer [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]]
 - [tests/test_curriculum_c1_landing.py](../../../../../../tests/test_curriculum_c1_landing.py) — imports consumer [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]]
 - [tests/test_reader_ca6_side_by_side.py](../../../../../../tests/test_reader_ca6_side_by_side.py) — imports consumer [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]]
 - [tests/test_reader_digest_narrative.py](../../../../../../tests/test_reader_digest_narrative.py) — imports consumer [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]]
 - [tests/test_reader_followup_valuation.py](../../../../../../tests/test_reader_followup_valuation.py) — imports consumer [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]]
 - [tests/test_reader_followups.py](../../../../../../tests/test_reader_followups.py) — imports consumer [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]]
-- [tests/test_reader_followups_rereview.py](../../../../../../tests/test_reader_followups_rereview.py) — imports consumer [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]]
-- [tests/test_reader_followups_review.py](../../../../../../tests/test_reader_followups_review.py) — imports consumer [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]]
-- [tests/test_reader_followups_round3.py](../../../../../../tests/test_reader_followups_round3.py) — imports consumer [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]]
 
 ## Modification guidance
 

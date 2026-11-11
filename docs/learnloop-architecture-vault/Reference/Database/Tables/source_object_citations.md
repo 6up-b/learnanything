@@ -110,6 +110,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/roles_judges_helpers.py`
 - `tests/test_compare_keep_switch_off.py`
 - `tests/test_compare_sources_keep.py`
 - `tests/test_label_roles_cli.py`
@@ -117,7 +118,6 @@ Indexes and uniqueness:
 - `tests/test_reader_compare_table.py`
 - `tests/test_reader_rw3b_protection.py`
 - `tests/test_reread_safety.py`
-- `tests/test_roles_judges.py`
 - `tests/test_roles_switch_off.py`
 - `tests/test_source_roles.py`
 - `tests/test_ad1_reading_opportunities.py`

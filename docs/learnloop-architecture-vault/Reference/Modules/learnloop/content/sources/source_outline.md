@@ -206,6 +206,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ux_phase1_usability_round1.py](../../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
 - [tests/test_ux_phase3_today.py](../../../../../../../tests/test_ux_phase3_today.py) — direct import
   - `test_the_current_reading_is_the_one_the_reader_opens_a_source_on`
+- [tests/ux_phase1_landing_helpers.py](../../../../../../../tests/ux_phase1_landing_helpers.py) — direct import
+- [tests/ux_phase1_round2_review_helpers.py](../../../../../../../tests/ux_phase1_round2_review_helpers.py) — direct import
 
 ## Modification guidance
 

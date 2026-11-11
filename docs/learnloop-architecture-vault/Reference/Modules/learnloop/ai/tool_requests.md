@@ -110,18 +110,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/exam_protection_helpers.py](../../../../../../tests/exam_protection_helpers.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
+- [tests/figure_offers_helpers.py](../../../../../../tests/figure_offers_helpers.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
+- [tests/figures_codex_review_helpers.py](../../../../../../tests/figures_codex_review_helpers.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
+- [tests/figures_scope_redesign_helpers.py](../../../../../../tests/figures_scope_redesign_helpers.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
+- [tests/learner_text_gaps_flow_helpers.py](../../../../../../tests/learner_text_gaps_flow_helpers.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
+- [tests/learner_text_gaps_helpers.py](../../../../../../tests/learner_text_gaps_helpers.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
+- [tests/learner_text_gaps_review_helpers.py](../../../../../../tests/learner_text_gaps_review_helpers.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
 - [tests/library_ask_fixtures.py](../../../../../../tests/library_ask_fixtures.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
+- [tests/lp_claim_fixes_review_helpers.py](../../../../../../tests/lp_claim_fixes_review_helpers.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
+- [tests/question_context_helpers.py](../../../../../../tests/question_context_helpers.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
+- [tests/reader_ca2_codex_review_helpers.py](../../../../../../tests/reader_ca2_codex_review_helpers.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
 - [tests/reader_tutor_fakes.py](../../../../../../tests/reader_tutor_fakes.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
-- [tests/source_service_fakes.py](../../../../../../tests/source_service_fakes.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
-- [tests/structured_ai.py](../../../../../../tests/structured_ai.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
-- [tests/test_authoring_contract.py](../../../../../../tests/test_authoring_contract.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
-- [tests/test_codex_output_schema.py](../../../../../../tests/test_codex_output_schema.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
-- [tests/test_dialogue_causal_join.py](../../../../../../tests/test_dialogue_causal_join.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
-- [tests/test_exam_protection.py](../../../../../../tests/test_exam_protection.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
-- [tests/test_field_signal_production_paths.py](../../../../../../tests/test_field_signal_production_paths.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
-- [tests/test_figure_offers.py](../../../../../../tests/test_figure_offers.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
-- [tests/test_figures_codex_review.py](../../../../../../tests/test_figures_codex_review.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
-- [tests/test_figures_rw5b_fix_round2.py](../../../../../../tests/test_figures_rw5b_fix_round2.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
 
 ## Modification guidance
 

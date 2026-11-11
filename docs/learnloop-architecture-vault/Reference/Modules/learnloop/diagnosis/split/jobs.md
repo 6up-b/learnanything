@@ -240,6 +240,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_input_provenance_helpers.py](../../../../../../../tests/diagnosis_input_provenance_helpers.py) — direct import
+- [tests/followup_rival_factor_helpers.py](../../../../../../../tests/followup_rival_factor_helpers.py) — direct import
+- [tests/mobile_v3_probes_helpers.py](../../../../../../../tests/mobile_v3_probes_helpers.py) — direct import
 - [tests/split_live_helpers.py](../../../../../../../tests/split_live_helpers.py) — direct import
 - [tests/test_active_errors_overlay.py](../../../../../../../tests/test_active_errors_overlay.py) — direct import
   - `test_overlaid_read_carries_the_diagnosers_statement_and_verdict`
@@ -270,7 +273,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followup_fg1d_probe_shadow.py](../../../../../../../tests/test_followup_fg1d_probe_shadow.py) — direct import
   - `test_the_diagnosis_job_after_the_answer_changes_nothing_further`
 - [tests/test_followup_next_matrix.py](../../../../../../../tests/test_followup_next_matrix.py) — direct import
-- [tests/test_followup_rival_factor.py](../../../../../../../tests/test_followup_rival_factor.py) — direct import
 - [tests/test_forecast_receipts.py](../../../../../../../tests/test_forecast_receipts.py) — direct import
   - `test_a_completed_diagnosis_writes_its_forecast_in_its_own_transaction`
   - `test_replay_neither_reads_nor_writes_forecast_receipts`

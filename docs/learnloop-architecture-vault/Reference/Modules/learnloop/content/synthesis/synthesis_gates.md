@@ -157,6 +157,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/facet_authority_helpers.py](../../../../../../../tests/facet_authority_helpers.py) — direct import
 - [tests/test_facet_authority.py](../../../../../../../tests/test_facet_authority.py) — direct import
   - `test_a_notes_citation_never_corroborates_exam_material_at_the_gate`
 - [tests/test_facet_identity.py](../../../../../../../tests/test_facet_identity.py) — direct import

@@ -178,6 +178,7 @@ Database triggers:
 ## Tests that define behavior
 
 - `tests/hint_fakes.py`
+- `tests/router_card_helpers.py`
 - `tests/test_attempt_completion.py`
 - `tests/test_blind_grading_contract.py`
 - `tests/test_causal_attribution_p1.py`
@@ -196,7 +197,6 @@ Database triggers:
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_mvp017_route_check_replay.py`
-- `tests/test_recurrence_benchmarks.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

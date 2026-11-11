@@ -131,7 +131,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-- `tests/test_assumed_known.py`
+- `tests/assumed_known_helpers.py`
 - `tests/test_certification_cold_probe.py`
 - `tests/test_followup_rival_factor.py`
 - `tests/test_held_grade_evidence.py`

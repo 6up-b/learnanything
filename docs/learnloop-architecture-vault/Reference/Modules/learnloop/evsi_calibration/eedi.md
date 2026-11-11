@@ -120,6 +120,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/evsi_calibration_sim_helpers.py](../../../../../../tests/evsi_calibration_sim_helpers.py) — direct import
 - [tests/test_evsi_calibration_sim.py](../../../../../../tests/test_evsi_calibration_sim.py) — direct import
   - `test_loaders_read_the_bank_and_the_answers`
 - [tests/test_evsi_multisim.py](../../../../../../tests/test_evsi_multisim.py) — direct import

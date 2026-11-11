@@ -189,6 +189,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reader_cues_helpers.py](../../../../../../tests/reader_cues_helpers.py) — direct import
 - [tests/test_method_explicit_landing.py](../../../../../../tests/test_method_explicit_landing.py) — direct import
   - `test_open_shows_the_answered_question_with_its_frozen_method_whole`
 - [tests/test_reader_cues.py](../../../../../../tests/test_reader_cues.py) — direct import

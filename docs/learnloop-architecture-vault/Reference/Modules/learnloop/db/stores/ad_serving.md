@@ -193,7 +193,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad23_contract_helpers.py](../../../../../../../tests/ad23_contract_helpers.py) — direct import
 - [tests/ad23_fakes.py](../../../../../../../tests/ad23_fakes.py) — direct import
+- [tests/ad3_dose_arm_helpers.py](../../../../../../../tests/ad3_dose_arm_helpers.py) — direct import
 - [tests/test_ad23_contract.py](../../../../../../../tests/test_ad23_contract.py) — direct import
   - `test_a_late_uptake_callback_writes_nothing_when_ad_cannot_record_it`
   - `test_a_stale_run_never_answers_for_a_re_proposal`
@@ -214,7 +216,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest`
 - [tests/test_ad2_serving.py](../../../../../../../tests/test_ad2_serving.py) — direct import
   - `test_commission_result_appended_never_mutates_selection`
-- [tests/test_ad3_dose_arm.py](../../../../../../../tests/test_ad3_dose_arm.py) — direct import
 - [tests/test_ad3_relatedness.py](../../../../../../../tests/test_ad3_relatedness.py) — direct import
   - `test_each_loading_and_coupling_is_one_ledger_row_and_invalid_outputs_drop`
   - `test_unchanged_input_makes_no_call_and_a_change_reproposes_only_what_it_touches`

@@ -184,6 +184,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/data_capture_a2_measurement_helpers.py](../../../../../../tests/data_capture_a2_measurement_helpers.py) — direct import
 - [tests/test_data_capture_a2_measurement.py](../../../../../../tests/test_data_capture_a2_measurement.py) — direct import
   - `test_a_reading_arm_gets_a_real_outcome_instead_of_not_applicable`
   - `test_a_wait_arm_gets_a_real_outcome_and_a_measurement`

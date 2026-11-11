@@ -124,6 +124,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/mcp_c1a_landing_helpers.py](../../../../../../tests/mcp_c1a_landing_helpers.py) — direct import
+- [tests/ro5_calibration_helpers.py](../../../../../../tests/ro5_calibration_helpers.py) — direct import
+- [tests/router_card_helpers.py](../../../../../../tests/router_card_helpers.py) — direct import
 - [tests/router_mixture_helpers.py](../../../../../../tests/router_mixture_helpers.py) — direct import
 - [tests/test_evsi_staged_binding.py](../../../../../../tests/test_evsi_staged_binding.py) — direct import
   - `test_a_committed_staged_forecast_joins_the_attempt_bound_to_its_presentation`
@@ -134,7 +137,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f16_contract_no_reserved_item_is_ever_planned_and_every_miss_is_named`
 - [tests/test_intent_fix_round6.py](../../../../../../tests/test_intent_fix_round6.py) — direct import
 - [tests/test_intent_fix_round7.py](../../../../../../tests/test_intent_fix_round7.py) — direct import
-- [tests/test_mcp_c1a_landing.py](../../../../../../tests/test_mcp_c1a_landing.py) — direct import
 - [tests/test_mvp023_upgrade.py](../../../../../../tests/test_mvp023_upgrade.py) — direct import
   - `test_new_vaults_start_at_the_router_successor`
   - `test_the_router_serves_only_at_the_successor_with_its_switch_on`
@@ -150,7 +152,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_staged_plans_at_mvp024_are_the_same_in_every_session_and_at_start`
   - `test_the_mixture_draws_over_the_same_candidates_in_every_session`
 - [tests/test_reader_rw6b_p2_landing.py](../../../../../../tests/test_reader_rw6b_p2_landing.py) — direct import
-- [tests/test_ro5_calibration.py](../../../../../../tests/test_ro5_calibration.py) — direct import
 - [tests/test_router_card.py](../../../../../../tests/test_router_card.py) — direct import
 - [tests/test_router_failure_records.py](../../../../../../tests/test_router_failure_records.py) — direct import
   - `test_a_prefetch_whose_key_changed_before_the_serve_leaves_unclaimed_calls`

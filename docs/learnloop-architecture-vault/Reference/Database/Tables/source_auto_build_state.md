@@ -113,6 +113,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/reading_request_sweep_helpers.py`
 - `tests/test_reading_request_sweep.py`
 - `tests/test_ux_phase1_finish.py`
 - `tests/test_ux_phase1_review_fixes.py`

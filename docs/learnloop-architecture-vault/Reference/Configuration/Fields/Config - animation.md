@@ -23,15 +23,15 @@ source_paths:
   - "tests/ad_fakes.py"
   - "tests/approach_map_fakes.py"
   - "tests/codex_cli_fakes.py"
+  - "tests/curriculum_c1_plan_follows_path_helpers.py"
   - "tests/deliverable_fixtures.py"
   - "tests/figure_fixtures.py"
+  - "tests/figures_fix_round2_helpers.py"
+  - "tests/figures_switch_off_helpers.py"
   - "tests/hint_fakes.py"
   - "tests/library_ask_fixtures.py"
   - "tests/local_embeddings_fakes.py"
   - "tests/marker_fakes.py"
-  - "tests/mobile_host_helpers.py"
-  - "tests/notes_fixtures.py"
-  - "tests/passage_cue_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/animation"
@@ -79,15 +79,15 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/ad_fakes.py`
 - `tests/approach_map_fakes.py`
 - `tests/codex_cli_fakes.py`
+- `tests/curriculum_c1_plan_follows_path_helpers.py`
 - `tests/deliverable_fixtures.py`
 - `tests/figure_fixtures.py`
+- `tests/figures_fix_round2_helpers.py`
+- `tests/figures_switch_off_helpers.py`
 - `tests/hint_fakes.py`
 - `tests/library_ask_fixtures.py`
 - `tests/local_embeddings_fakes.py`
 - `tests/marker_fakes.py`
-- `tests/mobile_host_helpers.py`
-- `tests/notes_fixtures.py`
-- `tests/passage_cue_fakes.py`
 
 ## Extension and modification guidance
 

@@ -155,6 +155,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/router_card_helpers.py](../../../../../../tests/router_card_helpers.py) — direct import
+- [tests/teacher_te0_confidence_events_helpers.py](../../../../../../tests/teacher_te0_confidence_events_helpers.py) — direct import
+- [tests/teacher_te1b_review_fixes_helpers.py](../../../../../../tests/teacher_te1b_review_fixes_helpers.py) — direct import
 - [tests/test_ad3_subject_view.py](../../../../../../tests/test_ad3_subject_view.py) — direct import
   - `test_readiness_numbers_from_subject_view_with_untested_cells`
 - [tests/test_followups_batch6_review_fixes.py](../../../../../../tests/test_followups_batch6_review_fixes.py) — direct import

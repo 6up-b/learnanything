@@ -168,6 +168,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/forecast_receipts_helpers.py](../../../../../../tests/forecast_receipts_helpers.py) — direct import
 - [tests/test_ad23_fix_r8.py](../../../../../../tests/test_ad23_fix_r8.py) — direct import
   - `test_z_v1_calibration_never_reads_a_withheld_items_forecast`
 - [tests/test_ad_epoch.py](../../../../../../tests/test_ad_epoch.py) — direct import

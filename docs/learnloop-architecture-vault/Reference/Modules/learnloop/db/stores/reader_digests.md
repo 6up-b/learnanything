@@ -134,6 +134,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reader_digest_narrative_helpers.py](../../../../../../../tests/reader_digest_narrative_helpers.py) — direct import
+- [tests/reader_rw6b_p2_landing_helpers.py](../../../../../../../tests/reader_rw6b_p2_landing_helpers.py) — direct import
 - [tests/test_intent_checks.py](../../../../../../../tests/test_intent_checks.py) — direct import
   - `test_the_way_back_is_rendered_only_when_the_provenance_carries_it`
 - [tests/test_reader_digest_narrative.py](../../../../../../../tests/test_reader_digest_narrative.py) — direct import
@@ -166,7 +168,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_round8_a_row_that_keeps_changing_is_left_for_the_next_pass`
   - `test_round8_a_scalar_licensing_is_unreadable_not_a_crash`
   - `test_round8_sols_interleaving_keeps_the_shared_check_live`
-- [tests/test_reader_rw6b_p2_landing.py](../../../../../../../tests/test_reader_rw6b_p2_landing.py) — direct import
 - [tests/test_reader_session_digests_migration.py](../../../../../../../tests/test_reader_session_digests_migration.py) — direct import
   - `test_the_digest_row_round_trips_and_one_session_has_one_row`
 

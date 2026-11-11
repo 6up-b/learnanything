@@ -174,11 +174,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_diagnosis_input_provenance.py](../../../../../../../tests/test_diagnosis_input_provenance.py) — direct import
-- [tests/test_figures_codex_review.py](../../../../../../../tests/test_figures_codex_review.py) — direct import
+- [tests/diagnosis_input_provenance_helpers.py](../../../../../../../tests/diagnosis_input_provenance_helpers.py) — direct import
+- [tests/figures_codex_review_helpers.py](../../../../../../../tests/figures_codex_review_helpers.py) — direct import
+- [tests/figures_scope_redesign_helpers.py](../../../../../../../tests/figures_scope_redesign_helpers.py) — direct import
+- [tests/learner_text_gaps_flow_helpers.py](../../../../../../../tests/learner_text_gaps_flow_helpers.py) — direct import
+- [tests/learner_text_gaps_helpers.py](../../../../../../../tests/learner_text_gaps_helpers.py) — direct import
+- [tests/learner_text_gaps_review_helpers.py](../../../../../../../tests/learner_text_gaps_review_helpers.py) — direct import
+- [tests/notes_as_learner_text_helpers.py](../../../../../../../tests/notes_as_learner_text_helpers.py) — direct import
 - [tests/test_figures_fix_round4.py](../../../../../../../tests/test_figures_fix_round4.py) — direct import
   - `test_f5_an_explanation_after_a_checkpointed_reading_is_its_own_text`
-- [tests/test_figures_scope_redesign.py](../../../../../../../tests/test_figures_scope_redesign.py) — direct import
 - [tests/test_hint_feedback_texts.py](../../../../../../../tests/test_hint_feedback_texts.py) — direct import
   - `test_reading_it_writes_only_gap_rows_and_the_gap_joins_the_next_hints_rivals`
 - [tests/test_learner_text_gaps.py](../../../../../../../tests/test_learner_text_gaps.py) — direct import

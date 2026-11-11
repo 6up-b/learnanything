@@ -201,6 +201,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/placement_diagnosis_decides_helpers.py](../../../../../../tests/placement_diagnosis_decides_helpers.py) — direct import
 - [tests/test_assumed_known.py](../../../../../../tests/test_assumed_known.py) — direct import
   - `test_a_final_receipt_that_does_not_qualify_as_cold_retrieval_cannot_pass_the_check`
   - `test_a_passed_check_keeps_the_remaining_learning_items_withheld`

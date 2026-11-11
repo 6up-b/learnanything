@@ -211,6 +211,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/hint_h2a_review_round2_helpers.py](../../../../../../tests/hint_h2a_review_round2_helpers.py) — direct import
+- [tests/hint_service_helpers.py](../../../../../../tests/hint_service_helpers.py) — direct import
 - [tests/test_approach_map_replay.py](../../../../../../tests/test_approach_map_replay.py) — direct import
 - [tests/test_figures_help.py](../../../../../../tests/test_figures_help.py) — direct import
   - `test_explore_figure_is_offered_only_with_a_qualifying_figure_and_its_propensity_is_logged`

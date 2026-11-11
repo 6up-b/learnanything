@@ -109,6 +109,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/ih3_migration_helpers.py`
 - `tests/test_ih3_learner_preferences.py`
 - `tests/test_ih3_migration.py`
 - `tests/test_ih3_phone_host.py`

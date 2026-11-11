@@ -18,18 +18,18 @@ source_paths:
   - "tests/test_config_refactor.py"
   - "src/learnloop/ai/providers/codex_http.py"
   - "src/learnloop/ingest/extractors/glm_ocr.py"
+  - "tests/ad1_fix_round4_helpers.py"
+  - "tests/ad23_contract_helpers.py"
   - "tests/approach_map_fakes.py"
+  - "tests/capability_residual_helpers.py"
+  - "tests/causal_factor_deferral_helpers.py"
+  - "tests/causal_shadow_selection_helpers.py"
   - "tests/diagnosis_split_helpers.py"
+  - "tests/diagnostic_probe_single_use_helpers.py"
+  - "tests/exercise_authoring_helpers.py"
+  - "tests/facet_identity_helpers.py"
+  - "tests/goal_certification_any_of_helpers.py"
   - "tests/helpers.py"
-  - "tests/mcp_world.py"
-  - "tests/pf_fakes.py"
-  - "tests/practice_index_fakes.py"
-  - "tests/test_activity_contract_extensions.py"
-  - "tests/test_ad1_fix_round4.py"
-  - "tests/test_ad23_contract.py"
-  - "tests/test_ad_guard.py"
-  - "tests/test_ad_protected_readings.py"
-  - "tests/test_administration_adapters.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/schema-version"
@@ -69,18 +69,18 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/ad1_fix_round4_helpers.py`
+- `tests/ad23_contract_helpers.py`
 - `tests/approach_map_fakes.py`
+- `tests/capability_residual_helpers.py`
+- `tests/causal_factor_deferral_helpers.py`
+- `tests/causal_shadow_selection_helpers.py`
 - `tests/diagnosis_split_helpers.py`
+- `tests/diagnostic_probe_single_use_helpers.py`
+- `tests/exercise_authoring_helpers.py`
+- `tests/facet_identity_helpers.py`
+- `tests/goal_certification_any_of_helpers.py`
 - `tests/helpers.py`
-- `tests/mcp_world.py`
-- `tests/pf_fakes.py`
-- `tests/practice_index_fakes.py`
-- `tests/test_activity_contract_extensions.py`
-- `tests/test_ad1_fix_round4.py`
-- `tests/test_ad23_contract.py`
-- `tests/test_ad_guard.py`
-- `tests/test_ad_protected_readings.py`
-- `tests/test_administration_adapters.py`
 
 ## Extension and modification guidance
 

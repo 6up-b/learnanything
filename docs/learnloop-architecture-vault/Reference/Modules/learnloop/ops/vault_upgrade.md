@@ -167,6 +167,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/batch3_landing_helpers.py](../../../../../../tests/batch3_landing_helpers.py) — direct import
+- [tests/followups_nov2_help_fold_helpers.py](../../../../../../tests/followups_nov2_help_fold_helpers.py) — direct import
+- [tests/lp_claim_fixes_rereview_helpers.py](../../../../../../tests/lp_claim_fixes_rereview_helpers.py) — direct import
+- [tests/rbeq_pr2_landing_helpers.py](../../../../../../tests/rbeq_pr2_landing_helpers.py) — direct import
 - [tests/test_attempt_content_state_successor.py](../../../../../../tests/test_attempt_content_state_successor.py) — direct import
   - `test_the_upgrade_refuses_a_version_before_the_chain`
 - [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — direct import
@@ -177,7 +181,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_curriculum_c1_landing.py](../../../../../../tests/test_curriculum_c1_landing.py) — direct import
 - [tests/test_curriculum_c1_plan_follows_path.py](../../../../../../tests/test_curriculum_c1_plan_follows_path.py) — direct import
   - `test_the_upgrade_refuses_a_version_before_the_chain`
-- [tests/test_followups_nov2_help_fold.py](../../../../../../tests/test_followups_nov2_help_fold.py) — direct import
 - [tests/test_help_fold_attach_successor.py](../../../../../../tests/test_help_fold_attach_successor.py) — direct import
   - `test_the_upgrade_refuses_a_version_before_the_chain`
 - [tests/test_km2_activation.py](../../../../../../tests/test_km2_activation.py) — direct import
@@ -190,7 +193,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_validate_readiness_flags_incomplete_contract`
 - [tests/test_learner_report_superseded.py](../../../../../../tests/test_learner_report_superseded.py) — direct import
   - `test_an_mvp035_journal_is_handed_to_its_own_upgrade_then_the_tag_activates`
-- [tests/test_lp_claim_fixes_rereview.py](../../../../../../tests/test_lp_claim_fixes_rereview.py) — direct import
 - [tests/test_method_explicit_upgrade.py](../../../../../../tests/test_method_explicit_upgrade.py) — direct import
   - `test_chained_notes_pass_through_an_upgrade_and_a_refusal`
 - [tests/test_mvp010_upgrade.py](../../../../../../tests/test_mvp010_upgrade.py) — direct import
@@ -222,7 +224,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_upgrade_freezes_legacy_manifests_immutably`
   - `test_upgrade_refuses_from_non_mvp07`
   - `test_upgrade_to_mvp08_flips_and_records_receipt`
-- [tests/test_rbeq_pr2_landing.py](../../../../../../tests/test_rbeq_pr2_landing.py) — direct import
 - [tests/test_reader_followups_successor.py](../../../../../../tests/test_reader_followups_successor.py) — direct import
   - `test_the_upgrade_refuses_a_version_before_the_chain`
 

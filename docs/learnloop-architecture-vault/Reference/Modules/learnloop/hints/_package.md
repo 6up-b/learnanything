@@ -74,9 +74,9 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/hints/report|learnloop.hints.report]] | [[Reference/Modules/learnloop/hints/report#^module-purpose|purpose]] | `ACTIVE` | 1 | 5 |
 | [[Reference/Modules/learnloop/hints/report_adaptive|learnloop.hints.report_adaptive]] | [[Reference/Modules/learnloop/hints/report_adaptive#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
 | [[Reference/Modules/learnloop/hints/report_workbench|learnloop.hints.report_workbench]] | [[Reference/Modules/learnloop/hints/report_workbench#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
-| [[Reference/Modules/learnloop/hints/service|learnloop.hints.service]] | [[Reference/Modules/learnloop/hints/service#^module-purpose|purpose]] | `ACTIVE` | 4 | 14 |
+| [[Reference/Modules/learnloop/hints/service|learnloop.hints.service]] | [[Reference/Modules/learnloop/hints/service#^module-purpose|purpose]] | `ACTIVE` | 4 | 16 |
 | [[Reference/Modules/learnloop/hints/state|learnloop.hints.state]] | [[Reference/Modules/learnloop/hints/state#^module-purpose|purpose]] | `ACTIVE` | 5 | 7 |
-| [[Reference/Modules/learnloop/hints/telemetry|learnloop.hints.telemetry]] | [[Reference/Modules/learnloop/hints/telemetry#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
+| [[Reference/Modules/learnloop/hints/telemetry|learnloop.hints.telemetry]] | [[Reference/Modules/learnloop/hints/telemetry#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
 | [[Reference/Modules/learnloop/hints/workbench|learnloop.hints.workbench]] | [[Reference/Modules/learnloop/hints/workbench#^module-purpose|purpose]] | `ACTIVE` | 5 | 8 |
 | [[Reference/Modules/learnloop/hints/writer|learnloop.hints.writer]] | [[Reference/Modules/learnloop/hints/writer#^module-purpose|purpose]] | `ACTIVE` | 5 | 7 |
 

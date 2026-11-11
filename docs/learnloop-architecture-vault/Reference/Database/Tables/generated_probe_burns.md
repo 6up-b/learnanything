@@ -100,6 +100,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/followup_migration_helpers.py`
 - `tests/test_followup_migration.py`
 - `tests/test_teacher_te2_probes.py`
 - `tests/test_teacher_te2_review_fixes.py`

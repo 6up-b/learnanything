@@ -141,6 +141,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/capture_desktop_helpers.py](../../../../../../tests/capture_desktop_helpers.py) — direct import
+- [tests/mobile_host_auth_helpers.py](../../../../../../tests/mobile_host_auth_helpers.py) — direct import
 - [tests/mobile_host_helpers.py](../../../../../../tests/mobile_host_helpers.py) — direct import
 - [tests/test_capture_desktop.py](../../../../../../tests/test_capture_desktop.py) — direct import
   - `test_card_route_after_success_only`

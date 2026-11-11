@@ -176,8 +176,19 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/exam_protection_helpers.py](../../../../../../tests/exam_protection_helpers.py) — direct import
+- [tests/figure_offers_helpers.py](../../../../../../tests/figure_offers_helpers.py) — direct import
+- [tests/figures_codex_review_helpers.py](../../../../../../tests/figures_codex_review_helpers.py) — direct import
+- [tests/figures_scope_redesign_helpers.py](../../../../../../tests/figures_scope_redesign_helpers.py) — direct import
+- [tests/learner_text_gaps_flow_helpers.py](../../../../../../tests/learner_text_gaps_flow_helpers.py) — direct import
+- [tests/learner_text_gaps_helpers.py](../../../../../../tests/learner_text_gaps_helpers.py) — direct import
+- [tests/learner_text_gaps_review_helpers.py](../../../../../../tests/learner_text_gaps_review_helpers.py) — direct import
 - [tests/library_ask_fixtures.py](../../../../../../tests/library_ask_fixtures.py) — direct import
+- [tests/lp_claim_fixes_review_helpers.py](../../../../../../tests/lp_claim_fixes_review_helpers.py) — direct import
+- [tests/question_context_helpers.py](../../../../../../tests/question_context_helpers.py) — direct import
+- [tests/reader_ca2_codex_review_helpers.py](../../../../../../tests/reader_ca2_codex_review_helpers.py) — direct import
 - [tests/reader_tutor_fakes.py](../../../../../../tests/reader_tutor_fakes.py) — direct import
+- [tests/source_retrieval_tutor_helpers.py](../../../../../../tests/source_retrieval_tutor_helpers.py) — direct import
 - [tests/source_service_fakes.py](../../../../../../tests/source_service_fakes.py) — direct import
 - [tests/structured_ai.py](../../../../../../tests/structured_ai.py) — direct import
 - [tests/test_authoring_contract.py](../../../../../../tests/test_authoring_contract.py) — direct import
@@ -186,19 +197,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sdk_teach_back_authoring_passes_source_and_quest_to_prompt`
 - [tests/test_dialogue_causal_join.py](../../../../../../tests/test_dialogue_causal_join.py) — direct import
   - `test_tutor_answer_round_trips_extraction_fields_and_legacy_payloads`
-- [tests/test_exam_protection.py](../../../../../../tests/test_exam_protection.py) — direct import
 - [tests/test_field_signal_production_paths.py](../../../../../../tests/test_field_signal_production_paths.py) — direct import
 - [tests/test_figure_offers.py](../../../../../../tests/test_figure_offers.py) — direct import
   - `test_the_tutor_context_asks_for_explorable_only_with_a_block_to_judge`
   - `test_the_tutor_prompt_adds_explorable_only_in_its_own_version`
   - `test_the_tutor_view_keeps_a_yes_only_on_a_block_it_cites`
-- [tests/test_figures_codex_review.py](../../../../../../tests/test_figures_codex_review.py) — direct import
 - [tests/test_figures_rw5b_fix_round2.py](../../../../../../tests/test_figures_rw5b_fix_round2.py) — direct import
   - `test_the_tutors_explorable_rows_hash_the_input_not_the_verdict`
 - [tests/test_figures_rw5b_review.py](../../../../../../tests/test_figures_rw5b_review.py) — direct import
   - `test_a_reader_ask_answer_offers_and_its_press_builds_from_its_question_event`
   - `test_the_tutor_context_marks_each_equation_and_figure_block`
-- [tests/test_figures_scope_redesign.py](../../../../../../tests/test_figures_scope_redesign.py) — direct import
 - [tests/test_figures_show_me.py](../../../../../../tests/test_figures_show_me.py) — direct import
   - `test_the_show_me_tutor_prompt_is_rw5bs_plus_the_goal_clause`
 - [tests/test_followups_batch5_c5_ledger.py](../../../../../../tests/test_followups_batch5_c5_ledger.py) — direct import
@@ -220,7 +228,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_text_gaps_review.py](../../../../../../tests/test_learner_text_gaps_review.py) — direct import
   - `test_f5_a_match_on_the_items_own_lo_is_no_prerequisite_target`
 - [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import
-- [tests/test_lp_claim_fixes_review.py](../../../../../../tests/test_lp_claim_fixes_review.py) — direct import
 - [tests/test_notes_as_learner_text.py](../../../../../../tests/test_notes_as_learner_text.py) — direct import
   - `test_a_hidden_link_is_never_read_and_undo_queues_it_again`
   - `test_a_note_is_read_on_the_ordinary_routes_with_the_decider`
@@ -241,7 +248,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_notes_c2b_review5.py](../../../../../../tests/test_notes_c2b_review5.py) — direct import
 - [tests/test_openai_chat_client.py](../../../../../../tests/test_openai_chat_client.py) — direct import
 - [tests/test_placement_signals.py](../../../../../../tests/test_placement_signals.py) — direct import
-- [tests/test_question_context.py](../../../../../../tests/test_question_context.py) — direct import
 - [tests/test_question_promotion_jobs.py](../../../../../../tests/test_question_promotion_jobs.py) — direct import
 - [tests/test_question_signal.py](../../../../../../tests/test_question_signal.py) — direct import
 - [tests/test_reader_branches.py](../../../../../../tests/test_reader_branches.py) — direct import
@@ -262,7 +268,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_source_retrieval_guards.py](../../../../../../tests/test_source_retrieval_guards.py) — direct import
 - [tests/test_source_retrieval_rereview.py](../../../../../../tests/test_source_retrieval_rereview.py) — direct import
 - [tests/test_source_retrieval_rereview_cost.py](../../../../../../tests/test_source_retrieval_rereview_cost.py) — direct import
-- [tests/test_source_retrieval_tutor.py](../../../../../../tests/test_source_retrieval_tutor.py) — direct import
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
   - `test_ai_question_control_sequences_are_removed_from_live_and_restored_state`
@@ -300,6 +305,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_workbench_text_gaps.py](../../../../../../tests/test_workbench_text_gaps.py) — direct import
   - `test_reading_it_writes_only_gap_rows`
 - [tests/text_gap_fakes.py](../../../../../../tests/text_gap_fakes.py) — direct import
+- [tests/tutor_citations_helpers.py](../../../../../../tests/tutor_citations_helpers.py) — direct import
+- [tests/tutor_promotion_service_helpers.py](../../../../../../tests/tutor_promotion_service_helpers.py) — direct import
 
 ## Modification guidance
 

@@ -138,6 +138,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/figure_fixtures.py](../../../../../../../tests/figure_fixtures.py) — direct import
+- [tests/required_method_round3_review_helpers.py](../../../../../../../tests/required_method_round3_review_helpers.py) — direct import
 - [tests/test_embedding_compare.py](../../../../../../../tests/test_embedding_compare.py) — direct import
 - [tests/test_figures_codex_review.py](../../../../../../../tests/test_figures_codex_review.py) — direct import
 - [tests/test_figures_fix_round2.py](../../../../../../../tests/test_figures_fix_round2.py) — direct import
@@ -198,7 +199,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_required_method_rereview.py](../../../../../../../tests/test_required_method_rereview.py) — direct import
   - `test_f20_a_partial_judgment_resumes_without_any_paid_pipeline_work`
 - [tests/test_required_method_round3.py](../../../../../../../tests/test_required_method_round3.py) — direct import
-- [tests/test_required_method_round3_review.py](../../../../../../../tests/test_required_method_round3_review.py) — direct import
 - [tests/test_rw5c_block_policy.py](../../../../../../../tests/test_rw5c_block_policy.py) — direct import
 - [tests/test_rw5c_labels.py](../../../../../../../tests/test_rw5c_labels.py) — direct import
   - `test_a_figure_with_no_book_element_is_drawn_exactly_as_before`

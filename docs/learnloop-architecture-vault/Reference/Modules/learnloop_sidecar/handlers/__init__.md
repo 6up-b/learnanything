@@ -163,8 +163,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/facet_reword_paths_helpers.py](../../../../../../tests/facet_reword_paths_helpers.py) — direct import
+- [tests/graph_editor_reads_helpers.py](../../../../../../tests/graph_editor_reads_helpers.py) — direct import
+- [tests/plan_first_transport_offer_grants_helpers.py](../../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import
+- [tests/reader_workbench_rw2a_helpers.py](../../../../../../tests/reader_workbench_rw2a_helpers.py) — direct import
 - [tests/reading_path_fixtures.py](../../../../../../tests/reading_path_fixtures.py) — direct import
 - [tests/recap_fixtures.py](../../../../../../tests/recap_fixtures.py) — direct import
+- [tests/router_offer_log_helpers.py](../../../../../../tests/router_offer_log_helpers.py) — direct import
 - [tests/rw2b_fix10_base_sequence.py](../../../../../../tests/rw2b_fix10_base_sequence.py) — direct import
 - [tests/rw2b_fix11_base_sequence.py](../../../../../../tests/rw2b_fix11_base_sequence.py) — direct import
 - [tests/rw2c_base_sequence.py](../../../../../../tests/rw2c_base_sequence.py) — direct import
@@ -201,7 +206,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_evsi_router_composition.py](../../../../../../tests/test_evsi_router_composition.py) — direct import
 - [tests/test_exam_protection_identity.py](../../../../../../tests/test_exam_protection_identity.py) — direct import
 - [tests/test_exam_protection_review.py](../../../../../../tests/test_exam_protection_review.py) — direct import
-- [tests/test_facet_reword_paths.py](../../../../../../tests/test_facet_reword_paths.py) — direct import
 - [tests/test_facet_rewords.py](../../../../../../tests/test_facet_rewords.py) — direct import
 - [tests/test_figures_help.py](../../../../../../tests/test_figures_help.py) — direct import
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
@@ -276,7 +280,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_ca2_one_ask.py](../../../../../../tests/test_reader_ca2_one_ask.py) — direct import
 - [tests/test_reader_followups_successor.py](../../../../../../tests/test_reader_followups_successor.py) — direct import
 - [tests/test_reader_rw3a_landing.py](../../../../../../tests/test_reader_rw3a_landing.py) — direct import
-- [tests/test_reader_workbench_rw2a.py](../../../../../../tests/test_reader_workbench_rw2a.py) — direct import
 - [tests/test_reader_wrap_up.py](../../../../../../tests/test_reader_wrap_up.py) — direct import
 - [tests/test_regrade_contract_replay.py](../../../../../../tests/test_regrade_contract_replay.py) — direct import
 - [tests/test_regrade_contract_successor.py](../../../../../../tests/test_regrade_contract_successor.py) — direct import
@@ -288,7 +291,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro0_gate.py](../../../../../../tests/test_ro0_gate.py) — direct import
 - [tests/test_ro0_rows7_8_sessions.py](../../../../../../tests/test_ro0_rows7_8_sessions.py) — direct import
 - [tests/test_ro4_goals.py](../../../../../../tests/test_ro4_goals.py) — direct import
-- [tests/test_router_offer_log.py](../../../../../../tests/test_router_offer_log.py) — direct import
 - [tests/test_router_outcomes.py](../../../../../../tests/test_router_outcomes.py) — direct import
 - [tests/test_router_p2_bridge.py](../../../../../../tests/test_router_p2_bridge.py) — direct import
 - [tests/test_router_probe_ties.py](../../../../../../tests/test_router_probe_ties.py) — direct import
@@ -314,6 +316,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_voi_merge_composition.py](../../../../../../tests/test_voi_merge_composition.py) — direct import
 - [tests/test_voi_stopping.py](../../../../../../tests/test_voi_stopping.py) — direct import
 - [tests/test_why_reader.py](../../../../../../tests/test_why_reader.py) — direct import
+- [tests/ux_phase4_feedback_helpers.py](../../../../../../tests/ux_phase4_feedback_helpers.py) — direct import
 - [tests/workbench_help_fakes.py](../../../../../../tests/workbench_help_fakes.py) — direct import
 
 ## Modification guidance

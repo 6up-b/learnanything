@@ -97,6 +97,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/router_staged_p2_helpers.py`
 - `tests/test_architecture.py`
 - `tests/test_controller_cutover.py`
 - `tests/test_controller_ownership.py`

@@ -133,6 +133,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad_denial_log_helpers.py](../../../../../../tests/ad_denial_log_helpers.py) — direct import
 - [tests/test_ad_denial_log.py](../../../../../../tests/test_ad_denial_log.py) — direct import
   - `test_a_new_denial_line_names_the_refused_operation`
   - `test_a_second_upgrade_never_overwrites_the_first_archive`

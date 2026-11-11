@@ -198,6 +198,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ro4_value_helpers.py](../../../../../../tests/ro4_value_helpers.py) — direct import
+- [tests/ro6_codex_review_helpers.py](../../../../../../tests/ro6_codex_review_helpers.py) — direct import
+- [tests/rospeed_ad_link_helpers.py](../../../../../../tests/rospeed_ad_link_helpers.py) — direct import
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_a_probe_mode_item_in_a_contest_is_valued_by_the_probe_bundle`
   - `test_a_question_not_yet_written_takes_the_probe_interface_only_with_the_lesson_in_the_support`

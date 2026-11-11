@@ -183,6 +183,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/plan_first_transport_offer_grants_helpers.py](../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import
 - [tests/sketch_parity_corpus.py](../../../../../tests/sketch_parity_corpus.py) — direct import
 - [tests/test_capture_desktop.py](../../../../../tests/test_capture_desktop.py) — direct import
   - `test_summary_listing_banner_dismiss_purge_and_cli`
@@ -200,7 +201,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f8_an_error_that_is_not_a_sidecar_error_keeps_the_offer`
   - `test_rr_f3_the_plan_status_lists_the_sessions_grants_for_a_lasting_stop`
   - `test_the_sidecar_attaches_the_typed_hint_and_ai_use_fallback_records_the_choice`
-- [tests/test_plan_first_transport_offer_grants.py](../../../../../tests/test_plan_first_transport_offer_grants.py) — direct import
 - [tests/test_provenance.py](../../../../../tests/test_provenance.py) — direct import
 - [tests/test_reader_ca5_also_in_books.py](../../../../../tests/test_reader_ca5_also_in_books.py) — direct import
 - [tests/test_reader_intent.py](../../../../../tests/test_reader_intent.py) — direct import

@@ -94,7 +94,8 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-- `tests/test_ad23_contract.py`
+- `tests/ad23_contract_helpers.py`
+- `tests/ad23_migration_helpers.py`
 - `tests/test_ad23_migration.py`
 - `tests/test_ad23_successor.py`
 - `tests/test_ad2_model.py`

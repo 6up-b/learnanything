@@ -53,8 +53,8 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 | [[Reference/Modules/learnloop/ops/contamination/decider|learnloop.ops.contamination.decider]] | [[Reference/Modules/learnloop/ops/contamination/decider#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/ops/contamination/detectors|learnloop.ops.contamination.detectors]] | [[Reference/Modules/learnloop/ops/contamination/detectors#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/ops/contamination/judge|learnloop.ops.contamination.judge]] | [[Reference/Modules/learnloop/ops/contamination/judge#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/ops/contamination/recipes|learnloop.ops.contamination.recipes]] | [[Reference/Modules/learnloop/ops/contamination/recipes#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
-| [[Reference/Modules/learnloop/ops/contamination/report|learnloop.ops.contamination.report]] | [[Reference/Modules/learnloop/ops/contamination/report#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
+| [[Reference/Modules/learnloop/ops/contamination/recipes|learnloop.ops.contamination.recipes]] | [[Reference/Modules/learnloop/ops/contamination/recipes#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
+| [[Reference/Modules/learnloop/ops/contamination/report|learnloop.ops.contamination.report]] | [[Reference/Modules/learnloop/ops/contamination/report#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/ops/contamination/symbolic|learnloop.ops.contamination.symbolic]] | [[Reference/Modules/learnloop/ops/contamination/symbolic#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 
 ## Cross-package dependencies

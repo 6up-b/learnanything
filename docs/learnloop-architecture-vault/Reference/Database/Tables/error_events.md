@@ -147,11 +147,12 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/assumed_known_helpers.py`
 - `tests/figure_fixtures.py`
+- `tests/learner_data_relax_2_helpers.py`
 - `tests/mcp_world.py`
 - `tests/source_service_fakes.py`
 - `tests/test_active_errors_overlay.py`
-- `tests/test_assumed_known.py`
 - `tests/test_causal_attribution_p1.py`
 - `tests/test_collection_dataset.py`
 - `tests/test_diagnosis_input_provenance.py`
@@ -159,7 +160,6 @@ Indexes and uniqueness:
 - `tests/test_followup_fg1c_r1_exposure_independence.py`
 - `tests/test_forecast_receipts.py`
 - `tests/test_ih3_learner_preferences.py`
-- `tests/test_learner_data_relax_2.py`
 - `tests/test_migrations.py`
 - `tests/test_mvp021_upgrade.py`
 - `tests/test_probability_prep.py`

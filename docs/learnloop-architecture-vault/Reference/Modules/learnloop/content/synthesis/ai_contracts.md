@@ -170,6 +170,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/facet_authority_helpers.py](../../../../../../../tests/facet_authority_helpers.py) — direct import
+- [tests/facet_identity_ingest_helpers.py](../../../../../../../tests/facet_identity_ingest_helpers.py) — direct import
+- [tests/facet_reword_paths_helpers.py](../../../../../../../tests/facet_reword_paths_helpers.py) — direct import
+- [tests/source_append_helpers.py](../../../../../../../tests/source_append_helpers.py) — direct import
+- [tests/source_inventory_helpers.py](../../../../../../../tests/source_inventory_helpers.py) — direct import
+- [tests/source_set_synthesis_helpers.py](../../../../../../../tests/source_set_synthesis_helpers.py) — direct import
 - [tests/structured_ai.py](../../../../../../../tests/structured_ai.py) — direct import
 - [tests/test_codex_output_schema.py](../../../../../../../tests/test_codex_output_schema.py) — direct import
   - `test_append_schema_declares_properties_on_bare_restructure_payload`

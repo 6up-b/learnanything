@@ -100,6 +100,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/hypothesis_marks_migration_helpers.py`
 - `tests/test_followup_fg1c_r1_exposure_independence.py`
 - `tests/test_followup_fg1d_panel_read.py`
 - `tests/test_hypothesis_marks.py`

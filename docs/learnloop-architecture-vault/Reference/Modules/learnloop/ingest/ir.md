@@ -132,16 +132,35 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad1_reading_opportunities_helpers.py](../../../../../../tests/ad1_reading_opportunities_helpers.py) — direct import
+- [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/daily_loop_reader_authored_practice_helpers.py](../../../../../../tests/daily_loop_reader_authored_practice_helpers.py) — direct import
+- [tests/daily_plan_reading_helpers.py](../../../../../../tests/daily_plan_reading_helpers.py) — direct import
 - [tests/e0_fakes.py](../../../../../../tests/e0_fakes.py) — direct import
 - [tests/exam_scope_fixtures.py](../../../../../../tests/exam_scope_fixtures.py) — direct import
+- [tests/facet_reword_confirm_helpers.py](../../../../../../tests/facet_reword_confirm_helpers.py) — direct import
 - [tests/figure_fixtures.py](../../../../../../tests/figure_fixtures.py) — direct import
+- [tests/figures_prefetch_helpers.py](../../../../../../tests/figures_prefetch_helpers.py) — direct import
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
+- [tests/mobile_v4_reader_helpers.py](../../../../../../tests/mobile_v4_reader_helpers.py) — direct import
+- [tests/reader_ca1_as_printed_helpers.py](../../../../../../tests/reader_ca1_as_printed_helpers.py) — direct import
+- [tests/reader_cues_helpers.py](../../../../../../tests/reader_cues_helpers.py) — direct import
+- [tests/reader_dialogue_helpers.py](../../../../../../tests/reader_dialogue_helpers.py) — direct import
 - [tests/reader_fixtures.py](../../../../../../tests/reader_fixtures.py) — direct import
+- [tests/reader_guidance_helpers.py](../../../../../../tests/reader_guidance_helpers.py) — direct import
+- [tests/reader_requests_helpers.py](../../../../../../tests/reader_requests_helpers.py) — direct import
+- [tests/reader_source_identity_guard_helpers.py](../../../../../../tests/reader_source_identity_guard_helpers.py) — direct import
+- [tests/required_method_authority_helpers.py](../../../../../../tests/required_method_authority_helpers.py) — direct import
+- [tests/reread_safety_helpers.py](../../../../../../tests/reread_safety_helpers.py) — direct import
+- [tests/reread_safety_landing_helpers.py](../../../../../../tests/reread_safety_landing_helpers.py) — direct import
 - [tests/rw5c_fixtures.py](../../../../../../tests/rw5c_fixtures.py) — direct import
+- [tests/sidecar_quick_add_helpers.py](../../../../../../tests/sidecar_quick_add_helpers.py) — direct import
+- [tests/sidecar_reader_helpers.py](../../../../../../tests/sidecar_reader_helpers.py) — direct import
+- [tests/sidecar_reader_p3_helpers.py](../../../../../../tests/sidecar_reader_p3_helpers.py) — direct import
+- [tests/source_inventory_helpers.py](../../../../../../tests/source_inventory_helpers.py) — direct import
 - [tests/source_retrieval_fakes.py](../../../../../../tests/source_retrieval_fakes.py) — direct import
 - [tests/source_service_fakes.py](../../../../../../tests/source_service_fakes.py) — direct import
-- [tests/test_ad1_reading_opportunities.py](../../../../../../tests/test_ad1_reading_opportunities.py) — direct import
-- [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — direct import
+- [tests/source_vector_backfill_helpers.py](../../../../../../tests/source_vector_backfill_helpers.py) — direct import
 - [tests/test_annotations.py](../../../../../../tests/test_annotations.py) — direct import
   - `test_duplicate_quote_uses_context_or_needs_reanchor`
   - `test_duplicate_quote_with_glyph_context_anchors_the_right_occurrence`
@@ -152,8 +171,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_whitespace_normalized_match_still_requires_uniqueness`
 - [tests/test_coldness_receipt.py](../../../../../../tests/test_coldness_receipt.py) — direct import
   - `test_prescribe_handler_records_the_delivery`
-- [tests/test_daily_loop_reader_authored_practice.py](../../../../../../tests/test_daily_loop_reader_authored_practice.py) — direct import
-- [tests/test_daily_plan_reading.py](../../../../../../tests/test_daily_plan_reading.py) — direct import
 - [tests/test_document_ir.py](../../../../../../tests/test_document_ir.py) — direct import
   - `test_document_ir_round_trip`
   - `test_ir_declares_schema_version`
@@ -163,8 +180,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_semantic_hash_stable_under_cosmetic_html_changes`
 - [tests/test_effective_units.py](../../../../../../tests/test_effective_units.py) — direct import
 - [tests/test_exam_protection_identity.py](../../../../../../tests/test_exam_protection_identity.py) — direct import
-- [tests/test_facet_reword_confirm.py](../../../../../../tests/test_facet_reword_confirm.py) — direct import
-- [tests/test_figures_prefetch.py](../../../../../../tests/test_figures_prefetch.py) — direct import
 - [tests/test_followups_batch6_prefetch_next_section.py](../../../../../../tests/test_followups_batch6_prefetch_next_section.py) — direct import
 - [tests/test_glm_ocr.py](../../../../../../tests/test_glm_ocr.py) — direct import
   - `test_auto_falls_back_on_a_glm_failure_but_never_past_a_refusal`
@@ -178,7 +193,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ingest_runner.py](../../../../../../tests/test_ingest_runner.py) — direct import
   - `test_import_cache_hit_skips_extractor_and_restores_health`
   - `test_import_retry_replaces_ir_left_by_interrupted_run`
-- [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — direct import
 - [tests/test_p3_journeys.py](../../../../../../tests/test_p3_journeys.py) — direct import
   - `test_annotation_survival_across_reextraction`
 - [tests/test_pdf_extraction.py](../../../../../../tests/test_pdf_extraction.py) — direct import
@@ -197,33 +211,23 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_page_known_without_a_box_offers_the_original_page_and_no_substitute_crop`
 - [tests/test_reader_ca1_unicode_containment.py](../../../../../../tests/test_reader_ca1_unicode_containment.py) — direct import
 - [tests/test_reader_capture.py](../../../../../../tests/test_reader_capture.py) — direct import
-- [tests/test_reader_cues.py](../../../../../../tests/test_reader_cues.py) — direct import
-- [tests/test_reader_dialogue.py](../../../../../../tests/test_reader_dialogue.py) — direct import
-- [tests/test_reader_guidance.py](../../../../../../tests/test_reader_guidance.py) — direct import
 - [tests/test_reader_pdf_selection.py](../../../../../../tests/test_reader_pdf_selection.py) — direct import
 - [tests/test_reader_render_views.py](../../../../../../tests/test_reader_render_views.py) — direct import
   - `test_block_health_statuses_and_recommended_views`
   - `test_reextraction_changes_render_version_not_content_hash_bytes`
-- [tests/test_reader_requests.py](../../../../../../tests/test_reader_requests.py) — direct import
 - [tests/test_reader_restoration.py](../../../../../../tests/test_reader_restoration.py) — direct import
   - `test_orphaned_annotation_shows_quote_without_false_attachment`
-- [tests/test_reader_source_identity_guard.py](../../../../../../tests/test_reader_source_identity_guard.py) — direct import
-- [tests/test_required_method_authority.py](../../../../../../tests/test_required_method_authority.py) — direct import
 - [tests/test_required_method_items.py](../../../../../../tests/test_required_method_items.py) — direct import
 - [tests/test_reread_safety.py](../../../../../../tests/test_reread_safety.py) — direct import
 - [tests/test_reread_safety_landing.py](../../../../../../tests/test_reread_safety_landing.py) — direct import
   - `test_a_cue_on_a_reread_resolves_the_cited_passage_and_shows_the_question_with_its_method`
 - [tests/test_sidecar_ingest_m3.py](../../../../../../tests/test_sidecar_ingest_m3.py) — direct import
-- [tests/test_sidecar_quick_add.py](../../../../../../tests/test_sidecar_quick_add.py) — direct import
-- [tests/test_sidecar_reader.py](../../../../../../tests/test_sidecar_reader.py) — direct import
-- [tests/test_sidecar_reader_p3.py](../../../../../../tests/test_sidecar_reader_p3.py) — direct import
 - [tests/test_sidecar_span_view.py](../../../../../../tests/test_sidecar_span_view.py) — direct import
 - [tests/test_source_block_fts.py](../../../../../../tests/test_source_block_fts.py) — direct import
   - `test_replacing_a_runs_blocks_replaces_its_index_rows`
 - [tests/test_source_deletion.py](../../../../../../tests/test_source_deletion.py) — direct import
 - [tests/test_source_ingestion_v2lite.py](../../../../../../tests/test_source_ingestion_v2lite.py) — direct import
   - `test_render_ir_markdown_honors_sections_and_unit_selection`
-- [tests/test_source_inventory.py](../../../../../../tests/test_source_inventory.py) — direct import
 - [tests/test_source_layer.py](../../../../../../tests/test_source_layer.py) — direct import
   - `test_extraction_request_hash_unique_constraint`
   - `test_marker_adapter_maps_chunks_toc_stats_and_figures`
@@ -232,17 +236,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_retry_keys_on_request_hash_before_result_exists`
 - [tests/test_source_retrieval_guards.py](../../../../../../tests/test_source_retrieval_guards.py) — direct import
 - [tests/test_source_search.py](../../../../../../tests/test_source_search.py) — direct import
-- [tests/test_source_vector_backfill.py](../../../../../../tests/test_source_vector_backfill.py) — direct import
 - [tests/test_span_reanchor.py](../../../../../../tests/test_span_reanchor.py) — direct import
   - `test_reanchor_aliases_persist`
 - [tests/test_span_view.py](../../../../../../tests/test_span_view.py) — direct import
   - `test_span_view_text_anchor_mode_without_geometry`
 - [tests/test_t6_followup_rereview.py](../../../../../../tests/test_t6_followup_rereview.py) — direct import
 - [tests/test_tutor_delivery_fixes.py](../../../../../../tests/test_tutor_delivery_fixes.py) — direct import
-- [tests/test_ux_phase1_round2_review.py](../../../../../../tests/test_ux_phase1_round2_review.py) — direct import
 - [tests/test_ux_phase1_usability_round1.py](../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
   - `test_u2_pdf_view_lists_each_passages_page_for_a_text_only_extraction`
 - [tests/test_ux_phase3_today.py](../../../../../../tests/test_ux_phase3_today.py) — direct import
+- [tests/ux_phase1_round2_review_helpers.py](../../../../../../tests/ux_phase1_round2_review_helpers.py) — direct import
 
 ## Modification guidance
 

@@ -182,6 +182,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/pf_generation_helpers.py](../../../../../../tests/pf_generation_helpers.py) — direct import
 - [tests/test_exam_protection_review.py](../../../../../../tests/test_exam_protection_review.py) — direct import
 - [tests/test_item_fingerprints.py](../../../../../../tests/test_item_fingerprints.py) — direct import
   - `test_a_published_item_later_used_as_the_parent_rebuilds`

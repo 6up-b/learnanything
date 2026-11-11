@@ -193,6 +193,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ux_phase4_landing.py](../../../../../../tests/test_ux_phase4_landing.py) — direct import
   - `test_a_cold_check_on_a_direct_open_is_served_as_on_main_unless_a_routine_display_covers_it`
   - `test_a_routine_display_marks_a_later_question_solution_seen_beyond_its_coverage`
+- [tests/ux_phase4_feedback_helpers.py](../../../../../../tests/ux_phase4_feedback_helpers.py) — direct import
 
 ## Modification guidance
 

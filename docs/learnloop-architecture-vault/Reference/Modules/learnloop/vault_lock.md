@@ -154,9 +154,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/facet_span_support_helpers.py](../../../../../tests/facet_span_support_helpers.py) — direct import
 - [tests/test_activity_families.py](../../../../../tests/test_activity_families.py) — direct import
   - `test_vault_mutation_lock_is_reentrant_per_thread_only`
-- [tests/test_facet_span_support.py](../../../../../tests/test_facet_span_support.py) — direct import
 - [tests/test_ingest_ownership.py](../../../../../tests/test_ingest_ownership.py) — direct import
   - `test_a_busy_vault_lock_defers_lease_work_instead_of_failing`
   - `test_stale_worker_cannot_finish_or_publish_after_replacement`

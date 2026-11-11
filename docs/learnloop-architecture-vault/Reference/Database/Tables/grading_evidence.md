@@ -169,9 +169,17 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/assumed_known_helpers.py`
+- `tests/diagnosis_input_provenance_helpers.py`
 - `tests/figure_fixtures.py`
+- `tests/help_outcomes_helpers.py`
+- `tests/learner_blindness_relax_helpers.py`
 - `tests/mcp_world.py`
+- `tests/method_explicit_landing_helpers.py`
+- `tests/reader_active_reading_helpers.py`
+- `tests/reread_safety_landing_helpers.py`
 - `tests/source_service_fakes.py`
+- `tests/teacher_te0_confidence_events_helpers.py`
 - `tests/test_ad23_fix_review.py`
 - `tests/test_ad2_model.py`
 - `tests/test_ad3_reading.py`
@@ -181,14 +189,6 @@ Indexes and uniqueness:
 - `tests/test_characterization_certification_ledger.py`
 - `tests/test_cli_attempt.py`
 - `tests/test_cli_json.py`
-- `tests/test_diagnosis_context.py`
-- `tests/test_diagnosis_input_provenance.py`
-- `tests/test_diagnosis_input_provenance_landing.py`
-- `tests/test_diagnostic_augmentation.py`
-- `tests/test_e2e_local.py`
-- `tests/test_facet_outcome_view.py`
-- `tests/test_family_memory_projection.py`
-- `tests/test_field_signal_production_paths.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

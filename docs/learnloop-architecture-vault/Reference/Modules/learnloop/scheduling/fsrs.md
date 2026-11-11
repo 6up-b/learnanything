@@ -135,6 +135,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ro4_value_helpers.py](../../../../../../tests/ro4_value_helpers.py) — direct import
+- [tests/rospeed_ad_link_helpers.py](../../../../../../tests/rospeed_ad_link_helpers.py) — direct import
 - [tests/test_administration_adapters.py](../../../../../../tests/test_administration_adapters.py) — direct import
   - `test_ineligible_practice_observation_leaves_card_state_untouched`
   - `test_only_practice_eligible_updates_card_state`
@@ -209,7 +211,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_review_right_after_a_review_is_almost_never_a_lapse_with_the_switch_on`
 - [tests/test_rofu_speed.py](../../../../../../tests/test_rofu_speed.py) — direct import
   - `test_the_fsrs_update_without_clip_equals_the_schedulers_scalar_formulas`
-- [tests/test_rospeed_ad_link.py](../../../../../../tests/test_rospeed_ad_link.py) — direct import
 - [tests/test_router_coldness_covariates.py](../../../../../../tests/test_router_coldness_covariates.py) — direct import
   - `test_the_replayer_records_the_fsrs_predicted_retrievability`
 - [tests/test_sg_slip_vs_gap.py](../../../../../../tests/test_sg_slip_vs_gap.py) — direct import

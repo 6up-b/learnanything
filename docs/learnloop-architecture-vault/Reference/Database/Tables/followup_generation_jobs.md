@@ -104,9 +104,10 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/followup_migration_helpers.py`
+- `tests/teacher_te2_migration_helpers.py`
 - `tests/test_followup_codex_review.py`
 - `tests/test_followup_generate_e2e.py`
-- `tests/test_followup_migration.py`
 - `tests/test_followup_reserved_only.py`
 - `tests/test_ih2_lessons_compete.py`
 - `tests/test_teacher_exam_question_guard.py`

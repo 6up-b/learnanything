@@ -143,7 +143,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_ad23_contract.py](../../../../../../../tests/test_ad23_contract.py) — direct import
+- [tests/ad23_contract_helpers.py](../../../../../../../tests/ad23_contract_helpers.py) — direct import
 - [tests/test_exam_protection.py](../../../../../../../tests/test_exam_protection.py) — direct import
   - `test_a_held_out_unit_of_any_role_joins_the_leakage_inventory`
   - `test_an_unresolvable_held_out_mark_fingerprints_its_whole_extraction`

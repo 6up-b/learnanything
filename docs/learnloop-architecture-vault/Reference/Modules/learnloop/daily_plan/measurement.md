@@ -192,6 +192,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/data_capture_a2_measurement_helpers.py](../../../../../../tests/data_capture_a2_measurement_helpers.py) — direct import
+- [tests/data_capture_codex_review_helpers.py](../../../../../../tests/data_capture_codex_review_helpers.py) — direct import
 - [tests/test_data_capture_a2_measurement.py](../../../../../../tests/test_data_capture_a2_measurement.py) — direct import
   - `test_a7s_interface_takes_any_decision_with_an_experiment_id`
   - `test_a_block_of_only_measurement_checks_is_no_learner_pick_and_says_so`

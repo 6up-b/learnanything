@@ -134,6 +134,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/compare_sources_keep_helpers.py](../../../../../../tests/compare_sources_keep_helpers.py) — direct import
 - [tests/test_compare_keep_switch_off.py](../../../../../../tests/test_compare_keep_switch_off.py) — direct import
   - `test_keep_off_every_rw4d_rpc_refuses_and_writes_nothing`
 - [tests/test_compare_sources_keep.py](../../../../../../tests/test_compare_sources_keep.py) — direct import

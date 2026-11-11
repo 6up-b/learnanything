@@ -155,6 +155,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/practice_index_find_helpers.py](../../../../../../tests/practice_index_find_helpers.py) — direct import
 - [tests/test_practice_index_adapters.py](../../../../../../tests/test_practice_index_adapters.py) — direct import
   - `test_batch_dry_runs_never_migrate_an_older_rollback_database`
   - `test_cli_eval_dry_run_find_coverage_status_and_tool_spec`

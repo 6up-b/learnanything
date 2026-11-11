@@ -110,8 +110,8 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/data_capture_a2_measurement_helpers.py`
 - `tests/test_activity_substrate.py`
-- `tests/test_data_capture_a2_measurement.py`
 - `tests/test_data_capture_codex_rereview.py`
 - `tests/test_data_capture_codex_review.py`
 - `tests/test_data_capture_phone.py`

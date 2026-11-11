@@ -205,6 +205,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/help_outcomes_helpers.py](../../../../../../../tests/help_outcomes_helpers.py) — direct import
 - [tests/test_compare_methods.py](../../../../../../../tests/test_compare_methods.py) — direct import
   - `test_f7_only_the_claims_holder_settles_and_a_stale_claim_can_be_taken_over`
 - [tests/test_figures_help.py](../../../../../../../tests/test_figures_help.py) — direct import
@@ -225,7 +226,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_store_attach_matches_the_submission_key_only`
   - `test_the_store_refuses_unknown_columns`
   - `test_the_workbench_lifecycle_binds_each_deferred_column_once`
-- [tests/test_help_outcomes.py](../../../../../../../tests/test_help_outcomes.py) — direct import
 - [tests/test_hint_h2a_review_round3.py](../../../../../../../tests/test_hint_h2a_review_round3.py) — direct import
   - `test_w1_the_fence_and_the_keyless_fold_share_one_window`
 - [tests/test_hint_h2b_rereview.py](../../../../../../../tests/test_hint_h2b_rereview.py) — direct import

@@ -103,6 +103,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/mobile_jobs_migration_helpers.py`
 - `tests/test_mobile_jobs.py`
 - `tests/test_mobile_jobs_migration.py`
 - `tests/test_mobile_two_process.py`

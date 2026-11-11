@@ -130,6 +130,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/exam_protection_review_helpers.py](../../../../../../tests/exam_protection_review_helpers.py) — direct import
 - [tests/test_characterization_assessment_exam.py](../../../../../../tests/test_characterization_assessment_exam.py) — direct import
   - `test_finish_releases_pool_and_reservation_is_blocked_only_by_attempt_history`
   - `test_predictions_are_not_refrozen_on_restart`

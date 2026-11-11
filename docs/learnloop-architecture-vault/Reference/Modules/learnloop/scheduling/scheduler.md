@@ -243,12 +243,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/assumed_known_helpers.py](../../../../../../tests/assumed_known_helpers.py) — direct import
+- [tests/daily_loop_reader_authored_practice_helpers.py](../../../../../../tests/daily_loop_reader_authored_practice_helpers.py) — direct import
 - [tests/daily_plan_fakes.py](../../../../../../tests/daily_plan_fakes.py) — direct import
 - [tests/intent_fakes.py](../../../../../../tests/intent_fakes.py) — direct import
+- [tests/intent_fix_round4_helpers.py](../../../../../../tests/intent_fix_round4_helpers.py) — direct import
+- [tests/learner_pick_proposal_helpers.py](../../../../../../tests/learner_pick_proposal_helpers.py) — direct import
+- [tests/plan_determinism_helpers.py](../../../../../../tests/plan_determinism_helpers.py) — direct import
+- [tests/remediation_cold_retry_helpers.py](../../../../../../tests/remediation_cold_retry_helpers.py) — direct import
 - [tests/test_ad1_migration.py](../../../../../../tests/test_ad1_migration.py) — direct import
   - `test_a_served_revision_hashes_as_the_scheduler_snapshots_it`
 - [tests/test_ad23_inversion.py](../../../../../../tests/test_ad23_inversion.py) — direct import
-- [tests/test_assumed_known.py](../../../../../../tests/test_assumed_known.py) — direct import
 - [tests/test_attempts.py](../../../../../../tests/test_attempts.py) — direct import
   - `test_attempt_links_to_scheduler_slate_and_later_retention_label`
 - [tests/test_cli_generate_practice.py](../../../../../../tests/test_cli_generate_practice.py) — direct import
@@ -276,7 +281,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_controller_snapshot.py](../../../../../../tests/test_controller_snapshot.py) — direct import
 - [tests/test_daily_loop_lo_lifecycle_serving.py](../../../../../../tests/test_daily_loop_lo_lifecycle_serving.py) — direct import
   - `test_follow_up_lanes_do_not_resurrect_items_of_an_inactive_lo`
-- [tests/test_daily_loop_reader_authored_practice.py](../../../../../../tests/test_daily_loop_reader_authored_practice.py) — direct import
 - [tests/test_daily_plan_composition.py](../../../../../../tests/test_daily_plan_composition.py) — direct import
   - `test_a_check_miss_awaiting_its_diagnosis_stays_assumed_and_is_not_rechecked`
 - [tests/test_daily_plan_review_regressions.py](../../../../../../tests/test_daily_plan_review_regressions.py) — direct import
@@ -343,7 +347,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_shadow_intent_logs_practice_integration_at_the_right_moment`
 - [tests/test_large_practice_flow.py](../../../../../../tests/test_large_practice_flow.py) — direct import
   - `test_many_open_text_practice_items_schedule_and_record_attempt`
-- [tests/test_learner_pick_proposal.py](../../../../../../tests/test_learner_pick_proposal.py) — direct import
 - [tests/test_learner_text_gaps_flow.py](../../../../../../tests/test_learner_text_gaps_flow.py) — direct import
 - [tests/test_learner_text_gaps_review.py](../../../../../../tests/test_learner_text_gaps_review.py) — direct import
   - `test_f13_the_pipeline_switched_off_queues_exactly_as_the_predecessor_version`
@@ -539,6 +542,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_lookahead_does_not_run_when_a_single_check_pays_or_rank_abstains`
   - `test_the_value_gate_reads_the_configured_robust_quantile`
 - [tests/voi_restore_scenarios.py](../../../../../../tests/voi_restore_scenarios.py) — direct import
+- [tests/voi_stopping_helpers.py](../../../../../../tests/voi_stopping_helpers.py) — direct import
 
 ## Modification guidance
 

@@ -124,8 +124,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/followup_journey_helpers.py](../../../../../../tests/followup_journey_helpers.py) — direct import
 - [tests/followup_serve_helpers.py](../../../../../../tests/followup_serve_helpers.py) — direct import
+- [tests/forecast_receipts_helpers.py](../../../../../../tests/forecast_receipts_helpers.py) — direct import
+- [tests/learner_text_gaps_review_helpers.py](../../../../../../tests/learner_text_gaps_review_helpers.py) — direct import
 - [tests/split_live_helpers.py](../../../../../../tests/split_live_helpers.py) — direct import
+- [tests/stuck_prompt_helpers.py](../../../../../../tests/stuck_prompt_helpers.py) — direct import
 - [tests/test_ad23_fix_review.py](../../../../../../tests/test_ad23_fix_review.py) — direct import
 - [tests/test_attempt_chain_records.py](../../../../../../tests/test_attempt_chain_records.py) — direct import
 - [tests/test_attempt_completion.py](../../../../../../tests/test_attempt_completion.py) — direct import
@@ -151,19 +155,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f6_a_shadow_vault_has_its_workflows_job_at_once`
   - `test_f6_startup_recovery_needs_no_click`
 - [tests/test_followup_fg1c_codex_review.py](../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
-- [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import
 - [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
   - `test_an_exam_sittings_miss_reaches_the_probe_lane_after_the_sitting`
 - [tests/test_followup_workflow.py](../../../../../../tests/test_followup_workflow.py) — direct import
   - `test_a_practice_lane_fallback_runs_the_predecessors_chooser_once`
   - `test_an_exam_sitting_records_eligibility_inside_its_cap`
-- [tests/test_forecast_receipts.py](../../../../../../tests/test_forecast_receipts.py) — direct import
 - [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
   - `test_f5_an_adjudication_releases_the_follow_up_suppression`
 - [tests/test_hypothesis_marks_context.py](../../../../../../tests/test_hypothesis_marks_context.py) — direct import
   - `test_the_report_measures_marks_against_delayed_performance`
 - [tests/test_learner_text_gaps_composition.py](../../../../../../tests/test_learner_text_gaps_composition.py) — direct import
-- [tests/test_learner_text_gaps_review.py](../../../../../../tests/test_learner_text_gaps_review.py) — direct import
 - [tests/test_post_attempt_pipeline.py](../../../../../../tests/test_post_attempt_pipeline.py) — direct import
   - `test_exam_sitting_cap_processes_worst_first_and_suppresses_the_rest`
   - `test_exam_sitting_pipeline_survives_a_failing_attempt`

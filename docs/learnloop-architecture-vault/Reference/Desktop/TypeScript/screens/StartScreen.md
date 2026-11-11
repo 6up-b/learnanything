@@ -522,7 +522,6 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 - [apps/learnloop-tauri/src/screens/StartScreen.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/StartScreen.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_daily_loop_start_minutes.py](../../../../../../tests/test_daily_loop_start_minutes.py) — cross-boundary name contract: references uniquely owned exported name `StartScreen`; it does **not** directly execute this source module.
 - [tests/test_daily_loop_start_postpone.py](../../../../../../tests/test_daily_loop_start_postpone.py) — cross-boundary name contract: references uniquely owned exported name `StartScreen`; it does **not** directly execute this source module.
-- [tests/test_plan_determinism.py](../../../../../../tests/test_plan_determinism.py) — cross-boundary name contract: references uniquely owned exported name `StartScreen`; it does **not** directly execute this source module.
 - [tests/test_tui_app.py](../../../../../../tests/test_tui_app.py) — cross-boundary name contract: references uniquely owned exported name `StartScreen`; it does **not** directly execute this source module.
 - [tests/test_tui_theme.py](../../../../../../tests/test_tui_theme.py) — cross-boundary name contract: references uniquely owned exported name `StartScreen`; it does **not** directly execute this source module.
 

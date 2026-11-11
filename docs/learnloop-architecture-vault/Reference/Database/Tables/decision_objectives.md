@@ -115,8 +115,8 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/data_capture_migration_helpers.py`
 - `tests/test_data_capture_landing_review.py`
-- `tests/test_data_capture_migration.py`
 - `tests/test_data_capture_successor.py`
 - `tests/test_followup_router.py`
 - `tests/test_ro0_codex_verify.py`

@@ -120,6 +120,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/hypothesis_marks_context_helpers.py](../../../../../../tests/hypothesis_marks_context_helpers.py) — imports consumer [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]]
 - [tests/test_data_capture_codex_rereview.py](../../../../../../tests/test_data_capture_codex_rereview.py) — imports consumer [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]]
 - [tests/test_data_capture_codex_review.py](../../../../../../tests/test_data_capture_codex_review.py) — imports consumer [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]]
 - [tests/test_data_capture_landing_review.py](../../../../../../tests/test_data_capture_landing_review.py) — imports consumer [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]]

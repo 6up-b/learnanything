@@ -146,12 +146,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/facet_authority_helpers.py](../../../../../../../tests/facet_authority_helpers.py) — direct import
+- [tests/source_append_helpers.py](../../../../../../../tests/source_append_helpers.py) — direct import
+- [tests/source_set_synthesis_helpers.py](../../../../../../../tests/source_set_synthesis_helpers.py) — direct import
 - [tests/test_build_study_map_routing.py](../../../../../../../tests/test_build_study_map_routing.py) — direct import
 - [tests/test_exam_protection_identity.py](../../../../../../../tests/test_exam_protection_identity.py) — direct import
   - `test_f2_a_reused_inventory_never_releases_duplicate_or_fragment_copies`
   - `test_f2_reuse_never_erases_the_origins_signal`
   - `test_identity_review_f2_an_unbound_signal_never_lets_a_known_one_mark_its_origin`
-- [tests/test_facet_authority.py](../../../../../../../tests/test_facet_authority.py) — direct import
 - [tests/test_facet_candidates.py](../../../../../../../tests/test_facet_candidates.py) — direct import
   - `test_harvests_candidates_from_unit_inventories`
 - [tests/test_ingestion_checkpoints.py](../../../../../../../tests/test_ingestion_checkpoints.py) — direct import
@@ -180,7 +182,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_role_aware_inventory_profiles`
   - `test_semantic_inventory_cache_rebinds_across_revisions`
   - `test_unit_inventory_cache_reuse_across_collections`
-- [tests/test_source_set_synthesis.py](../../../../../../../tests/test_source_set_synthesis.py) — direct import
 - [tests/test_source_sets.py](../../../../../../../tests/test_source_sets.py) — direct import
   - `test_one_source_two_sets_different_roles`
   - `test_source_coverage_readiness_report`

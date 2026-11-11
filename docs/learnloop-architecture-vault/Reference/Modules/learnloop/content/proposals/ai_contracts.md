@@ -166,6 +166,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad23_contract_helpers.py](../../../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/proposal_persistence_helpers.py](../../../../../../../tests/proposal_persistence_helpers.py) — direct import
+- [tests/required_method_authority_helpers.py](../../../../../../../tests/required_method_authority_helpers.py) — direct import
+- [tests/source_ingestion_helpers.py](../../../../../../../tests/source_ingestion_helpers.py) — direct import
 - [tests/structured_ai.py](../../../../../../../tests/structured_ai.py) — direct import
 - [tests/test_ad23_contract.py](../../../../../../../tests/test_ad23_contract.py) — direct import
 - [tests/test_ad23_fix_r5.py](../../../../../../../tests/test_ad23_fix_r5.py) — direct import
@@ -268,6 +272,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_gap_inline_diagnostic_generation_when_available`
   - `test_practice_promotion_with_no_authored_item_fails_instead_of_claiming_review`
 - [tests/text_gap_fakes.py](../../../../../../../tests/text_gap_fakes.py) — direct import
+- [tests/tutor_promotion_service_helpers.py](../../../../../../../tests/tutor_promotion_service_helpers.py) — direct import
 
 ## Modification guidance
 

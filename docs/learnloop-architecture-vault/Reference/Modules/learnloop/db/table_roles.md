@@ -126,6 +126,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/figure_prefetch_migration_helpers.py](../../../../../../tests/figure_prefetch_migration_helpers.py) — direct import
+- [tests/followup_migration_helpers.py](../../../../../../tests/followup_migration_helpers.py) — direct import
+- [tests/hypothesis_marks_migration_helpers.py](../../../../../../tests/hypothesis_marks_migration_helpers.py) — direct import
+- [tests/teacher_te1_migration_helpers.py](../../../../../../tests/teacher_te1_migration_helpers.py) — direct import
 - [tests/test_ad1_migration.py](../../../../../../tests/test_ad1_migration.py) — direct import
   - `test_the_ad1_tables_are_classified`
 - [tests/test_ad23_migration.py](../../../../../../tests/test_ad23_migration.py) — direct import

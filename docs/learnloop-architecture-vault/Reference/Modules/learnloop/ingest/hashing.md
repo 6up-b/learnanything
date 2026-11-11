@@ -114,9 +114,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/daily_plan_reading_helpers.py](../../../../../../tests/daily_plan_reading_helpers.py) — direct import
 - [tests/exam_scope_fixtures.py](../../../../../../tests/exam_scope_fixtures.py) — direct import
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
-- [tests/test_daily_plan_reading.py](../../../../../../tests/test_daily_plan_reading.py) — direct import
+- [tests/reread_safety_helpers.py](../../../../../../tests/reread_safety_helpers.py) — direct import
+- [tests/sidecar_quick_add_helpers.py](../../../../../../tests/sidecar_quick_add_helpers.py) — direct import
+- [tests/source_inventory_helpers.py](../../../../../../tests/source_inventory_helpers.py) — direct import
 - [tests/test_document_ir.py](../../../../../../tests/test_document_ir.py) — direct import
   - `test_request_hash_computable_before_execution_and_versioned`
   - `test_result_hash_depends_on_request_and_ir`
@@ -143,15 +146,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reread_safety_landing.py](../../../../../../tests/test_reread_safety_landing.py) — direct import
   - `test_a_marker_reread_hands_the_worker_the_stored_originals_bytes`
 - [tests/test_sidecar_ingest_m3.py](../../../../../../tests/test_sidecar_ingest_m3.py) — direct import
-- [tests/test_sidecar_quick_add.py](../../../../../../tests/test_sidecar_quick_add.py) — direct import
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../tests/test_sidecar_reader_pdf_view.py) — direct import
   - `test_pdf_view_backfills_store_from_live_local_original`
 - [tests/test_sidecar_span_view.py](../../../../../../tests/test_sidecar_span_view.py) — direct import
 - [tests/test_source_deletion.py](../../../../../../tests/test_source_deletion.py) — direct import
-- [tests/test_source_inventory.py](../../../../../../tests/test_source_inventory.py) — direct import
 - [tests/test_source_layer.py](../../../../../../tests/test_source_layer.py) — direct import
   - `test_retry_keys_on_request_hash_before_result_exists`
-- [tests/test_ux_phase1_round2_review.py](../../../../../../tests/test_ux_phase1_round2_review.py) — direct import
+- [tests/ux_phase1_round2_review_helpers.py](../../../../../../tests/ux_phase1_round2_review_helpers.py) — direct import
 
 ## Modification guidance
 

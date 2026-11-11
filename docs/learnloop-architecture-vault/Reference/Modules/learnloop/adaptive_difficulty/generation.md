@@ -154,6 +154,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
 - [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — direct import
   - `test_a_commissioned_repair_after_protection_changed_mid_call_is_refused`
   - `test_a_held_out_sources_canonical_note_never_reaches_a_commissioned_request`

@@ -256,6 +256,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/plan_first_transport_offer_grants_helpers.py](../../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import
+- [tests/plan_first_transport_paid_roles_helpers.py](../../../../../../tests/plan_first_transport_paid_roles_helpers.py) — direct import
 - [tests/test_ad23_t1_routes.py](../../../../../../tests/test_ad23_t1_routes.py) — direct import
   - `test_ads_routes_are_in_the_plan_first_table`
   - `test_inside_an_ad_operation_no_route_asks_and_no_grant_serves`

@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop_sidecar/context.py"
   - "src/learnloop/followup_run/decision_view.py"
   - "tests/codex_cli_fakes.py"
+  - "tests/reader_rw3a_landing_helpers.py"
   - "tests/test_ai_config.py"
   - "tests/test_ai_runtime.py"
   - "tests/test_chatgpt_plan_workspace.py"
@@ -30,7 +31,6 @@ source_paths:
   - "tests/test_codex_lockdown_frozen.py"
   - "tests/test_codex_lockdown_round2.py"
   - "tests/test_codex_lockdown_round3.py"
-  - "tests/test_codex_tool_lockdown.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/ui"
@@ -63,6 +63,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/codex_cli_fakes.py`
+- `tests/reader_rw3a_landing_helpers.py`
 - `tests/test_ai_config.py`
 - `tests/test_ai_runtime.py`
 - `tests/test_chatgpt_plan_workspace.py`
@@ -73,7 +74,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_codex_lockdown_frozen.py`
 - `tests/test_codex_lockdown_round2.py`
 - `tests/test_codex_lockdown_round3.py`
-- `tests/test_codex_tool_lockdown.py`
 
 ## Extension and modification guidance
 

@@ -229,6 +229,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/query_student_helpers.py](../../../../../../tests/query_student_helpers.py) — direct import
 - [tests/test_query_student.py](../../../../../../tests/test_query_student.py) — direct import
   - `test_a_failed_run_blocks_the_schedule_with_its_reason`
   - `test_a_newly_held_out_familys_older_rows_leave_training`

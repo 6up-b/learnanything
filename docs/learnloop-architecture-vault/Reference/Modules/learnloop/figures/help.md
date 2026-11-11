@@ -148,6 +148,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/figures_help_helpers.py](../../../../../../tests/figures_help_helpers.py) — direct import
 - [tests/test_figures_help.py](../../../../../../tests/test_figures_help.py) — direct import
   - `test_a_figure_built_from_the_items_own_blocks_never_qualifies`
   - `test_the_reveal_text_reads_every_model_written_string_and_the_readouts`

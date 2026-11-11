@@ -104,6 +104,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/deliverable_curriculum_migration_helpers.py`
 - `tests/test_curriculum_c3_codex_review.py`
 - `tests/test_curriculum_c3_exam_scoping.py`
 - `tests/test_deliverable_curriculum_migration.py`

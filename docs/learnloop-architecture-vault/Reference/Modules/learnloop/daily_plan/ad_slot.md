@@ -129,7 +129,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — direct import
+- [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/ad_guard_helpers.py](../../../../../../tests/ad_guard_helpers.py) — direct import
 - [tests/test_ad23_intent_compose.py](../../../../../../tests/test_ad23_intent_compose.py) — direct import
   - `test_the_incumbent_hands_ad_only_verdicts`
 - [tests/test_ad23_inversion.py](../../../../../../tests/test_ad23_inversion.py) — direct import
@@ -137,7 +138,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ad_never_takes_the_plans_objects`
   - `test_high1_a_malformed_stored_context_quoting_held_out_text_never_reaches_ad_or_the_log`
   - `test_property_a_buggy_deciders_pick_outside_the_facts_is_rolled_back`
-- [tests/test_ad_guard.py](../../../../../../tests/test_ad_guard.py) — direct import
 - [tests/test_forced_withdrawal_records.py](../../../../../../tests/test_forced_withdrawal_records.py) — direct import
   - `test_a_guard_denial_is_recorded_beside_the_jsonl_log_the_report_still_reads`
 

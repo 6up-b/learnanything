@@ -60,7 +60,7 @@ For system intent, use [[Architecture Overview]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/instructional/__init__|learnloop.instructional]] | [[Reference/Modules/learnloop/instructional/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/instructional/discriminating|learnloop.instructional.discriminating]] | [[Reference/Modules/learnloop/instructional/discriminating#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
+| [[Reference/Modules/learnloop/instructional/discriminating|learnloop.instructional.discriminating]] | [[Reference/Modules/learnloop/instructional/discriminating#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/instructional/exercises|learnloop.instructional.exercises]] | [[Reference/Modules/learnloop/instructional/exercises#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
 | [[Reference/Modules/learnloop/instructional/exposure|learnloop.instructional.exposure]] | [[Reference/Modules/learnloop/instructional/exposure#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/instructional/harvest|learnloop.instructional.harvest]] | [[Reference/Modules/learnloop/instructional/harvest#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
@@ -70,9 +70,9 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/instructional/policy|learnloop.instructional.policy]] | [[Reference/Modules/learnloop/instructional/policy#^module-purpose|purpose]] | `ACTIVE` | 14 | 16 |
 | [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]] | [[Reference/Modules/learnloop/instructional/practice#^module-purpose|purpose]] | `ACTIVE` | 7 | 9 |
 | [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]] | [[Reference/Modules/learnloop/instructional/reader_digest#^module-purpose|purpose]] | `ACTIVE` | 2 | 6 |
-| [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] | [[Reference/Modules/learnloop/instructional/reader_followups#^module-purpose|purpose]] | `ACTIVE` | 3 | 16 |
+| [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] | [[Reference/Modules/learnloop/instructional/reader_followups#^module-purpose|purpose]] | `ACTIVE` | 3 | 19 |
 | [[Reference/Modules/learnloop/instructional/screen|learnloop.instructional.screen]] | [[Reference/Modules/learnloop/instructional/screen#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
-| [[Reference/Modules/learnloop/instructional/sources|learnloop.instructional.sources]] | [[Reference/Modules/learnloop/instructional/sources#^module-purpose|purpose]] | `ACTIVE` | 9 | 24 |
+| [[Reference/Modules/learnloop/instructional/sources|learnloop.instructional.sources]] | [[Reference/Modules/learnloop/instructional/sources#^module-purpose|purpose]] | `ACTIVE` | 9 | 25 |
 | [[Reference/Modules/learnloop/instructional/tools|learnloop.instructional.tools]] | [[Reference/Modules/learnloop/instructional/tools#^module-purpose|purpose]] | `ACTIVE` | 5 | 15 |
 | [[Reference/Modules/learnloop/instructional/validation|learnloop.instructional.validation]] | [[Reference/Modules/learnloop/instructional/validation#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]] | [[Reference/Modules/learnloop/instructional/valuation#^module-purpose|purpose]] | `ACTIVE` | 6 | 7 |

@@ -178,6 +178,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
+- [tests/p2_acceptance_helpers.py](../../../../../../tests/p2_acceptance_helpers.py) — direct import
+- [tests/probe_robust_cutover_helpers.py](../../../../../../tests/probe_robust_cutover_helpers.py) — direct import
 - [tests/test_calibration_sessions.py](../../../../../../tests/test_calibration_sessions.py) — direct import
 - [tests/test_characterization_grader_channel.py](../../../../../../tests/test_characterization_grader_channel.py) — direct import
   - `test_calibration_posterior_mean_uses_pseudo_count_eight`
@@ -215,7 +217,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_candidates_are_ranked_by_the_existing_instrument_eig`
 - [tests/test_km4_taxonomy.py](../../../../../../tests/test_km4_taxonomy.py) — direct import
   - `test_compositional_record_parameterizes_contrast_probe`
-- [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import
 - [tests/test_p2_leakage_suite.py](../../../../../../tests/test_p2_leakage_suite.py) — direct import
 - [tests/test_probe_coverage.py](../../../../../../tests/test_probe_coverage.py) — direct import
   - `test_direct_plus_shifted_bindings_cover_a_contrast`

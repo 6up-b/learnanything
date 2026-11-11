@@ -131,6 +131,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/method_explicit_landing_helpers.py](../../../../../../tests/method_explicit_landing_helpers.py) — direct import
+- [tests/required_method_round3_rereview_helpers.py](../../../../../../tests/required_method_round3_rereview_helpers.py) — direct import
 - [tests/test_architecture.py](../../../../../../tests/test_architecture.py) — direct import
   - `test_assessment_service_reexports_neutral_algorithm_versions`
 - [tests/test_assessment_contracts.py](../../../../../../tests/test_assessment_contracts.py) — direct import
@@ -144,7 +146,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_tutor_records_the_contract_a_mid_attempt_question_is_about`
 - [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — direct import
   - `test_review_f3_an_edited_or_removed_item_keeps_the_signal_on_the_frozen_lo`
-- [tests/test_method_explicit_landing.py](../../../../../../tests/test_method_explicit_landing.py) — direct import
 - [tests/test_probability_prep.py](../../../../../../tests/test_probability_prep.py) — direct import
 - [tests/test_reader_workbench_rw2a.py](../../../../../../tests/test_reader_workbench_rw2a.py) — direct import
   - `test_f1_a_bound_import_snapshots_the_contract_of_the_item_it_bound`
@@ -155,7 +156,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f19_a_method_contract_records_the_reference_content_hash`
 - [tests/test_required_method_round3.py](../../../../../../tests/test_required_method_round3.py) — direct import
   - `test_f14_the_grader_renders_the_instruction_the_frozen_contract_presented`
-- [tests/test_required_method_round3_rereview.py](../../../../../../tests/test_required_method_round3_rereview.py) — direct import
 - [tests/test_router_card.py](../../../../../../tests/test_router_card.py) — direct import
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
 - [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import

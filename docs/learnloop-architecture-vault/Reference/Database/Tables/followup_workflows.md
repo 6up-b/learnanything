@@ -120,10 +120,10 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/followup_migration_helpers.py`
 - `tests/test_followup_codex_review.py`
 - `tests/test_followup_fg1c_r1_exposure_independence.py`
 - `tests/test_followup_fg1d_probe_shadow.py`
-- `tests/test_followup_migration.py`
 - `tests/test_followup_workflow.py`
 - `tests/test_hypothesis_marks.py`
 - `tests/test_ih2_lessons_compete.py`

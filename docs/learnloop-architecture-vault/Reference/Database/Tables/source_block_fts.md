@@ -92,18 +92,18 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/compare_sources_keep_helpers.py`
 - `tests/query_student_fakes.py`
+- `tests/reader_inquiry_status_helpers.py`
 - `tests/recap_fixtures.py`
 - `tests/test_architecture.py`
 - `tests/test_compare_methods.py`
-- `tests/test_compare_sources_keep.py`
 - `tests/test_e0_review_round4.py`
 - `tests/test_embedding_recipe_hash_pins.py`
 - `tests/test_exam_protection_landing.py`
 - `tests/test_followup_reserved_only.py`
 - `tests/test_passage_links.py`
 - `tests/test_reader_ca4_table_by_point.py`
-- `tests/test_reader_inquiry_status.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_source_block_fts.py`
 - `tests/test_tutor_delivery_fixes.py`

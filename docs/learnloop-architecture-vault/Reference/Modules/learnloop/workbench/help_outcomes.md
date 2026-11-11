@@ -162,6 +162,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/help_outcomes_helpers.py](../../../../../../tests/help_outcomes_helpers.py) — direct import
 - [tests/test_figures_help.py](../../../../../../tests/test_figures_help.py) — direct import
   - `test_help_outcomes_list_figure_deterministically_and_not_when_off`
 - [tests/test_help_outcomes.py](../../../../../../tests/test_help_outcomes.py) — direct import

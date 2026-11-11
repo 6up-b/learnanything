@@ -123,7 +123,9 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/ad23_contract_helpers.py`
 - `tests/ad_fakes.py`
+- `tests/ih_numeric_seed_helpers.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_fix_round5.py`
 - `tests/test_ad1_migration.py`
@@ -141,8 +143,6 @@ Indexes and uniqueness:
 - `tests/test_evsi_router_composition.py`
 - `tests/test_evsi_staged_binding.py`
 - `tests/test_forecast_receipts.py`
-- `tests/test_forecast_receipts_landing.py`
-- `tests/test_ih_numeric_seed.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

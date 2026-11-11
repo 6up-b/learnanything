@@ -112,6 +112,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reader_rw5d_p4b_teacher_visuals_helpers.py](../../../../../../tests/reader_rw5d_p4b_teacher_visuals_helpers.py) — direct import
 - [tests/router_model_fakes.py](../../../../../../tests/router_model_fakes.py) — direct import
 - [tests/test_approach_maps.py](../../../../../../tests/test_approach_maps.py) — direct import
   - `test_r1_the_builders_output_schema_requires_the_structured_fields`
@@ -135,7 +136,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_append_schema_lets_a_provider_reword_a_facet`
 - [tests/test_practice_index_text.py](../../../../../../tests/test_practice_index_text.py) — direct import
   - `test_wire_contracts_are_strict`
-- [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
 - [tests/test_router_r2b_requests.py](../../../../../../tests/test_router_r2b_requests.py) — direct import
   - `test_every_router_answer_model_has_the_strict_schema_the_transports_send`
 

@@ -169,8 +169,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_ih4_preferences_inform_router.py](../../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
-- [tests/test_instruct_handoff_ih0.py](../../../../../../../tests/test_instruct_handoff_ih0.py) — direct import
+- [tests/ih4_preferences_inform_router_helpers.py](../../../../../../../tests/ih4_preferences_inform_router_helpers.py) — direct import
+- [tests/instruct_handoff_ih0_helpers.py](../../../../../../../tests/instruct_handoff_ih0_helpers.py) — direct import
 - [tests/test_re0_capture.py](../../../../../../../tests/test_re0_capture.py) — direct import
   - `test_a_database_below_252_records_the_attempt_and_the_fill_is_a_no_op`
 - [tests/test_ro0_codex_review.py](../../../../../../../tests/test_ro0_codex_review.py) — direct import

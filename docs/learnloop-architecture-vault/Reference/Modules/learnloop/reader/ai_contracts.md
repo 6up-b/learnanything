@@ -112,6 +112,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/reader_active_reading_helpers.py](../../../../../../tests/reader_active_reading_helpers.py) — direct import
+- [tests/reader_passage_check_helpers.py](../../../../../../tests/reader_passage_check_helpers.py) — direct import
+- [tests/reader_reconnect_helpers.py](../../../../../../tests/reader_reconnect_helpers.py) — direct import
+- [tests/reader_reconstruct_helpers.py](../../../../../../tests/reader_reconstruct_helpers.py) — direct import
+- [tests/reader_requests_helpers.py](../../../../../../tests/reader_requests_helpers.py) — direct import
 - [tests/structured_ai.py](../../../../../../tests/structured_ai.py) — direct import
 - [tests/test_codex_output_schema.py](../../../../../../tests/test_codex_output_schema.py) — direct import
   - `test_sdk_reader_preset_regenerates_when_app_server_rejects_hex_escape`
@@ -123,12 +128,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_section_quick_checks_are_byte_identical`
   - `test_the_selection_reuse_key_holds`
 - [tests/test_reader_formative_texts.py](../../../../../../tests/test_reader_formative_texts.py) — direct import
-- [tests/test_reader_passage_check.py](../../../../../../tests/test_reader_passage_check.py) — direct import
 - [tests/test_reader_quick_check.py](../../../../../../tests/test_reader_quick_check.py) — direct import
   - `test_author_quick_check_rejects_invented_spans`
-- [tests/test_reader_reconnect.py](../../../../../../tests/test_reader_reconnect.py) — direct import
-- [tests/test_reader_reconstruct.py](../../../../../../tests/test_reader_reconstruct.py) — direct import
-- [tests/test_reader_requests.py](../../../../../../tests/test_reader_requests.py) — direct import
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
 
 ## Modification guidance
