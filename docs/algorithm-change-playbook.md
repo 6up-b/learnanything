@@ -19,6 +19,10 @@ it; existing vault history must remain interpretable and reproducible.
    its `algorithms.algorithm_version` line and each new key as its own line. A
    changed default that changes persisted meaning without a version decision is
    a reproducibility bug; the golden line puts that decision in front of review.
+   Regenerate `tests/goldens/identities.toml` (`uv run python
+   tests/test_identity_pins.py --write`) only together with such a decision: a
+   moved identity pin (a cache key, manifest or version hash, seed) with no
+   version decision is the same bug.
 5. Classify every new table in `learnloop.db.table_roles`. A new `DERIVED` table
    must have exactly one registered rebuild owner; a new `RAW_LEDGER` or
    `RECEIPT` table must never be cleared by replay.

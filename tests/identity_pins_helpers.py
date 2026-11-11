@@ -595,11 +595,11 @@ def _paid_route(route_type: type) -> Any:
         if f.name not in values and f.default is MISSING and f.default_factory is MISSING})
 
 
-def _model_settings(profile_name: str) -> Callable[[], Any]:
+def _model_settings(profile_name: str, **profile: Any) -> Callable[[], Any]:
     def compute() -> Any:
         from learnloop.ai.execution import model_settings
 
-        config = init_config()
+        config = init_config(ai={"providers": {profile_name: profile}}) if profile else init_config()
         return model_settings(FakeStructuredClient(profile_name, "pin/model", config.ai.providers[profile_name]))
     return compute
 
@@ -851,7 +851,8 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         ("src/learnloop/vault/embedding_recipes.py::facet_content_hash",),
         "facet dossiers' source hash (db/stores/practice_index.py) and neighbours' source_hash",
         "every facet dossier looks missing and is paid again, with its neighbours'",
-        {"facet": lambda: _facet_content_hash()}),
+        {"facet": lambda: _facet_content_hash("fct_svd_define"),
+         "facet_defaults": lambda: _facet_content_hash("fct_svd_orthogonal")}),
     IdentitySite(
         "A11-A12", "approach map structure hash and prompt (TraceContract, RequiredMethod dumps)",
         ("src/learnloop/hints/map_seeds.py::structure_hash", "src/learnloop/hints/map_builder.py::build_prompt"),
@@ -908,7 +909,11 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "every checkpoint key that carries model_settings (synthesis passes, inventory windows, ...)",
         "a removed profile attribute silently reads None and every such checkpoint misses (paid again)",
         {"openrouter": _model_settings("openrouter"), "chatgpt_medium": _model_settings("chatgpt_medium"),
-         "deepseek_flash": _model_settings("deepseek_flash")}),
+         "deepseek_flash": _model_settings("deepseek_flash"),
+         # Every attribute model_settings reads set, so a renamed one (read as None) moves this pin.
+         "openrouter.every_setting": _model_settings(
+             "openrouter", base_url="https://pin.invalid/v1", reasoning_effort="high", thinking="enabled",
+             response_format="json_object")}),
     IdentitySite(
         "B1-B3", "assessment contract: rubric content hash, contract hash, card contract hash and fingerprint",
         ("src/learnloop/learner/assessment_contracts.py::compile_assessment_contract",
@@ -1018,10 +1023,10 @@ def _item_revision() -> Any:
     return item_revision(item())[0]
 
 
-def _facet_content_hash() -> Any:
+def _facet_content_hash(facet_id: str) -> Any:
     from learnloop.vault.embedding_recipes import facet_content_hash
 
-    return facet_content_hash(vault().evidence_facets["fct_svd_define"])
+    return facet_content_hash(vault().evidence_facets[facet_id])
 
 
 def _map_prompt() -> Any:
@@ -1081,6 +1086,8 @@ SHAPE_ROOTS: dict[str, tuple[str, ...]] = {
     "learnloop.field.success_head:HeadPriors": ("C2",),
     "learnloop.field.types:ItemFeatures": ("C2p",),
     "learnloop.vault.models:Blueprint": ("A4",),
+    # C3's support rows carry ReadingTarget.as_dict (an asdict); the boundary pin's fixed support has none.
+    "learnloop.daily_plan.types:ReadingTarget": ("C3",),
     "learnloop.content.pipeline.ai_contracts:CanonicalIngestContext": ("A13",),
     "learnloop.content.synthesis.ai_contracts:SourceSetSynthesisContext": ("A14",),
     "learnloop.content.synthesis.ai_contracts:SourceUnitInventoryContext": ("A15",),

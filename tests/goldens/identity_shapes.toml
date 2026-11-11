@@ -365,6 +365,18 @@ fields = [
   "unit_view: dict = {}",
 ]
 
+["learnloop.daily_plan.types:ReadingTarget"]
+sites = ["C3"]
+fields = [
+  "source_id: str required",
+  "extraction_id: str required",
+  "section_id: str required",
+  "section_title: str required",
+  "words_left: int required",
+  "partial: bool = false",
+  "path_label: str | None = null",
+]
+
 ["learnloop.field.success_head:HeadPriors"]
 sites = ["C2"]
 fields = [

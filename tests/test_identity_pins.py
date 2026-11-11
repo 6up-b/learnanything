@@ -82,7 +82,11 @@ def test_identity_pin(pin: str) -> None:
     golden = _golden_identities()
     assert pin in golden, f"{pin} has no pin: a new site? Record it with `{REGENERATE}`."
     _site, compute = site_for(pin)
-    assert digest(compute()) == golden[pin], _site_message(pin)
+    try:
+        value = compute()
+    except Exception as exc:  # noqa: BLE001 - a removed field the identity reads fails here, with the site named
+        pytest.fail(f"{_site_message(pin)}\nComputing it raised {type(exc).__name__}: {exc}")
+    assert digest(value) == golden[pin], _site_message(pin)
 
 
 def test_the_goldens_pin_exactly_the_sites() -> None:
@@ -98,7 +102,8 @@ def _shape_message(name: str, golden: dict, now: dict) -> str:
             f"  dumped by sites: {', '.join(now['sites'])} (tests/identity_pins_helpers.py IDENTITY_SITES)\n"
             f"  gone or changed: {removed}\n  new or changed: {added}\n"
             "A field added, removed or renamed, or a default changed, moves every whole dump of this type unless the "
-            f"site keeps its bytes.\n{KEEP_OR_BUMP}")
+            f"site keeps its bytes.\n{KEEP_OR_BUMP}\nOnce every identity pin passes again (the bytes are kept, or "
+            f"bumped on purpose), record the new shape in the same commit with `{REGENERATE}`.")
 
 
 @pytest.mark.parametrize("name", sorted(_golden_shapes()))

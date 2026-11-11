@@ -367,6 +367,7 @@ No change at any fixed input, and no learner reach except where stated. Each rem
 - **Also goes:** the pre-eligibility cold lane and hold (`scheduling/scheduler.py:1831`, `:2018`), `RouterChooser`'s mixture path and `StagedChooser` if `router.mode` and the floor leave them unreachable, with their tests, "predecessor exactly" goldens and D2b's remaining tests.
 - **Keeps:** every switch above the floor; the staged rule as the failure fallback.
 - **Proof:** P-draw with switches at default; P-shadow. Removing a switch changes behaviour only for a vault that set it, and the owner's script shows none do. **Vault:** Config generated; ADR-018 states the rule.
+- **Identity (K0):** `tests/test_identity_pins.py` C3-C6 show what each removal does to the router seeds, `FOLLOWUP_SWITCHES` and RO6's generator key; per switch, keep its served value in the identity or fold the change into E8's one change point.
 
 **D8. The pinned replay gaps** (L, one landing per gap; owner, Nov 9). `docs/reviews/test-suite-audit.md` §4 pins four gaps with eight strict xfails, each of which goes red when fixed:
 - **Retired items (3, `test_rebuild_closed_row_answer`):** an item retired outside the attempt ledger has no time replay can apply it at, so replay sees it active. Needs closures as ledger events.
@@ -546,6 +547,7 @@ Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever move
 - **Content hash:** `vault/hashes.py:41`, `:55` keep hashing the stored value as written, so no existing item's hash moves, and a test pins that on the head fixture. This is the one reader that stays for good, labelled "frozen hash input".
 - **DTOs:** `serializers.py:431`, `:556`, `facets.py:128`, `knowledge_map.py:170` go; `KnowledgeMapScreen.tsx:507`, `InspectorOverlay.tsx:405`, `:651`, `dto.ts:441` go or, if they'd redesign a screen, go on the UX list. Config keys `difficulty_from_prior`, `difficulty_prior_scale` go after their switch.
 - **Columns:** `pf_candidates.difficulty` joins J's drop list if the owner approves. **Vault:** Learning System, Concepts.
+- **Identity (K0):** the commit that removes `mastery.irt.difficulty_from_prior` and `difficulty_prior_scale` puts both in `config/retired.py`'s `RETIRED_FIELDS` (they feed placement's `version_hash` and the field predictors; `tests/test_identity_pins.py` C1-C2 fail otherwise), and `PracticeItem.difficulty` and `difficulty_source` stay on the model (whole-item dumps A9, A19).
 
 **Stopping point 9.** Don't stop between H3 and H6 unless the switch serves cleanly: mid-way, readers and writers disagree about what the field is for.
 
