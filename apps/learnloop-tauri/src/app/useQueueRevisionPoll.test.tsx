@@ -424,7 +424,7 @@ describe("while held (ruling R2)", () => {
 describe("where the hold lifts: where Today's own poll ran (ruling R2)", () => {
   const TODAY = {
     tab: "today", todayStage: "queue", simple: false,
-    examOpen: false, calibrationOpen: false, lessonOpen: false, goldenRunOpen: false
+    examOpen: false, calibrationOpen: false, lessonOpen: false
   };
 
   it("lifts on Today's list", () => {
@@ -437,7 +437,7 @@ describe("where the hold lifts: where Today's own poll ran (ruling R2)", () => {
     expect(revisionPollHeld({ ...TODAY, tab: "start", simple: false })).toBe(true);
   });
 
-  it.each(["reader", "library", "graph", "ingest", "proposals", "registry", "maintain", "golden"])("holds on %s", (tab) => {
+  it.each(["reader", "library", "graph", "ingest", "proposals", "registry", "maintain"])("holds on %s", (tab) => {
     expect(revisionPollHeld({ ...TODAY, tab })).toBe(true);
     expect(revisionPollHeld({ ...TODAY, tab, simple: true })).toBe(true);
   });
@@ -446,7 +446,7 @@ describe("where the hold lifts: where Today's own poll ran (ruling R2)", () => {
     expect(revisionPollHeld({ ...TODAY, todayStage })).toBe(true);
   });
 
-  it.each(["examOpen", "calibrationOpen", "lessonOpen", "goldenRunOpen"])("holds with %s over Today", (overlay) => {
+  it.each(["examOpen", "calibrationOpen", "lessonOpen"])("holds with %s over Today", (overlay) => {
     expect(revisionPollHeld({ ...TODAY, [overlay]: true })).toBe(true);
   });
 });

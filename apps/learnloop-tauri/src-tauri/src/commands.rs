@@ -62,6 +62,8 @@ fn cli_command_succeeded(result: &Value) -> bool {
     result.get("exitCode").and_then(Value::as_i64) == Some(0)
 }
 
+// A dotted sidecar method name (`reader.ask`) cannot be a Tauri command
+// identifier, so each command forwards its `input` Value straight through.
 macro_rules! sidecar_passthrough {
     ($fn_name:ident, $method:literal) => {
         #[tauri::command]
@@ -1187,51 +1189,6 @@ pub async fn list_facets(sidecar: State<'_, SidecarManager>) -> Result<Value, Co
 sidecar_passthrough!(preview_knowledge_map, "preview_knowledge_map");
 
 sidecar_passthrough!(preview_blueprint_readiness, "preview_blueprint_readiness");
-
-// ── P2 narrow golden path (spec_p2 §9; spec_tauri_ui §3 P2 rows) ──────────────
-// The dotted sidecar method names (golden_path.* / blueprint.* / diagnostic.* /
-// ladder.* / practice_pool.* / reader.*) cannot be Tauri command identifiers, so
-// each command forwards its `input` Value straight through to the dotted method.
-
-// blueprint.* (exemplar selection + blueprint review)
-sidecar_passthrough!(blueprint_review, "blueprint.review");
-sidecar_passthrough!(blueprint_get_version, "blueprint.get_version");
-sidecar_passthrough!(
-    blueprint_discover_candidates,
-    "blueprint.discover_candidates"
-);
-sidecar_passthrough!(blueprint_compose_draft, "blueprint.compose_draft");
-
-// golden_path.* spine (atomic confirmation + run state machine)
-sidecar_passthrough!(golden_path_confirm, "golden_path.confirm");
-sidecar_passthrough!(golden_path_run_status, "golden_path.run_status");
-sidecar_passthrough!(golden_path_list_runs, "golden_path.list_runs");
-sidecar_passthrough!(golden_path_advance, "golden_path.advance");
-
-// golden_path.* assessment + restoration + milestone / depth invitation
-sidecar_passthrough!(golden_path_assess_open, "golden_path.assess_open");
-sidecar_passthrough!(golden_path_assess_submit, "golden_path.assess_submit");
-sidecar_passthrough!(golden_path_assess_result, "golden_path.assess_result");
-sidecar_passthrough!(golden_path_restore, "golden_path.restore");
-sidecar_passthrough!(golden_path_depth_invitation, "golden_path.depth_invitation");
-sidecar_passthrough!(golden_path_accept_edge, "golden_path.accept_edge");
-sidecar_passthrough!(golden_path_decline_edge, "golden_path.decline_edge");
-
-// diagnostic.* (pre-authored pack + bounded baseline + two-tier triage)
-sidecar_passthrough!(diagnostic_triage, "diagnostic.triage");
-sidecar_passthrough!(diagnostic_triage_status, "diagnostic.triage_status");
-sidecar_passthrough!(diagnostic_triage_decide, "diagnostic.triage_decide");
-
-// ladder.* (pattern ladder) + practice_pool.* (rotating practice)
-sidecar_passthrough!(ladder_policy, "ladder.policy");
-sidecar_passthrough!(ladder_status, "ladder.status");
-sidecar_passthrough!(ladder_enter, "ladder.enter");
-sidecar_passthrough!(ladder_advance, "ladder.advance");
-sidecar_passthrough!(practice_pool_review, "practice_pool.review");
-sidecar_passthrough!(practice_pool_next_surface, "practice_pool.next_surface");
-sidecar_passthrough!(practice_pool_for_run, "practice_pool.for_run");
-sidecar_passthrough!(practice_pool_seed_for_run, "practice_pool.seed_for_run");
-sidecar_passthrough!(practice_pool_admit_anchor, "practice_pool.admit_anchor");
 
 // adjudication.* (diagnosis adjudication store, spec_diagnostic_augmentation §2 A4):
 // the queue that decides which attempt is worth a verdict, the append-only write

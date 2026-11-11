@@ -5,14 +5,9 @@ import { listRecentVaults, samePath, vaultName, vaultNameWithParent } from "../a
 import { SimpleNav, type SimpleNavProps } from "./ShellNav";
 import { keyScope } from "../app/keyScope";
 
-// Visibility gate, not a removal. The Golden Path run flow is structurally
-// broken end to end — the measuring stage has no workspace, triage fabricates a
-// ui-local attempt id, and finalization no-ops without a pinned pack — so the
-// tab is hidden until that is repaired. All Golden Path code stays intact; flip
-// this to `true` to work on it.
-export const SHOW_GOLDEN_PATH = false;
-
-const allNavTabs = [
+// The tabs the shell renders, keyboard-navigates (alt+key lookup is by `key`)
+// and offers as palette completions. Key 8 was the retired Golden Path tab.
+export const navTabs = [
   { id: "start", key: "1", label: "Start" },
   { id: "today", key: "2", label: "Today" },
   { id: "graph", key: "3", label: "Graph" },
@@ -20,21 +15,14 @@ const allNavTabs = [
   { id: "proposals", key: "5", label: "Proposals" },
   { id: "registry", key: "6", label: "Registry" },
   { id: "library", key: "7", label: "Library" },
-  { id: "golden", key: "8", label: "Golden Path" },
   { id: "reader", key: "9", label: "Reader" },
   { id: "maintain", key: "0", label: "Maintain" }
 ] as const;
 
-// The tabs the shell actually renders, keyboard-navigates (alt+key lookup is by
-// `key`, so hiding one leaves every other accelerator untouched), and offers as
-// palette completions. `TopTab` still derives from the full list so the hidden
-// screen's code keeps type-checking.
-export const navTabs = allNavTabs.filter((tab) => tab.id !== "golden" || SHOW_GOLDEN_PATH);
-
 // `errors` and `settings` are overlay-only navigation targets, not visible tabs.
 // `underhood` is the simple shell's Under-the-hood screen (UX Phase 2), on a
 // tool that is not one of the old tabs; it has no classic tab.
-export type TopTab = (typeof allNavTabs)[number]["id"] | "errors" | "settings" | "underhood";
+export type TopTab = (typeof navTabs)[number]["id"] | "errors" | "settings" | "underhood";
 
 function getAppWindow(): ReturnType<typeof getCurrentWindow> | null {
   try {

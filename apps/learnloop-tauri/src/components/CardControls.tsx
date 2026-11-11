@@ -30,7 +30,7 @@ type Panel = "reword" | "split" | "retire" | null;
 // Learner-initiated re-runging: mint an easier/harder sibling one depth
 // waypoint away. The request itself is evidence (a discounted self-report on
 // the source card), written before the variant is authored. Reused by
-// CardControls (Practice/Feedback), the InspectorOverlay, and GoldenPath.
+// CardControls (Practice/Feedback) and the InspectorOverlay.
 export function RungVariantActions({
   practiceItemId,
   disabled = false,

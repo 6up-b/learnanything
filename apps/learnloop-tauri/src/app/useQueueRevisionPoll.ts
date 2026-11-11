@@ -53,7 +53,6 @@ export interface RevisionPollView {
   readonly examOpen: boolean;
   readonly calibrationOpen: boolean;
   readonly lessonOpen: boolean;
-  readonly goldenRunOpen: boolean;
 }
 
 /**
@@ -63,7 +62,7 @@ export interface RevisionPollView {
  */
 export function revisionPollHeld(view: RevisionPollView): boolean {
   const onToday = view.tab === "today" || (view.simple && view.tab === "start");
-  const overToday = view.examOpen || view.calibrationOpen || view.lessonOpen || view.goldenRunOpen;
+  const overToday = view.examOpen || view.calibrationOpen || view.lessonOpen;
   return !onToday || view.todayStage !== "queue" || overToday;
 }
 

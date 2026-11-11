@@ -221,6 +221,7 @@ export const TARGET_RULE_FILES = [
   "screens/CalibrationScreen.tsx",
   "screens/DiagnosticReviewScreen.tsx",
   "screens/ExamScreen.tsx",
+  // Removed since (the Golden Path screen); the record stays, since the checks read git history.
   "screens/GoldenPathScreen.tsx",
   "screens/GraphScreen.tsx",
   "screens/IngestScreen.tsx",

@@ -21,7 +21,7 @@ import { UnderTheHoodScreen } from "../screens/UnderTheHoodScreen";
 import { CalibrationTool, DataTool, InspectorTool, MistakesTool, SpendTool } from "../screens/underhood/tools";
 import { InspectorOverlay } from "../components/InspectorOverlay";
 import { SessionFinishHud } from "../components/SessionFinishHud";
-import { EmptyPlaceholder, SHOW_GOLDEN_PATH, TerminalFrame, type NavBadgeCounts, type TopTab } from "../components/ui";
+import { EmptyPlaceholder, TerminalFrame, type NavBadgeCounts, type TopTab } from "../components/ui";
 import { CalibrationScreen } from "../screens/CalibrationScreen";
 import { DiagnosticReviewScreen } from "../screens/DiagnosticReviewScreen";
 import { FeedbackScreen } from "../screens/FeedbackScreen";
@@ -60,17 +60,13 @@ import { implicitSessionMinutes } from "./todayPlan";
 import { OpenInSource } from "../components/OpenInSource";
 import { QuickAddDialog } from "../components/QuickAddDialog";
 import { NewVaultWizard } from "../components/NewVaultWizard";
-import { GoldenPathSetup } from "../components/goldenpath/GoldenPathSetup";
 import type { ReaderCheckMeRequest, ReaderExerciseRequest, ReaderOpenSource } from "../screens/ReaderScreen";
 import { keepReaderReturn, readerCheckOffer, returnsToReader, type ReaderReturn } from "./readerCheck";
 import { consumeShown, readerTargetBack, readerWorkbenchCheck, sessionAfterWorkbenchSubmit, workbenchReturn } from "./readerWorkbench";
 import { algoConfig, setRenderedShell } from "./algoConfig";
 import type { LessonEntry } from "../screens/LessonScreen";
 import type { ReaderWorkbenchCheck, ReaderWorkbenchProps, ReaderWorkbenchResume } from "../screens/reader/useReaderWorkbench";
-import { ExemplarConfirmDialog } from "../components/ExemplarConfirmDialog";
-import { WhyDiagnosisOverlay } from "../components/WhyDiagnosisOverlay";
 import { AdjudicationOverlay } from "../components/AdjudicationOverlay";
-import type { TriageResultDto } from "../api/dto";
 import { setAlgoConfig } from "./algoConfig";
 import { isTypingTarget } from "./keyboard";
 import { notifyQueueChanged, subscribeQueueChanged } from "../queueEvents";
@@ -115,7 +111,6 @@ const IngestScreen = lazy(() => import("../screens/IngestScreen").then((module) 
 const ExamScreen = lazy(() => import("../screens/ExamScreen").then((module) => ({ default: module.ExamScreen })));
 const ProposalsScreen = lazy(() => import("../screens/ProposalsScreen").then((module) => ({ default: module.ProposalsScreen })));
 const RegistryReviewScreen = lazy(() => import("../screens/RegistryReviewScreen").then((module) => ({ default: module.RegistryReviewScreen })));
-const GoldenPathScreen = lazy(() => import("../screens/GoldenPathScreen").then((module) => ({ default: module.GoldenPathScreen })));
 // UX Phase 2: Under the hood's Analyst views and Files mount these unchanged.
 const KnowledgeMapView = lazy(() => import("../screens/KnowledgeMapScreen").then((module) => ({ default: module.KnowledgeMapView })));
 const LibraryScreen = lazy(() => import("../screens/LibraryScreen").then((module) => ({ default: module.LibraryScreen })));
@@ -244,13 +239,6 @@ export function App() {
   // The practice-exam overlay: when set, ExamScreen takes over the body (entered
   // only from the goal banner, exited back to the today tab). Not a nav tab.
   const [examGoalId, setExamGoalId] = useState<string | null>(null);
-  // P2 golden path: the active run (body-pre-emption, exam precedent), the atomic
-  // confirmation dialog, and the why-this-diagnosis overlay.
-  const [goldenRunId, setGoldenRunId] = useState<string | null>(null);
-  // Golden tab: false → the real discovery/confirm setup; true → offline fixture demo.
-  const [goldenDemo, setGoldenDemo] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [whyTriage, setWhyTriage] = useState<TriageResultDto | null>(null);
   // The active §5.9 calibration session: when set, CalibrationScreen pre-empts
   // the tab body (like the exam overlay) except while a practice/feedback round
   // for its next target is in flight — coming back from that round remounts the
@@ -648,8 +636,7 @@ export function App() {
       simple,
       examOpen: examGoalId !== null,
       calibrationOpen: calibrationSessionId !== null,
-      lessonOpen: lessonEntry !== null,
-      goldenRunOpen: Boolean(goldenRunId && SHOW_GOLDEN_PATH)
+      lessonOpen: lessonEntry !== null
     }),
   });
   useEffect(() => {
@@ -1536,9 +1523,6 @@ export function App() {
   }
 
   function gotoTab(next: TopTab) {
-    // Golden Path is gated off (see SHOW_GOLDEN_PATH); refuse the target rather
-    // than land on a tab with no button back. Overlay targets still dispatch.
-    if (next === "golden" && !SHOW_GOLDEN_PATH) return;
     if (next === "errors") {
       setSettingsOpen(false);
       setReviewOpen(true);
@@ -1748,8 +1732,6 @@ export function App() {
     setOpenSource(null);
     setQuickAddOpen(false);
     setRepairMisconceptionId(null);
-    setConfirmOpen(false);
-    setWhyTriage(null);
     setAdjudicateOpen(false);
     setPaletteOpen(false);
     setFinishSummary(null);
@@ -1897,7 +1879,7 @@ export function App() {
 
   // UX Phase 2 (§7.9): while the Reader has a book open, notices wait (errors show).
   const readerHolding =
-    simple && tab === "reader" && readerSource !== null && !examGoalId && !calibrationSessionId && !(goldenRunId && SHOW_GOLDEN_PATH);
+    simple && tab === "reader" && readerSource !== null && !examGoalId && !calibrationSessionId;
 
   // UX Phase 2 (§5.1, §10 2.4): the palette's plain commands, first.
   function paletteCommands(): PaletteCommand[] {
@@ -1989,22 +1971,6 @@ export function App() {
     // banner and returns to the today tab on exit.
     if (examGoalId) {
       return <ExamScreen goalId={examGoalId} onExit={exitExam} onError={onError} />;
-    }
-    // The golden-path run pre-empts the body (exam/calibration precedent) while a
-    // run is active. Selecting the Golden Path tab with no active run renders the
-    // offline fixture surface.
-    if (goldenRunId && SHOW_GOLDEN_PATH) {
-      return (
-        <GoldenPathScreen
-          runId={goldenRunId}
-          onExit={() => {
-            setGoldenRunId(null);
-            gotoTab("today");
-          }}
-          onWhy={setWhyTriage}
-          onError={onError}
-        />
-      );
     }
     // The calibration overlay also pre-empts the tab body, but yields to the
     // practice/feedback stages so its "Practice next target" handoff runs the
@@ -2273,10 +2239,7 @@ export function App() {
     if (tab === "registry") {
       return renderRegistry();
     }
-    if (tab === "golden") {
-      return renderGolden();
-    }
-    return renderAfterGolden();
+    return renderRemainingTabs();
   }
 
   function renderIngest() {
@@ -2327,29 +2290,6 @@ export function App() {
       );
   }
 
-  function renderGolden() {
-      // The real front door: discovery → compose → review → confirm. The
-      // offline fixture demo stays reachable behind an explicit toggle.
-      if (goldenDemo) {
-        return (
-          <GoldenPathScreen
-            runId={null}
-            onExit={() => setGoldenDemo(false)}
-            onWhy={setWhyTriage}
-            onOpenConfirm={() => setConfirmOpen(true)}
-            onError={onError}
-          />
-        );
-      }
-      return (
-        <GoldenPathSetup
-          onRunStarted={(runId) => setGoldenRunId(runId)}
-          onOpenDemo={() => setGoldenDemo(true)}
-          onError={onError}
-        />
-      );
-  }
-
   function renderMaintain() {
       return (
         <MaintenanceScreen
@@ -2372,8 +2312,6 @@ export function App() {
         return renderRegistry();
       case "maintain":
         return renderMaintain();
-      case "golden":
-        return renderGolden();
       case "graph-editor":
         return <GraphScreen onInspect={setInspectorId} onError={onError} />;
       case "analyst":
@@ -2393,7 +2331,7 @@ export function App() {
     }
   }
 
-  function renderAfterGolden() {
+  function renderRemainingTabs() {
     if (!snapshot) return null;
     if (tab === "reader") {
       if (planReading) {
@@ -2597,18 +2535,6 @@ export function App() {
           onError={onError}
         />
       ) : null}
-      {confirmOpen ? (
-        <ExemplarConfirmDialog
-          onConfirmed={(runId) => {
-            setConfirmOpen(false);
-            setGoldenRunId(runId);
-            setTab("golden");
-          }}
-          onClose={() => setConfirmOpen(false)}
-          onError={onError}
-        />
-      ) : null}
-      {whyTriage ? <WhyDiagnosisOverlay triage={whyTriage} onClose={() => setWhyTriage(null)} /> : null}
       {adjudicateOpen ? (
         <AdjudicationOverlay onClose={() => setAdjudicateOpen(false)} onError={onError} />
       ) : null}

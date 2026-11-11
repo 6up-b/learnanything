@@ -10,7 +10,6 @@
 // is a view over them, so every existing `setTab("ingest")` keeps working and
 // lands under the hood in the simple shell.
 import type { TopTab } from "../components/ui";
-import { SHOW_GOLDEN_PATH } from "../components/ui";
 import { algoConfig } from "./algoConfig";
 
 export type ShellMode = "simple" | "classic";
@@ -37,7 +36,7 @@ export const PLACES: ReadonlyArray<{ id: Place; label: string; key: string }> = 
   { id: "progress", label: "Progress", key: "4" }
 ];
 
-const UNDER_THE_HOOD_TABS: ReadonlySet<TopTab> = new Set<TopTab>(["ingest", "proposals", "registry", "maintain", "underhood", "golden"]);
+const UNDER_THE_HOOD_TABS: ReadonlySet<TopTab> = new Set<TopTab>(["ingest", "proposals", "registry", "maintain", "underhood"]);
 
 /** The place a tab belongs to; the demoted tabs are under the hood. */
 export function placeOfTab(tab: TopTab): Place | "underhood" | null {
@@ -72,7 +71,6 @@ export type UthToolId =
   | "data"
   | "files"
   | "inspector"
-  | "golden"
   | "spend";
 
 export interface UthTool {
@@ -83,8 +81,6 @@ export interface UthTool {
   was: string;
   /** Extra words the palette matches (old names, CLI words). */
   keywords: string[];
-  /** Golden Path stays hidden unless SHOW_GOLDEN_PATH (visibleUthTools). */
-  hidden?: boolean;
 }
 
 export const UTH_TOOLS: ReadonlyArray<UthTool> = [
@@ -99,20 +95,18 @@ export const UTH_TOOLS: ReadonlyArray<UthTool> = [
   { id: "data", title: "Data", was: "SQLite browser", keywords: ["sqlite", "database", "state.sqlite", "sql"] },
   { id: "files", title: "Files", was: "Library · Notes & files", keywords: ["files", "vault tree", "payload", "notes"] },
   { id: "inspector", title: "Inspector", was: "learnloop show", keywords: ["show", "inspect", "id"] },
-  { id: "golden", title: "Golden path", was: "Golden Path", keywords: ["golden"], hidden: true },
   { id: "spend", title: "Spend & AI routes", was: "Settings · AI", keywords: ["spend", "routes", "ai status", "caps", "providers"] }
 ];
 
-/** The tools the list shows: Golden Path only while SHOW_GOLDEN_PATH. Read at
- *  call time (ui.tsx and this module import each other). */
+/** The tools the list shows (every one). */
 export function visibleUthTools(): UthTool[] {
-  return UTH_TOOLS.filter((tool) => !tool.hidden || (tool.id === "golden" && SHOW_GOLDEN_PATH));
+  return [...UTH_TOOLS];
 }
 
 /** The tools that are the old tabs themselves: shown under the hood by tab. */
-const TAB_TOOLS: ReadonlySet<UthToolId> = new Set<UthToolId>(["ingest", "proposals", "registry", "maintain", "golden"]);
+const TAB_TOOLS: ReadonlySet<UthToolId> = new Set<UthToolId>(["ingest", "proposals", "registry", "maintain"]);
 
-export function isTabTool(tool: UthToolId): tool is "ingest" | "proposals" | "registry" | "maintain" | "golden" {
+export function isTabTool(tool: UthToolId): tool is "ingest" | "proposals" | "registry" | "maintain" {
   return TAB_TOOLS.has(tool);
 }
 
@@ -123,7 +117,7 @@ export function uthTool(id: UthToolId): UthTool {
 /** The tool a tab shows under the hood: an old tab is its own tool, the
  *  Under-the-hood tab shows the last one picked. */
 export function uthToolOfTab(tab: TopTab, current: UthToolId): UthToolId {
-  if (tab === "ingest" || tab === "proposals" || tab === "registry" || tab === "maintain" || tab === "golden") return tab;
+  if (tab === "ingest" || tab === "proposals" || tab === "registry" || tab === "maintain") return tab;
   return current;
 }
 
