@@ -409,7 +409,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_failure_after_preparation_leaves_no_group_in_force`
   - `test_the_kill_switch_takes_effect_at_vault_open_with_groups_already_populated`
 - [tests/test_recurrence_deferral.py](../../../../../../tests/test_recurrence_deferral.py) — direct import
-- [tests/test_reentry_short_session.py](../../../../../../tests/test_reentry_short_session.py) — direct import
 - [tests/test_replay.py](../../../../../../tests/test_replay.py) — direct import
   - `test_compute_attempt_application_materializes_outputs_without_persisting`
   - `test_compute_attempt_application_uses_explicit_prior_snapshot`
@@ -440,6 +439,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
 - [tests/test_staged_policy_evsi.py](../../../../../../tests/test_staged_policy_evsi.py) — direct import
+- [tests/test_staged_policy_short_session.py](../../../../../../tests/test_staged_policy_short_session.py) — direct import
 - [tests/test_state_signals.py](../../../../../../tests/test_state_signals.py) — direct import
 - [tests/test_state_sync.py](../../../../../../tests/test_state_sync.py) — direct import
   - `test_state_sync_enters_probe_for_new_active_goal_learning_object`

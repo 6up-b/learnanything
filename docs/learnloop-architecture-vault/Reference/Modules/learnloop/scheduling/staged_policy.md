@@ -108,8 +108,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]] — imports `AttentionBlock`
 - [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]] — imports `module`; statically calls `AttentionBlock`
 - [[Reference/Modules/learnloop/scheduling/interleaving|learnloop.scheduling.interleaving]] — imports `AttentionBlock`
-- [[Reference/Modules/learnloop/scheduling/reentry_adapter|learnloop.scheduling.reentry_adapter]] — imports `module`; statically calls `StateSignals`, `decide`
-- [[Reference/Modules/learnloop/scheduling/short_session|learnloop.scheduling.short_session]] — imports `module`; statically calls `decide`
 - [[Reference/Modules/learnloop/scheduling/state_signals|learnloop.scheduling.state_signals]] — imports `module`; statically calls `StateSignals`
 
 ## Dependencies
@@ -143,7 +141,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]], [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]], [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]], [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]], [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]], [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]], [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]], [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]], [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -161,12 +159,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_assessment_reserve_not_poached_by_practice_at_plan_time`
 - [tests/test_dispersion.py](../../../../../../tests/test_dispersion.py) — direct import
 - [tests/test_evsi_staged_binding.py](../../../../../../tests/test_evsi_staged_binding.py) — direct import
-- [tests/test_reentry_short_session.py](../../../../../../tests/test_reentry_short_session.py) — direct import
-  - `test_short_session_depth_edge_stops_if_it_cannot_fit`
-  - `test_short_session_prefers_admitted_short_p1_patterns`
-  - `test_short_session_retry_after_commit_is_idempotent`
-  - `test_short_session_stops_honestly_when_nothing_fits`
-  - `test_three_minute_activity_completes_a_session`
 - [tests/test_router_ladder_parity.py](../../../../../../tests/test_router_ladder_parity.py) — direct import
   - `test_a_short_circuited_block_fires_no_rung`
   - `test_the_fired_rung_is_the_rule_the_staged_policy_applies`
@@ -192,6 +184,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_evsi_selector_ranks_only_within_feasible_set`
   - `test_evsi_stop_is_a_typed_stop_not_no_feasible_activity`
   - `test_randomize_refuses_static_fallback_seed_without_snapshot`
+- [tests/test_staged_policy_short_session.py](../../../../../../tests/test_staged_policy_short_session.py) — direct import
+  - `test_short_session_depth_edge_stops_if_it_cannot_fit`
+  - `test_short_session_prefers_admitted_short_p1_patterns`
+  - `test_short_session_retry_after_commit_is_idempotent`
+  - `test_short_session_stops_honestly_when_nothing_fits`
+  - `test_three_minute_activity_completes_a_session`
 - [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import
 
 ## Modification guidance

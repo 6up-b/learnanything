@@ -90,8 +90,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]] — imports `Candidate`, `ControllerSnapshot`
 - [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]] — imports `module`; statically calls `Candidate`, `ControllerSnapshot`, `build_snapshot`
 - [[Reference/Modules/learnloop/scheduling/interleaving|learnloop.scheduling.interleaving]] — imports `Candidate`, `ControllerSnapshot`
-- [[Reference/Modules/learnloop/scheduling/reentry_adapter|learnloop.scheduling.reentry_adapter]] — imports `module`; statically calls `build_snapshot`
-- [[Reference/Modules/learnloop/scheduling/short_session|learnloop.scheduling.short_session]] — imports `module`
 - [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]] — imports `module`; statically calls `build_snapshot`, `persist_snapshot`
 - [[Reference/Modules/learnloop/scheduling/state_signals|learnloop.scheduling.state_signals]] — imports `module`
 
@@ -121,7 +119,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]], [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]], [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]], [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]], [[Reference/Modules/learnloop/scheduling/interleaving|learnloop.scheduling.interleaving]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]], [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]], [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]], [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]], [[Reference/Modules/learnloop/scheduling/interleaving|learnloop.scheduling.interleaving]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -160,11 +158,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_evsi_staged_binding.py](../../../../../../tests/test_evsi_staged_binding.py) — direct import
 - [tests/test_instrument_servability_journeys.py](../../../../../../tests/test_instrument_servability_journeys.py) — direct import
   - `test_the_staged_controller_admits_both_instruments`
-- [tests/test_reentry_short_session.py](../../../../../../tests/test_reentry_short_session.py) — direct import
-  - `test_short_session_prefers_admitted_short_p1_patterns`
-  - `test_short_session_retry_after_commit_is_idempotent`
-  - `test_short_session_stops_honestly_when_nothing_fits`
-  - `test_three_minute_activity_completes_a_session`
 - [tests/test_router_g1_feasibility.py](../../../../../../tests/test_router_g1_feasibility.py) — direct import
   - `test_a_snapshot_failure_fails_closed_only_where_a_constraint_cannot_be_established`
 - [tests/test_router_ladder_parity.py](../../../../../../tests/test_router_ladder_parity.py) — direct import
@@ -175,6 +168,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_staged_policy_evsi.py](../../../../../../tests/test_staged_policy_evsi.py) — direct import
   - `test_evsi_selector_ranks_only_within_feasible_set`
   - `test_evsi_stop_is_a_typed_stop_not_no_feasible_activity`
+- [tests/test_staged_policy_short_session.py](../../../../../../tests/test_staged_policy_short_session.py) — direct import
+  - `test_short_session_prefers_admitted_short_p1_patterns`
+  - `test_short_session_retry_after_commit_is_idempotent`
+  - `test_short_session_stops_honestly_when_nothing_fits`
+  - `test_three_minute_activity_completes_a_session`
 - [tests/test_state_signals.py](../../../../../../tests/test_state_signals.py) — direct import
   - `test_derive_signals_composes_all_five`
   - `test_misspecification_false_when_alarm_resolved`

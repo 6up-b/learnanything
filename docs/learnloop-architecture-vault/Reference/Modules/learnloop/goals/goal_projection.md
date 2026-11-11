@@ -116,7 +116,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/learner/overconfidence|learnloop.learner.overconfidence]] — imports `GoalReport`, `goal_report`; statically calls `goal_report`
 - [[Reference/Modules/learnloop/remote/views|learnloop.remote.views]] — imports `goal_report`; statically calls `goal_report`
 - [[Reference/Modules/learnloop/scheduling/decay_pressure|learnloop.scheduling.decay_pressure]] — imports `facet_projections_at`; statically calls `facet_projections_at`
-- [[Reference/Modules/learnloop/scheduling/reentry_adapter|learnloop.scheduling.reentry_adapter]] — imports `facet_projections_at`, `goal_report`; statically calls `facet_projections_at`, `goal_report`
 - [[Reference/Modules/learnloop/scheduling/reentry_summary|learnloop.scheduling.reentry_summary]] — imports `facet_projections_at`, `goal_report`; statically calls `facet_projections_at`, `goal_report`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `build_goal_frontier`; statically calls `build_goal_frontier`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `goal_report`, `resolve_goal_scope`; statically calls `goal_report`, `resolve_goal_scope`
@@ -158,7 +157,7 @@ Use this module in context through:
 
 - [[Goals Exams and Certification Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]], [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] and 18 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]], [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] and 17 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -216,7 +215,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_pooled_prediction_that_rendered_unlabelled_now_carries_inferred`
   - `test_sub_threshold_direct_mass_is_inferred_not_measured`
   - `test_unknown_label_when_there_is_nothing_at_all`
-- [tests/test_reentry_short_session.py](../../../../../../tests/test_reentry_short_session.py) — direct import
 - [tests/test_today_surfaces.py](../../../../../../tests/test_today_surfaces.py) — direct import
   - `test_blueprint_weight_by_facet_sums_referencing_blueprints`
 

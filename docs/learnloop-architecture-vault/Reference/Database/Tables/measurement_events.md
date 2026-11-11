@@ -23,7 +23,6 @@ source_paths:
   - "src/learnloop/router/outcomes.py"
   - "src/learnloop/attempts/grade_resolution.py"
   - "src/learnloop/substrate/activities.py"
-  - "src/learnloop/substrate/compat/substrate_cutover.py"
   - "src/learnloop/substrate/p0_projection.py"
 tags:
   - "learnloop/database/table"
@@ -102,7 +101,6 @@ Indexes and uniqueness:
 
 - `src/learnloop/attempts/grade_resolution.py`
 - `src/learnloop/substrate/activities.py`
-- `src/learnloop/substrate/compat/substrate_cutover.py`
 - `src/learnloop/substrate/p0_projection.py`
 
 > [!note] Static-reference boundary

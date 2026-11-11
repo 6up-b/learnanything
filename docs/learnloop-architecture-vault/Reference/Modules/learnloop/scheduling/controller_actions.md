@@ -95,7 +95,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]] — imports `module`
 - [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] — imports `module`
 - [[Reference/Modules/learnloop/scheduling/intent/feasibility|learnloop.scheduling.intent.feasibility]] — imports `module`
-- [[Reference/Modules/learnloop/scheduling/short_session|learnloop.scheduling.short_session]] — imports `module`
 - [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]] — imports `module`
 
 ## Dependencies
@@ -116,7 +115,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]], [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]], [[Reference/Modules/learnloop/scheduling/intent/feasibility|learnloop.scheduling.intent.feasibility]], [[Reference/Modules/learnloop/scheduling/short_session|learnloop.scheduling.short_session]], [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]], [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]], [[Reference/Modules/learnloop/scheduling/intent/feasibility|learnloop.scheduling.intent.feasibility]], [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -128,11 +127,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_evsi_abstain_is_a_veto`
   - `test_ladder_stop_is_not_a_veto`
   - `test_ownership_only_emptying_is_not_a_veto`
-- [tests/test_reentry_short_session.py](../../../../../../tests/test_reentry_short_session.py) — direct import
-  - `test_reentry_pins_target_caps_and_reports_without_backlog`
-  - `test_short_session_depth_edge_stops_if_it_cannot_fit`
-  - `test_short_session_stops_honestly_when_nothing_fits`
-  - `test_three_minute_activity_completes_a_session`
 - [tests/test_router_p2_bridge.py](../../../../../../tests/test_router_p2_bridge.py) — direct import
   - `test_a_standing_decisions_persisted_trace_names_the_same_veto`
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
@@ -143,6 +137,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_planted_state_selects_expected_action`
 - [tests/test_staged_policy_evsi.py](../../../../../../tests/test_staged_policy_evsi.py) — direct import
   - `test_evsi_stop_is_a_typed_stop_not_no_feasible_activity`
+- [tests/test_staged_policy_short_session.py](../../../../../../tests/test_staged_policy_short_session.py) — direct import
+  - `test_short_session_depth_edge_stops_if_it_cannot_fit`
+  - `test_short_session_stops_honestly_when_nothing_fits`
+  - `test_three_minute_activity_completes_a_session`
 
 ## Modification guidance
 

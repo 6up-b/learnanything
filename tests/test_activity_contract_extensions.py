@@ -1,4 +1,4 @@
-"""P1 step 3 -- family/card contract extensions + progression policy
+"""P1 step 3 -- family/card contract extensions
 (spec_p1_shared_substrate §3.6, §3.7, §9.1)."""
 
 from __future__ import annotations
@@ -10,7 +10,6 @@ from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
 from learnloop.substrate import activities as A
 from learnloop.substrate import activity_patterns as AP
-from learnloop.scheduling import progression_policy as PP
 
 from tests.helpers import NOW
 
@@ -27,7 +26,7 @@ def repo(tmp_path):
 @pytest.fixture
 def seeded(repo):
     patterns = AP.ensure_builtin_patterns(repo, clock=CLOCK)
-    policy_id = PP.ensure_default_progression_policy(repo, clock=CLOCK)
+    policy_id = None  # the authoring column is optional, and no test here reads it
     family_id = repo.ensure_activity_family(purpose="practice", legacy_kind=None, title="fam", clock=CLOCK)
     return repo, patterns, policy_id, family_id
 
@@ -58,17 +57,6 @@ def test_authoring_is_idempotent_and_starts_as_draft(seeded):
     assert authoring["status"] == "draft"  # no schedulable partial before activation
     A.activate_family_version(repo, family_version_id=fvid)
     assert repo.activity_family_authoring(fvid)["status"] == "active"
-
-
-# --- §3.6 resolve progression policy -----------------------------------------
-
-def test_resolve_progression_policy(seeded):
-    repo, patterns, policy_id, family_id = seeded
-    fvid = _author(repo, family_id, patterns, policy_id)
-    body = A.resolve_progression_policy(repo, fvid)
-    assert body is not None
-    assert body["sibling_success_shrinkage"] == PP.SIBLING_SUCCESS_SHRINKAGE
-    assert body["angle_progression"] == "delayed_orthogonal"
 
 
 def test_inspect_angle_coverage(seeded):
@@ -151,8 +139,3 @@ def test_pin_card_authoring(seeded):
     with pytest.raises(A.InvalidAuthoring):
         A.pin_card_authoring(repo, card_version_id=card_version_id, surface_policy="teleporting")
 
-
-def test_progression_policy_is_content_addressed(repo):
-    a = PP.ensure_default_progression_policy(repo, clock=CLOCK)
-    b = PP.ensure_default_progression_policy(repo, clock=CLOCK)
-    assert a == b  # idempotent, content-addressed

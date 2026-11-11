@@ -120,7 +120,6 @@ Indexes and uniqueness:
 - `src/learnloop/goals/goal_contracts.py`
 - `src/learnloop/substrate/activities.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
-- `src/learnloop/substrate/compat/substrate_cutover.py`
 - `src/learnloop/substrate/rebuild_orchestrator.py`
 - `src/learnloop_sidecar/handlers/feedback.py`
 
@@ -141,10 +140,8 @@ Indexes and uniqueness:
 - `tests/test_golden_path_assessment.py`
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_grading_cli.py`
-- `tests/test_journey6.py`
 - `tests/test_p0_projection_cutover.py`
 - `tests/test_probe_robust_cutover.py`
-- `tests/test_substrate_cutover.py`
 - `tests/test_unresolved_cause_gate.py`
 - `tests/test_ux_phase4_feedback.py`
 - `tests/test_ux_phase4_landing.py`

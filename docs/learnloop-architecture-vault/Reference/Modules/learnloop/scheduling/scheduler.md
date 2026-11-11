@@ -411,7 +411,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_minted_surface_serves_through_the_probe_branch_and_is_single_use`
 - [tests/test_provenance.py](../../../../../../tests/test_provenance.py) — direct import
   - `test_a_rebuild_never_calls_the_record_and_keeps_its_rows`
-- [tests/test_reentry_short_session.py](../../../../../../tests/test_reentry_short_session.py) — direct import
 - [tests/test_remediation_cold_retry.py](../../../../../../tests/test_remediation_cold_retry.py) — direct import
   - `test_only_the_cold_lane_is_deferred_by_a_reveal`
 - [tests/test_router_offer_log.py](../../../../../../tests/test_router_offer_log.py) — direct import
@@ -498,6 +497,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
 - [tests/test_staged_policy_evsi.py](../../../../../../tests/test_staged_policy_evsi.py) — direct import
+- [tests/test_staged_policy_short_session.py](../../../../../../tests/test_staged_policy_short_session.py) — direct import
 - [tests/test_state_sync.py](../../../../../../tests/test_state_sync.py) — direct import
   - `test_state_sync_enters_probe_for_new_active_goal_learning_object`
   - `test_state_sync_enters_probe_for_new_active_learning_object_without_goal`

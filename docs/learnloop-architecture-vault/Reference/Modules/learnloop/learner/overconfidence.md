@@ -69,7 +69,6 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `overconfidence_facets`; statically calls `overconfidence_facets`
-- [[Reference/Modules/learnloop/scheduling/reentry_adapter|learnloop.scheduling.reentry_adapter]] — imports `blueprint_weight_by_facet`; statically calls `blueprint_weight_by_facet`
 - [[Reference/Modules/learnloop/scheduling/reentry_summary|learnloop.scheduling.reentry_summary]] — imports `blueprint_weight_by_facet`; statically calls `blueprint_weight_by_facet`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `overconfidence_facets`; statically calls `overconfidence_facets`
 
@@ -94,7 +93,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/scheduling/reentry_adapter|learnloop.scheduling.reentry_adapter]], [[Reference/Modules/learnloop/scheduling/reentry_summary|learnloop.scheduling.reentry_summary]], [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/scheduling/reentry_summary|learnloop.scheduling.reentry_summary]], [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -337,6 +337,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_a_configured_metered_fallback_provider_is_never_used_silently_for_a_plan_route`
 - [tests/test_recurrence_commands.py](../../../../../../tests/test_recurrence_commands.py) — direct import
   - `test_the_head_fixture_predecessor_to_successor_path`
+- [tests/test_registry_audit.py](../../../../../../tests/test_registry_audit.py) — direct import
+  - `test_a_stored_row_for_a_removed_spec_stays_readable`
 - [tests/test_regrade_contract_upgrade.py](../../../../../../tests/test_regrade_contract_upgrade.py) — direct import
   - `test_an_upgrade_interrupted_after_publication_is_resumed`
   - `test_head_fixture_predecessor_to_successor_path`

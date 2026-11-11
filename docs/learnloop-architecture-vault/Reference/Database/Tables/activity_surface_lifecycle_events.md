@@ -106,7 +106,6 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/golden_path_assessment.py`
 - `src/learnloop/curriculum/golden_path_confirm.py`
 - `src/learnloop/substrate/activities.py`
-- `src/learnloop/substrate/compat/substrate_cutover.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

@@ -19,7 +19,6 @@ source_paths:
   - "src/learnloop/daily_plan/schedule_effects.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/substrate/card_lineage.py"
-  - "src/learnloop/substrate/compat/substrate_cutover.py"
   - "src/learnloop/substrate/shadow_rebuild.py"
   - "src/learnloop/curriculum/depth_transition.py"
 tags:
@@ -101,7 +100,6 @@ Indexes and uniqueness:
 
 - `src/learnloop/curriculum/depth_transition.py`
 - `src/learnloop/substrate/card_lineage.py`
-- `src/learnloop/substrate/compat/substrate_cutover.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -115,11 +113,8 @@ Indexes and uniqueness:
 - `tests/test_depth_transition.py`
 - `tests/test_family_memory_projection.py`
 - `tests/test_field_cli.py`
-- `tests/test_journey6.py`
-- `tests/test_progression.py`
 - `tests/test_ro1_upgrade_report.py`
 - `tests/test_shadow_rebuild.py`
-- `tests/test_substrate_cutover.py`
 - `tests/test_table_roles.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

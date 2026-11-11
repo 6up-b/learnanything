@@ -104,7 +104,6 @@ def register(spec: ParameterSpec) -> ParameterSpec:
 # ---------------------------------------------------------------------------
 
 MODULE_INVENTORY: dict[str, str] = {
-    "substrate_cutover": "src/learnloop/substrate/compat/substrate_cutover.py",
     "probe_families": "src/learnloop/diagnosis/probe_families.py",
     "probe_episodes": "src/learnloop/diagnosis/probe_episodes.py",
     "grader_calibration": "src/learnloop/attempts/grader_calibration.py",
@@ -113,8 +112,6 @@ MODULE_INVENTORY: dict[str, str] = {
     "grade_classifier": "src/learnloop/attempts/grade_classifier.py",
     "grade_resolution": "src/learnloop/attempts/grade_resolution.py",
     "grading": "src/learnloop/attempts/grading.py",
-    # P1 step 3 -- within-family progression policy defaults (§5.4).
-    "progression_policy": "src/learnloop/scheduling/progression_policy.py",
     # P1 step 5 -- purpose-specific administration adapters (§3.10). The hot-path
     # gate is a bool (excluded from the numeric scan) but is registered structural.
     "administration_adapters": "src/learnloop/substrate/administration_adapters.py",
@@ -122,8 +119,6 @@ MODULE_INVENTORY: dict[str, str] = {
     "familiarity": "src/learnloop/learner/familiarity.py",
     # P1 step 7 -- fixed/rotating surface mint/gate + durable pre-mint jobs (§5.2/§5.3).
     "surface_mint": "src/learnloop/substrate/surface_mint.py",
-    # P1 step 8 -- within-family angle progression + evidence caps + lapse (§4.3/§5.4/§5.5).
-    "progression": "src/learnloop/scheduling/progression.py",
     # P1 step 8 -- one-edge depth-transition service; the U-018 structural gate (§5.7).
     "depth_transition": "src/learnloop/curriculum/depth_transition.py",
     # P2 DIAGNOSTIC track -- pre-authored diagnostic pack baseline cap (§5.2, design §E).
@@ -150,8 +145,7 @@ MODULE_INVENTORY: dict[str, str] = {
     "controller_snapshot": "src/learnloop/scheduling/controller_snapshot.py",
     "constraint_engine": "src/learnloop/scheduling/constraint_engine.py",
     "staged_policy": "src/learnloop/scheduling/staged_policy.py",
-    # P4 step 3 -- robust EVSI + minutes loss table + goal-conditioned targets
-    # (spec_p4 §6, U-023, design §E).
+    # P4 step 3 -- robust EVSI + minutes loss table (spec_p4 §6, U-023, design §E).
     "action_loss": "src/learnloop/scheduling/action_loss.py",
     "evsi": "src/learnloop/scheduling/evsi.py",
     # EVSI calibration Part C -- the measured cost of an unresolved misconception
@@ -161,7 +155,6 @@ MODULE_INVENTORY: dict[str, str] = {
     # rule reads robust_composition's and evsi's heuristic decision parameters;
     # its own constants only shape estimates and receipts.
     "voi_stopping": "src/learnloop/diagnosis/voi_stopping.py",
-    "predictive_targets": "src/learnloop/scheduling/predictive_targets.py",
     # P4 step 4 -- dispersion/interleaving constraints + the single randomization
     # layer (spec_p4 §9, U-024, design §E).
     "dispersion": "src/learnloop/scheduling/dispersion.py",
@@ -180,9 +173,6 @@ MODULE_INVENTORY: dict[str, str] = {
     # P4 step 6 (descoped, U-025) -- shadow predictive components (spec_p4 §7, design §B
     # step 6). Zero authority; component-only promotion; time-boxed composed telemetry.
     "shadow_components": "src/learnloop/scheduling/shadow_components.py",
-    # P4 §15 step 11 -- the §12 re-entry / short-session block-planner adapters.
-    "short_session": "src/learnloop/scheduling/short_session.py",
-    "reentry_adapter": "src/learnloop/scheduling/reentry_adapter.py",
     # Meas §3.A2-§3.A5 (implementation plan item 6.4) -- the four instrument
     # classes. Every numeric constant in these four modules is a threshold on a
     # REVERT criterion: the number that decides whether an instrument class is
@@ -998,35 +988,12 @@ _reg_const("grade_resolution:BOUNDED_TRUST_WEIGHT_DEFAULT", "prior", owner="grad
 _reg_const("grade_resolution:ADJUDICATION_GRADER_TIER", "constraint", kind="structural",
            owner="grade_resolution", rationale="fixed provenance tier assigned to final "
            "adjudication records; an authority label, not a tunable decision parameter.")
-# progression_policy (P1 step 3, spec_p1_shared_substrate §5.4)
-_reg_const("progression_policy:SIBLING_SUCCESS_SHRINKAGE", "shaping_weight",
-           owner="progression_policy", rationale="sibling success-propagation shrinkage; "
-           "affects only the family-stage prior, never marks a sibling reviewed (§5.4).")
-_reg_const("progression_policy:ORTHOGONAL_NEXT_DELAY_DAYS", "threshold",
-           owner="progression_policy", rationale="delayed-orthogonal cadence after success; "
-           "next growth activity is a delayed orthogonal angle, not a near-clone (§5.4).")
-_reg_const("progression_policy:PROGRESSION_POLICY_SCHEMA_VERSION", "version", kind="structural",
-           owner="progression_policy", rationale="progression-policy body schema version pin; enum.")
 
 # administration_adapters (P1 step 5, spec_p1_shared_substrate §3.10). Structural
 # version gate for the hot-path FSRS cutover; OFF keeps the legacy path byte-identical.
 _reg_const("administration_adapters:P1_PURPOSE_ADAPTERS_ENABLED", "version", kind="structural",
            owner="administration_adapters", rationale="U-018-style structural gate for the "
            "purpose-adapter hot-path cutover; OFF = byte-identical legacy FSRS write (step 9 flips it).")
-
-# substrate_cutover (P1 step 9, spec_p1_shared_substrate §7.4). Structural version pins
-# for the narrowed dual-write cutover: the purpose-adapter path is the LIVE scheduling
-# authority for mvp-0.8 vaults; legacy vaults keep the byte-identical purpose-blind path.
-_reg_const("substrate_cutover:P1_SCHEDULER_ALGORITHM_VERSION", "version", kind="structural",
-           owner="substrate_cutover", rationale="scheduler-algorithm version stamped on P1 "
-           "card-lineage state; distinct from the vault projection version so legacy replay "
-           "under the old version stays byte-identical (§7.4).")
-_reg_const("substrate_cutover:PURPOSE_ADAPTERS_LIVE_FROM", "version", kind="structural",
-           owner="substrate_cutover", rationale="the vault projection version (mvp-0.8) from "
-           "which the purpose-adapter scheduling path is the LIVE default; bound to the module "
-           "constant substrate_cutover.PURPOSE_ADAPTERS_LIVE_FROM, which purpose_adapters_live "
-           "reads; legacy vaults keep the purpose-blind path + characterization pins (owner "
-           "decision 2026-07-19).")
 
 # familiarity (P1 step 6, spec_p1_shared_substrate §4.2/§4.3).
 # familiarity_projection_v1 is a deterministic monotone heuristic; every coefficient
@@ -1159,22 +1126,6 @@ _reg_const("grading:FIREWALL_CLEAN_PASS_FRACTION", "threshold", owner="grading",
 _reg_const("grading:FIREWALL_FRACTION_EPSILON", "constraint", kind="structural",
            owner="grading", rationale="floating-point tolerance for the full-credit firewall "
            "comparison; a numerical identity rather than a decision knob.")
-
-# progression (P1 step 8, spec_p1_shared_substrate §4.3/§5.5).
-_reg_const("progression:MAX_EFFECTIVE_MASS_PER_CLUSTER", "constraint", owner="progression",
-           rationale="§4.3 family evidence cap: max total effective independent mass per "
-           "target x capability x angle neighborhood; variants in one family cannot certify alone. "
-           "B8: the geometric diminishing-returns decay (DIMINISHING_MASS_DECAY=0.5) already "
-           "bounds a single cluster's mass at sum_k decay^k = 1/(1-0.5) = 2.0, so the 3.0 ceiling "
-           "never binds in normal accrual -- it is a SAFETY RAIL against a mis-set decay or an "
-           "adversarial accrual, kept (not tuned away) per the inert-knob policy: a constraint "
-           "parameter stays registered and monitored even while dormant.")
-_reg_const("progression:DIMINISHING_MASS_DECAY", "shaping_weight", owner="progression",
-           rationale="§4.3 diminishing-returns decay on additional administrations inside one "
-           "tight soft-kinship cluster (zero new independent-group count).")
-_reg_const("progression:POST_LAPSE_FOLLOWUP_DAYS", "threshold", owner="progression",
-           rationale="§5.5/§10 launch post-lapse follow-up cadence (next day), provisional; the "
-           "delayed follow-up prefers a fresh/orthogonal surface.")
 
 # depth_transition (P1 step 8, spec_p1_shared_substrate §5.7/§3.1.1/§10). Structural U-018
 # gate: OFF in the live product (a confirmed auto_within_envelope behaves as suggest_next).
@@ -1375,8 +1326,6 @@ _reg_const("action_loss:LOSS_TABLE_VERSION", "version", kind="structural",
            owner="action_loss", rationale="minutes decision-loss table body schema version; enum.")
 _reg_const("evsi:EVSI_SCHEMA_VERSION", "version", kind="structural", owner="evsi",
            rationale="robust-EVSI persistence body schema version; enum.")
-_reg_const("predictive_targets:TARGET_SET_SCHEMA_VERSION", "version", kind="structural",
-           owner="predictive_targets", rationale="goal-conditioned target-set body schema version; enum.")
 # Decision parameters (heuristic).
 _reg_const("action_loss:DEFAULT_INTERVENTION_MINUTES", "threshold", owner="action_loss",
            rationale="§6.2 fail-closed per-intervention minutes used only when NO logged attempt "
@@ -1490,22 +1439,14 @@ _reg_const("controller_cutover:STAGED_POLICY_LIVE_FOR_P2", "version", kind="stru
            "run to the pre-cutover static policy (global rollback). Bind-logged on flip.",
            bind_site="controller_cutover.staged_next_action (live-authority gate)")
 
-# P4 §15 step 11 -- the §12 re-entry / short-session block-planner adapters. Decision
-# parameters (heuristic; each an active pool bound, not a reward weight -- they never order
-# anything, the within-block robust-EVSI selector does).
+# P4 §15 step 11 -- the §12.2 short session. A decision parameter (heuristic; an active
+# pool bound, not a reward weight -- it never orders anything, the within-block
+# robust-EVSI selector does).
 _reg_const("staged_policy:SHORT_SESSION_MAX_MINUTES", "threshold", owner="staged_policy",
            rationale="§12.2 available-minutes threshold below which the SAME block planner "
            "plans a completing short-session block (budget = available minutes, composing the "
            "5-15 min bounds); one completed activity completes the session. Reuses the 5-min "
            "attention-block lower bound.")
-_reg_const("reentry_adapter:REENTRY_QUESTION_CAP", "threshold", owner="reentry_adapter",
-           rationale="§12.1 small visible cap on re-entry re-check questions; it bounds the "
-           "candidate pool only -- the within-block robust-EVSI-per-minute selector orders and "
-           "the robust stop rule stops, so the cap never orders anything.")
-_reg_const("reentry_adapter:REENTRY_RECOVERABLE_BAND", "threshold", owner="reentry_adapter",
-           rationale="§12.1 Ready margin below target within which a previously-demonstrated "
-           "cell is reported RECOVERABLE (a light refresher) rather than NEEDS_ATTENTION; "
-           "reported as neutral context, never a deficit label.")
 # The single positive robust-sampling value an open diagnostic episode confers (§4.2 rung
 # 3). Its magnitude never orders anything -- the ladder rung is a boolean >0 gate.
 _reg_const("state_signals:OPEN_EPISODE_ROBUST_VALUE", "threshold", owner="state_signals",

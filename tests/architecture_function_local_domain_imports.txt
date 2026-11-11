@@ -130,7 +130,6 @@ learnloop.scheduling.evaluation -> learnloop.attempts.attempts
 learnloop.scheduling.kinship_feature -> learnloop.params.sensitivity_certificates
 learnloop.scheduling.kinship_feature -> learnloop.sim.kinship_admission
 learnloop.scheduling.kinship_feature -> learnloop.substrate.activities
-learnloop.scheduling.progression -> learnloop.substrate.activities
 learnloop.scheduling.scheduler -> learnloop.attempts.attempts
 learnloop.scheduling.scheduler -> learnloop.attempts.evidence
 learnloop.scheduling.scheduler -> learnloop.diagnosis.calibration_sessions
@@ -149,7 +148,6 @@ learnloop.substrate.administration_adapters -> learnloop.learner.assessment_cont
 learnloop.substrate.canonical_projection -> learnloop.attempts.effective_observation
 learnloop.substrate.canonical_projection -> learnloop.attempts.outcome_schemas
 learnloop.substrate.canonical_projection_rollout -> learnloop.learner.facet_diagnostics
-learnloop.substrate.compat.substrate_cutover -> learnloop.scheduling.fsrs
 learnloop.substrate.p0_projection -> learnloop.learner.facet_diagnostics
 learnloop.substrate.replay -> learnloop.diagnosis.misconceptions
 learnloop.substrate.replay -> learnloop.learner.facet_diagnostics

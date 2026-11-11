@@ -8,6 +8,7 @@ active-without-certificate / dormant-constraint-without-monitoring.
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 from learnloop.clock import FrozenClock
@@ -242,3 +243,67 @@ def test_audit_falls_back_to_rules_for_vault_added_dict_keys():
     )
     report = pr.audit(vault)
     assert report.unclassified_config == []
+
+
+#: Decision parameters whose modules are gone. Real vaults still hold their rows, written
+#: by every earlier refresh, so these paths stand for any spec a later change removes.
+REMOVED_DECISION_PATHS = (
+    "progression_policy:SIBLING_SUCCESS_SHRINKAGE",
+    "progression_policy:ORTHOGONAL_NEXT_DELAY_DAYS",
+    "progression:MAX_EFFECTIVE_MASS_PER_CLUSTER",
+    "progression:DIMINISHING_MASS_DECAY",
+    "progression:POST_LAPSE_FOLLOWUP_DAYS",
+    "reentry_adapter:REENTRY_QUESTION_CAP",
+    "reentry_adapter:REENTRY_RECOVERABLE_BAND",
+)
+
+
+def test_a_stored_row_for_a_removed_spec_stays_readable(tmp_path):
+    # A vault's stored registry rows outlive the code specs that wrote them. Refresh must
+    # leave such a row as it is, the manifest freeze and the audit must not trip on it,
+    # the CLI must still show it, and doctor must not report it.
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+    from learnloop.ops.doctor import run_doctor
+
+    vault, repo = _vault(tmp_path)
+    pr.refresh(vault, repo, clock=CLOCK)
+    doctor_before = run_doctor(vault.root)
+    template = repo.parameter_registry_entry("scheduler.short_session_minutes")
+    for path in REMOVED_DECISION_PATHS:
+        assert path not in pr.REGISTRY
+        stale = {key: template[key] for key in (
+            "kind", "param_class", "source", "status", "lifecycle", "rationale", "scope", "owner",
+            "sensitivity_certificate_id", "evidence_manifest_id", "redundancy_proof_id",
+            "promotion_evidence_id", "last_review_at",
+        )}
+        stale.update(path=path, owner=path.split(":", 1)[0], effective_value=1,
+                     effective_value_hash=f"hash-{path}")
+        repo.upsert_parameter_registry_entry(entry=stale, clock=CLOCK)
+    before = {path: repo.parameter_registry_entry(path) for path in REMOVED_DECISION_PATHS}
+
+    pr.refresh(vault, repo, clock=CLOCK)
+    assert {path: repo.parameter_registry_entry(path) for path in REMOVED_DECISION_PATHS} == before
+
+    assert pr.freeze_manifest(vault, repo, algorithm_version="mvp-test", clock=CLOCK) is not None
+    frozen = json.loads(repo.parameter_registry_manifest("mvp-test")["entries_json"])["parameters"]
+    for path in REMOVED_DECISION_PATHS:
+        assert frozen[path]["value_hash"] == f"hash-{path}"
+
+    report = pr.audit(vault, repo)
+    assert report.clean, report.as_dict()
+    assert set(REMOVED_DECISION_PATHS) <= set(report.active_pending_certificate)
+
+    runner = CliRunner()
+    shown = runner.invoke(app, ["registry", "show", REMOVED_DECISION_PATHS[-1],
+                                "--vault", str(vault.root), "--json"])
+    assert shown.exit_code == 0, shown.output
+    assert json.loads(shown.output)["effective_value_hash"] == f"hash-{REMOVED_DECISION_PATHS[-1]}"
+    listed = runner.invoke(app, ["registry", "list", "--vault", str(vault.root), "--json"])
+    assert listed.exit_code == 0, listed.output
+    assert set(REMOVED_DECISION_PATHS) <= {e["path"] for e in json.loads(listed.output)["entries"]}
+
+    doctor_after = run_doctor(vault.root)
+    assert doctor_after.error_count == doctor_before.error_count
+    assert [i.as_dict() for i in doctor_after.issues] == [i.as_dict() for i in doctor_before.issues]

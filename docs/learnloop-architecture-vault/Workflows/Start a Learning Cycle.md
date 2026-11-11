@@ -12,10 +12,9 @@ source_commit_timestamp: "2026-08-17T12:05:21-04:00"
 source_paths:
   - src/learnloop/cli/app.py
   - src/learnloop/tui/app.py
-  - src/learnloop/scheduling/short_session.py
   - src/learnloop_sidecar/handlers/sessions.py
   - tests/test_session_attempt_attribution.py
-  - tests/test_reentry_short_session.py
+  - tests/test_staged_policy_short_session.py
   - tests/test_sidecar_contract.py
 tags:
   - learnloop/workflow

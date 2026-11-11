@@ -136,7 +136,6 @@ Indexes and uniqueness:
 - `src/learnloop/regrade_contract_upgrade.py`
 - `src/learnloop/replay_ledger_upgrade.py`
 - `src/learnloop/substrate/canonical_projection_rollout.py`
-- `src/learnloop/substrate/compat/substrate_cutover.py`
 - `src/learnloop/substrate/p0_projection.py`
 - `src/learnloop/substrate/rebuild_orchestrator.py`
 - `src/learnloop/substrate/replay.py`

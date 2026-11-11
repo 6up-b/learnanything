@@ -363,12 +363,10 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/scheduling/decay_pressure|learnloop.scheduling.decay_pressure]] — imports `Goal`, `LoadedVault`; statically calls `Goal`
 - [[Reference/Modules/learnloop/scheduling/evaluation|learnloop.scheduling.evaluation]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/scheduling/intent_planner|learnloop.scheduling.intent_planner]] — imports `LoadedVault`
-- [[Reference/Modules/learnloop/scheduling/reentry_adapter|learnloop.scheduling.reentry_adapter]] — imports `Goal`, `LoadedVault`
 - [[Reference/Modules/learnloop/scheduling/reentry_summary|learnloop.scheduling.reentry_summary]] — imports `Goal`, `LoadedVault`
 - [[Reference/Modules/learnloop/scheduling/review_log|learnloop.scheduling.review_log]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `LoadedVault`, `PracticeItem`
 - [[Reference/Modules/learnloop/scheduling/selection_rewards|learnloop.scheduling.selection_rewards]] — imports `LearningObject`, `LoadedVault`, `PracticeItem`
-- [[Reference/Modules/learnloop/scheduling/short_session|learnloop.scheduling.short_session]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/section_map|learnloop.section_map]] — imports `LoadedVault`, `SourceRef`, `learning_object_facet_union`; statically calls `learning_object_facet_union`
 - [[Reference/Modules/learnloop/sim/metrics|learnloop.sim.metrics]] — imports `LoadedVault`
@@ -454,7 +452,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/attempts/ability_transition|learnloop.attempts.ability_transition]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] and 293 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/attempts/ability_transition|learnloop.attempts.ability_transition]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] and 291 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -107,7 +107,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `interval_for_retention`; statically calls `interval_for_retention`
 - [[Reference/Modules/learnloop/substrate/administration_adapters|learnloop.substrate.administration_adapters]] — imports `FSRS6_DEFAULT_WEIGHTS`
 - [[Reference/Modules/learnloop/substrate/card_lineage|learnloop.substrate.card_lineage]] — imports `FSRS6_DEFAULT_WEIGHTS`, `MemoryState`, `Rating`, `apply_review`; statically calls `Rating`, `apply_review`
-- [[Reference/Modules/learnloop/substrate/compat/substrate_cutover|learnloop.substrate.compat.substrate_cutover]] — imports `FSRS6_DEFAULT_WEIGHTS`, `Rating`, `apply_review`; statically calls `apply_review`
 - [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]] — imports `forgetting_curve`; statically calls `forgetting_curve`
 - [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `forgetting_curve`
 
@@ -129,7 +128,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/fit|learnloop.cli.fit]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]] and 23 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/fit|learnloop.cli.fit]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]] and 22 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -177,7 +176,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f8_the_fsrs_fitter_never_fits_a_review_that_never_happened`
 - [tests/test_intent_recall_targets.py](../../../../../../tests/test_intent_recall_targets.py) — direct import
   - `test_the_ratio_is_the_fsrs_interval_ratio_and_exactly_one_at_090`
-- [tests/test_journey6.py](../../../../../../tests/test_journey6.py) — direct import
 - [tests/test_reader_followups.py](../../../../../../tests/test_reader_followups.py) — direct import
   - `test_without_fsrs_state_the_date_is_the_schedulers_first_interval`
 - [tests/test_review_log.py](../../../../../../tests/test_review_log.py) — direct import
@@ -213,13 +211,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_coldness_covariates.py](../../../../../../tests/test_router_coldness_covariates.py) — direct import
   - `test_the_replayer_records_the_fsrs_predicted_retrievability`
 - [tests/test_sg_slip_vs_gap.py](../../../../../../tests/test_sg_slip_vs_gap.py) — direct import
-- [tests/test_substrate_cutover.py](../../../../../../tests/test_substrate_cutover.py) — direct import
-  - `test_deferred_projection_rebuild_is_deterministic_and_idempotent`
-  - `test_diagnostic_and_assessment_write_no_practice_schedule`
-  - `test_dual_write_retry_does_not_duplicate_events`
-  - `test_fault_after_each_boundary_recovers_to_the_no_fault_state`
-  - `test_projection_failure_defers_without_half_update`
-  - `test_submit_writes_full_lineage_in_one_unit`
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
 
 ## Modification guidance

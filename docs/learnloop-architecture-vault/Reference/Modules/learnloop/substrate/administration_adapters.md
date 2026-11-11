@@ -98,7 +98,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `hot_path_applies_practice_review`; statically calls `hot_path_applies_practice_review`
 - [[Reference/Modules/learnloop/curriculum/pattern_ladder|learnloop.curriculum.pattern_ladder]] — imports `module`; statically calls `resolve_adapter`
 - [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `module`; statically calls `resolve_adapter`
-- [[Reference/Modules/learnloop/substrate/compat/substrate_cutover|learnloop.substrate.compat.substrate_cutover]] — imports `OpportunisticDiagnosisRejected`, `module`; statically calls `PracticeAdapter`, `project_administration`, `resolve_adapter`
 
 ## Dependencies
 
@@ -122,7 +121,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/curriculum/pattern_ladder|learnloop.curriculum.pattern_ladder]], [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]], [[Reference/Modules/learnloop/substrate/compat/substrate_cutover|learnloop.substrate.compat.substrate_cutover]].
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/curriculum/pattern_ladder|learnloop.curriculum.pattern_ladder]], [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -141,11 +140,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_purpose_mismatch_rejected`
 - [tests/test_reader_dialogue.py](../../../../../../tests/test_reader_dialogue.py) — direct import
   - `test_instructional_administration_never_certifies`
-- [tests/test_substrate_cutover.py](../../../../../../tests/test_substrate_cutover.py) — direct import
-  - `test_deferred_projection_rebuild_is_deterministic_and_idempotent`
-  - `test_hot_path_review_is_byte_identical_for_eligible_practice_on_both_paths`
-  - `test_module_override_forces_live_regardless_of_version`
-  - `test_projection_failure_defers_without_half_update`
 
 ## Modification guidance
 

@@ -16,9 +16,6 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/074_activity_contract_extensions.sql"
-  - "src/learnloop/db/repositories.py"
-  - "src/learnloop/scheduling/progression_policy.py"
-  - "src/learnloop/substrate/activities.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -75,21 +72,19 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
-- `Repository.ensure_progression_policy_version()`
-- `Repository.progression_policy_version()`
+None found by exact static reference scan.
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+None found by exact static reference scan.
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/scheduling/progression_policy.py`
-- `src/learnloop/substrate/activities.py`
+None found by exact static reference scan.
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

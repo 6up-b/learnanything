@@ -130,7 +130,6 @@ Indexes and uniqueness:
 - `src/learnloop/substrate/activities.py`
 - `src/learnloop/substrate/administration_adapters.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
-- `src/learnloop/substrate/compat/substrate_cutover.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -146,7 +145,6 @@ Indexes and uniqueness:
 - `tests/test_reader_dialogue.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_grade_resolution_pipeline.py`
-- `tests/test_substrate_cutover.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

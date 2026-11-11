@@ -420,17 +420,13 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/scheduling/kinship_feature|learnloop.scheduling.kinship_feature]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
-- [[Reference/Modules/learnloop/scheduling/progression|learnloop.scheduling.progression]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
-- [[Reference/Modules/learnloop/scheduling/progression_policy|learnloop.scheduling.progression_policy]] — imports `Clock`
 - [[Reference/Modules/learnloop/scheduling/randomization_layer|learnloop.scheduling.randomization_layer]] — imports `Clock`
-- [[Reference/Modules/learnloop/scheduling/reentry_adapter|learnloop.scheduling.reentry_adapter]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
 - [[Reference/Modules/learnloop/scheduling/reentry_summary|learnloop.scheduling.reentry_summary]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
 - [[Reference/Modules/learnloop/scheduling/review_log|learnloop.scheduling.review_log]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `Clock`, `FrozenClock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `FrozenClock`, `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/scheduling/serving_exclusions|learnloop.scheduling.serving_exclusions]] — imports `Clock`, `SystemClock`; statically calls `SystemClock`
 - [[Reference/Modules/learnloop/scheduling/session_minutes|learnloop.scheduling.session_minutes]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/scheduling/shadow_components|learnloop.scheduling.shadow_components]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
-- [[Reference/Modules/learnloop/scheduling/short_session|learnloop.scheduling.short_session]] — imports `Clock`
 - [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]] — imports `Clock`
 - [[Reference/Modules/learnloop/scheduling/state_signals|learnloop.scheduling.state_signals]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/scheduling/unresolved_cost|learnloop.scheduling.unresolved_cost]] — imports `parse_utc`; statically calls `parse_utc`
@@ -463,7 +459,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/substrate/canonical_projection_rollout|learnloop.substrate.canonical_projection_rollout]] — imports `Clock`
 - [[Reference/Modules/learnloop/substrate/card_lineage|learnloop.substrate.card_lineage]] — imports `Clock`
 - [[Reference/Modules/learnloop/substrate/compat/activity_backfill|learnloop.substrate.compat.activity_backfill]] — imports `Clock`, `FrozenClock`, `parse_utc`; statically calls `FrozenClock`, `parse_utc`
-- [[Reference/Modules/learnloop/substrate/compat/substrate_cutover|learnloop.substrate.compat.substrate_cutover]] — imports `Clock`
 - [[Reference/Modules/learnloop/substrate/data_quality|learnloop.substrate.data_quality]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/substrate/families|learnloop.substrate.families]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
@@ -543,7 +538,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 443 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 438 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1367,7 +1362,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_hard_correct_completes_probe_on_hypothesis_convergence`
 - [tests/test_item_authoring.py](../../../../../tests/test_item_authoring.py) — direct import
 - [tests/test_item_parameters.py](../../../../../tests/test_item_parameters.py) — direct import
-- [tests/test_journey6.py](../../../../../tests/test_journey6.py) — direct import
 - [tests/test_kinship_feature.py](../../../../../tests/test_kinship_feature.py) — direct import
 - [tests/test_km2_activation.py](../../../../../tests/test_km2_activation.py) — direct import
   - `test_app_load_repairs_vault_activated_by_old_upgrade`
@@ -1649,7 +1643,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_embedded_evidence_suppresses_redundant_probe`
   - `test_incomplete_mapping_surfaces_as_a_machine_check_never_as_a_probe`
   - `test_integration_condition_probes_coordination_not_components`
-- [tests/test_progression.py](../../../../../tests/test_progression.py) — direct import
 - [tests/test_projection_evidence_polarity.py](../../../../../tests/test_projection_evidence_polarity.py) — direct import
 - [tests/test_proposal_persistence.py](../../../../../tests/test_proposal_persistence.py) — direct import
   - `test_accept_learning_object_create_adds_missing_concept_for_graph`
@@ -1786,7 +1779,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_recurrence_live.py](../../../../../tests/test_recurrence_live.py) — direct import
   - `test_a_verdict_after_a_promotion_moves_only_the_group_projection_and_rebuild_matches_live`
 - [tests/test_recurrence_merge_composition.py](../../../../../tests/test_recurrence_merge_composition.py) — direct import
-- [tests/test_reentry_short_session.py](../../../../../tests/test_reentry_short_session.py) — direct import
 - [tests/test_registry_audit.py](../../../../../tests/test_registry_audit.py) — direct import
 - [tests/test_regrade_contract_replay.py](../../../../../tests/test_regrade_contract_replay.py) — direct import
   - `test_case1_a_model_grade_regraded_above_its_original_maximum_is_saved`
@@ -2062,6 +2054,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_live_rebuild_truncates_the_wal_it_grew`
 - [tests/test_staged_policy.py](../../../../../tests/test_staged_policy.py) — direct import
 - [tests/test_staged_policy_evsi.py](../../../../../tests/test_staged_policy_evsi.py) — direct import
+- [tests/test_staged_policy_short_session.py](../../../../../tests/test_staged_policy_short_session.py) — direct import
 - [tests/test_state_signals.py](../../../../../tests/test_state_signals.py) — direct import
 - [tests/test_state_sync.py](../../../../../tests/test_state_sync.py) — direct import
   - `test_state_sync_enters_probe_for_new_active_goal_learning_object`
@@ -2083,7 +2076,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_stuck_vault_rebuilds_to_a_fixed_point_with_no_model_call`
   - `test_historical_dont_know_rows_replay_unchanged_under_the_successor`
 - [tests/test_subject_registry.py](../../../../../tests/test_subject_registry.py) — direct import
-- [tests/test_substrate_cutover.py](../../../../../tests/test_substrate_cutover.py) — direct import
 - [tests/test_success_head.py](../../../../../tests/test_success_head.py) — direct import
   - `test_recency_running_sum_equals_the_full_weighted_sum`
 - [tests/test_success_head_cli.py](../../../../../tests/test_success_head_cli.py) — direct import
