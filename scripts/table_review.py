@@ -76,33 +76,10 @@ REBUILD_FILES = frozenset({
     "learnloop/substrate/replay.py",
     "learnloop/substrate/canonical_projection.py",
 })
-#: Arc C steps in flight when J1 ran (C2: registry-tied modules; C5: Golden Path): the modules each may delete, an
-#: upper bound (C5 may keep ``handlers/diagnostic.py`` or the CLI group). The scan is rerun as if each step's modules
-#: were gone, and a table whose class would change is marked "re-check after C2/C5" rather than guessed.
-IN_FLIGHT = {
-    "C2": frozenset({
-        "learnloop/substrate/compat/substrate_cutover.py",
-        "learnloop/scheduling/progression_policy.py",
-        "learnloop/scheduling/progression.py",
-        "learnloop/scheduling/reentry_adapter.py",
-        "learnloop/scheduling/predictive_targets.py",
-        "learnloop/scheduling/short_session.py",
-    }),
-    "C5": frozenset({
-        "learnloop_sidecar/handlers/golden_path.py",
-        "learnloop_sidecar/handlers/golden_path_assessment.py",
-        "learnloop_sidecar/handlers/ladder.py",
-        "learnloop_sidecar/handlers/diagnostic.py",
-        "learnloop/curriculum/golden_path_assessment.py",
-        "learnloop/curriculum/golden_path_compose.py",
-        "learnloop/curriculum/golden_path_confirm.py",
-        "learnloop/curriculum/golden_path_fixture.py",
-        "learnloop/curriculum/golden_path_restoration.py",
-        "learnloop/curriculum/golden_path_run.py",
-        "learnloop/curriculum/pattern_ladder.py",
-        "learnloop/cli/goldenpath.py",
-    }),
-}
+#: Steps in flight that may delete modules: step name -> the files it may delete (an upper bound). The scan is rerun as
+#: if each step's files were gone, and a table whose class would change is marked "re-check after <step>" rather than
+#: guessed. Empty since C6: C2 and C5 (the two J1 ran beside) have landed, and nothing else that deletes is in flight.
+IN_FLIGHT: dict[str, frozenset[str]] = {}
 
 SQL_KEYWORD = re.compile(r"\b(SELECT|INSERT|UPDATE|DELETE|REPLACE|CREATE|ALTER|DROP|PRAGMA|WITH)\b")
 QUOTE = r"[\"`\[]?"
