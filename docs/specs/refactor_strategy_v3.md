@@ -661,8 +661,27 @@ The map's methods were name- and import-based, so whole risk classes were invisi
 - **Inputs:** the ingestion review's findings, to be confirmed or corrected by the map (keep-ahead appends re-send the whole book: `add_source.py:1646-1666` enqueues no `new_revision_ids`, `jobs.py:1989` passes `None`, `source_append.py:248` falls back to every revision; append has no checkpoint, input ceiling or output split; `_best_inventory` reads a unit's oldest inventory whatever its extraction, prompt or model; appends from chapter 3 on never auto-apply; the manifest hash serves as provenance, cache key and reuse key at once), and the Sep 6 ingestion review's open findings.
 - **Strategy questions beyond §1's:** one checkpoint helper for every structured call versus today's mix; the manifest as provenance only, with reuse revalidated; hashing only what each step reads; whether `_normalize` splits into named stages; one job and lease mechanism instead of four reimplementations; where extraction, inventory, synthesis, identity and apply meet, and whether each boundary can change alone; how a new source type, extractor, synthesis pass or facet rule is added, counting files before and after.
 - **Output:** the map, the strategy, and sub-steps K2.1... placed after arc D (or earlier where a step only fixes a bug that costs money today; see K3).
+- **Done** (Nov 11): map `docs/reviews/k2-ingestion-map-2026-11-11.md` (corrected after a Codex check), strategy `docs/reviews/k2-ingestion-strategy-2026-11-11.md`. The sub-steps, after arc D, in this order (details, files and proofs in the strategy, §3.2):
+  - **K2.1 One checkpoint helper** (M): every paid structured call through one cycle in `ai/execution.py`, keyed on what it sends; structuring, persona fire and epigraphs gain checkpoints; existing keys byte-identical (K0 pins).
+  - **K2.2 Outer caches defer to the rendered key** (M): inventory reuse and completed shards stop answering on prompt labels (map KM1).
+  - **K2.3 The manifest records; checkpoints reuse** (M): no run-level reuse lookup; the manifest gains exact inputs (inventory rows, role overrides, edges, resolved brief); append resolves its brief first (KX5, KM2, KM6). Manifest pins bumped deliberately.
+  - **K2.4 One synthesis run, two modes** (L, as three M steps: shared tail, shared head, append through the shard runner): `source_append.py` shrinks to its prompt, neighbourhood and normalizer additions.
+  - **K2.5 `_normalize` in named stages** (M): `content/synthesis/normalize.py`, one state, one function per stage, same rows.
+  - **K2.6 One heartbeat for judge claims** (S): the two near-copied loops become one; commits check lapse; service spend renews on its clock.
+  - **K2.7 A job type is one row** (M): handlers beside their feature, one `JOB_TYPES` table replacing five lists in `jobs.py` and `runner.py`.
+  - **K2.8 A source kind is one row** (M): `ingest/source_kinds.py`; the desktop reads it; `ingest/fetchers.py`'s fetch path, `ingest/detect.py` and the desktop's kind tables go.
+  - **K2.9 Extractor choice in one place** (S): `pdf_extractor_for` returns the extractor and its consent.
+  - **K2.10 Small fixes, folded** (S): atomic conflict resolution, one token estimator, five stale comments.
+  - **K2.11 The desktop asks instead of copying** (M): retry and repair eligibility, roles, bounds and page ranges from the sidecar; four disagreements gone. Before the UX overhaul.
+  - **K2.12 Why x and not y at ingest** (M): decision records for build scope, inventory choice, auto-apply, persona fallback and the D2 summary.
 
-**K3. Ingest fixes that cost money today** (S-M each; conditional on K2's map confirming them). May land before K2's strategy, since they fix behaviour, not structure: keep-ahead appends only the new units; the append call gets a checkpoint, an input ceiling and output limits; synthesis reads the right inventory row (current extraction or semantic hash, then prompt and model, newest first). Each starts from a failing test, changes no learner scoring (no successor), and records the spend it saves on a copy. Auto-applying append coverage is the owner's call first (the spec's review policy).
+**K3. Ingest fixes that cost money or data today** (confirmed by K2's map; each alone, from a failing test, no successor; beside arc D). Details in `docs/reviews/k2-ingestion-strategy-2026-11-11.md` §3.1.
+- **K3.1 The right inventory row** (S): one `best_inventory` in `source_unit_inventory.py` preferring the current semantic hash, then prompt, provider and model, then newest; the coverage copy goes. Today a new prompt, model or re-read is paid for and ignored.
+- **K3.2 Keep-ahead appends only the new units** (S): `jobs.py` passes the planner's chosen unit ids, and `source_append.py` filters by them. Input stops growing with every chapter read.
+- **K3.3 The collection build sends every missing unit** (S): newness per unit in the sidecar's `build_study_map`, not "the revision has any inventory".
+- **K3.4 The append call bounded and checkpointed** (M): a checkpoint, `generation_limit`, a refusal before an over-ceiling input, finalized run rows on a budget failure, the non-escaping estimator.
+- **K3.5 Apply recovery safe and automatic** (M): never overwrite a file that changed since the intent (its `pre_hash`); recover at sidecar bind; refuse accepts while an intent is pending; recalibrate. A `conflicted` status needs a migration.
+- **Owner's calls first:** auto-applying an append's new coverage (recommended: new creates, Undo as the net); arXiv ids reading the full paper (recommended); when the legacy canonical lane retires (recommended: the UX overhaul).
 
 **K4. Other vault-content writers** (M; review). `diagnosis/text_gaps`, tutor promotions, teacher, `followup_run`, goals, authoring outside ingest: for each writer, content-hash lineage, authority (`check_meaning_write`), exam protection and undo; YAML and SQLite crash windows.
 
@@ -672,7 +691,7 @@ The map's methods were name- and import-based, so whole risk classes were invisi
 
 **K7. AI transport and network edges** (S + S; review). Before the MCP and phone feature stages. ChatGPT-plan token refresh races between the sidecar and the phone host; behaviour with the plan down; whether the route actually used after a fallback is recorded (B8 left it open); MCP's URL-as-credential and the phone bearer; cross-process workers on one vault.
 
-**Order:** arc C close → K0 and K1 (parallel) → arc D, with K2 running beside it and K3 landing when confirmed → K2's sub-steps → E → F and I (K5 before I1) → K6 before G6 → G → H (K0's H6 rule) → J, Z. K4 and K7 fit wherever the queue has room. **Cost:** roughly 10-15% on top of §2.15 (an estimate), most of it K2.
+**Order:** arc C close → K0 and K1 (parallel) → arc D, with K2 running beside it and K3.1-K3.5 landing beside it (K3.1 first, K3.5 independent) → K2.1-K2.12 (K2.1-K2.5 one chain; K2.11 before the UX overhaul) → E → F and I (K5 before I1) → K6 before G6 → G → H (K0's H6 rule) → J, Z. K4 and K7 fit wherever the queue has room. **Cost:** roughly 10-15% on top of §2.15 (an estimate), most of it K2.
 
 ## 3. The decision record
 
