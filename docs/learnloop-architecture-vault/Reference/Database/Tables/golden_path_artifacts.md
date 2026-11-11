@@ -21,7 +21,6 @@ source_paths:
   - "src/learnloop/curriculum/golden_path_restoration.py"
   - "src/learnloop/curriculum/golden_path_run.py"
   - "src/learnloop/diagnosis/diagnostic_pack.py"
-  - "src/learnloop/scheduling/controller_cutover.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -99,14 +98,12 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/golden_path_restoration.py`
 - `src/learnloop/curriculum/golden_path_run.py`
 - `src/learnloop/diagnosis/diagnostic_pack.py`
-- `src/learnloop/scheduling/controller_cutover.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
-- `tests/test_controller_cutover.py`
 - `tests/test_golden_path_assessment.py`
 - `tests/test_p2_acceptance.py`
 

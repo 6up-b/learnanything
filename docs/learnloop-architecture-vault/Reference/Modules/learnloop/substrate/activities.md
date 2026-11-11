@@ -204,7 +204,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/mcp_world.py](../../../../../../tests/mcp_world.py) — direct import
-- [tests/router_staged_p2_helpers.py](../../../../../../tests/router_staged_p2_helpers.py) — direct import
 - [tests/test_action_loss.py](../../../../../../tests/test_action_loss.py) — direct import
   - `test_durations_fall_back_to_logged_pooled_then_heuristic`
 - [tests/test_activity_contract_extensions.py](../../../../../../tests/test_activity_contract_extensions.py) — direct import
@@ -245,8 +244,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_reader_reveal_before_the_assessment_was_taken_stays_in_the_report`
   - `test_a_reserve_already_burned_by_an_exposure_gets_no_burn_proposal`
   - `test_reader_reveal_proposes_a_burn_and_never_executes_it`
-- [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
-  - `test_all_six_cutover_gates_pass_in_order`
 - [tests/test_cross_seam_exposure.py](../../../../../../tests/test_cross_seam_exposure.py) — direct import
   - `test_near_clone_collision_loser_is_refused_not_double_exposed`
   - `test_same_surface_exactly_one_wins_via_shared_ledger`

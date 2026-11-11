@@ -82,7 +82,6 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] — imports `module`; statically calls `decision_row`
 - [[Reference/Modules/learnloop/scheduling/controller_snapshot|learnloop.scheduling.controller_snapshot]] — imports `module`; statically calls `bulk_commitment_rows`, `bulk_exposure_events`, `upsert_snapshot`
 - [[Reference/Modules/learnloop/scheduling/randomization_layer|learnloop.scheduling.randomization_layer]] — imports `module`; statically calls `open_outcome_window`, `persist_experiment_assignment`
 - [[Reference/Modules/learnloop/scheduling/shadow_components|learnloop.scheduling.shadow_components]] — imports `module`; statically calls `persist_shadow_prediction`
@@ -109,14 +108,12 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]], [[Reference/Modules/learnloop/scheduling/controller_snapshot|learnloop.scheduling.controller_snapshot]], [[Reference/Modules/learnloop/scheduling/randomization_layer|learnloop.scheduling.randomization_layer]], [[Reference/Modules/learnloop/scheduling/shadow_components|learnloop.scheduling.shadow_components]], [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]].
+Static participation evidence comes from [[Reference/Modules/learnloop/scheduling/controller_snapshot|learnloop.scheduling.controller_snapshot]], [[Reference/Modules/learnloop/scheduling/randomization_layer|learnloop.scheduling.randomization_layer]], [[Reference/Modules/learnloop/scheduling/shadow_components|learnloop.scheduling.shadow_components]], [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
-- [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
-  - `test_bridge_goes_live_and_is_decision_equivalent_when_owned`
 - [tests/test_controller_snapshot.py](../../../../../../tests/test_controller_snapshot.py) — direct import
   - `test_snapshot_persists_deduped_on_content_hash`
 - [tests/test_randomization_layer.py](../../../../../../tests/test_randomization_layer.py) — direct import

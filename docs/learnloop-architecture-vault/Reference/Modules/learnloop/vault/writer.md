@@ -221,7 +221,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_coldness_receipt.py](../../../../../../tests/test_coldness_receipt.py) — direct import
 - [tests/test_contamination_report.py](../../../../../../tests/test_contamination_report.py) — direct import
   - `test_exam_leakage_shortlists_nearest_held_out_spans_for_the_judge`
-- [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
 - [tests/test_coverage_on_extract.py](../../../../../../tests/test_coverage_on_extract.py) — direct import
   - `test_the_job_rejudges_covered_los_a_new_book_joins_and_a_fresh_state_pays_nothing`
 - [tests/test_cross_seam_exposure.py](../../../../../../tests/test_cross_seam_exposure.py) — direct import

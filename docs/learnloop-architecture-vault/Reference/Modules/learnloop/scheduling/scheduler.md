@@ -273,7 +273,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_reveal_makes_the_cold_lane_treat_the_family_as_revealed_and_primes_the_next_attempt`
 - [tests/test_contrast_pairs.py](../../../../../../tests/test_contrast_pairs.py) — direct import
   - `test_the_scheduler_records_a_serving_for_a_real_session`
-- [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
 - [tests/test_controller_ownership.py](../../../../../../tests/test_controller_ownership.py) — direct import
   - `test_legacy_scheduler_excludes_staged_owned_items`
   - `test_rollback_is_all_or_nothing_on_mid_failure`
@@ -429,7 +428,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_teach_back_items_are_probe_near_ties_at_the_successor`
   - `test_the_draw_can_displace_a_probe_only_at_the_successor`
   - `test_the_gate_needs_the_successor_and_the_switch`
-- [tests/test_router_staged_p2.py](../../../../../../tests/test_router_staged_p2.py) — direct import
 - [tests/test_scheduler.py](../../../../../../tests/test_scheduler.py) — direct import
   - `test_a_clean_cold_task_is_served_as_the_cold_lane`
   - `test_a_revealed_cold_task_is_withheld_and_says_so_in_the_slate`

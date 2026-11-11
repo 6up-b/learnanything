@@ -97,7 +97,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/intent/report|learnloop.intent.report]] — imports `FSRS6_DEFAULT_WEIGHTS`
 - [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `forgetting_curve`; statically calls `forgetting_curve`
 - [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] — imports `FSRS6_DEFAULT_WEIGHTS`
-- [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] — imports `forgetting_curve`
 - [[Reference/Modules/learnloop/scheduling/evaluation|learnloop.scheduling.evaluation]] — imports `MemoryState`, `apply_review`, `forgetting_curve`; statically calls `apply_review`, `forgetting_curve`
 - [[Reference/Modules/learnloop/scheduling/family_memory_model|learnloop.scheduling.family_memory_model]] — imports `MemoryState`, `Rating`, `apply_review`, `forgetting_curve`; statically calls `MemoryState`, `Rating`, `apply_review`, `forgetting_curve`
 - [[Reference/Modules/learnloop/scheduling/fsrs_fitting|learnloop.scheduling.fsrs_fitting]] — imports `FSRS6_DEFAULT_WEIGHTS`, `MemoryState`, `Rating`, `apply_review`, `forgetting_curve`; statically calls `apply_review`, `forgetting_curve`
@@ -128,7 +127,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/fit|learnloop.cli.fit]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]] and 22 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/fit|learnloop.cli.fit]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]] and 21 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

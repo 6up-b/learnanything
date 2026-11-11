@@ -137,9 +137,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_hard_exposure_collision_excludes_fresh_evidence_candidate`
   - `test_inactive_and_quarantined_are_excluded`
   - `test_manifest_is_content_hashed_and_stable`
-- [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
-  - `test_constraint_emptied_feasible_set_is_a_veto`
-  - `test_ownership_only_emptying_is_not_a_veto`
 - [tests/test_cross_seam_exposure.py](../../../../../../tests/test_cross_seam_exposure.py) — direct import
   - `test_assessment_reserve_not_poached_by_practice_at_plan_time`
 - [tests/test_dispersion.py](../../../../../../tests/test_dispersion.py) — direct import

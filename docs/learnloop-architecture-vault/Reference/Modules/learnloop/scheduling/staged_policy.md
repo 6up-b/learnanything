@@ -104,11 +104,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]] — imports `module`; statically calls `StateSignals`, `ladder_eligibility`
 - [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]] — imports `AttentionBlock`
-- [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] — imports `module`; statically calls `StateSignals`, `decide`, `ladder_eligibility`
 - [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]] — imports `AttentionBlock`
 - [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]] — imports `module`; statically calls `AttentionBlock`
 - [[Reference/Modules/learnloop/scheduling/interleaving|learnloop.scheduling.interleaving]] — imports `AttentionBlock`
-- [[Reference/Modules/learnloop/scheduling/state_signals|learnloop.scheduling.state_signals]] — imports `module`; statically calls `StateSignals`
 
 ## Dependencies
 
@@ -141,7 +139,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]], [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]], [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]], [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]], [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]], [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]], [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]], [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]], [[Reference/Modules/learnloop/scheduling/interleaving|learnloop.scheduling.interleaving]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -150,12 +148,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad23_inversion.py](../../../../../../tests/test_ad23_inversion.py) — direct import
   - `test_the_codes_vocabulary_covers_the_incumbents_reasons`
 - [tests/test_constraint_engine.py](../../../../../../tests/test_constraint_engine.py) — direct import
-- [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
-  - `test_a_standing_decisions_persisted_trace_names_the_same_veto`
-  - `test_constraint_emptied_feasible_set_is_a_veto`
-  - `test_evsi_abstain_is_a_veto`
-  - `test_ladder_stop_is_not_a_veto`
-  - `test_ownership_only_emptying_is_not_a_veto`
 - [tests/test_cross_seam_exposure.py](../../../../../../tests/test_cross_seam_exposure.py) — direct import
   - `test_assessment_reserve_not_poached_by_practice_at_plan_time`
 - [tests/test_dispersion.py](../../../../../../tests/test_dispersion.py) — direct import
@@ -163,9 +155,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_ladder_parity.py](../../../../../../tests/test_router_ladder_parity.py) — direct import
   - `test_a_short_circuited_block_fires_no_rung`
   - `test_the_fired_rung_is_the_rule_the_staged_policy_applies`
-- [tests/test_router_staged_p2.py](../../../../../../tests/test_router_staged_p2.py) — direct import
-  - `test_a_randomized_within_block_choice_logs_its_assignment_propensity`
-  - `test_short_circuited_blocks_are_logged_as_the_learner_pick_or_the_continuation`
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
   - `test_affect_check_precedes_depth_edge`
   - `test_decision_persists_snapshot_decision_candidates_and_block`

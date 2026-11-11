@@ -86,12 +86,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]] — imports `Candidate`, `ControllerSnapshot`
-- [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] — imports `module`; statically calls `build_snapshot`
 - [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]] — imports `Candidate`, `ControllerSnapshot`
 - [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]] — imports `module`; statically calls `Candidate`, `ControllerSnapshot`, `build_snapshot`
 - [[Reference/Modules/learnloop/scheduling/interleaving|learnloop.scheduling.interleaving]] — imports `Candidate`, `ControllerSnapshot`
 - [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]] — imports `module`; statically calls `build_snapshot`, `persist_snapshot`
-- [[Reference/Modules/learnloop/scheduling/state_signals|learnloop.scheduling.state_signals]] — imports `module`
 
 ## Dependencies
 
@@ -119,7 +117,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]], [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]], [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]], [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]], [[Reference/Modules/learnloop/scheduling/interleaving|learnloop.scheduling.interleaving]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]], [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]], [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]], [[Reference/Modules/learnloop/scheduling/interleaving|learnloop.scheduling.interleaving]], [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -134,9 +132,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_freshness_unknown_blocks_unseen_claim_only_for_fresh_block`
   - `test_hard_exposure_collision_excludes_fresh_evidence_candidate`
   - `test_inactive_and_quarantined_are_excluded`
-- [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
-  - `test_constraint_emptied_feasible_set_is_a_veto`
-  - `test_ownership_only_emptying_is_not_a_veto`
 - [tests/test_controller_snapshot.py](../../../../../../tests/test_controller_snapshot.py) — direct import
   - `test_reserved_assessment_surfaces_load_into_snapshot`
   - `test_snapshot_construction_is_bounded_no_per_candidate_query`
@@ -173,17 +168,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_short_session_retry_after_commit_is_idempotent`
   - `test_short_session_stops_honestly_when_nothing_fits`
   - `test_three_minute_activity_completes_a_session`
-- [tests/test_state_signals.py](../../../../../../tests/test_state_signals.py) — direct import
-  - `test_derive_signals_composes_all_five`
-  - `test_misspecification_false_when_alarm_resolved`
-  - `test_misspecification_false_when_no_alarm`
-  - `test_misspecification_scoped_to_commitment_head_targets`
-  - `test_misspecification_true_with_pending_generation_need`
-  - `test_pending_items_episode_is_not_measurement_value`
-  - `test_retention_near_limit_when_overdue`
-  - `test_retention_not_near_limit_when_future_due`
-  - `test_robust_value_positive_with_in_progress_episode`
-  - `test_robust_value_zero_without_open_episode`
 - [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import
 
 ## Modification guidance

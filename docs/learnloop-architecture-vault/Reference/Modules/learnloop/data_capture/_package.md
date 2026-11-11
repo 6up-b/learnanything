@@ -47,7 +47,7 @@ For system intent, use [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/data_capture/__init__|learnloop.data_capture]] | [[Reference/Modules/learnloop/data_capture/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] | [[Reference/Modules/learnloop/data_capture/gates#^module-purpose|purpose]] | `ACTIVE` | 19 | 3 |
-| [[Reference/Modules/learnloop/data_capture/prefilter|learnloop.data_capture.prefilter]] | [[Reference/Modules/learnloop/data_capture/prefilter#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
+| [[Reference/Modules/learnloop/data_capture/prefilter|learnloop.data_capture.prefilter]] | [[Reference/Modules/learnloop/data_capture/prefilter#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
 | [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] | [[Reference/Modules/learnloop/data_capture/reading_exposures#^module-purpose|purpose]] | `ACTIVE` | 7 | 6 |
 
 ## Cross-package dependencies
@@ -70,7 +70,6 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 1 static module edge
 - [[Reference/Modules/learnloop/recognition/_package|learnloop.recognition]] — 1 static module edge
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 1 static module edge
-- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 1 static module edge
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 1 static module edge
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 1 static module edge
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 1 static module edge

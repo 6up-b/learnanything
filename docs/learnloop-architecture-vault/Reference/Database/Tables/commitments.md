@@ -116,7 +116,6 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_dialogue.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/scheduling/staged_policy.py`
-- `src/learnloop/scheduling/state_signals.py`
 - `src/learnloop/source_retrieval/deliverable_path.py`
 - `src/learnloop/teacher/delayed.py`
 

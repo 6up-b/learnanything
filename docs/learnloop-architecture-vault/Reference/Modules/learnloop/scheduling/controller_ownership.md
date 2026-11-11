@@ -90,7 +90,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `module`; statically calls `StagedOwnedAdministrationRefused`, `is_learning_object_staged_owned`, `staged_owned_practice_item_ids`
 - [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `ExamReservationOwnershipConflict`, `module`, `staged_owned_practice_item_ids`; statically calls `ExamReservationOwnershipConflict`, `staged_owned_practice_item_ids`
-- [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] — imports `module`; statically calls `assign_p2_run`, `is_staged_owned`, `ownership_events`, `resolve_owner`, `rollback_to_legacy`
 - [[Reference/Modules/learnloop/scheduling/serving_exclusions|learnloop.scheduling.serving_exclusions]] — imports `module`; statically calls `staged_owned_practice_item_ids`
 
 ## Dependencies
@@ -115,19 +114,12 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]], [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]], [[Reference/Modules/learnloop/scheduling/serving_exclusions|learnloop.scheduling.serving_exclusions]].
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]], [[Reference/Modules/learnloop/scheduling/serving_exclusions|learnloop.scheduling.serving_exclusions]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
-- [tests/router_staged_p2_helpers.py](../../../../../../tests/router_staged_p2_helpers.py) — direct import
-- [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
-  - `test_all_six_cutover_gates_pass_in_order`
-  - `test_bridge_goes_live_and_is_decision_equivalent_when_owned`
-  - `test_full_live_walk_reproduces_canonical_sequence`
-  - `test_gate_off_forces_legacy_even_when_owned`
-  - `test_rollback_switch_returns_owned_to_legacy`
 - [tests/test_controller_ownership.py](../../../../../../tests/test_controller_ownership.py) — direct import
   - `test_assign_is_idempotent_and_append_only`
   - `test_default_owner_is_legacy`

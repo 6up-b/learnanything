@@ -381,7 +381,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ro1_self_report_helpers.py](../../../../../../tests/ro1_self_report_helpers.py) — direct import
 - [tests/ro2_history_protection_helpers.py](../../../../../../tests/ro2_history_protection_helpers.py) — direct import
 - [tests/router_probe_ties_helpers.py](../../../../../../tests/router_probe_ties_helpers.py) — direct import
-- [tests/router_staged_p2_helpers.py](../../../../../../tests/router_staged_p2_helpers.py) — direct import
 - [tests/rw5c_golden_source.py](../../../../../../tests/rw5c_golden_source.py) — direct import
 - [tests/serve_eligibility_helpers.py](../../../../../../tests/serve_eligibility_helpers.py) — direct import
 - [tests/sim_probe_validation_helpers.py](../../../../../../tests/sim_probe_validation_helpers.py) — direct import
@@ -960,7 +959,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_members_far_apart_inside_one_wide_band_are_also_rejected`
   - `test_the_doctor_catches_a_one_sided_pair_binding`
   - `test_three_rows_claiming_one_pair_key_are_refused_together`
-- [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
 - [tests/test_controller_ownership.py](../../../../../../tests/test_controller_ownership.py) — direct import
 - [tests/test_controller_snapshot.py](../../../../../../tests/test_controller_snapshot.py) — direct import
 - [tests/test_coverage_denominator_boundary.py](../../../../../../tests/test_coverage_denominator_boundary.py) — direct import
@@ -1082,7 +1080,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_a6_delayed_pick.py](../../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
 - [tests/test_data_capture_codex_review.py](../../../../../../tests/test_data_capture_codex_review.py) — direct import
   - `test_f8_a_crash_before_the_transaction_ends_loses_both_or_neither`
-  - `test_f8_the_staged_decisions_receipt_commits_with_it`
 - [tests/test_data_capture_landing_review.py](../../../../../../tests/test_data_capture_landing_review.py) — direct import
   - `test_f1_a_rebuild_with_no_decisions_needs_no_read`
 - [tests/test_data_capture_successor.py](../../../../../../tests/test_data_capture_successor.py) — direct import
@@ -2939,7 +2936,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_review_log.py](../../../../../../tests/test_review_log.py) — direct import
 - [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
   - `test_f1_a_refused_disclosure_write_leaves_the_question_and_warns`
-  - `test_f3_a_staged_decision_keeps_its_ad_numbers`
   - `test_f8_an_unchanged_load_takes_no_write_lock`
   - `test_f8_two_loaders_sweeping_a_pause_write_it_once`
 - [tests/test_ro0_codex_verify.py](../../../../../../tests/test_ro0_codex_verify.py) — direct import
@@ -3351,7 +3347,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
 - [tests/test_staged_policy_evsi.py](../../../../../../tests/test_staged_policy_evsi.py) — direct import
 - [tests/test_staged_policy_short_session.py](../../../../../../tests/test_staged_policy_short_session.py) — direct import
-- [tests/test_state_signals.py](../../../../../../tests/test_state_signals.py) — direct import
 - [tests/test_state_sync.py](../../../../../../tests/test_state_sync.py) — direct import
   - `test_state_sync_enters_probe_for_new_active_goal_learning_object`
   - `test_state_sync_enters_probe_for_new_active_learning_object_without_goal`

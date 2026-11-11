@@ -175,7 +175,6 @@ None found by exact static reference scan.
 - `tests/router_card_helpers.py`
 - `tests/router_mixture_helpers.py`
 - `tests/router_offer_log_helpers.py`
-- `tests/router_staged_p2_helpers.py`
 - `tests/teacher_te1b_migration_helpers.py`
 - `tests/teacher_te1b_suggestions_helpers.py`
 - `tests/test_ad2_serving.py`
@@ -188,6 +187,7 @@ None found by exact static reference scan.
 - `tests/test_data_capture_codex_review.py`
 - `tests/test_data_capture_landing_review.py`
 - `tests/test_data_capture_phone.py`
+- `tests/test_device_eligibility.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

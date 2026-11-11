@@ -89,7 +89,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]] — imports `module`; statically calls `advance`, `project_run`
 - [[Reference/Modules/learnloop/curriculum/golden_path_restoration|learnloop.curriculum.golden_path_restoration]] — imports `module`; statically calls `advance`, `project_run`
 - [[Reference/Modules/learnloop/diagnosis/failure_triage|learnloop.diagnosis.failure_triage]] — imports `module`; statically calls `advance`, `project_run`
-- [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] — imports `module`; statically calls `advance`, `project_run`
 
 ## Dependencies
 
@@ -112,18 +111,13 @@ Use this module in context through:
 
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]], [[Reference/Modules/learnloop/curriculum/golden_path_restoration|learnloop.curriculum.golden_path_restoration]], [[Reference/Modules/learnloop/diagnosis/failure_triage|learnloop.diagnosis.failure_triage]], [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]].
+Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]], [[Reference/Modules/learnloop/curriculum/golden_path_restoration|learnloop.curriculum.golden_path_restoration]], [[Reference/Modules/learnloop/diagnosis/failure_triage|learnloop.diagnosis.failure_triage]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
 - [tests/test_causal_p2_acceptance.py](../../../../../../tests/test_causal_p2_acceptance.py) — direct import
-- [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
-  - `test_advance_live_veto_persists_typed_marker`
-  - `test_bridge_goes_live_and_is_decision_equivalent_when_owned`
-  - `test_bridge_returns_canonical_when_not_staged_owned`
-  - `test_full_live_walk_reproduces_canonical_sequence`
 - [tests/test_failure_triage.py](../../../../../../tests/test_failure_triage.py) — direct import
   - `test_concentrated_signature_distribution_stays_tier_one`
   - `test_decide_commits_the_aid_and_routes_the_run`
@@ -161,8 +155,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_starting_instruction_closes_measurement_segment_and_reentry_is_fresh`
 - [tests/test_p2_leakage_suite.py](../../../../../../tests/test_p2_leakage_suite.py) — direct import
   - `test_diagnostic_exposure_consumes_cold_eligibility`
-- [tests/test_router_staged_p2.py](../../../../../../tests/test_router_staged_p2.py) — direct import
-  - `test_a_live_staged_decision_logs_continue_the_ladder_and_its_choice`
 
 ## Modification guidance
 

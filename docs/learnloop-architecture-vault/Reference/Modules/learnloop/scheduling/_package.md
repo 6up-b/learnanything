@@ -9,7 +9,6 @@ source_paths:
   - "src/learnloop/scheduling/action_loss.py"
   - "src/learnloop/scheduling/constraint_engine.py"
   - "src/learnloop/scheduling/controller_actions.py"
-  - "src/learnloop/scheduling/controller_cutover.py"
   - "src/learnloop/scheduling/controller_ownership.py"
   - "src/learnloop/scheduling/controller_snapshot.py"
   - "src/learnloop/scheduling/controller_store.py"
@@ -37,7 +36,6 @@ source_paths:
   - "src/learnloop/scheduling/shadow_components.py"
   - "src/learnloop/scheduling/slate_record.py"
   - "src/learnloop/scheduling/staged_policy.py"
-  - "src/learnloop/scheduling/state_signals.py"
   - "src/learnloop/scheduling/unresolved_cost.py"
   - "src/learnloop/scheduling/voi_forecasts.py"
 generated: true
@@ -77,12 +75,11 @@ For system intent, use [[Learning System]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/scheduling/__init__|learnloop.scheduling]] | [[Reference/Modules/learnloop/scheduling/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/scheduling/action_loss|learnloop.scheduling.action_loss]] | [[Reference/Modules/learnloop/scheduling/action_loss#^module-purpose|purpose]] | `ACTIVE` | 9 | 10 |
-| [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]] | [[Reference/Modules/learnloop/scheduling/constraint_engine#^module-purpose|purpose]] | `ACTIVE` | 3 | 7 |
-| [[Reference/Modules/learnloop/scheduling/controller_actions|learnloop.scheduling.controller_actions]] | [[Reference/Modules/learnloop/scheduling/controller_actions#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
-| [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] | [[Reference/Modules/learnloop/scheduling/controller_cutover#^module-purpose|purpose]] | `ACTIVE` | 0 | 5 |
-| [[Reference/Modules/learnloop/scheduling/controller_ownership|learnloop.scheduling.controller_ownership]] | [[Reference/Modules/learnloop/scheduling/controller_ownership#^module-purpose|purpose]] | `ACTIVE` | 4 | 6 |
-| [[Reference/Modules/learnloop/scheduling/controller_snapshot|learnloop.scheduling.controller_snapshot]] | [[Reference/Modules/learnloop/scheduling/controller_snapshot#^module-purpose|purpose]] | `ACTIVE` | 7 | 15 |
-| [[Reference/Modules/learnloop/scheduling/controller_store|learnloop.scheduling.controller_store]] | [[Reference/Modules/learnloop/scheduling/controller_store#^module-purpose|purpose]] | `ACTIVE` | 5 | 5 |
+| [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]] | [[Reference/Modules/learnloop/scheduling/constraint_engine#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
+| [[Reference/Modules/learnloop/scheduling/controller_actions|learnloop.scheduling.controller_actions]] | [[Reference/Modules/learnloop/scheduling/controller_actions#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
+| [[Reference/Modules/learnloop/scheduling/controller_ownership|learnloop.scheduling.controller_ownership]] | [[Reference/Modules/learnloop/scheduling/controller_ownership#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
+| [[Reference/Modules/learnloop/scheduling/controller_snapshot|learnloop.scheduling.controller_snapshot]] | [[Reference/Modules/learnloop/scheduling/controller_snapshot#^module-purpose|purpose]] | `ACTIVE` | 5 | 13 |
+| [[Reference/Modules/learnloop/scheduling/controller_store|learnloop.scheduling.controller_store]] | [[Reference/Modules/learnloop/scheduling/controller_store#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
 | [[Reference/Modules/learnloop/scheduling/decay_pressure|learnloop.scheduling.decay_pressure]] | [[Reference/Modules/learnloop/scheduling/decay_pressure#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/scheduling/device_eligibility|learnloop.scheduling.device_eligibility]] | [[Reference/Modules/learnloop/scheduling/device_eligibility#^module-purpose|purpose]] | `ACTIVE` | 6 | 12 |
 | [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]] | [[Reference/Modules/learnloop/scheduling/dispersion#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
@@ -91,7 +88,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/scheduling/family_memory_model|learnloop.scheduling.family_memory_model]] | [[Reference/Modules/learnloop/scheduling/family_memory_model#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/scheduling/forecast_receipts|learnloop.scheduling.forecast_receipts]] | [[Reference/Modules/learnloop/scheduling/forecast_receipts#^module-purpose|purpose]] | `ACTIVE` | 13 | 8 |
 | [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]] | [[Reference/Modules/learnloop/scheduling/frame_constraints#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
-| [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] | [[Reference/Modules/learnloop/scheduling/fsrs#^module-purpose|purpose]] | `ACTIVE` | 27 | 30 |
+| [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] | [[Reference/Modules/learnloop/scheduling/fsrs#^module-purpose|purpose]] | `ACTIVE` | 26 | 30 |
 | [[Reference/Modules/learnloop/scheduling/fsrs_fitting|learnloop.scheduling.fsrs_fitting]] | [[Reference/Modules/learnloop/scheduling/fsrs_fitting#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/scheduling/intent_planner|learnloop.scheduling.intent_planner]] | [[Reference/Modules/learnloop/scheduling/intent_planner#^module-purpose|purpose]] | `EVALUATION` | 1 | 1 |
 | [[Reference/Modules/learnloop/scheduling/interleaving|learnloop.scheduling.interleaving]] | [[Reference/Modules/learnloop/scheduling/interleaving#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
@@ -100,14 +97,13 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/scheduling/randomization_layer|learnloop.scheduling.randomization_layer]] | [[Reference/Modules/learnloop/scheduling/randomization_layer#^module-purpose|purpose]] | `ACTIVE` | 5 | 4 |
 | [[Reference/Modules/learnloop/scheduling/reentry_summary|learnloop.scheduling.reentry_summary]] | [[Reference/Modules/learnloop/scheduling/reentry_summary#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
 | [[Reference/Modules/learnloop/scheduling/review_log|learnloop.scheduling.review_log]] | [[Reference/Modules/learnloop/scheduling/review_log#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
-| [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] | [[Reference/Modules/learnloop/scheduling/scheduler#^module-purpose|purpose]] | `ACTIVE` | 20 | 100 |
+| [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] | [[Reference/Modules/learnloop/scheduling/scheduler#^module-purpose|purpose]] | `ACTIVE` | 20 | 98 |
 | [[Reference/Modules/learnloop/scheduling/selection_rewards|learnloop.scheduling.selection_rewards]] | [[Reference/Modules/learnloop/scheduling/selection_rewards#^module-purpose|purpose]] | `ACTIVE` | 5 | 8 |
 | [[Reference/Modules/learnloop/scheduling/serving_exclusions|learnloop.scheduling.serving_exclusions]] | [[Reference/Modules/learnloop/scheduling/serving_exclusions#^module-purpose|purpose]] | `ACTIVE` | 5 | 15 |
 | [[Reference/Modules/learnloop/scheduling/session_minutes|learnloop.scheduling.session_minutes]] | [[Reference/Modules/learnloop/scheduling/session_minutes#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/scheduling/shadow_components|learnloop.scheduling.shadow_components]] | [[Reference/Modules/learnloop/scheduling/shadow_components#^module-purpose|purpose]] | `EVALUATION` | 1 | 1 |
 | [[Reference/Modules/learnloop/scheduling/slate_record|learnloop.scheduling.slate_record]] | [[Reference/Modules/learnloop/scheduling/slate_record#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]] | [[Reference/Modules/learnloop/scheduling/staged_policy#^module-purpose|purpose]] | `ACTIVE` | 7 | 12 |
-| [[Reference/Modules/learnloop/scheduling/state_signals|learnloop.scheduling.state_signals]] | [[Reference/Modules/learnloop/scheduling/state_signals#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
+| [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]] | [[Reference/Modules/learnloop/scheduling/staged_policy#^module-purpose|purpose]] | `ACTIVE` | 5 | 10 |
 | [[Reference/Modules/learnloop/scheduling/unresolved_cost|learnloop.scheduling.unresolved_cost]] | [[Reference/Modules/learnloop/scheduling/unresolved_cost#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/scheduling/voi_forecasts|learnloop.scheduling.voi_forecasts]] | [[Reference/Modules/learnloop/scheduling/voi_forecasts#^module-purpose|purpose]] | `ACTIVE` | 8 | 2 |
 
@@ -119,25 +115,23 @@ For system intent, use [[Learning System]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 39 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 24 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 37 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 22 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 15 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 12 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 9 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 9 static module edges
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 7 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 6 static module edges
-- [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 6 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 5 static module edges
-- [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 5 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 4 static module edges
+- [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 4 static module edges
+- [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 3 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 2 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 2 static module edges
-- [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 2 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 1 static module edge
-- [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 1 static module edge
-- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 1 static module edge
+- [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 1 static module edge
 - [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 1 static module edge
 - [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 1 static module edge
 
@@ -188,8 +182,8 @@ flowchart LR
     n_learnloop_evsi_calibration["learnloop.evsi_calibration"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop -->|2| center
-    center -->|39| n_learnloop
-    center -->|24| n_learnloop_db
+    center -->|37| n_learnloop
+    center -->|22| n_learnloop_db
     n_learnloop_diagnosis -->|12| center
     center -->|9| n_learnloop_diagnosis
     n_learnloop_substrate -->|4| center

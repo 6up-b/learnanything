@@ -58,7 +58,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/placement/report|learnloop.placement.report]] | [[Reference/Modules/learnloop/placement/report#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/placement/rules|learnloop.placement.rules]] | [[Reference/Modules/learnloop/placement/rules#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/placement/signals|learnloop.placement.signals]] | [[Reference/Modules/learnloop/placement/signals#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
-| [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] | [[Reference/Modules/learnloop/placement/state#^module-purpose|purpose]] | `ACTIVE` | 33 | 31 |
+| [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] | [[Reference/Modules/learnloop/placement/state#^module-purpose|purpose]] | `ACTIVE` | 32 | 31 |
 
 ## Cross-package dependencies
 
@@ -76,9 +76,9 @@ For system intent, use [[Architecture Overview]].
 
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 8 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 6 static module edges
-- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 5 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 4 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 4 static module edges
+- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 4 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 3 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 3 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 2 static module edges
@@ -101,21 +101,21 @@ flowchart LR
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_field["learnloop.field"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
-    n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_diagnosis_text_gaps["learnloop.diagnosis.text_gaps"]
+    n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_vault["learnloop.vault"]
     center -->|9| n_learnloop
     n_learnloop_diagnosis -->|8| center
     center -->|8| n_learnloop_field
     n_learnloop_sidecar_handlers -->|6| center
-    n_learnloop_scheduling -->|5| center
     n_learnloop_daily_plan -->|4| center
     center -->|4| n_learnloop_db
     center -->|4| n_learnloop_db_stores
     n_learnloop_diagnosis_text_gaps -->|4| center
+    n_learnloop_scheduling -->|4| center
     center -->|4| n_learnloop_vault
 ```
 

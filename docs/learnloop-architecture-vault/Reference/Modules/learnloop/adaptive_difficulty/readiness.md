@@ -149,8 +149,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad3_subject_view.py](../../../../../../tests/test_ad3_subject_view.py) — direct import
   - `test_readiness_numbers_from_subject_view_with_untested_cells`
   - `test_ro0_decision_state_fields_read_the_cards_numbers_with_the_state_they_came_from`
-- [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
-  - `test_f3_a_staged_decision_keeps_its_ad_numbers`
 - [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
   - `test_f8_ad_reports_the_reading_dose_position_only_when_asked`
 - [tests/test_ro5_calibration.py](../../../../../../tests/test_ro5_calibration.py) — direct import

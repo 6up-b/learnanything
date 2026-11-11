@@ -543,7 +543,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro0_codex_review.py](../../../../../tests/test_ro0_codex_review.py) — direct import
   - `test_f3_a_list_that_served_no_head_still_decides_nothing_and_reads_no_ad`
   - `test_f3_a_served_offer_keeps_its_candidates_ad_numbers`
-  - `test_f3_a_staged_decision_keeps_its_ad_numbers`
 - [tests/test_ro0_codex_verify.py](../../../../../tests/test_ro0_codex_verify.py) — direct import
   - `test_r1_an_arranged_check_keeps_its_objective_whatever_its_delay_meets`
   - `test_r1_an_unserved_check_keeps_its_state_whatever_its_type_meets`

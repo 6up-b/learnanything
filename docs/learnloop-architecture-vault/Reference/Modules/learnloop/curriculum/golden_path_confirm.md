@@ -102,9 +102,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/router_staged_p2_helpers.py](../../../../../../tests/router_staged_p2_helpers.py) — direct import
 - [tests/test_causal_p2_acceptance.py](../../../../../../tests/test_causal_p2_acceptance.py) — direct import
-- [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
 - [tests/test_golden_path_assessment.py](../../../../../../tests/test_golden_path_assessment.py) — direct import
 - [tests/test_golden_path_confirm.py](../../../../../../tests/test_golden_path_confirm.py) — direct import
   - `test_missing_baseline_not_confirmable`

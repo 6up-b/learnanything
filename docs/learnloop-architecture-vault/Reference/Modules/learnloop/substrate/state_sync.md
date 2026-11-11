@@ -440,7 +440,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
 - [tests/test_staged_policy_evsi.py](../../../../../../tests/test_staged_policy_evsi.py) — direct import
 - [tests/test_staged_policy_short_session.py](../../../../../../tests/test_staged_policy_short_session.py) — direct import
-- [tests/test_state_signals.py](../../../../../../tests/test_state_signals.py) — direct import
 - [tests/test_state_sync.py](../../../../../../tests/test_state_sync.py) — direct import
   - `test_state_sync_enters_probe_for_new_active_goal_learning_object`
   - `test_state_sync_enters_probe_for_new_active_learning_object_without_goal`

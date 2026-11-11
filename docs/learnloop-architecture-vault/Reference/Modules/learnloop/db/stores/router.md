@@ -142,8 +142,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_w_itself_never_reads_a_preference_or_a_pick`
 - [tests/test_refusal_records.py](../../../../../../../tests/test_refusal_records.py) — direct import
   - `test_a_row_the_ledger_refuses_leaves_a_record_and_the_callers_work_commits`
-- [tests/test_ro0_codex_review.py](../../../../../../../tests/test_ro0_codex_review.py) — direct import
-  - `test_f3_a_staged_decision_keeps_its_ad_numbers`
 - [tests/test_router_coldness_covariates.py](../../../../../../../tests/test_router_coldness_covariates.py) — direct import
 - [tests/test_router_offer_log.py](../../../../../../../tests/test_router_offer_log.py) — direct import
   - `test_a_row_the_ledger_constraints_refuse_raises_instead_of_vanishing`

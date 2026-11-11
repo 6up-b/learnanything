@@ -125,7 +125,6 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/diagnostic_pack.py`
 - `src/learnloop/diagnosis/failure_triage.py`
 - `src/learnloop/reader/reader_guidance.py`
-- `src/learnloop/scheduling/controller_cutover.py`
 - `src/learnloop_sidecar/handlers/reader.py`
 
 > [!note] Static-reference boundary

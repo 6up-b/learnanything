@@ -405,7 +405,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/router_objective_upgrade|learnloop.router_objective_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/router_staged_upgrade|learnloop.router_staged_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]] — imports `Clock`
-- [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/scheduling/controller_ownership|learnloop.scheduling.controller_ownership]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/scheduling/controller_snapshot|learnloop.scheduling.controller_snapshot]] — imports `Clock`
 - [[Reference/Modules/learnloop/scheduling/controller_store|learnloop.scheduling.controller_store]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
@@ -426,7 +425,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/scheduling/session_minutes|learnloop.scheduling.session_minutes]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/scheduling/shadow_components|learnloop.scheduling.shadow_components]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]] — imports `Clock`
-- [[Reference/Modules/learnloop/scheduling/state_signals|learnloop.scheduling.state_signals]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/scheduling/unresolved_cost|learnloop.scheduling.unresolved_cost]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/scheduling/voi_forecasts|learnloop.scheduling.voi_forecasts]] — imports `Clock`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `FrozenClock`; statically calls `FrozenClock`
@@ -535,7 +533,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 435 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 433 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -627,7 +625,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ro2_history_resolve_helpers.py](../../../../../tests/ro2_history_resolve_helpers.py) — direct import
 - [tests/route_rules_in_grader_helpers.py](../../../../../tests/route_rules_in_grader_helpers.py) — direct import
 - [tests/router_probe_ties_helpers.py](../../../../../tests/router_probe_ties_helpers.py) — direct import
-- [tests/router_staged_p2_helpers.py](../../../../../tests/router_staged_p2_helpers.py) — direct import
 - [tests/serve_eligibility_helpers.py](../../../../../tests/serve_eligibility_helpers.py) — direct import
 - [tests/sidecar_quick_add_helpers.py](../../../../../tests/sidecar_quick_add_helpers.py) — direct import
 - [tests/sim_probe_validation_helpers.py](../../../../../tests/sim_probe_validation_helpers.py) — direct import
@@ -916,7 +913,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_capability_axis_distinguishes_the_cells`
   - `test_the_denominator_change_is_narrated_as_one_recalibration`
 - [tests/test_contrast_pairs.py](../../../../../tests/test_contrast_pairs.py) — direct import
-- [tests/test_controller_cutover.py](../../../../../tests/test_controller_cutover.py) — direct import
 - [tests/test_controller_ownership.py](../../../../../tests/test_controller_ownership.py) — direct import
 - [tests/test_controller_snapshot.py](../../../../../tests/test_controller_snapshot.py) — direct import
 - [tests/test_coverage_denominator_boundary.py](../../../../../tests/test_coverage_denominator_boundary.py) — direct import
@@ -2053,7 +2049,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_staged_policy.py](../../../../../tests/test_staged_policy.py) — direct import
 - [tests/test_staged_policy_evsi.py](../../../../../tests/test_staged_policy_evsi.py) — direct import
 - [tests/test_staged_policy_short_session.py](../../../../../tests/test_staged_policy_short_session.py) — direct import
-- [tests/test_state_signals.py](../../../../../tests/test_state_signals.py) — direct import
 - [tests/test_state_sync.py](../../../../../tests/test_state_sync.py) — direct import
   - `test_state_sync_enters_probe_for_new_active_goal_learning_object`
   - `test_state_sync_enters_probe_for_new_active_learning_object_without_goal`

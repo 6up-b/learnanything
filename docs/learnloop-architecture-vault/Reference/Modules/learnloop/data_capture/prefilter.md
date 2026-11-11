@@ -110,7 +110,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `plan_pool_material`, `record`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `module`; statically calls `decision_row_material`, `record`
 - [[Reference/Modules/learnloop/router_objective/decision_state|learnloop.router_objective.decision_state]] — imports `canonical`, `code_revision`, `content_hash`; statically calls `canonical`, `code_revision`, `content_hash`
-- [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] — imports `module`; statically calls `decision_row_material`, `record`
 - [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `module`; statically calls `record`, `today_offer_material`
 
 ## Dependencies
@@ -133,7 +132,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/router_objective/decision_state|learnloop.router_objective.decision_state]], [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]], [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/router_objective/decision_state|learnloop.router_objective.decision_state]], [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -151,7 +150,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_every_evaluated_probe_keeps_its_forecast_in_the_receipt_only`
   - `test_f8_a_crash_before_the_transaction_ends_loses_both_or_neither`
   - `test_f8_an_offers_receipt_commits_in_its_decisions_transaction`
-  - `test_f8_the_staged_decisions_receipt_commits_with_it`
 - [tests/test_data_capture_phone.py](../../../../../../tests/test_data_capture_phone.py) — direct import
   - `test_a_phone_offers_receipt_is_linked_and_names_what_it_held_back`
 

@@ -56,7 +56,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/router/__init__|learnloop.router]] | [[Reference/Modules/learnloop/router/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/router/agreement|learnloop.router.agreement]] | [[Reference/Modules/learnloop/router/agreement#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/router/card|learnloop.router.card]] | [[Reference/Modules/learnloop/router/card#^module-purpose|purpose]] | `ACTIVE` | 1 | 16 |
-| [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] | [[Reference/Modules/learnloop/router/decisions#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
+| [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] | [[Reference/Modules/learnloop/router/decisions#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/router/first_delayed_success|learnloop.router.first_delayed_success]] | [[Reference/Modules/learnloop/router/first_delayed_success#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 | [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]] | [[Reference/Modules/learnloop/router/lesson_suggestions#^module-purpose|purpose]] | `ACTIVE` | 4 | 17 |
 | [[Reference/Modules/learnloop/router/mixture|learnloop.router.mixture]] | [[Reference/Modules/learnloop/router/mixture#^module-purpose|purpose]] | `ACTIVE` | 9 | 11 |
@@ -82,9 +82,9 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 5 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 2 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 2 static module edges
-- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 2 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 1 static module edge
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 1 static module edge
+- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 1 static module edge
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 1 static module edge
 - [[Reference/Modules/learnloop/why/_package|learnloop.why]] — 1 static module edge
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 1 static module edge
@@ -103,9 +103,9 @@ flowchart LR
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_ops["learnloop.ops"]
-    n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_data_capture["learnloop.data_capture"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
+    n_learnloop_followup_run["learnloop.followup_run"]
     n_learnloop_daily_plan -->|19| center
     center -->|12| n_learnloop
     center -->|7| n_learnloop_db_stores
@@ -113,9 +113,9 @@ flowchart LR
     center -->|2| n_learnloop_ai
     n_learnloop_cli -->|2| center
     n_learnloop_ops -->|2| center
-    n_learnloop_scheduling -->|2| center
     center -->|1| n_learnloop_data_capture
     n_learnloop_diagnosis -->|1| center
+    n_learnloop_followup_run -->|1| center
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

@@ -31,7 +31,7 @@ source_paths:
   - "tests/practice_index_fakes.py"
   - "tests/reader_source_identity_guard_helpers.py"
   - "tests/router_model_fakes.py"
-  - "tests/router_staged_p2_helpers.py"
+  - "tests/rw5c_fixtures.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/intent"
@@ -78,7 +78,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/practice_index_fakes.py`
 - `tests/reader_source_identity_guard_helpers.py`
 - `tests/router_model_fakes.py`
-- `tests/router_staged_p2_helpers.py`
+- `tests/rw5c_fixtures.py`
 
 ## Extension and modification guidance
 

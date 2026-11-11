@@ -1418,7 +1418,6 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/remote/telemetry|learnloop.remote.telemetry]] — imports `Repository`
 - [[Reference/Modules/learnloop/scheduling/action_loss|learnloop.scheduling.action_loss]] — imports `Repository`
 - [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]] — imports `Repository`
-- [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] — imports `Repository`
 - [[Reference/Modules/learnloop/scheduling/controller_ownership|learnloop.scheduling.controller_ownership]] — imports `Repository`
 - [[Reference/Modules/learnloop/scheduling/controller_snapshot|learnloop.scheduling.controller_snapshot]] — imports `Repository`
 - [[Reference/Modules/learnloop/scheduling/controller_store|learnloop.scheduling.controller_store]] — imports `Repository`
@@ -1435,7 +1434,6 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/scheduling/serving_exclusions|learnloop.scheduling.serving_exclusions]] — imports `Repository`
 - [[Reference/Modules/learnloop/scheduling/shadow_components|learnloop.scheduling.shadow_components]] — imports `Repository`
 - [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]] — imports `Repository`
-- [[Reference/Modules/learnloop/scheduling/state_signals|learnloop.scheduling.state_signals]] — imports `Repository`
 - [[Reference/Modules/learnloop/scheduling/unresolved_cost|learnloop.scheduling.unresolved_cost]] — imports `Repository`
 - [[Reference/Modules/learnloop/scheduling/voi_forecasts|learnloop.scheduling.voi_forecasts]] — imports `Repository`
 - [[Reference/Modules/learnloop/section_map|learnloop.section_map]] — imports `Repository`
@@ -1575,7 +1573,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 390 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 388 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1676,7 +1674,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ro1_self_report_helpers.py](../../../../../../tests/ro1_self_report_helpers.py) — direct import
 - [tests/router_probe_ties_helpers.py](../../../../../../tests/router_probe_ties_helpers.py) — direct import
 - [tests/router_r2a_serving_helpers.py](../../../../../../tests/router_r2a_serving_helpers.py) — direct import
-- [tests/router_staged_p2_helpers.py](../../../../../../tests/router_staged_p2_helpers.py) — direct import
 - [tests/section_coverage_fixtures.py](../../../../../../tests/section_coverage_fixtures.py) — direct import
 - [tests/sidecar_quick_add_helpers.py](../../../../../../tests/sidecar_quick_add_helpers.py) — direct import
 - [tests/sidecar_reader_helpers.py](../../../../../../tests/sidecar_reader_helpers.py) — direct import
@@ -2114,8 +2111,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_contrast_pairs.py](../../../../../../tests/test_contrast_pairs.py) — direct import
   - `test_a_pair_must_satisfy_both_the_persona_gate_and_the_pair_gate`
   - `test_a_pair_the_persona_gate_cannot_plant_does_not_ship`
-- [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
-  - `test_all_six_cutover_gates_pass_in_order`
 - [tests/test_controller_ownership.py](../../../../../../tests/test_controller_ownership.py) — direct import
 - [tests/test_controller_snapshot.py](../../../../../../tests/test_controller_snapshot.py) — direct import
 - [tests/test_coordinated_migrations.py](../../../../../../tests/test_coordinated_migrations.py) — direct import
@@ -2192,7 +2187,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_a4_delayed_completion.py](../../../../../../tests/test_data_capture_a4_delayed_completion.py) — direct import
 - [tests/test_data_capture_codex_review.py](../../../../../../tests/test_data_capture_codex_review.py) — direct import
   - `test_f8_a_crash_before_the_transaction_ends_loses_both_or_neither`
-  - `test_f8_the_staged_decisions_receipt_commits_with_it`
 - [tests/test_data_capture_landing_review.py](../../../../../../tests/test_data_capture_landing_review.py) — direct import
   - `test_f1_a_rebuild_with_no_decisions_needs_no_read`
   - `test_f1_the_read_is_read_only_under_a_read_only_repository`
@@ -3158,7 +3152,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
   - `test_f1_a_refused_disclosure_write_leaves_the_question_and_warns`
   - `test_f1_the_refusal_is_the_receipts_alone_inside_a_callers_transaction`
-  - `test_f3_a_staged_decision_keeps_its_ad_numbers`
   - `test_f8_an_unchanged_load_takes_no_write_lock`
   - `test_f8_two_loaders_sweeping_a_pause_write_it_once`
 - [tests/test_ro0_codex_verify.py](../../../../../../tests/test_ro0_codex_verify.py) — direct import
@@ -3413,7 +3406,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
 - [tests/test_staged_policy_evsi.py](../../../../../../tests/test_staged_policy_evsi.py) — direct import
 - [tests/test_staged_policy_short_session.py](../../../../../../tests/test_staged_policy_short_session.py) — direct import
-- [tests/test_state_signals.py](../../../../../../tests/test_state_signals.py) — direct import
 - [tests/test_state_sync.py](../../../../../../tests/test_state_sync.py) — direct import
   - `test_state_sync_enters_probe_for_new_active_goal_learning_object`
   - `test_state_sync_enters_probe_for_new_active_learning_object_without_goal`

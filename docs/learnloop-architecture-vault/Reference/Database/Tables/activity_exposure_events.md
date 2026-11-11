@@ -20,12 +20,11 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/scheduling/constraint_engine.py"
-  - "src/learnloop/scheduling/controller_cutover.py"
   - "src/learnloop/scheduling/controller_store.py"
   - "src/learnloop/scheduling/open_world_gate.py"
+  - "src/learnloop/substrate/activities.py"
   - "src/learnloop/cli/surfaces.py"
   - "src/learnloop/learner/familiarity.py"
-  - "src/learnloop/substrate/activities.py"
   - "src/learnloop/substrate/compat/activity_backfill.py"
   - "src/learnloop/substrate/surface_mint.py"
 tags:
