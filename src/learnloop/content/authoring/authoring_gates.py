@@ -114,16 +114,6 @@ class SelectedResponseGate:
             row["validation_errors"] = ["selected_response_surface", *errors]
 
 
-def chain_gates(*gates: RowGate) -> RowGate:
-    """Run several row_transform gates over one proposal batch, in order."""
-
-    def _run(rows: list[dict[str, Any]]) -> None:
-        for gate in gates:
-            gate(rows)
-
-    return _run
-
-
 # ---------------------------------------------------------------------------
 # Deterministic gate remediation — information-removing repairs only
 # ---------------------------------------------------------------------------

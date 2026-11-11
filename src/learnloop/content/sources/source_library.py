@@ -142,33 +142,3 @@ def _has_completed_reading(repo: Repository, source_id: str) -> bool:
         for revision in repo.source_revisions_for(source_id)
         for run in repo.extraction_runs_for_revision(revision["id"])
     )
-
-
-def index_legacy_note(
-    repo: Repository,
-    *,
-    note_id: str,
-    acquisition_kind: str,
-    canonical_uri: str | None,
-    raw_bytes: bytes,
-    note_path: str | None = None,
-    retrieved_at: str | None = None,
-    clock: Clock | None = None,
-) -> RegisteredRevision:
-    """Index one legacy subject-scoped source note into artifact/revision rows.
-
-    Does NOT move or rewrite the note file (§13); it only records identity rows so
-    the library can reference the source. ``note_path`` is retained as
-    ``original_uri`` when no canonical URI exists.
-    """
-
-    return register_source_revision(
-        repo,
-        acquisition_kind=acquisition_kind,
-        canonical_uri=canonical_uri,
-        raw_bytes=raw_bytes,
-        note_id=note_id,
-        original_uri=canonical_uri or note_path,
-        retrieved_at=retrieved_at,
-        clock=clock,
-    )

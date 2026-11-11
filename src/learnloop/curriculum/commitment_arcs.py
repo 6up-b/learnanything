@@ -305,15 +305,6 @@ def pause_arc(
     return {"arc_id": arc_id, "paused": True}
 
 
-def resume_arc(repository: Repository, *, arc_id: str, clock: Clock | None = None) -> dict[str, Any]:
-    arc = repository.commitment_arc(arc_id)
-    if arc is None:
-        raise ArcError(f"unknown arc: {arc_id!r}")
-    repository.append_commitment_arc_event(arc_id=arc_id, kind="arc_resumed", clock=clock)
-    C.resume(repository, commitment_id=arc["commitment_id"], clock=clock)
-    return {"arc_id": arc_id, "paused": False}
-
-
 def set_depth_policy(
     repository: Repository, *, arc_id: str, policy: str, clock: Clock | None = None
 ) -> dict[str, Any]:

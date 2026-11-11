@@ -922,10 +922,6 @@ def decide_cost(config, repo, provider_name: str, totals: Mapping[str, Any], *,
                         daily_remaining_usd=remaining)
 
 
-class AutoBuildPaused(Exception):
-    """An automatic build's next paid job is not admitted."""
-
-
 def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
     """Admit one paid job attempt of an automatic build, or stop it (F1-F5),
     and admit each of its model requests (re-review F2).

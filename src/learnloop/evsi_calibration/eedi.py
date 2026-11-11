@@ -31,8 +31,6 @@ from typing import Any, Mapping, Sequence
 import numpy as np
 
 OPTIONS = ("A", "B", "C", "D")
-#: 2020 answers are 1..4 for A..D.
-_OPTION_INDEX = {"A": 1, "B": 2, "C": 3, "D": 4}
 
 # Cache layout version: bump when the arrays saved beside the raw files change.
 _CACHE_VERSION = 1
@@ -327,7 +325,3 @@ def load_neurips_2020(
             else:
                 responses.notes.append(f"{metadata.name} missing: persistence not estimated")
     return responses
-
-
-def option_index(option: str) -> int:
-    return _OPTION_INDEX[option]

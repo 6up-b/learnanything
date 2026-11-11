@@ -15,8 +15,8 @@ posterior, FSRS write, or certification.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from typing import Any, Mapping, Sequence
+from dataclasses import asdict, dataclass
+from typing import Any, Mapping
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
@@ -33,23 +33,6 @@ CAPABILITY_VOCAB: frozenset[str] = frozenset(
 class InvalidBlueprint(Exception):
     """A blueprint spec violates the one-chapter/one-family invariant or references a
     capability outside the closed P1 vocabulary (§1.2 invariant 1, §12.1)."""
-
-
-@dataclass(frozen=True)
-class ExemplarCandidate:
-    """A source object / inventory exercise proposed as a target exemplar (§3.1)."""
-
-    exemplar_ref: str
-    unit_id: str
-    statement: str
-    family_key: str
-    practice_eligible: bool
-    assessment_eligible: bool
-    extraction_health: str = "ok"
-    detail: Mapping[str, Any] = field(default_factory=dict)
-
-    def as_dict(self) -> dict[str, Any]:
-        return asdict(self)
 
 
 @dataclass(frozen=True)
@@ -137,34 +120,6 @@ def _exemplar_rows(spec: Mapping[str, Any]) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Discover -> register -> review -> activate
 # ---------------------------------------------------------------------------
-
-def discover_exemplar_candidates(
-    candidates: Sequence[Mapping[str, Any]],
-    *,
-    unit_id: str,
-    family_key: str,
-) -> list[ExemplarCandidate]:
-    """Project reviewed inventory exercise rows into exemplar candidates within one
-    unit (§3.1). Composition-only: the caller supplies inventory rows (from
-    ``source_unit_inventory``); this filters/normalizes -- it invents no extractor."""
-
-    out: list[ExemplarCandidate] = []
-    for row in candidates:
-        if row.get("unit_id", unit_id) != unit_id:
-            continue
-        out.append(
-            ExemplarCandidate(
-                exemplar_ref=row["exemplar_ref"],
-                unit_id=unit_id,
-                statement=row.get("statement", ""),
-                family_key=row.get("family_key", family_key),
-                practice_eligible=bool(row.get("practice_eligible", True)),
-                assessment_eligible=bool(row.get("assessment_eligible", True)),
-                extraction_health=row.get("extraction_health", "ok"),
-                detail=dict(row.get("detail") or {}),
-            )
-        )
-    return out
 
 
 def register_blueprint_version(

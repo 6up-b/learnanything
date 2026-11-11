@@ -181,26 +181,6 @@ def admit_pack_card(
     return _load_pack(repository, pack_id)
 
 
-def reject_pack_card(
-    repository: Repository,
-    *,
-    pack_id: str,
-    card_slug: str,
-    reason: str,
-    author: str = "owner",
-    clock: Clock | None = None,
-) -> PackRecord:
-    repository.set_diagnostic_pack_card_admission(
-        pack_id=pack_id,
-        card_slug=card_slug,
-        admission_status="rejected",
-        detail_json=canonical_json({"reason": reason}),
-        author=author,
-        clock=clock,
-    )
-    return _load_pack(repository, pack_id)
-
-
 def review_pack(
     repository: Repository,
     *,
@@ -222,25 +202,6 @@ def review_pack(
         author=author,
         clock=clock,
     )
-    return _load_pack(repository, pack_id)
-
-
-def activate_pack(
-    repository: Repository,
-    *,
-    pack_id: str,
-    author: str = "owner",
-    clock: Clock | None = None,
-) -> PackRecord:
-    pack = repository.diagnostic_pack(pack_id)
-    if pack is None or pack["status"] not in ("reviewed", "active"):
-        raise InvalidPack(
-            f"cannot activate pack in status {pack['status'] if pack else None!r}"
-        )
-    if pack["status"] == "reviewed":
-        repository.transition_diagnostic_pack(
-            pack_id=pack_id, status="active", kind="activated", author=author, clock=clock
-        )
     return _load_pack(repository, pack_id)
 
 

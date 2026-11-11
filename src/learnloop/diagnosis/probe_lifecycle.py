@@ -260,34 +260,6 @@ def revise_family_version(
     return new_version
 
 
-def retire_probe_instance(
-    repository: Repository,
-    practice_item_id: str,
-    *,
-    reason: str | None = None,
-    clock: Clock | None = None,
-) -> bool:
-    """Retire one generated instance: deactivate the item and mark every
-    family link's review status. Historical observations are untouched."""
-
-    links = repository.probe_item_family_links(practice_item_id)
-    if not links:
-        return False
-    for link in links:
-        metadata = dict(link.instance_metadata or {})
-        metadata["review_status"] = "retired"
-        if reason:
-            metadata["retired_reason"] = reason
-        repository.update_probe_item_family_metadata(
-            practice_item_id=practice_item_id,
-            instrument_card_id=link.instrument_card_id,
-            instrument_card_version=link.instrument_card_version,
-            instance_metadata=metadata,
-        )
-    repository.set_practice_item_active(practice_item_id, active=False, clock=clock)
-    return True
-
-
 def family_lifecycle_overview(
     vault: LoadedVault, repository: Repository
 ) -> list[FamilyLifecycleAssessment]:

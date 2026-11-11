@@ -493,34 +493,6 @@ def add_target(
     )
 
 
-def remove_target(
-    repository: Repository,
-    *,
-    commitment_id: str,
-    target_ref: str,
-    change_reason: str = "target_removed",
-    author: str = "learner",
-    clock: Clock | None = None,
-) -> CommitmentVersion:
-    """Remove a target: appends a commitment successor and stops future generation
-    for it. It never deletes observations already mapped to it (§3.2) -- observations
-    live on the P0 activity ledger, untouched by this append-only version bump."""
-
-    head = _require_head(repository, commitment_id)
-    remaining = [t for t in head.targets if t.target_ref != target_ref]
-    if len(remaining) == len(head.targets):
-        raise InvalidTarget(f"target not present: {target_ref!r}")
-    return append_commitment_version(
-        repository,
-        commitment_id=commitment_id,
-        targets=remaining,
-        change_reason=change_reason,
-        author=author,
-        extra_events=[{"kind": "target_removed", "detail": {"target_ref": target_ref}}],
-        clock=clock,
-    )
-
-
 # ---------------------------------------------------------------------------
 # Depth changes (A.3): version bump + typed event in one transaction
 # ---------------------------------------------------------------------------
@@ -767,48 +739,6 @@ def record_milestone_reached(
         kind="depth_milestone_reached",
         detail_json=canonical_json(payload),
         clock=clock,
-    )
-
-
-def record_depth_transition_committed(
-    repository: Repository,
-    *,
-    commitment_id: str,
-    detail: Mapping[str, Any] | None = None,
-    clock: Clock | None = None,
-) -> str:
-    """Append ``depth_transition_committed``: an activation fact over the existing
-    authored envelope (A.3). Like ``depth_milestone_reached`` it changes neither the
-    active policy id nor the active envelope id, so it appends only the event -- no
-    version bump. Emitted by the one-edge depth-transition service (§5.7)."""
-
-    _require_head(repository, commitment_id)
-    return repository.append_commitment_event(
-        commitment_id=commitment_id,
-        commitment_version_id=None,
-        kind="depth_transition_committed",
-        detail_json=canonical_json(dict(detail)) if detail else None,
-        clock=clock,
-    )
-
-
-def attach_family(
-    repository: Repository, *, commitment_id: str, family_id: str, clock: Clock | None = None
-) -> None:
-    _require_head(repository, commitment_id)
-    repository.append_commitment_event(
-        commitment_id=commitment_id, commitment_version_id=None, kind="family_attached",
-        detail_json=canonical_json({"family_id": family_id}), clock=clock,
-    )
-
-
-def detach_family(
-    repository: Repository, *, commitment_id: str, family_id: str, clock: Clock | None = None
-) -> None:
-    _require_head(repository, commitment_id)
-    repository.append_commitment_event(
-        commitment_id=commitment_id, commitment_version_id=None, kind="family_detached",
-        detail_json=canonical_json({"family_id": family_id}), clock=clock,
     )
 
 

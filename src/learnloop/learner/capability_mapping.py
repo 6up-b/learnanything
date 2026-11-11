@@ -318,26 +318,6 @@ def cap_certification_by_group(
     return capped
 
 
-def group_proliferation_flag(
-    group_variation_counts: Mapping[str, int],
-    *,
-    min_independent_variations: int = 2,
-) -> list[str]:
-    """Correlation groups whose observations never vary independently (§5.4).
-
-    ``group_variation_counts`` maps a correlation group to how many distinct
-    outcome patterns its observations have shown across attempts. A group that
-    always co-varies (count < ``min_independent_variations``) is flagged for the
-    identifiability doctor / synthesis gate as suspicious group proliferation.
-    """
-
-    return sorted(
-        group
-        for group, count in group_variation_counts.items()
-        if count < min_independent_variations
-    )
-
-
 def unregistered_facet_errors(
     known_facets: Mapping[str, object] | set[str],
     facet_ids,

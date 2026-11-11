@@ -1070,16 +1070,3 @@ def evidence_sets_from_labels(labels: QuestionLabels, snapshot: CorpusSnapshot) 
         refs = tuple(ref for unit_id in sorted(members) for ref in unit_refs(snapshot.unit(unit_id)))
         sets.append(EvidenceSet(f"e{index}", refs))
     return sets
-
-
-def reference_dependencies(snapshot: CorpusSnapshot, question: BankQuestion) -> list[str]:
-    """Deterministic reference following for a known selection (identical
-    for every arm): the units its numbered references resolve to."""
-
-    if question.selection is None:
-        return []
-    owner = next((unit for unit in snapshot.units if unit.extraction_id == question.selection.extraction_id
-                  and any(member.span_id == question.selection.span_id for member in unit.members)), None)
-    if owner is None:
-        return []
-    return list(snapshot.dependencies.get(owner.unit_id, {}).get("targets", []))

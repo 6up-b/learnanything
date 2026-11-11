@@ -260,27 +260,6 @@ def admit_pool_surface(
     return _load_pool(repository, pool_id)
 
 
-def reject_pool_surface(
-    repository: Repository,
-    *,
-    pool_id: str,
-    surface_slug: str,
-    reason: str,
-    author: str = "owner",
-    clock: Clock | None = None,
-) -> PoolRecord:
-    repository.set_practice_pool_surface_admission(
-        pool_id=pool_id,
-        surface_slug=surface_slug,
-        admission_status="rejected",
-        surface_id=None,
-        detail_json=canonical_json({"reason": reason}),
-        author=author,
-        clock=clock,
-    )
-    return _load_pool(repository, pool_id)
-
-
 def review_pool(
     repository: Repository,
     *,
@@ -298,19 +277,6 @@ def review_pool(
         pool_id=pool_id, status="reviewed", kind="reviewed",
         detail_json=canonical_json(dict(checks)) if checks else None, author=author, clock=clock,
     )
-    return _load_pool(repository, pool_id)
-
-
-def activate_pool(
-    repository: Repository, *, pool_id: str, author: str = "owner", clock: Clock | None = None
-) -> PoolRecord:
-    pool = repository.practice_pool(pool_id)
-    if pool is None or pool["status"] not in ("reviewed", "active"):
-        raise InvalidPool(f"cannot activate pool in status {pool['status'] if pool else None!r}")
-    if pool["status"] == "reviewed":
-        repository.transition_practice_pool(
-            pool_id=pool_id, status="active", kind="activated", author=author, clock=clock
-        )
     return _load_pool(repository, pool_id)
 
 

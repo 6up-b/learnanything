@@ -9,7 +9,6 @@ from learnloop.ops.settings_store import (
     copy_ai_settings,
     openrouter_profile_name,
     openrouter_task_profile_values,
-    remove_config_paths,
     save_ai_settings_to,
     upsert_env_var,
 )

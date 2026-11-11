@@ -16,7 +16,6 @@ from learnloop.learner.capability_mapping import (
     cap_certification_by_group,
     certification_credit,
     group_budget,
-    group_proliferation_flag,
     localize_criterion_outcomes,
 )
 

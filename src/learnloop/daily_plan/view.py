@@ -12,7 +12,6 @@ read (review F3).
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from learnloop.clock import parse_utc
@@ -369,10 +368,6 @@ def disabled_view(vault: Any, *, reason: str) -> dict[str, Any]:
         "algorithm_version": vault.config.algorithms.algorithm_version,
         "plan": None,
     }
-
-
-def now_payload(moment: datetime) -> str:
-    return moment.isoformat()
 
 
 __all__ = ["MAX_PROJECTED_BLOCKS", "disabled_view", "minute_choices", "plan_view", "project_blocks"]

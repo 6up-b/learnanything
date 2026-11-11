@@ -13,10 +13,6 @@ from learnloop.vault.models import LoadedVault
 _yaml = YAML(typ="safe")
 
 
-class ObservationTemplatesNotReady(RuntimeError):
-    pass
-
-
 class ObservationTemplateError(ValueError):
     pass
 

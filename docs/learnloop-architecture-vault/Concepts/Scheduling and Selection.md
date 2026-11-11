@@ -102,4 +102,4 @@ A saved queue build persists a [[scheduler_slates|slate]] (`selection_policy` `c
 - `tests/test_scheduler.py`
 - `tests/test_scheduler_golden.py`
 - `tests/test_scheduler_probe_eig.py`
-- constraint, controller, requested-floor, short-session, exam-quarantine, and prequential suites
+- constraint, controller, requested-floor, short-session and exam-quarantine suites

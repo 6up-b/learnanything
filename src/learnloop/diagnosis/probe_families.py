@@ -69,10 +69,6 @@ class CardValidationError(ValueError):
     """A family/card failed schema, vocabulary, or normalization validation."""
 
 
-class FamilyGateRejection(ValueError):
-    """A family/card version failed the admission gate (§9.6)."""
-
-
 @dataclass(frozen=True)
 class ProbeFamilyTemplate:
     """Versioned reusable measurement pattern (§9.2).

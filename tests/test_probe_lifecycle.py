@@ -15,7 +15,6 @@ from learnloop.diagnosis.probe_lifecycle import (
     LifecycleTransitionError,
     apply_family_lifecycle_transition,
     evaluate_family_lifecycle,
-    retire_probe_instance,
     revise_family_version,
 )
 from learnloop.vault.loader import load_vault

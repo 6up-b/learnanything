@@ -22,7 +22,7 @@ scans the codebase to assert no evidence/projection module reads the column.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Mapping
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
@@ -190,18 +190,6 @@ def map_capability(
     if row is None or row["canonical"] is None:
         return LEGACY_UNMAPPED
     return row["canonical"]
-
-
-def normalize_capabilities(
-    repository: Repository,
-    values: Iterable[str],
-    *,
-    registry_version: int = CAPABILITY_ALIAS_REGISTRY_VERSION,
-) -> list[str]:
-    """Normalize a legacy capability list through the alias registry (§3.3). Used to
-    fold ``source_set_synthesis`` recipe-component capabilities into the closed set."""
-
-    return [map_capability(repository, v, registry_version=registry_version) for v in values]
 
 
 # ---------------------------------------------------------------------------
@@ -373,42 +361,6 @@ def register_pattern_version(
     return _row_to_version(dict(result["row"]), pattern_slug)
 
 
-def review_pattern_version(repository: Repository, *, pattern_version_id: str) -> None:
-    repository.set_activity_pattern_version_status(
-        pattern_version_id=pattern_version_id, status="reviewed"
-    )
-
-
-def activate_pattern_version(repository: Repository, *, pattern_version_id: str) -> None:
-    repository.set_activity_pattern_version_status(
-        pattern_version_id=pattern_version_id, status="active"
-    )
-
-
-def list_compatible_patterns(
-    repository: Repository,
-    *,
-    purpose: str,
-    target_kind: str | None = None,
-    capabilities: Sequence[str] = (),
-    status: str = "active",
-) -> list[ActivityPatternVersion]:
-    """List reviewed/active patterns compatible with a (purpose, target kind,
-    capability set). A pattern out-of-bounds for the request is excluded (§3.5)."""
-
-    out: list[ActivityPatternVersion] = []
-    for row in repository.activity_pattern_versions(status=status):
-        version = _load_version(repository, row["id"])
-        if purpose not in version.allowed_purposes:
-            continue
-        if target_kind is not None and version.allowed_target_kinds and target_kind not in version.allowed_target_kinds:
-            continue
-        if capabilities and not set(capabilities).issubset(set(version.allowed_capabilities)):
-            continue
-        out.append(version)
-    return out
-
-
 def candidate_within_bounds(
     version: ActivityPatternVersion,
     *,
@@ -572,39 +524,6 @@ def ensure_builtin_patterns(
 # Adapter: admitted probe templates -> diagnostic-only patterns (§3.5, §7.3)
 # ---------------------------------------------------------------------------
 
-def adapt_probe_template_to_pattern(
-    repository: Repository,
-    *,
-    template_slug: str,
-    likelihood_identity: str,
-    status: str = "active",
-    clock: Clock | None = None,
-) -> ActivityPatternVersion:
-    """Mirror an admitted probe-family template into a ``diagnostic``-purpose pattern
-    without touching the probe rows; the compiled likelihood identity + status remain
-    intact on the diagnostic instrument side (§3.5, §7.3)."""
-
-    fields = {
-        "allowed_purposes": ["diagnostic"],
-        "operation": "discriminate",
-        "learning_process": "comprehension_monitoring",
-        "allowed_target_kinds": [],
-        "allowed_capabilities": ["schema_interpretation"],
-        "completion_semantics": {"kind": "probe_response"},
-        "response_contract": {"form": "recognize"},
-        "evidence_semantics_by_context": {"diagnostic": "frozen_episode_only"},
-        "task_feature_bounds": {},
-        "variation_axes": {},
-        "rubric_shape": {"kind": "ordinal"},
-        "mint_gates": {"gates": ["identifiability", "likelihood"]},
-        "calibration_status": "heuristic",
-        "generator_version": f"probe_adapter:{likelihood_identity}",
-    }
-    return register_pattern_version(
-        repository, pattern_slug=f"probe_diagnostic_{template_slug}", fields=fields,
-        status=status, clock=clock,
-    )
-
 
 # ---------------------------------------------------------------------------
 # Loaders
@@ -653,7 +572,3 @@ def _load_version(repository: Repository, pattern_version_id: str) -> ActivityPa
     if row is None:
         raise UnknownPatternVersion(pattern_version_id)
     return _row_to_version(row, _pattern_slug_for(repository, row["pattern_id"]))
-
-
-def load_pattern_version(repository: Repository, pattern_version_id: str) -> ActivityPatternVersion:
-    return _load_version(repository, pattern_version_id)

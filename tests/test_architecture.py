@@ -188,7 +188,6 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/scheduling/controller_ownership.py",
         "src/learnloop/scheduling/controller_store.py",
         "src/learnloop/scheduling/kinship_feature.py",
-        "src/learnloop/scheduling/prequential.py",
         "src/learnloop/scheduling/shadow_components.py",
         "src/learnloop/diagnosis/probe_episodes.py",
         "src/learnloop/curriculum/concepts.py",

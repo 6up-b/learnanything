@@ -75,7 +75,7 @@ from typing import Any, Iterator
 
 from learnloop.ai.execution import content_key
 from learnloop.ai.spend import SpendLimitExceeded, spend_envelopes
-from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
+from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.curriculum import commitments as C
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
@@ -1866,10 +1866,6 @@ def coming_up(vault: LoadedVault, repository: Repository, *, extraction_id: str 
 def _due_hint(repository: Repository, commitment_id: str) -> str | None:
     versions = sorted(repository.commitment_versions_for(commitment_id), key=lambda r: int(r["version"]))
     return next((str(v["due_hint"]) for v in reversed(versions) if v.get("due_hint")), None)
-
-
-def now_utc(clock: Clock | None = None) -> datetime:
-    return (clock or SystemClock()).now()
 
 
 __all__ = [

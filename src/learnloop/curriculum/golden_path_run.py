@@ -159,12 +159,6 @@ class AdvanceResult:
         return asdict(self)
 
 
-def next_feasible_action(state: RunState) -> NextAction:
-    """The transparent staged policy's next canonical action from a state (§4.2)."""
-
-    return _next_action_for(state.current_state, state.mode)
-
-
 def _next_action_for(current_state: str, mode: str) -> NextAction:
     if current_state in TERMINAL_STATES:
         return NextAction(to_state=None, reason="run is terminal", terminal=True)

@@ -143,11 +143,6 @@ def revision_bytes(vault_root: Path, revision: Mapping[str, Any], artifact: Mapp
     )
 
 
-def has_completed_reading(repository: Any, source_id: str) -> bool:
-    return any(span_aliases.completed_readings(repository, str(revision["id"]))
-               for revision in repository.source_revisions_for(source_id))
-
-
 def adopt_revision(repository: Any, source_id: str, revision_id: str, *, clock: Clock | None = None) -> bool:
     """Make ``revision_id`` current once it has a completed reading: when the
     current one has none, or ``revision_id`` is newer. A failed import never

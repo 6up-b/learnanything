@@ -6,13 +6,10 @@ from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.probes import (
     Hypothesis,
-    HypothesisSet,
     build_hypothesis_set,
     conditional_distribution,
-    probe_eig_component,
 )
 from learnloop.vault.loader import load_vault
-from learnloop.vault.writer import upsert_practice_item
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault
 
@@ -35,29 +32,6 @@ def _insert_error(
             "created_at": NOW_ISO,
             "updated_at": NOW_ISO,
         }
-    )
-
-
-def _add_non_fatal_item(vault_root) -> None:
-    upsert_practice_item(
-        vault_root,
-        {
-            "id": "pi_svd_no_fatal",
-            "learning_object_id": "lo_svd_definition",
-            "subjects": None,
-            "practice_mode": "short_answer",
-            "attempt_types_allowed": ["independent_attempt"],
-            "evidence_facets": ["recall"],
-            "evidence_weights": {"recall": 1.0},
-            "prompt": "List the factors of SVD.",
-            "expected_answer": "U, Sigma, V transpose.",
-            "grading_rubric": {
-                "max_points": 4,
-                "criteria": [{"id": "correctness", "points": 4, "description": "Correct."}],
-                "fatal_errors": [],
-            },
-        },
-        clock=FrozenClock(NOW),
     )
 
 

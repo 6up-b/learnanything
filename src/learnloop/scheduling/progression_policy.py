@@ -92,12 +92,3 @@ def ensure_default_progression_policy(
         repository, policy_slug=policy_slug, body=default_progression_policy_body(policy_slug),
         clock=clock,
     )
-
-
-def load_progression_policy(repository: Repository, policy_version_id: str) -> dict[str, Any] | None:
-    row = repository.progression_policy_version(policy_version_id)
-    if row is None:
-        return None
-    import json
-
-    return json.loads(row["body_json"])

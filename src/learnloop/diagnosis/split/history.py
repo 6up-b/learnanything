@@ -1405,10 +1405,6 @@ class StaticHistoryStore:
         return sum(1 for attempt in self.attempts if attempt.key() > before.key())
 
 
-def with_blind_overlay(attempt: HistoryAttempt, **changes: Any) -> HistoryAttempt:
-    return replace(attempt, **changes)
-
-
 __all__ = [
     "ASSISTED_ATTEMPT_TYPES",
     "AttemptRef",

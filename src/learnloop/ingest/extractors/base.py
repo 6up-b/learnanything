@@ -51,12 +51,6 @@ class DocumentExtractor(Protocol):
         """Return a :class:`DocumentIR` for ``raw_bytes``."""
 
 
-def assign_span_semantic_hash(blocks: list[DocumentBlock]) -> str:
-    """Convenience wrapper so extractors compute unit hashes consistently."""
-
-    return semantic_hash(blocks)
-
-
 def units_from_toc_entries(
     entries: list[dict[str, Any]],
     blocks: list[DocumentBlock],

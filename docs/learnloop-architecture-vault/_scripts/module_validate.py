@@ -46,7 +46,6 @@ REQUIRED_MODULE_HEADINGS = {
 ALLOWED_REFACTOR_STATUSES = {"ACTIVE", "COMPAT", "DORMANT", "EVALUATION"}
 EXPECTED_EXPLICIT_STATUS = {
     "src/learnloop/scheduling/kinship_feature.py": "DORMANT",
-    "src/learnloop/scheduling/prequential.py": "DORMANT",
     "src/learnloop/scheduling/intent_planner.py": "EVALUATION",
     "src/learnloop/scheduling/shadow_components.py": "EVALUATION",
     "src/learnloop/diagnosis/causal_diagnostic_selector.py": "EVALUATION",

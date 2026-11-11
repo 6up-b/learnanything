@@ -25,7 +25,6 @@ from learnloop.diagnosis.causal_activity_policy import (
     near_clone_from_selection_components,
     policy_for_class,
     resolve_attempt_activity_policy,
-    resolve_conflicting_classes,
 )
 from learnloop.vault.loader import load_vault
 

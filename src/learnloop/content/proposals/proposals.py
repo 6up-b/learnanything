@@ -21,7 +21,6 @@ from learnloop.content.proposals.ai_contracts import (
     AuthoringContext,
     AuthoringProposal,
     AuthoringProposalItem,
-    ProposalItemAudit,
     SourceRef,
     authoring_prompt,
 )
@@ -1294,53 +1293,6 @@ def refresh_proposal_item_validation(
     refreshed = repository.proposal_item(item_id)
     if refreshed is None:
         raise ValueError(f"Proposal item {item_id} disappeared after refresh")
-    return refreshed
-
-
-def repair_proposal_item_audit(
-    root: Path,
-    patch_id: str,
-    item_id: str,
-    audit: dict[str, Any],
-    *,
-    clock: Clock | None = None,
-) -> dict[str, Any]:
-    """Replace a pending item's audit and revalidate the complete proposal item."""
-    vault = load_vault(root)
-    repository = vault_repository(VaultPaths(vault.root, vault.config))
-    item = repository.proposal_item(item_id)
-    if item is None or item["proposed_patch_id"] != patch_id:
-        raise ValueError(f"Proposal item {item_id} was not found in proposal {patch_id}")
-    if item["decision"] != "pending":
-        raise ValueError(f"Proposal item {item_id} is already {item['decision']}")
-
-    validated_audit = ProposalItemAudit.model_validate(audit)
-    payload = item.get("edited_payload") or item.get("payload") or {}
-    batch = repository.proposal_batch(patch_id)
-    errors = _edited_payload_validation_errors(
-        item,
-        payload,
-        vault,
-        batch_source_refs=batch.get("source_refs") if batch is not None else None,
-        repository=repository,
-    )
-    if validated_audit.status == "failed":
-        errors.append("generated_audit_failed")
-    elif validated_audit.status == "not_applicable_with_trace" and _missing(validated_audit.trace):
-        errors.append("missing_generated_audit_trace")
-    errors = _dedupe_preserve_order(errors)
-    updated = repository.update_proposal_item_audit(
-        item_id,
-        audit=validated_audit.model_dump(mode="json", exclude_none=True),
-        validation_status="invalid" if errors else "valid",
-        validation_errors=errors,
-        clock=clock,
-    )
-    if not updated:
-        raise ValueError(f"Proposal item {item_id} could not be repaired")
-    refreshed = repository.proposal_item(item_id)
-    if refreshed is None:
-        raise ValueError(f"Proposal item {item_id} disappeared after repair")
     return refreshed
 
 

@@ -16,11 +16,9 @@ from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.causal_probe_coherence import transition_probe_candidate
 from learnloop.diagnosis.causal_probe_commissioning import (
-    COMMISSIONING_OUTCOMES,
     commission_probe_instrument,
     make_target_generator,
     measurement_contract_for_item,
-    sweep_probe_commissioning,
     targeted_criteria,
 )
 from learnloop.vault.loader import load_vault

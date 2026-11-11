@@ -394,8 +394,3 @@ def router_decision_rows(
         "SELECT * FROM router_decisions ORDER BY created_at DESC, id DESC LIMIT ?", (limit,)
     ).fetchall()
     return [dict(row) for row in reversed(rows)]
-
-
-def router_outcome_rows(connection: sqlite3.Connection) -> list[dict[str, Any]]:
-    rows = connection.execute("SELECT * FROM router_outcomes ORDER BY decision_id").fetchall()
-    return [dict(row) for row in rows]
