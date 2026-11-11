@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py) |
-| Source lines | 620 |
+| Source lines | 623 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -141,11 +141,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_answer_missed_window(connection: Any, attempt_id: str, decided_at: str | None, reader_exposures: Iterable[tuple[str, str]]) -> bool` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 400) — Whether the decision's outcome cannot read this answer because it was warm or exposed (a held or unscorable answer is still an answer: its outcome says why it is not read).
 - `_replacement_detail(connection: Any, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 414) — The early answer's event of this decision's measurement, if it had one.
 - `_unplanned_reasons(connection: Any, today: str) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 423) — Today's plans' reasons a due check was not planned, by commitment.
-- `_local_day(at: str) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 548) — A UTC stamp's local day (the plan's, ``engine.local_date``).
-- `_lost(connection: Any, decision_id: str, prefix: str, reason: str, *, at: str, typed: bool=False) -> int` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 555) — The check cannot be offered, in the episode its newest ``due`` or ``offered`` opened: the same reason again only counts after availability came back.
-- `_event(connection: Any, decision_id: str, state: str, *, at: str, reason: str='', practice_item_id: str | None=None, attempt_id: str | None=None, detail: Mapping[str, Any] | None=None, episode: str='', typed: bool=False, delay: str | None=None) -> int` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 563)
-- `_satisfied_by(connection: Any, commitment_id: str) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 575)
-- `_offers(connection: Any, check: Any, row: Mapping[str, Any], *, since: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 583) — The check's presentations at or after it came due (its item, or any it decides), oldest first.
+- `_local_day(at: str) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 551) — A UTC stamp's local day (the plan's, ``engine.local_date``).
+- `_lost(connection: Any, decision_id: str, prefix: str, reason: str, *, at: str, typed: bool=False) -> int` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 558) — The check cannot be offered, in the episode its newest ``due`` or ``offered`` opened: the same reason again only counts after availability came back.
+- `_event(connection: Any, decision_id: str, state: str, *, at: str, reason: str='', practice_item_id: str | None=None, attempt_id: str | None=None, detail: Mapping[str, Any] | None=None, episode: str='', typed: bool=False, delay: str | None=None) -> int` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 566)
+- `_satisfied_by(connection: Any, commitment_id: str) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 578)
+- `_offers(connection: Any, check: Any, row: Mapping[str, Any], *, since: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 586) — The check's presentations at or after it came due (its item, or any it decides), oldest first.
 
 ## Who imports or calls it
 
@@ -166,7 +166,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `objective_receipts_on`, `serving_on`; calls `objective_receipts_on`, `serving_on`
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `module`, `reading_learning_objects`; calls `read_for_answer`, `reading_learning_objects`, `sweep_quietly`
 - [[Reference/Modules/learnloop/db/stores/daily_plans|learnloop.db.stores.daily_plans]] — imports `module`; calls `plans_for_date`
-- [[Reference/Modules/learnloop/db/stores/data_capture|learnloop.db.stores.data_capture]] — imports `module`; calls `insert_measurement_event`, `insert_objective`, `latest_episode`, `objectives_present`
+- [[Reference/Modules/learnloop/db/stores/data_capture|learnloop.db.stores.data_capture]] — imports `module`; calls `due_recorded`, `insert_measurement_event`, `insert_objective`, `latest_episode`, `objectives_present`
 - [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]] — imports `module`; calls `attempted_items`, `candidates`, `due_days`, `pick_with_receipt`, `revealed_items`
 - [[Reference/Modules/learnloop/delayed_completion|learnloop.delayed_completion]] — imports `module`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `withheld_items`; calls `withheld_items`
@@ -218,6 +218,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_states_are_recorded_due_then_offered_then_answered`
 - [tests/test_data_capture_codex_rereview.py](../../../../../../tests/test_data_capture_codex_rereview.py) — direct import
   - `test_f10_a_check_answered_between_settles_keeps_one_due_and_is_terminal`
+  - `test_f10_a_check_answered_between_settles_reads_the_same_whatever_the_wall_clock`
+  - `test_f10_a_check_satisfied_before_any_settlement_saw_it_due_gets_its_one_due_at_the_answer`
   - `test_f10_a_postponed_check_comes_due_again_as_its_own_transition`
   - `test_f10_an_offer_after_a_postponement_and_a_lost_plan_restores_it`
   - `test_f10_an_offer_today_outranks_todays_unplanned_reason`

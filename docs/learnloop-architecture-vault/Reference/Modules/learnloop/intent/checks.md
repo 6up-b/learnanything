@@ -138,6 +138,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/reader_ca1_as_printed_helpers.py](../../../../../../tests/reader_ca1_as_printed_helpers.py) — direct import
 - [tests/test_data_capture_codex_rereview.py](../../../../../../tests/test_data_capture_codex_rereview.py) — direct import
   - `test_f10_a_check_answered_between_settles_keeps_one_due_and_is_terminal`
+  - `test_f10_a_check_answered_between_settles_reads_the_same_whatever_the_wall_clock`
+  - `test_f10_a_check_satisfied_before_any_settlement_saw_it_due_gets_its_one_due_at_the_answer`
 - [tests/test_dl2_rw4b_keyed_pick_check.py](../../../../../../tests/test_dl2_rw4b_keyed_pick_check.py) — direct import
   - `test_a_keyed_pick_of_a_due_check_the_plan_does_not_hold_is_a_one_item_block_and_answers_it`
   - `test_a_keyed_pick_of_a_planned_due_check_serves_the_check_once_and_its_answer_satisfies_it`

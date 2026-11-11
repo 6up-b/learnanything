@@ -357,6 +357,46 @@ def test_f10_a_check_answered_between_settles_keeps_one_due_and_is_terminal(tmp_
     assert [event["state"] for event in events] == ["due", "answered"]
 
 
+@pytest.mark.parametrize("wall_offset_days", [-400, 400])
+def test_f10_a_check_answered_between_settles_reads_the_same_whatever_the_wall_clock(
+        tmp_path, monkeypatch, wall_offset_days):
+    """The test above passed until the wall clock reached its fixture's instant: settling on the wall clock, the check
+    saw no answer yet (it lay in the wall clock's future), stayed pending and was read answered, so the path that
+    settles it between two settlements, which wrote a second ``due``, never ran. Here the wall clock sits on either
+    side of the fake one, and both read alike: one ``due`` (the settlement's), then the answer."""
+
+    from learnloop.clock import SystemClock
+    from learnloop.intent.checks import settle_answered_checks
+
+    env, decision_id, objective = _due_measurement(tmp_path)
+    monkeypatch.setattr(SystemClock, "now", lambda _self: env.clock.now() + timedelta(days=wall_offset_days))
+    M.settle(env.vault, env.repository, clock=env.clock)
+    env.clock.advance(1)
+    _answer(env, objective["practice_item_id"], objective["learning_object_id"])
+    env.clock.advance(1)
+    assert settle_answered_checks(env.vault, env.repository, clock=env.clock)  # satisfied between the settlements
+    M.settle(env.vault, env.repository, clock=env.clock)
+    events = _events(env)[decision_id]
+    assert [(event["state"], event["episode"] == M.SATISFIED_EPISODE) for event in events] == [
+        ("due", False), ("answered", False)]
+
+
+def test_f10_a_check_satisfied_before_any_settlement_saw_it_due_gets_its_one_due_at_the_answer(tmp_path):
+    from learnloop.intent.checks import settle_answered_checks
+
+    env, decision_id, objective = _due_measurement(tmp_path)
+    _answer(env, objective["practice_item_id"], objective["learning_object_id"])
+    answered_at = env.now_iso()
+    env.clock.advance(1)
+    assert settle_answered_checks(env.vault, env.repository, clock=env.clock)
+    M.settle(env.vault, env.repository, clock=env.clock)
+    M.settle(env.vault, env.repository, clock=env.clock)
+    events = _events(env)[decision_id]
+    assert [(event["state"], event["episode"], event["created_at"]) for event in events][0] == (
+        "due", M.SATISFIED_EPISODE, answered_at)
+    assert [event["state"] for event in events] == ["due", "answered"]
+
+
 @pytest.mark.parametrize("episode", ["", "p1"])
 def test_f10_the_store_keeps_one_row_per_episode(tmp_path, episode):
     env, decision_id, _objective = _arranged_wait(tmp_path)

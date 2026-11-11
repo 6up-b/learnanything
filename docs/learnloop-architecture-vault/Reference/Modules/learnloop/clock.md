@@ -971,6 +971,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_below_the_tag_or_switched_off_the_smallest_id_wins_as_before`
   - `test_commit_checks_carry_the_delayed_check_receipt_fields`
   - `test_the_lessons_forecast_reference_is_the_item_the_check_would_commit`
+- [tests/test_data_capture_codex_rereview.py](../../../../../tests/test_data_capture_codex_rereview.py) — direct import
+  - `test_f10_a_check_answered_between_settles_reads_the_same_whatever_the_wall_clock`
 - [tests/test_data_capture_codex_review.py](../../../../../tests/test_data_capture_codex_review.py) — direct import
   - `test_f4_a_success_before_the_contract_covered_it_never_cites_that_contract`
 - [tests/test_debug_advance.py](../../../../../tests/test_debug_advance.py) — direct import
