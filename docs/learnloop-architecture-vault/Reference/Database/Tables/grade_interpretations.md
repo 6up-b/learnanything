@@ -22,7 +22,6 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/observation_ledger.py"
   - "src/learnloop/router_objective/checks.py"
-  - "src/learnloop/substrate/compat/card_outcome_replay.py"
   - "src/learnloop/attempts/grade_resolution.py"
   - "src/learnloop/cli/grading.py"
 tags:
@@ -120,7 +119,6 @@ Indexes and uniqueness:
 
 - `src/learnloop/attempts/grade_resolution.py`
 - `src/learnloop/cli/grading.py`
-- `src/learnloop/substrate/compat/card_outcome_replay.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -129,7 +127,6 @@ Indexes and uniqueness:
 
 - `tests/test_ad23_fix_review.py`
 - `tests/test_ad_guard_reachable_reads.py`
-- `tests/test_event_sufficiency.py`
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_observation_ledger_bulk.py`
 - `tests/test_teacher_te2_landing_r1.py`

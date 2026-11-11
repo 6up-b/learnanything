@@ -55,8 +55,8 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/checkpoint|learnloop.db.checkpoint]] | [[Reference/Modules/learnloop/db/checkpoint#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] | [[Reference/Modules/learnloop/db/connection#^module-purpose|purpose]] | `ACTIVE` | 181 | 251 |
 | [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]] | [[Reference/Modules/learnloop/db/copies#^module-purpose|purpose]] | `ACTIVE` | 10 | 67 |
-| [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] | [[Reference/Modules/learnloop/db/migrate#^module-purpose|purpose]] | `ACTIVE` | 10 | 95 |
-| [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 407 | 735 |
+| [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] | [[Reference/Modules/learnloop/db/migrate#^module-purpose|purpose]] | `ACTIVE` | 10 | 94 |
+| [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 404 | 732 |
 | [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] | [[Reference/Modules/learnloop/db/scopes#^module-purpose|purpose]] | `ACTIVE` | 16 | 5 |
 | [[Reference/Modules/learnloop/db/storage|learnloop.db.storage]] | [[Reference/Modules/learnloop/db/storage#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
 | [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] | [[Reference/Modules/learnloop/db/table_roles#^module-purpose|purpose]] | `ACTIVE` | 6 | 84 |
@@ -77,8 +77,8 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 ### Packages that import this package
 
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 65 static module edges
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 50 static module edges
-- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 29 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 48 static module edges
+- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 28 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 27 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 27 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 26 static module edges
@@ -149,8 +149,8 @@ flowchart LR
     n_learnloop_curriculum["learnloop.curriculum"]
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_source_retrieval -->|65| center
-    n_learnloop_diagnosis -->|50| center
-    n_learnloop_scheduling -->|29| center
+    n_learnloop_diagnosis -->|48| center
+    n_learnloop_scheduling -->|28| center
     n_learnloop_cli -->|27| center
     n_learnloop_sidecar_handlers -->|27| center
     n_learnloop_substrate -->|26| center

@@ -111,7 +111,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/practice_index/retrieval|learnloop.practice_index.retrieval]] — imports `BURDEN_COST`, `LAMBDA_TIME`
 - [[Reference/Modules/learnloop/scheduling/evsi|learnloop.scheduling.evsi]] — imports `BURDEN_COST`, `LAMBDA_TIME`, `ROBUST_QUANTILE`, `robust_quantile`; statically calls `robust_quantile`
 - [[Reference/Modules/learnloop/sim/grader_confusion|learnloop.sim.grader_confusion]] — imports `module`; statically calls `build_ensemble`, `decision_context_hash`, `observed_update`
-- [[Reference/Modules/learnloop/sim/interval_width_viability|learnloop.sim.interval_width_viability]] — imports `module`; statically calls `build_ensemble`
 
 ## Dependencies
 
@@ -131,7 +130,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/effective_observation|learnloop.attempts.effective_observation]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]], [[Reference/Modules/learnloop/diagnosis/voi_forecasting|learnloop.diagnosis.voi_forecasting]], [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] and 10 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/effective_observation|learnloop.attempts.effective_observation]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]], [[Reference/Modules/learnloop/diagnosis/voi_forecasting|learnloop.diagnosis.voi_forecasting]], [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] and 9 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -152,8 +151,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_incumbent_arm_includes_todays_robust_completion_gate`
 - [tests/test_evsi_multisim.py](../../../../../../tests/test_evsi_multisim.py) — direct import
   - `test_the_successor_arm_values_with_the_nat_scale_when_no_decision_is_at_stake`
-- [tests/test_interval_width_viability.py](../../../../../../tests/test_interval_width_viability.py) — direct import
-  - `test_heuristic_width_keeps_abstention_within_budget`
 - [tests/test_outcome_schema_ids.py](../../../../../../tests/test_outcome_schema_ids.py) — direct import
   - `test_each_bound_is_repeatable_for_its_own_seed`
   - `test_the_bound_stays_inside_its_limits_on_every_seed_and_mass_with_it`

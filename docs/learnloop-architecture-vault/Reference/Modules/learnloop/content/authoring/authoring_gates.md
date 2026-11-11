@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/authoring/authoring_gates.py](../../../../../../../src/learnloop/content/authoring/authoring_gates.py) |
-| Source lines | 427 |
+| Source lines | 417 |
 | Owning package | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -59,28 +59,27 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `class SelectedResponseGate` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 85) — Deterministic ban on selected-response surfaces (multiple choice / T-F).
   - `__init__(self) -> None` (line 95; internal)
   - `__call__(self, rows: list[dict[str, Any]]) -> None` (line 98; internal)
-- `chain_gates(*gates: RowGate) -> RowGate` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 117) — Run several row_transform gates over one proposal batch, in order.
-- `remediate_instrument_gate_failures(rows: list[dict[str, Any]], *, persona_gate: PersonaGate) -> None` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 229) — Mechanically repair the two remediable gate failures, then re-judge.
-- `class InstrumentGateChain` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 303) — The composed Stage-5.3/6 instrument gates, with named handles.
-  - `__call__(self, rows: list[dict[str, Any]]) -> None` (line 317; internal)
-  - `diagnostics(self) -> list[dict[str, Any]]` (line 327; public) — Gate outcomes in the synthesis lanes' ``gate_diagnostics`` shape.
-- `build_instrument_gates(vault: Any, repository: Any | None=None, *, grading_client: Any=None, rung_gate: Any | None=None, difficulty_band_by_lo: dict[str, tuple[float, float]] | None=None, leading: Sequence[RowGate]=()) -> InstrumentGateChain` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 386) — The standard composition: leading → surface → rung → persona → pair.
+- `remediate_instrument_gate_failures(rows: list[dict[str, Any]], *, persona_gate: PersonaGate) -> None` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 219) — Mechanically repair the two remediable gate failures, then re-judge.
+- `class InstrumentGateChain` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 293) — The composed Stage-5.3/6 instrument gates, with named handles.
+  - `__call__(self, rows: list[dict[str, Any]]) -> None` (line 307; internal)
+  - `diagnostics(self) -> list[dict[str, Any]]` (line 317; public) — Gate outcomes in the synthesis lanes' ``gate_diagnostics`` shape.
+- `build_instrument_gates(vault: Any, repository: Any | None=None, *, grading_client: Any=None, rung_gate: Any | None=None, difficulty_band_by_lo: dict[str, tuple[float, float]] | None=None, leading: Sequence[RowGate]=()) -> InstrumentGateChain` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 376) — The standard composition: leading → surface → rung → persona → pair.
 
 ### Module constants
 
 - `SELECTED_RESPONSE_PATTERNS` ([src/learnloop/content/authoring/authoring_gates.py](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 52)
-- `GATE_REMEDIATION_AUDIT_KEY` ([src/learnloop/content/authoring/authoring_gates.py](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 139)
-- `_REMEDIABLE_SURFACE_ERROR` ([src/learnloop/content/authoring/authoring_gates.py](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 142)
-- `_REMEDIABLE_DETECTOR_ERROR` ([src/learnloop/content/authoring/authoring_gates.py](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 143)
-- `_REMEDIABLE_ATOMIC_ERROR` ([src/learnloop/content/authoring/authoring_gates.py](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 145)
-- `_OPTION_LINE` ([src/learnloop/content/authoring/authoring_gates.py](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 147)
-- `_OPTION_ANSWER_PREFIX` ([src/learnloop/content/authoring/authoring_gates.py](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 148)
-- `_INSTRUCTION_LINE_PATTERNS` ([src/learnloop/content/authoring/authoring_gates.py](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 149)
+- `GATE_REMEDIATION_AUDIT_KEY` ([src/learnloop/content/authoring/authoring_gates.py](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 129)
+- `_REMEDIABLE_SURFACE_ERROR` ([src/learnloop/content/authoring/authoring_gates.py](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 132)
+- `_REMEDIABLE_DETECTOR_ERROR` ([src/learnloop/content/authoring/authoring_gates.py](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 133)
+- `_REMEDIABLE_ATOMIC_ERROR` ([src/learnloop/content/authoring/authoring_gates.py](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 135)
+- `_OPTION_LINE` ([src/learnloop/content/authoring/authoring_gates.py](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 137)
+- `_OPTION_ANSWER_PREFIX` ([src/learnloop/content/authoring/authoring_gates.py](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 138)
+- `_INSTRUCTION_LINE_PATTERNS` ([src/learnloop/content/authoring/authoring_gates.py](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 139)
 
 ## Internal implementation anchors
 
-- `_strip_selected_response_surface(payload: dict[str, Any]) -> list[str] | None` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 152) — Remove the selected-response surface from ``payload`` in place.
-- `_drop_unkeyed_misconception(payload: dict[str, Any]) -> list[str] | None` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 210) — Drop a speculative diagnostic claim, demoting the item to plain practice.
+- `_strip_selected_response_surface(payload: dict[str, Any]) -> list[str] | None` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 142) — Remove the selected-response surface from ``payload`` in place.
+- `_drop_unkeyed_misconception(payload: dict[str, Any]) -> list[str] | None` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 200) — Drop a speculative diagnostic claim, demoting the item to plain practice.
 
 ## Who imports or calls it
 

@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/activity_patterns.py](../../../../../../src/learnloop/substrate/activity_patterns.py) |
-| Source lines | 659 |
+| Source lines | 574 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -63,19 +63,13 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
   - `as_dict(self) -> dict[str, Any]` (line 149; public)
 - `ensure_capability_alias_registry(repository: Repository, *, registry_version: int=CAPABILITY_ALIAS_REGISTRY_VERSION, aliases: Mapping[str, str | None] | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 157) — Seed the versioned capability-alias registry (idempotent).
 - `map_capability(repository: Repository, legacy_value: str, *, registry_version: int=CAPABILITY_ALIAS_REGISTRY_VERSION) -> str` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 177) — Map a legacy capability value to the closed vocabulary (§3.3).
-- `normalize_capabilities(repository: Repository, values: Iterable[str], *, registry_version: int=CAPABILITY_ALIAS_REGISTRY_VERSION) -> list[str]` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 195) — Normalize a legacy capability list through the alias registry (§3.3).
-- `ensure_builtin_task_feature_schema(repository: Repository, *, schema_slug: str='p1_launch', version: int=TASK_FEATURE_SCHEMA_VERSION, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 211)
-- `validate_task_features(repository: Repository, schema_version_id: str, features: Mapping[str, Any]) -> tuple[bool, list[str]]` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 228) — Validate a TaskFeature vector against a schema version (§3.4).
-- `register_pattern_version(repository: Repository, *, pattern_slug: str, fields: Mapping[str, Any], status: str='draft', clock: Clock | None=None) -> ActivityPatternVersion` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 341) — Register an immutable, content-addressed pattern version (§3.5).
-- `review_pattern_version(repository: Repository, *, pattern_version_id: str) -> None` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 376)
-- `activate_pattern_version(repository: Repository, *, pattern_version_id: str) -> None` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 382)
-- `list_compatible_patterns(repository: Repository, *, purpose: str, target_kind: str | None=None, capabilities: Sequence[str]=(), status: str='active') -> list[ActivityPatternVersion]` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 388) — List reviewed/active patterns compatible with a (purpose, target kind, capability set).
-- `candidate_within_bounds(version: ActivityPatternVersion, *, purpose: str | None=None, operation: str | None=None, capability: str | None=None, target_kind: str | None=None) -> bool` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 412) — Fail closed (§3.5): a candidate that invents an operation, capability, target kind, or purpose outside the pattern's declared bounds is rejected.
-- `routing_metadata(version: ActivityPatternVersion) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 443) — The "why this activity?" routing DTO (§3.5).
-- `evidence_semantics(version: ActivityPatternVersion) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 466) — The ONLY projection-facing DTO this module exposes.
-- `ensure_builtin_patterns(repository: Repository, *, clock: Clock | None=None) -> dict[str, ActivityPatternVersion]` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 553) — Seed the reviewed launch patterns (§3.5), idempotent + content-addressed (mirrors the P0.2 ``ensure_builtin_schemas`` precedent).
-- `adapt_probe_template_to_pattern(repository: Repository, *, template_slug: str, likelihood_identity: str, status: str='active', clock: Clock | None=None) -> ActivityPatternVersion` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 575) — Mirror an admitted probe-family template into a ``diagnostic``-purpose pattern without touching the probe rows; the compiled likelihood identity + status remain intact on the diagnostic instrument side (§3.5, §7.3).
-- `load_pattern_version(repository: Repository, pattern_version_id: str) -> ActivityPatternVersion` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 658)
+- `ensure_builtin_task_feature_schema(repository: Repository, *, schema_slug: str='p1_launch', version: int=TASK_FEATURE_SCHEMA_VERSION, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 199)
+- `validate_task_features(repository: Repository, schema_version_id: str, features: Mapping[str, Any]) -> tuple[bool, list[str]]` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 216) — Validate a TaskFeature vector against a schema version (§3.4).
+- `register_pattern_version(repository: Repository, *, pattern_slug: str, fields: Mapping[str, Any], status: str='draft', clock: Clock | None=None) -> ActivityPatternVersion` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 329) — Register an immutable, content-addressed pattern version (§3.5).
+- `candidate_within_bounds(version: ActivityPatternVersion, *, purpose: str | None=None, operation: str | None=None, capability: str | None=None, target_kind: str | None=None) -> bool` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 364) — Fail closed (§3.5): a candidate that invents an operation, capability, target kind, or purpose outside the pattern's declared bounds is rejected.
+- `routing_metadata(version: ActivityPatternVersion) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 395) — The "why this activity?" routing DTO (§3.5).
+- `evidence_semantics(version: ActivityPatternVersion) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 418) — The ONLY projection-facing DTO this module exposes.
+- `ensure_builtin_patterns(repository: Repository, *, clock: Clock | None=None) -> dict[str, ActivityPatternVersion]` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 505) — Seed the reviewed launch patterns (§3.5), idempotent + content-addressed (mirrors the P0.2 ``ensure_builtin_schemas`` precedent).
 
 ### Module constants
 
@@ -89,17 +83,17 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `TASK_FEATURE_SCHEMA_VERSION` ([src/learnloop/substrate/activity_patterns.py](../../../../../../src/learnloop/substrate/activity_patterns.py), line 68)
 - `_TASK_FEATURE_DIMENSIONS` ([src/learnloop/substrate/activity_patterns.py](../../../../../../src/learnloop/substrate/activity_patterns.py), line 71)
 - `_LEGACY_ALIASES` ([src/learnloop/substrate/activity_patterns.py](../../../../../../src/learnloop/substrate/activity_patterns.py), line 93)
-- `_EVIDENCE_INPUT_KEYS` ([src/learnloop/substrate/activity_patterns.py](../../../../../../src/learnloop/substrate/activity_patterns.py), line 457)
+- `_EVIDENCE_INPUT_KEYS` ([src/learnloop/substrate/activity_patterns.py](../../../../../../src/learnloop/substrate/activity_patterns.py), line 409)
 
 ## Internal implementation anchors
 
-- `_validate_pattern_fields(fields: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 265)
-- `_pattern_content_hash(pattern_slug: str, fields: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 288)
-- `_fields_to_columns(fields: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 317)
-- `_launch_pattern_defs() -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 485) — The reviewed launch patterns (§3.5).
-- `_row_to_version(row: Mapping[str, Any], pattern_slug: str) -> ActivityPatternVersion` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 613)
-- `_pattern_slug_for(repository: Repository, pattern_id: str) -> str` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 643)
-- `_load_version(repository: Repository, pattern_version_id: str) -> ActivityPatternVersion` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 651)
+- `_validate_pattern_fields(fields: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 253)
+- `_pattern_content_hash(pattern_slug: str, fields: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 276)
+- `_fields_to_columns(fields: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 305)
+- `_launch_pattern_defs() -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 437) — The reviewed launch patterns (§3.5).
+- `_row_to_version(row: Mapping[str, Any], pattern_slug: str) -> ActivityPatternVersion` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 532)
+- `_pattern_slug_for(repository: Repository, pattern_id: str) -> str` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 562)
+- `_load_version(repository: Repository, pattern_version_id: str) -> ActivityPatternVersion` ([source](../../../../../../src/learnloop/substrate/activity_patterns.py), line 570)
 
 ## Who imports or calls it
 
@@ -146,10 +140,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_invalid_capability_fails_new_authoring`
   - `test_invalid_operation_and_learning_process_fail`
   - `test_learning_process_excluded_from_evidence_dto`
-  - `test_list_compatible_patterns`
   - `test_map_capability_identity_alias_and_unmapped`
-  - `test_normalize_capabilities_folds_synthesis_output`
-  - `test_probe_template_adapter_is_diagnostic_only`
   - `test_task_feature_validation`
 
 ## Modification guidance

@@ -23,7 +23,7 @@ source_paths:
   - "src/learnloop/tutor/tutor_qa.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/diagnosis/causal_migration.py"
+  - "src/learnloop/instructional/reader_followups.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/compat"
@@ -106,7 +106,6 @@ Indexes and uniqueness:
 - `src/learnloop/cli/app.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
-- `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/instructional/reader_followups.py`
 - `src/learnloop/instructional/valuation.py`
 - `src/learnloop/learner/facet_state_reader.py`

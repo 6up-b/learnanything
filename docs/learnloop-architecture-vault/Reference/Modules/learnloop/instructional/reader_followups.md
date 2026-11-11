@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py) |
-| Source lines | 1908 |
+| Source lines | 1904 |
 | Owning package | [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -86,7 +86,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `undo_all(repository: Repository, *, digest_id: str, reason: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1753) — Retire every pending follow-up from one session ("undo all").
 - `restore_followup(repository: Repository, *, commitment_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1768) — Undo a retirement (re-valuation's or the learner's own undo): the check is pending again, and re-valuation leaves it to the learner from then on.
 - `coming_up(vault: LoadedVault, repository: Repository, *, extraction_id: str | None, now: datetime, retired_after: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1802) — The scheduled checks as a dated timeline (next three, then later) and the retirements since ``retired_after`` as good news.
-- `now_utc(clock: Clock | None=None) -> datetime` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1871)
 
 ### Module constants
 
@@ -210,7 +209,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] — imports `SpendLimitExceeded`, `spend_envelopes`; calls `spend_envelopes`
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `READER_FOLLOWUPS_VERSIONS`
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `fsrs_rating_for_attempt`; calls `fsrs_rating_for_attempt`
-- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] — imports `module`; calls `create_commitment`, `resolve_disposition`, `retire`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`

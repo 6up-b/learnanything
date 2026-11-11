@@ -83,7 +83,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/evsi_calibration/experiments|learnloop.evsi_calibration.experiments]] — imports `SIMULATION_VERSION`, `SimulationSettings`, `draw_learners`, `run_simulation`, `with_policy`; statically calls `SimulationSettings`, `draw_learners`, `run_simulation`, `with_policy`
-- [[Reference/Modules/learnloop/evsi_calibration/metrics|learnloop.evsi_calibration.metrics]] — imports `CheckRecord`, `EpisodeRecord`, `MEMBER_QUANTILES`
+- [[Reference/Modules/learnloop/evsi_calibration/metrics|learnloop.evsi_calibration.metrics]] — imports `CheckRecord`, `EpisodeRecord`
 - [[Reference/Modules/learnloop/evsi_calibration/multifamily|learnloop.evsi_calibration.multifamily]] — imports `loss_table_for`; statically calls `loss_table_for`
 - [[Reference/Modules/learnloop/evsi_calibration/multisim|learnloop.evsi_calibration.multisim]] — imports `CheckRecord`, `EpisodeRecord`, `_member_quantiles`, `loss_table_for`; statically calls `CheckRecord`, `EpisodeRecord`, `_member_quantiles`, `loss_table_for`
 

@@ -100,7 +100,6 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_dialogue.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
 - `src/learnloop/diagnosis/probe_instance_generation.py`
-- `src/learnloop/diagnosis/probe_lifecycle.py`
 - `src/learnloop/followup_run/admission.py`
 
 > [!note] Static-reference boundary
@@ -112,7 +111,6 @@ Indexes and uniqueness:
 - `tests/test_followup_generate_e2e.py`
 - `tests/test_probe_dialogue.py`
 - `tests/test_probe_instance_generation.py`
-- `tests/test_probe_lifecycle.py`
 - `tests/test_probe_llm_instances.py`
 - `tests/test_probe_surface_mint.py`
 - `tests/test_state_sync_scheduling_race.py`

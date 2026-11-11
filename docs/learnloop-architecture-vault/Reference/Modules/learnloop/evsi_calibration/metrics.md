@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/evsi_calibration/metrics.py](../../../../../../src/learnloop/evsi_calibration/metrics.py) |
-| Source lines | 278 |
+| Source lines | 274 |
 | Owning package | [[Reference/Modules/learnloop/evsi_calibration/_package|learnloop.evsi_calibration]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -63,7 +63,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `summarize(checks: Sequence[CheckRecord], episodes: Sequence[EpisodeRecord], *, seed: int, draws: int=400) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/metrics.py), line 217) — Per-policy metric blocks (1)-(4).
 - `paired_difference(left: Sequence[EpisodeRecord], right: Sequence[EpisodeRecord], *, field_name: str='total_minutes', seed: int, draws: int=400) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/metrics.py), line 236) — Mean of ``right - left`` per learner (common random numbers), bootstrap CI.
 - `kendall_tau(left: Sequence[str], right: Sequence[str]) -> float | None` ([source](../../../../../../src/learnloop/evsi_calibration/metrics.py), line 259) — Kendall's tau-a between two rankings over their common items.
-- `quantile_names() -> tuple[str, ...]` ([source](../../../../../../src/learnloop/evsi_calibration/metrics.py), line 277)
 
 ### Module constants
 
@@ -88,7 +87,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/evsi_calibration/simulate|learnloop.evsi_calibration.simulate]] — imports `CheckRecord`, `EpisodeRecord`, `MEMBER_QUANTILES`
+- [[Reference/Modules/learnloop/evsi_calibration/simulate|learnloop.evsi_calibration.simulate]] — imports `CheckRecord`, `EpisodeRecord`
 
 ### Platform and third-party dependencies
 

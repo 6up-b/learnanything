@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_lifecycle.py](../../../../../../src/learnloop/diagnosis/probe_lifecycle.py) |
-| Source lines | 299 |
+| Source lines | 271 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -62,8 +62,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `evaluate_family_lifecycle(vault: LoadedVault, repository: Repository, family_id: str, version: int) -> FamilyLifecycleAssessment` ([source](../../../../../../src/learnloop/diagnosis/probe_lifecycle.py), line 108) — Recommend a transition for one family version against the §9.7 gates.
 - `apply_family_lifecycle_transition(repository: Repository, *, family_id: str, version: int, to_status: str, reason: dict[str, Any] | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_lifecycle.py), line 190) — Apply one explicit transition and persist its lifecycle event.
 - `revise_family_version(repository: Repository, family_id: str, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/diagnosis/probe_lifecycle.py), line 223) — Create the next version as a draft copy of the latest template (§9.7).
-- `retire_probe_instance(repository: Repository, practice_item_id: str, *, reason: str | None=None, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_lifecycle.py), line 263) — Retire one generated instance: deactivate the item and mark every family link's review status.
-- `family_lifecycle_overview(vault: LoadedVault, repository: Repository) -> list[FamilyLifecycleAssessment]` ([source](../../../../../../src/learnloop/diagnosis/probe_lifecycle.py), line 291) — Assessment for every stored family version, for the CLI report.
+- `family_lifecycle_overview(vault: LoadedVault, repository: Repository) -> list[FamilyLifecycleAssessment]` ([source](../../../../../../src/learnloop/diagnosis/probe_lifecycle.py), line 263) — Assessment for every stored family version, for the CLI report.
 
 ### Module constants
 
@@ -109,7 +108,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_probe_lifecycle.py](../../../../../../tests/test_probe_lifecycle.py) — direct import
-  - `test_instance_retirement_deactivates_without_touching_history`
   - `test_provisional_family_needs_evidence_before_trust`
   - `test_regrade_disagreement_recommends_retirement`
   - `test_revision_creates_next_draft_version`

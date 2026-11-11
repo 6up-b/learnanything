@@ -128,11 +128,11 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
-- `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/diagnostic_surface_supply.py`
 - `src/learnloop/diagnosis/followups.py`
+- `src/learnloop/diagnosis/probe_dialogue.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

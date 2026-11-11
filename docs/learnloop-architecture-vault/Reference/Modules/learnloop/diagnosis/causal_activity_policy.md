@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/causal_activity_policy.py](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py) |
-| Source lines | 423 |
+| Source lines | 407 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -59,11 +59,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `attempt_counts_as_assisted(*, attempt_type: str, primed: bool=False, hints_used: int=0) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 189) — The canonical-projection / facet-timeline assistance test.
 - `gate_unverified_reference(policy: CausalActivityPolicy, reference_status: str | None) -> CausalActivityPolicy` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 210) — C3: an attempt graded against an unverified answer key certifies nothing.
 - `resolve_attempt_activity_policy(*, attempt_type: str, primed: bool=False, hints_used: int=0, recorded: Mapping[str, Any] | None=None, reference_status: str | None=None) -> CausalActivityPolicy` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 231) — See :func:`_resolve_attempt_activity_policy`; ``reference_status`` is the attempt's answer-key signal for the grade in force (C3): ``unverified`` forces ``eligible_for_certification`` off and changes nothing else.
-- `resolve_conflicting_classes(existing: str, incoming: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 309) — Most-contaminated wins.
-- `class NearCloneAssessment` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 331) — An auditable near-clone verdict.
-  - `as_dict(self) -> dict[str, Any]` (line 348; public)
-- `assess_near_clone(vault: 'LoadedVault', *, practice_item_id: str, source_practice_item_id: str | None, explicit: bool | None=None) -> NearCloneAssessment` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 358) — Compare the administered item's surface fingerprint against its source.
-- `near_clone_from_selection_components(vault: 'LoadedVault', *, practice_item_id: str, selection_components: Mapping[str, Any] | None) -> NearCloneAssessment` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 408) — ``assess_near_clone`` over a probe presentation's selection components.
+- `class NearCloneAssessment` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 315) — An auditable near-clone verdict.
+  - `as_dict(self) -> dict[str, Any]` (line 332; public)
+- `assess_near_clone(vault: 'LoadedVault', *, practice_item_id: str, source_practice_item_id: str | None, explicit: bool | None=None) -> NearCloneAssessment` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 342) — Compare the administered item's surface fingerprint against its source.
+- `near_clone_from_selection_components(vault: 'LoadedVault', *, practice_item_id: str, selection_components: Mapping[str, Any] | None) -> NearCloneAssessment` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 392) — ``assess_near_clone`` over a probe presentation's selection components.
 
 ### Module constants
 
@@ -134,7 +133,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_policy_matrix_cells_are_pinned`
   - `test_precedence_order_is_total_and_ranked`
   - `test_pure_diagnostic_is_stricter_than_spec_section_7`
-  - `test_resolve_conflicting_classes_is_most_contaminated_wins`
   - `test_resolved_attempt_policy_separates_assistance_from_eligibility`
   - `test_service_exports_share_the_dependency_neutral_policy_authority`
   - `test_unknown_class_raises`

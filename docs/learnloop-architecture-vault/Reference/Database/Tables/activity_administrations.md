@@ -22,7 +22,6 @@ source_paths:
   - "src/learnloop/data_capture/reading_exposures.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/observation_ledger.py"
-  - "src/learnloop/substrate/compat/card_outcome_replay.py"
   - "src/learnloop/cli/grading.py"
   - "src/learnloop/goals/goal_contracts.py"
   - "src/learnloop/reader/reader_dialogue.py"
@@ -105,7 +104,6 @@ Indexes and uniqueness:
 
 - `Repository.activity_administration()`
 - `Repository.administration_by_legacy_presentation()`
-- `Repository.all_activity_administrations()`
 - `Repository.consumer_pins_for_versions()`
 - `Repository.fetch_administration()`
 - `Repository.first_cold_observation_for_target()`
@@ -132,7 +130,6 @@ Indexes and uniqueness:
 - `src/learnloop/substrate/activities.py`
 - `src/learnloop/substrate/administration_adapters.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
-- `src/learnloop/substrate/compat/card_outcome_replay.py`
 - `src/learnloop/substrate/compat/substrate_cutover.py`
 
 > [!note] Static-reference boundary

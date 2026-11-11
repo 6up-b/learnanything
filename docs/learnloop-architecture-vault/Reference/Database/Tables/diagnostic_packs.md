@@ -75,7 +75,6 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository.diagnostic_pack()`
-- `Repository.diagnostic_pack_by_slug()`
 - `Repository.diagnostic_packs_for_blueprint()`
 - `Repository.ensure_diagnostic_pack()`
 - `Repository.transition_diagnostic_pack()`

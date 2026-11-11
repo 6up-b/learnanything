@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/router.py](../../../../../../../src/learnloop/db/stores/router.py) |
-| Source lines | 401 |
+| Source lines | 396 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -69,7 +69,6 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `router_payload(connection: sqlite3.Connection, decision_id: str, kind: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 363)
 - `replace_router_outcomes(connection: sqlite3.Connection, rows: Iterable[Mapping[str, Any]]) -> int` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 372) — Replace the derived outcome cache whole (its one replayer only).
 - `router_decision_rows(connection: sqlite3.Connection, *, limit: int | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 385) — Decisions oldest first (the newest ``limit`` when given).
-- `router_outcome_rows(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 399)
 
 ### Module constants
 

@@ -47,24 +47,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/view.py](../../../../../../src/learnloop/daily_plan/view.py) |
-| Source lines | 378 |
+| Source lines | 373 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `project_blocks(record: PlanRecord, context: PoolContext | None, policy: PlanPolicy, *, max_blocks: int=MAX_PROJECTED_BLOCKS) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 40) — The blocks after the chosen ones, if nothing changes: a projection only.
-- `minute_choices(presets: list[int], remembered: int) -> list[int]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 221)
-- `device_current(record: PlanRecord, next_step: dict[str, Any] | None) -> PlannedBlock | None` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 225) — Mobile v2 §2.2: a device's current block is its step's, not the plan's first open block (which may be one it left for the desktop).
-- `plan_view(env: PlanEnv, record: PlanRecord, *, context: PoolContext | None, next_step: dict[str, Any] | None, reentry_panel: dict[str, Any] | None=None, streak: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 233)
-- `disabled_view(vault: Any, *, reason: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 365)
-- `now_payload(moment: datetime) -> str` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 374)
+- `project_blocks(record: PlanRecord, context: PoolContext | None, policy: PlanPolicy, *, max_blocks: int=MAX_PROJECTED_BLOCKS) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 39) — The blocks after the chosen ones, if nothing changes: a projection only.
+- `minute_choices(presets: list[int], remembered: int) -> list[int]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 220)
+- `device_current(record: PlanRecord, next_step: dict[str, Any] | None) -> PlannedBlock | None` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 224) — Mobile v2 §2.2: a device's current block is its step's, not the plan's first open block (which may be one it left for the desktop).
+- `plan_view(env: PlanEnv, record: PlanRecord, *, context: PoolContext | None, next_step: dict[str, Any] | None, reentry_panel: dict[str, Any] | None=None, streak: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 232)
+- `disabled_view(vault: Any, *, reason: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 364)
 
 ### Module constants
 
-- `MAX_PROJECTED_BLOCKS` ([src/learnloop/daily_plan/view.py](../../../../../../src/learnloop/daily_plan/view.py), line 35)
-- `PROMPT_PREVIEW_CHARS` ([src/learnloop/daily_plan/view.py](../../../../../../src/learnloop/daily_plan/view.py), line 37)
+- `MAX_PROJECTED_BLOCKS` ([src/learnloop/daily_plan/view.py](../../../../../../src/learnloop/daily_plan/view.py), line 34)
+- `PROMPT_PREVIEW_CHARS` ([src/learnloop/daily_plan/view.py](../../../../../../src/learnloop/daily_plan/view.py), line 36)
 
 ### Explicit exports
 
@@ -78,14 +77,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_item_row(env: PlanEnv, item: PlannedItem) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 67)
-- `_why_details(block: PlannedBlock) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 92)
-- `_block_row(env: PlanEnv, record: PlanRecord, block: PlannedBlock, current_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 108)
-- `_offer_card_shown(env: PlanEnv, block: PlannedBlock) -> bool` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 148) — An offer block's card is on its row once it has ended (what was answered), and while it waits only with offers serving (Codex review F2): off, the next step takes it back, and no card is answerable meanwhile.
-- `_lesson_offer_row(block: PlannedBlock) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 161)
-- `_actual_minutes(records: list[PlanRecord]) -> float` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 167)
-- `_totals(records: list[PlanRecord]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 183)
-- `_reentry_numbers(record: PlanRecord, panel: dict[str, Any] | None, projected: list[dict[str, Any]]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 206) — "Today: a short re-entry, about 12 min, 7 items": the chosen blocks plus the projected ones, the same figures the plan view shows (G3).
+- `_item_row(env: PlanEnv, item: PlannedItem) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 66)
+- `_why_details(block: PlannedBlock) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 91)
+- `_block_row(env: PlanEnv, record: PlanRecord, block: PlannedBlock, current_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 107)
+- `_offer_card_shown(env: PlanEnv, block: PlannedBlock) -> bool` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 147) — An offer block's card is on its row once it has ended (what was answered), and while it waits only with offers serving (Codex review F2): off, the next step takes it back, and no card is answerable meanwhile.
+- `_lesson_offer_row(block: PlannedBlock) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 160)
+- `_actual_minutes(records: list[PlanRecord]) -> float` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 166)
+- `_totals(records: list[PlanRecord]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 182)
+- `_reentry_numbers(record: PlanRecord, panel: dict[str, Any] | None, projected: list[dict[str, Any]]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/view.py), line 205) — "Today: a short re-entry, about 12 min, 7 items": the chosen blocks plus the projected ones, the same figures the plan view shows (G3).
 
 ## Who imports or calls it
 
@@ -111,7 +110,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `datetime`, `typing`
+- Standard library: `__future__`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

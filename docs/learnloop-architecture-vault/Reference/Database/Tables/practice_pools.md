@@ -76,7 +76,6 @@ Indexes and uniqueness:
 
 - `Repository.ensure_practice_pool()`
 - `Repository.practice_pool()`
-- `Repository.practice_pool_by_slug()`
 - `Repository.practice_pools_for_blueprint()`
 - `Repository.transition_practice_pool()`
 

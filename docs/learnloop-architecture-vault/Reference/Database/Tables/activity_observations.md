@@ -120,7 +120,6 @@ Indexes and uniqueness:
 - `src/learnloop/goals/goal_contracts.py`
 - `src/learnloop/substrate/activities.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
-- `src/learnloop/substrate/compat/card_outcome_replay.py`
 - `src/learnloop/substrate/compat/substrate_cutover.py`
 - `src/learnloop/substrate/rebuild_orchestrator.py`
 - `src/learnloop_sidecar/handlers/feedback.py`
@@ -137,7 +136,6 @@ Indexes and uniqueness:
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_teacher_te2_landing_r1.py`
 - `tests/test_effective_observation.py`
-- `tests/test_event_sufficiency.py`
 - `tests/test_exam_session.py`
 - `tests/test_goal_contracts.py`
 - `tests/test_golden_path_assessment.py`

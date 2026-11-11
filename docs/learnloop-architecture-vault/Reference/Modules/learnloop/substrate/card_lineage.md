@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/card_lineage.py](../../../../../../src/learnloop/substrate/card_lineage.py) |
-| Source lines | 375 |
+| Source lines | 368 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -57,14 +57,14 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 
 - `class EditClassification` ([source](../../../../../../src/learnloop/substrate/card_lineage.py), line 88)
   - `as_dict(self) -> dict[str, Any]` (line 94; public)
-- `classify_edit(prev_contract: Mapping[str, Any], new_contract: Mapping[str, Any]) -> EditClassification` ([source](../../../../../../src/learnloop/substrate/card_lineage.py), line 110) — Classify a proposed card edit (§3.7).
-- `start_lineage(repository: Repository, *, genesis_card_version_id: str, family_id: str | None=None, card_id: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/card_lineage.py), line 156) — Create a durable lineage and record its genesis edge (from_ = NULL).
-- `append_minor_successor(repository: Repository, *, lineage_id: str, from_card_version_id: str, to_card_version_id: str, rationale: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/card_lineage.py), line 179) — Append a surface-preserving successor version INSIDE the lineage; scheduling state is retained on the same lineage (§3.7).
-- `fork_card(repository: Repository, *, predecessor_card_version_id: str, forked_card_version_id: str, scheduler_algorithm_version: str, family_id: str | None=None, card_id: str | None=None, model_label: str='fsrs', learner_id: str='local', informed_difficulty_prior: float | None=None, predecessor_lineage_id: str | None=None, rationale: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/card_lineage.py), line 202) — Fork: a NEW lineage + a NEW ``activity_card_state`` row that inherits an evidence-informed *difficulty* prior at most, and NEVER inherits stability or certification (§3.7).
-- `split_lineage(repository: Repository, *, from_card_version_id: str, split_card_version_id: str, family_id: str | None=None, card_id: str | None=None, rationale: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/card_lineage.py), line 251) — Split a new lineage off an existing version (append-only ``split_from`` edge).
-- `merge_lineage(repository: Repository, *, into_lineage_id: str, from_card_version_id: str, merged_card_version_id: str, rationale: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/card_lineage.py), line 276) — Record a ``merged_from`` edge folding another lineage's version in.
-- `replay_review_events(review_events: Sequence[Mapping[str, Any]], *, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> MemoryState | None` ([source](../../../../../../src/learnloop/substrate/card_lineage.py), line 306) — Deterministically replay an ordered stream of eligible review events into an FSRS memory state.
-- `rebuild_card_state(repository: Repository, *, card_lineage_id: str, scheduler_algorithm_version: str, review_events: Sequence[Mapping[str, Any]] | None=None, model_label: str='fsrs', learner_id: str='local', due_at: str | None=None, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/substrate/card_lineage.py), line 322) — Rebuild ``activity_card_state`` from its authoritative review-event stream.
+- `classify_edit(prev_contract: Mapping[str, Any], new_contract: Mapping[str, Any]) -> EditClassification` ([source](../../../../../../src/learnloop/substrate/card_lineage.py), line 103) — Classify a proposed card edit (§3.7).
+- `start_lineage(repository: Repository, *, genesis_card_version_id: str, family_id: str | None=None, card_id: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/card_lineage.py), line 149) — Create a durable lineage and record its genesis edge (from_ = NULL).
+- `append_minor_successor(repository: Repository, *, lineage_id: str, from_card_version_id: str, to_card_version_id: str, rationale: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/card_lineage.py), line 172) — Append a surface-preserving successor version INSIDE the lineage; scheduling state is retained on the same lineage (§3.7).
+- `fork_card(repository: Repository, *, predecessor_card_version_id: str, forked_card_version_id: str, scheduler_algorithm_version: str, family_id: str | None=None, card_id: str | None=None, model_label: str='fsrs', learner_id: str='local', informed_difficulty_prior: float | None=None, predecessor_lineage_id: str | None=None, rationale: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/card_lineage.py), line 195) — Fork: a NEW lineage + a NEW ``activity_card_state`` row that inherits an evidence-informed *difficulty* prior at most, and NEVER inherits stability or certification (§3.7).
+- `split_lineage(repository: Repository, *, from_card_version_id: str, split_card_version_id: str, family_id: str | None=None, card_id: str | None=None, rationale: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/card_lineage.py), line 244) — Split a new lineage off an existing version (append-only ``split_from`` edge).
+- `merge_lineage(repository: Repository, *, into_lineage_id: str, from_card_version_id: str, merged_card_version_id: str, rationale: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/card_lineage.py), line 269) — Record a ``merged_from`` edge folding another lineage's version in.
+- `replay_review_events(review_events: Sequence[Mapping[str, Any]], *, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> MemoryState | None` ([source](../../../../../../src/learnloop/substrate/card_lineage.py), line 299) — Deterministically replay an ordered stream of eligible review events into an FSRS memory state.
+- `rebuild_card_state(repository: Repository, *, card_lineage_id: str, scheduler_algorithm_version: str, review_events: Sequence[Mapping[str, Any]] | None=None, model_label: str='fsrs', learner_id: str='local', due_at: str | None=None, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/substrate/card_lineage.py), line 315) — Rebuild ``activity_card_state`` from its authoritative review-event stream.
 
 ### Module constants
 
@@ -74,8 +74,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 
 ## Internal implementation anchors
 
-- `_normalized_components(contract: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/card_lineage.py), line 103) — Extract the comparable contract components.
-- `_rating(value: Any) -> Rating` ([source](../../../../../../src/learnloop/substrate/card_lineage.py), line 302)
+- `_rating(value: Any) -> Rating` ([source](../../../../../../src/learnloop/substrate/card_lineage.py), line 295)
 
 ## Who imports or calls it
 
@@ -127,11 +126,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_semantic_change_forks`
   - `test_unknown_changed_component_is_parked_for_review`
   - `test_wording_only_edit_is_surface_preserving`
-- [tests/test_event_sufficiency.py](../../../../../../tests/test_event_sufficiency.py) — direct import
-  - `test_every_admin_obs_pair_carries_card_version_outcome_and_context`
-  - `test_replay_prefers_active_interpretation_head`
-  - `test_replay_reads_ledger_events_only_no_live_tables`
-  - `test_u014_resume_shape_emits_card_level_counts`
 - [tests/test_journey6.py](../../../../../../tests/test_journey6.py) — direct import
   - `test_journey6_end_to_end_on_fresh_mvp08_vault`
 - [tests/test_reader_authoring.py](../../../../../../tests/test_reader_authoring.py) — direct import

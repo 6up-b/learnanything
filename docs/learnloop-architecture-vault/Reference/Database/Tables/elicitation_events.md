@@ -20,7 +20,6 @@ source_paths:
   - "src/learnloop/ops/debug_time.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/diagnosis/causal_migration.py"
   - "src/learnloop/scheduling/scheduler.py"
   - "src/learnloop_sidecar/handlers/inspector.py"
 tags:
@@ -99,7 +98,6 @@ Indexes and uniqueness:
 
 - `src/learnloop/cli/app.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
-- `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 

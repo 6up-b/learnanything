@@ -99,7 +99,6 @@ Indexes and uniqueness:
 - `Repository.activity_pattern_version_by_slug()`
 - `Repository.activity_pattern_versions()`
 - `Repository.ensure_activity_pattern_version()`
-- `Repository.set_activity_pattern_version_status()`
 
 ### Direct SQL readers
 

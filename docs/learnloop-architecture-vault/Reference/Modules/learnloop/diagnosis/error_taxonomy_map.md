@@ -82,7 +82,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `ASSESSMENT_SIDE_ERROR_TYPES`, `map_legacy_error_type`; statically calls `map_legacy_error_type`
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `MECHANISM_SEVERITY_DEFAULT`, `MECHANISM_TAXONOMY_CARD_JSON`, `map_legacy_error_type`; statically calls `map_legacy_error_type`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `MECHANISM_PROJECTION_OPEN_SET`, `map_legacy_error_type`, `project_mechanism`; statically calls `map_legacy_error_type`, `project_mechanism`
-- [[Reference/Modules/learnloop/diagnosis/causal_migration|learnloop.diagnosis.causal_migration]] — imports `MECHANISM_TAXONOMY_SET`, `map_legacy_error_type`; statically calls `map_legacy_error_type`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `MECHANISM_IS_MISCONCEPTION`
 - [[Reference/Modules/learnloop/diagnosis/taxonomy_regrade|learnloop.diagnosis.taxonomy_regrade]] — imports `map_legacy_error_type`; statically calls `map_legacy_error_type`
 - [[Reference/Modules/learnloop/learner/recall_coverage|learnloop.learner.recall_coverage]] — imports `map_legacy_error_type`; statically calls `map_legacy_error_type`
@@ -107,7 +106,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]], [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]], [[Reference/Modules/learnloop/diagnosis/causal_migration|learnloop.diagnosis.causal_migration]], [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]], [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]], [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]], [[Reference/Modules/learnloop/diagnosis/taxonomy_regrade|learnloop.diagnosis.taxonomy_regrade]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

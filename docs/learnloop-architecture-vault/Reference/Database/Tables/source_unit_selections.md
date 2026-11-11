@@ -92,7 +92,6 @@ Indexes and uniqueness:
 
 - `Repository.delete_source_artifact()`
 - `Repository.get_unit_selection()`
-- `Repository.unit_selections_for_revision()`
 - `Repository.upsert_unit_selection()`
 
 ### Direct SQL readers

@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/sources/source_library.py](../../../../../../../src/learnloop/content/sources/source_library.py) |
-| Source lines | 174 |
+| Source lines | 144 |
 | Owning package | [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -57,7 +57,6 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - `class RegisteredRevision` ([source](../../../../../../../src/learnloop/content/sources/source_library.py), line 25)
 - `register_source_revision(repo: Repository, *, acquisition_kind: str, canonical_uri: str | None, raw_bytes: bytes, note_id: str | None=None, original_uri: str | None=None, retrieved_at: str | None=None, work_id: str | None=None, display_title: str | None=None, reader_enabled: bool | None=None, vault_root: Path | None=None, clock: Clock | None=None) -> RegisteredRevision` ([source](../../../../../../../src/learnloop/content/sources/source_library.py), line 33) — Register (or reuse) the artifact/revision rows for one acquisition.
-- `index_legacy_note(repo: Repository, *, note_id: str, acquisition_kind: str, canonical_uri: str | None, raw_bytes: bytes, note_path: str | None=None, retrieved_at: str | None=None, clock: Clock | None=None) -> RegisteredRevision` ([source](../../../../../../../src/learnloop/content/sources/source_library.py), line 147) — Index one legacy subject-scoped source note into artifact/revision rows.
 
 ## Internal implementation anchors
 

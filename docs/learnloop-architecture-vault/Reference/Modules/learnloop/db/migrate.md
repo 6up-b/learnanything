@@ -181,7 +181,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_diagnosis_input_provenance_landing.py](../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import
   - `test_q14_on_a_vault_the_coordinator_upgrades_the_receipt_commits_with_the_grade`
 - [tests/test_embedding_store.py](../../../../../../tests/test_embedding_store.py) — direct import
-- [tests/test_event_sufficiency.py](../../../../../../tests/test_event_sufficiency.py) — direct import
 - [tests/test_exam_protection_identity.py](../../../../../../tests/test_exam_protection_identity.py) — direct import
   - `test_f3_final_a_cli_upgrade_records_what_membership_qualifies_before_a_hand_edit`
   - `test_identity_rereview_f3_a_hand_edit_never_releases_a_signal_its_membership_qualified`

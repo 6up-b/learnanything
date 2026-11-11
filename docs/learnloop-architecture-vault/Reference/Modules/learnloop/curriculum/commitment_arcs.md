@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/curriculum/commitment_arcs.py](../../../../../../src/learnloop/curriculum/commitment_arcs.py) |
-| Source lines | 434 |
+| Source lines | 425 |
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -59,21 +59,21 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `preview_for_capture(*, action: str, depth_preset: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitment_arcs.py), line 184) — The provisional arc shown immediately after a commit (§10.2): the declared stage ladder + the default policy for the action.
 - `advance_arc(repository: Repository, *, arc_id: str, stage: str, evidence_receipt: Mapping[str, Any], selected_edge_id: str | None=None, goal_id: str | None=None, proposed_contract_body: Mapping[str, Any] | None=None, fork_edit: Mapping[str, Any] | None=None, live_activation_enabled: bool | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitment_arcs.py), line 199) — Record an achieved stage and request EXACTLY ONE P1 automatic transition (§10.1/§10.2).
 - `pause_arc(repository: Repository, *, arc_id: str, reason: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitment_arcs.py), line 291) — Pause the arc before the next administration: prevents an uncommitted transition and leaves the capture/arc intact (§15.6.1).
-- `set_depth_policy(repository: Repository, *, arc_id: str, policy: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitment_arcs.py), line 317) — Change the commitment's depth policy and re-pin the arc to the new policy version (§10.2).
-- `shrink_envelope(repository: Repository, *, arc_id: str, bounds: Mapping[str, Any], reviewed_edges: Sequence[Mapping[str, Any]]=(), clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitment_arcs.py), line 334) — Shrink (reduce) the active envelope before the next administration.
-- `offer_prime(repository: Repository, *, arc_id: str, question_ref: str, section: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitment_arcs.py), line 398) — Offer a learner question from section N as an opt-in prime before section N+1 (§10.3).
-- `answer_prime(repository: Repository, *, arc_id: str, question_ref: str, gave_up: bool=False, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitment_arcs.py), line 418) — Record a prime answer (§10.3): heavily tempered / no cold credit; it may adjust a low-authority prior only, and can never satisfy delayed certification.
+- `set_depth_policy(repository: Repository, *, arc_id: str, policy: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitment_arcs.py), line 308) — Change the commitment's depth policy and re-pin the arc to the new policy version (§10.2).
+- `shrink_envelope(repository: Repository, *, arc_id: str, bounds: Mapping[str, Any], reviewed_edges: Sequence[Mapping[str, Any]]=(), clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitment_arcs.py), line 325) — Shrink (reduce) the active envelope before the next administration.
+- `offer_prime(repository: Repository, *, arc_id: str, question_ref: str, section: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitment_arcs.py), line 389) — Offer a learner question from section N as an opt-in prime before section N+1 (§10.3).
+- `answer_prime(repository: Repository, *, arc_id: str, question_ref: str, gave_up: bool=False, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitment_arcs.py), line 409) — Record a prime answer (§10.3): heavily tempered / no cold credit; it may adjust a low-authority prior only, and can never satisfy delayed certification.
 
 ### Module constants
 
 - `DEFAULT_STAGES` ([src/learnloop/curriculum/commitment_arcs.py](../../../../../../src/learnloop/curriculum/commitment_arcs.py), line 41)
 - `ARC_SCHEMA_VERSION` ([src/learnloop/curriculum/commitment_arcs.py](../../../../../../src/learnloop/curriculum/commitment_arcs.py), line 46)
-- `_ARC_EVENT_KINDS` ([src/learnloop/curriculum/commitment_arcs.py](../../../../../../src/learnloop/curriculum/commitment_arcs.py), line 391)
+- `_ARC_EVENT_KINDS` ([src/learnloop/curriculum/commitment_arcs.py](../../../../../../src/learnloop/curriculum/commitment_arcs.py), line 382)
 
 ## Internal implementation anchors
 
 - `_stage_milestone_map(stages: Sequence[str], candidate_edges: Sequence[Mapping[str, Any]]) -> dict[str, str]` ([source](../../../../../../src/learnloop/curriculum/commitment_arcs.py), line 53) — Map each arc stage to the reviewed depth-milestone edge whose ``predecessor_milestone`` names that stage, else fall back to positional order.
-- `_repin(repository: Repository, arc_id: str, head: C.CommitmentVersion, *, event: str, detail: Mapping[str, Any], clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/curriculum/commitment_arcs.py), line 358)
+- `_repin(repository: Repository, arc_id: str, head: C.CommitmentVersion, *, event: str, detail: Mapping[str, Any], clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/curriculum/commitment_arcs.py), line 349)
 
 ## Who imports or calls it
 
@@ -88,7 +88,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
-- [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] — imports `module`; calls `change_depth_envelope`, `change_depth_policy`, `pause`, `record_milestone_reached`, `resolve_disposition`, `resolve_head`, `resume`
+- [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] — imports `module`; calls `change_depth_envelope`, `change_depth_policy`, `pause`, `record_milestone_reached`, `resolve_disposition`, `resolve_head`
 - [[Reference/Modules/learnloop/curriculum/depth_envelopes|learnloop.curriculum.depth_envelopes]] — imports `depth_policy`, `envelope_edges`; calls `depth_policy`, `envelope_edges`
 - [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]] — imports `module`; calls `commit_one_edge`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`

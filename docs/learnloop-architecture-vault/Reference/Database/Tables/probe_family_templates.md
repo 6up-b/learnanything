@@ -80,7 +80,6 @@ Indexes and uniqueness:
 - `Repository.all_probe_family_templates()`
 - `Repository.latest_probe_family_template()`
 - `Repository.probe_family_template()`
-- `Repository.retire_probe_family_template()`
 - `Repository.update_probe_family_template_status()`
 - `Repository.upsert_probe_family_template()`
 

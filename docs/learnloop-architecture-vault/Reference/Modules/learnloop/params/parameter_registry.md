@@ -134,7 +134,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Con
 - [[Reference/Modules/learnloop/method_explicit_upgrade|learnloop.method_explicit_upgrade]] — imports `module`; statically calls `freeze_manifest`, `refresh`
 - [[Reference/Modules/learnloop/one_ask_upgrade|learnloop.one_ask_upgrade]] — imports `module`; statically calls `freeze_manifest`, `refresh`
 - [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] — imports `module`; statically calls `freeze_manifest`, `refresh`
-- [[Reference/Modules/learnloop/params/sensitivity_certificates|learnloop.params.sensitivity_certificates]] — imports `REGISTRY`, `module`; statically calls `set_promotion_evidence_id`
+- [[Reference/Modules/learnloop/params/sensitivity_certificates|learnloop.params.sensitivity_certificates]] — imports `module`; statically calls `set_promotion_evidence_id`
 - [[Reference/Modules/learnloop/phone_probes_upgrade|learnloop.phone_probes_upgrade]] — imports `module`; statically calls `freeze_manifest`, `refresh`
 - [[Reference/Modules/learnloop/probe_tie_upgrade|learnloop.probe_tie_upgrade]] — imports `module`; statically calls `freeze_manifest`, `refresh`
 - [[Reference/Modules/learnloop/proof_check_upgrade|learnloop.proof_check_upgrade]] — imports `module`; statically calls `freeze_manifest`, `refresh`

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/causal_probe_commissioning.py](../../../../../../src/learnloop/diagnosis/causal_probe_commissioning.py) |
-| Source lines | 794 |
+| Source lines | 759 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,7 +61,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `measurement_contract_for_item(vault: LoadedVault, item: PracticeItem) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_commissioning.py), line 328) — The item's OWN measurement targets, never the parent's.
 - `commission_probe_instrument(vault: LoadedVault, repository: Repository, *, factor_id: str, candidate_practice_item_id: str | None=None, blind_generator: BlindGenerator | None=None, model_revision: str | None=None, outcome_schema_version: str='deterministic_criterion_features_v1', adversarial_review: Mapping[str, Any] | None=None, generation_agent_run_id: str | None=None, reviewer_agent_run_id: str | None=None, require_adversarial: bool=True, require_divergence: bool=True, manipulation_contract: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_commissioning.py), line 383) — Commission one discriminating instrument for ``factor_id``.
 - `support_scores(repository: Repository, factor: Mapping[str, Any]) -> dict[str, float | None]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_commissioning.py), line 727) — The factor's receipt support scores, as commissioning reads them (the follow-up lane too).
-- `sweep_probe_commissioning(vault: LoadedVault, repository: Repository, *, learning_object_id: str, limit: int=4, clock: Clock | None=None, **kwargs: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_commissioning.py), line 762) — Commission instruments for this learning object's divergent factors.
 
 ### Module constants
 
@@ -125,7 +124,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_obsolete_observation_exposed_candidate_cannot_advance`
   - `test_pending_adversarial_review_is_a_state_not_a_failure`
   - `test_self_reviewed_manipulation_is_rejected`
-  - `test_sweep_commissions_open_factors_and_reports_each_outcome`
   - `test_sweep_machine_checks_queues_the_instrument_debt`
   - `test_target_mapping_never_falls_back_to_postdictive_claims`
 - [tests/test_causal_shadow_selection.py](../../../../../../tests/test_causal_shadow_selection.py) — direct import

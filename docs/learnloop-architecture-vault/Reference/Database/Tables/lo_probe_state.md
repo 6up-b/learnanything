@@ -25,7 +25,7 @@ source_paths:
   - "src/learnloop/ops/debug_time.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/diagnosis/causal_migration.py"
+  - "src/learnloop/diagnosis/probes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/compat"
@@ -85,7 +85,6 @@ Indexes and uniqueness:
 
 - `Repository.find_record()`
 - `Repository.probe_state()`
-- `Repository.probe_states()`
 - `Repository.upsert_probe_state()`
 
 ### Direct SQL readers
@@ -101,7 +100,6 @@ Indexes and uniqueness:
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/authoring/practice_generation.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
-- `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/diagnosis/probes.py`
 - `src/learnloop/followup_run/marks.py`

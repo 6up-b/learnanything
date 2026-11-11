@@ -46,34 +46,33 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ingest/hashing.py](../../../../../../src/learnloop/ingest/hashing.py) |
-| Source lines | 180 |
+| Source lines | 175 |
 | Owning package | [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `asset_hash(raw_bytes: bytes) -> str` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 52) — Hash of the raw fetched bytes; the SourceRevision identity (§2.2).
-- `extraction_request_hash(*, revision_id: str, extractor: str, extractor_version: str, package_version: str | None=None, model_versions: Mapping[str, str] | None=None, config: Mapping[str, Any] | None=None, page_selection: Iterable[int] | None=None, ir_schema_version: str) -> str` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 62) — Idempotency/retry key for a *requested* ExtractionRun (§2.2, §2.5).
-- `extraction_result_hash(request_hash: str, ir: DocumentIR) -> str` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 98) — Completed-run content identity: request hash + produced IR (§2.2).
-- `normalize_semantic_text(blocks: Iterable[DocumentBlock]) -> str` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 108) — Deterministic normalized text view over a unit's blocks (§2.2).
-- `semantic_hash(blocks: Iterable[DocumentBlock]) -> str` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 173) — Per-unit semantic hash over the normalized text view (§2.2).
-- `block_type_histogram(blocks: Iterable[DocumentBlock]) -> dict[str, int]` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 179)
+- `asset_hash(raw_bytes: bytes) -> str` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 51) — Hash of the raw fetched bytes; the SourceRevision identity (§2.2).
+- `extraction_request_hash(*, revision_id: str, extractor: str, extractor_version: str, package_version: str | None=None, model_versions: Mapping[str, str] | None=None, config: Mapping[str, Any] | None=None, page_selection: Iterable[int] | None=None, ir_schema_version: str) -> str` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 61) — Idempotency/retry key for a *requested* ExtractionRun (§2.2, §2.5).
+- `extraction_result_hash(request_hash: str, ir: DocumentIR) -> str` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 97) — Completed-run content identity: request hash + produced IR (§2.2).
+- `normalize_semantic_text(blocks: Iterable[DocumentBlock]) -> str` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 107) — Deterministic normalized text view over a unit's blocks (§2.2).
+- `semantic_hash(blocks: Iterable[DocumentBlock]) -> str` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 172) — Per-unit semantic hash over the normalized text view (§2.2).
 
 ### Module constants
 
-- `_VERBATIM_BLOCK_TYPES` ([src/learnloop/ingest/hashing.py](../../../../../../src/learnloop/ingest/hashing.py), line 30)
-- `_TAG_RE` ([src/learnloop/ingest/hashing.py](../../../../../../src/learnloop/ingest/hashing.py), line 41)
-- `_WS_RE` ([src/learnloop/ingest/hashing.py](../../../../../../src/learnloop/ingest/hashing.py), line 42)
-- `_PAGE_NUMBER_RE` ([src/learnloop/ingest/hashing.py](../../../../../../src/learnloop/ingest/hashing.py), line 43)
+- `_VERBATIM_BLOCK_TYPES` ([src/learnloop/ingest/hashing.py](../../../../../../src/learnloop/ingest/hashing.py), line 29)
+- `_TAG_RE` ([src/learnloop/ingest/hashing.py](../../../../../../src/learnloop/ingest/hashing.py), line 40)
+- `_WS_RE` ([src/learnloop/ingest/hashing.py](../../../../../../src/learnloop/ingest/hashing.py), line 41)
+- `_PAGE_NUMBER_RE` ([src/learnloop/ingest/hashing.py](../../../../../../src/learnloop/ingest/hashing.py), line 42)
 
 ## Internal implementation anchors
 
-- `_sha256(payload: str | bytes) -> str` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 46)
-- `_canonical_json(data: Any) -> str` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 58)
-- `_sanitized_config(config: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 93)
-- `_repeated_boilerplate(blocks: list[DocumentBlock]) -> set[str]` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 139) — Short prose lines that recur across many pages are headers/footers.
-- `_strip_markup(text: str) -> str` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 160)
+- `_sha256(payload: str | bytes) -> str` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 45)
+- `_canonical_json(data: Any) -> str` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 57)
+- `_sanitized_config(config: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 92)
+- `_repeated_boilerplate(blocks: list[DocumentBlock]) -> set[str]` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 138) — Short prose lines that recur across many pages are headers/footers.
+- `_strip_markup(text: str) -> str` ([source](../../../../../../src/learnloop/ingest/hashing.py), line 159)
 
 ## Who imports or calls it
 
@@ -99,7 +98,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `hashlib`, `json`, `re`, `typing`
+- Standard library: `__future__`, `hashlib`, `json`, `re`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

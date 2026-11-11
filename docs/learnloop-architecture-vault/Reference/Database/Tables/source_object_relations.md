@@ -81,7 +81,6 @@ Indexes and uniqueness:
 
 - `Repository.create_source_object_relation()`
 - `Repository.delete_source_artifact()`
-- `Repository.relations_for_object()`
 - `Repository.source_object_relation()`
 
 ### Direct SQL readers

@@ -66,12 +66,12 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/substrate/__init__|learnloop.substrate]] | [[Reference/Modules/learnloop/substrate/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] | [[Reference/Modules/learnloop/substrate/activities#^module-purpose|purpose]] | `ACTIVE` | 61 | 51 |
+| [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] | [[Reference/Modules/learnloop/substrate/activities#^module-purpose|purpose]] | `ACTIVE` | 60 | 50 |
 | [[Reference/Modules/learnloop/substrate/activity_patterns|learnloop.substrate.activity_patterns]] | [[Reference/Modules/learnloop/substrate/activity_patterns#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
 | [[Reference/Modules/learnloop/substrate/administration_adapters|learnloop.substrate.administration_adapters]] | [[Reference/Modules/learnloop/substrate/administration_adapters#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
 | [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] | [[Reference/Modules/learnloop/substrate/canonical_projection#^module-purpose|purpose]] | `ACTIVE` | 43 | 40 |
 | [[Reference/Modules/learnloop/substrate/canonical_projection_rollout|learnloop.substrate.canonical_projection_rollout]] | [[Reference/Modules/learnloop/substrate/canonical_projection_rollout#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
-| [[Reference/Modules/learnloop/substrate/card_lineage|learnloop.substrate.card_lineage]] | [[Reference/Modules/learnloop/substrate/card_lineage#^module-purpose|purpose]] | `ACTIVE` | 4 | 6 |
+| [[Reference/Modules/learnloop/substrate/card_lineage|learnloop.substrate.card_lineage]] | [[Reference/Modules/learnloop/substrate/card_lineage#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
 | [[Reference/Modules/learnloop/substrate/data_quality|learnloop.substrate.data_quality]] | [[Reference/Modules/learnloop/substrate/data_quality#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
 | [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] | [[Reference/Modules/learnloop/substrate/dataset#^module-purpose|purpose]] | `ACTIVE` | 1 | 5 |
 | [[Reference/Modules/learnloop/substrate/families|learnloop.substrate.families]] | [[Reference/Modules/learnloop/substrate/families#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
@@ -125,7 +125,7 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 - [[Reference/Modules/learnloop/_package|learnloop]] — 46 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 22 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 19 static module edges
-- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 19 static module edges
+- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 18 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 13 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 12 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 10 static module edges
@@ -182,7 +182,7 @@ flowchart LR
     center -->|26| n_learnloop_db
     n_learnloop_learner -->|5| center
     center -->|18| n_learnloop_learner
-    n_learnloop_scheduling -->|19| center
+    n_learnloop_scheduling -->|18| center
     center -->|4| n_learnloop_scheduling
     n_learnloop_curriculum -->|19| center
     center -->|19| n_learnloop_vault

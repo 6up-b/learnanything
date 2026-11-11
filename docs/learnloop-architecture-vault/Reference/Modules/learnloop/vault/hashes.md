@@ -35,7 +35,7 @@ Up: [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] · Root: [[Mo
 
 ## Why this module exists
 
-This module keeps hashes behavior inside its owning package, [[Reference/Modules/learnloop/vault/_package|learnloop.vault]]. Its public surface centers on `content_hash`, `learning_object_hash`, `practice_item_hash`, `reference_content_hash`, `skeleton_content_hash`, `activity_family_hash`.
+This module keeps hashes behavior inside its owning package, [[Reference/Modules/learnloop/vault/_package|learnloop.vault]]. Its public surface centers on `content_hash`, `practice_item_hash`, `reference_content_hash`, `skeleton_content_hash`, `activity_family_hash`.
 
 The authoritative system-level explanation remains in [[State and Persistence]]; this note records where this source module participates rather than restating those concepts.
 
@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/vault/hashes.py](../../../../../../src/learnloop/vault/hashes.py) |
-| Source lines | 123 |
+| Source lines | 72 |
 | Owning package | [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -54,11 +54,10 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 ## Public API
 
 - `content_hash(fields: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/vault/hashes.py), line 23)
-- `learning_object_hash(learning_object: LearningObject) -> str` ([source](../../../../../../src/learnloop/vault/hashes.py), line 28)
-- `practice_item_hash(practice_item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/vault/hashes.py), line 46)
-- `reference_content_hash(practice_item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/vault/hashes.py), line 68) — What an answer-key check verified (canonical sources S1, §7.3a): the prompt, the expected answer, the grading rubric and, when set, the required method (method-explicit-3 review F1).
-- `skeleton_content_hash(prompt: str, expected_answer: str | dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/vault/hashes.py), line 77) — The item text a PF solution skeleton describes (``item_skeletons.content_hash``).
-- `activity_family_hash(family: ActivityFamily) -> str` ([source](../../../../../../src/learnloop/vault/hashes.py), line 117) — Authored family content has its own revision hash, never the item hash.
+- `practice_item_hash(practice_item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/vault/hashes.py), line 28)
+- `reference_content_hash(practice_item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/vault/hashes.py), line 50) — What an answer-key check verified (canonical sources S1, §7.3a): the prompt, the expected answer, the grading rubric and, when set, the required method (method-explicit-3 review F1).
+- `skeleton_content_hash(prompt: str, expected_answer: str | dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/vault/hashes.py), line 59) — The item text a PF solution skeleton describes (``item_skeletons.content_hash``).
+- `activity_family_hash(family: ActivityFamily) -> str` ([source](../../../../../../src/learnloop/vault/hashes.py), line 70) — Authored family content has its own revision hash, never the item hash.
 
 ## Internal implementation anchors
 
@@ -97,7 +96,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]] — imports `reference_content_hash`; calls `reference_content_hash`
-- [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `ActivityFamily`, `Concept`, `ConceptEdge`, `LearningObject`, `PracticeItem`, `Rubric`
+- [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `ActivityFamily`, `PracticeItem`
 
 ### Platform and third-party dependencies
 

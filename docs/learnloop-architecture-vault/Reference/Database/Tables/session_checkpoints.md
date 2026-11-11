@@ -100,7 +100,6 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/session_ownership.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
-- `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/hints/state.py`
 - `src/learnloop/placement/decisions.py`
 - `src/learnloop/scheduling/reentry_adapter.py`

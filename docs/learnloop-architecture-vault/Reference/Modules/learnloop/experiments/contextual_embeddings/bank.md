@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/experiments/contextual_embeddings/bank.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/bank.py) |
-| Source lines | 1085 |
+| Source lines | 1072 |
 | Owning package | [[Reference/Modules/learnloop/experiments/contextual_embeddings/_package|learnloop.experiments.contextual_embeddings]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -96,7 +96,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `accept_agreed(labels: QuestionLabels) -> QuestionLabels` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/bank.py), line 1041) — An unaudited agreement: model-only labels (reported as such).
 - `audit_plan(all_labels: Sequence[QuestionLabels], *, share: float=pins.AUDIT_SAMPLE_SHARE) -> dict[str, str]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/bank.py), line 1050) — ``{query_id: reason}`` the adjudicator audits: every mandatory case and a seeded ``share`` of the rest (agreements, negatives, unanswerable).
 - `evidence_sets_from_labels(labels: QuestionLabels, snapshot: CorpusSnapshot) -> list[EvidenceSet]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/bank.py), line 1067)
-- `reference_dependencies(snapshot: CorpusSnapshot, question: BankQuestion) -> list[str]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/bank.py), line 1075) — Deterministic reference following for a known selection (identical for every arm): the units its numbered references resolve to.
 
 ### Module constants
 

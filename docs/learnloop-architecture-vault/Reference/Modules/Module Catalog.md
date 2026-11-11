@@ -19,16 +19,16 @@ tags:
 # Module Catalog
 
 > [!abstract] Lookup contract
-> This catalog maps all **1283 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **617 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **69 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
+> This catalog maps all **1278 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **617 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **69 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
 
 ## Coverage and status
 
 | Refactor status | Modules | Meaning |
 |---|---:|---|
-| `ACTIVE` | 1260 | Live ownership after the refactor. |
-| `COMPAT` | 4 | Live but frozen old-vault compatibility machinery. |
-| `DORMANT` | 2 | Explicitly disabled/descoped modules with no live workflow authority. |
-| `EVALUATION` | 17 | Shadow, audit, or offline evaluation code whose outputs are decision-inert. |
+| `ACTIVE` | 1258 | Live ownership after the refactor. |
+| `COMPAT` | 3 | Live but frozen old-vault compatibility machinery. |
+| `DORMANT` | 1 | Explicitly disabled/descoped modules with no live workflow authority. |
+| `EVALUATION` | 16 | Shadow, audit, or offline evaluation code whose outputs are decision-inert. |
 
 > [!note] Generated evidence
 > Importers and direct calls are static AST evidence. Dynamic RPC registration, entry points, reflection, and string-based dispatch are called out where known but cannot be proven exhaustively without runtime tracing.
@@ -60,7 +60,7 @@ tags:
 | [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] | `domain` | `ACTIVE` | 4 | What later evaluation needs, recorded now: its switches, prefilter receipts, and the one read of Reader exposures with the sweep that freezes them. |
 | [[Reference/Modules/learnloop/db/_package|learnloop.db]] | `infrastructure` | `ACTIVE` | 9 | SQLite connections, migrations, repository compatibility, table roles, rebuilds, and persistence infrastructure. |
 | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] | `infrastructure` | `ACTIVE` | 55 | Table-family persistence owners extracted from the repository facade. |
-| [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] | `domain` | `ACTIVE` | 59 | Diagnostic probes, causal attribution, error classification, and remediation decisions. |
+| [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] | `domain` | `ACTIVE` | 57 | Diagnostic probes, causal attribution, error classification, and remediation decisions. |
 | [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] | `domain` | `ACTIVE` | 10 | The offline review of blind grading and history-aware diagnosis, run on backup copies with synthetic learners; never changes a live vault. |
 | [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] | `domain` | `ACTIVE` | 11 | Recurrence with authority: the same_cause match kind over causal hypotheses, its shortlist and judge, the live step and the backlog. |
 | [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] | `domain` | `ACTIVE` | 20 | History-aware diagnosis split from the learner-blind grader: history modes, the diagnoser's inputs, jobs and traces. |
@@ -93,12 +93,12 @@ tags:
 | [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] | `domain` | `ACTIVE` | 7 | Application services for frontends outside the desktop (the MCP chat adapter's only door); no learning policy of its own. |
 | [[Reference/Modules/learnloop/router/_package|learnloop.router]] | `domain` | `ACTIVE` | 12 | The action router: decisions logged on today's serving paths and their derived outcomes; a leaf that chooses nothing yet. |
 | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] | `domain` | `ACTIVE` | 35 | The router objective's logging (spec_router_objective_v1 §4, RO0): additive receipts at every version behind [router_objective] receipts, read by nothing serving, scheduling or certification. |
-| [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] | `domain` | `ACTIVE` | 41 | Selection, review timing, progression, controller decisions, and scheduling projections. |
+| [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] | `domain` | `ACTIVE` | 40 | Selection, review timing, progression, controller decisions, and scheduling projections. |
 | [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] | `domain` | `ACTIVE` | 7 | Intent at serving time: the vocabulary, the most-recent-choice resolution, per-intent recall targets and the per-build view. |
-| [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] | `simulation` | `EVALUATION` | 13 | Offline simulation, benchmark, sweep, synthetic-student, and algorithm evaluation tools. |
+| [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] | `simulation` | `EVALUATION` | 12 | Offline simulation, benchmark, sweep, synthetic-student, and algorithm evaluation tools. |
 | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] | `domain` | `ACTIVE` | 42 | Source retrieval and the Reader's sources side: keyword and dense search, section coverage, deliverables and paths, and the learner's notes. |
 | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] | `domain` | `ACTIVE` | 23 | Activity, card, surface, and identity substrate plus canonical projections. |
-| [[Reference/Modules/learnloop/substrate/compat/_package|learnloop.substrate.compat]] | `domain` | `COMPAT` | 4 | Frozen compatibility machinery retained for old vaults. |
+| [[Reference/Modules/learnloop/substrate/compat/_package|learnloop.substrate.compat]] | `domain` | `COMPAT` | 3 | Frozen compatibility machinery retained for old vaults. |
 | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] | `domain` | `ACTIVE` | 18 | Lessons on the latent learner state: the brief, the teacher's turn contract and actions, guards, checks, delayed checks and receipts. |
 | [[Reference/Modules/learnloop/tui/_package|learnloop.tui]] | `adapter` | `ACTIVE` | 6 | Textual UI adapter, screens, widgets, state, and presentation behavior. |
 | [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] | `adapter` | `ACTIVE` | 5 | Individual Textual user-interface screens. |
@@ -163,6 +163,6 @@ SORT file.name ASC
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py
 ```
 
-The current generation discovered 1871 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
+The current generation discovered 1866 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
 
 Notes carry no commit of their own: the commit they were generated from is `module_generate.py`'s row in [[Reference/_generated|Generated Reference Provenance]], so a regeneration rewrites only the notes whose facts changed.

@@ -133,7 +133,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] | [[Reference/Modules/learnloop/bootstrap#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
 | [[Reference/Modules/learnloop/causal_activity_policy|learnloop.causal_activity_policy]] | [[Reference/Modules/learnloop/causal_activity_policy#^module-purpose|purpose]] | `ACTIVE` | 10 | 2 |
 | [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]] | [[Reference/Modules/learnloop/claim_fixes_upgrade#^module-purpose|purpose]] | `ACTIVE` | 26 | 4 |
-| [[Reference/Modules/learnloop/clock|learnloop.clock]] | [[Reference/Modules/learnloop/clock#^module-purpose|purpose]] | `ACTIVE` | 450 | 607 |
+| [[Reference/Modules/learnloop/clock|learnloop.clock]] | [[Reference/Modules/learnloop/clock#^module-purpose|purpose]] | `ACTIVE` | 448 | 605 |
 | [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]] | [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] | [[Reference/Modules/learnloop/confidence_events#^module-purpose|purpose]] | `ACTIVE` | 6 | 5 |
 | [[Reference/Modules/learnloop/daily_plan_upgrade|learnloop.daily_plan_upgrade]] | [[Reference/Modules/learnloop/daily_plan_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
@@ -152,7 +152,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] | [[Reference/Modules/learnloop/held_grades#^module-purpose|purpose]] | `ACTIVE` | 51 | 17 |
 | [[Reference/Modules/learnloop/help_fold_attach_upgrade|learnloop.help_fold_attach_upgrade]] | [[Reference/Modules/learnloop/help_fold_attach_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/hint_window|learnloop.hint_window]] | [[Reference/Modules/learnloop/hint_window#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
-| [[Reference/Modules/learnloop/ids|learnloop.ids]] | [[Reference/Modules/learnloop/ids#^module-purpose|purpose]] | `ACTIVE` | 170 | 59 |
+| [[Reference/Modules/learnloop/ids|learnloop.ids]] | [[Reference/Modules/learnloop/ids#^module-purpose|purpose]] | `ACTIVE` | 169 | 59 |
 | [[Reference/Modules/learnloop/intent_upgrade|learnloop.intent_upgrade]] | [[Reference/Modules/learnloop/intent_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/interval_factor_upgrade|learnloop.interval_factor_upgrade]] | [[Reference/Modules/learnloop/interval_factor_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] | [[Reference/Modules/learnloop/learner_context#^module-purpose|purpose]] | `ACTIVE` | 4 | 10 |
@@ -281,12 +281,12 @@ For system intent, use [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 80 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 79 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 72 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 59 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 52 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 50 static module edges
-- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 45 static module edges
+- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 43 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 38 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 34 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 34 static module edges
@@ -361,7 +361,7 @@ flowchart LR
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_vault -->|10| center
     center -->|141| n_learnloop_vault
-    n_learnloop_diagnosis -->|80| center
+    n_learnloop_diagnosis -->|79| center
     n_learnloop_substrate -->|32| center
     center -->|46| n_learnloop_substrate
     n_learnloop_cli -->|72| center
@@ -375,7 +375,7 @@ flowchart LR
     center -->|1| n_learnloop_attempts
     n_learnloop_params -->|2| center
     center -->|45| n_learnloop_params
-    n_learnloop_scheduling -->|45| center
+    n_learnloop_scheduling -->|43| center
     center -->|2| n_learnloop_scheduling
 ```
 

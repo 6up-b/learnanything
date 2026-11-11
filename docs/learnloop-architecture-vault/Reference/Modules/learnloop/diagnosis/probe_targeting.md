@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_targeting.py](../../../../../../src/learnloop/diagnosis/probe_targeting.py) |
-| Source lines | 886 |
+| Source lines | 860 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -74,9 +74,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `as_dict(self) -> dict[str, Any]` (line 506; public)
 - `rank_discriminating_instruments(candidate_causes: list[dict[str, Any]], eligible: list[Any], *, repository: Repository | None=None) -> InstrumentRanking` ([source](../../../../../../src/learnloop/diagnosis/probe_targeting.py), line 621) — Rank eligible instruments for a cause set, repair-class first.
 - `select_discriminating_instrument(candidate_causes: list[dict[str, Any]], eligible: list[Any], *, repository: Repository | None=None) -> Any | None` ([source](../../../../../../src/learnloop/diagnosis/probe_targeting.py), line 694) — Pick the eligible instrument that best discriminates the candidate causes.
-- `next_cause_set_instrument(vault: LoadedVault, repository: Repository, episode: Any, *, candidate_causes: list[dict[str, Any]] | None=None) -> Any | None` ([source](../../../../../../src/learnloop/diagnosis/probe_targeting.py), line 712) — Serve the discriminating instrument for a cause-set diagnostic episode.
-- `integration_condition_target(vault: LoadedVault, repository: Repository, learning_object: LearningObject) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_targeting.py), line 741) — Components strong AND integration weak -> probe coordination, not components.
-- `probe_priority(vault: LoadedVault, repository: Repository, learning_object: LearningObject, *, bottleneck: dict[str, Any] | None=None, transfer_target: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_targeting.py), line 764) — Resolve the §11.1 priority order into one selected diagnostic target.
+- `integration_condition_target(vault: LoadedVault, repository: Repository, learning_object: LearningObject) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_targeting.py), line 715) — Components strong AND integration weak -> probe coordination, not components.
+- `probe_priority(vault: LoadedVault, repository: Repository, learning_object: LearningObject, *, bottleneck: dict[str, Any] | None=None, transfer_target: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_targeting.py), line 738) — Resolve the §11.1 priority order into one selected diagnostic target.
 
 ### Module constants
 
@@ -115,7 +114,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `OPEN_SET_CAUSE_ID`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `eligible_instruments`; calls `eligible_instruments`
 - [[Reference/Modules/learnloop/diagnosis/probe_hypotheses|learnloop.diagnosis.probe_hypotheses]] — imports `triage_reason_for_label`; calls `triage_reason_for_label`
 - [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]] — imports `demonstrated_capabilities_for_facet`, `lo_certification`; calls `demonstrated_capabilities_for_facet`, `lo_certification`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LearningObject`, `LoadedVault`

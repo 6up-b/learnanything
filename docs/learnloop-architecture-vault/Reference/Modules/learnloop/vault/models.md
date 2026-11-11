@@ -424,7 +424,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/tutor/teach_back|learnloop.tutor.teach_back]] — imports `LoadedVault`, `PracticeItem`, `Rubric`, `RubricCriterion`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `LoadedVault`, `PracticeItem`
 - [[Reference/Modules/learnloop/vault/embedding_recipes|learnloop.vault.embedding_recipes]] — imports `EvidenceFacet`, `LoadedVault`
-- [[Reference/Modules/learnloop/vault/hashes|learnloop.vault.hashes]] — imports `ActivityFamily`, `Concept`, `ConceptEdge`, `LearningObject`, `PracticeItem`, `Rubric`
+- [[Reference/Modules/learnloop/vault/hashes|learnloop.vault.hashes]] — imports `ActivityFamily`, `PracticeItem`
 - [[Reference/Modules/learnloop/vault/lifecycle|learnloop.vault.lifecycle]] — imports `LoadedVault`, `PracticeItem`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `ActivityFamily`, `ConceptGraph`, `ConceptsFile`, `DefaultRubric`, `DoctorIssue`, `ErrorTypesFile`, `EvidenceFacetsFile`, `GoalsFile`, `LearningObject`, `LoadedVault`, `Note`, `PracticeItem`, `RelationsFile`, `SourceSetsFile`, `Subject`, `SubjectMetadata`, `recipe_components`; statically calls `ConceptGraph`, `DoctorIssue`, `LoadedVault`, `Subject`, `recipe_components`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `ActivityFamily`, `Concept`, `ConceptEdge`, `ErrorType`, `EvidenceFacet`, `LearningObject`, `LoadedVault`, `PracticeItem`, `SourceSet`
@@ -594,8 +594,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_resolves_video_time_range`
   - `test_web_original_is_used_when_the_canonical_uri_is_local`
 - [tests/test_probe_belief_posterior.py](../../../../../../tests/test_probe_belief_posterior.py) — direct import
-- [tests/test_probe_eig.py](../../../../../../tests/test_probe_eig.py) — direct import
-  - `test_probe_eig_is_deterministic_and_normalized`
 - [tests/test_reader_ca5a_find_section.py](../../../../../../tests/test_reader_ca5a_find_section.py) — direct import
   - `test_a_peeked_paragraph_that_is_the_replacement_surfaces_source_is_skipped_by_the_reschedule`
   - `test_f2_a_peeked_paragraph_that_is_a_cold_items_source_makes_the_receipt_see_it`

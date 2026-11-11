@@ -113,7 +113,6 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/intent_fakes.py`
-- `tests/test_commitments.py`
 - `tests/test_daily_loop_reader_retire.py`
 - `tests/test_question_promotions.py`
 - `tests/test_tutor_promotion_service.py`

@@ -7,7 +7,6 @@ version: "1.0.0"
 source_paths:
   - "src/learnloop/substrate/compat/__init__.py"
   - "src/learnloop/substrate/compat/activity_backfill.py"
-  - "src/learnloop/substrate/compat/card_outcome_replay.py"
   - "src/learnloop/substrate/compat/substrate_cutover.py"
 generated: true
 generated_at: "2026-11-02"
@@ -48,8 +47,7 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/substrate/compat/__init__|learnloop.substrate.compat]] | [[Reference/Modules/learnloop/substrate/compat/__init__#^module-purpose|purpose]] | `COMPAT` | 0 | 0 |
 | [[Reference/Modules/learnloop/substrate/compat/activity_backfill|learnloop.substrate.compat.activity_backfill]] | [[Reference/Modules/learnloop/substrate/compat/activity_backfill#^module-purpose|purpose]] | `COMPAT` | 1 | 2 |
-| [[Reference/Modules/learnloop/substrate/compat/card_outcome_replay|learnloop.substrate.compat.card_outcome_replay]] | [[Reference/Modules/learnloop/substrate/compat/card_outcome_replay#^module-purpose|purpose]] | `COMPAT` | 0 | 2 |
-| [[Reference/Modules/learnloop/substrate/compat/substrate_cutover|learnloop.substrate.compat.substrate_cutover]] | [[Reference/Modules/learnloop/substrate/compat/substrate_cutover#^module-purpose|purpose]] | `COMPAT` | 0 | 3 |
+| [[Reference/Modules/learnloop/substrate/compat/substrate_cutover|learnloop.substrate.compat.substrate_cutover]] | [[Reference/Modules/learnloop/substrate/compat/substrate_cutover#^module-purpose|purpose]] | `COMPAT` | 0 | 2 |
 
 ## Cross-package dependencies
 

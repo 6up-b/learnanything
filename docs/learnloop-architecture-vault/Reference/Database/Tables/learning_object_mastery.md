@@ -113,7 +113,6 @@ Indexes and uniqueness:
 - `src/learnloop/delayed_checks.py`
 - `src/learnloop/diagnosis/calibration_sessions.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
-- `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
 - `src/learnloop/diagnosis/probe_hypotheses.py`
 - `src/learnloop/diagnosis/probes.py`
@@ -121,6 +120,7 @@ Indexes and uniqueness:
 - `src/learnloop/goals/goal_projection.py`
 - `src/learnloop/hints/state.py`
 - `src/learnloop/learner/capability_grid.py`
+- `src/learnloop/learner/facet_diagnostics.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

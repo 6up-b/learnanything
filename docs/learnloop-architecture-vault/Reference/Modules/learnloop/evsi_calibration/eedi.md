@@ -47,39 +47,37 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/evsi_calibration/eedi.py](../../../../../../src/learnloop/evsi_calibration/eedi.py) |
-| Source lines | 333 |
+| Source lines | 327 |
 | Owning package | [[Reference/Modules/learnloop/evsi_calibration/_package|learnloop.evsi_calibration]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class EediQuestion` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 42) — One 2024 question with its distractor labels.
-  - `distractors(self) -> tuple[str, ...]` (line 55; public)
-  - `options_for(self, misconception_id: str) -> tuple[str, ...]` (line 58; public)
-- `class EediBank` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 67) — The 2024 question bank: questions, misconception names, provenance.
-  - `by_subject(self) -> dict[int, list[EediQuestion]]` (line 75; public)
-- `load_eedi_2024(directory: Path) -> EediBank` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 113) — Read ``train.csv`` and ``misconception_mapping.csv`` from ``directory``.
-- `class NeuripsResponses` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 167) — Answer arrays of one 2020 task, aligned by row (one row per answer).
-  - `rows(self) -> int` (line 185; public)
-- `load_neurips_2020(directory: Path, *, task: str='1_2', cache_dir: Path | None=None, with_dates: bool=False) -> NeuripsResponses` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 274) — Load one 2020 task's answers (cached as ``.npz`` in ``cache_dir``).
-- `option_index(option: str) -> int` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 332)
+- `class EediQuestion` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 40) — One 2024 question with its distractor labels.
+  - `distractors(self) -> tuple[str, ...]` (line 53; public)
+  - `options_for(self, misconception_id: str) -> tuple[str, ...]` (line 56; public)
+- `class EediBank` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 65) — The 2024 question bank: questions, misconception names, provenance.
+  - `by_subject(self) -> dict[int, list[EediQuestion]]` (line 73; public)
+- `load_eedi_2024(directory: Path) -> EediBank` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 111) — Read ``train.csv`` and ``misconception_mapping.csv`` from ``directory``.
+- `class NeuripsResponses` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 165) — Answer arrays of one 2020 task, aligned by row (one row per answer).
+  - `rows(self) -> int` (line 183; public)
+- `load_neurips_2020(directory: Path, *, task: str='1_2', cache_dir: Path | None=None, with_dates: bool=False) -> NeuripsResponses` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 272) — Load one 2020 task's answers (cached as ``.npz`` in ``cache_dir``).
 
 ### Module constants
 
 - `OPTIONS` ([src/learnloop/evsi_calibration/eedi.py](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 33)
-- `_OPTION_INDEX` ([src/learnloop/evsi_calibration/eedi.py](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 35)
-- `_CACHE_VERSION` ([src/learnloop/evsi_calibration/eedi.py](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 38)
+- `_CACHE_VERSION` ([src/learnloop/evsi_calibration/eedi.py](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 36)
 
 ## Internal implementation anchors
 
-- `_read_manifest(directory: Path) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 82)
-- `_file_hash(paths: Sequence[Path]) -> str` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 93)
-- `_misconception_id(raw: Any) -> str | None` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 103)
-- `_subjects(directory: Path) -> tuple[dict[int, int], dict[int, str]]` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 189)
-- `_leaf_subjects(directory: Path, task: str, levels: Mapping[int, int]) -> dict[int, int]` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 200)
-- `_parse_answers(path: Path) -> dict[str, np.ndarray]` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 214)
-- `_parse_dates(path: Path, answer_ids: np.ndarray) -> np.ndarray` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 240) — Minutes since the epoch for each of ``answer_ids`` (-1 when unknown).
+- `_read_manifest(directory: Path) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 80)
+- `_file_hash(paths: Sequence[Path]) -> str` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 91)
+- `_misconception_id(raw: Any) -> str | None` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 101)
+- `_subjects(directory: Path) -> tuple[dict[int, int], dict[int, str]]` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 187)
+- `_leaf_subjects(directory: Path, task: str, levels: Mapping[int, int]) -> dict[int, int]` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 198)
+- `_parse_answers(path: Path) -> dict[str, np.ndarray]` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 212)
+- `_parse_dates(path: Path, answer_ids: np.ndarray) -> np.ndarray` ([source](../../../../../../src/learnloop/evsi_calibration/eedi.py), line 238) — Minutes since the epoch for each of ``answer_ids`` (-1 when unknown).
 
 ## Who imports or calls it
 

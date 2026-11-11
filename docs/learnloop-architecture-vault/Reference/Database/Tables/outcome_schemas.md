@@ -100,7 +100,6 @@ Indexes and uniqueness:
 
 - `tests/teacher_te2_review_fixes_helpers.py`
 - `tests/test_effective_observation.py`
-- `tests/test_event_sufficiency.py`
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_grader_channel_prior_knobs.py`
 - `tests/test_observation_ledger_bulk.py`

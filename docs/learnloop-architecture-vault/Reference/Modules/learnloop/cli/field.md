@@ -84,7 +84,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]] — imports `field_app`
-- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `field_eval`; statically calls `field_eval`
 - [[Reference/Modules/learnloop/cli/evaluation|learnloop.cli.evaluation]] — imports `_LEGACY_FALLBACK_HELP`, `_PROBABILITY_ARM_HELP`, `families_eval`, `field_eval`; statically calls `field_eval`
 - [[Reference/Modules/learnloop/cli/success_head|learnloop.cli.success_head]] — imports `_LEGACY_FALLBACK_HELP`, `_emit`, `_load_for_step`, `_replay_inputs`; statically calls `_emit`, `_load_for_step`, `_replay_inputs`
 
@@ -124,7 +123,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/evaluation|learnloop.cli.evaluation]], [[Reference/Modules/learnloop/cli/success_head|learnloop.cli.success_head]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]], [[Reference/Modules/learnloop/cli/evaluation|learnloop.cli.evaluation]], [[Reference/Modules/learnloop/cli/success_head|learnloop.cli.success_head]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

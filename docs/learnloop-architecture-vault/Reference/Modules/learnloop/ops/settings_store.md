@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ops/settings_store.py](../../../../../../src/learnloop/ops/settings_store.py) |
-| Source lines | 315 |
+| Source lines | 265 |
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -59,10 +59,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `openrouter_profile_name(use_case: str) -> str` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 50)
 - `openrouter_task_profile_values(base: AIProviderConfig, model: str, *, input_modalities: list[str] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 54) — Concrete keys for a per-use-case OpenRouter profile cloned from ``base``.
 - `apply_config_updates(config_path: Path, updates: Mapping[tuple[str, ...], Any]) -> None` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 87) — Set dotted key-paths in ``learnloop.toml``, preserving comments/layout.
-- `remove_config_paths(config_path: Path, key_paths: tuple[tuple[str, ...], ...]) -> tuple[tuple[str, ...], ...]` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 130) — Remove retired config keys/tables with atomic, comment-preserving edits.
-- `copy_ai_settings(source_path: Path, target_path: Path) -> bool` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 180) — Copy the persisted ``[ai]`` provider selection from one vault's ``learnloop.toml`` into another's.
-- `save_ai_settings_to(source_path: Path, target_path: Path) -> bool` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 243) — Mirror a vault's ``[ai]`` selection into ``target_path``, creating the target (and its parent dir) if absent.
-- `upsert_env_var(path: Path, key: str, value: str | None) -> None` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 267) — Set (or remove, when ``value`` is None) ``KEY=value`` in a dotenv file.
+- `copy_ai_settings(source_path: Path, target_path: Path) -> bool` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 130) — Copy the persisted ``[ai]`` provider selection from one vault's ``learnloop.toml`` into another's.
+- `save_ai_settings_to(source_path: Path, target_path: Path) -> bool` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 193) — Mirror a vault's ``[ai]`` selection into ``target_path``, creating the target (and its parent dir) if absent.
+- `upsert_env_var(path: Path, key: str, value: str | None) -> None` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 217) — Set (or remove, when ``value`` is None) ``KEY=value`` in a dotenv file.
 
 ### Module constants
 
@@ -70,7 +69,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ## Internal implementation anchors
 
-- `_flatten_into_updates(prefix: tuple[str, ...], table: Mapping[str, Any], updates: dict[tuple[str, ...], Any]) -> None` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 257)
+- `_flatten_into_updates(prefix: tuple[str, ...], table: Mapping[str, Any], updates: dict[tuple[str, ...], Any]) -> None` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 207)
 
 ## Who imports or calls it
 
@@ -143,7 +142,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_copy_ai_settings_errors_on_missing_or_invalid_source`
   - `test_openrouter_task_profile_values_prefers_explicit_modalities`
   - `test_openrouter_task_profile_values_round_trip`
-  - `test_remove_config_paths_removes_retired_table_and_is_idempotent`
   - `test_save_ai_settings_to_creates_target_and_seeds_new_vault`
   - `test_upsert_env_var_appends_and_replaces_preserving_other_lines`
   - `test_upsert_env_var_rejects_bad_names_and_newlines`

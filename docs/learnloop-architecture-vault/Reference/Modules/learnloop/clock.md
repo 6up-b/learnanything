@@ -206,7 +206,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]] — imports `Clock`
 - [[Reference/Modules/learnloop/diagnosis/causal_factor_deferral|learnloop.diagnosis.causal_factor_deferral]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
-- [[Reference/Modules/learnloop/diagnosis/causal_migration|learnloop.diagnosis.causal_migration]] — imports `Clock`
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `Clock`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `Clock`, `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_commissioning|learnloop.diagnosis.causal_probe_commissioning]] — imports `Clock`
@@ -301,7 +300,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/instructional/needs|learnloop.instructional.needs]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
-- [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/instructional/screen|learnloop.instructional.screen]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/instructional/tools|learnloop.instructional.tools]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]] — imports `utc_now_iso`; statically calls `utc_now_iso`
@@ -421,7 +420,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/scheduling/kinship_feature|learnloop.scheduling.kinship_feature]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
-- [[Reference/Modules/learnloop/scheduling/prequential|learnloop.scheduling.prequential]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/scheduling/progression|learnloop.scheduling.progression]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/scheduling/progression_policy|learnloop.scheduling.progression_policy]] — imports `Clock`
 - [[Reference/Modules/learnloop/scheduling/randomization_layer|learnloop.scheduling.randomization_layer]] — imports `Clock`
@@ -545,7 +543,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 445 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 443 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -794,7 +792,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_obsolete_observation_exposed_candidate_cannot_advance`
   - `test_pending_adversarial_review_is_a_state_not_a_failure`
   - `test_self_reviewed_manipulation_is_rejected`
-  - `test_sweep_commissions_open_factors_and_reports_each_outcome`
   - `test_sweep_machine_checks_queues_the_instrument_debt`
 - [tests/test_causal_repair_mapping_p2.py](../../../../../tests/test_causal_repair_mapping_p2.py) — direct import
   - `test_cold_verification_records_its_near_clone_basis`
@@ -1051,7 +1048,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_gate_section_counts_manual_false_negatives`
   - `test_propensity_report_marks_composed_offers_unavailable_not_degenerate`
   - `test_report_on_real_session_flow`
-- [tests/test_event_sufficiency.py](../../../../../tests/test_event_sufficiency.py) — direct import
 - [tests/test_evsi_router_composition.py](../../../../../tests/test_evsi_router_composition.py) — direct import
 - [tests/test_exam_pool.py](../../../../../tests/test_exam_pool.py) — direct import
   - `test_item_in_at_most_one_unreleased_pool`
@@ -1202,7 +1198,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_goal_pace.py](../../../../../tests/test_goal_pace.py) — direct import
   - `test_compute_goal_pace_open_ended`
   - `test_compute_goal_pace_with_due_date`
-  - `test_daily_attempt_counts_is_zero_filled_and_buckets_by_day`
   - `test_pace_as_dict_shape`
   - `test_unknowable_remaining_surfaces_as_none`
 - [tests/test_goal_projection.py](../../../../../tests/test_goal_projection.py) — direct import
@@ -1607,7 +1602,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_practice_leakage.py](../../../../../tests/test_practice_leakage.py) — direct import
 - [tests/test_predictive_eig.py](../../../../../tests/test_predictive_eig.py) — direct import
   - `test_followup_slate_logs_predictive_fields_and_ranking_unchanged_at_weight_zero`
-- [tests/test_prequential.py](../../../../../tests/test_prequential.py) — direct import
 - [tests/test_probe_attempt_updates.py](../../../../../tests/test_probe_attempt_updates.py) — direct import
   - `test_attempt_service_never_writes_legacy_probe_state`
   - `test_record_probe_attempt_completes_on_convergence`
@@ -1627,7 +1621,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_coverage.py](../../../../../tests/test_probe_coverage.py) — direct import
 - [tests/test_probe_dialogue.py](../../../../../tests/test_probe_dialogue.py) — direct import
 - [tests/test_probe_eig.py](../../../../../tests/test_probe_eig.py) — direct import
-  - `test_probe_eig_higher_when_item_probes_active_misconception`
   - `test_probe_hypothesis_set_ignores_transient_errors`
 - [tests/test_probe_entry.py](../../../../../tests/test_probe_entry.py) — direct import
   - `test_enter_probe_creates_in_progress_state_and_locked_hypothesis_set`

@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/curriculum/commitments.py](../../../../../../src/learnloop/curriculum/commitments.py) |
-| Source lines | 938 |
+| Source lines | 868 |
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -71,17 +71,16 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `create_commitment(repository: Repository, *, action: str, intent_text: str, targets: Sequence[Mapping[str, Any] | CommitmentTarget], depth_preset: str, interpretation_text: str | None=None, client_idempotency_key: str | None=None, goal_id: str | None=None, author: str='learner', learner_id: str='local', attention_bounds: Mapping[str, Any] | None=None, due_hint: str | None=None, hiatus_hint: str | None=None, reason: str | None=None, provenance: Mapping[str, Any] | None=None, clock: Clock | None=None) -> Commitment` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 300) — Create a durable commitment from an explicit commit-class action (§3.1).
 - `append_commitment_version(repository: Repository, *, commitment_id: str, targets: Sequence[Mapping[str, Any] | CommitmentTarget] | None=None, intent_text: str | None=None, interpretation_text: str | None=None, goal_id: str | None=None, depth_preset: str | None=None, change_reason: str, author: str='learner', extra_events: Sequence[Mapping[str, Any]]=(), clock: Clock | None=None) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 414) — Append an immutable successor version.
 - `add_target(repository: Repository, *, commitment_id: str, target: Mapping[str, Any] | CommitmentTarget, change_reason: str='target_added', author: str='learner', clock: Clock | None=None) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 473)
-- `remove_target(repository: Repository, *, commitment_id: str, target_ref: str, change_reason: str='target_removed', author: str='learner', clock: Clock | None=None) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 496) — Remove a target: appends a commitment successor and stops future generation for it.
-- `change_depth_policy(repository: Repository, *, commitment_id: str, policy: str, body: Mapping[str, Any] | None=None, change_reason: str='depth_policy_changed', author: str='learner', clock: Clock | None=None) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 528)
-- `change_depth_envelope(repository: Repository, *, commitment_id: str, bounds: Mapping[str, Any], reviewed_edges: Sequence[Mapping[str, Any]]=(), change_reason: str='depth_envelope_changed', author: str='learner', allow_widen: bool=False, clock: Clock | None=None) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 568)
-- `change_disposition(repository: Repository, *, commitment_id: str, disposition: str, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 667) — Append a ``disposition_changed`` event only; disposition is a projection over events (§3.1), so no version bump.
-- `pause(repository: Repository, *, commitment_id: str, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 690)
-- `resume(repository: Repository, *, commitment_id: str, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 699)
-- `retire(repository: Repository, *, commitment_id: str, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 708) — Append a ``retired`` event.
-- `satisfy_single_check(repository: Repository, *, commitment_id: str, administration_id: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 727) — One eligible delayed cold administration satisfies a ``test_me_later`` commitment (§3.1): ``one_check_pending`` -> ``satisfied``, never an open-ended review obligation.
-- `record_milestone_reached(repository: Repository, *, commitment_id: str, milestone_slug: str, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 748) — Append ``depth_milestone_reached``: an achievement fact over the existing authored envelope.
-- `resolve_disposition(repository: Repository, commitment_id: str, *, before: str | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 819) — Fold ``commitment_events`` to one disposition (§3.1).
-- `resolve_head(repository: Repository, commitment_id: str) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 854)
+- `change_depth_policy(repository: Repository, *, commitment_id: str, policy: str, body: Mapping[str, Any] | None=None, change_reason: str='depth_policy_changed', author: str='learner', clock: Clock | None=None) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 500)
+- `change_depth_envelope(repository: Repository, *, commitment_id: str, bounds: Mapping[str, Any], reviewed_edges: Sequence[Mapping[str, Any]]=(), change_reason: str='depth_envelope_changed', author: str='learner', allow_widen: bool=False, clock: Clock | None=None) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 540)
+- `change_disposition(repository: Repository, *, commitment_id: str, disposition: str, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 639) — Append a ``disposition_changed`` event only; disposition is a projection over events (§3.1), so no version bump.
+- `pause(repository: Repository, *, commitment_id: str, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 662)
+- `resume(repository: Repository, *, commitment_id: str, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 671)
+- `retire(repository: Repository, *, commitment_id: str, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 680) — Append a ``retired`` event.
+- `satisfy_single_check(repository: Repository, *, commitment_id: str, administration_id: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 699) — One eligible delayed cold administration satisfies a ``test_me_later`` commitment (§3.1): ``one_check_pending`` -> ``satisfied``, never an open-ended review obligation.
+- `record_milestone_reached(repository: Repository, *, commitment_id: str, milestone_slug: str, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 720) — Append ``depth_milestone_reached``: an achievement fact over the existing authored envelope.
+- `resolve_disposition(repository: Repository, commitment_id: str, *, before: str | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 749) — Fold ``commitment_events`` to one disposition (§3.1).
+- `resolve_head(repository: Repository, commitment_id: str) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 784)
 
 ### Module constants
 
@@ -101,19 +100,19 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_default_depth_body(action: str, preset: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 274)
 - `_default_envelope_body(preset: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 284)
 - `_target_row(t: CommitmentTarget) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 400)
-- `_append_depth_version(repository: Repository, *, head: CommitmentVersion, depth_policy_version_id: str | None, depth_envelope_version_id: str | None, event_kind: str, detail: Mapping[str, Any], change_reason: str, author: str, clock: Clock | None) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 616)
-- `_loads(value: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 866)
-- `_current_envelope_bounds(repository: Repository, envelope_version_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 874) — Bounds of the head's active depth envelope (empty when unset).
-- `_version_from_row(row: Mapping[str, Any], targets: Sequence[Mapping[str, Any]]) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 886)
-- `_require_head(repository: Repository, commitment_id: str) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 915)
-- `_load_commitment(repository: Repository, commitment_id: str, *, created: bool, merge_candidate: bool=False) -> Commitment` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 923)
+- `_append_depth_version(repository: Repository, *, head: CommitmentVersion, depth_policy_version_id: str | None, depth_envelope_version_id: str | None, event_kind: str, detail: Mapping[str, Any], change_reason: str, author: str, clock: Clock | None) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 588)
+- `_loads(value: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 796)
+- `_current_envelope_bounds(repository: Repository, envelope_version_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 804) — Bounds of the head's active depth envelope (empty when unset).
+- `_version_from_row(row: Mapping[str, Any], targets: Sequence[Mapping[str, Any]]) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 816)
+- `_require_head(repository: Repository, commitment_id: str) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 845)
+- `_load_commitment(repository: Repository, commitment_id: str, *, created: bool, merge_candidate: bool=False) -> Commitment` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 853)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/curriculum/commitment_arcs|learnloop.curriculum.commitment_arcs]] — imports `module`; statically calls `change_depth_envelope`, `change_depth_policy`, `pause`, `record_milestone_reached`, `resolve_disposition`, `resolve_head`, `resume`
+- [[Reference/Modules/learnloop/curriculum/commitment_arcs|learnloop.curriculum.commitment_arcs]] — imports `module`; statically calls `change_depth_envelope`, `change_depth_policy`, `pause`, `record_milestone_reached`, `resolve_disposition`, `resolve_head`
 - [[Reference/Modules/learnloop/curriculum/depth_edge_authoring|learnloop.curriculum.depth_edge_authoring]] — imports `module`; statically calls `change_depth_envelope`, `resolve_head`
 - [[Reference/Modules/learnloop/curriculum/depth_rungs|learnloop.curriculum.depth_rungs]] — imports `module`; statically calls `resolve_head`
 - [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]] — imports `module`; statically calls `resolve_head`
@@ -179,7 +178,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_passive_action_cannot_create_commitment`
   - `test_pause_resume_retire_disposition`
   - `test_reference_only_disposition_change`
-  - `test_target_removal_appends_successor`
   - `test_test_me_later_starts_pending_then_satisfied`
   - `test_version_append_preserves_prior_bytes`
 - [tests/test_controller_ownership.py](../../../../../../tests/test_controller_ownership.py) — direct import

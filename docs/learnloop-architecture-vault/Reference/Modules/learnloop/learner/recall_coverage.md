@@ -36,7 +36,7 @@ Up: [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] · Root: 
 
 ## Why this module exists
 
-This module keeps recall coverage behavior inside its owning package, [[Reference/Modules/learnloop/learner/_package|learnloop.learner]]. Its public surface centers on `CoverageResult`, `ReliabilityResult`, `FamiliarityResult`, `ErrorImpactResult`, `resolve_coverage`, `scale_coverage_for_graded_criteria`, `resolve_reliability`, `derive_facet_outcomes` and 14 more public symbols.
+This module keeps recall coverage behavior inside its owning package, [[Reference/Modules/learnloop/learner/_package|learnloop.learner]]. Its public surface centers on `CoverageResult`, `ReliabilityResult`, `FamiliarityResult`, `ErrorImpactResult`, `resolve_coverage`, `scale_coverage_for_graded_criteria`, `resolve_reliability`, `derive_facet_outcomes` and 11 more public symbols.
 
 The authoritative system-level explanation remains in [[Learning System]]; this note records where this source module participates rather than restating those concepts.
 
@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/recall_coverage.py](../../../../../../src/learnloop/learner/recall_coverage.py) |
-| Source lines | 1026 |
+| Source lines | 921 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -65,36 +65,33 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `familiarity_discount(repository: Repository, item: PracticeItem, *, learning_object_id: str, covered_facets: Mapping[str, float], config: LearnLoopConfig, exclude_attempt_id: str | None=None) -> FamiliarityResult` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 308)
 - `familiarity_discount_from_attempts(recent: list[dict[str, Any]], item: PracticeItem, *, covered_facets: Mapping[str, float], config: LearnLoopConfig, exclude_attempt_id: str | None=None) -> FamiliarityResult` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 330)
 - `resolve_error_impact(config: LearnLoopConfig, *, error_type: str | None, max_event_severity: float, effective_coverage: float, observation_reliability: float, independent_evidence_discount: float) -> ErrorImpactResult` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 400)
-- `event_local_severity(vault: LoadedVault, repository: Repository, item: PracticeItem, *, error_type: str, learning_object_id: str, attempt_type: str, hints_used: int, correctness: float, expected_correctness: float, effective_coverage: float, covered_facets: Mapping[str, float], facet_outcomes: Mapping[str, float], prior_bad_item_suspicion: float, base_severity: float | None=None, exclude_attempt_id: str | None=None) -> tuple[float, dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 435)
-- `event_local_severity_from_attempts(vault: LoadedVault, recent: list[dict[str, Any]], item: PracticeItem, *, error_type: str, attempt_type: str, hints_used: int, correctness: float, expected_correctness: float, effective_coverage: float, covered_facets: Mapping[str, float], facet_outcomes: Mapping[str, float], prior_bad_item_suspicion: float, base_severity: float | None=None, exclude_attempt_id: str | None=None) -> tuple[float, dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 474)
-- `build_facet_recall_updates(repository: Repository, *, learning_object_id: str, practice_item_id: str, covered_facets: Mapping[str, float], facet_outcomes: Mapping[str, float], independent_evidence_discount: float, attempt_type: str, error_event_written: bool, algorithm_version: str, now_iso: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 550)
-- `build_facet_recall_updates_from_prior(prior_states: Mapping[tuple[str, str | None], Any], *, learning_object_id: str, practice_item_id: str, covered_facets: Mapping[str, float], facet_outcomes: Mapping[str, float], independent_evidence_discount: float, attempt_type: str, error_event_written: bool, algorithm_version: str, now_iso: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 583)
-- `build_quality_state_update(repository: Repository, *, item: PracticeItem, prior_mastery: MasteryState, correctness: float, grader_confidence: float, now_iso: str, algorithm_version: str, exclude_attempt_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 636)
-- `build_quality_state_update_from_prior(prior: Any, *, recent_failures: int, item_id: str, prior_mastery: MasteryState, correctness: float, grader_confidence: float, now_iso: str, algorithm_version: str, assessment_side_error: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 669)
-- `predicted_correctness(repository: Repository, item: PracticeItem, *, learning_object_id: str, prior_mastery: MasteryState, item_a: float, item_b: float, config: LearnLoopConfig, vault: LoadedVault | None=None) -> tuple[float, dict[str, float]]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 725)
-- `predicted_correctness_from_prior(facet_states: Mapping[str, Any], item: PracticeItem, *, prior_mastery: MasteryState, item_a: float, item_b: float, config: LearnLoopConfig) -> tuple[float, dict[str, float]]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 772)
-- `expected_facet_mass_gain(item: PracticeItem, rubric: Rubric | None, evidence: EvidenceConfig | None=None) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 840) — Nominal per-facet evidence mass one fresh attempt on ``item`` would add.
-- `criterion_facet_weights_for_item(item: PracticeItem, rubric: Rubric) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 868)
-- `target_criterion_facet_weights(item: PracticeItem, rubric: Rubric, *, resolve: Callable[[str], str] | None=None) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 874) — Each criterion's item facets, read from the rubric's observation contract.
+- `event_local_severity_from_attempts(vault: LoadedVault, recent: list[dict[str, Any]], item: PracticeItem, *, error_type: str, attempt_type: str, hints_used: int, correctness: float, expected_correctness: float, effective_coverage: float, covered_facets: Mapping[str, float], facet_outcomes: Mapping[str, float], prior_bad_item_suspicion: float, base_severity: float | None=None, exclude_attempt_id: str | None=None) -> tuple[float, dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 435)
+- `build_facet_recall_updates_from_prior(prior_states: Mapping[tuple[str, str | None], Any], *, learning_object_id: str, practice_item_id: str, covered_facets: Mapping[str, float], facet_outcomes: Mapping[str, float], independent_evidence_discount: float, attempt_type: str, error_event_written: bool, algorithm_version: str, now_iso: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 511)
+- `build_quality_state_update_from_prior(prior: Any, *, recent_failures: int, item_id: str, prior_mastery: MasteryState, correctness: float, grader_confidence: float, now_iso: str, algorithm_version: str, assessment_side_error: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 564)
+- `predicted_correctness(repository: Repository, item: PracticeItem, *, learning_object_id: str, prior_mastery: MasteryState, item_a: float, item_b: float, config: LearnLoopConfig, vault: LoadedVault | None=None) -> tuple[float, dict[str, float]]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 620)
+- `predicted_correctness_from_prior(facet_states: Mapping[str, Any], item: PracticeItem, *, prior_mastery: MasteryState, item_a: float, item_b: float, config: LearnLoopConfig) -> tuple[float, dict[str, float]]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 667)
+- `expected_facet_mass_gain(item: PracticeItem, rubric: Rubric | None, evidence: EvidenceConfig | None=None) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 735) — Nominal per-facet evidence mass one fresh attempt on ``item`` would add.
+- `criterion_facet_weights_for_item(item: PracticeItem, rubric: Rubric) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 763)
+- `target_criterion_facet_weights(item: PracticeItem, rubric: Rubric, *, resolve: Callable[[str], str] | None=None) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 769) — Each criterion's item facets, read from the rubric's observation contract.
 
 ### Module constants
 
-- `_GENERIC_FACET_TOKENS` ([src/learnloop/learner/recall_coverage.py](../../../../../../src/learnloop/learner/recall_coverage.py), line 956)
-- `_FACET_TOKEN_STOP_WORDS` ([src/learnloop/learner/recall_coverage.py](../../../../../../src/learnloop/learner/recall_coverage.py), line 974)
+- `_GENERIC_FACET_TOKENS` ([src/learnloop/learner/recall_coverage.py](../../../../../../src/learnloop/learner/recall_coverage.py), line 851)
+- `_FACET_TOKEN_STOP_WORDS` ([src/learnloop/learner/recall_coverage.py](../../../../../../src/learnloop/learner/recall_coverage.py), line 869)
 
 ## Internal implementation anchors
 
 - `_with_held_marked(repository: Repository, rows: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 300) — ``rows`` with THE held predicate's mark (held-grade-evidence).
 - `_resolve_error_impact_config(config: LearnLoopConfig, error_type: str)` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 379) — Look up an ``[error_impacts]`` entry, resolving legacy keys via §10.1.
-- `_raw_coverage(item: PracticeItem, rubric: Rubric | None, evidence: EvidenceConfig | None=None) -> tuple[dict[str, float], float, str]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 808)
-- `_error_attributed_facets(error_attributions: Iterable[Any]) -> set[str]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 858)
-- `_inferred_criterion_facet_weights(item: PracticeItem, rubric: Rubric) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 920) — Best-effort fallback for older/generated items missing facet metadata.
-- `_facet_tokens(value: str) -> set[str]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 977) — Lower-case alphanumeric words of a facet id or text, without stop words.
-- `_practice_mode_default(item: PracticeItem, evidence: EvidenceConfig | None=None) -> float` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 984)
-- `_normalize(weights: Mapping[str, float]) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 988)
-- `_response_engagement_factor(attempt_type: str, learner_answer_md: str, *, declared_stuck: bool=False) -> float` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 996)
-- `_component_discount(target_discount: float, recent_overlap_mass: float) -> float` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 1013)
-- `_hint_policy_product(mapping: Mapping[int | str, float], hints_used: int, *, default: float) -> float` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 1017)
+- `_raw_coverage(item: PracticeItem, rubric: Rubric | None, evidence: EvidenceConfig | None=None) -> tuple[dict[str, float], float, str]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 703)
+- `_error_attributed_facets(error_attributions: Iterable[Any]) -> set[str]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 753)
+- `_inferred_criterion_facet_weights(item: PracticeItem, rubric: Rubric) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 815) — Best-effort fallback for older/generated items missing facet metadata.
+- `_facet_tokens(value: str) -> set[str]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 872) — Lower-case alphanumeric words of a facet id or text, without stop words.
+- `_practice_mode_default(item: PracticeItem, evidence: EvidenceConfig | None=None) -> float` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 879)
+- `_normalize(weights: Mapping[str, float]) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 883)
+- `_response_engagement_factor(attempt_type: str, learner_answer_md: str, *, declared_stuck: bool=False) -> float` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 891)
+- `_component_discount(target_discount: float, recent_overlap_mass: float) -> float` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 908)
+- `_hint_policy_product(mapping: Mapping[int | str, float], hints_used: int, *, default: float) -> float` ([source](../../../../../../src/learnloop/learner/recall_coverage.py), line 912)
 
 ## Who imports or calls it
 

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/split/history.py](../../../../../../../src/learnloop/diagnosis/split/history.py) |
-| Source lines | 1427 |
+| Source lines | 1423 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -119,7 +119,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `registry_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None) -> list[RegistryRecord]` (line 1382; public)
   - `repairs_before(self, before: AttemptRef, facets: Iterable[str] | None) -> list[RepairRecord]` (line 1393; public)
   - `lagged_attempts(self, before: AttemptRef) -> int` (line 1404; public)
-- `with_blind_overlay(attempt: HistoryAttempt, **changes: Any) -> HistoryAttempt` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 1408)
 
 ### Module constants
 

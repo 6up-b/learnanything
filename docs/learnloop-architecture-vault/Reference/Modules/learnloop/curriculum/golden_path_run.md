@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/curriculum/golden_path_run.py](../../../../../../src/learnloop/curriculum/golden_path_run.py) |
-| Source lines | 374 |
+| Source lines | 368 |
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -63,9 +63,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `as_dict(self) -> dict[str, Any]` (line 145; public)
 - `class AdvanceResult` ([source](../../../../../../src/learnloop/curriculum/golden_path_run.py), line 150)
   - `as_dict(self) -> dict[str, Any]` (line 158; public)
-- `project_run(repository: Repository, run_id: str) -> RunState` ([source](../../../../../../src/learnloop/curriculum/golden_path_run.py), line 180) — Fold the event log into the current run state (§4.1).
-- `advance(repository: Repository, run_id: str, *, to_state: str, reason: str, idempotency_key: str, expected_head_event_id: str | None=None, evidence_ids: Sequence[str] | None=None, selected_activity: Mapping[str, Any] | None=None, feasible_alternatives: Sequence[str] | None=None, predecessor_milestone: str | None=None, successor_milestone: str | None=None, policy_calibration: Mapping[str, Any] | None=None, burden: Mapping[str, Any] | None=None, clock: Clock | None=None) -> AdvanceResult` ([source](../../../../../../src/learnloop/curriculum/golden_path_run.py), line 230) — Append exactly one transition (§4.1).
-- `advance_canonical(repository: Repository, run_id: str, *, idempotency_key: str, clock: Clock | None=None, **extra: Any) -> AdvanceResult` ([source](../../../../../../src/learnloop/curriculum/golden_path_run.py), line 350) — Convenience: advance along the canonical happy-path successor (§4.2).
+- `project_run(repository: Repository, run_id: str) -> RunState` ([source](../../../../../../src/learnloop/curriculum/golden_path_run.py), line 174) — Fold the event log into the current run state (§4.1).
+- `advance(repository: Repository, run_id: str, *, to_state: str, reason: str, idempotency_key: str, expected_head_event_id: str | None=None, evidence_ids: Sequence[str] | None=None, selected_activity: Mapping[str, Any] | None=None, feasible_alternatives: Sequence[str] | None=None, predecessor_milestone: str | None=None, successor_milestone: str | None=None, policy_calibration: Mapping[str, Any] | None=None, burden: Mapping[str, Any] | None=None, clock: Clock | None=None) -> AdvanceResult` ([source](../../../../../../src/learnloop/curriculum/golden_path_run.py), line 224) — Append exactly one transition (§4.1).
+- `advance_canonical(repository: Repository, run_id: str, *, idempotency_key: str, clock: Clock | None=None, **extra: Any) -> AdvanceResult` ([source](../../../../../../src/learnloop/curriculum/golden_path_run.py), line 344) — Convenience: advance along the canonical happy-path successor (§4.2).
 
 ### Module constants
 
@@ -77,9 +77,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_next_action_for(current_state: str, mode: str) -> NextAction` ([source](../../../../../../src/learnloop/curriculum/golden_path_run.py), line 168)
-- `_close_diagnostic_segment_on_instruction(repository: Repository, run_id: str, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/curriculum/golden_path_run.py), line 318) — Close the run's pinned baseline episode + snapshot its boundary view when instruction begins (invariant 7 / §5.3 / §8.4).
-- `_existing_event(repository: Repository, run_id: str, idempotency_key: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/curriculum/golden_path_run.py), line 370)
+- `_next_action_for(current_state: str, mode: str) -> NextAction` ([source](../../../../../../src/learnloop/curriculum/golden_path_run.py), line 162)
+- `_close_diagnostic_segment_on_instruction(repository: Repository, run_id: str, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/curriculum/golden_path_run.py), line 312) — Close the run's pinned baseline episode + snapshot its boundary view when instruction begins (invariant 7 / §5.3 / §8.4).
+- `_existing_event(repository: Repository, run_id: str, idempotency_key: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/curriculum/golden_path_run.py), line 364)
 
 ## Who imports or calls it
 

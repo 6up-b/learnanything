@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/surface_mint.py](../../../../../../src/learnloop/substrate/surface_mint.py) |
-| Source lines | 560 |
+| Source lines | 550 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -67,11 +67,10 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `process_mint_job(repository: Repository, *, request: Mapping[str, Any], candidate: Mapping[str, Any], reviewer: str='structural_gate', clock: Clock | None=None) -> GateResult` ([source](../../../../../../src/learnloop/substrate/surface_mint.py), line 340) — Run the gates on a claimed job's candidate and transition the request: ``candidate_ready`` then ``admitted`` on pass, ``rejected`` on gate failure.
 - `admit_candidate(repository: Repository, *, request_id: str, candidate_surface_id: str | None, gate_result: GateResult | None=None, lease_epoch: int | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/surface_mint.py), line 407) — Admit a gate-passing candidate into the pool (§5.2).
 - `reject_candidate(repository: Repository, *, request_id: str, gate_result: GateResult | None=None, failure_reason: str | None=None, lease_epoch: int | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/surface_mint.py), line 457) — Reject a gate-failing candidate (§5.2).
-- `fail_mint_job(repository: Repository, *, request_id: str, failure_reason: str, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/surface_mint.py), line 476) — Mark a job ``failed`` (generator error / interrupted lease).
-- `obsolete_mint_work_for_card_versions(repository: Repository, card_version_ids: Sequence[str], *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/substrate/surface_mint.py), line 490) — Card/family retirement makes not-yet-terminal mint work ``obsolete`` (§5.6).
-- `class RotationDecision` ([source](../../../../../../src/learnloop/substrate/surface_mint.py), line 525)
-- `rotation_decision(repository: Repository, *, surface_id: str, warmth_threshold: float | None=None, cadence: int | None=None) -> RotationDecision` ([source](../../../../../../src/learnloop/substrate/surface_mint.py), line 533) — Decide whether a rotating surface needs rotation (§5.3): rotate once the warmth projection crosses the registered threshold OR the exposure cadence is reached.
-- `needs_rotation(repository: Repository, *, surface_id: str) -> bool` ([source](../../../../../../src/learnloop/substrate/surface_mint.py), line 555)
+- `obsolete_mint_work_for_card_versions(repository: Repository, card_version_ids: Sequence[str], *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/substrate/surface_mint.py), line 480) — Card/family retirement makes not-yet-terminal mint work ``obsolete`` (§5.6).
+- `class RotationDecision` ([source](../../../../../../src/learnloop/substrate/surface_mint.py), line 515)
+- `rotation_decision(repository: Repository, *, surface_id: str, warmth_threshold: float | None=None, cadence: int | None=None) -> RotationDecision` ([source](../../../../../../src/learnloop/substrate/surface_mint.py), line 523) — Decide whether a rotating surface needs rotation (§5.3): rotate once the warmth projection crosses the registered threshold OR the exposure cadence is reached.
+- `needs_rotation(repository: Repository, *, surface_id: str) -> bool` ([source](../../../../../../src/learnloop/substrate/surface_mint.py), line 545)
 
 ### Module constants
 
@@ -89,7 +88,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `_within_difficulty_bounds(difficulty: Any, bounds: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/substrate/surface_mint.py), line 204)
 - `_stale_lease_result(request: Mapping[str, Any], reason: str) -> GateResult` ([source](../../../../../../src/learnloop/substrate/surface_mint.py), line 329) — A non-admitting result for a job that is no longer this worker's to process (B1 fencing).
 - `_mark_surface_admitted(repository: Repository, *, surface_id: str, gate_result: GateResult, admitted: bool, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/surface_mint.py), line 391) — Raw authoring write -- private (B5).
-- `_administration_count(repository: Repository, surface_id: str) -> int` ([source](../../../../../../src/learnloop/substrate/surface_mint.py), line 505) — Administrations of the CARD this surface belongs to (§5.3 cadence).
+- `_administration_count(repository: Repository, surface_id: str) -> int` ([source](../../../../../../src/learnloop/substrate/surface_mint.py), line 495) — Administrations of the CARD this surface belongs to (§5.3 cadence).
 
 ## Who imports or calls it
 

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/experiments/contextual_embeddings/anthropic_api.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/anthropic_api.py) |
-| Source lines | 386 |
+| Source lines | 373 |
 | Owning package | [[Reference/Modules/learnloop/experiments/contextual_embeddings/_package|learnloop.experiments.contextual_embeddings]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -57,23 +57,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class BodyGrammarError(ValueError)` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/anthropic_api.py), line 59) — A request body outside the grammar; nothing was sent.
 - `check_body(body: Mapping[str, Any]) -> None` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/anthropic_api.py), line 63) — Refuse any body outside the grammar: an unknown key (``tools`` above all), a wrong type, more than one user turn, or non-text content.
 - `json_instructions(result_model: type[BaseModel]) -> str` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/anthropic_api.py), line 109) — The system prompt: answer with one JSON object of the result schema (no ``output_config``: the body grammar has no structured-output key).
-- `extract_json(text: str) -> str` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/anthropic_api.py), line 118) — The JSON object in a text answer (a stray code fence tolerated).
-- `schema_fields(result_model: type[BaseModel]) -> frozenset[str]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/anthropic_api.py), line 135) — Every field name of the result schema, nested models included: the names a safe validation reason may print (anything else is ``?``).
-- `validation_reason(error: Any, fields: frozenset[str]) -> str` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/anthropic_api.py), line 158) — A pydantic ``ValidationError`` as ``loc:type`` codes (no input, no message).
-- `parse_answer(text: str, result_model: type[BaseModel]) -> BaseModel` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/anthropic_api.py), line 172) — The ONE result object in a text answer (paid-run round 2).
-- `repair_prompt(text: str, reason: str) -> str` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/anthropic_api.py), line 216) — The one repair request (paid-run round 2): the model's own answer back with the SAFE reason it failed, asking for exactly one valid object.
-- `class AnthropicMessagesClient` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/anthropic_api.py), line 226) — One role's client: its pin's model, the Messages API, one POST per admitted request.
-  - `__init__(self, pin: RolePin, *, key_env: str | None=None, environ: Mapping[str, str] | None=None, transport: Any=None, url: str=pins.ANTHROPIC_MESSAGES_URL, sleep: Callable[[float], None]=time.sleep) -> None` (line 233; internal)
-  - `supports(self, capability: str) -> bool` (line 251; public)
-  - `body(self, system: str, prompt: str, max_tokens: int) -> dict[str, Any]` (line 255; public)
-  - `wire_prompt(self, prompt: str, result_model: type[BaseModel]) -> list[str]` (line 261; public) — What a request sends as text, in order: the admission's input bound and the receipt's prompt identity.
-  - `_headers(self) -> dict[str, str]` (line 267; internal)
-  - `send(self, body: Mapping[str, Any], *, purpose: str, prompt_identity: Any) -> Mapping[str, Any]` (line 273; public) — ONE admitted POST: the active request gate admits it inside ``model_call`` before it is sent and settles it from ``usage``.
-  - `structured(self, *, purpose: str, prompt: str, result_model: type[BaseModel], max_tokens: int) -> BaseModel` (line 310; public) — The role's answer: one admitted POST (plus admitted retries of a transient failure), parsed and validated against ``result_model``.
-  - `_post_with_retries(self, body: Mapping[str, Any], *, purpose: str, prompt_identity: Any) -> Mapping[str, Any]` (line 336; internal)
-  - `_details(payload: Mapping[str, Any], max_tokens: int) -> dict[str, Any]` (line 348; internal) — Safe numbers of a response: its stop_reason (allowlisted), token counts, the max_tokens sent and the content block types.
-  - `_answer_text(self, payload: Mapping[str, Any], max_tokens: int, *, repaired: bool=False) -> str` (line 361; internal) — The text blocks of a finished answer; a refusal or a ``max_tokens`` stop is raised with its safe details (thinking counts against ``max_tokens`` on these models: the documented adaptive default).
-  - `canary(self) -> dict[str, Any]` (line 375; public) — The model id's check before any bulk work: one tiny admitted request must be answered as a Messages API ``message`` by exactly the pinned model, with usage.
+- `schema_fields(result_model: type[BaseModel]) -> frozenset[str]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/anthropic_api.py), line 122) — Every field name of the result schema, nested models included: the names a safe validation reason may print (anything else is ``?``).
+- `validation_reason(error: Any, fields: frozenset[str]) -> str` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/anthropic_api.py), line 145) — A pydantic ``ValidationError`` as ``loc:type`` codes (no input, no message).
+- `parse_answer(text: str, result_model: type[BaseModel]) -> BaseModel` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/anthropic_api.py), line 159) — The ONE result object in a text answer (paid-run round 2).
+- `repair_prompt(text: str, reason: str) -> str` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/anthropic_api.py), line 203) — The one repair request (paid-run round 2): the model's own answer back with the SAFE reason it failed, asking for exactly one valid object.
+- `class AnthropicMessagesClient` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/anthropic_api.py), line 213) — One role's client: its pin's model, the Messages API, one POST per admitted request.
+  - `__init__(self, pin: RolePin, *, key_env: str | None=None, environ: Mapping[str, str] | None=None, transport: Any=None, url: str=pins.ANTHROPIC_MESSAGES_URL, sleep: Callable[[float], None]=time.sleep) -> None` (line 220; internal)
+  - `supports(self, capability: str) -> bool` (line 238; public)
+  - `body(self, system: str, prompt: str, max_tokens: int) -> dict[str, Any]` (line 242; public)
+  - `wire_prompt(self, prompt: str, result_model: type[BaseModel]) -> list[str]` (line 248; public) — What a request sends as text, in order: the admission's input bound and the receipt's prompt identity.
+  - `_headers(self) -> dict[str, str]` (line 254; internal)
+  - `send(self, body: Mapping[str, Any], *, purpose: str, prompt_identity: Any) -> Mapping[str, Any]` (line 260; public) — ONE admitted POST: the active request gate admits it inside ``model_call`` before it is sent and settles it from ``usage``.
+  - `structured(self, *, purpose: str, prompt: str, result_model: type[BaseModel], max_tokens: int) -> BaseModel` (line 297; public) — The role's answer: one admitted POST (plus admitted retries of a transient failure), parsed and validated against ``result_model``.
+  - `_post_with_retries(self, body: Mapping[str, Any], *, purpose: str, prompt_identity: Any) -> Mapping[str, Any]` (line 323; internal)
+  - `_details(payload: Mapping[str, Any], max_tokens: int) -> dict[str, Any]` (line 335; internal) — Safe numbers of a response: its stop_reason (allowlisted), token counts, the max_tokens sent and the content block types.
+  - `_answer_text(self, payload: Mapping[str, Any], max_tokens: int, *, repaired: bool=False) -> str` (line 348; internal) — The text blocks of a finished answer; a refusal or a ``max_tokens`` stop is raised with its safe details (thinking counts against ``max_tokens`` on these models: the documented adaptive default).
+  - `canary(self) -> dict[str, Any]` (line 362; public) — The model id's check before any bulk work: one tiny admitted request must be answered as a Messages API ``message`` by exactly the pinned model, with usage.
 
 ### Module constants
 
@@ -83,7 +82,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `TRANSIENT` ([src/learnloop/experiments/contextual_embeddings/anthropic_api.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/anthropic_api.py), line 102)
 - `STOP_REASONS` ([src/learnloop/experiments/contextual_embeddings/anthropic_api.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/anthropic_api.py), line 105)
 - `BLOCK_TYPES` ([src/learnloop/experiments/contextual_embeddings/anthropic_api.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/anthropic_api.py), line 106)
-- `MAX_CANDIDATES` ([src/learnloop/experiments/contextual_embeddings/anthropic_api.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/anthropic_api.py), line 132)
+- `MAX_CANDIDATES` ([src/learnloop/experiments/contextual_embeddings/anthropic_api.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/anthropic_api.py), line 119)
 
 ## Internal implementation anchors
 

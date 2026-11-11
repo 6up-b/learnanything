@@ -22,7 +22,7 @@ source_paths:
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/diagnosis/causal_migration.py"
+  - "src/learnloop/scheduling/evaluation.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/derived"
@@ -111,7 +111,6 @@ Indexes and uniqueness:
 - `src/learnloop/cli/app.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
-- `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/scheduling/evaluation.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 

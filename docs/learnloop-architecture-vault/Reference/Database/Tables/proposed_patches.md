@@ -109,7 +109,6 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/graph_edit_proposals.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
-- `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/diagnosis/error_taxonomy.py`
 - `src/learnloop/diagnosis/missing_vocabulary.py`
 - `src/learnloop/ops/doctor.py`

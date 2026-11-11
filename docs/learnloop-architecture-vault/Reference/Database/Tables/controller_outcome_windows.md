@@ -17,7 +17,6 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/098_controller_randomization_and_outcomes.sql"
   - "src/learnloop/scheduling/controller_store.py"
-  - "src/learnloop/scheduling/prequential.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -93,7 +92,6 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/scheduling/controller_store.py`
-- `src/learnloop/scheduling/prequential.py`
 
 ### Direct SQL writers
 
@@ -108,7 +106,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-- `tests/test_prequential.py`
+No table-specific test contains the table name or a detected repository method call. The schema/role invariants are still pinned by `tests/test_migrations.py` and `tests/test_table_roles.py`.
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
