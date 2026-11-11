@@ -31,7 +31,16 @@ from learnloop import provenance
 
 from tests.ih2_lessons_compete_helpers import draw  # noqa: F401 - the fixture
 from tests.te3b_offers_helpers import offerable  # noqa: F401 - the fixture
-from tests.why_cases_helpers import of_kind, stage_case_1, stage_case_2, stage_case_3, stage_case_4, why
+from tests.why_cases_helpers import (
+    CASE1_PREFETCH_WAIT_S,
+    CASE1_WAIT_S,
+    of_kind,
+    stage_case_1,
+    stage_case_2,
+    stage_case_3,
+    stage_case_4,
+    why,
+)
 
 SECRET = "the learner wrote about eigenvalues here"
 
@@ -53,7 +62,7 @@ def test_case_1_a_late_llm_answer_is_a_timeout_and_a_discarded_call_with_the_con
     assert SECRET not in json.dumps(payload)
     block = of_kind(payload, "plan_block")[0]
     # plan_block: the configured wait, how long it waited, and the mix's alternatives with their chances.
-    assert block["inputs"]["timeout_s"] == 0.3 and block["inputs"]["prefetch_timeout_s"] == 0.6
+    assert block["inputs"]["timeout_s"] == CASE1_WAIT_S and block["inputs"]["prefetch_timeout_s"] == CASE1_PREFETCH_WAIT_S
     # From the prefetch's start to the decision: shown under that name, apart from the configured wait.
     assert block["inputs"]["prefetch_to_decision_ms"] >= 0 and "waited_ms" not in block["inputs"] and block["chosen"]
     assert block["alternatives"] and all(alt["lost_by"] for alt in block["alternatives"])
@@ -66,7 +75,7 @@ def test_case_1_a_late_llm_answer_is_a_timeout_and_a_discarded_call_with_the_con
     # model_answer: router_llm, timeout, a child of the block ("what happened next").
     [llm_answer] = [decision for decision in of_kind(payload, "model_answer")
                     if decision["parent_id"] == block["record_id"] and decision["decided_by"] == "router_llm"]
-    assert llm_answer["status"] == "timeout" and llm_answer["inputs"]["timeout_s"] == 0.3
+    assert llm_answer["status"] == "timeout" and llm_answer["inputs"]["timeout_s"] == CASE1_WAIT_S
     # The timed-out LLM reported no model: the route as the decision logged it names one where it kept one, and
     # the record says which (here the decision kept none for a call still out, so: not stored).
     basis = llm_answer["inputs"]["model_basis"]

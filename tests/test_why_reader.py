@@ -33,7 +33,15 @@ from learnloop.why import reader
 from tests.helpers import create_basic_vault
 from tests.ih2_lessons_compete_helpers import draw  # noqa: F401 - the fixture
 from tests.te3b_offers_helpers import offerable  # noqa: F401 - the fixture
-from tests.why_cases_helpers import of_kind, stage_case_1, stage_case_2, stage_case_3, stage_case_4, why
+from tests.why_cases_helpers import (
+    CASE1_WAIT_S,
+    of_kind,
+    stage_case_1,
+    stage_case_2,
+    stage_case_3,
+    stage_case_4,
+    why,
+)
 
 PLANTED = "the learner wrote about eigenvalues here"
 
@@ -99,7 +107,7 @@ def test_case_1_aged_the_timeout_and_the_late_answer_from_the_decision_row_and_i
     assert bool(llm["model"]) == (llm["model_basis"] != "not_stored") and llm["provider_basis"] in {"answer", "not_stored"}
     # The configured wait was never stored on old rows: said so, with the setting now beside it.
     inputs = answer["inputs"]
-    assert inputs["timeout_s"] is None and inputs["timeout_s_basis"] == "not_stored" and inputs["timeout_s_now"] == 0.3
+    assert inputs["timeout_s"] is None and inputs["timeout_s_basis"] == "not_stored" and inputs["timeout_s_now"] == CASE1_WAIT_S
     assert inputs["prefetch_to_decision_ms"] is not None and inputs["boundary_key"] == block["inputs"]["boundary_key"]
     assert answer["versions"]["seed"] and answer["versions"]["algorithm_version"]
     # Its receipts, joined by the boundary key (no trace): the late ones discarded, their output present.

@@ -43,14 +43,19 @@ def _wait_for(predicate, seconds: float = 10.0) -> None:
     raise AssertionError("timed out waiting")
 
 
+# Case 1's waits. The gated LLM always misses them; the decider, on its own thread, must answer inside them, which
+# 0.3 s did not always allow under a loaded ``-n 8 --fresh-connections`` run (arc C close).
+CASE1_WAIT_S, CASE1_PREFETCH_WAIT_S = 2.0, 4.0
+
+
 def stage_case_1(tmp_path) -> tuple[Path, str]:
-    """A slow LLM past the 0.3 s wait, under ``TRACE_CASE1``; returns once its late answer has landed."""
+    """A slow LLM past the router's wait, under ``TRACE_CASE1``; returns once its late answer has landed."""
 
     gate = threading.Event()
     llm = FakeLLM(answer=policy_answer, gate=gate)
     env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=llm, inline=False),
                       version=ROUTER_OBJECTIVE_ALGORITHM_VERSION,
-                      toml="[router]\ntimeout_seconds = 0.3\nprefetch_timeout_seconds = 0.6\n")
+                      toml=f"[router]\ntimeout_seconds = {CASE1_WAIT_S}\nprefetch_timeout_seconds = {CASE1_PREFETCH_WAIT_S}\n")
     try:
         with provenance.trace_scope("TRACE_CASE1"):
             build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")

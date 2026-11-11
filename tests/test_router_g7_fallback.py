@@ -18,7 +18,9 @@ from learnloop.daily_plan.engine import advance, build_plan
 from tests.router_mixture_helpers import mixture_env, rows
 from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
 
-FAST = "[router]\ntimeout_seconds = 0.3\nprefetch_timeout_seconds = 0.6\n"
+# The gated LLM always misses the wait; the decider, on its own thread, must answer inside it, which 0.3 s did not
+# always allow under a loaded ``-n 8 --fresh-connections`` run (arc C close).
+FAST = "[router]\ntimeout_seconds = 2.0\nprefetch_timeout_seconds = 4.0\n"
 
 
 def test_a_timeout_reaches_the_staged_rule_with_fallback_llm(tmp_path):

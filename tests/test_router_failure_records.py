@@ -130,11 +130,16 @@ def test_the_crash_is_logged_with_its_trace_and_never_its_message(tmp_path, monk
 # -- a component timeout (S2) and its late answer --------------------------------------------------
 
 
+# The gated LLM always misses the wait; the decider, on its own thread, must write its receipt and answer inside it.
+# 0.3 s lost that race under a loaded ``-n 8 --fresh-connections`` run (arc C close), so the wait has a margin.
+WAIT_S, PREFETCH_WAIT_S = 2.0, 4.0
+
+
 def _timed_out_env(tmp_path, gate: threading.Event):
     llm = FakeLLM(answer=policy_answer, gate=gate)
     runtime = fake_runtime(decider=FakeDecider(), llm=llm, inline=False)
     env = mixture_env(tmp_path, runtime, version=TAG,
-                      toml="[router]\ntimeout_seconds = 0.3\nprefetch_timeout_seconds = 0.6\n")
+                      toml=f"[router]\ntimeout_seconds = {WAIT_S}\nprefetch_timeout_seconds = {PREFETCH_WAIT_S}\n")
     return env, llm
 
 
@@ -151,12 +156,12 @@ def test_a_component_timeout_writes_a_model_answer_with_the_configured_wait(tmp_
         block = _by_kind(payload, "plan_block")[0]
         # The numeric policy waits on the LLM's forecasts, so it may be out at the serve's wait too.
         assert block["status"] == "chosen" and block["facts"]["mix_fallback"] in {"llm", "both"}
-        assert block["facts"]["timeout_s"] == 0.3 and block["facts"]["prefetch_timeout_s"] == 0.6
+        assert block["facts"]["timeout_s"] == WAIT_S and block["facts"]["prefetch_timeout_s"] == PREFETCH_WAIT_S
         assert block["facts"]["may_defer"] is False and block["facts"]["waited_ms"] >= 0
         answers = _answers(payload, block)
         llm = answers["llm"]
         assert (llm["status"], llm["rule"], llm["decided_by"]) == ("timeout", "timeout", "router_llm")
-        assert llm["facts"]["timeout_s"] == 0.3 and llm["facts"]["prefetch_timeout_s"] == 0.6
+        assert llm["facts"]["timeout_s"] == WAIT_S and llm["facts"]["prefetch_timeout_s"] == PREFETCH_WAIT_S
         assert answers["decider"]["status"] == "chosen" and answers["decider"]["rule"] == "answered"
         assert answers["staged"]["status"] == "chosen" and answers["staged"]["chosen_ref"]
         assert set(answers) == {"decider", "llm", "numeric", "staged"}
