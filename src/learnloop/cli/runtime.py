@@ -15,7 +15,6 @@ from learnloop.attempt_types import default_attempt_type
 from learnloop.clock import utc_now_iso
 from learnloop.ai.routing import (
     client_for_provider as ai_client_for_provider,
-    fallback_provider_for,
     provider_for_task,
     ready_client_for_task,
     runtime_for_provider as ai_runtime_for_provider,
@@ -326,10 +325,6 @@ def _json_queue(queue: list) -> dict[str, object]:
 
 def _provider_for_task(config, task: str, explicit: str | None = None) -> str:
     return provider_for_task(config, task, explicit_provider=explicit).provider_name
-
-def _fallback_provider_for_task(config, task: str, explicit: str | None = None) -> str | None:
-    selection = provider_for_task(config, task, explicit_provider=explicit)
-    return fallback_provider_for(config, selection)
 
 def _runtime_for_provider(vault_root: Path, config, provider_name: str):
     return ai_runtime_for_provider(vault_root, config, provider_name)
