@@ -22,8 +22,6 @@ source_paths:
   - "tests/test_agent_run_tokens.py"
   - "tests/test_diagnostic_augmentation.py"
   - "tests/test_grading_support.py"
-  - "tests/test_prequential.py"
-  - "tests/test_shadow_components.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/diagnostic-augmentation"
@@ -44,9 +42,9 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `diagnostic_augmentation.sampling_enabled` | `true` | boolean | modeled default or validator seed | Turns sampling behavior on or off within multi-sample diagnostic augmentation. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1955`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/attempts/attempts.py:1713` |
-| `diagnostic_augmentation.sample_count` | `1` | integer | modeled default or validator seed | Controls sample count in multi-sample diagnostic augmentation, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1956`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/attempts/attempts.py:1713` |
-| `diagnostic_augmentation.history_limit` | `4` | integer | modeled default or validator seed | Caps history allowed by multi-sample diagnostic augmentation. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1957`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/attempts/attempts.py:1713` |
+| `diagnostic_augmentation.sampling_enabled` | `true` | boolean | modeled default or validator seed | Turns sampling behavior on or off within multi-sample diagnostic augmentation. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1932`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/attempts/attempts.py:1708` |
+| `diagnostic_augmentation.sample_count` | `1` | integer | modeled default or validator seed | Controls sample count in multi-sample diagnostic augmentation, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1933`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/attempts/attempts.py:1708` |
+| `diagnostic_augmentation.history_limit` | `4` | integer | modeled default or validator seed | Caps history allowed by multi-sample diagnostic augmentation. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1934`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/attempts/attempts.py:1708` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Every effective default is one line of `tests/goldens/effective_defaults.toml`, so a changed default shows up in review, where the `algorithms.algorithm_version` decision is made, instead of every default being dumped into each vault.
@@ -59,8 +57,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_agent_run_tokens.py`
 - `tests/test_diagnostic_augmentation.py`
 - `tests/test_grading_support.py`
-- `tests/test_prequential.py`
-- `tests/test_shadow_components.py`
 
 ## Extension and modification guidance
 
