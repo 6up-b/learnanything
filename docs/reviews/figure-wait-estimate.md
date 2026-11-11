@@ -99,7 +99,29 @@ the point of the fix.
 
 ## Tests
 
-TO FILL
+- **New:** `tests/test_figure_wait_estimate.py` (14) and `tests/test_figure_wait_successor.py` (8).
+- **Fail-first** (this branch's tests run with HEAD's `prefetch_model.py`, `prefetch_ledger.py`, `prefetch.py` and
+  `cli/reader.py` put back, then restored): `test_background_calls_do_not_outweigh_the_presses_in_w` failed on v1 with
+  W 0.6135 min before and 0.1164 after 30 more 6 s background calls; `test_background_calls_never_move_the_blocked_minutes`
+  failed with 2.75 blocked minutes before and 62.33 after more background failures and slow background calls (v2: 1.0
+  both times); `test_background_durations_never_move_the_pressed_measurement` failed (v1 has no pressed measurement).
+- **The math** in pure-function tests: the closed form, both limits bit for bit (no press: v1's W; no other call: the
+  presses' own), the presses' weight `n / (n + 1)`, a shift between the groups never widening the spread, the number of
+  background calls never changing the prior's weight.
+- **Switch-off is v1 exactly:** W and counts equal v1's formula over every author call, the blocked minutes every
+  failure in the window times every completed call's mean, and the posterior digest equals v1's payload hashed; with
+  the switch off or the vault at mvp-0.57, rows say `prefetch_decision_v1` and records carry no new facts. On the copy,
+  off equals HEAD's own code (above).
+- **Earlier tests moved:** earlier links' version pins and opener assertions (mechanical exact-pattern scripts), and
+  three figure tests whose vaults sit below the tag (they now expect `prefetch_decision_v1`; the seed redraw loads the
+  model at the pass's version).
+- **Targeted lane** (5 GB scope, `-n 6`, after waiting for the full-suite lock): `scripts/affected_tests.py` on the
+  diff falls back to the whole suite (`pyproject.toml`'s import-contract list), and without that path it selects 1,344
+  files, so an explicit list of 129 files was run instead: every edited test file, every file named for prefetch,
+  figures, why, the registry, parameters, config, activation, upgrades and successors, the reader report, plus
+  `test_effective_defaults_golden`, `test_cli_help_snapshot`, `test_cli_json`, `test_provenance`, `test_architecture`.
+  On the tip: **2,241 passed, 18 skipped, 3 xfailed**. `ruff check` clean; `lint-imports` 43 kept, 0 broken; the four
+  validators pass (`db_validate_reference` after the reference prose's leaf count moved to 1,196).
 
 ## Docs
 
@@ -108,7 +130,7 @@ TO FILL
 - The config field's docs: the `FiguresPrefetchConfig` docstring and field comment (the generated
   `Config - figures` note).
 - The playbook has no version log; the version's own comment in `algorithm_versions.py` is the record.
-- References regenerated once after the source commits (`_scripts/generate_all.py`); a second run changed nothing.
+- References regenerated after the source commits (`_scripts/generate_all.py`, rerun after each later test or reference-script commit); the last run on the tip changed nothing.
 
 ## Open items
 
@@ -125,4 +147,12 @@ TO FILL
 
 ## Rules
 
-TO FILL
+- No real model call: the figure author is a fake in every test; the copy run reads the database only.
+- The copy was made with `learnloop.db.copies.copy_tree_with_databases` from the read-only backup into the worktree's
+  gitignored `fixtures-local/` and deleted after.
+- Besides the earlier links' pins, a few small exact-pattern source and test edits were made by script rather than the
+  Edit tool (the gate's wiring in `prefetch.py` and the ledger's exports, `figure_wait_upgrade.py` as a renamed copy of
+  `slip_gap_upgrade.py`, and assertion tweaks in the new test file).
+- Test edits outside the figure files and new files (needed by the successor): the earlier links' pins in 49 test
+  files and `tests/cli_surface.json`; the T1 merge may meet them there.
+- Comments in earlier links' tests that call slip or gap "the chain's latest" were left as written.
