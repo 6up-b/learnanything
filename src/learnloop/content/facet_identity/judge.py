@@ -1131,12 +1131,18 @@ class JudgeRoute:
     reasoning_effort: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
+        """The route as synthesis hashes it into its manifest (:func:`manifest_identity`), so every key is named
+        here: a field added to the route or to :class:`Pricing` stays out. The ``problem`` text is identity too,
+        so rewording one starts paid runs again (each problem is pinned in ``tests/test_identity_pins.py``)."""
+
         return {
             "route": ROUTE, "provider": self.provider, "profile_type": self.profile_type, "model": self.model,
             "judge": "decider" if self.decider else "llm",
             "billing": "subscription" if self.subscription else "metered",
             "cost_basis": ESTIMATED_ONLY if self.subscription else "metered_caps",
-            "price": asdict(self.pricing), "problem": self.problem,
+            "price": {"input_per_million": self.pricing.input_per_million,
+                      "output_per_million": self.pricing.output_per_million, "source": self.pricing.source},
+            "problem": self.problem,
             "output_tokens": None if self.decider else self.output_tokens,
         }
 
@@ -1177,18 +1183,27 @@ def resolve_route(
                       reasoning_effort=policy_reasoning_effort(config, ROUTE))
 
 
+#: ``[facet_identity]`` as the manifest has hashed it since facet identity landed (``merge_locked_facets`` is retired:
+#: ``config.retired`` puts it back). Spend caps and prices are in it, so changing one is a new request.
+MANIFEST_CONFIG_FIELDS = (
+    "attach_top_k", "enabled", "max_calls", "max_cost_usd", "max_facets", "max_group_size", "max_pairs",
+    "max_retries", "max_total_tokens", "merge_locked_facets", "price_per_million_input", "price_per_million_output",
+    "reword_confirm", "shortlist_top_k",
+)
+
+
 def manifest_identity(config: Any, *, client: Any = None) -> dict[str, Any]:
     """The judge's identity as bootstrap synthesis and append hash it into their manifest (handoff §4), so a
     cached run is reused only under the same route and policy. The manifest hash is the completed-run cache key:
     a byte that moves here at a fixed input starts a paid run again (``tests/test_identity_pins.py``)."""
 
-    from learnloop.config.retired import identity_dump
+    from learnloop.config.retired import identity_view
 
     return {
         "prompt_version": PROMPT_VERSION,
         "route": resolve_route(config, client=client).as_dict(),
-        # With its retired fields: a run cached before a field went is still this request's.
-        "config": identity_dump(config.facet_identity),
+        # The named fields, with the retired ones: a run cached before a field went or came is still this request's.
+        "config": identity_view(config.facet_identity, MANIFEST_CONFIG_FIELDS),
     }
 
 

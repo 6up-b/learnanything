@@ -23,9 +23,17 @@ import hashlib
 import json
 from typing import Any, Mapping
 
+from pydantic import BaseModel
+
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
-from learnloop.vault.models import LoadedVault, learning_object_facet_union
+from learnloop.vault.models import (
+    Blueprint,
+    BlueprintRecipe,
+    LoadedVault,
+    RecipeComponent,
+    learning_object_facet_union,
+)
 
 MANIFEST_SCHEMA_VERSION = 1
 
@@ -108,16 +116,40 @@ def curriculum_snapshot_hash(vault: LoadedVault) -> str:
     return _sha256({"concepts": concepts, "learning_objects": learning_objects})
 
 
+#: The blueprint fields :func:`task_graph_hash` reads, by model: every field each had when the hash was first
+#: recorded, so a field added later stays out of the manifest (a completed run stays reusable) until it is named
+#: here on purpose, and a named field removed fails loudly instead of moving the hash (``tests/test_identity_pins.py``).
+_BLUEPRINT_IDENTITY_FIELDS: dict[type[BaseModel], tuple[str, ...]] = {
+    Blueprint: ("id", "weight", "recipes"),
+    BlueprintRecipe: ("id", "composition", "all_of", "any_of", "integration"),
+    RecipeComponent: ("facet", "capability", "modality"),
+}
+
+
+def _blueprint_identity(value: Any) -> Any:
+    """``model_dump(mode="json", exclude_none=True)`` of a blueprint, through the named fields only.
+
+    Keys the vault's YAML wrote that no model declares (vault models keep them) are what the owner authored, so
+    they stay in, dumped exactly as before."""
+
+    if isinstance(value, list):
+        return [_blueprint_identity(child) for child in value]
+    if not isinstance(value, BaseModel):
+        return value
+    out = {name: _blueprint_identity(child) for name in _BLUEPRINT_IDENTITY_FIELDS[type(value)]
+           if (child := getattr(value, name)) is not None}
+    if value.model_extra:
+        out.update(value.model_dump(mode="json", exclude_none=True, include=set(value.model_extra)))
+    return out
+
+
 def task_graph_hash(vault: LoadedVault) -> str:
     """Stable hash of the task graph — blueprints/recipes and item task shape (§12.4)."""
 
     learning_objects = []
     for lo_id in sorted(vault.learning_objects):
         lo = vault.learning_objects[lo_id]
-        blueprints = [
-            bp.model_dump(mode="json", exclude_none=True)
-            for bp in getattr(lo, "blueprints", []) or []
-        ]
+        blueprints = [_blueprint_identity(bp) for bp in getattr(lo, "blueprints", []) or []]
         learning_objects.append({"id": lo_id, "blueprints": blueprints})
     items = []
     for item_id in sorted(vault.practice_items):

@@ -43,6 +43,7 @@ import numpy as np
 from learnloop.ai.embedding import EMBEDDING_PRICES_PER_MILLION, EmbeddingClient
 from learnloop.ai.execution import observe_model_calls
 from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded
+from learnloop.config.retired import identity_view
 from learnloop.content.synthesis.facet_mint_gate import distinct_repair
 from learnloop.db.connection import connect
 from learnloop.diagnosis.diagnostic_gate import normalize_answer
@@ -80,6 +81,13 @@ INVENTORY_CONCEPT_QUERY_VERSION = 2
 _MAX_DEFINING_CLAIMS = 3
 OWNER_KIND = "graph_nomination"
 _BATCH = 32
+#: ``[graph_nomination]`` as :meth:`GraphNominator.identity` has hashed it since T5: a key added to the section
+#: stays out of the synthesis manifest until it is named here on purpose; one removed goes into
+#: ``config.retired.RETIRED_FIELDS`` (``tests/test_identity_pins.py``).
+IDENTITY_CONFIG_FIELDS = (
+    "enabled", "top_k", "embed_new_text", "max_query_texts", "max_query_calls", "max_query_tokens",
+    "max_query_cost_usd",
+)
 
 
 def _digest(payload: Any) -> str:
@@ -481,7 +489,7 @@ class GraphNominator:
             "model_id": self.model_id,
             "dimensions": self.dims,
             "route": config.ai.routing.embedding,
-            "config": config.graph_nomination.model_dump(mode="json"),
+            "config": identity_view(config.graph_nomination, IDENTITY_CONFIG_FIELDS),
             "indexes": {
                 recipe: {"status": self._index_status[recipe], "records": self._index_records.get(recipe)}
                 for recipe in sorted(recipes)

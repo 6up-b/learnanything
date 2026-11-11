@@ -276,6 +276,21 @@ def test_every_registered_source_exists() -> None:
     assert not missing, f"IdentitySite sources that no longer exist (renamed or moved): {missing}"
 
 
+def test_an_identity_view_leaves_out_an_added_field_and_refuses_a_removed_one() -> None:
+    from pydantic import BaseModel
+
+    from learnloop.config.retired import identity_view
+
+    class Section(BaseModel):
+        enabled: bool = True
+        top_k: int = 5
+        added_later: int = 3
+
+    assert identity_view(Section(), ("enabled", "top_k")) == {"enabled": True, "top_k": 5}
+    with pytest.raises(KeyError, match="RETIRED_FIELDS"):
+        identity_view(Section(), ("enabled", "removed"))
+
+
 def test_the_scan_sees_the_shapes_it_is_meant_to_see() -> None:
     def flags(code: str) -> bool:
         return _dump_reaches_sink(source_ast(code).body[0])

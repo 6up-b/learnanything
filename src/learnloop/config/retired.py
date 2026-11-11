@@ -128,6 +128,23 @@ def identity_dump(model: BaseModel) -> dict[str, Any]:
     return dump
 
 
+def identity_view(model: BaseModel, fields: tuple[str, ...]) -> dict[str, Any]:
+    """The named ``fields`` of :func:`identity_dump`: an explicit identity view of a flat config section.
+
+    A field added to the model later stays out of the identity until a view names it on purpose. A named field
+    that is removed must go into :data:`RETIRED_FIELDS` (``identity_dump`` puts it back); until then this raises,
+    so the removal cannot move a compared hash silently. Listing every field a section had when its identity was
+    first recorded keeps the bytes: the view equals the whole dump at that point (``tests/test_identity_pins.py``).
+    """
+
+    dump = identity_dump(model)
+    missing = [name for name in fields if name not in dump]
+    if missing:
+        raise KeyError(f"{type(model).__name__} no longer has {missing}, which an identity hashes: add them to "
+                       "config.retired.RETIRED_FIELDS (keep the bytes) or drop them from the view on purpose")
+    return {name: dump[name] for name in fields}
+
+
 def _put_back(model: BaseModel, dump: dict[str, Any]) -> None:
     for name in type(model).model_fields:
         if name in dump:
@@ -157,4 +174,4 @@ def _descend(value: Any, node: Any) -> None:
             _descend(child, child_node)
 
 
-__all__ = ["RETIRED_FIELDS", "KeepsRetiredFields", "RetiredField", "identity_dump", "remembering"]
+__all__ = ["RETIRED_FIELDS", "KeepsRetiredFields", "RetiredField", "identity_dump", "identity_view", "remembering"]

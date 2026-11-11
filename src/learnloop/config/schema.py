@@ -3492,7 +3492,7 @@ class EmbeddingConfig(BaseModel):
         )
 
 
-class GraphNominationConfig(BaseModel):
+class GraphNominationConfig(KeepsRetiredFields):
     """Embedding nominations for ingest and graph review.
 
     Nominations only, never identity: the append-reconciliation or
