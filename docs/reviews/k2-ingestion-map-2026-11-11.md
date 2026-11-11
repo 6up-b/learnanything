@@ -152,16 +152,16 @@ No vault YAML is written on this path, and no model is called except for GLM-OCR
 
 ### 2.4 Inventory
 
-1. The planner enqueues `inventory` with `{extraction_id, units:[{unit_id, role}]}` (`content/pipeline/add_source.py:1645-1650`).
+1. The planner enqueues `inventory` with `{extraction_id, units:[{unit_id, role}]}` (`content/pipeline/add_source.py:1649-1651`).
 2. `handle_inventory` (`content/pipeline/jobs.py:1488`, 237 lines) prepares each unit's windows (20k-token input windows), runs them on a two-worker pool (`:1644`), routes every SQL write to the runner thread through `_RunnerMailbox` (`:1411`), and checkpoints each window as it lands (`inventory_window`, `:1626`; key `inventory_window_key`, `content/synthesis/source_unit_inventory.py:715`: purpose, **rendered** prompt, schema version, model settings; no output budget).
 3. A unit's merged result is written to `source_unit_inventories` keyed on (revision, unit, unit semantic hash, profile, schema, **prompt label**, provider, model) (`migrations/041_source_unit_inventories.sql:32-33`), `ON CONFLICT ... DO UPDATE` (`db/repositories.py:20553`).
 4. Model call: `canonical_ingest` route, `source_unit_inventory_prompt`, result `SourceUnitInventory`. Sep 6 finding 3 (lanes discarding paid work) is fixed by the per-window checkpoints.
 
 ### 2.5 The automatic build and bootstrap synthesis
 
-1. **Plan** (`run_auto_study_map`, `content/pipeline/add_source.py:1524`): an earlier attempt's queued build is the answer (`:1536-1538`); the kill switch, a problem set or no text skip or wait; `_choose_scope` (`:1377`) withholds exam material by the one predicate (`exam_material_units`, `:1422`) and picks chapters up to `quick_add_scope_input_tokens` (40,000, `config/schema.py:841`), skipping built units (`covered`); the authoring route must be ready and consented; `decide_cost` may pause (`:1576-1580`).
-2. **Write the scope** under `vault_mutation_lock`: **[Y]** `upsert_source_set` writes `sset_quickadd_<source>` with scope = previous ∪ chosen − withheld (`:1601-1636`).
-3. **Enqueue** one batch: `inventory` then `bootstrap_synthesis` with `{"source_set_id", "brief", "mode": "auto", "apply"}` (`:1645-1661`). **No `new_revision_ids`, no unit ids for the synthesis job.**
+1. **Plan** (`run_auto_study_map`, `content/pipeline/add_source.py:1524`): an earlier attempt's queued build is the answer (`:1536-1538`); the kill switch, a problem set or no text skip or wait; `_choose_scope` (`:1377`) withholds exam material by the one predicate (`exam_material_units`, `:1422`) and picks chapters up to `quick_add_scope_input_tokens` (40,000, `config/schema.py:841`), skipping built units (`covered`); the authoring route must be ready and consented; `decide_cost` may pause (`:1577-1582`).
+2. **Write the scope** under `vault_mutation_lock`: **[Y]** `upsert_source_set` writes `sset_quickadd_<source>` with scope = previous ∪ chosen − withheld (`:1588-1626`).
+3. **Enqueue** one batch: `inventory` then `bootstrap_synthesis` with `{"source_set_id", "brief", "mode": "auto", "apply"}` (`:1646-1667`). **No `new_revision_ids`, no unit ids for the synthesis job.**
 4. **Route** (`handle_bootstrap_synthesis`, `content/pipeline/jobs.py:1836`): `mode=auto` with an applied map for the subject goes to append (`:1865-1872`, §2.6); the test is "any learning object carries the subject" (`content/synthesis/source_append.py:97`), with a second copy of that rule in `content/pipeline/build_plan.py:140`.
 5. **Inputs** `_collect_inputs` (`content/synthesis/source_set_synthesis.py:249`): the exam predicate over all source sets (`:263`); per member, the current extraction and its IR; inventories **by revision** (`db/repositories.py:20661`), chosen per unit by `_best_inventory` (`content/synthesis/source_set_synthesis.py:225`, §7 KX3); exam units feed only the exam profile, held-out spans go to the leakage gate.
 6. **Manifest before the run** (`:2207`): `build_manifest` (`content/synthesis/synthesis_manifests.py:142`) hashes 20 fields (`:35-56`), including `facet_identity` and `graph_nomination` dumps in `scope`, the budgets, `algorithm_version` and three vault snapshot hashes. **Persisted** `synthesis_manifests`; its hash is the agent run's `input_context_hash` (`content/synthesis/source_set_synthesis.py:2226`).
@@ -234,7 +234,7 @@ The **legacy canonical lane** (`legacy_ingest`, `exam_ingest`) is a third synthe
 
 | ID | Sev | Finding | Evidence |
 |---|---|---|---|
-| KD1 | high | **Keep-ahead appends re-send the whole book so far** (§7 KX1). | `content/pipeline/add_source.py:1645-1661`, `content/pipeline/jobs.py:1989`, `content/synthesis/source_append.py:249-250` |
+| KD1 | high | **Keep-ahead appends re-send the whole book so far** (§7 KX1). | `content/pipeline/add_source.py:1646-1667`, `content/pipeline/jobs.py:1989`, `content/synthesis/source_append.py:249-250` |
 | KD2 | high | **Apply recovery can overwrite newer YAML, and runs only under `doctor --fix-state`.** `pre_hash` is recorded and never read; a crash between renames leaves a half-applied vault that the sidecar serves and the next accept builds on. The docstring promises startup recovery that doesn't exist. | `content/proposals/apply_protocol.py:19-20`, `:237-243`, `:342`, `:576`; `ops/doctor.py:1309-1345` |
 | KD3 | medium | **A durable arXiv import reads only the abstract page.** `default_fetch` maps arXiv to `website_page` and fetches `/abs/`; only a `/pdf/` URL reads the paper. Inventories and synthesis then see the abstract. | `content/pipeline/jobs.py:110`; `ingest/resolution.py:52-54` |
 | KD4 | medium | **Three synthesis lanes** (legacy windows, bootstrap, append) and **two exercise-import lanes** with different exam checks, key-check concurrency and authoring code. | §2.5, §2.6, §2.9 |
@@ -248,7 +248,7 @@ The **legacy canonical lane** (`legacy_ingest`, `exam_ingest`) is a third synthe
 
 | boundary | what crosses | can each side change alone? |
 |---|---|---|
-| extraction → inventory | the planner's payload `{extraction_id, units:[{unit_id, role}]}` (`content/pipeline/add_source.py:1645-1650`); inventory rows keyed on revision, unit id and unit semantic hash (`migrations/041_source_unit_inventories.sql:32-33`) | **No.** Unit ids are ordinal per extraction; a re-read that renumbers units re-pays every inventory, and nothing on either side records which extraction a unit id came from beyond the row's rebinding (`db/repositories.py:20553-20560`). |
+| extraction → inventory | the planner's payload `{extraction_id, units:[{unit_id, role}]}` (`content/pipeline/add_source.py:1649-1651`); inventory rows keyed on revision, unit id and unit semantic hash (`migrations/041_source_unit_inventories.sql:32-33`) | **No.** Unit ids are ordinal per extraction; a re-read that renumbers units re-pays every inventory, and nothing on either side records which extraction a unit id came from beyond the row's rebinding (`db/repositories.py:20553-20560`). |
 | inventory → synthesis | inventories **by revision** (`db/repositories.py:20661`), picked per unit by `_best_inventory` (`content/synthesis/source_set_synthesis.py:225`); the manifest records only `"schema|prompt"` labels per `revision:unit` (`:358-361`, `:379-381`) | **No.** Synthesis ignores the row's extraction, semantic hash, provider and model, and labels each entry with the *current* extraction id (`:365`, `:397`), so an inventory change (prompt, model, re-read) doesn't reach synthesis, and synthesis can't say which row it used. |
 | synthesis → facet identity | the merged candidate in, a `FacetIdentityPlan` out (`:2042`); the plan's retirements are consumed inside `_normalize` (`:884-920`) | **Partly.** The judge is its own package, but applying its verdicts is stage 4-6 of `_normalize`, and the subpackages import each other both ways (§1.2). |
 | synthesis → apply | `proposed_patch_items` rows with client ids, plus a list of auto-apply ids (`content/synthesis/source_append.py:454`, `:487`) | **Yes, mostly.** The row vocabulary is the contract; apply knows nothing of synthesis. The weak point is apply itself (§2.8). |
@@ -333,8 +333,8 @@ Plus the reading sweep thread (`content/pipeline/jobs.py:4511`), three quick-che
 | decision | where | recorded | "why x and not y" from stored data |
 |---|---|---|---|
 | **extractor** (GLM-OCR, Datalab, Marker, pypdf; fallback) | `ingest/extractors/__init__.py:88`, `:170-211`; `content/pipeline/jobs.py:260-312` | `extractor`, version and `fallback_from` in the extraction run's identity; the selection reason and fallback flags in `health_json` only | **partly**: what ran and what it fell back from; not which candidates were unavailable, since `auto` stays out of the config (`content/pipeline/jobs.py:166-171`) |
-| **which chapters to build** (scope) | `_choose_scope`, `content/pipeline/add_source.py:1377` | the planner's `result_json`: chosen unit ids, plan info, cost (`:1638-1652`) | **partly**: what was chosen; not which chapters were withheld as exam material (computed at `:1385`, used to shape the scope, absent from `info`, `:1371-1374`) or skipped as built |
-| **pause for money or consent** | `decide_cost`, `:1576-1580`; consent `:1572-1575` | `result_json` outcome `paused` / `waiting` with the reason and cost | **yes** |
+| **which chapters to build** (scope) | `_choose_scope`, `content/pipeline/add_source.py:1377` | the planner's `result_json`: chosen unit ids, plan info, cost (`:1628-1640`) | **partly**: what was chosen; not which chapters were withheld as exam material (computed at `:1385`, used to shape the scope, absent from `info`, `:1371-1374`) or skipped as built |
+| **pause for money or consent** | `decide_cost`, `:1577-1582`; consent `:1569-1576` | `result_json` outcome `paused` / `waiting` with the reason and cost | **yes** |
 | **bootstrap or append** | `content/pipeline/jobs.py:1865-1872` | `synthesis_runs.mode` | **no reason**: the rule ("an LO carries the subject") isn't recorded, and the job keeps its `bootstrap_synthesis` type |
 | **which inventory row** per unit | `_best_inventory`, `content/synthesis/source_set_synthesis.py:225` | the manifest's `"schema|prompt"` label per unit | **no**: not the row id, its extraction, semantic hash, model or age; silent |
 | **which units an append sends** | `content/synthesis/source_append.py:249-250` | `new_revision_ids` in the manifest scope (revision granularity), the neighbourhood record | **no**: the unit list isn't recorded, so "why did this append carry chapter 1?" can't be answered from rows |
@@ -443,10 +443,190 @@ Spend comes from backup-API copies of the Nov 9 backup (`learnloop.db.copies.cop
 
 | ID | candidate | verdict | evidence at `565aee8724` | spend |
 |---|---|---|---|---|
-| KX1 | **keep-ahead appends re-send the whole book** | **confirmed, and wider than stated:** it's the inventories of every scope unit, not just "the book so far"'s revision. The planner enqueues `bootstrap_synthesis{mode: auto}` with no `new_revision_ids` and no unit ids (`content/pipeline/add_source.py:1645-1661`); `handle_append_synthesis` passes `None` (`content/pipeline/jobs.py:1989`); `_append` falls back to every selected revision (`content/synthesis/source_append.py:249`) and takes every inventory of it (`:250`); the scope is previous ∪ new (`content/pipeline/add_source.py:1611-1612`). Only `revision_refresh` pins the scope (`content/pipeline/revision_refresh.py:162`). | **projected, order of magnitude:** append input grows linearly with chapters built, so a book's total is quadratic. The copies' inventories run 2-7 times the source text they summarise; on the one copied source large enough for two builds, the second build's append would carry about 3.7 times the inventory tokens of its new units alone. For a whole textbook (about 35 builds at the 40k cap) that is roughly 10^7-10^8 inventory input tokens against 10^6-10^7 with only new units, and the last appends would exceed any route's context. Not observed: keep-ahead hasn't run on the copies. |
+| KX1 | **keep-ahead appends re-send the whole book** | **confirmed, and wider than stated:** it's the inventories of every scope unit, not just "the book so far"'s revision. The planner enqueues `bootstrap_synthesis{mode: auto}` with no `new_revision_ids` and no unit ids (`content/pipeline/add_source.py:1646-1667`); `handle_append_synthesis` passes `None` (`content/pipeline/jobs.py:1989`); `_append` falls back to every selected revision (`content/synthesis/source_append.py:249`) and takes every inventory of it (`:250`); the scope is previous ∪ new (`content/pipeline/add_source.py:1599-1600`). Only `revision_refresh` pins the scope (`content/pipeline/revision_refresh.py:162`). | **projected, order of magnitude:** append input grows linearly with chapters built, so a book's total is quadratic. The copies' inventories run 2-7 times the source text they summarise; on the one copied source large enough for two builds, the second build's append would carry about 3.7 times the inventory tokens of its new units alone. For a whole textbook (about 35 builds at the 40k cap) that is roughly 10^7-10^8 inventory input tokens against 10^6-10^7 with only new units, and the last appends would exceed any route's context. Not observed: keep-ahead hasn't run on the copies. |
 | KX2 | **append has no checkpoint, input ceiling or output split** | **confirmed.** `request_append_reconciliation` calls `execute_structured_operation` with no checkpoint (`content/synthesis/source_append.py:84-93`); no `generation_limit` or `declared_budgets` anywhere in the module; only the neighbourhood is capped (`:262-267`); the output check runs after generation (`:557-558`, `:567-568`) with `_output_tokens` escaping non-ASCII (`:571-575`); a failure leaves no candidate (§2.10). Retry re-pays and, for a deterministic over-budget output, fails the same way. | **measured once:** one July append on a copy cost about 3×10^4 input and 4×10^3 output tokens, and a failed append before it recorded zero (failed runs don't keep usage). With KX1, each retry of a late append re-pays the whole book's inventories. |
 | KX3 | **`_best_inventory` reads a unit's oldest inventory** | **confirmed, with a refinement.** Rows come by revision ordered by `unit_id, created_at` (`db/repositories.py:20664`); `_best_inventory` filters by unit and profile only and its stable sort keeps the oldest (`content/synthesis/source_set_synthesis.py:225-235`; same body at `content/synthesis/source_coverage.py:42-55`); the entry is labelled with the current extraction id (`content/synthesis/source_set_synthesis.py:397`). **Refinement:** for an unchanged unit, a new inventory on the same revision overwrites the row and rebinds its extraction (`db/repositories.py:20553-20560`), so the stale case needs a coexisting row with a different semantic hash, prompt label, provider or model: a prompt bump, a model change, or a re-read that changed the unit's text. In those cases the new inventory is **paid for and then ignored**. | **observed shape, no spend:** one copied revision holds inventories from two extractions of the same book (an earlier and a later Marker run); two units' rows are from the earlier one and would be served under the later id. Their semantic hashes match, so no citation is wrong there. The paid-and-ignored case isn't in the copies. |
 | KX4 | **appends from chapter 3 on never auto-apply** | **confirmed, and the chapter number is incidental:** every append (any build after the first applied one) auto-applies only provenance links that pass `_auto_applies` (`content/synthesis/source_append.py:679-681`); concepts, facets and LOs from `_normalize` never enter `auto_apply_ids` (`:607`) and stay pending (`:487-488`). Whether that's "chapter 3" depends on how many chapters the first build took. | no spend; learner friction ("N changes need a look"). Auto-applying them is the owner's call (spec §10.2-10.3) |
 | KX5 | **the manifest hash is provenance, cache key and reuse key at once** | **confirmed.** The module says so (`content/synthesis/synthesis_manifests.py:8-13`); `agent_runs.input_context_hash = manifest_hash` (`content/synthesis/source_set_synthesis.py:2226`, `content/synthesis/source_append.py:320`). **Over-invalidates:** `task_graph_hash` (every practice item, `content/synthesis/synthesis_manifests.py:111-134`), `algorithm_version` (`:137-140`), token budgets, whole dumps of `facet_identity` (through `identity_dump`, which survives removals but not additions, `config/retired.py:119-128`) and `graph_nomination` (`content/synthesis/graph_nomination.py:484`). **Under-invalidates:** append's `revision_diff` (`content/synthesis/source_append.py:274-289` omits it), the structuring prompt version, inventory content (only labels, §3.1), model settings beyond provider and model. **Always null:** `asset_hashes`, `extractor_versions`, `lock_fingerprint`. A hit returns the old proposal; an append hit never applies it (`content/synthesis/source_append.py:322-327`). | arc C's incident: removing one unread field moved the key, so finished runs weren't reused (`b77257f189`); for append, the curriculum snapshot changes after every applied append, so append reuse rarely hits anyway |
 
 **Other spend-relevant gaps found on the way:** the structuring pass, persona fire calls and epigraphs are uncheckpointed (§3.4); the persona gate's provider failure is silent (KD5); arXiv imports read the abstract page only (KD3).
+
+## 8. The vault notes for these packages
+
+Input to the strategy; no note was written. Paths are under `docs/learnloop-architecture-vault/`.
+
+### 8.1 Notes checked against the code
+
+| note | claim | verdict |
+|---|---|---|
+| `Architecture/Content Pipeline.md` | the job ladder (`:34-39`), one vault-writing worker with a parallel DB-only lane (`:60`), `waiting_for_input` holds no lease (`:61`), `auto` prefers GLM-OCR (`:69`), one native-media readiness judgement (`:71`), frozen legacy aliases (`:75`) | **true, and incomplete:** nothing on Add, the automatic build, keep-ahead, cost pause or Undo |
+| `Workflows/Import Canonical Sources.md` | heartbeat 15 s, TTL 120 s, `recover_stale_leases` (`:183-184`); ownership guard (`:179`) | true |
+| same | checkpoint keys "cover the rendered prompt ... but not the output budget" (`:189`) | **partly stale:** true of inventory windows; synthesis passes key on the prompt **label** (`content/synthesis/source_set_synthesis.py:3035-3075`); the facet judge's key includes the output budget (§3.4) |
+| `Workflows/Build a Study Map.md` | the example uses `--ai-provider codex` (`:55`) | **stale:** ADR-018 retired the Codex transport |
+| same | `--mode auto` picks bootstrap "when no study map/facets have been applied"; append "limits regeneration to the affected neighborhood" (`:60`) | **partly false:** the rule is "any LO carries the subject" (`content/synthesis/source_append.py:97`), and the append's new inventories are unbounded (KX1); only the neighbourhood is limited |
+| `Concepts/Source Authority and Provenance.md` | roles "primary, reference, adjunct, exam-like" (`:50`) | **partly stale:** no `adjunct` role (`content/sources/role_authority.py:25-37`) |
+| same | "reviewed application control[s] canonical mutation" (`:58`) | **partly true:** automatic builds apply without review by default (`config/schema.py:911`), and append auto-applies provenance links |
+| `Maps/LearnLoop Pipeline Map.md` (reviewed Nov 11) | GLM-OCR first, Marker then pypdf (`:162`); the map version and `responses_to_ir` (`:163`); re-read uses the stored original (`:164`); one alias authority (`:165`); facet meaning through `check_meaning_write` (`:167`) | true |
+| `Workflows/Doctor Migrations and Recovery.md` | `--fix-state` "resumes recoverable apply intents" (`:108`) | **true, and the only recovery** (KD2); no note says the sidecar doesn't |
+| `Architecture/Privacy and Trust Boundaries.md` | GLM-OCR, native and Marker egress (`:63-68`) | true (the Nov 8 map's §8.1 privacy finding is fixed in this note) |
+| `Decisions/ADR-013` | one authority per media modality | true |
+| `Examples/Deliberate Canonical Import Session.md` | job phase `extracted` (`:83`) | true |
+
+### 8.2 Features with no explanatory note
+
+- the automatic build: Add, the planner, consent once, cost pause and the daily cap, the book's status line, one-tap Undo (`content/pipeline/add_source.py`);
+- keep-ahead reading builds and the reading sweep (`content/pipeline/add_source.py:1761-2043`, `content/pipeline/jobs.py:3971`);
+- unit inventory beyond one line, and the append neighbourhood (`content/synthesis/source_unit_inventory.py`, `append_neighborhood.py`);
+- the synthesis manifest's three jobs and what it hashes (`content/synthesis/synthesis_manifests.py`);
+- facet identity: the judge, groups, merges, aliases, undo (`content/facet_identity/`); only the meaning chokepoint is mentioned;
+- write-ahead apply and its recovery (`content/proposals/apply_protocol.py`);
+- GLM-OCR's paid-window checkpoints;
+- span aliases beyond one bullet;
+- the lease mechanisms other than the ingest drain (§3.3);
+- the desktop's build-plan, outline and repair flow with its budget overrides.
+
+The generated `Reference/Modules` notes exist for every module in scope (e.g. `Reference/Modules/learnloop/content/pipeline/jobs.md`, `.../content/facet_identity/judge.md`, `.../ingest/extractors/glm_ocr.md`); they're generated and were not judged here.
+
+### Findings
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| KV1 | medium | **The journey the learner now uses most (Add → automatic build → keep-ahead) has no note,** nor do facet identity and write-ahead apply. | §8.2 |
+| KV2 | medium | **Three notes state rules the code doesn't follow:** checkpoint keys, the bootstrap-or-append rule and "append limits regeneration", and reviewed application. | §8.1 |
+| KV3 | low | One stale example (`--ai-provider codex`) and one stale role (`adjunct`). | §8.1 |
+
+## Not verified
+
+- **Nothing was run** beyond AST and import sweeps and read-only queries on backup copies. KX1-KX5 and every crash window are code-traced; each needs its failing test first (the ingestion review's list stands).
+- **Spend for KX1 is projected,** not observed: keep-ahead never ran on the copied vaults, and the copies hold excerpts, not whole textbooks. The ratio uses `inventory_json` length / 4 as the token count and the 40,000-token planner cap with block text as the source size; `outline_chapters`' grouping wasn't reproduced.
+- **No receipt-based spend exists for synthesis purposes** in the copies (§7); the July token counts come from `agent_runs` and job usage estimates.
+- The delegated sweeps' claims were spot-checked at: apply recovery and `pre_hash` (`content/proposals/apply_protocol.py:237-243`, `:342`, `:576`; `ops/doctor.py:1309-1345`), the heartbeat copies (`content/authoring/source_exercise_import.py:781-806` against `source_retrieval/reading_paths.py:819-841`), the arXiv fetch (`content/pipeline/jobs.py:110`), the inventory upsert and reuse (`db/repositories.py:20540-20640`), `holds_claim`'s optional `now` (`db/stores/judgment_claims.py:84-100`), the frontend's retry rule and assessment roles (`IngestActivity.tsx:351-355`, `OutlineAndPlan.tsx:38`), the import-done test (`IngestActivity.tsx:98`), `BUDGET_BOUNDS`, and three vault notes. **Not spot-checked:** the B1/B2 call sites without `now` (`:820`, `:838`, `:919`), lease rows C-E and their clocks, the facet judge's group-order capping (`content/facet_identity/judge.py:756-759`), W6's recalibration gap, `reject_applied_items`' per-kind behaviour, the frontend tables' line numbers in §6 beyond `IngestScreen.tsx:716-723`, the polling intervals, and the conflict-resolution crash window the facet sweep inferred (not used above).
+- **Corrected from a sweep:** it inferred that GLM-OCR's receipts aren't persisted on the import path; every job's model calls are recorded by the runner (`content/pipeline/runner.py:1031`), so they are.
+- `_normalize`'s determinism was read, not tested; whether untitled entities' ULID ids reach any hash wasn't checked.
+- `source_retrieval`'s ingest-side consumers were mapped at the import boundary (§3.1) only; their own leases and identities are K6's.
+- Desktop polling reloads the vault on some list calls (`learnloop_sidecar/handlers/ingest.py:380-405`, `:530`); the cost wasn't measured.
+- Line numbers were machine-checked to exist in their files at `565aee8724`; the text at each was read for the claims in §2.5-2.6, §2.8, §3.4 and §7, and sampled elsewhere.
+
+## Appendix A: every module in scope, classified
+
+The Nov 8 map's class heuristic (§1); `~.` is `learnloop.`. Fan-in and fan-out count imports inside the scope only. `s:helper?` marks a one-importer module of at most 80 code lines.
+
+| module | raw | code | public | funcs | longest fn | in-area fan-in | fan-out | class |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| ~.content.authoring | 1 | 0 | 0 | 0 | 0 | 1 | 0 | init |
+| ~.content.authoring.ai_contracts | 454 | 361 | 12 | 4 | 6 | 3 | 1 | medium |
+| ~.content.authoring.animation_media | 210 | 153 | 5 | 8 | 73 | 1 | 0 | medium |
+| ~.content.authoring.authoring_gates | 417 | 262 | 5 | 9 | 71 | 6 | 2 | deep |
+| ~.content.authoring.concept_animation | 1550 | 1128 | 29 | 51 | 217 | 2 | 2 | medium |
+| ~.content.authoring.conjunctive_items | 321 | 115 | 7 | 9 | 36 | 0 | 0 | medium |
+| ~.content.authoring.contract_commissioning | 523 | 306 | 7 | 21 | 79 | 1 | 0 | deep |
+| ~.content.authoring.draft_validation | 113 | 68 | 2 | 5 | 50 | 1 | 0 | s:helper? |
+| ~.content.authoring.exercise_authoring | 955 | 672 | 8 | 22 | 401 | 1 | 7 | deep |
+| ~.content.authoring.item_authoring | 453 | 335 | 6 | 10 | 72 | 0 | 0 | deep |
+| ~.content.authoring.laddered_stems | 391 | 189 | 7 | 9 | 138 | 0 | 0 | medium |
+| ~.content.authoring.persona_gate | 1629 | 933 | 21 | 43 | 114 | 2 | 1 | deep |
+| ~.content.authoring.persona_realism | 319 | 264 | 5 | 11 | 98 | 1 | 0 | deep |
+| ~.content.authoring.pf_contracts | 443 | 344 | 29 | 14 | 26 | 0 | 1 | wide |
+| ~.content.authoring.pf_sandbox | 420 | 330 | 10 | 12 | 55 | 2 | 1 | deep |
+| ~.content.authoring.practice_generation | 2435 | 1779 | 18 | 64 | 206 | 2 | 7 | deep |
+| ~.content.authoring.practice_leakage | 483 | 289 | 15 | 25 | 77 | 2 | 3 | medium |
+| ~.content.authoring.rung_variants | 891 | 706 | 6 | 14 | 231 | 1 | 3 | deep |
+| ~.content.authoring.source_exercise_import | 1718 | 1250 | 25 | 58 | 241 | 2 | 6 | deep |
+| ~.content.facet_identity | 11 | 0 | 0 | 0 | 0 | 4 | 0 | init |
+| ~.content.facet_identity.actions | 2100 | 1373 | 36 | 70 | 150 | 9 | 3 | wide |
+| ~.content.facet_identity.authority | 1405 | 841 | 33 | 61 | 128 | 1 | 9 | wide |
+| ~.content.facet_identity.dedupe | 247 | 207 | 3 | 4 | 128 | 0 | 5 | medium |
+| ~.content.facet_identity.grouping | 307 | 223 | 5 | 9 | 84 | 2 | 1 | medium |
+| ~.content.facet_identity.judge | 1264 | 963 | 28 | 49 | 120 | 5 | 0 | medium |
+| ~.content.facet_identity.plan | 468 | 373 | 5 | 14 | 146 | 2 | 5 | deep |
+| ~.content.facet_identity.span_support | 137 | 73 | 3 | 3 | 41 | 1 | 1 | s:helper? |
+| ~.content.facet_identity.views | 194 | 135 | 3 | 9 | 51 | 4 | 0 | medium |
+| ~.content.pipeline | 1 | 0 | 0 | 0 | 0 | 5 | 0 | init |
+| ~.content.pipeline.acquisition_preview | 271 | 213 | 3 | 11 | 64 | 2 | 5 | medium |
+| ~.content.pipeline.add_source | 2768 | 1859 | 70 | 118 | 159 | 6 | 13 | wide |
+| ~.content.pipeline.ai_contracts | 88 | 68 | 4 | 1 | 18 | 1 | 1 | s:helper? |
+| ~.content.pipeline.build_plan | 375 | 291 | 6 | 20 | 82 | 3 | 1 | deep |
+| ~.content.pipeline.exam_marking | 394 | 242 | 9 | 12 | 64 | 0 | 3 | medium |
+| ~.content.pipeline.jobs | 5852 | 4138 | 43 | 209 | 237 | 2 | 29 | deep |
+| ~.content.pipeline.quick_add | 490 | 369 | 6 | 14 | 118 | 2 | 5 | deep |
+| ~.content.pipeline.reread | 660 | 433 | 21 | 27 | 67 | 2 | 8 | medium |
+| ~.content.pipeline.revision_refresh | 230 | 164 | 2 | 6 | 67 | 1 | 5 | medium |
+| ~.content.pipeline.runner | 1261 | 870 | 10 | 62 | 148 | 3 | 2 | deep |
+| ~.content.pipeline.source_ingestion | 2217 | 1917 | 27 | 90 | 305 | 1 | 10 | deep |
+| ~.content.proposals | 1 | 0 | 0 | 0 | 0 | 0 | 0 | init |
+| ~.content.proposals.ai_contracts | 911 | 674 | 30 | 12 | 26 | 5 | 0 | wide |
+| ~.content.proposals.apply_protocol | 597 | 435 | 6 | 17 | 118 | 3 | 3 | deep |
+| ~.content.proposals.conflict_resolution | 89 | 57 | 3 | 2 | 50 | 1 | 0 | s:helper? |
+| ~.content.proposals.method_phrasing | 1231 | 829 | 26 | 45 | 127 | 1 | 1 | medium |
+| ~.content.proposals.method_statement_judge | 501 | 344 | 16 | 19 | 71 | 3 | 1 | medium |
+| ~.content.proposals.patches | 1334 | 1038 | 7 | 38 | 106 | 8 | 4 | deep |
+| ~.content.proposals.proposals | 2488 | 1976 | 27 | 83 | 121 | 6 | 4 | deep |
+| ~.content.proposals.required_method_override | 273 | 194 | 6 | 7 | 59 | 2 | 2 | medium |
+| ~.content.sources | 1 | 0 | 0 | 0 | 0 | 6 | 0 | init |
+| ~.content.sources.block_health | 146 | 99 | 2 | 4 | 69 | 0 | 1 | medium |
+| ~.content.sources.exam_material | 1588 | 943 | 36 | 80 | 83 | 9 | 3 | wide |
+| ~.content.sources.exercise_statements | 204 | 119 | 7 | 7 | 46 | 2 | 1 | medium |
+| ~.content.sources.extraction_health | 196 | 137 | 3 | 11 | 33 | 1 | 1 | medium |
+| ~.content.sources.front_matter | 30 | 14 | 1 | 1 | 8 | 1 | 0 | s:thin |
+| ~.content.sources.math_text | 357 | 243 | 5 | 12 | 50 | 1 | 0 | medium |
+| ~.content.sources.pdf_extraction | 273 | 181 | 3 | 11 | 31 | 1 | 4 | medium |
+| ~.content.sources.provenance | 122 | 89 | 1 | 2 | 83 | 0 | 0 | medium |
+| ~.content.sources.role_authority | 262 | 143 | 8 | 8 | 46 | 9 | 0 | medium |
+| ~.content.sources.source_deletion | 336 | 239 | 6 | 12 | 74 | 1 | 0 | medium |
+| ~.content.sources.source_library | 144 | 92 | 2 | 2 | 104 | 2 | 2 | medium |
+| ~.content.sources.source_outcome_analytics | 279 | 215 | 4 | 6 | 152 | 0 | 0 | medium |
+| ~.content.sources.source_outline | 292 | 198 | 9 | 13 | 58 | 10 | 4 | medium |
+| ~.content.sources.source_refs | 242 | 188 | 3 | 12 | 79 | 0 | 0 | medium |
+| ~.content.sources.span_aliases | 468 | 270 | 18 | 32 | 31 | 1 | 3 | medium |
+| ~.content.synthesis | 1 | 0 | 0 | 0 | 0 | 0 | 0 | init |
+| ~.content.synthesis.ai_contracts | 1061 | 791 | 51 | 9 | 18 | 4 | 0 | wide |
+| ~.content.synthesis.append_neighborhood | 542 | 406 | 4 | 16 | 147 | 1 | 1 | deep |
+| ~.content.synthesis.brief | 140 | 81 | 3 | 4 | 29 | 3 | 0 | medium |
+| ~.content.synthesis.coverage_rollup | 59 | 44 | 1 | 1 | 49 | 1 | 0 | s:thin |
+| ~.content.synthesis.exam_profile | 187 | 129 | 5 | 5 | 87 | 2 | 0 | medium |
+| ~.content.synthesis.facet_candidates | 188 | 128 | 3 | 9 | 55 | 0 | 1 | medium |
+| ~.content.synthesis.facet_doctor | 121 | 74 | 3 | 6 | 33 | 1 | 1 | s:helper? |
+| ~.content.synthesis.facet_mint_gate | 550 | 306 | 11 | 22 | 76 | 2 | 1 | medium |
+| ~.content.synthesis.graph_nomination | 1070 | 799 | 13 | 52 | 120 | 7 | 1 | deep |
+| ~.content.synthesis.source_append | 1070 | 788 | 5 | 22 | 312 | 3 | 15 | deep |
+| ~.content.synthesis.source_coverage | 273 | 217 | 1 | 5 | 145 | 1 | 5 | medium |
+| ~.content.synthesis.source_set_synthesis | 3811 | 2971 | 11 | 86 | 1081 | 3 | 20 | deep |
+| ~.content.synthesis.source_unit_inventory | 925 | 691 | 18 | 28 | 167 | 4 | 5 | medium |
+| ~.content.synthesis.source_unit_selection | 508 | 358 | 11 | 16 | 126 | 8 | 4 | medium |
+| ~.content.synthesis.study_map_diff | 79 | 55 | 1 | 2 | 40 | 1 | 0 | s:helper? |
+| ~.content.synthesis.synthesis_eval | 302 | 228 | 5 | 10 | 119 | 0 | 0 | medium |
+| ~.content.synthesis.synthesis_gates | 1044 | 785 | 7 | 43 | 84 | 7 | 1 | deep |
+| ~.content.synthesis.synthesis_manifests | 213 | 138 | 8 | 9 | 56 | 2 | 0 | medium |
+| ~.content.synthesis.vault_epigraphs | 361 | 277 | 6 | 14 | 79 | 2 | 1 | deep |
+| ~.ingest | 32 | 21 | 0 | 0 | 0 | 0 | 3 | init |
+| ~.ingest.block_roles | 378 | 237 | 9 | 8 | 33 | 5 | 0 | medium |
+| ~.ingest.detect | 13 | 4 | 1 | 1 | 8 | 1 | 1 | s:thin |
+| ~.ingest.extractors | 211 | 150 | 6 | 4 | 60 | 4 | 6 | medium |
+| ~.ingest.extractors.base | 170 | 117 | 4 | 6 | 93 | 6 | 2 | medium |
+| ~.ingest.extractors.datalab | 205 | 159 | 3 | 11 | 44 | 1 | 3 | medium |
+| ~.ingest.extractors.glm_ocr | 1525 | 1099 | 11 | 62 | 136 | 6 | 6 | deep |
+| ~.ingest.extractors.glm_text_layer | 682 | 449 | 13 | 27 | 72 | 1 | 0 | medium |
+| ~.ingest.extractors.marker | 407 | 280 | 5 | 19 | 80 | 3 | 4 | deep |
+| ~.ingest.extractors.marker_worker | 483 | 311 | 2 | 20 | 56 | 2 | 2 | deep |
+| ~.ingest.extractors.normalizers | 412 | 326 | 3 | 8 | 110 | 1 | 3 | deep |
+| ~.ingest.extractors.pypdf | 192 | 135 | 3 | 7 | 80 | 4 | 3 | medium |
+| ~.ingest.fetchers | 400 | 308 | 13 | 19 | 50 | 2 | 2 | medium |
+| ~.ingest.hashing | 175 | 108 | 5 | 10 | 29 | 9 | 1 | medium |
+| ~.ingest.ir | 396 | 247 | 12 | 16 | 55 | 16 | 0 | medium |
+| ~.ingest.locators | 69 | 30 | 3 | 3 | 20 | 6 | 0 | s:thin |
+| ~.ingest.models | 79 | 52 | 6 | 2 | 15 | 7 | 0 | medium |
+| ~.ingest.originals | 110 | 58 | 6 | 7 | 25 | 3 | 1 | medium |
+| ~.ingest.reanchor | 238 | 176 | 5 | 8 | 38 | 4 | 1 | medium |
+| ~.ingest.resolution | 80 | 60 | 3 | 2 | 46 | 7 | 1 | medium |
+| ~.ingest.transcription | 132 | 96 | 4 | 4 | 66 | 1 | 1 | medium |
+| ~.ingest.transcripts | 121 | 75 | 3 | 4 | 36 | 2 | 0 | medium |
+| learnloop_sidecar.handlers.facet_detail | 333 | 228 | 5 | 10 | 87 | 0 | 1 | medium |
+| learnloop_sidecar.handlers.facet_identity | 86 | 54 | 6 | 3 | 22 | 0 | 1 | s:helper? |
+| learnloop_sidecar.handlers.facets | 171 | 108 | 1 | 4 | 141 | 0 | 0 | medium |
+| learnloop_sidecar.handlers.ingest | 1608 | 1161 | 75 | 56 | 108 | 0 | 21 | wide |
+| learnloop_sidecar.handlers.library | 216 | 154 | 7 | 8 | 47 | 0 | 1 | medium |
+| learnloop_sidecar.handlers.library_ask | 832 | 508 | 19 | 40 | 90 | 1 | 2 | medium |
+| learnloop_sidecar.handlers.library_exercises | 510 | 306 | 12 | 18 | 78 | 0 | 3 | medium |
+| learnloop_sidecar.handlers.proposals | 328 | 225 | 11 | 15 | 50 | 0 | 3 | medium |
+| learnloop_sidecar.handlers.source_service | 311 | 214 | 18 | 9 | 37 | 0 | 0 | medium |
+| learnloop_sidecar.source_identity | 56 | 35 | 1 | 1 | 41 | 1 | 0 | s:thin |
