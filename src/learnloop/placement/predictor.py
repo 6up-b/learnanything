@@ -17,6 +17,7 @@ import json
 from math import exp
 from typing import Any
 
+from learnloop.config.retired import identity_dump
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.field.types import ItemFeatures, ItemPrediction, LearnerPredictor, RegionEstimate
 from learnloop.learner.mastery import initial_mastery_state_for_learning_object, resolve_item_irt_params
@@ -56,7 +57,9 @@ class LiveMasteryPredictor:
         self._item_params = repository.item_parameter_states()
         self._now_iso = now_iso
         self._priors: dict[str, MasteryState] = {}
-        mastery = vault.config.mastery.model_dump(mode="json")
+        # With the fields arc C retired: the version (a forecast's label, a VOI
+        # receipt's key through the valuation state) stays the one recorded before.
+        mastery = identity_dump(vault.config.mastery)
         self.version_hash = sha256(
             json.dumps({"implementation": LIVE_INCUMBENT_VERSION, "mastery": mastery},
                        sort_keys=True, separators=(",", ":")).encode()

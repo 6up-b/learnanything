@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from learnloop.clock import Clock, utc_now_iso
+from learnloop.config.retired import identity_dump
 from learnloop.content.synthesis.ai_contracts import (
     AppendReconciliation,
     AppendReconciliationContext,
@@ -283,7 +284,8 @@ def _append(
         append_scope["facet_identity"] = {
             "prompt_version": _FI_PROMPT,
             "route": resolve_route(vault.config, client=facet_identity_client).as_dict(),
-            "config": vault.config.facet_identity.model_dump(mode="json"),
+            # With its retired fields: a run cached before a field went is still this request's.
+            "config": identity_dump(vault.config.facet_identity),
         }
     manifest = build_manifest(
         vault,

@@ -51,6 +51,7 @@ import numpy as np
 from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
 from learnloop.ai.execution import content_key
 from learnloop.ai.spend import SpendCaps, SpendEstimate, SpendLimitExceeded
+from learnloop.config.retired import identity_dump
 from learnloop.attempts.blind_grading import (
     BLIND_GRADING_PROMPT_VERSION, BlindGradingProposal, blind_grading_context, blind_grading_prompt,
 )
@@ -725,8 +726,10 @@ def run_compare(
         "caps": caps.as_dict(), "price_per_million": price_per_million,
         "pricing": pricing_basis(price_per_million, input_price_per_million, output_price_per_million),
         "embedding_price_per_million": embedding_price_per_million,
+        # The config hash names the report files: with the fields arc C retired, a rerun at a
+        # fixed input still replaces its report (config/retired.py).
         "manifest": {"algorithm_version": vault.config.algorithms.algorithm_version,
-                     "config_hash": content_key(vault.config.model_dump(mode="json")),
+                     "config_hash": content_key(identity_dump(vault.config)),
                      "embedding_model": vault.config.embedding.model,
                      "benchmark": getattr(data, "manifest", None)},
     }

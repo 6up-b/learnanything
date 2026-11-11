@@ -38,6 +38,7 @@ from pydantic import ValidationError
 
 from learnloop.ai.execution import content_key, declared_budgets, generation_limit, model_settings
 from learnloop.clock import Clock, utc_now_iso
+from learnloop.config.retired import identity_dump
 from learnloop.content.synthesis.ai_contracts import (
     CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION,
     SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
@@ -2195,7 +2196,8 @@ def _create_study_map(
             "facet_identity": {
                 "prompt_version": _FI_PROMPT,
                 "route": resolve_route(vault.config, client=facet_identity_client).as_dict(),
-                "config": vault.config.facet_identity.model_dump(mode="json"),
+                # With its retired fields: a run cached before a field went is still this request's.
+                "config": identity_dump(vault.config.facet_identity),
             },
         }
 

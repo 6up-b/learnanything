@@ -126,6 +126,7 @@ def _replay_inputs(loaded, *, legacy_fallback):
 
 
 def _replay(loaded, inputs, *, arms, bootstrap_samples, seed, fast_track_q, extra_arms=(), pairwise=()):
+    from learnloop.config.retired import identity_dump
     from learnloop.field.evaluation import evaluate
 
     if extra_arms:
@@ -136,7 +137,8 @@ def _replay(loaded, inputs, *, arms, bootstrap_samples, seed, fast_track_q, extr
         (*inputs["attempts"], *inputs["facets"], *inputs["signals"]),
         arms=arms, bootstrap_samples=bootstrap_samples, seed=seed, fast_track_q=fast_track_q,
         general_means=inputs["general_means"], lo_priors=inputs["lo_priors"],
-        config=loaded.config.model_dump(mode="json"),
+        # With the fields arc C retired: each arm's version hash stays the one recorded before.
+        config=identity_dump(loaded.config),
         fsrs_weights=inputs["fsrs_weights"], fsrs_fit_id=inputs["fsrs_fit_id"],
         pairwise=pairwise,
     )

@@ -113,6 +113,7 @@ def success_head_eval(
     reported as unavailable. Each paid step runs in its own invocation.
     """
     from learnloop.config import MasteryConfig
+    from learnloop.config.retired import identity_dump
     from learnloop.field.evaluation import evaluate, report_digest, write_reports
     from learnloop.field.item_content import load_content_index, seen_stem_records
     from learnloop.field.success_head import PREREGISTRATION, preregistration_hash, success_head_arms
@@ -183,7 +184,8 @@ def success_head_eval(
             if llm_report is not None and llm_report["status"] not in {"dry_run", "complete", "disabled"}:
                 raise typer.Exit(code=1)
             return
-        config = loaded.config.model_dump(mode="json")
+        # With the fields arc C retired: each arm's version hash stays the one recorded before.
+        config = identity_dump(loaded.config)
         mastery = MasteryConfig.model_validate(config["mastery"])
         t8_arms = success_head_arms(
             content, config=mastery, lo_priors=inputs["lo_priors"],

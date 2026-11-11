@@ -75,4 +75,67 @@ deleted modules' registry entries).
 
 ## 2. Fix
 
-(Filled in after the audit.)
+One central helper, `src/learnloop/config/retired.py`:
+
+- `RETIRED_FIELDS`: every field in 1.1's table with its parent model, path, old type, default at `88607cb3fe` and
+  the step that removed it (the `[locks]` section as its two leaves).
+- `KeepsRetiredFields`: the base of the seven models that lost a field (`FacetIdentityConfig`, `PlanConfig`,
+  `MasteryIRTConfig`, `SeverityExampleConfig`, `ErrorImpact`, `AIConfig`, `LearnLoopConfig`). A wrap validator
+  remembers, in a private attribute, what the model's input gave each retired field (coerced by the old type, as the
+  old model read it) or its default. The fields are not re-added: `model_fields`, every plain `model_dump`, the
+  effective-defaults snapshots and `config effective` are unchanged, and nothing reads the remembered values except
+  the identity dump.
+- `remembering(model, **values)`: the two built-in defaults that set a retired field at construction before arc C
+  (`error_impacts.recall_failure`/`scaffold_failure` with `lo_mastery_delta = -0.05`, the `arithmetic_slip`
+  severity example with `target_error_type = "arithmetic_slip"`) say so, in `schema.py`.
+- `identity_dump(model)`: `model_dump(mode="json")` with every retired field under the model put back (a removed
+  section rebuilt whole, as the old model dumped it).
+
+Sites changed (each with a why-comment):
+
+| Audit row | Site | Change |
+| --- | --- | --- |
+| 1, 2 | `source_set_synthesis.py`, `source_append.py` | the manifest's facet-identity `config` is `identity_dump(vault.config.facet_identity)` |
+| 3 | `placement/predictor.py` | the live predictor hashes `identity_dump(vault.config.mastery)` |
+| 4 | `field/predictors.py` `_mastery_hash_view` | every field arm hashes `identity_dump(config)` (still minus `claim_fixes_enabled`) |
+| 5 | `cli/field.py`, `cli/success_head.py` | the config handed to the evaluation is `identity_dump(loaded.config)`, so the arms it builds remember a vault's own `discrimination_*` |
+| 6 | `ops/embedding_compare.py` | `manifest.config_hash` is `content_key(identity_dump(vault.config))` |
+
+Rows 7-11 (provenance only) and 14 (in-process memos) are left as they are: a report, plan row or receipt records
+the config the code read, and a field that is gone was not read. Their whole-config `config_hash` values differ
+from pre-arc-C ones for the same effective config (as with any schema change); nothing compares them.
+`tests/test_eval_harness.py`'s three digests go back to the ones recorded before C3 (`c828893847` had re-pinned
+them because only `manifest.arm_hashes` moved).
+
+**An old TOML that set a removed key to a non-default value** (`merge_locked_facets = false`,
+`discrimination_max = 2.5`, a `[locks]` table, a custom error impact's `lo_mastery_delta`): the value is read from
+the raw input, cheaply and safely, by the model's own validator at load (no second TOML read, no new state outside
+the config object), coerced as the old model coerced it (`facet_lock_mass = 3` hashes as `3.0`), and used only in
+identity dumps. So such a vault's cache keys and version hashes are exactly the pre-arc-C ones too (the `legacy`
+cases below). A value the old model refused falls back to the default: no pre-arc-C identity exists for a config
+that did not load. Limits: a config rebuilt from a plain dump (`sim/runner.apply_config_overrides`,
+`substrate/shadow_rebuild.build_candidate_config`, both in-memory candidates for a sim or a shadow replay) forgets a
+non-default retired value and identity-dumps the default; neither feeds the synthesis cache, and a default-valued
+vault is unaffected. Model equality includes the remembered values, as it included the fields before arc C.
+
+## 3. Recorded base digests and how they were computed
+
+`git archive 88607cb3fe -- src migrations pyproject.toml` extracted under `fixtures-local/base88607/` (gitignored),
+then a scratch script imported `learnloop` from that tree (asserting `learnloop.__file__` lies in it; worktree venv,
+`env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`) and computed, for `LearnLoopConfig()` and for
+`LEGACY_TOML` (in `tests/test_retired_config_identities.py`: every removed key, non-default where possible, plus a
+top-level `[codex]` table, loaded with `normalize_config_input` as `load_config` does):
+
+| Identity | default | legacy |
+| --- | --- | --- |
+| sha256 of sorted compact JSON of `facet_identity.model_dump(mode="json")` | `a86a21e9…eccc91` | `736cb6a2…d25fd93` |
+| the whole facet-identity manifest block (`prompt_version`, `route`, `config`) | `d435bb96…dc00a4` | `dec10df5…e6559f` |
+| `LiveMasteryPredictor(...).version_hash` | `cf2f953e…31479f` | `10730014…8ce3f` |
+| `lo_general` arm | `6ebe01df…3c48` | `4405086b…ad90` |
+| `mastery_ekf` arm | `25729499…bb35` | `ebc2f528…46b7` |
+| AD challenger `lo_general+composite` | `fb014a37…c7f1` | `f30ae1c4…2cc4` |
+| `content_key(config.model_dump(mode="json"))` | `beffb8c8…09f7` | `5cbd4ee7…5549` |
+
+Full values are in the test file. The same script run on this branch's tip gives byte-identical output for every
+row (and on `daadef09dd` a different value for every row). The judge route and the three prompt versions are equal
+at base and tip; only the `config` entry moved.

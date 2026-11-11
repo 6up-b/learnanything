@@ -4,6 +4,9 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
+# The models that lost a field in arc C remember it for identity hashes only (config/retired.py).
+from learnloop.config.retired import KeepsRetiredFields, remembering
+
 
 class StorageConfig(BaseModel):
     sqlite_path: str = "state.sqlite"
@@ -142,7 +145,7 @@ class HypothesisConfig(BaseModel):
     decay_pressure_horizon_days: int = Field(default=60, ge=1)
 
 
-class MasteryIRTConfig(BaseModel):
+class MasteryIRTConfig(KeepsRetiredFields):
     enabled: bool = True                     # false -> legacy logit-space update (bit-for-bit)
     discrimination_default: float = 1.0
     difficulty_default: float = 0.0          # b at mu_0
@@ -419,7 +422,7 @@ class PracticeGenerationConfig(BaseModel):
     min_band_width: float = 0.10
 
 
-class SeverityExampleConfig(BaseModel):
+class SeverityExampleConfig(KeepsRetiredFields):
     attempt_type: str = "independent_attempt"
     hints_used: int = 0
     correctness: float = 0.0
@@ -458,12 +461,13 @@ def default_severity_examples() -> dict[str, SeverityExampleConfig]:
             expected_error_type="scaffold_failure",
             expected_severity_band=(0.85, 0.95),
         ),
-        "arithmetic_slip": SeverityExampleConfig(
+        # The retired target_error_type it set is remembered for identity hashes only (config/retired.py).
+        "arithmetic_slip": remembering(SeverityExampleConfig(
             correctness=0.75,
             expected_correctness=0.70,
             expected_error_type="arithmetic_slip",
             expected_severity_band=(0.25, 0.35),
-        ),
+        ), target_error_type="arithmetic_slip"),
         "ambiguous_item": SeverityExampleConfig(
             expected_correctness=0.70,
             bad_item_suspicion=0.70,
@@ -1544,7 +1548,7 @@ class AIConsentRecord(BaseModel):
     data_flow: str = "passages_and_answers"
 
 
-class AIConfig(BaseModel):
+class AIConfig(KeepsRetiredFields):
     # The tool-free ChatGPT plan.
     active_provider: str = "chatgpt"
     # A configured readiness fallback for routes that allow one. Never an
@@ -1711,7 +1715,7 @@ CODEX_TO_PLAN_PROFILE = {
 }
 
 
-class ErrorImpact(BaseModel):
+class ErrorImpact(KeepsRetiredFields):
     """Error impact settings.
 
     ``local_severity_gain`` sharpens the EKF observation; there is no separate
@@ -3511,7 +3515,7 @@ class GraphNominationConfig(BaseModel):
     max_query_cost_usd: float = Field(default=0.05, ge=0)
 
 
-class FacetIdentityConfig(BaseModel):
+class FacetIdentityConfig(KeepsRetiredFields):
     """Facet identity at mint time, and the dedupe command.
 
     At ingest, a cheap judge sees each concept neighbourhood of candidate
@@ -3768,7 +3772,7 @@ class PlacementConfig(BaseModel):
     quick_check_budget_minutes: int = Field(default=8, ge=1, le=8)
 
 
-class PlanConfig(BaseModel):
+class PlanConfig(KeepsRetiredFields):
     """Daily loop: the finite daily plan.
 
     Acts only on a vault at a daily-plan algorithm version (``mvp-0.14`` or a
@@ -4775,7 +4779,7 @@ class AdaptiveDifficultyConfig(BaseModel):
         return [name for name in AD_OUTSIDE_FORECASTERS if name in chosen]
 
 
-class LearnLoopConfig(BaseModel):
+class LearnLoopConfig(KeepsRetiredFields):
     model_config = ConfigDict(extra="allow")
 
     schema_version: Literal[1, 2] = 2
@@ -4944,13 +4948,14 @@ class LearnLoopConfig(BaseModel):
         retry_route = getattr(self.ai.routing, "canonical_ingest_retry", "")
         if not retry_route:
             self.ai.routing.canonical_ingest_retry = self.ai.routing.canonical_ingest
+        # The retired lo_mastery_delta these two set is remembered for identity hashes only (config/retired.py).
         self.error_impacts.setdefault(
             "recall_failure",
-            ErrorImpact(families={"recall": -0.25}, local_severity_gain=0.8),
+            remembering(ErrorImpact(families={"recall": -0.25}, local_severity_gain=0.8), lo_mastery_delta=-0.05),
         )
         self.error_impacts.setdefault(
             "scaffold_failure",
-            ErrorImpact(families={"recall": -0.35}, local_severity_gain=1.5),
+            remembering(ErrorImpact(families={"recall": -0.35}, local_severity_gain=1.5), lo_mastery_delta=-0.05),
         )
         self.error_impacts.setdefault(
             "arithmetic_slip",

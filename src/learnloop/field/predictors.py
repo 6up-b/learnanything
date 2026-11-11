@@ -20,6 +20,7 @@ import numpy as np
 
 from learnloop.clock import parse_utc
 from learnloop.config import MasteryConfig
+from learnloop.config.retired import identity_dump
 from learnloop.field.types import (
     ArmConstants, FacetRow, ItemFeatures, ItemPrediction, LearnerPredictor,
     ObservationRow, Predictor, RegionEstimate, SignalRow,
@@ -46,9 +47,11 @@ _OFFLINE_INERT_MASTERY_KEYS = frozenset({"claim_fixes_enabled"})
 
 
 def _mastery_hash_view(config: MasteryConfig) -> dict:
-    """The mastery config as an offline arm's version hash reads it."""
+    """The mastery config as an offline arm's version hash reads it: with the
+    fields arc C retired (``mastery.irt.discrimination_min/max``), so an arm
+    keeps the hash recorded before they went (config/retired.py)."""
 
-    return {k: v for k, v in config.model_dump(mode="json").items() if k not in _OFFLINE_INERT_MASTERY_KEYS}
+    return {k: v for k, v in identity_dump(config).items() if k not in _OFFLINE_INERT_MASTERY_KEYS}
 
 
 def _order(row: ObservationRow) -> tuple[str, str, str]:

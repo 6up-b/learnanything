@@ -246,6 +246,24 @@ def test_the_config_identity_reproduces_both_recorded_digests(tmp_path):
         assert content_key(identity_dump(config)) == BASE_CONFIG_CONTENT_KEY[case], case
 
 
+def test_retired_fields_stay_off_the_models_and_out_of_every_other_dump(tmp_path):
+    """The models keep a retired field only for identity dumps: never a field, never in a plain dump."""
+
+    from learnloop.config import schema
+    from learnloop.config.retired import RETIRED_FIELDS, KeepsRetiredFields
+
+    for field in RETIRED_FIELDS:
+        model = getattr(schema, field.model)
+        assert issubclass(model, KeepsRetiredFields), field.model
+        assert field.path[0] not in model.model_fields, field
+    legacy = _legacy_config(tmp_path)
+    plain = legacy.model_dump(mode="json")
+    assert "merge_locked_facets" not in plain["facet_identity"]
+    assert "pre_questions" not in plain["plan"]
+    assert "lo_mastery_delta" not in plain["error_impacts"]["custom_impact"]
+    assert not hasattr(legacy.ai, "agent_harness_opt_in")
+
+
 def test_an_embedding_compare_report_is_named_as_before_arc_c(tmp_path):
     """The manifest's config hash names the report files: a rerun at a fixed input replaces its report."""
 
