@@ -8,9 +8,9 @@ The §10 line these tests exist for:
 The rule is deliberately NOT implemented here — it lives as two edge cases
 inside ``familiarity.tight_kinship_clusters``, the single-linkage pass that
 already decides kinship, per augmentation §8's "one code path". So these tests
-drive it through ``progression.apply_evidence_cap``, the public caller, and one
-of them pins the inertness that makes the change additive: with no stem identity
-supplied, the clustering is exactly what it was.
+drive it through ``familiarity.evidence_cap_grouping``, the evidence cap's
+grouping, and one of them pins the inertness that makes the change additive: with
+no stem identity supplied, the clustering is exactly what it was.
 """
 
 from __future__ import annotations
@@ -22,7 +22,6 @@ from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
 from learnloop.substrate import activities as A
 from learnloop.learner import familiarity as F
-from learnloop.scheduling import progression as P
 from learnloop.content.authoring.laddered_stems import (
     MIN_PAIRS_PER_ARM,
     STEM_INDEPENDENCE_METRIC,
@@ -55,8 +54,8 @@ def repo(tmp_path):
 def _surface(repo, *, suffix, features):
     """One activity surface carrying a soft-kinship feature vector.
 
-    Mirrors ``tests/test_progression._surface``: the kinship clustering reads
-    stored features, so a test about clustering has to write them.
+    The kinship clustering reads stored features, so a test about clustering
+    has to write them.
     """
 
     family_id = repo.ensure_activity_family(
@@ -106,14 +105,14 @@ def test_two_parts_at_one_capability_are_one_independent_group(repo):
     a = _surface(repo, suffix="p1", features=_KIN)
     b = _surface(repo, suffix="p2", features=_KIN)
 
-    cap = P.apply_evidence_cap(
+    grouping = F.evidence_cap_grouping(
         repo,
         surface_ids=[a, b],
         stem_columns={a: (STEM, "procedure_execution"), b: (STEM, "procedure_execution")},
     )
 
-    assert cap.independent_group_count == 1
-    assert len(cap.clusters) == 1
+    assert grouping.independent_group_count == 1
+    assert len(grouping.clusters) == 1
 
 
 def test_two_parts_at_different_capabilities_are_two_independent_groups(repo):
@@ -128,15 +127,15 @@ def test_two_parts_at_different_capabilities_are_two_independent_groups(repo):
     a = _surface(repo, suffix="p3", features=_KIN)
     b = _surface(repo, suffix="p4", features=_KIN)
     # Control: without the stem identity, these two ARE one group.
-    assert P.apply_evidence_cap(repo, surface_ids=[a, b]).independent_group_count == 1
+    assert F.evidence_cap_grouping(repo, surface_ids=[a, b]).independent_group_count == 1
 
-    cap = P.apply_evidence_cap(
+    grouping = F.evidence_cap_grouping(
         repo,
         surface_ids=[a, b],
         stem_columns={a: (STEM, "retrieval"), b: (STEM, "coordination")},
     )
 
-    assert cap.independent_group_count == 2
+    assert grouping.independent_group_count == 2
 
 
 def test_same_column_co_clusters_even_when_the_features_are_cold(repo):
@@ -148,15 +147,15 @@ def test_same_column_co_clusters_even_when_the_features_are_cold(repo):
 
     a = _surface(repo, suffix="p5", features=_DISTANT)
     b = _surface(repo, suffix="p6", features=_DISTANT)
-    assert P.apply_evidence_cap(repo, surface_ids=[a, b]).independent_group_count == 2
+    assert F.evidence_cap_grouping(repo, surface_ids=[a, b]).independent_group_count == 2
 
-    cap = P.apply_evidence_cap(
+    grouping = F.evidence_cap_grouping(
         repo,
         surface_ids=[a, b],
         stem_columns={a: (STEM, "retrieval"), b: (STEM, "retrieval")},
     )
 
-    assert cap.independent_group_count == 1
+    assert grouping.independent_group_count == 1
 
 
 def test_different_stems_are_untouched_by_the_rule(repo):
@@ -169,13 +168,13 @@ def test_different_stems_are_untouched_by_the_rule(repo):
     a = _surface(repo, suffix="p7", features=_KIN)
     b = _surface(repo, suffix="p8", features=_KIN)
 
-    cap = P.apply_evidence_cap(
+    grouping = F.evidence_cap_grouping(
         repo,
         surface_ids=[a, b],
         stem_columns={a: ("stem_one", "retrieval"), b: ("stem_two", "coordination")},
     )
 
-    assert cap.independent_group_count == 1
+    assert grouping.independent_group_count == 1
 
 
 def test_the_rule_is_inert_without_stem_identity(repo):
