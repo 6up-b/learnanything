@@ -7,7 +7,6 @@ from pydantic import Field
 
 from learnloop.instructional.policy import caller_for, caller_for_question_event
 from learnloop.instructional.practice import propose_practice, service_enabled
-from learnloop.practice_index.coverage import coverage_report
 from learnloop.practice_index.retrieval import IntentUnavailable, PracticeConstraints, find_practice
 from learnloop.practice_index.usage import LEARNER_SIGNALS, record_practice_usage
 from learnloop.source_retrieval.policy import PolicyRefused
@@ -60,10 +59,6 @@ class PracticeUsageInput(ParamsModel):
     signal: str
     #: The learner's optional words with the tap ("not what I asked: ...").
     text: str | None = Field(default=None, max_length=4000)
-
-
-class PracticeCoverageInput(ParamsModel):
-    min_eligible: int | None = Field(default=None, ge=0)
 
 
 #: Caller kinds a frontend may name; the server derives the context for each.
@@ -139,10 +134,3 @@ def record_practice_usage_rpc(ctx: SidecarContext, params: PracticeUsageInput) -
     except ValueError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
     return versioned(result)
-
-
-@method("get_practice_coverage", PracticeCoverageInput)
-def get_practice_coverage(ctx: SidecarContext, params: PracticeCoverageInput) -> dict[str, Any]:
-    """Facets with few admissible items (targets for more practice)."""
-    vault, repository = ctx.require_vault()
-    return versioned(coverage_report(vault, repository, min_eligible=params.min_eligible))

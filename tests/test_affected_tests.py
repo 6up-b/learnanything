@@ -75,11 +75,12 @@ def test_a_module_named_by_its_source_path_reaches_the_tests_of_the_code_naming_
 
 def test_a_module_a_package_registers_reaches_the_tests_of_the_registry(selector):
     # learnloop_sidecar/handlers/__init__.py imports every handler to fill METHOD_REGISTRY;
-    # tests/test_sidecar_epigraphs.py reaches its handler only through learnloop_sidecar.server.
+    # tests/test_sidecar_measurement.py reaches its handler only through that package import.
     module, graph = selector
-    assert "learnloop_sidecar.server" not in graph.imports["learnloop_sidecar.handlers.epigraphs"]
-    selected = module.select(["src/learnloop_sidecar/handlers/epigraphs.py"], graph)["tests"]
-    assert "tests/test_sidecar_epigraphs.py" in selected
+    assert "learnloop_sidecar.server" not in graph.imports["learnloop_sidecar.handlers.measurement"]
+    assert "learnloop_sidecar.handlers.measurement" not in graph.imports["tests.test_sidecar_measurement"]
+    selected = module.select(["src/learnloop_sidecar/handlers/measurement.py"], graph)["tests"]
+    assert "tests/test_sidecar_measurement.py" in selected
 
 
 def test_a_module_attribute_string_names_its_module(selector):

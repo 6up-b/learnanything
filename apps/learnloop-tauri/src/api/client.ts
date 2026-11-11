@@ -29,7 +29,6 @@ import type {
   CorrespondentPeekDto,
   CorrespondencePreferencesDto,
   SideBySideSectionDto,
-  CoverageCorrectionChoice,
   LibraryAskDto,
   LibraryAskEntry,
   LibraryExpansion,
@@ -55,7 +54,6 @@ import type {
   ReaderRecapEvent,
   ReaderWrapUpDto,
   ReaderWrapUpOfferDto,
-  ReaderFollowupsDto,
   ReaderActivityEvent,
   CueDensity,
   ReaderCueAction,
@@ -177,7 +175,6 @@ import type {
   StopProbeResultDto,
   QueueInput,
   QueueSnapshot,
-  RecentIngestsSnapshot,
   IngestJobDto,
   IngestJobsSnapshot,
   IngestSourceClassification,
@@ -264,19 +261,15 @@ import type {
   StartCalibrationSessionInput,
   PlacementSelfReportInput,
   PlacementSelfReportResult,
-  PlacementStateDto,
   StartQuickCheckInput,
   SourceSetDto,
   SourceSetsSnapshot,
   SourceCoverageDto,
-  StartInventoryInput,
   CreateStudyMapInput,
   BuildStudyMapInput,
   StudyMapDto,
   AppendResultDto,
   AppendSourceInput,
-  RefreshResultDto,
-  RefreshRevisionInput,
   MaintenanceFeedSnapshot,
   MeasurementHealthDto,
   ReviewCountsDto,
@@ -315,7 +308,6 @@ import type {
   RunAdvanceResultDto,
   AssessOpenDto,
   AssessResultDto,
-  BoundaryDiffDto,
   RestoreDto,
   DepthInvitationResultDto,
   AcceptEdgeResultDto,
@@ -325,7 +317,6 @@ import type {
   LadderStatusDto,
   LadderAdvanceResultDto,
   PoolDto,
-  PoolStatusDto,
   PoolForRunDto,
   PoolNextSurfaceDto,
   ReaderPromptContractDto,
@@ -338,7 +329,6 @@ import type {
   ReaderAuthorSectionQuestionDto,
   ReaderAuthoredQuestionDto,
   ReaderSourceSearchDto,
-  ReaderSpanLearningObjectsDto,
   ReaderAnswerMode,
   ReaderDisposition,
   ReaderDispositionResultDto,
@@ -346,13 +336,9 @@ import type {
   ReaderSavedPlaceDto,
   ReaderPdfViewDto,
   ReaderWatchPlanDto,
-  ReaderTranslateSelectionInput,
-  ReaderTranslationDto,
   ReaderCaptureInput,
   ReaderCaptureReceiptDto,
-  ReaderCreateAnnotationInput,
   ReaderAnnotationResultDto,
-  ReaderBlockRegionDto,
   PrintedCropsDto,
   PrintRegionDto,
   AsPrintedViewDto,
@@ -361,8 +347,6 @@ import type {
   ReaderPresetReceiptDto,
   ReaderSetModeResultDto,
   ReaderQuestionControlResultDto,
-  ReaderEnqueueRequestInput,
-  ReaderEnqueueRequestDto,
   ReaderRequestRow,
   ReaderAuthorQAInput,
   ReaderAuthoredCardDto,
@@ -370,9 +354,7 @@ import type {
   ReaderExerciseImportReceiptDto,
   ReaderExerciseImportStatusDto,
   ReaderCoachLintDto,
-  ReaderMaintainInput,
   ReaderArcDto,
-  ReaderRestorationDto,
   AdjudicationQueueDto,
   AdjudicationRecordInput,
   AdjudicationRecordResultDto,
@@ -564,7 +546,6 @@ export const api = {
   getLearnerProfile: () => call<LearnerProfileDto>("get_learner_profile"),
   setLearnerProfile: (input: { startingLevel: StartingLevel; levelNote?: string | null }) =>
     mutating([TAG.settings], call<LearnerProfileDto>("set_learner_profile", { input })),
-  reloadVault: () => mutatingAll(call<AppSnapshot>("reload_vault")),
   getRuntimeHealth: () => call<RuntimeHealth>("get_runtime_health"),
   startSession: (input: SessionStartInput) => mutating([TAG.queue], call<SessionSnapshot>("start_session", { input })),
   // Start reads this under TAG.queue, which start_session invalidates, so the
@@ -869,7 +850,6 @@ export const api = {
   inspectEntity: (id: string) => call<InspectorEntity>("inspect_entity", { id }),
   getConceptGraph: () => call<ConceptGraphSnapshot>("get_concept_graph"),
   getVaultTree: () => call<VaultTreeSnapshot>("get_vault_tree"),
-  getRecentIngests: () => call<RecentIngestsSnapshot>("get_recent_ingests"),
   classifyIngestSource: (source: string) =>
     call<IngestSourceClassification>("classify_ingest_source", { input: { source } }),
   startIngest: (input: StartIngestInput) => mutating(INGEST_TAGS, call<IngestJobDto>("start_ingest", { input })),
@@ -942,8 +922,6 @@ export const api = {
     mutating(INGEST_TAGS, call<{ version: number; sourceSet: SourceSetDto }>("upsert_source_set", { input })),
   getSourceCoverage: (sourceSetId: string) =>
     call<{ version: number; coverage: SourceCoverageDto }>("get_source_coverage", { sourceSetId }),
-  startInventory: (input: StartInventoryInput) =>
-    mutating(INGEST_TAGS, call<IngestBatchDto>("start_inventory", { input })),
   createStudyMap: (input: CreateStudyMapInput) =>
     mutating(INGEST_TAGS, call<{ version: number; studyMap: StudyMapDto }>("create_study_map", { input })),
   // Enqueue a collection's study-map build as a durable Activity batch (inventory
@@ -953,8 +931,6 @@ export const api = {
   // ING M7 — Update study map (§10), maintenance feed (§11), exam readiness (§15).
   appendSource: (input: AppendSourceInput) =>
     mutatingReader(call<{ version: number; append: AppendResultDto }>("append_source", { input }), REVISION_TAGS),
-  refreshRevision: (input: RefreshRevisionInput) =>
-    mutatingReader(call<{ version: number; refresh: RefreshResultDto }>("refresh_revision", { input }), REVISION_TAGS),
   getMaintenanceFeed: (subjectId?: string | null) =>
     call<MaintenanceFeedSnapshot>("maintenance_feed", { input: { subjectId: subjectId ?? null } }),
   getMeasurementHealth: () => call<MeasurementHealthDto>("get_measurement_health"),
@@ -1162,12 +1138,6 @@ export const api = {
     call<{ version: number; available: boolean; decisionId?: string; lines: string[] }>("router_objective_explain", {
       input: { decisionId }
     }),
-  /** Router objective RO4: a goal's use weights (its dated weight, its undated density). */
-  setGoalUseWeight: (input: { goalId: string; dated?: number; undatedDensity?: number; perLo?: Record<string, number> }) =>
-    call<{ version: number; goalId: string; useWeight: Record<string, unknown>; contractVersionId: string | null; changeClass: string | null }>(
-      "set_goal_use_weight",
-      { input }
-    ),
   askTutorQuestion: (input: AskTutorQuestionInput) =>
     call<TutorAnswerDto>("ask_tutor_question", { input }),
   getLearnerTextGap: (input: { sourceKind?: string; sourceId: string }) =>
@@ -1272,8 +1242,6 @@ export const api = {
   // optional "Check what I already know". Receipts only; never evidence.
   placementSelfReport: (input: PlacementSelfReportInput) =>
     mutating([TAG.queue, TAG.graph], call<PlacementSelfReportResult>("placement_self_report", { input })),
-  getPlacementState: (learningObjectIds?: string[]) =>
-    call<PlacementStateDto>("get_placement_state", { input: { learningObjectIds: learningObjectIds ?? null } }),
   startQuickCheck: (input: StartQuickCheckInput) =>
     mutating([TAG.queue], call<CalibrationSessionProgressDto>("start_quick_check", { input })),
   // Daily-loop DL1: the finite daily plan. Building today's plan on first read
@@ -1331,8 +1299,6 @@ export const api = {
   // Tools propose; the plan's pick path serves (spec SC1).
   findPractice: (input: PracticeRequestDto["request"] & { caller: PracticeCallerDto }) =>
     call<FindPracticeResultDto>("find_practice", { input }),
-  recordPracticeUsage: (input: { proposalId: string; practiceItemId: string; signal: string; text?: string }) =>
-    call<{ judgmentId: string }>("record_practice_usage", { input }),
   recordProposalImpressions: (input: {
     proposalId: string;
     surface: "tutor_strip" | "plan" | "dl3_box" | "reader" | "other";
@@ -1348,8 +1314,6 @@ export const api = {
     call<{ interventionId: string | null; recorded: boolean }>("record_source_offer_shown", { input }),
   findSources: (input: Record<string, unknown> & { query: string; caller: PracticeCallerDto }) =>
     call<Record<string, unknown>>("find_sources", { input }),
-  compareSources: (input: Record<string, unknown> & { query: string; caller: PracticeCallerDto }) =>
-    call<Record<string, unknown>>("compare_sources", { input }),
   getTodayHeadline: () => call<TodayHeadlineDto>("get_today_headline", { input: {} }),
   // Daily-loop DL2: the single intent control (spec §5.2) and deadlines (§5.4).
   // A choice changes what Today serves (and a deadline adds a goal).
@@ -1383,8 +1347,6 @@ export const api = {
     })),
   dismissClaim: (presentationId: string) =>
     call<{ version: number; event: HypothesisEventDto }>("dismiss_claim", { presentationId }),
-  exportClaims: () => call<{ version: number; events: HypothesisEventDto[] }>("export_claims"),
-  purgeClaims: () => mutatingAll(call<{ version: number; purged: number }>("purge_claims")),
   getReviewLog: () => call<ReviewLogDto>("get_review_log"),
   // Returns `episode: null` + the typed §6 `repairStatus` when the causal state
   // holds the branch-specific repair — a state to render, not an error to toast.
@@ -1394,7 +1356,6 @@ export const api = {
     call<RemediationDto>("prescribe_remediation", { episodeId }),
   startRemediationTreatment: (episodeId: string) =>
     mutating(ATTEMPT_TAGS, call<RemediationDto>("start_remediation_treatment", { episodeId })),
-  getRemediation: (episodeId: string) => call<RemediationDto>("get_remediation", { episodeId }),
   getForecastTrackRecord: (goalId?: string | null) =>
     call<ForecastTrackRecordDto>("get_forecast_track_record", { input: { goalId: goalId ?? null } }),
   getAnswerCalibration: () =>
@@ -1403,8 +1364,6 @@ export const api = {
   // ── P2 narrow golden path (spec_p2 §9; spec_tauri_ui §3) ───────────────────
   // Each command forwards `input` to a dotted sidecar method (see commands.rs).
   // blueprint.*
-  blueprintRegister: (input: { blueprintSlug: string; spec: Record<string, unknown>; authoringVersion?: string }) =>
-    call<BlueprintVersionDto>("blueprint_register", { input }),
   blueprintReview: (blueprintVersionId: string, checks?: Record<string, unknown> | null) =>
     mutatingReader(
       call<BlueprintVersionDto>("blueprint_review", { input: { blueprintVersionId, checks: checks ?? null } })
@@ -1457,8 +1416,6 @@ export const api = {
     call<AssessResultDto>("golden_path_assess_result", { input: { runId } }),
   goldenPathRestore: (runId: string) =>
     call<RestoreDto>("golden_path_restore", { input: { runId } }),
-  goldenPathBoundaryDiff: (runId: string) =>
-    call<BoundaryDiffDto>("golden_path_boundary_diff", { input: { runId } }),
   goldenPathDepthInvitation: (runId: string) =>
     call<DepthInvitationResultDto>("golden_path_depth_invitation", { input: { runId } }),
   goldenPathAcceptEdge: (runId: string) =>
@@ -1466,20 +1423,12 @@ export const api = {
   goldenPathDeclineEdge: (runId: string, reason?: string | null) =>
     call<AcceptEdgeResultDto>("golden_path_decline_edge", { input: { runId, reason: reason ?? null } }),
   // diagnostic.* (baseline + triage)
-  diagnosticBaselineEnter: (input: { runId: string; learningObjectId: string; packId: string; visibleCap?: number | null }) =>
-    call<Record<string, unknown>>("diagnostic_baseline_enter", { input }),
-  diagnosticBoundaryView: (runId: string) =>
-    call<BoundaryDiffDto>("diagnostic_boundary_view", { input: { runId } }),
   diagnosticTriage: (input: { runId: string; attempt: Record<string, unknown>; routingPrior?: Record<string, unknown> | null }) =>
     call<TriageResultDto>("diagnostic_triage", { input }),
   diagnosticTriageStatus: (runId: string) =>
     call<TriageStatusDto>("diagnostic_triage_status", { input: { runId } }),
   diagnosticTriageDecide: (input: { runId: string; triageEventId: string; chosenReason: string; actor?: string }) =>
     call<TriageResultDto>("diagnostic_triage_decide", { input }),
-  diagnosticTriageOverride: (input: { runId: string; triageEventId: string; chosenReason: string; actor?: string }) =>
-    call<TriageResultDto>("diagnostic_triage_override", { input }),
-  diagnosticPackList: (blueprintVersionId: string) =>
-    call<{ version: number; packs: unknown[] }>("diagnostic_pack_list", { input: { blueprintVersionId } }),
   // ladder.* + practice_pool.*
   ladderPolicy: (policySlug = "ladder_v1") =>
     call<LadderPolicyDto>("ladder_policy", { input: { policySlug } }),
@@ -1495,11 +1444,8 @@ export const api = {
     eligible?: boolean;
     idempotencyKey?: string | null;
   }) => call<LadderAdvanceResultDto>("ladder_advance", { input }),
-  practicePoolStatus: (poolId: string) => call<PoolStatusDto>("practice_pool_status", { input: { poolId } }),
   practicePoolNextSurface: (poolId: string, opts?: { warmthThreshold?: number; cadence?: number }) =>
     call<PoolNextSurfaceDto>("practice_pool_next_surface", { input: { poolId, ...(opts ?? {}) } }),
-  practicePoolAdmitSurface: (input: { poolId: string; surfaceSlug: string; surfaceId?: string | null; checks?: Record<string, unknown> | null }) =>
-    call<PoolDto>("practice_pool_admit_surface", { input }),
   practicePoolReview: (poolId: string, checks?: Record<string, unknown> | null) =>
     call<PoolDto>("practice_pool_review", { input: { poolId, checks: checks ?? null } }),
   // practice_pool.* run composition — discovery + seeding for the run workspace
@@ -1534,8 +1480,6 @@ export const api = {
   }) => mutatingReader(call<ReaderDispositionResultDto>("reader_choose_disposition", { input })),
   readerRestoreSource: (input: { extractionId: string; spanId: string; coldSurfaceId?: string | null; coldAdministrationId?: string | null }) =>
     mutatingReader(call<Record<string, unknown>>("reader_restore_source", { input })),
-  readerRoutingPrior: (targetKey: string, coldObservationAt?: string | null) =>
-    call<Record<string, unknown>>("reader_routing_prior", { input: { targetKey, coldObservationAt: coldObservationAt ?? null } }),
   // reader.* (P3 slice 1: render views, block health, annotations, capture/outbox)
   readerRenderView: (input: { extractionId: string; revisionId?: string | null }) =>
     call<ReaderRenderViewDto>("reader_render_view", { input }),
@@ -1575,10 +1519,6 @@ export const api = {
     settled(call<ReaderMarkProgressResultDto>("reader_mark_section_progress", { input }), () =>
       invalidate({ key: ["reader_get_progress", input.extractionId] })
     ),
-  readerBlockHealth: (input: { extractionId: string; spanId: string }) =>
-    call<Record<string, unknown>>("reader_block_health", { input }),
-  readerBlockOriginalRegion: (input: { extractionId: string; spanId: string }) =>
-    call<ReaderBlockRegionDto>("reader_block_original_region", { input }),
   /** Reader CA1: the multi-block form, a problem's own blocks (one crop per
    *  page in reading order, never a neighbouring block). A read. */
   readerProblemCrops: (input: { extractionId: string; spanIds: string[]; render?: boolean; region?: PrintRegionDto | null }) =>
@@ -1589,12 +1529,8 @@ export const api = {
   /** Reader CA1: "the transcription doesn't match the page" (a maintenance notice). */
   reportTranscription: (input: { practiceItemId: string; note?: string | null }) =>
     mutating([TAG.maintenance], call<TranscriptionReportDto>("practice_report_transcription", { input })),
-  readerTranslateSelection: (input: ReaderTranslateSelectionInput) =>
-    call<ReaderTranslationDto>("reader_translate_selection", { input }),
   readerCapture: (input: ReaderCaptureInput) =>
     mutatingReader(call<ReaderCaptureReceiptDto>("reader_capture", { input })),
-  readerCreateAnnotation: (input: ReaderCreateAnnotationInput) =>
-    mutatingReader(call<ReaderAnnotationResultDto>("reader_create_annotation", { input })),
   readerEditAnnotation: (input: { annotationId: string; learnerText?: string | null; whatIThinkIsGoingOn?: string | null; annotationType?: string | null }) =>
     mutatingReader(call<ReaderAnnotationResultDto>("reader_edit_annotation", { input })),
   readerDeleteIntentAnnotation: (input: { annotationId: string; reason?: string | null }) =>
@@ -1608,14 +1544,10 @@ export const api = {
     ),
   readerReanchor: (input: { annotationId: string; newExtractionId: string }) =>
     mutatingReader(call<ReaderAnnotationResultDto>("reader_reanchor", { input })),
-  readerAnnotationHistory: (input: { annotationId: string }) =>
-    call<Record<string, unknown>>("reader_annotation_history", { input }),
   /** With the open reading (reader-pdf-selection), each annotation also says
    *  where it lands on it (`placement`, through span_aliases). */
   readerSourceAnnotations: (input: { sourceId: string; extractionId?: string | null }) =>
     call<{ annotations: unknown[] }>("reader_source_annotations", { input }),
-  readerOutboxStatus: (input: { clientIdempotencyKey: string }) =>
-    call<{ outbox: Record<string, unknown> | null }>("reader_outbox_status", { input }),
   readerDrainOutbox: () =>
     mutatingReader(call<{ drained: string[]; failed: string[] }>("reader_drain_outbox", { input: {} })),
   // reader.* (P3 slice 2: palette, demand-paged synthesis, source objects)
@@ -1625,24 +1557,12 @@ export const api = {
     mutatingReader(call<ReaderSetModeResultDto>("reader_set_mode", { input })),
   readerQuestionControl: (input: { control: string; administrationId?: string | null; subjectId?: string | null; subjectType?: string }) =>
     mutatingReader(call<ReaderQuestionControlResultDto>("reader_question_control", { input })),
-  readerEnqueueRequest: (input: ReaderEnqueueRequestInput) =>
-    mutatingReader(call<ReaderEnqueueRequestDto>("reader_enqueue_request", { input })),
-  readerRequestStatus: (requestId: string) =>
-    call<{ request: ReaderRequestRow | null }>("reader_request_status", { input: { requestId } }),
-  readerCancelRequest: (requestId: string) =>
-    mutatingReader(call<{ request: ReaderRequestRow | null }>("reader_cancel_request", { input: { requestId } })),
   readerRetryRequest: (requestId: string) =>
     mutatingReader(call<{ request: ReaderRequestRow | null }>("reader_retry_request", { input: { requestId } })),
   readerSourceRequests: (sourceId: string) =>
     call<{ requests: ReaderRequestRow[] }>("reader_source_requests", { input: { sourceId } }),
-  readerDrainRequests: () =>
-    mutatingReader(call<{ completed: string[]; failed: string[]; partial: string[] }>("reader_drain_requests", { input: {} })),
   readerSourceObjects: (sourceId: string) =>
     call<{ sourceObjects: unknown[] }>("reader_source_objects", { input: { sourceId } }),
-  readerReviewSourceObject: (input: { sourceObjectId: string; status: string }) =>
-    mutatingReader(call<Record<string, unknown>>("reader_review_source_object", { input })),
-  readerLinkRelation: (input: { sourceObjectId: string; relatedObjectId?: string | null; relationType?: string; learnerText?: string | null }) =>
-    mutatingReader(call<Record<string, unknown>>("reader_link_relation", { input })),
   readerProposalInbox: (input?: { status?: string; sourceObjectId?: string | null }) =>
     call<{ proposals: unknown[] }>("reader_proposal_inbox", { input: input ?? {} }),
   // deep (Slice 2 T6): the learner pressed Enter; also search by meaning and
@@ -1654,9 +1574,6 @@ export const api = {
   // new embedding space is on).
   readerRetrievalOpen: (input: { receiptId: string; extractionId: string; spanId: string }) =>
     call<{ recorded: boolean }>("reader_retrieval_open", { input }),
-  // Slice 2 T6: a span's provenance-linked LOs, else labelled nearest-LO suggestions.
-  readerSpanLearningObjects: (input: { extractionId: string; spanId: string }) =>
-    call<ReaderSpanLearningObjectsDto>("reader_span_learning_objects", { input }),
   readerManualAnchor: (input: { annotationId: string; extractionId: string; rawSelection: Record<string, unknown>; renderViewId?: string | null }) =>
     mutatingReader(call<{ annotationId: string; status: string }>("reader_manual_anchor", { input })),
   // Reader workbench RW1a: inquiry status (reopen included), the reconnect
@@ -1736,12 +1653,10 @@ export const api = {
   curriculumScopeDecide: (input: { goalId: string; phrase: string; decision: "create" | "decline"; subjectId?: string }) =>
     call<{ created: { learningObjectId: string } | null; scope: DeliverableScopeDto }>("curriculum_scope_decide", { input }),
   curriculumSetDepth: (input: { goalId: string; depth: ReadingPathDepth }) => call<unknown>("curriculum_set_depth", { input }),
-  curriculumPath: (input: { goalId: string; judge?: boolean; retry?: boolean }) => call<unknown>("curriculum_path", { input }),
   curriculumGuideSlice: (input: { extractionId: string; judge?: boolean; retry?: boolean }) =>
     call<DeliverableSliceDto>("curriculum_guide_slice", { input }),
   curriculumPathOverride: (input: { goalId: string; learningObjectId: string; choice: DeliverablePathChoice; sectionRef?: string }) =>
     call<unknown>("curriculum_path_override", { input }),
-  curriculumReady: (input: { goalId: string }) => call<DeliverableReadyDto>("curriculum_ready", { input }),
   curriculumReadyCheck: (input: { goalId: string }) =>
     call<{ created: Array<{ commitmentId: string; dueHint: string; learningObjectId: string }>; readiness: DeliverableReadyDto }>(
       "curriculum_ready_check", { input }),
@@ -1789,8 +1704,6 @@ export const api = {
   // write), and C0a's "not about this" correction on one of them.
   readerCorrespondents: (input: { extractionId: string; sectionId: string; searchFallback?: boolean }) =>
     call<CorrespondentsDto>("reader_correspondents", { input }),
-  curriculumCoverageCorrect: (input: { extractionId: string; sectionId: string; learningObjectId: string; choice: CoverageCorrectionChoice; text?: string | null }) =>
-    call<{ correction: Record<string, unknown> }>("curriculum_coverage_correct", { input }),
   // CA5a's peek at a hit (its own section's first blocks, protection read now,
   // each block shown recorded as exposure) and "not about this" as one
   // operation (undoOf: its undo), idempotent by the client's operation id.
@@ -1917,8 +1830,6 @@ export const api = {
   // and its steps are learner work; only the submit writes an attempt.
   workbenchOpen: (input: WorkbenchOpenInput) =>
     mutatingReader(call<{ version: number; session: WorkbenchSessionDto; resumed: boolean }>("workbench_open", { input }), [TAG.queue, TAG.proposals]),
-  workbenchGet: (input: { sessionId: string }) =>
-    call<{ version: number; session: WorkbenchSessionDto }>("workbench_get", { input }),
   workbenchSaveStep: (input: WorkbenchSaveStepInput) => call<WorkbenchSaveStepDto>("workbench_save_step", { input }),
   workbenchSetBook: (input: { sessionId: string; visible: boolean }) =>
     call<{ version: number; session: WorkbenchSessionDto }>("workbench_set_book", { input }),
@@ -1984,10 +1895,8 @@ export const api = {
   readerWrapUp: (input: { extractionId: string; visitId?: string | null }) =>
     call<ReaderWrapUpDto>("reader_wrap_up", { input }),
   readerWrapUpOffer: () => call<ReaderWrapUpOfferDto>("reader_wrap_up_offer", { input: {} }),
-  // Reader workbench RW6b part 1: cold follow-ups ("Coming up"), undo with an
-  // optional reason, undo all, restore (undo a retirement). Desktop only.
-  readerFollowups: (input: { extractionId?: string | null; retiredAfter?: string | null }) =>
-    call<ReaderFollowupsDto>("reader_followups", { input }),
+  // Reader workbench RW6b part 1: cold follow-ups: undo with an optional
+  // reason, undo all, restore (undo a retirement). Desktop only.
   readerFollowupUndo: (input: { commitmentId: string; reason?: string | null }) =>
     mutatingReader(call<{ version: number; commitmentId: string; disposition: string }>("reader_followup_undo", { input }),
       [TAG.queue]),
@@ -2003,20 +1912,12 @@ export const api = {
     call<ReaderExerciseImportStatusDto>("reader_exercise_import_status", { input }),
   readerCoachLint: (input: { question: string; answer: string; level?: string }) =>
     call<ReaderCoachLintDto>("reader_coach_lint", { input }),
-  readerMaintain: (input: ReaderMaintainInput) =>
-    mutatingReader(call<Record<string, unknown>>("reader_maintain", { input })),
   readerArc: (input: { arcId?: string | null; commitmentId?: string | null; sourceId?: string | null }) =>
     call<ReaderArcDto>("reader_arc", { input }),
   readerSetDepthPolicy: (input: { arcId: string; policy: string }) =>
     mutatingReader(call<{ arcId: string; policy: string }>("reader_set_depth_policy", { input })),
   readerPauseArc: (input: { arcId: string; reason?: string | null }) =>
     mutatingReader(call<{ arcId: string; paused: boolean }>("reader_pause_arc", { input })),
-  readerShrinkEnvelope: (input: { arcId: string; bounds: Record<string, unknown>; reviewedEdges?: unknown[] }) =>
-    mutatingReader(call<{ arcId: string; shrunk: boolean }>("reader_shrink_envelope", { input })),
-  readerPrime: (input: { arcId: string; questionRef: string; section?: string | null; answer?: boolean; gaveUp?: boolean }) =>
-    mutatingReader(call<Record<string, unknown>>("reader_prime", { input })),
-  readerRestore: (input: { sourceId: string; extractionId?: string | null; runId?: string | null; idempotencyKey?: string | null }) =>
-    mutatingReader(call<ReaderRestorationDto>("reader_restore", { input })),
   // adjudication.* (diagnosis adjudication store, §2 A4). `record` returns the
   // belief effect arm (d) actually applied; the overlay reports that, not the
   // effect the verdict implies.

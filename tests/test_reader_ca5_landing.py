@@ -32,6 +32,7 @@ from tests.section_coverage_fixtures import (
     CoverageJudgeFake,
     build_coverage_vault,
     cite,
+    judge_section,
 )
 from tests.source_service_fakes import set_config
 
@@ -60,7 +61,7 @@ def _judged(tmp_path, *, two: bool = False):
     judge = CoverageJudgeFake(treatments={"5.1 Eigenvectors and eigenvalues": "introduces",
                                           "5.2 The characteristic equation": "develops"}, notation="uses row vectors")
     ctx = _ctx(paths, coverage_judge_client=judge)
-    call(ctx, "curriculum.cover", FIND)
+    judge_section(ctx, FIND)
     return paths, repository, ctx, judge
 
 
@@ -173,7 +174,7 @@ def test_i_a_ca5a_dismissal_before_the_judge_ran_keeps_the_hit_off_the_judged_li
     operation = _dismiss(ctx, target, "op_ca5a_first_1")
     assert target not in _hits(call(ctx, "reader.correspondents", PRESSED))
     # The judge runs afterwards: the learner's not_about outranks it, so CA5's line never lists the hit.
-    call(ctx, "curriculum.cover", FIND)
+    judge_section(ctx, FIND)
     view = call(ctx, "reader.correspondents", QUIET)
     assert view["status"] in ("judged", "none")
     assert target not in {line[1] for line in _lines(view)}

@@ -93,12 +93,6 @@ def rpc_ping(_ctx: SidecarContext, _params) -> dict[str, Any]:
     )
 
 
-@method("rpc.health")
-def rpc_health(ctx: SidecarContext, _params) -> dict[str, Any]:
-    vault, repository = ctx.require_vault()
-    return runtime_health(vault, repository, grading_override=ctx.grading_provider_override)
-
-
 @method("load_vault")
 def load_vault_handler(ctx: SidecarContext, _params) -> dict[str, Any]:
     return ctx.app_snapshot()

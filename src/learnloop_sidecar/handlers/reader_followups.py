@@ -1,7 +1,7 @@
 """Reader workbench RW6b part 1: cold follow-ups (spec_reader_workbench_v1 §9.3;
 UX §4.8-§4.9, S15).
 
-Five desktop RPCs over ``learnloop.instructional.reader_followups``:
+Four desktop RPCs over ``learnloop.instructional.reader_followups``:
 
 * ``reader.followups`` -- "Coming up": the scheduled checks as a dated
   timeline (next three, then later), with purpose, why and undo, and the
@@ -9,9 +9,7 @@ Five desktop RPCs over ``learnloop.instructional.reader_followups``:
 * ``reader.followup_undo`` -- undo one check, with an optional reason (a
   ``learner_card`` verdict, calibration data);
 * ``reader.followup_undo_all`` -- undo every pending check from one session;
-* ``reader.followup_restore`` -- undo a retirement or an undo;
-* ``reader.followups_plan`` -- plan the follow-ups of the ended sessions now
-  (the same work the Today build starts in the background).
+* ``reader.followup_restore`` -- undo a retirement or an undo.
 
 :func:`prepare_followups` is what every Today build does first: the daily
 re-valuation (no model call) and, when an ended session waits or a kept
@@ -44,7 +42,6 @@ READER_RW6B_RPCS = (
     "reader.followup_undo",
     "reader.followup_undo_all",
     "reader.followup_restore",
-    "reader.followups_plan",
 )
 JOB_NAME = "reader-followups"
 _PLANNING = threading.Lock()
@@ -212,27 +209,6 @@ def reader_followup_restore(ctx: SidecarContext, params: FollowupRestoreInput) -
         return versioned(RF.restore_followup(repository, commitment_id=params.commitment_id))
     except RF.FollowupError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
-
-
-class FollowupsPlanInput(ParamsModel):
-    pass
-
-
-@method("reader.followups_plan", FollowupsPlanInput)
-def reader_followups_plan(ctx: SidecarContext, params: FollowupsPlanInput) -> dict[str, Any]:
-    """Plan the ended sessions' follow-ups now (synchronously; paid relevance calls)."""
-
-    vault, repository = ctx.require_vault()
-    _require_on(vault)
-    if not _PLANNING.acquire(timeout=0.5):
-        return versioned({"status": "busy", "planned": []})
-    try:
-        rows = RF.plan_ended_sessions(vault, repository, search=_search(vault, repository), now=_now())
-    finally:
-        _PLANNING.release()
-    return versioned({"status": "ok", "planned": [
-        {"digest_id": row["id"], "extraction_id": row["extraction_id"], "status": row["status"],
-         "followup_commitment_ids": row["followup_commitment_ids"]} for row in rows]})
 
 
 __all__ = ["JOB_NAME", "READER_RW6B_RPCS", "prepare_followups"]

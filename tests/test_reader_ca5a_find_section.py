@@ -13,7 +13,13 @@ from __future__ import annotations
 from learnloop.config.schema import LearnLoopConfig
 from learnloop.source_retrieval import section_coverage as SC
 from tests.reading_path_fixtures import call, context
-from tests.section_coverage_fixtures import BOOK_EIGEN, CoverageJudgeFake, build_coverage_vault, table_counts
+from tests.section_coverage_fixtures import (
+    BOOK_EIGEN,
+    CoverageJudgeFake,
+    build_coverage_vault,
+    judge_section,
+    table_counts,
+)
 
 FIND = {"extraction_id": "ext_book", "section_id": BOOK_EIGEN}
 
@@ -99,7 +105,7 @@ def test_judged_coverage_is_what_the_quiet_read_reports(tmp_path):
                                                                           "introduces"}))
     quiet = call(ctx, "reader.correspondents", {**FIND, "search_fallback": False})
     assert quiet["status"] == "none" and quiet["search"] is None
-    call(ctx, "curriculum.cover", FIND)
+    judge_section(ctx, FIND)
     quiet = call(ctx, "reader.correspondents", {**FIND, "search_fallback": False})
     assert quiet["status"] == "judged"
     # Pressed on a judged section, the read is the judged list, never search hits.

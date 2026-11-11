@@ -334,16 +334,15 @@ READER_RW6A_RPCS = (
 )
 
 
-# Reader workbench RW6b part 1 (cold follow-ups) adds five RPCs -- "Coming up"
-# (a pure read), undo with its optional reason, undo all, restore (undo a
-# retirement) and planning the ended sessions now. Desktop only (spec D20);
-# a follow-up itself reaches the phone as an ordinary "Check once" item.
+# Reader workbench RW6b part 1 (cold follow-ups) adds four RPCs -- "Coming up"
+# (a pure read), undo with its optional reason, undo all, and restore (undo a
+# retirement). Desktop only (spec D20); a follow-up itself reaches the phone as
+# an ordinary "Check once" item.
 READER_RW6B_RPCS = (
     "reader.followups",
     "reader.followup_undo",
     "reader.followup_undo_all",
     "reader.followup_restore",
-    "reader.followups_plan",
 )
 
 
@@ -485,12 +484,9 @@ def test_the_pinned_rw7a_rpcs_are_all_of_them():
 
 
 # Deliverable curriculum C0a (spec_deliverable_curriculum_v1 §6.4-6.5): the
-# correspondents read API, the pressed coverage check, its job and the
-# learner's corrections. Desktop only.
+# correspondents read API and the learner's corrections. Desktop only.
 CURRICULUM_C0A_RPCS = (
     "reader.correspondents",
-    "curriculum.cover",
-    "curriculum.cover_job",
     "curriculum.coverage_correct",
 )
 

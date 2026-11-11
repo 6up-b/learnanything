@@ -1259,21 +1259,6 @@ def exam_readiness_rpc(ctx: SidecarContext, params: ExamReadinessInput) -> dict[
     return versioned({"report": report.as_dict()})
 
 
-class SourceOutcomesInput(ParamsModel):
-    subject_id: str | None = None
-
-
-@method("source_outcomes", SourceOutcomesInput)
-def source_outcomes_rpc(ctx: SidecarContext, params: SourceOutcomesInput) -> dict[str, Any]:
-    """Provenance-outcome associations (§11) — report-only, additive suggestions."""
-
-    from learnloop.content.sources.source_outcome_analytics import analyze_source_outcomes
-
-    vault, repository = ctx.require_vault()
-    report = analyze_source_outcomes(vault, repository, subject_id=params.subject_id)
-    return versioned({"report": report.as_dict()})
-
-
 class MaintenanceFeedInput(ParamsModel):
     subject_id: str | None = None
 

@@ -29,6 +29,7 @@ from tests.section_coverage_fixtures import (
     LAY,
     build_coverage_vault,
     hold_out,
+    judge_section,
     table_counts,
 )
 from tests.source_retrieval_fakes import BOOK
@@ -46,7 +47,7 @@ def _judged(tmp_path, *, config: str = ""):
     judge = CoverageJudgeFake(treatments={"5.1 Eigenvectors and eigenvalues": "introduces",
                                           "5.2 The characteristic equation": "develops"})
     ctx = context(paths.root, coverage_inline=True, coverage_judge_client=judge)
-    call(ctx, "curriculum.cover", FIND)
+    judge_section(ctx, FIND)
     return paths, repository, ctx, judge
 
 

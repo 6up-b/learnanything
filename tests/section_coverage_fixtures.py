@@ -160,3 +160,19 @@ def table_counts(repository: Repository) -> dict[str, int]:
         names = [row[0] for row in connection.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")]
         return {name: connection.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0] for name in names}
+
+
+def judge_section(ctx: Any, params: Mapping[str, Any]) -> list[Any]:
+    """Judge one section's LOs now, with the context's judge and embedder: what the retired
+    ``curriculum.cover`` RPC did inline, kept as the tests' way to seed judged coverage."""
+
+    from learnloop.content.sources.source_outline import resolve_extraction_id
+    from learnloop.source_retrieval import section_coverage as SC
+
+    vault, repository = ctx.require_vault()
+    extraction_id = resolve_extraction_id(repository, params.get("extraction_id") or params["extractionId"])
+    section_id = params.get("section_id") or params["sectionId"]
+    library = SC.Library(vault, repository)
+    learning_object_ids = SC.section_learning_objects(vault, repository, library, extraction_id, section_id)
+    return SC.cover(vault, repository, learning_object_ids, client=getattr(ctx, "coverage_judge_client", None),
+                    embedder=getattr(ctx, "coverage_embedder", None))
