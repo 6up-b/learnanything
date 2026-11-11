@@ -212,7 +212,7 @@ No vault YAML is written on this path, and no model is called except for GLM-OCR
 | | the Reader's import | the canonical import |
 |---|---|---|
 | job | `reader_exercise_import` (`content/pipeline/jobs.py:3232`) | `source_exercise_import` (`:3342`) |
-| exam check | held-out spans only, in the handler, before any model call (`:3246-3256`); a syllabus refuses (`:3259-3264`) | through `exercise_statements` and the exam predicate (K1 D4) |
+| exam check | held-out spans only, in the handler, before any model call (`:3253-3262`); a syllabus refuses (`:3259-3264`) | through `exercise_statements` and the exam predicate (K1 D4) |
 | authoring | `exercise_authoring.import_exercises` (`content/authoring/exercise_authoring.py:465`, 401 lines); idempotent by a prompt-level dedupe | `_import_source_exercise` (`content/authoring/source_exercise_import.py:1144`, 241 lines): author, check within a time box, write with `canonical_exercise` and the key's status |
 | key check | `record_reader_import` rows, then a plain background thread verifies keys (`content/pipeline/jobs.py:3322`), outside the job's write guard | the ladder under a `judgment_work_claims` lease with its own heartbeat thread (`content/authoring/source_exercise_import.py:781-806`) |
 | writes | **[Y]** practice items directly (both are in `APPLYING_JOB_TYPES`, `content/pipeline/jobs.py:3941`) | the same |
@@ -249,12 +249,12 @@ The **legacy canonical lane** (`legacy_ingest`, `exam_ingest`) is a third synthe
 | boundary | what crosses | can each side change alone? |
 |---|---|---|
 | extraction → inventory | the planner's payload `{extraction_id, units:[{unit_id, role}]}` (`content/pipeline/add_source.py:1645-1650`); inventory rows keyed on revision, unit id and unit semantic hash (`migrations/041_source_unit_inventories.sql:32-33`) | **No.** Unit ids are ordinal per extraction; a re-read that renumbers units re-pays every inventory, and nothing on either side records which extraction a unit id came from beyond the row's rebinding (`db/repositories.py:20553-20560`). |
-| inventory → synthesis | inventories **by revision** (`db/repositories.py:20661`), picked per unit by `_best_inventory` (`content/synthesis/source_set_synthesis.py:225`); the manifest records only `"schema|prompt"` labels per `revision:unit` (`:357-361`, `:377-379`) | **No.** Synthesis ignores the row's extraction, semantic hash, provider and model, and labels each entry with the *current* extraction id (`:388-398`), so an inventory change (prompt, model, re-read) doesn't reach synthesis, and synthesis can't say which row it used. |
+| inventory → synthesis | inventories **by revision** (`db/repositories.py:20661`), picked per unit by `_best_inventory` (`content/synthesis/source_set_synthesis.py:225`); the manifest records only `"schema|prompt"` labels per `revision:unit` (`:358-361`, `:379-381`) | **No.** Synthesis ignores the row's extraction, semantic hash, provider and model, and labels each entry with the *current* extraction id (`:365`, `:397`), so an inventory change (prompt, model, re-read) doesn't reach synthesis, and synthesis can't say which row it used. |
 | synthesis → facet identity | the merged candidate in, a `FacetIdentityPlan` out (`:2042`); the plan's retirements are consumed inside `_normalize` (`:884-920`) | **Partly.** The judge is its own package, but applying its verdicts is stage 4-6 of `_normalize`, and the subpackages import each other both ways (§1.2). |
 | synthesis → apply | `proposed_patch_items` rows with client ids, plus a list of auto-apply ids (`content/synthesis/source_append.py:454`, `:487`) | **Yes, mostly.** The row vocabulary is the contract; apply knows nothing of synthesis. The weak point is apply itself (§2.8). |
 | pipeline → retrieval | after an extraction, `jobs.py` imports nine `source_retrieval` modules to ask each derived index whether it's owed a job (`source_vectors`, `local_index`, `fallback_space`, `section_coverage`, `student_encoder`, `feedback`, `dense`, `spaces`, `corpus`) | **No.** Each new derived index adds a job type, a handler and its import to `jobs.py` (`content/pipeline/jobs.py:2282-2301`, `:3928-3931`). |
-| pipeline → exam predicate | the planner, synthesis, the Reader's import and the canonical import each call `content/sources/exam_material.py` directly (`content/pipeline/add_source.py:1422`, `content/synthesis/source_set_synthesis.py:263`, `content/pipeline/jobs.py:3250`) | One predicate, several doors: K1's finding, not repeated here (`docs/reviews/refactor-k1.md`). |
-| desktop → sidecar | 30 RPC methods from four components (`IngestScreen.tsx`, `OutlineAndPlan.tsx`, `IngestActivity.tsx`, `AddToCollection.tsx`) through `METHOD_REGISTRY` (`learnloop_sidecar/registry.py:20-33`) | **No:** the frontend re-implements at least eight backend rules (§3.2). |
+| pipeline → exam predicate | the planner, synthesis, the Reader's import and the canonical import each call `content/sources/exam_material.py` directly (`content/pipeline/add_source.py:1422`, `content/synthesis/source_set_synthesis.py:263`, `content/pipeline/jobs.py:3256`) | One predicate, several doors: K1's finding, not repeated here (`docs/reviews/refactor-k1.md`). |
+| desktop → sidecar | about 31 RPC methods from six components (`IngestScreen.tsx`, `OutlineAndPlan.tsx`, `IngestActivity.tsx`, `AddToCollection.tsx`, `SourceLibrarySidebar.tsx`, `FacetIdentityPanel.tsx`) through `METHOD_REGISTRY` (`learnloop_sidecar/registry.py:20-33`) | **No:** the frontend re-implements at least eight backend rules (§3.2). |
 
 ### 3.2 Duplicated predicates
 
@@ -307,7 +307,7 @@ Plus the reading sweep thread (`content/pipeline/jobs.py:4511`), three quick-che
 | run-level reuse | key |
 |---|---|
 | bootstrap | the manifest hash = `agent_runs.input_context_hash` (`content/synthesis/synthesis_manifests.py:1-18`, `:35-56`) |
-| append | the same recipe (`content/synthesis/source_append.py:315-319`) |
+| append | the same recipe (`content/synthesis/source_append.py:320`) |
 | legacy | `canonical_ingest_context_hash` (`content/pipeline/source_ingestion.py:980`) |
 
 **No checkpoint and no reuse key:** the append reconciliation and its span round (`content/synthesis/source_append.py:84`), the concept-graph structuring pass (`content/synthesis/source_set_synthesis.py:3255`), the persona fire calls (`content/authoring/persona_gate.py:541`), the epigraphs (`content/synthesis/vault_epigraphs.py:66`). Outside synthesis, the Reader's import dedupes by prompt instead.
@@ -318,10 +318,42 @@ Plus the reading sweep thread (`content/pipeline/jobs.py:4511`), three quick-che
 
 | ID | Sev | Finding | Evidence |
 |---|---|---|---|
-| KB1 | high | **The inventory → synthesis boundary loses identity.** Synthesis picks inventories by revision and unit id alone and records labels, so it can neither use nor name the row it used (§7 KX3). | `content/synthesis/source_set_synthesis.py:225`, `:357-398`; `db/repositories.py:20661-20667` |
+| KB1 | high | **The inventory → synthesis boundary loses identity.** Synthesis picks inventories by revision and unit id alone and records labels, so it can neither use nor name the row it used (§7 KX3). | `content/synthesis/source_set_synthesis.py:225`, `:358-397`; `db/repositories.py:20661-20667` |
 | KB2 | high | **Six lease stores and five heartbeat loops with different expiry semantics, fencing and clocks;** two are verbatim copies, two commit after a lapse, one mixes clocks, two have no heartbeat. A bug fixed in one (Sep 6 findings 1 and 2, fixed in A) stays in the others. | §3.3 |
 | KB3 | high | **Six checkpoint recipes and four uncheckpointed paid calls.** The recipes disagree on whether the prompt is rendered or labelled and whether the output budget belongs in the key; the append, structuring, persona and epigraph calls have none, so a retry re-pays them. | §3.4 |
 | KB4 | medium | **The desktop re-implements at least eight backend rules, three of which disagree** (assessment roles, retry eligibility, image kind, native page ranges). | §3.2 |
 | KB5 | medium | **Three token estimators**, two escaping non-ASCII and one not. | §3.2 |
 | KB6 | medium | **Every derived index is wired through `jobs.py`** (nine `source_retrieval` imports, a job type and a handler each). | §3.1 |
 | KB7 | low | Two create-or-update rules, two `_best_inventory`, two `detect_source_kind`, one stale `import_source` test in the desktop. | §3.2 |
+
+## 4. Decision points and what's recorded
+
+**One ADR-017 decision record exists in the whole area:** the AD commission skip that B8 added (`content/pipeline/jobs.py:3408-3447`). Everything else answers "why" (if at all) from five ad hoc stores: `ingest_jobs.result_json` (the planner's outcome), `synthesis_runs.coverage_decisions` and `actual_usage` (gate diagnostics, auto-apply ids, graph nomination, facet-identity plan), `judgment_ledger` (judge pairs, registry merges, Undo verdicts), `facet_identity_actions`, and `source_extraction_runs.health_json`. None carries a trace id that joins the planner's choice to the run it caused to what got applied; the joins are through the batch id, the manifest and the proposal id.
+
+| decision | where | recorded | "why x and not y" from stored data |
+|---|---|---|---|
+| **extractor** (GLM-OCR, Datalab, Marker, pypdf; fallback) | `ingest/extractors/__init__.py:88`, `:170-211`; `content/pipeline/jobs.py:260-312` | `extractor`, version and `fallback_from` in the extraction run's identity; the selection reason and fallback flags in `health_json` only | **partly**: what ran and what it fell back from; not which candidates were unavailable, since `auto` stays out of the config (`content/pipeline/jobs.py:166-171`) |
+| **which chapters to build** (scope) | `_choose_scope`, `content/pipeline/add_source.py:1377` | the planner's `result_json`: chosen unit ids, plan info, cost (`:1638-1652`) | **partly**: what was chosen; not which chapters were withheld as exam material (computed at `:1385`, used to shape the scope, absent from `info`, `:1371-1374`) or skipped as built |
+| **pause for money or consent** | `decide_cost`, `:1576-1580`; consent `:1572-1575` | `result_json` outcome `paused` / `waiting` with the reason and cost | **yes** |
+| **bootstrap or append** | `content/pipeline/jobs.py:1865-1872` | `synthesis_runs.mode` | **no reason**: the rule ("an LO carries the subject") isn't recorded, and the job keeps its `bootstrap_synthesis` type |
+| **which inventory row** per unit | `_best_inventory`, `content/synthesis/source_set_synthesis.py:225` | the manifest's `"schema|prompt"` label per unit | **no**: not the row id, its extraction, semantic hash, model or age; silent |
+| **which units an append sends** | `content/synthesis/source_append.py:249-250` | `new_revision_ids` in the manifest scope (revision granularity), the neighbourhood record | **no**: the unit list isn't recorded, so "why did this append carry chapter 1?" can't be answered from rows |
+| **reuse a completed run** | `content/synthesis/source_set_synthesis.py:2230`; `content/synthesis/source_append.py:322` | `reused=True` in the job result | **partly**: that it reused, and the manifest hash; not which run, and not that an append reuse skipped the apply |
+| **structuring skipped** | `content/synthesis/source_set_synthesis.py:3212-3258` | the reason in the run's usage | **yes**, in a JSON blob no screen shows |
+| **judge merge, absorb, keep distinct** | `content/facet_identity/judge.py:107-138` | `judgment_ledger` for merged or shortlisted pairs, with sets, basis and Decider probabilities (`:450-514`) | **yes** for joined pairs; **no** for pairs kept apart without a shortlist (`:488-489`, by owner decision); owner vetoes only in the plan JSON |
+| **judge capped or unavailable** | `content/facet_identity/plan.py:247-250`, `:305-313` | plan status in run JSON; a build exception reduced to a string | **partly**; no diagnostic, so the learner sees nothing |
+| **mint or alias (D2)** | `content/synthesis/facet_mint_gate.py:386-417` | ALIAS and ABSTAIN as review diagnostics with a typed reason (`:505-550`) | **ALIAS, ABSTAIN yes; MINT silent**; a D2 alias gets no action row and no undo |
+| **auto-apply or review** | `_auto_applies`, `content/synthesis/source_append.py:1005-1031`; `auto_apply_allowed`, `content/pipeline/add_source.py:1078-1094` | the chosen ids (`content/synthesis/source_append.py:454`) | **no**: `_auto_applies` returns a bool; the gate's three conditions (switch, apply switch, Undo generation) collapse to one bool; "why did this concept need a look?" has no stored answer beyond "it isn't a provenance link" |
+| **items dropped by the normalizer** | `_normalize` items-off guard, unresolved spans, invalid edges | review diagnostics in the proposal | **yes** |
+| **persona gate fired or not** | `content/authoring/persona_gate.py:540-551` | the gate's verdict | **no** when the model call failed: the fallback to a string comparison leaves no trace |
+| **retry** | `content/pipeline/runner.py:930-944`; `retryable` on `IngestRunnerError` | the job's `error_json` with code and stage | **yes** for what failed; not what a retry will re-pay |
+| **Undo** | `content/pipeline/add_source.py:2082` | `judgment_ledger` owner verdict (`:2044`) | **yes** |
+
+### Findings
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| KO1 | high | **The three decisions that set what synthesis reads are silent:** which inventory row, which units an append sends, and why a unit was withheld from a build. A wrong study map can't be traced to its inputs from stored rows. | `content/synthesis/source_set_synthesis.py:225`; `content/synthesis/source_append.py:249-250`; `content/pipeline/add_source.py:1385` |
+| KO2 | high | **Auto-apply versus review has no stored reason,** so "N changes need a look" can't be explained per item. | `content/synthesis/source_append.py:454`, `:1005-1031`; `content/pipeline/add_source.py:1078-1094` |
+| KO3 | medium | **No trace id joins planner → run → proposal → apply;** "why" lives in five stores and three JSON blobs. Only one ADR-017 record exists in the area. | `content/pipeline/jobs.py:3408-3447`; the table above |
+| KO4 | medium | **Silent fallbacks:** the persona gate's provider failure, D2 MINT, kept-apart judge pairs, a capped judge (run JSON only). | the table above |
