@@ -218,20 +218,20 @@ def test_the_cluster_option_leaves_every_other_report_byte_identical():
     # the item-cluster bootstrap is additive and only T8 passes clusters. The
     # answer-signal arms (owner 2026-10-13) are additive too: stripped of what
     # they add, every report still hashes to the digest recorded before them.
-    # Re-recorded when arc C step C3 deleted MasteryIRTConfig's unread
-    # discrimination_min/max: only manifest.arm_hashes moved (each arm hashes
-    # its config); every metric, split and interval is unchanged.
+    # Arc C step C3 deleted MasteryIRTConfig's unread discrimination_min/max;
+    # each arm still hashes them as recorded before (config/retired.py), so
+    # these digests stay the ones recorded on the pre-change harness.
     rows = _rich_stream()
     default = evaluate(rows, bootstrap_samples=50, seed=3)
     assert report_digest(_without_answer_signals(default)) == (
-        "232a774a1f39995846ff5b420c37438fd62c4a96f776ca0d30a13915e16dd115")
+        "06818d9c2536a66097d342d9b7bccdd86a948951c3b3f056199f38296e05dd96")
     attempt_unit = evaluate(rows, bootstrap_samples=50, seed=3, bootstrap_unit="attempt")
     assert report_digest(_without_answer_signals(attempt_unit)) == (
-        "232a774a1f39995846ff5b420c37438fd62c4a96f776ca0d30a13915e16dd115")
+        "06818d9c2536a66097d342d9b7bccdd86a948951c3b3f056199f38296e05dd96")
     assert report_digest(attempt_unit) == report_digest(default)
     families = evaluate(rows, arms=family_arms(), bootstrap_samples=50, seed=3)
     assert report_digest(_without_answer_signals(families)) == (
-        "66c56a4c68850e4c859fd382cfccc0534738404437b153ee844c5e95a70c706d")
+        "f2f30485ff38a9bd9c8d5360579a2e502542c60cb83fc289a5f08e452960c74e")
     values = np.random.default_rng(4).normal(size=37)
     recorded = {"n": 37, "mean": -0.07428148868918777,
                 "ci95": [-0.40560308393180383, 0.26478138828214304]}
