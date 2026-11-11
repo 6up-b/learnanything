@@ -90,7 +90,7 @@ Ranked by what each costs a stage or a debugging session. Ids are the map's.
 | 7 | **Router speed target unmet, and R4 costs connections.** | 54 `table_info` sites in 40 files each close a pooled connection (`db/connection.py:310`). Opens per job went from 5 to 17. Numeric arithmetic is the rest (`docs/reviews/router-speed2.md:388`). D4, D5. | F |
 | 8 | **The two functions that decide what's served and what's learned can't be tested without a database.** | `_compute_resolved_grade_application` (774 lines), `build_due_queue` (787 lines, with a `persist_explanations` write flag on a read path). F3, F4. | I |
 | 9 | **The old difficulty scalar reaches further than its name,** and shares that name with FSRS's D. | `learner/mastery.py:758`, `adaptive_difficulty/serve_inputs.py:117`, `vault/hashes.py:41`, `goals/exam_pool.py:47`. X1-X3. | H |
-| 10 | **Protection has one named authority and several decision sites.** B3. | `learner_protection.py:190`, `figures/prefetch.py:947`, V4's device eligibility and media rules. | G |
+| 10 | **Protection is nine questions, each with its own authority, and surfaces read different sets.** B3, corrected by K1 (`docs/reviews/refactor-k1.md`). | The span-level authority is `content/sources/exam_material.py` (about 80 importer modules). `learner_protection.py:190` answers one question of the nine (a model's view of an item). Surfaces disagree on the set: all exam material, held-out only, or teaching-wider. The fail-closed metadata check runs in 4 readers. | K1, G |
 
 `Repository` (943 methods) and the 191-module import cycle are real costs (P1, P2), and I don't attack them head-on. §4 says why. Removals shrink both: 58 `Repository` methods have no other reference in `src` (702 lines, 39 of them used by tests), and 307 have exactly one other reference, so they move to their feature's store when a step touches them.
 
@@ -502,11 +502,18 @@ Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever move
 **G5. One record of each fact** (M, optional).
 - **Does:** for each fact in Appendix B's table, one owner. New writes stop filling a duplicate only after its readers move to the owner. No table goes here, and rows stay. Skip anything that's only tidier.
 
-**G6. Protection: one predicate** (M) `[V4]`.
-- **Problem:** B3; D3. Figures, phone, plan and chat each carry their own checks. V4's landing needed a ruling because a check had drifted.
-- **Files:** `learner_protection.py:190`, `figures/prefetch.py:947`, `V4:scheduling/device_eligibility.py:330`, `V4:reader/phone_media.py:64`, `scheduling/serving_exclusions.py:131`, the 27 callers.
-- **Does:** each site asks `learner_protection` the "is this withheld" question, and adds only its own surface rule beside it. Fails closed everywhere. No new concept. The eligibility decision for serves stays separate, as it answers a different question.
-- **Proof:** the protection tests; a parity test of every site on a protected fixture, before and after, which must include each leak the phone stages' reviews found. **Vault:** Privacy and Trust; a note on protection.
+**G6. Protection: one authority per question** (M) `[V4]`. Corrected by K1 (`docs/reviews/refactor-k1.md`, Nov 11).
+- **Problem:** B3; D3. The map counted one named authority and several decision sites. K1 found nine questions: is a span exam material or held out; may it ground a model; may it become practice; routine serving; cold and exam independence; a model's view of an item; held grades; an item's own solution; what leaves the desktop. Each already has an authority. The drift is in which set each surface reads (all exam, held-out only, teaching-wider) and in the metadata gate, which only 4 readers ask (K1 §1-§2).
+- **Files:** `content/sources/exam_material.py` (the span-level authority), `learner_protection.py:190` and `:159`, `source_retrieval/corpus.py:226`, `:446`, `source_retrieval/section_coverage.py:273`, `figures/service.py:554`, `:3377`, `figures/prefetch.py:315`, `:957`, `adaptive_difficulty/protection.py:86`, `reader/phone_media.py:64`, `:126`, `scheduling/device_eligibility.py:330`, `:395`, `scheduling/serving_exclusions.py:112`, `:131`, `instructional/practice.py:226`, `instructional/policy.py:33`, `learnloop_sidecar/serving.py:256`, `content/pipeline/jobs.py:2988`, `:3256`, `content/authoring/source_exercise_import.py:1202`, `remote/sources.py:63`, `:178-230`, `remote/views.py:344`.
+- **Does:**
+  - `exam_material` stays the one span-level authority, with its two sets named, and the metadata gate (`protection_issues`) moves inside it, so every caller fails closed on source sets that didn't load. That's K1's fix 1, if it hasn't landed by then.
+  - Each surface names the set it reads in one place, so the deliberate differences are explicit and tested: the Reader's model contexts and the Reader import read held-out only (owner defaults §8 Q1 and Q3); teaching, figures and the phone read all exam; AD reads held-out plus reservations; the kill switch covers serving only.
+  - `learner_protection` stays the item-level answer for model contexts, built on `exam_material`.
+  - Ingest, synthesis and authoring keep calling `exam_material` directly. Routing them through `learner_protection` would change the Reader checks against the owner's defaults and adds nothing (K1 §5).
+  - Serve eligibility and held grades stay separate: they answer other questions.
+  - The frontend's measurement-integrity rules (the hint ladder, disclosure, deferral) are listed in the protection note, not moved. Serve payloads carrying the key are a known exception for the UX stage.
+  - No new concept.
+- **Proof:** the protection tests, and K1 §4's parity matrix: one synthetic vault with each fixture (an exam member with no marks, a rule-2 unit, held-out, held-back, ambiguous and signal marks, the item kinds, unreadable source sets, the switch off) × every surface's production predicate (Q2-Q6, the phone's and MCP's payloads), with each cell's expected answer pinned. Fail closed when a predicate raises. It includes every leak the phone, MCP and exam-protection reviews found, and K1's own. **Vault:** Privacy and Trust; a protection note naming the nine questions and each surface's set.
 
 **Stopping point 8.**
 
@@ -589,7 +596,7 @@ Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever move
 | D7 | 47% | Old tags gone, one upgrade table, tests on the served path, about 80% of the shrink done. **The natural place to stop if usage runs short.** |
 | E9 | 63% | Objective, mixing, sensor and action changes are local. |
 | F and I | 74% | Next faster where it can be; retrievability one function; grading and queue cores testable alone. |
-| G6 | 83% | One probe decider; protection one predicate. |
+| G6 | 83% | One probe decider; protection one authority per question (K1). |
 | H6 | 92% | Scalar retired, reported first. |
 | J, Z | 100% | Tables reviewed and dropped as approved; paper; final measures; old specs archived once the docs rewrite is done (Z3). |
 | K (beside the arcs, §2.17) | +10-15% | The modules the Nov 8 map didn't read are mapped and given steps; compared identities are pinned; ingestion has a structure strategy. |
@@ -643,6 +650,11 @@ The map's methods were name- and import-based, so whole risk classes were invisi
 - **Scope:** every predicate that withholds, protects or excludes: `exam_material` and its 30-odd importer modules (ingest, synthesis and authoring call it directly, not through `learner_protection`), the lexical leakage floor (`ops/contamination`, `practice_leakage`, `tutor_qa`, `reader_dialogue`), retrieval's protection filters (`source_retrieval/section_coverage.py`), the sidecar serializers and DTOs, and the frontend's own checks.
 - **Questions:** which protection question each predicate answers; where two answer the same question differently; whether answer keys, rubrics or held-out text ever reach a screen and are hidden only there; what G6's parity test must add.
 - **Output:** corrections to G6's inventory and steps.
+- **Done** (Nov 11, `docs/reviews/refactor-k1.md`): G6 corrected above. No live leak. Fix before G6 (each from a failing test, with no successor):
+  - **One metadata gate (K1 D1).** `exam_material` and its siblings fail open on a `source_sets.yaml` that fails validation or is caught empty: rules 1 and 2 vanish for the tutor, imports, figures and the phone. Only `learner_protection`, `learner_context`, `remote/views.py` and section coverage ask `protection_issues`. Move the check into the shared read, and write the file atomically.
+  - **Practice the Reader makes from exam material (K1 D4), owner's call.** The Reader import passes non-held-out exam material (`jobs.py:3256`). The item is then served, but withheld from model contexts as exam material and treated as a reserved question. Recommended: keep §8 Q3's default, and don't withhold the learner's own item. `exam_material.py:101` changes to agree.
+  - **Doors that miss a reservation (K1 R1, R2, R9, D6).** The session serve door ignores exam reservations (`learnloop_sidecar/serving.py:256`). MCP `find_sources` returns a diagnostic probe's own passage and assessment-lane passages (`remote/sources.py:63`). The inspector shows every hint of the item being answered, cold checks included, uncounted (`InspectorOverlay.tsx:482-505`). A remediation's cold item isn't reserved until its task exists (`instructional/policy.py:33`).
+  - **Two docstrings (K1 D3, D8).** Rule 4's "no search hit" against the library search, and figures' all-exam set against the Reader's held-out set.
 
 **K2. Ingestion and synthesis: deep map and structure strategy** (L; review, two jobs). Starts after arc C's close; read-only, so it can run beside arc D.
 - **Scope:** `content/pipeline` (jobs, runner, leases, queue), `content/synthesis` (bootstrap, append, `_normalize`, manifests, inventory, coverage, graph nomination, facet mint gate), `content/sources`, `ingest` (extractors including hosted OCR, re-read, span aliases), `content/facet_identity` (judge, merges, aliases, authority), `content/proposals` (patches, write-ahead apply and recovery), the ingest and synthesis paths of `content/authoring`, `source_retrieval`'s ingest-side consumers, the sidecar ingest handlers and the desktop's `IngestScreen` and `OutlineAndPlan`.
@@ -656,7 +668,7 @@ The map's methods were name- and import-based, so whole risk classes were invisi
 
 **K5. Grading, regrade, coldness and certification** (M; review). Before I1 and H3, which rewrite this code. The two validators (`attempts/grading.py`, `blind_grading.py`); whether a coldness `unknown` can pass; whether newer exposure channels (phone Reader, figures, teacher, MCP) reach `coldness_receipt._scan_exposures`; regrade, held grades and FSRS consistency; the four `qualifies_as_*` consumers.
 
-**K6. Reader Ask and retrieval side effects** (L; review). After D, before G6. Which Ask outcomes change learner state or serving and whether they replay; retrieval's protection filters against K1's predicate; the identity of daily path refresh and coverage judgments; wall-clock reads in cache keys.
+**K6. Reader Ask and retrieval side effects** (L; review). After D, before G6. Which Ask outcomes change learner state or serving and whether they replay; retrieval's protection filters against K1's questions and sets (`docs/reviews/refactor-k1.md` §1); the identity of daily path refresh and coverage judgments; wall-clock reads in cache keys.
 
 **K7. AI transport and network edges** (S + S; review). Before the MCP and phone feature stages. ChatGPT-plan token refresh races between the sidecar and the phone host; behaviour with the plan down; whether the route actually used after a fallback is recorded (B8 left it open); MCP's URL-as-credential and the phone bearer; cross-process workers on one vault.
 
