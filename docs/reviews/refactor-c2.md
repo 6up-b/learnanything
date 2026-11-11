@@ -108,3 +108,142 @@ All six go, each with its registry entries in the same commit: 11 `_reg_const` e
 and 6 `MODULE_INVENTORY` lines. None is reached from an entry point, the replay/rebuild/upgrade roots or the plan
 path except through the registry's own string table; no frontend, phone or MCP caller; no stored row stops loading.
 Nothing goes to the owner's list as "reached".
+
+## What was deleted
+
+Source: **1,979 lines deleted, 11 added** (net −1,968), in `11c3bfaa2b`.
+
+| What | Lines |
+|---|---:|
+| `substrate/compat/substrate_cutover.py` | 720 |
+| `scheduling/progression.py` | 341 |
+| `scheduling/reentry_adapter.py` | 287 |
+| `scheduling/predictive_targets.py` | 165 |
+| `scheduling/short_session.py` | 117 |
+| `scheduling/progression_policy.py` | 94 |
+| `params/parameter_registry.py`: 6 `MODULE_INVENTORY` lines, 11 `_reg_const` entries (7 decision, 4 structural) and their comment headers | 63 (4 added: two comments reworded) |
+| `db/repositories.py`: the 9 methods only these modules called (`ensure_progression_policy_version`, `progression_policy_version`, `insert_angle_inventory`, `angle_inventories_for_family`, `ensure_family_evidence_cap_policy`, `family_evidence_cap_policy`, `open_lapse_episode`, `lapse_episode`, `update_lapse_episode`) and an emptied section header | 168 (1 added) |
+| `substrate/activities.py`: `resolve_progression_policy` (only `progression.py` called it) | 18 |
+| `scheduling/open_world_gate.py`: the `predictive_targets` sub-check | 6 (6 added: a comment on the kept key) |
+| `pyproject.toml`: the `substrate_cutover -> fsrs` ignore line | 1 |
+
+The fixed point: after the modules went, a rerun of C1's `c1_scan.py` found the 10 newly orphaned names above (deleted);
+a third run found only the four kept test-only names under Open items.
+
+`tests/architecture_function_local_domain_imports.txt` lost its two frozen edges from the deleted modules (the ratchet
+test asks for that).
+
+## Tests removed and seconds saved
+
+41 tests removed: `test_substrate_cutover.py` (20), `test_journey6.py` (2), `test_progression.py` (8),
+`test_predictive_targets.py` (6), 2 in `test_activity_contract_extensions.py`, 3 re-entry tests. Run once at the base
+(`-n 0`): **2.07 s wall, 1.44 s of setup, call and teardown**, so about 1.4 s off a serial suite. One test added
+(`test_registry_audit::test_a_stored_row_for_a_removed_spec_stays_readable`, 1.8 s). The four short-session tests stay,
+calling `staged_policy.decide` directly. Test lines: 1,090 deleted, 241 added (158 of them the rewritten short-session
+file).
+
+## Proofs
+
+- **Step 0 before deletion:** committed alone (`ed3e5d19a4`); tests removed in their own commit (`f5ae567718`) before
+  the source (`11c3bfaa2b`).
+- **Closure** (`c2_closure.py`), base → tip: 1,291 → 1,285 modules, 15,784 → 15,717 edges. At the tip the full graph
+  reaches 1,281 / 1,113 / 1,116 modules from the entry points / replay roots / plan path: exactly the base's pruned
+  counts, so nothing but the six lost reach. Modules nothing reaches at the tip: `ai/providers/structured_output`,
+  `figures/source_check_harness`, `sim/ad_gates`, `sim/ad_synthetic` (none C2's; see Open items).
+- **P-shadow** (`learnloop rebuild --shadow --json`) on backup-API copies of `~/learnloop-backups/20261109-copy`
+  (stale `probability/.learnloop/state.sqlite` removed; no upgrade needed, every copy is at mvp-0.54), base vs tip,
+  ignoring `as_of` and `marker_id`:
+  - `linear_algebra` (70 attempts replayed): 0 differences.
+  - `probability` (3 replayed): 0 differences.
+  - `arxiv_v2` (21 replayed): 16 differences, all fresh ULIDs that the activity-substrate replayer mints for 9 families
+    and 7 surfaces on each run; two tip runs differ from each other in the same 16 places, and every count matches.
+    0 other differences.
+  - The live databases' SHA-256 is unchanged by every run. The learner-state diff and `schedule_effects` are identical
+    at base and tip (the rebuild's own diff isn't empty on these copies at either side: `arxiv_v2` moves 9 due dates by
+    −0.0 days, `interval_ratio` 1.0, the same before C2).
+- **Stored rows on real copies,** base vs tip, on fresh backup-API copies of all three vaults: each holds the 7 removed
+  decision rows among 408. At both sides, `registry list` lists 409 rows with all 7, `registry show
+  progression:POST_LAPSE_FOLLOWUP_DAYS` exits 0, `registry audit` is clean with 372 pending certificates (the 7
+  among them), and `freeze_manifest` freezes 409 parameters including the 7 with their stored hashes. The code
+  registry has 402 decision specs at base and 395 at the tip. `learnloop doctor --json` gives the same exit code,
+  error and warning counts (48/235, 2/56, 49/54) and the identical list of issue codes at both sides, and never names
+  a removed path.
+- **Registry test:** `test_registry_audit::test_a_stored_row_for_a_removed_spec_stays_readable` writes stored rows for
+  the 7 removed paths into a fresh vault: refresh leaves them byte-identical, `freeze_manifest` takes them,
+  `audit` stays clean, `registry show`/`list` print them, doctor's issues are unchanged.
+- **No change at a fixed input:** nothing deleted is reached from serving, grading, the router, replay, rebuild or
+  upgrade (closure), so served items, router draws, grades and replay can't change; the shadow rebuild confirms
+  replay. The administrations' `decision_params_hash` hashes only `constraint_engine`, `staged_policy` and
+  `controller_snapshot` specs. The one visible output change: `learnloop controller open-world-gate`'s condition 5
+  detail loses `predictive_targets=True; ` and its description loses "target-distribution EIG"; its `met` and the
+  gate's overall verdict are unchanged.
+- **`lint-imports --no-cache`:** 42 kept, 0 broken (`unmatched_ignore_imports_alerting = "error"`, so the removed
+  ignore line was the only one that went stale). **`ruff check`:** all checks passed.
+- **Targeted tests:** the selector falls back to the whole suite (deleted modules, `pyproject.toml`,
+  `db/repositories.py`, which conftest imports). So an explicit list of 357 files: the depth-0 selection for
+  `parameter_registry`, `open_world_gate` and `activities` (114), every test file naming the registry, its manifest or
+  its inventories (187), every test naming the open-world gate, staged policy, familiarity, administration adapters,
+  card lineage, activities or the removed tables, every edited test file, `test_repositories`, `test_architecture`,
+  `test_test_layout`, `test_cli_help_snapshot`, `test_cli_json`, `test_effective_defaults_golden`, `test_table_roles`,
+  `test_open_world_gate`, `test_commitments`, `test_hot_path_eligibility_cutover`, `test_grade_resolution_pipeline`,
+  `test_independent_group_counting`. **16,868 passed, 31 skipped, 6 xfailed, 1 failed in 835 s at `-n 4`**; the one
+  failure was the frozen-edge ratchet asking for the two stale edges to go, which they did; `test_architecture`,
+  `test_test_layout` and `test_registry_audit` then passed (40).
+
+## Owner's list
+
+Nothing was found reached on a learner path, so no candidate is held back. These are left for the owner:
+
+1. **Four tables with no code left:** `progression_policy_versions`, `angle_inventories`, `family_evidence_cap_policies`
+   (RAW_LEDGER) and `lapse_episodes` (WORKFLOW). Their only readers and writers were these modules and the deleted
+   `Repository` methods. Left in place for J1. `activity_family_authoring.progression_policy_version_id` is still a
+   column that authoring writes and nothing reads.
+2. **The A2 laddered-stem kinship rule has no caller in `src`.** `familiarity.evidence_cap_grouping` and
+   `tight_kinship_clusters` were reached only through `progression.apply_evidence_cap`, which nothing called either.
+   `test_laddered_stems` and `test_familiarity` keep proving the rule. Wire it into an evidence cap when one is built,
+   or delete it with those tests.
+3. **`administration_adapters.project_administration`** is now test-only (`test_administration_adapters`): the deleted
+   cutover writer was its one caller. The live path uses the same module's `hot_path_applies_practice_review`.
+4. **Stale registry rows.** Every existing vault keeps the 7 removed decision rows, `active` and `heuristic`; every
+   future manifest frozen on that vault carries them with their last hash, and the audit counts them as pending
+   certificates (a warning). A vault created after C2 has none. If the owner wants a removed spec's row to say so,
+   `refresh` could mark rows without a spec `lifecycle = 'deleted'` (the audit already skips non-active rows); that
+   changes what the next manifest records, so it isn't done here.
+
+## UX list
+
+None. No candidate had a TS, Rust, phone or MCP caller, so no screen loses a backend.
+
+## Open items
+
+- **Doc strings that now name removed code,** left because they sit in other steps' files:
+  `scheduling/controller_cutover.py:14` cites `substrate_cutover.run_cutover_gates` as its precedent (C6's module), and
+  the registry rationale for `administration_adapters:P1_PURPOSE_ADAPTERS_ENABLED` says "step 9 flips it" (step 9 was
+  the deleted cutover; the flag is still off).
+- **Test-only `Repository` methods kept:** `lineage_for_card_version` (`test_card_lineage`) and
+  `measurement_events_for_administration` (`test_grade_resolution_pipeline`) lost their `src` caller with
+  `substrate_cutover`; their tests read persisted state through them, so they stay until a step moves them to a store.
+- **`ai/providers/structured_output`** is unreached from every root at this base (not C2's; it looks like C4's area).
+- **Merge with C5:** both edit `open_world_gate.py` (C2 only `_c5_controller`; C5 `_c3_p2`), `parameter_registry.py`
+  (different `MODULE_INVENTORY` lines and entries), `test_architecture.py`'s dynamic-attribute list (C2 removed only
+  the `predictive_targets` line) and possibly `db/repositories.py`, where C2's deletion ends just above the
+  "P2 golden path" section header. The generated notes the orchestrator regenerates.
+- **Vault:** hand-written notes first (`f225bb0067`: ADR-012 records `substrate_cutover`'s removal; three workflow and
+  example notes name `test_staged_policy_short_session.py` and drop `short_session.py` from their source paths), then
+  references regenerated once after the source commits (`4abead2050`, 67 files, the six deleted modules' notes removed
+  by hand because the generator rewrites but doesn't delete). A second `generate_all.py` run changed nothing. The four
+  validators pass: `validate_vault` (2,275 notes, 59,106 wikilinks), `module_validate` (1:1 coverage, 43,225 links),
+  `desktop_validate` (330 + 6 modules), `db_validate_reference` (no errors). On the final tree, 115 passed:
+  `test_desktop_activation_audit`, `test_generated_provenance`, `test_module_catalog_inventory`, `test_architecture`,
+  `test_test_layout`, `test_cli_help_snapshot`, `test_cli_json`, `test_effective_defaults_golden`,
+  `test_open_world_gate` and every edited test file; `lint-imports` 42 kept, `ruff check` clean.
+
+## Unverified
+
+- The full suite, the durability lane, `--fresh-connections` and the `arc_close` tests weren't run (the
+  orchestrator's gate).
+- P-draw wasn't run: C2 names P-shadow only, and the closure puts nothing deleted on a draw path.
+- The name scan can't see a name built at run time from parts. The dynamic sites searched build none of these names,
+  but sites C5 adds in parallel weren't seen.
+- The base side of the real-copy registry and doctor checks ran the base source from a `git archive` of `src/` and
+  `migrations/` under `fixtures-local/` (the editable install points at the tip), with the tip's environment.
