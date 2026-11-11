@@ -25,8 +25,8 @@ source_paths:
   - "src/learnloop/db/stores/router.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/diagnosis/causal_migration.py"
   - "src/learnloop/goals/exam_calibration.py"
+  - "src/learnloop/scheduling/evaluation.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -135,7 +135,6 @@ Indexes and uniqueness:
 - `src/learnloop/cli/app.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
-- `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/goals/exam_calibration.py`
 - `src/learnloop/scheduling/evaluation.py`
 - `src/learnloop/scheduling/scheduler.py`

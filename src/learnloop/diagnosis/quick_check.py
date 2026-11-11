@@ -172,10 +172,6 @@ def start_quick_check(
     return quick_check_progress(vault, repository, progress["calibration_session_id"], clock=clock)
 
 
-def is_quick_check(repository: Repository, calibration_session_id: str) -> bool:
-    return quick_check_record(repository, calibration_session_id) is not None
-
-
 def _candidate_items(
     vault: LoadedVault,
     repository: Repository,

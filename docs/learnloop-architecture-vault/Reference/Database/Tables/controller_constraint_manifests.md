@@ -16,7 +16,6 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/096_controller_snapshots.sql"
-  - "src/learnloop/scheduling/controller_store.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -74,11 +73,11 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
-- `src/learnloop/scheduling/controller_store.py`
+None found by exact static reference scan.
 
 ### Direct SQL writers
 
-- `src/learnloop/scheduling/controller_store.py`
+None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 

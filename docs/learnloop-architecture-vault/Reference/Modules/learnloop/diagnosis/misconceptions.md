@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/misconceptions.py](../../../../../../src/learnloop/diagnosis/misconceptions.py) |
-| Source lines | 1009 |
+| Source lines | 998 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -57,12 +57,12 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `normalize_text(text: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 33) — Case/whitespace/punctuation-normalized statement for deterministic match.
 - `request_misconception_match(client: OperationClient, context: MisconceptionMatchContext) -> MisconceptionMatch` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 83) — Run the feature-owned misconception matching operation.
 - `normalize_attempt_misconceptions(vault: LoadedVault, repository: Repository, *, attempt_id: str, learning_object_id: str, ai_client: object | None=None, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 258) — Normalize an attempt's misconception error events into the registry (spec §2.2).
-- `promote_candidate_if_independent(vault: LoadedVault, repository: Repository, candidate_id: str, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 487) — Promote ``candidate_id`` if §5.6 arm (b) is now satisfied; else None.
-- `promote_candidate(vault: LoadedVault, repository: Repository, candidate: dict, *, learning_object, reason: str, clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 538) — Mint a durable compositional misconception from a promoted candidate (§10.2).
-- `materialize_attempt_episode(vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 673) — Materialize the attempt's causal episode from what it carries now.
-- `misconception_posterior(vault: LoadedVault, repository: Repository, record: MisconceptionRecord) -> float` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 861) — P(learner still holds ``record``) from persisted evidence (spec §7).
-- `update_misconception_posteriors_and_resolve(vault: LoadedVault, repository: Repository, *, learning_object_id: str, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 927) — Resolve (or reactivate) registry rows on ``learning_object_id`` by posterior (§7).
-- `normalize_and_resolve_attempt(vault: LoadedVault, repository: Repository, *, attempt_id: str, learning_object_id: str, ai_client: object | None=None, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 972) — Run normalization then posterior resolution for one attempt (spec §2.2 + §7).
+- `promote_candidate_if_independent(vault: LoadedVault, repository: Repository, candidate_id: str, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 476) — Promote ``candidate_id`` if §5.6 arm (b) is now satisfied; else None.
+- `promote_candidate(vault: LoadedVault, repository: Repository, candidate: dict, *, learning_object, reason: str, clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 527) — Mint a durable compositional misconception from a promoted candidate (§10.2).
+- `materialize_attempt_episode(vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 662) — Materialize the attempt's causal episode from what it carries now.
+- `misconception_posterior(vault: LoadedVault, repository: Repository, record: MisconceptionRecord) -> float` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 850) — P(learner still holds ``record``) from persisted evidence (spec §7).
+- `update_misconception_posteriors_and_resolve(vault: LoadedVault, repository: Repository, *, learning_object_id: str, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 916) — Resolve (or reactivate) registry rows on ``learning_object_id`` by posterior (§7).
+- `normalize_and_resolve_attempt(vault: LoadedVault, repository: Repository, *, attempt_id: str, learning_object_id: str, ai_client: object | None=None, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 961) — Run normalization then posterior resolution for one attempt (spec §2.2 + §7).
 
 ### Module constants
 
@@ -71,9 +71,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `MATCH_TASK` ([src/learnloop/diagnosis/misconceptions.py](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 100)
 - `NEW_BELIEF` ([src/learnloop/diagnosis/misconceptions.py](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 102)
 - `_NO_REGISTRY_DECISION` ([src/learnloop/diagnosis/misconceptions.py](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 202)
-- `_PRIOR_FLOOR` ([src/learnloop/diagnosis/misconceptions.py](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 852)
-- `_PRIOR_CEIL` ([src/learnloop/diagnosis/misconceptions.py](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 853)
-- `_PROB_EPS` ([src/learnloop/diagnosis/misconceptions.py](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 854)
+- `_PRIOR_FLOOR` ([src/learnloop/diagnosis/misconceptions.py](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 841)
+- `_PRIOR_CEIL` ([src/learnloop/diagnosis/misconceptions.py](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 842)
+- `_PROB_EPS` ([src/learnloop/diagnosis/misconceptions.py](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 843)
 
 ## Internal implementation anchors
 
@@ -84,16 +84,15 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_registry_match_id(event: dict, candidates: list[MisconceptionRecord]) -> object` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 205) — Slice 1 §7.3: the diagnosis's ``registry_match`` replaces the call.
 - `_durable_match(event: dict, statement: str, candidates: list[MisconceptionRecord], ai_client: object | None, *, learning_object_id: str, vault: LoadedVault | None=None, repository: Repository | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 224)
 - `_event_facet_ids(vault: LoadedVault, event: dict, attempt: dict | None) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 243) — Coarse facets a new registry row targets (spec §1.1 / §2.2.4).
-- `_surface_family_for_attempt(vault: LoadedVault, attempt: dict | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 353)
-- `_probe_signature_reproduced(candidate: dict, attempt: dict | None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 364)
-- `_postdictive_trace_consistent(vault: LoadedVault, repository: Repository, event: dict, attempt: dict | None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 372) — Hard-veto only deterministic claims contradicted by elicited full credit.
-- `_promotion_reason(vault: LoadedVault, candidate: dict, attempt: dict | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 408) — Which §10.3 condition (if any) promotes ``candidate`` to a durable belief.
-- `_independent_group_count(vault: LoadedVault, candidate: dict) -> int` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 464) — Distinct independent evidence groups behind ``candidate`` (augmentation §8).
-- `_event_statement_provenance(repository: Repository, attempt_id: str, event: dict) -> Any` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 596) — What an error event's misconception statement was written from: the attempt's grading and the diagnosis whose causal view lies over the event (diagnosis input provenance).
-- `_promotion_provenance(vault: LoadedVault, repository: Repository, candidate: dict) -> tuple[Any, Any]` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 608) — What a promoted belief's statement and correction were written from (diagnosis input provenance).
-- `_authored_correction(vault: LoadedVault, target_facet_id: str | None, confused_with_facet_id: str | None) -> tuple[str | None, list[str]]` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 636) — Freeze correction copy from reviewed canonical facet contracts.
-- `_normalize_compositional(vault: LoadedVault, repository: Repository, *, attempt_id: str, learning_object_id: str, ai_client: object | None, clock: Clock | None) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 704) — mvp-0.7 normalization with promotion discipline (§10.3) and compositional records (§10.2).
-- `_clamp(value: float, low: float, high: float) -> float` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 857)
+- `_probe_signature_reproduced(candidate: dict, attempt: dict | None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 353)
+- `_postdictive_trace_consistent(vault: LoadedVault, repository: Repository, event: dict, attempt: dict | None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 361) — Hard-veto only deterministic claims contradicted by elicited full credit.
+- `_promotion_reason(vault: LoadedVault, candidate: dict, attempt: dict | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 397) — Which §10.3 condition (if any) promotes ``candidate`` to a durable belief.
+- `_independent_group_count(vault: LoadedVault, candidate: dict) -> int` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 453) — Distinct independent evidence groups behind ``candidate`` (augmentation §8).
+- `_event_statement_provenance(repository: Repository, attempt_id: str, event: dict) -> Any` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 585) — What an error event's misconception statement was written from: the attempt's grading and the diagnosis whose causal view lies over the event (diagnosis input provenance).
+- `_promotion_provenance(vault: LoadedVault, repository: Repository, candidate: dict) -> tuple[Any, Any]` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 597) — What a promoted belief's statement and correction were written from (diagnosis input provenance).
+- `_authored_correction(vault: LoadedVault, target_facet_id: str | None, confused_with_facet_id: str | None) -> tuple[str | None, list[str]]` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 625) — Freeze correction copy from reviewed canonical facet contracts.
+- `_normalize_compositional(vault: LoadedVault, repository: Repository, *, attempt_id: str, learning_object_id: str, ai_client: object | None, clock: Clock | None) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 693) — mvp-0.7 normalization with promotion discipline (§10.3) and compositional records (§10.2).
+- `_clamp(value: float, low: float, high: float) -> float` ([source](../../../../../../src/learnloop/diagnosis/misconceptions.py), line 846)
 
 ## Who imports or calls it
 

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/controller_store.py](../../../../../../src/learnloop/scheduling/controller_store.py) |
-| Source lines | 512 |
+| Source lines | 459 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -58,24 +58,20 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `bulk_exposure_events(repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 38) — The whole ``activity_exposure_events`` ledger in one read (the ONE ledger, §3.6).
 - `upsert_snapshot(repository: Repository, *, snapshot_hash: str, session_id: str | None, body: Mapping[str, Any], param_manifest_hash: str | None, projection_versions: Mapping[str, Any], clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 57) — Persist a snapshot, deduped on its content hash.
 - `snapshot_row(repository: Repository, snapshot_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 91)
-- `upsert_constraint_manifest(repository: Repository, *, manifest_hash: str, definitions: Any, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 104)
-- `create_attention_block(repository: Repository, *, session_id: str | None, commitment_id: str | None, action: str, subtype: str | None, budget_minutes: float, neighborhood: Mapping[str, Any], exit_rules: Any, short_circuit_reason: str | None, content_hash: str, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 133)
-- `append_block_event(repository: Repository, *, block_id: str, kind: str, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 163)
-- `block_events(repository: Repository, block_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 196)
-- `decision_by_receipt_key(repository: Repository, receipt_key: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 211)
-- `persist_decision(repository: Repository, *, receipt_key: str | None, snapshot_id: str, snapshot_hash: str, session_id: str | None, mode: str, commitment_id: str | None, staged_rule: str, action: str, subtype: str | None, attention_block_id: str | None, chosen_candidate_ref: str | None, stop_reason: str | None, constraint_manifest_hash: str | None, decision_params_hash: str | None, policy_version: str | None, comparator: Mapping[str, Any] | None, trace: Mapping[str, Any], candidates: list[Mapping[str, Any]], clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 221) — Write the decision + all candidate rows in one transaction.
-- `decision_row(repository: Repository, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 303)
-- `candidates_for_decision(repository: Repository, decision_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 311)
-- `persist_shadow_prediction(repository: Repository, *, decision_id: str | None, snapshot_hash: str, scorer_kind: str, model_version: str | None, prediction: Mapping[str, Any], usable: bool=True, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 328)
-- `shadow_predictions_for_decision(repository: Repository, decision_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 354)
-- `persist_experiment_assignment(repository: Repository, *, experiment_id: str, decision_id: str | None, unit_kind: str, unit_id: str | None, variant: str, propensity: float, seed: str, draw: float | None, epsilon_margin: float | None, near_equivalent: bool, design: str, grade: str, candidate_refs: Any=None, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 372) — Write one randomization assignment with its true propensity (§9.3).
-- `assignment_row(repository: Repository, assignment_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 412)
-- `assignments_for_experiment(repository: Repository, experiment_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 420)
-- `open_outcome_window(repository: Repository, *, decision_id: str | None, assignment_id: str | None, candidate_ref: str | None, commitment_id: str | None, card_ref: str | None, anchor_kind: str, anchor_ref: str | None, due_at: str | None, hypothesis_grade: bool, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 437)
-- `resolve_outcome_window(repository: Repository, window_id: str, *, outcome: Mapping[str, Any], status: str='resolved', clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 469)
-- `outcome_window_row(repository: Repository, window_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 486)
-- `outcome_windows_for_decision(repository: Repository, decision_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 494)
-- `pending_outcome_windows(repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 506)
+- `create_attention_block(repository: Repository, *, session_id: str | None, commitment_id: str | None, action: str, subtype: str | None, budget_minutes: float, neighborhood: Mapping[str, Any], exit_rules: Any, short_circuit_reason: str | None, content_hash: str, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 109)
+- `append_block_event(repository: Repository, *, block_id: str, kind: str, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 139)
+- `block_events(repository: Repository, block_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 172)
+- `decision_by_receipt_key(repository: Repository, receipt_key: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 187)
+- `persist_decision(repository: Repository, *, receipt_key: str | None, snapshot_id: str, snapshot_hash: str, session_id: str | None, mode: str, commitment_id: str | None, staged_rule: str, action: str, subtype: str | None, attention_block_id: str | None, chosen_candidate_ref: str | None, stop_reason: str | None, constraint_manifest_hash: str | None, decision_params_hash: str | None, policy_version: str | None, comparator: Mapping[str, Any] | None, trace: Mapping[str, Any], candidates: list[Mapping[str, Any]], clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 197) — Write the decision + all candidate rows in one transaction.
+- `decision_row(repository: Repository, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 279)
+- `candidates_for_decision(repository: Repository, decision_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 287)
+- `persist_shadow_prediction(repository: Repository, *, decision_id: str | None, snapshot_hash: str, scorer_kind: str, model_version: str | None, prediction: Mapping[str, Any], usable: bool=True, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 304)
+- `shadow_predictions_for_decision(repository: Repository, decision_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 330)
+- `persist_experiment_assignment(repository: Repository, *, experiment_id: str, decision_id: str | None, unit_kind: str, unit_id: str | None, variant: str, propensity: float, seed: str, draw: float | None, epsilon_margin: float | None, near_equivalent: bool, design: str, grade: str, candidate_refs: Any=None, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 348) — Write one randomization assignment with its true propensity (§9.3).
+- `assignments_for_experiment(repository: Repository, experiment_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 388)
+- `open_outcome_window(repository: Repository, *, decision_id: str | None, assignment_id: str | None, candidate_ref: str | None, commitment_id: str | None, card_ref: str | None, anchor_kind: str, anchor_ref: str | None, due_at: str | None, hypothesis_grade: bool, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 405)
+- `resolve_outcome_window(repository: Repository, window_id: str, *, outcome: Mapping[str, Any], status: str='resolved', clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 437)
+- `outcome_window_row(repository: Repository, window_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/scheduling/controller_store.py), line 454)
 
 ## Internal implementation anchors
 
@@ -123,9 +119,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_bridge_goes_live_and_is_decision_equivalent_when_owned`
 - [tests/test_controller_snapshot.py](../../../../../../tests/test_controller_snapshot.py) — direct import
   - `test_snapshot_persists_deduped_on_content_hash`
-- [tests/test_prequential.py](../../../../../../tests/test_prequential.py) — direct import
-  - `test_composed_selector_report_is_secondary`
-  - `test_report_ignores_unresolved_and_immediate_outcomes`
 - [tests/test_randomization_layer.py](../../../../../../tests/test_randomization_layer.py) — direct import
   - `test_epsilon_tiebreak_is_inert_when_not_near_equivalent`
   - `test_epsilon_tiebreak_randomizes_near_equivalents_with_logged_propensity`

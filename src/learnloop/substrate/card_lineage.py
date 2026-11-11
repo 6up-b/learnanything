@@ -100,13 +100,6 @@ class EditClassification:
         }
 
 
-def _normalized_components(contract: Mapping[str, Any]) -> dict[str, Any]:
-    """Extract the comparable contract components. Missing keys read as ``None`` so
-    an added/removed component is a real difference, not silently ignored."""
-
-    return {key: contract.get(key) for key in (*SEMANTIC_COMPONENTS, *COSMETIC_COMPONENTS)}
-
-
 def classify_edit(
     prev_contract: Mapping[str, Any], new_contract: Mapping[str, Any]
 ) -> EditClassification:

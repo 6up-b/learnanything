@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/progression_policy.py](../../../../../../src/learnloop/scheduling/progression_policy.py) |
-| Source lines | 103 |
+| Source lines | 94 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -57,7 +57,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `default_progression_policy_body(policy_slug: str=DEFAULT_POLICY_SLUG) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/progression_policy.py), line 48) — The canonical progression-policy body (§5.4/§5.5/§4.3), seeded from the registered decision-parameter defaults.
 - `register_progression_policy(repository: Repository, *, policy_slug: str, body: Mapping[str, Any], version: int=PROGRESSION_POLICY_SCHEMA_VERSION, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/scheduling/progression_policy.py), line 66) — Register an immutable, content-addressed progression-policy version.
 - `ensure_default_progression_policy(repository: Repository, *, policy_slug: str=DEFAULT_POLICY_SLUG, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/scheduling/progression_policy.py), line 86) — Seed / resolve the default progression policy (idempotent).
-- `load_progression_policy(repository: Repository, policy_version_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/scheduling/progression_policy.py), line 97)
 
 ### Module constants
 
@@ -87,7 +86,7 @@ No private top-level function or class definition is declared in this file.
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `json`, `typing`
+- Standard library: `__future__`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

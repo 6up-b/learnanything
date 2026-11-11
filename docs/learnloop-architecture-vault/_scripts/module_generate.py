@@ -157,7 +157,6 @@ ROLE_LINKS = {
 # contracts (DESCOPED, SHADOW ONLY, zero-authority, or disabled admission).
 DORMANT_MODULES = {
     "learnloop.scheduling.kinship_feature",
-    "learnloop.scheduling.prequential",
 }
 
 EVALUATION_MODULES = {
@@ -171,24 +170,12 @@ EVALUATION_MODULES = {
 # desktop app. They are deletion candidates, so the reference leaves them out
 # rather than presenting them as supported API.
 UNCALLED_DEFINITIONS: dict[str, set[str]] = {
-    "learnloop.curriculum.commitment_arcs": {"resume_arc"},
-    "learnloop.curriculum.commitments": {
-        "record_depth_transition_committed",
-        "attach_family",
-        "detach_family",
-        "load_commitment",
-    },
-    "learnloop.curriculum.depth_edge_authoring": {"append_template_version"},
-    "learnloop.curriculum.golden_path_run": {"next_feasible_action"},
-    "learnloop.curriculum.task_blueprints": {"discover_exemplar_candidates"},
+    "learnloop.curriculum.commitments": {"load_commitment"},
     "learnloop.reader.reader_capture": {"retry_outbox"},
-    "learnloop.params.fitted_params": {"fitted_fsrs_provenance"},
-    "learnloop.vault.hashes": {"concept_hash", "concept_edge_hash", "rubric_hash"},
 }
 
 MODULE_WORKFLOW_OVERRIDES: dict[str, list[str]] = {
     "learnloop.scheduling.kinship_feature": [],
-    "learnloop.scheduling.prequential": [],
     "learnloop.scheduling.shadow_components": [],
     "learnloop.scheduling.intent_planner": ["Start a Learning Cycle"],
     "learnloop.scheduling.open_world_gate": ["Doctor Migrations and Recovery"],

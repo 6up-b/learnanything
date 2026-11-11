@@ -104,7 +104,6 @@ Indexes and uniqueness:
 - `Repository.append_golden_path_run_event()`
 - `Repository.confirm_golden_path_atomic()`
 - `Repository.golden_path_run()`
-- `Repository.golden_path_run_by_receipt()`
 - `Repository.golden_path_run_for_goal()`
 - `Repository.golden_path_runs_all()`
 

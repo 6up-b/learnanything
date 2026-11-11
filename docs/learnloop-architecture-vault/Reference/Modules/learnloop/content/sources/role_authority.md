@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/sources/role_authority.py](../../../../../../../src/learnloop/content/sources/role_authority.py) |
-| Source lines | 268 |
+| Source lines | 262 |
 | Owning package | [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,23 +61,22 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `role_authority(role: str | None, *, manual_grant: ManualAuthorityGrant | Mapping[str, object] | None=None) -> RoleAuthority` ([source](../../../../../../../src/learnloop/content/sources/role_authority.py), line 140) — Resolve `{semantic_contract, assessment_alignment}` for a source role (§4.2).
 - `default_inventory_profile(role: str | None) -> str` ([source](../../../../../../../src/learnloop/content/sources/role_authority.py), line 188) — The inventory profile a confirmed role implies (§4.2/§7).
 - `can_authorize_semantic(role: str | None, *, manual_grant=None) -> bool` ([source](../../../../../../../src/learnloop/content/sources/role_authority.py), line 198) — True iff this role may enter a semantic-contract context (§4.2).
-- `can_authorize_assessment(role: str | None, *, manual_grant=None) -> bool` ([source](../../../../../../../src/learnloop/content/sources/role_authority.py), line 207) — True iff this role may contribute assessment alignment (§4.2).
-- `is_scope_only_role(role: str | None) -> bool` ([source](../../../../../../../src/learnloop/content/sources/role_authority.py), line 240) — True iff the role's material only scopes a deliverable (``syllabus``, curriculum C3).
-- `is_semantic_support(role: str | None, relation: str | None) -> bool` ([source](../../../../../../../src/learnloop/content/sources/role_authority.py), line 246) — True iff a citation with this effective role and relation supports a semantic claim.
-- `support_verdict(citations: Iterable[tuple[str | None, str | None]]) -> str` ([source](../../../../../../../src/learnloop/content/sources/role_authority.py), line 252) — Judge a claim's ``(role, relation)`` citations (§4.2).
+- `is_scope_only_role(role: str | None) -> bool` ([source](../../../../../../../src/learnloop/content/sources/role_authority.py), line 234) — True iff the role's material only scopes a deliverable (``syllabus``, curriculum C3).
+- `is_semantic_support(role: str | None, relation: str | None) -> bool` ([source](../../../../../../../src/learnloop/content/sources/role_authority.py), line 240) — True iff a citation with this effective role and relation supports a semantic claim.
+- `support_verdict(citations: Iterable[tuple[str | None, str | None]]) -> str` ([source](../../../../../../../src/learnloop/content/sources/role_authority.py), line 246) — Judge a claim's ``(role, relation)`` citations (§4.2).
 
 ### Module constants
 
 - `KNOWN_ROLES` ([src/learnloop/content/sources/role_authority.py](../../../../../../../src/learnloop/content/sources/role_authority.py), line 25)
 - `_MATRIX` ([src/learnloop/content/sources/role_authority.py](../../../../../../../src/learnloop/content/sources/role_authority.py), line 42)
 - `_ROLE_PROFILE` ([src/learnloop/content/sources/role_authority.py](../../../../../../../src/learnloop/content/sources/role_authority.py), line 66)
-- `ASSESSMENT_ONLY_ROLES` ([src/learnloop/content/sources/role_authority.py](../../../../../../../src/learnloop/content/sources/role_authority.py), line 223)
-- `SCOPE_ONLY_ROLES` ([src/learnloop/content/sources/role_authority.py](../../../../../../../src/learnloop/content/sources/role_authority.py), line 227)
-- `SEMANTIC_SUPPORT_RELATIONS` ([src/learnloop/content/sources/role_authority.py](../../../../../../../src/learnloop/content/sources/role_authority.py), line 229)
-- `CITATION_RELATIONS` ([src/learnloop/content/sources/role_authority.py](../../../../../../../src/learnloop/content/sources/role_authority.py), line 231)
-- `EXPLANATORY` ([src/learnloop/content/sources/role_authority.py](../../../../../../../src/learnloop/content/sources/role_authority.py), line 235)
-- `EXAM_UNCORROBORATED` ([src/learnloop/content/sources/role_authority.py](../../../../../../../src/learnloop/content/sources/role_authority.py), line 236)
-- `UNSUPPORTED` ([src/learnloop/content/sources/role_authority.py](../../../../../../../src/learnloop/content/sources/role_authority.py), line 237)
+- `ASSESSMENT_ONLY_ROLES` ([src/learnloop/content/sources/role_authority.py](../../../../../../../src/learnloop/content/sources/role_authority.py), line 217)
+- `SCOPE_ONLY_ROLES` ([src/learnloop/content/sources/role_authority.py](../../../../../../../src/learnloop/content/sources/role_authority.py), line 221)
+- `SEMANTIC_SUPPORT_RELATIONS` ([src/learnloop/content/sources/role_authority.py](../../../../../../../src/learnloop/content/sources/role_authority.py), line 223)
+- `CITATION_RELATIONS` ([src/learnloop/content/sources/role_authority.py](../../../../../../../src/learnloop/content/sources/role_authority.py), line 225)
+- `EXPLANATORY` ([src/learnloop/content/sources/role_authority.py](../../../../../../../src/learnloop/content/sources/role_authority.py), line 229)
+- `EXAM_UNCORROBORATED` ([src/learnloop/content/sources/role_authority.py](../../../../../../../src/learnloop/content/sources/role_authority.py), line 230)
+- `UNSUPPORTED` ([src/learnloop/content/sources/role_authority.py](../../../../../../../src/learnloop/content/sources/role_authority.py), line 231)
 
 ## Internal implementation anchors
 

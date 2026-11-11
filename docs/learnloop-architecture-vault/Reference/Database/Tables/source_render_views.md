@@ -99,7 +99,6 @@ Indexes and uniqueness:
 - `Repository.delete_source_artifact()`
 - `Repository.get_render_view()`
 - `Repository.insert_render_view()`
-- `Repository.latest_render_view_for_extraction()`
 - `Repository.render_view_by_request_hash()`
 
 ### Direct SQL readers

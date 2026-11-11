@@ -113,7 +113,6 @@ Indexes and uniqueness:
 - `tests/test_card_lineage.py`
 - `tests/test_commitment_arcs.py`
 - `tests/test_depth_transition.py`
-- `tests/test_event_sufficiency.py`
 - `tests/test_family_memory_projection.py`
 - `tests/test_field_cli.py`
 - `tests/test_journey6.py`

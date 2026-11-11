@@ -473,16 +473,6 @@ def reject_candidate(
     )
 
 
-def fail_mint_job(
-    repository: Repository, *, request_id: str, failure_reason: str, clock: Clock | None = None
-) -> None:
-    """Mark a job ``failed`` (generator error / interrupted lease). Retained for audit."""
-
-    repository.resolve_surface_mint_request(
-        request_id=request_id, status="failed", failure_reason=failure_reason, clock=clock
-    )
-
-
 # ---------------------------------------------------------------------------
 # Retirement -> obsolete queued mint work (§5.6, §9.3).
 # ---------------------------------------------------------------------------

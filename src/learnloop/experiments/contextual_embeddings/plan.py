@@ -25,7 +25,6 @@ import math
 from typing import Any
 
 from learnloop.experiments.contextual_embeddings import pins
-from learnloop.experiments.contextual_embeddings.adapters import Chunk, Document
 from learnloop.experiments.contextual_embeddings.bank import BankQuestion, Seed, writer_prompt
 from learnloop.experiments.contextual_embeddings.callers import SCHEMA_ALLOWANCE_TOKENS, role_cost
 from learnloop.experiments.contextual_embeddings.corpus import CorpusSnapshot
@@ -365,17 +364,6 @@ def query_token_sizes(bank: Sequence[BankQuestion], development_target: int) -> 
     sizes = [token_estimate(question.effective_query) for question in bank]
     sizes.extend([ASSUMPTIONS["development_query_tokens"]] * development_target)
     return sizes
-
-
-def embedding_documents(snapshot: CorpusSnapshot, arm: str) -> list[Document]:
-    """The plain documents of an arm (for tests and the paid run's first step)."""
-
-    spec = pins.RETRIEVAL_ARMS[arm]
-    if spec.encoding == "grouped":
-        return [Document(window.window_id, tuple(Chunk(unit_id, snapshot.unit(unit_id).text)
-                                                 for unit_id in window.unit_ids)) for window in snapshot.windows]
-    return [Document(unit.unit_id, (Chunk(unit.unit_id, recipe_text(snapshot, unit, spec.recipe or "plain")),))
-            for unit in snapshot.units]
 
 
 def subscription_requests(roles: Sequence[Mapping[str, Any]], systems: Sequence[Mapping[str, Any]],

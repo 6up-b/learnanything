@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/synthesis/source_unit_selection.py](../../../../../../../src/learnloop/content/synthesis/source_unit_selection.py) |
-| Source lines | 566 |
+| Source lines | 508 |
 | Owning package | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -66,7 +66,6 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `save_unit_selection(repo: Repository, extraction_id: str, selected_unit_ids: list[str], *, boundary_overrides: list[dict] | None=None, exam_use_modes: dict[str, str] | None=None, exam_paper_metadata: dict | None=None, role_override: str | None=None, clock: Clock | None=None) -> dict` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_selection.py), line 355) — Validate and persist a selection for one extraction run.
 - `reanchor_units(from_ir: DocumentIR, to_ir: DocumentIR) -> dict[str, str | None]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_selection.py), line 430) — Map each old unit id onto a new unit id (or ``None`` when unresolved).
 - `reanchor_selection(from_ir: DocumentIR, to_ir: DocumentIR, selected_unit_ids: list[str], boundary_overrides: list[dict] | None=None) -> ReanchoredSelection` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_selection.py), line 482) — Re-anchor a stored selection + overrides onto a fresh extraction (§5.3).
-- `reanchor_selection_to(repo: Repository, from_extraction_id: str, to_extraction_id: str, *, clock: Clock | None=None) -> dict` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_selection.py), line 511) — Re-anchor the stored selection of ``from`` onto ``to`` and persist it.
 
 ### Module constants
 

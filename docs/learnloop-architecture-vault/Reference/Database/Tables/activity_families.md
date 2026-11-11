@@ -117,13 +117,13 @@ Indexes and uniqueness:
 - `tests/test_card_lineage.py`
 - `tests/test_commitment_arcs.py`
 - `tests/test_depth_transition.py`
-- `tests/test_event_sufficiency.py`
 - `tests/test_familiarity.py`
 - `tests/test_journey6.py`
 - `tests/test_kinship_feature.py`
 - `tests/test_laddered_stems.py`
 - `tests/test_progression.py`
 - `tests/test_reader_authoring.py`
+- `tests/test_substrate_cutover.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

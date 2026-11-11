@@ -157,7 +157,6 @@ Database triggers:
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_factor_deferral.py`
 - `src/learnloop/diagnosis/causal_health.py`
-- `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/causal_probe_commissioning.py`
@@ -171,6 +170,7 @@ Database triggers:
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/diagnosis/split/embeddings.py`
 - `src/learnloop/diagnosis/text_gaps/actions.py`
+- `src/learnloop/followup_run/admission.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

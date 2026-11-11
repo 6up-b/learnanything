@@ -21,7 +21,6 @@ source_paths:
   - "src/learnloop/attempts/observations.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/diagnosis/causal_migration.py"
   - "src/learnloop_sidecar/handlers/inspector.py"
 tags:
   - "learnloop/database/table"
@@ -97,7 +96,6 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/observations.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
-- `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 
 > [!note] Static-reference boundary

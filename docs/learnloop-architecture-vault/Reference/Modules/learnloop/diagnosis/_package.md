@@ -13,7 +13,6 @@ source_paths:
   - "src/learnloop/diagnosis/causal_diagnostic_selector.py"
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
   - "src/learnloop/diagnosis/causal_health.py"
-  - "src/learnloop/diagnosis/causal_migration.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
   - "src/learnloop/diagnosis/causal_probe_commissioning.py"
@@ -56,7 +55,6 @@ source_paths:
   - "src/learnloop/diagnosis/probes.py"
   - "src/learnloop/diagnosis/quick_check.py"
   - "src/learnloop/diagnosis/remediation.py"
-  - "src/learnloop/diagnosis/remediation_intake.py"
   - "src/learnloop/diagnosis/repair_splice.py"
   - "src/learnloop/diagnosis/robust_composition.py"
   - "src/learnloop/diagnosis/scoreboard.py"
@@ -108,7 +106,6 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]] | [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector#^module-purpose|purpose]] | `EVALUATION` | 3 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/causal_factor_deferral|learnloop.diagnosis.causal_factor_deferral]] | [[Reference/Modules/learnloop/diagnosis/causal_factor_deferral#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/causal_health|learnloop.diagnosis.causal_health]] | [[Reference/Modules/learnloop/diagnosis/causal_health#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/diagnosis/causal_migration|learnloop.diagnosis.causal_migration]] | [[Reference/Modules/learnloop/diagnosis/causal_migration#^module-purpose|purpose]] | `ACTIVE` | 0 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] | [[Reference/Modules/learnloop/diagnosis/causal_orchestrator#^module-purpose|purpose]] | `ACTIVE` | 9 | 24 |
 | [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] | [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence#^module-purpose|purpose]] | `ACTIVE` | 15 | 17 |
 | [[Reference/Modules/learnloop/diagnosis/causal_probe_commissioning|learnloop.diagnosis.causal_probe_commissioning]] | [[Reference/Modules/learnloop/diagnosis/causal_probe_commissioning#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
@@ -123,7 +120,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/discrimination_profiles|learnloop.diagnosis.discrimination_profiles]] | [[Reference/Modules/learnloop/diagnosis/discrimination_profiles#^module-purpose|purpose]] | `ACTIVE` | 6 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/error_hunt|learnloop.diagnosis.error_hunt]] | [[Reference/Modules/learnloop/diagnosis/error_hunt#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/error_taxonomy|learnloop.diagnosis.error_taxonomy]] | [[Reference/Modules/learnloop/diagnosis/error_taxonomy#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/diagnosis/error_taxonomy_map|learnloop.diagnosis.error_taxonomy_map]] | [[Reference/Modules/learnloop/diagnosis/error_taxonomy_map#^module-purpose|purpose]] | `ACTIVE` | 9 | 3 |
+| [[Reference/Modules/learnloop/diagnosis/error_taxonomy_map|learnloop.diagnosis.error_taxonomy_map]] | [[Reference/Modules/learnloop/diagnosis/error_taxonomy_map#^module-purpose|purpose]] | `ACTIVE` | 8 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/failure_triage|learnloop.diagnosis.failure_triage]] | [[Reference/Modules/learnloop/diagnosis/failure_triage#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
 | [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] | [[Reference/Modules/learnloop/diagnosis/followups#^module-purpose|purpose]] | `ACTIVE` | 10 | 26 |
 | [[Reference/Modules/learnloop/diagnosis/forecast_receipts|learnloop.diagnosis.forecast_receipts]] | [[Reference/Modules/learnloop/diagnosis/forecast_receipts#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
@@ -139,7 +136,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] | [[Reference/Modules/learnloop/diagnosis/probe_blocks#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/probe_coverage|learnloop.diagnosis.probe_coverage]] | [[Reference/Modules/learnloop/diagnosis/probe_coverage#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]] | [[Reference/Modules/learnloop/diagnosis/probe_dialogue#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
-| [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] | [[Reference/Modules/learnloop/diagnosis/probe_episodes#^module-purpose|purpose]] | `ACTIVE` | 22 | 60 |
+| [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] | [[Reference/Modules/learnloop/diagnosis/probe_episodes#^module-purpose|purpose]] | `ACTIVE` | 21 | 60 |
 | [[Reference/Modules/learnloop/diagnosis/probe_families|learnloop.diagnosis.probe_families]] | [[Reference/Modules/learnloop/diagnosis/probe_families#^module-purpose|purpose]] | `ACTIVE` | 17 | 23 |
 | [[Reference/Modules/learnloop/diagnosis/probe_hypotheses|learnloop.diagnosis.probe_hypotheses]] | [[Reference/Modules/learnloop/diagnosis/probe_hypotheses#^module-purpose|purpose]] | `ACTIVE` | 14 | 10 |
 | [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] | [[Reference/Modules/learnloop/diagnosis/probe_instance_generation#^module-purpose|purpose]] | `ACTIVE` | 11 | 9 |
@@ -148,12 +145,11 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/probe_remint|learnloop.diagnosis.probe_remint]] | [[Reference/Modules/learnloop/diagnosis/probe_remint#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] | [[Reference/Modules/learnloop/diagnosis/probe_robust#^module-purpose|purpose]] | `ACTIVE` | 5 | 5 |
 | [[Reference/Modules/learnloop/diagnosis/probe_targeting|learnloop.diagnosis.probe_targeting]] | [[Reference/Modules/learnloop/diagnosis/probe_targeting#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
-| [[Reference/Modules/learnloop/diagnosis/probes|learnloop.diagnosis.probes]] | [[Reference/Modules/learnloop/diagnosis/probes#^module-purpose|purpose]] | `ACTIVE` | 16 | 16 |
+| [[Reference/Modules/learnloop/diagnosis/probes|learnloop.diagnosis.probes]] | [[Reference/Modules/learnloop/diagnosis/probes#^module-purpose|purpose]] | `ACTIVE` | 16 | 15 |
 | [[Reference/Modules/learnloop/diagnosis/quick_check|learnloop.diagnosis.quick_check]] | [[Reference/Modules/learnloop/diagnosis/quick_check#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] | [[Reference/Modules/learnloop/diagnosis/remediation#^module-purpose|purpose]] | `ACTIVE` | 15 | 28 |
-| [[Reference/Modules/learnloop/diagnosis/remediation_intake|learnloop.diagnosis.remediation_intake]] | [[Reference/Modules/learnloop/diagnosis/remediation_intake#^module-purpose|purpose]] | `ACTIVE` | 0 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/repair_splice|learnloop.diagnosis.repair_splice]] | [[Reference/Modules/learnloop/diagnosis/repair_splice#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/diagnosis/robust_composition|learnloop.diagnosis.robust_composition]] | [[Reference/Modules/learnloop/diagnosis/robust_composition#^module-purpose|purpose]] | `ACTIVE` | 15 | 13 |
+| [[Reference/Modules/learnloop/diagnosis/robust_composition|learnloop.diagnosis.robust_composition]] | [[Reference/Modules/learnloop/diagnosis/robust_composition#^module-purpose|purpose]] | `ACTIVE` | 14 | 12 |
 | [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]] | [[Reference/Modules/learnloop/diagnosis/scoreboard#^module-purpose|purpose]] | `ACTIVE` | 7 | 5 |
 | [[Reference/Modules/learnloop/diagnosis/signal_quantiles|learnloop.diagnosis.signal_quantiles]] | [[Reference/Modules/learnloop/diagnosis/signal_quantiles#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/taxonomy_regrade|learnloop.diagnosis.taxonomy_regrade]] | [[Reference/Modules/learnloop/diagnosis/taxonomy_regrade#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
@@ -171,9 +167,9 @@ For system intent, use [[Learning System]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 80 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 79 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 52 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 50 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 48 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 26 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 22 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 20 static module edges
@@ -211,7 +207,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 9 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 9 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 8 static module edges
-- [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 7 static module edges
+- [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 6 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 5 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 5 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 5 static module edges
@@ -249,9 +245,9 @@ flowchart LR
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_followup_run["learnloop.followup_run"]
-    center -->|80| n_learnloop
+    center -->|79| n_learnloop
     center -->|52| n_learnloop_vault
-    center -->|50| n_learnloop_db
+    center -->|48| n_learnloop_db
     n_learnloop_attempts -->|20| center
     center -->|26| n_learnloop_attempts
     n_learnloop_sidecar_handlers -->|31| center

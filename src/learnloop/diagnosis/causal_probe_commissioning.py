@@ -757,38 +757,3 @@ def _support_scores(
         str(key): (float(value) if isinstance(value, (int, float)) else None)
         for key, value in scores.items()
     }
-
-
-def sweep_probe_commissioning(
-    vault: LoadedVault,
-    repository: Repository,
-    *,
-    learning_object_id: str,
-    limit: int = 4,
-    clock: Clock | None = None,
-    **kwargs: Any,
-) -> list[dict[str, Any]]:
-    """Commission instruments for this learning object's divergent factors.
-
-    Bounded by ``limit`` because commissioning is not free even model-free (it
-    writes bundles and locks a hypothesis set per factor), and an unbounded sweep
-    on a busy learning object would do that work for factors nobody will probe.
-    The bound is reported by the caller rather than hidden: a factor left
-    uncommissioned this pass is picked up on the next.
-    """
-
-    results: list[dict[str, Any]] = []
-    for factor in repository.open_unresolved_cause_factors(
-        learning_object_id=learning_object_id
-    ):
-        if len(results) >= max(0, limit):
-            break
-        result = commission_probe_instrument(
-            vault,
-            repository,
-            factor_id=str(factor["id"]),
-            clock=clock,
-            **kwargs,
-        )
-        results.append({"factor_id": str(factor["id"]), **result})
-    return results

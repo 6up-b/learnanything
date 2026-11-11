@@ -342,17 +342,13 @@ def _eig_item() -> PracticeItem:
 
 
 def test_difficulty_source_is_excluded_from_content_hash():
-    from learnloop.vault.hashes import learning_object_hash, practice_item_hash
+    from learnloop.vault.hashes import practice_item_hash
 
     pi = _pi(difficulty=0.6).model_copy(update={"difficulty_source": "llm_estimate"})
     pi_other_source = pi.model_copy(update={"difficulty_source": "author"})
     pi_other_difficulty = pi.model_copy(update={"difficulty": 0.7})
     assert practice_item_hash(pi) == practice_item_hash(pi_other_source)
     assert practice_item_hash(pi) != practice_item_hash(pi_other_difficulty)
-
-    lo = _lo(difficulty_prior=0.6).model_copy(update={"difficulty_source": "llm_estimate"})
-    lo_other_source = lo.model_copy(update={"difficulty_source": "author"})
-    assert learning_object_hash(lo) == learning_object_hash(lo_other_source)
 
 
 def test_difficulty_source_round_trips_through_the_writer(tmp_path):

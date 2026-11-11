@@ -317,7 +317,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_plan_first_transport_today_quiet.py](../../../../../../tests/test_plan_first_transport_today_quiet.py) — direct import
 - [tests/test_post_attempt_pipeline.py](../../../../../../tests/test_post_attempt_pipeline.py) — direct import
 - [tests/test_probe_audit.py](../../../../../../tests/test_probe_audit.py) — direct import
-- [tests/test_probe_eig.py](../../../../../../tests/test_probe_eig.py) — direct import
 - [tests/test_probe_instance_generation.py](../../../../../../tests/test_probe_instance_generation.py) — direct import
 - [tests/test_probe_llm_instances.py](../../../../../../tests/test_probe_llm_instances.py) — direct import
 - [tests/test_probe_longform_families.py](../../../../../../tests/test_probe_longform_families.py) — direct import

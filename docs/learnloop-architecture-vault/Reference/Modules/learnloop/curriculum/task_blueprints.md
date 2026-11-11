@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/curriculum/task_blueprints.py](../../../../../../src/learnloop/curriculum/task_blueprints.py) |
-| Source lines | 297 |
+| Source lines | 252 |
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -54,15 +54,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ## Public API
 
 - `class InvalidBlueprint(Exception)` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 33) — A blueprint spec violates the one-chapter/one-family invariant or references a capability outside the closed P1 vocabulary (§1.2 invariant 1, §12.1).
-- `class ExemplarCandidate` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 39) — A source object / inventory exercise proposed as a target exemplar (§3.1).
-  - `as_dict(self) -> dict[str, Any]` (line 51; public)
-- `class BlueprintVersion` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 56) — A registered/reviewed/active immutable blueprint version.
-  - `as_dict(self) -> dict[str, Any]` (line 69; public)
-- `validate_single_unit(spec: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 77) — Reject a mixed-unit or multi-family blueprint before it can validate (§12.1).
-- `register_blueprint_version(repository: Repository, *, blueprint_slug: str, spec: Mapping[str, Any], authoring_version: str='stub-1', model_version: str | None=None, provenance_version: str='owner-review-1', author: str='owner', clock: Clock | None=None) -> BlueprintVersion` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 170) — Register an immutable content-addressed draft blueprint version (§3.2).
-- `review_blueprint_version(repository: Repository, *, blueprint_version_id: str, checks: Mapping[str, Any] | None=None, author: str='owner', clock: Clock | None=None) -> BlueprintVersion` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 211) — Owner marks the version reviewed (§3.2 seven checks captured as the artifact).
-- `activate_blueprint_version(repository: Repository, *, blueprint_version_id: str, author: str='owner', clock: Clock | None=None) -> BlueprintVersion` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 232) — Activate a reviewed version.
-- `place_reading_question(repository: Repository, *, blueprint_version_id: str, placement: Mapping[str, Any], author: str='owner', clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 259) — Record an owner-placed reading question at a section boundary as a blueprint review artifact (§7.6, U-033).
+- `class BlueprintVersion` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 39) — A registered/reviewed/active immutable blueprint version.
+  - `as_dict(self) -> dict[str, Any]` (line 52; public)
+- `validate_single_unit(spec: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 60) — Reject a mixed-unit or multi-family blueprint before it can validate (§12.1).
+- `register_blueprint_version(repository: Repository, *, blueprint_slug: str, spec: Mapping[str, Any], authoring_version: str='stub-1', model_version: str | None=None, provenance_version: str='owner-review-1', author: str='owner', clock: Clock | None=None) -> BlueprintVersion` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 125) — Register an immutable content-addressed draft blueprint version (§3.2).
+- `review_blueprint_version(repository: Repository, *, blueprint_version_id: str, checks: Mapping[str, Any] | None=None, author: str='owner', clock: Clock | None=None) -> BlueprintVersion` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 166) — Owner marks the version reviewed (§3.2 seven checks captured as the artifact).
+- `activate_blueprint_version(repository: Repository, *, blueprint_version_id: str, author: str='owner', clock: Clock | None=None) -> BlueprintVersion` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 187) — Activate a reviewed version.
+- `place_reading_question(repository: Repository, *, blueprint_version_id: str, placement: Mapping[str, Any], author: str='owner', clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 214) — Record an owner-placed reading question at a section boundary as a blueprint review artifact (§7.6, U-033).
 
 ### Module constants
 
@@ -71,9 +69,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_canonicalize_spec(spec: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 114)
-- `_exemplar_rows(spec: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 120)
-- `_load_version(repository: Repository, version_id: str, *, minted: bool=True) -> BlueprintVersion` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 280)
+- `_canonicalize_spec(spec: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 97)
+- `_exemplar_rows(spec: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 103)
+- `_load_version(repository: Repository, version_id: str, *, minted: bool=True) -> BlueprintVersion` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 235)
 
 ## Who imports or calls it
 

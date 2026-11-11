@@ -78,7 +78,7 @@ from typing import Any, Mapping, TYPE_CHECKING
 
 from learnloop.causal_activity_policy import (
     CAUSAL_ACTIVITY_POLICY_VERSION,
-    CONTAMINATION_CLASSES,
+    CONTAMINATION_CLASSES,  # noqa: F401 -- re-exported beside the precedence that orders it
     CONTAMINATION_PRECEDENCE,
     CausalActivityPolicy,
     policy_for_class,
@@ -303,22 +303,6 @@ def _resolve_attempt_activity_policy(
             inferred.counts_as_assisted or stored.counts_as_assisted
         ),
         policy_version=CAUSAL_ACTIVITY_POLICY_VERSION,
-    )
-
-
-def resolve_conflicting_classes(existing: str, incoming: str) -> str:
-    """Most-contaminated wins. Never raises on a legitimate conflict.
-
-    An unknown class still raises — that is a programming error, not a race
-    between two honest writers.
-    """
-
-    if existing not in CONTAMINATION_CLASSES:
-        raise ValueError(f"unknown contamination class {existing!r}")
-    if incoming not in CONTAMINATION_CLASSES:
-        raise ValueError(f"unknown contamination class {incoming!r}")
-    return min(
-        (existing, incoming), key=lambda value: CONTAMINATION_PRECEDENCE.index(value)
     )
 
 

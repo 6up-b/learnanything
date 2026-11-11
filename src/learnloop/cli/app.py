@@ -4185,19 +4185,6 @@ def today(
 
     launch_tui(_root(vault))
 
-def eval_command(
-    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
-    section: Annotated[
-        str, typer.Option("--section", help="predictions|coverage|gates|retention|propensity|all")
-    ] = "all",
-    bins: Annotated[int, typer.Option("--bins", help="Calibration bin count.")] = 10,
-    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
-) -> None:
-    """Legacy callable for the `learnloop eval` group callback (cli.evaluation)."""
-
-    from learnloop.cli.field import field_eval
-
-    field_eval(vault=_root(vault), section=section, bins=bins, json_output=json_output)
 
 @app.command("exam-calibration")
 def exam_calibration_command(

@@ -262,15 +262,6 @@ def build_inventory_windows(
     ]
 
 
-def _unit_heading(unit, blocks) -> str:
-    for block in blocks:
-        if block.block_type in {"heading", "title", "section_header"} or block.role_hint in {"heading", "title"}:
-            text = (block.text or "").strip()
-            if text:
-                return text
-    return unit.label or unit.unit_id
-
-
 def _content_hash(*parts: Any) -> str:
     joined = "␟".join(_stringify(part) for part in parts)
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()[:12]

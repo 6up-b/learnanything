@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/diagnostic_pack.py](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py) |
-| Source lines | 540 |
+| Source lines | 501 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -62,28 +62,26 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `pack_content_hash(*, pack_slug: str, blueprint_version_id: str, cards: Sequence[Mapping[str, Any]]) -> str` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 92) — The timestamp/id-independent content identity of a pack (§12.8 determinism).
 - `assemble_pack(repository: Repository, *, pack_slug: str, blueprint_version_id: str, cards: Sequence[Mapping[str, Any]], clock: Clock | None=None) -> PackRecord` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 122) — Assemble a diagnostic pack from admitted-candidate diagnostic-purpose cards for a reviewed blueprint version (§5.1).
 - `admit_pack_card(repository: Repository, *, pack_id: str, card_slug: str, checks: Mapping[str, Any] | None=None, author: str='owner', clock: Clock | None=None) -> PackRecord` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 162) — Owner admits one reviewed card into the pack (U-028).
-- `reject_pack_card(repository: Repository, *, pack_id: str, card_slug: str, reason: str, author: str='owner', clock: Clock | None=None) -> PackRecord` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 184)
-- `review_pack(repository: Repository, *, pack_id: str, checks: Mapping[str, Any] | None=None, author: str='owner', clock: Clock | None=None) -> PackRecord` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 204) — Owner marks the pack reviewed once every card is admitted (§5.1).
-- `activate_pack(repository: Repository, *, pack_id: str, author: str='owner', clock: Clock | None=None) -> PackRecord` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 228)
-- `clamp_visible_cap(requested: int | None=None) -> int` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 251)
-- `pin_pack_to_run(repository: Repository, *, run_id: str, pack_id: str, goal_contract_version_id: str | None=None, visible_cap: int | None=None, probe_episode_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 258) — Pin exactly one reviewed pack to the run at diagnostic entry (§5.2).
-- `enter_baseline(vault: Any, repository: Repository, *, run_id: str, learning_object_id: str, pack_id: str, visible_cap: int | None=None, clock: Clock | None=None, ai_client: object | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 292) — Open one bounded diagnostic episode for the run and pin the pack (§5.2).
-- `boundary_view(repository: Repository, *, run_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 462) — Render only the facet x capability cells relevant to the target blueprint (§5.3), projected over the pinned baseline episode's P0/P1 evidence.
-- `snapshot_baseline_boundary(repository: Repository, *, run_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 493) — Persist the baseline boundary view as a run artifact at diagnostic-segment close (§5.3 / §8.4).
+- `review_pack(repository: Repository, *, pack_id: str, checks: Mapping[str, Any] | None=None, author: str='owner', clock: Clock | None=None) -> PackRecord` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 184) — Owner marks the pack reviewed once every card is admitted (§5.1).
+- `clamp_visible_cap(requested: int | None=None) -> int` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 212)
+- `pin_pack_to_run(repository: Repository, *, run_id: str, pack_id: str, goal_contract_version_id: str | None=None, visible_cap: int | None=None, probe_episode_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 219) — Pin exactly one reviewed pack to the run at diagnostic entry (§5.2).
+- `enter_baseline(vault: Any, repository: Repository, *, run_id: str, learning_object_id: str, pack_id: str, visible_cap: int | None=None, clock: Clock | None=None, ai_client: object | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 253) — Open one bounded diagnostic episode for the run and pin the pack (§5.2).
+- `boundary_view(repository: Repository, *, run_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 423) — Render only the facet x capability cells relevant to the target blueprint (§5.3), projected over the pinned baseline episode's P0/P1 evidence.
+- `snapshot_baseline_boundary(repository: Repository, *, run_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 454) — Persist the baseline boundary view as a run artifact at diagnostic-segment close (§5.3 / §8.4).
 
 ### Module constants
 
 - `PACK_SPEC_SCHEMA_VERSION` ([src/learnloop/diagnosis/diagnostic_pack.py](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 28)
 - `BASELINE_VISIBLE_CAP` ([src/learnloop/diagnosis/diagnostic_pack.py](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 33)
-- `BOUNDARY_CELL_STATES` ([src/learnloop/diagnosis/diagnostic_pack.py](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 343)
+- `BOUNDARY_CELL_STATES` ([src/learnloop/diagnosis/diagnostic_pack.py](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 304)
 
 ## Internal implementation anchors
 
 - `_canonical_cards(cards: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 78)
 - `_reject_unstable_repair(card: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 107) — §5.1 admission gate: reject a card whose recommended repair is unstable under plausible grader/likelihood perturbations unless it carries a disclosure/abstention path.
-- `_recipe_cells(spec: Mapping[str, Any]) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 348) — The ordered, de-duplicated (facet, capability) cells of the blueprint's solution recipes (§5.3).
-- `_baseline_evidence_projection(repository: Repository, run: Mapping[str, Any], spec: Mapping[str, Any]) -> dict[tuple[str, str], dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 372) — Project the pinned baseline episode's observations onto the recipe cells (§5.3).
-- `_load_pack(repository: Repository, pack_id: str, *, minted: bool=True) -> PackRecord` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 517)
+- `_recipe_cells(spec: Mapping[str, Any]) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 309) — The ordered, de-duplicated (facet, capability) cells of the blueprint's solution recipes (§5.3).
+- `_baseline_evidence_projection(repository: Repository, run: Mapping[str, Any], spec: Mapping[str, Any]) -> dict[tuple[str, str], dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 333) — Project the pinned baseline episode's observations onto the recipe cells (§5.3).
+- `_load_pack(repository: Repository, pack_id: str, *, minted: bool=True) -> PackRecord` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 478)
 
 ## Who imports or calls it
 

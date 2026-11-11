@@ -20,7 +20,6 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections import Counter
 from typing import Any, Iterable, Mapping
 
 from learnloop.ingest.ir import DocumentBlock, DocumentIR
@@ -174,7 +173,3 @@ def semantic_hash(blocks: Iterable[DocumentBlock]) -> str:
     """Per-unit semantic hash over the normalized text view (§2.2)."""
 
     return _sha256(normalize_semantic_text(blocks))
-
-
-def block_type_histogram(blocks: Iterable[DocumentBlock]) -> dict[str, int]:
-    return dict(Counter(block.block_type for block in blocks))

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/capability_mapping.py](../../../../../../src/learnloop/learner/capability_mapping.py) |
-| Source lines | 357 |
+| Source lines | 337 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -66,8 +66,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `certification_credit(pseudo_mass: float, *, relationship: str, assistance: str) -> float` ([source](../../../../../../src/learnloop/learner/capability_mapping.py), line 246) — Credit for one observation = its pseudo-mass iff direct/embedded and unassisted; zero otherwise (§5.4 quantity 2).
 - `group_budget(attempt_type: str, correlation_group: str | None, *, evidence_mass: float, overrides: Mapping[str, float] | None=None) -> float` ([source](../../../../../../src/learnloop/learner/capability_mapping.py), line 268) — Per-(attempt_type, correlation-group) certification budget (§5.4 q.3).
 - `cap_certification_by_group(credits_by_group: Mapping[str, float], *, attempt_type: str, evidence_mass: float, overrides: Mapping[str, float] | None=None, max_groups_per_attempt: int) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/capability_mapping.py), line 291) — Apply the per-group cap and the attempt-wide ceiling (§5.4 q.3/q.4).
-- `group_proliferation_flag(group_variation_counts: Mapping[str, int], *, min_independent_variations: int=2) -> list[str]` ([source](../../../../../../src/learnloop/learner/capability_mapping.py), line 321) — Correlation groups whose observations never vary independently (§5.4).
-- `unregistered_facet_errors(known_facets: Mapping[str, object] | set[str], facet_ids) -> list[str]` ([source](../../../../../../src/learnloop/learner/capability_mapping.py), line 341) — Facet ids in ``facet_ids`` that are not registered (item gate, §3.2).
+- `unregistered_facet_errors(known_facets: Mapping[str, object] | set[str], facet_ids) -> list[str]` ([source](../../../../../../src/learnloop/learner/capability_mapping.py), line 321) — Facet ids in ``facet_ids`` that are not registered (item gate, §3.2).
 
 ### Module constants
 
@@ -150,7 +149,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_certification_bounded_per_correlation_group`
   - `test_dependency_branch_failure_preserves_independent_work`
   - `test_group_budget_override`
-  - `test_group_proliferation_flag`
   - `test_retrieval_evidence_cannot_certify_method_selection`
   - `test_rich_response_earns_several_group_budgets_capped_by_ceiling`
   - `test_whole_item_failure_localizes_to_first_error_only`

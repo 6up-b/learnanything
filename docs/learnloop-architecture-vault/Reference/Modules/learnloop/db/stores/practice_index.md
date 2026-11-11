@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/practice_index.py](../../../../../../../src/learnloop/db/stores/practice_index.py) |
-| Source lines | 381 |
+| Source lines | 375 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -61,22 +61,21 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `dossier_exists(connection: sqlite3.Connection, *, facet_id: str, facet_content_hash: str, source_hash: str, model_id: str, prompt_version: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 49)
 - `insert_dossier(connection: sqlite3.Connection, *, id: str, facet_id: str, facet_content_hash: str, source_hash: str, model_id: str, prompt_version: str, scope: str, moves: str, errors: str, contrast: str, draft: Mapping[str, Any], grounding: Mapping[str, Any], input_hash: str, provider: str | None, billing: str, run_id: str, created_at: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 60) — Insert once per key, preserving the first paid result.
 - `dossier_candidates(connection: sqlite3.Connection, facet_hashes: Mapping[str, str]) -> dict[str, list[DossierRow]]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 80) — Every dossier written for each facet's CURRENT content, oldest first.
-- `dossier_count(connection: sqlite3.Connection) -> int` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 101)
-- `insert_proposal(connection: sqlite3.Connection, *, id: str, created_at: str, origin: str, query_id: str, query_text: str, constraints: Mapping[str, Any], path: str, path_reason: str, signals: Mapping[str, Any], reranked: bool, rerank_status: str, rerank_model: str | None, proposed: list[Mapping[str, Any]], exclusions: Mapping[str, Any], manifest: Mapping[str, Any], algorithm_version: str, caller: str | None=None, caller_ref: str | None=None, intent: str | None=None, valuation: Mapping[str, Any] | None=None, provisional: Mapping[str, Any] | None=None) -> None` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 110) — One receipt per call.
-- `proposal(connection: sqlite3.Connection, proposal_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 164)
-- `proposals(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 173)
-- `eval_queries(connection: sqlite3.Connection, prompt_versions: Collection[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 184)
-- `insert_eval_query(connection: sqlite3.Connection, *, id: str, query_text: str, seed_kind: str, seed_id: str, model_id: str | None, prompt_version: str, input_hash: str, run_id: str | None, created_at: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 196)
-- `insert_evaluation(connection: sqlite3.Connection, *, id: str, created_at: str, winner: str, reason: str, manifest_hash: str, manifest: Mapping[str, Any], metrics: Mapping[str, Any], run_id: str) -> None` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 210)
-- `latest_evaluation(connection: sqlite3.Connection, manifest_hash: str | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 222) — The newest evaluation, optionally only one made on this manifest.
-- `checkpointed_keys(connection: sqlite3.Connection, keys: Collection[str]) -> set[str]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 243) — Which of these request identities already have a checkpointed answer.
-- `checkpoints_for_purpose(connection: sqlite3.Connection, *, prefix: str, purpose: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 258) — Checkpointed answers of one paid role, oldest first (crash recovery).
-- `completed_root_receipts(connection: sqlite3.Connection, *, purpose: str, prompt_hash: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 270) — Completed root receipts of one paid role that kept their answer, newest first.
-- `judgments_by_ids(connection: sqlite3.Connection, ids: Collection[str]) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 308)
-- `judgments_for_task(connection: sqlite3.Connection, task: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 324)
-- `attempts_after(connection: sqlite3.Connection, *, practice_item_ids: Collection[str], since: str, until: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 332) — Attempts on these items in [since, until], oldest first (usage join).
-- `items_revealed_between(connection: sqlite3.Connection, *, since: str, until: str, exclude_ids: Iterable[str] | None=None) -> set[str]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 346) — Items whose answer the reveal ledger recorded in (since, until]; a routine full-answer display by its coverage instead: from the renewal grace before ``since``, and also when stamped after ``until`` (the clock went back), ``learnloop.reveal_coverage`` (UX Phase 4 round 4).
-- `stored_vector_hashes(connection: sqlite3.Connection, *, record_kind: str, field: str, model_id: str, task_prefix: str) -> dict[str, set[str]]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 369) — Content hashes stored per record for one recipe view (completeness checks).
+- `insert_proposal(connection: sqlite3.Connection, *, id: str, created_at: str, origin: str, query_id: str, query_text: str, constraints: Mapping[str, Any], path: str, path_reason: str, signals: Mapping[str, Any], reranked: bool, rerank_status: str, rerank_model: str | None, proposed: list[Mapping[str, Any]], exclusions: Mapping[str, Any], manifest: Mapping[str, Any], algorithm_version: str, caller: str | None=None, caller_ref: str | None=None, intent: str | None=None, valuation: Mapping[str, Any] | None=None, provisional: Mapping[str, Any] | None=None) -> None` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 104) — One receipt per call.
+- `proposal(connection: sqlite3.Connection, proposal_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 158)
+- `proposals(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 167)
+- `eval_queries(connection: sqlite3.Connection, prompt_versions: Collection[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 178)
+- `insert_eval_query(connection: sqlite3.Connection, *, id: str, query_text: str, seed_kind: str, seed_id: str, model_id: str | None, prompt_version: str, input_hash: str, run_id: str | None, created_at: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 190)
+- `insert_evaluation(connection: sqlite3.Connection, *, id: str, created_at: str, winner: str, reason: str, manifest_hash: str, manifest: Mapping[str, Any], metrics: Mapping[str, Any], run_id: str) -> None` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 204)
+- `latest_evaluation(connection: sqlite3.Connection, manifest_hash: str | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 216) — The newest evaluation, optionally only one made on this manifest.
+- `checkpointed_keys(connection: sqlite3.Connection, keys: Collection[str]) -> set[str]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 237) — Which of these request identities already have a checkpointed answer.
+- `checkpoints_for_purpose(connection: sqlite3.Connection, *, prefix: str, purpose: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 252) — Checkpointed answers of one paid role, oldest first (crash recovery).
+- `completed_root_receipts(connection: sqlite3.Connection, *, purpose: str, prompt_hash: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 264) — Completed root receipts of one paid role that kept their answer, newest first.
+- `judgments_by_ids(connection: sqlite3.Connection, ids: Collection[str]) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 302)
+- `judgments_for_task(connection: sqlite3.Connection, task: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 318)
+- `attempts_after(connection: sqlite3.Connection, *, practice_item_ids: Collection[str], since: str, until: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 326) — Attempts on these items in [since, until], oldest first (usage join).
+- `items_revealed_between(connection: sqlite3.Connection, *, since: str, until: str, exclude_ids: Iterable[str] | None=None) -> set[str]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 340) — Items whose answer the reveal ledger recorded in (since, until]; a routine full-answer display by its coverage instead: from the renewal grace before ``since``, and also when stamped after ``until`` (the clock went back), ``learnloop.reveal_coverage`` (UX Phase 4 round 4).
+- `stored_vector_hashes(connection: sqlite3.Connection, *, record_kind: str, field: str, model_id: str, task_prefix: str) -> dict[str, set[str]]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 363) — Content hashes stored per record for one recipe view (completeness checks).
 
 ### Module constants
 
@@ -84,7 +83,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ## Internal implementation anchors
 
-- `_proposal(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 151)
+- `_proposal(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/db/stores/practice_index.py), line 145)
 
 ## Who imports or calls it
 

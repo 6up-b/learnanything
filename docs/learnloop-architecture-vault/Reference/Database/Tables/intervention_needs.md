@@ -22,7 +22,7 @@ source_paths:
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/proposals/proposals.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/diagnosis/causal_migration.py"
+  - "src/learnloop/diagnosis/followups.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -109,7 +109,6 @@ Indexes and uniqueness:
 - `src/learnloop/content/authoring/practice_generation.py`
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
-- `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/followup_run/jobs.py`
 - `src/learnloop/instructional/needs.py`

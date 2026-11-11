@@ -20,7 +20,6 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/goals/exam_session.py"
-  - "src/learnloop/learner/recall_coverage.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
 tags:
@@ -94,7 +93,6 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/goals/exam_session.py`
-- `src/learnloop/learner/recall_coverage.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/substrate/replay.py`

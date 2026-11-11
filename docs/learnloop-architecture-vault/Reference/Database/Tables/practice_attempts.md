@@ -139,7 +139,6 @@ Indexes and uniqueness:
 - `Repository.clean_attempt_ids_since()`
 - `Repository.count_attempts_with_error_type()`
 - `Repository.count_clean_attempts_since()`
-- `Repository.daily_attempt_counts()`
 - `Repository.daily_qualifying_attempt_counts_for_learning_objects()`
 - `Repository.end_open_sessions_except()`
 - `Repository.fetch_practice_attempt()`

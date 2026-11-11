@@ -28,7 +28,7 @@ runs the sweep to obtain one.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -355,40 +355,3 @@ def _loads(value: str) -> Any:
     import json
 
     return json.loads(value)
-
-
-@dataclass
-class DeletionCandidateReport:
-    deletion_candidates: list[str] = field(default_factory=list)
-    dormant_constraints: list[str] = field(default_factory=list)
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "deletion_candidates": self.deletion_candidates,
-            "dormant_constraints": self.dormant_constraints,
-        }
-
-
-def classify_inert_parameters(paths_stable: Mapping[str, bool]) -> DeletionCandidateReport:
-    """Class-asymmetric disposition of sweep-proven-inert parameters (§6/design §3).
-
-    ``paths_stable`` maps a registered path -> whether a certificate proved it
-    ``decision_stable`` across its whole plausible range. An inert *shaping weight*
-    is a deletion candidate (needs a redundancy proof before actual deletion); an
-    inert *constraint* defaults to dormant-with-monitoring (it may bind under a
-    distribution shift)."""
-
-    from learnloop.params.parameter_registry import REGISTRY
-
-    report = DeletionCandidateReport()
-    for path, stable in paths_stable.items():
-        if not stable:
-            continue
-        spec = REGISTRY.get(path)
-        if spec is None:
-            continue
-        if spec.param_class == "shaping_weight":
-            report.deletion_candidates.append(path)
-        elif spec.param_class == "constraint":
-            report.dormant_constraints.append(path)
-    return report

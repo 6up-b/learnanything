@@ -1,12 +1,10 @@
-"""B2: misconception transition events make relapse durable, and the three-way
-remediation intake never mints a repair case from a one-off mechanism event."""
+"""B2: misconception transition events make relapse durable."""
 
 from __future__ import annotations
 
 from learnloop.clock import FrozenClock
-from learnloop.db.repositories import MisconceptionRecord, Repository
+from learnloop.db.repositories import Repository
 from learnloop.diagnosis.remediation import misconception_status_history
-from learnloop.diagnosis.remediation_intake import classify_intake
 
 from tests.helpers import NOW, create_basic_vault
 
@@ -67,67 +65,3 @@ def test_status_noop_update_emits_no_transition_event(tmp_path):
     repository.update_misconception(misconception_id, severity=0.9, clock=FrozenClock(NOW))
     events = repository.misconception_transition_events(misconception_id)
     assert [event["to_status"] for event in events] == ["active"]
-
-
-# -- Three-way intake (spec §3) -----------------------------------------------
-
-
-def _record(status: str) -> MisconceptionRecord:
-    return MisconceptionRecord(
-        id="m1",
-        learning_object_id=LO_ID,
-        concept_id=None,
-        statement="Confuses SVD with eigendecomposition.",
-        signature=None,
-        facet_ids=["recall"],
-        severity=0.8,
-        status=status,
-        source_error_event_ids=[],
-        created_at="2026-05-19T12:00:00Z",
-        updated_at="2026-05-19T12:00:00Z",
-        resolved_at=None,
-    )
-
-
-def test_repair_requires_a_durable_active_or_resolving_registry_row():
-    assert classify_intake(misconception=_record("active")) == "repair"
-    assert classify_intake(misconception=_record("resolving")) == "repair"
-    # A resolved row is not an open case.
-    assert classify_intake(misconception=_record("resolved")) != "repair"
-
-
-def test_lone_misconception_mechanism_event_is_not_a_repair_case():
-    # is_misconception=true on one graded error is promotion evidence, not a
-    # committed statement-pair case (spec §3 rule 1).
-    route = classify_intake(misconception=None, mechanism_is_misconception=True)
-    assert route == "diagnose"
-
-
-def test_unexamined_facet_with_no_exposure_routes_to_read_first():
-    route = classify_intake(
-        facet_state_label="unexamined",
-        has_source_exposure=False,
-        mechanism_is_misconception=True,
-    )
-    assert route == "read_first"
-    # Exposure exists: reading again is not the treatment.
-    assert (
-        classify_intake(facet_state_label="unexamined", has_source_exposure=True)
-        == "diagnose"
-    )
-
-
-def test_unresolved_cause_and_repeated_failure_route_to_diagnose():
-    assert classify_intake(unresolved_cause=True) == "diagnose"
-    assert classify_intake(repeated_failure_despite_coverage=True) == "diagnose"
-
-
-def test_durable_row_wins_over_every_other_signal():
-    route = classify_intake(
-        misconception=_record("active"),
-        facet_state_label="unexamined",
-        has_source_exposure=False,
-        unresolved_cause=True,
-        repeated_failure_despite_coverage=True,
-    )
-    assert route == "repair"

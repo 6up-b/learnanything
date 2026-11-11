@@ -115,19 +115,6 @@ def json_instructions(result_model: type[BaseModel]) -> str:
             f"against this JSON Schema: {schema}")
 
 
-def extract_json(text: str) -> str:
-    """The JSON object in a text answer (a stray code fence tolerated)."""
-
-    stripped = text.strip()
-    if stripped.startswith("```"):
-        stripped = stripped.strip("`")
-        stripped = stripped[stripped.find("{"):] if "{" in stripped else stripped
-    start, end = stripped.find("{"), stripped.rfind("}")
-    if start < 0 or end < start:
-        raise E0ProviderFailure("invalid_output", reason="no JSON object")
-    return stripped[start:end + 1]
-
-
 #: At most this many JSON objects are tried in one answer.
 MAX_CANDIDATES = 16
 

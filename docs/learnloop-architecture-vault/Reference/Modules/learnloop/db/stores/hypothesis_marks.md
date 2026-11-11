@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/hypothesis_marks.py](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py) |
-| Source lines | 190 |
+| Source lines | 185 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -63,12 +63,11 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `marks_for_learning_objects(connection: sqlite3.Connection, learning_object_ids: Iterable[str], *, before: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 118) — Every mark on these topics made before ``before``, oldest first.
 - `all_marks(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 132)
 - `all_exposures(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 136)
-- `exposures_for_attempt(connection: sqlite3.Connection, attempt_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 140)
-- `exposures_of_causes(connection: sqlite3.Connection, *, attempt_id: str, factor_id: str | None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 145) — Every display of this attempt's causes or this factor's, oldest first.
-- `probe_links(connection: sqlite3.Connection, attempt_id: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 155)
-- `latest_observation(connection: sqlite3.Connection, factor_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 162) — The newest answered observation of a factor (the discriminating-observation receipt), or None.
-- `attempt_of_item(connection: sqlite3.Connection, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 174) — The first answer to a (single-use) item, or None.
-- `decode_ids(value: Any) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 185)
+- `exposures_of_causes(connection: sqlite3.Connection, *, attempt_id: str, factor_id: str | None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 140) — Every display of this attempt's causes or this factor's, oldest first.
+- `probe_links(connection: sqlite3.Connection, attempt_id: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 150)
+- `latest_observation(connection: sqlite3.Connection, factor_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 157) — The newest answered observation of a factor (the discriminating-observation receipt), or None.
+- `attempt_of_item(connection: sqlite3.Connection, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 169) — The first answer to a (single-use) item, or None.
+- `decode_ids(value: Any) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 180)
 
 ### Module constants
 

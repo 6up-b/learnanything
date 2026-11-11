@@ -204,12 +204,6 @@ def can_authorize_semantic(role: str | None, *, manual_grant=None) -> bool:
     return role_authority(role, manual_grant=manual_grant).semantic_contract
 
 
-def can_authorize_assessment(role: str | None, *, manual_grant=None) -> bool:
-    """True iff this role may contribute assessment alignment (§4.2)."""
-
-    return role_authority(role, manual_grant=manual_grant).assessment_alignment
-
-
 # --- what counts as support for a semantic claim (one definition) ------------------
 #
 # Codex verification of F6 (2026-10-13): the gates and the facet-meaning

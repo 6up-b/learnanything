@@ -960,8 +960,8 @@ def _withholding_reads(ctx, repository) -> dict[str, object]:
 #: The entry-point packages (every RPC, MCP tool, mobile route and CLI command).
 _ENTRY_POINTS = ("learnloop_sidecar", "learnloop_mcp", "learnloop_mobile", "learnloop/cli")
 #: The repository's raw readers of source objects, their versions, citations and relations.
-_RAW_READERS = frozenset({"source_objects_for_source", "source_object_head", "relations_for_object",
-                          "source_object_relation", "withheld_source_objects"})
+_RAW_READERS = frozenset({"source_objects_for_source", "source_object_head", "source_object_relation",
+                          "withheld_source_objects"})
 _RAW_TABLES = re.compile(r"\b(source_objects|source_object_versions|source_object_citations|source_object_relations)\b")
 #: The guarded service call (the vault's protection context first).
 _GUARDED = "SO.source_objects_for_source(vault, ...)"

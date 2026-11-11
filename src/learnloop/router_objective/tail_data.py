@@ -49,7 +49,6 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 import hashlib
 import json
-import math
 from typing import Any
 import zlib
 
@@ -917,10 +916,6 @@ def predicted_improvement(rows: Sequence[Logged]) -> dict[str, Any]:
         values.append(delta)
     return {"n": len(values), "mean": (sum(values) / len(values)) if values else None,
             "label": "a projection by the fit itself, on the cutoff's horizon; never evidence for it"}
-
-
-def is_finite(value: Any) -> bool:
-    return isinstance(value, (int, float)) and math.isfinite(float(value))
 
 
 __all__ = [

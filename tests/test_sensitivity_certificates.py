@@ -180,16 +180,3 @@ def test_promote_refuses_decision_unstable_evidence(tmp_path):
     assert after["promotion_evidence_id"] == stable.id
     # Promotion is now audit-clean for rule (b) (valid promotion evidence present).
     assert path not in pr.audit(vault, repo).promotion_without_evidence
-
-
-def test_inert_classification_is_class_asymmetric():
-    stable = {
-        "scheduler.goal_frontier_weight": True,       # shaping_weight -> deletion candidate
-        "evidence.certification.max_groups_per_attempt": True,  # constraint -> dormant
-        "scheduler.short_session_minutes": False,     # not stable -> neither
-    }
-    report = sc.classify_inert_parameters(stable)
-    assert "scheduler.goal_frontier_weight" in report.deletion_candidates
-    assert "evidence.certification.max_groups_per_attempt" in report.dormant_constraints
-    assert "scheduler.short_session_minutes" not in report.deletion_candidates
-    assert "scheduler.short_session_minutes" not in report.dormant_constraints

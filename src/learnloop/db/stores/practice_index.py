@@ -98,12 +98,6 @@ def dossier_candidates(connection: sqlite3.Connection,
     return found
 
 
-def dossier_count(connection: sqlite3.Connection) -> int:
-    if not table_exists(connection, "facet_dossiers"):
-        return 0
-    return int(connection.execute("SELECT COUNT(*) FROM facet_dossiers").fetchone()[0])
-
-
 # -- find_practice proposals ----------------------------------------------
 
 

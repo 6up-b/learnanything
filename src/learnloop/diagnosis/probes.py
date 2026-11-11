@@ -37,22 +37,6 @@ Outcome = tuple[str, str | None]
 _ULID_RE = re.compile(r"^[0-9A-HJKMNP-TV-Z]{26}$")
 
 
-def parse_misconception_label(label: str) -> tuple[str, bool]:
-    """Split a ``misconception:<suffix>`` hypothesis label (spec §1.4).
-
-    Returns ``(suffix, is_registry_id)`` where ``is_registry_id`` is True iff the
-    suffix is a 26-char Crockford ULID (a registry misconception id). A non-ULID
-    suffix is a legacy error-type-keyed hypothesis and takes the back-compat path.
-    The suffix is empty when the label is not a ``misconception:`` label.
-    """
-
-    prefix = "misconception:"
-    if not label.startswith(prefix):
-        return "", False
-    suffix = label[len(prefix) :]
-    return suffix, bool(_ULID_RE.match(suffix))
-
-
 @dataclass(frozen=True)
 class Hypothesis:
     label: str
@@ -915,24 +899,6 @@ def apply_facet_observation(
     if total <= 0:
         return prior
     return {label: value / total for label, value in updated.items()}
-
-
-def probe_eig_component(
-    hypothesis_set: HypothesisSet,
-    item: PracticeItem,
-    rubric: Rubric | None = None,
-    *,
-    item_a: float = 1.0,
-    item_b: float = 0.0,
-    irt: ProbeIRTConfig | None = None,
-) -> float:
-    size = len(hypothesis_set.hypotheses)
-    if size <= 1:
-        return 0.0
-    eig = expected_information_gain(
-        hypothesis_set, item, rubric, item_a=item_a, item_b=item_b, irt=irt
-    )
-    return eig / log(size)
 
 
 @dataclass(frozen=True)

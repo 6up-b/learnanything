@@ -25,7 +25,6 @@ from learnloop.diagnosis.causal_activity_policy import (
     near_clone_from_selection_components,
     policy_for_class,
     resolve_attempt_activity_policy,
-    resolve_conflicting_classes,
 )
 from learnloop.vault.loader import load_vault
 
@@ -184,18 +183,6 @@ def test_explicit_class_overrides_the_signal_derivation():
         explicit_class="repair_activity",
     )
     assert policy.contamination_class == "repair_activity"
-
-
-def test_resolve_conflicting_classes_is_most_contaminated_wins():
-    assert resolve_conflicting_classes("verification", "repair_activity") == "repair_activity"
-    assert resolve_conflicting_classes("repair_activity", "verification") == "repair_activity"
-    assert (
-        resolve_conflicting_classes("pure_diagnostic", "instructional_diagnostic")
-        == "instructional_diagnostic"
-    )
-    assert resolve_conflicting_classes("verification", "verification") == "verification"
-    with pytest.raises(ValueError):
-        resolve_conflicting_classes("verification", "nonsense")
 
 
 def test_precedence_order_is_total_and_ranked():

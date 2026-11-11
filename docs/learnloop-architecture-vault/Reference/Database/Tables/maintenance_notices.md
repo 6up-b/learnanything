@@ -87,7 +87,6 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
-- `Repository.live_maintenance_notice_keys()`
 - `Repository.maintenance_notice()`
 - `Repository.maintenance_notices()`
 - `Repository.resolve_maintenance_notice_if_detail()`

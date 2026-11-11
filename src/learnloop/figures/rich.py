@@ -47,7 +47,6 @@ FSRS or adaptive-difficulty state.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import sqlite3
 import sys
@@ -1125,10 +1124,6 @@ def plan_retry_order(job_id: str) -> float:
     with _REQUEUE_GUARD:
         last = _LAST_REQUEUE.get(job_id)
     return float("-inf") if last is None else last
-
-
-def payload_digest(payload: Mapping[str, Any]) -> str:
-    return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode("utf-8")).hexdigest()
 
 
 __all__ = [

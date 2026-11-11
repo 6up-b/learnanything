@@ -739,28 +739,6 @@ def append_feedback(
     )
 
 
-def append_lifecycle(
-    repository: Repository,
-    *,
-    surface_id: str,
-    kind: str,
-    reservation_id: str | None = None,
-    administration_id: str | None = None,
-    reason: str | None = None,
-    detail: Mapping[str, Any] | None = None,
-    clock: Clock | None = None,
-) -> str:
-    return repository.append_surface_lifecycle_event(
-        surface_id=surface_id,
-        kind=kind,
-        reservation_id=reservation_id,
-        administration_id=administration_id,
-        reason=reason,
-        detail_json=canonical_json(dict(detail)) if detail is not None else None,
-        clock=clock,
-    )
-
-
 def evidence_eligibility_for(
     *, purpose: str, feedback_condition: str | None
 ) -> tuple[str, str]:
@@ -973,37 +951,6 @@ def log_attempt_duration(
         surface_id=surface_id,
         attempt_id=attempt_id,
         attempt_duration_ms=duration_ms,
-        clock=clock,
-    )
-
-
-def log_affect_tap(
-    repository: Repository,
-    *,
-    affect_tap_kind: str,
-    subject_type: str | None = None,
-    subject_id: str | None = None,
-    administration_id: str | None = None,
-    surface_id: str | None = None,
-    attempt_id: str | None = None,
-    origin: str = "learner",
-    payload: Mapping[str, Any] | None = None,
-    clock: Clock | None = None,
-) -> str:
-    """Capture an affect tap (§4.6). The signal is logged unconditionally; the
-    discount/quarantine/retirement effects are applied by later packages."""
-
-    return log_interaction_event(
-        repository,
-        kind="affect_tap",
-        origin=origin,
-        subject_type=subject_type,
-        subject_id=subject_id,
-        administration_id=administration_id,
-        surface_id=surface_id,
-        attempt_id=attempt_id,
-        affect_tap_kind=affect_tap_kind,
-        payload=payload,
         clock=clock,
     )
 

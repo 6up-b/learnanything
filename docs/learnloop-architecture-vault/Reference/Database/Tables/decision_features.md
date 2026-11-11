@@ -25,7 +25,6 @@ source_paths:
   - "src/learnloop/scheduling/scheduler.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/diagnosis/causal_migration.py"
   - "src/learnloop/diagnosis/probes.py"
 tags:
   - "learnloop/database/table"
@@ -110,7 +109,6 @@ Database triggers:
 
 - `src/learnloop/cli/app.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
-- `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/diagnosis/probes.py`
 - `src/learnloop/scheduling/scheduler.py`

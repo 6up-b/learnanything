@@ -96,28 +96,6 @@ def create_edge_template(
     return template_id, version_id
 
 
-def append_template_version(
-    repository: Repository,
-    *,
-    template_slug: str,
-    body: Mapping[str, Any],
-    clock: Clock | None = None,
-) -> str:
-    _validate_template_body(body)
-    template = repository.depth_edge_template_by_slug(template_slug)
-    if template is None:
-        raise DepthEdgeAuthoringError(f"unknown template slug: {template_slug}")
-    versions = repository.depth_edge_template_versions_for(template["id"])
-    next_version = max((v["version"] for v in versions), default=0) + 1
-    return repository.insert_depth_edge_template_version(
-        template_id=template["id"],
-        version=next_version,
-        body_json=json.dumps(dict(body), sort_keys=True),
-        content_hash=canonical_hash(dict(body)),
-        clock=clock,
-    )
-
-
 def review_edge_template(
     repository: Repository,
     *,

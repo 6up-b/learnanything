@@ -57,6 +57,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Con
 - `class GraderChannelPrior` ([source](../../../../../../src/learnloop/params/fitted_params.py), line 48)
 - `resolve_grader_channel_prior(repository: Repository) -> GraderChannelPrior` ([source](../../../../../../src/learnloop/params/fitted_params.py), line 53) — Active fitted grader-channel prior knobs, else the pinned defaults.
 - `resolve_fsrs_weights(repository: Repository) -> tuple[float, ...]` ([source](../../../../../../src/learnloop/params/fitted_params.py), line 90) — Active fitted FSRS weights, else the pinned FSRS-6 defaults.
+- `fitted_fsrs_provenance(repository: Repository) -> str | None` ([source](../../../../../../src/learnloop/params/fitted_params.py), line 106) — Fitted-set id when fitted weights are active and valid, else None.
 
 ### Module constants
 

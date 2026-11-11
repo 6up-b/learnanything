@@ -2942,15 +2942,6 @@ def _units_touching(ir: Any, pages: list[int]) -> list[Any]:
     return touching
 
 
-def _not_implemented_handler(job_type: str) -> Handler:
-    def handler(_ctx: JobContext) -> dict[str, Any]:
-        raise NotImplementedError(
-            f"job_type '{job_type}' is a validated seam reserved for a later milestone (M3/M4/M6)."
-        )
-
-    return handler
-
-
 def handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]:
     """Author one section-boundary quick check (reader producer slice).
 

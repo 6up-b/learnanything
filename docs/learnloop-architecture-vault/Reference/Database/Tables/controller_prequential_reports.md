@@ -16,7 +16,6 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/100_kinship_kernel_and_shadow_components.sql"
-  - "src/learnloop/scheduling/prequential.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -80,11 +79,11 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
-- `src/learnloop/scheduling/prequential.py`
+None found by exact static reference scan.
 
 ### Direct SQL writers
 
-- `src/learnloop/scheduling/prequential.py`
+None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 

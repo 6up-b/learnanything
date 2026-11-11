@@ -338,11 +338,6 @@ def admission_problem(vault: Any, repository: Repository, task: str, *, client: 
 # Goals: the deliverable is a learner goal (goals.yaml)
 # ---------------------------------------------------------------------------
 
-def _goals_path(vault: Any) -> Path:
-    from learnloop.vault.paths import VaultPaths
-
-    return VaultPaths(vault.root, vault.config).goals_path
-
 
 def _write_goals(path: Path, data: dict[str, Any]) -> None:
     """Publish ``goals.yaml`` whole (a temporary file, then an atomic replace)."""

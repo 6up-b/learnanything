@@ -157,7 +157,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_event_sufficiency.py](../../../../../../../tests/test_event_sufficiency.py) — direct import
 - [tests/test_journey6.py](../../../../../../../tests/test_journey6.py) — direct import
   - `test_journey6_end_to_end_on_fresh_mvp08_vault`
 - [tests/test_substrate_cutover.py](../../../../../../../tests/test_substrate_cutover.py) — direct import

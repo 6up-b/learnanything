@@ -36,7 +36,7 @@ Up: [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] · Ro
 
 ## Why this module exists
 
-This module keeps probes behavior inside its owning package, [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]]. Its public surface centers on `parse_misconception_label`, `Hypothesis`, `HypothesisSet`, `build_hypothesis_set`, `enter_probe`, `resolve_item_irt`, `self_tag_weight`, `ErrorTypeCandidate` and 15 more public symbols.
+This module keeps probes behavior inside its owning package, [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]]. Its public surface centers on `Hypothesis`, `HypothesisSet`, `build_hypothesis_set`, `enter_probe`, `resolve_item_irt`, `self_tag_weight`, `ErrorTypeCandidate`, `rank_error_type_candidates` and 13 more public symbols.
 
 The authoritative system-level explanation remains in [[Learning System]]; this note records where this source module participates rather than restating those concepts.
 
@@ -47,74 +47,72 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probes.py](../../../../../../src/learnloop/diagnosis/probes.py) |
-| Source lines | 1605 |
+| Source lines | 1571 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `parse_misconception_label(label: str) -> tuple[str, bool]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 40) — Split a ``misconception:<suffix>`` hypothesis label (spec §1.4).
-- `class Hypothesis` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 57)
-  - `channel_key(self) -> str | None` (line 68; public) — The error-dimension key this hypothesis owns in the outcome space (§3).
-  - `as_record(self) -> dict[str, object]` (line 77; public)
-- `class HypothesisSet` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 89)
-  - `known_error_types(self) -> list[str]` (line 96; public) — Error-channel keys across the set: legacy error types and registry ids (§3).
-  - `from_record(cls, record: dict) -> 'HypothesisSet'` (line 107; public)
-- `build_hypothesis_set(vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> HypothesisSet` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 128)
-- `enter_probe(vault: LoadedVault, repository: Repository, learning_object_id: str, *, claimed_level: float | None=None, clock: Clock | None=None) -> HypothesisSet` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 267)
-- `resolve_item_irt(vault: LoadedVault, item: PracticeItem) -> tuple[float, float, ProbeIRTConfig]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 314) — ``(a, b, ProbeIRTConfig)`` for an item — the same ``(a, b)`` Channel 1 uses.
-- `self_tag_weight(vault: LoadedVault, item: PracticeItem, error_type: str, bucket: str, config: ProbeSelfTagConfig | None=None) -> float` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 375) — Trust weight ``w_self`` for a learner self-attached misconception (spec §12.3).
-- `class ErrorTypeCandidate` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 418) — A ranked error-type suggestion for the self-grade misconception picker (§12.5).
-- `rank_error_type_candidates(vault: LoadedVault, *, item: PracticeItem | None=None, learning_object_id: str | None=None, query: str | None=None, limit: int=10) -> list[ErrorTypeCandidate]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 438) — Rank the error-type taxonomy for the self-grade misconception picker (spec §12.5).
-- `conditional_distribution(hypothesis: Hypothesis, *, item_a: float=1.0, item_b: float=0.0, irt: ProbeIRTConfig | None=None, fatal_error_ids: set[str], known_error_types: list[str], discrimination: dict[str, ItemMisconceptionDiscrimination] | None=None, discriminated_ids: set[str] | None=None) -> dict[Outcome, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 491) — ``P(score_bucket, error_type | h, item)`` under the difficulty-aware model.
-- `item_registry_discrimination(repository: Repository, vault: LoadedVault, item: PracticeItem, rubric: Rubric | None, hypothesis_set: HypothesisSet) -> tuple[dict[str, ItemMisconceptionDiscrimination], set[str]]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 657) — ``(discrimination_rows, discriminated_ids)`` for an item vs the set (spec §3).
-- `hypothesis_conditionals(hypothesis_set: HypothesisSet, item: PracticeItem, rubric: Rubric | None=None, *, item_a: float=1.0, item_b: float=0.0, irt: ProbeIRTConfig | None=None, discrimination: dict[str, ItemMisconceptionDiscrimination] | None=None, discriminated_ids: set[str] | None=None) -> dict[str, dict[Outcome, float]]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 690) — ``{label: P(outcome | hypothesis)}`` for one item over a hypothesis set: the conditionals :func:`expected_information_gain` integrates over (and mvp-0.21's value of information forecasts with).
-- `expected_information_gain(hypothesis_set: HypothesisSet, item: PracticeItem, rubric: Rubric | None=None, *, item_a: float=1.0, item_b: float=0.0, irt: ProbeIRTConfig | None=None, discrimination: dict[str, ItemMisconceptionDiscrimination] | None=None, discriminated_ids: set[str] | None=None) -> float` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 722)
-- `facet_conditional_distribution(hypothesis_label: str, *, facet_id: str, candidate_facet_support: set[str], fatal_error_ids: set[str], known_error_types: list[str], item_a: float=1.0, item_b: float=0.0, irt: ProbeIRTConfig | None=None) -> dict[Outcome, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 766) — Per-facet diagnostic outcome model for v0.3 follow-up selection.
-- `facet_expected_information_gain(hypothesis_marginal: dict[str, float], *, facet_id: str, candidate_facet_support: set[str], fatal_error_ids: set[str], item_a: float=1.0, item_b: float=0.0, irt: ProbeIRTConfig | None=None) -> float` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 821) — Expected entropy drop for one facet marginal, in nats.
-- `apply_facet_observation(hypothesis_marginal: dict[str, float], *, facet_id: str, candidate_facet_support: set[str], fatal_error_ids: set[str], observed_bucket: str, observed_error_type: str | None, item_a: float=1.0, item_b: float=0.0, irt: ProbeIRTConfig | None=None) -> dict[str, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 876)
-- `probe_eig_component(hypothesis_set: HypothesisSet, item: PracticeItem, rubric: Rubric | None=None, *, item_a: float=1.0, item_b: float=0.0, irt: ProbeIRTConfig | None=None) -> float` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 920)
-- `class ProbePosterior` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 939) — The hypothesis-set belief after replaying observed probe attempts.
-  - `top_probability(self) -> float` (line 956; public)
-- `score_bucket(rubric_score: int, max_points: int=4) -> str` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 960) — Bucketize on the legacy quarter-scale after ratio normalization.
-- `probe_posterior(vault: LoadedVault, repository: Repository, learning_object_id: str, *, probe_state: ProbeStateRecord | None=None, hypothesis_set: HypothesisSet | None=None) -> ProbePosterior | None` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1181) — Replay probe-phase attempts into the hypothesis-set posterior.
-- `current_hypothesis_set(vault: LoadedVault, repository: Repository, learning_object_id: str, *, probe_state: ProbeStateRecord | None=None) -> HypothesisSet | None` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1331) — The locked hypothesis set with its prior replaced by the live posterior.
-- `persist_probe_beliefs(vault: LoadedVault, repository: Repository, learning_object_id: str, posterior: ProbePosterior, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1356) — Persist the misconception marginals of the posterior to `learner_state_beliefs`.
-- `record_probe_attempt(vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1397) — Advance an in-progress probe after an attempt on its Learning Object.
+- `class Hypothesis` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 41)
+  - `channel_key(self) -> str | None` (line 52; public) — The error-dimension key this hypothesis owns in the outcome space (§3).
+  - `as_record(self) -> dict[str, object]` (line 61; public)
+- `class HypothesisSet` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 73)
+  - `known_error_types(self) -> list[str]` (line 80; public) — Error-channel keys across the set: legacy error types and registry ids (§3).
+  - `from_record(cls, record: dict) -> 'HypothesisSet'` (line 91; public)
+- `build_hypothesis_set(vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> HypothesisSet` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 112)
+- `enter_probe(vault: LoadedVault, repository: Repository, learning_object_id: str, *, claimed_level: float | None=None, clock: Clock | None=None) -> HypothesisSet` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 251)
+- `resolve_item_irt(vault: LoadedVault, item: PracticeItem) -> tuple[float, float, ProbeIRTConfig]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 298) — ``(a, b, ProbeIRTConfig)`` for an item — the same ``(a, b)`` Channel 1 uses.
+- `self_tag_weight(vault: LoadedVault, item: PracticeItem, error_type: str, bucket: str, config: ProbeSelfTagConfig | None=None) -> float` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 359) — Trust weight ``w_self`` for a learner self-attached misconception (spec §12.3).
+- `class ErrorTypeCandidate` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 402) — A ranked error-type suggestion for the self-grade misconception picker (§12.5).
+- `rank_error_type_candidates(vault: LoadedVault, *, item: PracticeItem | None=None, learning_object_id: str | None=None, query: str | None=None, limit: int=10) -> list[ErrorTypeCandidate]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 422) — Rank the error-type taxonomy for the self-grade misconception picker (spec §12.5).
+- `conditional_distribution(hypothesis: Hypothesis, *, item_a: float=1.0, item_b: float=0.0, irt: ProbeIRTConfig | None=None, fatal_error_ids: set[str], known_error_types: list[str], discrimination: dict[str, ItemMisconceptionDiscrimination] | None=None, discriminated_ids: set[str] | None=None) -> dict[Outcome, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 475) — ``P(score_bucket, error_type | h, item)`` under the difficulty-aware model.
+- `item_registry_discrimination(repository: Repository, vault: LoadedVault, item: PracticeItem, rubric: Rubric | None, hypothesis_set: HypothesisSet) -> tuple[dict[str, ItemMisconceptionDiscrimination], set[str]]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 641) — ``(discrimination_rows, discriminated_ids)`` for an item vs the set (spec §3).
+- `hypothesis_conditionals(hypothesis_set: HypothesisSet, item: PracticeItem, rubric: Rubric | None=None, *, item_a: float=1.0, item_b: float=0.0, irt: ProbeIRTConfig | None=None, discrimination: dict[str, ItemMisconceptionDiscrimination] | None=None, discriminated_ids: set[str] | None=None) -> dict[str, dict[Outcome, float]]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 674) — ``{label: P(outcome | hypothesis)}`` for one item over a hypothesis set: the conditionals :func:`expected_information_gain` integrates over (and mvp-0.21's value of information forecasts with).
+- `expected_information_gain(hypothesis_set: HypothesisSet, item: PracticeItem, rubric: Rubric | None=None, *, item_a: float=1.0, item_b: float=0.0, irt: ProbeIRTConfig | None=None, discrimination: dict[str, ItemMisconceptionDiscrimination] | None=None, discriminated_ids: set[str] | None=None) -> float` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 706)
+- `facet_conditional_distribution(hypothesis_label: str, *, facet_id: str, candidate_facet_support: set[str], fatal_error_ids: set[str], known_error_types: list[str], item_a: float=1.0, item_b: float=0.0, irt: ProbeIRTConfig | None=None) -> dict[Outcome, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 750) — Per-facet diagnostic outcome model for v0.3 follow-up selection.
+- `facet_expected_information_gain(hypothesis_marginal: dict[str, float], *, facet_id: str, candidate_facet_support: set[str], fatal_error_ids: set[str], item_a: float=1.0, item_b: float=0.0, irt: ProbeIRTConfig | None=None) -> float` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 805) — Expected entropy drop for one facet marginal, in nats.
+- `apply_facet_observation(hypothesis_marginal: dict[str, float], *, facet_id: str, candidate_facet_support: set[str], fatal_error_ids: set[str], observed_bucket: str, observed_error_type: str | None, item_a: float=1.0, item_b: float=0.0, irt: ProbeIRTConfig | None=None) -> dict[str, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 860)
+- `class ProbePosterior` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 905) — The hypothesis-set belief after replaying observed probe attempts.
+  - `top_probability(self) -> float` (line 922; public)
+- `score_bucket(rubric_score: int, max_points: int=4) -> str` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 926) — Bucketize on the legacy quarter-scale after ratio normalization.
+- `probe_posterior(vault: LoadedVault, repository: Repository, learning_object_id: str, *, probe_state: ProbeStateRecord | None=None, hypothesis_set: HypothesisSet | None=None) -> ProbePosterior | None` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1147) — Replay probe-phase attempts into the hypothesis-set posterior.
+- `current_hypothesis_set(vault: LoadedVault, repository: Repository, learning_object_id: str, *, probe_state: ProbeStateRecord | None=None) -> HypothesisSet | None` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1297) — The locked hypothesis set with its prior replaced by the live posterior.
+- `persist_probe_beliefs(vault: LoadedVault, repository: Repository, learning_object_id: str, posterior: ProbePosterior, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1322) — Persist the misconception marginals of the posterior to `learner_state_beliefs`.
+- `record_probe_attempt(vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1363) — Advance an in-progress probe after an attempt on its Learning Object.
 
 ### Module constants
 
 - `SCORE_BUCKETS` ([src/learnloop/diagnosis/probes.py](../../../../../../src/learnloop/diagnosis/probes.py), line 27)
 - `_CONCEPT_CLOSENESS_HOP_DECAY` ([src/learnloop/diagnosis/probes.py](../../../../../../src/learnloop/diagnosis/probes.py), line 33)
 - `_ULID_RE` ([src/learnloop/diagnosis/probes.py](../../../../../../src/learnloop/diagnosis/probes.py), line 37)
-- `_BRIDGE_SENSITIVITY` ([src/learnloop/diagnosis/probes.py](../../../../../../src/learnloop/diagnosis/probes.py), line 599)
-- `_BRIDGE_SPECIFICITY` ([src/learnloop/diagnosis/probes.py](../../../../../../src/learnloop/diagnosis/probes.py), line 600)
-- `BRIDGE_SENSITIVITY` ([src/learnloop/diagnosis/probes.py](../../../../../../src/learnloop/diagnosis/probes.py), line 603)
-- `BRIDGE_SPECIFICITY` ([src/learnloop/diagnosis/probes.py](../../../../../../src/learnloop/diagnosis/probes.py), line 604)
+- `_BRIDGE_SENSITIVITY` ([src/learnloop/diagnosis/probes.py](../../../../../../src/learnloop/diagnosis/probes.py), line 583)
+- `_BRIDGE_SPECIFICITY` ([src/learnloop/diagnosis/probes.py](../../../../../../src/learnloop/diagnosis/probes.py), line 584)
+- `BRIDGE_SENSITIVITY` ([src/learnloop/diagnosis/probes.py](../../../../../../src/learnloop/diagnosis/probes.py), line 587)
+- `BRIDGE_SPECIFICITY` ([src/learnloop/diagnosis/probes.py](../../../../../../src/learnloop/diagnosis/probes.py), line 588)
 
 ## Internal implementation anchors
 
-- `_concept_graph_adjacency(vault: LoadedVault) -> dict[str, set[str]]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 326) — Undirected adjacency over the concept graph (all relation types).
-- `_concept_closeness(adjacency: dict[str, set[str]], source_concept: str | None, related_concepts: list[str], hop_decay: float) -> float` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 336) — Hop-decay closeness from ``source_concept`` to its nearest related concept (§12.3).
-- `_mean_concept_degree(adjacency: dict[str, set[str]], concept_count: int) -> float` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 368)
-- `_fuzzy_match(query: str, text: str) -> float` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 428)
-- `_graded_marginals(eta: float, cut_mid: float, cut_high: float) -> tuple[float, float, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 483) — Fixed 3-level graded score-bucket marginals (spec §5.2): ``(low, mid, high)``.
-- `_fire_probabilities(fire_channel: str, discrimination: dict[str, ItemMisconceptionDiscrimination]) -> tuple[float, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 607) — ``(E[sens], E[spec])`` for the item's fire channel, with the bridge default.
-- `_fire_overlay_distribution(hypothesis: Hypothesis, distribution: dict[Outcome, float], *, discriminated_ids: set[str], discrimination: dict[str, ItemMisconceptionDiscrimination], item_a: float, item_b: float, irt: ProbeIRTConfig) -> dict[Outcome, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 619) — Overlay the registry fire channel for a discriminating item (spec §3).
-- `_entropy(distribution: dict[str, float]) -> float` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 971)
-- `_normalized_prior(distribution: dict[str, float]) -> dict[str, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 975)
-- `_observation_likelihoods(hypothesis_set: HypothesisSet, item: PracticeItem, rubric: Rubric | None, bucket: str, error_type: str | None, *, item_a: float=1.0, item_b: float=0.0, irt: ProbeIRTConfig | None=None, self_tag_weight: float | None=None, discrimination: dict[str, ItemMisconceptionDiscrimination] | None=None, discriminated_ids: set[str] | None=None, fired_channel: str | None=None) -> dict[str, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 983) — `P(observed | h, item)` per hypothesis for one attempt outcome.
-- `_registry_observation_likelihoods(hypothesis_set: HypothesisSet, bucket: str, fired_channel: str | None, *, discrimination: dict[str, ItemMisconceptionDiscrimination], discriminated_ids: set[str], item_a: float, item_b: float, irt: ProbeIRTConfig | None) -> dict[str, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1064) — Fire-keyed observation on a discriminating item (spec §7).
-- `_self_tag_likelihoods(hypothesis_set: HypothesisSet, bucket: str, error_type: str, fatal_error_ids: set[str], known_error_types: list[str], *, item_a: float, item_b: float, irt: ProbeIRTConfig | None, weight: float) -> dict[str, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1107) — Trust-weighted *label* mixture ``L(h) = w·P_probe(s,E|h) + (1−w)·P_marg(s|h)`` (§12.2).
-- `_resolve_self_tag_weight(vault: LoadedVault, item: PracticeItem, rubric: Rubric | None, hypothesis_set: HypothesisSet, error_type: str | None, bucket: str) -> float | None` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1156) — ``w_self`` for a self-attached misconception, or ``None`` for the standard path.
-- `_apply_observation(hypothesis_set: HypothesisSet, item: PracticeItem, rubric: Rubric | None, bucket: str, error_type: str | None, posterior: dict[str, float], *, item_a: float=1.0, item_b: float=0.0, irt: ProbeIRTConfig | None=None, self_tag_weight: float | None=None, discrimination: dict[str, ItemMisconceptionDiscrimination] | None=None, discriminated_ids: set[str] | None=None, fired_channel: str | None=None) -> dict[str, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1262)
-- `_probe_phase_attempts(repository: Repository, learning_object_id: str, entered_at: str | None) -> list[dict[str, object]]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1307)
-- `_fatal_error_ids(item: PracticeItem, rubric: Rubric | None=None) -> set[str]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1458)
-- `_decay(created_at: str | None, now: datetime) -> float` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1465)
-- `_lane_error_events(vault: LoadedVault, repository: Repository, learning_object_id: str | None) -> list[ActiveErrorEvent]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1473) — The active error events the probe hypothesis lane reads.
-- `_neighbor_misconceptions(vault: LoadedVault, repository: Repository, concept_id: str, now: datetime) -> list[tuple[str, ActiveErrorEvent]]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1514)
-- `_neighbor_registry_misconceptions(vault: LoadedVault, repository: Repository, concept_id: str, now: datetime) -> list[tuple[str, 'MisconceptionRecord']]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1560) — Registry rows on confusable-neighbor concepts, gated by neighbor mastery ≥ 0.7.
+- `_concept_graph_adjacency(vault: LoadedVault) -> dict[str, set[str]]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 310) — Undirected adjacency over the concept graph (all relation types).
+- `_concept_closeness(adjacency: dict[str, set[str]], source_concept: str | None, related_concepts: list[str], hop_decay: float) -> float` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 320) — Hop-decay closeness from ``source_concept`` to its nearest related concept (§12.3).
+- `_mean_concept_degree(adjacency: dict[str, set[str]], concept_count: int) -> float` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 352)
+- `_fuzzy_match(query: str, text: str) -> float` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 412)
+- `_graded_marginals(eta: float, cut_mid: float, cut_high: float) -> tuple[float, float, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 467) — Fixed 3-level graded score-bucket marginals (spec §5.2): ``(low, mid, high)``.
+- `_fire_probabilities(fire_channel: str, discrimination: dict[str, ItemMisconceptionDiscrimination]) -> tuple[float, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 591) — ``(E[sens], E[spec])`` for the item's fire channel, with the bridge default.
+- `_fire_overlay_distribution(hypothesis: Hypothesis, distribution: dict[Outcome, float], *, discriminated_ids: set[str], discrimination: dict[str, ItemMisconceptionDiscrimination], item_a: float, item_b: float, irt: ProbeIRTConfig) -> dict[Outcome, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 603) — Overlay the registry fire channel for a discriminating item (spec §3).
+- `_entropy(distribution: dict[str, float]) -> float` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 937)
+- `_normalized_prior(distribution: dict[str, float]) -> dict[str, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 941)
+- `_observation_likelihoods(hypothesis_set: HypothesisSet, item: PracticeItem, rubric: Rubric | None, bucket: str, error_type: str | None, *, item_a: float=1.0, item_b: float=0.0, irt: ProbeIRTConfig | None=None, self_tag_weight: float | None=None, discrimination: dict[str, ItemMisconceptionDiscrimination] | None=None, discriminated_ids: set[str] | None=None, fired_channel: str | None=None) -> dict[str, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 949) — `P(observed | h, item)` per hypothesis for one attempt outcome.
+- `_registry_observation_likelihoods(hypothesis_set: HypothesisSet, bucket: str, fired_channel: str | None, *, discrimination: dict[str, ItemMisconceptionDiscrimination], discriminated_ids: set[str], item_a: float, item_b: float, irt: ProbeIRTConfig | None) -> dict[str, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1030) — Fire-keyed observation on a discriminating item (spec §7).
+- `_self_tag_likelihoods(hypothesis_set: HypothesisSet, bucket: str, error_type: str, fatal_error_ids: set[str], known_error_types: list[str], *, item_a: float, item_b: float, irt: ProbeIRTConfig | None, weight: float) -> dict[str, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1073) — Trust-weighted *label* mixture ``L(h) = w·P_probe(s,E|h) + (1−w)·P_marg(s|h)`` (§12.2).
+- `_resolve_self_tag_weight(vault: LoadedVault, item: PracticeItem, rubric: Rubric | None, hypothesis_set: HypothesisSet, error_type: str | None, bucket: str) -> float | None` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1122) — ``w_self`` for a self-attached misconception, or ``None`` for the standard path.
+- `_apply_observation(hypothesis_set: HypothesisSet, item: PracticeItem, rubric: Rubric | None, bucket: str, error_type: str | None, posterior: dict[str, float], *, item_a: float=1.0, item_b: float=0.0, irt: ProbeIRTConfig | None=None, self_tag_weight: float | None=None, discrimination: dict[str, ItemMisconceptionDiscrimination] | None=None, discriminated_ids: set[str] | None=None, fired_channel: str | None=None) -> dict[str, float]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1228)
+- `_probe_phase_attempts(repository: Repository, learning_object_id: str, entered_at: str | None) -> list[dict[str, object]]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1273)
+- `_fatal_error_ids(item: PracticeItem, rubric: Rubric | None=None) -> set[str]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1424)
+- `_decay(created_at: str | None, now: datetime) -> float` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1431)
+- `_lane_error_events(vault: LoadedVault, repository: Repository, learning_object_id: str | None) -> list[ActiveErrorEvent]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1439) — The active error events the probe hypothesis lane reads.
+- `_neighbor_misconceptions(vault: LoadedVault, repository: Repository, concept_id: str, now: datetime) -> list[tuple[str, ActiveErrorEvent]]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1480)
+- `_neighbor_registry_misconceptions(vault: LoadedVault, repository: Repository, concept_id: str, now: datetime) -> list[tuple[str, 'MisconceptionRecord']]` ([source](../../../../../../src/learnloop/diagnosis/probes.py), line 1526) — Registry rows on confusable-neighbor concepts, gated by neighbor mastery ≥ 0.7.
 
 ## Who imports or calls it
 
@@ -185,11 +183,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_irt_end_to_end.py](../../../../../../tests/test_irt_end_to_end.py) — direct import
   - `test_decisive_hard_correct_concentrates_posterior_more_than_trivial`
   - `test_hard_correct_completes_probe_on_hypothesis_convergence`
-- [tests/test_misconception_label.py](../../../../../../tests/test_misconception_label.py) — direct import
-  - `test_parse_misconception_label_legacy_error_type`
-  - `test_parse_misconception_label_non_misconception_label`
-  - `test_parse_misconception_label_registry_ulid`
-  - `test_parse_misconception_label_rejects_wrong_length_and_alphabet`
 - [tests/test_misconception_registry.py](../../../../../../tests/test_misconception_registry.py) — direct import
   - `test_build_hypothesis_set_registry_and_legacy_coexist`
   - `test_build_hypothesis_set_skips_linked_legacy_event`
@@ -218,8 +211,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_unknown_error_type_uses_bucket_marginal`
 - [tests/test_probe_eig.py](../../../../../../tests/test_probe_eig.py) — direct import
   - `test_conditional_distribution_is_normalized_for_every_hypothesis`
-  - `test_probe_eig_higher_when_item_probes_active_misconception`
-  - `test_probe_eig_is_deterministic_and_normalized`
   - `test_probe_hypothesis_set_ignores_transient_errors`
 - [tests/test_probe_entry.py](../../../../../../tests/test_probe_entry.py) — direct import
   - `test_enter_probe_creates_in_progress_state_and_locked_hypothesis_set`

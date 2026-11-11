@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Con
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/params/sensitivity_certificates.py](../../../../../../src/learnloop/params/sensitivity_certificates.py) |
-| Source lines | 394 |
+| Source lines | 357 |
 | Owning package | [[Reference/Modules/learnloop/params/_package|learnloop.params]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -70,9 +70,6 @@ The authoritative system-level explanation remains in [[Learning System]], [[Con
 - `class PromotionOutcome` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 306) — Result of :func:`promote`.
   - `__bool__(self) -> bool` (line 313; internal)
 - `promote(repository: Repository, evidence: PromotionEvidence, *, clock: Clock | None=None) -> PromotionOutcome` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 317) — Consume PROMOTION EVIDENCE and, when it covers the entry's current effective value AND proves the decision stable across the plausible range, promote status to ``simulation_validated`` (never further -- §6; ``live_calibrated`` still requires an activated real-outcome evidence ma…
-- `class DeletionCandidateReport` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 361)
-  - `as_dict(self) -> dict[str, Any]` (line 365; public)
-- `classify_inert_parameters(paths_stable: Mapping[str, bool]) -> DeletionCandidateReport` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 372) — Class-asymmetric disposition of sweep-proven-inert parameters (§6/design §3).
 
 ## Internal implementation anchors
 
@@ -94,7 +91,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Con
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
-- [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] — imports `REGISTRY`, `module`; calls `set_promotion_evidence_id`
+- [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] — imports `module`; calls `set_promotion_evidence_id`
 - [[Reference/Modules/learnloop/sim/sweep|learnloop.sim.sweep]] — imports `SweepEntry`, `run_sweep`; calls `SweepEntry`, `run_sweep`
 - [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] — imports `canonical_hash`; calls `canonical_hash`
 
@@ -119,7 +116,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_certificate_is_stable_when_no_decision_flips`
   - `test_certificate_records_flip_points`
   - `test_coverage_certificate_with_flip_points_is_valid_coverage`
-  - `test_inert_classification_is_class_asymmetric`
   - `test_link_coverage_certificate_never_changes_status`
   - `test_promote_refuses_decision_unstable_evidence`
   - `test_promote_requires_covering_evidence`

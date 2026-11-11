@@ -11,7 +11,7 @@ from typing import Any, Iterable, Sequence
 
 import numpy as np
 
-from learnloop.evsi_calibration.simulate import CheckRecord, EpisodeRecord, MEMBER_QUANTILES
+from learnloop.evsi_calibration.simulate import CheckRecord, EpisodeRecord
 
 BINS = 10
 
@@ -272,7 +272,3 @@ def kendall_tau(left: Sequence[str], right: Sequence[str]) -> float | None:
                 discordant += 1
     total = concordant + discordant
     return (concordant - discordant) / total if total else None
-
-
-def quantile_names() -> tuple[str, ...]:
-    return tuple(f"q{int(q * 100):02d}" for q in MEMBER_QUANTILES)

@@ -102,7 +102,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_goal_pace.py](../../../../../../tests/test_goal_pace.py) — direct import
   - `test_compute_goal_pace_open_ended`
   - `test_compute_goal_pace_with_due_date`
-  - `test_daily_attempt_counts_is_zero_filled_and_buckets_by_day`
   - `test_pace_as_dict_shape`
   - `test_unknowable_remaining_surfaces_as_none`
 - [tests/test_goal_projection.py](../../../../../../tests/test_goal_projection.py) — direct import

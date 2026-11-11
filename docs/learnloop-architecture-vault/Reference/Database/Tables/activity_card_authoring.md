@@ -90,7 +90,6 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository.activity_card_authoring()`
-- `Repository.activity_card_authoring_for_family()`
 - `Repository.upsert_activity_card_authoring()`
 
 ### Direct SQL readers

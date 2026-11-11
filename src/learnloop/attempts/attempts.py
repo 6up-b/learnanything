@@ -47,7 +47,6 @@ from learnloop.attempts.grading import (
     build_grading_context,
     confidence_to_grader_confidence,
     enforce_passed_target_firewall,
-    evidence_coverage,
     grading_context_hash,
     resolved_rubric,
     validate_codex_grading_proposal,
@@ -588,10 +587,6 @@ class AttemptApplication:
     #: The FSRS review this attempt applied or skipped, as numbers and codes (``_fsrs_review_summary``), for the
     #: live grade's decision record; nothing persists it otherwise, and replay never reads it.
     fsrs_review: dict[str, Any] | None = None
-
-
-class AttemptServiceNotReady(RuntimeError):
-    pass
 
 
 class AttemptValidationError(ValueError):
@@ -5627,15 +5622,6 @@ def assessed_rubric_score(
     for fatal_error_id in fatal_errors:
         score = min(score, fatal_by_id[fatal_error_id].max_grade)
     return max(0, min(score, int(rubric.max_points)))
-
-
-def _evidence_coverage(item: PracticeItem, criterion_points: dict[str, float]) -> float:
-    return evidence_coverage(item, criterion_points)
-
-
-def _hint_dampening(item: PracticeItem, hints_used: int) -> float:
-    value = _hint_policy_value(item.hint_policy.mastery_alpha_dampening_by_hint, hints_used)
-    return float(value) if value is not None else 1.0
 
 
 def fsrs_rating_for_attempt(item: PracticeItem, rubric_score: int, max_points: int, hints_used: int) -> Rating:

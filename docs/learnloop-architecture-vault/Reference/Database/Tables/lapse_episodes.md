@@ -77,7 +77,6 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository.lapse_episode()`
-- `Repository.lapse_episodes_for_lineage()`
 - `Repository.open_lapse_episode()`
 - `Repository.update_lapse_episode()`
 

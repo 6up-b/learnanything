@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ingest/extractors/base.py](../../../../../../../src/learnloop/ingest/extractors/base.py) |
-| Source lines | 176 |
+| Source lines | 170 |
 | Owning package | [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -58,9 +58,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `version(self) -> str` (line 44; public) — Provider/package version — participates in the request hash (§2.2).
   - `model_versions(self) -> dict[str, str]` (line 47; public) — Best-effort model-artifact versions (may be empty).
   - `extract(self, raw_bytes: bytes, context: ExtractionContext)` (line 50; public) — Return a :class:`DocumentIR` for ``raw_bytes``.
-- `assign_span_semantic_hash(blocks: list[DocumentBlock]) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/base.py), line 54) — Convenience wrapper so extractors compute unit hashes consistently.
-- `units_from_toc_entries(entries: list[dict[str, Any]], blocks: list[DocumentBlock], *, document_title: str | None=None, locator_scheme: str='toc', drop_empty: bool=False) -> list[DocumentUnit]` ([source](../../../../../../../src/learnloop/ingest/extractors/base.py), line 60) — Hierarchical units from ordered ToC-shaped entries (§2.3).
-- `single_unit_from_blocks(blocks: list[DocumentBlock], *, label: str, unit_id: str='u1', locator: dict | None=None) -> DocumentUnit` ([source](../../../../../../../src/learnloop/ingest/extractors/base.py), line 155) — Build one whole-document unit — the honest trivial case for non-paged or ToC-less sources (§2.3).
+- `units_from_toc_entries(entries: list[dict[str, Any]], blocks: list[DocumentBlock], *, document_title: str | None=None, locator_scheme: str='toc', drop_empty: bool=False) -> list[DocumentUnit]` ([source](../../../../../../../src/learnloop/ingest/extractors/base.py), line 54) — Hierarchical units from ordered ToC-shaped entries (§2.3).
+- `single_unit_from_blocks(blocks: list[DocumentBlock], *, label: str, unit_id: str='u1', locator: dict | None=None) -> DocumentUnit` ([source](../../../../../../../src/learnloop/ingest/extractors/base.py), line 149) — Build one whole-document unit — the honest trivial case for non-paged or ToC-less sources (§2.3).
 
 ## Internal implementation anchors
 

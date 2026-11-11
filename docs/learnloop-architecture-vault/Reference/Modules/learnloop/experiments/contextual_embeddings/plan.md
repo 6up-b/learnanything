@@ -47,40 +47,39 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/experiments/contextual_embeddings/plan.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py) |
-| Source lines | 505 |
+| Source lines | 493 |
 | Owning package | [[Reference/Modules/learnloop/experiments/contextual_embeddings/_package|learnloop.experiments.contextual_embeddings]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `embedding_arm_estimate(arm: str, snapshots: Sequence[CorpusSnapshot], query_tokens: Sequence[int]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 97)
-- `llm_estimates(snapshots: Sequence[CorpusSnapshot], seeds: Mapping[str, Sequence[Seed]], questions: Mapping[str, Mapping[str, int]]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 168) — The paid LLM roles.
-- `system_arm_estimates(snapshots: Sequence[CorpusSnapshot], config_allowlists: Mapping[str, Mapping[str, Any]], query_counts: Mapping[str, int]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 265) — R0 (today's effective path) and R1_service (find_sources on a copy with Qwen enabled and backfilled): what they would spend.
-- `system_llm_rows(vault: str, allowlist: Mapping[str, Any], queries: int) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 306) — The system arms' production source-route requests (verification, rewrite, comparison) on the service copies, re-routed from Codex to OpenRouter's Claude Haiku 5.5 (re-plan 2026-10-22): an UPPER-BOUND count per query (R0 and R1' ``find_sources``: two pages, each with its rewrite…
-- `summarize(arms: Sequence[Mapping[str, Any]], systems: Sequence[Mapping[str, Any]], roles: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 334)
-- `run_id(snapshots: Sequence[CorpusSnapshot], bank_ids: Sequence[str]) -> str` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 358)
-- `query_token_sizes(bank: Sequence[BankQuestion], development_target: int) -> list[int]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 364)
-- `embedding_documents(snapshot: CorpusSnapshot, arm: str) -> list[Document]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 370) — The plain documents of an arm (for tests and the paid run's first step).
-- `subscription_requests(roles: Sequence[Mapping[str, Any]], systems: Sequence[Mapping[str, Any]], config_allowlists: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 381) — The planned Codex (subscription) requests (re-plan 2026-10-22: there are none).
-- `reuse_estimate(predecessor_ledger: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 425) — The offline estimate of a relabel that reuses an earlier run (what the dry run cannot price from the inventory: most work is reused).
-- `budget_check(estimate: Mapping[str, float], prior: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 487) — Whether ``estimate`` (``{category: usd}``) fits the CUMULATIVE cap and allocations after ``prior`` (``budget.prior_spend``: every other authorization's committed spend).
+- `embedding_arm_estimate(arm: str, snapshots: Sequence[CorpusSnapshot], query_tokens: Sequence[int]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 96)
+- `llm_estimates(snapshots: Sequence[CorpusSnapshot], seeds: Mapping[str, Sequence[Seed]], questions: Mapping[str, Mapping[str, int]]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 167) — The paid LLM roles.
+- `system_arm_estimates(snapshots: Sequence[CorpusSnapshot], config_allowlists: Mapping[str, Mapping[str, Any]], query_counts: Mapping[str, int]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 264) — R0 (today's effective path) and R1_service (find_sources on a copy with Qwen enabled and backfilled): what they would spend.
+- `system_llm_rows(vault: str, allowlist: Mapping[str, Any], queries: int) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 305) — The system arms' production source-route requests (verification, rewrite, comparison) on the service copies, re-routed from Codex to OpenRouter's Claude Haiku 5.5 (re-plan 2026-10-22): an UPPER-BOUND count per query (R0 and R1' ``find_sources``: two pages, each with its rewrite…
+- `summarize(arms: Sequence[Mapping[str, Any]], systems: Sequence[Mapping[str, Any]], roles: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 333)
+- `run_id(snapshots: Sequence[CorpusSnapshot], bank_ids: Sequence[str]) -> str` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 357)
+- `query_token_sizes(bank: Sequence[BankQuestion], development_target: int) -> list[int]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 363)
+- `subscription_requests(roles: Sequence[Mapping[str, Any]], systems: Sequence[Mapping[str, Any]], config_allowlists: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 369) — The planned Codex (subscription) requests (re-plan 2026-10-22: there are none).
+- `reuse_estimate(predecessor_ledger: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 413) — The offline estimate of a relabel that reuses an earlier run (what the dry run cannot price from the inventory: most work is reused).
+- `budget_check(estimate: Mapping[str, float], prior: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 475) — Whether ``estimate`` (``{category: usd}``) fits the CUMULATIVE cap and allocations after ``prior`` (``budget.prior_spend``: every other authorization's committed spend).
 
 ### Module constants
 
-- `ASSUMPTIONS` ([src/learnloop/experiments/contextual_embeddings/plan.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 36)
-- `EMBEDDING_ARMS` ([src/learnloop/experiments/contextual_embeddings/plan.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 68)
-- `RELABEL_ROLES` ([src/learnloop/experiments/contextual_embeddings/plan.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 403)
-- `REUSE_ASSUMPTIONS` ([src/learnloop/experiments/contextual_embeddings/plan.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 405)
+- `ASSUMPTIONS` ([src/learnloop/experiments/contextual_embeddings/plan.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 35)
+- `EMBEDDING_ARMS` ([src/learnloop/experiments/contextual_embeddings/plan.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 67)
+- `RELABEL_ROLES` ([src/learnloop/experiments/contextual_embeddings/plan.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 391)
+- `REUSE_ASSUMPTIONS` ([src/learnloop/experiments/contextual_embeddings/plan.py](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 393)
 
 ## Internal implementation anchors
 
-- `_sha(*parts: Any) -> str` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 72)
-- `_chunk_tokens(text: str) -> int` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 76)
-- `_batches(documents: Sequence[Sequence[int]], pin: pins.EmbeddingPin) -> int` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 80) — Requests the adapter batching makes for documents of these chunk token sizes.
-- `_role(role: str, calls: int, input_tokens: int, output_tokens: int, *, arm: str | None=None, detail: str='') -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 146) — One role's estimate.
-- `_average_section_tokens(snapshot: CorpusSnapshot) -> int` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 248)
-- `_average_source_tokens(snapshot: CorpusSnapshot) -> int` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 258)
+- `_sha(*parts: Any) -> str` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 71)
+- `_chunk_tokens(text: str) -> int` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 75)
+- `_batches(documents: Sequence[Sequence[int]], pin: pins.EmbeddingPin) -> int` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 79) — Requests the adapter batching makes for documents of these chunk token sizes.
+- `_role(role: str, calls: int, input_tokens: int, output_tokens: int, *, arm: str | None=None, detail: str='') -> dict[str, Any]` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 145) — One role's estimate.
+- `_average_section_tokens(snapshot: CorpusSnapshot) -> int` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 247)
+- `_average_source_tokens(snapshot: CorpusSnapshot) -> int` ([source](../../../../../../../src/learnloop/experiments/contextual_embeddings/plan.py), line 257)
 
 ## Who imports or calls it
 
@@ -93,7 +92,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/experiments/contextual_embeddings/adapters|learnloop.experiments.contextual_embeddings.adapters]] — imports `Chunk`, `Document`; calls `Chunk`, `Document`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/bank|learnloop.experiments.contextual_embeddings.bank]] — imports `BankQuestion`, `RELEVANCE_RUBRIC`, `Seed`, `writer_prompt`; calls `writer_prompt`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/callers|learnloop.experiments.contextual_embeddings.callers]] — imports `SCHEMA_ALLOWANCE_TOKENS`, `role_cost`; calls `role_cost`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/corpus|learnloop.experiments.contextual_embeddings.corpus]] — imports `CorpusSnapshot`

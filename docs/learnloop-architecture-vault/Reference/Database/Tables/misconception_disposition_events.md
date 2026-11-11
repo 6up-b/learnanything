@@ -91,7 +91,6 @@ Database triggers:
 
 ### Repository access surface
 
-- `Repository.active_misconception_facet_ids()`
 - `Repository.insert_misconception_disposition()`
 - `Repository.misconception()`
 - `Repository.misconception_dispositions()`

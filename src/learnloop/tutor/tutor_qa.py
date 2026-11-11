@@ -455,20 +455,6 @@ def _key_in(event: Mapping[str, Any], submission_ids: frozenset[str] | set[str],
     return key.get("submission_id") in submission_ids or key.get("workbench_session_id") in workbench_ids
 
 
-def attempt_key_matches(event: Mapping[str, Any], *, submission_id: str | None,
-                        workbench_session_id: str | None, session_id: str | None = None) -> bool:
-    """Whether a practice question belongs to the attempt in progress that
-    ``submission_id`` (the answer box's key, or a workbench's
-    ``workbench:<id>``) and ``workbench_session_id`` name (Reader CA2, K5;
-    Codex review F6: the server's identity, the same in every host). A
-    question asked under the same key, or in the same unfinished workbench,
-    is the attempt's; one recorded before CA2 has no key and is the window's
-    (in its practice session). The names as given: a handoff's other
-    identities are :class:`AttemptAliases`."""
-
-    return _key_in(event, {submission_id} - {None}, {workbench_session_id} - {None}, session_id=session_id)
-
-
 def attempt_key_of(event: Mapping[str, Any]) -> dict[str, Any]:
     """The attempt key a practice question was asked under (Reader CA2,
     ``source_context.attempt_key``), or ``{}`` for one recorded before it."""

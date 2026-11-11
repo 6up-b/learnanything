@@ -81,8 +81,6 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository.discrimination_row()`
-- `Repository.discrimination_rows_for_item()`
-- `Repository.discrimination_rows_for_misconceptions()`
 - `Repository.upsert_item_misconception_discrimination()`
 
 ### Direct SQL readers

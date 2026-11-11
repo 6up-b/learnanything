@@ -111,7 +111,6 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository.calibration_models_by_hashes()`
-- `Repository.fetch_calibration_model()`
 - `Repository.find_calibration_model_by_hash()`
 - `Repository.find_calibration_models()`
 - `Repository.insert_calibration_model()`
@@ -140,7 +139,6 @@ Indexes and uniqueness:
 
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/teacher_te2_review_fixes_helpers.py`
-- `tests/test_event_sufficiency.py`
 - `tests/test_observation_ledger_bulk.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

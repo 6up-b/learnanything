@@ -18,7 +18,6 @@ source_paths:
   - "migrations/096_controller_snapshots.sql"
   - "src/learnloop/scheduling/controller_store.py"
   - "src/learnloop/scheduling/open_world_gate.py"
-  - "src/learnloop/scheduling/prequential.py"
   - "src/learnloop/scheduling/shadow_components.py"
 tags:
   - "learnloop/database/table"
@@ -86,7 +85,6 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/scheduling/controller_store.py`
-- `src/learnloop/scheduling/prequential.py`
 
 ### Direct SQL writers
 

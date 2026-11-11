@@ -127,7 +127,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/cli/experiments|learnloop.cli.experiments]] | [[Reference/Modules/learnloop/cli/experiments#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/facets|learnloop.cli.facets]] | [[Reference/Modules/learnloop/cli/facets#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/families|learnloop.cli.families]] | [[Reference/Modules/learnloop/cli/families#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]] | [[Reference/Modules/learnloop/cli/field#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
+| [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]] | [[Reference/Modules/learnloop/cli/field#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/cli/field_classification|learnloop.cli.field_classification]] | [[Reference/Modules/learnloop/cli/field_classification#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/cli/fit|learnloop.cli.fit]] | [[Reference/Modules/learnloop/cli/fit#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/gaps|learnloop.cli.gaps]] | [[Reference/Modules/learnloop/cli/gaps#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |

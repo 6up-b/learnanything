@@ -25,8 +25,8 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/diagnosis/causal_migration.py"
   - "src/learnloop/learner/learner_profile.py"
+  - "src/learnloop/learner/mastery.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -106,7 +106,6 @@ Indexes and uniqueness:
 - `src/learnloop/cli/app.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
-- `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/learner/learner_profile.py`
 - `src/learnloop/learner/mastery.py`
 - `src/learnloop/sim/diagnostic_validation.py`

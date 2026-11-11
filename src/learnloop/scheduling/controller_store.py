@@ -101,30 +101,6 @@ def snapshot_row(repository: Repository, snapshot_id: str) -> dict[str, Any] | N
 # ---------------------------------------------------------------------------
 
 
-def upsert_constraint_manifest(
-    repository: Repository,
-    *,
-    manifest_hash: str,
-    definitions: Any,
-    clock: Clock | None = None,
-) -> str:
-    with repository.connection() as connection:
-        existing = connection.execute(
-            "SELECT id FROM controller_constraint_manifests WHERE manifest_hash = ?",
-            (manifest_hash,),
-        ).fetchone()
-        if existing is not None:
-            return existing["id"]
-        manifest_id = new_ulid()
-        connection.execute(
-            "INSERT INTO controller_constraint_manifests(id, manifest_hash, "
-            "definitions_json, created_at) VALUES (?, ?, ?, ?)",
-            (manifest_id, manifest_hash, canonical_json(definitions), utc_now_iso(clock)),
-        )
-        connection.commit()
-    return manifest_id
-
-
 # ---------------------------------------------------------------------------
 # Attention blocks (§4.1).
 # ---------------------------------------------------------------------------
@@ -409,14 +385,6 @@ def persist_experiment_assignment(
     return assignment_id
 
 
-def assignment_row(repository: Repository, assignment_id: str) -> dict[str, Any] | None:
-    with repository.connection() as connection:
-        row = connection.execute(
-            "SELECT * FROM policy_experiment_assignments WHERE id = ?", (assignment_id,)
-        ).fetchone()
-    return dict(row) if row is not None else None
-
-
 def assignments_for_experiment(
     repository: Repository, experiment_id: str
 ) -> list[dict[str, Any]]:
@@ -489,24 +457,3 @@ def outcome_window_row(repository: Repository, window_id: str) -> dict[str, Any]
             "SELECT * FROM controller_outcome_windows WHERE id = ?", (window_id,)
         ).fetchone()
     return dict(row) if row is not None else None
-
-
-def outcome_windows_for_decision(
-    repository: Repository, decision_id: str
-) -> list[dict[str, Any]]:
-    with repository.connection() as connection:
-        rows = connection.execute(
-            "SELECT * FROM controller_outcome_windows WHERE decision_id = ? "
-            "ORDER BY created_at, id",
-            (decision_id,),
-        ).fetchall()
-    return [dict(r) for r in rows]
-
-
-def pending_outcome_windows(repository: Repository) -> list[dict[str, Any]]:
-    with repository.connection() as connection:
-        rows = connection.execute(
-            "SELECT * FROM controller_outcome_windows WHERE status = 'pending' "
-            "ORDER BY due_at IS NULL, due_at, id"
-        ).fetchall()
-    return [dict(r) for r in rows]

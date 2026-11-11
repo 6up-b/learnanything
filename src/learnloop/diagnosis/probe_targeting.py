@@ -709,32 +709,6 @@ def select_discriminating_instrument(
     ).selected
 
 
-def next_cause_set_instrument(
-    vault: LoadedVault,
-    repository: Repository,
-    episode: Any,
-    *,
-    candidate_causes: list[dict[str, Any]] | None = None,
-) -> Any | None:
-    """Serve the discriminating instrument for a cause-set diagnostic episode.
-
-    Entering a diagnostic for a cause set selects instruments that discriminate
-    between the candidate causes (§11.1) rather than the plain top-EIG instrument.
-    """
-
-    from learnloop.diagnosis.probe_episodes import eligible_instruments
-
-    if candidate_causes is None:
-        cause_sets = open_cause_sets_for_learning_object(vault, repository, episode.learning_object_id)
-        candidate_causes = cause_sets[0] if cause_sets else []
-    eligible = eligible_instruments(vault, repository, episode)
-    if not candidate_causes:
-        return eligible[0] if eligible else None
-    return select_discriminating_instrument(
-        candidate_causes, eligible, repository=repository
-    )
-
-
 # --- integration condition (§11.1 priority 4) -------------------------------
 
 

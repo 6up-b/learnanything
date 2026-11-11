@@ -350,17 +350,6 @@ def normalize_attempt_misconceptions(
 # -- §10.2/§10.3 compositional records + promotion discipline (mvp-0.7) ------
 
 
-def _surface_family_for_attempt(vault: LoadedVault, attempt: dict | None) -> str | None:
-    if attempt is None:
-        return None
-    item = vault.practice_items.get(str(attempt.get("practice_item_id") or ""))
-    if item is None:
-        return None
-    from learnloop.substrate.canonical_projection import surface_group_id
-
-    return surface_group_id(item)
-
-
 def _probe_signature_reproduced(candidate: dict, attempt: dict | None) -> bool:
     if str((attempt or {}).get("attempt_type") or "") != "diagnostic_probe":
         return False

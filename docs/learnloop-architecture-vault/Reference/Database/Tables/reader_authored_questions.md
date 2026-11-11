@@ -104,12 +104,10 @@ Indexes and uniqueness:
 - `Repository.delete_source_artifact()`
 - `Repository.get_reader_authored_question()`
 - `Repository.inquiry_reader_authored_question()`
-- `Repository.inquiry_reader_authored_questions()`
 - `Repository.insert_reader_authored_question()`
 - `Repository.latest_reader_authored_question()`
 - `Repository.reader_authored_questions_for_extraction()`
 - `Repository.selection_reader_authored_question()`
-- `Repository.selection_reader_authored_questions()`
 - `Repository.transition_reader_authored_question()`
 
 ### Direct SQL readers

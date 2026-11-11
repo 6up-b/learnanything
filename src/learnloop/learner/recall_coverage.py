@@ -432,45 +432,6 @@ def resolve_error_impact(
     )
 
 
-def event_local_severity(
-    vault: LoadedVault,
-    repository: Repository,
-    item: PracticeItem,
-    *,
-    error_type: str,
-    learning_object_id: str,
-    attempt_type: str,
-    hints_used: int,
-    correctness: float,
-    expected_correctness: float,
-    effective_coverage: float,
-    covered_facets: Mapping[str, float],
-    facet_outcomes: Mapping[str, float],
-    prior_bad_item_suspicion: float,
-    base_severity: float | None = None,
-    exclude_attempt_id: str | None = None,
-) -> tuple[float, dict[str, Any]]:
-    recent = _with_held_marked(
-        repository, repository.list_recent_attempts_by_learning_object(learning_object_id, limit=20)
-    )
-    return event_local_severity_from_attempts(
-        vault,
-        recent,
-        item,
-        error_type=error_type,
-        attempt_type=attempt_type,
-        hints_used=hints_used,
-        correctness=correctness,
-        expected_correctness=expected_correctness,
-        effective_coverage=effective_coverage,
-        covered_facets=covered_facets,
-        facet_outcomes=facet_outcomes,
-        prior_bad_item_suspicion=prior_bad_item_suspicion,
-        base_severity=base_severity,
-        exclude_attempt_id=exclude_attempt_id,
-    )
-
-
 def event_local_severity_from_attempts(
     vault: LoadedVault,
     recent: list[dict[str, Any]],
@@ -547,39 +508,6 @@ def event_local_severity_from_attempts(
     return severity, components
 
 
-def build_facet_recall_updates(
-    repository: Repository,
-    *,
-    learning_object_id: str,
-    practice_item_id: str,
-    covered_facets: Mapping[str, float],
-    facet_outcomes: Mapping[str, float],
-    independent_evidence_discount: float,
-    attempt_type: str,
-    error_event_written: bool,
-    algorithm_version: str,
-    now_iso: str,
-) -> list[dict[str, Any]]:
-    prior_states: dict[tuple[str, str | None], Any] = {}
-    for facet_id in covered_facets:
-        for item_scope in (None, practice_item_id):
-            prior_states[(facet_id, item_scope)] = repository.facet_recall_state(
-                learning_object_id, facet_id, item_scope
-            )
-    return build_facet_recall_updates_from_prior(
-        prior_states,
-        learning_object_id=learning_object_id,
-        practice_item_id=practice_item_id,
-        covered_facets=covered_facets,
-        facet_outcomes=facet_outcomes,
-        independent_evidence_discount=independent_evidence_discount,
-        attempt_type=attempt_type,
-        error_event_written=error_event_written,
-        algorithm_version=algorithm_version,
-        now_iso=now_iso,
-    )
-
-
 def build_facet_recall_updates_from_prior(
     prior_states: Mapping[tuple[str, str | None], Any],
     *,
@@ -631,39 +559,6 @@ def build_facet_recall_updates_from_prior(
                 }
             )
     return updates
-
-
-def build_quality_state_update(
-    repository: Repository,
-    *,
-    item: PracticeItem,
-    prior_mastery: MasteryState,
-    correctness: float,
-    grader_confidence: float,
-    now_iso: str,
-    algorithm_version: str,
-    exclude_attempt_id: str | None = None,
-) -> dict[str, Any]:
-    prior = repository.practice_item_quality_state(item.id)
-    recent_failures = sum(
-        1
-        for attempt in _with_held_marked(
-            repository, repository.list_recent_attempts_by_practice_item(item.id, limit=5)
-        )
-        if attempt.get("id") != exclude_attempt_id
-        if not attempt.get(HELD_ROW_KEY)
-        if attempt.get("attempt_type") == "dont_know" or float(attempt.get("correctness") or 0.0) <= 0.40
-    )
-    return build_quality_state_update_from_prior(
-        prior,
-        recent_failures=recent_failures,
-        item_id=item.id,
-        prior_mastery=prior_mastery,
-        correctness=correctness,
-        grader_confidence=grader_confidence,
-        now_iso=now_iso,
-        algorithm_version=algorithm_version,
-    )
 
 
 def build_quality_state_update_from_prior(

@@ -103,7 +103,6 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository.active_error_events_overlaid()`
-- `Repository.active_misconception_facet_ids()`
 - `Repository.insert_misconception()`
 - `Repository.misconception()`
 - `Repository.misconceptions_for_concepts()`

@@ -603,13 +603,6 @@ class ItemMisconceptionDiscrimination:
 
 
 @dataclass(frozen=True)
-class ProbeState:
-    learning_object_id: str
-    status: str
-    hypothesis_set_id: str | None
-
-
-@dataclass(frozen=True)
 class ProbeStateRecord:
     learning_object_id: str
     status: str
@@ -2777,29 +2770,6 @@ class Repository(
             ).fetchall()
         return [_decode_misconception(row) for row in rows]
 
-    def active_misconception_facet_ids(self) -> set[str]:
-        """Facet ids referenced by any active/resolving misconception (§12 locks)."""
-
-        facets: set[str] = set()
-        with self.connection() as connection:
-            rows = connection.execute(
-                """
-                SELECT m.facet_ids_json
-                FROM misconceptions m
-                WHERE m.status IN ('active', 'resolving')
-                  AND NOT EXISTS (
-                    SELECT 1
-                    FROM misconception_disposition_events d
-                    WHERE d.misconception_id = m.id
-                      AND d.disposition IN ('demoted', 'superseded')
-                  )
-                """
-            ).fetchall()
-        for row in rows:
-            for facet in _loads(row["facet_ids_json"], []):
-                facets.add(str(facet))
-        return facets
-
     def facet_ids_with_recall_evidence(self) -> set[str]:
         """Facet ids with legacy per-LO recall evidence (mvp-0.6 first-touch lock).
 
@@ -3466,33 +3436,6 @@ class Repository(
                 (practice_item_id, misconception_id),
             ).fetchone()
         return _decode_discrimination(row) if row is not None else None
-
-    def discrimination_rows_for_item(
-        self, practice_item_id: str
-    ) -> list[ItemMisconceptionDiscrimination]:
-        with self.connection() as connection:
-            rows = connection.execute(
-                "SELECT * FROM item_misconception_discrimination WHERE practice_item_id = ?",
-                (practice_item_id,),
-            ).fetchall()
-        return [_decode_discrimination(row) for row in rows]
-
-    def discrimination_rows_for_misconceptions(
-        self, misconception_ids: Iterable[str]
-    ) -> list[ItemMisconceptionDiscrimination]:
-        ids = [str(m) for m in misconception_ids]
-        if not ids:
-            return []
-        placeholders = ",".join("?" for _ in ids)
-        with self.connection() as connection:
-            rows = connection.execute(
-                f"""
-                SELECT * FROM item_misconception_discrimination
-                WHERE misconception_id IN ({placeholders})
-                """,
-                ids,
-            ).fetchall()
-        return [_decode_discrimination(row) for row in rows]
 
     def count_clean_attempts_since(
         self,
@@ -7406,11 +7349,6 @@ class Repository(
             rows = connection.execute("SELECT * FROM item_parameter_state").fetchall()
         return {row["practice_item_id"]: _decode_item_parameter_state(row) for row in rows}
 
-    def upsert_item_parameter_state(self, state: ItemParameterState) -> None:
-        with self.connection() as connection:
-            self._upsert_item_parameter_state_record(connection, state)
-            connection.commit()
-
     def _upsert_item_parameter_state_record(
         self, connection: sqlite3.Connection, state: ItemParameterState
     ) -> None:
@@ -7694,18 +7632,6 @@ class Repository(
                 (prefix, f"{prefix}:%"),
             ).fetchall()
         return [_decode_intervention_need(row) for row in rows]
-
-    def probe_states(self) -> dict[str, ProbeState]:
-        with self.connection() as connection:
-            rows = connection.execute("SELECT learning_object_id, status, hypothesis_set_id FROM lo_probe_state").fetchall()
-        return {
-            row["learning_object_id"]: ProbeState(
-                learning_object_id=row["learning_object_id"],
-                status=row["status"],
-                hypothesis_set_id=row["hypothesis_set_id"],
-            )
-            for row in rows
-        }
 
     def probe_state(self, learning_object_id: str) -> ProbeStateRecord | None:
         with self.connection() as connection:
@@ -8435,15 +8361,6 @@ class Repository(
                 (family_id, *statuses),
             ).fetchone()
         return _probe_family_template_record(row) if row is not None else None
-
-    def retire_probe_family_template(self, family_id: str, version: int, *, clock: Clock | None = None) -> None:
-        now = utc_now_iso(clock)
-        with self.connection() as connection:
-            connection.execute(
-                "UPDATE probe_family_templates SET status = 'retired', retired_at = ? WHERE id = ? AND version = ?",
-                (now, family_id, version),
-            )
-            connection.commit()
 
     def update_probe_family_template_status(
         self, family_id: str, version: int, *, status: str, clock: Clock | None = None
@@ -9967,39 +9884,6 @@ class Repository(
             longest = max(longest, run)
 
         return {"current": current, "active_today": active_today, "longest": longest}
-
-    def daily_attempt_counts(
-        self, *, days: int = 14, clock: Clock | None = None
-    ) -> dict[date, int]:
-        """Attempts per local calendar day for the trailing ``days`` window.
-
-        Zero-filled: every day in the window is present (today inclusive), so
-        means over the values reflect idle days. Local timezone, matching
-        ``session_day_streak``.
-        """
-
-        days = max(days, 1)
-        now = (clock or SystemClock()).now()
-        today = now.astimezone().date()
-        # Over-fetch by one UTC day so local-date bucketing never clips the edge.
-        cutoff_iso = (now.astimezone(UTC) - timedelta(days=days + 1)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        with self.connection() as connection:
-            rows = connection.execute(
-                "SELECT created_at FROM practice_attempts WHERE created_at >= ?",
-                (cutoff_iso,),
-            ).fetchall()
-        window_start = today - timedelta(days=days - 1)
-        counts: dict[date, int] = {
-            window_start + timedelta(days=offset): 0 for offset in range(days)
-        }
-        for row in rows:
-            created = parse_utc(row["created_at"])
-            if created is None:
-                continue
-            day = created.astimezone().date()
-            if day in counts:
-                counts[day] += 1
-        return counts
 
     def attempt_count_for_learning_objects(self, learning_object_ids: list[str]) -> int:
         if not learning_object_ids:
@@ -12928,15 +12812,6 @@ class Repository(
             ).fetchone()
         return dict(row) if row is not None else None
 
-    def latest_render_view_for_extraction(self, extraction_id: str) -> dict[str, Any] | None:
-        with self.connection() as connection:
-            row = connection.execute(
-                "SELECT * FROM source_render_views WHERE extraction_id = ? "
-                "ORDER BY created_at DESC, id DESC LIMIT 1",
-                (extraction_id,),
-            ).fetchone()
-        return dict(row) if row is not None else None
-
     def insert_render_crosswalk_nodes(
         self, render_view_id: str, nodes: Sequence[Mapping[str, Any]], *, clock: Clock | None = None
     ) -> None:
@@ -13981,32 +13856,6 @@ class Repository(
             ).fetchone()
         return dict(row) if row is not None else None
 
-    def selection_reader_authored_questions(self, *, since: str | None = None) -> list[dict[str, Any]]:
-        """Every selection-scoped question (oldest first), for the reader report."""
-
-        query = "SELECT * FROM reader_authored_questions WHERE scope_kind = 'selection'"
-        params: list[Any] = []
-        if since is not None:
-            query += " AND created_at >= ?"
-            params.append(since)
-        query += " ORDER BY created_at, id"
-        with self.connection() as connection:
-            rows = connection.execute(query, params).fetchall()
-        return [dict(r) for r in rows]
-
-    def inquiry_reader_authored_questions(self, *, since: str | None = None) -> list[dict[str, Any]]:
-        """Every inquiry-scoped question (oldest first), for the reader report."""
-
-        query = "SELECT * FROM reader_authored_questions WHERE scope_kind = 'inquiry'"
-        params: list[Any] = []
-        if since is not None:
-            query += " AND created_at >= ?"
-            params.append(since)
-        query += " ORDER BY created_at, id"
-        with self.connection() as connection:
-            rows = connection.execute(query, params).fetchall()
-        return [dict(r) for r in rows]
-
     def get_reader_authored_question(self, question_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:
             row = connection.execute(
@@ -14472,15 +14321,6 @@ class Repository(
             ).fetchone()
         return dict(row) if row is not None else None
 
-    def relations_for_object(self, source_object_id: str) -> list[dict[str, Any]]:
-        with self.connection() as connection:
-            rows = connection.execute(
-                "SELECT * FROM source_object_relations WHERE source_object_id = ? "
-                "ORDER BY created_at, id",
-                (source_object_id,),
-            ).fetchall()
-        return [dict(r) for r in rows]
-
     def create_mapping_proposal(
         self, *, source_object_id: str | None = None, annotation_id: str | None = None,
         target_kind: str, target_ref: str | None = None, confidence: float | None = None,
@@ -14722,14 +14562,6 @@ class Repository(
             rows = connection.execute(
                 "SELECT id FROM commitment_arcs WHERE commitment_id = ? ORDER BY created_at, id",
                 (commitment_id,),
-            ).fetchall()
-        return [r["id"] for r in rows]
-
-    def arcs_for_source(self, source_id: str) -> list[str]:
-        with self.connection() as connection:
-            rows = connection.execute(
-                "SELECT id FROM commitment_arcs WHERE source_id = ? ORDER BY created_at, id",
-                (source_id,),
             ).fetchall()
         return [r["id"] for r in rows]
 
@@ -14991,13 +14823,6 @@ class Repository(
                 )
             connection.commit()
         return model_id
-
-    def fetch_calibration_model(self, model_id: str) -> dict[str, Any] | None:
-        with self.connection() as connection:
-            row = connection.execute(
-                "SELECT * FROM grader_calibration_models WHERE id = ?", (model_id,)
-            ).fetchone()
-        return dict(row) if row is not None else None
 
     def fetch_calibration_alphas(self, model_id: str) -> dict[str, dict[str, float]]:
         with self.connection() as connection:
@@ -15435,19 +15260,6 @@ class Repository(
                 """,
             ).fetchall()
         return [_decode_surface(row) for row in rows]
-
-    def fetch_surface_by_hash(
-        self, card_version_id: str, surface_hash: str
-    ) -> dict[str, Any] | None:
-        with self.connection() as connection:
-            row = connection.execute(
-                """
-                SELECT * FROM activity_surfaces
-                 WHERE card_version_id = ? AND surface_hash = ?
-                """,
-                (card_version_id, surface_hash),
-            ).fetchone()
-        return _decode_surface(row) if row is not None else None
 
     def fetch_administration(self, administration_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:
@@ -18336,36 +18148,6 @@ class Repository(
             connection.commit()
             return cursor.rowcount > 0
 
-    def update_proposal_item_audit(
-        self,
-        item_id: str,
-        *,
-        audit: Mapping[str, Any],
-        validation_status: str,
-        validation_errors: list[str],
-        clock: Clock | None = None,
-    ) -> bool:
-        """Replace a pending proposal item's audit and its derived validation."""
-        now = utc_now_iso(clock)
-        with self.connection() as connection:
-            cursor = connection.execute(
-                """
-                UPDATE proposed_patch_items
-                SET audit_json = ?, validation_status = ?,
-                    validation_errors_json = ?, updated_at = ?
-                WHERE id = ? AND decision = 'pending'
-                """,
-                (_json(audit), validation_status, _json(validation_errors), now, item_id),
-            )
-            patch_row = connection.execute(
-                "SELECT proposed_patch_id FROM proposed_patch_items WHERE id = ?",
-                (item_id,),
-            ).fetchone()
-            if patch_row is not None:
-                self._refresh_proposal_status(connection, patch_row["proposed_patch_id"], updated_at=now)
-            connection.commit()
-            return cursor.rowcount > 0
-
     def pending_proposal_items(self, patch_id: str, item_ids: list[str] | None = None) -> list[dict[str, Any]]:
         parameters: list[Any] = [patch_id]
         item_filter = ""
@@ -20714,14 +20496,6 @@ class Repository(
             ).fetchone()
         return _decode_unit_selection(row) if row is not None else None
 
-    def unit_selections_for_revision(self, revision_id: str) -> list[dict[str, Any]]:
-        with self.connection() as connection:
-            rows = connection.execute(
-                "SELECT * FROM source_unit_selections WHERE revision_id = ? ORDER BY updated_at",
-                (revision_id,),
-            ).fetchall()
-        return [_decode_unit_selection(row) for row in rows]
-
     # ------------------------------------------------------------------
     # Role-specific unit inventories (spec_source_ingestion_v2 §7)
     # ------------------------------------------------------------------
@@ -21394,13 +21168,6 @@ class Repository(
             ).fetchone()
         return _decode_maintenance_notice(row) if row else None
 
-    def live_maintenance_notice_keys(self) -> set[tuple[str, str]]:
-        with self.connection() as connection:
-            rows = connection.execute(
-                "SELECT notice_type, dedup_key FROM maintenance_notices WHERE status IN ('active','snoozed')"
-            ).fetchall()
-        return {(row["notice_type"], row["dedup_key"]) for row in rows}
-
     def set_maintenance_notice_status(
         self,
         notice_id: str,
@@ -21777,21 +21544,6 @@ class Repository(
                 (utc_now_iso(clock), intent_id),
             )
             connection.commit()
-
-    def mark_apply_intent_rolled_back(self, intent_id: str, *, clock: Clock | None = None) -> None:
-        with self.connection() as connection:
-            connection.execute(
-                "UPDATE apply_intents SET status = 'rolled_back', rolled_back_at = ? WHERE id = ?",
-                (utc_now_iso(clock), intent_id),
-            )
-            connection.commit()
-
-    def apply_intent(self, intent_id: str) -> dict[str, Any] | None:
-        with self.connection() as connection:
-            row = connection.execute(
-                "SELECT * FROM apply_intents WHERE id = ?", (intent_id,)
-            ).fetchone()
-        return _decode_apply_intent(row) if row is not None else None
 
     def pending_apply_intents(self) -> list[dict[str, Any]]:
         with self.connection() as connection:
@@ -22909,16 +22661,6 @@ class Repository(
         finally:
             connection.close()
 
-    def set_activity_pattern_version_status(
-        self, *, pattern_version_id: str, status: str
-    ) -> None:
-        with self.connection() as connection:
-            connection.execute(
-                "UPDATE activity_pattern_versions SET status = ? WHERE id = ?",
-                (status, pattern_version_id),
-            )
-            connection.commit()
-
     def activity_pattern_version(self, pattern_version_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:
             row = connection.execute(
@@ -23120,14 +22862,6 @@ class Repository(
                 (card_version_id,),
             ).fetchone()
         return dict(row) if row is not None else None
-
-    def activity_card_authoring_for_family(self, family_version_id: str) -> list[dict[str, Any]]:
-        with self.connection() as connection:
-            rows = connection.execute(
-                "SELECT * FROM activity_card_authoring WHERE family_version_id = ? ORDER BY created_at, card_version_id",
-                (family_version_id,),
-            ).fetchall()
-        return [dict(row) for row in rows]
 
     def activity_family_authoring_purposes(self, family_id: str) -> dict[str, str]:
         """Authoring purposes across every version of one stable family (§1.1
@@ -23332,17 +23066,6 @@ class Repository(
                 "SELECT * FROM activity_administrations WHERE id = ?", (administration_id,)
             ).fetchone()
         return dict(row) if row is not None else None
-
-    def all_activity_administrations(self) -> list[dict[str, Any]]:
-        """Every administration row, oldest first. A pure-ledger read for the P1
-        event-sufficiency replay (§9.8): the deferred psychometrics projection is
-        buildable from ledger events ALONE, with zero live-table reads."""
-
-        with self.connection() as connection:
-            rows = connection.execute(
-                "SELECT * FROM activity_administrations ORDER BY created_at, id"
-            ).fetchall()
-        return [dict(row) for row in rows]
 
     def set_administration_context(
         self,
@@ -24022,22 +23745,6 @@ class Repository(
             )
             connection.commit()
 
-    def lapse_episodes_for_lineage(
-        self, card_lineage_id: str, *, status: str | None = None
-    ) -> list[dict[str, Any]]:
-        with self.connection() as connection:
-            if status is not None:
-                rows = connection.execute(
-                    "SELECT * FROM lapse_episodes WHERE card_lineage_id = ? AND status = ? ORDER BY opened_at, id",
-                    (card_lineage_id, status),
-                ).fetchall()
-            else:
-                rows = connection.execute(
-                    "SELECT * FROM lapse_episodes WHERE card_lineage_id = ? ORDER BY opened_at, id",
-                    (card_lineage_id,),
-                ).fetchall()
-        return [dict(row) for row in rows]
-
     # ------------------------------------------------------------------
     # P2 golden path -- task blueprints (spec_p2 §3.2, migration 081)
     # ------------------------------------------------------------------
@@ -24588,13 +24295,6 @@ class Repository(
             ).fetchone()
         return dict(row) if row is not None else None
 
-    def golden_path_run_by_receipt(self, receipt_key: str) -> dict[str, Any] | None:
-        with self.connection() as connection:
-            row = connection.execute(
-                "SELECT * FROM golden_path_runs WHERE receipt_key = ?", (receipt_key,)
-            ).fetchone()
-        return dict(row) if row is not None else None
-
     def golden_path_runs_all(self) -> list[dict[str, Any]]:
         with self.connection() as connection:
             rows = connection.execute(
@@ -24854,13 +24554,6 @@ class Repository(
         with self.connection() as connection:
             row = connection.execute(
                 "SELECT * FROM diagnostic_packs WHERE id = ?", (pack_id,)
-            ).fetchone()
-        return dict(row) if row is not None else None
-
-    def diagnostic_pack_by_slug(self, pack_slug: str) -> dict[str, Any] | None:
-        with self.connection() as connection:
-            row = connection.execute(
-                "SELECT * FROM diagnostic_packs WHERE pack_slug = ?", (pack_slug,)
             ).fetchone()
         return dict(row) if row is not None else None
 
@@ -25338,13 +25031,6 @@ class Repository(
         with self.connection() as connection:
             row = connection.execute(
                 "SELECT * FROM practice_pools WHERE id = ?", (pool_id,)
-            ).fetchone()
-        return dict(row) if row is not None else None
-
-    def practice_pool_by_slug(self, pool_slug: str) -> dict[str, Any] | None:
-        with self.connection() as connection:
-            row = connection.execute(
-                "SELECT * FROM practice_pools WHERE pool_slug = ?", (pool_slug,)
             ).fetchone()
         return dict(row) if row is not None else None
 

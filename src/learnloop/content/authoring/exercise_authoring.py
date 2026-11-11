@@ -170,14 +170,6 @@ def _anchor_range(selection_text: str, statement: str) -> tuple[int, int] | None
     return match.start(), match.end()
 
 
-def _anchor_statement(selection_text: str, statement: str) -> str | None:
-    """Re-anchor the model's echoed statement as a verbatim slice of the
-    learner's selection. Returns the source-owned slice, or None for a paraphrase."""
-
-    found = _anchor_range(selection_text, statement)
-    return None if found is None else selection_text[found[0] : found[1]]
-
-
 def _owned_spans(part_ranges: Sequence[tuple[str, int, int]] | None,
                  ranges: Sequence[tuple[int, int] | None], index: int, *,
                  span_ids: Sequence[str] = (), text_length: int | None = None) -> set[str]:

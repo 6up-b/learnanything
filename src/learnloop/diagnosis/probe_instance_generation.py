@@ -106,10 +106,6 @@ SIGNATURE_FATAL_ERRORS: dict[str, dict[str, str]] = {
 }
 
 
-class InstanceGateRejection(ValueError):
-    """A generated instance failed the structural/grounding/conformance gate."""
-
-
 def request_probe_instance_surfaces(
     client: StructuredTransport, context: ProbeInstanceContext
 ) -> ProbeInstanceSurfaces:

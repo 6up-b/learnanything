@@ -250,8 +250,3 @@ def test_item_misconception_discrimination_upsert_and_math(tmp_path):
     assert updated.sensitivity_lb(0.25) > 0.85
     assert updated.youden_j == pytest.approx(0.85, abs=1e-6)
     assert updated.youden_j_lb(0.25) < updated.youden_j
-
-    # Keyed lookups.
-    assert [r.misconception_id for r in repository.discrimination_rows_for_item("pi_1")] == ["mc_1"]
-    assert [r.practice_item_id for r in repository.discrimination_rows_for_misconceptions(["mc_1"])] == ["pi_1"]
-    assert repository.discrimination_rows_for_misconceptions([]) == []

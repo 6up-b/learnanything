@@ -92,7 +92,6 @@ Indexes and uniqueness:
 
 - `Repository.ensure_activity_surface()`
 - `Repository.fetch_surface()`
-- `Repository.fetch_surface_by_hash()`
 - `Repository.mark_surface_unverifiable()`
 - `Repository.reserved_assessment_surfaces()`
 - `Repository.resolved_activity_for_surface()`
@@ -137,7 +136,6 @@ Indexes and uniqueness:
 - `tests/test_goal_contracts.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_contamination_report.py`
-- `tests/test_event_sufficiency.py`
 - `tests/test_familiarity.py`
 - `tests/test_item_authoring.py`
 - `tests/test_journey6.py`

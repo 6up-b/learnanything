@@ -36,7 +36,7 @@ Up: [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] · Root
 
 ## Why this module exists
 
-This module keeps observations behavior inside its owning package, [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]]. Its public surface centers on `ObservationTemplatesNotReady`, `ObservationTemplateError`, `ObservationResult`, `parse_template_yaml`, `validate_template`, `register_observation_template`, `record_observation`.
+This module keeps observations behavior inside its owning package, [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]]. Its public surface centers on `ObservationTemplateError`, `ObservationResult`, `parse_template_yaml`, `validate_template`, `register_observation_template`, `record_observation`.
 
 The authoritative system-level explanation remains in [[Learning System]]; this note records where this source module participates rather than restating those concepts.
 
@@ -47,24 +47,23 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/observations.py](../../../../../../src/learnloop/attempts/observations.py) |
-| Source lines | 180 |
+| Source lines | 176 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ObservationTemplatesNotReady(RuntimeError)` ([source](../../../../../../src/learnloop/attempts/observations.py), line 16)
-- `class ObservationTemplateError(ValueError)` ([source](../../../../../../src/learnloop/attempts/observations.py), line 20)
-- `class ObservationResult` ([source](../../../../../../src/learnloop/attempts/observations.py), line 25)
-- `parse_template_yaml(template_yaml: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/observations.py), line 32)
-- `validate_template(template: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/attempts/observations.py), line 39)
-- `register_observation_template(repository: Repository, *, domain: str, version: str, title: str, template_yaml: str, active: bool=True, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/attempts/observations.py), line 57)
-- `record_observation(vault: LoadedVault, repository: Repository, *, template_id: str, response: dict[str, Any], related_learning_object_id: str | None=None, related_practice_item_id: str | None=None, session_id: str | None=None, subject: str | None=None, clock: Clock | None=None) -> ObservationResult` ([source](../../../../../../src/learnloop/attempts/observations.py), line 85)
+- `class ObservationTemplateError(ValueError)` ([source](../../../../../../src/learnloop/attempts/observations.py), line 16)
+- `class ObservationResult` ([source](../../../../../../src/learnloop/attempts/observations.py), line 21)
+- `parse_template_yaml(template_yaml: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/observations.py), line 28)
+- `validate_template(template: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/attempts/observations.py), line 35)
+- `register_observation_template(repository: Repository, *, domain: str, version: str, title: str, template_yaml: str, active: bool=True, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/attempts/observations.py), line 53)
+- `record_observation(vault: LoadedVault, repository: Repository, *, template_id: str, response: dict[str, Any], related_learning_object_id: str | None=None, related_practice_item_id: str | None=None, session_id: str | None=None, subject: str | None=None, clock: Clock | None=None) -> ObservationResult` ([source](../../../../../../src/learnloop/attempts/observations.py), line 81)
 
 ## Internal implementation anchors
 
-- `_emit_attempt(vault: LoadedVault, repository: Repository, *, emits: dict[str, Any], practice_item_id: str, response: dict[str, Any], clock: Clock | None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/observations.py), line 149)
+- `_emit_attempt(vault: LoadedVault, repository: Repository, *, emits: dict[str, Any], practice_item_id: str, response: dict[str, Any], clock: Clock | None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/observations.py), line 145)
 
 ## Who imports or calls it
 

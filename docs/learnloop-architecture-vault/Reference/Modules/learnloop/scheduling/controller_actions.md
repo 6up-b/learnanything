@@ -47,15 +47,14 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/controller_actions.py](../../../../../../src/learnloop/scheduling/controller_actions.py) |
-| Source lines | 74 |
+| Source lines | 70 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `is_action(action: str) -> bool` ([source](../../../../../../src/learnloop/scheduling/controller_actions.py), line 61)
-- `validate(action: str, subtype: str | None) -> None` ([source](../../../../../../src/learnloop/scheduling/controller_actions.py), line 65) — Raise if the action/subtype pair is not in the canonical taxonomy.
+- `validate(action: str, subtype: str | None) -> None` ([source](../../../../../../src/learnloop/scheduling/controller_actions.py), line 61) — Raise if the action/subtype pair is not in the canonical taxonomy.
 
 ### Module constants
 

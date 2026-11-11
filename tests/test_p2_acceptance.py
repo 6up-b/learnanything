@@ -23,7 +23,6 @@ from __future__ import annotations
 import pytest
 
 from learnloop.db.repositories import Repository
-from learnloop.substrate.compat import card_outcome_replay as COR
 from learnloop.diagnosis import diagnostic_pack as DP
 from learnloop.diagnosis import failure_triage as FT
 from learnloop.learner import familiarity as F
@@ -287,8 +286,8 @@ def test_starting_instruction_closes_measurement_segment_and_reentry_is_fresh(tm
 # ---------------------------------------------------------------------------
 
 def test_event_replay_equivalence_after_full_walk(tmp_path):
-    """After the full walk, rebuild the run + certification + card-outcome projections
-    from events ALONE and assert equality with the live projections."""
+    """After the full walk, rebuild the run and certification projections from events
+    ALONE and assert equality with the live projections."""
 
     fx = build_golden_path_fixture(tmp_path / "vault")
     vault = load_vault(fx.root)
@@ -296,8 +295,8 @@ def test_event_replay_equivalence_after_full_walk(tmp_path):
     rid = fx.receipt.run_id
     gcv = fx.receipt.goal_contract_version_id
 
-    # Drive the path far enough to have a run projection + a cold assessment citation +
-    # graded card-outcome events (the three projections under replay).
+    # Drive the path far enough to have a run projection and a cold assessment
+    # citation (the two projections under replay).
     GPR.advance(repo, rid, to_state="measuring", reason="b", idempotency_key="m", clock=CLOCK)
     _admit_probe_card(repo)
     pack = _reviewed_pack(repo, fx.blueprint_version_id)
@@ -339,14 +338,6 @@ def test_event_replay_equivalence_after_full_walk(tmp_path):
     assert rebuilt_citation.cited_version_id == result.target_contract_version_id == gcv
     assert rebuilt_citation.cited_version == result.cited_version == 1
     assert rebuilt_citation.terminal is True
-
-    # (c) Card-outcome projection: the deferred psychometrics replay reads ledger
-    # events only, so a fresh handle reproduces byte-identical counts.
-    live_counts = COR.replay_card_outcome_counts(repo)
-    rebuilt_counts = COR.replay_card_outcome_counts(Repository(repo.sqlite_path))
-    assert rebuilt_counts.counts == live_counts.counts
-    assert rebuilt_counts.events_replayed == live_counts.events_replayed
-    assert COR.REPLAY_MANIFEST["reads_live_tables"] is False
 
 
 # ---------------------------------------------------------------------------

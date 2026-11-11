@@ -16,11 +16,9 @@ from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.causal_probe_coherence import transition_probe_candidate
 from learnloop.diagnosis.causal_probe_commissioning import (
-    COMMISSIONING_OUTCOMES,
     commission_probe_instrument,
     make_target_generator,
     measurement_contract_for_item,
-    sweep_probe_commissioning,
     targeted_criteria,
 )
 from learnloop.vault.loader import load_vault
@@ -599,28 +597,6 @@ def test_sweep_machine_checks_queues_the_instrument_debt(tmp_path):
         for check in repository.causal_machine_checks(status="pending")
         if str(check["kind"]) == MACHINE_CHECK_INSTRUMENT_COMMISSIONING
     ] == []
-
-
-def test_sweep_commissions_open_factors_and_reports_each_outcome(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    _write_probe_item(
-        paths, "pi_svd_probe_001", criteria=["criterion_recall", "criterion_method"]
-    )
-    vault = load_vault(paths.root)
-    repository = Repository(paths.sqlite_path)
-    _seed_divergent_factor(repository)
-
-    results = sweep_probe_commissioning(
-        vault,
-        repository,
-        learning_object_id="lo_svd_definition",
-        adversarial_review=PASSING_REVIEW,
-        generation_agent_run_id="agent_generate",
-        reviewer_agent_run_id="agent_review",
-        clock=FrozenClock(NOW),
-    )
-    assert [value["outcome"] for value in results] == ["commissioned"]
-    assert all(value["outcome"] in COMMISSIONING_OUTCOMES for value in results)
 
 
 # ---------------------------------------------------------------------------

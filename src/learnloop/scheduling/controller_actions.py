@@ -58,10 +58,6 @@ STOP_REASONS: tuple[str, ...] = (
 )
 
 
-def is_action(action: str) -> bool:
-    return action in ACTIONS
-
-
 def validate(action: str, subtype: str | None) -> None:
     """Raise if the action/subtype pair is not in the canonical taxonomy."""
 

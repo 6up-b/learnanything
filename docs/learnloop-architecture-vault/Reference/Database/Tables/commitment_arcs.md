@@ -76,7 +76,6 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository.arcs_for_commitment()`
-- `Repository.arcs_for_source()`
 - `Repository.commitment_arc()`
 - `Repository.create_commitment_arc()`
 - `Repository.delete_source_artifact()`

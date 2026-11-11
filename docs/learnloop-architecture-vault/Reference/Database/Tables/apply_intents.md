@@ -79,10 +79,8 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
-- `Repository.apply_intent()`
 - `Repository.insert_apply_intent()`
 - `Repository.mark_apply_intent_applied()`
-- `Repository.mark_apply_intent_rolled_back()`
 - `Repository.pending_apply_intents()`
 
 ### Direct SQL readers

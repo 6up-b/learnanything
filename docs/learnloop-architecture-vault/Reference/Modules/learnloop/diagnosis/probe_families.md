@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py) |
-| Source lines | 1797 |
+| Source lines | 1793 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -56,37 +56,36 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - `knowledge_type_tokens(knowledge_type: str | None) -> set[str]` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 41) — Tokens of a possibly-compound knowledge type.
 - `class CardValidationError(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 68) — A family/card failed schema, vocabulary, or normalization validation.
-- `class FamilyGateRejection(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 72) — A family/card version failed the admission gate (§9.6).
-- `class ProbeFamilyTemplate` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 77) — Versioned reusable measurement pattern (§9.2).
-  - `as_dict(self) -> dict[str, Any]` (line 105; public)
-  - `from_dict(cls, payload: Mapping[str, Any]) -> 'ProbeFamilyTemplate'` (line 127; public)
-  - `schema_hash(self) -> str` (line 148; public)
-- `class InstrumentCard` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 155) — LO-bound executable binding of a family template (§9.3).
-  - `as_dict(self) -> dict[str, Any]` (line 179; public)
-  - `from_dict(cls, payload: Mapping[str, Any]) -> 'InstrumentCard'` (line 201; public)
-- `class CompiledInstrument` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 228) — Executable conditional model shared by selection and replay (§7.2).
-  - `compiled_likelihood_hash(self) -> str` (line 253; public)
-  - `snapshot(self) -> dict[str, Any]` (line 267; public) — Persistable resolved snapshot for a committed presentation (§9.3).
-  - `from_snapshot(cls, payload: Mapping[str, Any]) -> 'CompiledInstrument'` (line 292; public)
-- `validate_and_compile_card(card: InstrumentCard, template: ProbeFamilyTemplate, *, calibration_counts: Mapping[str, Mapping[str, float]] | None=None) -> CompiledInstrument` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 314) — Validate a card against its template and compile executable rows (§9.3).
-- `grader_channel_matrix(grader_policy: str, alphabet: tuple[str, ...], *, reliability: float | None=None) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 411) — ``P(observed_grade | true_response)`` per outcome class.
-- `compose_with_grader_channel(rows: Mapping[str, Mapping[str, float]], channel: Mapping[str, Mapping[str, float]]) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 433) — ``P(observed | h) = Σ_true P(observed | true) P(true | h)`` (§7.6).
-- `instrument_conditionals(instrument: CompiledInstrument, *, grader_reliability: float | None=None) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 454) — The grader-composed observed-outcome conditionals used everywhere (§7.2).
-- `instrument_expected_information_gain(posterior: Mapping[str, float], instrument: CompiledInstrument, slot_map: Mapping[str, str], *, grader_reliability: float | None=None) -> float` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 467) — Actual hypothesis EIG in nats over the grader-composed conditionals (§7.2).
-- `instrument_observation_likelihoods(instrument: CompiledInstrument, slot_map: Mapping[str, str], observed_outcome: str, *, grader_reliability: float | None=None) -> dict[str, float]` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 509) — ``P(observed_outcome | hypothesis)`` per episode label — the same grader-composed conditionals candidate EIG scores with (§7.2).
-- `class PredictiveInstrumentEig` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 527) — Predictive EIG of one candidate over held-out target instruments (§7.4).
-- `instrument_predictive_information_gain(posterior: Mapping[str, float], candidate: CompiledInstrument, candidate_slot_map: Mapping[str, str], targets: list[tuple[CompiledInstrument, Mapping[str, str]]], *, grader_reliability: float | None=None) -> PredictiveInstrumentEig` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 536) — How much observing the candidate's response is expected to sharpen predictions of the learner's responses to the held-out target instruments (§7.4, Adaptive Elicitation view).
-- `information_rate(eig_nats: float, expected_seconds: float, *, overhead_seconds: float) -> float` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 621) — Information per expected second with a conservative fixed overhead (§7.5).
-- `map_episode_labels_to_slots(instrument: CompiledInstrument, episode_labels: list[str], *, bindings: Mapping[str, Any] | None=None) -> dict[str, str] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 627) — Episode hypothesis label -> card slot, or None when the card cannot model the episode's locked set (the card must then abstain, §9.4).
-- `classify_outcome(instrument: CompiledInstrument, *, rubric_score: int | None, attempt_type: str, fired_error_types: list[str], max_points: int=4) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 720) — Map one graded attempt onto the instrument's outcome alphabet.
-- `builtin_family_templates() -> list[ProbeFamilyTemplate]` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1474)
-- `ensure_builtin_families(repository: Repository, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1488) — Persist built-in family template versions as provisional (idempotent).
-- `class PlantedTrial` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1508) — One synthetic response trace: which hypothesis was planted, and the outcome the real signature matcher recovered from the generated response.
-- `class FamilyGateResult` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1518)
-- `run_family_admission_gate(card: InstrumentCard, template: ProbeFamilyTemplate, trials: list[PlantedTrial], *, minimum_reverse_match: float=0.6, minimum_pair_separation: float=0.25, repository: Repository | None=None, clock: Clock | None=None) -> FamilyGateResult` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1525) — Admission gate for one family/card version (§9.6).
-- `record_real_observation_counts(repository: Repository, *, family_template_id: str, family_template_version: int, posterior_after: Mapping[str, float], slot_map: Mapping[str, str], observed_outcome: str, grader_version: str | None=None, practice_item_id: str | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1631) — Fold one real observation into the family-version Dirichlet posterior.
-- `real_calibration_counts(repository: Repository, family_template_id: str, family_template_version: int, *, grader_version: str | None=None) -> dict[str, dict[str, float]] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1722)
-- `shrunk_item_calibration_counts(repository: Repository, family_template_id: str, family_template_version: int, *, practice_item_id: str, grader_version: str | None=None, item_shrinkage_pseudo_count: float=25.0) -> dict[str, dict[str, float]] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1741) — Item-level Dirichlet counts shrunk toward the family posterior (§9.7).
+- `class ProbeFamilyTemplate` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 73) — Versioned reusable measurement pattern (§9.2).
+  - `as_dict(self) -> dict[str, Any]` (line 101; public)
+  - `from_dict(cls, payload: Mapping[str, Any]) -> 'ProbeFamilyTemplate'` (line 123; public)
+  - `schema_hash(self) -> str` (line 144; public)
+- `class InstrumentCard` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 151) — LO-bound executable binding of a family template (§9.3).
+  - `as_dict(self) -> dict[str, Any]` (line 175; public)
+  - `from_dict(cls, payload: Mapping[str, Any]) -> 'InstrumentCard'` (line 197; public)
+- `class CompiledInstrument` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 224) — Executable conditional model shared by selection and replay (§7.2).
+  - `compiled_likelihood_hash(self) -> str` (line 249; public)
+  - `snapshot(self) -> dict[str, Any]` (line 263; public) — Persistable resolved snapshot for a committed presentation (§9.3).
+  - `from_snapshot(cls, payload: Mapping[str, Any]) -> 'CompiledInstrument'` (line 288; public)
+- `validate_and_compile_card(card: InstrumentCard, template: ProbeFamilyTemplate, *, calibration_counts: Mapping[str, Mapping[str, float]] | None=None) -> CompiledInstrument` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 310) — Validate a card against its template and compile executable rows (§9.3).
+- `grader_channel_matrix(grader_policy: str, alphabet: tuple[str, ...], *, reliability: float | None=None) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 407) — ``P(observed_grade | true_response)`` per outcome class.
+- `compose_with_grader_channel(rows: Mapping[str, Mapping[str, float]], channel: Mapping[str, Mapping[str, float]]) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 429) — ``P(observed | h) = Σ_true P(observed | true) P(true | h)`` (§7.6).
+- `instrument_conditionals(instrument: CompiledInstrument, *, grader_reliability: float | None=None) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 450) — The grader-composed observed-outcome conditionals used everywhere (§7.2).
+- `instrument_expected_information_gain(posterior: Mapping[str, float], instrument: CompiledInstrument, slot_map: Mapping[str, str], *, grader_reliability: float | None=None) -> float` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 463) — Actual hypothesis EIG in nats over the grader-composed conditionals (§7.2).
+- `instrument_observation_likelihoods(instrument: CompiledInstrument, slot_map: Mapping[str, str], observed_outcome: str, *, grader_reliability: float | None=None) -> dict[str, float]` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 505) — ``P(observed_outcome | hypothesis)`` per episode label — the same grader-composed conditionals candidate EIG scores with (§7.2).
+- `class PredictiveInstrumentEig` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 523) — Predictive EIG of one candidate over held-out target instruments (§7.4).
+- `instrument_predictive_information_gain(posterior: Mapping[str, float], candidate: CompiledInstrument, candidate_slot_map: Mapping[str, str], targets: list[tuple[CompiledInstrument, Mapping[str, str]]], *, grader_reliability: float | None=None) -> PredictiveInstrumentEig` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 532) — How much observing the candidate's response is expected to sharpen predictions of the learner's responses to the held-out target instruments (§7.4, Adaptive Elicitation view).
+- `information_rate(eig_nats: float, expected_seconds: float, *, overhead_seconds: float) -> float` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 617) — Information per expected second with a conservative fixed overhead (§7.5).
+- `map_episode_labels_to_slots(instrument: CompiledInstrument, episode_labels: list[str], *, bindings: Mapping[str, Any] | None=None) -> dict[str, str] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 623) — Episode hypothesis label -> card slot, or None when the card cannot model the episode's locked set (the card must then abstain, §9.4).
+- `classify_outcome(instrument: CompiledInstrument, *, rubric_score: int | None, attempt_type: str, fired_error_types: list[str], max_points: int=4) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 716) — Map one graded attempt onto the instrument's outcome alphabet.
+- `builtin_family_templates() -> list[ProbeFamilyTemplate]` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1470)
+- `ensure_builtin_families(repository: Repository, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1484) — Persist built-in family template versions as provisional (idempotent).
+- `class PlantedTrial` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1504) — One synthetic response trace: which hypothesis was planted, and the outcome the real signature matcher recovered from the generated response.
+- `class FamilyGateResult` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1514)
+- `run_family_admission_gate(card: InstrumentCard, template: ProbeFamilyTemplate, trials: list[PlantedTrial], *, minimum_reverse_match: float=0.6, minimum_pair_separation: float=0.25, repository: Repository | None=None, clock: Clock | None=None) -> FamilyGateResult` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1521) — Admission gate for one family/card version (§9.6).
+- `record_real_observation_counts(repository: Repository, *, family_template_id: str, family_template_version: int, posterior_after: Mapping[str, float], slot_map: Mapping[str, str], observed_outcome: str, grader_version: str | None=None, practice_item_id: str | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1627) — Fold one real observation into the family-version Dirichlet posterior.
+- `real_calibration_counts(repository: Repository, family_template_id: str, family_template_version: int, *, grader_version: str | None=None) -> dict[str, dict[str, float]] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1718)
+- `shrunk_item_calibration_counts(repository: Repository, family_template_id: str, family_template_version: int, *, practice_item_id: str, grader_version: str | None=None, item_shrinkage_pseudo_count: float=25.0) -> dict[str, dict[str, float]] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1737) — Item-level Dirichlet counts shrunk toward the family posterior (§9.7).
 
 ### Module constants
 
@@ -96,33 +95,33 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `SELECTION_POLICY_VERSION` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 54)
 - `GRADER_CHANNEL_RELIABILITY` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 59)
 - `APPROVED_DIAGNOSTIC_GRADING_SOURCES` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 65)
-- `CONTRAST_CONFUSABLE_V1` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 798)
-- `CONTRAST_CONFUSABLE_DEFAULT_ROWS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 827)
-- `MINIMAL_RECALL_V1` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 876)
-- `MINIMAL_RECALL_DEFAULT_ROWS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 902)
-- `PREDICTION_V1` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 926)
-- `PREDICTION_DEFAULT_ROWS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 955)
-- `PERTURBATION_V1` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 990)
-- `PERTURBATION_DEFAULT_ROWS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1015)
-- `MINIMAL_COUNTEREXAMPLE_V1` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1050)
-- `MINIMAL_COUNTEREXAMPLE_DEFAULT_ROWS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1079)
-- `DIALOGUE_MICROPROBE_V1` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1114)
-- `DIALOGUE_MICROPROBE_DEFAULT_ROWS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1146)
-- `PROOF_SKELETON_V1` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1199)
-- `PROOF_SKELETON_DEFAULT_ROWS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1228)
-- `DERIVATION_V1` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1271)
-- `DERIVATION_DEFAULT_ROWS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1304)
-- `EXTENDED_CASE_V1` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1347)
-- `EXTENDED_CASE_DEFAULT_ROWS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1378)
-- `LONGFORM_FAMILY_IDS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1421)
-- `LONGFORM_OBLIGATIONS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1427)
-- `DEFAULT_INSTRUCTIONAL_ACTIONS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1449)
-- `FAMILY_DEFAULT_ROWS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1461)
+- `CONTRAST_CONFUSABLE_V1` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 794)
+- `CONTRAST_CONFUSABLE_DEFAULT_ROWS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 823)
+- `MINIMAL_RECALL_V1` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 872)
+- `MINIMAL_RECALL_DEFAULT_ROWS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 898)
+- `PREDICTION_V1` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 922)
+- `PREDICTION_DEFAULT_ROWS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 951)
+- `PERTURBATION_V1` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 986)
+- `PERTURBATION_DEFAULT_ROWS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1011)
+- `MINIMAL_COUNTEREXAMPLE_V1` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1046)
+- `MINIMAL_COUNTEREXAMPLE_DEFAULT_ROWS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1075)
+- `DIALOGUE_MICROPROBE_V1` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1110)
+- `DIALOGUE_MICROPROBE_DEFAULT_ROWS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1142)
+- `PROOF_SKELETON_V1` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1195)
+- `PROOF_SKELETON_DEFAULT_ROWS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1224)
+- `DERIVATION_V1` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1267)
+- `DERIVATION_DEFAULT_ROWS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1300)
+- `EXTENDED_CASE_V1` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1343)
+- `EXTENDED_CASE_DEFAULT_ROWS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1374)
+- `LONGFORM_FAMILY_IDS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1417)
+- `LONGFORM_OBLIGATIONS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1423)
+- `DEFAULT_INSTRUCTIONAL_ACTIONS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1445)
+- `FAMILY_DEFAULT_ROWS` ([src/learnloop/diagnosis/probe_families.py](../../../../../../src/learnloop/diagnosis/probe_families.py), line 1457)
 
 ## Internal implementation anchors
 
-- `_entropy(distribution: Mapping[str, float]) -> float` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 450)
-- `_first_present(alphabet: tuple[str, ...], preferences: tuple[str, ...]) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 789)
+- `_entropy(distribution: Mapping[str, float]) -> float` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 446)
+- `_first_present(alphabet: tuple[str, ...], preferences: tuple[str, ...]) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_families.py), line 785)
 
 ## Who imports or calls it
 

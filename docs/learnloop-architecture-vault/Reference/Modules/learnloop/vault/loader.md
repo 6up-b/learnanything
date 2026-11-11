@@ -794,7 +794,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_pending_adversarial_review_is_a_state_not_a_failure`
   - `test_second_candidate_in_a_new_instrument_class_is_commissioned`
   - `test_self_reviewed_manipulation_is_rejected`
-  - `test_sweep_commissions_open_factors_and_reports_each_outcome`
   - `test_sweep_machine_checks_queues_the_instrument_debt`
   - `test_the_cap_is_two_candidates_per_factor`
 - [tests/test_causal_repair_mapping_p2.py](../../../../../../tests/test_causal_repair_mapping_p2.py) — direct import
@@ -2511,7 +2510,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_followup_slate_logs_predictive_fields_and_ranking_unchanged_at_weight_zero`
 - [tests/test_predictor_interface.py](../../../../../../tests/test_predictor_interface.py) — direct import
   - `test_incumbent_uses_explicit_vault_config_without_reading_store`
-- [tests/test_prequential.py](../../../../../../tests/test_prequential.py) — direct import
 - [tests/test_probability_prep.py](../../../../../../tests/test_probability_prep.py) — direct import
   - `test_only_target_overlap_is_evidence_and_other_same_lo_work_is_context`
 - [tests/test_probe_attempt_updates.py](../../../../../../tests/test_probe_attempt_updates.py) — direct import
@@ -2538,7 +2536,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_end_dialogue_block_invalidates_unsubmitted_turn_and_segments`
   - `test_second_dialogue_block_on_same_lo_can_open`
 - [tests/test_probe_eig.py](../../../../../../tests/test_probe_eig.py) — direct import
-  - `test_probe_eig_higher_when_item_probes_active_misconception`
   - `test_probe_hypothesis_set_ignores_transient_errors`
 - [tests/test_probe_entry.py](../../../../../../tests/test_probe_entry.py) — direct import
   - `test_enter_probe_creates_in_progress_state_and_locked_hypothesis_set`

@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/surface_pool.py](../../../../../../src/learnloop/substrate/surface_pool.py) |
-| Source lines | 522 |
+| Source lines | 488 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -67,13 +67,11 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `pool_content_hash(*, pool_slug: str, blueprint_version_id: str, surfaces: Sequence[Mapping[str, Any]]) -> str` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 139) — The timestamp/id-independent content identity of a pool (§12.8 determinism).
 - `assemble_pool(repository: Repository, *, pool_slug: str, blueprint_version_id: str, surfaces: Sequence[Mapping[str, Any]], clock: Clock | None=None) -> PoolRecord` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 154) — Assemble a practice pool from candidate surfaces for a reviewed blueprint version (§7.3).
 - `admit_pool_surface(repository: Repository, *, pool_id: str, surface_slug: str, surface_id: str | None=None, assessment_surface_id: str | None=None, checks: Mapping[str, Any] | None=None, author: str='owner', clock: Clock | None=None) -> PoolRecord` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 232) — Owner admits one reviewed surface into the pool (U-028).
-- `reject_pool_surface(repository: Repository, *, pool_id: str, surface_slug: str, reason: str, author: str='owner', clock: Clock | None=None) -> PoolRecord` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 263)
-- `review_pool(repository: Repository, *, pool_id: str, checks: Mapping[str, Any] | None=None, author: str='owner', clock: Clock | None=None) -> PoolRecord` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 284) — Owner marks the pool reviewed once every surface is admitted (§7.3).
-- `activate_pool(repository: Repository, *, pool_id: str, author: str='owner', clock: Clock | None=None) -> PoolRecord` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 304)
-- `next_practice_surface(repository: Repository, *, pool_id: str, warmth_threshold: float | None=None, cadence: int | None=None, clock: Clock | None=None) -> PoolSelection` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 374) — Serve one current admitted surface + at most one cached spare (§7.3).
-- `request_spare_mint(repository: Repository, *, card_version_id: str, anchor_surface_id: str | None=None, requested_angle: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 432) — Enqueue a durable, lease-fenced pre-mint request for a fresh spare surface (§7.3, design B.7 batch-and-rank).
-- `open_practice(repository: Repository, *, resolved: ResolvedActivity, goal_id: str | None=None, assistance: Mapping[str, Any] | None=None, feedback_condition: str | None=None, algorithm_version: str | None=None, clock: Clock | None=None) -> Administration` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 459) — Administer a pool surface at the PRACTICE purpose through the landed atomic render/burn boundary (§7.3).
-- `pool_status(repository: Repository, *, pool_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 492) — The current pool + its admission/rotation ledger (§7.3 audit).
+- `review_pool(repository: Repository, *, pool_id: str, checks: Mapping[str, Any] | None=None, author: str='owner', clock: Clock | None=None) -> PoolRecord` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 263) — Owner marks the pool reviewed once every surface is admitted (§7.3).
+- `next_practice_surface(repository: Repository, *, pool_id: str, warmth_threshold: float | None=None, cadence: int | None=None, clock: Clock | None=None) -> PoolSelection` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 340) — Serve one current admitted surface + at most one cached spare (§7.3).
+- `request_spare_mint(repository: Repository, *, card_version_id: str, anchor_surface_id: str | None=None, requested_angle: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 398) — Enqueue a durable, lease-fenced pre-mint request for a fresh spare surface (§7.3, design B.7 batch-and-rank).
+- `open_practice(repository: Repository, *, resolved: ResolvedActivity, goal_id: str | None=None, assistance: Mapping[str, Any] | None=None, feedback_condition: str | None=None, algorithm_version: str | None=None, clock: Clock | None=None) -> Administration` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 425) — Administer a pool surface at the PRACTICE purpose through the landed atomic render/burn boundary (§7.3).
+- `pool_status(repository: Repository, *, pool_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 458) — The current pool + its admission/rotation ledger (§7.3 audit).
 
 ### Module constants
 
@@ -85,9 +83,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `_canonical_surfaces(surfaces: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 125)
 - `_assert_no_assessment_collision(repository: Repository, *, surface_id: str, assessment_surface_id: str | None) -> None` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 191) — Refuse a pool surface that collides with the run's assessment reserve (§7.3): an exact ``surface_hash`` or ``fingerprint`` match, or a hard-namespace collision.
 - `_assert_practice_purpose(repository: Repository, surface_id: str) -> None` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 214) — A purpose-specific family can never transition roles (§12.4): the resolved surface's card family must be a practice family, not an assessment/diagnostic one.
-- `_serve(repository: Repository, surface_row: Mapping[str, Any], *, warmth_threshold: float | None, cadence: int | None) -> ServedSurface` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 321)
-- `_record_pool_selection(repository: Repository, pool_id: str, selection: PoolSelection, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 342) — Write the served/rotated pool ledger events (§7.3 audit).
-- `_load_pool(repository: Repository, pool_id: str, *, minted: bool=True) -> PoolRecord` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 500)
+- `_serve(repository: Repository, surface_row: Mapping[str, Any], *, warmth_threshold: float | None, cadence: int | None) -> ServedSurface` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 287)
+- `_record_pool_selection(repository: Repository, pool_id: str, selection: PoolSelection, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 308) — Write the served/rotated pool ledger events (§7.3 audit).
+- `_load_pool(repository: Repository, pool_id: str, *, minted: bool=True) -> PoolRecord` ([source](../../../../../../src/learnloop/substrate/surface_pool.py), line 466)
 
 ## Who imports or calls it
 

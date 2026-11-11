@@ -96,7 +96,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]] — imports `module`
 - [[Reference/Modules/learnloop/scheduling/unresolved_cost|learnloop.scheduling.unresolved_cost]] — imports `module`
 - [[Reference/Modules/learnloop/scheduling/voi_forecasts|learnloop.scheduling.voi_forecasts]] — imports `module`
-- [[Reference/Modules/learnloop/sim/interval_width_viability|learnloop.sim.interval_width_viability]] — imports `module`; statically calls `LossCell`, `LossTable`
 
 ## Dependencies
 
@@ -117,7 +116,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]], [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]], [[Reference/Modules/learnloop/evsi_calibration/experiments|learnloop.evsi_calibration.experiments]], [[Reference/Modules/learnloop/evsi_calibration/policies|learnloop.evsi_calibration.policies]], [[Reference/Modules/learnloop/evsi_calibration/simulate|learnloop.evsi_calibration.simulate]] and 5 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]], [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]], [[Reference/Modules/learnloop/evsi_calibration/experiments|learnloop.evsi_calibration.experiments]], [[Reference/Modules/learnloop/evsi_calibration/policies|learnloop.evsi_calibration.policies]], [[Reference/Modules/learnloop/evsi_calibration/simulate|learnloop.evsi_calibration.simulate]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

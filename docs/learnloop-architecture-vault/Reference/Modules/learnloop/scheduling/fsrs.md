@@ -146,7 +146,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rebuild_is_deterministic_and_independent_of_practice_item_cache`
 - [tests/test_evaluation.py](../../../../../../tests/test_evaluation.py) — direct import
   - `test_report_on_real_session_flow`
-- [tests/test_event_sufficiency.py](../../../../../../tests/test_event_sufficiency.py) — direct import
 - [tests/test_family_evaluation.py](../../../../../../tests/test_family_evaluation.py) — direct import
   - `test_distance_arm_discounts_only_real_positive_credit`
   - `test_memory_arm_inputs_are_frozen_and_never_a_store`
