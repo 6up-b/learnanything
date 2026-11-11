@@ -5,7 +5,7 @@
 Use `uv` for everything Python.
 
 ```bash
-uv sync --extra dev --extra mobile       # install; without --extra mobile ~40 phone-host tests skip silently (add --extra pdf for Marker; manim is a core dependency)
+uv sync --extra dev --extra mobile --extra tui   # install; without --extra mobile ~40 phone-host tests skip silently, without --extra tui the terminal app's tests skip (add --extra pdf for Marker; manim is a core dependency)
 uv run pytest                            # everything, both gates: about 2 h serial. Times: docs/reviews/refactor-a6.md
 uv run pytest -n 8 --dist worksteal -m "not arc_close"   # the landing gate (pytest-xdist): about 12 min in a 10 GB scope
 uv run pytest -n 8 --dist worksteal -m arc_close         # the arc-close gate: pre-registered sims and long journeys, about 7 min
