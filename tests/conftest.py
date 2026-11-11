@@ -443,6 +443,7 @@ def _fixture_database_state() -> dict[str, tuple[str, tuple[str, ...]]]:
 
 def pytest_configure(config):
     global _session_durable
+    _session_tmp.claim(config)
     _session_durable = bool(config.getoption("--durable-sqlite"))
     _set_sqlite_test_mode(durable=_session_durable)
     _fixture_state_at_start.update(_fixture_database_state())
@@ -468,8 +469,9 @@ def pytest_sessionfinish(session, exitstatus):
 
 
 def pytest_unconfigure(config):
-    """The run that made this run's scratch directory deletes it (tests/session_tmp.py); workers leave it alone."""
-    kept = _session_tmp.finish(_TEMP_ROOT)
+    """The session that made this run's scratch directory deletes it (tests/session_tmp.py); workers and nested
+    sessions leave it alone."""
+    kept = _session_tmp.finish(_TEMP_ROOT, config)
     reporter = config.pluginmanager.get_plugin("terminalreporter")
     if kept and reporter is not None:
         reporter.write_line(kept)
