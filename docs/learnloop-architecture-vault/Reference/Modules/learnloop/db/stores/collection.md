@@ -112,6 +112,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_writers_stamp_the_current_collection_version`
 - [tests/test_router_offer_log.py](../../../../../../../tests/test_router_offer_log.py) — direct import
   - `test_a_learner_pick_that_cannot_be_logged_never_fails_the_bind`
+- [tests/test_table_roles.py](../../../../../../../tests/test_table_roles.py) — direct import
+  - `test_the_role_consumers_treat_compat_and_workflow_alike`
 
 ## Modification guidance
 
