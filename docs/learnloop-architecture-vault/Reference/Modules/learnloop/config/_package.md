@@ -8,6 +8,7 @@ source_paths:
   - "src/learnloop/config/__init__.py"
   - "src/learnloop/config/compat.py"
   - "src/learnloop/config/loader.py"
+  - "src/learnloop/config/retired.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
 generated: true
@@ -48,8 +49,9 @@ For system intent, use [[Configuration]], [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/config/__init__|learnloop.config]] | [[Reference/Modules/learnloop/config/__init__#^module-purpose|purpose]] | `ACTIVE` | 68 | 81 |
 | [[Reference/Modules/learnloop/config/compat|learnloop.config.compat]] | [[Reference/Modules/learnloop/config/compat#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
-| [[Reference/Modules/learnloop/config/loader|learnloop.config.loader]] | [[Reference/Modules/learnloop/config/loader#^module-purpose|purpose]] | `ACTIVE` | 12 | 9 |
-| [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] | [[Reference/Modules/learnloop/config/schema#^module-purpose|purpose]] | `ACTIVE` | 36 | 117 |
+| [[Reference/Modules/learnloop/config/loader|learnloop.config.loader]] | [[Reference/Modules/learnloop/config/loader#^module-purpose|purpose]] | `ACTIVE` | 12 | 10 |
+| [[Reference/Modules/learnloop/config/retired|learnloop.config.retired]] | [[Reference/Modules/learnloop/config/retired#^module-purpose|purpose]] | `ACTIVE` | 8 | 1 |
+| [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] | [[Reference/Modules/learnloop/config/schema#^module-purpose|purpose]] | `ACTIVE` | 36 | 118 |
 | [[Reference/Modules/learnloop/config/template|learnloop.config.template]] | [[Reference/Modules/learnloop/config/template#^module-purpose|purpose]] | `ACTIVE` | 2 | 18 |
 
 ## Cross-package dependencies
@@ -62,9 +64,9 @@ For system intent, use [[Configuration]], [[Architecture Overview]].
 
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 11 static module edges
 - [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 10 static module edges
-- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 8 static module edges
+- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 10 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 8 static module edges
-- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 7 static module edges
+- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 8 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 7 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 6 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 4 static module edges
@@ -74,12 +76,13 @@ For system intent, use [[Configuration]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] — 3 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 3 static module edges
 - [[Reference/Modules/learnloop/evsi_calibration/_package|learnloop.evsi_calibration]] — 3 static module edges
+- [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 3 static module edges
 - [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 3 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 3 static module edges
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 3 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 2 static module edges
+- [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 2 static module edges
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/_package|learnloop.experiments.contextual_embeddings]] — 2 static module edges
-- [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 2 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 2 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 2 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
@@ -92,6 +95,7 @@ For system intent, use [[Configuration]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] — 1 static module edge
 - [[Reference/Modules/learnloop/ops/contamination/_package|learnloop.ops.contamination]] — 1 static module edge
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 1 static module edge
+- [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 1 static module edge
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 1 static module edge
 - [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] — 1 static module edge
 - [[Reference/Modules/learnloop/tui/_package|learnloop.tui]] — 1 static module edge
@@ -116,9 +120,9 @@ flowchart LR
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_ai -->|11| center
     n_learnloop_ai_providers -->|10| center
-    n_learnloop_cli -->|8| center
+    n_learnloop_cli -->|10| center
     n_learnloop_content_pipeline -->|8| center
-    n_learnloop_ops -->|7| center
+    n_learnloop_ops -->|8| center
     n_learnloop_sidecar_handlers -->|7| center
     n_learnloop_diagnosis -->|6| center
     n_learnloop_learner -->|4| center

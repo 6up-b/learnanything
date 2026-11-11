@@ -467,6 +467,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f9_the_resume_budgets_the_largest_judgment_estimates_not_the_longest_stems`
 - [tests/test_required_method_round3_review.py](../../../../../../tests/test_required_method_round3_review.py) — direct import
   - `test_f7_a_resume_is_estimated_from_the_persisted_unfinished_stem`
+- [tests/test_retired_config_identities.py](../../../../../../tests/test_retired_config_identities.py) — direct import
+  - `test_an_embedding_compare_report_is_named_as_before_arc_c`
 - [tests/test_ro2_history_forecaster.py](../../../../../../tests/test_ro2_history_forecaster.py) — direct import
   - `test_a_skipped_forecast_is_censored_with_its_reason`
 - [tests/test_router_r2c_retrieval.py](../../../../../../tests/test_router_r2c_retrieval.py) — direct import

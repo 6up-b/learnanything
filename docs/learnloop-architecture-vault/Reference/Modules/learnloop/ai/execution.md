@@ -401,6 +401,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_recurrence_benchmarks.py](../../../../../../tests/test_recurrence_benchmarks.py) — direct import
   - `test_b1_ignores_cache_rows_without_a_writer`
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
+- [tests/test_retired_config_identities.py](../../../../../../tests/test_retired_config_identities.py) — direct import
+  - `test_an_embedding_compare_report_is_named_as_before_arc_c`
+  - `test_the_config_identity_reproduces_both_recorded_digests`
+  - `test_the_pre_arc_c_shape_reproduces_the_recorded_default_digest`
 - [tests/test_router_r2b_serving.py](../../../../../../tests/test_router_r2b_serving.py) — direct import
   - `test_the_daily_guard_counts_todays_router_receipts`
 - [tests/test_rw1a_composition.py](../../../../../../tests/test_rw1a_composition.py) — direct import

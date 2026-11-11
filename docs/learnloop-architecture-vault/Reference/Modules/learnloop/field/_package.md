@@ -67,7 +67,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/field/item_content|learnloop.field.item_content]] | [[Reference/Modules/learnloop/field/item_content#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/field/memory|learnloop.field.memory]] | [[Reference/Modules/learnloop/field/memory#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] | [[Reference/Modules/learnloop/field/outcomes#^module-purpose|purpose]] | `ACTIVE` | 6 | 18 |
-| [[Reference/Modules/learnloop/field/predictors|learnloop.field.predictors]] | [[Reference/Modules/learnloop/field/predictors#^module-purpose|purpose]] | `ACTIVE` | 8 | 9 |
+| [[Reference/Modules/learnloop/field/predictors|learnloop.field.predictors]] | [[Reference/Modules/learnloop/field/predictors#^module-purpose|purpose]] | `ACTIVE` | 8 | 10 |
 | [[Reference/Modules/learnloop/field/priors|learnloop.field.priors]] | [[Reference/Modules/learnloop/field/priors#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/field/probability_arms|learnloop.field.probability_arms]] | [[Reference/Modules/learnloop/field/probability_arms#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
 | [[Reference/Modules/learnloop/field/probability_prep|learnloop.field.probability_prep]] | [[Reference/Modules/learnloop/field/probability_prep#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
@@ -89,7 +89,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 6 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 5 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 4 static module edges
-- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 2 static module edges
+- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 3 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 1 static module edge
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 1 static module edge
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 1 static module edge

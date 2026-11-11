@@ -175,10 +175,10 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 12 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 12 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 10 static module edges
+- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 10 static module edges
 - [[Reference/Modules/learnloop/evsi_calibration/_package|learnloop.evsi_calibration]] — 10 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 10 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 9 static module edges
-- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 8 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 8 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 8 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 8 static module edges

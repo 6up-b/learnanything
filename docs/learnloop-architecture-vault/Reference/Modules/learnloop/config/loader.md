@@ -152,6 +152,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_extraction_queues_the_index_jobs_only_while_their_switches_are_on`
 - [tests/test_notes_vault_search.py](../../../../../../tests/test_notes_vault_search.py) — direct import
   - `test_a_legacy_tend_table_in_an_existing_config_is_ignored`
+- [tests/test_retired_config_identities.py](../../../../../../tests/test_retired_config_identities.py) — direct import
 - [tests/test_success_head_cli.py](../../../../../../tests/test_success_head_cli.py) — direct import
 - [tests/test_voyage_fallback.py](../../../../../../tests/test_voyage_fallback.py) — direct import
   - `test_every_ai_task_refuses_the_fallback_profile`

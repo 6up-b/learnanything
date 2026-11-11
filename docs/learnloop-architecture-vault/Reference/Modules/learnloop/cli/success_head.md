@@ -49,7 +49,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/success_head.py](../../../../../../src/learnloop/cli/success_head.py) |
-| Source lines | 232 |
+| Source lines | 234 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -85,6 +85,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]] — imports `_LEGACY_FALLBACK_HELP`, `_emit`, `_load_for_step`, `_replay_inputs`; calls `_emit`, `_load_for_step`, `_replay_inputs`
 - [[Reference/Modules/learnloop/cli/probability_arms|learnloop.cli.probability_arms]] — imports `prepare_or_load_probability_arms`; calls `prepare_or_load_probability_arms`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `MasteryConfig`
+- [[Reference/Modules/learnloop/config/retired|learnloop.config.retired]] — imports `identity_dump`; calls `identity_dump`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/field/evaluation|learnloop.field.evaluation]] — imports `evaluate`, `report_digest`, `write_reports`; calls `evaluate`, `report_digest`, `write_reports`
 - [[Reference/Modules/learnloop/field/item_content|learnloop.field.item_content]] — imports `load_content_index`, `seen_stem_records`; calls `load_content_index`, `seen_stem_records`

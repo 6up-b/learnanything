@@ -47,65 +47,65 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/field/predictors.py](../../../../../../src/learnloop/field/predictors.py) |
-| Source lines | 559 |
+| Source lines | 562 |
 | Owning package | [[Reference/Modules/learnloop/field/_package|learnloop.field]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class LoGeneral` ([source](../../../../../../src/learnloop/field/predictors.py), line 68) — Small joint float64 probability-space EKF, with opt-in coarse factors.
-  - `__init__(self, *, name: str='lo_general', extensions: Iterable[str]=(), constants: ArmConstants | None=None, config: MasteryConfig | None=None, items: Iterable[ItemFeatures]=(), general_means: Mapping[str, float] | None=None, lo_priors: Mapping[str, tuple[float, float]] | None=None) -> None` (line 74; internal)
-  - `_reset(self) -> None` (line 96; internal)
-  - `_components(self, f: ItemFeatures) -> list[tuple[str, float, float]]` (line 107; internal)
-  - `_view(self, features: Iterable[ItemFeatures])` (line 127; internal)
-  - `_loadings(self, f: ItemFeatures, keys: list[str]) -> np.ndarray` (line 140; internal)
-  - `_drift(self, f: ItemFeatures, keys: list[str], covariance: np.ndarray) -> np.ndarray` (line 146; internal)
-  - `_features(self, item: ItemFeatures | str) -> ItemFeatures` (line 164; internal)
-  - `_logit(self, f: ItemFeatures, keys: list[str], mean: np.ndarray) -> float` (line 167; internal)
-  - `predict(self, features: ItemFeatures) -> float` (line 180; public)
-  - `predict_item(self, item: ItemFeatures | str) -> ItemPrediction` (line 185; public)
-  - `_noise(self, f: ItemFeatures, p: float, mass: float, interpretation: float=0.0) -> float` (line 196; internal)
-  - `_register_regions(self, f: ItemFeatures) -> None` (line 204; internal)
-  - `observe(self, row: ObservationRow) -> None` (line 213; public)
-  - `region_estimates(self, scope: Iterable[str] | None=None) -> dict[str, RegionEstimate]` (line 285; public)
-  - `conditional_gain(self, item: ItemFeatures | str, chosen: Iterable[ItemFeatures | str], weights: Mapping[str, float]) -> float` (line 313; public)
-  - `rebuild(self, rows: Iterable[ObservationRow]) -> None` (line 350; public)
-  - `snapshot_bytes(self) -> bytes` (line 355; public) — Stable diagnostic serialization, including clocks and directness.
-- `class MasteryEKF(LoGeneral)` ([source](../../../../../../src/learnloop/field/predictors.py), line 367) — Independent-LO adapter: the update itself is production mastery math.
-  - `__init__(self, **kwargs)` (line 370; internal)
-  - `_components(self, f)` (line 373; internal)
-  - `_drift(self, f, keys, covariance)` (line 378; internal)
-  - `observe(self, row: ObservationRow) -> None` (line 387; public)
-- `class BetaPredictor` ([source](../../../../../../src/learnloop/field/predictors.py), line 418) — Running beta counts, weighted once per attempt (or by facet share).
-  - `__init__(self, *, name='base_rate_lo', **_kwargs)` (line 423; internal)
-  - `predict(self, features: ItemFeatures) -> float` (line 429; public)
-  - `observe(self, row: ObservationRow) -> None` (line 436; public)
-  - `rebuild(self, rows: Iterable[ObservationRow]) -> None` (line 448; public)
-  - `snapshot_bytes(self) -> bytes` (line 453; public)
-- `register_predictor(name: str, factory: Callable[..., Predictor], *, sweep: bool=False, inputs: Iterable[str]=_EKF_INPUTS, groups: Iterable[str]=()) -> None` ([source](../../../../../../src/learnloop/field/predictors.py), line 467) — Phase 3's family arms register here without changing the harness.
-- `registered_predictors(*, include_sweeps: bool=True, group: str | None=None) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/field/predictors.py), line 485)
-- `create_predictor(name: str, **kwargs) -> Predictor` ([source](../../../../../../src/learnloop/field/predictors.py), line 493)
-- `is_calibrated_predictor(predictor: str | Predictor) -> bool` ([source](../../../../../../src/learnloop/field/predictors.py), line 504)
-- `validate_active_predictor(name: str, *, phase: str='F1') -> None` ([source](../../../../../../src/learnloop/field/predictors.py), line 513)
+- `class LoGeneral` ([source](../../../../../../src/learnloop/field/predictors.py), line 71) — Small joint float64 probability-space EKF, with opt-in coarse factors.
+  - `__init__(self, *, name: str='lo_general', extensions: Iterable[str]=(), constants: ArmConstants | None=None, config: MasteryConfig | None=None, items: Iterable[ItemFeatures]=(), general_means: Mapping[str, float] | None=None, lo_priors: Mapping[str, tuple[float, float]] | None=None) -> None` (line 77; internal)
+  - `_reset(self) -> None` (line 99; internal)
+  - `_components(self, f: ItemFeatures) -> list[tuple[str, float, float]]` (line 110; internal)
+  - `_view(self, features: Iterable[ItemFeatures])` (line 130; internal)
+  - `_loadings(self, f: ItemFeatures, keys: list[str]) -> np.ndarray` (line 143; internal)
+  - `_drift(self, f: ItemFeatures, keys: list[str], covariance: np.ndarray) -> np.ndarray` (line 149; internal)
+  - `_features(self, item: ItemFeatures | str) -> ItemFeatures` (line 167; internal)
+  - `_logit(self, f: ItemFeatures, keys: list[str], mean: np.ndarray) -> float` (line 170; internal)
+  - `predict(self, features: ItemFeatures) -> float` (line 183; public)
+  - `predict_item(self, item: ItemFeatures | str) -> ItemPrediction` (line 188; public)
+  - `_noise(self, f: ItemFeatures, p: float, mass: float, interpretation: float=0.0) -> float` (line 199; internal)
+  - `_register_regions(self, f: ItemFeatures) -> None` (line 207; internal)
+  - `observe(self, row: ObservationRow) -> None` (line 216; public)
+  - `region_estimates(self, scope: Iterable[str] | None=None) -> dict[str, RegionEstimate]` (line 288; public)
+  - `conditional_gain(self, item: ItemFeatures | str, chosen: Iterable[ItemFeatures | str], weights: Mapping[str, float]) -> float` (line 316; public)
+  - `rebuild(self, rows: Iterable[ObservationRow]) -> None` (line 353; public)
+  - `snapshot_bytes(self) -> bytes` (line 358; public) — Stable diagnostic serialization, including clocks and directness.
+- `class MasteryEKF(LoGeneral)` ([source](../../../../../../src/learnloop/field/predictors.py), line 370) — Independent-LO adapter: the update itself is production mastery math.
+  - `__init__(self, **kwargs)` (line 373; internal)
+  - `_components(self, f)` (line 376; internal)
+  - `_drift(self, f, keys, covariance)` (line 381; internal)
+  - `observe(self, row: ObservationRow) -> None` (line 390; public)
+- `class BetaPredictor` ([source](../../../../../../src/learnloop/field/predictors.py), line 421) — Running beta counts, weighted once per attempt (or by facet share).
+  - `__init__(self, *, name='base_rate_lo', **_kwargs)` (line 426; internal)
+  - `predict(self, features: ItemFeatures) -> float` (line 432; public)
+  - `observe(self, row: ObservationRow) -> None` (line 439; public)
+  - `rebuild(self, rows: Iterable[ObservationRow]) -> None` (line 451; public)
+  - `snapshot_bytes(self) -> bytes` (line 456; public)
+- `register_predictor(name: str, factory: Callable[..., Predictor], *, sweep: bool=False, inputs: Iterable[str]=_EKF_INPUTS, groups: Iterable[str]=()) -> None` ([source](../../../../../../src/learnloop/field/predictors.py), line 470) — Phase 3's family arms register here without changing the harness.
+- `registered_predictors(*, include_sweeps: bool=True, group: str | None=None) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/field/predictors.py), line 488)
+- `create_predictor(name: str, **kwargs) -> Predictor` ([source](../../../../../../src/learnloop/field/predictors.py), line 496)
+- `is_calibrated_predictor(predictor: str | Predictor) -> bool` ([source](../../../../../../src/learnloop/field/predictors.py), line 507)
+- `validate_active_predictor(name: str, *, phase: str='F1') -> None` ([source](../../../../../../src/learnloop/field/predictors.py), line 516)
 
 ### Module constants
 
-- `_OFFLINE_INERT_MASTERY_KEYS` ([src/learnloop/field/predictors.py](../../../../../../src/learnloop/field/predictors.py), line 45)
-- `REPLAY_INPUTS` ([src/learnloop/field/predictors.py](../../../../../../src/learnloop/field/predictors.py), line 459)
-- `_EKF_INPUTS` ([src/learnloop/field/predictors.py](../../../../../../src/learnloop/field/predictors.py), line 460)
-- `_REGISTRY` ([src/learnloop/field/predictors.py](../../../../../../src/learnloop/field/predictors.py), line 462)
-- `_SWEEPS` ([src/learnloop/field/predictors.py](../../../../../../src/learnloop/field/predictors.py), line 463)
-- `_GROUPS` ([src/learnloop/field/predictors.py](../../../../../../src/learnloop/field/predictors.py), line 464)
-- `_EXTENSIONS` ([src/learnloop/field/predictors.py](../../../../../../src/learnloop/field/predictors.py), line 524)
+- `_OFFLINE_INERT_MASTERY_KEYS` ([src/learnloop/field/predictors.py](../../../../../../src/learnloop/field/predictors.py), line 46)
+- `REPLAY_INPUTS` ([src/learnloop/field/predictors.py](../../../../../../src/learnloop/field/predictors.py), line 462)
+- `_EKF_INPUTS` ([src/learnloop/field/predictors.py](../../../../../../src/learnloop/field/predictors.py), line 463)
+- `_REGISTRY` ([src/learnloop/field/predictors.py](../../../../../../src/learnloop/field/predictors.py), line 465)
+- `_SWEEPS` ([src/learnloop/field/predictors.py](../../../../../../src/learnloop/field/predictors.py), line 466)
+- `_GROUPS` ([src/learnloop/field/predictors.py](../../../../../../src/learnloop/field/predictors.py), line 467)
+- `_EXTENSIONS` ([src/learnloop/field/predictors.py](../../../../../../src/learnloop/field/predictors.py), line 527)
 
 ## Internal implementation anchors
 
-- `_probability(logit: float, clip: float=1e-09) -> float` ([source](../../../../../../src/learnloop/field/predictors.py), line 32)
-- `_hash(value: object) -> str` ([source](../../../../../../src/learnloop/field/predictors.py), line 37)
-- `_mastery_hash_view(config: MasteryConfig) -> dict` ([source](../../../../../../src/learnloop/field/predictors.py), line 48) — The mastery config as an offline arm's version hash reads it.
-- `_order(row: ObservationRow) -> tuple[str, str, str]` ([source](../../../../../../src/learnloop/field/predictors.py), line 54)
-- `_eligible(row: ObservationRow, mass: float | None=None) -> bool` ([source](../../../../../../src/learnloop/field/predictors.py), line 59)
+- `_probability(logit: float, clip: float=1e-09) -> float` ([source](../../../../../../src/learnloop/field/predictors.py), line 33)
+- `_hash(value: object) -> str` ([source](../../../../../../src/learnloop/field/predictors.py), line 38)
+- `_mastery_hash_view(config: MasteryConfig) -> dict` ([source](../../../../../../src/learnloop/field/predictors.py), line 49) — The mastery config as an offline arm's version hash reads it: with the fields arc C retired (``mastery.irt.discrimination_min/max``), so an arm keeps the hash recorded before they went (config/retired.py).
+- `_order(row: ObservationRow) -> tuple[str, str, str]` ([source](../../../../../../src/learnloop/field/predictors.py), line 57)
+- `_eligible(row: ObservationRow, mass: float | None=None) -> bool` ([source](../../../../../../src/learnloop/field/predictors.py), line 62)
 
 ## Who imports or calls it
 
@@ -127,6 +127,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `MasteryConfig`; calls `MasteryConfig`
+- [[Reference/Modules/learnloop/config/retired|learnloop.config.retired]] — imports `identity_dump`; calls `identity_dump`
 - [[Reference/Modules/learnloop/field/types|learnloop.field.types]] — imports `ArmConstants`, `FacetRow`, `ItemFeatures`, `ItemPrediction`, `LearnerPredictor`, `ObservationRow`, `Predictor`, `RegionEstimate`, `SignalRow`; calls `ArmConstants`, `ItemFeatures`, `ItemPrediction`, `RegionEstimate`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `MasteryObservation`, `initial_mastery_state`, `update_mastery`; calls `MasteryObservation`, `initial_mastery_state`, `update_mastery`
 
@@ -199,6 +200,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_unchanged_consumer_uses_only_interface`
 - [tests/test_probability_arms.py](../../../../../../tests/test_probability_arms.py) — direct import
   - `test_arms_are_off_by_default_and_can_never_be_active`
+- [tests/test_retired_config_identities.py](../../../../../../tests/test_retired_config_identities.py) — direct import
+  - `test_predictor_version_hashes_are_the_ones_recorded_before_arc_c`
 - [tests/test_success_head.py](../../../../../../tests/test_success_head.py) — direct import
   - `test_t8_arms_are_never_activatable`
 

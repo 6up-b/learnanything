@@ -54,7 +54,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/placement/claim_check|learnloop.placement.claim_check]] | [[Reference/Modules/learnloop/placement/claim_check#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/placement/decisions|learnloop.placement.decisions]] | [[Reference/Modules/learnloop/placement/decisions#^module-purpose|purpose]] | `ACTIVE` | 4 | 16 |
 | [[Reference/Modules/learnloop/placement/field_receipts|learnloop.placement.field_receipts]] | [[Reference/Modules/learnloop/placement/field_receipts#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/placement/predictor|learnloop.placement.predictor]] | [[Reference/Modules/learnloop/placement/predictor#^module-purpose|purpose]] | `ACTIVE` | 8 | 5 |
+| [[Reference/Modules/learnloop/placement/predictor|learnloop.placement.predictor]] | [[Reference/Modules/learnloop/placement/predictor#^module-purpose|purpose]] | `ACTIVE` | 8 | 6 |
 | [[Reference/Modules/learnloop/placement/report|learnloop.placement.report]] | [[Reference/Modules/learnloop/placement/report#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/placement/rules|learnloop.placement.rules]] | [[Reference/Modules/learnloop/placement/rules#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/placement/signals|learnloop.placement.signals]] | [[Reference/Modules/learnloop/placement/signals#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
@@ -71,6 +71,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 4 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 2 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 1 static module edge
+- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 1 static module edge
 
 ### Packages that import this package
 

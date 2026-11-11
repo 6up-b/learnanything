@@ -72,7 +72,7 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 | [[Reference/Modules/learnloop/ops/debug_time_store|learnloop.ops.debug_time_store]] | [[Reference/Modules/learnloop/ops/debug_time_store#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] | [[Reference/Modules/learnloop/ops/doctor#^module-purpose|purpose]] | `ACTIVE` | 2 | 50 |
 | [[Reference/Modules/learnloop/ops/embedding_backfill|learnloop.ops.embedding_backfill]] | [[Reference/Modules/learnloop/ops/embedding_backfill#^module-purpose|purpose]] | `ACTIVE` | 13 | 22 |
-| [[Reference/Modules/learnloop/ops/embedding_compare|learnloop.ops.embedding_compare]] | [[Reference/Modules/learnloop/ops/embedding_compare#^module-purpose|purpose]] | `ACTIVE` | 3 | 10 |
+| [[Reference/Modules/learnloop/ops/embedding_compare|learnloop.ops.embedding_compare]] | [[Reference/Modules/learnloop/ops/embedding_compare#^module-purpose|purpose]] | `ACTIVE` | 3 | 11 |
 | [[Reference/Modules/learnloop/ops/family_proposals|learnloop.ops.family_proposals]] | [[Reference/Modules/learnloop/ops/family_proposals#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/ops/graph_nomination_report|learnloop.ops.graph_nomination_report]] | [[Reference/Modules/learnloop/ops/graph_nomination_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/ops/maintenance_feed|learnloop.ops.maintenance_feed]] | [[Reference/Modules/learnloop/ops/maintenance_feed#^module-purpose|purpose]] | `ACTIVE` | 3 | 7 |
@@ -104,7 +104,7 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 14 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 12 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 10 static module edges
-- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 7 static module edges
+- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 8 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 6 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 4 static module edges
@@ -159,7 +159,7 @@ flowchart LR
     n_learnloop_content_authoring["learnloop.content.authoring"]
     n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
-    n_learnloop_source_retrieval["learnloop.source_retrieval"]
+    n_learnloop_config["learnloop.config"]
     n_learnloop -->|45| center
     center -->|22| n_learnloop
     center -->|41| n_learnloop_ai
@@ -171,7 +171,7 @@ flowchart LR
     center -->|10| n_learnloop_content_authoring
     center -->|12| n_learnloop_substrate
     n_learnloop_sidecar_handlers -->|10| center
-    n_learnloop_source_retrieval -->|8| center
+    center -->|8| n_learnloop_config
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.
