@@ -100,6 +100,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/identity_pins_helpers.py`
 - `tests/test_activity_backfill.py`
 - `tests/test_activity_families.py`
 - `tests/test_activity_substrate.py`

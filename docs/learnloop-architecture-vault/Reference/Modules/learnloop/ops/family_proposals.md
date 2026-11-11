@@ -131,6 +131,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/source_service_fakes.py](../../../../../../tests/source_service_fakes.py) — direct import
 - [tests/test_family_proposals.py](../../../../../../tests/test_family_proposals.py) — direct import
   - `test_codex_estimate_falls_back_to_input_plus_output_tokens`

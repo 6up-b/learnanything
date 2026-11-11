@@ -184,7 +184,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `Goal`, `LoadedVault`, `SourceSet`
 - [[Reference/Modules/learnloop/content/synthesis/study_map_diff|learnloop.content.synthesis.study_map_diff]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/content/synthesis/synthesis_eval|learnloop.content.synthesis.synthesis_eval]] — imports `LoadedVault`
-- [[Reference/Modules/learnloop/content/synthesis/synthesis_manifests|learnloop.content.synthesis.synthesis_manifests]] — imports `LoadedVault`, `learning_object_facet_union`; statically calls `learning_object_facet_union`
+- [[Reference/Modules/learnloop/content/synthesis/synthesis_manifests|learnloop.content.synthesis.synthesis_manifests]] — imports `Blueprint`, `BlueprintRecipe`, `LoadedVault`, `RecipeComponent`, `learning_object_facet_union`; statically calls `learning_object_facet_union`
 - [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs|learnloop.content.synthesis.vault_epigraphs]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/curriculum/confusable_concepts|learnloop.curriculum.confusable_concepts]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/curriculum/curriculum_locks|learnloop.curriculum.curriculum_locks]] — imports `LoadedVault`
@@ -458,6 +458,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/method_explicit_landing_helpers.py](../../../../../../tests/method_explicit_landing_helpers.py) — direct import
 - [tests/passage_cue_fakes.py](../../../../../../tests/passage_cue_fakes.py) — direct import
 - [tests/pf_fakes.py](../../../../../../tests/pf_fakes.py) — direct import

@@ -37,8 +37,8 @@ source_paths:
   - "tests/help_outcomes_helpers.py"
   - "tests/hint_fakes.py"
   - "tests/http_provider_double.py"
+  - "tests/identity_pins_helpers.py"
   - "tests/mcp_world.py"
-  - "tests/pfc_unassessed_readers_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/diagnosis"
@@ -101,8 +101,8 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/help_outcomes_helpers.py`
 - `tests/hint_fakes.py`
 - `tests/http_provider_double.py`
+- `tests/identity_pins_helpers.py`
 - `tests/mcp_world.py`
-- `tests/pfc_unassessed_readers_helpers.py`
 
 ## Extension and modification guidance
 

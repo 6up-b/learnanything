@@ -65,9 +65,9 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/hints/contracts|learnloop.hints.contracts]] | [[Reference/Modules/learnloop/hints/contracts#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
 | [[Reference/Modules/learnloop/hints/discriminating|learnloop.hints.discriminating]] | [[Reference/Modules/learnloop/hints/discriminating#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/hints/kinds|learnloop.hints.kinds]] | [[Reference/Modules/learnloop/hints/kinds#^module-purpose|purpose]] | `ACTIVE` | 7 | 6 |
-| [[Reference/Modules/learnloop/hints/map_builder|learnloop.hints.map_builder]] | [[Reference/Modules/learnloop/hints/map_builder#^module-purpose|purpose]] | `ACTIVE` | 12 | 24 |
+| [[Reference/Modules/learnloop/hints/map_builder|learnloop.hints.map_builder]] | [[Reference/Modules/learnloop/hints/map_builder#^module-purpose|purpose]] | `ACTIVE` | 12 | 25 |
 | [[Reference/Modules/learnloop/hints/map_report|learnloop.hints.map_report]] | [[Reference/Modules/learnloop/hints/map_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/hints/map_seeds|learnloop.hints.map_seeds]] | [[Reference/Modules/learnloop/hints/map_seeds#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
+| [[Reference/Modules/learnloop/hints/map_seeds|learnloop.hints.map_seeds]] | [[Reference/Modules/learnloop/hints/map_seeds#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/hints/maps|learnloop.hints.maps]] | [[Reference/Modules/learnloop/hints/maps#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
 | [[Reference/Modules/learnloop/hints/options|learnloop.hints.options]] | [[Reference/Modules/learnloop/hints/options#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/hints/outcome|learnloop.hints.outcome]] | [[Reference/Modules/learnloop/hints/outcome#^module-purpose|purpose]] | `ACTIVE` | 2 | 6 |

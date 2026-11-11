@@ -24,6 +24,7 @@ source_paths:
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
+  - "tests/identity_pins_helpers.py"
   - "tests/local_embeddings_fakes.py"
   - "tests/mobile_host_auth_helpers.py"
   - "tests/mobile_host_helpers.py"
@@ -32,7 +33,6 @@ source_paths:
   - "tests/practice_index_fakes.py"
   - "tests/reader_source_identity_guard_helpers.py"
   - "tests/router_model_fakes.py"
-  - "tests/rw5c_fixtures.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/recurrence"
@@ -72,6 +72,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
+- `tests/identity_pins_helpers.py`
 - `tests/local_embeddings_fakes.py`
 - `tests/mobile_host_auth_helpers.py`
 - `tests/mobile_host_helpers.py`
@@ -80,7 +81,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/practice_index_fakes.py`
 - `tests/reader_source_identity_guard_helpers.py`
 - `tests/router_model_fakes.py`
-- `tests/rw5c_fixtures.py`
 
 ## Extension and modification guidance
 

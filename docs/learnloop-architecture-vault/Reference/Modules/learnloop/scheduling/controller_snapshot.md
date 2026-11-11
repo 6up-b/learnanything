@@ -123,6 +123,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_constraint_engine.py](../../../../../../tests/test_constraint_engine.py) — direct import
   - `test_assessment_reservation_blocks_non_assessment_use`
   - `test_dormant_fatigue_slack_guardrail_bind_logged_when_it_fires`

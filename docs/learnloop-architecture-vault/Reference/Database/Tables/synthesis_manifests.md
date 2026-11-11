@@ -128,6 +128,7 @@ Indexes and uniqueness:
 
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
 - `tests/daily_plan_reading_helpers.py`
+- `tests/identity_pins_helpers.py`
 - `tests/plan_follows_path_helpers.py`
 - `tests/test_graph_nomination_ingest.py`
 - `tests/test_ingest_ownership.py`

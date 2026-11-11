@@ -137,6 +137,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/source_retrieval_tutor_helpers.py](../../../../../../tests/source_retrieval_tutor_helpers.py) — direct import
 - [tests/test_contamination_report.py](../../../../../../tests/test_contamination_report.py) — direct import
   - `test_recipes_embed_only_the_model_text_and_stay_out_of_the_default_backfill`

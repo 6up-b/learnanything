@@ -207,6 +207,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/ih2_lessons_compete_helpers.py](../../../../../../tests/ih2_lessons_compete_helpers.py) — direct import
 - [tests/ih4_preferences_inform_router_helpers.py](../../../../../../tests/ih4_preferences_inform_router_helpers.py) — direct import
 - [tests/ih_numeric_seed_helpers.py](../../../../../../tests/ih_numeric_seed_helpers.py) — direct import

@@ -148,6 +148,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_answer_signal_arms.py](../../../../../../tests/test_answer_signal_arms.py) — direct import
   - `test_a_control_twin_separates_the_signal_from_recalibration`
   - `test_a_fit_that_cannot_converge_says_so`

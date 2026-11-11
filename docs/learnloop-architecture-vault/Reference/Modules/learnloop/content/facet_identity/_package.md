@@ -56,7 +56,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]] | [[Reference/Modules/learnloop/content/facet_identity/authority#^module-purpose|purpose]] | `ACTIVE` | 5 | 9 |
 | [[Reference/Modules/learnloop/content/facet_identity/dedupe|learnloop.content.facet_identity.dedupe]] | [[Reference/Modules/learnloop/content/facet_identity/dedupe#^module-purpose|purpose]] | `ACTIVE` | 1 | 5 |
 | [[Reference/Modules/learnloop/content/facet_identity/grouping|learnloop.content.facet_identity.grouping]] | [[Reference/Modules/learnloop/content/facet_identity/grouping#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/content/facet_identity/judge|learnloop.content.facet_identity.judge]] | [[Reference/Modules/learnloop/content/facet_identity/judge#^module-purpose|purpose]] | `ACTIVE` | 6 | 5 |
+| [[Reference/Modules/learnloop/content/facet_identity/judge|learnloop.content.facet_identity.judge]] | [[Reference/Modules/learnloop/content/facet_identity/judge#^module-purpose|purpose]] | `ACTIVE` | 6 | 6 |
 | [[Reference/Modules/learnloop/content/facet_identity/plan|learnloop.content.facet_identity.plan]] | [[Reference/Modules/learnloop/content/facet_identity/plan#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 | [[Reference/Modules/learnloop/content/facet_identity/span_support|learnloop.content.facet_identity.span_support]] | [[Reference/Modules/learnloop/content/facet_identity/span_support#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/content/facet_identity/views|learnloop.content.facet_identity.views]] | [[Reference/Modules/learnloop/content/facet_identity/views#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
@@ -71,11 +71,11 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 6 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 3 static module edges
+- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 2 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 2 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 2 static module edges
 - [[Reference/Modules/learnloop/matching/_package|learnloop.matching]] — 2 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 2 static module edges
-- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 1 static module edge
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 1 static module edge
 
 ### Packages that import this package
@@ -104,7 +104,7 @@ flowchart LR
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_cli["learnloop.cli"]
-    n_learnloop_curriculum["learnloop.curriculum"]
+    n_learnloop_config["learnloop.config"]
     n_learnloop_content_synthesis -->|9| center
     center -->|6| n_learnloop_content_synthesis
     center -->|14| n_learnloop_ai
@@ -116,7 +116,7 @@ flowchart LR
     n_learnloop_sidecar_handlers -->|4| center
     center -->|3| n_learnloop_content_sources
     n_learnloop_cli -->|2| center
-    n_learnloop_curriculum -->|2| center
+    center -->|2| n_learnloop_config
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

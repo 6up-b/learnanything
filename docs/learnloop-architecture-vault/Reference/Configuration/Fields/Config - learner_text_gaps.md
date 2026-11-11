@@ -31,9 +31,9 @@ source_paths:
   - "tests/forecast_receipts_helpers.py"
   - "tests/help_outcomes_helpers.py"
   - "tests/hint_service_helpers.py"
+  - "tests/identity_pins_helpers.py"
   - "tests/local_embeddings_fakes.py"
   - "tests/mcp_world.py"
-  - "tests/mobile_host_auth_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/learner-text-gaps"
@@ -88,9 +88,9 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/forecast_receipts_helpers.py`
 - `tests/help_outcomes_helpers.py`
 - `tests/hint_service_helpers.py`
+- `tests/identity_pins_helpers.py`
 - `tests/local_embeddings_fakes.py`
 - `tests/mcp_world.py`
-- `tests/mobile_host_auth_helpers.py`
 
 ## Extension and modification guidance
 

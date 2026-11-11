@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/config/retired.py](../../../../../../src/learnloop/config/retired.py) |
-| Source lines | 160 |
+| Source lines | 177 |
 | Owning package | [[Reference/Modules/learnloop/config/_package|learnloop.config]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -59,6 +59,7 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
   - `_remember_retired_values(cls, data: Any, handler: Any) -> Any` (line 98; internal)
 - `remembering(model: _Model, **values: Any) -> _Model` ([source](../../../../../../src/learnloop/config/retired.py), line 108) — ``model``, remembering ``values`` for its retired fields as if its input had set them: a built-in default that set one at construction before arc C (the ``recall_failure`` impact's ``lo_mastery_delta``).
 - `identity_dump(model: BaseModel) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/retired.py), line 119) — ``model.model_dump(mode="json")`` with every retired field under it put back, for a hash that is compared.
+- `identity_view(model: BaseModel, fields: tuple[str, ...]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/retired.py), line 131) — The named ``fields`` of :func:`identity_dump`: an explicit identity view of a flat config section.
 
 ### Module constants
 
@@ -74,6 +75,7 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 - `KeepsRetiredFields`
 - `RetiredField`
 - `identity_dump`
+- `identity_view`
 - `remembering`
 
 ## Internal implementation anchors
@@ -81,8 +83,8 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 - `_adapter(annotation: Any) -> TypeAdapter[Any]` ([source](../../../../../../src/learnloop/config/retired.py), line 65)
 - `_coerce(field: RetiredField, raw: Any) -> Any` ([source](../../../../../../src/learnloop/config/retired.py), line 69) — ``raw`` as the removed field read it (lax pydantic validation of its old type), JSON-safe.
 - `_given(data: Any, path: tuple[str, ...]) -> Any` ([source](../../../../../../src/learnloop/config/retired.py), line 79)
-- `_put_back(model: BaseModel, dump: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/config/retired.py), line 131)
-- `_descend(value: Any, node: Any) -> None` ([source](../../../../../../src/learnloop/config/retired.py), line 148)
+- `_put_back(model: BaseModel, dump: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/config/retired.py), line 148)
+- `_descend(value: Any, node: Any) -> None` ([source](../../../../../../src/learnloop/config/retired.py), line 165)
 
 ## Who imports or calls it
 
@@ -92,8 +94,8 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 - [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]] — imports `identity_dump`; statically calls `identity_dump`
 - [[Reference/Modules/learnloop/cli/success_head|learnloop.cli.success_head]] — imports `identity_dump`; statically calls `identity_dump`
 - [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] — imports `KeepsRetiredFields`, `remembering`; statically calls `remembering`
-- [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `identity_dump`; statically calls `identity_dump`
-- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `identity_dump`; statically calls `identity_dump`
+- [[Reference/Modules/learnloop/content/facet_identity/judge|learnloop.content.facet_identity.judge]] — imports `identity_view`; statically calls `identity_view`
+- [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] — imports `identity_view`; statically calls `identity_view`
 - [[Reference/Modules/learnloop/field/predictors|learnloop.field.predictors]] — imports `identity_dump`; statically calls `identity_dump`
 - [[Reference/Modules/learnloop/ops/embedding_compare|learnloop.ops.embedding_compare]] — imports `identity_dump`; statically calls `identity_dump`
 - [[Reference/Modules/learnloop/placement/predictor|learnloop.placement.predictor]] — imports `identity_dump`; statically calls `identity_dump`
@@ -115,12 +117,15 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]], [[Reference/Modules/learnloop/cli/success_head|learnloop.cli.success_head]], [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]], [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]], [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]], [[Reference/Modules/learnloop/cli/success_head|learnloop.cli.success_head]], [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]], [[Reference/Modules/learnloop/content/facet_identity/judge|learnloop.content.facet_identity.judge]], [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
+- [tests/test_identity_pins.py](../../../../../../tests/test_identity_pins.py) — direct import
+  - `test_an_identity_view_leaves_out_an_added_field_and_refuses_a_removed_one`
 - [tests/test_retired_config_identities.py](../../../../../../tests/test_retired_config_identities.py) — direct import
   - `test_retired_fields_stay_off_the_models_and_out_of_every_other_dump`
   - `test_the_config_identity_reproduces_both_recorded_digests`

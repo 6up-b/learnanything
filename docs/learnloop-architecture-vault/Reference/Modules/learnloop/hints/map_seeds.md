@@ -150,6 +150,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_approach_maps.py](../../../../../../tests/test_approach_maps.py) — direct import
   - `test_f5_an_inherited_rubric_change_is_a_new_revision`
   - `test_only_the_learners_own_correct_or_pfc_valid_solutions_in_the_family_are_seeds`

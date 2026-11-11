@@ -158,6 +158,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_assessment_enforcement.py](../../../../../../tests/test_assessment_enforcement.py) — direct import
   - `test_detect_contract_drift_and_doctor_surface`
 - [tests/test_goal_contracts.py](../../../../../../tests/test_goal_contracts.py) — direct import

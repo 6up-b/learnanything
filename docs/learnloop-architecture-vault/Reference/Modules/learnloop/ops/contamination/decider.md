@@ -105,6 +105,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 No test imports this module directly. These tests exercise a direct production consumer:
 
 - [tests/contamination_report_helpers.py](../../../../../../../tests/contamination_report_helpers.py) — imports consumer [[Reference/Modules/learnloop/ops/contamination/judge|learnloop.ops.contamination.judge]]
+- [tests/identity_pins_helpers.py](../../../../../../../tests/identity_pins_helpers.py) — imports consumer [[Reference/Modules/learnloop/ops/contamination/judge|learnloop.ops.contamination.judge]]
 - [tests/test_tier1_decider.py](../../../../../../../tests/test_tier1_decider.py) — imports consumer [[Reference/Modules/learnloop/ops/contamination/judge|learnloop.ops.contamination.judge]]
 
 ## Modification guidance

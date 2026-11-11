@@ -93,6 +93,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/identity_pins_helpers.py`
 - `tests/source_service_fakes.py`
 - `tests/test_activity_families.py`
 - `tests/test_family_proposals.py`

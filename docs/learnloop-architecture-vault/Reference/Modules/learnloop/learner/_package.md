@@ -69,7 +69,7 @@ For system intent, use [[Learning System]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/learner/__init__|learnloop.learner]] | [[Reference/Modules/learnloop/learner/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] | [[Reference/Modules/learnloop/learner/assessment_contracts#^module-purpose|purpose]] | `ACTIVE` | 25 | 15 |
+| [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] | [[Reference/Modules/learnloop/learner/assessment_contracts#^module-purpose|purpose]] | `ACTIVE` | 25 | 16 |
 | [[Reference/Modules/learnloop/learner/blueprint_projection|learnloop.learner.blueprint_projection]] | [[Reference/Modules/learnloop/learner/blueprint_projection#^module-purpose|purpose]] | `ACTIVE` | 6 | 4 |
 | [[Reference/Modules/learnloop/learner/calibration|learnloop.learner.calibration]] | [[Reference/Modules/learnloop/learner/calibration#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]] | [[Reference/Modules/learnloop/learner/capability_grid#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |

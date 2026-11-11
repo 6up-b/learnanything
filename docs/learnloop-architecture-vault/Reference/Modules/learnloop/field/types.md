@@ -134,6 +134,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_answer_signal_arms.py](../../../../../../tests/test_answer_signal_arms.py) — direct import
   - `test_confidence_alone_starts_at_the_duels_mapping`
   - `test_signal_features_follow_the_duel_mapping_and_abstain_when_absent`

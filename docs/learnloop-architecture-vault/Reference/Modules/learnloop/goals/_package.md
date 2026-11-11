@@ -70,7 +70,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] | [[Reference/Modules/learnloop/goals/exam_session#^module-purpose|purpose]] | `ACTIVE` | 3 | 7 |
 | [[Reference/Modules/learnloop/goals/forecast_ledger|learnloop.goals.forecast_ledger]] | [[Reference/Modules/learnloop/goals/forecast_ledger#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]] | [[Reference/Modules/learnloop/goals/goal_certification#^module-purpose|purpose]] | `ACTIVE` | 12 | 7 |
-| [[Reference/Modules/learnloop/goals/goal_contracts|learnloop.goals.goal_contracts]] | [[Reference/Modules/learnloop/goals/goal_contracts#^module-purpose|purpose]] | `ACTIVE` | 10 | 4 |
+| [[Reference/Modules/learnloop/goals/goal_contracts|learnloop.goals.goal_contracts]] | [[Reference/Modules/learnloop/goals/goal_contracts#^module-purpose|purpose]] | `ACTIVE` | 10 | 5 |
 | [[Reference/Modules/learnloop/goals/goal_intent|learnloop.goals.goal_intent]] | [[Reference/Modules/learnloop/goals/goal_intent#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/goals/goal_lo|learnloop.goals.goal_lo]] | [[Reference/Modules/learnloop/goals/goal_lo#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/goals/goal_pace|learnloop.goals.goal_pace]] | [[Reference/Modules/learnloop/goals/goal_pace#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |

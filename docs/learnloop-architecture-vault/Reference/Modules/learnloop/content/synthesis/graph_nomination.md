@@ -48,73 +48,74 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py) |
-| Source lines | 1070 |
+| Source lines | 1078 |
 | Owning package | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `is_active(config: Any) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 90) — The kill switch and the embedding master switch must both be on.
-- `class Nomination` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 97)
-  - `as_dict(self) -> dict[str, Any]` (line 102; public)
-- `class QueryText` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 107) — New text to embed (or find already embedded) for one comparison.
-- `facet_query(payload: Mapping[str, Any], record_id: str | None=None) -> QueryText | None` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 123) — A candidate facet's ``facet/definition`` text, hashed as its backfill would.
-- `concept_query(concept: Any, record_id: str) -> QueryText | None` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 132)
-- `repair_query(text: str) -> QueryText | None` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 139)
-- `undefined_concept_mentions(new_inventories: Iterable[Mapping[str, Any]]) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 180) — Concept mentions no claim defines: they stay lexical-only (no query).
-- `inventory_queries(new_inventories: Iterable[Mapping[str, Any]]) -> tuple[list[QueryText], list[QueryText]]` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 197) — LLM-written inventory claims (vs facets) and concept mentions (vs concepts).
-- `class RegistryIndex` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 249) — The complete current index of one registry recipe for one model.
-  - `__init__(self, recipe_name: str, vectors: Mapping[str, np.ndarray])` (line 252; internal)
-  - `__len__(self) -> int` (line 267; internal)
-  - `__contains__(self, record_id: object) -> bool` (line 270; internal)
-  - `_centre(self, vector: np.ndarray) -> np.ndarray | None` (line 273; internal)
-  - `_scores(self, centred_query: np.ndarray) -> np.ndarray` (line 279; internal)
-  - `nearest(self, vector: np.ndarray, k: int, *, exclude: Collection[str]=()) -> list[Nomination]` (line 284; public) — Top-k by mean-centred cosine; ties break on record id (deterministic).
-  - `ranks(self, vector: np.ndarray, *, exclude: Collection[str]=()) -> dict[str, tuple[int, float]]` (line 298; public) — Every record's (rank, cosine) against ``vector``; used by the report.
-  - `vector(self, record_id: str) -> np.ndarray | None` (line 304; public)
-  - `cosine(self, left: np.ndarray, right: np.ndarray) -> float | None` (line 308; public) — Mean-centred cosine of two vectors under this index's centroid.
-  - `pair(self, left_id: str, right_id: str) -> float | None` (line 317; public)
-  - `pairwise(self) -> np.ndarray` (line 323; public) — All-pairs centred cosine matrix (the report's noise floor).
-- `raw_cosine(left: np.ndarray | None, right: np.ndarray | None) -> float | None` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 331) — Uncentred cosine, for text pairs with no registry centroid (repair shadow).
-- `class GraphNominator` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 340) — Stored-vector lookups plus capped embedding of new candidate text.
-  - `__init__(self, vault: LoadedVault, sqlite_path: Path, *, allow_new_text: bool, repository: Any=None, client_factory: Callable[[], EmbeddingClient] | None=None) -> None` (line 347; internal)
-  - `lexical_only(self, reason: str, count: int) -> None` (line 387; public) — Record new material that had nothing to embed and stays lexical.
-  - `for_review(cls, vault: LoadedVault) -> GraphNominator | None` (line 397; public) — Stored vectors only; ``None`` when the kill switch or embeddings are off.
-  - `for_ingest(cls, vault: LoadedVault, repository: Any, *, client_factory: Callable[[], EmbeddingClient] | None=None) -> GraphNominator | None` (line 405; public)
-  - `stored_only(self) -> GraphNominator` (line 416; public) — The same vault and model with no paid path (revalidation, review).
-  - `_note(self, reason: str) -> None` (line 423; internal)
-  - `summary(self) -> dict[str, Any]` (line 427; public) — Honest label for run records and reports: what was and was not nominated.
-  - `_status(self) -> str` (line 446; internal)
-  - `identity(self, recipes: Sequence[str]=(FACET_RECIPE, CONCEPT_RECIPE), *, prompt_version: str | None=None) -> dict[str, Any]` (line 456; public) — The stable inputs that decide what this nominator can show a model.
-  - `index(self, recipe_name: str) -> RegistryIndex | None` (line 498; public) — The complete current index for one registry recipe, or ``None``.
-  - `vectors(self, queries: Sequence[QueryText | None]) -> dict[str, np.ndarray]` (line 535; public) — ``content_hash -> vector`` for every query that is stored or embeddable.
-  - `_key(self, query: QueryText) -> tuple[str, str, str, str]` (line 580; internal)
-  - `_ready_client(self) -> EmbeddingClient | None` (line 583; internal)
-  - `_embed(self, pending: list[QueryText]) -> dict[QueryText, np.ndarray]` (line 613; internal)
-  - `_observer(self, prefix: str, usage: dict[str, Any]) -> Callable[[str, dict[str, Any]], None]` (line 697; internal)
-  - `nominate(self, recipe_name: str, queries: Sequence[QueryText | None], *, exclude: Mapping[str, Collection[str]] | None=None, k: int | None=None) -> dict[str, list[Nomination]]` (line 717; public) — ``query.record_id -> top-k registry nominations``; empty when degraded.
-  - `nominate_vectors(self, recipe_name: str, vectors: Mapping[str, np.ndarray], *, exclude: Mapping[str, Collection[str]] | None=None, k: int | None=None) -> dict[str, list[Nomination]]` (line 737; public)
-  - `facet_cosine(self, left: Any, right: Any) -> float | None` (line 752; public) — Cosine of two facets, each a registered id or a proposal payload.
-  - `pair_cosine(self, recipe_name: str, left_id: str, right_id: str) -> float | None` (line 779; public)
-  - `cosine_column(self, recipe_name: str, left_id: str, right_id: str) -> dict[str, Any]` (line 783; public) — The review-pass cosine column: a value, or why there is none.
-- `plan_ingest_embedding(vault: LoadedVault, sqlite_path: Path, *, entry: str, new_inventories: Sequence[Mapping[str, Any]]=()) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 820) — What one synthesis (``entry='bootstrap'``) or append run may pay to embed.
-- `annotate_mint_report(nominator: GraphNominator, report: Any, candidates: Sequence[Mapping[str, Any]], registered: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 930) — Shadow record beside the D2 verdicts.
+- `is_active(config: Any) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 98) — The kill switch and the embedding master switch must both be on.
+- `class Nomination` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 105)
+  - `as_dict(self) -> dict[str, Any]` (line 110; public)
+- `class QueryText` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 115) — New text to embed (or find already embedded) for one comparison.
+- `facet_query(payload: Mapping[str, Any], record_id: str | None=None) -> QueryText | None` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 131) — A candidate facet's ``facet/definition`` text, hashed as its backfill would.
+- `concept_query(concept: Any, record_id: str) -> QueryText | None` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 140)
+- `repair_query(text: str) -> QueryText | None` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 147)
+- `undefined_concept_mentions(new_inventories: Iterable[Mapping[str, Any]]) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 188) — Concept mentions no claim defines: they stay lexical-only (no query).
+- `inventory_queries(new_inventories: Iterable[Mapping[str, Any]]) -> tuple[list[QueryText], list[QueryText]]` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 205) — LLM-written inventory claims (vs facets) and concept mentions (vs concepts).
+- `class RegistryIndex` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 257) — The complete current index of one registry recipe for one model.
+  - `__init__(self, recipe_name: str, vectors: Mapping[str, np.ndarray])` (line 260; internal)
+  - `__len__(self) -> int` (line 275; internal)
+  - `__contains__(self, record_id: object) -> bool` (line 278; internal)
+  - `_centre(self, vector: np.ndarray) -> np.ndarray | None` (line 281; internal)
+  - `_scores(self, centred_query: np.ndarray) -> np.ndarray` (line 287; internal)
+  - `nearest(self, vector: np.ndarray, k: int, *, exclude: Collection[str]=()) -> list[Nomination]` (line 292; public) — Top-k by mean-centred cosine; ties break on record id (deterministic).
+  - `ranks(self, vector: np.ndarray, *, exclude: Collection[str]=()) -> dict[str, tuple[int, float]]` (line 306; public) — Every record's (rank, cosine) against ``vector``; used by the report.
+  - `vector(self, record_id: str) -> np.ndarray | None` (line 312; public)
+  - `cosine(self, left: np.ndarray, right: np.ndarray) -> float | None` (line 316; public) — Mean-centred cosine of two vectors under this index's centroid.
+  - `pair(self, left_id: str, right_id: str) -> float | None` (line 325; public)
+  - `pairwise(self) -> np.ndarray` (line 331; public) — All-pairs centred cosine matrix (the report's noise floor).
+- `raw_cosine(left: np.ndarray | None, right: np.ndarray | None) -> float | None` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 339) — Uncentred cosine, for text pairs with no registry centroid (repair shadow).
+- `class GraphNominator` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 348) — Stored-vector lookups plus capped embedding of new candidate text.
+  - `__init__(self, vault: LoadedVault, sqlite_path: Path, *, allow_new_text: bool, repository: Any=None, client_factory: Callable[[], EmbeddingClient] | None=None) -> None` (line 355; internal)
+  - `lexical_only(self, reason: str, count: int) -> None` (line 395; public) — Record new material that had nothing to embed and stays lexical.
+  - `for_review(cls, vault: LoadedVault) -> GraphNominator | None` (line 405; public) — Stored vectors only; ``None`` when the kill switch or embeddings are off.
+  - `for_ingest(cls, vault: LoadedVault, repository: Any, *, client_factory: Callable[[], EmbeddingClient] | None=None) -> GraphNominator | None` (line 413; public)
+  - `stored_only(self) -> GraphNominator` (line 424; public) — The same vault and model with no paid path (revalidation, review).
+  - `_note(self, reason: str) -> None` (line 431; internal)
+  - `summary(self) -> dict[str, Any]` (line 435; public) — Honest label for run records and reports: what was and was not nominated.
+  - `_status(self) -> str` (line 454; internal)
+  - `identity(self, recipes: Sequence[str]=(FACET_RECIPE, CONCEPT_RECIPE), *, prompt_version: str | None=None) -> dict[str, Any]` (line 464; public) — The stable inputs that decide what this nominator can show a model.
+  - `index(self, recipe_name: str) -> RegistryIndex | None` (line 506; public) — The complete current index for one registry recipe, or ``None``.
+  - `vectors(self, queries: Sequence[QueryText | None]) -> dict[str, np.ndarray]` (line 543; public) — ``content_hash -> vector`` for every query that is stored or embeddable.
+  - `_key(self, query: QueryText) -> tuple[str, str, str, str]` (line 588; internal)
+  - `_ready_client(self) -> EmbeddingClient | None` (line 591; internal)
+  - `_embed(self, pending: list[QueryText]) -> dict[QueryText, np.ndarray]` (line 621; internal)
+  - `_observer(self, prefix: str, usage: dict[str, Any]) -> Callable[[str, dict[str, Any]], None]` (line 705; internal)
+  - `nominate(self, recipe_name: str, queries: Sequence[QueryText | None], *, exclude: Mapping[str, Collection[str]] | None=None, k: int | None=None) -> dict[str, list[Nomination]]` (line 725; public) — ``query.record_id -> top-k registry nominations``; empty when degraded.
+  - `nominate_vectors(self, recipe_name: str, vectors: Mapping[str, np.ndarray], *, exclude: Mapping[str, Collection[str]] | None=None, k: int | None=None) -> dict[str, list[Nomination]]` (line 745; public)
+  - `facet_cosine(self, left: Any, right: Any) -> float | None` (line 760; public) — Cosine of two facets, each a registered id or a proposal payload.
+  - `pair_cosine(self, recipe_name: str, left_id: str, right_id: str) -> float | None` (line 787; public)
+  - `cosine_column(self, recipe_name: str, left_id: str, right_id: str) -> dict[str, Any]` (line 791; public) — The review-pass cosine column: a value, or why there is none.
+- `plan_ingest_embedding(vault: LoadedVault, sqlite_path: Path, *, entry: str, new_inventories: Sequence[Mapping[str, Any]]=()) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 828) — What one synthesis (``entry='bootstrap'``) or append run may pay to embed.
+- `annotate_mint_report(nominator: GraphNominator, report: Any, candidates: Sequence[Mapping[str, Any]], registered: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 938) — Shadow record beside the D2 verdicts.
 
 ### Module constants
 
-- `NOMINATION_VERSION` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 65)
-- `DOCUMENT_PREFIX` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 66)
-- `FACET_RECIPE` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 67)
-- `CONCEPT_RECIPE` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 68)
-- `REPAIR_RECIPE` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 69)
-- `INVENTORY_CLAIM_KIND` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 73)
-- `INVENTORY_CONCEPT_KIND` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 74)
-- `INVENTORY_QUERY_VERSION` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 75)
-- `INVENTORY_CONCEPT_QUERY_VERSION` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 78)
-- `_MAX_DEFINING_CLAIMS` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 80)
-- `OWNER_KIND` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 81)
-- `_BATCH` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 82)
+- `NOMINATION_VERSION` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 66)
+- `DOCUMENT_PREFIX` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 67)
+- `FACET_RECIPE` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 68)
+- `CONCEPT_RECIPE` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 69)
+- `REPAIR_RECIPE` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 70)
+- `INVENTORY_CLAIM_KIND` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 74)
+- `INVENTORY_CONCEPT_KIND` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 75)
+- `INVENTORY_QUERY_VERSION` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 76)
+- `INVENTORY_CONCEPT_QUERY_VERSION` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 79)
+- `_MAX_DEFINING_CLAIMS` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 81)
+- `OWNER_KIND` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 82)
+- `_BATCH` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 83)
+- `IDENTITY_CONFIG_FIELDS` ([src/learnloop/content/synthesis/graph_nomination.py](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 87)
 
 ### Explicit exports
 
@@ -140,12 +141,12 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ## Internal implementation anchors
 
-- `_digest(payload: Any) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 85)
-- `_recipe_query(recipe_name: str, record_id: str, text: str) -> QueryText` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 118)
-- `_inventory_query(kind: str, text: str, version: int=INVENTORY_QUERY_VERSION) -> QueryText | None` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 146)
-- `_mention_definitions(inventory: Mapping[str, Any]) -> dict[str, str]` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 156) — ``mention_id -> definition`` from the LLM-written claims linked to it.
-- `_text_tokens(queries: Iterable[QueryText]) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 796)
-- `_embed_calls(groups: Iterable[Sequence[QueryText]]) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 801) — Requests the run sends for these query groups, batched as it batches them.
+- `_digest(payload: Any) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 93)
+- `_recipe_query(recipe_name: str, record_id: str, text: str) -> QueryText` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 126)
+- `_inventory_query(kind: str, text: str, version: int=INVENTORY_QUERY_VERSION) -> QueryText | None` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 154)
+- `_mention_definitions(inventory: Mapping[str, Any]) -> dict[str, str]` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 164) — ``mention_id -> definition`` from the LLM-written claims linked to it.
+- `_text_tokens(queries: Iterable[QueryText]) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 804)
+- `_embed_calls(groups: Iterable[Sequence[QueryText]]) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/graph_nomination.py), line 809) — Requests the run sends for these query groups, batched as it batches them.
 
 ## Who imports or calls it
 
@@ -170,6 +171,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `observe_model_calls`; calls `observe_model_calls`
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `ready_client_for_task`; calls `ready_client_for_task`
 - [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] — imports `SpendBudget`, `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`; calls `SpendBudget`, `SpendCaps`, `SpendEstimate`
+- [[Reference/Modules/learnloop/config/retired|learnloop.config.retired]] — imports `identity_view`; calls `identity_view`
 - [[Reference/Modules/learnloop/content/synthesis/facet_mint_gate|learnloop.content.synthesis.facet_mint_gate]] — imports `distinct_repair`; calls `distinct_repair`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/stores/embedding_vectors|learnloop.db.stores.embedding_vectors]] — imports `IncompleteEmbeddingIndex`, `current_vectors`, `get_vector_by_content`, `put_vector`; calls `current_vectors`, `get_vector_by_content`, `put_vector`
@@ -197,6 +199,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_facet_identity_composition.py](../../../../../../../tests/test_facet_identity_composition.py) — direct import
   - `test_the_ledger_records_merged_pairs_and_shortlisted_different_pairs_only`
 - [tests/test_graph_nomination.py](../../../../../../../tests/test_graph_nomination.py) — direct import

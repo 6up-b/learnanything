@@ -60,22 +60,22 @@ For system intent, use [[Architecture Overview]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/field/__init__|learnloop.field]] | [[Reference/Modules/learnloop/field/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/field/answer_signals|learnloop.field.answer_signals]] | [[Reference/Modules/learnloop/field/answer_signals#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
+| [[Reference/Modules/learnloop/field/answer_signals|learnloop.field.answer_signals]] | [[Reference/Modules/learnloop/field/answer_signals#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/field/classification|learnloop.field.classification]] | [[Reference/Modules/learnloop/field/classification#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/field/decider|learnloop.field.decider]] | [[Reference/Modules/learnloop/field/decider#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/field/evaluation|learnloop.field.evaluation]] | [[Reference/Modules/learnloop/field/evaluation#^module-purpose|purpose]] | `ACTIVE` | 5 | 8 |
 | [[Reference/Modules/learnloop/field/item_content|learnloop.field.item_content]] | [[Reference/Modules/learnloop/field/item_content#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/field/memory|learnloop.field.memory]] | [[Reference/Modules/learnloop/field/memory#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] | [[Reference/Modules/learnloop/field/outcomes#^module-purpose|purpose]] | `ACTIVE` | 6 | 18 |
-| [[Reference/Modules/learnloop/field/predictors|learnloop.field.predictors]] | [[Reference/Modules/learnloop/field/predictors#^module-purpose|purpose]] | `ACTIVE` | 8 | 10 |
+| [[Reference/Modules/learnloop/field/predictors|learnloop.field.predictors]] | [[Reference/Modules/learnloop/field/predictors#^module-purpose|purpose]] | `ACTIVE` | 8 | 11 |
 | [[Reference/Modules/learnloop/field/priors|learnloop.field.priors]] | [[Reference/Modules/learnloop/field/priors#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
-| [[Reference/Modules/learnloop/field/probability_arms|learnloop.field.probability_arms]] | [[Reference/Modules/learnloop/field/probability_arms#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
+| [[Reference/Modules/learnloop/field/probability_arms|learnloop.field.probability_arms]] | [[Reference/Modules/learnloop/field/probability_arms#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
 | [[Reference/Modules/learnloop/field/probability_prep|learnloop.field.probability_prep]] | [[Reference/Modules/learnloop/field/probability_prep#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/field/probability_states|learnloop.field.probability_states]] | [[Reference/Modules/learnloop/field/probability_states#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/field/signals|learnloop.field.signals]] | [[Reference/Modules/learnloop/field/signals#^module-purpose|purpose]] | `ACTIVE` | 6 | 12 |
-| [[Reference/Modules/learnloop/field/success_head|learnloop.field.success_head]] | [[Reference/Modules/learnloop/field/success_head#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
+| [[Reference/Modules/learnloop/field/success_head|learnloop.field.success_head]] | [[Reference/Modules/learnloop/field/success_head#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/field/success_head_analysis|learnloop.field.success_head_analysis]] | [[Reference/Modules/learnloop/field/success_head_analysis#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/field/types|learnloop.field.types]] | [[Reference/Modules/learnloop/field/types#^module-purpose|purpose]] | `ACTIVE` | 18 | 15 |
+| [[Reference/Modules/learnloop/field/types|learnloop.field.types]] | [[Reference/Modules/learnloop/field/types#^module-purpose|purpose]] | `ACTIVE` | 18 | 16 |
 | [[Reference/Modules/learnloop/field/workbench_signals|learnloop.field.workbench_signals]] | [[Reference/Modules/learnloop/field/workbench_signals#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 
 ## Cross-package dependencies

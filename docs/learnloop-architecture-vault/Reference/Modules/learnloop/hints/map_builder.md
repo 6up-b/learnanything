@@ -256,6 +256,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ad1_fix_round4_helpers.py](../../../../../../tests/ad1_fix_round4_helpers.py) — direct import
 - [tests/approach_map_fakes.py](../../../../../../tests/approach_map_fakes.py) — direct import
 - [tests/hint_fakes.py](../../../../../../tests/hint_fakes.py) — direct import
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_ad1_codex_review_fixes.py](../../../../../../tests/test_ad1_codex_review_fixes.py) — direct import
   - `test_a_vault_switch_fences_the_feature_audit`
   - `test_a_vault_switch_fences_the_outside_forecasters`

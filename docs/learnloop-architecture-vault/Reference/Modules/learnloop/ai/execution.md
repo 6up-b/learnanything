@@ -270,6 +270,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/hint_fakes.py](../../../../../../tests/hint_fakes.py) — direct import
 - [tests/hint_outcome_helpers.py](../../../../../../tests/hint_outcome_helpers.py) — direct import
 - [tests/http_provider_double.py](../../../../../../tests/http_provider_double.py) — direct import
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/library_ask_fixtures.py](../../../../../../tests/library_ask_fixtures.py) — direct import
 - [tests/local_embeddings_fakes.py](../../../../../../tests/local_embeddings_fakes.py) — direct import
 - [tests/notes_fixtures.py](../../../../../../tests/notes_fixtures.py) — direct import

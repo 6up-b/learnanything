@@ -116,6 +116,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/approach_map_fakes.py](../../../../../../tests/approach_map_fakes.py) — direct import
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_activity_families.py](../../../../../../tests/test_activity_families.py) — direct import
   - `test_absent_fields_are_byte_identical_to_pre_family_model`
 - [tests/test_approach_maps.py](../../../../../../tests/test_approach_maps.py) — direct import

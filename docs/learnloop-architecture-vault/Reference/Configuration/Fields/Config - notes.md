@@ -25,13 +25,13 @@ source_paths:
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
   - "tests/graph_nomination_ingest_helpers.py"
+  - "tests/identity_pins_helpers.py"
   - "tests/local_embeddings_fakes.py"
   - "tests/mobile_host_auth_helpers.py"
   - "tests/mobile_host_helpers.py"
   - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
   - "tests/pf_generation_helpers.py"
-  - "tests/practice_index_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/notes"
@@ -68,13 +68,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
 - `tests/graph_nomination_ingest_helpers.py`
+- `tests/identity_pins_helpers.py`
 - `tests/local_embeddings_fakes.py`
 - `tests/mobile_host_auth_helpers.py`
 - `tests/mobile_host_helpers.py`
 - `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
 - `tests/pf_generation_helpers.py`
-- `tests/practice_index_fakes.py`
 
 ## Extension and modification guidance
 

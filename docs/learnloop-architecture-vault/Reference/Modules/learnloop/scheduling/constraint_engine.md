@@ -125,6 +125,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_ad23_inversion.py](../../../../../../tests/test_ad23_inversion.py) — direct import
   - `test_the_codes_vocabulary_covers_the_incumbents_reasons`
 - [tests/test_constraint_engine.py](../../../../../../tests/test_constraint_engine.py) — direct import

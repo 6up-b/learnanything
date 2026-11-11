@@ -241,6 +241,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_ih2_lessons_compete.py](../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_off_or_below_the_tag_a_probe_withdraws_the_offer_as_the_predecessor`
   - `test_the_switch_defaults_on_is_classified_and_names_itself_in_the_prefetch_key`

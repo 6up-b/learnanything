@@ -117,6 +117,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/quick_check_helpers.py](../../../../../../tests/quick_check_helpers.py) — direct import
 - [tests/test_assumed_known.py](../../../../../../tests/test_assumed_known.py) — direct import
   - `test_fast_track_default_threshold_is_not_met_by_two_answers`

@@ -161,6 +161,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_canonical_exercise_serialization.py](../../../../../../tests/test_canonical_exercise_serialization.py) — direct import
   - `test_a_pf_variant_of_a_textbook_exercise_points_at_it`
 - [tests/test_pf_generation.py](../../../../../../tests/test_pf_generation.py) — direct import

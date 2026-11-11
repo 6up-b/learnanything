@@ -58,12 +58,12 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/practice_index/__init__|learnloop.practice_index]] | [[Reference/Modules/learnloop/practice_index/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/practice_index/admission|learnloop.practice_index.admission]] | [[Reference/Modules/learnloop/practice_index/admission#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/practice_index/catalog|learnloop.practice_index.catalog]] | [[Reference/Modules/learnloop/practice_index/catalog#^module-purpose|purpose]] | `ACTIVE` | 7 | 0 |
-| [[Reference/Modules/learnloop/practice_index/contracts|learnloop.practice_index.contracts]] | [[Reference/Modules/learnloop/practice_index/contracts#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
+| [[Reference/Modules/learnloop/practice_index/contracts|learnloop.practice_index.contracts]] | [[Reference/Modules/learnloop/practice_index/contracts#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
 | [[Reference/Modules/learnloop/practice_index/coverage|learnloop.practice_index.coverage]] | [[Reference/Modules/learnloop/practice_index/coverage#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/practice_index/dossiers|learnloop.practice_index.dossiers]] | [[Reference/Modules/learnloop/practice_index/dossiers#^module-purpose|purpose]] | `ACTIVE` | 2 | 5 |
 | [[Reference/Modules/learnloop/practice_index/evaluation|learnloop.practice_index.evaluation]] | [[Reference/Modules/learnloop/practice_index/evaluation#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/practice_index/listwise|learnloop.practice_index.listwise]] | [[Reference/Modules/learnloop/practice_index/listwise#^module-purpose|purpose]] | `ACTIVE` | 13 | 3 |
-| [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] | [[Reference/Modules/learnloop/practice_index/paid#^module-purpose|purpose]] | `ACTIVE` | 48 | 22 |
+| [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] | [[Reference/Modules/learnloop/practice_index/paid#^module-purpose|purpose]] | `ACTIVE` | 48 | 23 |
 | [[Reference/Modules/learnloop/practice_index/query_vectors|learnloop.practice_index.query_vectors]] | [[Reference/Modules/learnloop/practice_index/query_vectors#^module-purpose|purpose]] | `ACTIVE` | 8 | 0 |
 | [[Reference/Modules/learnloop/practice_index/retrieval|learnloop.practice_index.retrieval]] | [[Reference/Modules/learnloop/practice_index/retrieval#^module-purpose|purpose]] | `ACTIVE` | 12 | 15 |
 | [[Reference/Modules/learnloop/practice_index/text|learnloop.practice_index.text]] | [[Reference/Modules/learnloop/practice_index/text#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |

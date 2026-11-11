@@ -48,30 +48,32 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/synthesis/synthesis_manifests.py](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py) |
-| Source lines | 213 |
+| Source lines | 245 |
 | Owning package | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `compute_manifest_hash(manifest: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 64) — Deterministic hash over the identity-bearing manifest fields (§8.4).
-- `facet_registry_hash(vault: LoadedVault) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 71) — Stable hash of the canonical facet registry (§12.4).
-- `curriculum_snapshot_hash(vault: LoadedVault) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 92) — Stable hash of the concept/LO curriculum snapshot (§12.4).
-- `task_graph_hash(vault: LoadedVault) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 111) — Stable hash of the task graph — blueprints/recipes and item task shape (§12.4).
-- `learner_model_contract_version(vault: LoadedVault) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 135) — The learner-model contract version — the vault-global algorithm_version (§12.4).
-- `build_manifest(vault: LoadedVault, *, source_set_id: str | None=None, membership: Any=None, revision_ids: Any=None, asset_hashes: Any=None, extraction_ids: Any=None, unit_inventory_versions: Any=None, scope: Any=None, brief: Any=None, prompt_version: str | None=None, provider: str | None=None, model: str | None=None, extractor_versions: Any=None, assessment_schema_version: str | None=None, lock_fingerprint: str | None=None, token_budget: Any=None, estimated_usage: Any=None, schema_version: int=MANIFEST_SCHEMA_VERSION, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 142) — Build the complete synthesis manifest with the derived completeness hashes.
-- `persist_manifest(repository: Repository, manifest: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 200) — Persist an immutable manifest before model execution (idempotent on hash).
-- `agent_run_input_context_hash(manifest: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 206) — The documented cache seam: ``agent_runs.input_context_hash = manifest_hash``.
+- `compute_manifest_hash(manifest: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 72) — Deterministic hash over the identity-bearing manifest fields (§8.4).
+- `facet_registry_hash(vault: LoadedVault) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 79) — Stable hash of the canonical facet registry (§12.4).
+- `curriculum_snapshot_hash(vault: LoadedVault) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 100) — Stable hash of the concept/LO curriculum snapshot (§12.4).
+- `task_graph_hash(vault: LoadedVault) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 146) — Stable hash of the task graph — blueprints/recipes and item task shape (§12.4).
+- `learner_model_contract_version(vault: LoadedVault) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 167) — The learner-model contract version — the vault-global algorithm_version (§12.4).
+- `build_manifest(vault: LoadedVault, *, source_set_id: str | None=None, membership: Any=None, revision_ids: Any=None, asset_hashes: Any=None, extraction_ids: Any=None, unit_inventory_versions: Any=None, scope: Any=None, brief: Any=None, prompt_version: str | None=None, provider: str | None=None, model: str | None=None, extractor_versions: Any=None, assessment_schema_version: str | None=None, lock_fingerprint: str | None=None, token_budget: Any=None, estimated_usage: Any=None, schema_version: int=MANIFEST_SCHEMA_VERSION, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 174) — Build the complete synthesis manifest with the derived completeness hashes.
+- `persist_manifest(repository: Repository, manifest: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 232) — Persist an immutable manifest before model execution (idempotent on hash).
+- `agent_run_input_context_hash(manifest: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 238) — The documented cache seam: ``agent_runs.input_context_hash = manifest_hash``.
 
 ### Module constants
 
-- `MANIFEST_SCHEMA_VERSION` ([src/learnloop/content/synthesis/synthesis_manifests.py](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 30)
-- `_HASHED_FIELDS` ([src/learnloop/content/synthesis/synthesis_manifests.py](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 35)
+- `MANIFEST_SCHEMA_VERSION` ([src/learnloop/content/synthesis/synthesis_manifests.py](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 38)
+- `_HASHED_FIELDS` ([src/learnloop/content/synthesis/synthesis_manifests.py](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 43)
+- `_BLUEPRINT_IDENTITY_FIELDS` ([src/learnloop/content/synthesis/synthesis_manifests.py](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 122)
 
 ## Internal implementation anchors
 
-- `_sha256(payload: Any) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 59)
+- `_sha256(payload: Any) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 67)
+- `_blueprint_identity(value: Any) -> Any` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_manifests.py), line 129) — ``model_dump(mode="json", exclude_none=True)`` of a blueprint, through the named fields only.
 
 ## Who imports or calls it
 
@@ -87,12 +89,12 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
-- [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `learning_object_facet_union`; calls `learning_object_facet_union`
+- [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `Blueprint`, `BlueprintRecipe`, `LoadedVault`, `RecipeComponent`, `learning_object_facet_union`; calls `learning_object_facet_union`
 
 ### Platform and third-party dependencies
 
 - Standard library: `__future__`, `hashlib`, `json`, `typing`
-- Third party: none imported directly
+- Third party: `pydantic`
 
 ## Larger workflow participation
 
@@ -107,6 +109,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_ingest_ownership.py](../../../../../../../tests/test_ingest_ownership.py) — direct import
   - `test_synthesis_run_hygiene_runs_at_startup_but_not_on_drain_ticks`
 - [tests/test_mobile_host_coexistence.py](../../../../../../../tests/test_mobile_host_coexistence.py) — direct import

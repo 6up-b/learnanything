@@ -166,6 +166,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/facet_reword_confirm_helpers.py](../../../../../../../tests/facet_reword_confirm_helpers.py) — direct import
+- [tests/identity_pins_helpers.py](../../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_apply_write_ahead.py](../../../../../../../tests/test_apply_write_ahead.py) — direct import
   - `test_apply_writes_entity_source_links_and_marks_intent_applied`
   - `test_dependency_closure_accepts_full_closure_in_order`

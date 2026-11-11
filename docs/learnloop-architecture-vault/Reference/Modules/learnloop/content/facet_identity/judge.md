@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py) |
-| Source lines | 1264 |
+| Source lines | 1294 |
 | Owning package | [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -103,10 +103,11 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
   - `_finish(self, request: GroupRequest, choices: Mapping[tuple[str, str], tuple[str, Mapping[str, float]]], model: str, *, status: str) -> GroupOutcome` (line 1079; internal)
   - `charged(self) -> dict[str, Any]` (line 1110; public)
 - `class JudgeRoute` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1118) — The resolved judge route, before any client exists (dry runs stop here).
-  - `as_dict(self) -> dict[str, Any]` (line 1133; public)
-- `resolve_route(config: Any, *, client: Any=None, input_price: float | None=None, output_price: float | None=None) -> JudgeRoute` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1144)
-- `build_judge(vault: Any, repository: Any, *, owner_id: str, caps: SpendCaps, client: Any=None, cancelled: Callable[[], bool] | None=None, input_price: float | None=None, output_price: float | None=None) -> tuple[LLMGroupJudge | DeciderGroupJudge | None, JudgeRoute]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1180) — A ready judge for the route, or ``None`` with the route's problem set.
-- `caps_from_config(settings: Any, **overrides: Any) -> SpendCaps` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1220)
+  - `as_dict(self) -> dict[str, Any]` (line 1133; public) — The route as synthesis hashes it into its manifest (:func:`manifest_identity`), so every key is named here: a field added to the route or to :class:`Pricing` stays out.
+- `resolve_route(config: Any, *, client: Any=None, input_price: float | None=None, output_price: float | None=None) -> JudgeRoute` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1150)
+- `manifest_identity(config: Any, *, client: Any=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1195) — The judge's identity as bootstrap synthesis and append hash it into their manifest (handoff §4), so a cached run is reused only under the same route and policy.
+- `build_judge(vault: Any, repository: Any, *, owner_id: str, caps: SpendCaps, client: Any=None, cancelled: Callable[[], bool] | None=None, input_price: float | None=None, output_price: float | None=None) -> tuple[LLMGroupJudge | DeciderGroupJudge | None, JudgeRoute]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1210) — A ready judge for the route, or ``None`` with the route's problem set.
+- `caps_from_config(settings: Any, **overrides: Any) -> SpendCaps` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1250)
 
 ### Module constants
 
@@ -123,6 +124,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `ATTACH_RULES` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 134)
 - `DECIDER_INSTRUCTIONS` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 139)
 - `DECIDER_OPTIONS` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 145)
+- `MANIFEST_CONFIG_FIELDS` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1188)
 
 ### Explicit exports
 
@@ -171,8 +173,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `TASK`
 - [[Reference/Modules/learnloop/content/facet_identity/dedupe|learnloop.content.facet_identity.dedupe]] — imports `Member`, `build_judge`, `build_request`, `caps_from_config`, `plan_estimate`, `resolve_route`; statically calls `Member`, `build_judge`, `build_request`, `caps_from_config`, `plan_estimate`, `resolve_route`
 - [[Reference/Modules/learnloop/content/facet_identity/plan|learnloop.content.facet_identity.plan]] — imports `GroupOutcome`, `Member`, `build_judge`, `build_request`, `caps_from_config`, `resolve_route`; statically calls `Member`, `build_judge`, `build_request`, `caps_from_config`, `resolve_route`
-- [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `PROMPT_VERSION`, `resolve_route`; statically calls `resolve_route`
-- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `PROMPT_VERSION`, `resolve_route`; statically calls `resolve_route`
+- [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `manifest_identity`; statically calls `manifest_identity`
+- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `manifest_identity`; statically calls `manifest_identity`
 - [[Reference/Modules/learnloop/curriculum/subject_registry|learnloop.curriculum.subject_registry]] — imports `TASK`
 
 ## Dependencies
@@ -187,6 +189,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] — imports `WireModel`
 - [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] — imports `ESTIMATED_ONLY`, `SpendBudget`, `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`, `is_subscription_transport`, `subscription_usage_estimate`; calls `SpendBudget`, `SpendCaps`, `SpendEstimate`, `is_subscription_transport`, `subscription_usage_estimate`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `BOUNDED_STRUCTURED_COMPLETION`, `execute_structured_operation`, `render_structured_prompt`; calls `execute_structured_operation`, `render_structured_prompt`
+- [[Reference/Modules/learnloop/config/retired|learnloop.config.retired]] — imports `identity_view`; calls `identity_view`
 - [[Reference/Modules/learnloop/db/stores/judgments|learnloop.db.stores.judgments]] — imports `append_judgment`; calls `append_judgment`
 - [[Reference/Modules/learnloop/matching/union|learnloop.matching.union]] — imports `module`; calls `UnionEdge`, `union_with_refusals`
 
@@ -209,6 +212,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/facet_identity_fakes.py](../../../../../../../tests/facet_identity_fakes.py) — direct import
+- [tests/identity_pins_helpers.py](../../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_facet_identity.py](../../../../../../../tests/test_facet_identity.py) — direct import
   - `test_a_failing_judge_is_retried_within_the_cap_then_gives_up`
   - `test_a_rerun_of_the_decider_reuses_its_answers_and_ledger_rows`

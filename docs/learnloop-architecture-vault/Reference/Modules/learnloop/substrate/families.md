@@ -124,6 +124,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/pf_fakes.py](../../../../../../tests/pf_fakes.py) — direct import
 - [tests/test_activity_families.py](../../../../../../tests/test_activity_families.py) — direct import
   - `test_apply_idempotency_rejects_changed_payload`

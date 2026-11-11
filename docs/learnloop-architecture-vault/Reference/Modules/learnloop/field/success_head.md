@@ -138,6 +138,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_success_head.py](../../../../../../tests/test_success_head.py) — direct import
   - `test_a_large_effect_is_decided_with_fewer_than_100_attempts`
   - `test_a_null_effect_is_undecided_until_the_upper_bound_falls_below_delta`

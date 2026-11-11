@@ -203,6 +203,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/mcp_world.py](../../../../../../tests/mcp_world.py) — direct import
 - [tests/test_action_loss.py](../../../../../../tests/test_action_loss.py) — direct import
   - `test_durations_fall_back_to_logged_pooled_then_heuristic`

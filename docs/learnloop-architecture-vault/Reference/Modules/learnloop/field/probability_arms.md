@@ -134,6 +134,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_probability_arms.py](../../../../../../tests/test_probability_arms.py) — direct import
   - `test_arms_are_off_by_default_and_can_never_be_active`
   - `test_intercept_fit_is_penalized_and_finite`

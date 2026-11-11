@@ -120,8 +120,8 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_ad_epoch.py](../../../../../../tests/test_ad_epoch.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]]
 - [tests/test_adaptive_difficulty_ad1.py](../../../../../../tests/test_adaptive_difficulty_ad1.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]]
 - [tests/test_ad1_fix_round7.py](../../../../../../tests/test_ad1_fix_round7.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]]
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]]
 - [tests/test_ad1_migration.py](../../../../../../tests/test_ad1_migration.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]]
-- [tests/test_ad1_send_guard.py](../../../../../../tests/test_ad1_send_guard.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]]
 
 ## Modification guidance
 

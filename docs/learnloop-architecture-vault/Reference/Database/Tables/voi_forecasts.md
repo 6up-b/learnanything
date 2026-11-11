@@ -123,6 +123,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/identity_pins_helpers.py`
 - `tests/test_architecture.py`
 - `tests/test_evsi_router_composition.py`
 - `tests/test_facet_rewords_migration.py`

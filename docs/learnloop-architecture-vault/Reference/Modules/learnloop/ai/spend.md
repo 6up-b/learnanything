@@ -275,6 +275,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/contamination_report_helpers.py](../../../../../../tests/contamination_report_helpers.py) — direct import
 - [tests/diagnose_review_helpers.py](../../../../../../tests/diagnose_review_helpers.py) — direct import
 - [tests/graph_nomination_ingest_helpers.py](../../../../../../tests/graph_nomination_ingest_helpers.py) — direct import
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/pf_generation_helpers.py](../../../../../../tests/pf_generation_helpers.py) — direct import
 - [tests/practice_index_find_helpers.py](../../../../../../tests/practice_index_find_helpers.py) — direct import
 - [tests/recurrence_benchmarks_helpers.py](../../../../../../tests/recurrence_benchmarks_helpers.py) — direct import

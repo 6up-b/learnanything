@@ -209,6 +209,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/mcp_world.py](../../../../../../tests/mcp_world.py) — direct import
 - [tests/test_ad1_codex_rereview_fixes.py](../../../../../../tests/test_ad1_codex_rereview_fixes.py) — direct import
   - `test_the_worst_case_plans_the_permitted_truncation_retry`

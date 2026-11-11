@@ -177,7 +177,7 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 - `class SourceSpaceConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3439) — The source-space resolver and its fusion.
 - `class EmbeddingConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3456)
   - `privacy_disclosure(self) -> str` (line 3484; public)
-- `class GraphNominationConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3495) — Embedding nominations for ingest and graph review.
+- `class GraphNominationConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 3495) — Embedding nominations for ingest and graph review.
 - `class FacetIdentityConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 3518) — Facet identity at mint time, and the dedupe command.
 - `class FieldConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3563) — Offline learner-field analysis only; activation requires a later algorithm successor.
 - `class PracticeIndexConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3573) — The practice index: facet dossiers and ``find_practice``.
@@ -343,6 +343,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/rw2b_fix10_base_sequence.py](../../../../../../tests/rw2b_fix10_base_sequence.py) — direct import
 - [tests/rw2b_fix11_base_sequence.py](../../../../../../tests/rw2b_fix11_base_sequence.py) — direct import
 - [tests/rw2c_base_sequence.py](../../../../../../tests/rw2c_base_sequence.py) — direct import
