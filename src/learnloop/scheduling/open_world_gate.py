@@ -159,18 +159,18 @@ def _c4_p3(repository: Repository) -> Condition:
 def _c5_controller(repository: Repository) -> Condition:
     ok_s, detail_s = _has_attrs("learnloop.scheduling.constraint_engine", ("evaluate", "manifest"))
     ok_p, detail_p = _has_attrs("learnloop.scheduling.staged_policy", ("decide",))
-    ok_t, detail_t = _has_attrs(
-        "learnloop.scheduling.predictive_targets", ("__name__",)
-    )
     shadow = _table_exists(repository, "controller_shadow_predictions")
-    met = ok_s and ok_p and ok_t and shadow
+    met = ok_s and ok_p and shadow
+    # The key keeps its "target_eig" for callers that look it up. The goal-conditioned
+    # target set it once checked for was never wired into the live EIG, which builds its
+    # own pool in probe_episodes, so a presence check proved nothing.
     return Condition(
         key="controller_constraints_target_eig_shadow_logging",
         spec_ref="§14.1(5)",
-        description="controller constraint/staged policy, target-distribution EIG, and shadow logging pass",
+        description="controller constraint/staged policy and shadow logging pass",
         met=met,
         detail=f"constraint_engine={ok_s}; staged_policy={ok_p}; "
-        f"predictive_targets={ok_t}; controller_shadow_predictions={shadow}",
+        f"controller_shadow_predictions={shadow}",
     )
 
 

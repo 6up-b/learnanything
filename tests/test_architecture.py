@@ -617,7 +617,6 @@ def test_runtime_constructed_module_references_resolve() -> None:
         "learnloop.attempts.salience_firewall": ("__name__",),
         "learnloop.scheduling.constraint_engine": ("evaluate", "manifest"),
         "learnloop.scheduling.staged_policy": ("decide",),
-        "learnloop.scheduling.predictive_targets": ("__name__",),
         "learnloop.scheduling.dispersion": ("__name__",),
         "learnloop.scheduling.interleaving": ("__name__",),
     }

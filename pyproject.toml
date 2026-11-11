@@ -1309,7 +1309,6 @@ ignore_imports = [
     "learnloop.substrate.canonical_projection -> learnloop.diagnosis.causal_attribution",
     "learnloop.substrate.canonical_projection -> learnloop.goals.receipt_contributions",
     "learnloop.substrate.card_lineage -> learnloop.scheduling.fsrs",
-    "learnloop.substrate.compat.substrate_cutover -> learnloop.scheduling.fsrs",
     # The shadow PF projection folds canonical outcome rows (loaded by the
     # orchestrator's exempted field.outcomes edge) with the pure FSRS fold.
     "learnloop.substrate.family_memory -> learnloop.scheduling.family_memory_model",

@@ -1174,24 +1174,6 @@ def pin_card_authoring(
     )
 
 
-def resolve_progression_policy(
-    repository: Repository, family_version_id: str
-) -> dict[str, Any] | None:
-    """Resolve the progression policy pinned on a family version (§3.6, §6). Returns
-    the immutable policy body, or ``None`` when no policy is pinned."""
-
-    authoring = repository.activity_family_authoring(family_version_id)
-    if authoring is None:
-        return None
-    policy_version_id = authoring.get("progression_policy_version_id")
-    if not policy_version_id:
-        return None
-    row = repository.progression_policy_version(policy_version_id)
-    if row is None:
-        return None
-    return _loads(row["body_json"], {})
-
-
 def inspect_angle_coverage(
     repository: Repository, family_version_id: str
 ) -> dict[str, Any]:
