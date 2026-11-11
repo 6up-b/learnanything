@@ -357,3 +357,56 @@ Plus the reading sweep thread (`content/pipeline/jobs.py:4511`), three quick-che
 | KO2 | high | **Auto-apply versus review has no stored reason,** so "N changes need a look" can't be explained per item. | `content/synthesis/source_append.py:454`, `:1005-1031`; `content/pipeline/add_source.py:1078-1094` |
 | KO3 | medium | **No trace id joins planner → run → proposal → apply;** "why" lives in five stores and three JSON blobs. Only one ADR-017 record exists in the area. | `content/pipeline/jobs.py:3408-3447`; the table above |
 | KO4 | medium | **Silent fallbacks:** the persona gate's provider failure, D2 MINT, kept-apart judge pairs, a capped judge (run JSON only). | the table above |
+
+## 5. Functional core and shell, comments, dead code, onboarding
+
+### 5.1 Core and shell
+
+**Pure cores that already exist, and are the area's best-tested parts:** the D2 mint gate (`judge_facet_mints`, `content/synthesis/facet_mint_gate.py:386`, pure with closed reasons), the synthesis gates (`run_synthesis_gates` over a `GateProposal`, `content/synthesis/synthesis_gates.py`), the exam profile aggregate (`content/synthesis/exam_profile.py`), the extractor normalizers and GLM-OCR's response mapping (`ingest/extractors/normalizers.py`; `responses_to_ir`, `ingest/extractors/glm_ocr.py:1350`), `_shards` (`content/synthesis/source_set_synthesis.py:460`), the manifest hash (`content/synthesis/synthesis_manifests.py:62`), and the facet judge's partition validation.
+
+**Where computation and I/O are entangled, and it costs:**
+- **`_collect_inputs`** (`content/synthesis/source_set_synthesis.py:249`) reads SQLite (IRs, selections, inventories) and decides policy in the same loop: the exam predicate, scope-only roles, the merged-unit fallback and `_best_inventory`. The inventory choice (KX3) can't be tested without a database.
+- **`_create_study_map` and `_append`** each read the vault, write the manifest, agent run and synthesis run, call the model, normalize, gate, persist, apply under the vault lock and call the epigraph model, in one function (§1.1, KP5). A test of "which items auto-apply" runs the whole append with a fake client.
+- **`_normalize`** is close to pure (vault, inputs and `now` in; rows out), except untitled entities' ULID ids. Its problem is size and shared state (KP1), not I/O.
+- **`run_auto_study_map`** (`content/pipeline/add_source.py:1524`) mixes the scope decision, consent, cost, a YAML write under the lock and the enqueue. `_choose_scope` (`:1377`) is the decision and could stand alone, but it reads the outline, the exam predicate and coverage from the repository itself.
+- **`handle_inventory`** (`content/pipeline/jobs.py:1488`) holds the thread pool, the mailbox, the interrupt group and the model calls together; that is the shell's job, and it is the right place for it.
+
+### 5.2 Comments
+
+- **The why-comments are often good,** for example `content/synthesis/source_set_synthesis.py:821-824` (why facets are judged in two passes), `content/synthesis/source_unit_inventory.py:715-723` (why the key is the rendered prompt), `content/facet_identity/actions.py:1772-1775` (why the meaning check precedes the intent), `content/proposals/patches.py:90-91` (no network call holds the lock).
+- **Review tags stand in for reasons.** "review F3", "Codex verification of F6", "second review F5", "T1 landing review round 2" appear about 85 times in `content/pipeline`, 57 in `content/facet_identity`, 33 in `content/proposals` and 17 in `content/synthesis` (regex count). The strategy's comment convention (§2.1) says a comment shouldn't name a review round; here the tag is often the only explanation, e.g. `content/pipeline/add_source.py:1536-1537` ("review F3") and `content/pipeline/jobs.py:353` ("second review F5").
+- **Comments that contradict the code:** the apply protocol promises "Startup/doctor recovery" (`content/proposals/apply_protocol.py:19-20`; doctor only, §2.8); the judge's key comment says the output budget is in the key "as everywhere under the policy" (`content/facet_identity/judge.py:711-713`), while the inventory and shard keys exclude it on purpose (§3.4); `BUDGET_BOUNDS`'s comment says the frontend reads it (`learnloop_sidecar/handlers/ingest.py:34`; one of three components does); `ingest/detect.py`'s docstring lists five kinds of the eight `resolve_source` returns; `IngestScreen.tsx:37` cites a module that doesn't exist.
+- **The long functions lack an approach paragraph:** `_normalize`, `_append`, `_create_study_map` and `handle_inventory` start with one-line or no docstrings.
+
+### 5.3 Dead and near-dead code
+
+| what | evidence | status |
+|---|---|---|
+| `ingest/fetchers.py`'s fetch path (`fetch_source`, `_FETCHERS`, `fetch_web`, `fetch_arxiv`, `fetch_pdf`, `fetch_textfile`, `fetch_youtube`; about 300 of its 400 lines) | production imports only `youtube_oembed_metadata` and `youtube_video_id` (`content/pipeline/jobs.py:142`, `learnloop_sidecar/handlers/reader.py:1837`); the package re-exports `fetch_source` (`ingest/__init__.py:12`) and only `tests/test_ingest_fetchers.py` calls it. **Its `fetch_arxiv` reads the Atom API and the full text, which the live import doesn't (KD3).** The live fetch is a different function with the same name, `content/pipeline/source_ingestion.py`'s `fetch_source` | test-only, name collision |
+| `ingest/detect.py` | tests only (`tests/test_ingest_detect.py`) | test-only |
+| `source_ingestion.detect_source_kind` (`content/pipeline/source_ingestion.py:669`) | no caller in `src` | dead |
+| `KNOWN_JOB_TYPES`, `KNOWN_WORKFLOW_TYPES` (`content/pipeline/runner.py:106-127`) | one test reads the first | stale |
+| `asset_hashes`, `extractor_versions`, `lock_fingerprint` in the manifest (`content/synthesis/synthesis_manifests.py:39`, `:48`, `:54`) | hashed, never passed (`build_manifest` callers, `content/synthesis/source_set_synthesis.py:2211`, `content/synthesis/source_append.py:290`) | always null |
+| `pre_hash` in apply intents (`content/proposals/apply_protocol.py:237-243`) | written, never read | dead field with a job to do (KD2) |
+| "Complete pending apply" maintenance action (`ops/maintenance_feed.py:211`) | no handler | dead end for the learner |
+| Codex names in the job host (`interrupt_codex`, `content/pipeline/jobs.py:5446`) | ADR-018 retired the transport | naming only (not verified further) |
+
+### 5.4 Onboarding: what a new contributor must read to add a thing
+
+| to add | must read today |
+|---|---|
+| a source type | `ingest/resolution.py`; `content/pipeline/jobs.py` (`default_fetch`, `_is_document`, `default_extract`, `default_extraction_identity`, about 900 lines between them); `content/pipeline/add_source.py` (`_KIND_NOUN`, the missing-file list); `content/pipeline/source_ingestion.py` (the legacy mapping); the frontend's kind tables in four files (§6) |
+| an extractor | `ingest/extractors/__init__.py` (the selection ladder and fallback), `content/pipeline/jobs.py` (`_document_extractor`, consent, checkpoints), `ingest/hashing.py` (identity), `content/pipeline/add_source.py` (consent copy, status lines) |
+| a synthesis pass | `content/synthesis/source_set_synthesis.py` (3,811 lines: the orchestrator, `_run_synthesis`, the checkpoint, the manifest scope) **and** `content/synthesis/source_append.py` (the second orchestrator), plus `ai/routing.py` and `content/synthesis/ai_contracts.py` |
+| a facet rule | `content/facet_identity/judge.py` (rules), `authority.py` (the meaning chokepoint), `plan.py`, and `_normalize` stages 3-6 |
+
+The concepts a newcomer meets before any of these: revision, extraction, unit, span, inventory (and its profile), source set and scope, manifest, agent run, synthesis run, shard, pass, candidate, proposal batch, apply intent, facet identity action, judgment ledger, the exam predicate's partitions, job, batch, lease, attempt generation, checkpoint, keep-ahead request. About two dozen, most of them real; the cost is that the same idea (identity, lease, checkpoint) has several implementations.
+
+### Findings
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| KF1 | medium | **The inventory choice and the append's unit choice sit inside I/O-heavy functions,** so the two decisions behind KX1 and KX3 have no database-free test seam. | `content/synthesis/source_set_synthesis.py:249`; `content/synthesis/source_append.py:224` |
+| KC1 | medium | **Review tags stand in for reasons in about 190 places,** and five comments contradict the code. | §5.2 |
+| KN1 | medium | **A test-only fetch module reads arXiv better than the live import,** under the same function name as the live fetch. | §5.3 |
+| KN2 | low | Dead fields and names: three always-null manifest fields, `pre_hash`, a stale job vocabulary, two `detect_source_kind`. | §5.3 |
