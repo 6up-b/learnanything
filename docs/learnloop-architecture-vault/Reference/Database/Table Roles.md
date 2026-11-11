@@ -69,15 +69,19 @@ Examples: [[Reference/Database/Tables/derived_state_rebuilds|derived_state_rebui
 
 Examples: [[Reference/Database/Tables/ingest_jobs|ingest_jobs]], [[Reference/Database/Tables/exam_sessions|exam_sessions]], [[Reference/Database/Tables/activity_surface_reservations|activity_surface_reservations]], and [[Reference/Database/Tables/question_promotion_requests|question_promotion_requests]].
 
+It also holds live overwritten state that rebuild must not clear wholesale: [[Reference/Database/Tables/practice_item_state|practice_item_state]], the per-item FSRS head every attempt writes. Per-LO replay resets its scheduling columns and keeps `active`, the serving lifecycle that state sync, retirement and the probe lifecycle set outside the attempt ledger.
+
 ## Compat
 
-**10 tables.** `COMPAT` is frozen state retained for old vaults, dormant designs, or incomplete successor cutovers. It is preserved during rebuilds and is not synonymous with “safe to remove.”
+**9 tables.** `COMPAT` is frozen state retained for old vaults, dormant designs, or incomplete successor cutovers. It is preserved during rebuilds and is not synonymous with “safe to remove.”
 
-The ten tables are:
+The nine tables are:
 
-- actively preserved legacy projections: [[Reference/Database/Tables/evidence_facet_recall_state|evidence_facet_recall_state]], [[Reference/Database/Tables/facet_uncertainty|facet_uncertainty]], [[Reference/Database/Tables/elicitation_events|elicitation_events]], [[Reference/Database/Tables/hypothesis_sets|hypothesis_sets]], [[Reference/Database/Tables/learner_state_beliefs|learner_state_beliefs]], and [[Reference/Database/Tables/lo_probe_state|lo_probe_state]];
-- an active historical seam: [[Reference/Database/Tables/practice_item_state|practice_item_state]];
+- actively preserved legacy projections: [[Reference/Database/Tables/evidence_facet_recall_state|evidence_facet_recall_state]], [[Reference/Database/Tables/facet_uncertainty|facet_uncertainty]], [[Reference/Database/Tables/elicitation_events|elicitation_events]], [[Reference/Database/Tables/learner_state_beliefs|learner_state_beliefs]], and [[Reference/Database/Tables/lo_probe_state|lo_probe_state]];
+- live despite the role: [[Reference/Database/Tables/hypothesis_sets|hypothesis_sets]], whose locked sets the probe paths write and read (its role is on the owner's list in `docs/reviews/table-review-2026-11-11.md`);
 - owner-gated dormant state: [[Reference/Database/Tables/source_exam_profiles|source_exam_profiles]], [[Reference/Database/Tables/source_locator_schemes|source_locator_schemes]], and [[Reference/Database/Tables/learner_theta|learner_theta]].
+
+[[Reference/Database/Tables/practice_item_state|practice_item_state]] left this role for `WORKFLOW` in J1 (Nov 11): it is live overwritten state, and no role consumer treats the two roles differently.
 
 ## Role versus functionality status
 

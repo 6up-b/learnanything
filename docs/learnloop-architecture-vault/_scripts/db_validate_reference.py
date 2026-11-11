@@ -71,6 +71,7 @@ REQUIRED_FRONTMATTER = {
 HAND_WRITTEN_FRONTMATTER = {"source_commit", "source_commit_timestamp"}
 EXPECTED_STATUS_OVERRIDES = {
     "practice_item_state": "active-historical-seam",
+    "hypothesis_sets": "active",
     "controller_shadow_predictions": "dormant-shadow",
     "controller_prequential_reports": "dormant-shadow",
     "shadow_component_events": "dormant-shadow",
@@ -82,7 +83,6 @@ EXPECTED_LEGACY_TABLES = {
     "evidence_facet_recall_state",
     "facet_uncertainty",
     "elicitation_events",
-    "hypothesis_sets",
     "learner_state_beliefs",
     "lo_probe_state",
 }

@@ -358,7 +358,7 @@ The [role registry](../../../src/learnloop/db/table_roles.py), `src/learnloop/db
 | Workflow | Mutable plans, jobs and lease lifecycle | [[Reference/Database/Tables/daily_plans|daily_plans]], [[ingest_jobs]] | Preserve; do not synthesize from evidence |
 | Receipts | Calls, forecasts and audit outputs | [[model_call_receipts]], [[Reference/Database/Tables/voi_forecasts|voi_forecasts]] | Preserve; do not regenerate in place |
 
-Authored Markdown/YAML and immutable source files live alongside `state.sqlite`; they are not interchangeable with projections. Compatibility tables are a separate preserved role, including [[practice_item_state]]; do not infer that every memory-looking table is rebuild-owned. See [[Vault Lifecycle]].
+Authored Markdown/YAML and immutable source files live alongside `state.sqlite`; they are not interchangeable with projections. Workflow and compatibility tables are preserved too: [[practice_item_state]], the live per-item scheduling head, is a workflow table that per-LO replay resets except its serving lifecycle; do not infer that every memory-looking table is rebuild-owned. See [[Vault Lifecycle]].
 
 ## Gaps in this vault
 
