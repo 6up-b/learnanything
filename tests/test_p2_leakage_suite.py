@@ -1,22 +1,25 @@
 """P2 LEAKAGE SUITE -- the consolidated §12.4 / §12.3.2 leakage acceptance contract.
 
-Every leakage guard the golden path relies on, gathered into ONE named suite so the
-launch-defaults review (§13) has a single place to read them. The canonical cases are
-REUSED from their track modules (imported under private aliases so pytest collects them
+Every leakage guard the golden path relied on, gathered into ONE named suite so the
+launch-defaults review (§13) has a single place to read them. The reader case is
+REUSED from its track module (imported under a private alias so pytest collects it
 only here); the diagnostic-exposure-consumption case (§5.2 -- rendered diagnostic
 surfaces burn their held-out eligibility) is added because no track module owned it.
 
 Cases:
   1. practice -> assessment fingerprint blocking (same surface_hash exposure invalidates
      the reserve before render);
-  2. an assessment-reserved surface is refused at pool admission (hard-group collision);
-  3. reader-answer exposure -> reserve invalidation (a revealed reserved surface burns);
-  4. diagnostic exposure consumption (a rendered diagnostic surface loses cold
+  2. reader-answer exposure -> reserve invalidation (a revealed reserved surface burns);
+  3. diagnostic exposure consumption (a rendered diagnostic surface loses cold
      eligibility exactly like any other exposure).
+
+The practice pool's own admission case (an assessment-reserved surface refused at pool
+admission) went with the pool.
 """
 
 from __future__ import annotations
 
+import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
@@ -24,7 +27,9 @@ from learnloop.ids import new_ulid
 from learnloop.diagnosis import diagnostic_pack as DP
 from learnloop.curriculum import golden_path_run as GPR
 from learnloop.substrate.activities import (
+    ExposureCollisionAtRender,
     evaluate_held_out_eligibility,
+    open_administration,
     reserve_surface,
     resolve_legacy_item,
 )
@@ -36,6 +41,7 @@ from learnloop.attempts.attempts import (
 )
 from learnloop.curriculum.golden_path_fixture import (
     EXEMPLAR_A,
+    EXEMPLAR_B,
     FIX_NOW,
     LO_ID,
     build_golden_path_fixture,
@@ -49,22 +55,16 @@ from learnloop.diagnosis.probe_episodes import (
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 
-# Reused track-test cases (aliased so pytest does not collect them twice).
+# Reused track-test case (aliased so pytest does not collect it twice).
 from tests.test_reader_dialogue import (
     test_ask_warms_and_invalidates_a_revealed_reserve as _reader_reveal_burns_reserve,
-)
-from tests.test_surface_pool import (
-    test_assessment_reserved_surface_is_refused_at_admission as _assessment_reserved_refused,
-)
-from tests.test_surface_pool import (
-    test_practice_exposure_invalidates_same_fingerprint_assessment_reserve as _practice_invalidates_reserve,
 )
 
 CLOCK = FrozenClock(FIX_NOW)
 
 
 def _fixture(tmp_path):
-    """The (vault, repo, fx) triple the surface-pool track cases expect as ``fixture``."""
+    """The (vault, repo, fx) triple on the golden-path fixture vault."""
 
     root = tmp_path / "vault"
     fx = build_golden_path_fixture(root)
@@ -77,14 +77,23 @@ class TestP2LeakageSuite:
     """The named consolidation point for every P2 leakage guard (§12.4 / §12.3.2)."""
 
     def test_practice_to_assessment_fingerprint_blocking(self, tmp_path):
-        # Reused from the PRACTICE track: a practice render on the same fingerprint
-        # invalidates the assessment reserve before render (§12.4).
-        _practice_invalidates_reserve(_fixture(tmp_path))
+        # A practice render on the same fingerprint invalidates the assessment reserve
+        # before render (§12.4): the shared exposure ledger, not any pool, enforces it.
+        vault, repo, _fx = _fixture(tmp_path)
+        item = vault.practice_items[EXEMPLAR_B]
+        # Identical surface_hash / fingerprint under both purposes, distinct surface rows.
+        practice = resolve_legacy_item(vault, repo, item, purpose="practice")
+        assessment = resolve_legacy_item(vault, repo, item, purpose="assessment")
+        assert practice.surface_id != assessment.surface_id
+        assert practice.surface_hash == assessment.surface_hash
 
-    def test_assessment_reserved_surface_refused_at_admission(self, tmp_path):
-        # Reused from the PRACTICE track: an assessment-reserved surface (hard-group
-        # collision) is refused at pool admission (§7.3 / §12.4).
-        _assessment_reserved_refused(_fixture(tmp_path))
+        reservation = reserve_surface(repo, surface_id=practice.surface_id, purpose="practice", goal_id="g_leak")
+        admin = open_administration(repo, resolved=practice, reservation=reservation, goal_id="g_leak")
+        assert admin.surface_id == practice.surface_id
+
+        with pytest.raises(ExposureCollisionAtRender):
+            reservation = reserve_surface(repo, surface_id=assessment.surface_id, purpose="assessment", goal_id="g_leak")
+            open_administration(repo, resolved=assessment, reservation=reservation, goal_id="g_leak")
 
     def test_reader_answer_exposure_invalidates_reserve(self, tmp_path):
         # Reused from the READER track: an AI answer revealing a reserved surface's cues

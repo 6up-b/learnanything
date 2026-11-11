@@ -132,10 +132,6 @@ MODULE_INVENTORY: dict[str, str] = {
     "failure_triage": "src/learnloop/diagnosis/failure_triage.py",
     # P2 step B.11 -- minimal bidirectional reader dialogue (U-033, §7.6).
     "reader_dialogue": "src/learnloop/reader/reader_dialogue.py",
-    # P2 LEARNING track -- the nine-rung pattern ladder (7 ordinals) + stage contracts (§7.1/§7.2).
-    "pattern_ladder": "src/learnloop/curriculum/pattern_ladder.py",
-    # P2 PRACTICE track -- the bounded rotating practice pool (§7.3, U-028).
-    "surface_pool": "src/learnloop/substrate/surface_pool.py",
     # P2 ASSESSMENT + RESTORATION + MILESTONE track -- cold assessment + boundary
     # diff knobs (§8.2/§8.4, design B.8-B.10/§E).
     "golden_path_assessment": "src/learnloop/curriculum/golden_path_assessment.py",
@@ -1234,32 +1230,6 @@ _reg_const("reader_dialogue:READER_QUESTION_DENSITY_TARGET", "operational", kind
            owner="reader_dialogue", rationale="§13 owner-tuning guideline (~1 owner-placed "
            "reading question per major section); NEVER auto-inserted (no ask_now planner / "
            "density policy in this cut, U-017@v3) -- a review-time guideline, not a live knob.")
-
-# P2 LEARNING track -- pattern ladder + stage-transition contracts (§7.1/§7.2,
-# §12.3; design B.6/§E). The ladder-policy schema version is a structural enum; the
-# repeated-failure cutoff, per-stage delay, and completion-scaffold threshold are
-# heuristic decision knobs (the sim sensitivity band shows the review/delay/exit
-# decision only flips inside a plausible range, no knife-edge active value).
-_reg_const("pattern_ladder:LADDER_POLICY_SCHEMA_VERSION", "version", kind="structural",
-           owner="pattern_ladder", rationale="pattern-ladder policy spec schema version pin; enum.")
-_reg_const("pattern_ladder:REPEATED_FAILURE_REVIEW_N", "constraint", owner="pattern_ladder",
-           rationale="§7.2 N distinct varied-surface failures on a rung that terminate into "
-           "needs_review / P4-expansion telemetry rather than infinite near-clone practice.")
-_reg_const("pattern_ladder:STAGE_DELAY_DAYS", "threshold", owner="pattern_ladder",
-           rationale="§7.2 per-stage delayed-check window (days) before delayed independent "
-           "target-like practice is due.")
-_reg_const("pattern_ladder:COMPLETION_SCAFFOLD_THRESHOLD", "threshold", owner="pattern_ladder",
-           rationale="§7.2 scaffold-use fraction at/above which an example_completion rung is "
-           "scaffold-heavy; its exit records scaffold use and never certifies independence.")
-
-# P2 PRACTICE track -- bounded rotating practice pool (§7.3, U-028, design B.7/§E).
-# The pool-spec schema version is a structural enum; the spare-cache bound is a
-# heuristic decision knob (current + one cached spare at most).
-_reg_const("surface_pool:POOL_SPEC_SCHEMA_VERSION", "version", kind="structural",
-           owner="surface_pool", rationale="practice-pool spec schema version pin; enum.")
-_reg_const("surface_pool:POOL_SPARE_CACHE", "constraint", owner="surface_pool",
-           rationale="§7.3 spare surfaces pre-cached beyond the current one (one current + "
-           "one cached spare at most); bounds the rotation cache.")
 
 # P2 ASSESSMENT + RESTORATION + MILESTONE track -- cold assessment + boundary diff
 # (§8.2/§8.4; design B.8-B.10/§E). The result-artifact schema version is a structural

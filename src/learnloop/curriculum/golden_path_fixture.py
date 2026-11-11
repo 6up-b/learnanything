@@ -148,19 +148,6 @@ def stub_diagnostic_pack() -> dict[str, Any]:
     }
 
 
-def stub_pool_surfaces() -> dict[str, Any]:
-    """Deterministic practice-pool stub (§7.3, U-028, §C). Consumed by the P2 pool
-    track (migration 085); provided here for offline fixture rendering."""
-
-    return {
-        "pool_slug": "pool_symmetric_method_selection",
-        "surfaces": [
-            {"surface_slug": "surf_setup_1", "angle": "setup_only"},
-            {"surface_slug": "surf_move_spotting_1", "angle": "move_spotting"},
-        ],
-    }
-
-
 @dataclass(frozen=True)
 class GoldenPathFixture:
     root: Path
