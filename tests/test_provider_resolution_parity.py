@@ -8,8 +8,7 @@ from types import SimpleNamespace
 import learnloop.ai.routing as routing
 import pytest
 from tests.ast_cache import source_ast, source_text
-from learnloop.ai.client import make_ai_provider_client_from_profile
-from learnloop.ai.providers.codex import SdkCodexClient
+from learnloop.ai.providers.chatgpt_plan import ChatGPTPlanProviderClient
 from learnloop.ai.providers.openai_chat import OpenAIChatProviderClient
 from learnloop.ai.routing import MANUAL_PROVIDER, ROUTE_FOR_OPERATION, ready_client_for_task
 from learnloop.ai.runtime import AIRuntimeReport
@@ -431,20 +430,8 @@ def test_operation_routes_include_semantic_diagnostic_grading():
     assert ROUTE_FOR_OPERATION["vault_epigraphs"] == "canonical_ingest"
 
 
-def test_named_codex_profile_identity_survives_provider_construction(tmp_path):
-    # The frozen Codex path is built only with the owner opt-in (T1).
-    config = LearnLoopConfig.model_validate({"ai": {"agent_harness_opt_in": True}})
-    profile = config.ai.providers["codex_medium"]
-
-    client = make_ai_provider_client_from_profile("codex_medium", profile, tmp_path, agent_harness_opt_in=True)
-
-    assert client.provider_name == "codex_medium"
-    assert client.provider_type == "codex_sdk"
-    assert client.model == profile.model
-
-
 def test_diagnostic_fire_uses_the_structured_completion_path():
-    client = object.__new__(SdkCodexClient)
+    client = object.__new__(ChatGPTPlanProviderClient)
     client.config = SimpleNamespace(timeout_seconds=12)
     captured = []
     client.complete = lambda request: (  # type: ignore[method-assign]

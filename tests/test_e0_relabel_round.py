@@ -498,10 +498,9 @@ def test_the_paid_cli_passes_reuse_run_and_authorizes_on_the_cumulative_budget(t
     from typer.testing import CliRunner
 
     from learnloop.cli import app
-    from learnloop.experiments.contextual_embeddings import boundary, live, runner
+    from learnloop.experiments.contextual_embeddings import live, runner
 
     seen = {}
-    monkeypatch.setattr(boundary, "require_codex_lockdown", lambda: {"codex_lockdown": "active"})
 
     def fake_dry_run(*_args, **kwargs):
         seen["dry_run"] = kwargs.get("reuse_run")

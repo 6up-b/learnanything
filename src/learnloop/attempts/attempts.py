@@ -6,7 +6,7 @@ import sqlite3
 from contextlib import closing
 from dataclasses import dataclass, field, fields as dataclass_fields, replace
 from datetime import UTC, timedelta
-from typing import TYPE_CHECKING, Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from learnloop.attempt_types import NON_RECORDING_ATTEMPT_TYPES, SUPPORTED_ATTEMPT_TYPES, unsupported_attempt_types
 from learnloop.ai.client import AIProviderClient
@@ -129,12 +129,6 @@ from learnloop.learner.recall_coverage import (
 from learnloop.attempts.surprise import compute_surprise
 from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
-
-if TYPE_CHECKING:  # pragma: no cover
-    # Type only (plan-first transport T1): serving code never imports the
-    # Codex provider at run time; the client factory loads it behind the opt-in.
-    from learnloop.ai.providers.codex import CodexRuntimeReport
-
 
 # Per spec §"Attempt-type handling": a `dont_know` attempt is deterministically
 # attributed to a recall failure (score 0, no grading role invoked).
@@ -619,7 +613,7 @@ def complete_attempt_with_codex_fallback(
     draft: AttemptDraft,
     fallback_grade: SelfGradeInput,
     *,
-    runtime: CodexRuntimeReport,
+    runtime: AIRuntimeReport,
     codex_client: AIProviderClient | None = None,
     clock: Clock | None = None,
 ) -> AttemptResult:
@@ -837,7 +831,7 @@ def complete_attempt_with_codex_required(
     repository: Repository,
     draft: AttemptDraft,
     *,
-    runtime: CodexRuntimeReport,
+    runtime: AIRuntimeReport,
     codex_client: AIProviderClient | None = None,
     clock: Clock | None = None,
 ) -> AttemptResult:

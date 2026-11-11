@@ -251,31 +251,24 @@ def patch_plan_ready(monkeypatch) -> None:  # noqa: ANN001 - pytest's MonkeyPatc
 
 
 def use_codex_harness(vault_root: Path) -> None:
-    """Put a template vault back on the frozen Codex path, explicitly opted in.
+    """Put a template vault back on the pre-plan Codex configuration.
 
-    Plan-first transport T1 (owner, 2026-10-21): new vaults route every
-    serving task to the tool-free ChatGPT plan, and a Codex profile is refused
-    unless ``ai.agent_harness_opt_in`` is set. Tests that exercise the frozen
-    Codex provider through its doubles (``install_fake_codex_sdk``, the legacy
-    HTTP double) call this to restore the pre-T1 configuration (active
-    provider ``codex``, the ``codex_low`` / ``codex_medium`` tiers) with the
-    opt-in. T2 retires the Codex path and moves these tests to plan fakes.
-    Idempotent.
+    New vaults route every serving task to the tool-free ChatGPT plan. A test
+    of what an old vault still naming Codex gets (the refusal, doctor's
+    findings) or of the HTTP provider double (``configure_codex_http``) calls
+    this to restore the old shape: active provider ``codex`` and the
+    ``codex_low`` / ``codex_medium`` / ``codex_luna`` tiers. Idempotent.
     """
 
     config_path = vault_root / "learnloop.toml"
     text = config_path.read_text(encoding="utf-8")
     ai_match = re.search(r"(?ms)^\[ai\]\n(.*?)(?=^\[|\Z)", text)
     if ai_match is None:
-        text = f'{text.rstrip()}\n\n[ai]\nactive_provider = "codex"\nagent_harness_opt_in = true\n'
+        text = f'{text.rstrip()}\n\n[ai]\nactive_provider = "codex"\n'
     else:
-        body = re.sub(r"(?m)^agent_harness_opt_in = .*\n", "", ai_match.group(1))
-        body, count = re.subn(r"(?m)^active_provider = .*$", 'active_provider = "codex"', body, count=1)
+        body, count = re.subn(r"(?m)^active_provider = .*$", 'active_provider = "codex"', ai_match.group(1), count=1)
         if count == 0:
             body = 'active_provider = "codex"\n' + body
-        body = body.replace(
-            'active_provider = "codex"\n', 'active_provider = "codex"\nagent_harness_opt_in = true\n', 1
-        )
         text = text[: ai_match.start(1)] + body + text[ai_match.end(1) :]
     text = text.replace(
         '[ai.providers.chatgpt]\ntype = "chatgpt_plan"\n', '[ai.providers.codex]\ntype = "codex_sdk"\n', 1
@@ -299,8 +292,9 @@ def configure_codex_http(vault_root: Path, checkout: Path, base_url: str) -> Non
 
     The schema-v2 template deliberately omits machine-local Codex fields, so
     there are no template lines to edit and tests replace the whole provider
-    table. The vault is first put on the frozen Codex path with the explicit
-    opt-in (``use_codex_harness``; plan-first transport T1).
+    table. The vault is first put on the old Codex configuration
+    (``use_codex_harness``); the ``http`` profile serves only under the
+    ``legacy_codex_http_double`` fixture (``tests/http_provider_double.py``).
     """
 
     use_codex_harness(vault_root)

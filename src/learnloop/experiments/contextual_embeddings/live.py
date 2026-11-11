@@ -181,7 +181,6 @@ def run_live(copies: Sequence[Path], *, plan: Mapping[str, Any], run_dir: Path,
 
     from learnloop.experiments.contextual_embeddings.boundary import (
         quiet_provider_logs,
-        require_codex_lockdown,
         require_no_codex_roles,
     )
     from learnloop.experiments.contextual_embeddings.budget import authorized_ledger
@@ -191,9 +190,7 @@ def run_live(copies: Sequence[Path], *, plan: Mapping[str, Any], run_dir: Path,
     # Private run state stays under fixtures-local (pre-paid verify L7): refused before anything.
     if not _inside_local_root(Path(run_dir)):
         raise ValueError("the run directory must be under a fixtures-local directory")
-    # No Codex turn of a paid run outside the locked-down transport (55063be64).
-    require_codex_lockdown()
-    # And none of its roles is a Codex route at all (re-plan 2026-10-22).
+    # None of its roles is a Codex route (re-plan 2026-10-22).
     require_no_codex_roles()
     from learnloop.experiments.contextual_embeddings.paid import PaidState, run_contracts
     from learnloop.experiments.contextual_embeddings.adapters import Receipts, VectorStore

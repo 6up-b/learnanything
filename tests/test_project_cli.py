@@ -365,32 +365,6 @@ def test_project_grading_runs_at_high_effort_by_default(monkeypatch, tmp_path):
     assert seen["project"] == "low"  # authoring keeps its route's own effort
 
 
-def _turn_effort(monkeypatch, tmp_path, config, role):
-    from learnloop.ai.providers.codex import CodexSDKProviderClient
-    from learnloop.projects.ai_runtime import config_for_role
-    from tests.project_support import install_fake_codex_sdk
-
-    captured = install_fake_codex_sdk(monkeypatch)
-    effective = config_for_role(config, role)
-    name = provider_for_task(effective, "grading" if role == "grading" else "project").provider_name
-    client = CodexSDKProviderClient(name, effective.ai.providers[name], tmp_path)
-    from tests.codex_cli_fakes import stub_isolation_probe
-
-    stub_isolation_probe(monkeypatch, client)  # every Codex turn runs the lockdown's launch check
-    client._run_structured("p", {"type": "object"}, purpose="project_probe_grading")
-    return captured["turns"][-1]["effort"].value
-
-
-def test_the_effective_grading_request_carries_high_effort(monkeypatch, tmp_path):
-    config = LearnLoopConfig()
-    assert _turn_effort(monkeypatch, tmp_path, config, "grading") == "high"
-    assert _turn_effort(monkeypatch, tmp_path, config, "authoring") == "low"
-    config.project.grading_reasoning_effort = ""  # the owner keeps the route's own effort
-    assert _turn_effort(monkeypatch, tmp_path, config, "grading") == "low"
-    config.project.grading_reasoning_effort = "medium"
-    assert _turn_effort(monkeypatch, tmp_path, config, "grading") == "medium"
-
-
 def test_grading_effort_leaves_chat_profiles_without_an_effort_alone():
     from learnloop.projects.ai_runtime import config_for_role, describe_routes
 

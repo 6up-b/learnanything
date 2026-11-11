@@ -2,8 +2,8 @@
 
 * AD's model routes (``ad_forecast_llm`` for the ``ad_item_forecast`` task, ``ad_feature_audit`` and
   ``ad_relatedness``) are in the plan-first route table: under code defaults each resolves to a
-  ChatGPT-plan profile billed as the subscription; a Codex route is refused unless
-  ``ai.agent_harness_opt_in``. ``ad_forecast_decider`` is a decider-only route (a plan profile is not a
+  ChatGPT-plan profile billed as the subscription; a Codex route is refused.
+  ``ad_forecast_decider`` is a decider-only route (a plan profile is not a
   decider) and keeps its code-default decider profile.
 * AD's model calls are background work: inside every AD operation (``plan_fallback.quiet()``), with
   the plan paused, an OpenRouter profile and key set, every price set and every AD task granted to the

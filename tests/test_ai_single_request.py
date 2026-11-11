@@ -4,7 +4,6 @@ import pytest
 
 from learnloop.ai.errors import AIInvalidOutput, CodexUnavailable
 from learnloop.ai.execution import single_request, single_request_active
-from learnloop.ai.providers.codex import CodexSDKProviderClient
 from learnloop.ai.providers.openai_chat import OpenAIChatProviderClient
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.transport import StructuredRequest
@@ -61,47 +60,3 @@ def test_openai_single_request_disables_retry_and_repair_only_in_scope(monkeypat
     assert len(fake.instances[0].requests) == 3
 
 
-@pytest.mark.parametrize(
-    "failure, expected, suffix",
-    [
-        (CodexUnavailable("unexpected end of hex escape at line 1 column 1024"), CodexUnavailable, "json_regenerate"),
-        ("not json", AIInvalidOutput, "json_repair"),
-        ('{"value":42}', AIInvalidOutput, "json_repair"),
-    ],
-)
-def test_codex_single_request_disables_regeneration_and_repair_only_in_scope(
-    monkeypatch, tmp_path, failure, expected, suffix,
-):
-    client = CodexSDKProviderClient(
-        "test", AIProviderConfig(type="codex_sdk", model="test"), tmp_path,
-    )
-    calls = []
-    responses = iter([failure, failure, '{"value":"ok"}'])
-
-    def run(prompt, output_schema, *, purpose):
-        calls.append(purpose)
-        response = next(responses)
-        if isinstance(response, Exception):
-            raise response
-        return response
-
-    monkeypatch.setattr(client, "_run_structured", run)
-    with single_request(), pytest.raises(expected):
-        client.complete(_request())
-    assert calls == ["test"]
-
-    assert client.complete(_request()).value == "ok"
-    assert calls == ["test", "test", f"test_{suffix}"]
-
-
-def test_codex_single_request_fails_closed_before_sdk_startup(monkeypatch, tmp_path):
-    client = CodexSDKProviderClient(
-        "test", AIProviderConfig(type="codex_sdk", model="test"), tmp_path,
-    )
-
-    def unexpected_startup(*args):
-        pytest.fail("must reject unbounded app-server turns before SDK startup")
-
-    monkeypatch.setattr("learnloop.ai.providers.codex._ensure_sdk_importable", unexpected_startup)
-    with single_request(), pytest.raises(CodexUnavailable, match="single physical model request"):
-        client.complete(_request())

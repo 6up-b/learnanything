@@ -478,8 +478,8 @@ def provider_for_operation(
 def fallback_provider_for(config: LearnLoopConfig, selection: AIProviderSelection) -> str | None:
     """The configured readiness fallback for ``selection``, or ``None``.
 
-    Never an agent-harness (Codex) profile, opt-in or not (plan-first
-    transport T1, owner 2026-10-21): a configured Codex fallback is ignored
+    Never an agent-harness (Codex) profile (plan-first transport, owner
+    2026-10-21): a configured Codex fallback is ignored
     (`learnloop doctor` reports it). The plan's OpenRouter offer is not a
     fallback: it is asked (``learnloop.ai.plan_fallback``).
     """
@@ -495,8 +495,8 @@ def configured_fallback(config: LearnLoopConfig, primary: str | None) -> str | N
     The one rule for every reader of the setting (routing, the question
     build's route, the method-phrasing writer; review F6):
 
-    * never ``primary`` itself, and never an agent-harness (Codex) profile,
-      opt-in or not (owner 2026-10-21);
+    * never ``primary`` itself, and never an agent-harness (Codex) profile
+      (owner 2026-10-21);
     * never a silent metered fallback for the ChatGPT plan (review F1, owner
       2026-10-21: "ASK ... never fall back silently"): when ``primary`` is a
       plan profile, only ``manual`` or another plan profile is used as
@@ -567,9 +567,8 @@ def route_profile_mismatch(
             f"{provider_name!r} is a decision-model profile; it answers typed questions "
             f"only and cannot serve {task or 'generation'} work."
         )
-    # Plan-first transport T1: the Codex agent harness serves nothing
-    # without the owner's explicit opt-in.
-    return harness_refusal(provider_name, profile, opt_in=config.ai.agent_harness_opt_in)
+    # An old config may still name a Codex profile: it serves nothing.
+    return harness_refusal(provider_name, profile)
 
 
 def is_embedding_profile(config: LearnLoopConfig, provider_name: str) -> bool:

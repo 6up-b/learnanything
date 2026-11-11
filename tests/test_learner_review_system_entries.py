@@ -21,7 +21,7 @@ from datetime import timedelta
 
 from learnloop.clock import FrozenClock
 from learnloop.attempts.ai_contracts import GradingContext
-from learnloop.ai.providers.codex import CodexRuntimeReport
+from learnloop.ai.runtime import AIRuntimeReport
 from learnloop.attempts.ai_contracts import CriterionEvidence, ErrorAttribution, GradingProposal
 from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
@@ -57,13 +57,8 @@ class _RegradeClient(StructuredClientFake):
         )
 
 
-def _ready_runtime() -> CodexRuntimeReport:
-    return CodexRuntimeReport(
-        status="ready",
-        checkout_path="codex",
-        configured_revision="abc",
-        actual_revision="abc",
-    )
+def _ready_runtime() -> AIRuntimeReport:
+    return AIRuntimeReport(status="ready", active_provider="codex", provider_revision="abc")
 
 
 def _seeded(tmp_path):

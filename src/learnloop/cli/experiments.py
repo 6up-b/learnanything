@@ -118,11 +118,8 @@ def e0_run(
             markdown.write_text(render_markdown(plan), encoding="utf-8")
         if not dry_run:
             from learnloop.cli.receipts import bind_command_repository
-            from learnloop.experiments.contextual_embeddings.boundary import require_codex_lockdown
             from learnloop.experiments.contextual_embeddings.live import run_live
 
-            # Every E0 Codex turn must be the locked-down one (security lockdown 55063be64).
-            require_codex_lockdown()
             # The estimate must fit what is left of the CUMULATIVE cap (relabel round).
             budget = plan.get("budget") or {"fits": plan["totals"]["fits_cap"]}
             require_paid_authorization(authorized=authorized, dry_run_ok=bool(budget["fits"]),

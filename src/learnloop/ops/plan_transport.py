@@ -2,7 +2,7 @@
 
 Owner decision 2026-10-21: every serving route uses the tool-free ChatGPT
 plan, and a Codex (``codex_sdk`` / legacy ``http``) profile serves nothing
-without ``ai.agent_harness_opt_in``. A vault's ``learnloop.toml`` that names a
+(its transport is gone). A vault's ``learnloop.toml`` that names a
 Codex profile is not aliased silently at load (receipts and checkpoints key
 on provider and model): `learnloop doctor` reports each such setting
 (``ai:codex_route_pinned``) and `learnloop doctor --fix` rewrites it to the
@@ -68,14 +68,8 @@ def _plan_profile_for(config: LearnLoopConfig, name: str, task: str | None = Non
 
 
 def codex_pins(root: Path, config: LearnLoopConfig) -> list[CodexPin]:
-    """Every setting written in ``root/learnloop.toml`` that names a Codex profile.
+    """Every setting written in ``root/learnloop.toml`` that names a Codex profile."""
 
-    Empty when the owner opted in to the agent harness (those settings are
-    then served as written).
-    """
-
-    if config.ai.agent_harness_opt_in:
-        return []
     try:
         with (root / "learnloop.toml").open("rb") as handle:
             raw = tomllib.load(handle)
@@ -116,8 +110,7 @@ def finding_message(pin: CodexPin) -> str:
     return (
         f"{pin.setting} = {pin.value!r} names the Codex agent harness, which LearnLoop no longer uses for "
         f"serving (plan-first transport, owner decision 2026-10-21), so this route reads unavailable. "
-        f"`learnloop doctor --fix` sets it to {target} (the ChatGPT plan); or set "
-        "ai.agent_harness_opt_in = true to keep Codex."
+        f"`learnloop doctor --fix` sets it to {target} (the ChatGPT plan)."
     )
 
 

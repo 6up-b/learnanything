@@ -1091,28 +1091,26 @@ def available_grading_providers(vault: LoadedVault) -> list[str]:
 
     Embedding-only and decision-model profiles have no completion transport
     and are never offered. A Codex (agent-harness) profile, and the legacy
-    ``codex`` name, are offered only with ``ai.agent_harness_opt_in``
-    (plan-first transport T1, review F9): without it they are always refused.
+    ``codex`` names, are never offered: they are always refused.
     """
 
     from learnloop.ai.agent_harness import is_agent_harness_profile
     from learnloop.config import CODEX_PROVIDER_NAMES
 
     config = vault.config
-    opt_in = bool(config.ai.agent_harness_opt_in)
     providers = {
         name for name in config.ai.providers
         if is_generation_profile(config, name)
-        and (opt_in or not (name in CODEX_PROVIDER_NAMES or is_agent_harness_profile(config.ai.providers[name])))
+        and not (name in CODEX_PROVIDER_NAMES or is_agent_harness_profile(config.ai.providers[name]))
     }
-    if opt_in:
-        providers.add("codex")
     return sorted(providers) + ["manual"]
 
 
 def runtime_health(
     vault: LoadedVault, repository: Repository, grading_override: str | None = None
 ) -> dict[str, Any]:
+    from learnloop.config.compat import codex_profile_value
+
     report = runtime_for_provider(vault.root, vault.config, "codex")
     versions = applied_versions(repository.sqlite_path)
     latest = max((migration.version for migration in discover_migrations()), default=0)
@@ -1125,9 +1123,9 @@ def runtime_health(
             "codex": {
                 "ready": report.ready,
                 "status": report.status,
-                "model": vault.config.codex.model,
+                "model": codex_profile_value(vault.config, "model"),
                 "actual_revision": report.actual_revision,
-                "base_url": vault.config.codex.base_url,
+                "base_url": codex_profile_value(vault.config, "base_url"),
                 "checked_at": utc_now_iso(),
             },
             "ai": ai_block,

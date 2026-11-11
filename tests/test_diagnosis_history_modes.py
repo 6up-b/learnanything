@@ -3,16 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
-from typing import Any
 
 import pytest
 
 from learnloop.ai.errors import AIProviderUnavailable
-from learnloop.ai.providers.codex import SdkCodexClient
-from learnloop.ai.transport import READ_ONLY_WORKSPACE, StructuredRequest, execute_structured_operation
+from learnloop.ai.transport import execute_structured_operation
 from learnloop.attempts.grading import resolved_rubric
-from learnloop.config import CodexConfig
 from learnloop.diagnosis.split.context import (
     assemble_diagnosis_context,
     cacheable_prefix,
@@ -151,51 +147,6 @@ def test_snapshot_is_unavailable_without_the_capability(seeded):
     assert client.calls == []
     with pytest.raises(AIProviderUnavailable):
         execute_structured_operation(client, purpose="diagnosis", prompt="{}", result_model=DiagnosisJudgment, workspace=Path("/tmp"))
-
-
-def test_codex_workspace_replaces_the_vault_root(tmp_path, monkeypatch):
-    """The snapshot workspace REPLACES the vault root (§5.6). Since the tool
-    lockdown's round 3 the Codex transport inlines it: the turn runs tool-free
-    in a scratch directory (never the vault, never the export), and what it was
-    shown is every export file, reported as served."""
-
-    from learnloop.diagnosis.offline_review.judge import LinkJudgment
-    from tests.diagnosis_isolation_helpers import _fake_sdk
-
-    vault_root = tmp_path / "vault"
-    vault_root.mkdir()
-    workspace = tmp_path / "snapshot"
-    (workspace / "attempts").mkdir(parents=True)
-    (workspace / "INDEX.md").write_text("# index\n", encoding="utf-8")
-    (workspace / "attempts" / "a.md").write_text("# Attempt a\n", encoding="utf-8")
-    captured: dict[str, Any] = {}
-    _fake_sdk(monkeypatch, captured)
-
-    def turn_items(*_args, **_kwargs):
-        return SimpleNamespace(final_response='{"links": []}', items=[{"type": "agentMessage", "text": "{}"}])
-
-    client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex"), sdk_codex_bin="/usr/bin/codex-for-test"), vault_root)
-    from tests.codex_cli_fakes import stub_isolation_probe
-
-    stub_isolation_probe(monkeypatch, client)
-    assert client.supports(READ_ONLY_WORKSPACE)
-    import openai_codex
-
-    original = openai_codex.Codex.thread_start
-
-    def thread_start(self, **kwargs):
-        thread = original(self, **kwargs)
-        thread.turn = lambda prompt, **turn_kwargs: (captured.__setitem__("turn", turn_kwargs), SimpleNamespace(run=turn_items, interrupt=lambda: None))[1]
-        return thread
-
-    monkeypatch.setattr(openai_codex.Codex, "thread_start", thread_start)
-    result = client.complete(StructuredRequest(purpose="diagnosis", prompt="p", result_model=LinkJudgment, workspace=workspace))
-    assert result == LinkJudgment(links=[])
-    for cwd in (captured["app_config"]["cwd"], captured["thread_start"]["cwd"], captured["turn"]["cwd"]):
-        assert Path(cwd).name.startswith("learnloop-isolated-turn-")
-        assert str(vault_root.resolve()) not in cwd and str(workspace.resolve()) not in cwd
-    assert "sandbox" not in captured["thread_start"]
-    assert sorted(client.workspace_activity()) == ["INDEX.md", "attempts/a.md"]
 
 
 # -- all modes ------------------------------------------------------------------------

@@ -31,7 +31,6 @@ adaptive_difficulty.reading_self_check = true
 adaptive_difficulty.ready_threshold = 0.8
 adaptive_difficulty.selection = true
 ai.active_provider = "chatgpt"
-ai.agent_harness_opt_in = false
 ai.consent = {}
 ai.fallback_provider = ""
 ai.output_tokens = 16384

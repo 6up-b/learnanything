@@ -343,11 +343,11 @@ def test_production_never_imports_the_messages_api_transport():
     assert offenders == []
 
 
-def test_the_paid_preflight_passes_with_every_pin_verified_zero_codex_and_the_lockdown(tmp_path):
+def test_the_paid_preflight_passes_with_every_pin_verified_and_zero_codex(tmp_path):
     """Owner decision 2026-10-22 ($40 cap, models kept): the paid CLI's checks
     pass on a fresh plan, apart from the keys (absent in a dry run)."""
 
-    from learnloop.experiments.contextual_embeddings.boundary import require_codex_lockdown, require_no_codex_roles
+    from learnloop.experiments.contextual_embeddings.boundary import require_no_codex_roles
     from learnloop.experiments.contextual_embeddings.runner import dry_run, require_paid_authorization
 
     assert pins.E0_CAP_USD == 40.0
@@ -364,7 +364,6 @@ def test_the_paid_preflight_passes_with_every_pin_verified_zero_codex_and_the_lo
     require_paid_authorization(authorized=True, dry_run_ok=bool(plan["budget"]["fits"]),
                                unverified_prices=plan["prices"]["unverified"])
     require_no_codex_roles()
-    assert require_codex_lockdown()["codex_lockdown"] == "active"
     assert set(plan["keys"].values()) == {"absent"}
 
 

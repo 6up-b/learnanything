@@ -646,8 +646,6 @@ def test_f11_the_dry_run_prices_the_configured_fallback_writer(vault_paths, monk
     assert priced["estimate"]["estimated_usd_upper_bound"] >= fallback["estimated_usd"] > 0
 
     # The run really does select it: DeepSeek unavailable (no key), the fallback writes.
-    monkeypatch.setattr("learnloop.ai.runtime.check_codex_runtime", lambda *a, **k: SimpleNamespace(
-        status="missing", actual_revision=None, message="not installed"))
     monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
     executed = resolve_judge(vault)
     assert executed.kind == "decider" and executed.as_dict()["writer"] == "openrouter_haiku"

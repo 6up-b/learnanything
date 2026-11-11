@@ -568,13 +568,12 @@ def preflight(copies: Sequence[Path], *, key_envs: Mapping[str, str] | None = No
     the dry run does (the socket guard counts every attempted connection),
     and reports: each required key variable as ``present`` or ``absent``;
     every metered pin's price verified; zero planned Codex requests against
-    the paid ledger's Codex allowance of zero; no role on Codex; the Codex
-    tool lockdown present; the cap and allocations and whether the plan fits
-    them; the plan id and its canonical ledger; and each copy's tree
+    the paid ledger's Codex allowance of zero; no role on Codex; the cap and
+    allocations and whether the plan fits them; the plan id and its canonical ledger; and each copy's tree
     checksum (before and after, equal). ``ready`` is true only when every
     check passes and every key is present."""
 
-    from learnloop.experiments.contextual_embeddings.boundary import require_codex_lockdown, require_no_codex_roles
+    from learnloop.experiments.contextual_embeddings.boundary import require_no_codex_roles
     from learnloop.experiments.contextual_embeddings.budget import canonical_ledger_dir
 
     key_envs = dict(pins.DEFAULT_KEY_ENVS | dict(key_envs or {}))
@@ -583,10 +582,6 @@ def preflight(copies: Sequence[Path], *, key_envs: Mapping[str, str] | None = No
     plan = dry_run(roots, key_envs=key_envs, env_file=env_file, reserve_share=reserve_share, reuse_run=reuse_run)
     with network_guard() as guard:
         checks: dict[str, Any] = {}
-        try:
-            checks["codex_lockdown"] = require_codex_lockdown()["codex_lockdown"]
-        except PermissionError as exc:
-            checks["codex_lockdown"] = f"missing: {type(exc).__name__}"
         try:
             require_no_codex_roles()
             checks["no_codex_roles"] = True
@@ -604,7 +599,6 @@ def preflight(copies: Sequence[Path], *, key_envs: Mapping[str, str] | None = No
         "codex_requests_planned_zero": codex["planned"] == 0,
         "codex_allowance_zero": pins.PAID_RUN_SUBSCRIPTION_ALLOWANCE == 0 and codex["allowance"] == 0,
         "no_codex_roles": checks["no_codex_roles"],
-        "codex_lockdown_present": checks["codex_lockdown"] == "active",
         # Against the CUMULATIVE cap and allocations, after every other
         # authorization's spend (relabel round).
         "fits_cap": budget["estimated_usd"] <= budget["remaining_usd"],

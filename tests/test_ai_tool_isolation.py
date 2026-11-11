@@ -137,7 +137,7 @@ def test_isolation_fails_closed_without_bubblewrap(monkeypatch, tmp_path):
 
 
 from learnloop.ai.errors import AIProviderUnavailable  # noqa: E402
-from learnloop.ai.isolation import current_tool_isolation, tool_isolation  # noqa: E402
+from learnloop.ai.isolation import current_tool_isolation  # noqa: E402
 from learnloop.ai.spend import SpendCaps  # noqa: E402
 from learnloop.config import LearnLoopConfig  # noqa: E402
 from learnloop.projects import ai_runtime  # noqa: E402
@@ -228,61 +228,6 @@ def test_project_routes_give_a_confinable_agent_the_vault_and_repos_as_hidden(mo
         assert route.isolation.workdir.is_dir() and not any(route.isolation.workdir.iterdir())
 
 
-@requires_bwrap
-def test_the_codex_app_server_launches_inside_the_sandbox(monkeypatch, layout, tmp_path):
-    from learnloop.ai.providers.codex import CodexSDKProviderClient
-    from tests.codex_cli_fakes import stub_isolation_probe
-    from tests.project_support import install_fake_codex_sdk
-
-    monkeypatch.setenv("CODEX_HOME", str(layout["home"]))
-    store_file = layout["vault"] / "projects" / "project_store.sqlite"
-    tools = tmp_path / "tools"
-    tools.mkdir()
-    agent = tools / "codex"
-    agent.write_text(
-        "#!/bin/sh\n"
-        f"echo args:$*\necho cwd:$(pwd)\n"
-        f"cat '{store_file}' 2>/dev/null || echo store-blocked\n"
-        f"cat '{layout['repo'] / 'model.py'}' 2>/dev/null || echo repo-blocked\n"
-        f"cat '{layout['home'] / 'sessions' / 'rollout.jsonl'}' 2>/dev/null || echo transcript-blocked\n",
-        encoding="utf-8",
-    )
-    agent.chmod(0o755)
-    captured = install_fake_codex_sdk(monkeypatch, spawn=True, final_response='{"grades": []}')
-    profile = LearnLoopConfig().ai.providers["codex_low"].model_copy(update={"sdk_codex_bin": str(agent)})
-    client = CodexSDKProviderClient("codex_low", profile, layout["workdir"])
-    stub_isolation_probe(monkeypatch, client)
-    isolation = ToolIsolation(workdir=layout["workdir"], hidden=(layout["vault"], layout["repo"]))
-    with tool_isolation(isolation):
-        client._run_structured("p", {"type": "object"}, purpose="project_closed_book_check")
-    out = captured["spawned"]["stdout"]
-    # Every Codex turn is locked down: the overrides precede `app-server`;
-    # the app server runs in the mounted directory (bubblewrap's chdir) and
-    # the thread in an empty directory of its own inside it.
-    assert out.split("args:", 1)[1].splitlines()[0].endswith("app-server --listen stdio://")
-    assert f"cwd:{layout['workdir'].resolve()}" in out
-    turn_root = Path(captured["thread_start"]["cwd"])
-    assert turn_root.parent == layout["workdir"].resolve()
-    assert {"store-blocked", "repo-blocked", "transcript-blocked"} <= set(out.split())
-    assert "REFERENCE ANSWER" not in out and "SOURCE CODE" not in out and "AGENT TRANSCRIPT" not in out
-    # Without the isolation the same launch reads everything: the sandbox is what blocks it.
-    client._run_structured("p", {"type": "object"}, purpose="project_closed_book_check")
-    assert "REFERENCE ANSWER" in captured["spawned"]["stdout"]
-
-
-def test_codex_refuses_an_isolated_request_without_bubblewrap(monkeypatch, tmp_path):
-    from learnloop.ai.errors import CodexUnavailable
-    from learnloop.ai.providers.codex import CodexSDKProviderClient
-    from tests.project_support import install_fake_codex_sdk
-
-    captured = install_fake_codex_sdk(monkeypatch)
-    monkeypatch.setattr("learnloop.ai.isolation.bubblewrap_path", lambda: None)
-    client = CodexSDKProviderClient("codex_low", LearnLoopConfig().ai.providers["codex_low"], tmp_path)
-    with tool_isolation(ToolIsolation(workdir=tmp_path)), pytest.raises(CodexUnavailable, match="bubblewrap"):
-        client._run_structured("p", {"type": "object"}, purpose="project_closed_book_check")
-    assert "app_config" not in captured  # nothing was launched
-
-
 # --- the agent's own run state stays private (fix-codex-sandbox) -----------------------------
 
 # Writes where the real Codex 0.161 app-server writes, observed from inside the
@@ -344,70 +289,12 @@ def _tree(root: Path) -> dict[str, str]:
     }
 
 
-def _launch_codex_like(monkeypatch, tmp_path, *, home: Path, workdir: Path, hidden=(), launch="sdk_codex_bin"):
-    """Run the Codex-like app-server through the real provider launch path, isolated.
-
-    ``CodexSDKProviderClient._run_structured`` under ``tool_isolation``, then
-    ``_isolated_launch``, then ``write_launcher`` or ``sandboxed_command``, then
-    bwrap. Returns what the fake SDK captured and the provider error, if any.
-    """
-
-    import shlex
-
-    from learnloop.ai.providers.codex import CodexSDKProviderClient
-    from tests.codex_cli_fakes import stub_isolation_probe
-    from tests.project_support import install_fake_codex_sdk
-
-    monkeypatch.setenv("CODEX_HOME", str(home))
-    agent = _script(tmp_path / "tools" / "codex", _CODEX_LIKE_APP_SERVER.removeprefix("#!/bin/sh\n"))
-    update = ({"sdk_codex_bin": str(agent)} if launch == "sdk_codex_bin"
-              else {"sdk_launch_command": f"{shlex.quote(str(agent))} app-server --listen stdio://"})
-    profile = LearnLoopConfig().ai.providers["codex_low"].model_copy(update=update)
-    captured = install_fake_codex_sdk(monkeypatch, spawn=True, final_response='{"grades": []}')
-    client = CodexSDKProviderClient("codex_low", profile, workdir)
-    # Every Codex turn runs the lockdown's launch check (security stage
-    # 2026-10-21); this fake app server answers only the launch.
-    stub_isolation_probe(monkeypatch, client)
-    error = None
-    with tool_isolation(ToolIsolation(workdir=workdir, hidden=tuple(hidden))):
-        try:
-            client._run_structured("p", {"type": "object"}, purpose="project_closed_book_check")
-        except AIProviderUnavailable as exc:
-            error = exc
-    return captured, error
-
-
 def _host_home_unchanged(before: dict[str, str], after: dict[str, str], *, refreshed: bool) -> bool:
     before, after = dict(before), dict(after)
     if refreshed:  # a token refresh persists; nothing else does
         assert after.pop("auth.json") == '{"token": "refreshed"}'
         before.pop("auth.json")
     return after == before
-
-
-@requires_bwrap
-@pytest.mark.parametrize("launch", ["sdk_codex_bin", "sdk_launch_command"])
-def test_the_app_server_keeps_its_run_state_in_a_private_home(monkeypatch, layout, tmp_path, launch):
-    home = layout["home"]
-    (home / "installation_id").write_text("HOST-INSTALLATION-ID\n", encoding="utf-8")
-    host_home_before = _tree(home)
-    hidden_before = {name: _tree(layout[name]) for name in ("vault", "repo")}
-    captured, error = _launch_codex_like(monkeypatch, tmp_path, home=home, workdir=layout["workdir"],
-                                         hidden=(layout["vault"], layout["repo"]), launch=launch)
-
-    assert error is None
-    spawned = captured["spawned"]
-    assert spawned["returncode"] == 0, spawned["stderr"]
-    assert "app-server-ready" in spawned["stdout"] and "Read-only" not in spawned["stderr"]
-    # The sandbox starts from an empty home: the host's id and history are not visible ...
-    assert "seen-id:\n" in spawned["stdout"] and "HOST-INSTALLATION-ID" not in spawned["stdout"]
-    assert "seen-history:\n" in spawned["stdout"] and "AGENT HISTORY" not in spawned["stdout"]
-    # ... and its run state, transcript included, never reaches the host.
-    assert _host_home_unchanged(host_home_before, _tree(home), refreshed=True)
-    assert {name: _tree(layout[name]) for name in ("vault", "repo")} == hidden_before
-    assert not (Path("/tmp") / "codex-scratch").exists()
-    # The working directory holds the agent's output and nothing else.
-    assert _tree(layout["workdir"]) == {"answer.txt": "answer\n"}
 
 
 # --- a later mount never uncovers the private home (Codex review F1) ---------------------------
@@ -475,74 +362,7 @@ def test_an_executable_package_that_holds_the_agent_home_is_refused(layout, tmp_
         pytest.fail(f"an executable package holding the agent home was mounted: {result.stdout!r}")
 
 
-@requires_bwrap
-@pytest.mark.parametrize("launch", ["sdk_codex_bin", "sdk_launch_command"])
-def test_codex_refuses_a_working_directory_that_holds_its_home(monkeypatch, tmp_path, launch):
-    workdir = tmp_path / "workdir"
-    workdir.mkdir()
-    home = _agent_home_with_history(workdir / ".codex")
-    (home / "config.toml").write_text('model = "m"\n', encoding="utf-8")
-    host_home_before = _tree(home)
-    captured, error = _launch_codex_like(monkeypatch, tmp_path, home=home, workdir=workdir, launch=launch)
-    spawned = captured.get("spawned", {})
-    assert "AGENT HISTORY" not in spawned.get("stdout", "") and "HOST-INSTALLATION-ID" not in spawned.get("stdout", "")
-    assert _tree(home) == host_home_before  # the host id is unchanged, and no state was written next to it
-    assert error is not None and "contains the agent home" in str(error)
-    assert "spawned" not in captured  # refused before launch
-
-
 # --- configured state locations stay private (Codex review F2) --------------------------------
-
-
-@requires_bwrap
-@pytest.mark.parametrize("launch", ["sdk_codex_bin", "sdk_launch_command"])
-@pytest.mark.parametrize(
-    "variable, value",
-    [("CODEX_SQLITE_HOME", "."), ("CODEX_SQLITE_HOME", "{workdir}"), ("CODEX_ROLLOUT_TRACE_ROOT", ".")],
-)
-def test_inherited_state_locations_are_pinned_to_the_private_home(monkeypatch, layout, tmp_path, launch, variable,
-                                                                  value):
-    # The sandbox inherits the host environment. Codex reads these before its
-    # own home, and a relative value is resolved against the working directory.
-    monkeypatch.setenv(variable, value.format(workdir=layout["workdir"]))
-    host_home_before = _tree(layout["home"])
-    captured, error = _launch_codex_like(monkeypatch, tmp_path, home=layout["home"], workdir=layout["workdir"],
-                                         hidden=(layout["vault"], layout["repo"]), launch=launch)
-    assert error is None
-    assert captured["spawned"]["returncode"] == 0, captured["spawned"]["stderr"]
-    assert _tree(layout["workdir"]) == {"answer.txt": "answer\n"}  # no database, WAL or trace on the host
-    assert _host_home_unchanged(host_home_before, _tree(layout["home"]), refreshed=True)
-
-
-@requires_bwrap
-@pytest.mark.parametrize("value", ["/opt/review-state", "{workdir}", "{workdir}/state", "../elsewhere"])
-def test_a_configured_sqlite_home_outside_the_private_home_is_refused(monkeypatch, layout, tmp_path, value):
-    # config.toml outranks $CODEX_SQLITE_HOME, and the sandbox cannot rewrite
-    # it: a location outside the private home would be the host's working
-    # directory (the databases persist there) or a read-only mount (startup fails).
-    home = layout["home"]
-    (home / "config.toml").write_text(f'sqlite_home = "{value.format(workdir=layout["workdir"])}"\n', encoding="utf-8")
-    host_home_before = _tree(home)
-    captured, error = _launch_codex_like(monkeypatch, tmp_path, home=home, workdir=layout["workdir"],
-                                         hidden=(layout["vault"], layout["repo"]))
-    assert _tree(layout["workdir"]) == {}
-    assert _tree(home) == host_home_before
-    assert error is not None and "sqlite_home" in str(error) and str(home / "config.toml") in str(error)
-    assert "spawned" not in captured  # refused before launch, with the reason
-
-
-@requires_bwrap
-@pytest.mark.parametrize("value", ["state", "{home}/state", "."])
-def test_a_configured_sqlite_home_inside_the_private_home_runs_privately(monkeypatch, layout, tmp_path, value):
-    home = layout["home"]
-    (home / "config.toml").write_text(f'sqlite_home = "{value.format(home=home)}"\n', encoding="utf-8")
-    host_home_before = _tree(home)
-    captured, error = _launch_codex_like(monkeypatch, tmp_path, home=home, workdir=layout["workdir"],
-                                         hidden=(layout["vault"], layout["repo"]))
-    assert error is None
-    assert captured["spawned"]["returncode"] == 0, captured["spawned"]["stderr"]
-    assert _tree(layout["workdir"]) == {"answer.txt": "answer\n"}
-    assert _host_home_unchanged(host_home_before, _tree(home), refreshed=True)
 
 
 @pytest.mark.parametrize("layer", ["system", "managed", "project", "cwd", "command_line"])
@@ -615,31 +435,6 @@ def test_the_sandbox_pins_the_agent_home_and_state_locations(monkeypatch, layout
 
 
 # --- the state checks follow the effective mounts and Codex's parsers (Codex re-review F2) ------
-
-
-@requires_bwrap
-@pytest.mark.parametrize("launch", ["sdk_codex_bin", "sdk_launch_command"])
-@pytest.mark.parametrize(
-    "workdir_at, setting",
-    [
-        ("work", 'sqlite_home = "{workdir}"\n'),  # the state location is a host bind inside the home
-        ("work", 'sqlite_home = "work"\n'),  # the same, relative to the user's config file
-        ("sessions", 'model = "m"\n'),  # no setting: a directory Codex always writes is the host bind
-    ],
-)
-def test_a_working_directory_inside_the_agent_home_is_refused(monkeypatch, tmp_path, launch, workdir_at, setting):
-    # The working directory is bound from the host on top of the in-memory
-    # home: whatever the agent keeps beneath it (databases, sessions, skills)
-    # would reach the host. Real Codex 0.161 left its 15 SQLite/WAL/SHM files
-    # there, and with the directory at <home>/skills its 71 system-skill files.
-    home = _agent_home_with_history(tmp_path / "agent-home")
-    workdir = home / workdir_at
-    workdir.mkdir()
-    (home / "config.toml").write_text(setting.format(workdir=workdir), encoding="utf-8")
-    captured, error = _launch_codex_like(monkeypatch, tmp_path, home=home, workdir=workdir, launch=launch)
-    assert set(_tree(workdir)) <= {"answer.txt"}, "the agent's run state reached the host"
-    assert error is not None and "inside the agent home" in str(error)
-    assert "spawned" not in captured  # refused before launch
 
 
 @pytest.mark.parametrize("location", ["{home}/package/state", "{home}/package", "{home}/auth.json"])
@@ -819,92 +614,3 @@ def test_a_hidden_path_holding_the_working_directory_or_agent_home_is_refused(la
 # --- bubblewrap composes with Slice 1's isolated-turn permission profile ------------------
 
 
-@requires_bwrap
-def test_an_isolated_turn_runs_its_permission_profile_inside_the_sandbox(monkeypatch, layout, tmp_path):
-    # A full launch command: the profile's --config overrides go in before
-    # `app-server`, then bubblewrap wraps the whole command.
-    from learnloop.ai.providers.codex import ISOLATED_PROFILE, CodexSDKProviderClient
-    from tests.codex_cli_fakes import stub_isolation_probe
-    from tests.project_support import install_fake_codex_sdk
-
-    monkeypatch.setenv("CODEX_HOME", str(layout["home"]))
-    store_file = layout["vault"] / "projects" / "project_store.sqlite"
-    agent = _script(
-        tmp_path / "tools" / "codex",
-        "echo args:$*\n"
-        f"cat '{store_file}' 2>/dev/null || echo store-blocked\n"
-        f"cat '{layout['repo'] / 'model.py'}' 2>/dev/null || echo repo-blocked\n",
-    )
-    captured = install_fake_codex_sdk(monkeypatch, spawn=True)
-    profile = LearnLoopConfig().ai.providers["codex_low"].model_copy(
-        update={"sdk_launch_command": f"{agent} app-server --listen stdio://"}
-    )
-    client = CodexSDKProviderClient("codex_low", profile, layout["workdir"])
-    probes = stub_isolation_probe(monkeypatch, client)
-    isolation = ToolIsolation(workdir=layout["workdir"], hidden=(layout["vault"], layout["repo"]))
-    with tool_isolation(isolation):
-        client._run_structured("p", {"type": "object"}, purpose="blind_grading", isolated=True)
-
-    spawned = captured["spawned"]
-    assert Path(spawned["command"][0]).name == "bwrap"
-    out = spawned["stdout"]
-    args = out.split("args:", 1)[1].splitlines()[0]
-    assert f'default_permissions="{ISOLATED_PROFILE}"' in args and "features.shell_tool=false" in args
-    assert args.endswith("app-server --listen stdio://")
-    assert {"store-blocked", "repo-blocked"} <= set(out.split())
-    assert "REFERENCE ANSWER" not in out and "SOURCE CODE" not in out
-    # The turn's empty directory sits in the one host directory the sandbox
-    # mounts, the profile (and the MCP listing) name it, and it is gone after.
-    turn_root = Path(captured["thread_start"]["cwd"])
-    assert turn_root.parent == layout["workdir"].resolve()
-    assert {cwd for cwd, _overrides, _subcommand in probes} == {turn_root}
-    assert [subcommand[:2] for _cwd, _overrides, subcommand in probes] == [
-        ("mcp", "list"), ("features", "list"), ("debug", "models"), ("debug", "models"), ("debug", "prompt-input"),
-    ]
-    assert not turn_root.exists()
-
-
-@requires_bwrap
-def test_an_isolated_turn_passes_its_profile_through_the_sandbox_launcher(monkeypatch, layout, tmp_path):
-    # A program path: the SDK appends config_overrides to the launcher's argv,
-    # and the launcher hands them to Codex inside bubblewrap.
-    from learnloop.ai.providers.codex import ISOLATED_PROFILE, CodexSDKProviderClient
-    from tests.codex_cli_fakes import stub_isolation_probe
-    from tests.project_support import install_fake_codex_sdk
-
-    monkeypatch.setenv("CODEX_HOME", str(layout["home"]))
-    agent = _script(tmp_path / "tools" / "codex", "echo unused\n")
-    captured = install_fake_codex_sdk(monkeypatch)
-    profile = LearnLoopConfig().ai.providers["codex_low"].model_copy(update={"sdk_codex_bin": str(agent)})
-    client = CodexSDKProviderClient("codex_low", profile, layout["workdir"])
-    stub_isolation_probe(monkeypatch, client)
-    with tool_isolation(ToolIsolation(workdir=layout["workdir"], hidden=(layout["vault"],))):
-        client._run_structured("p", {"type": "object"}, purpose="blind_grading", isolated=True)
-    app_config = captured["app_config"]
-    assert Path(app_config["codex_bin"]).name == "isolated-agent"
-    assert app_config["launch_args_override"] is None
-    assert f'default_permissions="{ISOLATED_PROFILE}"' in app_config["config_overrides"]
-    assert Path(app_config["cwd"]).parent == layout["workdir"].resolve()
-
-
-def test_a_workspace_outside_the_sandbox_is_inlined_and_never_mounted(monkeypatch, layout, tmp_path):
-    """Tool lockdown round 3: a read-only workspace is read by LearnLoop into the
-    prompt; the sandboxed turn runs tool-free in its scratch directory inside the
-    sandbox, and the workspace is never mounted or used as a working directory."""
-
-    from learnloop.ai.providers.codex import CodexSDKProviderClient
-    from tests.codex_cli_fakes import stub_isolation_probe
-    from tests.project_support import install_fake_codex_sdk
-
-    captured = install_fake_codex_sdk(monkeypatch, final_response="{}")
-    client = CodexSDKProviderClient("codex_low", LearnLoopConfig().ai.providers["codex_low"], layout["workdir"])
-    stub_isolation_probe(monkeypatch, client)
-    outside = tmp_path / "snapshot"
-    outside.mkdir()
-    (outside / "INDEX.md").write_text("export index\n", encoding="utf-8")
-    with tool_isolation(ToolIsolation(workdir=layout["workdir"])):
-        client._run_structured("p", {"type": "object"}, purpose="diagnosis", workspace=outside)
-    root = Path(captured["app_config"]["cwd"])
-    assert root.parent == layout["workdir"].resolve() and root.name.startswith("learnloop-isolated-turn-")
-    assert '<workspace_file path="INDEX.md">\nexport index' in captured["turns"][0]["prompt"]
-    assert str(outside) not in " ".join(captured["app_config"].get("launch_args_override") or ())

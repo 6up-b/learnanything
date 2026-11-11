@@ -35,25 +35,6 @@ def legacy_codex_status(status: str) -> str:
     return _CODEX_COMPAT_STATUS.get(status, status)
 
 
-def check_codex_runtime(vault_root: Path, codex_config):  # noqa: ANN001 - the frozen provider's own type
-    """The Codex health check, loaded only for an opted-in Codex profile.
-
-    Plan-first transport T1: this module never imports the Codex provider at
-    load time (a refused profile returns before this runs); the name stays
-    here so the frozen opt-in path and its tests keep one patch point.
-    """
-
-    from learnloop.ai.providers.codex import check_codex_runtime as _check
-
-    return _check(vault_root, codex_config)
-
-
-def codex_config_from_ai_profile(profile: AIProviderConfig):  # noqa: ANN201 - the frozen provider's own type
-    from learnloop.ai.providers.codex import codex_config_from_ai_profile as _convert
-
-    return _convert(profile)
-
-
 class OpenAIChatHealthcheck(Protocol):
     def __call__(self, profile: AIProviderConfig) -> None:
         ...
@@ -113,33 +94,14 @@ def check_ai_runtime(
             message=f"AI provider {selected!r} is not configured.",
         )
     provider_type = profile.type.lower()
-    refusal = harness_refusal(selected, profile, opt_in=config.ai.agent_harness_opt_in)
+    refusal = harness_refusal(selected, profile)
     if refusal is not None:
-        # Plan-first transport T1: no Codex health check (it can start the
-        # app-server) runs for a refused profile.
         return AIRuntimeReport(
             status="provider_unavailable",
             active_provider=selected,
             provider_type=provider_type,
             model=profile.model,
             message=refusal,
-        )
-    if provider_type in {"codex_sdk", "http", "http_adapter"}:
-        report = check_codex_runtime(vault_root, codex_config_from_ai_profile(profile))
-        status_map: dict[str, AIRuntimeState] = {
-            "codex_missing": "provider_missing_config",
-            "codex_auth_required": "provider_auth_required",
-            "codex_unavailable": "provider_unavailable",
-            "codex_revision_mismatch": "provider_revision_mismatch",
-            "ready": "ready",
-        }
-        return AIRuntimeReport(
-            status=status_map.get(report.status, "provider_unavailable"),
-            active_provider=selected,
-            provider_type=provider_type,
-            model=profile.model,
-            provider_revision=report.actual_revision,
-            message=report.message,
         )
     if provider_type == "voyage_contextual_embedding":
         # Local contextual retrieval P1b: the fallback space's key, by name only.

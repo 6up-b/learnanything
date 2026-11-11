@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-from pathlib import Path
 
 import pytest
 
@@ -508,95 +507,6 @@ def test_a_route_that_cannot_isolate_is_refused_before_any_request(pf):
     assert "isolated" in family["reason"]
     assert not leaky.calls
     assert not rows(repository, "status='published'")
-
-
-def _fake_codex_sdk(monkeypatch, captured, final_response):
-    import sys
-    from enum import Enum
-    from pathlib import Path
-    from types import ModuleType, SimpleNamespace
-
-    class FakeCodex:
-        def __init__(self, config):
-            from tests.codex_cli_fakes import FakeSdkClient
-
-            self._client = FakeSdkClient()
-            captured["app_config"] = config.kwargs
-            captured["listing"] = sorted(path.name for path in Path(config.kwargs["cwd"]).iterdir())
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return None
-
-        def close(self):
-            return None
-
-        def thread_start(self, **kwargs):
-            captured["thread_start"] = kwargs
-            return SimpleNamespace(turn=lambda prompt, **kw: captured.setdefault("turns", []).append(kw) or SimpleNamespace(
-                run=lambda: SimpleNamespace(final_response=final_response, items=[]), interrupt=lambda: None))
-
-    class SdkAppConfig:
-        def __init__(self, *, codex_bin=None, launch_args_override=None, config_overrides=(), cwd=None, env=None,
-                     client_name="", client_title=""):
-            self.kwargs = {"codex_bin": codex_bin, "launch_args_override": launch_args_override,
-                           "config_overrides": tuple(config_overrides), "cwd": cwd}
-
-    class ReasoningEffort(Enum):
-        low = "low"
-
-    module = ModuleType("openai_codex")
-    module.Codex = FakeCodex
-    from tests.codex_cli_fakes import FakeApprovalMode
-    module.ApprovalMode = FakeApprovalMode
-    module.CodexConfig = SdkAppConfig
-    types_module = ModuleType("openai_codex.types")
-    types_module.Personality = SimpleNamespace(pragmatic="pragmatic")
-    types_module.ReasoningEffort = ReasoningEffort
-    types_module.ReasoningSummary = SimpleNamespace(model_validate=lambda value: value)
-    module.types = types_module
-    monkeypatch.setitem(sys.modules, "openai_codex", module)
-    monkeypatch.setitem(sys.modules, "openai_codex.types", types_module)
-
-
-def test_a_codex_pf_turn_starts_outside_the_vault_with_tools_off_and_never_reuses_unisolated_work(
-        pf, monkeypatch, tmp_path):
-    from learnloop.ai.execution import content_key
-    from learnloop.ai.providers.codex import ISOLATED_PROFILE, SdkCodexClient
-    from learnloop.config import CodexConfig
-    from learnloop.ops.pf_calls import CHECKPOINT_PREFIX, PFCaller, RoleClient
-
-    vault, repository, paths = pf
-    captured: dict = {}
-    _fake_codex_sdk(monkeypatch, captured, '{"final_answer": "3", "answer_kind": "numeric", "work_summary": "w"}')
-    client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex"), sdk_codex_bin="/usr/bin/codex-for-test"),
-                            paths.root)
-    from tests.codex_cli_fakes import stub_isolation_probe
-
-    stub_isolation_probe(monkeypatch, client, config_servers=("filesystem",))
-    entry = RoleClient(role="panel", provider="codex_low", model="codex-model", profile_type="codex_sdk",
-                       subscription=True, client=client, settings={"provider": "codex_low", "model": "codex-model"})
-    caller = PFCaller(vault, repository, caps=CAPS, price_per_million=None, run_id="run-f1")
-    prompt = C.panel_solve_prompt(stem="Solve 2x + 4 = 10 for x.", solve_index=0)
-    # A checkpoint written under the pre-isolation key (an unisolated turn) is never reused.
-    legacy = content_key({"prompt": prompt, "schema": C.PanelSolve.model_json_schema(),
-                          "settings": entry.settings, "output_tokens": 1500})
-    repository.save_model_checkpoint(CHECKPOINT_PREFIX + legacy, purpose="pf_panel",
-                                     result={"final_answer": "LEAKED", "answer_kind": "text", "work_summary": "read"},
-                                     usage={"resolved_model": "codex-model"})
-    result = caller.call(entry, prompt=prompt, prompt_version=C.PANEL_SOLVE_PROMPT, result_model=C.PanelSolve,
-                         output_tokens=1500)
-    assert not result.cached and result.result.final_answer == "3"
-    assert result.input_hash != legacy
-    cwd = Path(captured["app_config"]["cwd"])
-    root = paths.root.resolve()
-    assert cwd != root and root not in cwd.parents and captured["listing"] == []
-    overrides = captured["app_config"]["config_overrides"]
-    assert f'default_permissions="{ISOLATED_PROFILE}"' in overrides
-    assert {"features.shell_tool=false", "features.unified_exec=false",
-            "mcp_servers.filesystem.enabled=false"} <= set(overrides)
 
 
 # -- Codex review F3: a final isomorph always has a passing structure check ----------------

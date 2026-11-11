@@ -19,7 +19,7 @@ from learnloop.content.pipeline.runner import (
     derive_batch_status,
 )
 from learnloop.content.pipeline.jobs import DurableIngestJobs
-from tests.helpers import create_basic_vault, use_codex_harness
+from tests.helpers import create_basic_vault
 from tests.ingest_runner_helpers import _clock, _ok_handler, _repo, _runner
 
 
@@ -1011,43 +1011,6 @@ def test_default_inventory_client_defaults_to_codex_and_errors_when_unavailable(
 
     with pytest.raises(IngestRunnerError):
         default_inventory_client(types.SimpleNamespace(vault_root=vault_root))
-
-
-def test_default_synthesis_client_gives_codex_sdk_an_eight_minute_timeout(
-    tmp_path, monkeypatch
-):
-    """Durable inventory and synthesis get long turn deadlines without
-    changing the vault-wide timeout used by interactive Codex tasks."""
-
-    import types
-
-    from learnloop.content.pipeline.jobs import (
-        default_inventory_client,
-        default_synthesis_client,
-    )
-
-    vault_root = tmp_path / "vault"
-    create_basic_vault(vault_root)
-    use_codex_harness(vault_root)  # the frozen Codex path, explicitly opted in (T1)
-    monkeypatch.setattr(
-        "learnloop.ai.runtime.check_ai_runtime",
-        lambda *args, **kwargs: SimpleNamespace(ready=True),
-    )
-    ctx = types.SimpleNamespace(
-        vault_root=vault_root,
-        bind_interruptible=lambda _client: None,
-    )
-
-    client = default_synthesis_client(ctx)
-    inventory_client = RunnerServices().inventory_client(ctx)
-    interactive_client = default_inventory_client(
-        ctx
-    )
-
-    assert client.provider_type == "codex_sdk"
-    assert client.config.timeout_seconds == 8 * 60
-    assert inventory_client.config.timeout_seconds == 8 * 60
-    assert interactive_client.config.timeout_seconds == 180
 
 
 def test_default_synthesis_client_resolves_openrouter_in_inherited_new_vault(tmp_path, monkeypatch):

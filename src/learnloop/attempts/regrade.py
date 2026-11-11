@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from learnloop.ai.client import AIProviderClient
 from learnloop.ai.runtime import AIRuntimeReport
@@ -42,12 +42,6 @@ from learnloop.tutor.teach_back import (
 )
 from learnloop.vault.models import LoadedVault
 
-if TYPE_CHECKING:  # pragma: no cover
-    # Type only (plan-first transport T1): serving code never imports the
-    # Codex provider at run time; the client factory loads it behind the opt-in.
-    from learnloop.ai.providers.codex import CodexRuntimeReport
-
-
 LOGGER = logging.getLogger(__name__)
 
 #: Every grader tier the ``grading_evidence`` CHECK admits (0-4): what a
@@ -75,7 +69,7 @@ def run_deferred_regrades(
     vault: LoadedVault,
     repository: Repository,
     *,
-    runtime: CodexRuntimeReport,
+    runtime: AIRuntimeReport,
     codex_client: AIProviderClient | None,
     limit: int | None = None,
     clock: Clock | None = None,

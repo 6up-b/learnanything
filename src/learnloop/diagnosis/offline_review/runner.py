@@ -202,6 +202,8 @@ _SUBSCRIPTION_PROFILE_TYPES = frozenset({"codex_sdk", "http", "http_adapter", "c
 def route_profiles(vault: LoadedVault) -> dict[str, dict[str, Any]]:
     """Each review route's configured provider, from config only (no client)."""
 
+    from learnloop.config.compat import codex_profile_value
+
     config = vault.config
     profiles: dict[str, dict[str, Any]] = {}
     for _attribute, route in REVIEW_ROUTES:
@@ -211,7 +213,7 @@ def route_profiles(vault: LoadedVault) -> dict[str, dict[str, Any]]:
         if route == "embedding":
             model = config.embedding.model if config.embedding.enabled and name else None
         else:
-            model = getattr(profile, "model", None) if profile is not None else (config.codex.model if name in {"codex", ""} else None)
+            model = getattr(profile, "model", None) if profile is not None else (codex_profile_value(config, "model") if name in {"codex", ""} else None)
         profile_type = profile.type if profile is not None else ("codex_sdk" if name == "codex" else None)
         profiles[route] = {
             "provider": name or None,

@@ -968,14 +968,9 @@ def test_scheduler_offer_survives_the_checkpointed_state(tmp_path):
 
 
 def _regrade_runtime():
-    from learnloop.ai.providers.codex import CodexRuntimeReport
+    from learnloop.ai.runtime import AIRuntimeReport
 
-    return CodexRuntimeReport(
-        status="ready",
-        checkout_path="codex",
-        configured_revision="abc",
-        actual_revision="abc",
-    )
+    return AIRuntimeReport(status="ready", active_provider="codex", provider_revision="abc")
 
 
 def test_regrade_teach_back_attempt_restricts_to_graded_criteria(tmp_path):

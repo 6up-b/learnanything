@@ -3,14 +3,13 @@ from __future__ import annotations
 import os
 
 from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
-from learnloop.ai.client import make_ai_provider_client
-from learnloop.ai.providers.codex import codex_config_from_ai_profile
 from learnloop.config import (
     CODEX_CHECKOUT_ENV,
     AIProviderConfig,
     LearnLoopConfig,
     load_config,
 )
+from learnloop.config.compat import codex_profile_value
 from learnloop.vault.loader import init_vault
 
 
@@ -25,9 +24,10 @@ def test_default_config_contains_ai_codex_profile(tmp_path):
     # groups, all on the unchanged mvp-0.8 projection namespace).
     assert config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION
     # Plan-first transport T1 (owner, 2026-10-21): the tool-free ChatGPT plan
-    # serves every route; the Codex profiles stay defined (frozen, opt-in only).
+    # serves every route; the Codex profiles stay defined so an old config
+    # naming one reads the refusal (their transport left in refactor C4).
     assert config.ai.active_provider == "chatgpt"
-    assert config.ai.agent_harness_opt_in is False
+    assert not hasattr(config.ai, "agent_harness_opt_in")
     assert config.ai.providers["chatgpt"].type == "chatgpt_plan"
     assert config.ai.providers["chatgpt"].model == "gpt-5.6-sol"
     assert config.ai.providers["chatgpt"].reasoning_effort == "low"
@@ -40,8 +40,8 @@ def test_default_config_contains_ai_codex_profile(tmp_path):
     assert config.ai.providers["codex_low"].reasoning_effort == "low"
     assert config.ai.providers["codex_medium"].model == "gpt-5.6-sol"
     assert config.ai.providers["codex_medium"].reasoning_effort == "medium"
-    assert config.codex.model == "gpt-5.6-sol"
-    assert config.codex.reasoning_effort == "low"
+    assert codex_profile_value(config, "model") == "gpt-5.6-sol"
+    assert codex_profile_value(config, "reasoning_effort") == "low"
     assert config.ai.providers["deepseek_flash"].model == "deepseek-v4-flash"
     assert config.ai.providers["deepseek_flash"].thinking == "disabled"
     assert config.ai.providers["deepseek_pro"].model == "deepseek-v4-pro"
@@ -112,7 +112,8 @@ def test_canonical_ingest_retry_follows_ingest_for_non_codex():
 
 def test_canonical_ingest_retry_defaults_to_the_medium_tier():
     # The retry route resolves to the medium tier: the plan's by default, the
-    # legacy Codex one for a vault that still names Codex (opt-in only, T1).
+    # legacy Codex one for a vault that still names Codex (refused; the old
+    # opt-in key it may still set is ignored).
     config = LearnLoopConfig()
     assert config.ai.routing.canonical_ingest == "chatgpt_medium"
     assert config.ai.routing.canonical_ingest_retry == "chatgpt_medium"
@@ -162,21 +163,6 @@ def test_default_config_seeds_openrouter_profile(tmp_path):
         assert profile.max_tokens is None
 
 
-def test_global_ai_timeout_is_applied_to_codex_sdk_profiles(tmp_path):
-    # The frozen Codex path is reachable only with the owner opt-in (T1).
-    config = LearnLoopConfig.model_validate({"ai": {"agent_harness_opt_in": True}})
-    config.ai.timeout_seconds = 17
-    config.ai.providers["codex_medium"].timeout_seconds = None
-
-    client = make_ai_provider_client(
-        config,
-        tmp_path,
-        provider_name="codex_medium",
-    )
-
-    assert client.config.timeout_seconds == 17
-
-
 def test_in_memory_defaults_match_persisted_algorithm_and_codex_profile(tmp_path):
     init_vault(tmp_path)
 
@@ -192,9 +178,9 @@ def test_in_memory_defaults_match_persisted_algorithm_and_codex_profile(tmp_path
 
     for config in (loaded, in_memory):
         assert config.ai.timeout_seconds == 180
-        assert config.codex.model == "gpt-5.6-sol"
-        assert config.codex.reasoning_effort == "low"
-        assert config.codex.timeout_seconds == 180
+        assert codex_profile_value(config, "model") == "gpt-5.6-sol"
+        assert codex_profile_value(config, "reasoning_effort") == "low"
+        assert codex_profile_value(config, "timeout_seconds") == 180
         assert config.ai.providers["codex"].model == "gpt-5.6-sol"
         assert config.ai.providers["codex"].reasoning_effort == "low"
         assert config.ai.providers["codex_low"].reasoning_effort == "low"
@@ -210,7 +196,7 @@ def test_default_config_ships_blank_codex_checkout_path(tmp_path):
 
     config = load_config(tmp_path / "learnloop.toml")
 
-    assert config.codex.checkout_path == ""
+    assert codex_profile_value(config, "checkout_path") == ""
     assert config.ai.providers["codex"].checkout_path in (None, "")
 
 
@@ -222,7 +208,7 @@ def test_codex_checkout_path_env_override_applies_to_codex_and_ai_provider(tmp_p
 
     config = load_config(tmp_path / "learnloop.toml")
 
-    assert config.codex.checkout_path == str(checkout)
+    assert codex_profile_value(config, "checkout_path") == str(checkout)
     assert config.ai.providers["codex"].checkout_path == str(checkout)
     assert config.ai.providers["codex_low"].checkout_path == str(checkout)
     assert config.ai.providers["codex_medium"].checkout_path == str(checkout)
@@ -262,8 +248,8 @@ def test_legacy_codex_routes_upgrade_to_workload_specific_effort_profiles():
     assert config.ai.providers["codex"].reasoning_effort == "low"
     assert config.ai.providers["codex_low"].reasoning_effort == "low"
     assert config.ai.providers["codex_medium"].reasoning_effort == "medium"
-    assert config.codex.model == "gpt-5.6-sol"
-    assert config.codex.reasoning_effort == "low"
+    assert codex_profile_value(config, "model") == "gpt-5.6-sol"
+    assert codex_profile_value(config, "reasoning_effort") == "low"
 
 
 def test_codex_checkout_path_loaded_from_global_settings_file(tmp_path, monkeypatch):
@@ -280,7 +266,7 @@ def test_codex_checkout_path_loaded_from_global_settings_file(tmp_path, monkeypa
     monkeypatch.delenv(CODEX_CHECKOUT_ENV, raising=False)
     try:
         config = load_config(tmp_path / "learnloop.toml")
-        assert config.codex.checkout_path == str(checkout)
+        assert codex_profile_value(config, "checkout_path") == str(checkout)
     finally:
         os.environ.pop(CODEX_CHECKOUT_ENV, None)
 
@@ -297,16 +283,7 @@ def test_shell_env_wins_over_global_settings_file(tmp_path, monkeypatch):
 
     config = load_config(tmp_path / "learnloop.toml")
 
-    assert config.codex.checkout_path == str(tmp_path / "from-shell")
-
-
-def test_sparse_codex_ai_profile_uses_current_codex_defaults():
-    sparse = AIProviderConfig(type="codex_sdk")
-
-    codex_config = codex_config_from_ai_profile(sparse)
-
-    assert codex_config.model == "gpt-5.6-sol"
-    assert codex_config.reasoning_effort == "low"
+    assert codex_profile_value(config, "checkout_path") == str(tmp_path / "from-shell")
 
 
 def test_default_config_contains_recall_error_impacts(tmp_path):

@@ -146,21 +146,6 @@ def test_retry_policy_records_each_failed_request_with_unknown_usage(tmp_path, m
     assert all(row[1] is None and row[2] is None for row in rows)
 
 
-def test_codex_does_not_repair_when_reported_output_consumed_the_budget(tmp_path, monkeypatch):
-    from learnloop.ai.providers.codex import SdkCodexClient
-    from learnloop.config import CodexConfig
-    client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex")), tmp_path)
-    turns = []
-    def run(prompt, schema, *, purpose):
-        turns.append(purpose)
-        client.record_token_usage(20, 10)
-        return "{"
-    monkeypatch.setattr(client, "_run_structured", run)
-    with generation_limit(10), pytest.raises(AIOutputTruncated):
-        execute_structured_operation(client, purpose="test", prompt="Extract", result_model=Answer)
-    assert turns == ["test"]
-
-
 def test_concurrent_original_writers_use_independent_temporary_files(tmp_path, monkeypatch):
     from concurrent.futures import ThreadPoolExecutor
     from threading import Barrier

@@ -4082,13 +4082,14 @@ def _grading_route_profile(config, explicit: str | None) -> dict[str, Any]:
 
     from learnloop.ai.routing import MANUAL_PROVIDER, provider_for_task
     from learnloop.ai.spend import SUBSCRIPTION_PROFILE_TYPES
+    from learnloop.config.compat import codex_profile_value
 
     name = provider_for_task(config, "grading", explicit_provider=explicit).provider_name or ""
     profile = config.ai.providers.get(name)
     profile_type = profile.type if profile is not None else ("codex_sdk" if name == "codex" else None)
     return {
         "provider": name or None,
-        "model": getattr(profile, "model", None) if profile is not None else (config.codex.model if name == "codex" else None),
+        "model": getattr(profile, "model", None) if profile is not None else (codex_profile_value(config, "model") if name == "codex" else None),
         "max_tokens": getattr(profile, "max_tokens", None) if profile is not None else None,
         "subscription": profile_type in SUBSCRIPTION_PROFILE_TYPES,
         "manual": name in {"", MANUAL_PROVIDER},

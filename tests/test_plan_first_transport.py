@@ -1,9 +1,10 @@
 """Plan-first transport T1 (owner decisions 2026-10-21): properties by construction.
 
 Every serving route uses LearnLoop's own tool-free ChatGPT-plan client (one
-``POST /v1/responses`` per admitted request, ``store: false``, no tools); the
-Codex agent harness is refused for serving without ``ai.agent_harness_opt_in``
-and is never a fallback; an unavailable plan reports "unavailable" and ASKS
+``POST /v1/responses`` per admitted request, ``store: false``, no tools); a
+Codex agent-harness profile an old config still names is refused for serving
+(its transport is gone since refactor C4, and so is the old opt-in) and is
+never a fallback; an unavailable plan reports "unavailable" and ASKS
 about OpenRouter. The numbered sections follow the stage's T1 test list
 (docs/reviews/ai-plan-first-transport-t1.md). No test leaves 127.0.0.1.
 """
@@ -108,13 +109,14 @@ def no_subprocess(monkeypatch):
     monkeypatch.setattr(os, "fork", refuse, raising=False)
 
 
-def _vault(tmp_path: Path, *, opt_in: bool = False, extra: dict[str, Any] | None = None) -> Path:
+def _vault(tmp_path: Path, *, old_opt_in: bool = False, extra: dict[str, Any] | None = None) -> Path:
     root = tmp_path / "vault"
     if not root.exists():
         create_basic_vault(root)
     path = root / "learnloop.toml"
     document = tomlkit.parse(path.read_text(encoding="utf-8"))
-    if opt_in:
+    if old_opt_in:
+        # The retired Codex opt-in (removed in refactor C4): an old config may still set it.
         document["ai"]["agent_harness_opt_in"] = True
     for dotted, value in (extra or {}).items():
         table = document
@@ -161,7 +163,7 @@ def _assert_never_harness(resolved, task: str, context: str) -> None:
 def test_code_defaults_name_the_plan_tiers_with_the_codex_efforts_and_slugs():
     config = LearnLoopConfig()
     assert config.ai.active_provider == "chatgpt"
-    assert config.ai.agent_harness_opt_in is False
+    assert not hasattr(config.ai, "agent_harness_opt_in")
     assert config.ai.plan_fallback_profile == "openrouter"
     for codex_name, plan_name in CODEX_TO_PLAN_PROFILE.items():
         codex, plan = config.ai.providers[codex_name], config.ai.providers[plan_name]
@@ -265,21 +267,48 @@ def test_every_fallback_provider_and_env_override_never_resolves_to_codex(tmp_pa
         assert server.requests == []
 
 
-def test_the_opt_in_admits_codex_and_codex_is_still_never_a_fallback(tmp_path, monkeypatch):
-    from types import SimpleNamespace
+def test_an_old_opt_in_still_loads_and_admits_nothing(tmp_path, no_subprocess):
+    """Refactor C4: ``ai.agent_harness_opt_in`` is gone. A config that still sets it, with a route
+    pinned to Codex and Codex as its fallback, loads; the pinned route reads the clear refusal and
+    builds nothing, and Codex is still never a fallback."""
 
-    monkeypatch.setattr("learnloop.ai.runtime.check_codex_runtime", lambda *a, **k: SimpleNamespace(
-        status="ready", actual_revision=None, message="ok"))
     with fake_chatgpt():
-        vault = _vault(tmp_path, opt_in=True, extra={"ai.fallback_provider": "codex", "ai.routing.tutor_qa": "codex_low"})
+        vault = _vault(tmp_path, old_opt_in=True,
+                       extra={"ai.fallback_provider": "codex", "ai.routing.tutor_qa": "codex_low"})
         config = load_config(vault / "learnloop.toml")
-        assert config.ai.agent_harness_opt_in is True
+        assert not hasattr(config.ai, "agent_harness_opt_in")
         pinned = ready_client_for_task(vault, config, "tutor_qa")
-        assert pinned.ready and pinned.client.provider_type == "codex_sdk"
-        # The plan is signed out: the route on it does NOT fall back to Codex.
+        assert pinned.client is None and not pinned.ready
+        assert "is the Codex agent harness, which LearnLoop no longer uses" in pinned.runtime.message
+        with pytest.raises(AgentHarnessRefused, match="agent harness"):
+            make_ai_provider_client_from_profile("codex_low", config.ai.providers["codex_low"], vault)
         grading = ready_client_for_task(vault, config, "grading")
         assert grading.provider_name == "chatgpt_low" and not grading.ready
         assert fallback_provider_for(config, provider_for_task(config, "grading")) is None
+
+
+def test_doctor_only_checks_provider_health_when_explicitly_requested(tmp_path):
+    """Moved from the Codex runtime's tests: an old vault still on Codex reads the refusal under `doctor --ai`."""
+
+    from learnloop.ops.doctor import run_doctor
+    from learnloop.vault.loader import init_vault
+    from tests.helpers import use_codex_harness
+
+    vault = tmp_path / "vault"
+    init_vault(vault)
+    use_codex_harness(vault)
+
+    report = run_doctor(vault)
+
+    assert report.ai_runtime is None
+    assert report.codex_runtime is None
+
+    with_ai = run_doctor(vault, ai=True)
+
+    assert with_ai.ai_runtime is not None
+    assert with_ai.ai_runtime.status == "provider_unavailable"
+    assert "is the Codex agent harness" in with_ai.ai_runtime.message
+    assert with_ai.codex_runtime is with_ai.ai_runtime
 
 
 # -- (2) admission equals wire and (3) body grammar ----------------------------------------------
@@ -476,8 +505,8 @@ def test_responses_stream_is_built_and_sent_only_inside_send_once_under_model_ca
 
 
 #: Every module that imports an HTTP client, audited (plan-first T1). The
-#: model-inference ones are the plan, the OpenAI-compatible/OpenRouter family
-#: and the frozen Codex modules (opt-in only, deleted in T2); the rest fetch
+#: model-inference ones are the plan and the OpenAI-compatible/OpenRouter
+#: family (the Codex modules left in refactor C4); the rest fetch
 #: sources, run OCR, or talk to local services and send no route's prompt.
 HTTP_MODULES = {
     # model inference
@@ -494,8 +523,6 @@ HTTP_MODULES = {
     "learnloop/ai/providers/voyage_contextual.py": "Voyage contextual embeddings (source fallback space only)",
     # E0's metered harness (experiments; owner-run, dry-run first, spend-capped).
     "learnloop/experiments/contextual_embeddings/adapters.py": "E0 harness: Voyage/Perplexity embeddings (experiment)",
-    "learnloop/ai/providers/codex.py": "FROZEN Codex (opt-in only; T2 deletes)",
-    "learnloop/ai/providers/codex_http.py": "FROZEN Codex HTTP adapter (opt-in only; T2 deletes)",
     # not a route's model request
     "learnloop/content/pipeline/source_ingestion.py": "source fetch",
     "learnloop/ingest/extractors/datalab.py": "Datalab OCR",
@@ -541,7 +568,7 @@ def test_the_plan_bearer_goes_only_to_openai_or_loopback():
 
 
 @pytest.mark.parametrize("profile_type", sorted(AGENT_HARNESS_PROFILE_TYPES))
-def test_a_harness_profile_without_the_opt_in_raises_before_any_process(tmp_path, no_subprocess, profile_type):
+def test_a_harness_profile_raises_before_any_process(tmp_path, no_subprocess, profile_type):
     config = LearnLoopConfig.model_validate({"ai": {"providers": {"x": {"type": profile_type, "model": "m"}}}})
     profile = config.ai.providers["x"]
     with pytest.raises(AgentHarnessRefused, match="agent harness"):
@@ -550,18 +577,15 @@ def test_a_harness_profile_without_the_opt_in_raises_before_any_process(tmp_path
         make_ai_provider_client_from_profile("codex", config.ai.providers["codex"], tmp_path)
 
 
-def test_readiness_of_a_refused_codex_profile_runs_no_health_check(tmp_path, monkeypatch, no_subprocess):
+def test_readiness_of_a_codex_profile_is_the_refusal(tmp_path, no_subprocess):
     from learnloop.ai.runtime import check_ai_runtime
 
-    def health(*_args, **_kwargs):
-        raise AssertionError("the Codex health check ran")
-
-    monkeypatch.setattr("learnloop.ai.runtime.check_codex_runtime", health)
     vault = _vault(tmp_path)
     config = load_config(vault / "learnloop.toml")
     for name in CODEX_NAMES:
         report = check_ai_runtime(vault, config, provider_name=name)
-        assert report.status == "provider_unavailable" and "ai.agent_harness_opt_in" in report.message
+        assert report.status == "provider_unavailable" and "is the Codex agent harness" in report.message
+        assert "opt in" not in report.message
 
 
 def test_serving_entry_points_never_load_the_codex_provider(tmp_path):
@@ -595,8 +619,8 @@ print(loaded)
     assert completed.stdout.strip().splitlines()[-1] == "[]"
 
 
-def test_no_module_outside_the_codex_provider_starts_a_codex_process():
-    """Every process launch whose arguments mention Codex lives in the frozen provider."""
+def test_no_module_starts_a_codex_process():
+    """No process launch names Codex (the provider that did left in refactor C4)."""
 
     launchers = {"Popen", "run", "check_output", "check_call", "call", "create_subprocess_exec",
                  "create_subprocess_shell", "spawn", "execv", "execvp", "execve", "posix_spawn"}
@@ -874,9 +898,9 @@ def test_doctor_reports_each_pinned_codex_setting_and_fix_rewrites_it(tmp_path):
         assert getattr(fixed.ai.routing, task) == CODEX_TO_PLAN_PROFILE[name], task
     assert fixed.ai.routing.pf_proposers == ["chatgpt_low", "openrouter", "chatgpt_medium"]
     assert not [issue for issue in run_doctor(vault).issues if issue.code == FINDING_CODE]
-    # Opted in: Codex settings are served as written, so nothing is reported.
-    opted = _vault(tmp_path / "opted", opt_in=True, extra={"ai.routing.grading": "codex_low"})
-    assert not [issue for issue in run_doctor(opted).issues if issue.code == FINDING_CODE]
+    # The retired opt-in changes nothing: the Codex setting is still reported.
+    opted = _vault(tmp_path / "opted", old_opt_in=True, extra={"ai.routing.grading": "codex_low"})
+    assert [issue for issue in run_doctor(opted).issues if issue.code == FINDING_CODE]
 
 
 def test_cli_doctor_fix_dry_run_then_fix(tmp_path):
@@ -1088,19 +1112,15 @@ def test_f5_doctor_fix_keeps_the_tier_of_a_legacy_codex_route_value(tmp_path):
     assert pins["ai.routing.diagnosis"] == CODEX_TO_PLAN_PROFILE["codex"]
 
 
-def test_f6_codex_is_never_a_fallback_through_the_direct_readers_opt_in_or_not(tmp_path, monkeypatch):
+def test_f6_codex_is_never_a_fallback_through_the_direct_readers(tmp_path):
     """Review F6: the question build's route and the method-phrasing writer apply the same rule."""
-
-    from types import SimpleNamespace
 
     from learnloop.ai.routing import configured_fallback
     from learnloop.content.pipeline.add_source import authoring_route_for
     from learnloop.content.proposals.method_phrasing import writer_names
     from learnloop.vault.loader import load_vault
 
-    monkeypatch.setattr("learnloop.ai.runtime.check_codex_runtime", lambda *a, **k: SimpleNamespace(
-        status="ready", actual_revision=None, message="ok"))
-    vault = _vault(tmp_path, opt_in=True, extra={"ai.fallback_provider": "codex"})
+    vault = _vault(tmp_path, old_opt_in=True, extra={"ai.fallback_provider": "codex"})
     config = load_config(vault / "learnloop.toml")
     assert configured_fallback(config, "chatgpt") is None
     route = authoring_route_for(vault, config)
@@ -1175,8 +1195,8 @@ def test_f9_refused_codex_profiles_are_not_offered_as_grading_providers(tmp_path
     plain = available_grading_providers(load_vault(_vault(tmp_path)))
     assert not any(name in CODEX_NAMES for name in plain) and plain[-1] == "manual"
     assert "chatgpt" in plain
-    opted = available_grading_providers(load_vault(_vault(tmp_path / "opted", opt_in=True)))
-    assert "codex" in opted and "codex_low" in opted
+    opted = available_grading_providers(load_vault(_vault(tmp_path / "opted", old_opt_in=True)))
+    assert opted == plain  # the retired opt-in offers nothing more
 
 
 # ---------------------------------------------------------------------------

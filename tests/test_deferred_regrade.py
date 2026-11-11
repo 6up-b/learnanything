@@ -11,7 +11,6 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from learnloop.ai.runtime import AIRuntimeReport
 from learnloop.clock import FrozenClock
 from learnloop.attempts.ai_contracts import GradingContext
-from learnloop.ai.providers.codex import CodexRuntimeReport
 from learnloop.attempts.ai_contracts import CriterionEvidence, ErrorAttribution, GradingProposal
 from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
@@ -358,12 +357,12 @@ def test_deferred_regrade_skips_when_runtime_not_ready(tmp_path):
     result = run_deferred_regrades(
         vault,
         repository,
-        runtime=CodexRuntimeReport(status="codex_missing", checkout_path="missing", configured_revision="abc"),
+        runtime=AIRuntimeReport(status="provider_missing_config", active_provider="codex"),
         codex_client=_RegradeClient(score=4, points=4),
         clock=clock,
     )
 
-    assert result.as_dict() == {"attempted": 0, "regraded": 0, "failed": 0, "skipped_reason": "codex_missing"}
+    assert result.as_dict() == {"attempted": 0, "regraded": 0, "failed": 0, "skipped_reason": "provider_missing_config"}
 
 
 def test_deferred_regrade_failure_leaves_self_grade_current_and_agent_failed(tmp_path):
@@ -501,13 +500,8 @@ class _InvalidRegradeClient(StructuredClientFake):
         )
 
 
-def _ready_runtime() -> CodexRuntimeReport:
-    return CodexRuntimeReport(
-        status="ready",
-        checkout_path="codex",
-        configured_revision="abc",
-        actual_revision="abc",
-    )
+def _ready_runtime() -> AIRuntimeReport:
+    return AIRuntimeReport(status="ready", active_provider="codex", provider_revision="abc")
 
 
 def _configure_codex(vault_root, checkout, base_url: str) -> None:

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from learnloop.ai.plan_fallback import quiet as plan_fallback_quiet
 from learnloop.ai.routing import ready_client_for_task, runtime_for_provider
@@ -13,15 +12,9 @@ from learnloop.attempts.regrade import DeferredRegradeResult, run_deferred_ai_re
 from learnloop.projects.capture import auto_sweep
 from learnloop.vault.models import LoadedVault
 
-if TYPE_CHECKING:  # pragma: no cover
-    # Type only (plan-first transport T1): serving code never imports the
-    # Codex provider at run time; the client factory loads it behind the opt-in.
-    from learnloop.ai.providers.codex import CodexRuntimeReport
-
-
 @dataclass(frozen=True)
 class StartupMaintenanceResult:
-    codex_runtime: CodexRuntimeReport
+    codex_runtime: AIRuntimeReport
     deferred_regrades: DeferredRegradeResult
     ai_runtime: AIRuntimeReport | None = None
     # Meas §3.A8: clarification requests whose window closed since last startup.

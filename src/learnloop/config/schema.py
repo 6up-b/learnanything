@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, TYPE_CHECKING
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
-if TYPE_CHECKING:
-    from learnloop.config.compat import CodexConfig
+
 class StorageConfig(BaseModel):
     sqlite_path: str = "state.sqlite"
 
@@ -1555,10 +1554,6 @@ class AIConfig(BaseModel):
     # A configured readiness fallback for routes that allow one. Never an
     # agent-harness (Codex) profile: such a fallback is ignored.
     fallback_provider: str | None = None
-    # Owner opt-in for the Codex agent harness (codex_sdk / http profiles).
-    # False (default): every such profile is refused for every task before
-    # any process starts, and `learnloop doctor` reports routes that pin one.
-    agent_harness_opt_in: bool = False
     # The OpenRouter profile offered when the ChatGPT plan is unavailable
     # (signed out, paused, usage limit, refresh failure). LearnLoop only ASKS:
     # nothing is sent to it until the learner chooses "Use OpenRouter instead"
@@ -1648,9 +1643,9 @@ OPENROUTER_HAIKU_PROVIDER = "openrouter_haiku"
 OPENROUTER_HAIKU_MODEL = "anthropic/claude-haiku-5.5"
 OPENROUTER_TRANSCRIPTION_PROVIDER = "openrouter_transcription"
 
-#: Profile types that run an agent harness (the Codex app-server, or the
-#: retired HTTP adapter in front of it). Refused for every serving task unless
-#: ``ai.agent_harness_opt_in`` is set, and never a fallback.
+#: Profile types that ran an agent harness (the Codex app-server, or the HTTP
+#: adapter in front of it). Their transport is gone; an old config naming one
+#: still loads, and every entry refuses it (``learnloop.ai.agent_harness``).
 AGENT_HARNESS_PROFILE_TYPES = frozenset({"codex_sdk", "http", "http_adapter"})
 
 # Every serving route defaults to LearnLoop's own tool-free ChatGPT-plan client (one POST /v1/responses per
@@ -1691,9 +1686,8 @@ DEFAULT_SERVING_TASK_ROUTES = {
     # Teacher: the plan's medium tier.
     "teacher": CHATGPT_MEDIUM_PROVIDER,
 }
-#: The routes of a vault whose active provider is Codex
-#: (served only with ``ai.agent_harness_opt_in``; `learnloop doctor` reports
-#: them otherwise). Also the meaning of a legacy ``routing.<task> = "codex"``.
+#: The routes of a vault whose active provider is Codex (refused; `learnloop
+#: doctor` reports them). Also the meaning of a legacy ``routing.<task> = "codex"``.
 LEGACY_CODEX_TASK_ROUTES = {
     "grading": CODEX_LOW_PROVIDER,
     "canonical_ingest": CODEX_MEDIUM_PROVIDER,
@@ -4959,7 +4953,7 @@ class LearnLoopConfig(BaseModel):
         self.ai.providers.setdefault(OPENROUTER_HAIKU_PROVIDER, openrouter_haiku_provider())
         # An unset tiered route follows the active provider: the plan's tiers
         # when it is the plan, the legacy Codex tiers when a vault still names
-        # Codex (refused without ai.agent_harness_opt_in; doctor reports it),
+        # Codex (refused; doctor reports it),
         # else the active provider itself.
         tier_routes = (
             DEFAULT_SERVING_TASK_ROUTES if self.ai.active_provider == CHATGPT_PLAN_PROVIDER
@@ -4996,14 +4990,6 @@ class LearnLoopConfig(BaseModel):
             ErrorImpact(families={"numeric": -0.05}, local_severity_gain=0.35),
         )
         return self
-
-    @property
-    def codex(self) -> CodexConfig:
-        """Non-serialized compatibility view of ``ai.providers.codex``."""
-
-        from learnloop.config.compat import codex_config_view
-
-        return codex_config_view(self)
 
 
 def default_codex_provider() -> CodexSDKProviderConfig:

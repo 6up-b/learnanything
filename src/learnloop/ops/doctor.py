@@ -277,8 +277,7 @@ def _check_model_routes(
 def _check_codex_pins(root: Path, config: LearnLoopConfig, issues: list[HealthIssue]) -> None:
     """Plan-first transport T1: every learnloop.toml setting that still names a Codex profile.
 
-    Without ``ai.agent_harness_opt_in`` such a route reads unavailable;
-    ``learnloop doctor --fix`` rewrites it to the ChatGPT-plan profile of the
+    Such a route reads unavailable; ``learnloop doctor --fix`` rewrites it to the ChatGPT-plan profile of the
     same tier. Settings written in the file only (never a code default).
     """
 

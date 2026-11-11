@@ -3,14 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, TypeAlias
 
-from learnloop.ai.agent_harness import require_harness_opt_in
+from learnloop.ai.agent_harness import refuse_agent_harness
 from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.transport import OperationClient
 from learnloop.config import AIProviderConfig, LearnLoopConfig
 
 # Compatibility spelling retained for domain type annotations. OperationClient
-# is the honest common identity/capability surface shared by structured
-# transports and the retained endpoint-bound HTTP adapter; only
+# is the common identity/capability surface of every transport; only
 # StructuredTransport declares complete().
 AIProviderClient: TypeAlias = OperationClient
 
@@ -35,26 +34,23 @@ def make_ai_provider_client(
         profile = profile.model_copy(update={"timeout_seconds": timeout_seconds})
     elif profile.timeout_seconds is None:
         profile = profile.model_copy(update={"timeout_seconds": config.ai.timeout_seconds})
-    return make_ai_provider_client_from_profile(
-        selected, profile, vault_root, agent_harness_opt_in=config.ai.agent_harness_opt_in,
-    )
+    return make_ai_provider_client_from_profile(selected, profile, vault_root)
 
 
 def make_ai_provider_client_from_profile(
     provider_name: str,
     profile: AIProviderConfig,
     vault_root: Path,
-    *,
-    agent_harness_opt_in: bool = False,
 ) -> AIProviderClient:
     """Build one client for ``profile``: the single AI client factory.
 
-    A Codex agent-harness profile (``codex_sdk``, legacy ``http``) is refused
-    here, before its module is imported or any process starts, unless the
-    owner opted in (``ai.agent_harness_opt_in``; plan-first transport T1).
+    A Codex agent-harness profile (``codex_sdk``, legacy ``http``) an old
+    config may still name is refused here with the clear message, not
+    reported as an unsupported type.
     """
 
-    require_harness_opt_in(provider_name, profile, opt_in=agent_harness_opt_in)
+    del vault_root  # only the removed Codex transport used it; kept for the callers' signature
+    refuse_agent_harness(provider_name, profile)
     provider_type = profile.type.lower()
     if provider_type == "openai_embedding":
         from learnloop.ai.providers.openai_embedding import OpenAIEmbeddingProviderClient
@@ -72,19 +68,6 @@ def make_ai_provider_client_from_profile(
         from learnloop.ai.providers.openrouter import OpenRouterProviderClient
 
         return OpenRouterProviderClient(provider_name, profile)
-    if provider_type == "codex_sdk":
-        from learnloop.ai.providers.codex import CodexSDKProviderClient
-
-        return CodexSDKProviderClient(provider_name, profile, vault_root)
-    if provider_type in {"http", "http_adapter"}:
-        # The legacy Codex HTTP transport is refused by the tool lockdown
-        # (hardening round 2, H3): typed, naming the lockdown.
-        from learnloop.ai.providers import codex_lockdown
-
-        codex_lockdown.refuse_legacy_http_transport(f"AI provider {provider_name!r} of type {profile.type!r}")
-        from learnloop.ai.providers.codex_http import HttpAdapterProviderClient
-
-        return HttpAdapterProviderClient(provider_name, profile)
     if provider_type == "decider":
         from learnloop.ai.providers.decider import DeciderProviderClient
 

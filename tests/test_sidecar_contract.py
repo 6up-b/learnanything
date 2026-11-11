@@ -1107,9 +1107,14 @@ def test_sidecar_dont_know_retains_checkpoint_until_client_acknowledges(tmp_path
 
 
 def test_sidecar_submit_attempt_never_falls_back_to_codex_when_routed_ai_unavailable(tmp_path, monkeypatch):
-    # Plan-first transport T1 (owner, 2026-10-21): Codex is never a fallback,
-    # opt-in or not. A configured `fallback_provider = "codex"` is ignored: the
+    # Plan-first transport T1 (owner, 2026-10-21): Codex is never a fallback.
+    # A configured `fallback_provider = "codex"` is ignored: the
     # unavailable grading route asks the learner to grade and Codex gets nothing.
+    from learnloop.ai import agent_harness
+    from learnloop.config.schema import AGENT_HARNESS_PROFILE_TYPES
+
+    # The module's HTTP double lets an `http` profile serve; this test needs production's refusal back.
+    monkeypatch.setattr(agent_harness, "AGENT_HARNESS_PROFILE_TYPES", AGENT_HARNESS_PROFILE_TYPES)
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
@@ -2788,8 +2793,8 @@ def test_sidecar_set_grading_provider_switch_and_health(tmp_path):
     baseline = responses[1]["result"]["ai"]
     assert baseline["manualGrading"] is False
     assert baseline["gradingProviderOverride"] is None
-    # Dropdown options ship with the health dto: configured providers + manual; a Codex
-    # profile only with ai.agent_harness_opt_in (plan-first transport T1, review F9).
+    # Dropdown options ship with the health dto: configured providers + manual; never a Codex
+    # profile (plan-first transport T1, review F9; refused since refactor C4).
     assert {"chatgpt", "deepseek_flash", "deepseek_pro", "manual"} <= set(baseline["availableGradingProviders"])
     assert not {"codex", "codex_low", "codex_medium"} & set(baseline["availableGradingProviders"])
     assert baseline["availableGradingProviders"][-1] == "manual"

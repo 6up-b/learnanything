@@ -61,8 +61,7 @@ class TokenUsageAccounting:
 
     State is materialized lazily on first use instead of in an ``__init__``:
     provider clients are built through several different constructor chains
-    (``CodexSDKProviderClient`` -> ``SdkCodexClient``,
-    ``OpenRouterProviderClient`` -> ``OpenAIChatProviderClient``) and some of
+    (``OpenRouterProviderClient`` -> ``OpenAIChatProviderClient``) and some of
     them raise ``AIProviderUnavailable`` partway through, so a client that never
     finished constructing must still answer ``consume_usage()`` rather than
     raising ``AttributeError`` at the point a service is trying to record a
@@ -222,54 +221,6 @@ def receipt_fields_from_chat_response(response: Any) -> dict[str, Any]:
         "input_tokens": _optional_tokens(_attr_or_key(usage, "prompt_tokens") if _attr_or_key(usage, "prompt_tokens") is not None else _attr_or_key(usage, "input_tokens")),
         "output_tokens": _optional_tokens(_attr_or_key(usage, "completion_tokens") if _attr_or_key(usage, "completion_tokens") is not None else _attr_or_key(usage, "output_tokens")),
     }
-
-
-def usage_from_codex_turn(result: Any) -> tuple[int, int]:
-    """Pull (input, output) tokens off a Codex SDK ``TurnResult``.
-
-    ``TurnResult.usage`` is a ``ThreadTokenUsage`` carrying two
-    ``TokenUsageBreakdown``s: ``total`` (this thread, cumulative) and ``last``
-    (the most recent model request). ``total`` is the right one — LearnLoop
-    starts a fresh thread per structured call, so thread-total *is* turn-total,
-    and a turn that used tools made several requests of which ``last`` is only
-    the final one. ``output_tokens`` already folds in reasoning output.
-
-    ``usage`` is None whenever the SDK never emitted a
-    ``ThreadTokenUsageUpdated`` notification (older app-servers, or a turn that
-    failed before the first response), which reads as 0.
-    """
-
-    breakdown = _codex_turn_breakdown(result)
-    if breakdown is None:
-        return 0, 0
-    return (
-        _coerce_tokens(_attr_or_key(breakdown, "input_tokens")),
-        _coerce_tokens(_attr_or_key(breakdown, "output_tokens")),
-    )
-
-
-def receipt_fields_from_codex_turn(result: Any) -> dict[str, Any]:
-    """The call-receipt view of a Codex turn's usage; empty when none was reported."""
-
-    breakdown = _codex_turn_breakdown(result)
-    if breakdown is None:
-        return {}
-    return {
-        "input_tokens": _optional_tokens(_attr_or_key(breakdown, "input_tokens")),
-        "output_tokens": _optional_tokens(_attr_or_key(breakdown, "output_tokens")),
-        "cached_input_tokens": _optional_tokens(_attr_or_key(breakdown, "cached_input_tokens")),
-        "reasoning_tokens": _optional_tokens(_attr_or_key(breakdown, "reasoning_output_tokens")),
-    }
-
-
-def _codex_turn_breakdown(result: Any) -> Any:
-    usage = _attr_or_key(result, "usage")
-    if usage is None:
-        return None
-    breakdown = _attr_or_key(usage, "total")
-    if breakdown is None:
-        breakdown = _attr_or_key(usage, "last")
-    return breakdown
 
 
 def _attr_or_key(payload: Any, name: str) -> Any:

@@ -5,7 +5,6 @@ route must not change what generation routing, health or settings report.
 """
 from __future__ import annotations
 
-from types import SimpleNamespace
 
 import pytest
 
@@ -23,10 +22,6 @@ EMBEDDING_PROFILE = "openrouter_embedding"
 
 @pytest.fixture
 def codex_ready(monkeypatch):
-    monkeypatch.setattr(
-        "learnloop.ai.runtime.check_codex_runtime",
-        lambda *args, **kwargs: SimpleNamespace(status="ready", actual_revision=None, message="ok"),
-    )
     # Plan-first transport T1: the default routes name the plan; a ready learner is signed in.
     patch_plan_ready(monkeypatch)
     monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)

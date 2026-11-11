@@ -14,7 +14,6 @@ import hashlib
 import json
 from pathlib import Path
 import time
-from types import SimpleNamespace
 
 import pytest
 import tomlkit
@@ -552,12 +551,10 @@ def test_the_plan_serves_a_workspace_and_takes_the_callers_deadline(server, tmp_
 
 
 def test_a_paused_plan_never_falls_back_to_codex(server, tmp_path, monkeypatch):
-    """Plan-first transport T1 (owner, 2026-10-21): Codex is never a fallback,
-    opt-in or not; a paused plan reports unavailable (and asks about OpenRouter
-    when one is configured: tests/test_plan_first_transport.py)."""
+    """Plan-first transport T1 (owner, 2026-10-21): Codex is never a fallback;
+    a paused plan reports unavailable (and asks about OpenRouter when one is
+    configured: tests/test_plan_first_transport.py)."""
 
-    monkeypatch.setattr("learnloop.ai.runtime.check_codex_runtime", lambda *a, **k: SimpleNamespace(
-        status="ready", actual_revision=None, message="ok"))
     pinned_routes = {task: "chatgpt" for task in ("grading", "canonical_ingest", "canonical_ingest_retry",
                                                   "authoring", "tutor_qa", "teach_back", "rung_variant",
                                                   "animation")}
@@ -568,12 +565,10 @@ def test_a_paused_plan_never_falls_back_to_codex(server, tmp_path, monkeypatch):
         assert (resolved.provider_name, resolved.fallback_from) == ("chatgpt", None), task
         assert resolved.client.provider_type == "chatgpt_plan"
     PlanSession().note_usage_limit(code="subscription_sharing_usage_limit_exceeded", request_id="r")
-    for opt_in in (False, True):
-        config.ai.agent_harness_opt_in = opt_in
-        for task in ("diagnosis", "grading"):
-            resolved = ready_client_for_task(vault, config, task, timeout_seconds=300)  # type: ignore[arg-type]
-            assert (resolved.provider_name, resolved.fallback_from, resolved.client) == ("chatgpt", None, None)
-            assert not resolved.ready and "usage" in resolved.runtime.message
+    for task in ("diagnosis", "grading"):
+        resolved = ready_client_for_task(vault, config, task, timeout_seconds=300)  # type: ignore[arg-type]
+        assert (resolved.provider_name, resolved.fallback_from, resolved.client) == ("chatgpt", None, None)
+        assert not resolved.ready and "usage" in resolved.runtime.message
     PlanSession().resume()
     assert ready_client_for_task(vault, config, "diagnosis").provider_name == "chatgpt"
 

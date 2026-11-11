@@ -10,7 +10,6 @@
 No network: a socket guard refuses any connection; no Codex turn starts."""
 from __future__ import annotations
 
-import builtins
 import socket
 
 import pytest
@@ -74,82 +73,20 @@ def test_voyage_is_admitted_at_the_full_price_never_the_free_tier(tmp_path):
     assert float(entry["reserved_usd"]) > 0
 
 
-# -- the Codex lockdown -------------------------------------------------------------------
-
-
-def test_the_lockdown_is_active_on_this_tree():
-    from learnloop.experiments.contextual_embeddings.boundary import require_codex_lockdown
-
-    checked = require_codex_lockdown()
-    assert checked["codex_lockdown"] == "active" and checked["overrides_checked"] > 40
-
-
-def _plan(tmp_path):
-    from learnloop.experiments.contextual_embeddings.runner import dry_run
-
-    paths, _repository = build_e0_vault(tmp_path, manual_ai=True)
-    return paths, dry_run([paths.root], environ=FAKE_KEYS)
-
-
-def test_the_paid_run_refuses_when_the_lockdown_is_not_importable(tmp_path, monkeypatch):
-    from learnloop.experiments.contextual_embeddings import live
-    from learnloop.experiments.contextual_embeddings.boundary import CodexLockdownMissing
-
-    paths, plan = _plan(tmp_path)
-    real_import = builtins.__import__
-
-    def without_lockdown(name, globals=None, locals=None, fromlist=(), level=0):
-        if name == "learnloop.ai.providers.codex_lockdown" or (
-                name == "learnloop.ai.providers" and fromlist and "codex_lockdown" in fromlist):
-            raise ImportError("codex_lockdown removed for this test")
-        return real_import(name, globals, locals, fromlist, level)
-
-    monkeypatch.setattr(builtins, "__import__", without_lockdown)
-    with pytest.raises(CodexLockdownMissing, match="not importable"):
-        live.run_live([paths.root], plan=plan, run_dir=tmp_path / "fixtures-local" / "runs", key_envs={})
-    monkeypatch.setattr(builtins, "__import__", real_import)
-    # Refused before anything: no ledger, no run directory.
-    assert not (tmp_path / "fixtures-local" / "contextual-embeddings" / "ledger").exists()
-    assert not (tmp_path / "fixtures-local" / "runs").exists()
-
-
-def test_the_paid_cli_refuses_when_the_lockdown_is_not_in_force(tmp_path, monkeypatch):
-    from typer.testing import CliRunner
-
-    from learnloop.ai.providers import codex as provider
-    from learnloop.cli import app
-    from learnloop.experiments.contextual_embeddings import live, runner
-
-    paths, _plan_unused = _plan(tmp_path)
-    original = provider.isolated_turn_overrides
-    monkeypatch.setattr(provider, "isolated_turn_overrides",
-                        lambda *args, **kwargs: [item for item in original(*args, **kwargs)
-                                                 if item != "agents.enabled=false"])
-    monkeypatch.setattr(runner, "dry_run", lambda *args, **kwargs: {"totals": {"fits_cap": True},
-                                                                     "prices": {"unverified": {}}})
-    called = []
-    monkeypatch.setattr(live, "run_live", lambda *args, **kwargs: called.append(1))
-    result = CliRunner().invoke(app, ["experiments", "e0", "run", "--copy", str(paths.root),
-                                      "--i-am-authorized-to-spend", "--run-dir",
-                                      str(tmp_path / "fixtures-local" / "runs")])
-    assert result.exit_code == 1 and "lockdown is not active" in result.output
-    assert called == []
+# -- no Codex turn -----------------------------------------------------------------------
 
 
 def test_the_label_passes_never_reach_a_codex_turn(tmp_path, monkeypatch):
     """Re-plan 2026-10-22: the label passes (and every role) run on the
-    Messages API transport; no Codex client is built and no Codex turn
-    starts (the lockdown stays required for the paid run regardless)."""
+    Messages API transport; no Codex client is built (since refactor C4
+    there is no Codex transport to build)."""
 
     import json
 
-    from learnloop.ai.providers import codex as provider
+    from learnloop.ai.agent_harness import is_agent_harness_type
     from learnloop.experiments.contextual_embeddings.adapters import HttpResponse
     from learnloop.experiments.contextual_embeddings.callers import Checkpoints, LiveRoleCaller
 
-    started = []
-    monkeypatch.setattr(provider.SdkCodexClient, "_run_sdk_turn",
-                        lambda self, *args, **kwargs: started.append(1))
     posts = []
 
     class Server:
@@ -171,8 +108,7 @@ def test_the_label_passes_never_reach_a_codex_turn(tmp_path, monkeypatch):
         except Exception:  # noqa: BLE001 - the fake answer may not validate; the route is what is checked
             pass
         client, _identity = caller._client(pins.ROLE_PINS[role])
-        assert not isinstance(client, provider.SdkCodexClient)
+        assert not is_agent_harness_type(getattr(client, "provider_type", None))
     # The fake answer does not validate: each pass makes its one admitted JSON repair (paid run 2).
     # Relabel round (owner 2026-10-23, "Sonnet both + rubric"): both passes are Sonnet 5.5.
     assert posts == ["claude-sonnet-5-5"] * 4
-    assert started == []

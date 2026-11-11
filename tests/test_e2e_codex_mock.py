@@ -5,7 +5,7 @@ from tests.structured_ai import StructuredClientFake
 from learnloop.clock import FrozenClock
 from learnloop.attempts.ai_contracts import GradingContext
 from learnloop.content.proposals.ai_contracts import AuthoringContext
-from learnloop.ai.providers.codex import CodexRuntimeReport
+from learnloop.ai.runtime import AIRuntimeReport
 from learnloop.attempts.ai_contracts import CriterionEvidence, GradingProposal
 from learnloop.content.proposals.ai_contracts import AuthoringProposal
 from learnloop.db.repositories import Repository
@@ -39,10 +39,8 @@ class _FakeGradingClient(StructuredClientFake):
         )
 
 
-def _ready_runtime() -> CodexRuntimeReport:
-    return CodexRuntimeReport(
-        status="ready", checkout_path="codex", configured_revision="abc", actual_revision="abc"
-    )
+def _ready_runtime() -> AIRuntimeReport:
+    return AIRuntimeReport(status="ready", active_provider="codex", provider_revision="abc")
 
 
 def test_codex_mocked_end_to_end(tmp_path):

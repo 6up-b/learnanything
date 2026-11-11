@@ -4,7 +4,7 @@ from tests.structured_ai import StructuredClientFake
 
 from learnloop.clock import FrozenClock
 from learnloop.attempts.ai_contracts import GradingContext
-from learnloop.ai.providers.codex import CodexRuntimeReport
+from learnloop.ai.runtime import AIRuntimeReport
 from learnloop.attempts.ai_contracts import CriterionEvidence, ErrorAttribution, GradingProposal
 from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_attempt_with_codex_fallback, complete_codex_graded_attempt
@@ -299,11 +299,7 @@ def test_attempt_orchestration_falls_back_when_runtime_not_ready(tmp_path):
             learner_answer_md="SVD is U Sigma V^T.",
         ),
         SelfGradeInput(criterion_points={"correctness": 2}, confidence=4),
-        runtime=CodexRuntimeReport(
-            status="codex_missing",
-            checkout_path="missing",
-            configured_revision="abc",
-        ),
+        runtime=AIRuntimeReport(status="provider_missing_config", active_provider="codex"),
         codex_client=_FakeCodexClient(),
         clock=clock,
     )
@@ -375,10 +371,5 @@ def _grading_run(repository: Repository, run_id: str) -> None:
     )
 
 
-def _ready_runtime() -> CodexRuntimeReport:
-    return CodexRuntimeReport(
-        status="ready",
-        checkout_path="codex",
-        configured_revision="abc",
-        actual_revision="abc",
-    )
+def _ready_runtime() -> AIRuntimeReport:
+    return AIRuntimeReport(status="ready", active_provider="codex", provider_revision="abc")

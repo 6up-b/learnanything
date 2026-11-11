@@ -38,7 +38,6 @@ from learnloop.ai.usage import (
     TokenUsageAccounting,
     consume_client_usage,
     usage_from_chat_response,
-    usage_from_codex_turn,
 )
 from learnloop.vault.loader import load_vault
 
@@ -242,19 +241,6 @@ def test_chat_client_counts_tokens_of_a_call_whose_body_is_unusable(monkeypatch)
 )
 def test_usage_from_chat_response_never_raises(response, expected):
     assert usage_from_chat_response(response) == expected
-
-
-def test_usage_from_codex_turn_prefers_the_thread_total():
-    result = types.SimpleNamespace(
-        usage=types.SimpleNamespace(
-            total=types.SimpleNamespace(input_tokens=5000, output_tokens=800),
-            last=types.SimpleNamespace(input_tokens=1000, output_tokens=200),
-        )
-    )
-
-    assert usage_from_codex_turn(result) == (5000, 800)
-    # Older app-servers emit no token-usage notification at all.
-    assert usage_from_codex_turn(types.SimpleNamespace(usage=None)) == (0, 0)
 
 
 def test_consume_client_usage_tolerates_a_client_without_the_method():

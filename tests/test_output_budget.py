@@ -294,67 +294,6 @@ def test_a_truncation_retry_obeys_the_retry_cap():
     assert again.after_truncation() is False  # once only
 
 
-def test_codex_turns_take_the_routes_effort_for_that_turn_only(tmp_path, monkeypatch):
-    import sys
-    from enum import Enum
-    from types import ModuleType, SimpleNamespace
-
-    from learnloop.ai.providers.codex import SdkCodexClient
-    from learnloop.ai.schemas import WireModel
-    from learnloop.ai.transport import StructuredRequest
-    from learnloop.config import CodexConfig
-
-    efforts: list = []
-
-    class Summary(WireModel):
-        summary: str
-
-    class FakeCodex:
-        def __init__(self, config):
-            from tests.codex_cli_fakes import FakeSdkClient
-
-            self._client = FakeSdkClient()
-            pass
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return None
-
-        def close(self):
-            return None
-
-        def thread_start(self, **_kwargs):
-            return SimpleNamespace(turn=lambda prompt, **kwargs: efforts.append(kwargs["effort"]) or SimpleNamespace(
-                run=lambda: SimpleNamespace(final_response='{"summary": "ok"}'), interrupt=lambda: None))
-
-    class ReasoningEffort(Enum):
-        low = "low"
-        medium = "medium"
-
-    sdk = ModuleType("openai_codex")
-    sdk.Codex = FakeCodex
-    from tests.codex_cli_fakes import FakeApprovalMode
-    sdk.ApprovalMode = FakeApprovalMode
-    sdk.CodexConfig = lambda **kwargs: SimpleNamespace(**kwargs)
-    types_module = ModuleType("openai_codex.types")
-    types_module.Personality = SimpleNamespace(pragmatic="pragmatic")
-    types_module.ReasoningEffort = ReasoningEffort
-    types_module.ReasoningSummary = SimpleNamespace(model_validate=lambda value: value)
-    monkeypatch.setitem(sys.modules, "openai_codex", sdk)
-    monkeypatch.setitem(sys.modules, "openai_codex.types", types_module)
-    client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex"), reasoning_effort="medium"), tmp_path)
-    from tests.codex_cli_fakes import stub_isolation_probe
-
-    stub_isolation_probe(monkeypatch, client)  # every Codex turn runs the lockdown's launch check
-    request = StructuredRequest(purpose="source_rerank", prompt="judge", result_model=Summary, reasoning_effort="low")
-    assert client.complete(request).summary == "ok"
-    plain = StructuredRequest(purpose="grading", prompt="grade", result_model=Summary)
-    assert client.complete(plain).summary == "ok"
-    assert efforts == [ReasoningEffort.low, ReasoningEffort.medium]  # the profile's effort is restored
-
-
 def test_slice1_review_spend_admits_the_transports_truncation_retry_at_double(monkeypatch):
     fake, client = _router(monkeypatch, CUT, REWRITE)
     spend = ReviewSpend(CAPS, price_per_million=1.0)

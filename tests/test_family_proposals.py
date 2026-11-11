@@ -16,7 +16,7 @@ from learnloop.db.repositories import Repository
 from learnloop.ops.family_proposals import FamilyVerdict, propose_families
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
-from tests.helpers import create_basic_vault, use_codex_harness
+from tests.helpers import create_basic_vault
 
 
 class Judge:
@@ -341,32 +341,6 @@ def test_codex_route_dry_run_shows_an_estimate_without_a_price(vault, monkeypatc
     ])
     assert result.exit_code == 0, result.output
     assert json.loads(result.output)["cost_basis"] == "estimated_only"
-
-
-def test_fake_codex_run_succeeds_and_receipts_carry_estimated_only(vault, monkeypatch):
-    use_codex_harness(vault[2].root)  # the frozen Codex route, explicitly opted in (T1)
-    vault = (load_vault(vault[2].root), vault[1], vault[2])
-    judge = CodexJudge("same")
-    seen = _codex_route(vault, monkeypatch, judge)
-    # Token and dollar caps are not enforced and the price is unknown;
-    # the call, candidate and pair caps still are.
-    report = propose_families(vault[0], caps=SpendCaps(
-        max_total_tokens=1, max_estimated_usd=0, max_calls=6))
-    assert report["status"] == "complete", report
-    assert seen == [("pf_family_judge", "codex")]
-    assert len(judge.calls) == 6 and len(report["accepted"]) == 1
-    assert report["charged"]["calls"] == 6 and report["charged"]["estimated_usd"] is None
-    receipts = _receipts(vault[1])
-    assert receipts
-    for receipt in receipts:
-        budget = json.loads(receipt["budget_json"])
-        assert budget["cost_basis"] == "estimated_only" and budget["billing"] == "subscription"
-        assert budget["family_judge"]["cost_basis"] == "estimated_only"
-        usage = json.loads(receipt["usage_json"])
-        assert usage["cost_basis"] == "estimated_only"
-        assert usage["estimated_total_tokens"] == 30  # reported 10 input + 20 output
-        assert usage["estimated_token_source"] == "reported_usage"
-        assert usage["estimated_usd"] is None
 
 
 def test_codex_run_still_stops_a_runaway_at_the_call_cap(vault, monkeypatch):

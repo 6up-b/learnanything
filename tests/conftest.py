@@ -512,12 +512,6 @@ def pytest_runtest_protocol(item, nextitem):
 def pytest_runtest_setup(item):
     durable = _session_durable or item.get_closest_marker("durability") is not None
     _set_sqlite_test_mode(durable=durable)
-    # The Codex launch check is cached per process and config fingerprint;
-    # a test's fakes (a stubbed probe, a fake CLI) must never see another
-    # test's cached verdict.
-    from learnloop.ai.providers.codex_lockdown import clear_check_cache
-
-    clear_check_cache()
 
 
 @pytest.hookimpl(trylast=True)
@@ -527,18 +521,18 @@ def pytest_runtest_teardown(item, nextitem):
 
 @pytest.fixture
 def legacy_codex_http_double(monkeypatch):
-    """Let a test use the legacy Codex HTTP adapter as an in-process provider double.
+    """Let ``http`` profiles serve through the in-process HTTP provider double.
 
-    The tool lockdown refuses that transport at every entry (hardening round
-    2, H3: ``codex_lockdown.refuse_legacy_http_transport``). End-to-end CLI,
-    sidecar and TUI tests drive a fake in-process HTTP server through it as a
-    stand-in model; they request this fixture by name or with
+    The Codex HTTP adapter left the product (refactor C4) and production
+    refuses an ``http`` profile at every entry. End-to-end CLI, sidecar and
+    TUI tests drive a fake in-process HTTP server as a stand-in model through
+    ``tests/http_provider_double.py``; they request this fixture by name or with
     ``pytestmark = pytest.mark.usefixtures("legacy_codex_http_double")``. No
     configuration, environment variable or flag can do this outside tests."""
 
-    from learnloop.ai.providers import codex_lockdown
+    from tests.http_provider_double import install
 
-    monkeypatch.setattr(codex_lockdown, "refuse_legacy_http_transport", lambda where: None)
+    install(monkeypatch)
 
 
 @pytest.fixture

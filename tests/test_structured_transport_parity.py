@@ -7,9 +7,7 @@ from typing import Any, Callable
 
 import pytest
 
-from learnloop.ai.errors import AIProviderUnavailable
-from learnloop.ai.providers.codex import SdkCodexClient
-from learnloop.ai.providers.codex_http import LegacyHttpOperations
+from learnloop.ai.providers.chatgpt_plan import ChatGPTPlanProviderClient
 from learnloop.ai.providers.openai_chat import OpenAIChatProviderClient
 from learnloop.ai.schemas import WireModel
 from learnloop.attempts.ai_contracts import GradingContext, GradingProposal
@@ -68,7 +66,6 @@ from learnloop.tutor.ai_contracts import (
     TutorQAContext,
     PromotionAnalysisContext,
 )
-from learnloop.ai.transport import STRUCTURED_COMPLETION
 from learnloop.attempts.grading import request_grading_proposal
 from learnloop.content.authoring.concept_animation import author_concept_animation, author_video_storyboard
 from learnloop.content.authoring.exercise_authoring import request_exercise_authoring
@@ -104,7 +101,7 @@ from learnloop.tutor.teach_back import (
     request_teach_back_question,
 )
 from learnloop.tutor.tutor_qa import request_tutor_answer
-from learnloop.config import AIProviderConfig, CodexConfig
+from learnloop.config import AIProviderConfig
 
 from tests.openai_fakes import install_fake_openai
 
@@ -340,23 +337,6 @@ assert len({case.name for case in OPERATIONS}) == 25
 
 
 @pytest.mark.parametrize("case", OPERATIONS, ids=lambda case: case.name)
-def test_sdk_transport_executes_every_feature_operation(case, tmp_path):
-    client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex")), tmp_path)
-    calls: list[tuple[str, dict[str, Any]]] = []
-
-    def run(prompt: str, output_schema: dict[str, Any], *, purpose: str) -> str:
-        assert prompt
-        calls.append((purpose, output_schema))
-        return case.wire_result.model_dump_json()
-
-    client._run_structured = run  # type: ignore[method-assign]
-
-    assert case.invoke(client) == case.expected_result
-    assert calls[0][0] == case.purpose
-    assert calls[0][1]["additionalProperties"] is False
-
-
-@pytest.mark.parametrize("case", OPERATIONS, ids=lambda case: case.name)
 def test_chat_transport_executes_every_feature_operation(case, monkeypatch):
     fake_openai = install_fake_openai(monkeypatch, case.wire_result.model_dump_json())
     monkeypatch.setenv("TEST_CHAT_API_KEY", "secret")
@@ -377,47 +357,9 @@ def test_chat_transport_executes_every_feature_operation(case, monkeypatch):
 
 
 def test_structured_providers_expose_no_feature_named_methods():
-    assert {name for name in dir(SdkCodexClient) if name.startswith("run_")} == set()
+    assert {name for name in dir(ChatGPTPlanProviderClient) if name.startswith("run_")} == set()
     assert {
         name for name in dir(OpenAIChatProviderClient) if name.startswith("run_")
     } == {"run_media_markdown", "run_media_transcription"}
 
 
-def test_legacy_http_supports_exactly_eight_operations_and_degrades_the_rest(monkeypatch, legacy_codex_http_double):
-    client = LegacyHttpOperations(CodexConfig(base_url="http://127.0.0.1:1"))
-    expected_supported = {case.purpose for case in OPERATIONS if case.legacy_method is not None}
-
-    assert expected_supported == {
-        "authoring",
-        "canonical_ingest",
-        "grading",
-        "tutor_qa",
-        "teach_back",
-        "teach_back_authoring",
-        "misconception_match",
-        "promotion_analysis",
-    }
-    assert not client.supports(STRUCTURED_COMPLETION)
-    assert not hasattr(client, "complete")
-    assert {case.purpose for case in OPERATIONS if client.supports(case.purpose)} == expected_supported
-
-    for case in OPERATIONS:
-        if case.legacy_method is not None:
-            monkeypatch.setattr(
-                client,
-                "_post",
-                lambda *_args, result=case.wire_result, **_kwargs: {
-                    "proposal": result.model_dump(mode="json")
-                },
-            )
-            assert case.invoke(client) == case.expected_result
-        else:
-            monkeypatch.setattr(
-                client,
-                "_post",
-                lambda *_args, **_kwargs: (_ for _ in ()).throw(
-                    AssertionError("degradation must not make an HTTP request")
-                ),
-            )
-            with pytest.raises(AIProviderUnavailable, match=case.purpose):
-                case.invoke(client)

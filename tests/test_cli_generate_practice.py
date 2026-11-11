@@ -8,7 +8,6 @@ from typer.testing import CliRunner
 import learnloop.cli as cli_module
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
-from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import Repository
 from learnloop.content.proposals.proposals import queue_accepted_diagnostic_followups
 from learnloop.scheduling.scheduler import build_due_queue
@@ -623,18 +622,6 @@ def test_populate_goal_uses_a_15_minute_provider_timeout(tmp_path, monkeypatch):
 
     assert result.exit_code == 1
     assert observed["timeout_seconds"] == 15 * 60
-
-
-def test_provider_timeout_override_reaches_codex_sdk_client(tmp_path):
-    client = cli_module._client_for_provider(
-        tmp_path,
-        # The frozen Codex path is built only with the owner opt-in (T1).
-        LearnLoopConfig.model_validate({"ai": {"agent_harness_opt_in": True}}),
-        "codex_medium",
-        codex_timeout_seconds=15 * 60,
-    )
-
-    assert client.config.timeout_seconds == 15 * 60
 
 
 def test_populate_goal_generates_and_auto_accepts(tmp_path):

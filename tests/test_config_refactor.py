@@ -20,6 +20,7 @@ from learnloop.config import (
     OpenRouterProviderConfig,
     OPENROUTER_TRANSCRIPTION_PROVIDER,
 )
+from learnloop.config.compat import codex_profile_value
 from learnloop.config.template import default_config_text
 from learnloop.vault.loader import init_vault
 from learnloop.vault.loader import load_vault
@@ -38,8 +39,10 @@ def test_config_responsibilities_have_canonical_module_owners() -> None:
     assert public_config.load_dotenv is loader.load_dotenv
     assert public_config.DEFAULT_CONFIG_TEXT is template.DEFAULT_CONFIG_TEXT
     assert public_config.write_default_config is template.write_default_config
-    assert public_config.CodexConfig is compat.CodexConfig
-    assert public_config.ai_provider_from_codex is compat.ai_provider_from_codex
+    assert public_config.codex_profile_value is compat.codex_profile_value
+    # The Codex runtime view left with the Codex transport (refactor C4).
+    assert not hasattr(public_config, "CodexConfig")
+    assert not hasattr(public_config, "ai_provider_from_codex")
 
     # Re-export shims would make the package tree look split while leaving the
     # original module responsible for every behavior. Keep that failure mode
@@ -47,7 +50,7 @@ def test_config_responsibilities_have_canonical_module_owners() -> None:
     for moved_name in (
         "ConfigLoadError",
         "DEFAULT_CONFIG_TEXT",
-        "ai_provider_from_codex",
+        "codex_profile_value",
         "load_config",
         "load_dotenv",
         "write_default_config",
@@ -307,7 +310,7 @@ def test_legacy_codex_is_input_only_and_sidecar_does_not_reexport_it(tmp_path) -
     )
     assert isinstance(config.ai.providers["codex"], CodexHTTPProviderConfig)
     assert config.ai.providers["codex"].model == "legacy-model"
-    assert config.codex.provider == "http"
+    assert codex_profile_value(config, "base_url") == "http://127.0.0.1:9999"
     assert "codex" not in config.model_dump()
 
     init_vault(tmp_path)

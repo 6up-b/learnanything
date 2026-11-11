@@ -312,8 +312,7 @@ def test_rebuild_deterministic_and_no_external_io(name, monkeypatch):
     import socket
     import sqlite3
 
-    from learnloop.ai.providers.codex import SdkCodexClient
-    from learnloop.ai.providers.codex_http import HttpCodexClient
+    from learnloop.ai.providers.chatgpt_plan import ChatGPTPlanProviderClient
     from learnloop.ai.providers.openai_chat import OpenAIChatProviderClient
     from learnloop.ai.providers.openai_embedding import OpenAIEmbeddingProviderClient
 
@@ -323,8 +322,7 @@ def test_rebuild_deterministic_and_no_external_io(name, monkeypatch):
     monkeypatch.setattr(socket, "socket", forbidden)
     monkeypatch.setattr(sqlite3, "connect", forbidden)
     monkeypatch.setattr(OpenAIChatProviderClient, "complete", forbidden)
-    monkeypatch.setattr(SdkCodexClient, "complete", forbidden)
-    monkeypatch.setattr(HttpCodexClient, "complete_legacy", forbidden)
+    monkeypatch.setattr(ChatGPTPlanProviderClient, "complete", forbidden)
     monkeypatch.setattr(OpenAIEmbeddingProviderClient, "embed", forbidden)
     model = create_predictor(name)
     rows = [FacetRow(str(i), features(facet_id="f"), float(i % 2), 1, facet_id="f")

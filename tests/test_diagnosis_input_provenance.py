@@ -242,40 +242,15 @@ def test_the_export_s_entries_map_to_what_they_serve(tmp_path):
     assert answers(["bash -lc 'cat attempts/y_att_2.md'"]) == ["att_2"]
     assert answers(["ls attempts", "cd registry", "pwd"]) == []
     assert answers(["sed -n '$p' INDEX.md", "sed -n 3p attempts/y_att_2.md"]) == ["att_2"]
-    from learnloop.ai.providers.codex import UNACCOUNTED_TURN_ITEM
-
     for whole in (["cat attempts/*.md"], ["grep -r x ."], ["cat INDEX.md | head"], ["python3 -c 'print(1)'"],
                   # A sed script other than a print: ``e`` runs a program, ``w`` writes.
                   ["sed -n '1e grep -r x .' INDEX.md"], ["sed -n 'w copy' attempts/x_att_1.md"],
-                  # A tool item the transport could not read.
-                  [f"{UNACCOUNTED_TURN_ITEM}: mcpToolCall"]):
+                  # A tool item a transport could not read (as the removed Codex transport reported one).
+                  ["unaccounted turn item: mcpToolCall"]):
         assert answers(whole) == ["att_1", "att_2"], whole
     outside = _dp().snapshot_reads(entries, ["cat ../../state.sqlite"])
     assert outside.unaccounted == (_dp().SNAPSHOT_OUTSIDE,)
     assert _dp().snapshot_reads(entries, None).unaccounted == (_dp().SNAPSHOT_UNREPORTED,)
-
-
-def test_the_transport_reports_every_tool_item_it_cannot_read():
-    """The snapshot record is only as good as the transport's report: a turn
-    item that names no command or path and is not text only (a tool this
-    extractor cannot read) is reported, never dropped, so the record counts it
-    as reading the whole export; a wrapped SDK item is unwrapped."""
-
-    from types import SimpleNamespace
-
-    from learnloop.ai.providers.codex import UNACCOUNTED_TURN_ITEM, _workspace_activity
-
-    result = SimpleNamespace(items=[
-        {"type": "agentMessage", "text": "done"},
-        SimpleNamespace(type="reasoning", text="thinking"),
-        SimpleNamespace(root=SimpleNamespace(type="commandExecution", command=["cat", "INDEX.md"])),
-        {"type": "mcpToolCall", "server": "s", "tool": "read"},
-        SimpleNamespace(type="web_search", query="x"),
-    ])
-    assert _workspace_activity(result) == [
-        "cat INDEX.md", f"{UNACCOUNTED_TURN_ITEM}: mcpToolCall", f"{UNACCOUNTED_TURN_ITEM}: web_search",
-    ]
-    assert _workspace_activity(SimpleNamespace(items=None)) is None
 
 
 # -- last verify, reproduction 2: a missing C4 receipt ------------------------------------------

@@ -63,7 +63,7 @@ from learnloop.tutor.ai_contracts import (
     promotion_analysis_prompt,
 )
 from learnloop.ai.errors import CodexUnavailable
-from learnloop.ai.providers.codex import SdkCodexClient
+from learnloop.ai.providers.chatgpt_plan import ChatGPTPlanProviderClient
 from learnloop.ai.transport import StructuredRequest
 from learnloop.attempts.grading import request_grading_proposal
 from learnloop.config import AIProviderConfig
@@ -129,12 +129,12 @@ def test_openai_chat_client_repairs_invalid_json_once(monkeypatch):
 
 
 def test_structured_providers_share_one_transport_surface():
-    sdk_methods = {name for name in dir(SdkCodexClient) if name.startswith("run_")}
+    plan_methods = {name for name in dir(ChatGPTPlanProviderClient) if name.startswith("run_")}
     chat_methods = {name for name in dir(OpenAIChatProviderClient) if name.startswith("run_")}
 
-    assert sdk_methods == set()
+    assert plan_methods == set()
     assert chat_methods == {"run_media_markdown", "run_media_transcription"}
-    assert {"complete", "supports", "consume_usage"} <= set(dir(SdkCodexClient))
+    assert {"complete", "supports", "consume_usage"} <= set(dir(ChatGPTPlanProviderClient))
     assert {"complete", "supports", "consume_usage"} <= set(dir(OpenAIChatProviderClient))
 
 

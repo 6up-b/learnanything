@@ -1,10 +1,8 @@
-"""One-way normalization and runtime aliases for legacy configuration."""
+"""One-way normalization of legacy configuration."""
 
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
-
-from pydantic import BaseModel, ConfigDict
+from typing import Any
 
 from learnloop.config.schema import (
     DEFAULT_CODEX_MODEL,
@@ -14,14 +12,8 @@ from learnloop.config.schema import (
     OPENROUTER_TRANSCRIPTION_PROVIDER,
     AIProviderConfig,
     AudioIngestConfig,
-    CodexHTTPProviderConfig,
-    CodexSDKProviderConfig,
     openrouter_provider,
 )
-
-if TYPE_CHECKING:
-    from learnloop.config.schema import LearnLoopConfig
-
 
 _PROVIDER_TYPE_ALIASES = {
     "codex_http": "http",
@@ -30,33 +22,33 @@ _PROVIDER_TYPE_ALIASES = {
 }
 
 
-class CodexConfig(BaseModel):
-    """Deprecated runtime view over the canonical ``ai.providers.codex`` profile."""
-
-    model_config = ConfigDict(extra="ignore")
-
-    provider: str = "sdk"
-    checkout_path: str = ""
-    revision: str = "<pinned-commit>"
-    startup_command: str = ""
-    startup_timeout_seconds: int = 20
-    healthcheck_timeout_seconds: int = 5
-    timeout_seconds: float = 180
-    model: str = DEFAULT_CODEX_MODEL
-    reasoning_effort: str = DEFAULT_CODEX_REASONING_EFFORT
-    reasoning_summary: str = "none"
-    sdk_python_path: str = "sdk/python/src"
-    sdk_codex_bin: str = ""
-    sdk_launch_command: str = ""
-    base_url: str = "http://127.0.0.1:8765"
-    healthcheck_path: str = "/health"
-    authoring_path: str = "/authoring-proposal"
-    canonical_ingest_path: str = "/canonical-ingest"
-    grading_path: str = "/grading-proposal"
-    tutor_qa_path: str = "/tutor-qa"
-    teach_back_path: str = "/teach-back"
-    teach_back_authoring_path: str = "/teach-back-authoring"
-    misconception_match_path: str = "/misconception-match"
+#: What an old top-level ``[codex]`` table meant for each key it left out:
+#: the defaults of the runtime view it used to be read through. An old config
+#: must still load to the same ``ai.providers.codex`` profile, which every
+#: entry then refuses (``learnloop.ai.agent_harness``).
+_LEGACY_CODEX_TABLE_DEFAULTS: dict[str, Any] = {
+    "checkout_path": "",
+    "revision": "<pinned-commit>",
+    "startup_command": "",
+    "startup_timeout_seconds": 20,
+    "healthcheck_timeout_seconds": 5,
+    "timeout_seconds": 180,
+    "model": DEFAULT_CODEX_MODEL,
+    "reasoning_effort": DEFAULT_CODEX_REASONING_EFFORT,
+    "reasoning_summary": "none",
+    "sdk_python_path": "sdk/python/src",
+    "sdk_codex_bin": "",
+    "sdk_launch_command": "",
+    "base_url": "http://127.0.0.1:8765",
+    "healthcheck_path": "/health",
+    "authoring_path": "/authoring-proposal",
+    "canonical_ingest_path": "/canonical-ingest",
+    "grading_path": "/grading-proposal",
+    "tutor_qa_path": "/tutor-qa",
+    "teach_back_path": "/teach-back",
+    "teach_back_authoring_path": "/teach-back-authoring",
+    "misconception_match_path": "/misconception-match",
+}
 
 
 def discard_retired_provider_settings(data: Any) -> Any:
@@ -208,53 +200,22 @@ def normalize_config_input(data: Any) -> Any:
     return normalized
 
 
-def ai_provider_from_codex(config: CodexConfig) -> AIProviderConfig:
-    """Translate the deprecated Codex runtime object to a typed profile."""
+def codex_profile_value(config: Any, field: str) -> Any:
+    """The ``codex`` profile's ``field``, or the old runtime view's default for it.
 
-    provider_class: type[CodexSDKProviderConfig] | type[CodexHTTPProviderConfig]
-    if config.provider.lower() in {"http", "http_adapter"}:
-        provider_class = CodexHTTPProviderConfig
-    else:
-        provider_class = CodexSDKProviderConfig
-    return provider_class(
-        model=config.model,
-        checkout_path=config.checkout_path,
-        revision=config.revision,
-        startup_command=config.startup_command,
-        startup_timeout_seconds=config.startup_timeout_seconds,
-        healthcheck_timeout_seconds=config.healthcheck_timeout_seconds,
-        reasoning_effort=config.reasoning_effort,
-        reasoning_summary=config.reasoning_summary,
-        sdk_python_path=config.sdk_python_path,
-        sdk_codex_bin=config.sdk_codex_bin,
-        sdk_launch_command=config.sdk_launch_command,
-        base_url=config.base_url,
-        healthcheck_path=config.healthcheck_path,
-        authoring_path=config.authoring_path,
-        canonical_ingest_path=config.canonical_ingest_path,
-        grading_path=config.grading_path,
-        tutor_qa_path=config.tutor_qa_path,
-        teach_back_path=config.teach_back_path,
-        teach_back_authoring_path=config.teach_back_authoring_path,
-        misconception_match_path=config.misconception_match_path,
-    )
-
-
-def codex_config_view(config: LearnLoopConfig) -> CodexConfig:
-    """Build the non-serialized ``config.codex`` compatibility alias."""
+    Displays that used to read that view (the desktop's ``health.codex``, a
+    route report for the ``codex`` name) keep showing the same value.
+    """
 
     profile = config.ai.providers.get("codex")
-    if profile is None:
-        return CodexConfig()
-    payload = profile.model_dump(mode="python", exclude={"type"}, exclude_none=True)
-    payload["provider"] = "http" if profile.type == "http" else "sdk"
-    return CodexConfig.model_validate(payload)
+    value = getattr(profile, field, None) if profile is not None else None
+    return _LEGACY_CODEX_TABLE_DEFAULTS.get(field) if value is None else value
 
 
 def _provider_profile_from_legacy_codex(value: dict[str, Any]) -> dict[str, Any]:
-    legacy = CodexConfig.model_validate(value)
-    payload = legacy.model_dump(mode="python")
-    provider = str(payload.pop("provider", "sdk")).strip().lower()
+    payload = dict(_LEGACY_CODEX_TABLE_DEFAULTS)
+    payload.update({key: item for key, item in value.items() if key in _LEGACY_CODEX_TABLE_DEFAULTS})
+    provider = str(value.get("provider", "sdk")).strip().lower()
     payload["type"] = "http" if provider in {"http", "http_adapter"} else "codex_sdk"
     return payload
 
@@ -313,9 +274,7 @@ def _normalize_codex_aliases(ai: dict[str, Any]) -> dict[str, Any]:
 
 
 __all__ = [
-    "CodexConfig",
-    "ai_provider_from_codex",
-    "codex_config_view",
+    "codex_profile_value",
     "discard_retired_provider_settings",
     "normalize_ai_input",
     "normalize_config_input",

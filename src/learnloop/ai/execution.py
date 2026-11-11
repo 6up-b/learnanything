@@ -181,8 +181,8 @@ def model_settings(client: Any) -> dict[str, Any]:
 
     Checkpoint keys include these so that switching the endpoint, reasoning
     effort, thinking mode or response format never replays output produced
-    under different settings. Clients expose their settings either as an
-    ``AIProviderConfig`` (``profile``) or a ``CodexConfig`` (``config``).
+    under different settings. Clients expose their settings as an
+    ``AIProviderConfig`` (``profile``; a client with only ``config`` is read the same way).
     """
 
     profile = getattr(client, "profile", None) or getattr(client, "config", None)
