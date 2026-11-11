@@ -4,6 +4,10 @@ import asyncio
 import re
 from pathlib import Path
 
+import pytest
+
+pytest.importorskip("textual")  # the TUI needs the optional `tui` extra
+
 from learnloop.tui.app import LearnLoopApp
 
 from tests.helpers import begin_session, create_basic_vault, seed_due_item

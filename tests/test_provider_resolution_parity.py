@@ -50,6 +50,8 @@ def test_all_six_entry_point_paths_delegate_to_the_composition_root(
 ) -> None:
     """Keep entry-point parity structural: sites select no provider locally."""
 
+    if module_name.startswith("learnloop.tui."):
+        pytest.importorskip("textual")  # the TUI needs the optional `tui` extra
     module = importlib.import_module(module_name)
     module_path = Path(module.__file__ or "")
     tree = source_ast(source_text(module_path))
@@ -223,6 +225,7 @@ def test_config_matrix_executes_all_six_production_resolution_paths(
 ) -> None:
     """Run the six adapters, not merely their shared root or their ASTs."""
 
+    pytest.importorskip("textual")  # the TUI needs the optional `tui` extra
     from learnloop.attempts import clarification
     from learnloop.attempts.regrade import DeferredRegradeResult
     from learnloop.cli import runtime as cli_runtime

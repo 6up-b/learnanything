@@ -6,6 +6,9 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
+
+pytest.importorskip("textual")  # the TUI needs the optional `tui` extra
+
 from textual.widgets import Button, Input
 
 from learnloop.db.repositories import Repository

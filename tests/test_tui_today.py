@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
+pytest.importorskip("textual")  # the TUI needs the optional `tui` extra
+
 from learnloop.db.repositories import Repository
 from learnloop.scheduling.scheduler import build_due_queue
 from learnloop.tui.app import LearnLoopApp

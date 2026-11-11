@@ -488,6 +488,7 @@ def test_cli_refuses_stuck_where_it_is_not_offered(tmp_path):
 
 
 def test_tui_ctrl_d_opens_the_stuck_prompt_and_an_empty_submit_records_it(tmp_path):
+    pytest.importorskip("textual")  # the TUI needs the optional `tui` extra
     import asyncio
 
     from learnloop.tui.app import LearnLoopApp
@@ -795,6 +796,7 @@ def test_a_joint_regrade_rereads_the_stuck_answer_and_supersedes(tmp_path):
 
 
 def test_tui_empty_stuck_submit_shows_the_result_and_the_worked_answer(tmp_path):
+    pytest.importorskip("textual")  # the TUI needs the optional `tui` extra
     import asyncio
 
     from learnloop.tui.app import LearnLoopApp
@@ -839,6 +841,7 @@ def test_tui_empty_stuck_probe_answer_keeps_feedback_deferred(tmp_path, monkeypa
     """Inside a diagnostic check the answer is not revealed (as for "I don't
     know"): the empty stuck answer is recorded and the screen returns."""
 
+    pytest.importorskip("textual")  # the TUI needs the optional `tui` extra
     import asyncio
 
     import learnloop.attempts.post_attempt as post_attempt
@@ -1159,6 +1162,7 @@ def _tui_empty_stuck_feedback(paths):
 
 
 def test_the_tui_worked_answer_is_recorded_as_a_reveal_and_primes_the_retry(tmp_path):
+    pytest.importorskip("textual")  # the TUI needs the optional `tui` extra
     paths, vault, repository = _stuck_vault(tmp_path)
     result, item_id = _tui_empty_stuck_feedback(paths)
 

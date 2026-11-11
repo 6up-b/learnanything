@@ -68,7 +68,7 @@ Check the prompt, allowed answer type, rubric, selection reasons, due pressure, 
 
 ## 3. Start interactively
 
-Terminal UI:
+Terminal UI (needs the `tui` extra: `uv sync --extra tui`):
 
 ```bash
 uv run learnloop today --vault "$VAULT"

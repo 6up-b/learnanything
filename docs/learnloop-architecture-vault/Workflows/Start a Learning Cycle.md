@@ -66,7 +66,7 @@ The sidecar creates a `sessions` row and an initial `session_checkpoints` row. I
 uv run learnloop today --vault "$VAULT"
 ```
 
-`today` launches an interactive Textual screen; it is not a JSON command. Complete the warm-up fields and begin the session from the screen.
+`today` launches an interactive Textual screen; it is not a JSON command. It needs the `tui` extra (`uv sync --extra tui`); without it, `today` prints that line and exits 1. Complete the warm-up fields and begin the session from the screen.
 
 > [!info] Short-session policy
 > With the default 20-minute threshold, a short session suppresses due probes when ordinary due work is available. This preserves enough time for useful practice; see [[Scheduling and Selection]] rather than treating it as a missing-item bug.

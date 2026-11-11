@@ -11,6 +11,10 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
+pytest.importorskip("textual")  # the TUI needs the optional `tui` extra
+
 from learnloop.tui.app import LearnLoopApp
 from learnloop.tui.screens.start import StartScreen
 

@@ -4183,7 +4183,17 @@ def today(
 ) -> None:
     from learnloop.app_launch import launch_tui
 
-    launch_tui(_root(vault))
+    try:
+        launch_tui(_root(vault))
+    except ModuleNotFoundError as exc:
+        # textual is the optional `tui` extra; any other missing module is a real bug.
+        if (exc.name or "").split(".")[0] != "textual":
+            raise
+        typer.echo(
+            "The terminal app needs the tui extra: uv sync --extra tui (or pip install 'learnloop[tui]')",
+            err=True,
+        )
+        raise typer.Exit(1) from None
 
 
 @app.command("exam-calibration")

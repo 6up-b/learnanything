@@ -1112,7 +1112,6 @@ dependencies = [
     { name = "pyyaml" },
     { name = "ruamel-yaml" },
     { name = "sympy" },
-    { name = "textual" },
     { name = "tomlkit" },
     { name = "trafilatura" },
     { name = "typer" },
@@ -1142,6 +1141,9 @@ mobile = [
 ]
 pdf = [
     { name = "marker-pdf" },
+]
+tui = [
+    { name = "textual" },
 ]
 
 [package.dev-dependencies]
@@ -1175,7 +1177,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.17.1" },
     { name = "starlette", marker = "extra == 'mobile'", specifier = "==1.7.0" },
     { name = "sympy", specifier = ">=1.14" },
-    { name = "textual", specifier = ">=8.2.7" },
+    { name = "textual", marker = "extra == 'tui'", specifier = ">=8.2.7" },
     { name = "tomlkit", specifier = ">=0.12" },
     { name = "trafilatura", specifier = ">=2,<3" },
     { name = "typer", specifier = ">=0.12" },
@@ -1183,7 +1185,7 @@ requires-dist = [
     { name = "wasmtime", specifier = "==50.0.1" },
     { name = "youtube-transcript-api", specifier = ">=0.6" },
 ]
-provides-extras = ["mobile", "dev", "pdf", "glm-ocr", "mcp"]
+provides-extras = ["tui", "mobile", "dev", "pdf", "glm-ocr", "mcp"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "import-linter", specifier = ">=2.13" }]

@@ -584,6 +584,10 @@ def test_every_runtime_module_imports() -> None:
     for module_name in sorted(modules):
         try:
             importlib.import_module(module_name)
+        except ModuleNotFoundError as exc:
+            # Only the TUI may need an optional extra (`tui`, for textual).
+            if not (module_name.startswith("learnloop.tui.") and (exc.name or "").split(".")[0] == "textual"):
+                failures.append(f"{module_name}: {type(exc).__name__}: {exc}")
         except Exception as exc:  # pragma: no cover - failure detail only
             failures.append(f"{module_name}: {type(exc).__name__}: {exc}")
     assert not failures, "\n".join(failures)

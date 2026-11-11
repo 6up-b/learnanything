@@ -101,6 +101,7 @@ def _attempt(vault_root):
 
 
 def test_tui_grading_records_receipts_with_usage(tmp_path):
+    pytest.importorskip("textual")  # the TUI needs the optional `tui` extra
     from learnloop.tui.app import LearnLoopApp
 
     async def scenario():

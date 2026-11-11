@@ -322,7 +322,9 @@ uv run learnloop today --vault ~/LearnLoop/my-vault
 ```
 
 Quick Add collapses import → outline → unit selection → inventory → synthesis
-into one confirmation. The deliberate step-by-step path (`import`,
+into one confirmation. `today` opens the terminal app, which needs the `tui`
+extra (`uv sync --extra tui`, or `pip install 'learnloop[tui]'`); without it,
+`today` prints that line and exits. The deliberate step-by-step path (`import`,
 `source-outline`, `source-set`, `source-coverage`, `build-plan`, `synthesize`)
 runs the same machinery with you at each decision point — see the
 [quick start](docs/specs/documentation.md#quick-start) for when to prefer which.
@@ -563,7 +565,7 @@ is activated, and `uv run` is what the Tauri shell falls back to when locating
 the sidecar.
 
 ```bash
-uv sync --extra dev                    # install
+uv sync --extra dev --extra tui        # install; without --extra tui the terminal app's tests skip
 uv run pytest -n 8 --dist worksteal -m "not arc_close"   # the landing gate (about 12 minutes; docs/reviews/refactor-a6.md)
 uv run pytest -n 8 --dist worksteal -m arc_close         # pre-registered simulations and long journeys
 uv run pytest tests/test_scheduler.py::test_name -x   # one test

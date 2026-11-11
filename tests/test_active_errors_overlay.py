@@ -13,9 +13,10 @@ from __future__ import annotations
 from collections import defaultdict
 from types import SimpleNamespace
 
+import pytest
+
 from learnloop.diagnosis.split import jobs as jobs_module
 from learnloop.diagnosis.split.jobs import DONE, diagnosis_status
-from learnloop.tui.screens.feedback import FeedbackScreen
 
 from tests.helpers import NOW_ISO
 from tests.split_live_helpers import drain_jobs, split_vault, submit
@@ -116,21 +117,30 @@ class _Widget:
         self.content = content
 
 
-class _FeedbackStub:
-    """Just enough of FeedbackScreen to run its rendering helpers headless."""
+def _feedback_stub(vault, repository):
+    """Just enough of FeedbackScreen to run its rendering helpers headless.
 
-    _error_content = FeedbackScreen._error_content
-    _run_inline_diagnosis = FeedbackScreen._run_inline_diagnosis
+    Built here, not at import, because the screen needs textual (the optional
+    `tui` extra) and this file's overlay tests run without it."""
 
-    def __init__(self, vault, repository) -> None:
-        self.state = SimpleNamespace(vault=vault, repository=repository)
-        self.widgets: dict[str, _Widget] = defaultdict(_Widget)
+    from learnloop.tui.screens.feedback import FeedbackScreen
 
-    def query_one(self, selector, _widget_type=None):
-        return self.widgets[selector]
+    class _FeedbackStub:
+        _error_content = FeedbackScreen._error_content
+        _run_inline_diagnosis = FeedbackScreen._run_inline_diagnosis
+
+        def __init__(self, vault, repository) -> None:
+            self.state = SimpleNamespace(vault=vault, repository=repository)
+            self.widgets: dict[str, _Widget] = defaultdict(_Widget)
+
+        def query_one(self, selector, _widget_type=None):
+            return self.widgets[selector]
+
+    return _FeedbackStub(vault, repository)
 
 
 def test_tui_error_attributions_show_the_diagnosers_statement_once_diagnosed(tmp_path, monkeypatch):
+    pytest.importorskip("textual")
     _paths, vault, repository = split_vault(tmp_path, seed=False)
     client = _StatementFake()
     result = submit(vault, repository, client)
@@ -142,7 +152,7 @@ def test_tui_error_attributions_show_the_diagnosers_statement_once_diagnosed(tmp
             vault, repository, client_factory=lambda: client, embedding_factory=lambda: None, **kwargs
         ),
     )
-    screen = _FeedbackStub(vault, repository)
+    screen = _feedback_stub(vault, repository)
     error_type = repository.raw_error_events_for_attempt(result.attempt_id)[0]["error_type"]
 
     # Rendered with the grade, before the inline diagnosis: the error type.
@@ -158,11 +168,12 @@ def test_tui_error_attributions_show_the_diagnosers_statement_once_diagnosed(tmp
 
 
 def test_tui_error_attributions_are_not_rerendered_when_no_diagnosis_is_needed(tmp_path, monkeypatch):
+    pytest.importorskip("textual")
     _paths, vault, repository = split_vault(tmp_path, seed=False)
     client = _StatementFake()
     result = submit(vault, repository, client, answer="A = U Sigma V^T")
     monkeypatch.setattr(jobs_module, "drain", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError))
-    screen = _FeedbackStub(vault, repository)
+    screen = _feedback_stub(vault, repository)
 
     screen._run_inline_diagnosis(result)
 

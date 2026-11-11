@@ -509,6 +509,7 @@ def test_the_tui_open_serves_a_cold_check_submit_would_prime_as_practice(tmp_pat
     built) since the item's last attempt withdraws the due cold retry, so the
     answer is an ordinary one, accepted."""
 
+    pytest.importorskip("textual")  # the TUI needs the optional `tui` extra
     import asyncio
 
     from learnloop.db.repositories import Repository

@@ -36,18 +36,27 @@ from learnloop.scheduling.session_minutes import (
     minute_choices,
     remembered_session_minutes,
 )
-from learnloop.tui import screens as tui_screens
-from learnloop.tui.app import LearnLoopApp
 from learnloop.tui.minutes_memory import chosen_minutes_path, load_chosen_minutes, save_chosen_minutes
-from learnloop.tui.screens.feedback import FeedbackScreen
-from learnloop.tui.screens.practice import PracticeScreen
-from learnloop.tui.screens.start import MinutesPicker, StartScreen
-from learnloop.tui.screens.today import TodayScreen
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.owner_vaults import owner_vault, working_vault_params
 from tests.helpers import add_followup_item, begin_session, create_basic_vault, seed_due_item
+
+# The TUI's app and screens need textual, the optional `tui` extra; the
+# sidecar half of this file runs without it, and the TUI tests skip.
+try:
+    from learnloop.tui import screens as tui_screens
+    from learnloop.tui.app import LearnLoopApp
+    from learnloop.tui.screens.feedback import FeedbackScreen
+    from learnloop.tui.screens.practice import PracticeScreen
+    from learnloop.tui.screens.start import MinutesPicker, StartScreen
+    from learnloop.tui.screens.today import TodayScreen
+except ModuleNotFoundError as exc:
+    if (exc.name or "").split(".")[0] != "textual":
+        raise
+    LearnLoopApp = None
+needs_textual = pytest.mark.skipif(LearnLoopApp is None, reason="needs the tui extra (textual)")
 
 # The owner's working vaults: backup-API copies in the owner_vaults lane (S0).
 WORKING_FIXTURES = working_vault_params()
@@ -278,6 +287,7 @@ def test_today_queue_serves_the_same_queue_without_energy_on_fixture_copies(tmp_
 # ── The TUI: minutes-only Start and auto-advance ───────────────────────────
 
 
+@needs_textual
 def test_tui_start_asks_for_minutes_only_and_starts_on_the_remembered_minutes(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     Repository(paths.sqlite_path).create_session(available_minutes=40)
@@ -314,6 +324,7 @@ def test_tui_start_asks_for_minutes_only_and_starts_on_the_remembered_minutes(tm
     asyncio.run(scenario())
 
 
+@needs_textual
 def test_tui_start_uses_25_minutes_on_a_fresh_vault_and_keeps_an_old_budget(tmp_path):
     fresh = create_basic_vault(tmp_path / "fresh")
     old = create_basic_vault(tmp_path / "old")
@@ -352,6 +363,7 @@ def _run_tui_start(root: Path, *, keys: tuple[str, ...] = (), begin: bool = Fals
     return asyncio.run(scenario())
 
 
+@needs_textual
 def test_tui_remembers_the_minutes_it_began_with_across_a_restart(tmp_path, monkeypatch):
     """§6.6 (P4): a TUI Begin is remembered, though the TUI records no session row."""
 
@@ -376,6 +388,7 @@ def test_tui_remembers_the_minutes_it_began_with_across_a_restart(tmp_path, monk
         assert connection.execute("SELECT COUNT(*) FROM sessions").fetchone()[0] == 0
 
 
+@needs_textual
 def test_tui_minutes_are_the_newer_of_its_own_begin_and_the_last_session(tmp_path, monkeypatch):
     monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "config"))
     paths = create_basic_vault(tmp_path / "vault")
@@ -402,6 +415,7 @@ def test_tui_minutes_are_the_newer_of_its_own_begin_and_the_last_session(tmp_pat
     assert _call(_context(paths.root), "get_start_summary", {})["rememberedMinutes"] == 15
 
 
+@needs_textual
 def test_the_tui_minutes_store_never_breaks_start(tmp_path, monkeypatch):
     monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "config"))
     paths = create_basic_vault(tmp_path / "vault")
@@ -434,6 +448,7 @@ def test_the_tui_minutes_store_never_breaks_start(tmp_path, monkeypatch):
     assert (offered, chosen) == (FIRST_RUN_MINUTES, 40)
 
 
+@needs_textual
 def test_tui_start_lays_the_minute_chips_out_on_screen(tmp_path):
     """Start's stylesheet applies (Textual never loads a default screen's own
     CSS_PATH), so the chips, Start's only control, are visible and whole."""
@@ -482,6 +497,7 @@ async def _graded_feedback(app, pilot) -> FeedbackScreen:
     return feedback
 
 
+@needs_textual
 def test_tui_next_opens_the_head_of_the_live_queue(tmp_path):
     paths = _two_due_items(tmp_path)
 
@@ -503,6 +519,7 @@ def test_tui_next_opens_the_head_of_the_live_queue(tmp_path):
     asyncio.run(scenario())
 
 
+@needs_textual
 def test_tui_esc_keeps_the_list_and_an_ungraded_next_returns_to_it(tmp_path):
     paths = _two_due_items(tmp_path)
 

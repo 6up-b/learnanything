@@ -2508,6 +2508,7 @@ def test_f1k_the_tui_open_defers_a_cold_check_a_routine_display_covers(tmp_path)
     (on the desktop, after the TUI built its list) is deferred when the item
     opens, so no cold check is administered."""
 
+    pytest.importorskip("textual")  # the TUI needs the optional `tui` extra
     import asyncio
     from datetime import UTC, datetime
 

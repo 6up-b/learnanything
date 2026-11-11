@@ -415,6 +415,7 @@ def test_field_projection_and_timeline_read_unverified_criteria_the_same_way(tmp
 
 
 def test_feedback_shows_an_unverified_criterion_as_not_assessed(tmp_path):
+    pytest.importorskip("textual")  # the TUI needs the optional `tui` extra
     from learnloop.attempts.grading import resolved_rubric
     from learnloop.tui.screens.feedback import FeedbackScreen
     from learnloop_sidecar.handlers.serializers import feedback_bundle
