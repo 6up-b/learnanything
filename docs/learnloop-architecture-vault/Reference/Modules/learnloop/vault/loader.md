@@ -244,7 +244,6 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 ### Repository tooling consumers
 
 - [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py); calls `load_vault`
-- [scripts/gen_goldenpath_fixtures.py](../../../../../../scripts/gen_goldenpath_fixtures.py); calls `load_vault`
 - [scripts/voi_cap_report.py](../../../../../../scripts/voi_cap_report.py); calls `load_vault`
 
 ## Dependencies
@@ -385,7 +384,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/router_staged_p2_helpers.py](../../../../../../tests/router_staged_p2_helpers.py) — direct import
 - [tests/rw5c_golden_source.py](../../../../../../tests/rw5c_golden_source.py) — direct import
 - [tests/serve_eligibility_helpers.py](../../../../../../tests/serve_eligibility_helpers.py) — direct import
-- [tests/sidecar_golden_path_assessment_helpers.py](../../../../../../tests/sidecar_golden_path_assessment_helpers.py) — direct import
 - [tests/sim_probe_validation_helpers.py](../../../../../../tests/sim_probe_validation_helpers.py) — direct import
 - [tests/simulation_helpers.py](../../../../../../tests/simulation_helpers.py) — direct import
 - [tests/source_append_helpers.py](../../../../../../tests/source_append_helpers.py) — direct import
@@ -1050,8 +1048,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_deactivating_a_practised_learning_object_is_still_invalid`
   - `test_independent_surface_groups_and_mass_no_longer_lock_a_facet`
   - `test_rename_alias_is_always_sanctioned`
-- [tests/test_daily_loop_golden_path_lifecycle.py](../../../../../../tests/test_daily_loop_golden_path_lifecycle.py) — direct import
-  - `test_assess_open_refuses_a_parked_lo_without_burning_the_surface`
 - [tests/test_daily_loop_lo_lifecycle_serving.py](../../../../../../tests/test_daily_loop_lo_lifecycle_serving.py) — direct import
   - `test_exam_start_does_not_administer_items_of_an_lo_put_away_after_reservation`
   - `test_follow_up_lanes_do_not_resurrect_items_of_an_inactive_lo`
@@ -2347,7 +2343,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import
   - `test_event_replay_equivalence_after_full_walk`
   - `test_fault_injection_diagnostic_baseline_boundary_yields_exactly_one`
-  - `test_golden_path_ten_step_fixture_journey`
   - `test_starting_instruction_closes_measurement_segment_and_reentry_is_fresh`
 - [tests/test_p2_leakage_suite.py](../../../../../../tests/test_p2_leakage_suite.py) — direct import
 - [tests/test_p3_journeys.py](../../../../../../tests/test_p3_journeys.py) — direct import
@@ -2361,7 +2356,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_reject_proposal_item_does_not_mutate_yaml`
 - [tests/test_patch_compiler.py](../../../../../../tests/test_patch_compiler.py) — direct import
   - `test_compile_concept_edge_update_preserves_existing_endpoints`
-- [tests/test_pattern_ladder.py](../../../../../../tests/test_pattern_ladder.py) — direct import
 - [tests/test_persona_gate.py](../../../../../../tests/test_persona_gate.py) — direct import
   - `test_b2_separable_corpus_invalidates_an_otherwise_passing_hard_gate`
   - `test_gate_precision_reports_no_data_before_any_prediction`
@@ -3268,8 +3262,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_inspect_concept_and_resolve_lo_concept_references`
   - `test_sidecar_inspect_note_source_ref_with_timestamp_suffix`
   - `test_sidecar_loads_linear_algebra_fixture_vault`
-- [tests/test_sidecar_golden_path_assessment.py](../../../../../../tests/test_sidecar_golden_path_assessment.py) — direct import
-  - `test_practice_only_assess_open_returns_stable_error`
 - [tests/test_sidecar_item_authoring.py](../../../../../../tests/test_sidecar_item_authoring.py) — direct import
   - `test_edit_retire_author_flow`
   - `test_split_flow`
@@ -3394,7 +3386,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_seen_stem_backfill_embeds_retired_and_earlier_texts_only_explicitly`
   - `test_seen_stem_records_follow_the_seen_revision_and_scored_rows`
   - `test_without_vectors_the_embedding_arms_abstain_and_say_so`
-- [tests/test_surface_pool.py](../../../../../../tests/test_surface_pool.py) — direct import
 - [tests/test_surfaced_belief_corrections.py](../../../../../../tests/test_surfaced_belief_corrections.py) — direct import
 - [tests/test_synthesis_criterion_dependencies.py](../../../../../../tests/test_synthesis_criterion_dependencies.py) — direct import
   - `test_fix_content_skips_unparseable_items_and_reports_them`

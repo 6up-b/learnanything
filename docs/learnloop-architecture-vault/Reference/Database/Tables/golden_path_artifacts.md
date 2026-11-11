@@ -100,7 +100,6 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/golden_path_run.py`
 - `src/learnloop/diagnosis/diagnostic_pack.py`
 - `src/learnloop/scheduling/controller_cutover.py`
-- `src/learnloop_sidecar/handlers/golden_path_assessment.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -110,7 +109,6 @@ Indexes and uniqueness:
 - `tests/test_controller_cutover.py`
 - `tests/test_golden_path_assessment.py`
 - `tests/test_p2_acceptance.py`
-- `tests/test_router_p2_bridge.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -104,7 +104,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop_sidecar/handlers/diagnostic|learnloop_sidecar.handlers.diagnostic]] — imports `module`; statically calls `decide`, `override`, `triage`, `triage_status`
+No live LearnLoop module directly imports this module in the static graph.
 
 ## Dependencies
 
@@ -129,7 +129,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/diagnostic|learnloop_sidecar.handlers.diagnostic]].
+No live LearnLoop module imports it directly; its current reach is tests, repository tooling, dynamic registration, or explicit manual invocation where documented above.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -186,10 +186,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_zero_mass_causal_support_falls_through_to_the_signature_fallback`
 - [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import
   - `test_event_replay_equivalence_after_full_walk`
-  - `test_golden_path_ten_step_fixture_journey`
-  - `test_misconception_planted_learner_takes_signature_route_and_repair_rung`
-- [tests/test_pattern_ladder.py](../../../../../../tests/test_pattern_ladder.py) — direct import
-  - `test_entry_stage_is_set_by_the_triage_route`
 
 ## Modification guidance
 

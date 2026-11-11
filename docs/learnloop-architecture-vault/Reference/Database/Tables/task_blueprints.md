@@ -18,7 +18,6 @@ source_paths:
   - "migrations/081_task_blueprints.sql"
   - "src/learnloop/curriculum/golden_path_fixture.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop_sidecar/handlers/golden_path.py"
   - "src/learnloop/curriculum/task_blueprints.py"
   - "src/learnloop/reader/reader_guidance.py"
 tags:
@@ -97,13 +96,11 @@ Indexes and uniqueness:
 
 - `tests/reader_guidance_helpers.py`
 - `tests/router_staged_p2_helpers.py`
-- `tests/sidecar_golden_path_assessment_helpers.py`
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_controller_cutover.py`
 - `tests/test_golden_path_assessment.py`
 - `tests/test_golden_path_confirm.py`
 - `tests/test_golden_path_run.py`
-- `tests/test_sidecar_golden_path_assessment.py`
 - `tests/test_task_blueprints.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

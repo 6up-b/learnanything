@@ -79,7 +79,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/GoalWizard|src/components/GoalWizard.tsx]] — import-or-re-export: `CommandOverlayFrame`; references `CommandOverlayFrame`
 - [[Reference/Desktop/TypeScript/components/InspectorOverlay|src/components/InspectorOverlay.tsx]] — import-or-re-export: `CommandOverlayFrame`, `commandOverlayActionStyle`, `learnloopShowOverlayWidth`; references `CommandOverlayFrame`, `commandOverlayActionStyle`, `learnloopShowOverlayWidth`
 - [[Reference/Desktop/TypeScript/components/KnowledgeModel|src/components/KnowledgeModel.tsx]] — import-or-re-export: `CommandOverlayFrame`, `learnloopShowOverlayWidth`; references `CommandOverlayFrame`, `learnloopShowOverlayWidth`
-- [[Reference/Desktop/TypeScript/components/WhyDiagnosisOverlay|src/components/WhyDiagnosisOverlay.tsx]] — import-or-re-export: `CommandOverlayFrame`; references `CommandOverlayFrame`
 - [[Reference/Desktop/TypeScript/screens/ReviewScreen|src/screens/ReviewScreen.tsx]] — import-or-re-export: `CommandOverlayFrame`; references `CommandOverlayFrame`
 - [[Reference/Desktop/TypeScript/screens/SettingsScreen|src/screens/SettingsScreen.tsx]] — import-or-re-export: `CommandOverlayFrame`; references `CommandOverlayFrame`
 

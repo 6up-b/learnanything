@@ -94,7 +94,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/scheduling/progression|learnloop.scheduling.progression]] — imports `module`; statically calls `evidence_cap_grouping`
 - [[Reference/Modules/learnloop/sim/kinship_admission|learnloop.sim.kinship_admission]] — imports `module`; statically calls `warmth_score`
 - [[Reference/Modules/learnloop/substrate/surface_mint|learnloop.substrate.surface_mint]] — imports `module`; statically calls `familiarity_projection_v1`
-- [[Reference/Modules/learnloop/substrate/surface_pool|learnloop.substrate.surface_pool]] — imports `module`; statically calls `familiarity_projection_v1`
 
 ## Dependencies
 
@@ -115,7 +114,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]], [[Reference/Modules/learnloop/scheduling/kinship_feature|learnloop.scheduling.kinship_feature]], [[Reference/Modules/learnloop/scheduling/progression|learnloop.scheduling.progression]], [[Reference/Modules/learnloop/sim/kinship_admission|learnloop.sim.kinship_admission]], [[Reference/Modules/learnloop/substrate/surface_mint|learnloop.substrate.surface_mint]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]], [[Reference/Modules/learnloop/scheduling/kinship_feature|learnloop.scheduling.kinship_feature]], [[Reference/Modules/learnloop/scheduling/progression|learnloop.scheduling.progression]], [[Reference/Modules/learnloop/sim/kinship_admission|learnloop.sim.kinship_admission]], [[Reference/Modules/learnloop/substrate/surface_mint|learnloop.substrate.surface_mint]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -139,15 +138,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_kinship_feature.py](../../../../../../tests/test_kinship_feature.py) — direct import
 - [tests/test_laddered_stems.py](../../../../../../tests/test_laddered_stems.py) — direct import
   - `test_the_rule_is_inert_without_stem_identity`
-- [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import
-  - `test_golden_path_ten_step_fixture_journey`
 - [tests/test_progression.py](../../../../../../tests/test_progression.py) — direct import
 - [tests/test_surface_mint.py](../../../../../../tests/test_surface_mint.py) — direct import
   - `test_purpose_leakage_blocks_assessment_hard_collision`
-- [tests/test_surface_pool.py](../../../../../../tests/test_surface_pool.py) — direct import
-  - `test_familiar_practice_is_never_reported_fresh`
-  - `test_lazy_rotation_fires_after_warmth`
-  - `test_next_practice_surface_writes_served_and_rotated_ledger_events`
 
 ## Modification guidance
 

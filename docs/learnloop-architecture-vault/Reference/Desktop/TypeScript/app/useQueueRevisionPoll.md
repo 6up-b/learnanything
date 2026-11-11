@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/useQueueRevisionPoll.ts](../../../../../../apps/learnloop-tauri/src/app/useQueueRevisionPoll.ts) |
-| Source lines | 187 |
+| Source lines | 186 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -56,36 +56,36 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export const REVISION_POLL_MS = 3000` — const, line 43
 - `export interface RevisionPollView` — interface, line 48
-- `export function revisionPollHeld(view: RevisionPollView): boolean` — function, line 64
-- `export interface QueueRevisionPollOptions` — interface, line 70
-- `export function useQueueRevisionPoll(` — function, line 81
+- `export function revisionPollHeld(view: RevisionPollView): boolean` — function, line 63
+- `export interface QueueRevisionPollOptions` — interface, line 69
+- `export function useQueueRevisionPoll(` — function, line 80
 
 ## Internal implementation anchors
 
-- `const onToday = view.tab === "today" || (view.simple && view.tab === "start")` — const, line 65
-- `const overToday = view.examOpen || view.calibrationOpen || view.lessonOpen || view.goldenRunOpen` — const, line 66
-- `const sessionIdRef = useRef(sessionId)` — const, line 82
-- `const quietRef = useRef(quiet)` — const, line 84
-- `const pendingRef = useRef(false)` — const, line 86
-- `const tickRef = useRef<(()` — const, line 87
-- `let disposed = false` — let, line 98
-- `let inFlight = false` — let, line 99
-- `let seen: number | null = null` — let, line 100
-- `let windowBack = false` — let, line 102
-- `let sessionReadOwed = false` — let, line 105
-- `const readOpenSession = async (): Promise<boolean>` — const, line 108
-- `const id = sessionIdRef.current` — const, line 109
-- `const snapshot = await api.getSession(id)` — const, line 112
-- `const tick = async ()` — const, line 122
-- `let answered = false` — let, line 127
-- `const heldRead = quietRef.current` — const, line 128
-- `const snapshot = await api.getQueueRevision(heldRead ?` — const, line 130
-- `const back = windowBack` — const, line 135
-- `const changed = seen !== null && seen !== snapshot.revision` — const, line 137
-- `const onWindowBack = ()` — const, line 158
-- `const interval = window.setInterval(()` — const, line 165
-- `const wasQuietRef = useRef(quiet)` — const, line 181
-- `const wasQuiet = wasQuietRef.current` — const, line 183
+- `const onToday = view.tab === "today" || (view.simple && view.tab === "start")` — const, line 64
+- `const overToday = view.examOpen || view.calibrationOpen || view.lessonOpen` — const, line 65
+- `const sessionIdRef = useRef(sessionId)` — const, line 81
+- `const quietRef = useRef(quiet)` — const, line 83
+- `const pendingRef = useRef(false)` — const, line 85
+- `const tickRef = useRef<(()` — const, line 86
+- `let disposed = false` — let, line 97
+- `let inFlight = false` — let, line 98
+- `let seen: number | null = null` — let, line 99
+- `let windowBack = false` — let, line 101
+- `let sessionReadOwed = false` — let, line 104
+- `const readOpenSession = async (): Promise<boolean>` — const, line 107
+- `const id = sessionIdRef.current` — const, line 108
+- `const snapshot = await api.getSession(id)` — const, line 111
+- `const tick = async ()` — const, line 121
+- `let answered = false` — let, line 126
+- `const heldRead = quietRef.current` — const, line 127
+- `const snapshot = await api.getQueueRevision(heldRead ?` — const, line 129
+- `const back = windowBack` — const, line 134
+- `const changed = seen !== null && seen !== snapshot.revision` — const, line 136
+- `const onWindowBack = ()` — const, line 157
+- `const interval = window.setInterval(()` — const, line 164
+- `const wasQuietRef = useRef(quiet)` — const, line 180
+- `const wasQuiet = wasQuietRef.current` — const, line 182
 
 ## Who imports or calls it
 

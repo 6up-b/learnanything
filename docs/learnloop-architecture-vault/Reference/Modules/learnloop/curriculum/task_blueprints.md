@@ -79,7 +79,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/curriculum/golden_path_fixture|learnloop.curriculum.golden_path_fixture]] — imports `module`; statically calls `place_reading_question`, `register_blueprint_version`, `review_blueprint_version`
-- [[Reference/Modules/learnloop_sidecar/handlers/golden_path|learnloop_sidecar.handlers.golden_path]] — imports `module`; statically calls `_load_version`, `register_blueprint_version`, `review_blueprint_version`
 
 ## Dependencies
 
@@ -100,7 +99,7 @@ Use this module in context through:
 
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/golden_path_fixture|learnloop.curriculum.golden_path_fixture]], [[Reference/Modules/learnloop_sidecar/handlers/golden_path|learnloop_sidecar.handlers.golden_path]].
+Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/golden_path_fixture|learnloop.curriculum.golden_path_fixture]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -108,15 +107,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/reader_guidance_helpers.py](../../../../../../tests/reader_guidance_helpers.py) — direct import
 - [tests/router_staged_p2_helpers.py](../../../../../../tests/router_staged_p2_helpers.py) — direct import
-- [tests/sidecar_golden_path_assessment_helpers.py](../../../../../../tests/sidecar_golden_path_assessment_helpers.py) — direct import
 - [tests/test_causal_p2_acceptance.py](../../../../../../tests/test_causal_p2_acceptance.py) — direct import
 - [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
 - [tests/test_golden_path_assessment.py](../../../../../../tests/test_golden_path_assessment.py) — direct import
 - [tests/test_golden_path_confirm.py](../../../../../../tests/test_golden_path_confirm.py) — direct import
   - `test_unreviewed_blueprint_refused`
 - [tests/test_golden_path_run.py](../../../../../../tests/test_golden_path_run.py) — direct import
-- [tests/test_sidecar_golden_path_assessment.py](../../../../../../tests/test_sidecar_golden_path_assessment.py) — direct import
-  - `test_practice_only_assess_open_returns_stable_error`
 - [tests/test_task_blueprints.py](../../../../../../tests/test_task_blueprints.py) — direct import
   - `test_capability_outside_vocab_rejected`
   - `test_exemplar_anchor_has_zero_held_out_weight`

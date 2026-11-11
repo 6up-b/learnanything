@@ -28,7 +28,7 @@ Deterministic renderer fixtures used to demonstrate or restore known states.
 
 ## Child areas
 
-- [[Reference/Desktop/TypeScript/fixtures/goldenpath/_area|TypeScript/fixtures/goldenpath]] — A barrel over checked-in golden-path JSON scenario fixtures.
+No nested ownership area.
 
 ## Direct modules
 

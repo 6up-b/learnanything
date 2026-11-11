@@ -143,7 +143,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
   - `test_f2_the_forced_shape_names_its_item`
   - `test_f3_a_list_that_served_no_head_still_decides_nothing_and_reads_no_ad`
-  - `test_f3_the_staged_bridge_hands_its_decision_the_ad_reader`
 - [tests/test_ro0_rows9_13_decision_state.py](../../../../../../tests/test_ro0_rows9_13_decision_state.py) — direct import
   - `test_a_path_that_reads_no_ad_says_so`
   - `test_a_state_that_cannot_be_read_never_touches_the_decision`

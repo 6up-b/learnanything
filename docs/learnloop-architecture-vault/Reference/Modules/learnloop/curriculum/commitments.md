@@ -285,8 +285,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f5_a_crash_before_the_commitment_leaves_one_item_and_one_commitment`
 - [tests/test_reader_rw6b_landing.py](../../../../../../tests/test_reader_rw6b_landing.py) — direct import
   - `test_i_check_once_commitments_and_follow_ups_coexist_and_the_gate_touches_only_follow_ups`
-- [tests/test_router_p2_bridge.py](../../../../../../tests/test_router_p2_bridge.py) — direct import
-  - `test_a_retried_constraint_vetoed_advance_stays_deferred`
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
 - [tests/test_state_signals.py](../../../../../../tests/test_state_signals.py) — direct import
   - `test_misspecification_scoped_to_commitment_head_targets`

@@ -91,7 +91,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop_sidecar/handlers/golden_path|learnloop_sidecar.handlers.golden_path]] — imports `module`; statically calls `advance_live`
+No live LearnLoop module directly imports this module in the static graph.
 
 ## Dependencies
 
@@ -125,13 +125,14 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/golden_path|learnloop_sidecar.handlers.golden_path]].
+No live LearnLoop module imports it directly; its current reach is tests, repository tooling, dynamic registration, or explicit manual invocation where documented above.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
 - [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
+  - `test_a_standing_decisions_persisted_trace_names_the_same_veto`
   - `test_advance_live_veto_persists_typed_marker`
   - `test_all_six_cutover_gates_pass_in_order`
   - `test_bridge_goes_live_and_is_decision_equivalent_when_owned`
@@ -149,9 +150,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f8_the_staged_decisions_receipt_commits_with_it`
 - [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
   - `test_f3_a_staged_decision_keeps_its_ad_numbers`
-- [tests/test_router_p2_bridge.py](../../../../../../tests/test_router_p2_bridge.py) — direct import
-  - `test_a_staged_veto_defers_the_run_and_says_why_in_plain_words`
-  - `test_a_standing_decisions_persisted_trace_names_the_same_veto`
 - [tests/test_router_staged_p2.py](../../../../../../tests/test_router_staged_p2.py) — direct import
   - `test_a_live_staged_decision_logs_continue_the_ladder_and_its_choice`
   - `test_a_logging_failure_never_changes_the_staged_decision`

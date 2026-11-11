@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/shell.ts](../../../../../../apps/learnloop-tauri/src/app/shell.ts) |
-| Source lines | 179 |
+| Source lines | 173 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -54,40 +54,40 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export type ShellMode = "simple" | "classic"` — type, line 16
-- `export function shellMode(): ShellMode` — function, line 19
-- `export function simpleShell(): boolean` — function, line 25
-- `export type Place = "today" | "library" | "reader" | "progress"` — type, line 31
-- `export const PLACES: ReadonlyArray<` — const, line 33
-- `export function placeOfTab(tab: TopTab): Place | "underhood" | null` — function, line 43
-- `export function tabForPlace(place: Place, hasSession: boolean): TopTab` — function, line 55
-- `export type UthToolId = | "ingest" | "proposals" | "registry" | "graph-editor" | "analyst" | "mistakes" | "calibration" | "maintain" | "data" | "files" | "inspector" | "golden" | "spend"` — type, line 63
-- `export interface UthTool` — interface, line 78
-- `export const UTH_TOOLS: ReadonlyArray<UthTool> = [` — const, line 90
-- `export function visibleUthTools(): UthTool[]` — function, line 108
-- `export function isTabTool(tool: UthToolId): tool is "ingest" | "proposals" | "registry" | "maintain" | "golden"` — function, line 115
-- `export function uthTool(id: UthToolId): UthTool` — function, line 119
-- `export function uthToolOfTab(tab: TopTab, current: UthToolId): UthToolId` — function, line 125
-- `export function rememberPlace(place: Place | "underhood"): void` — function, line 152
-- `export function rememberedPlace(): Place | "underhood" | null` — function, line 156
-- `export function rememberTool(tool: UthToolId): void` — function, line 161
-- `export function rememberedTool(): UthToolId` — function, line 165
-- `export function rememberBook(vaultRoot: string, sourceId: string | null): void` — function, line 172
-- `export function rememberedBook(vaultRoot: string): string | null` — function, line 176
+- `export type ShellMode = "simple" | "classic"` — type, line 15
+- `export function shellMode(): ShellMode` — function, line 18
+- `export function simpleShell(): boolean` — function, line 24
+- `export type Place = "today" | "library" | "reader" | "progress"` — type, line 30
+- `export const PLACES: ReadonlyArray<` — const, line 32
+- `export function placeOfTab(tab: TopTab): Place | "underhood" | null` — function, line 42
+- `export function tabForPlace(place: Place, hasSession: boolean): TopTab` — function, line 54
+- `export type UthToolId = | "ingest" | "proposals" | "registry" | "graph-editor" | "analyst" | "mistakes" | "calibration" | "maintain" | "data" | "files" | "inspector" | "spend"` — type, line 62
+- `export interface UthTool` — interface, line 76
+- `export const UTH_TOOLS: ReadonlyArray<UthTool> = [` — const, line 86
+- `export function visibleUthTools(): UthTool[]` — function, line 102
+- `export function isTabTool(tool: UthToolId): tool is "ingest" | "proposals" | "registry" | "maintain"` — function, line 109
+- `export function uthTool(id: UthToolId): UthTool` — function, line 113
+- `export function uthToolOfTab(tab: TopTab, current: UthToolId): UthToolId` — function, line 119
+- `export function rememberPlace(place: Place | "underhood"): void` — function, line 146
+- `export function rememberedPlace(): Place | "underhood" | null` — function, line 150
+- `export function rememberTool(tool: UthToolId): void` — function, line 155
+- `export function rememberedTool(): UthToolId` — function, line 159
+- `export function rememberBook(vaultRoot: string, sourceId: string | null): void` — function, line 166
+- `export function rememberedBook(vaultRoot: string): string | null` — function, line 170
 
 ## Internal implementation anchors
 
-- `const UNDER_THE_HOOD_TABS: ReadonlySet<TopTab> = new Set<TopTab>(["ingest", "proposals", "registry", "maintain", "underhood", "golden"])` — const, line 40
-- `const TAB_TOOLS: ReadonlySet<UthToolId> = new Set<UthToolId>(["ingest", "proposals", "registry", "maintain", "golden"])` — const, line 113
-- `const PLACE_KEY = "learnloop.place"` — const, line 132
-- `const TOOL_KEY = "learnloop.underhood.tool"` — const, line 133
-- `const BOOK_KEY_PREFIX = "learnloop.reader.book:"` — const, line 134
-- `function read(key: string): string | null` — function, line 136
-- `function write(key: string, value: string): void` — function, line 144
-- `const value = read(PLACE_KEY)` — const, line 157
-- `const value = read(TOOL_KEY)` — const, line 166
-- `const tool = visibleUthTools().find((candidate)` — const, line 167
-- `const value = read(BOOK_KEY_PREFIX + vaultRoot)` — const, line 177
+- `const UNDER_THE_HOOD_TABS: ReadonlySet<TopTab> = new Set<TopTab>(["ingest", "proposals", "registry", "maintain", "underhood"])` — const, line 39
+- `const TAB_TOOLS: ReadonlySet<UthToolId> = new Set<UthToolId>(["ingest", "proposals", "registry", "maintain"])` — const, line 107
+- `const PLACE_KEY = "learnloop.place"` — const, line 126
+- `const TOOL_KEY = "learnloop.underhood.tool"` — const, line 127
+- `const BOOK_KEY_PREFIX = "learnloop.reader.book:"` — const, line 128
+- `function read(key: string): string | null` — function, line 130
+- `function write(key: string, value: string): void` — function, line 138
+- `const value = read(PLACE_KEY)` — const, line 151
+- `const value = read(TOOL_KEY)` — const, line 160
+- `const tool = visibleUthTools().find((candidate)` — const, line 161
+- `const value = read(BOOK_KEY_PREFIX + vaultRoot)` — const, line 171
 
 ## Who imports or calls it
 
@@ -111,7 +111,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/app/algoConfig|src/app/algoConfig.ts]] — import-or-re-export; imports `algoConfig`
-- [[Reference/Desktop/TypeScript/components/ui|src/components/ui.tsx]] — import-or-re-export; imports `SHOW_GOLDEN_PATH`, `TopTab`
+- [[Reference/Desktop/TypeScript/components/ui|src/components/ui.tsx]] — import-or-re-export; imports `TopTab`
 
 ### Assets, platform, and third-party dependencies
 

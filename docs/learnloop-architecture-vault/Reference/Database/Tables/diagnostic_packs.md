@@ -18,7 +18,6 @@ source_paths:
   - "migrations/083_diagnostic_pack_and_triage.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/diagnostic_pack.py"
-  - "src/learnloop_sidecar/handlers/diagnostic.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -90,7 +89,6 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/diagnosis/diagnostic_pack.py`
-- `src/learnloop_sidecar/handlers/diagnostic.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

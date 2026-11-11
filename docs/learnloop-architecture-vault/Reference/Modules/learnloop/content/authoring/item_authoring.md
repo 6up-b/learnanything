@@ -167,7 +167,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_hints_only_edit_keeps_the_verification`
   - `test_a_late_background_check_never_verifies_an_edit`
   - `test_an_edited_prompt_or_key_is_unverified_until_rechecked`
-- [tests/test_sidecar_blueprint_picker.py](../../../../../../../tests/test_sidecar_blueprint_picker.py) — direct import
 - [tests/test_slate_record.py](../../../../../../../tests/test_slate_record.py) — direct import
 - [tests/test_source_exercise_import.py](../../../../../../../tests/test_source_exercise_import.py) — direct import
   - `test_a_resumed_check_never_verifies_content_edited_since`

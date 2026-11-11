@@ -120,7 +120,6 @@ Indexes and uniqueness:
 - `src/learnloop/content/authoring/practice_generation.py`
 - `src/learnloop/content/proposals/patches.py`
 - `src/learnloop/content/synthesis/coverage_rollup.py`
-- `src/learnloop/curriculum/golden_path_compose.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/headline.py`
 - `src/learnloop/daily_plan/intent_cost.py`
@@ -133,6 +132,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/diagnostic_surface_supply.py`
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/diagnosis/probe_dialogue.py`
+- `src/learnloop/diagnosis/probe_episodes.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

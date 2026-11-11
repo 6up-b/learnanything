@@ -123,6 +123,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
+  - `test_a_standing_decisions_persisted_trace_names_the_same_veto`
   - `test_advance_live_veto_persists_typed_marker`
   - `test_constraint_emptied_feasible_set_is_a_veto`
   - `test_evsi_abstain_is_a_veto`
@@ -133,8 +134,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_short_session_depth_edge_stops_if_it_cannot_fit`
   - `test_short_session_stops_honestly_when_nothing_fits`
   - `test_three_minute_activity_completes_a_session`
-- [tests/test_router_p2_bridge.py](../../../../../../tests/test_router_p2_bridge.py) — direct import
-  - `test_a_standing_decisions_persisted_trace_names_the_same_veto`
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
   - `test_affect_check_precedes_depth_edge`
   - `test_depth_progression_only_under_auto_within_envelope`

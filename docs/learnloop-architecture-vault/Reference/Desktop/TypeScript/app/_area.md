@@ -34,16 +34,16 @@ No nested ownership area.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/app/App|App.tsx]] | `ACTIVE` | Owns desktop navigation and cross-screen state, connecting startup, sessions, overlays, vault refresh, and route handoffs. | 80 | 1 |
+| [[Reference/Desktop/TypeScript/app/App|App.tsx]] | `ACTIVE` | Owns desktop navigation and cross-screen state, connecting startup, sessions, overlays, vault refresh, and route handoffs. | 76 | 1 |
 | [[Reference/Desktop/TypeScript/app/ScreenErrorBoundary|ScreenErrorBoundary.tsx]] | `ACTIVE` | Provides `ScreenErrorBoundary` within the desktop's TypeScript/app ownership area. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/app/ShellChromeRoot|ShellChromeRoot.tsx]] | `ACTIVE` | Provides `SHELL_CHROME_ATTRIBUTE`, `inShellChrome`, `ShellChromeRoot` within the desktop's TypeScript/app ownership area. | 1 | 1 |
-| [[Reference/Desktop/TypeScript/app/algoConfig|algoConfig.ts]] | `ACTIVE` | Normalizes and exposes algorithm configuration values needed by presentation code. | 0 | 28 |
+| [[Reference/Desktop/TypeScript/app/algoConfig|algoConfig.ts]] | `ACTIVE` | Normalizes and exposes algorithm configuration values needed by presentation code. | 0 | 27 |
 | [[Reference/Desktop/TypeScript/app/autoAdvance|autoAdvance.ts]] | `ACTIVE` | Provides `todayQueueInput`, `todayQueueKey`, `queueHead`, `NextQueueItem` and related exports within the desktop's TypeScript/app ownership area. | 5 | 4 |
 | [[Reference/Desktop/TypeScript/app/dailyPlan|dailyPlan.ts]] | `ACTIVE` | Provides `aboutMinutes`, `minutesPerDay`, `wholeMinutes`, `dailyPlanKey` and related exports within the desktop's TypeScript/app ownership area. | 6 | 11 |
 | [[Reference/Desktop/TypeScript/app/intentCheck|intentCheck.ts]] | `ACTIVE` | Provides `readerTargetForRestoration` within the desktop's TypeScript/app ownership area. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/app/keyScope|keyScope.ts]] | `ACTIVE` | Provides `keyScope` within the desktop's TypeScript/app ownership area. | 1 | 3 |
 | [[Reference/Desktop/TypeScript/app/keyboard|keyboard.ts]] | `ACTIVE` | Centralizes keyboard-target and shortcut guards shared by desktop interactions. | 0 | 4 |
-| [[Reference/Desktop/TypeScript/app/keymap|keymap.ts]] | `ACTIVE` | Provides `KeyAction`, `KeyBinding`, `ADD_FILES_CHORD`, `shellBindings` and related exports within the desktop's TypeScript/app ownership area. | 3 | 46 |
+| [[Reference/Desktop/TypeScript/app/keymap|keymap.ts]] | `ACTIVE` | Provides `KeyAction`, `KeyBinding`, `ADD_FILES_CHORD`, `shellBindings` and related exports within the desktop's TypeScript/app ownership area. | 3 | 45 |
 | [[Reference/Desktop/TypeScript/app/notices|notices.ts]] | `ACTIVE` | Provides `NEEDS_SESSION`, `noticeAfterSessionBegins`, `NoticeCondition`, `ShellNotice` and related exports within the desktop's TypeScript/app ownership area. | 1 | 2 |
 | [[Reference/Desktop/TypeScript/app/planFallback|planFallback.ts]] | `ACTIVE` | Provides `PlanFallbackOffer`, `extractFallbackOffer`, `noteFallbackOffer`, `currentFallbackOffer` and related exports within the desktop's TypeScript/app ownership area. | 0 | 2 |
 | [[Reference/Desktop/TypeScript/app/practiceDraft|practiceDraft.ts]] | `ACTIVE` | Provides `PracticeDraftMirror`, `RestoredPracticeDraft`, `restoredPracticeDraft` within the desktop's TypeScript/app ownership area. | 1 | 1 |

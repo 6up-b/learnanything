@@ -21,7 +21,7 @@ Parent: [[Reference/Desktop/Desktop Module Catalog|Desktop Module Catalog]] · S
 
 ## Responsibility
 
-Golden-path setup and triage components used by the staged learning journey.
+Shared Reader controls (the two buttons, the disposition picker, the affect tap), first built for the retired Golden Path.
 
 > [!note] Ownership boundary
 > This map inventories code organization. End-to-end behavior remains in the linked workflow and concept notes.
@@ -34,9 +34,7 @@ No nested ownership area.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/components/goldenpath/GoldenPathSetup|GoldenPathSetup.tsx]] | `ACTIVE` | Provides the reusable `GoldenPathSetup` interaction surface used by one or more desktop workflows. | 6 | 1 |
-| [[Reference/Desktop/TypeScript/components/goldenpath/TriageDecisionAid|TriageDecisionAid.tsx]] | `ACTIVE` | Provides the reusable `TriageDecisionAid` interaction surface used by one or more desktop workflows. | 3 | 1 |
-| [[Reference/Desktop/TypeScript/components/goldenpath/shared|shared.tsx]] | `ACTIVE` | Provides the reusable `shared` interaction surface used by one or more desktop workflows. | 2 | 13 |
+| [[Reference/Desktop/TypeScript/components/goldenpath/shared|shared.tsx]] | `ACTIVE` | Provides the reusable `shared` interaction surface used by one or more desktop workflows. | 2 | 8 |
 
 ## Modification guidance
 

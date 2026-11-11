@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/keymap.ts](../../../../../../apps/learnloop-tauri/src/app/keymap.ts) |
-| Source lines | 253 |
+| Source lines | 250 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -57,15 +57,15 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export type KeyAction = |` — type, line 17
 - `export interface KeyBinding` — interface, line 34
 - `export const ADD_FILES_CHORD: Chord =` — const, line 61
-- `export function shellBindings(shell: ShellMode): KeyBinding[]` — function, line 113
-- `export const CLASSIC_REPLACEMENTS: Readonly<Record<string, string>> =` — const, line 119
-- `export const SCOPED_OVERRIDES: ReadonlyArray<` — const, line 135
-- `export function screenLeavesKey(event: KeyboardEvent, options: ScreenKeyOptions =` — function, line 174
-- `export interface ScreenKeyOptions` — interface, line 182
-- `export const INTERACTIVE_SELECTOR = [ "button", "a[href]", "input", "select", "textarea", '[contenteditable]:not([contenteditable="false"])', '[role="button"]', '[role="link"]', '[role="menuitem"]', '[role="option"]', '[role="tab"]', '[role="checkbox"]', '[ro…` — const, line 201
-- `export function controlOwner(control: Element): string` — function, line 219
-- `export function matchesChord(chord: Chord, event: KeyboardEvent): boolean` — function, line 234
-- `export function matchShellKey(event: KeyboardEvent, shell: ShellMode, typing: boolean): KeyBinding | null` — function, line 243
+- `export function shellBindings(shell: ShellMode): KeyBinding[]` — function, line 110
+- `export const CLASSIC_REPLACEMENTS: Readonly<Record<string, string>> =` — const, line 116
+- `export const SCOPED_OVERRIDES: ReadonlyArray<` — const, line 132
+- `export function screenLeavesKey(event: KeyboardEvent, options: ScreenKeyOptions =` — function, line 171
+- `export interface ScreenKeyOptions` — interface, line 179
+- `export const INTERACTIVE_SELECTOR = [ "button", "a[href]", "input", "select", "textarea", '[contenteditable]:not([contenteditable="false"])', '[role="button"]', '[role="link"]', '[role="menuitem"]', '[role="option"]', '[role="tab"]', '[role="checkbox"]', '[ro…` — const, line 198
+- `export function controlOwner(control: Element): string` — function, line 216
+- `export function matchesChord(chord: Chord, event: KeyboardEvent): boolean` — function, line 231
+- `export function matchShellKey(event: KeyboardEvent, shell: ShellMode, typing: boolean): KeyBinding | null` — function, line 240
 
 ## Internal implementation anchors
 
@@ -74,9 +74,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `function addBindings(): KeyBinding[]` — function, line 63
 - `function classicBindings(): KeyBinding[]` — function, line 70
 - `function simpleBindings(): KeyBinding[]` — function, line 84
-- `const scoped = control.closest("[data-key-scope]")` — const, line 221
-- `function onForeignControl(target: EventTarget | null, scopes: string[]): boolean` — function, line 225
-- `const control = target.closest(INTERACTIVE_SELECTOR)` — const, line 227
+- `const scoped = control.closest("[data-key-scope]")` — const, line 218
+- `function onForeignControl(target: EventTarget | null, scopes: string[]): boolean` — function, line 222
+- `const control = target.closest(INTERACTIVE_SELECTOR)` — const, line 224
 
 ## Who imports or calls it
 
@@ -107,7 +107,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/DiagnosticReviewScreen|src/screens/DiagnosticReviewScreen.tsx]] — import-or-re-export: `screenLeavesKey`; references `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/screens/ExamScreen|src/screens/ExamScreen.tsx]] — import-or-re-export: `screenLeavesKey`; references `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] — import-or-re-export: `screenLeavesKey`; references `screenLeavesKey`
-- [[Reference/Desktop/TypeScript/screens/GoldenPathScreen|src/screens/GoldenPathScreen.tsx]] — import-or-re-export: `screenLeavesKey`; references `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/screens/GraphScreen|src/screens/GraphScreen.tsx]] — import-or-re-export: `screenLeavesKey`; references `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/screens/IngestScreen|src/screens/IngestScreen.tsx]] — import-or-re-export: `screenLeavesKey`; references `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/screens/LibraryScreen|src/screens/LibraryScreen.tsx]] — import-or-re-export: `screenLeavesKey`; references `screenLeavesKey`
@@ -136,7 +135,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/app/algoConfig|src/app/algoConfig.ts]] — import-or-re-export; imports `activeShell`
 - [[Reference/Desktop/TypeScript/app/shell|src/app/shell.ts]] — import-or-re-export; imports `Place`, `ShellMode`, `UthToolId`
-- [[Reference/Desktop/TypeScript/components/ui|src/components/ui.tsx]] — import-or-re-export; imports `SHOW_GOLDEN_PATH`, `TopTab`, `navTabs`
+- [[Reference/Desktop/TypeScript/components/ui|src/components/ui.tsx]] — import-or-re-export; imports `TopTab`, `navTabs`
 
 ### Assets, platform, and third-party dependencies
 

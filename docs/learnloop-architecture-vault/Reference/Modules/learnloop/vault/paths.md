@@ -236,7 +236,6 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 ### Repository tooling consumers
 
 - [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py); calls `VaultPaths`
-- [scripts/gen_goldenpath_fixtures.py](../../../../../../scripts/gen_goldenpath_fixtures.py); calls `VaultPaths`
 - [scripts/voi_cap_report.py](../../../../../../scripts/voi_cap_report.py); calls `VaultPaths`
 
 ## Dependencies
@@ -317,8 +316,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_concept_animation_service.py](../../../../../../tests/test_concept_animation_service.py) — direct import
 - [tests/test_concept_animation_store.py](../../../../../../tests/test_concept_animation_store.py) — direct import
   - `test_animation_video_path_is_content_addressed`
-- [tests/test_daily_loop_golden_path_lifecycle.py](../../../../../../tests/test_daily_loop_golden_path_lifecycle.py) — direct import
-  - `test_assess_open_refuses_a_parked_lo_without_burning_the_surface`
 - [tests/test_daily_loop_lo_lifecycle_serving.py](../../../../../../tests/test_daily_loop_lo_lifecycle_serving.py) — direct import
 - [tests/test_daily_plan_review_regressions.py](../../../../../../tests/test_daily_plan_review_regressions.py) — direct import
 - [tests/test_diagnostic_generation.py](../../../../../../tests/test_diagnostic_generation.py) — direct import
@@ -377,7 +374,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_resolve_prefers_store_then_original_uri`
 - [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import
 - [tests/test_p2_leakage_suite.py](../../../../../../tests/test_p2_leakage_suite.py) — direct import
-- [tests/test_pattern_ladder.py](../../../../../../tests/test_pattern_ladder.py) — direct import
 - [tests/test_persona_gate.py](../../../../../../tests/test_persona_gate.py) — direct import
   - `test_gate_precision_reports_no_data_before_any_prediction`
 - [tests/test_plan_first_transport_grant_scope.py](../../../../../../tests/test_plan_first_transport_grant_scope.py) — direct import
@@ -432,7 +428,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sqlite_wal_lifecycle.py](../../../../../../tests/test_sqlite_wal_lifecycle.py) — direct import
   - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`
 - [tests/test_subject_registry.py](../../../../../../tests/test_subject_registry.py) — direct import
-- [tests/test_surface_pool.py](../../../../../../tests/test_surface_pool.py) — direct import
 - [tests/test_synthesis_criterion_dependencies.py](../../../../../../tests/test_synthesis_criterion_dependencies.py) — direct import
   - `test_fix_content_skips_unparseable_items_and_reports_them`
 - [tests/test_t6_followup_composition.py](../../../../../../tests/test_t6_followup_composition.py) — direct import

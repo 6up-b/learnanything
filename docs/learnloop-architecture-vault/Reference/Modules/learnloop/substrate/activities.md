@@ -138,7 +138,6 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/curriculum/golden_path_fixture|learnloop.curriculum.golden_path_fixture]] — imports `resolve_legacy_item`; statically calls `resolve_legacy_item`
 - [[Reference/Modules/learnloop/curriculum/golden_path_restoration|learnloop.curriculum.golden_path_restoration]] — imports `canonical_json`; statically calls `canonical_json`
 - [[Reference/Modules/learnloop/curriculum/golden_path_run|learnloop.curriculum.golden_path_run]] — imports `canonical_json`; statically calls `canonical_json`
-- [[Reference/Modules/learnloop/curriculum/pattern_ladder|learnloop.curriculum.pattern_ladder]] — imports `canonical_json`; statically calls `canonical_json`
 - [[Reference/Modules/learnloop/curriculum/task_blueprints|learnloop.curriculum.task_blueprints]] — imports `canonical_hash`, `canonical_json`; statically calls `canonical_hash`, `canonical_json`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_pack|learnloop.diagnosis.diagnostic_pack]] — imports `canonical_hash`, `canonical_json`; statically calls `canonical_hash`, `canonical_json`
 - [[Reference/Modules/learnloop/diagnosis/failure_triage|learnloop.diagnosis.failure_triage]] — imports `canonical_json`; statically calls `canonical_json`
@@ -177,15 +176,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/substrate/families|learnloop.substrate.families]] — imports `canonical_hash`, `canonical_json`, `resolve_legacy_item`; statically calls `canonical_hash`, `canonical_json`, `resolve_legacy_item`
 - [[Reference/Modules/learnloop/substrate/family_memory|learnloop.substrate.family_memory]] — imports `canonical_json`; statically calls `canonical_json`
 - [[Reference/Modules/learnloop/substrate/surface_mint|learnloop.substrate.surface_mint]] — imports `canonical_json`; statically calls `canonical_json`
-- [[Reference/Modules/learnloop/substrate/surface_pool|learnloop.substrate.surface_pool]] — imports `Administration`, `ResolvedActivity`, `canonical_hash`, `canonical_json`, `open_administration`, `reserve_surface`; statically calls `canonical_hash`, `canonical_json`, `open_administration`, `reserve_surface`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `log_interaction_event`; statically calls `log_interaction_event`
-- [[Reference/Modules/learnloop_sidecar/handlers/golden_path|learnloop_sidecar.handlers.golden_path]] — imports `resolve_legacy_item`; statically calls `resolve_legacy_item`
-- [[Reference/Modules/learnloop_sidecar/handlers/ladder|learnloop_sidecar.handlers.ladder]] — imports `resolve_legacy_item`; statically calls `resolve_legacy_item`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader_intent|learnloop_sidecar.handlers.reader_intent]] — imports `log_interaction_event`; statically calls `log_interaction_event`
-
-### Repository tooling consumers
-
-- [scripts/gen_goldenpath_fixtures.py](../../../../../../scripts/gen_goldenpath_fixtures.py); calls `resolve_legacy_item`
 
 ## Dependencies
 
@@ -210,7 +202,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]], [[Reference/Modules/learnloop/attempts/outcome_schemas|learnloop.attempts.outcome_schemas]] and 55 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]], [[Reference/Modules/learnloop/attempts/outcome_schemas|learnloop.attempts.outcome_schemas]] and 51 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -218,7 +210,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/mcp_world.py](../../../../../../tests/mcp_world.py) — direct import
 - [tests/router_staged_p2_helpers.py](../../../../../../tests/router_staged_p2_helpers.py) — direct import
-- [tests/sidecar_golden_path_assessment_helpers.py](../../../../../../tests/sidecar_golden_path_assessment_helpers.py) — direct import
 - [tests/test_action_loss.py](../../../../../../tests/test_action_loss.py) — direct import
   - `test_durations_fall_back_to_logged_pooled_then_heuristic`
 - [tests/test_activity_contract_extensions.py](../../../../../../tests/test_activity_contract_extensions.py) — direct import
@@ -298,10 +289,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_laddered_stems.py](../../../../../../tests/test_laddered_stems.py) — direct import
 - [tests/test_library_ask_review.py](../../../../../../tests/test_library_ask_review.py) — direct import
   - `test_the_pinned_tutor_burns_a_reserve_it_reproduces_and_joins_history_and_gaps`
-- [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import
-  - `test_golden_path_ten_step_fixture_journey`
 - [tests/test_p2_leakage_suite.py](../../../../../../tests/test_p2_leakage_suite.py) — direct import
   - `test_diagnostic_exposure_consumes_cold_eligibility`
+  - `test_practice_to_assessment_fingerprint_blocking`
 - [tests/test_p3_journeys.py](../../../../../../tests/test_p3_journeys.py) — direct import
   - `test_arc_and_salience_heads_rebuild_deterministically`
 - [tests/test_pf_generation.py](../../../../../../tests/test_pf_generation.py) — direct import
@@ -327,9 +317,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_reader_ask_history_rpc_returns_durable_exchanges`
 - [tests/test_substrate_cutover.py](../../../../../../tests/test_substrate_cutover.py) — direct import
 - [tests/test_surface_mint.py](../../../../../../tests/test_surface_mint.py) — direct import
-- [tests/test_surface_pool.py](../../../../../../tests/test_surface_pool.py) — direct import
-  - `test_familiar_practice_is_never_reported_fresh`
-  - `test_practice_exposure_invalidates_same_fingerprint_assessment_reserve`
 
 ## Modification guidance
 

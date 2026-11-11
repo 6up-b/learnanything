@@ -171,7 +171,6 @@ No private top-level function or class definition is declared in this file.
 ### Repository tooling consumers
 
 - [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py); calls `open_vault_repository`
-- [scripts/gen_goldenpath_fixtures.py](../../../../../../scripts/gen_goldenpath_fixtures.py); calls `open_vault_repository`
 - [scripts/voi_cap_report.py](../../../../../../scripts/voi_cap_report.py); calls `open_vault_repository`
 
 ## Dependencies

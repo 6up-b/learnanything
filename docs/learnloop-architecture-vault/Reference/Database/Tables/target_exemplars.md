@@ -18,7 +18,6 @@ source_paths:
   - "migrations/081_task_blueprints.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/curriculum/task_blueprints.py"
-  - "src/learnloop_sidecar/handlers/ladder.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -92,7 +91,6 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/curriculum/task_blueprints.py`
-- `src/learnloop_sidecar/handlers/ladder.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
