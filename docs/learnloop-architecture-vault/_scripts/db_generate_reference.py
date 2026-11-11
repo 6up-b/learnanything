@@ -853,7 +853,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "ai": "typed provider profiles and task-to-provider routing",
     "embedding": "opt-in embedding substrate, model identity, backfill consent, and privacy disclosure",
     "graph_nomination": "Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps",
-    "facet_identity": "facet identity at mint time and the dedupe command: the cheap judge's neighbourhood size, shortlist rank and spend caps (merges apply live with an undo; merge_locked_facets is a retired key nothing reads)",
+    "facet_identity": "facet identity at mint time and the dedupe command: the cheap judge's neighbourhood size, shortlist rank and spend caps (merges apply live with an undo)",
     "project": "project-understanding M1: automatic capture of agent-written diffs and delayed probes in the standalone project store",
     "field": "offline learner-field analysis, revision exclusions, and opt-in paid experiments",
     "practice_index": "find_practice retrieval, rerank, coverage, and the paid dossier and evaluation switches",
@@ -976,21 +976,10 @@ def config_field_status(path: str) -> tuple[str, str]:
             "LEGACY",
             "Consumed only by the frozen pre-redesign replay path; live diagnostic policy uses probe.episode.",
         )
-    if path.endswith(".lo_mastery_delta"):
-        return (
-            "COMPAT",
-            "Retained for legacy mastery-impact compatibility; current coverage uses local_severity_gain.",
-        )
     if path == "ingest.audio.provider":
         return (
             "COMPAT",
             "Raw legacy selector retained for normalization; chat transcription routes through ai.routing.transcription.",
-        )
-    if path.startswith("locks.") or path == "facet_identity.merge_locked_facets":
-        return (
-            "COMPAT",
-            "Retired with facet identity locks: accepted so older vaults still open; nothing reads it, and doctor "
-            "warns when a vault sets it.",
         )
     if path in DORMANT_CONFIG_PATHS or path.startswith(DORMANT_CONFIG_PREFIXES):
         if path.startswith("probe.shadow."):
@@ -1073,7 +1062,6 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "plan.min_new_items_per_day": "Fewest new items a day when new material exists and the plan is not re-entry (Q11).",
     "plan.latency_cap_minutes": "Winsorizing cap on an answer latency in the duration estimate (Q12).",
     "plan.read_words_per_minute": "Reading pace that turns a section's words left into a reading block's estimate.",
-    "plan.pre_questions": "Pre-questions a reading block may open with (DL4; DL1 serves none).",
     "plan.reentry_minutes": "Most minutes a re-entry plan takes after a break, whatever the remembered budget (D11).",
     "plan.reentry_max_items": "Most items a re-entry plan serves after a break, whatever its minutes allow (D11).",
     "plan.project_probes_max_per_day": "Most due project probes a day in the maintain lane (project M2); the rest stay in the full list.",

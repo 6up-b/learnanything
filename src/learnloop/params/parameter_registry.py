@@ -2817,9 +2817,6 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "additive priority shaping weight; the sim-sweep found weights decision-inert while "
         "membership/caps do the work -> deletion candidate pending a redundancy proof.",
         lifecycle="active"),
-    _ConfigRule(_suffix(".lo_mastery_delta"), "decision", "shaping_weight",
-                "legacy additive mastery delta; new code uses local_severity_gain instead "
-                "-> deletion candidate.", lifecycle="active"),
     # Dormant-with-monitoring constraint parameters (caps/floors/clamps, bind-log).
     _ConfigRule(_exact(
         "evidence.certification.max_groups_per_attempt",
@@ -2952,7 +2949,7 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "§6.2, §6.3, §7); a serving guardrail, never evidence; owner default, versioned."),
     _ConfigRule(_exact(
         "plan.default_minutes", "plan.keep_going_minutes", "plan.latency_cap_minutes",
-        "plan.read_words_per_minute", "plan.pre_questions", "plan.minutes_presets",
+        "plan.read_words_per_minute", "plan.minutes_presets",
     ), "structural", "operational",
         "daily-plan budget size, duration-estimate winsorizing or reading pace; sizes the "
         "plan and its labels, no measurement authority."),
@@ -3005,7 +3002,6 @@ _CONFIG_RULES: list[_ConfigRule] = [
                 "valuation depth, never a count of observations served; 1 turns the lookahead off."),
     # Dormant ships-dark forward-compat params (subsystem disabled).
     _ConfigRule(_exact(
-        "mastery.irt.discrimination_min", "mastery.irt.discrimination_max",
         "mastery.irt.b_prior_variance", "mastery.irt.b_learning_rate_scale",
         "mastery.irt.b_max_step",
     ), "decision", "prior",

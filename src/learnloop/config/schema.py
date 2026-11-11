@@ -146,8 +146,6 @@ class HypothesisConfig(BaseModel):
 class MasteryIRTConfig(BaseModel):
     enabled: bool = True                     # false -> legacy logit-space update (bit-for-bit)
     discrimination_default: float = 1.0
-    discrimination_min: float = 0.2          # forward-compat clamp; a is fixed at 1.0
-    discrimination_max: float = 3.0
     difficulty_default: float = 0.0          # b at mu_0
     difficulty_from_prior: bool = True       # derive b from PracticeItem.difficulty / LO.difficulty_prior
     difficulty_prior_scale: float = 2.5      # difficulty 0..1 -> b in [-2.5, 2.5]; also the prior-trust dial
@@ -431,7 +429,6 @@ class SeverityExampleConfig(BaseModel):
     recent_same_item_failures: int = 0
     recent_same_facet_failures: int = 0
     bad_item_suspicion: float = 0.0
-    target_error_type: str | None = None
     expected_error_type: str
     expected_severity_band: tuple[float, float]
 
@@ -465,7 +462,6 @@ def default_severity_examples() -> dict[str, SeverityExampleConfig]:
         "arithmetic_slip": SeverityExampleConfig(
             correctness=0.75,
             expected_correctness=0.70,
-            target_error_type="arithmetic_slip",
             expected_error_type="arithmetic_slip",
             expected_severity_band=(0.25, 0.35),
         ),
@@ -1724,13 +1720,11 @@ CODEX_TO_PLAN_PROFILE = {
 class ErrorImpact(BaseModel):
     """Error impact settings.
 
-    ``lo_mastery_delta`` remains for legacy compatibility. New recall coverage
-    code uses ``local_severity_gain`` to sharpen the EKF observation instead of
-    applying a separate mastery nudge.
+    ``local_severity_gain`` sharpens the EKF observation; there is no separate
+    mastery nudge (an old config's ``lo_mastery_delta`` is ignored).
     """
 
     families: dict[str, float] = Field(default_factory=dict)
-    lo_mastery_delta: float = 0.0
     local_severity_gain: float = 0.8
 
 
@@ -1747,23 +1741,6 @@ class FsrsFittingConfig(BaseModel):
 
 class FittingConfig(BaseModel):
     fsrs: FsrsFittingConfig = Field(default_factory=FsrsFittingConfig)
-
-
-class LocksConfig(BaseModel):
-    """Retired: facet identity locks.
-
-    Facets used to lock when their direct evidence spanned
-    ``facet_surface_groups`` distinct surface/correlation groups, reached
-    ``facet_lock_mass`` independent mass, or entered an active goal's
-    certified scope; a locked facet refused merges and rewording. Nothing
-    reads these values any more: merges apply live with an undo and a reword
-    writes a facet version. The section stays in the
-    schema so the effective-defaults snapshots of every released version stay
-    as recorded; ``learnloop doctor`` warns when a vault sets it.
-    """
-
-    facet_lock_mass: float = 2.0
-    facet_surface_groups: int = 2
 
 
 class EvidenceMassEntry(BaseModel):
@@ -3562,12 +3539,6 @@ class FacetIdentityConfig(BaseModel):
     # within rank 4) and registry nominations per candidate.
     shortlist_top_k: int = Field(default=4, ge=1, le=20)
     attach_top_k: int = Field(default=4, ge=1, le=20)
-    # Retired compatibility key: nothing reads it. There are no facet identity
-    # locks, so every merge and absorb applies live with its undo; ``learnloop
-    # doctor`` warns when a vault sets it. (A merge still never adds a precondition to a registered facet, and a retiree that a
-    # graded criterion names with its survivor is still held back.) Kept so
-    # the recorded effective-defaults snapshots do not move.
-    merge_locked_facets: bool = True
     # A model-proposed change to a registered facet's meaning with no textbook,
     # lecture, paper, reference or alternate-explanation span behind it (not
     # exam-only) waits for the owner's one-tap confirm, and a title or
@@ -3862,8 +3833,6 @@ class PlanConfig(BaseModel):
     latency_cap_minutes: float = Field(default=15.0, gt=0.0, le=120.0)
     # A reading block's estimate is the section's words left / this.
     read_words_per_minute: int = Field(default=120, ge=10, le=2000)
-    # Pre-questions per reading block; the plan serves none yet.
-    pre_questions: int = Field(default=3, ge=0, le=10)
     # A re-entry plan's caps.
     reentry_minutes: int = Field(default=15, ge=1, le=120)
     reentry_max_items: int = Field(default=8, ge=1, le=100)
@@ -4856,7 +4825,6 @@ class LearnLoopConfig(BaseModel):
     intent: IntentConfig = Field(default_factory=IntentConfig)
     capture: CaptureConfig = Field(default_factory=CaptureConfig)
     capabilities: CapabilitiesConfig = Field(default_factory=CapabilitiesConfig)
-    locks: LocksConfig = Field(default_factory=LocksConfig)
     error_impacts: dict[str, ErrorImpact] = Field(default_factory=dict)
     fitting: FittingConfig = Field(default_factory=FittingConfig)
     trace_evidence: TraceEvidenceConfig = Field(default_factory=TraceEvidenceConfig)
@@ -4985,11 +4953,11 @@ class LearnLoopConfig(BaseModel):
             self.ai.routing.canonical_ingest_retry = self.ai.routing.canonical_ingest
         self.error_impacts.setdefault(
             "recall_failure",
-            ErrorImpact(families={"recall": -0.25}, lo_mastery_delta=-0.05, local_severity_gain=0.8),
+            ErrorImpact(families={"recall": -0.25}, local_severity_gain=0.8),
         )
         self.error_impacts.setdefault(
             "scaffold_failure",
-            ErrorImpact(families={"recall": -0.35}, lo_mastery_delta=-0.05, local_severity_gain=1.5),
+            ErrorImpact(families={"recall": -0.35}, local_severity_gain=1.5),
         )
         self.error_impacts.setdefault(
             "arithmetic_slip",
