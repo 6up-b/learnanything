@@ -128,6 +128,11 @@ Ranked by what each costs a stage or a debugging session. Ids are the map's.
 - **P-draw:** the router speed stages' draw-for-draw harness: mixture seed pinned, fixed draw count, fake LLM and Decider. LLM requests, gates, prompts and every table must match the base commit (`docs/reviews/router-speed2.md`, "Identity").
 - **P-playbook:** all of `docs/algorithm-change-playbook.md`: a successor tag, a kill switch that serves the predecessor exactly, the upgrade row, table roles, replay tests, a shadow rebuild on copies with mastery, facet and scheduling deltas reported before landing, and the fixture path.
 
+**Identity rules (owner, Nov 11; arc C's review).** A deletion proof that only follows imports and names can't see a config or model dump inside a hash: C3's removal of the unread `merge_locked_facets` moved canonical synthesis's cache key, so finished runs stopped being reused. From K0 on:
+- every step's gate includes `tests/test_identity_pins.py` (each compared identity pinned at a fixed input, §2.17 K0);
+- a retired config field goes into `config/retired.py`'s `RETIRED_FIELDS` in the commit that removes it, so identities keep their bytes;
+- an identity that should move is bumped deliberately, under `docs/algorithm-change-playbook.md` if it changes persisted meaning, and the pins are regenerated in that commit with the reason in the landing note.
+
 **Environment rules for every step.** Scripts outside pytest run under an empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`. No live or paid model calls. Copies only through `learnloop.db.copies`. Agents never open live vaults: the owner runs anything that reads them and pastes the output.
 
 ### 2.2 S0: re-baseline on the landed tip
@@ -587,6 +592,7 @@ Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever move
 | G6 | 83% | One probe decider; protection one predicate. |
 | H6 | 92% | Scalar retired, reported first. |
 | J, Z | 100% | Tables reviewed and dropped as approved; paper; final measures; old specs archived once the docs rewrite is done (Z3). |
+| K (beside the arcs, §2.17) | +10-15% | The modules the Nov 8 map didn't read are mapped and given steps; compared identities are pinned; ingestion has a structure strategy. |
 
 Each arc's steps also land one at a time, so an interruption mid-arc leaves a working system, with the exception noted at H.
 
@@ -612,6 +618,49 @@ About **45-90M Opus tokens including re-read context** (revised, owner, Nov 9: C
 | UX audit and overhaul | C3-C5, B9 | Fewer backends; `why.get` for the glass-box view; the UX list this strategy collects |
 | Codex docs, last | all | Describes the final screens |
 | Z3, the spec archive | Codex docs | Archives what the rewritten docs no longer cite as live |
+
+### 2.17 Arc K: the modules the map didn't read (owner, Nov 11)
+
+**Why.** After arc C, three read-only reviews (orchestrator scratch, copies under the session's `scratchpad-backup/`: `coverage-audit-2026-11-11.md`, `serialization-sweep-2026-11-11.md`, `ingestion-review-2026-11-11.md`) found that the Nov 8 map read several high-impact packages by outline only, or not at all, and that no arc plans a step for them:
+- `content/pipeline`, `content/synthesis`, `content/sources`, `ingest`, `content/facet_identity` (zero mentions in the map), `content/proposals`: about 37,000 code lines between them, with the longest function in the code (`source_set_synthesis._normalize`, 1,081 lines);
+- `source_retrieval` (20,000 lines), `diagnosis/text_gaps`, `ai/chatgpt_plan`, `learnloop_mobile`'s auth and `learnloop_mcp`;
+- grading, regrade, coldness and certification were read only as far as B7 needed;
+- B3 and G6's protection inventory never names the exam predicate, `content/sources/exam_material.py` ("THE predicate", 79 referencing files), the lexical leakage floor or the frontend's checks.
+
+The map's methods were name- and import-based, so whole risk classes were invisible to it: config or model dumps inside compared hashes, seeds and cache keys (the sweep lists about 40 compared whole-dump sites); about 247 wall-clock reads outside the injected clock; more than 30 thread or lease spawns, with the phone host and the desktop running workers on one vault; YAML and SQLite dual writes; sandboxes that run model-written code.
+
+**The owner's goals for arc K (Nov 11):** the same as §1's for the whole refactor (local reasoning, change locality, discoverability, few abstractions, economy, observability, small surgical steps). For ingestion specifically: "the same evaluation pipeline for deep modules as the prior refactor audit", looking for better larger-view structures that optimize for readability and ease of extension.
+
+**Each review step** is read-only and runs the Nov 8 method scoped to its packages: job 1 maps (packages and deep or shallow modules with sizes; the journeys end to end with persistence, model calls and randomness; boundary crossings and duplicated predicates; decision points and what is recorded; functional core versus shell; comments; dead code and onboarding; the vault notes), and job 2 writes the strategy (diagnosis ranked by cost, ordered small steps each naming the problem, files, deletions, any abstraction and why it pays, and the proof; what not to do; vault plan; measures). Opus writes both; a read-only adversarial Codex pass (`gpt-6-astra`) checks the map's claims before the strategy uses them. The steps it produces are inserted into this document as sub-steps (K2.1, K2.2, ...), with the same per-step gates and per-arc Codex review.
+
+**K0. Identity pins** (S-M). After arc C's close, before D.
+- **Does:** `tests/identity_pins_helpers.py`, `tests/goldens/identities.toml`, `tests/test_identity_pins.py` (the design is the sweep's §3.1): every compared identity computed through its production path at a fixed input and pinned; failure messages say keep (`RETIRED_FIELDS`, `exclude_if`, an explicit identity view) or bump (playbook). Shape pins for every type whole-dumped into a compared identity (sweep §3.2), and an AST check that a new dump beside a hash, seed, manifest or structured prompt is registered or marked provenance-only (sweep §3.3).
+- **Fixes now:** the synthesis manifest scope's other whole dumps (`graph_nomination`, prices, the `problem` text; sweep A2-A4), which share the consumer that arc C broke.
+- **Before later arcs:** H6 must put `mastery.irt.difficulty_from_prior` and `difficulty_prior_scale` in `RETIRED_FIELDS` (they feed placement's `version_hash` and the field predictors, sweep C1-C2); D7's switch removals feed router seeds and RO6's generator key (sweep C3-C6): pin them before D7 and decide per switch whether to keep its served bytes or fold the change into E8.
+- **Proof:** the pins pass at the tip; each fails when its source field is removed in a scratch edit.
+
+**K1. Protection inventory** (S-M; review). Before G6.
+- **Scope:** every predicate that withholds, protects or excludes: `exam_material` and its 30-odd importer modules (ingest, synthesis and authoring call it directly, not through `learner_protection`), the lexical leakage floor (`ops/contamination`, `practice_leakage`, `tutor_qa`, `reader_dialogue`), retrieval's protection filters (`source_retrieval/section_coverage.py`), the sidecar serializers and DTOs, and the frontend's own checks.
+- **Questions:** which protection question each predicate answers; where two answer the same question differently; whether answer keys, rubrics or held-out text ever reach a screen and are hidden only there; what G6's parity test must add.
+- **Output:** corrections to G6's inventory and steps.
+
+**K2. Ingestion and synthesis: deep map and structure strategy** (L; review, two jobs). Starts after arc C's close; read-only, so it can run beside arc D.
+- **Scope:** `content/pipeline` (jobs, runner, leases, queue), `content/synthesis` (bootstrap, append, `_normalize`, manifests, inventory, coverage, graph nomination, facet mint gate), `content/sources`, `ingest` (extractors including hosted OCR, re-read, span aliases), `content/facet_identity` (judge, merges, aliases, authority), `content/proposals` (patches, write-ahead apply and recovery), the ingest and synthesis paths of `content/authoring`, `source_retrieval`'s ingest-side consumers, the sidecar ingest handlers and the desktop's `IngestScreen` and `OutlineAndPlan`.
+- **Inputs:** the ingestion review's findings, to be confirmed or corrected by the map (keep-ahead appends re-send the whole book: `add_source.py:1646-1666` enqueues no `new_revision_ids`, `jobs.py:1989` passes `None`, `source_append.py:248` falls back to every revision; append has no checkpoint, input ceiling or output split; `_best_inventory` reads a unit's oldest inventory whatever its extraction, prompt or model; appends from chapter 3 on never auto-apply; the manifest hash serves as provenance, cache key and reuse key at once), and the Sep 6 ingestion review's open findings.
+- **Strategy questions beyond §1's:** one checkpoint helper for every structured call versus today's mix; the manifest as provenance only, with reuse revalidated; hashing only what each step reads; whether `_normalize` splits into named stages; one job and lease mechanism instead of four reimplementations; where extraction, inventory, synthesis, identity and apply meet, and whether each boundary can change alone; how a new source type, extractor, synthesis pass or facet rule is added, counting files before and after.
+- **Output:** the map, the strategy, and sub-steps K2.1... placed after arc D (or earlier where a step only fixes a bug that costs money today; see K3).
+
+**K3. Ingest fixes that cost money today** (S-M each; conditional on K2's map confirming them). May land before K2's strategy, since they fix behaviour, not structure: keep-ahead appends only the new units; the append call gets a checkpoint, an input ceiling and output limits; synthesis reads the right inventory row (current extraction or semantic hash, then prompt and model, newest first). Each starts from a failing test, changes no learner scoring (no successor), and records the spend it saves on a copy. Auto-applying append coverage is the owner's call first (the spec's review policy).
+
+**K4. Other vault-content writers** (M; review). `diagnosis/text_gaps`, tutor promotions, teacher, `followup_run`, goals, authoring outside ingest: for each writer, content-hash lineage, authority (`check_meaning_write`), exam protection and undo; YAML and SQLite crash windows.
+
+**K5. Grading, regrade, coldness and certification** (M; review). Before I1 and H3, which rewrite this code. The two validators (`attempts/grading.py`, `blind_grading.py`); whether a coldness `unknown` can pass; whether newer exposure channels (phone Reader, figures, teacher, MCP) reach `coldness_receipt._scan_exposures`; regrade, held grades and FSRS consistency; the four `qualifies_as_*` consumers.
+
+**K6. Reader Ask and retrieval side effects** (L; review). After D, before G6. Which Ask outcomes change learner state or serving and whether they replay; retrieval's protection filters against K1's predicate; the identity of daily path refresh and coverage judgments; wall-clock reads in cache keys.
+
+**K7. AI transport and network edges** (S + S; review). Before the MCP and phone feature stages. ChatGPT-plan token refresh races between the sidecar and the phone host; behaviour with the plan down; whether the route actually used after a fallback is recorded (B8 left it open); MCP's URL-as-credential and the phone bearer; cross-process workers on one vault.
+
+**Order:** arc C close → K0 and K1 (parallel) → arc D, with K2 running beside it and K3 landing when confirmed → K2's sub-steps → E → F and I (K5 before I1) → K6 before G6 → G → H (K0's H6 rule) → J, Z. K4 and K7 fit wherever the queue has room. **Cost:** roughly 10-15% on top of §2.15 (an estimate), most of it K2.
 
 ## 3. The decision record
 
