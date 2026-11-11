@@ -317,3 +317,125 @@ uses them as a fixture or a driver.
 | `teacher/service.py:463` _family | 2 | 13 | keep: tests of live code use it (e.g. `test_attach_to_family.py::_family`) |
 | `vault/hashes.py:28` learning_object_hash | 16 | 1 | delete with the learning-object half of test_irt_difficulty::test_difficulty_source_is_excluded_from_content_hash (the practice-item half stays) |
 | `vault_lock.py:98` read_lock_holder | 9 | 2 | keep: tests of live code use it (e.g. `test_source_ingestion.py::test_ingest_creates_a_new_subject_while_holding_the_vault_lock`) |
+
+## What was deleted
+
+Tests first (`91b631b1de`), then the source (`d728249360`), then the generated notes. Mechanical deletions were made
+by an AST-span script (each definition with its decorators and the comment lines directly above it), unused imports by
+`ruff check --fix --select F401`; the hand edits used the editor.
+
+| What | Count | Lines |
+|---|---:|---:|
+| Modules: `causal_migration` (121), `remediation_intake` (34), `card_outcome_replay` (261), `prequential` (276), `interval_width_viability` (150) | 5 | 842 |
+| `cli/app.py` `eval_command` | 1 | 13 |
+| Leaf definitions (58 of the leaf list less two kept, plus the generator's 10) | 66 | 702 |
+| `Repository` methods from the map's 58 | 23 | 233 |
+| Test-only definitions whose tests proved nothing else | 13 | 298 |
+| Left uncalled by the deletions above (a second scan found them; a third found nothing): `Repository.update_proposal_item_audit`, `.set_activity_pattern_version_status`, `.all_activity_administrations`; classes `ExemplarCandidate`, `DeletionCandidateReport`, `ProbeState`; the constant `_OPTION_INDEX` | 7 | 80 |
+| **`src` in all** (with blank lines and the imports only these used) | 64 files | **2,370 deleted, 8 added** |
+
+`Repository` goes from 944 methods to 918 (the strategy's "at least 58 fewer" isn't met: 35 of the 58 are kept, above).
+`diagnosis/causal_activity_policy.py` keeps `CONTAMINATION_CLASSES` as a re-export with a `noqa` (its test imports it
+from there; nothing in the module uses it now). Elsewhere: three `ignore_imports` lines in `pyproject.toml`, one path
+in `test_architecture`'s write-path list, `prequential` in the vault generator's `DORMANT_MODULES` and
+`MODULE_WORKFLOW_OVERRIDES` and the validator's `EXPECTED_EXPLICIT_STATUS`, and the generator's
+`UNCALLED_DEFINITIONS` down to the two names tests still use.
+
+### Tests removed, and the seconds saved
+
+Run once at the base, serially, before deleting (`--durations=0`): 39 tests, **3.04 s** of setup, call and teardown
+summed (3.8 s wall). By file: `test_interval_width_viability` 1.87, `test_causal_migration` 0.76,
+`test_event_sufficiency` 0.15, `test_prequential` 0.08, the 19 single tests in 11 other files 0.18 together. Not
+counted: part (c) of `test_p2_acceptance::test_event_replay_equivalence_after_full_walk` (two replays inside a test
+that stays) and the edited assertions. Removed:
+
+- whole files: `test_causal_migration`, `test_interval_width_viability`, `test_prequential`, `test_event_sufficiency`,
+  `test_misconception_label` (none had a `*_helpers.py`; `test_test_layout`'s allowlist names none of them);
+- single tests: 5 in `test_misconception_transitions_intake`, 2 in `test_probe_eig` (and its now-unused
+  `_add_non_fatal_item`), 3 in `test_activity_patterns`, 1 each in `test_goal_pace`, `test_causal_activity_policy`,
+  `test_km2_canonical`, `test_sensitivity_certificates`, `test_probe_lifecycle`, `test_causal_probe_commissioning`,
+  `test_settings_store`, `test_commitments`;
+- parts: (c) of the P2 replay walk; three lookups in `test_repositories`; the learning-object half of
+  `test_irt_difficulty::test_difficulty_source_is_excluded_from_content_hash`; `relations_for_object` from
+  `test_compare_sources_keep`'s raw-reader set. `test_shadow_components` keeps all its tests, with a two-field
+  stand-in for the report.
+
+## Owner's list
+
+1. **`ai/execution.py` `withhold_receipt_input`** (17 lines): a receipt-protection context manager with no caller since
+   curriculum C2b, by its own docstring. Removing it means removing the `_withhold_input` read in the receipt path too,
+   which is more than a leaf. Delete both, or keep for a future route whose prompt must not stay on a receipt.
+2. **`cli/runtime.py` `_fallback_provider_for_task`** (3 lines, dead): for C4, which is editing the provider wrappers
+   around it.
+3. **`ai/providers/codex.py` `make_codex_client`** (test-only): for C4.
+4. **Two unwired guards**, kept: `attempts/grader_calibration.validate_promotion` (exploratory EM may not promote a
+   grader model to `live_calibrated`; nothing promotes today) and `substrate/activity_patterns.candidate_within_bounds`
+   (an LLM may not invent a pattern's operation, capability or purpose; nothing calls it). Wire each when its feature
+   is built, or drop it.
+5. **Selection re-anchoring on re-extraction is unwired.** `reanchor_selection_to` (`content/synthesis/
+   source_unit_selection.py:511`, one of the map's five examples) was the only caller of `reanchor_selection`, and
+   nothing called it: a re-extracted source doesn't carry a learner's unit selection or exam use modes forward by this
+   path. The leaf is deleted as the strategy says; `reanchor_selection` and its two tests in `test_ingest_m3` stay, so
+   the owner can decide whether re-extraction should keep a selection (wire it, restoring the leaf from git) or not
+   (delete it).
+6. **`upsert_exam_profile` / `get_exam_profile`**: kept by
+   `test_contested_exam_profile_crud_remains_until_owner_telemetry`, which says they stay until the owner's telemetry.
+7. **`controller_prequential_reports`** (RECEIPT): no writer or reader is left. Left in place for J1.
+
+## UX list
+
+None. No candidate had a TS, Rust, phone or MCP caller, so no screen loses a backend.
+
+## Proofs
+
+- **Step 0 before deletion:** committed alone (`8fdcc3fa4c`).
+- **Closure** (`c1_closure.py`), base → tip: 1,300 → 1,295 modules and 15,869 → 15,843 edges; the entry points reach 1,292 of them both times (every module but the unreached ones), the replay roots 1,123 both times; the five targets
+  had no importer and weren't reached from either root set; after deletion they don't exist, and the unreached set is
+  `figures/source_check_harness`, `sim/ad_gates`, `sim/ad_synthetic`.
+- **Every module imports:** importing all 1,295 `src` modules raises nothing except `learnloop_mobile.__main__`, which
+  runs its CLI on import and exits with a usage error (2): not an import failure.
+- **Fixed point of the name scan:** after the deletions, a rerun of `c1_scan.py` found 7 newly orphaned names (deleted
+  above); a third run found none.
+- **`lint-imports --no-cache`:** 43 kept, 0 broken, with `unmatched_ignore_imports_alerting = "error"`, so no
+  ignore line went stale when function-local imports left with their functions.
+- **`ruff check`:** all checks passed.
+- **Targeted tests:** the selector falls back to the whole suite (deleted modules, `pyproject.toml`, and
+  `db/repositories.py`, which conftest imports), and at depth 0 without those it still selects 1,289 files through
+  `ingest/hashing` and `probe_families`. So an explicit list of 482 files: every test file that imports a changed
+  `src` module by name, except `attempts/attempts.py` and `cli/app.py` (their only change is an unreferenced
+  definition; `test_attempts.py` and the CLI tests stand in), plus every edited test file, `test_repositories`,
+  `test_architecture`, `test_test_layout`, `test_cli_help_snapshot`, `test_cli_json`, `test_effective_defaults_golden`
+  and `test_table_roles`. **9,060 passed, 35 skipped, 2 xfailed in 813 s at `-n 4`** (a first run at `-n 6` was
+  OOM-killed by the 5 GB cap at 79%, with no failure before it).
+- **No change at a fixed input:** nothing deleted had a caller on a serving, grading, router, replay, rebuild or upgrade
+  path, so served items, router draws, grades and replay can't change; no stored row or config key names anything
+  removed. The P-draw and P-shadow harnesses weren't run (C1 names neither).
+- **Vault:** references regenerated once after the source commit (`9d06a6d3cc`, 182 files: the generated notes,
+  plus the five deleted modules' notes removed by hand because the generator rewrites but doesn't delete); a second
+  `generate_all.py` run changed nothing. The four validators pass: `validate_vault` (2,285 notes), `module_validate`
+  (1:1 coverage, 45,601 wikilinks), `desktop_validate` (330 + 6 modules), `db_validate_reference` (no errors). The
+  vault tests (`test_desktop_activation_audit`, `test_generated_provenance`, `test_module_catalog_inventory`) and
+  `test_architecture`, `test_test_layout` pass on the regenerated tree (37 passed). Hand-written notes: ADR-012 says
+  what the freeze let go; Scheduling and Selection's test list no longer names a prequential suite. No other
+  hand-written note names a deleted module or definition.
+
+## Open items
+
+- **`figures/source_check_harness`** is the one module nothing reaches that C1 doesn't name. Not read here (Appendix
+  C's rule: a step's own reader confirms). A later step, or the owner, decides.
+- **Appendix C beyond the leaf list and the test-only rule** wasn't worked through, as the strategy says. Of the 97
+  test-only definitions, 74 stay; the table above gives each one's reason.
+- **35 `Repository` methods** used only by tests stay until a step touches their tables and moves them to a store.
+- **`sim/ad_gates`, `sim/ad_synthetic`** stay as the library of `test_ad23_sim` (734 s, the suite's slowest file).
+  Whether AD23's gates move to a marked lane belongs to `tests/audit-speed`, whose brief excludes the deprecated
+  inventory.
+- **Merge with C3 and C4:** C1 touches no file under `apps/`, `src/learnloop_sidecar/`, `ai/providers/` or
+  `codex_lockdown`. `cli/runtime.py` and `ai/execution.py` are untouched. Overlap is possible in `pyproject.toml`
+  (three `ignore_imports` lines), `db/repositories.py` and the generated notes, which the orchestrator regenerates.
+
+## Unverified
+
+- The full suite, the durability lane and `--fresh-connections` weren't run (the orchestrator's gate).
+- P-shadow and P-draw weren't run: C1 names neither, and nothing deleted is on a replay or draw path by the closure.
+- The name scan can't see a name built at run time from parts. The searched dynamic sites build none of these names,
+  but a site added by C3 or C4 in parallel wasn't seen.
