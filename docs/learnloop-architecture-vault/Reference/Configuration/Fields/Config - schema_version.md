@@ -50,7 +50,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `schema_version` | `2` | integer | explicit template decision | Selects the accepted learnloop.toml schema and activates one-way normalization for older schema-1 input. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4782`; `src/learnloop/ingest/extractors/glm_ocr.py:292`; `src/learnloop_sidecar/context.py:888` |
+| `schema_version` | `2` | integer | explicit template decision | Selects the accepted learnloop.toml schema and activates one-way normalization for older schema-1 input. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4781`; `src/learnloop/ingest/extractors/glm_ocr.py:292`; `src/learnloop_sidecar/context.py:888` |
 
 ## Compatibility-only inputs
 

@@ -47,25 +47,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/policy.py](../../../../../../src/learnloop/daily_plan/policy.py) |
-| Source lines | 201 |
+| Source lines | 196 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `bridge_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 36) — ``golden_path.advance`` goes through the P2 bridge (D13): the R2a successor or later with the router's kill switch on.
-- `router_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 47) — The router composes Today: the plan serves and the bridge's switch holds.
-- `mixture_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 53) — The model mixture chooses Today's blocks: the router composes Today, the vault is at the R2b + R2c successor or later, and ``router.mode`` is ``mixture``.
-- `objective_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 67) — Router objective RO4 (spec §8): the objective chooses Today's blocks: the mixture serves and the vault is at RO4's tag with ``[router_objective] enabled``.
-- `policy_for(vault: Any, repository: Any, *, session_id: str | None=None, clock: Any=None, runtime: Any=None, serve: bool=False, start_only: bool=False) -> PlanPolicy` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 76) — Today's source/chooser pair for one plan env (one RPC).
-- `prefetch_can_start(vault: Any, *, runtime: Any=None) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 151) — Spec_instruct_handoff_v1 §3a: a boundary's objective job has something to ask: the objective chooses Today and a model is set up.
+- `router_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 36) — The router composes Today: the plan serves, the vault is at the R2a successor or later, and the router's kill switch (``router.enabled``) is on.
+- `mixture_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 48) — The model mixture chooses Today's blocks: the router composes Today, the vault is at the R2b + R2c successor or later, and ``router.mode`` is ``mixture``.
+- `objective_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 62) — Router objective RO4 (spec §8): the objective chooses Today's blocks: the mixture serves and the vault is at RO4's tag with ``[router_objective] enabled``.
+- `policy_for(vault: Any, repository: Any, *, session_id: str | None=None, clock: Any=None, runtime: Any=None, serve: bool=False, start_only: bool=False) -> PlanPolicy` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 71) — Today's source/chooser pair for one plan env (one RPC).
+- `prefetch_can_start(vault: Any, *, runtime: Any=None) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 146) — Spec_instruct_handoff_v1 §3a: a boundary's objective job has something to ask: the objective chooses Today and a model is set up.
 
 ### Explicit exports
 
 `__all__` declares:
 
-- `bridge_active`
 - `mixture_active`
 - `objective_active`
 - `policy_for`
@@ -74,7 +72,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_lesson_offer_builder(vault: Any, repository: Any) -> Any` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 163) — Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the boundary's lesson offer, at TE3b's tag with its switch on (``router_objective_switches.lesson_offers_on``); None (the predecessor's boundary exactly) otherwise.
+- `_lesson_offer_builder(vault: Any, repository: Any) -> Any` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 158) — Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the boundary's lesson offer, at TE3b's tag with its switch on (``router_objective_switches.lesson_offers_on``); None (the predecessor's boundary exactly) otherwise.
 
 ## Who imports or calls it
 
@@ -88,7 +86,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `mixture_active`, `objective_active`, `policy_for`, `router_active`; statically calls `mixture_active`, `objective_active`, `policy_for`, `router_active`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `mixture_active`; statically calls `mixture_active`
 - [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `policy_for`, `prefetch_can_start`; statically calls `policy_for`, `prefetch_can_start`
-- [[Reference/Modules/learnloop_sidecar/handlers/golden_path|learnloop_sidecar.handlers.golden_path]] — imports `bridge_active`; statically calls `bridge_active`
 
 ## Dependencies
 
@@ -118,7 +115,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]], [[Reference/Modules/learnloop/daily_plan/router_teach_back|learnloop.daily_plan.router_teach_back]], [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]], [[Reference/Modules/learnloop/daily_plan/router_teach_back|learnloop.daily_plan.router_teach_back]], [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

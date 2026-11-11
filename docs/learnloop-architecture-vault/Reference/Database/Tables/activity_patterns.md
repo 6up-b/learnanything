@@ -21,9 +21,9 @@ source_paths:
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/curriculum/depth_edge_authoring.py"
   - "src/learnloop/curriculum/depth_rungs.py"
-  - "src/learnloop/curriculum/pattern_ladder.py"
   - "src/learnloop/curriculum/rung_backfill.py"
   - "src/learnloop/curriculum/task_blueprints.py"
+  - "src/learnloop/db/repositories.py"
   - "src/learnloop/substrate/activity_patterns.py"
 tags:
   - "learnloop/database/table"

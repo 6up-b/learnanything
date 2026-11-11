@@ -182,7 +182,7 @@ def staged_next_action(
     replays from events.
 
     Router R2a (D13, owner Q10): ``requested_to_state`` is what a client asked for
-    (``golden_path.advance``). When it is not the canonical successor it is the
+    (the removed ``golden_path.advance`` RPC was the only one). When it is not the canonical successor it is the
     learner's explicit choice: the staged policy is consulted with
     ``explicit_choice`` (logged as a learner pick, no propensity) and the requested
     state stands (``authority='learner_choice'``; the learner's choice wins, P4 §4.1).
@@ -356,7 +356,7 @@ def advance_live(
     and ``(None, action)`` is returned; the caller replans (design §C: the loser
     waits/rotates/stops, never trades the constraint).
 
-    Router R2a (D13): ``golden_path.advance`` calls this with the client's request
+    Router R2a (D13): the removed ``golden_path.advance`` RPC called this with the client's request
     (``requested_to_state`` / ``requested_reason``; see :func:`staged_next_action`).
     When the resolved state is the one requested, the client's reason is recorded on
     the transition, as the direct call recorded it."""

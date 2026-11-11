@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/__init__.py](../../../../../../src/learnloop_sidecar/handlers/__init__.py) |
-| Source lines | 78 |
+| Source lines | 74 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -86,7 +86,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/diagnosis_card|learnloop_sidecar.handlers.diagnosis_card]] — imports `module`
-- [[Reference/Modules/learnloop_sidecar/handlers/diagnostic|learnloop_sidecar.handlers.diagnostic]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/exams|learnloop_sidecar.handlers.exams]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/facet_detail|learnloop_sidecar.handlers.facet_detail]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/facet_identity|learnloop_sidecar.handlers.facet_identity]] — imports `module`
@@ -96,8 +95,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/followup|learnloop_sidecar.handlers.followup]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `module`
-- [[Reference/Modules/learnloop_sidecar/handlers/golden_path|learnloop_sidecar.handlers.golden_path]] — imports `module`
-- [[Reference/Modules/learnloop_sidecar/handlers/golden_path_assessment|learnloop_sidecar.handlers.golden_path_assessment]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/graph|learnloop_sidecar.handlers.graph]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/graph_edit|learnloop_sidecar.handlers.graph_edit]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `module`
@@ -108,7 +105,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop_sidecar/handlers/kept_comparisons|learnloop_sidecar.handlers.kept_comparisons]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/knowledge_model|learnloop_sidecar.handlers.knowledge_model]] — imports `module`
-- [[Reference/Modules/learnloop_sidecar/handlers/ladder|learnloop_sidecar.handlers.ladder]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/learner_gaps|learnloop_sidecar.handlers.learner_gaps]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/library|learnloop_sidecar.handlers.library]] — imports `module`
@@ -291,7 +287,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro0_rows7_8_sessions.py](../../../../../../tests/test_ro0_rows7_8_sessions.py) — direct import
 - [tests/test_ro4_goals.py](../../../../../../tests/test_ro4_goals.py) — direct import
 - [tests/test_router_outcomes.py](../../../../../../tests/test_router_outcomes.py) — direct import
-- [tests/test_router_p2_bridge.py](../../../../../../tests/test_router_p2_bridge.py) — direct import
 - [tests/test_router_probe_ties.py](../../../../../../tests/test_router_probe_ties.py) — direct import
 - [tests/test_router_r1_composition.py](../../../../../../tests/test_router_r1_composition.py) — direct import
 - [tests/test_router_r2a_serving.py](../../../../../../tests/test_router_r2a_serving.py) — direct import

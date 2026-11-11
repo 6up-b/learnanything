@@ -131,15 +131,15 @@ def _c2_p1(repository: Repository) -> Condition:
 
 
 def _c3_p2(repository: Repository) -> Condition:
+    # The pattern ladder was the journey's other substrate; it was removed with the Golden Path, so the
+    # held-out assessment is the capability left to check.
     ok, detail = _has_attrs("learnloop.curriculum.golden_path_assessment", ("__name__",))
-    ok2, detail2 = _has_attrs("learnloop.curriculum.pattern_ladder", ("__name__",))
-    met = ok and ok2
     return Condition(
         key="p2_end_to_end_held_out_journey",
         spec_ref="§14.1(3)",
         description="P2 end-to-end held-out journey passes",
-        met=met,
-        detail=f"golden_path_assessment={ok}; pattern_ladder={ok2}",
+        met=ok,
+        detail=f"golden_path_assessment={ok}",
     )
 
 

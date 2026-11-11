@@ -60,9 +60,9 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/sim/kinship_admission|learnloop.sim.kinship_admission]] | [[Reference/Modules/learnloop/sim/kinship_admission#^module-purpose|purpose]] | `EVALUATION` | 1 | 0 |
 | [[Reference/Modules/learnloop/sim/metrics|learnloop.sim.metrics]] | [[Reference/Modules/learnloop/sim/metrics#^module-purpose|purpose]] | `EVALUATION` | 1 | 1 |
 | [[Reference/Modules/learnloop/sim/offline_benchmarks|learnloop.sim.offline_benchmarks]] | [[Reference/Modules/learnloop/sim/offline_benchmarks#^module-purpose|purpose]] | `EVALUATION` | 1 | 1 |
-| [[Reference/Modules/learnloop/sim/profiles|learnloop.sim.profiles]] | [[Reference/Modules/learnloop/sim/profiles#^module-purpose|purpose]] | `EVALUATION` | 4 | 5 |
+| [[Reference/Modules/learnloop/sim/profiles|learnloop.sim.profiles]] | [[Reference/Modules/learnloop/sim/profiles#^module-purpose|purpose]] | `EVALUATION` | 4 | 4 |
 | [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] | [[Reference/Modules/learnloop/sim/runner#^module-purpose|purpose]] | `EVALUATION` | 6 | 5 |
-| [[Reference/Modules/learnloop/sim/student|learnloop.sim.student]] | [[Reference/Modules/learnloop/sim/student#^module-purpose|purpose]] | `EVALUATION` | 4 | 5 |
+| [[Reference/Modules/learnloop/sim/student|learnloop.sim.student]] | [[Reference/Modules/learnloop/sim/student#^module-purpose|purpose]] | `EVALUATION` | 4 | 4 |
 | [[Reference/Modules/learnloop/sim/sweep|learnloop.sim.sweep]] | [[Reference/Modules/learnloop/sim/sweep#^module-purpose|purpose]] | `EVALUATION` | 3 | 2 |
 
 ## Cross-package dependencies

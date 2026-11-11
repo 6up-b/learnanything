@@ -5,7 +5,7 @@ aliases:
 status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
+last_reviewed: 2026-11-11
 source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
 source_commit_timestamp: "2026-08-17T12:05:21-04:00"
 source_paths:
@@ -26,7 +26,7 @@ Reader and tutor interactions help the learner understand source material withou
 
 Reader views are anchored to extracted source spans. Learner questions can request direct answers, guided reasoning, or an ask-first response. Answers are citation-validated and bounded to the manifest. Owner-placed reading checks are source-visible instructional administrations and always skippable.
 
-Reader signals may warm familiarity, burn a reserved surface when content is revealed, or provide a short-lived routing prior. They never update posterior ability, FSRS, or certification. The reader is opt-in/dark by default (`tutor_qa.reader_enabled = false`), and the golden path completes without it.
+Reader signals may warm familiarity, burn a reserved surface when content is revealed, or provide a short-lived routing prior. They never update posterior ability, FSRS, or certification. The reader is opt-in/dark by default (`tutor_qa.reader_enabled = false`).
 
 ## Tutor Q&A
 

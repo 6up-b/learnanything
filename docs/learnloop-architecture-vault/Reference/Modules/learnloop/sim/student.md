@@ -117,7 +117,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import
 - [tests/test_primed_attempts.py](../../../../../../tests/test_primed_attempts.py) — direct import
   - `test_priming_floors_effective_knowledge`
   - `test_shallow_misconception_repaired_by_priming`

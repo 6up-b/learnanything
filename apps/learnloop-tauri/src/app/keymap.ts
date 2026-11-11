@@ -10,7 +10,7 @@
 // The classic bindings are the base shell's exactly (`ui.shell = "classic"`):
 // the same chords, the same predicates (loose about extra modifiers where the
 // base was), the same "not while typing" rules.
-import { SHOW_GOLDEN_PATH, navTabs, type TopTab } from "../components/ui";
+import { navTabs, type TopTab } from "../components/ui";
 import { activeShell } from "./algoConfig";
 import type { Place, ShellMode, UthToolId } from "./shell";
 
@@ -72,8 +72,8 @@ function classicBindings(): KeyBinding[] {
     binding("palette.ctrl-p", "Ctrl+P", "Command palette", { kind: "palette" }, { key: "p", mod: true }, { whileTyping: true }),
     binding("settings.alt-s", "Alt+S", "Settings", { kind: "settings" }, { key: "s", alt: true }, { whileTyping: true }),
     binding("palette.colon", ":", "Command palette", { kind: "palette" }, { key: ":" }),
-    // navTabs already leaves Golden Path out while it is hidden, so Alt+8
-    // stays unbound, as in the base shell.
+    // navTabs has no key 8 (the retired Golden Path tab), so Alt+8 stays
+    // unbound, as in the base shell.
     ...navTabs.map((tab) =>
       binding(`tab.${tab.id}`, `Alt+${tab.key}`, tab.label, { kind: "tab", tab: tab.id }, { key: tab.key, alt: true })
     ),
@@ -100,9 +100,6 @@ function simpleBindings(): KeyBinding[] {
     binding("old.proposals", "Alt+5", "Study-map changes (was Proposals)", { kind: "tool", tool: "proposals" }, { key: "5", alt: true }, { whileTyping: true }),
     binding("old.registry", "Alt+6", "Subjects & topics (was Registry)", { kind: "tool", tool: "registry" }, { key: "6", alt: true }, { whileTyping: true }),
     binding("old.library", "Alt+7", "Library (was [7] Library)", { kind: "place", place: "library" }, { key: "7", alt: true }, { whileTyping: true }),
-    ...(SHOW_GOLDEN_PATH
-      ? [binding("old.golden", "Alt+8", "Golden path", { kind: "tool", tool: "golden" } as KeyAction, { key: "8", alt: true }, { whileTyping: true })]
-      : []),
     binding("old.reader", "Alt+9", "Reader (was [9] Reader)", { kind: "place", place: "reader" }, { key: "9", alt: true }, { whileTyping: true }),
     binding("old.maintain", "Alt+0", "System health (was Maintain)", { kind: "tool", tool: "maintain" }, { key: "0", alt: true }, { whileTyping: true }),
     ...addBindings()

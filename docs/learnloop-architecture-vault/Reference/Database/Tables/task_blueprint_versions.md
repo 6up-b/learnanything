@@ -113,7 +113,6 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/diagnostic_pack.py`
 - `src/learnloop/diagnosis/failure_triage.py`
 - `src/learnloop/reader/reader_guidance.py`
-- `src/learnloop_sidecar/handlers/golden_path.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

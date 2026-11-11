@@ -37,14 +37,13 @@ AREA_RESPONSIBILITIES = {
     "TypeScript/api": "Typed DTOs and the renderer-to-Tauri invocation facade.",
     "TypeScript/app": "Desktop shell orchestration, keyboard policy, configuration helpers, and recent-vault state.",
     "TypeScript/components": "Reusable learner-facing controls and composite interaction surfaces.",
-    "TypeScript/components/goldenpath": "Golden-path setup and triage components used by the staged learning journey.",
+    "TypeScript/components/goldenpath": "Shared Reader controls (the two buttons, the disposition picker, the affect tap), first built for the retired Golden Path.",
     "TypeScript/components/graphedit": "Study-map editing widgets, pending edits, and geometry previews.",
     "TypeScript/components/pdfSelection": "The PDF text-layer selection model: tokens, geometry, highlights, and the selection layer over a rendered page.",
     "TypeScript/components/pdfSelection/testing": "Synthetic PDFs and books built in memory for the PDF selection vitest files (test support, outside the Vite build).",
     "TypeScript/components/recipeedit": "Recipe-tree editing for structured learning plans.",
     "TypeScript/copy": "Learner-facing copy policy: the jargon deny-list the vitest lints apply, and plain-language ingest error wording.",
     "TypeScript/fixtures": "Deterministic renderer fixtures used to demonstrate or restore known states.",
-    "TypeScript/fixtures/goldenpath": "A barrel over checked-in golden-path JSON scenario fixtures.",
     "TypeScript/render": "Markdown, mathematics, and live-editor rendering adapters.",
     "TypeScript/screens": "Top-level routed workflow screens in the desktop shell.",
     "TypeScript/screens/feedback": "The post-answer feedback surface: answer exposure, method comparison, and its exposure contract.",
@@ -61,9 +60,9 @@ AREA_RESPONSIBILITIES = {
 
 
 BEHAVIOR_TEST_RULES: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
-    (("goldenpath", "goldenpathscreen"), ("tests/test_sidecar_golden_path.py", "tests/test_sidecar_golden_path_assessment.py", "tests/test_golden_path_fixture.py")),
+    (("goldenpath",), ("tests/test_sidecar_reader.py", "tests/test_reader_dialogue.py")),
     (("reader", "pdfreader", "openinsource", "pagerange", "sourcetail", "highlight"), ("tests/test_sidecar_reader.py", "tests/test_sidecar_reader_pdf_view.py", "tests/test_reader_render_views.py", "tests/test_reader_requests.py")),
-    (("practice", "itempresentation", "probe", "dialogue", "questionqueue"), ("tests/test_large_practice_flow.py", "tests/test_sidecar_contract.py", "tests/test_practice_information.py", "tests/test_sidecar_diagnostic.py")),
+    (("practice", "itempresentation", "probe", "dialogue", "questionqueue"), ("tests/test_large_practice_flow.py", "tests/test_sidecar_contract.py", "tests/test_practice_information.py")),
     (("repair", "causal", "adjudication", "diagnostic", "whydiagnosis"), ("tests/test_causal_repair_sidecar_rpcs.py", "tests/test_causal_attribution_p0.py", "tests/test_diagnosis_adjudication.py", "tests/test_diagnostic_review_policy.py")),
     (("goal", "exam"), ("tests/test_sidecar_goals.py", "tests/test_sidecar_exams.py", "tests/test_goal_projection.py", "tests/test_exam_session.py")),
     (("calibration",), ("tests/test_calibration_sessions.py", "tests/test_exam_calibration.py", "tests/test_answer_calibration_duel.py")),
@@ -476,7 +475,7 @@ def audit_activation(infos: dict[Path, SourceInfo]) -> None:
             info.activation_kind = "entry-reachable build graph"
             info.activation_chain = reconstruct_chain(source, ts_parents)
             if "/fixtures/" in info.relative:
-                info.activation_evidence = "Imported through a current Reader/GoldenPath screen reachable from src/main.tsx."
+                info.activation_evidence = "Imported through a current Reader screen reachable from src/main.tsx."
             elif "/startBackdrops/" in info.relative:
                 info.activation_evidence = "Imported through StartScreen's supported optional backdrop paths reachable from src/main.tsx."
             else:
@@ -564,11 +563,6 @@ def workflow_links(info: SourceInfo) -> list[tuple[str, str]]:
         links += [
             ("[[Workflows/Start a Learning Cycle#Desktop|desktop learning cycle]]", "shows the user-facing session path"),
             ("[[Concepts/Learning System#One attempt|one-attempt model]]", "owns learning semantics"),
-        ]
-    if "goldenpath" in lower or "golden_path" in lower:
-        links += [
-            ("[[Workflows/Start a Learning Cycle#Desktop|desktop learning cycle]]", "places the staged journey in the user-facing session path"),
-            ("[[Concepts/Learning System#The feedback loop|learning feedback loop]]", "owns the learning intent behind the fixture or surface"),
         ]
     if any(word in lower for word in ("repair", "causal", "diagnostic", "adjudication", "probe")):
         links.append(("[[Concepts/Diagnosis and Remediation#Episode lifecycle|diagnosis episode lifecycle]]", "owns diagnostic and repair policy"))
@@ -1004,7 +998,7 @@ def render_catalog(infos: dict[Path, SourceInfo], areas: list[str]) -> str:
         "",
         f"The audit proves **{ts_entry_reachable} TypeScript/TSX files** are reachable through static imports from `src/main.tsx`, **{compiler_implicit} ambient declarations** are included by `tsconfig.json`, **{vitest_support} test-support files** are imported only by vitest files (they run under `npm test`, never in the app bundle), and **{rust_entry_reachable} Rust modules** are reachable by `mod`/`crate` edges from native `main.rs`.",
         "",
-        f"The reachability set includes all **{fixture_count} app fixture modules** through current Reader/GoldenPath screens (the other {fixture_tests} fixture modules are vitest support) and all **{backdrop_count} backdrop/worker modules** through StartScreen's supported optional presentation paths. Entry files are active roots. Therefore all {len(infos)} files are `ACTIVE`; none has positive evidence for `DORMANT`, `COMPAT`, or `EVALUATION`.",
+        f"The reachability set includes all **{fixture_count} app fixture modules** through current Reader screens (the other {fixture_tests} fixture modules are vitest support) and all **{backdrop_count} backdrop/worker modules** through StartScreen's supported optional presentation paths. Entry files are active roots. Therefore all {len(infos)} files are `ACTIVE`; none has positive evidence for `DORMANT`, `COMPAT`, or `EVALUATION`.",
         "",
         "> [!warning] Static graph limits",
         "> Import and symbol-reference edges are reproducible build evidence, not runtime tracing. The generator refuses an unclassified file instead of treating a missing caller as proof of dormancy; a new implicit entry requires an explicit audit rule.",

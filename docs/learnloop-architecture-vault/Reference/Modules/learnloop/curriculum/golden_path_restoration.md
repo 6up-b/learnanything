@@ -77,7 +77,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/reader/reader_restoration|learnloop.reader.reader_restoration]] — imports `module`; statically calls `restore`
-- [[Reference/Modules/learnloop_sidecar/handlers/golden_path_assessment|learnloop_sidecar.handlers.golden_path_assessment]] — imports `module`; statically calls `accept_depth_invitation`, `decline_depth_invitation`, `restore`
 
 ## Dependencies
 
@@ -104,7 +103,7 @@ Use this module in context through:
 
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/reader/reader_restoration|learnloop.reader.reader_restoration]], [[Reference/Modules/learnloop_sidecar/handlers/golden_path_assessment|learnloop_sidecar.handlers.golden_path_assessment]].
+Static participation evidence comes from [[Reference/Modules/learnloop/reader/reader_restoration|learnloop.reader.reader_restoration]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -118,8 +117,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_kill_resume_across_assessment_boundary`
   - `test_milestone_event_only_and_one_suggest_next_never_activates`
   - `test_restoration_after_measurement_cannot_change_the_observation`
-- [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import
-  - `test_golden_path_ten_step_fixture_journey`
 
 ## Modification guidance
 

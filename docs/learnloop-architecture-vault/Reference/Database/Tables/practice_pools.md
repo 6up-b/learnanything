@@ -17,8 +17,6 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/085_surface_pool.sql"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/substrate/surface_pool.py"
-  - "src/learnloop_sidecar/handlers/ladder.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -89,8 +87,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/substrate/surface_pool.py`
-- `src/learnloop_sidecar/handlers/ladder.py`
+None found by exact static reference scan.
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

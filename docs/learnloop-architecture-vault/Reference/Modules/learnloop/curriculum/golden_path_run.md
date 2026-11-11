@@ -88,14 +88,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]] — imports `module`; statically calls `advance`, `project_run`
 - [[Reference/Modules/learnloop/curriculum/golden_path_restoration|learnloop.curriculum.golden_path_restoration]] — imports `module`; statically calls `advance`, `project_run`
-- [[Reference/Modules/learnloop/curriculum/pattern_ladder|learnloop.curriculum.pattern_ladder]] — imports `module`; statically calls `_existing_event`, `advance`, `project_run`
 - [[Reference/Modules/learnloop/diagnosis/failure_triage|learnloop.diagnosis.failure_triage]] — imports `module`; statically calls `advance`, `project_run`
 - [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] — imports `module`; statically calls `advance`, `project_run`
-- [[Reference/Modules/learnloop_sidecar/handlers/golden_path|learnloop_sidecar.handlers.golden_path]] — imports `module`; statically calls `advance`, `project_run`
-
-### Repository tooling consumers
-
-- [scripts/gen_goldenpath_fixtures.py](../../../../../../scripts/gen_goldenpath_fixtures.py); calls `advance`
 
 ## Dependencies
 
@@ -118,21 +112,18 @@ Use this module in context through:
 
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]], [[Reference/Modules/learnloop/curriculum/golden_path_restoration|learnloop.curriculum.golden_path_restoration]], [[Reference/Modules/learnloop/curriculum/pattern_ladder|learnloop.curriculum.pattern_ladder]], [[Reference/Modules/learnloop/diagnosis/failure_triage|learnloop.diagnosis.failure_triage]], [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]], [[Reference/Modules/learnloop/curriculum/golden_path_restoration|learnloop.curriculum.golden_path_restoration]], [[Reference/Modules/learnloop/diagnosis/failure_triage|learnloop.diagnosis.failure_triage]], [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
-- [tests/sidecar_golden_path_assessment_helpers.py](../../../../../../tests/sidecar_golden_path_assessment_helpers.py) — direct import
 - [tests/test_causal_p2_acceptance.py](../../../../../../tests/test_causal_p2_acceptance.py) — direct import
 - [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
   - `test_advance_live_veto_persists_typed_marker`
   - `test_bridge_goes_live_and_is_decision_equivalent_when_owned`
   - `test_bridge_returns_canonical_when_not_staged_owned`
   - `test_full_live_walk_reproduces_canonical_sequence`
-- [tests/test_daily_loop_golden_path_lifecycle.py](../../../../../../tests/test_daily_loop_golden_path_lifecycle.py) — direct import
-  - `test_assess_open_refuses_a_parked_lo_without_burning_the_surface`
 - [tests/test_failure_triage.py](../../../../../../tests/test_failure_triage.py) — direct import
   - `test_concentrated_signature_distribution_stays_tier_one`
   - `test_decide_commits_the_aid_and_routes_the_run`
@@ -167,25 +158,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import
   - `test_event_replay_equivalence_after_full_walk`
   - `test_fault_injection_diagnostic_baseline_boundary_yields_exactly_one`
-  - `test_golden_path_ten_step_fixture_journey`
-  - `test_misconception_planted_learner_takes_signature_route_and_repair_rung`
   - `test_starting_instruction_closes_measurement_segment_and_reentry_is_fresh`
 - [tests/test_p2_leakage_suite.py](../../../../../../tests/test_p2_leakage_suite.py) — direct import
   - `test_diagnostic_exposure_consumes_cold_eligibility`
-- [tests/test_pattern_ladder.py](../../../../../../tests/test_pattern_ladder.py) — direct import
-  - `test_ladder_walks_each_stage_to_ready_to_assess`
-  - `test_one_fail_per_rung_while_climbing_never_triggers_review`
-  - `test_repeated_failure_counts_distinct_surfaces_only`
-  - `test_repeated_varied_failures_terminate_into_needs_review`
-- [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
-  - `test_f3_the_staged_bridge_hands_its_decision_the_ad_reader`
-- [tests/test_router_p2_bridge.py](../../../../../../tests/test_router_p2_bridge.py) — direct import
-  - `test_a_requested_state_other_than_the_canonical_successor_is_the_learners_choice`
-  - `test_a_retried_constraint_vetoed_advance_stays_deferred`
-  - `test_a_staged_veto_defers_the_run_and_says_why_in_plain_words`
-  - `test_golden_path_advance_consults_the_staged_policy_through_the_bridge`
-  - `test_switched_off_the_rpc_advances_the_run_directly`
-  - `test_the_response_shape_is_unchanged_for_the_desktop`
 - [tests/test_router_staged_p2.py](../../../../../../tests/test_router_staged_p2.py) — direct import
   - `test_a_live_staged_decision_logs_continue_the_ladder_and_its_choice`
 

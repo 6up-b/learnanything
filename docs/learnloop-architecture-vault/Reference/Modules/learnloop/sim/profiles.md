@@ -106,7 +106,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import
 - [tests/test_planted_misgrade.py](../../../../../../tests/test_planted_misgrade.py) — direct import
   - `test_runner_confusion_is_byte_identical_when_none_vs_omitted`
   - `test_runner_planted_confusion_no_silent_diagnosis_flip_through_robust_path`

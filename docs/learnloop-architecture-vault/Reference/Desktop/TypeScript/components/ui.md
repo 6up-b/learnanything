@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/ui.tsx](../../../../../../apps/learnloop-tauri/src/components/ui.tsx) |
-| Source lines | 433 |
+| Source lines | 421 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -54,53 +54,51 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const SHOW_GOLDEN_PATH = false` — const, line 13
-- `export const navTabs = allNavTabs.filter((tab)` — const, line 32
-- `export type TopTab = (typeof allNavTabs)[number]["id"] | "errors" | "settings" | "underhood"` — type, line 37
-- `export function Titlebar()` — function, line 47
-- `export type NavBadgeCounts = Partial<Record<TopTab, number>>` — type, line 241
-- `export function TerminalFrame(` — function, line 243
-- `export function SectionHeader(` — function, line 333
-- `export function Pill(` — function, line 337
-- `export function Card(` — function, line 341
-- `export function EntityLink(` — function, line 357
-- `export function EmptyPlaceholder(` — function, line 402
-- `export function KeyBar(` — function, line 410
+- `export const navTabs = [` — const, line 10
+- `export type TopTab = (typeof navTabs)[number]["id"] | "errors" | "settings" | "underhood"` — type, line 25
+- `export function Titlebar()` — function, line 35
+- `export type NavBadgeCounts = Partial<Record<TopTab, number>>` — type, line 229
+- `export function TerminalFrame(` — function, line 231
+- `export function SectionHeader(` — function, line 321
+- `export function Pill(` — function, line 325
+- `export function Card(` — function, line 329
+- `export function EntityLink(` — function, line 345
+- `export function EmptyPlaceholder(` — function, line 390
+- `export function KeyBar(` — function, line 398
 
 ## Internal implementation anchors
 
-- `const allNavTabs = [` — const, line 15
-- `function getAppWindow(): ReturnType<typeof getCurrentWindow> | null` — function, line 39
-- `const appWindow = useMemo(getAppWindow, [])` — const, line 48
-- `let unlisten: (()` — let, line 53
-- `const sync = ()` — const, line 54
-- `function VaultPath(` — function, line 88
-- `const wrapRef = useRef<HTMLSpanElement | null>(null)` — const, line 90
-- `const chipRef = useRef<HTMLSpanElement | null>(null)` — const, line 91
-- `const recents = useMemo(()` — const, line 95
-- `const list = listRecentVaults()` — const, line 97
-- `const labelFor = useMemo(()` — const, line 103
-- `const counts = new Map<string, number>()` — const, line 104
-- `const name = vaultName(p)` — const, line 106
-- `const onDocMouseDown = (event: MouseEvent)` — const, line 115
-- `const switchTo = (path: string)` — const, line 122
-- `const addNew = async ()` — const, line 127
-- `const selected = await openDialog(` — const, line 129
-- `function SettingsChip(` — function, line 201
-- `const NAV_BADGE_STYLE: CSSProperties =` — const, line 231
-- `const count = badges?.[tab.id] ?? 0` — const, line 291
-- `const SPINNER_FRAMES = "⣾⣽⣻⢿⡿⣟⣯⣷"` — const, line 391
-- `function Spinner()` — function, line 393
-- `const id = setInterval(()` — const, line 396
+- `function getAppWindow(): ReturnType<typeof getCurrentWindow> | null` — function, line 27
+- `const appWindow = useMemo(getAppWindow, [])` — const, line 36
+- `let unlisten: (()` — let, line 41
+- `const sync = ()` — const, line 42
+- `function VaultPath(` — function, line 76
+- `const wrapRef = useRef<HTMLSpanElement | null>(null)` — const, line 78
+- `const chipRef = useRef<HTMLSpanElement | null>(null)` — const, line 79
+- `const recents = useMemo(()` — const, line 83
+- `const list = listRecentVaults()` — const, line 85
+- `const labelFor = useMemo(()` — const, line 91
+- `const counts = new Map<string, number>()` — const, line 92
+- `const name = vaultName(p)` — const, line 94
+- `const onDocMouseDown = (event: MouseEvent)` — const, line 103
+- `const switchTo = (path: string)` — const, line 110
+- `const addNew = async ()` — const, line 115
+- `const selected = await openDialog(` — const, line 117
+- `function SettingsChip(` — function, line 189
+- `const NAV_BADGE_STYLE: CSSProperties =` — const, line 219
+- `const count = badges?.[tab.id] ?? 0` — const, line 279
+- `const SPINNER_FRAMES = "⣾⣽⣻⢿⡿⣟⣯⣷"` — const, line 379
+- `function Spinner()` — function, line 381
+- `const id = setInterval(()` — const, line 384
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `EmptyPlaceholder`, `NavBadgeCounts`, `SHOW_GOLDEN_PATH`, `TerminalFrame`, `TopTab`; references `EmptyPlaceholder`, `NavBadgeCounts`, `SHOW_GOLDEN_PATH`, `TerminalFrame`, `TopTab`
-- [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export: `SHOW_GOLDEN_PATH`, `TopTab`, `navTabs`; references `SHOW_GOLDEN_PATH`, `TopTab`, `navTabs`
-- [[Reference/Desktop/TypeScript/app/shell|src/app/shell.ts]] — import-or-re-export: `SHOW_GOLDEN_PATH`, `TopTab`; references `SHOW_GOLDEN_PATH`, `TopTab`
+- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `EmptyPlaceholder`, `NavBadgeCounts`, `TerminalFrame`, `TopTab`; references `EmptyPlaceholder`, `NavBadgeCounts`, `TerminalFrame`, `TopTab`
+- [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export: `TopTab`, `navTabs`; references `TopTab`, `navTabs`
+- [[Reference/Desktop/TypeScript/app/shell|src/app/shell.ts]] — import-or-re-export: `TopTab`; references `TopTab`
 - [[Reference/Desktop/TypeScript/components/CommandPalette|src/components/CommandPalette.tsx]] — import-or-re-export: `Pill`, `TopTab`, `navTabs`; references `Pill`, `TopTab`, `navTabs`
 - [[Reference/Desktop/TypeScript/components/DiagnosisCard|src/components/DiagnosisCard.tsx]] — import-or-re-export: `Pill`; references `Pill`
 - [[Reference/Desktop/TypeScript/components/DialogueProbe|src/components/DialogueProbe.tsx]] — import-or-re-export: `Card`, `Pill`, `SectionHeader`; references `Card`, `Pill`, `SectionHeader`

@@ -96,7 +96,6 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] — imports `obsolete_mint_work_for_card_versions`; statically calls `obsolete_mint_work_for_card_versions`
-- [[Reference/Modules/learnloop/substrate/surface_pool|learnloop.substrate.surface_pool]] — imports `module`; statically calls `request_candidates`, `rotation_decision`
 
 ## Dependencies
 
@@ -119,7 +118,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]], [[Reference/Modules/learnloop/substrate/surface_pool|learnloop.substrate.surface_pool]].
+Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -240,7 +240,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_attempt_evidence_no_longer_locks_a_facet`
   - `test_deactivating_a_practised_learning_object_is_still_invalid`
   - `test_independent_surface_groups_and_mass_no_longer_lock_a_facet`
-- [tests/test_daily_loop_golden_path_lifecycle.py](../../../../../../tests/test_daily_loop_golden_path_lifecycle.py) — direct import
 - [tests/test_daily_loop_lo_lifecycle_serving.py](../../../../../../tests/test_daily_loop_lo_lifecycle_serving.py) — direct import
 - [tests/test_daily_loop_reader_authored_practice.py](../../../../../../tests/test_daily_loop_reader_authored_practice.py) — direct import
   - `test_question_is_not_filed_under_a_put_away_lo`

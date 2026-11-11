@@ -6,7 +6,7 @@ aliases:
 status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
-last_reviewed: 2026-09-23
+last_reviewed: 2026-11-11
 source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
 source_commit_timestamp: "2026-09-23T13:06:55-04:00"
 source_paths:
@@ -81,7 +81,7 @@ Use [[Desktop Module Catalog]] for every TypeScript/TSX/Rust file, its importers
 
 `main.tsx` applies the saved palette and mounts `App`. `App.tsx` is the desktop composition root: it loads the selected vault, maintains top-level screen/overlay/session state, listens for native vault-change events, and routes typed DTOs into screens. Screen modules own page-level interactions; components own reusable presentations; `api/client.ts` is the only ordinary route to native commands.
 
-The heavier screens (Reader, Graph, Ingest, Exam, Library, Proposals, Registry Review, Golden Path) are loaded with `React.lazy`, so each is a separate chunk fetched on first use; pdf.js is imported statically only by the Reader's `PdfReaderPane` and dynamically by `pdfDocumentCache`, so it stays out of the main chunk. The screen body renders inside `ScreenErrorBoundary` around a `<Suspense>` fallback. The boundary catches render errors, most importantly a lazy chunk that failed to load (React caches the rejected import, so only a page reload fetches it again): it shows the error with a **reload app** button, and it clears when the active tab (`resetKey`) changes so the other screens stay usable.
+The heavier screens (Reader, Graph, Ingest, Exam, Library, Proposals, Registry Review) are loaded with `React.lazy`, so each is a separate chunk fetched on first use; pdf.js is imported statically only by the Reader's `PdfReaderPane` and dynamically by `pdfDocumentCache`, so it stays out of the main chunk. The screen body renders inside `ScreenErrorBoundary` around a `<Suspense>` fallback. The boundary catches render errors, most importantly a lazy chunk that failed to load (React caches the rejected import, so only a page reload fetches it again): it shows the error with a **reload app** button, and it clears when the active tab (`resetKey`) changes so the other screens stay usable.
 
 The UI keeps ephemeral interaction state—open overlays, current tab, local draft mirror—but the authoritative attempt, queue, ingest, goal, and learner state remains behind the sidecar. Reloading the UI must reconstruct supported state from backend snapshots and checkpoints.
 

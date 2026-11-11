@@ -16,7 +16,6 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/084_pattern_ladder.sql"
-  - "src/learnloop/curriculum/pattern_ladder.py"
   - "src/learnloop/db/repositories.py"
 tags:
   - "learnloop/database/table"
@@ -95,7 +94,7 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/curriculum/pattern_ladder.py`
+None found by exact static reference scan.
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

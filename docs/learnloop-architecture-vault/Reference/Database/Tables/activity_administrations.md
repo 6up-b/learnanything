@@ -139,7 +139,6 @@ Indexes and uniqueness:
 - `tests/test_activity_backfill.py`
 - `tests/test_activity_substrate.py`
 - `tests/test_assessment_enforcement.py`
-- `tests/test_daily_loop_golden_path_lifecycle.py`
 - `tests/test_goal_contracts.py`
 - `tests/test_reader_branches.py`
 - `tests/test_reader_dialogue.py`

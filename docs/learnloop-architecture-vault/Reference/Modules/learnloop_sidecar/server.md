@@ -89,10 +89,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop_sidecar/__main__|learnloop_sidecar.__main__]] — imports `serve`; statically calls `serve`
 
-### Repository tooling consumers
-
-- [scripts/gen_goldenpath_fixtures.py](../../../../../scripts/gen_goldenpath_fixtures.py); calls `serve`
-
 ## Dependencies
 
 ### LearnLoop dependencies
@@ -135,7 +131,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/plan_first_transport_offer_grants_helpers.py](../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import
 - [tests/settings_sidecar_helpers.py](../../../../../tests/settings_sidecar_helpers.py) — direct import
 - [tests/sidecar_contract_helpers.py](../../../../../tests/sidecar_contract_helpers.py) — direct import
-- [tests/sidecar_golden_path_assessment_helpers.py](../../../../../tests/sidecar_golden_path_assessment_helpers.py) — direct import
 - [tests/sidecar_reader_helpers.py](../../../../../tests/sidecar_reader_helpers.py) — direct import
 - [tests/sidecar_reader_p3_helpers.py](../../../../../tests/sidecar_reader_p3_helpers.py) — direct import
 - [tests/sidecar_tutor_qa_helpers.py](../../../../../tests/sidecar_tutor_qa_helpers.py) — direct import
@@ -168,18 +163,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_reopening_feedback_does_not_charge_again`
 - [tests/test_sidecar_animation.py](../../../../../tests/test_sidecar_animation.py) — direct import
 - [tests/test_sidecar_append.py](../../../../../tests/test_sidecar_append.py) — direct import
-- [tests/test_sidecar_blueprint_picker.py](../../../../../tests/test_sidecar_blueprint_picker.py) — direct import
 - [tests/test_sidecar_close_cancels_jobs.py](../../../../../tests/test_sidecar_close_cancels_jobs.py) — direct import
   - `test_the_sidecars_eof_cancels_a_running_discovery`
 - [tests/test_sidecar_contract.py](../../../../../tests/test_sidecar_contract.py) — direct import
-- [tests/test_sidecar_diagnostic.py](../../../../../tests/test_sidecar_diagnostic.py) — direct import
-- [tests/test_sidecar_golden_path.py](../../../../../tests/test_sidecar_golden_path.py) — direct import
 - [tests/test_sidecar_idle_threads.py](../../../../../tests/test_sidecar_idle_threads.py) — direct import
   - `test_the_sidecars_eof_closes_its_context`
 - [tests/test_sidecar_ingest_m3.py](../../../../../tests/test_sidecar_ingest_m3.py) — direct import
 - [tests/test_sidecar_item_authoring.py](../../../../../tests/test_sidecar_item_authoring.py) — direct import
 - [tests/test_sidecar_knowledge_model.py](../../../../../tests/test_sidecar_knowledge_model.py) — direct import
-- [tests/test_sidecar_ladder.py](../../../../../tests/test_sidecar_ladder.py) — direct import
 - [tests/test_sidecar_probe.py](../../../../../tests/test_sidecar_probe.py) — direct import
 - [tests/test_sidecar_quick_add.py](../../../../../tests/test_sidecar_quick_add.py) — direct import
 - [tests/test_sidecar_registry.py](../../../../../tests/test_sidecar_registry.py) — direct import

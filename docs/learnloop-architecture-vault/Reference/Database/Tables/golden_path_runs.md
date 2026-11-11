@@ -21,7 +21,6 @@ source_paths:
   - "src/learnloop/curriculum/golden_path_assessment.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
   - "src/learnloop/curriculum/golden_path_restoration.py"
-  - "src/learnloop/curriculum/pattern_ladder.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -121,16 +120,12 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/golden_path_confirm.py`
 - `src/learnloop/curriculum/golden_path_restoration.py`
 - `src/learnloop/curriculum/golden_path_run.py`
-- `src/learnloop/curriculum/pattern_ladder.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_health.py`
 - `src/learnloop/diagnosis/diagnostic_pack.py`
 - `src/learnloop/diagnosis/failure_triage.py`
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/scheduling/controller_cutover.py`
-- `src/learnloop_sidecar/handlers/golden_path.py`
-- `src/learnloop_sidecar/handlers/golden_path_assessment.py`
-- `src/learnloop_sidecar/handlers/ladder.py`
 - `src/learnloop_sidecar/handlers/reader.py`
 
 > [!note] Static-reference boundary

@@ -151,6 +151,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_codes_vocabulary_covers_the_incumbents_reasons`
 - [tests/test_constraint_engine.py](../../../../../../tests/test_constraint_engine.py) — direct import
 - [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
+  - `test_a_standing_decisions_persisted_trace_names_the_same_veto`
   - `test_constraint_emptied_feasible_set_is_a_veto`
   - `test_evsi_abstain_is_a_veto`
   - `test_ladder_stop_is_not_a_veto`
@@ -162,8 +163,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_ladder_parity.py](../../../../../../tests/test_router_ladder_parity.py) — direct import
   - `test_a_short_circuited_block_fires_no_rung`
   - `test_the_fired_rung_is_the_rule_the_staged_policy_applies`
-- [tests/test_router_p2_bridge.py](../../../../../../tests/test_router_p2_bridge.py) — direct import
-  - `test_a_standing_decisions_persisted_trace_names_the_same_veto`
 - [tests/test_router_staged_p2.py](../../../../../../tests/test_router_staged_p2.py) — direct import
   - `test_a_randomized_within_block_choice_logs_its_assignment_propensity`
   - `test_short_circuited_blocks_are_logged_as_the_learner_pick_or_the_continuation`

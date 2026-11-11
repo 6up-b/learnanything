@@ -17,7 +17,6 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/085_surface_pool.sql"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/substrate/surface_pool.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -92,14 +91,14 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/substrate/surface_pool.py`
+None found by exact static reference scan.
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
-- `tests/test_surface_pool.py`
+No table-specific test contains the table name or a detected repository method call. The schema/role invariants are still pinned by `tests/test_migrations.py` and `tests/test_table_roles.py`.
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

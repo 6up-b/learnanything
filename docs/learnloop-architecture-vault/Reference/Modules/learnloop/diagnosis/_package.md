@@ -115,13 +115,13 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/diagnosis_adjudication|learnloop.diagnosis.diagnosis_adjudication]] | [[Reference/Modules/learnloop/diagnosis/diagnosis_adjudication#^module-purpose|purpose]] | `ACTIVE` | 5 | 5 |
 | [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation|learnloop.diagnosis.diagnostic_augmentation]] | [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/diagnostic_gate|learnloop.diagnosis.diagnostic_gate]] | [[Reference/Modules/learnloop/diagnosis/diagnostic_gate#^module-purpose|purpose]] | `ACTIVE` | 9 | 4 |
-| [[Reference/Modules/learnloop/diagnosis/diagnostic_pack|learnloop.diagnosis.diagnostic_pack]] | [[Reference/Modules/learnloop/diagnosis/diagnostic_pack#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
+| [[Reference/Modules/learnloop/diagnosis/diagnostic_pack|learnloop.diagnosis.diagnostic_pack]] | [[Reference/Modules/learnloop/diagnosis/diagnostic_pack#^module-purpose|purpose]] | `ACTIVE` | 2 | 5 |
 | [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply|learnloop.diagnosis.diagnostic_surface_supply]] | [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply#^module-purpose|purpose]] | `ACTIVE` | 2 | 5 |
 | [[Reference/Modules/learnloop/diagnosis/discrimination_profiles|learnloop.diagnosis.discrimination_profiles]] | [[Reference/Modules/learnloop/diagnosis/discrimination_profiles#^module-purpose|purpose]] | `ACTIVE` | 6 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/error_hunt|learnloop.diagnosis.error_hunt]] | [[Reference/Modules/learnloop/diagnosis/error_hunt#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/error_taxonomy|learnloop.diagnosis.error_taxonomy]] | [[Reference/Modules/learnloop/diagnosis/error_taxonomy#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/error_taxonomy_map|learnloop.diagnosis.error_taxonomy_map]] | [[Reference/Modules/learnloop/diagnosis/error_taxonomy_map#^module-purpose|purpose]] | `ACTIVE` | 8 | 3 |
-| [[Reference/Modules/learnloop/diagnosis/failure_triage|learnloop.diagnosis.failure_triage]] | [[Reference/Modules/learnloop/diagnosis/failure_triage#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
+| [[Reference/Modules/learnloop/diagnosis/failure_triage|learnloop.diagnosis.failure_triage]] | [[Reference/Modules/learnloop/diagnosis/failure_triage#^module-purpose|purpose]] | `ACTIVE` | 0 | 5 |
 | [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] | [[Reference/Modules/learnloop/diagnosis/followups#^module-purpose|purpose]] | `ACTIVE` | 10 | 26 |
 | [[Reference/Modules/learnloop/diagnosis/forecast_receipts|learnloop.diagnosis.forecast_receipts]] | [[Reference/Modules/learnloop/diagnosis/forecast_receipts#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/gate_fit|learnloop.diagnosis.gate_fit]] | [[Reference/Modules/learnloop/diagnosis/gate_fit#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
@@ -198,7 +198,7 @@ For system intent, use [[Learning System]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 31 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 29 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 25 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 20 static module edges
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 19 static module edges
@@ -250,7 +250,7 @@ flowchart LR
     center -->|48| n_learnloop_db
     n_learnloop_attempts -->|20| center
     center -->|26| n_learnloop_attempts
-    n_learnloop_sidecar_handlers -->|31| center
+    n_learnloop_sidecar_handlers -->|29| center
     n_learnloop_substrate -->|5| center
     center -->|22| n_learnloop_substrate
     n_learnloop_cli -->|25| center

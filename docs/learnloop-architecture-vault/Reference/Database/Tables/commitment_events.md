@@ -116,7 +116,6 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
-- `tests/test_p2_acceptance.py`
 - `tests/test_reader_followups.py`
 - `tests/intent_fakes.py`
 - `tests/test_commitment_arcs.py`

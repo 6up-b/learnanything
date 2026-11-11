@@ -11,7 +11,7 @@ source_path: "apps/learnloop-tauri/src/fixtures/readerRenderView.ts"
 source_paths:
   - "apps/learnloop-tauri/src/fixtures/readerRenderView.ts"
 activation_kind: "entry-reachable build graph"
-activation_evidence: "Imported through a current Reader/GoldenPath screen reachable from src/main.tsx."
+activation_evidence: "Imported through a current Reader screen reachable from src/main.tsx."
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -48,7 +48,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Activation and status evidence
 
 > [!success] ACTIVE
-> Imported through a current Reader/GoldenPath screen reachable from src/main.tsx.
+> Imported through a current Reader screen reachable from src/main.tsx.
 >
 > Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/fixtures/readerRenderView|src/fixtures/readerRenderView.ts]]
 

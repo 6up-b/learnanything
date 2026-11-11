@@ -188,25 +188,6 @@ def test_f3_a_staged_decision_keeps_its_ad_numbers(tmp_path, monkeypatch):
     _assert_ad_kept(_state(repository, "staged1"), lo)
 
 
-def test_f3_the_staged_bridge_hands_its_decision_the_ad_reader(tmp_path):
-    from learnloop.algorithm_versions import ROUTER_STAGED_FRAME_ALGORITHM_VERSION
-    from learnloop.curriculum import golden_path_run as GPR
-    from learnloop_sidecar.context import SidecarContext
-    from tests.helpers import _set_algorithm_version_at
-    from tests.router_staged_p2_helpers import _run
-
-    repository, receipt, vault = _run(tmp_path)
-    _set_algorithm_version_at(vault.root, ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
-    canonical = GPR.project_run(repository, receipt.run_id).next_action
-    ctx = SidecarContext()
-    ctx.load(vault.root)
-    _sidecar_call(ctx, "golden_path.advance", {"runId": receipt.run_id, "toState": canonical.to_state,
-                                               "reason": canonical.reason, "idempotencyKey": "k1"})
-    with repository.connection() as connection:
-        decision = connection.execute("SELECT id FROM router_decisions WHERE decision_kind = 'staged_p2'").fetchone()[0]
-    assert _state(repository, decision)["state"]["ad"]["status"] != DS.AD_NOT_READ
-
-
 def test_f3_a_lesson_suggestion_keeps_its_ad_numbers_read_before_its_transaction(tmp_path, monkeypatch):
     from learnloop.router import lesson_suggestions as LS
     from tests.teacher_te1b_suggestions_helpers import _clock, _decisions, _suggestion, _vault

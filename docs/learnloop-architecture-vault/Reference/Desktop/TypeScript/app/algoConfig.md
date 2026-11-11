@@ -101,7 +101,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/askPanel|src/components/askPanel.tsx]] — import-or-re-export: `algoConfig`, `setAdaptiveHelpStyle`, `storedHelpStyle`, `subscribeAlgoConfig`; references `algoConfig`, `setAdaptiveHelpStyle`, `storedHelpStyle`, `subscribeAlgoConfig`
 - [[Reference/Desktop/TypeScript/screens/ExamScreen|src/screens/ExamScreen.tsx]] — import-or-re-export: `masteryTone`; references `masteryTone`
 - [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] — import-or-re-export: `algoConfig`, `masteryTone`; references `algoConfig`, `masteryTone`
-- [[Reference/Desktop/TypeScript/screens/GoldenPathScreen|src/screens/GoldenPathScreen.tsx]] — import-or-re-export: `algoConfig`; references `algoConfig`
 - [[Reference/Desktop/TypeScript/screens/GraphScreen|src/screens/GraphScreen.tsx]] — import-or-re-export: `masteryTone`; references `masteryTone`
 - [[Reference/Desktop/TypeScript/screens/KnowledgeMapScreen|src/screens/KnowledgeMapScreen.tsx]] — import-or-re-export: `masteryTone`; references `masteryTone`
 - [[Reference/Desktop/TypeScript/screens/KnowledgeStrataView|src/screens/KnowledgeStrataView.tsx]] — import-or-re-export: `masteryTone`; references `masteryTone`

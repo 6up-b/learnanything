@@ -299,26 +299,6 @@ import type {
   KnowledgeMapPreviewDto,
   PreviewBlueprintReadinessInput,
   BlueprintReadinessPreviewDto,
-  BlueprintVersionDto,
-  ComposeDraftResult,
-  ExemplarPoolSnapshot,
-  ConfirmReceiptDto,
-  RunStateDto,
-  RunListDto,
-  RunAdvanceResultDto,
-  AssessOpenDto,
-  AssessResultDto,
-  RestoreDto,
-  DepthInvitationResultDto,
-  AcceptEdgeResultDto,
-  TriageResultDto,
-  TriageStatusDto,
-  LadderPolicyDto,
-  LadderStatusDto,
-  LadderAdvanceResultDto,
-  PoolDto,
-  PoolForRunDto,
-  PoolNextSurfaceDto,
   ReaderPromptContractDto,
   ReaderAskInput,
   ReaderAnswerDto,
@@ -1361,100 +1341,6 @@ export const api = {
   getAnswerCalibration: () =>
     call<AnswerCalibrationReportDto>("get_answer_calibration"),
 
-  // ── P2 narrow golden path (spec_p2 §9; spec_tauri_ui §3) ───────────────────
-  // Each command forwards `input` to a dotted sidecar method (see commands.rs).
-  // blueprint.*
-  blueprintReview: (blueprintVersionId: string, checks?: Record<string, unknown> | null) =>
-    mutatingReader(
-      call<BlueprintVersionDto>("blueprint_review", { input: { blueprintVersionId, checks: checks ?? null } })
-    ),
-  blueprintGetVersion: (blueprintVersionId: string) =>
-    call<BlueprintVersionDto>("blueprint_get_version", { input: { blueprintVersionId } }),
-  blueprintDiscoverCandidates: (learningObjectId?: string | null) =>
-    call<ExemplarPoolSnapshot>("blueprint_discover_candidates", { input: { learningObjectId: learningObjectId ?? null } }),
-  blueprintComposeDraft: (input: { learningObjectId: string; anchorItemIds: string[]; heldOutItemId: string; title?: string }) =>
-    call<ComposeDraftResult>("blueprint_compose_draft", { input }),
-  // golden_path.* spine
-  goldenPathConfirm: (input: {
-    goalId: string;
-    blueprintVersionId: string;
-    contractBody: Record<string, unknown>;
-    depthPreset: string;
-    sourceRev: string;
-    unitId: string;
-    action?: string;
-    assessmentSurfaceId?: string | null;
-    assessmentPracticeItemId?: string | null;
-  }) => call<ConfirmReceiptDto>("golden_path_confirm", { input }),
-  goldenPathRunStatus: (runId: string) =>
-    call<RunStateDto>("golden_path_run_status", { input: { runId } }),
-  goldenPathListRuns: () => call<RunListDto>("golden_path_list_runs", { input: {} }),
-  goldenPathAdvance: (input: {
-    runId: string;
-    toState: string;
-    reason: string;
-    idempotencyKey: string;
-    expectedHeadEventId?: string | null;
-    successorMilestone?: string | null;
-  }) => call<RunAdvanceResultDto>("golden_path_advance", { input }),
-  // golden_path.* assessment + restoration + milestone
-  goldenPathAssessOpen: (runId: string) =>
-    call<AssessOpenDto>("golden_path_assess_open", { input: { runId } }),
-  goldenPathAssessSubmit: (input: {
-    runId: string;
-    administrationId: string;
-    surfaceId: string;
-    rubricScore: number;
-    maxPoints: number;
-    attemptId: string;
-    responseText?: string | null;
-    graderConfidence?: number | null;
-    hasFatal?: boolean;
-    revealFeedback?: boolean;
-  }) => call<AssessResultDto>("golden_path_assess_submit", { input }),
-  goldenPathAssessResult: (runId: string) =>
-    call<AssessResultDto>("golden_path_assess_result", { input: { runId } }),
-  goldenPathRestore: (runId: string) =>
-    call<RestoreDto>("golden_path_restore", { input: { runId } }),
-  goldenPathDepthInvitation: (runId: string) =>
-    call<DepthInvitationResultDto>("golden_path_depth_invitation", { input: { runId } }),
-  goldenPathAcceptEdge: (runId: string) =>
-    call<AcceptEdgeResultDto>("golden_path_accept_edge", { input: { runId } }),
-  goldenPathDeclineEdge: (runId: string, reason?: string | null) =>
-    call<AcceptEdgeResultDto>("golden_path_decline_edge", { input: { runId, reason: reason ?? null } }),
-  // diagnostic.* (baseline + triage)
-  diagnosticTriage: (input: { runId: string; attempt: Record<string, unknown>; routingPrior?: Record<string, unknown> | null }) =>
-    call<TriageResultDto>("diagnostic_triage", { input }),
-  diagnosticTriageStatus: (runId: string) =>
-    call<TriageStatusDto>("diagnostic_triage_status", { input: { runId } }),
-  diagnosticTriageDecide: (input: { runId: string; triageEventId: string; chosenReason: string; actor?: string }) =>
-    call<TriageResultDto>("diagnostic_triage_decide", { input }),
-  // ladder.* + practice_pool.*
-  ladderPolicy: (policySlug = "ladder_v1") =>
-    call<LadderPolicyDto>("ladder_policy", { input: { policySlug } }),
-  ladderStatus: (runId: string) => call<LadderStatusDto>("ladder_status", { input: { runId } }),
-  ladderEnter: (input: { runId: string; reason?: string | null; triage?: Record<string, unknown> | null; demonstratedCapability?: boolean }) =>
-    call<Record<string, unknown>>("ladder_enter", { input }),
-  ladderAdvance: (input: {
-    runId: string;
-    fromStage: string;
-    outcome: string;
-    surfaceId?: string | null;
-    scaffoldUse?: number | null;
-    eligible?: boolean;
-    idempotencyKey?: string | null;
-  }) => call<LadderAdvanceResultDto>("ladder_advance", { input }),
-  practicePoolNextSurface: (poolId: string, opts?: { warmthThreshold?: number; cadence?: number }) =>
-    call<PoolNextSurfaceDto>("practice_pool_next_surface", { input: { poolId, ...(opts ?? {}) } }),
-  practicePoolReview: (poolId: string, checks?: Record<string, unknown> | null) =>
-    call<PoolDto>("practice_pool_review", { input: { poolId, checks: checks ?? null } }),
-  // practice_pool.* run composition — discovery + seeding for the run workspace
-  practicePoolForRun: (runId: string) =>
-    call<PoolForRunDto>("practice_pool_for_run", { input: { runId } }),
-  practicePoolSeedForRun: (runId: string) =>
-    call<PoolForRunDto>("practice_pool_seed_for_run", { input: { runId } }),
-  practicePoolAdmitAnchor: (input: { runId: string; poolId: string; surfaceSlug: string }) =>
-    call<PoolForRunDto>("practice_pool_admit_anchor", { input }),
   // reader.* (U-033)
   readerPromptContract: () => call<ReaderPromptContractDto>("reader_prompt_contract", { input: {} }),
   readerAsk: (input: ReaderAskInput) => mutatingReader(call<ReaderAnswerDto>("reader_ask", { input })),

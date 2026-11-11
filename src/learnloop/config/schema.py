@@ -3973,9 +3973,8 @@ class RouterConfig(BaseModel):
     ``enabled`` is the router's kill switch (``mvp-0.23``,
     ``ROUTER_STAGED_FRAME_VERSIONS``). On, Today's plan is composed by the
     staged frame (the daily plan's lanes and ``lane_quota_v1`` over the set
-    the constraint engine admits) and ``golden_path.advance`` goes through
-    the router bridge; off (or below ``mvp-0.23``) both serve exactly as the
-    predecessor. ``card_token_budget`` bounds the learner-state card each
+    the constraint engine admits); off (or below ``mvp-0.23``) Today serves
+    exactly as the predecessor. ``card_token_budget`` bounds the learner-state card each
     boundary stores. ``payload_retention_days`` prunes the stored payloads
     (the card, and the models' requests and raw answers,
     ``router_decision_payloads``); the hashes stay on the decision row.

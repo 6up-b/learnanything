@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/curriculum/golden_path_fixture.py](../../../../../../src/learnloop/curriculum/golden_path_fixture.py) |
-| Source lines | 427 |
+| Source lines | 414 |
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -56,11 +56,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `stub_blueprint(*, family_key: str=FAMILY_KEY, source_rev: str=SOURCE_REV, unit_id: str=UNIT_ID, exemplar_refs: tuple[str, ...]=(EXEMPLAR_A, EXEMPLAR_B), held_out_ref: str=HELD_OUT) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/golden_path_fixture.py), line 61) — Deterministic TaskBlueprintVersion spec (§3.2 shape).
 - `stub_depth_edge() -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/golden_path_fixture.py), line 118) — One reviewed inside-envelope depth edge (§7.5).
 - `stub_diagnostic_pack() -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/golden_path_fixture.py), line 137) — Deterministic diagnostic-pack stub (§5.1, §C).
-- `stub_pool_surfaces() -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/golden_path_fixture.py), line 151) — Deterministic practice-pool stub (§7.3, U-028, §C).
-- `class GoldenPathFixture` ([source](../../../../../../src/learnloop/curriculum/golden_path_fixture.py), line 165)
-  - `content_hashes(self) -> dict[str, str]` (line 176; public) — The timestamp/id-independent content identity of the fixture (§12.8).
-  - `as_dict(self) -> dict[str, Any]` (line 184; public)
-- `build_golden_path_fixture(root: Path, *, clock: Clock | None=None) -> GoldenPathFixture` ([source](../../../../../../src/learnloop/curriculum/golden_path_fixture.py), line 342) — Deterministically build the P2 golden-path fixture vault and confirm the run.
+- `class GoldenPathFixture` ([source](../../../../../../src/learnloop/curriculum/golden_path_fixture.py), line 152)
+  - `content_hashes(self) -> dict[str, str]` (line 163; public) — The timestamp/id-independent content identity of the fixture (§12.8).
+  - `as_dict(self) -> dict[str, Any]` (line 171; public)
+- `build_golden_path_fixture(root: Path, *, clock: Clock | None=None) -> GoldenPathFixture` ([source](../../../../../../src/learnloop/curriculum/golden_path_fixture.py), line 329) — Deterministically build the P2 golden-path fixture vault and confirm the run.
 
 ### Module constants
 
@@ -82,10 +81,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_practice_item(item_id: str, prompt: str, *, now_iso: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/golden_path_fixture.py), line 196)
-- `_seed_vault(root: Path, *, clock: Clock, now_iso: str) -> VaultPaths` ([source](../../../../../../src/learnloop/curriculum/golden_path_fixture.py), line 232)
-- `_pin_algorithm_version(root: Path, version: str) -> None` ([source](../../../../../../src/learnloop/curriculum/golden_path_fixture.py), line 328)
-- `_vault_item(vault: Any, item_id: str) -> Any` ([source](../../../../../../src/learnloop/curriculum/golden_path_fixture.py), line 423)
+- `_practice_item(item_id: str, prompt: str, *, now_iso: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/golden_path_fixture.py), line 183)
+- `_seed_vault(root: Path, *, clock: Clock, now_iso: str) -> VaultPaths` ([source](../../../../../../src/learnloop/curriculum/golden_path_fixture.py), line 219)
+- `_pin_algorithm_version(root: Path, version: str) -> None` ([source](../../../../../../src/learnloop/curriculum/golden_path_fixture.py), line 315)
+- `_vault_item(vault: Any, item_id: str) -> Any` ([source](../../../../../../src/learnloop/curriculum/golden_path_fixture.py), line 410)
 
 ## Who imports or calls it
 
@@ -93,10 +92,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/goldenpath|learnloop.cli.goldenpath]] — imports `build_golden_path_fixture`; statically calls `build_golden_path_fixture`
-
-### Repository tooling consumers
-
-- [scripts/gen_goldenpath_fixtures.py](../../../../../../scripts/gen_goldenpath_fixtures.py); calls `build_golden_path_fixture`, `stub_depth_edge`, `stub_diagnostic_pack`, `stub_pool_surfaces`
 
 ## Dependencies
 
@@ -147,22 +142,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import
   - `test_event_replay_equivalence_after_full_walk`
   - `test_fault_injection_diagnostic_baseline_boundary_yields_exactly_one`
-  - `test_golden_path_ten_step_fixture_journey`
-  - `test_misconception_planted_learner_takes_signature_route_and_repair_rung`
   - `test_starting_instruction_closes_measurement_segment_and_reentry_is_fresh`
 - [tests/test_p2_leakage_suite.py](../../../../../../tests/test_p2_leakage_suite.py) — direct import
   - `test_diagnostic_exposure_consumes_cold_eligibility`
-- [tests/test_pattern_ladder.py](../../../../../../tests/test_pattern_ladder.py) — direct import
+  - `test_practice_to_assessment_fingerprint_blocking`
 - [tests/test_practice_information.py](../../../../../../tests/test_practice_information.py) — direct import
 - [tests/test_reader_dialogue.py](../../../../../../tests/test_reader_dialogue.py) — direct import
   - `test_golden_path_completes_with_reader_never_invoked`
-- [tests/test_surface_pool.py](../../../../../../tests/test_surface_pool.py) — direct import
-  - `test_assessment_reserved_surface_is_refused_at_admission`
-  - `test_current_plus_spare_cache_is_bounded`
-  - `test_pool_assembly_deterministic`
-  - `test_practice_exposure_invalidates_same_fingerprint_assessment_reserve`
-  - `test_purpose_specific_family_cannot_transition_roles`
-  - `test_surfaces_enter_candidate_and_review_requires_admission`
 
 ## Modification guidance
 

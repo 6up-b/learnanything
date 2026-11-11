@@ -90,7 +90,7 @@ describe("the shell key map", () => {
     expect(matchShellKey(keydown({ key: ":", shiftKey: true }), "classic", false)?.keys).toBe(":");
     expect(matchShellKey(keydown({ key: "3", altKey: true }), "classic", typing)).toBeNull();
     expect(matchShellKey(keydown({ key: "3", altKey: true }), "classic", false)?.action).toEqual({ kind: "tab", tab: "graph" });
-    // Golden Path stays hidden: Alt+8 is not a binding while SHOW_GOLDEN_PATH is off.
+    // Alt+8 was the retired Golden Path tab: no binding.
     expect(matchShellKey(keydown({ key: "8", altKey: true }), "classic", false)).toBeNull();
     // Classic has no Ctrl+K and no Ctrl+, (byte-identical to the base shell).
     expect(matchShellKey(keydown({ key: "k", ctrlKey: true }), "classic", false)).toBeNull();

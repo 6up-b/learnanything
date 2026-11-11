@@ -903,9 +903,9 @@ def test_the_pinned_source_action_actions_are_all_of_them():
 # Router R2a (mvp-0.23) adds no RPC. It extends these: a served plan step
 # names its presentation (next_plan_item, plan_learner_pick and the plan reads
 # that return a step), submit_attempt, submit_dont_know and save_practice_draft
-# take planPresentationId (the receipt an answer binds to), and
-# golden_path.advance goes through the P2 bridge (a bridge block in its
-# response). Desktop only.
+# take planPresentationId (the receipt an answer binds to). Desktop only.
+# (golden_path.advance, which went through the P2 bridge, was removed with the
+# Golden Path.)
 ROUTER_R2A_RPCS = (
     "next_plan_item",
     "plan_learner_pick",
@@ -914,7 +914,6 @@ ROUTER_R2A_RPCS = (
     "submit_attempt",
     "submit_dont_know",
     "save_practice_draft",
-    "golden_path.advance",
 )
 
 

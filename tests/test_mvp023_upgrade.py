@@ -48,7 +48,7 @@ from learnloop.algorithm_versions import (
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
 from learnloop.daily_plan.engine import DEFAULT_POLICY
-from learnloop.daily_plan.policy import bridge_active, policy_for, router_active
+from learnloop.daily_plan.policy import policy_for, router_active
 from learnloop.db.connection import connect
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import Repository
@@ -90,19 +90,19 @@ def test_the_router_serves_only_at_the_successor_with_its_switch_on(tmp_path):
     for version, served in (("mvp-0.21", False), ("mvp-0.22", False), ("mvp-0.23", True)):
         set_algorithm_version(paths, version)
         vault = load_vault(paths.root)
-        assert (router_active(vault), bridge_active(vault)) == (served, served), version
+        assert router_active(vault) is served, version
         assert (policy_for(vault, repository) is DEFAULT_POLICY) is (not served), version
     append_config_toml(paths.root, "[router]\nenabled = false\n")
     off = load_vault(paths.root)
     assert off.config.algorithms.algorithm_version == "mvp-0.23"
-    assert (router_active(off), bridge_active(off)) == (False, False)
+    assert router_active(off) is False
     assert policy_for(off, repository) is DEFAULT_POLICY
-    # With the plan off there is no plan to compose; the bridge still acts.
+    # With the plan off there is no plan to compose.
     set_algorithm_version(paths, "mvp-0.23")
     plan_off = create_placement_vault(tmp_path / "plan_off", version="mvp-0.23")
     append_config_toml(plan_off.root, "[plan]\nenabled = false\n")
     vault = load_vault(plan_off.root)
-    assert (router_active(vault), bridge_active(vault)) == (False, True)
+    assert router_active(vault) is False
 
 
 def test_upgrade_from_mvp022_flips_rebuilds_and_rewrites_nothing(tmp_path):

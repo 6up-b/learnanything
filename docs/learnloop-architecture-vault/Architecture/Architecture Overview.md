@@ -5,7 +5,7 @@ aliases:
 status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
+last_reviewed: 2026-11-11
 source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
 source_commit_timestamp: "2026-08-17T12:05:21-04:00"
 source_paths:
@@ -81,7 +81,7 @@ See [[Package Boundaries]] for enforced direction and [[Module Catalog]] for exa
 - **Scheduling** owns eligibility, constraints, FSRS memory, controller intent, expected value, and next-action selection.
 - **Goals** owns scope, forecasts, exams, held-out certification, and cold checks.
 - **Diagnosis** owns hypotheses, probes, causal attribution, error taxonomy, and remediation.
-- **Curriculum** owns concepts, commitments, depth, blueprints, pattern ladders, and golden paths.
+- **Curriculum** owns concepts, commitments, depth, blueprints, and the stored golden-path runs (the Golden Path's screen and its pattern ladder were removed in refactor C5).
 - **Substrate** owns activity/card/surface identity, canonical projection, replay, and compatibility seams.
 - **Content** owns sources, inventory, synthesis, proposals, authoring, and the durable pipeline.
 - **Reader/Tutor** own source-grounded interaction workflows rather than generic AI chat.

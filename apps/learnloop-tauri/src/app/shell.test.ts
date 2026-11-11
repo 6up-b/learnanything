@@ -78,7 +78,7 @@ describe("places over tabs", () => {
     expect(placeOfTab("library")).toBe("library");
     expect(placeOfTab("reader")).toBe("reader");
     expect(placeOfTab("graph")).toBe("progress");
-    for (const tab of ["ingest", "proposals", "registry", "maintain", "underhood", "golden"] as const) {
+    for (const tab of ["ingest", "proposals", "registry", "maintain", "underhood"] as const) {
       expect(placeOfTab(tab)).toBe("underhood");
     }
   });
@@ -94,8 +94,7 @@ describe("places over tabs", () => {
 
 describe("Under the hood", () => {
   it("lists every §5.2 tool under a plain title with its old name", () => {
-    const visible = UTH_TOOLS.filter((tool) => !tool.hidden);
-    expect(visible.map((tool) => [tool.title, tool.was])).toEqual([
+    expect(UTH_TOOLS.map((tool) => [tool.title, tool.was])).toEqual([
       ["Imports & builds", "Ingest"],
       ["Study-map changes", "Proposals"],
       ["Subjects & topics", "Registry"],
@@ -138,6 +137,9 @@ describe("remember the last place", () => {
     localStorage.setItem("learnloop.place", "nowhere");
     localStorage.setItem("learnloop.underhood.tool", "nothing");
     expect(rememberedPlace()).toBeNull();
+    expect(rememberedTool()).toBe("ingest");
+    // A machine that last showed the retired Golden Path tool opens on the first tool.
+    localStorage.setItem("learnloop.underhood.tool", "golden");
     expect(rememberedTool()).toBe("ingest");
     vi.stubGlobal("localStorage", {
       getItem: () => {

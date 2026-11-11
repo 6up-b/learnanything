@@ -51,6 +51,37 @@ def test_audit_clean_with_vault(tmp_path):
     assert report.clean, report.as_dict()
 
 
+def test_a_stored_row_of_a_removed_parameter_still_loads(tmp_path):
+    """A vault keeps the rows of parameters whose module was removed (the Golden Path's pattern ladder and practice
+    pool): refresh leaves them, the manifest still carries them, and the audit reads them as before."""
+
+    import json
+
+    from learnloop.ops.doctor import run_doctor
+
+    vault, repo = _vault(tmp_path)
+    pr.refresh(vault, repo, clock=CLOCK)
+    doctor_before = [issue.code for issue in run_doctor(vault.root).issues]
+    assert "pattern_ladder:STAGE_DELAY_DAYS" not in pr.REGISTRY
+    template = repo.parameter_registry_entry("scheduler.short_session_minutes")
+    for path, owner in (("pattern_ladder:STAGE_DELAY_DAYS", "pattern_ladder"),
+                        ("surface_pool:POOL_SPARE_CACHE", "surface_pool")):
+        entry = {**template, "path": path, "owner": owner,
+                 "effective_value": json.loads(template["effective_value_json"])}
+        repo.upsert_parameter_registry_entry(entry=entry, clock=CLOCK)
+
+    pr.refresh(vault, repo, clock=CLOCK)
+    assert repo.parameter_registry_entry("pattern_ladder:STAGE_DELAY_DAYS") is not None
+    manifest = pr.freeze_manifest(vault, repo, algorithm_version="test-removed-rows", clock=CLOCK)
+    assert manifest is not None
+    stored = repo.parameter_registry_manifest("test-removed-rows")
+    assert "surface_pool:POOL_SPARE_CACHE" in json.loads(stored["entries_json"])["parameters"]
+    report = pr.audit(vault, repo)
+    assert report.clean, report.as_dict()
+    assert "pattern_ladder:STAGE_DELAY_DAYS" in report.active_pending_certificate
+    assert [issue.code for issue in run_doctor(vault.root).issues] == doctor_before
+
+
 def test_every_config_numeric_leaf_is_classified():
     leaves = pr.config_numeric_leaves()
     assert len(leaves) > 200

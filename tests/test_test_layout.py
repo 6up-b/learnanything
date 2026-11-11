@@ -25,8 +25,6 @@ ALLOWED = {
     ("test_p2_leakage_suite", "test_reader_dialogue"):
         "the P2 leakage suite reruns a track test function under a private alias (one named place for every "
         "leakage guard); moving it out would move the test itself",
-    ("test_p2_leakage_suite", "test_surface_pool"):
-        "the P2 leakage suite reruns two track test functions under private aliases, as above",
     ("rw2b_fix10_base_sequence", "test_stuck_prompt"):
         "the fallback import when the script runs in `git archive 7d4c5f4ce`'s tree "
         "(test_reader_rw2b_fix10's base run), where StuckFake is still in test_stuck_prompt",

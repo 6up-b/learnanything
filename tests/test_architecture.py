@@ -616,7 +616,6 @@ def test_runtime_constructed_module_references_resolve() -> None:
         ),
         "learnloop.substrate.administration_adapters": ("__name__",),
         "learnloop.curriculum.golden_path_assessment": ("__name__",),
-        "learnloop.curriculum.pattern_ladder": ("__name__",),
         "learnloop.reader.annotations": ("__name__",),
         "learnloop.attempts.salience_firewall": ("__name__",),
         "learnloop.scheduling.constraint_engine": ("evaluate", "manifest"),

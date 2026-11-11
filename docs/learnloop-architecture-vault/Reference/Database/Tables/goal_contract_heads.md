@@ -21,7 +21,6 @@ source_paths:
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
   - "src/learnloop/curriculum/golden_path_run.py"
-  - "src/learnloop/curriculum/pattern_ladder.py"
   - "src/learnloop/diagnosis/failure_triage.py"
 tags:
   - "learnloop/database/table"
@@ -96,7 +95,6 @@ Indexes and uniqueness:
 
 - `src/learnloop/curriculum/golden_path_confirm.py`
 - `src/learnloop/curriculum/golden_path_run.py`
-- `src/learnloop/curriculum/pattern_ladder.py`
 - `src/learnloop/diagnosis/failure_triage.py`
 - `src/learnloop/goals/goal_contracts.py`
 
@@ -110,7 +108,6 @@ Indexes and uniqueness:
 - `tests/test_golden_path_assessment.py`
 - `tests/test_golden_path_confirm.py`
 - `tests/test_golden_path_run.py`
-- `tests/test_p2_acceptance.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
