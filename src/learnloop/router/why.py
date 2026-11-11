@@ -159,28 +159,6 @@ def sentence(code: str, *, topic: str | None = None, section: str | None = None)
     return text[:1].upper() + text[1:]
 
 
-#: A P2 run step the staged rule deferred (D13), by the veto's family.
-DEFERRALS: Mapping[str, str] = {
-    "hard_exposure_collision": "This step waits for a question you haven't seen yet.",
-    "assessment_reservation": "This step waits: the question it needs is kept for your final check.",
-    "evsi": "This step waits a little: a fresh question or a short break will make it count.",
-    "other": "This step can't run right now; it will be offered again later.",
-}
-
-
-def deferral_sentence(veto_reason: str | None) -> str:
-    """The one plain sentence a deferred P2 step shows (``constraint:<key>:<reason>``
-    or ``evsi:<reason>`` from ``controller_cutover``)."""
-
-    reason = str(veto_reason or "")
-    if reason.startswith("evsi:"):
-        return DEFERRALS["evsi"]
-    if reason.startswith("constraint:"):
-        key = reason.split(":")[1] if reason.count(":") >= 1 else ""
-        return DEFERRALS.get(key, DEFERRALS["other"])
-    return DEFERRALS["other"]
-
-
 def stop_code(minutes_left: float, stop_offer_minutes: float) -> str:
     return "stop_minutes_used" if float(minutes_left) < float(stop_offer_minutes) else "stop_nothing_fits"
 
@@ -339,7 +317,6 @@ def mixture_details(summary: Mapping[str, Any], *, propensity: Any, decision_ref
 
 
 __all__ = [
-    "DEFERRALS",
     "DENY_PATTERNS",
     "DETAILS_STAGED",
     "DRAWN_DETAILS",
@@ -351,7 +328,6 @@ __all__ = [
     "PICKED_TO_VARY",
     "SENTENCES",
     "WHY_VERSION",
-    "deferral_sentence",
     "jargon_in",
     "mixture_details",
     "model_why",

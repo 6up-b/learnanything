@@ -142,7 +142,6 @@ learnloop.scheduling.scheduler -> learnloop.learner.mastery
 learnloop.scheduling.shadow_components -> learnloop.params.sensitivity_certificates
 learnloop.scheduling.shadow_components -> learnloop.substrate.activities
 learnloop.scheduling.staged_policy -> learnloop.substrate.activities
-learnloop.scheduling.state_signals -> learnloop.curriculum.commitments
 learnloop.substrate.activities -> learnloop.attempts.salience_firewall
 learnloop.substrate.administration_adapters -> learnloop.learner.assessment_contracts
 learnloop.substrate.canonical_projection -> learnloop.attempts.effective_observation

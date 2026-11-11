@@ -286,7 +286,11 @@ REMOVED_DECISION_PATHS = (
     "progression:POST_LAPSE_FOLLOWUP_DAYS",
     "reentry_adapter:REENTRY_QUESTION_CAP",
     "reentry_adapter:REENTRY_RECOVERABLE_BAND",
+    "state_signals:OPEN_EPISODE_ROBUST_VALUE",
 )
+#: A structural entry whose module is gone. Refresh never writes structural rows, so no vault should hold one, but a
+#: row that did exist must load the same way.
+REMOVED_STRUCTURAL_PATHS = ("controller_cutover:STAGED_POLICY_LIVE_FOR_P2",)
 
 
 def test_a_stored_row_for_a_removed_spec_stays_readable(tmp_path):
@@ -302,7 +306,8 @@ def test_a_stored_row_for_a_removed_spec_stays_readable(tmp_path):
     pr.refresh(vault, repo, clock=CLOCK)
     doctor_before = run_doctor(vault.root)
     template = repo.parameter_registry_entry("scheduler.short_session_minutes")
-    for path in REMOVED_DECISION_PATHS:
+    removed = REMOVED_DECISION_PATHS + REMOVED_STRUCTURAL_PATHS
+    for path in removed:
         assert path not in pr.REGISTRY
         stale = {key: template[key] for key in (
             "kind", "param_class", "source", "status", "lifecycle", "rationale", "scope", "owner",
@@ -311,11 +316,13 @@ def test_a_stored_row_for_a_removed_spec_stays_readable(tmp_path):
         )}
         stale.update(path=path, owner=path.split(":", 1)[0], effective_value=1,
                      effective_value_hash=f"hash-{path}")
+        if path in REMOVED_STRUCTURAL_PATHS:
+            stale.update(kind="structural", lifecycle="dormant")
         repo.upsert_parameter_registry_entry(entry=stale, clock=CLOCK)
-    before = {path: repo.parameter_registry_entry(path) for path in REMOVED_DECISION_PATHS}
+    before = {path: repo.parameter_registry_entry(path) for path in removed}
 
     pr.refresh(vault, repo, clock=CLOCK)
-    assert {path: repo.parameter_registry_entry(path) for path in REMOVED_DECISION_PATHS} == before
+    assert {path: repo.parameter_registry_entry(path) for path in removed} == before
 
     assert pr.freeze_manifest(vault, repo, algorithm_version="mvp-test", clock=CLOCK) is not None
     frozen = json.loads(repo.parameter_registry_manifest("mvp-test")["entries_json"])["parameters"]
@@ -331,9 +338,12 @@ def test_a_stored_row_for_a_removed_spec_stays_readable(tmp_path):
                                 "--vault", str(vault.root), "--json"])
     assert shown.exit_code == 0, shown.output
     assert json.loads(shown.output)["effective_value_hash"] == f"hash-{REMOVED_DECISION_PATHS[-1]}"
+    shown = runner.invoke(app, ["registry", "show", REMOVED_STRUCTURAL_PATHS[0], "--vault", str(vault.root), "--json"])
+    assert shown.exit_code == 0, shown.output
+    assert json.loads(shown.output)["kind"] == "structural"
     listed = runner.invoke(app, ["registry", "list", "--vault", str(vault.root), "--json"])
     assert listed.exit_code == 0, listed.output
-    assert set(REMOVED_DECISION_PATHS) <= {e["path"] for e in json.loads(listed.output)["entries"]}
+    assert set(removed) <= {e["path"] for e in json.loads(listed.output)["entries"]}
 
     doctor_after = run_doctor(vault.root)
     assert doctor_after.error_count == doctor_before.error_count

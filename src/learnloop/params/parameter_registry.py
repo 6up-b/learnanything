@@ -156,12 +156,8 @@ MODULE_INVENTORY: dict[str, str] = {
     "dispersion": "src/learnloop/scheduling/dispersion.py",
     "interleaving": "src/learnloop/scheduling/interleaving.py",
     "randomization_layer": "src/learnloop/scheduling/randomization_layer.py",
-    # P4 §14.2 step 3 -- the dual-controller cutover: commitment-scoped ownership, the
-    # live StateSignals adapters, and the coexistence-window gates/rollback switch
-    # (spec_p4 §14.2, design §A/§C).
+    # P4 §14.2 step 3 -- commitment-scoped controller ownership (spec_p4 §14.2, design §A).
     "controller_ownership": "src/learnloop/scheduling/controller_ownership.py",
-    "state_signals": "src/learnloop/scheduling/state_signals.py",
-    "controller_cutover": "src/learnloop/scheduling/controller_cutover.py",
     # P4 step 5 (descoped, U-026) -- the heuristic LLM-judged soft-kinship feature +
     # its sim admission gate (spec_p4 §8, design §B step 5). Firewall: computed + logged,
     # consulted by nothing until admitted.
@@ -1396,18 +1392,10 @@ _reg_const("randomization_layer:PROPENSITY_FLOOR", "constraint", owner="randomiz
            "many variants for the floor, and never changes the logged 1/n (data capture A8).",
            bind_site="randomization_layer._uniform_propensity (thin-support flag)")
 
-# P4 §14.2 step 3 -- dual-controller cutover switches (design §A/§C). Structural version
-# pins + the live-cutover gate; the gate is a bool (excluded from the numeric scan) and is
-# registered structural, bind-logged when it flips (U-022).
+# P4 §14.2 step 3 -- controller ownership's structural version pin (design §A).
 _reg_const("controller_ownership:OWNERSHIP_POLICY_VERSION", "version", kind="structural",
            owner="controller_ownership", rationale="commitment-scoped ownership arbitration "
            "schema version (design §A.2); enum, not a decision knob.")
-_reg_const("controller_cutover:STAGED_POLICY_LIVE_FOR_P2", "version", kind="structural",
-           owner="controller_cutover", lifecycle="dormant",
-           rationale="§14.2 step-3 cutover gate: staged policy is the LIVE authority for "
-           "staged-owned P2 commitments. A U-018-style structural switch; OFF returns every "
-           "run to the pre-cutover static policy (global rollback). Bind-logged on flip.",
-           bind_site="controller_cutover.staged_next_action (live-authority gate)")
 
 # P4 §15 step 11 -- the §12.2 short session. A decision parameter (heuristic; an active
 # pool bound, not a reward weight -- it never orders anything, the within-block
@@ -1417,12 +1405,6 @@ _reg_const("staged_policy:SHORT_SESSION_MAX_MINUTES", "threshold", owner="staged
            "plans a completing short-session block (budget = available minutes, composing the "
            "5-15 min bounds); one completed activity completes the session. Reuses the 5-min "
            "attention-block lower bound.")
-# The single positive robust-sampling value an open diagnostic episode confers (§4.2 rung
-# 3). Its magnitude never orders anything -- the ladder rung is a boolean >0 gate.
-_reg_const("state_signals:OPEN_EPISODE_ROBUST_VALUE", "threshold", owner="state_signals",
-           rationale="§4.2 rung-3 positive-value flag: the robust sampling value assigned "
-           "when an in-progress open diagnostic episode makes a decision-relevant "
-           "uncertainty measurable; a boolean gate, never a rank weight.")
 
 # P4 step 5 (descoped, U-026) -- the soft-kinship feature admission threshold. The sim
 # admission gate IS its sensitivity certificate (design §E: "kinship-feature admission

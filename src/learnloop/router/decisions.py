@@ -1,6 +1,6 @@
 """Router R1: decision rows for today's serving paths (spec_action_router_v1 §9).
 
-Three decisions are logged, each as one append-only ``router_decisions`` row:
+Two decisions are logged here, each as one append-only ``router_decisions`` row:
 
 * **A Today offer** (``today_offer``): the legacy scheduler's composed offer. Its
   chosen candidate is the item Today focuses first and "Next" opens (the head of
@@ -16,11 +16,12 @@ Three decisions are logged, each as one append-only ``router_decisions`` row:
   When no head is served (the full list while the daily plan serves Today),
   the row records the candidates with ``propensity_kind = 'not_served'`` and no
   chosen candidate, and every bind from it is a learner pick.
-* **A staged P2 decision** (``staged_p2``): the P4 staged policy deciding a
-  staged-owned golden-path run's next action.
 * **A learner pick** (``learner_pick``): the learner started an offered
   candidate other than the offer's head; written with no propensity inside the
   bind's transaction (``db.stores.router.record_learner_pick``).
+
+Rows of kind ``staged_p2`` (the Golden Path's staged decisions) are history: nothing writes them since the Golden
+Path went, and their readers still read the stored ones.
 
 "Continue" is a candidate wherever a block or item is in progress, and
 "stop for today" is always a candidate. Builders are pure; callers commit the
@@ -45,13 +46,9 @@ CONTINUE_REF = "continue_current"
 STOP_REF = "stop_for_today"
 #: The Today queue's own exploration (see ``db.stores.router.ROUTER_DESIGNS``).
 DESIGN_SCHEDULER_EXPLORATION = "scheduler_seeded_exploration"
-#: ``randomization_layer.epsilon_tiebreak`` (the staged within-block draw).
-DESIGN_EPSILON_TIEBREAK = "epsilon_tiebreak"
 #: An offer that served no head: the learner chooses from the list.
 NOT_SERVED = "not_served"
 MODE_LEGACY_QUEUE = "legacy_queue"
-MODE_STAGED = "staged"
-STAGED_POLICY = "staged_policy_v1"
 
 #: A head probability within this of 1 is the deterministic choice.
 DETERMINISTIC_TOLERANCE = 1e-12
@@ -493,213 +490,6 @@ def build_today_offer_decision(
     }
 
 
-# ---------------------------------------------------------------------------
-# Staged P2 decisions
-# ---------------------------------------------------------------------------
-
-
-def _block_ref(action: str | None, subtype: str | None) -> str:
-    if not action:
-        return "block:none"
-    return f"block:{action}" + (f"/{subtype}" if subtype else "")
-
-
-def build_staged_p2_decision(
-    result: Any,
-    *,
-    ladder: Sequence[Mapping[str, Any]],
-    canonical: Mapping[str, Any] | None,
-    authority: str,
-    veto_reason: str | None,
-    run_id: str,
-    commitment_id: str | None,
-    algorithm_version: str,
-    session_id: str | None,
-    chosen_learning_object_id: str | None = None,
-    created_at: str | None = None,
-) -> dict[str, Any]:
-    """The ``router_decisions`` row for one live staged decision on a P2 run.
-
-    ``result`` is the staged policy's ``DecisionResult``; ``ladder`` the §4.2
-    rungs with their eligibility (``staged_policy.ladder_eligibility``);
-    ``canonical`` the run's pre-cutover successor (the "continue" candidate);
-    ``authority``/``veto_reason`` what the bridge served.
-
-    The chosen candidate is what the bridge served, never a pick it did not
-    serve. The bridge (``controller_cutover.advance_live``) serves the run's
-    canonical successor when one stands (``continue_current``, deterministic:
-    no item of the staged policy's block is served), and nothing on a veto or
-    when the run has no successor (``stop_for_today``: the run defers). The
-    staged policy's within-block pick, and its ``epsilon_tiebreak`` assignment
-    when that pick was randomized, stay on the item candidate it concerns
-    (``within_block_assignment``). ``canonical=None`` (no bridge) logs the
-    staged decision itself as served: its block, with the within-block item and
-    that assignment's propensity.
-    """
-
-    trace = result.trace or {}
-    block = trace.get("attention_block") or {}
-    short_circuit = block.get("short_circuit_reason")
-    ranking = trace.get("ranking_inputs") or {}
-    ranks = {row["candidate_ref"]: row["rank"] for row in ranking.get("ranked") or []}
-    assignment = ranking.get("evsi_assignment") or None
-    comparator_scores = ((trace.get("comparator") or {}).get("scores") or {}) if trace.get("comparator") else {}
-
-    candidates: list[dict[str, Any]] = []
-    continue_available = bool(canonical and canonical.get("to_state")) or short_circuit == "continuation"
-    if continue_available:
-        candidates.append(
-            {
-                "ref": CONTINUE_REF,
-                "kind": "continue",
-                "source": "continuation" if short_circuit == "continuation" else "p2_run",
-                "to_state": (canonical or {}).get("to_state"),
-                "reason": (canonical or {}).get("reason"),
-                "feasible": True,
-            }
-        )
-    for rung in ladder:
-        candidates.append(
-            {
-                "ref": _block_ref(rung.get("action"), rung.get("subtype")),
-                "kind": "block",
-                "rung": rung.get("rung"),
-                "staged_rule": rung.get("staged_rule"),
-                "staged_eligible": bool(rung.get("eligible")),
-                "fired": bool(rung.get("fired")),
-                "reversible": bool(rung.get("reversible", True)),
-                "planner": {key: _round(value) for key, value in (rung.get("planner") or {}).items()},
-            }
-        )
-    randomized = bool(assignment and assignment.get("randomized"))
-    feasible_refs = list(trace.get("feasible_set") or [])
-    for ref in feasible_refs:
-        comparator = comparator_scores.get(ref) if isinstance(comparator_scores, Mapping) else None
-        entry: dict[str, Any] = {
-            "ref": ref,
-            "kind": "item",
-            "feasible": True,
-            "rank": ranks.get(ref),
-            "selector": ranking.get("selector"),
-            "legacy_priority": _round(comparator.get("priority")) if isinstance(comparator, Mapping) else None,
-        }
-        if randomized and ref == result.chosen_candidate_ref:
-            # The randomization layer's assignment belongs to the item it drew
-            # inside the block, whatever the bridge then served.
-            entry["within_block_assignment"] = {
-                "design": assignment.get("design") or DESIGN_EPSILON_TIEBREAK,
-                "propensity": float(assignment.get("propensity") or 1.0),
-                "seed": assignment.get("seed"),
-                "assignment_id": assignment.get("assignment_id"),
-            }
-        candidates.append(entry)
-    candidates.append({"ref": STOP_REF, "kind": "stop", "feasible": True})
-
-    exclusions: dict[str, list[str]] = {}
-    for ref, reasons in (trace.get("exclusions") or {}).items():
-        for reason in reasons or []:
-            key = str(reason.get("constraint_key") or reason.get("reason") or "unknown")
-            exclusions.setdefault(key, []).append(ref)
-    exclusion_json = split_exclusions(exclusions)
-
-    learner_pick = short_circuit == "explicit_learner_choice"
-    chosen_item = result.chosen_candidate_ref
-    bridged = canonical is not None
-    # What the bridge served: the canonical successor, or nothing (a veto, or
-    # a run with no successor defers).
-    if learner_pick:
-        chosen_ref = _block_ref(result.action, result.subtype)
-        served = "learner_choice"
-    elif authority == "staged_veto":
-        chosen_ref, chosen_item, served = STOP_REF, None, "staged_veto"
-    elif bridged and not canonical.get("to_state"):
-        chosen_ref, chosen_item, served = STOP_REF, None, "no_transition"
-    elif bridged:
-        # The successor is a run-state transition, served deterministically;
-        # it serves none of the staged block's items.
-        chosen_ref, chosen_item, served = CONTINUE_REF, None, "canonical_successor"
-    elif continue_available:
-        chosen_ref, served = CONTINUE_REF, "staged_continuation"
-    else:
-        chosen_ref, served = _block_ref(result.action, result.subtype), "staged_block"
-    for entry in candidates:
-        entry["chosen"] = entry["ref"] == chosen_ref
-
-    design = None
-    seed = None
-    if learner_pick:
-        propensity: float | None = None
-        propensity_kind = "none"
-    else:
-        probability = 1.0
-        if randomized and chosen_item is not None and served == "staged_block":
-            # Only a served staged block's item was drawn by the assignment.
-            probability = float(assignment.get("propensity") or 1.0)
-            seed = assignment.get("seed")
-        propensity, propensity_kind = _propensity(probability)
-        if propensity_kind == "exact":
-            design = assignment.get("design") or DESIGN_EPSILON_TIEBREAK
-        else:
-            seed = None
-    chosen_lo = chosen_learning_object_id if chosen_item is not None else None
-    detail = {
-        "run_id": run_id,
-        "commitment_id": commitment_id,
-        "authority": authority,
-        "veto_reason": veto_reason,
-        "served": served,
-        "staged_rule": result.staged_rule,
-        "action": result.action,
-        "subtype": result.subtype,
-        "stop_reason": result.stop_reason,
-        "short_circuit_reason": short_circuit,
-        "within_block_assignment": assignment,
-        "snapshot_hash": result.snapshot_hash,
-        "constraint_manifest_hash": trace.get("constraint_manifest_hash"),
-        "why": result.why,
-        "already": bool(getattr(result, "already", False)),
-    }
-    snapshot_hash = _canonical_hash(
-        {
-            "snapshot_hash": result.snapshot_hash,
-            "candidates": candidates,
-            "exclusions": exclusion_json,
-            "authority": authority,
-        }
-    )
-    return {
-        "id": new_ulid(),
-        "receipt_key": f"staged_p2:{result.decision_id}",
-        "decision_kind": "staged_p2",
-        "surface": "p2_bridge",
-        "mode": MODE_STAGED,
-        "policy": STAGED_POLICY,
-        "algorithm_version": algorithm_version,
-        "log_version": ROUTER_LOG_VERSION,
-        "session_id": session_id,
-        "parent_decision_id": None,
-        "scheduler_slate_id": None,
-        "controller_decision_id": result.decision_id,
-        "snapshot_hash": snapshot_hash,
-        "design": design,
-        "seed": seed,
-        "candidates_json": _dumps(candidates),
-        "exclusions_json": _dumps(exclusion_json),
-        "candidate_count": len(candidates),
-        "chosen_ref": chosen_ref,
-        "chosen_practice_item_id": chosen_item,
-        "chosen_learning_object_id": chosen_lo,
-        "chosen_scheduler_candidate_id": None,
-        "propensity": propensity,
-        "propensity_kind": propensity_kind,
-        "learner_pick": 1 if learner_pick else 0,
-        "latency_ms": None,
-        "cost_usd": 0.0,
-        "detail_json": _dumps(detail),
-        "created_at": created_at or utc_now_iso(),
-    }
-
-
 def record_decision(repository: Any, row: Mapping[str, Any], *,
                     alongside: Callable[[Any], Any] | None = None) -> bool:
     """Append one decision row in its own transaction; idempotent on its key. ``alongside`` runs in that
@@ -719,10 +509,8 @@ def logging_enabled(config: Any) -> bool:
 
 __all__ = [
     "CONTINUE_REF",
-    "DESIGN_EPSILON_TIEBREAK",
     "DESIGN_SCHEDULER_EXPLORATION",
     "MODE_LEGACY_QUEUE",
-    "MODE_STAGED",
     "NOT_SERVED",
     "DECISION_NOT_BUILT",
     "HEAD_MISMATCH",
@@ -730,7 +518,6 @@ __all__ = [
     "STOP_REF",
     "TODAY_OFFER_RECORD",
     "offer_failure_record",
-    "build_staged_p2_decision",
     "build_today_offer_decision",
     "head_distribution",
     "logging_enabled",
