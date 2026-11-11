@@ -169,6 +169,14 @@ def latest_episode(connection: sqlite3.Connection, decision_id: str, *, reason: 
     return str(row[0]) if row is not None else ""
 
 
+def due_recorded(connection: sqlite3.Connection, decision_id: str, *, reason: str) -> bool:
+    """Has a settlement written this check's ``due`` (any episode)?"""
+
+    return connection.execute(
+        "SELECT 1 FROM decision_measurement_events WHERE decision_id = ? AND reason = ? AND state = 'due' LIMIT 1",
+        (decision_id, reason)).fetchone() is not None
+
+
 def reading_exposures_present(connection: sqlite3.Connection) -> bool:
     return _present(connection, (READING_EXPOSURES,))
 

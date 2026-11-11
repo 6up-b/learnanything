@@ -498,8 +498,11 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
             answered_at = str(attempt[0]) if attempt is not None else at
             if check is None:
                 # Satisfied since the last settlement: its date is gone with the pending check, so at most one more
-                # ``due``, no later than the answer, which it opened.
-                written += _event(connection, decision_id, "due", reason=prefix, at=answered_at, episode=SATISFIED_EPISODE)
+                # ``due``, no later than the answer, which it opened; none when a settlement saw it due already (F10:
+                # the satisfied episode is not a new due date, so it never stands beside one).
+                if not store.due_recorded(connection, decision_id, reason=prefix):
+                    written += _event(connection, decision_id, "due", reason=prefix, at=answered_at,
+                                      episode=SATISFIED_EPISODE)
             elif check.due:
                 due_at = check.date.strftime("%Y-%m-%dT%H:%M:%SZ")
                 # A check dated again by assisted practice comes due again: that is a new episode.
