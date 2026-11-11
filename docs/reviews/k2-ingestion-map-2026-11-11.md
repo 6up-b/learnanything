@@ -4,7 +4,39 @@ Refactor arc K, step K2, job 1: the deep map of ingestion and synthesis that the
 
 ## Summary for the owner
 
-(Written last; see the end of this section's commit history.)
+Ingestion and synthesis is 117 modules and about 50,000 code lines: pipeline, synthesis, authoring's ingest paths, proposals, facet identity, `ingest`, sources and the sidecar's ingest handlers. It works, and several of its parts are good (the ingest drain's fencing, per-window and per-shard checkpoints, a pure mint gate, the gates). What's expensive is that the same idea is built several times, and that the inputs synthesis reads are chosen silently.
+
+**The five most costly findings:**
+
+1. **Keep-ahead appends re-send the whole book, with no checkpoint and no ceiling (§7 KX1, KX2).** The planner queues each chapter's build with no new-unit list, so every append sends every inventory of every chapter built so far, and only the neighbourhood is capped. The call has no checkpoint, no generation limit and no input ceiling, so a retry re-pays it and an over-budget answer fails the same way every time. The cost is quadratic in chapters: projected from the copies' inventory sizes, roughly 10^7-10^8 input tokens over a whole textbook against 10^6-10^7, and the last appends would exceed any route's context. It hasn't cost you yet: keep-ahead never ran on the copied vaults.
+2. **Apply recovery can overwrite newer YAML, and only `doctor --fix-state` runs it (§2.8 KD2).** Each apply intent records a pre-image hash that nothing reads. A crash between two file renames leaves a half-applied vault that the app serves and the next accept builds on. The module says startup recovers it; nothing does.
+3. **The decisions that set what synthesis reads are silent, and the boundary loses identity (§3.1 KB1, §4 KO1, §7 KX3).** Synthesis picks a unit's *oldest* inventory by revision and unit id alone, so a new prompt, a new model or a re-read whose text changed is paid for and then ignored. The manifest records only version labels. Which units an append sent and why a chapter was withheld aren't stored either. A wrong study map can't be traced to its inputs from rows.
+4. **Two synthesis orchestrators and a 1,081-line normalizer (§1 KP1, KP5; §6 KH1).** Bootstrap and append are the same 250-310-line shape written twice. Since Oct 1, 12 of the 15 commits that changed the append also changed the bootstrap, and the append's comments record three invariants it once missed. Both feed `_normalize`, twelve stages in one frame with shared mutable state, where facet identity, the mint gate and aliasing meet.
+5. **Six lease stores, five heartbeat loops and six checkpoint recipes (§3.3 KB2, §3.4 KB3).** The coverage audit's "four reimplementations" undercounts. Two heartbeats are verbatim copies, two lease users commit after their lease lapses, and one mixes clocks. The checkpoint keys disagree on rendered prompt versus label and on whether the output budget belongs in the key. Four paid calls on the synthesis path have no checkpoint at all: append, concept-graph structuring, persona fire calls and epigraphs.
+
+**Also worth your attention:**
+- **Every append's concepts, facets and LOs wait for review (KX4).** Only provenance links auto-apply. "Chapter 3" is incidental: it depends on how many chapters the first build took. Changing that is your call (spec §10.2-10.3).
+- **The manifest hash does three jobs (KX5).** It over-invalidates (every practice item, the algorithm version, budgets, config dumps) and under-invalidates (append's revision diff, inventory content). An append cache hit never applies.
+- **A durable arXiv import reads only the abstract page (KD3).** A test-only module next to it fetches the full text, under the live fetch's function name.
+- **The desktop re-implements at least eight backend rules, and three disagree (KB4):** assessment roles, retry eligibility and the image kind.
+- **The journey you use most, Add → automatic build → keep-ahead, has no vault note.** Neither do facet identity and write-ahead apply (KV1).
+
+**Change cost (§6), files touched (src / tests / frontend):**
+
+| change | files | plumbing |
+|---|---|---|
+| a source type (audio) | 11 / 10 / 0 | 0 |
+| an extractor (GLM-OCR with images, net) | 18 / 7 / 10 | 743 generated notes |
+| a synthesis pass (epigraphs) | 9 / 8 / 0, both orchestrators | 0 |
+| a facet rule (exam authority at the meaning write) | 8 / 7 / 0, both orchestrators | 0 |
+
+**Counts:**
+- Six lease stores and five heartbeat loops.
+- Six checkpoint recipes, three run-level reuse keys, and four paid calls with neither.
+- One ADR-017 decision record in the whole area.
+- The Sep 6 ingestion review: of its ten findings, eight are fixed or resolved by deletion. Two are open, both in append: cached apply (finding 7) and output limits (finding 4).
+
+**Limits.** Code-traced, not run. No synthesis receipt exists in the copies, so append spend is measured once (July) and keep-ahead's is projected. The delegated sweeps were spot-checked, and what wasn't is listed under "Not verified".
 
 ## How to read this
 
