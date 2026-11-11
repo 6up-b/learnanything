@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/data_capture.py](../../../../../../../src/learnloop/db/stores/data_capture.py) |
-| Source lines | 260 |
+| Source lines | 268 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -63,14 +63,15 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `insert_objective(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 106) — One decision's frozen objective, or False (a warning) when refused.
 - `insert_measurement_event(connection: sqlite3.Connection, *, decision_id: str, state: str, reason: str='', practice_item_id: str | None=None, attempt_id: str | None=None, detail: Mapping[str, Any] | None=None, at: str, episode: str='', non_service_type: str | None=None, delay: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 131) — A measurement's state, once per reason and episode: a repeat is a no-op (returns False).
 - `latest_episode(connection: sqlite3.Connection, decision_id: str, *, reason: str) -> str` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 163) — The episode the newest ``due`` or ``offered`` state of this check opened: a loss is counted once per it.
-- `reading_exposures_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 172)
-- `newest_reading_exposure(connection: sqlite3.Connection) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 176) — The newest source time on record: where the next sweep's window starts.
-- `reading_receipts(connection: sqlite3.Connection) -> set[tuple[str, str]]` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 182) — ``(LO, source time)`` of every stored reading receipt, data capture's own and AD's where its logging wrote any.
-- `sections_read_by_coverage(connection: sqlite3.Connection) -> list[tuple[str, str]]` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 193) — ``(LO, completed_at)`` of every completed section, for each LO its coverage rows name: what a section's LOs come to from coverage alone, read live so a row added after the section was recorded still counts.
-- `reading_exposure_recorded(connection: sqlite3.Connection, where: str, args: Iterable[Any]=()) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 205)
-- `insert_reading_exposure(connection: sqlite3.Connection, *, kind: str, subkind: str, source_table: str, source_id: str, source_written_at: str, learning_object_id: str, mapping_version: str, swept_at: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 209) — One reading exposure on one LO, once: a repeat is a no-op (returns False).
-- `objectives(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 221) — Every frozen objective by decision id, ``[]`` of absent tables tolerated.
-- `measurement_events(connection: sqlite3.Connection) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 229)
+- `due_recorded(connection: sqlite3.Connection, decision_id: str, *, reason: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 172) — Has a settlement written this check's ``due`` (any episode)?
+- `reading_exposures_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 180)
+- `newest_reading_exposure(connection: sqlite3.Connection) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 184) — The newest source time on record: where the next sweep's window starts.
+- `reading_receipts(connection: sqlite3.Connection) -> set[tuple[str, str]]` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 190) — ``(LO, source time)`` of every stored reading receipt, data capture's own and AD's where its logging wrote any.
+- `sections_read_by_coverage(connection: sqlite3.Connection) -> list[tuple[str, str]]` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 201) — ``(LO, completed_at)`` of every completed section, for each LO its coverage rows name: what a section's LOs come to from coverage alone, read live so a row added after the section was recorded still counts.
+- `reading_exposure_recorded(connection: sqlite3.Connection, where: str, args: Iterable[Any]=()) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 213)
+- `insert_reading_exposure(connection: sqlite3.Connection, *, kind: str, subkind: str, source_table: str, source_id: str, source_written_at: str, learning_object_id: str, mapping_version: str, swept_at: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 217) — One reading exposure on one LO, once: a repeat is a no-op (returns False).
+- `objectives(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 229) — Every frozen objective by decision id, ``[]`` of absent tables tolerated.
+- `measurement_events(connection: sqlite3.Connection) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 237)
 
 ### Module constants
 
@@ -117,7 +118,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `module`; statically calls `insert_measurement_event`, `insert_objective`, `latest_episode`, `objectives_present`
+- [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `module`; statically calls `due_recorded`, `insert_measurement_event`, `insert_objective`, `latest_episode`, `objectives_present`
 - [[Reference/Modules/learnloop/data_capture/prefilter|learnloop.data_capture.prefilter]] — imports `module`; statically calls `insert_prefilter_receipt`, `prefilter_part`, `prefilter_receipt`, `receipts_present`
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `module`; statically calls `insert_reading_exposure`, `newest_reading_exposure`, `reading_exposure_recorded`, `reading_exposures_present`, `reading_receipts`, `sections_read_by_coverage`
 - [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] — imports `module`; statically calls `measurement_events`, `objectives`, `objectives_present`, `receipts_present`
