@@ -57,7 +57,7 @@ uv run learnloop synthesize "$SET_ID" \
   --vault "$VAULT"
 ```
 
-Without `--apply`, the result remains a proposal. `--mode auto` chooses `bootstrap` when no study map/facets have been applied and `append` when the subject already has one. Append mode limits regeneration to the affected neighborhood.
+Without `--apply`, the result remains a proposal. `--mode auto` chooses `bootstrap` when no study map/facets have been applied and `append` when the subject already has one. Append mode limits regeneration to the affected neighborhood. An append sends as new only the set's units that no kept synthesis of it has sent (a completed run whose proposal was not wholly rejected, read from the runs' manifests): a wholly new member whole, a partly sent one narrowed to its unsent units. If nothing is new it sends nothing and says so; `--new-revision <id>` sends the named revisions whole instead.
 
 The response identifies the proposal/run, item counts, reuse state, gate diagnostics, and identifiability generation needs. Inspect pending proposals:
 
