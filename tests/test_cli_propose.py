@@ -10,6 +10,7 @@ from learnloop.cli import app
 from learnloop.vault.loader import add_note
 from learnloop.vault.loader import load_vault
 
+from tests.apply_write_ahead_helpers import create_vault_registering_application
 from tests.helpers import configure_codex_http, create_basic_vault
 
 import pytest
@@ -21,7 +22,8 @@ pytestmark = pytest.mark.usefixtures("legacy_codex_http_double")
 
 def test_cli_propose_import_persists_and_accept_applies(tmp_path):
     vault_root = tmp_path / "vault"
-    create_basic_vault(vault_root)
+    # The imported item names `application`; a head vault refuses an unregistered facet (KM2).
+    create_vault_registering_application(vault_root)
     proposal_file = tmp_path / "proposal.json"
     proposal_file.write_text(json.dumps(_proposal_payload()), encoding="utf-8")
     runner = CliRunner()

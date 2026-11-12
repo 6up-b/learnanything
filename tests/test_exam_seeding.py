@@ -21,6 +21,7 @@ from learnloop.goals.exam_seeding import (
     parse_exam_outcomes,
     seed_exam_attempts,
 )
+from learnloop.learner.facet_state_reader import facet_recall_states_for_lo
 from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.content.pipeline.source_ingestion import ingest_canonical_source
 from learnloop.vault.loader import load_vault
@@ -70,7 +71,9 @@ def test_seed_creates_backdated_discounted_attempts(tmp_path):
     assert mastery is not None
     assert mastery.evidence_count == 3
     assert mastery.last_evidence_at.startswith(EXAM_DATE)
-    facet_states = repository.facet_recall_states("lo_svd_definition")
+    # Through the version-aware reader: a canonical (head) vault keeps facet belief in the
+    # canonical projection, not the legacy per-LO table.
+    facet_states = facet_recall_states_for_lo(loaded, repository, "lo_svd_definition")
     assert any(state.facet_id == "recall" for state in facet_states)
     for question in ("1", "2", "3"):
         state = repository.practice_item_state(f"pi_exam_q{question}")

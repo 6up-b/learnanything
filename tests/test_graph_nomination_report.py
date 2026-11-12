@@ -32,6 +32,9 @@ def vault(tmp_path):
     config.embedding.dimensions = 64
     config.graph_nomination.top_k = 2
     claim = "A real symmetric matrix is orthogonally diagonalizable by the spectral theorem"
+    # The head basic vault registers its item's `recall` facet; the counts below
+    # are of exactly these four facets, so the registry is replaced.
+    loaded.evidence_facets.clear()
     loaded.evidence_facets.update({
         "facet_spectral": EvidenceFacet(
             id="facet_spectral", claim=claim,

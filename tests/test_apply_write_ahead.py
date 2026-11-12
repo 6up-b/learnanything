@@ -15,8 +15,15 @@ from learnloop.content.proposals.patches import (
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 
-from tests.helpers import NOW_ISO, create_basic_vault
-from tests.apply_write_ahead_helpers import LO_ID, PI_ID, _LO_PAYLOAD, _seed_agent, _seed_lo_and_pi_proposal
+from tests.helpers import NOW_ISO
+from tests.apply_write_ahead_helpers import (
+    LO_ID,
+    PI_ID,
+    _LO_PAYLOAD,
+    _seed_agent,
+    _seed_lo_and_pi_proposal,
+    create_vault_registering_application,
+)
 
 def _repo(paths) -> Repository:
     return Repository(paths.sqlite_path)
@@ -26,7 +33,7 @@ def _repo(paths) -> Repository:
 
 
 def test_apply_writes_entity_source_links_and_marks_intent_applied(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
+    paths = create_vault_registering_application(tmp_path / "vault")
     repository = _repo(paths)
     _seed_lo_and_pi_proposal(repository)
 
@@ -56,7 +63,7 @@ def test_dependency_closure_reject_prereq_blocks_dependents(tmp_path):
     """§14: reject a proposed prerequisite while accepting its dependent ->
     dependent blocked, no dangling writes."""
 
-    paths = create_basic_vault(tmp_path / "vault")
+    paths = create_vault_registering_application(tmp_path / "vault")
     repository = _repo(paths)
     _seed_agent(repository, "agent_closure")
     repository.persist_proposal_batch(
@@ -111,7 +118,7 @@ def test_dependency_closure_reject_prereq_blocks_dependents(tmp_path):
 
 
 def test_dependency_closure_accepts_full_closure_in_order(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
+    paths = create_vault_registering_application(tmp_path / "vault")
     repository = _repo(paths)
     _seed_lo_and_pi_proposal(repository)
 
@@ -162,7 +169,7 @@ def test_race_attempt_inserted_after_synthesis_refuses_under_lock(tmp_path):
     """§14: proposal synthesized, then an attempt is inserted; acceptance is
     refused while holding the mutation lock, leaving no partial YAML/DB decision."""
 
-    paths = create_basic_vault(tmp_path / "vault")
+    paths = create_vault_registering_application(tmp_path / "vault")
     repository = _repo(paths)
     _seed_lo_and_pi_proposal(repository)
     apply_accepted_items(paths.root, "patch_wa")  # LO now exists
@@ -198,7 +205,7 @@ def test_expected_target_hash_mismatch_refuses(tmp_path):
     """§8.2: acceptance refuses if the target changed after synthesis, even when
     lock state did not."""
 
-    paths = create_basic_vault(tmp_path / "vault")
+    paths = create_vault_registering_application(tmp_path / "vault")
     repository = _repo(paths)
     _seed_lo_and_pi_proposal(repository)
     apply_accepted_items(paths.root, "patch_wa")
@@ -257,7 +264,7 @@ def _run_crash(vault_root, patch_id: str, boundary: str) -> None:
 
 
 def test_crash_between_intent_and_rename_recovers(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
+    paths = create_vault_registering_application(tmp_path / "vault")
     repository = _repo(paths)
     _seed_lo_and_pi_proposal(repository)
 
@@ -280,7 +287,7 @@ def test_crash_between_intent_and_rename_recovers(tmp_path):
 
 
 def test_crash_between_rename_and_applied_mark_recovers(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
+    paths = create_vault_registering_application(tmp_path / "vault")
     repository = _repo(paths)
     _seed_lo_and_pi_proposal(repository)
 
@@ -302,7 +309,7 @@ def test_crash_between_rename_and_applied_mark_recovers(tmp_path):
 
 
 def test_recovery_is_idempotent_and_noop_when_clean(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
+    paths = create_vault_registering_application(tmp_path / "vault")
     repository = _repo(paths)
     _seed_lo_and_pi_proposal(repository)
     apply_accepted_items(paths.root, "patch_wa")
@@ -315,7 +322,7 @@ def test_recovery_is_idempotent_and_noop_when_clean(tmp_path):
 def test_doctor_fix_recovers_mid_flight_intent(tmp_path):
     from learnloop.ops.doctor import run_doctor
 
-    paths = create_basic_vault(tmp_path / "vault")
+    paths = create_vault_registering_application(tmp_path / "vault")
     repository = _repo(paths)
     _seed_lo_and_pi_proposal(repository)
     _run_crash(paths.root, "patch_wa", "after_intent")

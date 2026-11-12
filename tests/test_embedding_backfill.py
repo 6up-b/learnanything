@@ -62,6 +62,9 @@ def vault(tmp_path):
     loaded.config.embedding.enabled = True
     loaded.config.embedding.backfill_enabled = True
     loaded.config.embedding.dimensions = 3
+    # The head basic vault registers its item's `recall` facet; the counts below
+    # want exactly one facet record, so it is replaced like the concepts are cleared.
+    loaded.evidence_facets.clear()
     loaded.evidence_facets["definition"] = EvidenceFacet(
         id="definition", title="SVD", claim="A canonical factorization claim.",
     )

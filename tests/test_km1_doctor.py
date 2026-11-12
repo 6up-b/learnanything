@@ -3,7 +3,7 @@ from __future__ import annotations
 from learnloop.ops.doctor import run_doctor
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.helpers import create_basic_vault, set_algorithm_version, write_facets
+from tests.helpers import create_basic_vault, pin_old_basic_vault, set_algorithm_version, write_facets
 
 
 def _codes(paths):
@@ -14,12 +14,15 @@ def _codes(paths):
 def test_empty_registry_with_facet_items_is_doctor_error_on_mvp07(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     set_algorithm_version(paths, "mvp-0.7")
+    # The basic vault registers its item's facet; empty the registry to make the case.
+    write_facets(paths, [], schema_version=1)
     codes = _codes(paths)
     assert codes.get("evidence_facet:empty_registry") == "error"
 
 
 def test_empty_registry_is_skipped_on_legacy(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
+    # Old path only: a legacy (mvp-0.6) vault with an empty registry.
+    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
     codes = _codes(paths)
     # Legacy vaults keep today's behavior: no empty-registry issue at all.
     assert "evidence_facet:empty_registry" not in codes
@@ -38,7 +41,8 @@ def test_unregistered_facet_is_doctor_error_on_mvp07(tmp_path):
 
 
 def test_unregistered_facet_is_warning_on_legacy(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
+    # Old path only: legacy (mvp-0.6) vaults warn where KM2 vaults refuse.
+    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
     write_facets(paths, [{"id": "facet_other", "title": "Other"}], schema_version=1)
     codes = _codes(paths)
     assert codes.get("evidence_facet:unregistered") == "warning"

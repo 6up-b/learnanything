@@ -19,7 +19,7 @@ from learnloop.scheduling.selection_rewards import SchedulerIntent
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import write_yaml
-from tests.helpers import create_basic_vault, seed_due_item
+from tests.helpers import create_basic_vault, pin_old_basic_vault, seed_due_item
 
 
 NOW = datetime(2026, 5, 19, 12, 0, tzinfo=UTC)
@@ -381,7 +381,9 @@ def test_scheduler_orders_eligible_items_by_selection_reward_before_id(tmp_path)
 
 
 def test_scheduler_selects_item_on_weak_canonical_facet_boundary(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
+    # Old path only: it seeds the legacy per-LO facet state (_insert_facet_state), which a canonical
+    # (head) vault never holds; there the boundary reads the canonical projection.
+    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
     write_yaml(
         paths.facets_path,
         {

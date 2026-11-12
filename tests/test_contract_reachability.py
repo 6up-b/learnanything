@@ -20,7 +20,7 @@ from learnloop.ops.doctor import run_doctor
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.helpers import NOW_ISO, create_basic_vault
+from tests.helpers import NOW_ISO, create_basic_vault, write_facets
 
 
 # The basic vault's only item is `short_answer` on facet "recall", which compiles
@@ -66,6 +66,12 @@ def _four_verdict_vault(tmp_path):
     """One LO whose four contract cells realize the four §5.8.2 verdicts."""
 
     paths = create_basic_vault(tmp_path / "vault")
+    # NO_INSTRUMENT is a registered facet nothing observes: from mvp-0.7 (KM2) a blueprint naming an
+    # unregistered facet is a doctor error, so the head vault registers it beside the item's facet.
+    write_facets(paths, [
+        {"id": INSTRUMENT_FACET, "kind": "definition", "claim": "Recall the SVD definition."},
+        {"id": "uninstrumented_facet", "kind": "procedure_contract", "claim": "A step nothing observes."},
+    ])
     return _write_blueprint(
         paths,
         [

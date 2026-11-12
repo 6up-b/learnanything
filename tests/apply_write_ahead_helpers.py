@@ -3,9 +3,12 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 
 from __future__ import annotations
 
-from learnloop.db.repositories import Repository
+from pathlib import Path
 
-from tests.helpers import NOW_ISO
+from learnloop.db.repositories import Repository
+from learnloop.vault.paths import VaultPaths
+
+from tests.helpers import NOW_ISO, create_basic_vault, write_facets
 
 
 LO_ID = "lo_svd_applications"
@@ -49,6 +52,20 @@ _PI_PAYLOAD = {
         "fatal_errors": [],
     },
 }
+
+
+def create_vault_registering_application(root: Path) -> VaultPaths:
+    """The basic vault with the proposed item's ``application`` facet registered beside ``recall``.
+
+    From mvp-0.7 (KM2) applying an item that names an unregistered facet is refused, so the
+    proposal these helpers seed needs its facet in facets.yaml on a head vault."""
+
+    paths = create_basic_vault(root)
+    write_facets(paths, [
+        {"id": "recall", "kind": "definition", "claim": "Recall the SVD definition."},
+        {"id": "application", "kind": "applicability_condition", "claim": "Name a use of SVD."},
+    ])
+    return paths
 
 
 def _seed_agent(repository: Repository, agent_id: str) -> None:

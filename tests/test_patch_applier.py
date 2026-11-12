@@ -13,12 +13,13 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_learning_object
 
 from tests.helpers import NOW_ISO, create_basic_vault
+from tests.apply_write_ahead_helpers import create_vault_registering_application
 from tests.patch_applier_helpers import _seed_agent_and_proposal
 
 
 def test_accept_proposal_creates_yaml_content_events_and_state(tmp_path):
     vault_root = tmp_path / "vault"
-    paths = create_basic_vault(vault_root)
+    paths = create_vault_registering_application(vault_root)
     repository = Repository(paths.sqlite_path)
     _seed_agent_and_proposal(repository)
 
@@ -63,7 +64,7 @@ def test_accept_cli_applies_and_show_proposal_includes_items(tmp_path):
 
 def test_accept_cli_all_flag_applies_every_pending_item(tmp_path):
     vault_root = tmp_path / "vault"
-    paths = create_basic_vault(vault_root)
+    paths = create_vault_registering_application(vault_root)
     repository = Repository(paths.sqlite_path)
     _seed_agent_and_proposal(repository)
     runner = CliRunner()

@@ -200,10 +200,11 @@ def test_below_the_robust_cutover_instruments_are_ordinary_items(tmp_path):
     from learnloop.diagnosis.probe_episodes import enter_episode
     from learnloop.instructional.valuation import episode_problem, item_input
     from learnloop.vault.loader import load_vault
-    from tests.helpers import NOW, admit_probe_instrument_card, create_basic_vault
+    from tests.helpers import NOW, admit_probe_instrument_card, create_basic_vault, pin_old_basic_vault
 
     root = tmp_path / "vault"
-    paths = create_basic_vault(root)  # mvp-0.6: the legacy point path
+    # Old path only: below the robust cutover (the legacy item-point path, mvp-0.6).
+    paths = pin_old_basic_vault(create_basic_vault(root))
     vault = load_vault(root)
     repository = Repository(paths.sqlite_path)
     admit_probe_instrument_card(repository)

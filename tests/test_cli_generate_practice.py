@@ -18,6 +18,8 @@ from tests.helpers import (
     NOW,
     NOW_ISO,
     create_basic_vault,
+    pin_old_basic_vault,
+    write_facets,
 )
 
 import pytest
@@ -533,7 +535,9 @@ def _reserve_goal_exam_pool(vault_root, sqlite_path) -> list[str]:
 
 def test_populate_goal_dry_run_waives_probe_gate_and_ignores_reserved_supply(tmp_path):
     vault_root = tmp_path / "vault"
-    paths = create_basic_vault(vault_root)
+    # Old path only: with AD's generation contract (the head) a goal whose only item is reserved has
+    # no scope (Codex verify F37, test_ad23_contract), so "reserved items are not supply" is predecessor-path.
+    paths = pin_old_basic_vault(create_basic_vault(vault_root))
     # No completed probe, and the goal's only item is held out for its exam —
     # exactly the day-one starvation populate-goal exists to fix.
     reserved = _reserve_goal_exam_pool(vault_root, paths.sqlite_path)
@@ -594,8 +598,9 @@ def test_populate_goal_stops_when_supply_and_contract_are_complete(tmp_path):
 
 def test_populate_goal_uses_a_15_minute_provider_timeout(tmp_path, monkeypatch):
     vault_root = tmp_path / "vault"
-    paths = create_basic_vault(vault_root)
-    _reserve_goal_exam_pool(vault_root, paths.sqlite_path)
+    create_basic_vault(vault_root)
+    # No exam pool is reserved: on the head (AD generation contract, Codex verify F37) a goal whose
+    # only item is held out has no scope at all, so populate-goal would refuse before this step.
     observed: dict[str, int | None] = {}
 
     def fake_ready_provider(
@@ -627,8 +632,13 @@ def test_populate_goal_uses_a_15_minute_provider_timeout(tmp_path, monkeypatch):
 def test_populate_goal_generates_and_auto_accepts(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
-    reserved = _reserve_goal_exam_pool(vault_root, paths.sqlite_path)
-    assert reserved == ["pi_svd_define_001"]
+    # No exam pool is reserved: on the head (AD generation contract, Codex verify F37) a goal whose
+    # only item is held out has no scope at all, so populate-goal would refuse before this step.
+    # The generated item names `explanation`; a head vault refuses an unregistered facet (KM2).
+    write_facets(paths, [
+        {"id": "recall", "kind": "definition", "claim": "Recall the SVD definition."},
+        {"id": "explanation", "kind": "interpretation", "claim": "Explain SVD in your own words."},
+    ])
     checkout = tmp_path / "codex"
     checkout.mkdir()
     (checkout / "HEAD").write_text("abc123", encoding="utf-8")
@@ -659,7 +669,13 @@ def test_populate_goal_generates_and_auto_accepts(tmp_path):
 def test_populate_goal_review_flag_leaves_proposal_pending(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
-    _reserve_goal_exam_pool(vault_root, paths.sqlite_path)
+    # No exam pool is reserved: on the head (AD generation contract, Codex verify F37) a goal whose
+    # only item is held out has no scope at all, so populate-goal would refuse before this step.
+    # The generated item names `explanation`; a head vault refuses an unregistered facet (KM2).
+    write_facets(paths, [
+        {"id": "recall", "kind": "definition", "claim": "Recall the SVD definition."},
+        {"id": "explanation", "kind": "interpretation", "claim": "Explain SVD in your own words."},
+    ])
     checkout = tmp_path / "codex"
     checkout.mkdir()
     (checkout / "HEAD").write_text("abc123", encoding="utf-8")

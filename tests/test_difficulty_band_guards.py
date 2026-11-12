@@ -23,7 +23,7 @@ from learnloop.content.authoring.practice_generation import (
 from learnloop.tutor.promotions import _recommended_difficulty_band
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import ALGORITHM_VERSION, NOW_ISO, create_basic_vault
+from tests.helpers import NOW_ISO, OLD_BASIC_VAULT_TAG, create_basic_vault, pin_old_basic_vault
 
 LO_ID = "lo_svd_definition"
 
@@ -91,7 +91,8 @@ def test_probe_band_collapses_unguarded_and_stays_boundary_centred_guarded():
 def test_diagnostic_plan_band_is_never_degenerate(tmp_path):
     # End-to-end through build_diagnostic_practice_plan: a learner whose target
     # facet sits at recall_mean 0.02 used to receive a [0.0, 0.0] band.
-    paths = create_basic_vault(tmp_path / "vault")
+    # Old path only: it seeds the legacy per-LO facet state, which a canonical (head) vault never holds.
+    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     repository.upsert_intervention_need(
@@ -128,7 +129,7 @@ def test_diagnostic_plan_band_is_never_degenerate(tmp_path):
                 "last_attempt_at": NOW_ISO,
                 "last_error_at": None,
                 "consecutive_failures": 0,
-                "algorithm_version": ALGORITHM_VERSION,
+                "algorithm_version": OLD_BASIC_VAULT_TAG,
                 "created_at": NOW_ISO,
                 "updated_at": NOW_ISO,
             },

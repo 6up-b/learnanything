@@ -5,7 +5,7 @@ import pytest
 from learnloop.content.proposals.patches import PatchApplicationError, compile_proposal_item
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import create_basic_vault, set_algorithm_version, write_facets
+from tests.helpers import create_basic_vault, pin_old_basic_vault, set_algorithm_version, write_facets
 
 
 def _practice_item_proposal(facet: str) -> dict:
@@ -53,7 +53,8 @@ def test_registered_facet_accepted(tmp_path):
 
 
 def test_legacy_vault_allows_unregistered_facet(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")  # mvp-0.6 default
+    # Old path only: the legacy (pre-KM2, mvp-0.6) vault's ungated generation.
+    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
     write_facets(
         paths,
         [{"id": "recall", "title": "Recall"}],

@@ -19,11 +19,14 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 from learnloop_sidecar.context import SidecarContext
 
-from tests.helpers import NOW, create_basic_vault, set_algorithm_version, write_facets
+from tests.helpers import NOW, create_basic_vault, pin_old_basic_vault, set_algorithm_version, write_facets
+
+# Old path only: every test here activates mvp-0.7 from an mvp-0.6 vault (the KM2 upgrade link), so each
+# starts from the pre-D2a basic vault.
 
 
 def test_upgrade_refuses_when_facets_unregistered(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
+    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
     # pi_svd_define_001 declares facet 'recall' but the registry is empty.
     result = upgrade_to_mvp07(paths.root)
     assert result.upgraded is False
@@ -33,7 +36,7 @@ def test_upgrade_refuses_when_facets_unregistered(tmp_path):
 
 
 def test_upgrade_succeeds_when_registry_complete(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
+    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
     write_facets(
         paths,
         [{"id": "recall", "kind": "definition", "claim": "SVD recall definition."}],
@@ -45,7 +48,7 @@ def test_upgrade_succeeds_when_registry_complete(tmp_path):
 
 
 def test_upgrade_projects_existing_attempts_into_canonical_facet_state(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
+    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     clock = FrozenClock(NOW)
@@ -76,7 +79,7 @@ def test_upgrade_projects_existing_attempts_into_canonical_facet_state(tmp_path)
 
 
 def test_app_load_repairs_vault_activated_by_old_upgrade(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
+    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     clock = FrozenClock(NOW)
@@ -104,7 +107,7 @@ def test_app_load_repairs_vault_activated_by_old_upgrade(tmp_path):
 
 
 def test_upgrade_is_idempotent(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
+    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
     write_facets(
         paths,
         [{"id": "recall", "kind": "definition", "claim": "SVD recall definition."}],
@@ -116,7 +119,7 @@ def test_upgrade_is_idempotent(tmp_path):
 
 
 def test_upgrade_refuses_from_unknown_version(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
+    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
     write_facets(
         paths,
         [{"id": "recall", "kind": "definition", "claim": "SVD recall definition."}],
@@ -128,7 +131,7 @@ def test_upgrade_refuses_from_unknown_version(tmp_path):
 
 
 def test_validate_readiness_flags_incomplete_contract(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
+    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
     # Registered id but no claim/kind -> incomplete semantic contract.
     write_yaml(paths.facets_path, {"schema_version": 2, "facets": [{"id": "recall"}]})
     problems = validate_mvp07_readiness(load_vault(paths.root))

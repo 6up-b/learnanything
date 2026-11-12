@@ -21,7 +21,7 @@ from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
-from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, create_basic_vault
+from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, OLD_BASIC_VAULT_TAG, create_basic_vault, pin_old_basic_vault
 
 
 def _add_item(root, item_id: str, facets: list[str], *, repair_targets: list[str] | None = None) -> None:
@@ -72,7 +72,9 @@ def _wrong_attempt(loaded, repository):
 
 def test_subthreshold_noisy_item_creates_single_facet_generation_need_and_logs_slate(tmp_path):
     root = tmp_path / "vault"
-    paths = create_basic_vault(root)
+    # Old path only: on the head the value-of-information gate suppresses this one-attempt follow-up
+    # (voi_value_below_minutes_cost) before the slate and the generation need this test reads.
+    paths = pin_old_basic_vault(create_basic_vault(root))
     _add_item(root, "pi_noisy_recall", ["recall", "unrelated_a", "unrelated_b"])
     loaded = load_vault(root)
     repository = Repository(paths.sqlite_path)
@@ -110,7 +112,8 @@ def test_subthreshold_noisy_item_creates_single_facet_generation_need_and_logs_s
 
 def test_single_facet_probe_passes_gate_even_with_multiple_open_facets(tmp_path):
     root = tmp_path / "vault"
-    paths = create_basic_vault(root)
+    # Old path only: it reads the legacy per-LO facet_uncertainty table, which a canonical (head) vault never writes.
+    paths = pin_old_basic_vault(create_basic_vault(root))
     _add_item(root, "pi_clean_recall", ["recall"])
     loaded = load_vault(root)
     repository = Repository(paths.sqlite_path)
@@ -126,7 +129,7 @@ def test_single_facet_probe_passes_gate_even_with_multiple_open_facets(tmp_path)
                 "opened_by_attempt_id": result.attempt_id,
                 "opened_reason": "low_facet_outcome",
                 "last_evidence_at": NOW_ISO,
-                "algorithm_version": ALGORITHM_VERSION,
+                "algorithm_version": OLD_BASIC_VAULT_TAG,
                 "created_at": NOW_ISO,
                 "updated_at": NOW_ISO,
             }
@@ -163,7 +166,8 @@ def test_single_facet_probe_passes_gate_even_with_multiple_open_facets(tmp_path)
 
 def test_open_facet_restriction_makes_disjoint_correct_attempt_zero_weight(tmp_path):
     root = tmp_path / "vault"
-    paths = create_basic_vault(root)
+    # Old path only: it reads the legacy per-LO facet_uncertainty table, which a canonical (head) vault never writes.
+    paths = pin_old_basic_vault(create_basic_vault(root))
     _add_item(root, "pi_other_facet", ["other"])
     loaded = load_vault(root)
     repository = Repository(paths.sqlite_path)
@@ -185,7 +189,8 @@ def test_open_facet_restriction_makes_disjoint_correct_attempt_zero_weight(tmp_p
 
 def test_hedged_learner_confidence_opens_uncertainty_even_with_partial_credit(tmp_path):
     root = tmp_path / "vault"
-    paths = create_basic_vault(root)
+    # Old path only: it reads the legacy per-LO facet_uncertainty table, which a canonical (head) vault never writes.
+    paths = pin_old_basic_vault(create_basic_vault(root))
     loaded = load_vault(root)
     repository = Repository(paths.sqlite_path)
 
@@ -340,7 +345,8 @@ def test_facet_eig_is_zero_for_unsupported_candidate_and_positive_for_isolating_
 
 def test_facet_uncertainty_rebuilds_from_attempts_and_grading_evidence(tmp_path):
     root = tmp_path / "vault"
-    paths = create_basic_vault(root)
+    # Old path only: it reads the legacy per-LO facet_uncertainty table, which a canonical (head) vault never writes.
+    paths = pin_old_basic_vault(create_basic_vault(root))
     loaded = load_vault(root)
     repository = Repository(paths.sqlite_path)
     result = _wrong_attempt(loaded, repository)
@@ -356,7 +362,8 @@ def test_facet_uncertainty_rebuilds_from_attempts_and_grading_evidence(tmp_path)
 
 def test_mastery_diagnostic_view_distinguishes_known_gap_from_unexamined(tmp_path):
     root = tmp_path / "vault"
-    paths = create_basic_vault(root)
+    # Old path only: it reads the legacy per-LO facet_uncertainty table, which a canonical (head) vault never writes.
+    paths = pin_old_basic_vault(create_basic_vault(root))
     _add_item(root, "pi_other_required", ["other"])
     loaded = load_vault(root)
     repository = Repository(paths.sqlite_path)
@@ -371,7 +378,7 @@ def test_mastery_diagnostic_view_distinguishes_known_gap_from_unexamined(tmp_pat
             "opened_by_attempt_id": result.attempt_id,
             "opened_reason": "low_facet_outcome",
             "last_evidence_at": NOW_ISO,
-            "algorithm_version": ALGORITHM_VERSION,
+            "algorithm_version": OLD_BASIC_VAULT_TAG,
             "created_at": NOW_ISO,
             "updated_at": NOW_ISO,
         }

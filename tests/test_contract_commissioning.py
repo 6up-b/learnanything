@@ -37,7 +37,7 @@ from learnloop.content.authoring.practice_generation import (
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.helpers import NOW_ISO, create_basic_vault
+from tests.helpers import NOW_ISO, create_basic_vault, pin_old_basic_vault
 from tests.contract_commissioning_helpers import LO_ID, _write_blueprint
 
 # The basic vault's only item is `short_answer` on facet "recall", compiling to
@@ -215,7 +215,9 @@ def test_plan_rung_follows_the_contract_not_the_mastery_band(tmp_path):
     )
     (target,) = plan.targets
     assert target.rung.capability == "procedure_execution"
-    assert target.rung.waypoint_slug == "execute"
+    # On the head the adaptive-difficulty generation contract (§7.1) commissions the point, so the
+    # waypoint is AD's; it keeps the contract's capability.
+    assert target.rung.waypoint_slug == "ad_commission"
     assert [cell["capability"] for cell in target.commissioned_cells] == ["procedure_execution"]
     assert target.contract_capabilities == ["procedure_execution"]
     # The prompt payload carries the cells, so the model is told the requirement
@@ -230,7 +232,9 @@ def test_legacy_learning_object_keeps_the_mastery_band_rung(tmp_path):
     # `fixtures/arxiv` has 0 contract cells over 15 LOs. A vault with no authored
     # blueprints must be byte-for-byte unaffected — this change is not a policy
     # that applies everywhere, it is honouring contracts where they exist.
-    paths = create_basic_vault(tmp_path / "vault")
+    # Old path only: the mastery-band rung is the incumbent's; on the head the adaptive-difficulty
+    # generation contract (§7.1) commissions every plan's point, blueprint or not.
+    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     _seed_cold_mastery(repository)

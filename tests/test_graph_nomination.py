@@ -67,6 +67,9 @@ def vault(tmp_path):
     config.embedding.backfill_enabled = True
     config.embedding.dimensions = 64
     config.graph_nomination.top_k = 2
+    # The head basic vault registers its item's `recall` facet; the index sizes
+    # below count exactly these three facets, so the registry is replaced.
+    loaded.evidence_facets.clear()
     loaded.evidence_facets.update({
         "facet_spectral": _facet(
             "facet_spectral", "Spectral theorem statement",

@@ -16,7 +16,7 @@ from learnloop.content.proposals.ai_contracts import (
 from learnloop.db.repositories import Repository
 from learnloop.content.proposals.proposals import _practice_item_rubric_errors, persist_authoring_proposal
 
-from tests.helpers import NOW, create_basic_vault
+from tests.helpers import NOW, create_basic_vault, write_facets
 from tests.cli_generate_practice_helpers import _ProposalServer, _complete_probe, _configure_codex
 
 # The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
@@ -26,6 +26,18 @@ pytestmark = pytest.mark.usefixtures("legacy_codex_http_double")
 
 # --- --los gating ---------------------------------------------------------
 
+
+
+def _vault_registering_geometry(vault_root):
+    """The basic vault with the teach-back item's ``geometry`` facet registered beside ``recall``:
+    from mvp-0.7 (KM2) a generated item naming an unregistered facet is invalid."""
+
+    paths = create_basic_vault(vault_root)
+    write_facets(paths, [
+        {"id": "recall", "kind": "definition", "claim": "Recall the SVD definition."},
+        {"id": "geometry", "kind": "interpretation", "claim": "SVD as rotation, scaling, rotation."},
+    ])
+    return paths
 
 def test_generate_practice_los_unknown_id_errors(tmp_path):
     vault_root = tmp_path / "vault"
@@ -179,7 +191,7 @@ def test_generate_practice_mode_mix_drives_requested_item_counts(tmp_path):
 
 def test_generate_practice_mode_mix_adds_hard_constraint_and_teach_back_guidance(tmp_path):
     vault_root = tmp_path / "vault"
-    paths = create_basic_vault(vault_root)
+    paths = _vault_registering_geometry(vault_root)
     _complete_probe(paths.sqlite_path)
     checkout = tmp_path / "codex"
     checkout.mkdir()
@@ -299,7 +311,7 @@ def test_generate_practice_mode_mix_other_mode_mismatch_soft_warns(tmp_path):
 
 def test_teach_back_item_without_rubric_is_invalid_despite_default_rubrics(tmp_path):
     vault_root = tmp_path / "vault"
-    create_basic_vault(vault_root)
+    _vault_registering_geometry(vault_root)
     payload = _teach_back_item_dict()
     del payload["payload"]["grading_rubric"]
     del payload["payload"]["criterion_facet_weights"]
@@ -344,7 +356,7 @@ def test_teach_back_item_missing_core_criterion_for_facet_is_invalid(tmp_path):
 
 def test_well_formed_teach_back_item_is_valid(tmp_path):
     vault_root = tmp_path / "vault"
-    create_basic_vault(vault_root)
+    _vault_registering_geometry(vault_root)
     proposal = AuthoringProposal.model_validate(_proposal_wrapper([_teach_back_item_dict()]))
 
     patch_id = persist_authoring_proposal(vault_root, proposal, provider="codex", clock=FrozenClock(NOW))

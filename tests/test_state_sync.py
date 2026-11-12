@@ -11,7 +11,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_learning_object, upsert_practice_item
 from learnloop.vault.yaml_io import write_yaml
 
-from tests.helpers import NOW, create_basic_vault
+from tests.helpers import NOW, create_basic_vault, pin_old_basic_vault
 
 
 def test_state_sync_initializes_and_deactivates_missing_yaml(tmp_path):
@@ -45,7 +45,9 @@ def test_state_sync_initializes_and_deactivates_missing_yaml(tmp_path):
 
 def test_state_sync_enters_probe_for_new_active_goal_learning_object(tmp_path):
     vault_root = tmp_path / "vault"
-    paths = create_basic_vault(vault_root)
+    # Old path only: from mvp-0.11 (learner field F2, placement.enabled) sync opens no initial probe
+    # episode for a new LO, so this describes the predecessor's opening probe.
+    paths = pin_old_basic_vault(create_basic_vault(vault_root))
     repository = Repository(paths.sqlite_path)
     clock = FrozenClock(NOW)
 
@@ -64,7 +66,9 @@ def test_state_sync_enters_probe_for_new_active_goal_learning_object(tmp_path):
 
 def test_state_sync_enters_probe_for_new_active_learning_object_without_goal(tmp_path):
     vault_root = tmp_path / "vault"
-    paths = create_basic_vault(vault_root)
+    # Old path only: from mvp-0.11 (learner field F2, placement.enabled) sync opens no initial probe
+    # episode for a new LO, so this describes the predecessor's opening probe.
+    paths = pin_old_basic_vault(create_basic_vault(vault_root))
     write_yaml(paths.goals_path, {"schema_version": 1, "goals": []})
     repository = Repository(paths.sqlite_path)
     clock = FrozenClock(NOW)
@@ -84,7 +88,9 @@ def test_state_sync_enters_probe_for_new_active_learning_object_without_goal(tmp
 
 def test_state_sync_enters_probe_when_practice_item_arrives_after_learning_object(tmp_path):
     vault_root = tmp_path / "vault"
-    paths = create_basic_vault(vault_root)
+    # Old path only: from mvp-0.11 (learner field F2, placement.enabled) sync opens no initial probe
+    # episode for a new LO, so this describes the predecessor's opening probe.
+    paths = pin_old_basic_vault(create_basic_vault(vault_root))
     paths.practice_item_path("linear-algebra", "pi_svd_define_001").unlink()
     write_yaml(paths.goals_path, {"schema_version": 1, "goals": []})
     repository = Repository(paths.sqlite_path)
@@ -144,16 +150,16 @@ def test_state_sync_uses_strong_learner_claim_for_initial_mastery(tmp_path):
 
     mastery = repository.mastery_state("lo_svd_definition")
     assert mastery.logit_mean == pytest.approx(logit(0.9))
-    # Claims remain deliberately broad: the model's longstanding production
-    # floor dominates 1 / prior_pseudo_count here.
+    # Claims remain deliberately broad: the production floor dominates
+    # 1 / prior_pseudo_count, and from the claim-fixes successor (mvp-0.33,
+    # review F4) a claim moves the mean only, never below the cold start's variance.
     assert mastery.logit_variance == pytest.approx(
-        loaded.config.mastery.claim_prior_min_variance
+        max(loaded.config.mastery.claim_prior_min_variance, loaded.config.mastery.cold_start_prior_logit_variance)
     )
     assert mastery.evidence_count == 0
     assert mastery.last_evidence_at is None
-    # Probe redesign: the legacy strong-claim shortened target became the §11
-    # fast-path completion policy; sync still opens an episode either way.
-    assert repository.open_probe_episode("lo_svd_definition") is not None
+    # From mvp-0.11 (learner field F2) sync opens no initial probe episode, claim or not.
+    assert repository.open_probe_episode("lo_svd_definition") is None
 
 
 def test_state_sync_seeds_from_weak_learner_claim_below_probe_threshold(tmp_path):
@@ -184,19 +190,15 @@ def test_state_sync_seeds_from_weak_learner_claim_below_probe_threshold(tmp_path
     mastery = repository.mastery_state("lo_svd_definition")
     assert mastery.logit_mean == pytest.approx(logit(0.7))
     # The configured production floor (2.0 by default) intentionally prevents
-    # a self-report from becoming an overconfident mastery prior.
+    # a self-report from becoming an overconfident mastery prior; from the
+    # claim-fixes successor (mvp-0.33, review F4) neither may it drop below the cold start's.
     assert mastery.logit_variance == pytest.approx(
-        loaded.config.mastery.claim_prior_min_variance
+        max(loaded.config.mastery.claim_prior_min_variance, loaded.config.mastery.cold_start_prior_logit_variance)
     )
     assert mastery.evidence_count == 0
-    # The claim remains below the §11 fast-path threshold. Initial episodes use
-    # the purpose-specific placement minimum independently of that fast path.
-    episode = repository.open_probe_episode("lo_svd_definition")
-    assert episode is not None
-    assert 0.7 < loaded.config.probe.episode.fast_path_claim_threshold
-    assert episode.minimum_independent_observations == (
-        loaded.config.probe.episode.placement_minimum_observations
-    )
+    # From mvp-0.11 (learner field F2) sync opens no initial probe episode, so the
+    # sub-threshold claim has no fast path to shorten.
+    assert repository.open_probe_episode("lo_svd_definition") is None
 
 
 def test_state_sync_no_probe_gap_for_item_less_goal_lo(tmp_path):

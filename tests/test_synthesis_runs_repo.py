@@ -7,7 +7,7 @@ from learnloop.content.synthesis.synthesis_manifests import persist_manifest
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import create_basic_vault
-from tests.apply_write_ahead_helpers import _seed_lo_and_pi_proposal, LO_ID
+from tests.apply_write_ahead_helpers import LO_ID, _seed_lo_and_pi_proposal, create_vault_registering_application
 
 
 def test_synthesis_run_lifecycle(tmp_path):
@@ -45,7 +45,7 @@ def test_synthesis_run_lifecycle(tmp_path):
 def test_synthesis_run_introducing_entity_lineage(tmp_path):
     """patch -> agent run -> manifest lineage resolves for a created entity (§9.2)."""
 
-    paths = create_basic_vault(tmp_path / "vault")
+    paths = create_vault_registering_application(tmp_path / "vault")
     repository = Repository(paths.sqlite_path)
     _seed_lo_and_pi_proposal(repository, "patch_syn")
 

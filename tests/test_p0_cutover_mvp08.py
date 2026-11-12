@@ -26,7 +26,7 @@ from learnloop.ops.vault_upgrade import (
 )
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, create_basic_vault, set_algorithm_version
+from tests.helpers import NOW, create_basic_vault, pin_old_basic_vault, set_algorithm_version
 
 CLOCK = FrozenClock(NOW)
 ITEM = "pi_svd_define_001"
@@ -87,7 +87,8 @@ def test_upgrade_freezes_legacy_manifests_immutably(tmp_path):
 
 def test_upgrade_refuses_from_non_mvp07(tmp_path):
     # A legacy mvp-0.6 vault cannot jump straight to mvp-0.8.
-    paths = create_basic_vault(tmp_path / "vault")  # mvp-0.6
+    # Old path only: the subject is an mvp-0.6 vault.
+    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
     result = upgrade_to_mvp08(paths.root, clock=CLOCK)
     assert not result.upgraded
     assert "only 'mvp-0.7'" in result.problems[0]
@@ -148,7 +149,8 @@ def test_mvp06_derived_output_is_byte_identical_across_p0_machinery(tmp_path):
     # before and after all P0 machinery is present. P0 must not perturb frozen legacy
     # replay: the mvp-0.8 upgrade refuses mvp-0.6, and the registry projection/audit
     # touch only their own tables.
-    paths = create_basic_vault(tmp_path / "vault")  # pins mvp-0.6
+    # Old path only: the subject is an mvp-0.6 vault's frozen replay.
+    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
     vault = load_vault(paths.root)
     repo = Repository(paths.sqlite_path)
     sync_vault_state(vault, repo, clock=CLOCK)

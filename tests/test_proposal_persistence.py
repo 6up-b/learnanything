@@ -19,6 +19,7 @@ from learnloop.content.proposals.proposals import (
 from learnloop.vault.loader import add_note, load_vault
 from learnloop.vault.yaml_io import write_yaml
 
+from tests.apply_write_ahead_helpers import create_vault_registering_application
 from tests.helpers import NOW, create_basic_vault
 from tests.proposal_persistence_helpers import _QueueAuthoringClient, _generated_practice_proposal_payload
 
@@ -49,7 +50,7 @@ def test_generate_persists_one_item_per_proposal_item(tmp_path):
 
 def test_ai_proposal_acceptance_records_ai_origin(tmp_path):
     vault_root = tmp_path / "vault"
-    create_basic_vault(vault_root)
+    create_vault_registering_application(vault_root)
     proposal = AuthoringProposal.model_validate(_two_item_payload())
     patch_id = persist_authoring_proposal(
         vault_root,
@@ -181,7 +182,7 @@ def test_source_grounded_auto_apply_accepts_low_risk_create(tmp_path):
 
 def test_source_linked_generated_practice_with_passed_audit_auto_applies(tmp_path):
     vault_root = tmp_path / "vault"
-    create_basic_vault(vault_root)
+    create_vault_registering_application(vault_root)
     add_note(
         vault_root,
         "linear-algebra",
@@ -248,7 +249,7 @@ def test_source_linked_generated_practice_with_passed_audit_auto_applies(tmp_pat
 
 def test_auto_apply_batches_dependency_order_for_new_lo_and_practice_item(tmp_path):
     vault_root = tmp_path / "vault"
-    create_basic_vault(vault_root)
+    create_vault_registering_application(vault_root)
     add_note(
         vault_root,
         "linear-algebra",
@@ -331,7 +332,7 @@ def test_auto_apply_batches_dependency_order_for_new_lo_and_practice_item(tmp_pa
 
 def test_source_linked_generated_practice_missing_audit_is_invalid(tmp_path):
     vault_root = tmp_path / "vault"
-    create_basic_vault(vault_root)
+    create_vault_registering_application(vault_root)
     add_note(
         vault_root,
         "linear-algebra",
@@ -482,7 +483,7 @@ def test_registry_backed_vault_rejects_unknown_evidence_facet(tmp_path):
 
 def test_generated_practice_missing_reward_metadata_is_invalid(tmp_path):
     vault_root = tmp_path / "vault"
-    create_basic_vault(vault_root)
+    create_vault_registering_application(vault_root)
     proposal = AuthoringProposal.model_validate(
         _generated_practice_proposal_payload(
             {
@@ -513,7 +514,7 @@ def test_generated_practice_missing_reward_metadata_is_invalid(tmp_path):
 
 def test_generated_practice_rubric_criterion_total_defines_grading_scale(tmp_path):
     vault_root = tmp_path / "vault"
-    create_basic_vault(vault_root)
+    create_vault_registering_application(vault_root)
     proposal = AuthoringProposal.model_validate(
         _generated_practice_proposal_payload(
             {
@@ -545,7 +546,7 @@ def test_generated_practice_rubric_criterion_total_defines_grading_scale(tmp_pat
 
 def test_generated_practice_rejects_unknown_metadata_keys(tmp_path):
     vault_root = tmp_path / "vault"
-    create_basic_vault(vault_root)
+    create_vault_registering_application(vault_root)
     proposal = AuthoringProposal.model_validate(
         _generated_practice_proposal_payload(
             {
@@ -574,7 +575,7 @@ def test_generated_practice_rejects_unknown_metadata_keys(tmp_path):
 
 def test_manual_practice_missing_evidence_weights_is_warning(tmp_path):
     vault_root = tmp_path / "vault"
-    create_basic_vault(vault_root)
+    create_vault_registering_application(vault_root)
     proposal = AuthoringProposal.model_validate(
         {
             "summary": "Manual practice metadata review",
@@ -617,7 +618,7 @@ def test_manual_practice_missing_evidence_weights_is_warning(tmp_path):
 
 def test_generated_practice_single_facet_backfills_criterion_facet_weights(tmp_path):
     vault_root = tmp_path / "vault"
-    create_basic_vault(vault_root)
+    create_vault_registering_application(vault_root)
     proposal = AuthoringProposal.model_validate(
         _generated_practice_proposal_payload(
             {
@@ -640,7 +641,7 @@ def test_generated_practice_single_facet_backfills_criterion_facet_weights(tmp_p
 
 def test_generated_practice_missing_evidence_weights_is_not_smeared(tmp_path):
     vault_root = tmp_path / "vault"
-    create_basic_vault(vault_root)
+    create_vault_registering_application(vault_root)
     proposal = AuthoringProposal.model_validate(
         _generated_practice_proposal_payload({"evidence_facets": ["application", "recall"]})
     )
@@ -1066,7 +1067,7 @@ def _reject_payload() -> dict:
 
 def test_invalid_generated_item_gets_one_repair_round_trip(tmp_path):
     vault_root = tmp_path / "vault"
-    create_basic_vault(vault_root)
+    create_vault_registering_application(vault_root)
     broken_payload = _generated_practice_proposal_payload(
         {"evidence_facets": ["application"], "evidence_weights": {"application": 1.0}}
     )
@@ -1106,7 +1107,7 @@ def test_invalid_generated_item_gets_one_repair_round_trip(tmp_path):
 
 def test_valid_proposal_skips_repair_round_trip(tmp_path):
     vault_root = tmp_path / "vault"
-    create_basic_vault(vault_root)
+    create_vault_registering_application(vault_root)
     client = _QueueAuthoringClient([AuthoringProposal.model_validate(_two_item_payload())])
 
     generate_authoring_proposal(vault_root, client, clock=FrozenClock(NOW))
@@ -1116,7 +1117,7 @@ def test_valid_proposal_skips_repair_round_trip(tmp_path):
 
 def test_failed_repair_call_keeps_original_invalid_item(tmp_path):
     vault_root = tmp_path / "vault"
-    create_basic_vault(vault_root)
+    create_vault_registering_application(vault_root)
     broken_payload = _generated_practice_proposal_payload(
         {"evidence_facets": ["application"], "evidence_weights": {"application": 1.0}}
     )

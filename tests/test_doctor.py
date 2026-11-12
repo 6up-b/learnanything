@@ -22,7 +22,7 @@ from learnloop.vault.loader import init_vault
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault
+from tests.helpers import NOW, NOW_ISO, create_basic_vault, pin_old_basic_vault
 from tests.owner_vaults import owner_vaults, require_owner_vault
 
 
@@ -563,7 +563,8 @@ def test_doctor_warns_on_duplicate_learning_objects(tmp_path):
 
 def test_doctor_fix_state_merges_registered_facet_alias_state(tmp_path):
     vault_root = tmp_path / "vault"
-    paths = create_basic_vault(vault_root)
+    # Old path only: the legacy per-LO facet state (doctor's mvp-0.6 alias merge); canonical vaults keep none.
+    paths = pin_old_basic_vault(create_basic_vault(vault_root))
     write_yaml(
         paths.facets_path,
         {
