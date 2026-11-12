@@ -379,7 +379,7 @@ The package has 4,087 comment lines. A regex for review-round and stage names (`
 |---|---|---|
 | (a) an episode hypothesis label | `probe_hypotheses.py:31-37` (label), `:45-53` (triage reason), `:94` (generic marginals), the template builder; `probe_families.py:807-892` (family rows naming labels); `voi_stopping.py:360-369` (the unresolved-cost label sets); `probe_blocks.py:459` (a literal `"robust_initial_grasp"`); `curriculum/depth_rungs.py:337-338`; a new triage reason also needs migration 083's CHECK widened (`migrations/083_diagnostic_pack_and_triage.sql:99-103`) | the label vocabulary is restated as string literals in five modules |
 | (a′) a causal hypothesis kind | `causal_attribution._hypothesis_specs` (`:1649`), repair classes and `probe_targeting.classify_cause_set`, `causal_probe_coherence` (prior, bundles), `followup_run/lanes.concrete_rivals` | two vocabularies meet (`diagnosis/causal_probe_coherence.py:713-722` says so) |
-| (b) a probe instrument | a family in `probe_families.py` and its admission gate (`:101`), `probe_instance_generation.py`, the card and compile path in `probe_episodes.resolve_instrument` (`:1037`); for a causal instrument also commissioning (`causal_probe_commissioning.py:383`), blind bundles, the manipulation audit (`causal_probe_coherence.py:1400`) and the review ladder (`:47`); for FG1, `followup_run/admission.py` and `authoring.py`; registry entries for any new module constant | the instrument is defined in the family, compiled in the episode, and commissioned in the causal lane |
+| (b) a probe instrument | a family in `probe_families.py` and its admission gate (`:1521`), `probe_instance_generation.py`, the card and compile path in `probe_episodes.resolve_instrument` (`:1037`); for a causal instrument also commissioning (`causal_probe_commissioning.py:383`), blind bundles, the manipulation audit (`causal_probe_coherence.py:1400`) and the review ladder (`:47`); for FG1, `followup_run/admission.py` and `authoring.py`; registry entries for any new module constant | the instrument is defined in the family, compiled in the episode, and commissioned in the causal lane |
 | (c) a stopping rule | `_evaluate_completion` (`probe_episodes.py:2902`), the `completion_reason` CHECK (`migrations/200_probe_value_of_information_stop.sql:36-50`, so a migration and the head fixture), a version gate and kill switch if it changes behaviour, and the serve gate if it applies per item | rules are positional `if`s in one function; the vocabulary is a CHECK |
 | (d) a text-gap judge or source kind | `text_gaps/judges.py` (prompt, executor, caps `:85`), `tier1.py` (Decider), `pipeline.py` (`_judge_all`, `_pair_authority`, `:317`, `:365`), `kinds.py` (match kinds), `sources.py` and `contract.py` for a source kind, `jobs.py` (enqueue), and the `source_kind` CHECK (`migrations/212_hint_feedback_source_kind.sql:27`; again in 231) | the source vocabulary is a CHECK, and authority is split across three modules |
 
@@ -392,3 +392,68 @@ The package has 4,087 comment lines. A regex for review-round and stage names (`
 | D9C3 | medium | **The hypothesis label vocabulary is restated as literals in five modules,** and the stop and source vocabularies are SQL CHECKs, so adding one is a migration. | §6.3 |
 | D9C4 | medium | **The three longest decision functions start with no approach paragraph;** two have no docstring at all. | §6.1 |
 | D9C5 | low | 269 comment and docstring lines name review rounds or rulings, mostly beside a real reason. | §6.1 |
+
+## 7. Change cost, counted
+
+**Activity.** Since Oct 12, 170 non-merge commits touched `src/learnloop/diagnosis` (207 with merges) of 3,414 (3,669); the brief's 171 is one more, a date-boundary difference. 157 non-merge commits touched `params/parameter_registry.py`; 24 touched both. Most-changed files: `text_gaps/sources.py` 27, `text_gaps/jobs.py` 26, `probe_episodes.py` 25, `text_gaps/pipeline.py` 21, `text_gaps/provenance.py` 17, `split/jobs.py` and `causal_orchestrator.py` 16 each (delegated; the commit counts I reran with `git log --since=2026-10-12 [--no-merges] -- <path>`).
+
+**Real changes.** Files per commit, counted with `git show --name-only` (I reran the eight marked ✓; the others are the delegated sweep's). "Pin" is the head fixture (`fixtures/migration_head/`), `*_upgrade.py`, successor and upgrade tests, `config/template.py`'s digests and the CLI snapshots; "notes" are generated vault notes, which before mid-October rewrote every module note's commit stamp on each regeneration.
+
+| Kind | Commit | diagnosis | other `src` | tests | pin and fixture | notes | total |
+|---|---|---:|---:|---:|---:|---:|---:|
+| (a) hypothesis kind: a new factor shape from rival causes (no episode label has been added since the Aug 20 squash) | `7d730fa39d` ✓ | 2 | 4 (`followup_run`, `followup_serve`) | 4 | 0 | 0 | 10 |
+| (a) the open-set arm kept on old factors | `8a6a50b24f` | 1 | 1 | 2 | 0 | 0 | 4 |
+| (b) probe instrument: FG1's generated probe, commissioning and admission | `e444e25dd0` ✓ | 6 | 8 (a route, a disclosure, a switch, four `followup_run` modules, the workflow) | 3 | 0 (moved later) | 0 | 17 |
+| (b) the whole FG1 stage, `mvp-0.45`, migration 241 (net diff of 46 commits) | `bdfa849256^..d9c19b3bc4` | 11 | 53 | 25 behaviour + 47 pin-like | 50 | 623 | 834 |
+| (c) stopping rule: VOI lifts four caps, `mvp-0.17` | `82a50f4121` ✓ | 4 | 14 (scheduler, plan engine and lanes, router log, registry, schema, versions, CLI, `Repository`, TUI, sidecar) | 9 | 7 upgrade files and `template.py` | 355 (stamps only) | 385 |
+| (c) a value stop ends the episode, migration 187 | `bc756e53d6` ✓ | 3 | 4 | 14 | 24 fixture + 8 upgrade | 353 | 403 |
+| (c) EVSI study ranks 1-3 behind switches | `17819ec036` ✓ | 2 | 5 (incl. registry +12 lines) | 3 | `template.py` | 0 | 11 |
+| (d) text-gap judge: the Decider decides Tier 1, new `tier1.py` | `877ad6d3f8` ✓ | 8 | 7 (every other Tier-1 caller) | 1 | 0 | 0 | 16 |
+| (d) a source kind, `hint_feedback`, migration 212 | `c3089b99ea` ✓ | 6 | 1 | 32 (about two thirds pin-like) | 24 fixture + 15 upgrade | 0 | 65 |
+| (d) a source kind, `learner_note`, migration 231 | `ad2c282a43` ✓ | 5 | 7 | 48 | 24 fixture + 15 upgrade | 0 | 89 |
+| (e) registry: three `_reg_const`s for VOI constants | `6e55832891` ✓ | 5 | 5 | 1 | 0 | 0 | 15 (3 in `apps/`) |
+
+**What the counts say.** A diagnosis change with no migration and no successor costs 4-17 files, of which 1-8 are in diagnosis and 4-8 are callers in `followup_run`, `scheduling`, `daily_plan` and the sidecar. A migration adds the 24-file head fixture and 15 upgrade tests (strategy arc D addresses it). A successor adds `template.py`, an upgrade module and about 7-30 pinned tests; TE2's review records "the 69 version-pinned test files ... 44 failed (the pins)" (`docs/reviews/teacher-te2.md:199`), and `docs/reviews/voi-stopping.md:147-183` that every `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entry was recomputed. Generated notes once added 350 files per change; since the commit-stamp change (arc A) a regeneration touches about a dozen (delegated, not rerun). The vocabularies in SQL CHECKs (§6.3) are why a new source kind or stop reason is a migration.
+
+### 7.1 The parameter registry as a cost
+
+- **Shape** (`params/parameter_registry.py`, 3,565 lines): one `ParameterSpec` per entry (`:74-91`) in a module-level `REGISTRY` (`:94`); `MODULE_INVENTORY` names 96 modules, nine of them diagnosis (`:106-292`); `_reg_const` registers a module constant (`:302-327`); 172 `_ConfigRule`s classify config leaves (`:1562-2945`, first match wins, with a frozen catch-all).
+- **`_reg_const` entries: 381** (`grep -c '^_reg_const('`), 127 `decision` and 254 `structural`, all with the default status `heuristic` (an AST count of the calls). **39 name diagnosis modules** (25 decision, 14 structural): `voi_stopping` 10, `robust_composition` 8, `contrast_pairs` 5, `probe_families` 4, `discrimination_profiles` 4, `failure_triage` 3, `error_hunt` 2, `diagnostic_pack` 2, `probe_episodes` 1. `text_gaps`, `causal_orchestrator`, `causal_probe_coherence` and `followups` aren't in the inventory, so their constants (the 0.40 sensor cut, `EXAM_SITTING_INTERVENTION_CAP`, the resolvers' defaults) aren't registered at all.
+- **What an entry buys.** Metadata: a kind, a class, an owner, a rationale and a promotion gate. Its value is whatever the module says: `refresh` resolves it by importing the module and reading the attribute (`:3089-3106`, `:3231`), and writes a per-vault projection (`parameter_registry` rows) with a value hash and a demotion rule. `source_of_value` is `"module_constant"` on both branches of its conditional (`:323`). **All 381 are constants nothing varies at run time:** no `_reg_const` value is read from the projection by the code that uses the constant, and only two `record_bind` call sites exist, both in scheduling (`scheduling/constraint_engine.py:358`, `scheduling/randomization_layer.py:176`). 11 entries carry a `bind_site`.
+- **Who reads the registry at run time:** upgrades (`freeze_manifest` and `refresh` in 46 upgrade modules, including `diagnosis/recurrence/upgrade.py`), the `learnloop registry` CLI, the sidecar's interrupted-activation recovery at vault open (`learnloop_sidecar/context.py:825-827`), the controller snapshot's manifest hash of three scheduling owners, and sensitivity certificates (delegated; the first three spot-checked). No diagnosis module reads a value from it.
+- **What a diagnosis change pays.** A new numeric constant in an inventory module must get a `_reg_const` or `tests/test_registry_audit.py` fails; a new numeric config leaf must match a `_ConfigRule`; deleting a module must delete its entries or `tests/test_architecture.py`'s resolution check fails (delegated: `:633-639`). The identity pin B9 hashes only the three controller owners' entries, so diagnosis entries move no golden (delegated). In the counted commits the registry was one file of 11-15 and a few lines each; its cost is the rule that a constant in nine diagnosis modules can't be added without it, and the false impression that the 25 diagnosis "decision" constants are calibrated.
+
+### Findings
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| D9H1 | high | **A behaviour change in diagnosis pays the release machinery, not the diagnosis edit.** Five of the ten counted changes touched 1-8 diagnosis files and 65-834 files in all, the rest pins, fixtures, upgrade tests and notes. | table above |
+| D9H2 | medium | **A diagnosis change edits 4-8 callers outside the package** (FG1, scheduler, plan engine, sidecar handlers), because the boundaries pass modes and private helpers (§3.4). | `e444e25dd0`, `82a50f4121`, `877ad6d3f8` |
+| D9H3 | medium | **The registry describes 381 constants as parameters, all heuristic and none read back,** and covers 9 of 110 diagnosis modules. It buys an audit trail of names and a test that forces new constants into it; it doesn't make any of them vary. | §7.1; `params/parameter_registry.py:302-327`, `:3089-3106` |
+| D9H4 | medium | **Stop reasons and gap source kinds live in SQL CHECKs,** so each new one is a migration with the head fixture's 24 files and about 15 upgrade tests. | `migrations/200_probe_value_of_information_stop.sql:36-50`; `migrations/212_hint_feedback_source_kind.sql:27`; `c3089b99ea`, `ad2c282a43` |
+
+## 8. The vault notes for diagnosis
+
+Delegated (read and grep only); each verdict below was spot-checked at the cited note line.
+
+| Note | Verdict | Evidence |
+|---|---|---|
+| `Concepts/Diagnosis and Remediation.md` | **stale**: `implementation_version: mvp-0.9` (`:8`); its state diagram has states `concentrated` and `burden_stop` (`:33-37`) that exist nowhere in `src`, where `action_equivalent` and the value stop are completion *reasons* (`migrations/200_probe_value_of_information_stop.sql:36-50`) and the statuses are `pending_items`, `in_progress`, `complete`, `abandoned`, `converted_to_tutoring`; it predates blind grading, recurrence, text gaps, VOI stopping, FG1 and the records, and names no decider and no second belief | |
+| `Concepts/Algorithm Versions and Reproducibility.md` | **partly stale**: the table stops at `mvp-0.34` and says LATEST is `mvp-0.34` "today" (`:58`, `:60`); missing FG1 (`mvp-0.45`), teacher and phone probes, slip or gap (`mvp-0.57`) | |
+| `Maps/LearnLoop Pipeline Map.md` | **partly stale**: LATEST at `mvp-0.27` (`:105`); FG1's follow-up described as a mid-block `plan_interrupt` (delegated, `:230`), not the itemless gate with refusals | |
+| `Architecture/Architecture Overview.md:83` | **partly stale**: "Diagnosis owns hypotheses, probes, ... remediation", while FG1's probes live in `followup_run` and `followup_serve` | |
+| `Workflows/Inspect Persistent State.md:186` | **true, one omission**: lists four failed `diagnosis_step`s; the code has five (`causal_shadow_selection`, `diagnosis/causal_orchestrator.py:1513`) | |
+| `Concepts/Attempt Processing.md`, `Workflows/Process Model Output.md` | **partly stale** (delegated): the joint-grading completion only; no blind path | |
+| ADR-016 (blind grading) | **true** (delegated) | |
+| ADR-017 | **true** for diagnosis; `diagnosis/chain_records.py` isn't in its `source_paths` | |
+| `Reference/Modules/learnloop/diagnosis/` | **complete**: 110 notes and five package maps; but every diagnosis module note lists `concepts: ["Learning System"]`, because the generator maps the package there (`_scripts/module_generate.py:136`), so none links to the diagnosis concept note | |
+
+**Missing notes** (no hand-written note explains them; delegated grep for each name returned nothing in Architecture, Concepts, Workflows, Examples, Maps, Decisions): who decides whether to probe and FG1's lane (no ADR for "the router decides, `decide_probe` logs"); the discriminating observation and the two (four) beliefs; VOI stopping; recurrence groups; learner-text gaps; diagnostic blocks and the block-end hook; calibration sessions; guided redo; offline review; the diagnosis reports and `diagnose` CLI; hypothesis marks; machine checks, commissioning, failure triage and the scoreboard.
+
+### Findings
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| D9V1 | high | **The one diagnosis concept note describes August's system** and names states that don't exist; a reader starting there won't find the decider, the second belief, the split or FG1. | above |
+| D9V2 | high | **No note explains who decides whether to probe, or the beliefs over hypotheses** — the two questions arc G changes. | above |
+| D9V3 | medium | **The version notes stop at `mvp-0.27` and `mvp-0.34`,** and the generated module notes all point at "Learning System". | above |
