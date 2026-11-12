@@ -62,6 +62,7 @@ from learnloop.substrate.canonical_projection import (
     observed_unresolved_failure,
     p0_effective_evidence_mass,
     surface_group_id,
+    transfer_tier_mass_scale,
     unassessed_evidence_row,
 )
 from learnloop.attempts.evidence import attempt_evidence_mass
@@ -689,6 +690,7 @@ def _epoch_certification_credit(
         )
 
     repeat_discount = configured_repeat_discount(vault)
+    transfer_scale = transfer_tier_mass_scale(vault.config, "transfer")
     assistance = "hinted" if assisted else "unassisted"
     for outcome in outcomes:
         local = localized[outcome.criterion_id]
@@ -718,6 +720,9 @@ def _epoch_certification_credit(
         if not targets:
             continue
         pmass = criterion_pseudo_mass(criterion.points, rubric_total, emass)
+        if getattr(criterion, "tier", "core") == "transfer":
+            # The projection's D-3 scale (1.0 below the facet-belief successor), so banked credit agrees.
+            pmass *= transfer_scale
         correlation_group = criterion.correlation_group or surface_group
         attribution = attribution_weights(
             row.get("attribution") if row is not None else None, targets

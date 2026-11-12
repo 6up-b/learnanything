@@ -22,6 +22,7 @@ from learnloop.algorithm_versions import (
     ROUTER_CALIBRATION_ALGORITHM_VERSION,
     ROUTER_FOLLOWUPS_ALGORITHM_VERSION,
     FAILURE_SHARE_ALGORITHM_VERSION,
+    FACET_BELIEF_FIX_ALGORITHM_VERSION,
     FIGURE_WAIT_ALGORITHM_VERSION,
     SLIP_GAP_ALGORITHM_VERSION,
     ROUTER_LEARNED_TAIL_ALGORITHM_VERSION,
@@ -137,7 +138,8 @@ def upgrade(
                 f"{TEACHER_PROBES_ALGORITHM_VERSION}, {LESSON_OPPORTUNITY_ALGORITHM_VERSION}, "
                 f"{LESSON_OFFERS_ALGORITHM_VERSION}, {PHONE_PROBES_ALGORITHM_VERSION}, "
                 f"{FAILURE_SHARE_ALGORITHM_VERSION}, {UNEVIDENCED_RETURN_ALGORITHM_VERSION}, "
-                f"{SLIP_GAP_ALGORITHM_VERSION} or {FIGURE_WAIT_ALGORITHM_VERSION}); "
+                f"{SLIP_GAP_ALGORITHM_VERSION}, {FIGURE_WAIT_ALGORITHM_VERSION} or "
+                f"{FACET_BELIEF_FIX_ALGORITHM_VERSION}); "
                 "default: the latest."
             ),
         ),
@@ -504,6 +506,10 @@ def upgrade(
         from learnloop.figure_wait_upgrade import upgrade_to_figure_wait
 
         result = upgrade_to_figure_wait(_root(vault))
+    elif to == FACET_BELIEF_FIX_ALGORITHM_VERSION:
+        from learnloop.facet_belief_upgrade import upgrade_to_facet_belief
+
+        result = upgrade_to_facet_belief(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
@@ -522,7 +528,7 @@ def upgrade(
             f"{TEACHER_PROBES_ALGORITHM_VERSION}, {LESSON_OPPORTUNITY_ALGORITHM_VERSION}, "
             f"{LESSON_OFFERS_ALGORITHM_VERSION}, {PHONE_PROBES_ALGORITHM_VERSION}, "
             f"{FAILURE_SHARE_ALGORITHM_VERSION}, {UNEVIDENCED_RETURN_ALGORITHM_VERSION}, "
-            f"{SLIP_GAP_ALGORITHM_VERSION} or {FIGURE_WAIT_ALGORITHM_VERSION}."
+            f"{SLIP_GAP_ALGORITHM_VERSION}, {FIGURE_WAIT_ALGORITHM_VERSION} or {FACET_BELIEF_FIX_ALGORITHM_VERSION}."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

@@ -14,7 +14,7 @@ from learnloop.clock import FrozenClock
 from learnloop.attempts.ai_contracts import GradingContext
 from learnloop.attempts.ai_contracts import CriterionEvidence, ErrorAttribution, GradingProposal
 from learnloop.db.repositories import Repository
-from learnloop.learner.facet_state_reader import facet_recall_state_for_lo
+from learnloop.learner.facet_state_reader import facet_recall_state_for_lo, facet_uncertainty_states_for_lo
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.attempts.regrade import run_deferred_ai_regrades, run_deferred_regrades
 from learnloop.ops.startup import run_startup_maintenance
@@ -147,12 +147,16 @@ def test_deferred_regrade_replays_attempt_derived_state(tmp_path):
     assert debug["max_error_severity"] == 0.0
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D2a finding: on the head path a targeted error attribution's facet outcome (numeric 0.0 in the "
-    "attempt's facet_outcomes) never reaches the canonical facet belief; numeric gets no state at all",
-)
 def test_deferred_regrade_replays_targeted_error_attribution_facets(tmp_path):
+    """A regrade's targeted attribution reaches the facet outcome, the error event and the diagnostic layer, never
+    the canonical belief (D2a finding 4, ledger D-4: KM2's design, docs/reviews/refactor-dfb.md §0).
+
+    The belief is folded from criterion observations only: an attribution redistributes a FAILED criterion's mass
+    among that criterion's own targets (``canonical_projection.attribution_weights``) and never mints evidence on
+    a facet no criterion targets (KM spec §18, resolved decision 3). Here the one criterion targets ``concept``
+    and scores full marks, so ``numeric`` has no belief; its 0.0 outcome opens its per-LO uncertainty instead
+    (the facet-belief successor, mvp-0.59, D-5)."""
+
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     item_path = paths.practice_item_path("linear-algebra", "pi_svd_define_001")
@@ -203,7 +207,13 @@ def test_deferred_regrade_replays_targeted_error_attribution_facets(tmp_path):
 
     assert debug["facet_outcomes"] == {"concept": 1.0, "numeric": 0.0}
     assert event["repair_plan"]["target_evidence_families"] == ["numeric"]
-    assert concept.recall_mean > numeric.recall_mean
+    assert concept is not None and concept.recall_mean > 0.5
+    assert numeric is None
+    uncertainty = {
+        state.facet_id: state for state in facet_uncertainty_states_for_lo(vault, repository, "lo_svd_definition")
+    }
+    assert uncertainty["numeric"].status == "open"
+    assert uncertainty["numeric"].opened_reason == "low_facet_outcome"
 
 
 def test_deferred_regrade_preserves_blank_answer_manual_review(tmp_path):

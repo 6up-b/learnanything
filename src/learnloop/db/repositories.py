@@ -14,7 +14,7 @@ from typing import Any, Iterable, Iterator, Mapping, Sequence
 
 from learnloop import hint_window
 from learnloop.activation_journal import refuse_if_interrupted
-from learnloop.algorithm_versions import CANONICAL_STATE_VERSIONS
+from learnloop.algorithm_versions import CANONICAL_STATE_VERSIONS, FACET_BELIEF_FIX_VERSIONS
 from learnloop.recurrence import key_for_statement, recurrence_key
 from learnloop.outcome_contract import COLLECTION_VERSION, LABEL_VERSION
 from learnloop.causal_activity_policy import (
@@ -18914,7 +18914,7 @@ class Repository(
         )
 
     def _upsert_facet_uncertainty_state(self, connection: sqlite3.Connection, state: Mapping[str, Any]) -> None:
-        _guard_legacy_facet_write(state)
+        _guard_legacy_facet_write(state, uncertainty=True)
         marginal = {
             str(label): float(probability)
             for label, probability in dict(state.get("hypothesis_marginal") or {}).items()
@@ -26556,16 +26556,22 @@ def _mastery_state(row: sqlite3.Row) -> MasteryState:
     )
 
 
-def _guard_legacy_facet_write(state: Mapping[str, Any]) -> None:
+def _guard_legacy_facet_write(state: Mapping[str, Any], *, uncertainty: bool = False) -> None:
     """KM2b hard stop (item 9): an mvp-0.7 vault must never write legacy per-LO
     facet state. The canonical projection is the single mvp-0.7 write mechanism;
     reaching this legacy upsert with an mvp-0.7 row is a re-key regression.
+
+    The facet-belief successor (mvp-0.59) writes per-LO facet uncertainty again
+    (``uncertainty``): its rows carry its tag. The per-LO recall rows stay refused.
 
     The version vocabulary lives below both persistence and services so this
     guard does not import the domain layer.
     """
 
-    if state.get("algorithm_version") in CANONICAL_STATE_VERSIONS:
+    version = state.get("algorithm_version")
+    if uncertainty and version in FACET_BELIEF_FIX_VERSIONS:
+        return
+    if version in CANONICAL_STATE_VERSIONS:
         raise AssertionError(
             "legacy facet state (evidence_facet_recall_state / facet_uncertainty) "
             "must not be written under mvp-0.7/mvp-0.8; the canonical projection "

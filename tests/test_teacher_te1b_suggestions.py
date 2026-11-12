@@ -423,8 +423,8 @@ def test_todays_plan_is_byte_identical_with_a_suggestion_drawn(tmp_path, shown):
 
 def test_the_successor_is_the_latest_link_after_followups_nov2():
     assert SUCCESSOR_CHAIN[-18:-15] == (TEACHER_ALGORITHM_VERSION, PREDECESSOR_TAG, TAG) == ("mvp-0.41", "mvp-0.42", "mvp-0.43")
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.58"
-    assert LESSON_SUGGESTIONS_VERSIONS == frozenset({TAG, "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58"})
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.59"
+    assert LESSON_SUGGESTIONS_VERSIONS == frozenset({TAG, "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
 
 def test_the_upgrade_from_teacher_te1_and_its_refusals(tmp_path):
@@ -452,8 +452,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    assert "learnloop.figure_wait_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.figure_wait_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.facet_belief_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.facet_belief_upgrade" in inspect.getsource(context._complete_interrupted_activation)
 
 
 def test_the_ceiling_binds_and_is_logged(tmp_path, shown):

@@ -15,9 +15,7 @@ from tests.helpers import (
     ALGORITHM_VERSION,
     NOW,
     NOW_ISO,
-    OLD_BASIC_VAULT_TAG,
     create_basic_vault,
-    pin_old_basic_vault,
     seed_due_item,
 )
 
@@ -29,16 +27,6 @@ def _loaded(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     repository = seed_due_item(paths)
-    return load_vault(vault_root), paths, repository
-
-
-def _loaded_old_path(tmp_path):
-    """``_loaded`` on the pre-D2a vault (mvp-0.6). Old path only: its test seeds legacy per-LO
-    ``facet_uncertainty`` rows, which a canonical (head) vault never writes or reads."""
-
-    vault_root = tmp_path / "vault"
-    paths = pin_old_basic_vault(create_basic_vault(vault_root))
-    repository = seed_due_item(paths, version=OLD_BASIC_VAULT_TAG)
     return load_vault(vault_root), paths, repository
 
 
@@ -54,8 +42,8 @@ def _upsert_uncertainty(repository, *, status: str, top_label: str, opened_by_at
             "opened_by_attempt_id": opened_by_attempt_id,
             "opened_reason": "low_facet_outcome",
             "last_evidence_at": NOW_ISO,
-            # Legacy per-LO state: only the old path holds it (see _loaded_old_path).
-            "algorithm_version": OLD_BASIC_VAULT_TAG,
+            # Per-LO uncertainty a canonical vault writes and reads from the facet-belief successor (mvp-0.59, D-5).
+            "algorithm_version": ALGORITHM_VERSION,
             "created_at": NOW_ISO,
             "updated_at": NOW_ISO,
         }
@@ -85,7 +73,7 @@ def test_known_gap_and_uncertain_facets_are_both_on_frontier(tmp_path):
     # Frontier semantics widened: a facet is "not on track" when unexamined,
     # uncertain, or a known gap (or solid-but-projected-below-target). Both a
     # resolved known-gap and an open/uncertain facet are therefore on the frontier.
-    vault, _paths, repository = _loaded_old_path(tmp_path)
+    vault, _paths, repository = _loaded(tmp_path)
     result = complete_self_graded_attempt(
         vault,
         repository,

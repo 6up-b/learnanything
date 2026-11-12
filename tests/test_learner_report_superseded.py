@@ -79,10 +79,10 @@ def test_the_tag_is_one_constant_after_mvp035_and_the_latest():
 
     # Mobile PR-4's mvp-0.37, the cold-retry reschedule's mvp-0.38, Reader RW6b's mvp-0.39 and curriculum C1's mvp-0.40 (the latest)
     # follow it (and keep it).
-    assert SUCCESSOR_CHAIN[-24:] == ("mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58")
-    assert TAG == "mvp-0.36" == SUCCESSOR_CHAIN[-23] and LATEST_ALGORITHM_VERSION == "mvp-0.58"
+    assert SUCCESSOR_CHAIN[-25:] == ("mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59")
+    assert TAG == "mvp-0.36" == SUCCESSOR_CHAIN[-24] and LATEST_ALGORITHM_VERSION == "mvp-0.59"
     assert UPGRADE_PREDECESSOR == PREDECESSOR == "mvp-0.35"
-    assert SUPERSEDED_CLAIMS_VERSIONS == frozenset({TAG, "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58"})
+    assert SUPERSEDED_CLAIMS_VERSIONS == frozenset({TAG, "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
 
 def test_a_second_too_easy_report_keeps_the_first_as_a_replaced_row_that_no_live_reader_reads(tmp_path):

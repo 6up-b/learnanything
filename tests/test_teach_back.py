@@ -39,12 +39,12 @@ from learnloop.vault.writer import upsert_practice_item
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
 from tests.helpers import (
+    ALGORITHM_VERSION,
     NOW,
     NOW_ISO,
-    OLD_BASIC_VAULT_TAG,
     create_basic_vault,
-    pin_old_basic_vault,
     seed_due_item,
+    set_config_switch,
 )
 from tests.teach_back_helpers import LO_ID, TEACH_ITEM_ID, _seed_lo_evidence, _setup, _teach_item_payload
 
@@ -197,23 +197,12 @@ def _mark_facet_uncertain(
             "opened_by_attempt_id": opened_by_attempt_id,
             "opened_reason": "low_facet_outcome",
             "last_evidence_at": NOW_ISO,
-            # Legacy per-LO uncertainty: only an mvp-0.6 vault has it (the head reads none, KM §7.1).
-            "algorithm_version": OLD_BASIC_VAULT_TAG,
+            # Per-LO uncertainty a head vault writes and reads from the facet-belief successor (mvp-0.59, D-5).
+            "algorithm_version": ALGORITHM_VERSION,
             "created_at": NOW_ISO,
             "updated_at": NOW_ISO,
         }
     )
-
-
-def _old_path_setup(tmp_path, *, extra_items: list[dict] | None = None):
-    """``_setup`` on the pre-D2a basic vault (mvp-0.6), for tests of a path no head vault takes."""
-
-    vault_root = tmp_path / "vault"
-    paths = pin_old_basic_vault(create_basic_vault(vault_root))
-    clock = FrozenClock(NOW)
-    for payload in [_teach_item_payload(), *(extra_items or [])]:
-        upsert_practice_item(vault_root, payload, clock=clock)
-    return vault_root, load_vault(vault_root), Repository(paths.sqlite_path)
 
 
 def _run_conversation(vault, repository, item, client, *, answers, clock=None):
@@ -235,9 +224,9 @@ def _run_conversation(vault, repository, item, client, *, answers, clock=None):
 
 
 def test_plan_orders_uncertain_core_first_then_escalates(tmp_path):
-    # Old path only: an uncertain facet is legacy per-LO uncertainty state, which a
-    # head vault neither writes nor reads (facet_uncertainty_states_for_lo is empty).
-    _root, vault, repository = _old_path_setup(
+    # An uncertain facet is per-LO uncertainty state, which a head vault writes and reads from the facet-belief
+    # successor (mvp-0.59, D-5).
+    _root, vault, repository = _setup(
         tmp_path, extra_items=[_helper_item_payload("pi_helper_def", "definition")]
     )
     clock = FrozenClock(NOW)
@@ -294,8 +283,8 @@ def test_plan_is_deterministic_and_capped(tmp_path):
 
 
 def test_plan_reserves_final_slot_for_transfer_when_core_would_crowd_it_out(tmp_path):
-    # Old path only: the uncertain facet is legacy per-LO uncertainty state (above).
-    _root, vault, repository = _old_path_setup(
+    # The uncertain facet is per-LO uncertainty state (above).
+    _root, vault, repository = _setup(
         tmp_path, extra_items=[_helper_item_payload("pi_helper_def", "definition")]
     )
     clock = FrozenClock(NOW)
@@ -787,12 +776,12 @@ def test_low_scoring_answers_are_just_low_scores(tmp_path):
     assert attempt["correctness"] == pytest.approx(0.0)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D2a finding: on the head path the canonical facet belief ignores teach_back.transfer_evidence_multiplier; "
-    "a transfer-tier criterion adds the same facet mass as a core one (it is only sliced to method_selection)",
-)
-def test_transfer_tier_evidence_mass_is_discounted_symmetrically(tmp_path):
+def _core_and_transfer_masses(tmp_path, *, award_transfer: float, belief_fixes: bool = True):
+    """Independent canonical mass on the core criterion's facet and on the transfer criterion's, after one teach-back."""
+
+    import tempfile
+    from pathlib import Path
+
     two_facet_item = {
         "id": "pi_svd_teach_002",
         "learning_object_id": LO_ID,
@@ -818,29 +807,45 @@ def test_transfer_tier_evidence_mass_is_discounted_symmetrically(tmp_path):
         "created_at": NOW_ISO,
         "updated_at": NOW_ISO,
     }
+    with tempfile.TemporaryDirectory(dir=tmp_path) as scratch:
+        vault_root, vault, repository = _setup(Path(scratch), extra_items=[two_facet_item])
+        if not belief_fixes:
+            set_config_switch(vault_root, "facet_diagnostic.canonical_belief_fixes", False)
+            vault = load_vault(vault_root)
+        clock = FrozenClock(NOW)
+        client = FakeTeachBackClient(points_by_criterion={"transfer_rotation": award_transfer})
+        item = vault.practice_items["pi_svd_teach_002"]
+        state = _run_conversation(vault, repository, item, client, answers=["a", "b"], clock=clock)
+        finish_teach_back(vault, repository, state, client, clock=clock)
+
+        states = {
+            state.facet_id: state
+            for state in facet_recall_states_for_lo(vault, repository, LO_ID)
+            if state.practice_item_id is None
+        }
+        return (
+            states["definition"].independent_evidence_mass,
+            states["geometry"].independent_evidence_mass,
+            vault.config.teach_back.transfer_evidence_multiplier,
+        )
+
+
+def test_transfer_tier_evidence_mass_is_discounted_symmetrically(tmp_path):
+    # D-3 with D-6 (refactor bug ledger; the facet-belief successor, mvp-0.59): the canonical belief carries the
+    # transfer multiplier on success and failure alike (the failure's mass is its coverage, D-6).
     for award_transfer in (2.0, 0.0):  # success and failure discounted equally
-        import tempfile
-        from pathlib import Path
+        core_mass, transfer_mass, multiplier = _core_and_transfer_masses(tmp_path, award_transfer=award_transfer)
+        assert core_mass > 0
+        # Same facet weight, same criterion points: only the tier differs.
+        assert transfer_mass == pytest.approx(multiplier * core_mass)
 
-        with tempfile.TemporaryDirectory(dir=tmp_path) as scratch:
-            _root, vault, repository = _setup(Path(scratch), extra_items=[two_facet_item])
-            clock = FrozenClock(NOW)
-            client = FakeTeachBackClient(points_by_criterion={"transfer_rotation": award_transfer})
-            item = vault.practice_items["pi_svd_teach_002"]
-            state = _run_conversation(vault, repository, item, client, answers=["a", "b"], clock=clock)
-            finish_teach_back(vault, repository, state, client, clock=clock)
 
-            states = {
-                state.facet_id: state
-                for state in facet_recall_states_for_lo(vault, repository, LO_ID)
-                if state.practice_item_id is None
-            }
-            core_mass = states["definition"].independent_evidence_mass
-            transfer_mass = states["geometry"].independent_evidence_mass
-            multiplier = vault.config.teach_back.transfer_evidence_multiplier
-            assert core_mass > 0
-            # Same facet weight, same criterion points: only the tier differs.
-            assert transfer_mass == pytest.approx(multiplier * core_mass)
+def test_with_the_belief_fixes_off_transfer_tier_mass_is_a_core_criterions(tmp_path):
+    # The predecessor (mvp-0.58) exactly, D2a finding 3: full mass on a success, no coverage on a total failure.
+    core_mass, transfer_mass, _multiplier = _core_and_transfer_masses(tmp_path, award_transfer=2.0, belief_fixes=False)
+    assert core_mass > 0 and transfer_mass == pytest.approx(core_mass)
+    core_mass, transfer_mass, _multiplier = _core_and_transfer_masses(tmp_path, award_transfer=0.0, belief_fixes=False)
+    assert core_mass > 0 and transfer_mass == 0.0
 
 
 def test_finish_and_rebuild_replay_reproduce_derived_state(tmp_path):

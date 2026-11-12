@@ -135,8 +135,8 @@ def _complete_interrupted_activation(vault_root: Path) -> None:
     # the router objective's follow-up batch's mvp-0.50; teacher TE2's mvp-0.51; teacher TE3a's lesson
     # opportunity, mvp-0.52; teacher TE3b's lesson offers, mvp-0.53; phone V3's probes on the phone, mvp-0.54; instruct hand-off IH5's
     # failure share, mvp-0.55; the placement hole's unevidenced return, mvp-0.56; slip or gap, mvp-0.57; the figure
-    # wait estimate, mvp-0.58).
-    from learnloop.figure_wait_upgrade import complete_interrupted_activation
+    # wait estimate, mvp-0.58; the facet-belief fixes, mvp-0.59).
+    from learnloop.facet_belief_upgrade import complete_interrupted_activation
 
     complete_interrupted_activation(vault_root)
 

@@ -2671,6 +2671,12 @@ _CONFIG_RULES: list[_ConfigRule] = [
     # merge whose variance floor is the state's own variance, a recency-first
     # tie order), so there is no number to learn. Off restores the
     # predecessor's claim seed, re-anchor, merge, ranking and replay exactly.
+    _ConfigRule(_exact("facet_diagnostic.canonical_belief_fixes"), "structural", "operational",
+                "kill switch for the facet-belief successor mvp-0.59: the canonical facet belief resets a failure "
+                "streak on a success, scales transfer-tier evidence by teach_back.transfer_evidence_multiplier and "
+                "books a total failure's coverage where its failure mass lands, and per-LO facet uncertainty is "
+                "written and read on canonical vaults; off (or below the tag) mvp-0.58's belief and empty "
+                "uncertainty reads exactly."),
     _ConfigRule(_exact("mastery.claim_fixes_enabled"), "structural", "operational",
                 "kill switch for LP-min (a)'s successor: gap claims re-anchor, claims replay at their own time, "
                 "a claim never lowers a variance, ties by recency then pseudo-count, the resolving review's claim "

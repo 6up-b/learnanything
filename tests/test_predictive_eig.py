@@ -98,26 +98,28 @@ def test_deterministic():
     assert first == second
 
 
-def test_followup_slate_logs_predictive_fields_and_ranking_unchanged_at_weight_zero(tmp_path):
+def test_followup_slate_logs_predictive_fields_and_ranking_unchanged_at_weight_zero(tmp_path, monkeypatch):
     from learnloop.clock import FrozenClock
     from learnloop.db.repositories import MasteryState, Repository
     from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
     from learnloop.diagnosis.followups import evaluate_intervention_followup
     from learnloop.vault.loader import load_vault
 
-    from tests.helpers import NOW, NOW_ISO, OLD_BASIC_VAULT_TAG, add_followup_item, create_basic_vault, pin_old_basic_vault
+    from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, add_followup_item, create_basic_vault
+    from tests.voi_stopping_helpers import _minutes
 
     vault_root = tmp_path / "vault"
-    # Old path only (D2a): the slate's facet-EIG ranking reads per-LO facet uncertainty, which a
-    # canonical-state vault (mvp-0.7 on) reads as empty (facet_state_reader's KM4 seam), so at the
-    # head every row ranks by the fallback overlap and this formula never applies.
-    paths = pin_old_basic_vault(create_basic_vault(vault_root))
+    # The slate's facet-EIG ranking reads per-LO facet uncertainty, which a canonical vault writes and reads from
+    # the facet-belief successor (mvp-0.59, D-5); below it every row ranked by the fallback overlap and this
+    # formula never applied. The VOI minutes seam keeps the follow-up served (the head's stop rule).
+    _minutes(monkeypatch, 0.01)
+    paths = create_basic_vault(vault_root)
     add_followup_item(vault_root)
     add_followup_item(vault_root, "pi_svd_define_003")
     repository = Repository(paths.sqlite_path)
     loaded = load_vault(vault_root)
     repository.upsert_mastery_state(
-        MasteryState("lo_svd_definition", 2.0, 1.0, 3, NOW_ISO, OLD_BASIC_VAULT_TAG, NOW_ISO)
+        MasteryState("lo_svd_definition", 2.0, 1.0, 3, NOW_ISO, ALGORITHM_VERSION, NOW_ISO)
     )
     result = complete_self_graded_attempt(
         loaded,

@@ -29,6 +29,7 @@ repository method directly — so legacy replay stays byte-identical.
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import replace
 from typing import Iterable
 
 from learnloop.db.repositories import (
@@ -37,6 +38,7 @@ from learnloop.db.repositories import (
     FacetUncertaintyState,
     Repository,
 )
+from learnloop.algorithm_versions import FACET_BELIEF_FIX_VERSIONS
 from learnloop.learner.assessment_contracts import (
     CANONICAL_STATE_VERSIONS,
     KM_ALGORITHM_VERSION,
@@ -52,6 +54,41 @@ def is_canonical_state_vault(vault: LoadedVault) -> bool:
     legacy per-LO bridge retired (spec §7.2)."""
 
     return vault.config.algorithms.algorithm_version in CANONICAL_STATE_VERSIONS
+
+
+def facet_belief_fixes_on(config) -> bool:
+    """The facet-belief successor (mvp-0.59, ``FACET_BELIEF_FIX_VERSIONS``) with its switch
+    ``facet_diagnostic.canonical_belief_fixes`` on.
+
+    Gates the canonical projection's three fixes (a success resets the failure streak, a
+    transfer-tier criterion's mass carries the teach-back multiplier, a total failure books
+    coverage where its failure mass lands) and the per-LO facet uncertainty on canonical vaults.
+    Off, or below the tag, every one of them is mvp-0.58's."""
+
+    algorithms = getattr(config, "algorithms", None)
+    if getattr(algorithms, "algorithm_version", None) not in FACET_BELIEF_FIX_VERSIONS:
+        return False
+    return bool(getattr(getattr(config, "facet_diagnostic", None), "canonical_belief_fixes", False))
+
+
+def canonical_facet_uncertainty_on(vault: LoadedVault) -> bool:
+    """A canonical vault that writes and reads per-LO facet uncertainty (the facet-belief successor).
+
+    Below it the canonical vault's uncertainty read is empty and nothing writes the table (KM2b's
+    seam); the legacy (mvp-0.6) path writes and reads it as it always did."""
+
+    return is_canonical_state_vault(vault) and facet_belief_fixes_on(vault.config)
+
+
+def current_facet_uncertainty(state: FacetUncertaintyState | None) -> FacetUncertaintyState | None:
+    """A row the facet-belief successor wrote, or None.
+
+    A canonical vault upgraded from mvp-0.6 may still hold legacy rows for an LO it never
+    replayed; they were derived under another belief and never count as the successor's prior."""
+
+    if state is None or state.algorithm_version not in FACET_BELIEF_FIX_VERSIONS:
+        return None
+    return state
 
 
 def resolve_canonical_facet(
@@ -288,14 +325,34 @@ def facet_uncertainty_states_for_lo(
     """Per-LO facet uncertainty states (KM §7.1).
 
     mvp-0.6: the legacy per-``(learning_object_id, facet_id)`` diagnostic state,
-    byte-identical. mvp-0.7: the legacy per-LO write is retired, and the
-    facet-only-keyed re-key is a compositional-misconception concern deferred to
-    KM4 — so this returns the conservative empty read (a named KM4 seam) rather
-    than reading the legacy table.
+    byte-identical. mvp-0.7 to mvp-0.58 (and the successor with its switch off):
+    KM2b retired the per-LO write and deferred the re-key to KM4, which never
+    shipped it, so this is the empty read. From mvp-0.59 the attempt path writes
+    the rows again, per LO on canonical facet ids, and this reads the successor's
+    own rows, each facet id resolved through aliases and merges (a facet two
+    merged ids both reached keeps its latest row). The key stays per LO because
+    replay is per LO and each update's prior is the last: a facet-only row would
+    be folded LO by LO on rebuild and chronologically live.
     """
 
     if is_canonical_state_vault(vault):
-        return []
+        if not facet_belief_fixes_on(vault.config):
+            return []
+        merge_map = repository.facet_merge_map()
+        # The repository's order (status, uncertainty descending, facet) is kept: readers take it as given.
+        latest: dict[str, tuple[int, FacetUncertaintyState]] = {}
+        for position, state in enumerate(
+            repository.facet_uncertainty_states(learning_object_id, statuses=statuses)
+        ):
+            if current_facet_uncertainty(state) is None:
+                continue
+            facet = resolve_canonical_facet(vault, merge_map, state.facet_id)
+            if facet != state.facet_id:
+                state = replace(state, facet_id=facet)
+            kept = latest.get(facet)
+            if kept is None or (state.updated_at, state.id) > (kept[1].updated_at, kept[1].id):
+                latest[facet] = (position, state)
+        return [state for _position, state in sorted(latest.values(), key=lambda entry: entry[0])]
     return list(
         repository.facet_uncertainty_states(learning_object_id, statuses=statuses)
     )

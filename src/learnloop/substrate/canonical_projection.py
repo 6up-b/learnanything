@@ -44,6 +44,7 @@ from learnloop.learner.capability_mapping import (
     criterion_pseudo_mass,
     localize_criterion_outcomes,
 )
+from learnloop.learner.facet_state_reader import facet_belief_fixes_on
 from learnloop.content.authoring.conjunctive_items import cap_embedded_credit, supporting_unexercised
 from learnloop.attempts.evidence import attempt_evidence_mass
 from learnloop.goals.receipt_contributions import itemize_observation_contributions
@@ -267,6 +268,21 @@ class _HistoricalCriterion:
     depends_on: tuple[str, ...]
     correlation_group: str | None
     targets: tuple[CriterionTarget, ...]
+    #: The rubric tier the contract froze (``core`` or ``transfer``); read only by the facet-belief successor.
+    tier: str = "core"
+
+
+def transfer_tier_mass_scale(config: Any, tier: str | None) -> float:
+    """The evidence-mass multiplier a criterion of ``tier`` carries in the canonical belief.
+
+    From the facet-belief successor (mvp-0.59, D-3) a transfer-tier criterion's whole pseudo-mass, success and
+    failure alike, is ``teach_back.transfer_evidence_multiplier`` of a core one's, as the legacy per-LO coverage
+    scaled it; read from config at projection time, like the repeat-surface discount. Off, or below the tag, 1.0.
+    The facet evidence timeline applies the same scale, so banked credit and the Demonstrated curve agree."""
+
+    if (tier or "core") != "transfer" or not facet_belief_fixes_on(config):
+        return 1.0
+    return max(0.0, min(1.0, float(config.teach_back.transfer_evidence_multiplier)))
 
 
 @dataclass(frozen=True)
@@ -392,6 +408,7 @@ def _contract_criteria(contract: Mapping[str, Any]) -> list[_HistoricalCriterion
                     else None
                 ),
                 targets=targets,
+                tier=str(raw.get("tier") or "core"),
             )
         )
     return criteria
@@ -640,11 +657,20 @@ def project_canonical_facet_state(
     events ledger and feeds a reliability-discounted EffectiveObservation: the
     calibrated ``E[true_score_fraction]`` replaces the raw fraction and the
     certainty LCB multiplies the evidence mass BEFORE the existing caps /
-    localization / assistance discounts bind. Reliability never creates mass."""
+    localization / assistance discounts bind. Reliability never creates mass.
+
+    The facet-belief successor (mvp-0.59, ``facet_belief_fixes_on``) changes three
+    bookings and nothing else: a success at or above ``FAILURE_THRESHOLD`` resets
+    the cell's failure streak whatever its failure mass (D-1); a transfer-tier
+    criterion's pseudo-mass carries ``transfer_tier_mass_scale`` (D-3); and a total
+    failure books coverage (independent and raw mass) where its failure mass
+    lands, the attributed targets at their share (D-6). Off, or below the tag,
+    the fold is mvp-0.58's exactly."""
 
     algorithm_version = vault.config.algorithms.algorithm_version
     if algorithm_version not in CANONICAL_STATE_VERSIONS:
         return
+    belief_fixes = facet_belief_fixes_on(vault.config)
     use_p0 = algorithm_version in P0_PROJECTION_VERSIONS
     p0_score_fraction: dict[str, float] = {}
     if use_p0:
@@ -678,6 +704,7 @@ def project_canonical_facet_state(
         )
     merge_map = snapshot.merge_map
     repeat_discount = configured_repeat_discount(vault)
+    transfer_scale = transfer_tier_mass_scale(vault.config, "transfer")
     cert_cfg = vault.config.evidence.certification
     overrides = dict(cert_cfg.group_budgets)
     max_groups = cert_cfg.max_groups_per_attempt
@@ -743,6 +770,7 @@ def project_canonical_facet_state(
                     targets=tuple(
                         compile_criterion_targets(item, criterion, resolved_rubric=rubric)
                     ),
+                    tier=str(getattr(criterion, "tier", None) or "core"),
                 )
                 for criterion in rubric.criteria
             ]
@@ -880,6 +908,9 @@ def project_canonical_facet_state(
                 if not supporting_unexercised(target, exercised_facets, resolve=resolve)
             ]
             pmass = criterion_pseudo_mass(criterion.points, rubric_total, emass)
+            if belief_fixes and criterion.tier == "transfer":
+                # D-3: the whole observation is lighter, so success and failure are discounted alike.
+                pmass *= transfer_scale
             corr_group = criterion.correlation_group or group_key
             # The record guard 1 owes: what the discarded claims WOULD have
             # earned, computed against the contract as authored. Written BEFORE
@@ -982,6 +1013,10 @@ def project_canonical_facet_state(
                     acc.independent_mass += w if is_new_group else 0.0
                     acc.raw_mass += alloc.pseudo_mass
                     acc.last_observed_at = created_at
+                    if belief_fixes and fraction >= FAILURE_THRESHOLD:
+                        # D-1: the failure branch below never runs on full marks, so a success ends the
+                        # streak here (the follow-up gate's repeated-facet-failure reads it).
+                        acc.consecutive_failures = 0
 
             if negative_fraction <= 0 or unresolved_negative or unverified_failure:
                 continue
@@ -1018,6 +1053,11 @@ def project_canonical_facet_state(
                         acc.created_at = created_at
                     acc.beta += negative
                     acc.last_observed_at = created_at
+                    if belief_fixes and fraction <= 0:
+                        # D-6: a total failure booked no coverage in the success loop; it is an
+                        # observation of this cell all the same, at the share its failure mass takes.
+                        acc.independent_mass += pmass * share * discount if is_new_group else 0.0
+                        acc.raw_mass += pmass * share
                     if fraction < FAILURE_THRESHOLD:
                         acc.last_error_at = created_at
                         acc.consecutive_failures += 1

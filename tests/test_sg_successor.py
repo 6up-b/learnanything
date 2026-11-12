@@ -41,8 +41,8 @@ SG_KEYS = {"miss_cause_sensor": True, "miss_cause_in_value": True}
 def test_the_successor_is_one_constant_after_the_placement_hole_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.56"
     # The figure wait estimate's successor (mvp-0.58) follows it and keeps it.
-    assert TAG == "mvp-0.57" == SUCCESSOR_CHAIN[-2] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.58"
-    assert SLIP_GAP_VERSIONS == frozenset({TAG, "mvp-0.58"})
+    assert TAG == "mvp-0.57" == SUCCESSOR_CHAIN[-3] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
+    assert SLIP_GAP_VERSIONS == frozenset({TAG, "mvp-0.58", "mvp-0.59"})
 
 
 def test_the_switches_default_on_and_are_classified():
@@ -96,8 +96,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    assert "learnloop.figure_wait_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.figure_wait_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.facet_belief_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.facet_belief_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     assert "learnloop.unevidenced_return_upgrade import complete_interrupted_activation" in inspect.getsource(
         slip_gap_upgrade)
 

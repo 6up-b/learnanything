@@ -920,6 +920,17 @@ SLIP_GAP_ALGORITHM_VERSION = "mvp-0.57"
 # (the decisions are a raw ledger, each row naming its model version). No migration. ONE constant.
 FIGURE_WAIT_ALGORITHM_VERSION = "mvp-0.58"
 
+# mvp-0.59 (the facet-belief fixes; refactor bug ledger D-1, D-3, D-5, D-6, owner rule 2026-11-12;
+# docs/reviews/refactor-dfb.md), on top of the figure wait estimate's mvp-0.58. The canonical facet belief (KM2's
+# projection) now resets a facet's failure streak on a success (D-1), scales a transfer-tier criterion's evidence by
+# ``teach_back.transfer_evidence_multiplier`` as the legacy path did (D-3), and books a total failure's coverage where
+# its failure mass lands (D-6); the per-LO facet uncertainty the attempt path computes is written again, on canonical
+# facet ids, and read by the follow-up ranking, goals and diagnostics (D-5). It changes the projection and what is
+# derived from it, so activation is a whole-vault rebuild under the tag. Kill switch
+# ``facet_diagnostic.canonical_belief_fixes`` (off, or below the tag: mvp-0.58's belief and empty uncertainty reads
+# exactly; a whole-vault rebuild records the switch it derived under). No migration. ONE constant.
+FACET_BELIEF_FIX_ALGORITHM_VERSION = "mvp-0.59"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor appends its tag
@@ -976,6 +987,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     UNEVIDENCED_RETURN_ALGORITHM_VERSION,
     SLIP_GAP_ALGORITHM_VERSION,
     FIGURE_WAIT_ALGORITHM_VERSION,
+    FACET_BELIEF_FIX_ALGORITHM_VERSION,
 )
 
 
@@ -1254,6 +1266,11 @@ SLIP_GAP_VERSIONS: frozenset[str] = successors_from(SLIP_GAP_ALGORITHM_VERSION)
 # calls (``prefetch_decision_v2``), behind ``figures.prefetch.pressed_waits``. Every later successor keeps it; gates
 # must use this set, never equality.
 FIGURE_WAIT_VERSIONS: frozenset[str] = successors_from(FIGURE_WAIT_ALGORITHM_VERSION)
+
+# Versions whose canonical facet belief carries the facet-belief fixes and whose per-LO facet uncertainty is written
+# and read on canonical vaults, behind ``facet_diagnostic.canonical_belief_fixes``. Every later successor keeps them;
+# gates must use this set, never equality.
+FACET_BELIEF_FIX_VERSIONS: frozenset[str] = successors_from(FACET_BELIEF_FIX_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

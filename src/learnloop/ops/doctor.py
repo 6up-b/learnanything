@@ -1622,13 +1622,39 @@ def _check_projection_switches(vault: LoadedVault, repository: Repository, issue
 
     if not repository.sqlite_path.exists() or not repository.learning_object_ids_with_attempts():
         return
-    from learnloop.router_objective_switches import INTERVAL_FACTOR_SNAPSHOT_KEY, projection_switches
+    from learnloop.router_objective_switches import (
+        FACET_BELIEF_FIXES_SNAPSHOT_KEY,
+        INTERVAL_FACTOR_SNAPSHOT_KEY,
+        projection_switches,
+    )
 
     marker = repository.latest_whole_vault_rebuild()
     recorded = (marker or {}).get("projection_switches")
-    if not isinstance(recorded, dict) or INTERVAL_FACTOR_SNAPSHOT_KEY not in recorded:
+    if not isinstance(recorded, dict):
         return
-    current = projection_switches(vault.config)[INTERVAL_FACTOR_SNAPSHOT_KEY]
+    configured = projection_switches(vault.config)
+    # The facet-belief successor's switch (mvp-0.59): recorded only by rebuilds at its tag, compared only there.
+    if FACET_BELIEF_FIXES_SNAPSHOT_KEY in recorded and FACET_BELIEF_FIXES_SNAPSHOT_KEY in configured:
+        if bool(recorded[FACET_BELIEF_FIXES_SNAPSHOT_KEY]) != configured[FACET_BELIEF_FIXES_SNAPSHOT_KEY]:
+            applied = "with" if recorded[FACET_BELIEF_FIXES_SNAPSHOT_KEY] else "without"
+            wanted = "with" if configured[FACET_BELIEF_FIXES_SNAPSHOT_KEY] else "without"
+            issues.append(
+                _issue(
+                    "warning",
+                    "sql:projection_switches_stale",
+                    (
+                        f"Stored facet uncertainty and attempt readings of facet belief were last derived {applied} "
+                        f"the facet-belief fixes, and the config now says {wanted} them ([facet_diagnostic] "
+                        f"canonical_belief_fixes at {vault.config.algorithms.algorithm_version}); run "
+                        "rebuild-derived-state to re-derive them"
+                    ),
+                    repository.sqlite_path,
+                    details={"recorded": dict(recorded), "config": configured},
+                )
+            )
+    if INTERVAL_FACTOR_SNAPSHOT_KEY not in recorded:
+        return
+    current = configured[INTERVAL_FACTOR_SNAPSHOT_KEY]
     if bool(recorded[INTERVAL_FACTOR_SNAPSHOT_KEY]) == current:
         return
     applied = "without" if recorded[INTERVAL_FACTOR_SNAPSHOT_KEY] else "with"

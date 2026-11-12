@@ -49,8 +49,8 @@ FOLLOWUP_KEYS: dict[str, object] = {
 def test_the_successor_is_one_constant_after_ro6_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.49"
     # Teacher TE2 (mvp-0.51) landed after it and keeps it.
-    assert TAG == "mvp-0.50" == SUCCESSOR_CHAIN[-9] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.58"
-    assert ROUTER_FOLLOWUPS_VERSIONS == frozenset({TAG, "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58"})
+    assert TAG == "mvp-0.50" == SUCCESSOR_CHAIN[-10] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
+    assert ROUTER_FOLLOWUPS_VERSIONS == frozenset({TAG, "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
 
 def test_the_switches_default_on():
@@ -86,8 +86,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop import router_followups_upgrade, teacher_probes_upgrade
 
     # Teacher TE2's link (mvp-0.51) is the chain's latest; it hands earlier journals to this link.
-    assert "learnloop.figure_wait_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.figure_wait_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.facet_belief_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.facet_belief_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     assert "learnloop.router_followups_upgrade import complete_interrupted_activation" in inspect.getsource(
         teacher_probes_upgrade)
     # It hands an earlier link's journal to RO6's completion, which hands it on in turn.

@@ -49,8 +49,8 @@ def test_mvp039_is_one_constant_after_mvp038_and_the_latest():
 
     # Curriculum C1's mvp-0.40 follows it as the latest (and keeps it).
     assert SUCCESSOR_CHAIN[-21:-19] == (PREDECESSOR, TAG) == ("mvp-0.38", "mvp-0.39")
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.58" and UPGRADE_PREDECESSOR == PREDECESSOR
-    assert READER_FOLLOWUPS_VERSIONS == frozenset({TAG, "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58"})
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59" and UPGRADE_PREDECESSOR == PREDECESSOR
+    assert READER_FOLLOWUPS_VERSIONS == frozenset({TAG, "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
     assert FollowupsConfig().enabled is True
     rule = classify_config_path("followups.enabled")
     assert rule is not None and rule.kind == "structural" and "mvp-0.39" in rule.rationale

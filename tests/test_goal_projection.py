@@ -24,9 +24,7 @@ from tests.helpers import (
     ALGORITHM_VERSION,
     NOW,
     NOW_ISO,
-    OLD_BASIC_VAULT_TAG,
     create_basic_vault,
-    pin_old_basic_vault,
     seed_due_item,
 )
 
@@ -39,18 +37,6 @@ def _loaded(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     repository = seed_due_item(paths)
-    return load_vault(vault_root), paths, repository
-
-
-def _loaded_old_path(tmp_path):
-    """``_loaded`` on the pre-D2a vault (mvp-0.6). Old path only: a test using it seeds legacy per-LO
-    facet *uncertainty* (``upsert_facet_uncertainty_state``), which a canonical (head) vault never reads
-    (``facet_uncertainty_states_for_lo`` is the empty KM4 seam), so its label cannot arise at the head.
-    It waits on D5 (the pre-canonical path) with the uncertainty table's writers."""
-
-    vault_root = tmp_path / "vault"
-    paths = pin_old_basic_vault(create_basic_vault(vault_root))
-    repository = seed_due_item(paths, version=OLD_BASIC_VAULT_TAG)
     return load_vault(vault_root), paths, repository
 
 
@@ -115,43 +101,6 @@ def _seed_aggregate_facet(
     seed_canonical_facet_recall(
         repository, facet_id=facet_id, mean=mean, mass=mass, last_observed_at=last_attempt_at
     )
-
-
-def _seed_legacy_aggregate_facet(
-    repository,
-    *,
-    mean: float,
-    mass: float = 2.0,
-    facet_id: str = FACET_ID,
-    last_attempt_at: str = "2026-05-16T12:00:00Z",
-) -> None:
-    """Directly seed an aggregate (practice_item_id NULL) legacy per-LO facet recall row (mvp-0.6).
-
-    Beta recall states carry no time decay, so seeding the mean/mass gives us
-    a deterministic ``current_recall`` and diagnostic label to project from.
-    """
-
-    with repository.connection() as connection:
-        repository._upsert_facet_recall_state(
-            connection,
-            {
-                "learning_object_id": LO_ID,
-                "facet_id": facet_id,
-                "practice_item_id": None,
-                "recall_alpha": mean * 10.0,
-                "recall_beta": (1.0 - mean) * 10.0,
-                "recall_mean": mean,
-                "recall_variance": 0.01,
-                "independent_evidence_mass": mass,
-                "raw_coverage_mass": mass,
-                "last_attempt_at": last_attempt_at,
-                "last_error_at": None,
-                "consecutive_failures": 0,
-                "algorithm_version": OLD_BASIC_VAULT_TAG,
-                "created_at": NOW_ISO,
-                "updated_at": NOW_ISO,
-            },
-        )
 
 
 def _recall_projection(report):
@@ -492,8 +441,9 @@ def test_attainment_aggregates(tmp_path):
 
 
 def test_known_gap_facet_is_never_on_track(tmp_path):
-    vault, _paths, repository = _loaded_old_path(tmp_path)
-    _seed_legacy_aggregate_facet(repository, mean=0.95, mass=2.0)
+    # The known-gap label reads per-LO facet uncertainty, which a canonical vault writes and reads from the
+    # facet-belief successor (mvp-0.59, D-5); the belief is the canonical cell the basic item observes.
+    vault, _paths, repository = _loaded(tmp_path)
     attempt = complete_self_graded_attempt(
         vault,
         repository,
@@ -505,7 +455,7 @@ def test_known_gap_facet_is_never_on_track(tmp_path):
         SelfGradeInput(criterion_points={"correctness": 4}, confidence=5),
         clock=FrozenClock(NOW),
     )
-    _seed_legacy_aggregate_facet(repository, mean=0.95, mass=2.0)  # re-pin after the attempt's update
+    _seed_aggregate_facet(repository, mean=0.95, mass=2.0)  # pinned after the attempt's re-projection
     # Resolved uncertainty whose winning hypothesis is NOT facet_solid => known_gap.
     repository.upsert_facet_uncertainty_state(
         {
@@ -517,7 +467,7 @@ def test_known_gap_facet_is_never_on_track(tmp_path):
             "opened_by_attempt_id": attempt.attempt_id,
             "opened_reason": "low_facet_outcome",
             "last_evidence_at": NOW_ISO,
-            "algorithm_version": OLD_BASIC_VAULT_TAG,
+            "algorithm_version": ALGORITHM_VERSION,
             "created_at": NOW_ISO,
             "updated_at": NOW_ISO,
         }
