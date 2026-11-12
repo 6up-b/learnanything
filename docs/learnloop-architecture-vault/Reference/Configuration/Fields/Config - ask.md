@@ -25,6 +25,7 @@ source_paths:
   - "tests/test_reader_ca2_codex_review.py"
   - "tests/test_reader_ca2_one_ask.py"
   - "tests/test_reader_tutor_switch_off.py"
+  - "tests/test_remediation_cold_retry.py"
   - "tests/test_sidecar_tutor_qa.py"
   - "tests/test_source_retrieval_followup.py"
 tags:
@@ -64,6 +65,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_reader_ca2_codex_review.py`
 - `tests/test_reader_ca2_one_ask.py`
 - `tests/test_reader_tutor_switch_off.py`
+- `tests/test_remediation_cold_retry.py`
 - `tests/test_sidecar_tutor_qa.py`
 - `tests/test_source_retrieval_followup.py`
 

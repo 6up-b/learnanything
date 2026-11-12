@@ -25,6 +25,7 @@ source_paths:
   - "tests/test_hypothesis_marks_context.py"
   - "tests/test_hypothesis_marks_migration.py"
   - "tests/test_ih7_lesson_sources_follow_diagnosis.py"
+  - "tests/test_mobile_v2_feedback.py"
   - "tests/test_sg_slip_vs_gap.py"
 tags:
   - "learnloop/configuration/fields"
@@ -64,6 +65,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_hypothesis_marks_context.py`
 - `tests/test_hypothesis_marks_migration.py`
 - `tests/test_ih7_lesson_sources_follow_diagnosis.py`
+- `tests/test_mobile_v2_feedback.py`
 - `tests/test_sg_slip_vs_gap.py`
 
 ## Extension and modification guidance

@@ -300,6 +300,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/followup_fg1d_probe_shadow_helpers.py](../../../../../tests/followup_fg1d_probe_shadow_helpers.py) — direct import
 - [tests/followup_serve_helpers.py](../../../../../tests/followup_serve_helpers.py) — direct import
 - [tests/followups_nov2_help_fold_helpers.py](../../../../../tests/followups_nov2_help_fold_helpers.py) — direct import
+- [tests/helpers.py](../../../../../tests/helpers.py) — direct import
 - [tests/ih2_lessons_compete_helpers.py](../../../../../tests/ih2_lessons_compete_helpers.py) — direct import
 - [tests/instruct_handoff_ih0_helpers.py](../../../../../tests/instruct_handoff_ih0_helpers.py) — direct import
 - [tests/intent_fakes.py](../../../../../tests/intent_fakes.py) — direct import

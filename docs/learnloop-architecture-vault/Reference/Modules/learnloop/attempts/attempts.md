@@ -615,6 +615,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_attempt_updates.py](../../../../../../tests/test_probe_attempt_updates.py) — direct import
   - `test_attempt_service_never_writes_legacy_probe_state`
 - [tests/test_probe_audit.py](../../../../../../tests/test_probe_audit.py) — direct import
+  - `test_regrade_checks_record_agreement_and_confusion`
 - [tests/test_probe_belief_posterior.py](../../../../../../tests/test_probe_belief_posterior.py) — direct import
   - `test_dont_know_outcome_does_not_break_posterior`
 - [tests/test_probe_block_end.py](../../../../../../tests/test_probe_block_end.py) — direct import

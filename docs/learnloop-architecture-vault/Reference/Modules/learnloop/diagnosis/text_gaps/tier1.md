@@ -127,6 +127,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_figures_fix_round4.py](../../../../../../../tests/test_figures_fix_round4.py) — direct import
+  - `test_f5_an_explanation_after_a_checkpointed_reading_is_its_own_text`
 - [tests/test_tier1_decider.py](../../../../../../../tests/test_tier1_decider.py) — direct import
 
 ## Modification guidance

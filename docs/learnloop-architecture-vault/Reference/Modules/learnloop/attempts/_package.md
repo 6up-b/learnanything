@@ -91,7 +91,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]] | [[Reference/Modules/learnloop/attempts/grader_calibration#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] | [[Reference/Modules/learnloop/attempts/grading#^module-purpose|purpose]] | `ACTIVE` | 34 | 38 |
 | [[Reference/Modules/learnloop/attempts/grading_admission|learnloop.attempts.grading_admission]] | [[Reference/Modules/learnloop/attempts/grading_admission#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
-| [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] | [[Reference/Modules/learnloop/attempts/grading_support#^module-purpose|purpose]] | `ACTIVE` | 7 | 18 |
+| [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] | [[Reference/Modules/learnloop/attempts/grading_support#^module-purpose|purpose]] | `ACTIVE` | 7 | 19 |
 | [[Reference/Modules/learnloop/attempts/hint_fold|learnloop.attempts.hint_fold]] | [[Reference/Modules/learnloop/attempts/hint_fold#^module-purpose|purpose]] | `ACTIVE` | 2 | 5 |
 | [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] | [[Reference/Modules/learnloop/attempts/measurement_corrections#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/attempts/observations|learnloop.attempts.observations]] | [[Reference/Modules/learnloop/attempts/observations#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |

@@ -153,8 +153,8 @@ Indexes and uniqueness:
 - `tests/test_km4_taxonomy.py`
 - `tests/test_learner_text_gaps.py`
 - `tests/test_learner_text_gaps_review.py`
+- `tests/test_probe_block_end.py`
 - `tests/test_reader_rw3b_review_fixes.py`
-- `tests/test_recurrence_groups.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

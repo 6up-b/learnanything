@@ -79,7 +79,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] | [[Reference/Modules/learnloop/content/authoring/practice_generation#^module-purpose|purpose]] | `ACTIVE` | 8 | 16 |
 | [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] | [[Reference/Modules/learnloop/content/authoring/practice_leakage#^module-purpose|purpose]] | `ACTIVE` | 16 | 7 |
 | [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] | [[Reference/Modules/learnloop/content/authoring/rung_variants#^module-purpose|purpose]] | `ACTIVE` | 2 | 5 |
-| [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] | [[Reference/Modules/learnloop/content/authoring/source_exercise_import#^module-purpose|purpose]] | `ACTIVE` | 7 | 25 |
+| [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] | [[Reference/Modules/learnloop/content/authoring/source_exercise_import#^module-purpose|purpose]] | `ACTIVE` | 7 | 26 |
 
 ## Cross-package dependencies
 

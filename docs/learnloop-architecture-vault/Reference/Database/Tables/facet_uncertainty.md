@@ -118,12 +118,13 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_facet_diagnostics_v03.py`
+- `tests/test_goal_frontier.py`
 - `tests/test_migrations.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_e2e_codex_mock.py`
-- `tests/test_facet_diagnostics_v03.py`
 - `tests/test_item_parameters.py`
 - `tests/test_km2b_consumer_rekey.py`
 - `tests/test_show.py`

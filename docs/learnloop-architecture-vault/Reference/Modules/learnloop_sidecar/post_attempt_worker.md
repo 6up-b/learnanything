@@ -124,6 +124,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/hint_telemetry_helpers.py](../../../../../tests/hint_telemetry_helpers.py) — direct import
 - [tests/test_attempt_chain_records.py](../../../../../tests/test_attempt_chain_records.py) — direct import
   - `test_a_job_with_no_enqueue_record_keeps_a_trace_of_its_own`
 - [tests/test_figures_prefetch.py](../../../../../tests/test_figures_prefetch.py) — direct import

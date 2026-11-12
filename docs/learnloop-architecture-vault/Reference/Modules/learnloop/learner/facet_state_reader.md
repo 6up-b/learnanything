@@ -124,10 +124,22 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_deferred_regrade.py](../../../../../../tests/test_deferred_regrade.py) — direct import
+  - `test_deferred_regrade_replays_attempt_derived_state`
+  - `test_deferred_regrade_replays_targeted_error_attribution_facets`
+- [tests/test_exam_seeding.py](../../../../../../tests/test_exam_seeding.py) — direct import
+  - `test_seed_creates_backdated_discounted_attempts`
 - [tests/test_km2b_consumer_rekey.py](../../../../../../tests/test_km2b_consumer_rekey.py) — direct import
   - `test_exam_attempt_moves_shared_parent_across_los`
   - `test_two_los_share_one_facet_parent_in_scheduler_view`
 - [tests/test_learner_read_model_pinning.py](../../../../../../tests/test_learner_read_model_pinning.py) — direct import
+- [tests/test_recall_coverage_interventions.py](../../../../../../tests/test_recall_coverage_interventions.py) — direct import
+  - `test_facet_aliases_are_canonicalized_before_recall_updates`
+- [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
+  - `test_finish_and_rebuild_replay_reproduce_derived_state`
+  - `test_finish_partial_grading_only_asked_criteria_produce_evidence`
+  - `test_regrade_teach_back_attempt_restricts_to_graded_criteria`
+  - `test_transfer_tier_evidence_mass_is_discounted_symmetrically`
 
 ## Modification guidance
 

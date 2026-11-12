@@ -300,6 +300,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_error_driven_reprobe_adopts_an_ignored_episode`
   - `test_the_causal_quick_check_stops_the_episode_being_ignored`
 - [tests/test_probe_audit.py](../../../../../../tests/test_probe_audit.py) — direct import
+  - `test_regrade_checks_record_agreement_and_confusion`
   - `test_replay_audit_detects_a_self_consistent_but_wrong_posterior_transition`
   - `test_shadow_rankings_are_logged_and_reported`
 - [tests/test_probe_block_end.py](../../../../../../tests/test_probe_block_end.py) — direct import

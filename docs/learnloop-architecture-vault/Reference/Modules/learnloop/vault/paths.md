@@ -263,6 +263,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/ad1_fix_round4_helpers.py](../../../../../../tests/ad1_fix_round4_helpers.py) — direct import
+- [tests/apply_write_ahead_helpers.py](../../../../../../tests/apply_write_ahead_helpers.py) — direct import
 - [tests/daily_loop_reader_authored_practice_helpers.py](../../../../../../tests/daily_loop_reader_authored_practice_helpers.py) — direct import
 - [tests/daily_plan_fakes.py](../../../../../../tests/daily_plan_fakes.py) — direct import
 - [tests/deliverable_fixtures.py](../../../../../../tests/deliverable_fixtures.py) — direct import
@@ -379,7 +380,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_plan_first_transport_grant_scope.py](../../../../../../tests/test_plan_first_transport_grant_scope.py) — direct import
 - [tests/test_planted_misgrade.py](../../../../../../tests/test_planted_misgrade.py) — direct import
 - [tests/test_practice_information.py](../../../../../../tests/test_practice_information.py) — direct import
+- [tests/test_probe_block_end.py](../../../../../../tests/test_probe_block_end.py) — direct import
+  - `test_block_end_releases_feedback_and_routes_ordinary_practice`
 - [tests/test_probe_orchestration_remainder.py](../../../../../../tests/test_probe_orchestration_remainder.py) — direct import
+  - `test_session_cap_blocks_further_probe_serving`
 - [tests/test_quick_add.py](../../../../../../tests/test_quick_add.py) — direct import
 - [tests/test_rbeq_pr2_landing.py](../../../../../../tests/test_rbeq_pr2_landing.py) — direct import
 - [tests/test_re0_capture.py](../../../../../../tests/test_re0_capture.py) — direct import

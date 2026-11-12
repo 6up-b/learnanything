@@ -795,6 +795,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_cap_is_two_candidates_per_factor`
 - [tests/test_causal_repair_mapping_p2.py](../../../../../../tests/test_causal_repair_mapping_p2.py) — direct import
   - `test_cold_verification_records_its_near_clone_basis`
+- [tests/test_causal_repair_sidecar_rpcs.py](../../../../../../tests/test_causal_repair_sidecar_rpcs.py) — direct import
+  - `test_an_open_episode_with_observations_refuses_the_offer_with_a_typed_reason`
 - [tests/test_causal_trace_consistency_p2.py](../../../../../../tests/test_causal_trace_consistency_p2.py) — direct import
   - `test_cli_renders_probe_need_and_per_hypothesis_state`
 - [tests/test_certification_cold_probe.py](../../../../../../tests/test_certification_cold_probe.py) — direct import
@@ -2520,6 +2522,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_probe_posterior_none_when_not_probing`
   - `test_realized_information_gain_is_positive_for_informative_attempt`
   - `test_scheduler_eig_uses_live_posterior`
+- [tests/test_probe_block_end.py](../../../../../../tests/test_probe_block_end.py) — direct import
+  - `test_block_end_releases_feedback_and_routes_ordinary_practice`
 - [tests/test_probe_coverage.py](../../../../../../tests/test_probe_coverage.py) — direct import
 - [tests/test_probe_dialogue.py](../../../../../../tests/test_probe_dialogue.py) — direct import
   - `test_adaptive_llm_turn_conditions_on_prior_answers`
