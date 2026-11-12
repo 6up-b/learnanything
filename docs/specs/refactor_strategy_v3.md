@@ -135,6 +135,10 @@ Ranked by what each costs a stage or a debugging session. Ids are the map's.
 
 **Bugs a step finds (owner, Nov 12).** "As you refactor and find these bugs, they should be fixed at some point either by arc close or by landing." Each finding goes into `docs/reviews/refactor-bug-ledger.md` with the step that fixes it and its deadline, which is this landing or the current arc's close. An arc doesn't close with a row due at its close still open. A strict xfail is only ever the fail-first test of a queued fix.
 
+**Two tracks (owner, Nov 12; audit §2.7).** Every step is one of two kinds, and the stopping points count only the first.
+- **Structure:** changes no served or persisted value. P-shadow and P-draw identical is the whole proof. Arcs A-F and I, G1, G3, G5, G6, H1, H2, J, K0-K2 and K4-K9, L and M0.
+- **Behaviour:** changes what the learner gets, under P-playbook, and lands alone: G2, G4, H3-H6, D8, and any bug-ledger fix that needs a successor. Each is queued after the structure step that makes it small (I1 before H3, G1 before G2). K3 and the other ledger fixes are bug fixes: they change no persisted meaning unless their row says so.
+
 **Environment rules for every step.** Scripts outside pytest run under an empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`. No live or paid model calls. Copies only through `learnloop.db.copies`. Agents never open live vaults: the owner runs anything that reads them and pastes the output.
 
 ### 2.2 S0: re-baseline on the landed tip
@@ -429,6 +433,7 @@ No change at any fixed input, and no learner reach except where stated. Each rem
 **E9. Names** (S).
 - **Problem:** P6, C3. Two `card` modules, `LegacyLanesSource` (live), `learner_context.py` (not the Ask path's context).
 - **Does:** renames only. Packages stay. No consolidation of `router/` and `router_objective/`, unless the step finds it's a move of under 5 modules.
+- **Root modules (owner, Nov 12; audit §3).** After D3 the package root holds 36 modules. Those owned by one feature move into it: by name `figure_admission`, `reader_learner_state`, `reading_sources`, `held_grades`, `grading_epochs`, `delayed_checks`, `hint_window`; step 0 confirms each by its importers. The root keeps the cross-cutting leaves (`clock`, `ids`, `numeric`, `provenance`, `algorithm_versions`, `vault_lock`, `bootstrap`). A move with its import rewrites and no shim; M0's first-level count falls with it.
 
 **Stopping point 6.** Objective and policy edits are local.
 
@@ -475,7 +480,7 @@ Nothing here changes a value at a fixed draw count without the playbook. More dr
 
 ### 2.10 Arc G: one decider, one record of each fact, one belief, one protection
 
-Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever moves: prediction bundles written before the answer (`causal_probe_coherence.py:999`, migration 121's `generated_without_observation`), the pin of ids (`causal_orchestrator.py:2186`), the locked set before the answer (`:836`), the posterior at selection in `probe_presentations`, and the discriminating observations as inputs to `scoreboard`, `failure_triage`, `causal_health`, `evsi_calibration/live_report`, `causal_factor_deferral`, `router_objective/picks`, `ops/capture_report`, `hypothesis_marks`. Old rows stay readable. (`instructional/valuation` reads the episode posterior, not these.)
+Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever moves: prediction bundles written before the answer (`causal_probe_coherence.py:999`, migration 121's `generated_without_observation`), the pin of ids (`causal_orchestrator.py:2186`), the locked set before the answer (`:836`), the posterior at selection in `probe_presentations`, and the discriminating observations as inputs to `scoreboard`, `failure_triage`, `causal_health`, `evsi_calibration/live_report`, `causal_factor_deferral`, `router_objective/picks`, `ops/capture_report`, `hypothesis_marks`. Old rows stay readable. (`instructional/valuation` reads the episode posterior, not these.) `diagnosis/failure_triage.py` has no importer in `src` or `apps` at `e9a7733612`: eight test files and one `Repository` method name it (audit §2.3). L3's list puts it to the owner, and until it's removed it stays on this list.
 
 **G1. Facts, not a second decider** (M) `[IH]`.
 - **Problem:** B6; §4.4. `decide_probe` mixes facts (gain, chance of changing the repair, burden, classes) with a verdict. FG1 calls it with zeros for a log field (`followup_run/router.py:111`), which reads like information and isn't (S14).
@@ -604,6 +609,9 @@ Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever move
 | H6 | 92% | Scalar retired, reported first. |
 | J, Z | 100% | Tables reviewed and dropped as approved; paper; final measures; old specs archived once the docs rewrite is done (Z3). |
 | K (beside the arcs, §2.17) | +10-15% | The modules the Nov 8 map didn't read are mapped and given steps; compared identities are pinned; ingestion has a structure strategy. |
+| M0, L, K8, K9 (beside the arcs, §2.18) | +12-18% | Structure numbers can't slip back; the import cycle's largest piece is 36 modules or fewer; the floor moves by rule; the sidecar handlers and diagnosis are mapped. |
+
+**Measured, not planned (audit §1).** After arcs A-C and K0-K3, at `e9a7733612` against S0: code lines down 1.0% (441,708 to 437,129), raw lines down 1.5%, functions over 200 lines unchanged at 83. Most of the shrink is arc D's. Each stopping point's landing note states the measured shrink beside the planned one.
 
 Each arc's steps also land one at a time, so an interruption mid-arc leaves a working system, with the exception noted at H.
 
@@ -696,6 +704,74 @@ The map's methods were name- and import-based, so whole risk classes were invisi
 **K7. AI transport and network edges** (S + S; review). Before the MCP and phone feature stages. ChatGPT-plan token refresh races between the sidecar and the phone host; behaviour with the plan down; whether the route actually used after a fallback is recorded (B8 left it open); MCP's URL-as-credential and the phone bearer; cross-process workers on one vault.
 
 **Order:** arc C close → K0 and K1 (parallel) → arc D, with K2 running beside it and K3.1-K3.5 landing beside it (K3.1 first, K3.5 independent) → K2.1-K2.12 (K2.1-K2.5 one chain; K2.11 before the UX overhaul) → E → F and I (K5 before I1) → K6 before G6 → G → H (K0's H6 rule) → J, Z. K4 and K7 fit wherever the queue has room. **Cost:** roughly 10-15% on top of §2.15 (an estimate), most of it K2.
+
+### 2.18 Additions from the Nov 12 audit (owner, Nov 12: "I agree with your audit additions")
+
+**Why.** `docs/reviews/refactor-strategy-v3-audit-2026-11-12.md` read this strategy against the owner's brief and found it restructures about a fifth of the package. Its evidence is there (§2), with its limits (§4): the import numbers come from a name-based sweep, so anything it calls CLI-only or unimported still needs §2.1's deletion proof. Each step below is structure-track: it changes no served value, and its proof is P-tests, `lint-imports`, and P-shadow and P-draw identical.
+
+**From this day the orchestrator delegates each step to an Opus or Sonnet implementer and reads the step's diff itself before the gate** (owner, Nov 12). The per-arc Codex review stays.
+
+**M0. Measures that can't slip back** (S). Now.
+- **Problem:** October grew about 6,000 code lines a day, so a one-time 5-9% is a week or two of growth. §6 had no number for the cycle, first-level names, long functions or history comments.
+- **Files:** `scripts/refactor_measures.py`; new `tests/goldens/structure.toml`, `tests/test_structure_ratchets.py`.
+- **Adds:** §6's structure table. One test: a held number may fall, and may rise only when the golden changes in the same commit, with the reason in the commit message. The golden is lowered at arc closes, not per commit, so parallel branches don't conflict on it. It's A3's pattern, so no new concept.
+- **Proof:** the test passes at the tip and fails, naming the module, on a scratch edit that joins a module to the largest import component.
+
+**L7. The floor follows the vaults** (S). With D1, in ADR-018.
+- **Problem:** D1 sets a floor once and D7 removes switches once. The chain is 49 tags long and each successor adds a switch and a gate, so arc D would have to be run again.
+- **Does:** states the rule. When the owner's `scripts/vault_report.py` shows every live vault at or past a tag, one chore step raises `OLDEST_SUPPORTED` and removes the gates and switches at or below it (D4-D7's method, by then small). A test lists the switches whose tag is at or below the floor: it must be empty, or each must be on a short kept-because list.
+- **Target:** the next floor move is one step.
+
+**L1. Cut the import cycle at its seven edges** (M). After D6, which edits the same packages; recompute the edges first.
+- **Problem:** P2. No cycle exists among top-level imports. Through function-local imports the largest component is 189 modules and 166,533 lines. Seven edges hold it (audit §2.2's table): without them the largest piece is 36.
+- **Does:** for each edge, reads what's imported and moves that name to the lower module, or passes the value in. No interface, registry or injection.
+- **Stop:** an edge that needs more than about three definitions moved is left and recorded.
+- **Proof:** M0's largest component at 40 or fewer; the frozen-cycle contract in `pyproject.toml` loses the modules that left.
+
+**L2. `repositories.py` by feature file, same interface** (M). At an arc boundary with no branch touching the file.
+- **Problem:** P1. 27,508 lines and 910 methods in one file, in 85 commits a month.
+- **Does:** methods move into mixin files grouped by the tables they touch (seven store mixins exist already). `Repository` keeps every method, and no call site changes. Afterwards a method still moves to its feature's store when a step touches it (§4).
+- **Proof:** a script shows every method body AST-identical and `dir(Repository)` unchanged, with no name defined twice.
+- **Doesn't do:** shrink the interface.
+
+**L3. The serving core is visible** (S). With arc J.
+- **Problem:** 241 modules and 92,381 lines are reachable only from the CLI or TUI, and a reader can't tell which side a module is on.
+- **Does:** one import contract: the sidecar, the phone host, the MCP server and what they reach never import `cli`, `tui`, `experiments`, `evsi_calibration` or `sim`. The generated module notes gain one field, reach (serving, tooling, tests only). The owner gets the CLI-only list per package as part of decision 7, with `diagnosis/failure_triage.py` and `field`'s 11 CLI-only modules on it.
+- **Doesn't do:** move packages.
+
+**L4. Learned models callable without a database** (M review, then steps only where it pays). The review beside arc D; the steps with arc I.
+- **Problem:** the map's F5 (`adaptive_difficulty/serving.py` `decide_slot`), F7 (`learner/mastery.py`'s prior) and F8 (`router_objective/tail_serve.py`) have no step, and other fits sit beside their SQL (audit §2.4's candidates, unread).
+- **Review:** for each fit, update or score in `adaptive_difficulty`, `learner`, `router_objective`, `field`, `placement`, `figures/prefetch*` and the episode posterior: can it be called with plain values, and are its inputs recorded as of the decision?
+- **Steps:** I1's shape: reads gather an inputs dataclass, a pure function returns the result, the shell writes.
+- **Stop:** skip a module where the split adds more lines than it removes and no test gets simpler.
+- **Proof:** a test calls the core with literals and no connection.
+
+**L5. Approach headers where the steps don't reach** (M, in batches at arc closes).
+- **Problem:** C4, the map's only high comment finding, has no step. Stage-artifact comments were about 2,312 at the map and 2,297 on Nov 12. A3 planned about 2,000 history lines out of `config/schema.py` and took out a net 107.
+- **Does:** for each function over 200 lines that no arc rewrites (listed at step 0): two to five sentences on its approach, why the obvious one is wrong, and what must stay true. Review-round names inside it go. It settles `schema.py` too: the planned lines come out, or the target changes with the reason.
+- **Proof:** the module's AST with docstrings and comments removed is identical (A3's `ast_same.py`). The orchestrator reads each header against the code. M0 holds the count.
+- **Not a sweep:** about 80 functions.
+
+**L6. A core returns its record** (a rule; no step of its own). From E2 on.
+- **Problem:** arc B's records are built by modules beside the deciders (`plan_records`, `chain_records`, `figures/records`, `grade_records`), after the decision. Nothing fails when a decider gains a branch its builder doesn't know.
+- **Does:** every pure core the arcs extract (E2, I1, I2, G1's `probe_facts`, L4's) returns its `DecisionRecord` with its result. For each, `tests/test_why_cases.py` stages one case per rule code the core can return.
+
+**K8. The sidecar handlers as the application layer** (M; review). Before the TUI rebuild and MCP v2.
+- **Why:** `learnloop_sidecar` is in 30% of the commits since Oct 12, and the phone, the TUI rebuild and MCP v2 all consume its registry. `handlers/reader.py` is 2,981 lines and imports 71 modules.
+- **Questions:** which handlers decide and which adapt; what a second frontend needs again; which rules the desktop's TypeScript copies (K2.11 found four disagreements in ingest alone).
+- **Output:** steps that move a decision under its feature package, only where a second consumer exists.
+
+**K9. Diagnosis: deep map and structure strategy** (L; review, two jobs, K2's method). Before arc G.
+- **Why:** the largest package (110 files, 73,609 lines) holds 65 of the cycle's 189 modules, and arc G changes what it decides without anyone having mapped its layout.
+- **Scope:** `diagnosis/`, with `causal_orchestrator.py` and `probe_episodes.py` first; `params/parameter_registry.py`'s cost per change (in 11% of commits, about 380 registered constants). The orchestrator checks the map's claims before the strategy uses them.
+- **Output:** K9.1... after arc D. K6 widens from side effects to `source_retrieval`'s structure the same way, if the method pays a second time.
+
+**T2. Tests named for what they prove** (M; lowest priority). With the documentation stage.
+- **Does:** renames the 196 stage-named test files to behaviour names, one commit per feature, with no assertion changed. `scripts/affected_tests.py` follows imports, so selection doesn't move.
+
+**Order.** M0 now. L7 with D1. K9, K8 and L4's review are read-only and run beside arc D. L1 after D6. L5 in batches at arc closes. L2 at a quiet boundary. L3 with J. L6 from E2. **Cost:** roughly 12-18% on top of §2.15 (an estimate).
+
+**Still the owner's:** which CLI-only code stays (L3's list, decision 7).
 
 ## 3. The decision record
 
@@ -920,6 +996,21 @@ Measured at S0 and Z2 with one script and the same commands.
 | Import-linter contracts | 43 | lower, no fixed number; each kept contract readable |
 | Removed list | | every removed feature named in Z2's report |
 | Database size | private file | reported before and after each drop |
+
+**Structure (M0; owner, Nov 12).** Measured by the audit's sweep at `e9a7733612`; M0 moves the sweep into `scripts/refactor_measures.py`, and its own numbers replace these where its method differs. "Held" means `tests/test_structure_ratchets.py` fails when the number rises without the golden changing in the same commit.
+
+| Measure | Nov 12 | Target | Held |
+|---|---|---|---|
+| Largest import component, function-local imports included | 189 modules | 40 or fewer (L1) | yes |
+| Modules in any import cycle | 286 | down | yes |
+| First-level names in `src/learnloop`: packages; root modules; root modules that aren't upgrades | 46; 80; 36 | 46 or fewer; about 30 (D3, E9) | yes |
+| Functions over 200 lines | 83 | down; each survivor has an approach header (L5) | yes |
+| Comment lines naming a stage artifact | about 2,300 of 32,600 | down | yes |
+| Test files named for a stage or fix round | 196 of 1,403 | down (T2) | yes |
+| Import edges only inside functions | 2,836 in 564 modules | reported | no |
+| Direct wall-clock reads outside `clock.py` | about 320 in 125 modules | reported | no |
+| Lines reachable only from the CLI or TUI | 92,381 in 241 modules | reported; the owner's list (L3) | no |
+| `enabled` booleans in `config/schema.py`; effective config leaves | 123; 1,181 | down after each floor move (L7) | no |
 
 **What a change costs.** Files edited, counted on a scratch branch at Z2 with the same changes.
 
