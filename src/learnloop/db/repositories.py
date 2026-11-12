@@ -21443,6 +21443,14 @@ class Repository(
         data["output"] = _loads(data.pop("output_json", None), None)
         return data
 
+    def discard_synthesis_shard_result(self, shard_key: str) -> None:
+        """Delete one shard's saved output, so the next synthesis pays for a
+        fresh answer instead of replaying one the quality gates rejected."""
+
+        with self.connection() as connection:
+            connection.execute("DELETE FROM synthesis_shard_results WHERE shard_key = ?", (shard_key,))
+            connection.commit()
+
     def finalize_stale_synthesis_runs(
         self, *, before_iso: str, clock: Clock | None = None
     ) -> list[str]:

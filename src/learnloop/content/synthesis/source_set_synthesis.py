@@ -2268,6 +2268,7 @@ def _create_study_map(
     # client, and a gate failure there completes it again out here — a second
     # drain would return zeros and erase the cost already recorded.
     token_usage = TokenUsage()
+    answers = _SavedAnswers()
     try:
         with declared_budgets(token_budget):
             merged, span_request_count, resolved_hashes, usage = _run_synthesis(
@@ -2275,7 +2276,7 @@ def _create_study_map(
                 client=client, provider=provider, model=model,
                 manifest_hash=manifest_hash, unlimited_token_budget=unlimited_token_budget,
                 progress=progress, nominator=nominator,
-                one_facet_per_skill=one_facet_per_skill,
+                one_facet_per_skill=one_facet_per_skill, answers=answers,
             )
         token_usage = consume_client_usage(client)
         facet_identity_plan = _facet_identity_plan(
@@ -2302,6 +2303,9 @@ def _create_study_map(
         if candidate_preserved:
             exc.candidate_preserved = True
             exc.synthesis_run_id = synthesis_run_id
+        if exc.code == "synthesis_gate_failed":
+            # The repair works on the preserved candidate, not on these.
+            answers.discard(repository)
         repository.complete_synthesis_run(
             synthesis_run_id,
             status="failed",
@@ -2791,13 +2795,35 @@ class _SynthesisBudget:
             raise StudyMapError("budget_exceeded", message)
 
 
+@dataclass
+class _SavedAnswers:
+    """The saved model answers one synthesis run's candidate came from: each
+    shard's result and each pass's checkpoint, fresh or reused.
+
+    Dropped when the gates reject the candidate: kept, they replay it into the
+    same rejection at zero cost on every fresh retry, while the card offers
+    Retry. A budget failure keeps them (a raised budget reuses what was paid).
+    A reused shard's span round is not recomputed here; its base pass is
+    dropped, so the retry's span requests are the fresh answer's own."""
+
+    shard_keys: list[str] = field(default_factory=list)
+    pass_keys: list[str] = field(default_factory=list)
+
+    def discard(self, repository: Repository) -> None:
+        for key in self.shard_keys:
+            repository.discard_synthesis_shard_result(key)
+        for key in self.pass_keys:
+            repository.discard_model_checkpoint(key)
+
+
 def _run_synthesis(
     transport, repository, inputs, vault, source_set, brief, budgets, *, clock,
     client: Any = None, provider: str | None = None, model: str | None = None,
     manifest_hash: str | None = None, unlimited_token_budget: bool = False,
     progress: ProgressFn | None = None, nominator: Any = None,
-    one_facet_per_skill: bool = False,
+    one_facet_per_skill: bool = False, answers: _SavedAnswers | None = None,
 ):
+    answers = answers if answers is not None else _SavedAnswers()
     registry = _registry_index(vault)
     shards = _shards(inputs.unit_inventories, budgets.synthesis_shard_input_tokens)
     merged = None
@@ -2833,16 +2859,19 @@ def _run_synthesis(
         )
         cached = repository.synthesis_shard_result(key)
         shard_states.append((ordinal, shard, key, cached if cached and cached.get("output") else None))
+        answers.shard_keys.append(key)
 
     base_reserves = {}
     for ordinal, shard, _, cached in shard_states:
         key, tokens = pass_request(base_context(ordinal, shard))
+        answers.pass_keys.append(key)
         reusable = cached or _checkpointed_pass(repository, key) is not None
         base_reserves[ordinal] = 0 if reusable else tokens
     spend.check_base_passes(sum(base_reserves.values()))
 
     def run_pass(context, *, future_input_reserve=0):
         key, tokens = pass_request(context)
+        answers.pass_keys.append(key)
         checkpointed = _checkpointed_pass(repository, key)
         if checkpointed is not None:
             return checkpointed

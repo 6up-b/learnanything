@@ -120,17 +120,22 @@ class _AppendCall:
     a saved answer is read before anything is paid; otherwise the input is held
     to its ceiling before the call, the call runs under the output budget as
     its generation limit, and the answer is saved before the output check, so
-    a retry never pays for it again. ``None`` limits: an unlimited run."""
+    a retry never pays for it again. ``None`` limits: an unlimited run.
+    An answer the gates reject is dropped (:meth:`discard_answers`), so a retry
+    pays for a fresh one instead of replaying the rejection."""
 
     client: Any
     repository: Repository
     settings: dict[str, Any]
     input_ceiling: int | None
     output_budget: int | None
+    #: The checkpoint keys this run's answers came from, fresh or reused.
+    keys: list[str] = field(default_factory=list)
 
     def __call__(self, context: AppendReconciliationContext) -> AppendReconciliation:
         prompt = append_reconciliation_prompt(context)
         key = append_checkpoint_key(prompt, self.settings)
+        self.keys.append(key)
         result = _checkpointed_pass(self.repository, key, AppendReconciliation)
         if result is None:
             # The same estimate as a bootstrap pass: the prompt and schema sent.
@@ -147,6 +152,16 @@ class _AppendCall:
         if self.output_budget is not None and _result_tokens(result) > self.output_budget:
             raise StudyMapError("budget_exceeded", "Append reconciliation exceeded its output budget.")
         return result
+
+    def discard_answers(self) -> None:
+        """Drop every answer this run used (the first call and its span round).
+        A rejected answer is the model's, not the budget's: kept, it would be
+        replayed into the same rejection by every retry at zero cost while the
+        card offers Retry. An over-budget answer is not dropped: a raised
+        budget reuses it."""
+
+        for key in self.keys:
+            self.repository.discard_model_checkpoint(key)
 
 
 def _over_ceiling(tokens: int, ceiling: int) -> StudyMapError:
@@ -599,6 +614,8 @@ def _append(
         )
         finish_agent_run(repository, agent_run_id, client, clock=clock)
     except StudyMapError as exc:
+        if exc.code == "append_gate_failed":
+            call.discard_answers()
         # Every typed failure finalizes both run rows, as bootstrap's arm does:
         # a budget failure or a refusal used to leave them `running` until
         # startup's sweep (map KM4).
