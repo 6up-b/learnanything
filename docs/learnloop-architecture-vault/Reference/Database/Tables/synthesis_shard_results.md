@@ -73,6 +73,7 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository.discard_synthesis_shard_result()`
 - `Repository.save_synthesis_shard_result()`
 - `Repository.synthesis_shard_result()`
 
@@ -93,6 +94,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_source_set_synthesis.py`
 - `tests/test_synthesis_runs_repo.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

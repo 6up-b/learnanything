@@ -218,6 +218,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_agent_runs.py](../../../../../../../tests/test_agent_runs.py) — direct import
   - `test_generate_authoring_proposal_with_fake_client_has_lineage`
   - `test_persist_authoring_proposal_records_agent_run`
+- [tests/test_apply_recovery.py](../../../../../../../tests/test_apply_recovery.py) — direct import
+  - `test_an_undo_with_a_pending_intent_is_refused`
 - [tests/test_authoring_context.py](../../../../../../../tests/test_authoring_context.py) — direct import
   - `test_authoring_context_carries_focus_concepts_and_facets`
   - `test_authoring_context_filters_by_subject`
@@ -232,6 +234,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_refresh_door_never_remediates`
   - `test_refresh_door_passes_the_remediated_payload`
   - `test_refresh_door_reports_the_same_errors_as_the_generation_door`
+- [tests/test_cli_append_units.py](../../../../../../../tests/test_cli_append_units.py) — direct import
+  - `test_a_wholly_rejected_append_leaves_its_units_new`
 - [tests/test_cli_generate_practice.py](../../../../../../../tests/test_cli_generate_practice.py) — direct import
   - `test_accepting_diagnostic_proposal_queues_today_followup`
 - [tests/test_conjunctive_instruments.py](../../../../../../../tests/test_conjunctive_instruments.py) — direct import

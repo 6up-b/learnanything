@@ -826,6 +826,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
   - `test_billing_class_is_subscription`
   - `test_t6_rewrite_runs_on_the_plan_with_receipts`
+- [tests/test_cli_append_units.py](../../../../../../tests/test_cli_append_units.py) — direct import
 - [tests/test_cli_attempt.py](../../../../../../tests/test_cli_attempt.py) — direct import
   - `test_cli_show_attempt_includes_evidence_and_surprise`
 - [tests/test_cli_commands.py](../../../../../../tests/test_cli_commands.py) — direct import
