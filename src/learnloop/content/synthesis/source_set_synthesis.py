@@ -34,7 +34,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Callable
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from learnloop.ai.execution import content_key, declared_budgets, generation_limit, model_settings
 from learnloop.clock import Clock, utc_now_iso
@@ -2949,8 +2949,9 @@ def _run_synthesis(
     return merged, span_request_count, resolved_hashes, usage
 
 
-def _checkpointed_pass(repository: Repository, key: str) -> SourceSetSynthesis | None:
-    """Return a saved synthesis pass, discarding one that no longer validates.
+def _checkpointed_pass(repository: Repository, key: str, result_model: type[BaseModel] = SourceSetSynthesis) -> Any:
+    """Return a saved synthesis pass (or append call: ``result_model``),
+    discarding one that no longer validates.
 
     Checkpoints are write-once, so an unreadable pass would otherwise fail
     every retry, and the budget preflight would count it as already paid.
@@ -2960,18 +2961,21 @@ def _checkpointed_pass(repository: Repository, key: str) -> SourceSetSynthesis |
     if checkpoint is None:
         return None
     try:
-        return SourceSetSynthesis.model_validate(checkpoint["result"])
+        return result_model.model_validate(checkpoint["result"])
     except ValidationError:
         repository.discard_model_checkpoint(key)
         return None
 
 
-def _synthesis_pass_key(prompt: str, schema: dict[str, Any], settings: dict[str, Any]) -> str:
+def _synthesis_pass_key(
+    prompt: str, schema: dict[str, Any], settings: dict[str, Any], *, purpose: str = "synthesis_pass",
+) -> str:
     """Checkpoint identity of one synthesis pass: the exact prompt and schema
     sent, and the provider settings that shape the answer. The output budget
-    is deliberately absent, so a validated pass is reusable under any budget."""
+    is deliberately absent, so a validated pass is reusable under any budget.
+    The append call keys the same way under its own ``purpose``."""
 
-    return content_key({"purpose": "synthesis_pass", "prompt": prompt, "schema": schema, "settings": settings})
+    return content_key({"purpose": purpose, "prompt": prompt, "schema": schema, "settings": settings})
 
 
 def _result_tokens(result: Any) -> int:

@@ -7,13 +7,19 @@ built so far: input grew with each chapter read.
 
 from __future__ import annotations
 
-from learnloop.content.pipeline.add_source import AddSourceOptions, add_source, advance_reading_build, outline_chapters
+from learnloop.content.pipeline.add_source import (
+    AddSourceOptions,
+    add_source,
+    advance_reading_build,
+    outline_chapters,
+    source_status_line,
+)
 from learnloop.content.sources.source_outline import build_source_outline, resolve_extraction_id
 from learnloop.content.synthesis.source_append import select_new_inventories
 from learnloop.vault.loader import load_vault
 
 from tests.ux_phase1_auto_build_helpers import _jobs
-from tests.ux_phase1_support import CLOCK, fake_services, fresh_library, grant_consent, write_book
+from tests.ux_phase1_support import CLOCK, fake_services, fresh_library, grant_consent, set_config, write_book
 
 
 def _entry(revision_id: str, unit_id: str, source_unit_ids: list[str] | None = None) -> dict:
@@ -40,6 +46,34 @@ def test_the_second_build_appends_only_its_own_chapter(tmp_path):
     source_set = next(s for s in load_vault(root).source_sets if s.id == f"sset_quickadd_{item['source_id']}")
     revision_id = source_set.members[0].revision_id
     assert build["payload"]["new_unit_ids"] == {revision_id: [by_label["3 Random variables"]]}
+
+
+def test_an_append_over_its_input_ceiling_fails_once_and_the_card_says_so(tmp_path):
+    """Refactor K3.4: the refusal is typed and not retryable, and the book card
+    names it without offering a Retry that would refuse the same way."""
+
+    root = fresh_library(tmp_path)
+    grant_consent(root)
+    sent = []
+    repo, jobs = _jobs(root, fake_services(on_append=sent.append))
+    item = add_source(load_vault(root), jobs, str(write_book(tmp_path)), AddSourceOptions(), clock=CLOCK)
+    extraction_id = resolve_extraction_id(repo, item["source_id"])
+    by_label = {chapter.label: chapter.unit_id
+                for chapter in outline_chapters(build_source_outline(repo, extraction_id))}
+    set_config(root, {("ingest", "budgets", "append_input_ceiling"): 1000})
+
+    advance_reading_build(jobs, extraction_id, by_label["2 Conditional probability"])
+
+    assert sent == []
+    build = next(job for job in repo.ingest_jobs_by_types(("bootstrap_synthesis",))
+                 if job["payload"].get("auto_build", {}).get("chapters") == ["3 Random variables"])
+    assert build["status"] == "failed"
+    assert build["error"]["code"] == "append_input_over_ceiling"
+    assert build["error"]["retryable"] is False
+    line = source_status_line(repo, load_vault(root), item["source_id"])
+    assert line["tone"] == "problem" and line["action"] is None
+    assert line["text"] == "Questions for Ch. 3 are too much to write at once"
+    assert "append_input_ceiling" in line["details"]
 
 
 def test_the_unit_filter_applies_per_revision():

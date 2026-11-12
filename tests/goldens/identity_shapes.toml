@@ -339,6 +339,23 @@ fields = [
   "ordinal: int = 0",
 ]
 
+["learnloop.content.synthesis.ai_contracts:AppendReconciliationContext"]
+sites = ["K3.4"]
+fields = [
+  "source_set_id: str required",
+  "subject_id: str required",
+  "change_kind: str required",
+  "brief: dict = {}",
+  "new_inventories: list = []",
+  "neighborhood: dict = {}",
+  "exam_profile: dict = {}",
+  "revision_diff: dict = {}",
+  "resolved_spans: list = []",
+  "shard_ordinal: int = 0",
+  "shard_count: int = 1",
+  "one_facet_per_skill: bool = false",
+]
+
 ["learnloop.content.synthesis.ai_contracts:SourceSetSynthesisContext"]
 sites = ["A14"]
 fields = [

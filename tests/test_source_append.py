@@ -11,6 +11,9 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 
+import pytest
+
+from learnloop.ai.execution import output_limit
 from learnloop.content.synthesis.ai_contracts import (
     AppendConflict,
     AppendNotationMapping,
@@ -21,10 +24,11 @@ from learnloop.content.synthesis.ai_contracts import (
 )
 from learnloop.content.synthesis.append_neighborhood import select_neighborhood
 from learnloop.content.synthesis.source_append import append_source
-from learnloop.content.synthesis.source_set_synthesis import create_study_map
+from learnloop.content.synthesis.source_set_synthesis import StudyMapError, create_study_map
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_source_set
 
+from tests.facet_reword_paths_helpers import _facet_restructure
 from tests.source_inventory_helpers import _block, _ir, _persist, _register_revision
 from tests.source_set_synthesis_helpers import FakeSynthesisClient, _setup
 from tests.source_append_helpers import (
@@ -576,3 +580,117 @@ def test_append_epigraph_failure_leaves_the_append_unchanged(tmp_path):
     assert repo.synthesis_run(result.synthesis_run_id)["status"] == "completed"
     assert all(row["mode"] == "bootstrap"
                for row in repo.recent_vault_epigraphs(subject_id="linear-algebra", limit=50))
+
+
+# --- K3.4: the append call is bounded and checkpointed ----------------------
+#
+# The append call had no per-call checkpoint, no request-level output limit and
+# no input ceiling: a retry re-paid it, and a budget failure left both run rows
+# `running` (refactor K3.4; map KX2, KM4, KB5).
+
+
+def _append_run_statuses(repo) -> tuple[list[str], list[str]]:
+    with repo.connection() as connection:
+        agent = [row[0] for row in connection.execute(
+            "SELECT status FROM agent_runs WHERE purpose = 'append_reconciliation' ORDER BY rowid")]
+        synthesis = [row[0] for row in connection.execute(
+            "SELECT status FROM synthesis_runs WHERE mode = 'append' ORDER BY rowid")]
+    return agent, synthesis
+
+
+def _long_summary_append(context, _n):
+    return _default_append(context).model_copy(update={"summary": "symmetric " * 400})
+
+
+def test_a_retry_after_an_append_gate_failure_makes_no_model_call(tmp_path):
+    root, repo = _bootstrap_and_add(tmp_path, add_role="exam")
+    client = FakeAppendClient(builder=_facet_restructure())
+
+    for _attempt in range(2):
+        with pytest.raises(StudyMapError) as raised:
+            append_source(root, "set_la", client=client, new_revision_ids=["rev_alt"],
+                          repository=repo, clock=_CLOCK)
+        assert raised.value.code == "append_gate_failed"
+
+    # The paid answer was checkpointed: the retry read it instead of paying again.
+    assert len(client.calls) == 1
+    assert _append_run_statuses(repo) == (["failed", "failed"], ["failed", "failed"])
+
+
+def test_an_over_budget_append_answer_is_checkpointed_and_the_retry_does_not_repay(tmp_path):
+    root, repo = _bootstrap_and_add(tmp_path)
+    client = FakeAppendClient(builder=_long_summary_append)
+    tight = {"append_output_tokens": 200}
+
+    for _attempt in range(2):
+        with pytest.raises(StudyMapError) as raised:
+            append_source(root, "set_la", client=client, new_revision_ids=["rev_alt"],
+                          repository=repo, clock=_CLOCK, budget_overrides=tight)
+        assert raised.value.code == "budget_exceeded"
+    assert len(client.calls) == 1
+
+    # A raised budget reuses the paid answer: the checkpoint key holds no budget.
+    result = append_source(root, "set_la", client=client, new_revision_ids=["rev_alt"],
+                           repository=repo, clock=_CLOCK, budget_overrides={"append_output_tokens": 4000})
+    assert len(client.calls) == 1
+    assert repo.synthesis_run(result.synthesis_run_id)["status"] == "completed"
+
+
+def test_an_append_budget_failure_leaves_both_run_rows_failed(tmp_path):
+    root, repo = _bootstrap_and_add(tmp_path)
+    with pytest.raises(StudyMapError) as raised:
+        append_source(root, "set_la", client=FakeAppendClient(builder=_long_summary_append),
+                      new_revision_ids=["rev_alt"], repository=repo, clock=_CLOCK,
+                      budget_overrides={"append_output_tokens": 200})
+
+    assert raised.value.code == "budget_exceeded"
+    assert _append_run_statuses(repo) == (["failed"], ["failed"])
+
+
+def test_the_append_call_runs_under_its_output_limit(tmp_path):
+    seen: list[int | None] = []
+
+    def builder(context, _n):
+        seen.append(output_limit())
+        return _default_append(context)
+
+    root, repo = _bootstrap_and_add(tmp_path)
+    append_source(root, "set_la", client=FakeAppendClient(builder=builder), new_revision_ids=["rev_alt"],
+                  repository=repo, clock=_CLOCK, budget_overrides={"append_output_tokens": 3000})
+
+    assert seen == [3000]
+
+
+def test_an_append_over_its_input_ceiling_is_refused_before_any_call(tmp_path):
+    root, repo = _bootstrap_and_add(tmp_path)
+    client = FakeAppendClient()
+    with pytest.raises(StudyMapError) as raised:
+        append_source(root, "set_la", client=client, new_revision_ids=["rev_alt"],
+                      repository=repo, clock=_CLOCK, budget_overrides={"append_input_ceiling": 1000})
+
+    assert raised.value.code == "append_input_over_ceiling"
+    assert client.calls == []
+    (diagnostic,) = raised.value.diagnostics
+    assert diagnostic["gate"] == "append_input_ceiling" and "1,000" in diagnostic["message"]
+    assert _append_run_statuses(repo) == (["failed"], ["failed"])
+
+    # Under the default ceiling the same append goes through.
+    result = append_source(root, "set_la", client=client, new_revision_ids=["rev_alt"],
+                           repository=repo, clock=_CLOCK)
+    assert len(client.calls) == 1
+    assert repo.synthesis_run(result.synthesis_run_id)["status"] == "completed"
+
+
+def test_append_output_is_counted_without_escaping_non_ascii(tmp_path):
+    """Bootstrap's estimator: a ``\\uXXXX`` escape is six characters for what
+    the model wrote as one, so the escaping estimate refused answers that fit."""
+
+    def builder(context, _n):
+        return _default_append(context).model_copy(update={"summary": "対称行列" * 150})
+
+    root, repo = _bootstrap_and_add(tmp_path)
+    # The summary alone: 3,600 escaped characters (900 tokens), 600 unescaped (150).
+    result = append_source(root, "set_la", client=FakeAppendClient(builder=builder), new_revision_ids=["rev_alt"],
+                           repository=repo, clock=_CLOCK, budget_overrides={"append_output_tokens": 600})
+
+    assert repo.synthesis_run(result.synthesis_run_id)["status"] == "completed"

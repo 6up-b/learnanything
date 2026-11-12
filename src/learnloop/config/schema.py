@@ -831,7 +831,18 @@ class IngestBudgetsConfig(BaseModel):
     synthesis_total_input_ceiling: int = 48000
     synthesis_output_tokens: int = 16000
     append_neighborhood_input_tokens: int = 24000
+    # Also the append call's request-level generation limit, as each bootstrap
+    # pass runs under its shard output budget.
     append_output_tokens: int = 10000
+    # One append call's estimated input (prompt and schema), refused before it
+    # is paid. The sum of what an append is built from when its new material
+    # fits one bootstrap shard: the neighbourhood cap (24000), one shard of new
+    # inventories (synthesis_shard_input_tokens, 40000), one span round
+    # (12 spans x 4000 characters, 12000) and the fixed part (8000, the room
+    # bootstrap's synthesis_total_input_ceiling leaves above its shard; the
+    # append's instructions and schema measure about 6600). Larger appends wait
+    # for splitting into passes (K2.4).
+    append_input_ceiling: int = 84000
     # Span-request protocol caps: one bounded request round only.
     synthesis_span_request_max_count: int = 12
     synthesis_span_char_cap: int = 4000

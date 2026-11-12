@@ -1960,7 +1960,7 @@ def _synthesis_progress(ctx: JobContext):
 def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
     """append_synthesis: bounded reconciliation against an existing study map."""
 
-    from learnloop.content.synthesis.source_append import append_source
+    from learnloop.content.synthesis.source_append import APPEND_INPUT_OVER_CEILING, append_source
     from learnloop.content.synthesis.source_set_synthesis import StudyMapError
 
     from learnloop.content.pipeline.add_source import admit_auto_build_job, after_auto_build, auto_apply_allowed
@@ -2000,7 +2000,9 @@ def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
         # Same mapping as the bootstrap lane above. Flattening the code into the
         # message left every append failure as `invalid_job`, dropped the gate
         # diagnostics the Activity panel renders, and asserted retryable=False
-        # for a gate rejection that a fresh model turn routinely clears.
+        # for a gate rejection. Since K3.4 a retry reads the checkpointed answer
+        # (zero calls), so it clears a gate failure only when the vault changed.
+        # An input over append_input_ceiling refuses the same way every time.
         raise IngestRunnerError(
             str(exc),
             code=exc.code,
@@ -2010,7 +2012,7 @@ def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
                 "completed_dependencies_preserved": True,
                 "synthesis_run_id": exc.synthesis_run_id,
             },
-            retryable=exc.code not in {"source_set_not_found"},
+            retryable=exc.code not in {"source_set_not_found", APPEND_INPUT_OVER_CEILING},
         ) from exc
     ctx.record_usage({"calls": 0 if result.reused else 1})
     ctx.report("synthesized", message="Source reconciliation synthesized")

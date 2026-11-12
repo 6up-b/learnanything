@@ -25,11 +25,13 @@ other item stays a pending review proposal.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from learnloop.ai.execution import generation_limit, model_settings
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.synthesis.ai_contracts import (
     AppendReconciliation,
@@ -49,14 +51,17 @@ from learnloop.content.proposals.patches import compute_target_hash
 from learnloop.content.facet_identity import authority as facet_meaning
 from learnloop.content.synthesis.source_set_synthesis import (
     StudyMapError,
+    _checkpointed_pass,
     _facet_identity_plan,
     _collect_inputs,
     _gate_context,
     _normalize,
     _resolve_span_requests,
+    _result_tokens,
     _row,
     _span_refs,
     _support_citations,
+    _synthesis_pass_key,
     facet_identity_result,
 )
 from learnloop.content.synthesis.synthesis_gates import (
@@ -90,6 +95,77 @@ def request_append_reconciliation(
         purpose="append_reconciliation",
         prompt=append_reconciliation_prompt(context),
         result_model=AppendReconciliation,
+    )
+
+
+#: The typed refusal of an append whose request is over ``append_input_ceiling``.
+#: Not retryable: the same append refuses the same way until it is narrowed or
+#: the ceiling is raised (splitting a large append into passes is K2.4).
+APPEND_INPUT_OVER_CEILING = "append_input_over_ceiling"
+
+
+def append_checkpoint_key(prompt: str, settings: dict[str, Any]) -> str:
+    """Model-work checkpoint identity of one append call (the first call or its
+    span round): a bootstrap pass's key under the append's purpose. No budget
+    in it, so a paid answer is reused under any budget."""
+
+    return _synthesis_pass_key(
+        prompt, AppendReconciliation.model_json_schema(), settings, purpose=APPEND_AGENT_PURPOSE,
+    )
+
+
+@dataclass(frozen=True)
+class _AppendCall:
+    """One append request, checkpointed and bounded as a bootstrap pass is:
+    a saved answer is read before anything is paid; otherwise the input is held
+    to its ceiling before the call, the call runs under the output budget as
+    its generation limit, and the answer is saved before the output check, so
+    a retry never pays for it again. ``None`` limits: an unlimited run."""
+
+    client: Any
+    repository: Repository
+    settings: dict[str, Any]
+    input_ceiling: int | None
+    output_budget: int | None
+
+    def __call__(self, context: AppendReconciliationContext) -> AppendReconciliation:
+        prompt = append_reconciliation_prompt(context)
+        key = append_checkpoint_key(prompt, self.settings)
+        result = _checkpointed_pass(self.repository, key, AppendReconciliation)
+        if result is None:
+            # The same estimate as a bootstrap pass: the prompt and schema sent.
+            tokens = max(1, (len(prompt) + len(json.dumps(AppendReconciliation.model_json_schema()))) // 4)
+            if self.input_ceiling is not None and tokens > self.input_ceiling:
+                raise _over_ceiling(tokens, self.input_ceiling)
+            with generation_limit(self.output_budget):
+                result = request_append_reconciliation(self.client, context)
+            payload = result.model_dump(mode="json") if hasattr(result, "model_dump") else dict(result)
+            self.repository.save_model_checkpoint(
+                key, purpose=APPEND_AGENT_PURPOSE, result=payload,
+                usage={"input_tokens_estimate": tokens, "output_tokens_estimate": _result_tokens(result)},
+            )
+        if self.output_budget is not None and _result_tokens(result) > self.output_budget:
+            raise StudyMapError("budget_exceeded", "Append reconciliation exceeded its output budget.")
+        return result
+
+
+def _over_ceiling(tokens: int, ceiling: int) -> StudyMapError:
+    message = (
+        f"This update's request comes to about {tokens:,} input tokens, over its ceiling of {ceiling:,} "
+        "([ingest.budgets] append_input_ceiling), so nothing was sent."
+    )
+    return StudyMapError(
+        APPEND_INPUT_OVER_CEILING, message,
+        diagnostics=[{
+            "gate": "append_input_ceiling",
+            "severity": "hard_fail",
+            "entity_refs": [],
+            "message": message,
+            "suggested_action": (
+                "build fewer new sections at once, or raise [ingest.budgets] append_input_ceiling; "
+                "splitting a large update into passes is not built yet"
+            ),
+        }],
     )
 
 
@@ -395,11 +471,17 @@ def _append(
         manifest_id=manifest_id, mode="append", agent_run_id=agent_run_id
     )
 
+    call = _AppendCall(
+        client, repository,
+        # A bootstrap pass's settings: what shapes the answer, with the run's provider and model.
+        settings={**model_settings(client), "provider": provider, "model": model},
+        input_ceiling=None if unlimited_token_budget else budgets.append_input_ceiling,
+        output_budget=None if unlimited_token_budget else budgets.append_output_tokens,
+    )
     try:
         reconciliation, span_request_count = _run_reconciliation(
-            client, repository, inputs, new_inventories, neighborhood, source_set,
-            subject_id, change_kind, revision_diff, brief, budgets, clock=clock,
-            unlimited_token_budget=unlimited_token_budget,
+            call, repository, inputs, new_inventories, neighborhood, source_set,
+            subject_id, change_kind, revision_diff, brief, budgets,
             one_facet_per_skill=one_facet_per_skill,
         )
         preset_diagnostics: list[dict[str, Any]] = []
@@ -469,10 +551,6 @@ def _append(
         diagnostics.extend(normalizer_diagnostics)
         diagnostics.extend(preset_diagnostics)
         if report.blocked:
-            repository.complete_synthesis_run(synthesis_run_id, status="failed",
-                                              coverage_decisions={"gate_diagnostics": diagnostics})
-            finish_agent_run(repository, agent_run_id, client, status="failed",
-                             error_message="append gates hard-failed", clock=clock)
             raise StudyMapError("append_gate_failed", "Append proposal failed hard quality gates.",
                                 diagnostics=diagnostics)
 
@@ -520,7 +598,16 @@ def _append(
             coverage_decisions=coverage, actual_usage=actual_usage,
         )
         finish_agent_run(repository, agent_run_id, client, clock=clock)
-    except StudyMapError:
+    except StudyMapError as exc:
+        # Every typed failure finalizes both run rows, as bootstrap's arm does:
+        # a budget failure or a refusal used to leave them `running` until
+        # startup's sweep (map KM4).
+        repository.complete_synthesis_run(
+            synthesis_run_id, status="failed",
+            coverage_decisions={"gate_diagnostics": exc.diagnostics} if exc.diagnostics else None,
+        )
+        finish_agent_run(repository, agent_run_id, client, status="failed",
+                         error_message=f"{exc.code}: {exc}", clock=clock)
         raise
     except Exception as exc:  # pragma: no cover - defensive
         repository.complete_synthesis_run(synthesis_run_id, status="failed")
@@ -583,9 +670,8 @@ def _append(
 
 
 def _run_reconciliation(
-    client, repository, inputs, new_inventories, neighborhood, source_set,
-    subject_id, change_kind, revision_diff, brief, budgets, *, clock,
-    unlimited_token_budget: bool = False, one_facet_per_skill: bool = False,
+    call: _AppendCall, repository, inputs, new_inventories, neighborhood, source_set,
+    subject_id, change_kind, revision_diff, brief, budgets, *, one_facet_per_skill: bool = False,
 ):
     context = AppendReconciliationContext(
         source_set_id=source_set.id, subject_id=subject_id, change_kind=change_kind,
@@ -593,9 +679,7 @@ def _run_reconciliation(
         exam_profile=inputs.exam_profile or {}, revision_diff=revision_diff, resolved_spans=[],
         one_facet_per_skill=one_facet_per_skill,
     )
-    result = request_append_reconciliation(client, context)
-    if not unlimited_token_budget and _output_tokens(result) > budgets.append_output_tokens:
-        raise StudyMapError("budget_exceeded", "Append reconciliation exceeded its output budget.")
+    result = call(context)
     span_request_count = 0
     requests = [r if isinstance(r, dict) else r.model_dump() for r in getattr(result, "span_requests", []) or []]
     if requests:
@@ -611,17 +695,8 @@ def _run_reconciliation(
             exam_profile=inputs.exam_profile or {}, revision_diff=revision_diff, resolved_spans=resolved,
             one_facet_per_skill=one_facet_per_skill,
         )
-        result = request_append_reconciliation(client, context)
-        if not unlimited_token_budget and _output_tokens(result) > budgets.append_output_tokens:
-            raise StudyMapError("budget_exceeded", "Append reconciliation exceeded its output budget.")
+        result = call(context)
     return result, span_request_count
-
-
-def _output_tokens(result: Any) -> int:
-    import json
-
-    payload = result.model_dump(mode="json") if hasattr(result, "model_dump") else result
-    return max(1, len(json.dumps(payload, default=str)) // 4)
 
 
 # --- normalization ----------------------------------------------------------

@@ -2511,6 +2511,13 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
                 return _budget_used_line(state["error"])
             return _line(f"Questions for {phrase} would cost more than expected", "quiet",
                          ("build_now", "Build them"), state["error"])
+        from learnloop.content.synthesis.source_append import APPEND_INPUT_OVER_CEILING
+
+        if state["error_code"] == APPEND_INPUT_OVER_CEILING:
+            # Refused before anything was paid, and a retry refuses the same
+            # way (refactor K3.4): no Retry; details name the setting. Building
+            # it in parts arrives with K2.4.
+            return _line(f"Questions for {phrase} are too much to write at once", "problem", None, state["error"])
         if state["status"] == "cancelled" and not vault.config.ingest.auto_build:
             # The owner turned automatic building off while it was queued.
             return _health_line(repo, source_id, config=vault.config if vault else None)

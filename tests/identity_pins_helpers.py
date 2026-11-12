@@ -518,6 +518,22 @@ def _synthesis_pass_key(one_facet_per_skill: bool) -> Callable[[], Any]:
     return compute
 
 
+def _append_checkpoint_key(one_facet_per_skill: bool) -> Callable[[], Any]:
+    def compute() -> Any:
+        from learnloop.ai.execution import model_settings
+        from learnloop.content.synthesis.ai_contracts import AppendReconciliationContext, append_reconciliation_prompt
+        from learnloop.content.synthesis.source_append import append_checkpoint_key
+
+        prompt = append_reconciliation_prompt(AppendReconciliationContext(
+            source_set_id="set_pin", subject_id="linear-algebra", change_kind="source_added",
+            brief={"scope": {"chapters": [2]}}, new_inventories=[{"unit_id": "unit_pin", "claims": ["c"]}],
+            neighborhood={"facets": [{"id": "fct_svd_define"}]}, exam_profile={}, revision_diff={},
+            resolved_spans=[{"span_id": "sp_pin", "text": "A = U S V^T"}], one_facet_per_skill=one_facet_per_skill))
+        return append_checkpoint_key(prompt, {**model_settings(FakeStructuredClient()), "provider": "codex",
+                                              "model": "fake-model"})
+    return compute
+
+
 def _inventory_window_key() -> Any:
     from learnloop.ai.execution import model_settings
     from learnloop.content.synthesis.ai_contracts import SourceUnitInventoryContext
@@ -831,6 +847,13 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "a completed append run is not reused: the append is paid again",
         {f"scope.{name}": _append_scope(name) for name in CONFIGS}),
     IdentitySite(
+        "K3.4", "append call checkpoint key (asdict of its context in the prompt; a synthesis pass key's shape)",
+        ("src/learnloop/content/synthesis/ai_contracts.py::append_reconciliation_prompt",
+         "src/learnloop/content/synthesis/source_append.py::append_checkpoint_key"),
+        "append call checkpoints (model_checkpoints)",
+        "cached append calls miss and are paid again on retry",
+        {"append_key": _append_checkpoint_key(False), "append_key.one_facet_per_skill": _append_checkpoint_key(True)}),
+    IdentitySite(
         "A4", "task graph hash (blueprint dumps) in the synthesis manifest",
         ("src/learnloop/content/synthesis/synthesis_manifests.py::task_graph_hash",),
         "synthesis_manifests.task_graph_hash, inside the manifest hash",
@@ -1107,6 +1130,7 @@ SHAPE_ROOTS: dict[str, tuple[str, ...]] = {
     "learnloop.daily_plan.types:ReadingTarget": ("C3",),
     "learnloop.content.pipeline.ai_contracts:CanonicalIngestContext": ("A13",),
     "learnloop.content.synthesis.ai_contracts:SourceSetSynthesisContext": ("A14",),
+    "learnloop.content.synthesis.ai_contracts:AppendReconciliationContext": ("K3.4",),
     "learnloop.content.synthesis.ai_contracts:SourceUnitInventoryContext": ("A15",),
 }
 
@@ -1229,7 +1253,6 @@ PROVENANCE_ONLY: dict[str, str] = {
         "agent_runs.input_context_hash of purpose 'authoring', which nothing looks up (only canonical ingest, "
         "synthesis and append read completed_agent_run*_by_context; sweep §1D)",
     "src/learnloop/content/synthesis/ai_contracts.py::concept_graph_structuring_prompt": PROMPT_REASON,
-    "src/learnloop/content/synthesis/ai_contracts.py::append_reconciliation_prompt": PROMPT_REASON,
     "src/learnloop/content/synthesis/ai_contracts.py::vault_epigraphs_prompt": PROMPT_REASON,
     "src/learnloop/curriculum/ai_contracts.py::rung_backfill_prompt": PROMPT_REASON,
     "src/learnloop/curriculum/ai_contracts.py::depth_edge_instance_prompt": PROMPT_REASON,
