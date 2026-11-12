@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/add_source.py](../../../../../../../src/learnloop/content/pipeline/add_source.py) |
-| Source lines | 2773 |
+| Source lines | 2780 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -124,12 +124,12 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `text_recognition_available(*, config=None) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2263) — Whether an extractor that really recognises text can run (review F9): GLM-OCR (hosted with a z.ai key, or a self-hosted server), local Marker, or the hosted Marker runtime the owner configured.
 - `build_minutes_phrase(repo, *, section_count: int, sample: int=5) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2333) — How long questions for ``section_count`` sections take, from this library's own finished automatic builds ("in about 4 min", "in under a minute"), or ``None`` when it has none to go on (usability round 2: "in about 13 min" was a made-up formula for a build that took seconds).
 - `source_status_line(repo, vault, source_id: str | None, *, batch_id: str | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2378) — The one quiet line a book card shows, or ``None`` when there is nothing to say.
-- `pending_adds(repo, *, limit: int=30) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2614) — Adds whose link is still being fetched (no library card yet): every unfinished Add, not a window over the queue (review F10).
-- `pending_title(source: str, category: str | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2641) — A readable name for a link still being fetched (usability round 1: the video's card was titled with its raw URL).
-- `latest_add_batch(repo, source_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2659)
-- `latest_planner(repo, source_id: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2664) — The planning job the card's line speaks for, and its outcome (a planner an Undo or a cancel stopped before it ran is skipped).
-- `latest_build_batch(repo, source_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2676)
-- `retry_build(ingest_jobs, source_id: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2684) — The card's Retry for a failed automatic build (§6.7, review F11): the zero-model repair and revalidation of a preserved candidate first; a fresh model run only when there is none, or repairing it already failed, and then under a new admission (a new attempt of each paid job).
+- `pending_adds(repo, *, limit: int=30) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2621) — Adds whose link is still being fetched (no library card yet): every unfinished Add, not a window over the queue (review F10).
+- `pending_title(source: str, category: str | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2648) — A readable name for a link still being fetched (usability round 1: the video's card was titled with its raw URL).
+- `latest_add_batch(repo, source_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2666)
+- `latest_planner(repo, source_id: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2671) — The planning job the card's line speaks for, and its outcome (a planner an Undo or a cancel stopped before it ran is skipped).
+- `latest_build_batch(repo, source_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2683)
+- `retry_build(ingest_jobs, source_id: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2691) — The card's Retry for a failed automatic build (§6.7, review F11): the zero-model repair and revalidation of a preserved candidate first; a fresh model run only when there is none, or repairing it already failed, and then under a new admission (a new attempt of each paid job).
 
 ### Module constants
 
@@ -241,7 +241,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `_active_auto_build_batches(repo) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 697)
 - `_batch_job_ids(repo, batch_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 706)
 - `_receipt_tokens(row: Mapping[str, Any]) -> int` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 732)
-- `_request_output_ceiling(config, job_type: str) -> int` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 998) — The output a request is reserved for when it names no ceiling of its own (append reconciliation, epigraphs): the configured per-operation output budget the pipeline holds its results to.
+- `_request_output_ceiling(config, job_type: str) -> int` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 998) — The output a request is reserved for when it names no ceiling of its own (epigraphs; append reconciliation names its own since K3.4): the configured per-operation output budget the pipeline holds its results to.
 - `_request_gate(config, limit_usd: float | None, default_output_tokens: int, *, cancelled=None)` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 1010)
 - `_spend_paused(reason: str, details: Mapping[str, Any])` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 1025)
 - `_requests_admitted(gate, reason: str, details: Mapping[str, Any])` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 1038) — Hold ``gate`` over every model request of the attempt; a request it refused stops the job as ``spend_paused`` (whatever the pipeline made of the refusal on its way out).
@@ -272,10 +272,10 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `_health_line(repo, source_id: str, *, config=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2289)
 - `_scope_size(outcome: Mapping[str, Any]) -> int` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2327) — How many sections a build covers (its units, else its chapters).
 - `_budget_used_line(details: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2373)
-- `_study_map_questions(repo, source_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2539) — What study-map builds that read this book left (round-2 review F6): ``"applied"`` when a finished build's questions were applied and are still in, ``"pending"`` when a finished build's questions still wait for a look, else ``None``.
-- `_built_phrase(repo, source_id: str, outcome: Mapping[str, Any], noun: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2571) — Every chapter the book's questions cover so far (``Ch.
-- `_unit_tree(repo, extraction_id: str) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2587) — Just the extraction's units (id, parent, label), enough for ``outline_chapters``' chapter list and labels: the card's line is read on every library poll and keeping a chapter ahead on every reading-progress report, and the full outline loads the book's text once per unit (usabil…
-- `_category_of(source: Any) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2607)
+- `_study_map_questions(repo, source_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2546) — What study-map builds that read this book left (round-2 review F6): ``"applied"`` when a finished build's questions were applied and are still in, ``"pending"`` when a finished build's questions still wait for a look, else ``None``.
+- `_built_phrase(repo, source_id: str, outcome: Mapping[str, Any], noun: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2578) — Every chapter the book's questions cover so far (``Ch.
+- `_unit_tree(repo, extraction_id: str) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2594) — Just the extraction's units (id, parent, label), enough for ``outline_chapters``' chapter list and labels: the card's line is read on every library poll and keeping a chapter ahead on every reading-progress report, and the full outline loads the book's text once per unit (usabil…
+- `_category_of(source: Any) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2614)
 
 ## Who imports or calls it
 
@@ -318,6 +318,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/sources/front_matter|learnloop.content.sources.front_matter]] — imports `FRONT_MATTER`
 - [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]] — imports `register_source_revision`; calls `register_source_revision`
 - [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] — imports `build_source_outline`, `title_from_file_name`, `title_from_local_uri`; calls `build_source_outline`, `title_from_file_name`, `title_from_local_uri`
+- [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `APPEND_INPUT_OVER_CEILING`
 - [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] — imports `JobOwnershipLost`
 - [[Reference/Modules/learnloop/db/stores/judgments|learnloop.db.stores.judgments]] — imports `append_judgment`; calls `append_judgment`
 - [[Reference/Modules/learnloop/db/stores/source_block_fts|learnloop.db.stores.source_block_fts]] — imports `extraction_units`; calls `extraction_units`
@@ -378,6 +379,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_read_again_with_text_recognition_uses_glm_when_it_can`
   - `test_the_daily_gate_prices_glm_receipts_and_local_runs_cost_nothing`
 - [tests/test_keep_ahead_append_units.py](../../../../../../../tests/test_keep_ahead_append_units.py) — direct import
+  - `test_an_append_over_its_input_ceiling_fails_once_and_the_card_says_so`
   - `test_the_second_build_appends_only_its_own_chapter`
 - [tests/test_keep_local_retired.py](../../../../../../../tests/test_keep_local_retired.py) — direct import
   - `test_a_book_carrying_the_retired_choice_gets_its_questions_built`

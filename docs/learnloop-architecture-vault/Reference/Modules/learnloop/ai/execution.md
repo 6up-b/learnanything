@@ -129,6 +129,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/content/proposals/method_statement_judge|learnloop.content.proposals.method_statement_judge]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] — imports `observe_model_calls`; statically calls `observe_model_calls`
+- [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `generation_limit`, `model_settings`; statically calls `generation_limit`, `model_settings`
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `content_key`, `declared_budgets`, `generation_limit`, `model_settings`; statically calls `content_key`, `declared_budgets`, `generation_limit`, `model_settings`
 - [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `content_key`, `generation_limit`, `model_settings`; statically calls `content_key`, `generation_limit`, `model_settings`
 - [[Reference/Modules/learnloop/curriculum/subject_registry|learnloop.curriculum.subject_registry]] — imports `content_key`; statically calls `content_key`
@@ -247,7 +248,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 123 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 124 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -414,6 +415,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_closed_contexts_job_has_its_next_physical_request_refused`
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — direct import
   - `test_model_call_receipts_are_owned_by_the_normalized_submission_key`
+- [tests/test_source_append.py](../../../../../../tests/test_source_append.py) — direct import
+  - `test_the_append_call_runs_under_its_output_limit`
 - [tests/test_source_service_spend_accounting.py](../../../../../../tests/test_source_service_spend_accounting.py) — direct import
   - `test_a_finished_request_counts_its_reported_cost_once`
   - `test_a_released_reservation_cannot_start_its_request`

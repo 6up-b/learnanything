@@ -154,12 +154,12 @@ Indexes and uniqueness:
 - `tests/test_reader_rw3b_protection.py`
 - `tests/test_route_rules_in_grader.py`
 - `tests/test_sim_teach_back.py`
+- `tests/test_source_append.py`
 - `tests/test_source_ingestion.py`
 - `tests/test_stuck_prompt.py`
 - `tests/test_synthesis_manifests.py`
 - `tests/test_teach_back.py`
 - `tests/apply_write_ahead_helpers.py`
-- `tests/facet_authority_helpers.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

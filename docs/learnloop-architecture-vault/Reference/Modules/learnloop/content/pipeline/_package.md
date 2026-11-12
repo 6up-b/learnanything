@@ -79,9 +79,9 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 11 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 9 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 8 static module edges
+- [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 8 static module edges
 - [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] — 8 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 7 static module edges
-- [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 7 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 7 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 6 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 4 static module edges
