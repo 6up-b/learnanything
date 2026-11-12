@@ -7,14 +7,13 @@ Branch `refactor/m0-structure-ratchets`, based on main `16a9e3fd48`. Proposed in
 ## What it adds
 
 - `scripts/refactor_measures.py`: a `structure` group (JSON key `computed.structure`, a "Structure" table in the
-  Markdown). One parse per file feeds both the old counts and the new ones; files are swept in up to 8 processes.
+  Markdown). One parse per file feeds both the old counts and the new ones. The command-line run sweeps files in up to 8 processes with the full `python_facts`; the test's `structure_sweep()` is serial and lean (see Runtime).
   The existing `computed` values are byte-identical to before (checked by diffing the JSON of the old and new script).
 - `tests/goldens/structure.toml` and `tests/test_structure_ratchets.py`: a ratchet on measures a, b, d (three numbers),
   e, f and g. `python tests/test_structure_ratchets.py --write` regenerates the golden.
 - The test loads the script by path (`importlib.util.spec_from_file_location`, as `test_refactor_measures.py`,
   `test_affected_tests.py`, `test_table_review.py` and `test_vault_report.py` already do). The script imports nothing
-  from `tests/`, and the test imports nothing from `learnloop`: it reads tracked source. The one wrinkle: worker
-  processes find `file_record` by module name, so the test registers the module in `sys.modules` before running it.
+  from `tests/`, and the test imports nothing from `learnloop`: it reads tracked source.
 - `CLAUDE.md` is not edited: its "## Commands" block has no line for the identity pins or the effective-defaults
   golden (both are only described under "## Tests"), so there is no pattern to mirror.
 
@@ -103,16 +102,22 @@ structure ratchet 'first_level_root_modules_not_upgrade' rose: root modules in s
 Two ways out: ... (same sentence)
 ```
 
-`test_the_failure_message_names_what_is_new` checks the message format without the sweep.
+`test_the_failure_message_names_what_is_new` checks the message format without the sweep. The import-cycle proof was rerun on the serial path after the change and names `learnloop.adaptive_difficulty.zz_probe_cycle` again.
 
 ## Runtime
 
-- `tests/test_structure_ratchets.py`: 2.4 s for the sweep test on this 32-core desktop (4 tests in the two measure test
-  files in 2.6 s). The sweep is 17 s of parsing and tokenizing on one core, so the test depends on the process pool: on
-  a 4-core machine expect about 5 s, and under `-n 8` with other tests running it will be slower than that. See the
-  open question.
-- `scripts/refactor_measures.py` end to end (no `--timed`): 14.2 s before, 8.4 s after, because the existing sweep now
-  shares the pool as well as the parse.
+- The test runs inside pytest-xdist workers in the landing gate, so its path starts no processes. `structure_sweep()`
+  is serial: one `ast.parse` per file, the import and clock visitor, the long-function scan, and tokenizing only the
+  files whose raw text matches `STAGE_COMMENT` anywhere (a file that never matches has no stage comment). It skips
+  `python_facts`' other token-level counts. Its numbers equal the full run's (the JSON `computed.structure` of the
+  command-line run is unchanged, and the golden did not move on `--write`).
+- Serial wall time of `test_no_structure_number_rose_above_the_golden`: 6.6 s alone; 7.7 s inside `-n 4` with three
+  other test files (`test_architecture`, `test_test_layout`, `test_effective_defaults_golden`), on this 32-core desktop.
+  That is over the brief's 5 s and inside the relaxed 8 s; I added no further machinery.
+- `scripts/refactor_measures.py` end to end keeps the process pool and the full `python_facts` (8.4 s, against 14.2 s
+  before M0).
+- A ratchet key missing from the golden's `[ratchet]` fails with a message saying so (it used to pass silently);
+  `test_a_ratchet_key_missing_from_the_golden_fails` covers it.
 
 ## Open questions
 

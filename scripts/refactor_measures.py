@@ -552,23 +552,46 @@ def reachable(roots: list[str], edges: dict[str, set[str]]) -> set[str]:
     return seen
 
 
-def file_record(path: Path, modules: frozenset[str]) -> dict:
-    """Everything the sweep needs from one src file, from one parse: its ``python_facts``, import edges and clock reads."""
+def lean_facts(text: str, tree: ast.AST) -> dict:
+    """The few ``python_facts`` the ratchets read, without tokenizing every file: raw lines, long functions, and the
+    stage-artifact comments. A file whose text never matches ``STAGE_COMMENT`` has none, so only the rest are tokenized."""
+
+    facts = {"raw": text.count("\n") + (0 if text.endswith("\n") or not text else 1), "long_functions": [],
+             "comments": None, "stage_comments": 0}
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            length = (node.end_lineno or node.lineno) - node.lineno + 1
+            if length > 100:
+                facts["long_functions"].append((node.name, node.lineno, length))
+    if STAGE_COMMENT.search(text):
+        try:
+            for tok in tokenize.generate_tokens(io.StringIO(text).readline):
+                if tok.type == tokenize.COMMENT and STAGE_COMMENT.search(NOQA.sub("", tok.string)):
+                    facts["stage_comments"] += 1
+        except (tokenize.TokenError, SyntaxError):
+            pass
+    return facts
+
+
+def file_record(path: Path, modules: frozenset[str], lean: bool = False) -> dict:
+    """Everything the sweep needs from one src file, from one parse: its facts, import edges and clock reads."""
 
     text = read(path)
     tree = ast.parse(text)
     visitor = _Imports(module_name(path), path.name == "__init__.py", modules)
     visitor.visit(tree)
-    return {"facts": python_facts(path, text, tree), "top": visitor.top, "local": visitor.local, "clock": visitor.clock}
+    facts = lean_facts(text, tree) if lean else python_facts(path, text, tree)
+    return {"facts": facts, "top": visitor.top, "local": visitor.local, "clock": visitor.clock}
 
 
-def sweep_files(src_files: list[Path]) -> dict[Path, dict]:
-    """``file_record`` for every file, across processes: parsing and tokenizing 1,300 files is ~17 s on one core."""
+def sweep_files(src_files: list[Path], parallel: bool = True) -> dict[Path, dict]:
+    """``file_record`` for every file. The command-line run spreads the full ``python_facts`` over up to 8 processes
+    (parsing and tokenizing 1,300 files is ~17 s on one core); the test calls ``structure_sweep`` for the serial lean path."""
 
     modules = frozenset(module_name(p) for p in src_files)
     workers = max(1, min(8, os.cpu_count() or 1))
-    if workers == 1:
-        return {p: file_record(p, modules) for p in src_files}
+    if not parallel or workers == 1:
+        return {p: file_record(p, modules, lean=not parallel) for p in src_files}
     with ProcessPoolExecutor(max_workers=workers) as pool:
         return dict(zip(src_files, pool.map(file_record, src_files, [modules] * len(src_files), chunksize=16), strict=True))
 
@@ -636,7 +659,8 @@ def structure(src_files: list[Path], records: dict[Path, dict]) -> dict:
         },
         "functions_over_200_lines": over_200,
         "stage_comments": {
-            "comment_lines": sum(f["comments"] for f in file_facts.values()),
+            "comment_lines": None if any(f["comments"] is None for f in file_facts.values())
+            else sum(f["comments"] for f in file_facts.values()),
             "naming_a_stage_artifact": sum(stage_by_file.values()), "by_file": stage_by_file,
             "regex": STAGE_COMMENT.pattern,
         },
@@ -659,10 +683,11 @@ def structure(src_files: list[Path], records: dict[Path, dict]) -> dict:
 
 
 def structure_sweep() -> dict:
-    """``structure`` over the tracked src files, parsing each once (the test calls this and imports no learnloop)."""
+    """``structure`` over the tracked src files, serial and lean: one parse each, tokenizing only files that may hold a
+    stage comment. The test calls this (inside xdist workers, so no processes) and imports no learnloop."""
 
     src_files = tracked(*PACKAGES, suffix=".py")
-    return structure(src_files, sweep_files(src_files))
+    return structure(src_files, sweep_files(src_files, parallel=False))
 
 
 # -- the computed sweep --------------------------------------------------------

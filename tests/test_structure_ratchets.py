@@ -34,8 +34,6 @@ HEADER = (
 def _measures():
     spec = importlib.util.spec_from_file_location("refactor_measures", ROOT / "scripts" / "refactor_measures.py")
     module = importlib.util.module_from_spec(spec)
-    # The sweep runs in worker processes, which find its functions by module name.
-    sys.modules["refactor_measures"] = module
     spec.loader.exec_module(module)
     return module
 
@@ -111,7 +109,11 @@ def failures(now: dict[str, Any], golden: dict[str, Any]) -> list[str]:
     messages = []
     for key, value in now["ratchet"].items():
         held = golden["ratchet"].get(key)
-        if held is None or value <= held:
+        if held is None:
+            messages.append(f"structure ratchet '{key}' has no line in [ratchet] of tests/goldens/structure.toml, so "
+                            f"nothing holds it (now {value}); restore the line ({REGENERATE}).")
+            continue
+        if value <= held:
             continue
         what, _members, verb = EXPLAIN[key]
         new = _new(key, now, golden)
@@ -145,6 +147,14 @@ def test_the_failure_message_names_what_is_new() -> None:
     assert "'largest_import_component' rose" in text and "is 3, the golden holds 2" in text
     assert "joined the component:\n    c" in text and "src/m.py big" in text
     assert "first_level_root_modules" not in text and "--write" in text
+
+
+def test_a_ratchet_key_missing_from_the_golden_fails() -> None:
+    golden = {"ratchet": {}, "members": {}, "stage_comments_by_file": {}}
+    now = {"ratchet": {"functions_over_200_lines": 0}, "members": {"functions_over_200_lines": []},
+           "stage_comments_by_file": {}}
+    text = "\n".join(failures(now, golden))
+    assert "'functions_over_200_lines' has no line" in text
 
 
 def write() -> None:
