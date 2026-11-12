@@ -225,6 +225,8 @@ def _contract(copies, monkeypatch) -> None:
         seen["forecasts"]
     assert seen["worker"] == [["completed", SERVE_COMMISSION]] and seen["worker_generation"], seen["worker"]
     assert "no active learning objects in scope" in seen.get("goal_protected_error", ""), seen.get("goal_protected_error")
+    # D-7: the refusal names held-out exam material, the same in both copies (compared above).
+    assert "(material held out for an exam does not count)" in seen["goal_protected_error"]
     # Meaningful outcomes, pinned (fix round 13, F42): an emptied or degenerate stage fails here.
     cells = {(cell["facet"], cell["capability"]): cell for cell in seen["readiness"]["cells"]}
     assert set(cells) == {("apply_pub", "retrieval"), ("recall", "retrieval")} and seen["readiness"]["predicted"]
@@ -718,7 +720,9 @@ def test_an_empty_support_draw_of_a_protected_slot_leaves_the_report_cohort(copi
 def test_a_goal_over_a_facet_only_a_protected_item_measures_has_no_scope(copies, monkeypatch):
     """F37: the goal names only the protected-only facet. Its scope is resolved on the vault AD's view
     sees, before planning, so no LO enters the plan (failed before: the protected item's facet put
-    the LO in scope and the plan generated for it)."""
+    the LO in scope and the plan generated for it). The refusal names held-out exam material as the
+    rule that empties such a scope (refactor bug ledger D-7: it said only "no active learning objects
+    in scope"); the contract test above pins that it reads the same when the material is absent."""
 
     from learnloop.content.authoring.practice_generation import PracticeExpansionError, build_goal_practice_plan
 
@@ -726,8 +730,12 @@ def test_a_goal_over_a_facet_only_a_protected_item_measures_has_no_scope(copies,
     _hold_out(monkeypatch)
     vault = load_vault(protected.root)
     goal = next(goal for goal in vault.goals if goal.id == GOAL_PROTECTED)
-    with pytest.raises(PracticeExpansionError, match="no active learning objects in scope"):
+    with pytest.raises(PracticeExpansionError, match="no active learning objects in scope") as refused:
         build_goal_practice_plan(vault, Repository(protected.sqlite_path), goal)
+    assert str(refused.value) == (
+        f"Goal {GOAL_PROTECTED} has no active learning objects in scope: no practice material measures its "
+        "concepts or facets (material held out for an exam does not count)."
+    )
 
 
 def test_the_replay_cache_never_serves_a_snapshot_across_a_protection_change(copies, monkeypatch):
