@@ -1,0 +1,1057 @@
+# What the structure ratchets hold the tree to (tests/test_structure_ratchets.py), from scripts/refactor_measures.py.
+# [ratchet] is the gate: a number above it fails. [members] and [stage_comments_by_file] only let a failure name
+# what is new. Generated; do not edit by hand. Lower it at an arc close; raise it only in the commit that must,
+# with the reason in the message: uv run python tests/test_structure_ratchets.py --write
+
+
+[ratchet]
+largest_import_component = 189
+modules_in_an_import_cycle = 286
+first_level_packages = 46
+first_level_root_modules = 78
+first_level_root_modules_not_upgrade = 34
+functions_over_200_lines = 83
+comment_lines_naming_a_stage_artifact = 2424
+test_files_named_for_a_stage = 185
+
+[members]
+import_component = [
+    "learnloop.adaptive_difficulty.claims",
+    "learnloop.adaptive_difficulty.dose",
+    "learnloop.adaptive_difficulty.feature_audit",
+    "learnloop.adaptive_difficulty.forecasters",
+    "learnloop.adaptive_difficulty.generation",
+    "learnloop.adaptive_difficulty.material_view",
+    "learnloop.adaptive_difficulty.operation",
+    "learnloop.adaptive_difficulty.predict",
+    "learnloop.adaptive_difficulty.projection",
+    "learnloop.adaptive_difficulty.protection",
+    "learnloop.adaptive_difficulty.reading",
+    "learnloop.adaptive_difficulty.relatedness",
+    "learnloop.adaptive_difficulty.replay",
+    "learnloop.adaptive_difficulty.selection",
+    "learnloop.adaptive_difficulty.sending",
+    "learnloop.adaptive_difficulty.serve_inputs",
+    "learnloop.adaptive_difficulty.serving",
+    "learnloop.attempts.attempts",
+    "learnloop.attempts.blind_grading",
+    "learnloop.attempts.clarification",
+    "learnloop.attempts.coldness_receipt",
+    "learnloop.attempts.effective_observation",
+    "learnloop.attempts.grade_resolution",
+    "learnloop.attempts.grader_calibration",
+    "learnloop.attempts.grading",
+    "learnloop.attempts.grading_support",
+    "learnloop.attempts.outcome_schemas",
+    "learnloop.attempts.regrade",
+    "learnloop.attempts.reveal_ledger",
+    "learnloop.confidence_events",
+    "learnloop.content.authoring.authoring_gates",
+    "learnloop.content.authoring.contract_commissioning",
+    "learnloop.content.authoring.persona_gate",
+    "learnloop.content.authoring.practice_generation",
+    "learnloop.content.authoring.practice_leakage",
+    "learnloop.content.facet_identity.actions",
+    "learnloop.content.facet_identity.authority",
+    "learnloop.content.facet_identity.span_support",
+    "learnloop.content.proposals.apply_protocol",
+    "learnloop.content.proposals.method_phrasing",
+    "learnloop.content.proposals.method_statement_judge",
+    "learnloop.content.proposals.patches",
+    "learnloop.content.proposals.proposals",
+    "learnloop.content.proposals.required_method_override",
+    "learnloop.curriculum.commitments",
+    "learnloop.curriculum.depth_rungs",
+    "learnloop.curriculum.depth_transition",
+    "learnloop.diagnosis.calibration_sessions",
+    "learnloop.diagnosis.causal_activity_policy",
+    "learnloop.diagnosis.causal_attribution",
+    "learnloop.diagnosis.causal_diagnostic_selector",
+    "learnloop.diagnosis.causal_orchestrator",
+    "learnloop.diagnosis.causal_probe_coherence",
+    "learnloop.diagnosis.contrast_pairs",
+    "learnloop.diagnosis.diagnosis_adjudication",
+    "learnloop.diagnosis.diagnostic_augmentation",
+    "learnloop.diagnosis.diagnostic_surface_supply",
+    "learnloop.diagnosis.discrimination_profiles",
+    "learnloop.diagnosis.error_hunt",
+    "learnloop.diagnosis.error_taxonomy",
+    "learnloop.diagnosis.followups",
+    "learnloop.diagnosis.forecast_receipts",
+    "learnloop.diagnosis.guided_redo",
+    "learnloop.diagnosis.misconceptions",
+    "learnloop.diagnosis.missing_vocabulary",
+    "learnloop.diagnosis.offline_review.decider_links",
+    "learnloop.diagnosis.offline_review.judge",
+    "learnloop.diagnosis.offline_review.planted",
+    "learnloop.diagnosis.offline_review.probes",
+    "learnloop.diagnosis.offline_review.runner",
+    "learnloop.diagnosis.predictive_eig",
+    "learnloop.diagnosis.probe_blocks",
+    "learnloop.diagnosis.probe_episodes",
+    "learnloop.diagnosis.probe_families",
+    "learnloop.diagnosis.probe_hypotheses",
+    "learnloop.diagnosis.probe_instance_generation",
+    "learnloop.diagnosis.probe_outcome_mapping",
+    "learnloop.diagnosis.probe_robust",
+    "learnloop.diagnosis.probe_targeting",
+    "learnloop.diagnosis.probes",
+    "learnloop.diagnosis.recurrence.backlog",
+    "learnloop.diagnosis.recurrence.escalation",
+    "learnloop.diagnosis.recurrence.guard",
+    "learnloop.diagnosis.recurrence.judging",
+    "learnloop.diagnosis.recurrence.kind",
+    "learnloop.diagnosis.recurrence.live",
+    "learnloop.diagnosis.remediation",
+    "learnloop.diagnosis.repair_splice",
+    "learnloop.diagnosis.robust_composition",
+    "learnloop.diagnosis.scoreboard",
+    "learnloop.diagnosis.split.context",
+    "learnloop.diagnosis.split.contract",
+    "learnloop.diagnosis.split.diagnoser",
+    "learnloop.diagnosis.split.embeddings",
+    "learnloop.diagnosis.split.figure_trace",
+    "learnloop.diagnosis.split.history",
+    "learnloop.diagnosis.split.jobs",
+    "learnloop.diagnosis.split.live",
+    "learnloop.diagnosis.split.retrieval",
+    "learnloop.diagnosis.split.snapshot",
+    "learnloop.diagnosis.split.validation",
+    "learnloop.diagnosis.text_gaps.actions",
+    "learnloop.diagnosis.text_gaps.candidates",
+    "learnloop.diagnosis.text_gaps.jobs",
+    "learnloop.diagnosis.text_gaps.judges",
+    "learnloop.diagnosis.text_gaps.kinds",
+    "learnloop.diagnosis.text_gaps.pipeline",
+    "learnloop.diagnosis.text_gaps.provenance",
+    "learnloop.diagnosis.text_gaps.sources",
+    "learnloop.diagnosis.text_gaps.tier1",
+    "learnloop.diagnosis.voi_forecasting",
+    "learnloop.diagnosis.voi_stopping",
+    "learnloop.field.outcomes",
+    "learnloop.goals.certification_cold_probe",
+    "learnloop.goals.exam_pool",
+    "learnloop.goals.goal_certification",
+    "learnloop.goals.goal_contracts",
+    "learnloop.goals.goal_lo",
+    "learnloop.goals.goal_projection",
+    "learnloop.goals.goal_series",
+    "learnloop.goals.use_weights",
+    "learnloop.hints.map_builder",
+    "learnloop.hints.map_seeds",
+    "learnloop.hints.maps",
+    "learnloop.intent.control",
+    "learnloop.learner.assessment_contracts",
+    "learnloop.learner.facet_diagnostics",
+    "learnloop.learner.facet_evidence_timeline",
+    "learnloop.learner.facet_state_reader",
+    "learnloop.learner.recall_coverage",
+    "learnloop.learner_protection",
+    "learnloop.params.parameter_registry",
+    "learnloop.params.sensitivity_certificates",
+    "learnloop.placement.decisions",
+    "learnloop.placement.signals",
+    "learnloop.placement.state",
+    "learnloop.reader.reader_dialogue",
+    "learnloop.reader.reader_observations",
+    "learnloop.reader.reader_progression",
+    "learnloop.reader.recap",
+    "learnloop.reader.workbench",
+    "learnloop.scheduling.action_loss",
+    "learnloop.scheduling.constraint_engine",
+    "learnloop.scheduling.controller_ownership",
+    "learnloop.scheduling.controller_snapshot",
+    "learnloop.scheduling.controller_store",
+    "learnloop.scheduling.evsi",
+    "learnloop.scheduling.frame_constraints",
+    "learnloop.scheduling.intent.feasibility",
+    "learnloop.scheduling.intent.recall_targets",
+    "learnloop.scheduling.intent.serving",
+    "learnloop.scheduling.randomization_layer",
+    "learnloop.scheduling.review_log",
+    "learnloop.scheduling.scheduler",
+    "learnloop.scheduling.selection_rewards",
+    "learnloop.scheduling.serving_exclusions",
+    "learnloop.scheduling.shadow_components",
+    "learnloop.scheduling.staged_policy",
+    "learnloop.scheduling.unresolved_cost",
+    "learnloop.scheduling.voi_forecasts",
+    "learnloop.sim.grader_confusion",
+    "learnloop.sim.metrics",
+    "learnloop.sim.runner",
+    "learnloop.sim.sweep",
+    "learnloop.source_retrieval.compare",
+    "learnloop.source_retrieval.deliverable_path",
+    "learnloop.source_retrieval.deliverables",
+    "learnloop.source_retrieval.find_sources",
+    "learnloop.source_retrieval.kept_comparisons",
+    "learnloop.source_retrieval.library_ask",
+    "learnloop.source_retrieval.note_gaps",
+    "learnloop.source_retrieval.note_links",
+    "learnloop.source_retrieval.reader_tutor",
+    "learnloop.source_retrieval.reading_paths",
+    "learnloop.source_retrieval.section_coverage",
+    "learnloop.source_retrieval.tutor",
+    "learnloop.source_retrieval.vault_notes",
+    "learnloop.substrate.activities",
+    "learnloop.substrate.activity_patterns",
+    "learnloop.substrate.administration_adapters",
+    "learnloop.substrate.canonical_projection",
+    "learnloop.substrate.replay",
+    "learnloop.substrate.state_sync",
+    "learnloop.tutor.durable_promotion",
+    "learnloop.tutor.promotions",
+    "learnloop.tutor.question_signal",
+    "learnloop.tutor.reader_modes",
+    "learnloop.tutor.teach_back",
+    "learnloop.tutor.tutor_qa",
+]
+root_modules = [
+    "activation_journal",
+    "ad_successor_upgrade",
+    "adf_numeric",
+    "algorithm_versions",
+    "app_launch",
+    "attempt_content_state_upgrade",
+    "attempt_types",
+    "bootstrap",
+    "causal_activity_policy",
+    "claim_fixes_upgrade",
+    "clock",
+    "cold_retry_reschedule_upgrade",
+    "confidence_events",
+    "daily_plan_upgrade",
+    "data_capture_upgrade",
+    "decider_judgments",
+    "decider_upgrade",
+    "delayed_checks",
+    "delayed_completion",
+    "deliverable_plan_upgrade",
+    "eligibility_decision_upgrade",
+    "failure_share_upgrade",
+    "figure_admission",
+    "figure_wait_upgrade",
+    "followup_serve_upgrade",
+    "grading_epochs",
+    "held_grades",
+    "help_fold_attach_upgrade",
+    "hint_window",
+    "ids",
+    "intent_upgrade",
+    "interval_factor_upgrade",
+    "learner_context",
+    "learner_protection",
+    "learner_text_gap_upgrade",
+    "lesson_offers_upgrade",
+    "lesson_opportunity_upgrade",
+    "lesson_suggestions_upgrade",
+    "method_explicit_upgrade",
+    "migration_coordinator",
+    "numeric",
+    "one_ask_upgrade",
+    "outcome_contract",
+    "phone_probes_upgrade",
+    "probe_tie_upgrade",
+    "proof_check_upgrade",
+    "provenance",
+    "reader_followups_upgrade",
+    "reader_learner_state",
+    "reading_path_plan_upgrade",
+    "reading_sources",
+    "recurrence",
+    "refusal_records",
+    "regrade_contract_upgrade",
+    "replay_ledger_upgrade",
+    "reveal_coverage",
+    "route_rules_upgrade",
+    "router_calibration_upgrade",
+    "router_followups_upgrade",
+    "router_learned_tail_upgrade",
+    "router_mixture_upgrade",
+    "router_objective_switches",
+    "router_objective_upgrade",
+    "router_staged_upgrade",
+    "section_map",
+    "serve_eligibility",
+    "slip_gap_upgrade",
+    "sources_upgrade",
+    "stuck_prompt_upgrade",
+    "superseded_claims_upgrade",
+    "symbolic_view",
+    "teacher_probes_upgrade",
+    "teacher_upgrade",
+    "text_canon",
+    "unevidenced_return_upgrade",
+    "vault_lock",
+    "voi_stopping_upgrade",
+    "workbench_field_signals_upgrade",
+]
+functions_over_200_lines = [
+    "src/learnloop/adaptive_difficulty/replay.py load_events",
+    "src/learnloop/attempts/attempts.py _apply_attempt_in_transaction",
+    "src/learnloop/attempts/attempts.py _compute_resolved_grade_application",
+    "src/learnloop/attempts/attempts.py graded_reference_contents",
+    "src/learnloop/attempts/coldness_receipt.py _scan_exposures",
+    "src/learnloop/attempts/grade_resolution.py resolve_grade",
+    "src/learnloop/attempts/grading.py validate_codex_grading_proposal",
+    "src/learnloop/attempts/regrade.py _publish_regrade",
+    "src/learnloop/attempts/regrade.py regrade_attempt",
+    "src/learnloop/cli/app.py attempt",
+    "src/learnloop/cli/app.py upgrade",
+    "src/learnloop/content/authoring/concept_animation.py generate_concept_animation",
+    "src/learnloop/content/authoring/exercise_authoring.py author_exercises",
+    "src/learnloop/content/authoring/practice_generation.py build_practice_expansion_plan",
+    "src/learnloop/content/authoring/rung_variants.py generate_rung_variant",
+    "src/learnloop/content/authoring/source_exercise_import.py _import_source_exercise",
+    "src/learnloop/content/pipeline/jobs.py handle_inventory",
+    "src/learnloop/content/pipeline/source_ingestion.py ingest_canonical_source",
+    "src/learnloop/content/synthesis/source_append.py _append",
+    "src/learnloop/content/synthesis/source_append.py _normalize_append",
+    "src/learnloop/content/synthesis/source_set_synthesis.py _create_study_map",
+    "src/learnloop/content/synthesis/source_set_synthesis.py _normalize",
+    "src/learnloop/daily_plan/engine.py _boundary",
+    "src/learnloop/daily_plan/engine.py advance_with_context",
+    "src/learnloop/daily_plan/objective_chooser.py run_numeric",
+    "src/learnloop/daily_plan/objective_inputs.py build",
+    "src/learnloop/db/repositories.py confirm_golden_path_atomic",
+    "src/learnloop/diagnosis/causal_attribution.py _hypothesis_specs",
+    "src/learnloop/diagnosis/causal_attribution.py claim_checked_feedback",
+    "src/learnloop/diagnosis/causal_attribution.py materialize_causal_episode",
+    "src/learnloop/diagnosis/causal_attribution.py record_unresolved_cause_self_report",
+    "src/learnloop/diagnosis/causal_attribution.py select_minimal_repair",
+    "src/learnloop/diagnosis/causal_diagnostic_selector.py record_shadow_selection",
+    "src/learnloop/diagnosis/causal_orchestrator.py _accept_probe_offer",
+    "src/learnloop/diagnosis/causal_orchestrator.py _status_for_factor",
+    "src/learnloop/diagnosis/causal_probe_commissioning.py commission_probe_instrument",
+    "src/learnloop/diagnosis/followups.py _choose_intervention_item",
+    "src/learnloop/diagnosis/followups.py evaluate_intervention_followup",
+    "src/learnloop/diagnosis/grading_hardcases.py run_hardcases",
+    "src/learnloop/diagnosis/probe_episodes.py _record_presentation_observation",
+    "src/learnloop/diagnosis/remediation.py record_remediation_attempt",
+    "src/learnloop/diagnosis/remediation.py reschedule_assisted_cold_retry",
+    "src/learnloop/diagnosis/split/context.py assemble_diagnosis_context",
+    "src/learnloop/diagnosis/split/history.py _load",
+    "src/learnloop/diagnosis/split/jobs.py _diagnose",
+    "src/learnloop/diagnosis/split/validation.py validate_diagnosis_proposal",
+    "src/learnloop/diagnosis/voi_stopping.py value_candidates",
+    "src/learnloop/evsi_calibration/experiments.py run_experiments",
+    "src/learnloop/evsi_calibration/multifamily.py analyze",
+    "src/learnloop/experiments/contextual_embeddings/paid.py run_paid",
+    "src/learnloop/field/evaluation.py evaluate",
+    "src/learnloop/field/outcomes.py _load",
+    "src/learnloop/field/probability_prep.py prepare_judge",
+    "src/learnloop/field/signals.py derive_interaction_signals",
+    "src/learnloop/figures/service.py _author_attempts_and_store",
+    "src/learnloop/goals/certification_cold_probe.py schedule_certification_cold_probes",
+    "src/learnloop/hints/report.py build_hints_report",
+    "src/learnloop/learner/facet_evidence_timeline.py _observation_events_by_facet",
+    "src/learnloop/ops/contamination/report.py contamination_report",
+    "src/learnloop/ops/embedding_backfill.py backfill_embeddings",
+    "src/learnloop/ops/family_proposals.py propose_families",
+    "src/learnloop/placement/report.py placement_report",
+    "src/learnloop/placement/state.py load_miss_verdicts",
+    "src/learnloop/practice_index/retrieval.py find_practice",
+    "src/learnloop/reader/reader_dialogue.py ask",
+    "src/learnloop/reader/reader_report.py build_reader_report",
+    "src/learnloop/router/decisions.py build_today_offer_decision",
+    "src/learnloop/router/outcomes.py derive_router_outcomes",
+    "src/learnloop/router/plan_log.py build_plan_block_decision",
+    "src/learnloop/scheduling/scheduler.py build_due_queue",
+    "src/learnloop/scheduling/staged_policy.py decide",
+    "src/learnloop/source_retrieval/compare.py _compare_sources",
+    "src/learnloop/source_retrieval/evaluation.py run",
+    "src/learnloop/source_retrieval/find_sources.py find_sources",
+    "src/learnloop/source_retrieval/query_student.py evaluate",
+    "src/learnloop/source_retrieval/search.py search_spans",
+    "src/learnloop/substrate/canonical_projection.py project_canonical_facet_state",
+    "src/learnloop/substrate/compat/activity_backfill.py backfill_activity_substrate",
+    "src/learnloop/tutor/tutor_qa.py ask_question",
+    "src/learnloop/workbench/help_outcomes.py help_outcomes",
+    "src/learnloop_sidecar/handlers/knowledge_map.py _facet_field",
+    "src/learnloop_sidecar/handlers/practice.py submit_attempt_on",
+    "src/learnloop_sidecar/handlers/serializers.py feedback_bundle",
+]
+stage_test_files = [
+    "test_ad1_codex_rereview_fixes.py",
+    "test_ad1_codex_review_fixes.py",
+    "test_ad1_fix_round4.py",
+    "test_ad1_fix_round5.py",
+    "test_ad1_fix_round6.py",
+    "test_ad1_fix_round7.py",
+    "test_ad1_fix_round8.py",
+    "test_ad1_fix_round9.py",
+    "test_ad23_fix_r5.py",
+    "test_ad23_fix_r6.py",
+    "test_ad23_fix_r7.py",
+    "test_ad23_fix_r8.py",
+    "test_ad23_fix_r9.py",
+    "test_arcb_close_fixes.py",
+    "test_batch3_landing.py",
+    "test_chatgpt_plan_landing.py",
+    "test_curriculum_c0b_landing.py",
+    "test_curriculum_c1_codex_review_fixes.py",
+    "test_curriculum_c1_fix_round2.py",
+    "test_curriculum_c1_fix_round3.py",
+    "test_curriculum_c1_fix_round4.py",
+    "test_curriculum_c1_fix_round5.py",
+    "test_curriculum_c1_landing.py",
+    "test_curriculum_c1_round5_followups.py",
+    "test_curriculum_c3_codex_review.py",
+    "test_daily_plan_review_regressions.py",
+    "test_data_capture_codex_rereview.py",
+    "test_data_capture_codex_review.py",
+    "test_data_capture_landing_review.py",
+    "test_decider_landing.py",
+    "test_deliverable_codex_review.py",
+    "test_diagnosis_input_provenance_landing.py",
+    "test_e0_relabel_round.py",
+    "test_e0_review_round1.py",
+    "test_e0_review_round2.py",
+    "test_e0_review_round3.py",
+    "test_e0_review_round4.py",
+    "test_e0_review_round4_followup.py",
+    "test_e0_review_round5.py",
+    "test_e0_review_round6.py",
+    "test_e0_review_round7.py",
+    "test_e0_review_round8.py",
+    "test_exam_protection_landing.py",
+    "test_facet_authority_rereview.py",
+    "test_facet_locks_landing.py",
+    "test_figure_rich_rereview_fixes.py",
+    "test_figure_rich_review_fixes.py",
+    "test_figures_codex_review.py",
+    "test_figures_final_round.py",
+    "test_figures_fix_round2.py",
+    "test_figures_fix_round3.py",
+    "test_figures_fix_round4.py",
+    "test_figures_fix_round5.py",
+    "test_figures_help_codex_review.py",
+    "test_figures_prefetch_review_fixes.py",
+    "test_figures_rw5b_fix_round2.py",
+    "test_figures_show_me_codex_review.py",
+    "test_followup_codex_review.py",
+    "test_followup_fg1c_codex_review.py",
+    "test_followup_fg1c_r1_exposure_independence.py",
+    "test_followups_batch6_review_fixes.py",
+    "test_followups_batch6_verify_fixes.py",
+    "test_forecast_receipts_landing.py",
+    "test_hint_authored_reveal_ruling.py",
+    "test_hint_h2a_review_round2.py",
+    "test_hint_h2a_review_round3.py",
+    "test_hint_h2a_review_round4.py",
+    "test_hint_h2b_fix3.py",
+    "test_hint_h2b_fix4.py",
+    "test_hint_h2b_rereview.py",
+    "test_intent_codex_rereview.py",
+    "test_intent_codex_review.py",
+    "test_intent_fix_round4.py",
+    "test_intent_fix_round5.py",
+    "test_intent_fix_round6.py",
+    "test_intent_fix_round7.py",
+    "test_intent_orchestrator_rulings.py",
+    "test_learner_blindness_relax_codex_review.py",
+    "test_learner_text_gaps_rereview.py",
+    "test_lp_claim_fixes.py",
+    "test_lp_claim_fixes_rereview.py",
+    "test_mcp_c1a_landing.py",
+    "test_method_explicit_landing.py",
+    "test_mobile_v2_landing_fixes.py",
+    "test_mobile_v2_rereview_fixes.py",
+    "test_mobile_v2_review_fixes.py",
+    "test_mobile_v3_codex_review.py",
+    "test_mobile_v4_codex_review.py",
+    "test_notes_c2b_review5.py",
+    "test_plan_determinism_landing.py",
+    "test_plan_first_transport_offer_grants_r5.py",
+    "test_pr4_superseded_claims_landing.py",
+    "test_rbeq_pr2_landing.py",
+    "test_reader_ca1_astra_codex_review.py",
+    "test_reader_ca1_astra_fixes.py",
+    "test_reader_ca1_astra_rereview.py",
+    "test_reader_ca1_codex_review.py",
+    "test_reader_ca2_codex_rereview.py",
+    "test_reader_ca2_codex_review.py",
+    "test_reader_ca3_codex_rereview.py",
+    "test_reader_ca3_codex_review.py",
+    "test_reader_ca3_codex_round3.py",
+    "test_reader_ca3_landing_ca5a.py",
+    "test_reader_ca4_landing.py",
+    "test_reader_ca5_landing.py",
+    "test_reader_followups_rereview.py",
+    "test_reader_followups_round3.py",
+    "test_reader_followups_round4.py",
+    "test_reader_followups_round5.py",
+    "test_reader_followups_round6.py",
+    "test_reader_followups_round7.py",
+    "test_reader_followups_round8.py",
+    "test_reader_recap_review_r2.py",
+    "test_reader_recap_review_r3.py",
+    "test_reader_rw1b_final_verify.py",
+    "test_reader_rw1b_fix_round4.py",
+    "test_reader_rw1b_rereview.py",
+    "test_reader_rw2b_fix10.py",
+    "test_reader_rw2b_fix11.py",
+    "test_reader_rw2b_fix12.py",
+    "test_reader_rw2b_fix13.py",
+    "test_reader_rw2b_fix14.py",
+    "test_reader_rw2b_fix15.py",
+    "test_reader_rw2b_fix3.py",
+    "test_reader_rw2b_fix4.py",
+    "test_reader_rw2b_fix5.py",
+    "test_reader_rw2b_fix6.py",
+    "test_reader_rw2b_fix7.py",
+    "test_reader_rw2b_fix8.py",
+    "test_reader_rw2b_fix9.py",
+    "test_reader_rw3a_landing.py",
+    "test_reader_rw3b_fix_round4.py",
+    "test_reader_rw3b_fix_round5.py",
+    "test_reader_rw3b_fix_round6.py",
+    "test_reader_rw3b_review_fixes.py",
+    "test_reader_rw4b_fix6.py",
+    "test_reader_rw6b_landing.py",
+    "test_reader_rw6b_p2_landing.py",
+    "test_reading_hardening_2_fixes.py",
+    "test_reading_hardening_landing.py",
+    "test_reading_hardening_review_fixes.py",
+    "test_reading_hardening_verify_fixes.py",
+    "test_required_method_rereview.py",
+    "test_required_method_round3.py",
+    "test_required_method_round3_final_verify.py",
+    "test_required_method_round3_rereview.py",
+    "test_required_method_round3_review.py",
+    "test_reread_safety_landing.py",
+    "test_ro0_codex_review.py",
+    "test_ro0_codex_verify.py",
+    "test_ro4_codex_review.py",
+    "test_ro5_codex_rereview.py",
+    "test_ro5_codex_review.py",
+    "test_ro5_landing.py",
+    "test_ro6_codex_rereview.py",
+    "test_ro6_codex_review.py",
+    "test_ro6_landing.py",
+    "test_router_r1_composition.py",
+    "test_router_r2a_landing.py",
+    "test_router_r2bc_landing.py",
+    "test_rw2c_fix_round2.py",
+    "test_rw2c_fix_round3.py",
+    "test_rw7b_codex_review_fixes.py",
+    "test_rw7b_fix_round2.py",
+    "test_s0_landing.py",
+    "test_source_retrieval_rereview.py",
+    "test_source_retrieval_rereview_cost.py",
+    "test_t6_followup_rereview.py",
+    "test_te3b_codex_review.py",
+    "test_teacher_te0_fix_round2.py",
+    "test_teacher_te0_review_fixes.py",
+    "test_teacher_te1_review_fixes.py",
+    "test_teacher_te1b_landing_r2.py",
+    "test_teacher_te1b_rereview_fixes.py",
+    "test_teacher_te1b_review_fixes.py",
+    "test_teacher_te2_landing_r1.py",
+    "test_teacher_te2_review_fixes.py",
+    "test_tutor_delivery_fixes.py",
+    "test_ux_phase1_landing.py",
+    "test_ux_phase1_review_fixes.py",
+    "test_ux_phase1_round2_rereview.py",
+    "test_ux_phase1_round2_review.py",
+    "test_ux_phase1_usability_round1.py",
+    "test_ux_phase1_usability_round2.py",
+    "test_ux_phase4_landing.py",
+]
+
+[stage_comments_by_file]
+"src/learnloop/adaptive_difficulty/arms.py" = 1
+"src/learnloop/adaptive_difficulty/backfill.py" = 3
+"src/learnloop/adaptive_difficulty/background.py" = 12
+"src/learnloop/adaptive_difficulty/claims.py" = 1
+"src/learnloop/adaptive_difficulty/column_classes.py" = 2
+"src/learnloop/adaptive_difficulty/dose.py" = 6
+"src/learnloop/adaptive_difficulty/feature_audit.py" = 8
+"src/learnloop/adaptive_difficulty/forecasters.py" = 1
+"src/learnloop/adaptive_difficulty/generation.py" = 5
+"src/learnloop/adaptive_difficulty/history_audit.py" = 2
+"src/learnloop/adaptive_difficulty/history_card.py" = 7
+"src/learnloop/adaptive_difficulty/history_forecast.py" = 1
+"src/learnloop/adaptive_difficulty/history_resolve.py" = 1
+"src/learnloop/adaptive_difficulty/material_view.py" = 18
+"src/learnloop/adaptive_difficulty/operation.py" = 15
+"src/learnloop/adaptive_difficulty/outside.py" = 9
+"src/learnloop/adaptive_difficulty/priors.py" = 1
+"src/learnloop/adaptive_difficulty/protected_tables.py" = 14
+"src/learnloop/adaptive_difficulty/readiness.py" = 1
+"src/learnloop/adaptive_difficulty/reading.py" = 14
+"src/learnloop/adaptive_difficulty/relatedness.py" = 2
+"src/learnloop/adaptive_difficulty/relatedness_jobs.py" = 1
+"src/learnloop/adaptive_difficulty/replay.py" = 4
+"src/learnloop/adaptive_difficulty/report.py" = 4
+"src/learnloop/adaptive_difficulty/scoring.py" = 1
+"src/learnloop/adaptive_difficulty/sending.py" = 5
+"src/learnloop/adaptive_difficulty/serve.py" = 5
+"src/learnloop/adaptive_difficulty/serving.py" = 2
+"src/learnloop/ai/client.py" = 1
+"src/learnloop/ai/disclosures.py" = 1
+"src/learnloop/ai/isolation.py" = 3
+"src/learnloop/ai/plan_fallback.py" = 3
+"src/learnloop/ai/providers/chatgpt_plan.py" = 6
+"src/learnloop/ai/providers/openai_chat.py" = 4
+"src/learnloop/ai/review_spend.py" = 2
+"src/learnloop/ai/routing.py" = 9
+"src/learnloop/ai/schemas.py" = 1
+"src/learnloop/ai/spend.py" = 1
+"src/learnloop/algorithm_versions.py" = 40
+"src/learnloop/attempt_content_state_upgrade.py" = 1
+"src/learnloop/attempts/ai_contracts.py" = 1
+"src/learnloop/attempts/attempts.py" = 28
+"src/learnloop/attempts/clarification.py" = 2
+"src/learnloop/attempts/grade_resolution.py" = 4
+"src/learnloop/attempts/grading.py" = 3
+"src/learnloop/attempts/grading_support.py" = 15
+"src/learnloop/attempts/hint_fold.py" = 21
+"src/learnloop/attempts/post_attempt.py" = 2
+"src/learnloop/attempts/regrade.py" = 18
+"src/learnloop/attempts/reveal_ledger.py" = 7
+"src/learnloop/attempts/salience_firewall.py" = 2
+"src/learnloop/attempts/stuck.py" = 1
+"src/learnloop/attempts/trace_evidence.py" = 1
+"src/learnloop/capture/jobs.py" = 2
+"src/learnloop/capture/report.py" = 1
+"src/learnloop/claim_fixes_upgrade.py" = 2
+"src/learnloop/cli/ai_compare.py" = 6
+"src/learnloop/cli/app.py" = 5
+"src/learnloop/cli/evsi.py" = 2
+"src/learnloop/cli/exam.py" = 1
+"src/learnloop/cli/experiments.py" = 1
+"src/learnloop/cli/field_classification.py" = 3
+"src/learnloop/cli/gaps.py" = 1
+"src/learnloop/cli/grading.py" = 1
+"src/learnloop/cli/ingest_batches.py" = 1
+"src/learnloop/cli/probability_arms.py" = 1
+"src/learnloop/cli/runtime.py" = 2
+"src/learnloop/cli/success_head.py" = 1
+"src/learnloop/cold_retry_reschedule_upgrade.py" = 1
+"src/learnloop/confidence_events.py" = 1
+"src/learnloop/config/compat.py" = 2
+"src/learnloop/config/schema.py" = 36
+"src/learnloop/content/authoring/ai_contracts.py" = 1
+"src/learnloop/content/authoring/concept_animation.py" = 5
+"src/learnloop/content/authoring/exercise_authoring.py" = 3
+"src/learnloop/content/authoring/item_authoring.py" = 2
+"src/learnloop/content/authoring/pf_contracts.py" = 1
+"src/learnloop/content/authoring/practice_generation.py" = 9
+"src/learnloop/content/authoring/practice_leakage.py" = 2
+"src/learnloop/content/authoring/rung_variants.py" = 3
+"src/learnloop/content/authoring/source_exercise_import.py" = 22
+"src/learnloop/content/facet_identity/actions.py" = 20
+"src/learnloop/content/facet_identity/authority.py" = 2
+"src/learnloop/content/facet_identity/dedupe.py" = 1
+"src/learnloop/content/facet_identity/judge.py" = 2
+"src/learnloop/content/facet_identity/plan.py" = 1
+"src/learnloop/content/pipeline/add_source.py" = 25
+"src/learnloop/content/pipeline/ai_contracts.py" = 1
+"src/learnloop/content/pipeline/jobs.py" = 33
+"src/learnloop/content/pipeline/quick_add.py" = 1
+"src/learnloop/content/pipeline/reread.py" = 3
+"src/learnloop/content/pipeline/runner.py" = 3
+"src/learnloop/content/proposals/ai_contracts.py" = 1
+"src/learnloop/content/proposals/apply_protocol.py" = 1
+"src/learnloop/content/proposals/method_phrasing.py" = 8
+"src/learnloop/content/proposals/patches.py" = 6
+"src/learnloop/content/proposals/proposals.py" = 1
+"src/learnloop/content/sources/exam_material.py" = 3
+"src/learnloop/content/sources/role_authority.py" = 1
+"src/learnloop/content/sources/span_aliases.py" = 1
+"src/learnloop/content/synthesis/ai_contracts.py" = 2
+"src/learnloop/content/synthesis/source_append.py" = 1
+"src/learnloop/content/synthesis/source_set_synthesis.py" = 8
+"src/learnloop/content/synthesis/source_unit_inventory.py" = 1
+"src/learnloop/content/synthesis/synthesis_gates.py" = 3
+"src/learnloop/curriculum/commitment_arcs.py" = 1
+"src/learnloop/curriculum/commitments.py" = 1
+"src/learnloop/curriculum/depth_rungs.py" = 1
+"src/learnloop/curriculum/golden_path_assessment.py" = 1
+"src/learnloop/curriculum/golden_path_restoration.py" = 1
+"src/learnloop/curriculum/rung_backfill.py" = 1
+"src/learnloop/daily_plan/ad_slot.py" = 2
+"src/learnloop/daily_plan/admission.py" = 1
+"src/learnloop/daily_plan/engine.py" = 77
+"src/learnloop/daily_plan/intent_cost.py" = 1
+"src/learnloop/daily_plan/lanes.py" = 2
+"src/learnloop/daily_plan/lesson_offer.py" = 1
+"src/learnloop/daily_plan/lesson_suggestion.py" = 5
+"src/learnloop/daily_plan/measurement.py" = 2
+"src/learnloop/daily_plan/objective_card.py" = 2
+"src/learnloop/daily_plan/objective_chooser.py" = 38
+"src/learnloop/daily_plan/objective_inputs.py" = 6
+"src/learnloop/daily_plan/reading.py" = 1
+"src/learnloop/daily_plan/records.py" = 5
+"src/learnloop/daily_plan/reentry.py" = 1
+"src/learnloop/daily_plan/router_card.py" = 6
+"src/learnloop/daily_plan/router_chooser.py" = 3
+"src/learnloop/daily_plan/router_reader.py" = 7
+"src/learnloop/daily_plan/router_retrieval.py" = 1
+"src/learnloop/daily_plan/router_runtime.py" = 3
+"src/learnloop/daily_plan/staged_frame.py" = 1
+"src/learnloop/daily_plan/types.py" = 1
+"src/learnloop/daily_plan/view.py" = 2
+"src/learnloop/data_capture_upgrade.py" = 1
+"src/learnloop/db/connection.py" = 6
+"src/learnloop/db/migrate.py" = 1
+"src/learnloop/db/repositories.py" = 10
+"src/learnloop/db/stores/ad_serving.py" = 4
+"src/learnloop/db/stores/collection.py" = 1
+"src/learnloop/db/stores/help_assists.py" = 4
+"src/learnloop/db/stores/learner_gaps.py" = 1
+"src/learnloop/db/stores/router.py" = 1
+"src/learnloop/db/stores/router_objective.py" = 1
+"src/learnloop/db/stores/session_ownership.py" = 1
+"src/learnloop/db/stores/source_service.py" = 7
+"src/learnloop/db/stores/write_provenance.py" = 3
+"src/learnloop/db/table_roles.py" = 6
+"src/learnloop/decider_judgments.py" = 1
+"src/learnloop/deliverable_plan_upgrade.py" = 1
+"src/learnloop/diagnosis/causal_attribution.py" = 1
+"src/learnloop/diagnosis/causal_orchestrator.py" = 6
+"src/learnloop/diagnosis/causal_probe_coherence.py" = 1
+"src/learnloop/diagnosis/contrast_pairs.py" = 1
+"src/learnloop/diagnosis/diagnosis_adjudication.py" = 1
+"src/learnloop/diagnosis/diagnostic_gate.py" = 2
+"src/learnloop/diagnosis/diagnostic_surface_supply.py" = 1
+"src/learnloop/diagnosis/followups.py" = 2
+"src/learnloop/diagnosis/forecast_receipts.py" = 2
+"src/learnloop/diagnosis/grading_hardcases.py" = 2
+"src/learnloop/diagnosis/offline_review/planted.py" = 1
+"src/learnloop/diagnosis/offline_review/probes.py" = 1
+"src/learnloop/diagnosis/offline_review/runner.py" = 6
+"src/learnloop/diagnosis/offline_review/spot_check.py" = 2
+"src/learnloop/diagnosis/probe_dialogue.py" = 2
+"src/learnloop/diagnosis/probe_episodes.py" = 7
+"src/learnloop/diagnosis/recurrence/benchmarks.py" = 2
+"src/learnloop/diagnosis/recurrence/guard.py" = 1
+"src/learnloop/diagnosis/recurrence/judging.py" = 1
+"src/learnloop/diagnosis/recurrence/live.py" = 4
+"src/learnloop/diagnosis/remediation.py" = 3
+"src/learnloop/diagnosis/scoreboard.py" = 1
+"src/learnloop/diagnosis/split/card.py" = 2
+"src/learnloop/diagnosis/split/context.py" = 5
+"src/learnloop/diagnosis/split/diagnoser.py" = 5
+"src/learnloop/diagnosis/split/figure_trace.py" = 1
+"src/learnloop/diagnosis/split/history.py" = 8
+"src/learnloop/diagnosis/split/jobs.py" = 9
+"src/learnloop/diagnosis/split/live.py" = 1
+"src/learnloop/diagnosis/split/prior_analysis.py" = 1
+"src/learnloop/diagnosis/split/provenance.py" = 3
+"src/learnloop/diagnosis/split/reports.py" = 3
+"src/learnloop/diagnosis/split/snapshot.py" = 1
+"src/learnloop/diagnosis/text_gaps/actions.py" = 2
+"src/learnloop/diagnosis/text_gaps/candidates.py" = 1
+"src/learnloop/diagnosis/text_gaps/contract.py" = 5
+"src/learnloop/diagnosis/text_gaps/jobs.py" = 12
+"src/learnloop/diagnosis/text_gaps/judges.py" = 2
+"src/learnloop/diagnosis/text_gaps/pipeline.py" = 14
+"src/learnloop/diagnosis/text_gaps/provenance.py" = 1
+"src/learnloop/diagnosis/text_gaps/sources.py" = 5
+"src/learnloop/diagnosis/text_gaps/tier1.py" = 2
+"src/learnloop/diagnosis/voi_forecasting.py" = 3
+"src/learnloop/diagnosis/voi_stopping.py" = 10
+"src/learnloop/evsi_calibration/compare.py" = 1
+"src/learnloop/evsi_calibration/experiments.py" = 1
+"src/learnloop/evsi_calibration/families.py" = 2
+"src/learnloop/evsi_calibration/forecast_report.py" = 3
+"src/learnloop/evsi_calibration/live_report.py" = 7
+"src/learnloop/evsi_calibration/multifamily.py" = 8
+"src/learnloop/evsi_calibration/multisim.py" = 4
+"src/learnloop/evsi_calibration/policies.py" = 5
+"src/learnloop/experiments/contextual_embeddings/adapters.py" = 1
+"src/learnloop/experiments/contextual_embeddings/answers.py" = 2
+"src/learnloop/experiments/contextual_embeddings/anthropic_api.py" = 2
+"src/learnloop/experiments/contextual_embeddings/bank.py" = 2
+"src/learnloop/experiments/contextual_embeddings/budget.py" = 3
+"src/learnloop/experiments/contextual_embeddings/callers.py" = 4
+"src/learnloop/experiments/contextual_embeddings/corpus.py" = 1
+"src/learnloop/experiments/contextual_embeddings/delivery.py" = 1
+"src/learnloop/experiments/contextual_embeddings/evaluate.py" = 1
+"src/learnloop/experiments/contextual_embeddings/live.py" = 1
+"src/learnloop/experiments/contextual_embeddings/paid.py" = 5
+"src/learnloop/experiments/contextual_embeddings/pins.py" = 11
+"src/learnloop/experiments/contextual_embeddings/plan.py" = 5
+"src/learnloop/experiments/contextual_embeddings/retrieval.py" = 4
+"src/learnloop/experiments/contextual_embeddings/runner.py" = 2
+"src/learnloop/experiments/contextual_embeddings/system_arms.py" = 7
+"src/learnloop/field/answer_signals.py" = 1
+"src/learnloop/field/classification.py" = 2
+"src/learnloop/field/outcomes.py" = 2
+"src/learnloop/field/probability_prep.py" = 1
+"src/learnloop/field/signals.py" = 11
+"src/learnloop/field/success_head_analysis.py" = 1
+"src/learnloop/field/workbench_signals.py" = 2
+"src/learnloop/figure_admission.py" = 2
+"src/learnloop/figures/grammar.py" = 3
+"src/learnloop/figures/help.py" = 2
+"src/learnloop/figures/labels.py" = 6
+"src/learnloop/figures/learner_state.py" = 1
+"src/learnloop/figures/manim_figure.py" = 4
+"src/learnloop/figures/power.py" = 1
+"src/learnloop/figures/prefetch.py" = 13
+"src/learnloop/figures/prefetch_ledger.py" = 1
+"src/learnloop/figures/rich.py" = 20
+"src/learnloop/figures/service.py" = 57
+"src/learnloop/figures/sketch.py" = 4
+"src/learnloop/figures/sketch_engine.py" = 1
+"src/learnloop/figures/sketch_verify.py" = 10
+"src/learnloop/figures/source_check_harness.py" = 1
+"src/learnloop/figures/spec.py" = 4
+"src/learnloop/figures/verify.py" = 2
+"src/learnloop/followup_run/admission.py" = 1
+"src/learnloop/followup_run/authoring.py" = 1
+"src/learnloop/followup_run/jobs.py" = 4
+"src/learnloop/followup_run/lesson_probe.py" = 1
+"src/learnloop/followup_run/router.py" = 4
+"src/learnloop/followup_serve/gates.py" = 2
+"src/learnloop/followup_serve/workflow.py" = 2
+"src/learnloop/followup_serve_upgrade.py" = 1
+"src/learnloop/goals/certification_cold_probe.py" = 1
+"src/learnloop/goals/exam_calibration.py" = 1
+"src/learnloop/goals/exam_pool.py" = 1
+"src/learnloop/goals/exam_session.py" = 7
+"src/learnloop/held_grades.py" = 1
+"src/learnloop/help_fold_attach_upgrade.py" = 1
+"src/learnloop/hint_window.py" = 2
+"src/learnloop/hints/chooser.py" = 1
+"src/learnloop/hints/contracts.py" = 7
+"src/learnloop/hints/map_builder.py" = 11
+"src/learnloop/hints/maps.py" = 14
+"src/learnloop/hints/options.py" = 1
+"src/learnloop/hints/outcome.py" = 10
+"src/learnloop/hints/report.py" = 4
+"src/learnloop/hints/report_adaptive.py" = 1
+"src/learnloop/hints/report_workbench.py" = 3
+"src/learnloop/hints/service.py" = 19
+"src/learnloop/hints/workbench.py" = 9
+"src/learnloop/hints/writer.py" = 2
+"src/learnloop/ingest/block_roles.py" = 2
+"src/learnloop/ingest/extractors/glm_ocr.py" = 2
+"src/learnloop/ingest/extractors/glm_text_layer.py" = 1
+"src/learnloop/instructional/discriminating.py" = 1
+"src/learnloop/instructional/exercises.py" = 1
+"src/learnloop/instructional/exposure.py" = 5
+"src/learnloop/instructional/harvest.py" = 1
+"src/learnloop/instructional/interventions.py" = 3
+"src/learnloop/instructional/needs.py" = 4
+"src/learnloop/instructional/policy.py" = 1
+"src/learnloop/instructional/practice.py" = 3
+"src/learnloop/instructional/reader_digest.py" = 11
+"src/learnloop/instructional/reader_followups.py" = 27
+"src/learnloop/instructional/screen.py" = 2
+"src/learnloop/instructional/sources.py" = 3
+"src/learnloop/instructional/tools.py" = 7
+"src/learnloop/instructional/valuation.py" = 2
+"src/learnloop/intent/checks.py" = 4
+"src/learnloop/intent/deadline.py" = 2
+"src/learnloop/interval_factor_upgrade.py" = 1
+"src/learnloop/learner/assessment_contracts.py" = 2
+"src/learnloop/learner/facet_evidence_timeline.py" = 4
+"src/learnloop/learner/lesson_weight.py" = 2
+"src/learnloop/learner/mastery.py" = 4
+"src/learnloop/learner/session_learning_diff.py" = 2
+"src/learnloop/learner_context.py" = 1
+"src/learnloop/lesson_suggestions_upgrade.py" = 1
+"src/learnloop/local_embeddings/student_pins.py" = 1
+"src/learnloop/local_embeddings/student_server.py" = 1
+"src/learnloop/local_embeddings/student_trainer.py" = 5
+"src/learnloop/matching/judge.py" = 1
+"src/learnloop/one_ask_upgrade.py" = 1
+"src/learnloop/ops/contamination/judge.py" = 1
+"src/learnloop/ops/contamination/report.py" = 1
+"src/learnloop/ops/doctor.py" = 2
+"src/learnloop/ops/embedding_compare.py" = 2
+"src/learnloop/ops/family_proposals.py" = 1
+"src/learnloop/ops/maintenance_feed.py" = 2
+"src/learnloop/ops/pf_generation.py" = 15
+"src/learnloop/ops/pf_publish.py" = 5
+"src/learnloop/ops/plan_transport.py" = 1
+"src/learnloop/ops/vault_upgrade.py" = 4
+"src/learnloop/outcome_contract.py" = 3
+"src/learnloop/params/parameter_registry.py" = 21
+"src/learnloop/placement/rules.py" = 4
+"src/learnloop/placement/state.py" = 9
+"src/learnloop/practice_index/admission.py" = 2
+"src/learnloop/practice_index/dossiers.py" = 1
+"src/learnloop/practice_index/evaluation.py" = 1
+"src/learnloop/practice_index/paid.py" = 1
+"src/learnloop/practice_index/query_vectors.py" = 1
+"src/learnloop/practice_index/retrieval.py" = 9
+"src/learnloop/projects/ai_runtime.py" = 1
+"src/learnloop/projects/probes.py" = 3
+"src/learnloop/reader/as_printed.py" = 7
+"src/learnloop/reader/reader_authoring.py" = 3
+"src/learnloop/reader/reader_capture.py" = 2
+"src/learnloop/reader/reader_dialogue.py" = 7
+"src/learnloop/reader/reader_guidance.py" = 1
+"src/learnloop/reader/reader_inquiry.py" = 1
+"src/learnloop/reader/reader_intent.py" = 7
+"src/learnloop/reader/reader_quick_check.py" = 3
+"src/learnloop/reader/reader_report.py" = 2
+"src/learnloop/reader/reader_requests.py" = 7
+"src/learnloop/reader/recap.py" = 8
+"src/learnloop/reader/source_objects.py" = 4
+"src/learnloop/reader/source_roles.py" = 2
+"src/learnloop/reader/workbench.py" = 7
+"src/learnloop/reader_followups_upgrade.py" = 1
+"src/learnloop/reader_learner_state.py" = 3
+"src/learnloop/reading_sources.py" = 4
+"src/learnloop/regrade_contract_upgrade.py" = 1
+"src/learnloop/remote/sources.py" = 2
+"src/learnloop/replay_ledger_upgrade.py" = 1
+"src/learnloop/router/card.py" = 6
+"src/learnloop/router/lesson_suggestions.py" = 1
+"src/learnloop/router/outcomes.py" = 2
+"src/learnloop/router/plan_log.py" = 3
+"src/learnloop/router/suggestion_report.py" = 2
+"src/learnloop/router_objective/checks.py" = 3
+"src/learnloop/router_objective/goal_read.py" = 1
+"src/learnloop/router_objective/learned_tail.py" = 10
+"src/learnloop/router_objective/memory.py" = 2
+"src/learnloop/router_objective/miss_cause.py" = 6
+"src/learnloop/router_objective/objective_report.py" = 1
+"src/learnloop/router_objective/price.py" = 1
+"src/learnloop/router_objective/scores.py" = 6
+"src/learnloop/router_objective/sessions.py" = 1
+"src/learnloop/router_objective/stop_coin.py" = 3
+"src/learnloop/router_objective/tail_data.py" = 14
+"src/learnloop/router_objective/tail_report.py" = 2
+"src/learnloop/router_objective/tail_serve.py" = 5
+"src/learnloop/router_objective/trace.py" = 1
+"src/learnloop/router_objective/value.py" = 29
+"src/learnloop/router_objective_switches.py" = 7
+"src/learnloop/router_objective_upgrade.py" = 1
+"src/learnloop/scheduling/controller_snapshot.py" = 1
+"src/learnloop/scheduling/device_eligibility.py" = 5
+"src/learnloop/scheduling/evaluation.py" = 1
+"src/learnloop/scheduling/evsi.py" = 3
+"src/learnloop/scheduling/forecast_receipts.py" = 1
+"src/learnloop/scheduling/frame_constraints.py" = 1
+"src/learnloop/scheduling/fsrs_fitting.py" = 1
+"src/learnloop/scheduling/intent/followup_gate.py" = 3
+"src/learnloop/scheduling/intent/serving.py" = 22
+"src/learnloop/scheduling/review_log.py" = 1
+"src/learnloop/scheduling/scheduler.py" = 24
+"src/learnloop/scheduling/staged_policy.py" = 1
+"src/learnloop/scheduling/voi_forecasts.py" = 6
+"src/learnloop/section_map.py" = 1
+"src/learnloop/serve_eligibility.py" = 14
+"src/learnloop/sim/diagnostic_validation.py" = 1
+"src/learnloop/source_retrieval/bench.py" = 1
+"src/learnloop/source_retrieval/compare.py" = 12
+"src/learnloop/source_retrieval/deliverable_path.py" = 9
+"src/learnloop/source_retrieval/deliverables.py" = 15
+"src/learnloop/source_retrieval/evaluation.py" = 8
+"src/learnloop/source_retrieval/find_sources.py" = 5
+"src/learnloop/source_retrieval/kept_comparisons.py" = 5
+"src/learnloop/source_retrieval/library.py" = 4
+"src/learnloop/source_retrieval/library_ask.py" = 9
+"src/learnloop/source_retrieval/local_index.py" = 3
+"src/learnloop/source_retrieval/note_gaps.py" = 4
+"src/learnloop/source_retrieval/note_links.py" = 15
+"src/learnloop/source_retrieval/passage_cues.py" = 10
+"src/learnloop/source_retrieval/queries.py" = 1
+"src/learnloop/source_retrieval/query_student.py" = 10
+"src/learnloop/source_retrieval/reader_tutor.py" = 3
+"src/learnloop/source_retrieval/reading_paths.py" = 6
+"src/learnloop/source_retrieval/role_labeller.py" = 3
+"src/learnloop/source_retrieval/search.py" = 1
+"src/learnloop/source_retrieval/section_coverage.py" = 10
+"src/learnloop/source_retrieval/spaces.py" = 4
+"src/learnloop/source_retrieval/student_data.py" = 3
+"src/learnloop/source_retrieval/student_encoder.py" = 1
+"src/learnloop/source_retrieval/tutor.py" = 4
+"src/learnloop/source_retrieval/vault_notes.py" = 5
+"src/learnloop/substrate/activity_patterns.py" = 1
+"src/learnloop/substrate/canonical_projection.py" = 3
+"src/learnloop/substrate/data_quality.py" = 1
+"src/learnloop/substrate/dataset.py" = 3
+"src/learnloop/substrate/rebuild_orchestrator.py" = 4
+"src/learnloop/substrate/recurrence_groups.py" = 1
+"src/learnloop/substrate/replay.py" = 4
+"src/learnloop/substrate/shadow_rebuild.py" = 2
+"src/learnloop/substrate/state_sync.py" = 1
+"src/learnloop/superseded_claims_upgrade.py" = 1
+"src/learnloop/teacher/actions.py" = 1
+"src/learnloop/teacher/brief.py" = 3
+"src/learnloop/teacher/contracts.py" = 1
+"src/learnloop/teacher/episodes.py" = 1
+"src/learnloop/teacher/guards.py" = 3
+"src/learnloop/teacher/probes.py" = 1
+"src/learnloop/teacher/service.py" = 29
+"src/learnloop/teacher_upgrade.py" = 1
+"src/learnloop/text_canon.py" = 1
+"src/learnloop/tui/screens/feedback.py" = 1
+"src/learnloop/tui/screens/practice.py" = 2
+"src/learnloop/tui/screens/today.py" = 1
+"src/learnloop/tutor/promotions.py" = 1
+"src/learnloop/tutor/question_queue.py" = 1
+"src/learnloop/tutor/reader_modes.py" = 13
+"src/learnloop/tutor/teach_back.py" = 2
+"src/learnloop/tutor/tutor_qa.py" = 32
+"src/learnloop/vault/loader.py" = 3
+"src/learnloop/vault/repository.py" = 1
+"src/learnloop/vault/required_method.py" = 3
+"src/learnloop/vault/writer.py" = 1
+"src/learnloop/workbench/bridge.py" = 3
+"src/learnloop/workbench/check.py" = 11
+"src/learnloop/workbench/compare_methods.py" = 7
+"src/learnloop/workbench/help_outcomes.py" = 10
+"src/learnloop/workbench/ladder.py" = 2
+"src/learnloop/workbench/passage_draw.py" = 1
+"src/learnloop/workbench/route_example.py" = 2
+"src/learnloop/workbench/symbolic.py" = 3
+"src/learnloop_mcp/server.py" = 1
+"src/learnloop_mobile/allowlist.py" = 2
+"src/learnloop_mobile/host.py" = 3
+"src/learnloop_mobile/media.py" = 1
+"src/learnloop_mobile/runtime.py" = 2
+"src/learnloop_sidecar/context.py" = 28
+"src/learnloop_sidecar/handlers/adaptive_difficulty.py" = 6
+"src/learnloop_sidecar/handlers/adjudication.py" = 2
+"src/learnloop_sidecar/handlers/chatgpt_plan.py" = 2
+"src/learnloop_sidecar/handlers/correspondents.py" = 1
+"src/learnloop_sidecar/handlers/daily_plan.py" = 11
+"src/learnloop_sidecar/handlers/deliverables.py" = 8
+"src/learnloop_sidecar/handlers/diagnosis_card.py" = 1
+"src/learnloop_sidecar/handlers/exams.py" = 8
+"src/learnloop_sidecar/handlers/feedback.py" = 6
+"src/learnloop_sidecar/handlers/figures.py" = 27
+"src/learnloop_sidecar/handlers/first_run.py" = 9
+"src/learnloop_sidecar/handlers/goals.py" = 3
+"src/learnloop_sidecar/handlers/hints.py" = 9
+"src/learnloop_sidecar/handlers/ingest.py" = 3
+"src/learnloop_sidecar/handlers/knowledge_map.py" = 3
+"src/learnloop_sidecar/handlers/learner_gaps.py" = 1
+"src/learnloop_sidecar/handlers/lesson.py" = 2
+"src/learnloop_sidecar/handlers/library_ask.py" = 12
+"src/learnloop_sidecar/handlers/library_exercises.py" = 3
+"src/learnloop_sidecar/handlers/placement.py" = 1
+"src/learnloop_sidecar/handlers/practice.py" = 44
+"src/learnloop_sidecar/handlers/proposals.py" = 7
+"src/learnloop_sidecar/handlers/queue.py" = 6
+"src/learnloop_sidecar/handlers/reader.py" = 44
+"src/learnloop_sidecar/handlers/reader_cue_discovery.py" = 10
+"src/learnloop_sidecar/handlers/reader_followups.py" = 4
+"src/learnloop_sidecar/handlers/reader_intent.py" = 6
+"src/learnloop_sidecar/handlers/reader_tutor.py" = 3
+"src/learnloop_sidecar/handlers/reading_paths.py" = 3
+"src/learnloop_sidecar/handlers/recap.py" = 1
+"src/learnloop_sidecar/handlers/serializers.py" = 12
+"src/learnloop_sidecar/handlers/sessions.py" = 3
+"src/learnloop_sidecar/handlers/settings.py" = 1
+"src/learnloop_sidecar/handlers/side_by_side.py" = 1
+"src/learnloop_sidecar/handlers/source_service.py" = 1
+"src/learnloop_sidecar/handlers/tutor_qa.py" = 14
+"src/learnloop_sidecar/handlers/workbench.py" = 20
+"src/learnloop_sidecar/handlers/workbench_help.py" = 12
+"src/learnloop_sidecar/handlers/workbench_rw2c.py" = 5
+"src/learnloop_sidecar/phone_reader.py" = 1
+"src/learnloop_sidecar/post_attempt_worker.py" = 2
+"src/learnloop_sidecar/prefetch_runtime.py" = 1
+"src/learnloop_sidecar/request_origin.py" = 1
+"src/learnloop_sidecar/server.py" = 3
+"src/learnloop_sidecar/source_identity.py" = 1
