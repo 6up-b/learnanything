@@ -249,6 +249,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_exam_session.py](../../../../../../tests/test_exam_session.py) — direct import
   - `test_an_exam_answer_is_stamped_with_its_graders_calibration_identity`
   - `test_exam_answers_certify_facet_evidence_on_canonical_vault`
+- [tests/test_facet_belief_successor.py](../../../../../../tests/test_facet_belief_successor.py) — direct import
 - [tests/test_facet_identity_actions.py](../../../../../../tests/test_facet_identity_actions.py) — direct import
 - [tests/test_facet_state_write_on_change.py](../../../../../../tests/test_facet_state_write_on_change.py) — direct import
 - [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — direct import
