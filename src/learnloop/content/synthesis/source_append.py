@@ -25,7 +25,7 @@ other item stays a pending review proposal.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -91,6 +91,61 @@ def request_append_reconciliation(
         prompt=append_reconciliation_prompt(context),
         result_model=AppendReconciliation,
     )
+
+
+def select_new_inventories(
+    entries: list[dict[str, Any]],
+    revision_ids: Collection[str],
+    new_unit_ids: Mapping[str, Sequence[str]] | None,
+) -> list[dict[str, Any]]:
+    """The inventory entries an append sends as new.
+
+    Every entry of ``revision_ids``, except that a revision named in
+    ``new_unit_ids`` sends only its listed units (a merged unit when any
+    member is listed). A book is one revision, so without the unit filter
+    each keep-ahead append re-sent every chapter built so far.
+    """
+
+    chosen: list[dict[str, Any]] = []
+    for entry in entries:
+        revision_id = entry["revision_id"]
+        if revision_id not in revision_ids:
+            continue
+        units = (new_unit_ids or {}).get(revision_id)
+        if units is not None and not ({entry["unit_id"], *entry.get("source_unit_ids", ())} & set(units)):
+            continue
+        chosen.append(entry)
+    return chosen
+
+
+def append_scope(
+    vault: LoadedVault,
+    *,
+    change_kind: str,
+    revision_ids: Collection[str],
+    neighborhood: dict[str, Any],
+    new_unit_ids: Mapping[str, Sequence[str]] | None = None,
+    facet_identity_client: Any = None,
+) -> dict[str, Any]:
+    """The append manifest's ``scope``. A key exists only when its input
+    does, so an append without a unit filter keeps the manifest it always had
+    and its completed run is still reused."""
+
+    scope: dict[str, Any] = {
+        "mode": "append",
+        "change_kind": change_kind,
+        "new_revision_ids": sorted(revision_ids),
+        "neighborhood": neighborhood,
+    }
+    if new_unit_ids is not None:
+        scope["new_unit_ids"] = {revision: sorted(units) for revision, units in sorted(new_unit_ids.items())}
+    # Facet identity (handoff §4): the judge's identity in the manifest only
+    # while the switch is on.
+    if vault.config.facet_identity.enabled:
+        from learnloop.content.facet_identity.judge import manifest_identity
+
+        scope["facet_identity"] = manifest_identity(vault.config, client=facet_identity_client)
+    return scope
 
 
 def subject_has_applied_study_map(vault: LoadedVault, subject_id: str) -> bool:
@@ -159,6 +214,7 @@ def append_source(
     *,
     client: Any,
     new_revision_ids: list[str] | None = None,
+    new_unit_ids: Mapping[str, Sequence[str]] | None = None,
     change_kind: str = "source_added",
     revision_diff: dict[str, Any] | None = None,
     brief: dict[str, Any] | None = None,
@@ -173,9 +229,11 @@ def append_source(
 ) -> AppendResult:
     """Run bounded append reconciliation and (by policy) auto-apply routine items.
 
-    ``embedding_client_factory`` replaces the ``ai.routing.embedding`` client
-    for T5 nominations (tests); it is used only when nominations are on.
-    ``facet_identity_client`` replaces the facet-identity judge (tests).
+    ``new_revision_ids`` and ``new_unit_ids`` pick the new inventories
+    (``select_new_inventories``). ``embedding_client_factory`` replaces the
+    ``ai.routing.embedding`` client for T5 nominations (tests); it is used
+    only when nominations are on. ``facet_identity_client`` replaces the
+    facet-identity judge (tests).
     """
 
     vault = load_vault(root)
@@ -184,7 +242,7 @@ def append_source(
         repository = vault_repository(VaultPaths(vault.root, vault.config))
     return _append(
         vault, repository, root, source_set_id,
-        client=client, new_revision_ids=new_revision_ids, change_kind=change_kind,
+        client=client, new_revision_ids=new_revision_ids, new_unit_ids=new_unit_ids, change_kind=change_kind,
         revision_diff=revision_diff or {}, brief=brief or {}, auto_apply=auto_apply, apply_gate=apply_gate, clock=clock,
         budget_overrides=budget_overrides,
         unlimited_token_budget=unlimited_token_budget,
@@ -195,6 +253,7 @@ def append_source(
 
 def plan_append_embedding(
     root: Path, source_set_id: str, *, new_revision_ids: list[str] | None = None,
+    new_unit_ids: Mapping[str, Sequence[str]] | None = None,
 ) -> dict[str, Any]:
     """Dry run of one append's Slice 2 T5 embedding spend.
 
@@ -212,7 +271,7 @@ def plan_append_embedding(
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
     inputs = _collect_inputs(Repository.attach(sqlite_path, read_only=True), vault, source_set)
     revs = set(new_revision_ids or inputs.selected_revision_ids)
-    new_inventories = [entry for entry in inputs.unit_inventories if entry["revision_id"] in revs]
+    new_inventories = select_new_inventories(inputs.unit_inventories, revs, new_unit_ids)
     plan = plan_ingest_embedding(vault, sqlite_path, entry="append", new_inventories=new_inventories)
     from learnloop.content.facet_identity.plan import ingest_dry_run
 
@@ -230,6 +289,7 @@ def _append(
     new_revision_ids: list[str] | None,
     change_kind: str,
     revision_diff: dict[str, Any],
+    new_unit_ids: Mapping[str, Sequence[str]] | None = None,
     brief: dict[str, Any],
     auto_apply: bool,
     clock: Clock | None,
@@ -246,7 +306,7 @@ def _append(
 
     inputs = _collect_inputs(repository, vault, source_set)
     revs = set(new_revision_ids or inputs.selected_revision_ids)
-    new_inventories = [entry for entry in inputs.unit_inventories if entry["revision_id"] in revs]
+    new_inventories = select_new_inventories(inputs.unit_inventories, revs, new_unit_ids)
     new_source_ids = {entry["source_id"] for entry in new_inventories}
     # Per-run ceilings layer over the vault defaults (same seam as bootstrap
     # synthesis) and ride into the manifest's token_budget below, so an override
@@ -267,20 +327,13 @@ def _append(
 
     provider = getattr(client, "provider_name", None) or getattr(client, "provider_type", None) or "codex"
     model = getattr(client, "model", None)
-    # Facet identity (handoff §4): the rule in the prompt and the judge's
-    # identity in the manifest only while the switch is on.
+    # Facet identity (handoff §4): the rule in the prompt only while the switch is on.
     one_facet_per_skill = bool(vault.config.facet_identity.enabled)
     append_prompt_version = append_reconciliation_prompt_version(one_facet_per_skill)
-    append_scope: dict[str, Any] = {
-        "mode": "append",
-        "change_kind": change_kind,
-        "new_revision_ids": sorted(revs),
-        "neighborhood": neighborhood.as_manifest_record(),
-    }
-    if one_facet_per_skill:
-        from learnloop.content.facet_identity.judge import manifest_identity
-
-        append_scope["facet_identity"] = manifest_identity(vault.config, client=facet_identity_client)
+    scope = append_scope(
+        vault, change_kind=change_kind, revision_ids=revs, neighborhood=neighborhood.as_manifest_record(),
+        new_unit_ids=new_unit_ids, facet_identity_client=facet_identity_client,
+    )
     manifest = build_manifest(
         vault,
         source_set_id=source_set.id,
@@ -288,7 +341,7 @@ def _append(
         revision_ids=sorted(revs),
         extraction_ids=inputs.extraction_ids,
         unit_inventory_versions=inputs.unit_inventory_versions,
-        scope=append_scope,
+        scope=scope,
         brief=brief,
         prompt_version=append_prompt_version,
         provider=provider,

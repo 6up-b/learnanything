@@ -1653,6 +1653,11 @@ def run_auto_study_map(ctx) -> dict[str, Any]:
                 "bootstrap_synthesis",
                 {"source_set_id": source_set_id, "brief": brief, "mode": "auto", "apply": apply,
                  "auto_build_source_id": source_id,
+                 # An append sends only these chapters' inventories: each
+                 # earlier chapter went with its own build, and re-sending
+                 # them made every append grow with the book. A first build
+                 # (bootstrap) reads the whole scope and ignores this.
+                 "new_unit_ids": {revision_id: list(unit_ids)},
                  "auto_build": {**auto, "job_tokens": synthesis_tokens}},
                 depends_on=(0,),
             ),

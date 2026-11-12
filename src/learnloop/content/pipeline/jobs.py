@@ -1979,6 +1979,13 @@ def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
             source_set_id,
             client=client,
             new_revision_ids=[str(value) for value in payload.get("new_revision_ids") or []] or None,
+            # {revision_id: [unit_id]}: the units a planned build chose. Absent
+            # (an explicit append, a job queued before the filter), every unit
+            # of the revisions goes.
+            new_unit_ids=(
+                {str(revision): [str(unit) for unit in units] for revision, units in payload["new_unit_ids"].items()}
+                if isinstance(payload.get("new_unit_ids"), Mapping) else None
+            ),
             change_kind=str(payload.get("change_kind") or "source_added"),
             revision_diff=dict(payload.get("revision_diff") or {}),
             brief=dict(payload.get("brief") or {}),
