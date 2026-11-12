@@ -359,6 +359,7 @@ fn main() {
                 maintenance_notice_action,
                 list_source_conflicts,
                 resolve_source_conflict,
+                resolve_apply_intent,
                 exam_readiness,
                 start_extraction_repair,
                 read_vault_file,

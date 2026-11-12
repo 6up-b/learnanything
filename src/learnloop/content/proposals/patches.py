@@ -41,6 +41,34 @@ class PatchApplicationError(ValueError):
     pass
 
 
+class OutstandingApplyIntentError(PatchApplicationError):
+    """An earlier apply is pending or conflicted, so no accept may build on the vault (K3.5).
+
+    ``intents`` holds ``{id, status, proposed_patch_id, paths}`` per outstanding
+    intent (``paths``: the conflicted files, empty for a pending one).
+    """
+
+    def __init__(self, intents: list[dict[str, Any]]) -> None:
+        self.intents = [
+            {
+                "id": intent["id"],
+                "status": intent["status"],
+                "proposed_patch_id": intent["proposed_patch_id"],
+                "paths": [conflict["rel_path"] for conflict in intent.get("conflicts") or []],
+            }
+            for intent in intents
+        ]
+        first = self.intents[0]
+        if first["status"] == "conflicted":
+            advice = (
+                f"stopped because {', '.join(first['paths']) or 'its files'} changed since; settle it from "
+                "Maintain (Keep the files as they are)"
+            )
+        else:
+            advice = "is still mid-flight; reopen the vault or run `learnloop doctor --fix-state` to finish it"
+        super().__init__(f"Refusing to accept: an earlier apply (intent {first['id']}) {advice}")
+
+
 @dataclass(frozen=True)
 class CompiledPatch:
     proposal_item_id: str
@@ -82,7 +110,9 @@ def apply_accepted_items(
     (``learnloop.content.proposals.apply_protocol``, §10.2): a durable intent
     commits to SQLite first,
     YAML is staged/fsynced/atomically renamed, then the intent is marked applied —
-    so a crash mid-flight is completed by startup/doctor recovery.
+    so a crash mid-flight is completed by recovery at the next sidecar bind or
+    ``doctor --fix-state``. While an earlier intent is pending or conflicted it
+    refuses with :class:`OutstandingApplyIntentError` (K3.5).
     """
 
     vault = load_vault(root)
@@ -148,11 +178,19 @@ def _apply_accepted_locked(
     span_verdicts: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> PatchApplyResult:
     from learnloop.content.proposals.apply_protocol import (
+        ApplyTargetConflict,
         compute_dependency_closure,
         materialize_targets,
         perform_db_effects,
         stage_target_contents,
     )
+
+    # An earlier apply left pending (mid-flight) or conflicted means the vault
+    # may be half-applied: nothing builds on it until that intent is settled
+    # (K3.5; the sidecar recovers pending intents at every bind).
+    outstanding = repository.outstanding_apply_intents()
+    if outstanding:
+        raise OutstandingApplyIntentError(outstanding)
 
     requested = repository.pending_proposal_items(patch_id, item_ids)
     for item in requested:
@@ -209,19 +247,32 @@ def _apply_accepted_locked(
         db_plan=db_plan,
         clock=clock,
     )
-    # 2. Stage/fsync/atomic-rename the YAML into place.
-    materialize_targets(vault.root, targets)
-    # 3. Derived-state sync + DB side effects, then mark the intent applied.
+    # 2. Stage/fsync/atomic-rename the YAML into place. Every target still holds
+    # the pre-image staging read (both ran under this lock); a writer that
+    # bypassed the lock is caught before any file is written, and the intent,
+    # having written nothing, is rolled back (K3.5).
+    try:
+        materialize_targets(vault.root, targets)
+    except ApplyTargetConflict as exc:
+        repository.mark_apply_intent_rolled_back(intent_id, clock=clock)
+        raise PatchApplicationError(
+            f"Refusing to apply proposal {patch_id}: a file {exc}; nothing was written, try again"
+        ) from exc
+    # 3. Derived-state sync + DB side effects + the content recalibration, then
+    # mark the intent applied last, so recovery redoes everything after a crash
+    # anywhere before the mark (crash windows W2-W6).
     vault_after = load_vault(vault.root)
     sync_vault_state(vault_after, repository, clock=clock)
     change_batch_ids = perform_db_effects(repository, db_plan, clock=clock)
+    recalibrate_applied_content(vault_after, repository, ordered_items, clock=clock)
     repository.mark_apply_intent_applied(intent_id, clock=clock)
-    # Applying LO/blueprint content moves the vault-wide contract frontier, and
-    # the coverage-denominator boundary must be stamped AT the change (one
-    # marker, correct time, correct attribution) rather than armed for the next
-    # unrelated rebuild to narrate. Content-addressed version ⇒ an apply that
-    # changes no frontier cells re-stamps the same value and emits nothing.
-    content_lo_ids = sorted(
+    return PatchApplyResult(applied_count=len(ordered_items), change_batch_ids=change_batch_ids)
+
+
+def applied_content_learning_object_ids(items: list[dict[str, Any]]) -> list[str]:
+    """The learning objects whose LO or blueprint content an applied closure changed."""
+
+    return sorted(
         {
             str(
                 item.get("target_entity_id")
@@ -229,21 +280,39 @@ def _apply_accepted_locked(
                 or (item.get("payload") or {}).get("id")
                 or ""
             )
-            for item in ordered_items
+            for item in items
             if item.get("item_type") in {"learning_object", "task_blueprint"}
         }
         - {""}
     )
-    if content_lo_ids:
-        from learnloop.substrate.replay import record_content_recalibration
 
-        record_content_recalibration(
-            vault_after,
-            repository,
-            affected_learning_object_ids=content_lo_ids,
-            clock=clock,
-        )
-    return PatchApplyResult(applied_count=len(ordered_items), change_batch_ids=change_batch_ids)
+
+def recalibrate_applied_content(
+    vault_after: LoadedVault, repository: Repository, items: list[dict[str, Any]], *, clock: Clock | None
+) -> None:
+    """Stamp the recalibration boundary at an apply that changed LO or blueprint content.
+
+    Applying LO/blueprint content moves the vault-wide contract frontier, and
+    the coverage-denominator boundary must be stamped AT the change (one
+    marker, correct time, correct attribution) rather than armed for the next
+    unrelated rebuild to narrate. Content-addressed version: an apply that
+    changes no frontier cells re-stamps the same value and emits nothing. The
+    apply and its recovery (``apply_protocol.complete_apply_intent``) both run
+    this before marking the intent applied, so a crash between the two is
+    recovered whole (crash window W6, K3.5).
+    """
+
+    content_lo_ids = applied_content_learning_object_ids(items)
+    if not content_lo_ids:
+        return
+    from learnloop.substrate.replay import record_content_recalibration
+
+    record_content_recalibration(
+        vault_after,
+        repository,
+        affected_learning_object_ids=content_lo_ids,
+        clock=clock,
+    )
 
 
 def compute_target_hash(vault: LoadedVault, item_type: str, entity_id: str) -> str | None:

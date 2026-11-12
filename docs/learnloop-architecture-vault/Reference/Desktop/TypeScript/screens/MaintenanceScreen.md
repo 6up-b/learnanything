@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/MaintenanceScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/MaintenanceScreen.tsx) |
-| Source lines | 1419 |
+| Source lines | 1441 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
@@ -55,7 +55,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export function MaintenanceScreen(` — function, line 73
-- `export function TranscriptionReportCard(` — function, line 1329
+- `export function TranscriptionReportCard(` — function, line 1351
 
 ## Internal implementation anchors
 
@@ -80,68 +80,71 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const reload = ()` — const, line 132
 - `const loadError = feedQuery.error ?? conflictsQuery.error ?? readinessQuery.error ?? sourceSetsQuery.error ?? healthQuery.error` — const, line 143
 - `const noticeAction = async (notice: MaintenanceNoticeDto, action: "dismiss" | "snooze")` — const, line 149
-- `const resolveDirection = async ( edgeId: string, resolution: EdgeDirectionResolution, rationale: string )` — const, line 157
-- `const runAppend = async (sourceSetId: string)` — const, line 169
-- `const res = await api.appendSource(` — const, line 173
-- `const resolve = async (conflict: SourceConflictDto, kind: ConflictResolutionKind)` — const, line 182
-- `let resolution: Record<string, unknown> =` — let, line 184
-- `const canonical = window.prompt("Canonical notation?") ?? ""` — const, line 186
-- `const alternate = window.prompt("Alternate notation?") ?? ""` — const, line 187
-- `const bySeverity = (sev: MaintenanceSeverity)` — const, line 197
-- `const scheduleColdProbes = async ()` — const, line 199
-- `const transitionProbe = async (candidateId: string, toStatus: string)` — const, line 210
-- `const needsReviewer = toStatus === "reviewed" || toStatus === "rejected"` — const, line 211
-- `const reviewer = needsReviewer ? window.prompt("Reviewer name?")?.trim() : null` — const, line 212
-- `const reason = needsReviewer ? window.prompt("Review reason (optional)?")?.trim() || null : null` — const, line 214
-- `const generateCommissioningPractice = async ()` — const, line 226
-- `const result = await api.generateCommissioningPractice(` — const, line 234
-- `const applyIntegrationBackfill = async ()` — const, line 243
-- `const confirmed = window.confirm( "Apply the reviewed D3 coordination backfill? This rewrites authored learning-object YAML, rebuilds affected state, and records one learner-visible recalibration boundary." )` — const, line 244
-- `function metricValue(metric: MeasurementHealthDto["scoreboard"]["metrics"][number]): string` — function, line 466
-- `function MeasurementHealthPanel(` — function, line 472
-- `const reach = health.reachability.summary` — const, line 499
-- `const inference = health.inferencePrecheck.summary` — const, line 500
-- `const cold = health.coldProbes.coverage` — const, line 501
-- `const backfill = health.integrationBackfill.summary` — const, line 502
-- `const backfillChanges = (backfill.dispositions.DROP ?? 0) + (backfill.dispositions.LOWER ?? 0)` — const, line 503
-- `const queue = health.reachability.cells.filter((cell)` — const, line 505
-- `const nextStatus = (status: string): string | null` — const, line 506
-- `const next = nextStatus(candidate.status)` — const, line 743
-- `function TraceEvidenceBlock(` — function, line 775
-- `const t = traceEvidence` — const, line 780
-- `function InstrumentAuditBlock(` — function, line 835
-- `const hunts = audit.errorHuntOutcomes` — const, line 836
-- `const coverage = audit.discriminationProfileCoverage` — const, line 837
-- `const ladders = audit.ladderedStems.filter((stem)` — const, line 838
-- `const commissioning = audit.contrastPairCommissioning.summary` — const, line 839
-- `function ClarificationRateBlock(` — function, line 987
-- `const c = clarificationRate` — const, line 992
-- `function ConflictSide(` — function, line 1030
-- `const spanId = resolvedSpanId !== undefined ? resolvedSpanId : spanIdFromLocator(locator)` — const, line 1049
-- `const openable = extractionId != null && spanId != null` — const, line 1050
-- `function StudyMapDiffView(` — function, line 1067
-- `const diff = append.studyMapDiff` — const, line 1068
-- `const th: CSSProperties =` — const, line 1114
-- `const td: CSSProperties =` — const, line 1115
-- `const DIRECTION_ACTIONS:` — const, line 1119
-- `const REASON_COPY: Record<AmbiguousEdgeDirectionDetail["reason"], string> =` — const, line 1126
-- `function AmbiguousEdgeCard(` — function, line 1132
-- `const detail = notice.detail as unknown as AmbiguousEdgeDirectionDetail | null` — const, line 1141
-- `const edgeId = detail?.edgeId ?? (notice.action.edgeId as string | null | undefined) ?? null` — const, line 1144
-- `const evidence = detail?.evidence ?? null` — const, line 1145
-- `const src = detail.sourceConcept` — const, line 1149
-- `const tgt = detail.targetConcept` — const, line 1150
-- `function ConceptRef(` — function, line 1251
-- `function RestructureRequestCard(` — function, line 1272
-- `const detail = notice.detail as unknown as RestructureRequestDetail | null` — const, line 1279
-- `interface TranscriptionReportDetail` — interface, line 1319
-- `const detail = (notice.detail ??` — const, line 1340
-- `const itemId = detail.practiceItemId ?? notice.entityId ?? (notice.action.practiceItemId as string | undefined) ?? null` — const, line 1341
-- `const reports = detail.reports ?? 1` — const, line 1346
-- `const notes = detail.notes ?? []` — const, line 1347
-- `const printed = useAsPrinted(itemId)` — const, line 1348
-- `const save = async ()` — const, line 1349
-- `const prompt = draft.trim()` — const, line 1351
+- `const resolveApplyIntent = async (notice: MaintenanceNoticeDto)` — const, line 160
+- `const intentId = notice.action.intentId` — const, line 161
+- `const resolution = notice.action.resolution` — const, line 162
+- `const resolveDirection = async ( edgeId: string, resolution: EdgeDirectionResolution, rationale: string )` — const, line 174
+- `const runAppend = async (sourceSetId: string)` — const, line 186
+- `const res = await api.appendSource(` — const, line 190
+- `const resolve = async (conflict: SourceConflictDto, kind: ConflictResolutionKind)` — const, line 199
+- `let resolution: Record<string, unknown> =` — let, line 201
+- `const canonical = window.prompt("Canonical notation?") ?? ""` — const, line 203
+- `const alternate = window.prompt("Alternate notation?") ?? ""` — const, line 204
+- `const bySeverity = (sev: MaintenanceSeverity)` — const, line 214
+- `const scheduleColdProbes = async ()` — const, line 216
+- `const transitionProbe = async (candidateId: string, toStatus: string)` — const, line 227
+- `const needsReviewer = toStatus === "reviewed" || toStatus === "rejected"` — const, line 228
+- `const reviewer = needsReviewer ? window.prompt("Reviewer name?")?.trim() : null` — const, line 229
+- `const reason = needsReviewer ? window.prompt("Review reason (optional)?")?.trim() || null : null` — const, line 231
+- `const generateCommissioningPractice = async ()` — const, line 243
+- `const result = await api.generateCommissioningPractice(` — const, line 251
+- `const applyIntegrationBackfill = async ()` — const, line 260
+- `const confirmed = window.confirm( "Apply the reviewed D3 coordination backfill? This rewrites authored learning-object YAML, rebuilds affected state, and records one learner-visible recalibration boundary." )` — const, line 261
+- `function metricValue(metric: MeasurementHealthDto["scoreboard"]["metrics"][number]): string` — function, line 488
+- `function MeasurementHealthPanel(` — function, line 494
+- `const reach = health.reachability.summary` — const, line 521
+- `const inference = health.inferencePrecheck.summary` — const, line 522
+- `const cold = health.coldProbes.coverage` — const, line 523
+- `const backfill = health.integrationBackfill.summary` — const, line 524
+- `const backfillChanges = (backfill.dispositions.DROP ?? 0) + (backfill.dispositions.LOWER ?? 0)` — const, line 525
+- `const queue = health.reachability.cells.filter((cell)` — const, line 527
+- `const nextStatus = (status: string): string | null` — const, line 528
+- `const next = nextStatus(candidate.status)` — const, line 765
+- `function TraceEvidenceBlock(` — function, line 797
+- `const t = traceEvidence` — const, line 802
+- `function InstrumentAuditBlock(` — function, line 857
+- `const hunts = audit.errorHuntOutcomes` — const, line 858
+- `const coverage = audit.discriminationProfileCoverage` — const, line 859
+- `const ladders = audit.ladderedStems.filter((stem)` — const, line 860
+- `const commissioning = audit.contrastPairCommissioning.summary` — const, line 861
+- `function ClarificationRateBlock(` — function, line 1009
+- `const c = clarificationRate` — const, line 1014
+- `function ConflictSide(` — function, line 1052
+- `const spanId = resolvedSpanId !== undefined ? resolvedSpanId : spanIdFromLocator(locator)` — const, line 1071
+- `const openable = extractionId != null && spanId != null` — const, line 1072
+- `function StudyMapDiffView(` — function, line 1089
+- `const diff = append.studyMapDiff` — const, line 1090
+- `const th: CSSProperties =` — const, line 1136
+- `const td: CSSProperties =` — const, line 1137
+- `const DIRECTION_ACTIONS:` — const, line 1141
+- `const REASON_COPY: Record<AmbiguousEdgeDirectionDetail["reason"], string> =` — const, line 1148
+- `function AmbiguousEdgeCard(` — function, line 1154
+- `const detail = notice.detail as unknown as AmbiguousEdgeDirectionDetail | null` — const, line 1163
+- `const edgeId = detail?.edgeId ?? (notice.action.edgeId as string | null | undefined) ?? null` — const, line 1166
+- `const evidence = detail?.evidence ?? null` — const, line 1167
+- `const src = detail.sourceConcept` — const, line 1171
+- `const tgt = detail.targetConcept` — const, line 1172
+- `function ConceptRef(` — function, line 1273
+- `function RestructureRequestCard(` — function, line 1294
+- `const detail = notice.detail as unknown as RestructureRequestDetail | null` — const, line 1301
+- `interface TranscriptionReportDetail` — interface, line 1341
+- `const detail = (notice.detail ??` — const, line 1362
+- `const itemId = detail.practiceItemId ?? notice.entityId ?? (notice.action.practiceItemId as string | undefined) ?? null` — const, line 1363
+- `const reports = detail.reports ?? 1` — const, line 1368
+- `const notes = detail.notes ?? []` — const, line 1369
+- `const printed = useAsPrinted(itemId)` — const, line 1370
+- `const save = async ()` — const, line 1371
+- `const prompt = draft.trim()` — const, line 1373
 
 ## Who imports or calls it
 
@@ -178,6 +181,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/MaintenanceScreen.transcription.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/MaintenanceScreen.transcription.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/MaintenanceScreen.applyIntent.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/MaintenanceScreen.applyIntent.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_maintenance_feed.py](../../../../../../tests/test_maintenance_feed.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_doctor.py](../../../../../../tests/test_doctor.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_desktop_rpc_contract.py](../../../../../../tests/test_desktop_rpc_contract.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

@@ -14,11 +14,23 @@ protocol:
 4. Write each target to a staged temp file, fsync, and atomically rename into
    place.
 5. Sync derived state, perform the DB side effects (proposal decisions, content
-   events, entity_source_links), and mark the intent applied.
+   events, entity_source_links), stamp the content recalibration, and mark the
+   intent applied (the mark comes last, so a crash before it is recovered whole).
 
-The vault mutation lock closes races; this protocol closes crashes. Startup/doctor
-recovery (:func:`recover_apply_intents`) completes any intent left mid-flight, and
-application is idempotent at every boundary.
+The vault mutation lock closes races; this protocol closes crashes. Recovery
+(:func:`recover_apply_intents`) completes any intent left mid-flight: the sidecar
+runs it at every primary bind, beside facet-identity recovery, and ``doctor
+--fix-state`` runs it too. Application is idempotent at every boundary.
+
+Recovery never writes over a newer file (K3.5). Each target records the hash of
+the file it replaces (``pre_hash``; ``None`` when the file did not exist), and a
+file is written only while it still holds that pre-image or already holds the
+post-image. Any other content means something changed the file after the intent
+was written: nothing of that intent is written, it is marked ``conflicted`` with
+the files that differ, and it stays for the owner (doctor reports it; the
+maintenance feed offers "Keep the files as they are", which sets it aside). While
+an intent is pending or conflicted, ``patches.apply_accepted_items`` refuses
+(``OutstandingApplyIntentError``), so no accept builds on a half-applied vault.
 """
 
 from __future__ import annotations
@@ -327,14 +339,64 @@ def entity_source_link_rows(
 # --- materialize: staged temp -> fsync -> atomic rename ----------------------
 
 
+class ApplyTargetConflict(Exception):
+    """Target files hold neither the intent's pre-image nor its post-image (K3.5).
+
+    Raised by :func:`materialize_targets` before it writes anything.
+    ``conflicts`` lists ``{rel_path, pre_hash, post_hash, found_hash}`` per file
+    (``found_hash`` is ``None`` for a file that is gone).
+    """
+
+    def __init__(self, conflicts: list[dict[str, Any]]) -> None:
+        self.conflicts = conflicts
+        paths = ", ".join(conflict["rel_path"] for conflict in conflicts)
+        super().__init__(f"changed since the apply was planned: {paths}")
+
+
+def target_conflicts(root: Path, targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The targets whose file holds neither ``pre_hash`` (absent when ``None``) nor ``post_hash``.
+
+    Only a target that carries a ``pre_hash`` key is checked. Every apply intent's
+    targets do (``_diff_targets`` always writes it, ``None`` for a new file); the
+    other callers of :func:`materialize_targets` use it as a plain atomic write
+    under the vault lock (facet registry saves, doctor's content fixes) and pass
+    no pre-image, so they write as before.
+    """
+
+    conflicts: list[dict[str, Any]] = []
+    for target in targets:
+        if "pre_hash" not in target:
+            continue
+        dest = Path(root) / target["rel_path"]
+        found = _sha256_bytes(dest.read_bytes()) if dest.exists() else None
+        if found == target["post_hash"] or found == target.get("pre_hash"):
+            continue
+        conflicts.append(
+            {
+                "rel_path": target["rel_path"],
+                "pre_hash": target.get("pre_hash"),
+                "post_hash": target["post_hash"],
+                "found_hash": found,
+            }
+        )
+    return conflicts
+
+
 def materialize_targets(root: Path, targets: list[dict[str, Any]]) -> None:
     """Write each target via a staged fsynced temp file and an atomic rename.
 
     Idempotent: a target whose on-disk content already matches ``post_hash`` is
-    skipped, so recovery re-runs harmlessly.
+    skipped, so recovery re-runs harmlessly. A target that carries ``pre_hash``
+    is written only over that pre-image (no file when it is ``None``): every
+    such target is checked first, and if any file holds something else (it
+    changed after the intent was written) :class:`ApplyTargetConflict` is
+    raised and nothing is written (K3.5). See :func:`target_conflicts`.
     """
 
     root = Path(root)
+    conflicts = target_conflicts(root, targets)
+    if conflicts:
+        raise ApplyTargetConflict(conflicts)
     touched_dirs: set[Path] = set()
     for target in targets:
         dest = root / target["rel_path"]
@@ -573,25 +635,97 @@ def _run_id_for_patch(repository: Repository, patch_id: str | None) -> str:
 # --- recovery ---------------------------------------------------------------
 
 
+def complete_apply_intent(
+    root: Path, repository: Repository, intent: dict[str, Any], *, clock: Clock | None = None
+) -> bool:
+    """Finish one pending (or re-checked conflicted) intent; False when it is conflicted.
+
+    Re-materializes the targets (each only over its pre-image or already at its
+    post-image), syncs derived state, performs any not-yet-applied DB effects,
+    recalibrates, and marks the intent applied. A target holding anything else
+    writes nothing and marks the intent ``conflicted`` with the files that
+    differ (K3.5). The caller holds the vault mutation lock.
+    """
+
+    from learnloop.content.proposals.patches import recalibrate_applied_content
+
+    try:
+        materialize_targets(root, intent["targets"])
+    except ApplyTargetConflict as exc:
+        repository.mark_apply_intent_conflicted(intent["id"], exc.conflicts, clock=clock)
+        return False
+    vault_after = load_vault(root)
+    sync_vault_state(vault_after, repository, clock=clock)
+    perform_db_effects(repository, intent["db_plan"], clock=clock)
+    items = [item for item in (repository.proposal_item(item_id) for item_id in intent["item_ids"]) if item]
+    recalibrate_applied_content(vault_after, repository, items, clock=clock)
+    repository.mark_apply_intent_applied(intent["id"], clock=clock)
+    return True
+
+
 def recover_apply_intents(
     root: Path, repository: Repository, *, clock: Clock | None = None
 ) -> list[str]:
-    """Complete any apply intent left mid-flight (startup/doctor recovery, §10.2).
+    """Complete any apply intent left mid-flight (sidecar bind and doctor recovery, §10.2).
 
-    Idempotent and safe at both crash boundaries: it re-materializes target files
-    (skipping any already at ``post_hash``), performs any not-yet-applied DB
-    effects, syncs derived state, and marks the intent applied. Returns the ids of
-    the intents it recovered.
+    Idempotent and safe at every crash boundary (see :func:`complete_apply_intent`);
+    an intent whose files changed since is marked ``conflicted`` and left for the
+    owner, never written over. With nothing pending it reads one query and
+    touches nothing (not even the lock file); otherwise it runs under the vault
+    mutation lock (re-entrant, so a caller may already hold it). Returns the ids
+    of the intents it completed; conflicted ones are read back with
+    ``repository.outstanding_apply_intents()``.
     """
 
-    pending = repository.pending_apply_intents()
-    if not pending:
+    from learnloop.vault_lock import vault_mutation_lock
+
+    if not repository.pending_apply_intents():
         return []
     recovered: list[str] = []
-    for intent in pending:
-        materialize_targets(root, intent["targets"])
-        sync_vault_state(load_vault(root), repository, clock=clock)
-        perform_db_effects(repository, intent["db_plan"], clock=clock)
-        repository.mark_apply_intent_applied(intent["id"], clock=clock)
-        recovered.append(intent["id"])
+    with vault_mutation_lock(Path(root), purpose="recover_apply_intents"):
+        for intent in repository.pending_apply_intents():
+            if complete_apply_intent(root, repository, intent, clock=clock):
+                recovered.append(intent["id"])
     return recovered
+
+
+class ApplyIntentResolutionError(ValueError):
+    """An owner's resolution that does not fit the intent's state."""
+
+
+def resolve_apply_intent(
+    root: Path, repository: Repository, intent_id: str, resolution: str, *, clock: Clock | None = None
+) -> dict[str, Any]:
+    """The maintenance feed's action on an outstanding intent (K3.5).
+
+    * ``complete``: finish a pending intent, or re-check a conflicted one (a
+      file the owner put back to its pre- or post-image completes it); a file
+      that still differs leaves it ``conflicted``.
+    * ``keep_files``: set a conflicted intent aside. The files stay as they
+      are, the intent's DB effects are never performed and its proposal items
+      stay pending; derived state is synced to the files.
+
+    Runs under the vault mutation lock. Returns the intent as it now stands.
+    """
+
+    from learnloop.vault_lock import vault_mutation_lock
+
+    with vault_mutation_lock(Path(root), purpose="resolve_apply_intent"):
+        intent = repository.apply_intent(intent_id)
+        if intent is None:
+            raise ApplyIntentResolutionError(f"No apply intent {intent_id}")
+        status = intent["status"]
+        if resolution == "complete":
+            if status not in {"pending", "conflicted"}:
+                raise ApplyIntentResolutionError(f"Apply intent {intent_id} is {status}; nothing to complete")
+            complete_apply_intent(root, repository, intent, clock=clock)
+        elif resolution == "keep_files":
+            if status != "conflicted":
+                raise ApplyIntentResolutionError(
+                    f"Apply intent {intent_id} is {status}; only a conflicted intent is set aside"
+                )
+            repository.mark_apply_intent_set_aside(intent_id, clock=clock)
+            sync_vault_state(load_vault(root), repository, clock=clock)
+        else:
+            raise ApplyIntentResolutionError(f"Unknown resolution {resolution!r}")
+        return repository.apply_intent(intent_id) or {}

@@ -106,6 +106,7 @@ None found by exact static reference scan.
 - `tests/facet_reword_confirm_helpers.py`
 - `tests/facet_rewords_helpers.py`
 - `tests/patch_applier_helpers.py`
+- `tests/test_apply_recovery.py`
 - `tests/test_apply_write_ahead.py`
 - `tests/test_missing_vocabulary_notes.py`
 - `tests/test_patch_applier.py`

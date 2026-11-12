@@ -227,9 +227,9 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 9 static module edges
 - [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 8 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 7 static module edges
+- [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 7 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 7 static module edges
 - [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] — 6 static module edges
-- [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 6 static module edges
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 6 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 6 static module edges

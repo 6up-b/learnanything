@@ -131,6 +131,7 @@ Indexes and uniqueness:
 - `tests/facet_rewords_helpers.py`
 - `tests/patch_applier_helpers.py`
 - `tests/test_agent_runs.py`
+- `tests/test_apply_recovery.py`
 - `tests/test_apply_write_ahead.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_cli_generate_practice.py`
@@ -140,7 +141,6 @@ Indexes and uniqueness:
 - `tests/test_graph_edit_proposals.py`
 - `tests/test_missing_vocabulary_notes.py`
 - `tests/test_patch_applier.py`
-- `tests/test_practice_leakage.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -51,6 +51,7 @@ from tests.ro4_traces_migration_helpers import RO4_ADDED_OBJECTS
 from tests.teacher_te2log_migration_helpers import TE2LOG_ADDED_OBJECTS
 from tests.ih3_migration_helpers import IH3_ADDED_OBJECTS
 from tests.decision_records_migration_helpers import B1_ADDED_OBJECTS, B1_ALTERED_TABLES
+from tests.apply_intents_conflicted_migration_helpers import K35_ALTERED_TABLES
 from tests.mobile_jobs_migration_helpers import M2A_ADDED_OBJECTS
 from tests.rw5c_migration_helpers import RW5C_ADDED_OBJECTS
 from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
@@ -84,7 +85,7 @@ def test_220_adds_three_tables_and_alters_nothing(tmp_path):
         applied = apply_migrations(database)
     assert [migration.version for migration in applied] == list(range(220, migration_head() + 1))
     after = _schema(database)
-    assert {name for name in before if before[name] != after.get(name)} == CLAIM_POINT_ALTERED_TABLES | CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES | (TE1_ALTERED_TABLES | B1_ALTERED_TABLES | RO1_ALTERED_TABLES | TE3A_ALTERED_TABLES)
+    assert {name for name in before if before[name] != after.get(name)} == CLAIM_POINT_ALTERED_TABLES | CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES | (TE1_ALTERED_TABLES | (B1_ALTERED_TABLES | K35_ALTERED_TABLES) | RO1_ALTERED_TABLES | TE3A_ALTERED_TABLES)
     # LP-min (a)'s 221 (one learner_claims column) and curriculum C0a's 222 (its one table, altering nothing)
     # follow on the way to head.
     assert set(after) - set(before) - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS - RO4_ADDED_OBJECTS - TE2LOG_ADDED_OBJECTS - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS == P1_ADDED_OBJECTS

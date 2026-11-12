@@ -207,7 +207,13 @@ class SidecarContext:
         self.map_builds.bind(self.repository.sqlite_path)
         # Finish a facet merge or undo that a previous process left mid-flight
         # before anything reads or re-projects the vault (facet identity F12).
-        if _recover_facet_identity_actions(self.vault_root, self.repository):
+        recovered_facets = _recover_facet_identity_actions(self.vault_root, self.repository)
+        # Then finish a proposal apply left mid-flight (K3.5, crash windows
+        # W2-W6), before ingest binds or anything syncs, serves or accepts on a
+        # half-applied vault. An intent whose files changed since is marked
+        # conflicted and kept for the owner, never written over.
+        recovered_applies = _recover_apply_intents(self.vault_root, self.repository)
+        if recovered_facets or recovered_applies:
             self.vault = load_vault(self.vault_root)
         runner_config = self.vault.config.ingest.runner
         self.ingest_jobs.bind(
@@ -845,6 +851,33 @@ def _recover_facet_identity_actions(vault_root: Path, repository: Repository) ->
             _LOGGER.warning("facet-identity recovery: %s", row["problem"])
         if row.get("refusal"):
             _LOGGER.warning("facet-identity recovery settled %s (%s): %s", row["id"], row["to"], row["refusal"])
+    return bool(recovered)
+
+
+def _recover_apply_intents(vault_root: Path, repository: Repository) -> bool:
+    """Finish proposal applies left mid-flight (K3.5); True when the vault files may have changed.
+
+    With no pending intent this is one query and writes nothing. A failure, or
+    an intent found conflicted, never blocks opening the vault: the intent stays
+    outstanding, accepts refuse until it is settled, and ``doctor`` and the
+    maintenance feed report it.
+    """
+
+    from learnloop.content.proposals.apply_protocol import recover_apply_intents
+
+    try:
+        recovered = recover_apply_intents(vault_root, repository)
+    except Exception:  # pragma: no cover - defensive: startup must not fail on recovery
+        _LOGGER.warning("apply-intent recovery failed; run doctor --fix-state", exc_info=True)
+        return True
+    if recovered:
+        _LOGGER.info("recovered %d mid-flight proposal apply intent(s)", len(recovered))
+    for intent in repository.outstanding_apply_intents():
+        if intent["status"] == "conflicted":
+            _LOGGER.warning(
+                "apply intent %s is conflicted (files changed since: %s); settle it from Maintain",
+                intent["id"], ", ".join(c["rel_path"] for c in intent.get("conflicts") or []),
+            )
     return bool(recovered)
 
 

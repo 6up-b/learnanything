@@ -51,7 +51,7 @@ Each stage is independently resumable. Batches, jobs, and dependencies live in S
 4. **Inventory:** use deterministic structure plus a routed structured provider to identify units/concepts when configured.
 5. **Source-set assembly:** pin a revision and record role, authority, scope, and selection.
 6. **Synthesize:** bootstrap a new map or reconcile an append against existing canonical content.
-7. **Propose/apply:** validate authored output and persist canonical files/receipts.
+7. **Propose/apply:** validate authored output and persist canonical files/receipts. An accept is one write-ahead intent: the intent (each target's pre-image hash and new content) commits first, the files are renamed into place, then state sync, database effects and recalibration run, and the intent is marked applied last. The sidecar finishes an intent a crash left `pending` at its next bind, never writing over a file changed since (that intent becomes `conflicted` and waits for the owner), and no accept runs while one is pending or conflicted. See [[Doctor Migrations and Recovery#Proposal apply recovery]].
 
 The model never receives authority merely by returning JSON. Feature-owned synthesis contracts validate shape; domain gates validate references, coverage, provenance, and allowed mutations before application.
 

@@ -154,6 +154,23 @@ export function MaintenanceScreen({
     }
   };
 
+  // K3.5: an outstanding proposal apply. Its notice carries the intent and the
+  // resolution ("complete" a pending one, "keep_files" for a conflicted one);
+  // the sidecar never writes over a file changed since the intent.
+  const resolveApplyIntent = async (notice: MaintenanceNoticeDto) => {
+    const intentId = notice.action.intentId;
+    const resolution = notice.action.resolution;
+    if (typeof intentId !== "string" || (resolution !== "complete" && resolution !== "keep_files")) return;
+    setBusy(true);
+    try {
+      await api.resolveApplyIntent(intentId, resolution);
+    } catch (err) {
+      reportError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const resolveDirection = async (
     edgeId: string,
     resolution: EdgeDirectionResolution,
@@ -311,7 +328,12 @@ export function MaintenanceScreen({
                 {notice.noticeType === "ambiguous_edge_direction" ||
                 notice.noticeType === "restructure_request" ||
                 notice.noticeType === "transcription_mismatch" ? null : (
-                  <button style={btn} title={notice.action.action}>
+                  <button
+                    style={btn}
+                    title={notice.action.action}
+                    disabled={notice.action.action === "resolve_apply_intent" && busy}
+                    onClick={notice.action.action === "resolve_apply_intent" ? () => resolveApplyIntent(notice) : undefined}
+                  >
                     {notice.action.label ?? notice.action.action ?? "action"}
                   </button>
                 )}

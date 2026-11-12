@@ -203,5 +203,6 @@ def test_a_vault_at_218_without_214_gets_it(tmp_path) -> None:
     # RE0's 252 (practice_attempts.active_seconds) and refactor B1's 253 (model_call_receipts.trace_id) last.
     from tests.re0_capture_helpers import RE0_ALTERED_TABLES
     from tests.decision_records_migration_helpers import B1_ALTERED_TABLES
+    from tests.apply_intents_conflicted_migration_helpers import K35_ALTERED_TABLES
 
-    assert {name for name in before if before[name] != after.get(name)} == EPOCH_STAMPED | V3_ALTERED_TABLES | RE0_ALTERED_TABLES | B1_ALTERED_TABLES
+    assert {name for name in before if before[name] != after.get(name)} == EPOCH_STAMPED | V3_ALTERED_TABLES | RE0_ALTERED_TABLES | (B1_ALTERED_TABLES | K35_ALTERED_TABLES)

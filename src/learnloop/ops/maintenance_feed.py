@@ -44,7 +44,12 @@ NOTICE_TYPES: dict[str, NoticeType] = {
     "stale_links": NoticeType("stale_links", "auto_resolution", "warning"),
     "needs_reanchor_links": NoticeType("needs_reanchor_links", "auto_resolution", "warning"),
     "unit_needs_reinventory": NoticeType("unit_needs_reinventory", "auto_resolution", "warning"),
-    "append_partially_complete": NoticeType("append_partially_complete", "escalation", "action_needed"),
+    # K3.5: auto_resolution, not escalation (it was born action_needed, so escalation
+    # raised nothing, and an escalation notice never clears): the sidecar finishes a
+    # pending apply at its next bind, and the notice clears with it.
+    "append_partially_complete": NoticeType("append_partially_complete", "auto_resolution", "action_needed"),
+    # K3.5: an apply whose target files changed after its intent; cleared when the owner settles it.
+    "apply_conflicted": NoticeType("apply_conflicted", "auto_resolution", "action_needed"),
     "open_conflict": NoticeType("open_conflict", "auto_resolution", "action_needed"),
     "missing_prerequisite_coverage": NoticeType("missing_prerequisite_coverage", "auto_expiry", "info"),
     "task_family_without_teaching": NoticeType("task_family_without_teaching", "auto_expiry", "info"),
@@ -202,13 +207,39 @@ def _open_conflict_notices(vault, repository) -> list[_Notice]:
 
 
 def _partial_append_notices(vault, repository) -> list[_Notice]:
+    """Outstanding proposal applies (K3.5); both refuse accepts until settled.
+
+    A pending one survives a primary bind only when its recovery failed (the
+    sidecar finishes it at every bind); its action re-runs that recovery. A
+    conflicted one found a target file changed after the intent, kept the newer
+    file and wrote nothing; its action keeps the files as they are. Both act
+    through the sidecar's ``resolve_apply_intent``.
+    """
+
     out: list[_Notice] = []
-    for intent in repository.pending_apply_intents():
+    for intent in repository.outstanding_apply_intents():
+        if intent["status"] == "conflicted":
+            paths = [conflict["rel_path"] for conflict in intent.get("conflicts") or []]
+            out.append(
+                _Notice(
+                    notice_type="apply_conflicted", dedup_key=intent["id"],
+                    title=(
+                        f"A proposal apply stopped because {', '.join(paths) or 'its files'} changed after it was "
+                        "planned. The newer files were kept; accepting waits until you settle it."
+                    ),
+                    action={"action": "resolve_apply_intent", "label": "Keep the files as they are",
+                            "intent_id": intent["id"], "resolution": "keep_files"},
+                    detail={"intent_id": intent["id"], "proposed_patch_id": intent["proposed_patch_id"],
+                            "paths": paths},
+                )
+            )
+            continue
         out.append(
             _Notice(
                 notice_type="append_partially_complete", dedup_key=intent["id"],
                 title="An append/apply is partially complete and awaiting recovery",
-                action={"action": "recover_apply_intents", "label": "Complete pending apply"},
+                action={"action": "resolve_apply_intent", "label": "Complete pending apply",
+                        "intent_id": intent["id"], "resolution": "complete"},
                 detail={"intent_id": intent["id"]},
             )
         )

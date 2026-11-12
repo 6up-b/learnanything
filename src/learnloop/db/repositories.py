@@ -21552,6 +21552,57 @@ class Repository(
             ).fetchall()
         return [_decode_apply_intent(row) for row in rows]
 
+    def outstanding_apply_intents(self) -> list[dict[str, Any]]:
+        """Intents that refuse the next accept: ``pending`` (mid-flight) and ``conflicted`` (K3.5).
+
+        Below migration 255 the table has no ``conflicted`` rows, so this is the pending list there.
+        """
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM apply_intents WHERE status IN ('pending', 'conflicted') ORDER BY created_at, id"
+            ).fetchall()
+        return [_decode_apply_intent(row) for row in rows]
+
+    def apply_intent(self, intent_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute("SELECT * FROM apply_intents WHERE id = ?", (intent_id,)).fetchone()
+        return _decode_apply_intent(row) if row is not None else None
+
+    def mark_apply_intent_conflicted(
+        self, intent_id: str, conflicts: list[Mapping[str, Any]], *, clock: Clock | None = None
+    ) -> None:
+        """Recovery found target files changed since the intent (K3.5): nothing was written."""
+
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE apply_intents SET status = 'conflicted', conflict_json = ?, conflicted_at = ? "
+                "WHERE id = ? AND status IN ('pending', 'conflicted')",
+                (_json([dict(c) for c in conflicts]), utc_now_iso(clock), intent_id),
+            )
+            connection.commit()
+
+    def mark_apply_intent_rolled_back(self, intent_id: str, *, clock: Clock | None = None) -> None:
+        """The accept stopped before writing any file (K3.5: a target changed under it)."""
+
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE apply_intents SET status = 'rolled_back', rolled_back_at = ? WHERE id = ? AND status = 'pending'",
+                (utc_now_iso(clock), intent_id),
+            )
+            connection.commit()
+
+    def mark_apply_intent_set_aside(self, intent_id: str, *, clock: Clock | None = None) -> bool:
+        """The owner kept the files as they are (K3.5); True when a conflicted intent was settled."""
+
+        with self.connection() as connection:
+            cursor = connection.execute(
+                "UPDATE apply_intents SET status = 'set_aside', set_aside_at = ? WHERE id = ? AND status = 'conflicted'",
+                (utc_now_iso(clock), intent_id),
+            )
+            connection.commit()
+        return cursor.rowcount == 1
+
     # -- Learner Review changelog read models (§4.9) ----------------------
     #
     # Read models over grading_evidence / derived_state_rebuilds for the
@@ -26474,6 +26525,8 @@ def _decode_apply_intent(row: sqlite3.Row) -> dict[str, Any]:
     data["item_ids"] = _loads(data.pop("item_ids_json"), [])
     data["targets"] = _loads(data.pop("targets_json"), [])
     data["db_plan"] = _loads(data.pop("db_plan_json"), [])
+    if "conflict_json" in data:
+        data["conflicts"] = _loads(data.pop("conflict_json"), [])
     return data
 
 

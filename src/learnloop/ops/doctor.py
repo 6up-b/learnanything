@@ -1314,12 +1314,15 @@ def _recover_apply_intents(
     *,
     fix_state: bool,
 ) -> None:
-    """Complete any write-ahead apply intent left mid-flight (§10.2 recovery).
+    """Complete any write-ahead apply intent left mid-flight (§10.2 recovery), and report conflicted ones.
 
     A pending intent means a proposal acceptance crashed between the durable DB
-    commit and the applied mark. Under ``--fix`` it is completed idempotently
-    while holding the vault mutation lock; otherwise it is reported so a plain
-    ``doctor`` run never silently mutates the vault.
+    commit and the applied mark (the sidecar also recovers it at its next bind,
+    K3.5). Under ``--fix-state`` it is completed idempotently while holding the
+    vault mutation lock; otherwise it is reported so a plain ``doctor`` run
+    never silently mutates the vault. A conflicted intent (its files changed
+    after it was written, so recovery kept the newer files) is always reported
+    as an error: accepts refuse until the owner settles it from Maintain.
     """
 
     if repository is None or "apply_intents" not in database_tables:
@@ -1328,33 +1331,48 @@ def _recover_apply_intents(
     from learnloop.ops.vault_lock import vault_mutation_lock
 
     pending = repository.pending_apply_intents()
-    if not pending:
-        return
-    if not fix_state:
+    if pending and not fix_state:
         issues.append(
             _issue(
                 "warning",
                 "apply_intents:pending",
-                f"{len(pending)} proposal apply intent(s) left mid-flight; run doctor --fix to recover",
+                f"{len(pending)} proposal apply intent(s) left mid-flight; run doctor --fix-state to recover "
+                "(the app also recovers them when it opens the vault)",
                 paths.sqlite_path,
             )
         )
-        return
-    try:
-        with vault_mutation_lock(paths.root, purpose="doctor_recover_apply"):
-            recovered = recover_apply_intents(paths.root, repository)
-    except Exception as exc:  # pragma: no cover - defensive
-        issues.append(
-            _issue("error", "apply_intents:recovery_failed", f"Apply-intent recovery failed: {exc}", paths.sqlite_path)
-        )
-        return
-    if recovered:
+    elif pending:
+        try:
+            with vault_mutation_lock(paths.root, purpose="doctor_recover_apply"):
+                recovered = recover_apply_intents(paths.root, repository)
+        except Exception as exc:  # pragma: no cover - defensive
+            issues.append(
+                _issue("error", "apply_intents:recovery_failed", f"Apply-intent recovery failed: {exc}", paths.sqlite_path)
+            )
+            return
+        if recovered:
+            issues.append(
+                _issue(
+                    "warning",
+                    "apply_intents:recovered",
+                    f"Recovered {len(recovered)} mid-flight proposal apply intent(s)",
+                    paths.sqlite_path,
+                )
+            )
+    for intent in repository.outstanding_apply_intents():
+        if intent["status"] != "conflicted":
+            continue
+        changed = ", ".join(conflict["rel_path"] for conflict in intent.get("conflicts") or []) or "its files"
         issues.append(
             _issue(
-                "warning",
-                "apply_intents:recovered",
-                f"Recovered {len(recovered)} mid-flight proposal apply intent(s)",
+                "error",
+                "apply_intents:conflicted",
+                f"Proposal apply intent {intent['id']} (proposal {intent['proposed_patch_id']}) stopped because "
+                f"{changed} changed after it was written; the newer files were kept and nothing was written. "
+                "Accepts are refused until it is settled: in the app, Maintain > Keep the files as they are.",
                 paths.sqlite_path,
+                entity_id=intent["id"],
+                details={"proposed_patch_id": intent["proposed_patch_id"], "conflicts": intent.get("conflicts") or []},
             )
         )
 

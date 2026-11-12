@@ -555,6 +555,8 @@ sidecar_passthrough!(list_source_conflicts, "list_source_conflicts");
 
 sidecar_passthrough!(resolve_source_conflict, "resolve_source_conflict");
 
+sidecar_passthrough!(resolve_apply_intent, "resolve_apply_intent");
+
 sidecar_passthrough!(exam_readiness, "exam_readiness");
 
 sidecar_passthrough!(start_extraction_repair, "start_extraction_repair");

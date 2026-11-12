@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from learnloop.content.proposals.proposals import (
     accept_items,
@@ -13,7 +13,7 @@ from learnloop.content.proposals.proposals import (
     reset_items,
 )
 from learnloop.content.facet_identity.actions import pending_reword_confirms, reword_confirms_by_item
-from learnloop.content.proposals.patches import PatchApplicationError
+from learnloop.content.proposals.patches import OutstandingApplyIntentError, PatchApplicationError
 from learnloop.tutor.promotions import (
     reconcile_accepted_question_promotion_patch,
     reconcile_rejected_question_promotion_patch,
@@ -222,6 +222,10 @@ def accept_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) ->
         reconcile_accepted_question_promotion_patch(
             _repository, params.patch_id
         )
+    except OutstandingApplyIntentError as exc:
+        # K3.5: an earlier apply is pending or conflicted; the client names it and
+        # points at Maintain, where the feed's action settles it.
+        raise SidecarError("apply_intent_outstanding", str(exc), details={"intents": exc.intents}) from exc
     except PatchApplicationError as exc:
         raise SidecarError("invalid_request", str(exc)) from exc
     # Applying writes vault files, so refresh the in-memory vault — but proposal
@@ -245,6 +249,42 @@ def reject_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) ->
     # Reverting an applied item touches vault files; refresh without the Codex probe.
     ctx.reload(maintenance=False)
     return _proposals_payload(ctx)
+
+
+class ResolveApplyIntentInput(ParamsModel):
+    intent_id: str
+    resolution: Literal["complete", "keep_files"]
+
+
+@method("resolve_apply_intent", ResolveApplyIntentInput)
+def resolve_apply_intent(ctx: SidecarContext, params: ResolveApplyIntentInput) -> dict[str, Any]:
+    """The maintenance feed's action on an outstanding proposal apply (K3.5).
+
+    ``complete`` finishes a pending intent (or re-checks a conflicted one);
+    ``keep_files`` sets a conflicted intent aside, keeping the files as they
+    are with its proposal items still pending. Neither writes over a file
+    changed since the intent. Returns the intent's new status and paths.
+    """
+
+    from learnloop.content.proposals.apply_protocol import ApplyIntentResolutionError
+    from learnloop.content.proposals.apply_protocol import resolve_apply_intent as resolve
+
+    vault, repository = ctx.require_vault()
+    try:
+        intent = resolve(vault.root, repository, params.intent_id, params.resolution)
+    except ApplyIntentResolutionError as exc:
+        raise SidecarError("invalid_request", str(exc)) from exc
+    # Completing writes vault files and settling syncs derived state; refresh
+    # without the Codex probe, as an accept does.
+    ctx.reload(maintenance=False)
+    return versioned({
+        "intent": {
+            "id": intent.get("id"),
+            "status": intent.get("status"),
+            "proposed_patch_id": intent.get("proposed_patch_id"),
+            "paths": [conflict["rel_path"] for conflict in intent.get("conflicts") or []],
+        }
+    })
 
 
 @method("reset_proposal_items", ProposalDecisionInput)
