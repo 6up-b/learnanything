@@ -105,6 +105,23 @@ BASE_CONFIG_CONTENT_KEY = {
     "default": "beffb8c8dff11caaa683cf1ce557f3c5d3a575d841c83fbff64f6b3bd83109f7",
     "legacy": "5cbd4ee74e3f40c5f6bbe70b7317679f1cd5a146ce7e7a7cb0ab550933085549",
 }
+#: Config defaults added after 88607cb3fe, each on purpose (the step that added it is named). The whole-config
+#: digests above hold arc C's deletions to their base; a new default is not a deletion, so it is taken out before
+#: comparing. A report's whole-config ``config_hash`` (an embedding-compare report's file name) moves with each one,
+#: as with any schema change; nothing that pays or scores compares it.
+ADDED_SINCE_BASE: tuple[tuple[str, ...], ...] = (
+    ("ingest", "budgets", "append_input_ceiling"),  # refactor K3.4: the append call's input ceiling
+)
+
+
+def _without_additions(dump: dict) -> dict:
+    shaped = copy.deepcopy(dump)
+    for *parents, name in ADDED_SINCE_BASE:
+        node = shaped
+        for key in parents:
+            node = node[key]
+        del node[name]  # a KeyError means the entry is stale: the default left or moved
+    return shaped
 
 
 def _sha256(value: object) -> str:
@@ -235,7 +252,7 @@ def _pre_arc_c_shape(dump: dict) -> dict:
 
 
 def test_the_pre_arc_c_shape_reproduces_the_recorded_default_digest():
-    assert content_key(_pre_arc_c_shape(LearnLoopConfig().model_dump(mode="json"))) == (
+    assert content_key(_without_additions(_pre_arc_c_shape(LearnLoopConfig().model_dump(mode="json")))) == (
         BASE_CONFIG_CONTENT_KEY["default"])
 
 
@@ -243,7 +260,7 @@ def test_the_config_identity_reproduces_both_recorded_digests(tmp_path):
     from learnloop.config.retired import identity_dump
 
     for case, config in _configs(tmp_path).items():
-        assert content_key(identity_dump(config)) == BASE_CONFIG_CONTENT_KEY[case], case
+        assert content_key(_without_additions(identity_dump(config))) == BASE_CONFIG_CONTENT_KEY[case], case
 
 
 def test_retired_fields_stay_off_the_models_and_out_of_every_other_dump(tmp_path):
