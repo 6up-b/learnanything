@@ -185,3 +185,83 @@ Two sites in diagnosis value the next observation in minutes (`diagnosis/voi_sto
 | D9D4 | medium | **The block-end hook runs inside the attempt step.** It releases feedback, normalizes, resumes the causal hooks, claim-checks the overlay and routes, all within the step's transaction, while the post-attempt pipeline goes out of its way to normalize outside any transaction because normalization may call a model. The step passes no client (`ai_client` defaults to None), and I didn't trace whether normalization can make one. | `attempts/attempts.py:3498-3513`; `diagnosis/probe_episodes.py:2171-2177`; `diagnosis/probe_blocks.py:314-487`; `attempts/post_attempt.py:114-117` |
 | D9D5 | medium | **The live per-attempt hooks still fail to a log line.** B7 gave the post-diagnosis hooks `diagnosis_step` records, but the four grade-keyed hooks (machine-check sweep, cold verification, deterministic classification, common repair) only log. A failed classification leaves the factor open with no row saying why. | `diagnosis/followups.py:853-906`; compare `:994-1003` |
 | D9D6 | medium | **Where a decision runs depends on the vault's grading mode.** In a joint vault the common-repair consultation runs in the submit request; in a blind vault it runs in the diagnose thread after the diagnosis; inside a block it runs at block end, inside the attempt step. The same receipt is written from three places and three processes. | `attempts/post_attempt.py:182`; `diagnosis/followups.py:895-900`, `:967-1003`; `diagnosis/probe_blocks.py:389-401` |
+
+## 3. Boundaries and duplicated predicates
+
+### 3.1 Who answers each question
+
+**"Should we probe?" — ten sites.**
+
+| # | Site | Rule | Decides? |
+|---|---|---|---|
+| 1 | `decide_probe`, `diagnosis/causal_probe_coherence.py:413`, via `_status_for_factor`, `diagnosis/causal_orchestrator.py:1740` | the ladder of §2.1 step 8; margins 0.0, recent limit 2 | yes, the causal lane's offer |
+| 2 | `decide_probe` again, `followup_run/router.py:128-149` | value inputs fixed at 0.0; preference, machine checks, burden and budget not passed; repair classes from `repair_class_need_for_factor`, not the orchestrator's `classify_cause_set` (`diagnosis/causal_orchestrator.py:1434`, `:1741`) | no: an `observational` field that can't say `probe_now` |
+| 3 | `hard_refusal`, `followup_run/router.py:93-118` | preference ≠ `allow`, pending machine checks, episode conflict; its conflict check (`:113-117`) is a copy of the orchestrator's private `_probe_episode_conflict` (`diagnosis/causal_orchestrator.py:2007-2017`), and it orders preference before machine checks where `decide_probe` does the reverse (`diagnosis/causal_probe_coherence.py:469-480`) | yes, FG1's refusals |
+| 4 | `select_lane`, `followup_run/lanes.py:60-71` | two concrete rival *hypotheses* (`:28-42`); `decide_probe` and `repair_class_need_for_factor` count distinct *repair classes*, so two rivals sharing one repair take FG1's probe lane | yes, which lane exists |
+| 5 | `open_rival_causes_factor`, `diagnosis/causal_attribution.py:2229-2246` | two distinct `episode_key`s among non-retired hypotheses, and the grade not held | yes, whether FG1 opens a factor |
+| 6 | the router's follow-up gate, `daily_plan/router_chooser.py:866` (`FollowupGate`) or `daily_plan/objective_chooser.py:2119` (`ObjectiveFollowupGate`) | a logged mixture over ask now, wait, no intervention | yes, FG1's timing and worth |
+| 7 | the follow-up value suppression, `diagnosis/followups.py:388-410` | VOI on the follow-up slate | yes, the predecessor's insertion |
+| 8 | the episode's serving and continuation: `probe_serving_block_reason` (`diagnosis/probe_episodes.py:1540`), `probe_value_block_reason` (`:1577`), `_evaluate_completion` (`:2902`) | session cap or VOI per item; seven stopping rules | yes, the episode lane |
+| 9 | the scheduler's probe EIG, `scheduling/scheduler.py:3464-3477` | predictive EIG over prior entropy, else hypothesis EIG over log of the set's size, times familiarity; `eligible_instruments` orders the same candidates by information *rate* times a redundancy penalty (`diagnosis/probe_episodes.py:1019-1033`) | yes, ranking in the queue |
+| 10 | the desktop, `apps/learnloop-tauri/src/screens/FeedbackScreen.tsx:1977-1990` | asks for a live repair status only when the receipt says divergent or incomplete mapping, mirroring `_consult_common_repair`'s own skip (`diagnosis/followups.py:1062-1065`) | yes, whether the offer is ever shown |
+
+The Nov 8 map counted six. The four it didn't name are #4 and #5 (the lane and the factor, two different counts of rivals), #9 as a ranking separate from the episode's own order, and #10, a rule copied into TypeScript.
+
+**"Is this resolved?" — nine writers of a closed state, three readers that re-derive it.**
+- Factor resolved by a blind probe match (`diagnosis/causal_orchestrator.py:2821-2827`), by the learner's own cause report (`diagnosis/causal_attribution.py:3738`), by a confirmed repair (`diagnosis/causal_factor_deferral.py:217-225`), as escalated-unrepaired (`:436-470`, `:483`), or retired when FG1's question won't be asked (`followup_serve/workflow.py:481-491`).
+- Misconception resolved by its posterior falling below `tau_misconception_resolved` (`diagnosis/misconceptions.py:916-944`).
+- Episode completed by one of the seven rules (`diagnosis/probe_episodes.py:2902-3052`), or stopped by the learner (`:3447`).
+- Machine checks closed when their obligation is gone (`diagnosis/causal_orchestrator.py:689-740`).
+- Readers that decide "still open" themselves: the plan's repair lane, raw SQL over factors and learner-state hypotheses (`db/stores/daily_plans.py:319-344`); FG1's `waiting_still_valid` (`followup_serve/workflow.py:436-454`); FG1's `_abandon_if_empty`, a copy of `episode_has_observations` because "a leaf imports no domain package" (`followup_serve/workflow.py:494-506`; original `diagnosis/probe_episodes.py:383`).
+
+**"Which factor, which case?"** Each caller takes the first of a list it built: `factors[0]` of a misconception's open factors (`diagnosis/causal_orchestrator.py:1401`; again in `cold_verification_context`, `:3054-3056`), the first factor with two rivals (`followup_run/lanes.py:63-66`), the first hypothesis of the causal episode (`diagnosis/followups.py:1066-1067`), and on the desktop `matchedMisconception.id ?? causalHypotheses[0].hypothesisId` (`apps/learnloop-tauri/src/screens/FeedbackScreen.tsx:1986-1989`). Nothing states that these firsts agree.
+
+**"Is this the same mistake?" — seven producers of a same-cause or same-belief verdict.** Misconception normalization's registry and model match (`diagnosis/misconceptions.py:83-100`); the recurrence judge (`SAME_CAUSE`, `diagnosis/recurrence/kind.py:57`); the diagnoser's validated citations, merged at the judge's authority without a judge call (`diagnosis/split/jobs.py:1160`; `diagnosis/recurrence/guard.py:27-30`); the learner's "same mistake" tap (`diagnosis/split/card.py:14-18`, `:371`); the text-gap match kinds (`diagnosis/text_gaps/kinds.py:70`, `:90`); the guard's planted pairs (`diagnosis/recurrence/guard.py:68`); and the offline review's link judge (`diagnosis/offline_review/judge.py:314`). They share `judgment_ledger` and `MatchKind`, and recurrence and text gaps share `judge_pairs`; normalization's match is separate.
+
+### 3.2 Parameter resolvers that look the same
+
+`resolve_causal_probe_parameters` (`diagnosis/causal_probe_coherence.py:151-186`), `resolve_orchestrator_parameters` (`diagnosis/causal_orchestrator.py:309-340`) and `resolve_cold_probe_parameters` (`goals/certification_cold_probe.py:248-282`) are the same algorithm with different data: copy the defaults; return them with no repository or no active fitted set; for each default key, reject booleans, non-numbers, non-finite and out-of-bounds values into `invalid_keys`; return `lifecycle = "fitted"` even if every key was invalid. Each has its own dataclass with an identical `manifest()` (`diagnosis/causal_probe_coherence.py:120-148`, `diagnosis/causal_orchestrator.py:288-306`, `goals/certification_cold_probe.py:209-245`). They don't differ in behaviour, only in scope and knobs.
+
+**Nothing writes any of the three scopes.** `learnloop fit` writes only `fsrs_weights` and `followup_gate` (`cli/fit.py:36`, `:130`), and they are the only callers of `insert_fitted_parameters` in `src`. So every fitted arm above is unreachable in production, the receipts' `"lifecycle": "heuristic_default"` is the only value they record, and `decide_probe`'s "every threshold is resolved from the fitted store" (`diagnosis/causal_probe_coherence.py:432-433`) describes a store with nothing in it. The Fable review's "the gate's margins are 0.0 and its claim to be fitted is unverified" (strategy §2.10, G2) is now verified as not fitted.
+
+### 3.3 The two belief updates over locked hypotheses
+
+| | Episode posterior | Discriminating observation |
+|---|---|---|
+| Function | `episode_posterior`, `diagnosis/probe_episodes.py:1869`; `_bayes_update`, `:2074` | `record_probe_classification`, `diagnosis/causal_orchestrator.py:2692`; `classify_against_blind_bundles`, `diagnosis/causal_probe_coherence.py:1144` |
+| Locked set | the episode's, locked by `enter_episode` without support scores (`diagnosis/probe_episodes.py:291-302`, `:309-322`) | the candidate's, locked at commissioning with support scores (`diagnosis/causal_probe_commissioning.py:669-676`), pinned on the presentation (`diagnosis/causal_orchestrator.py:2235`) |
+| Rule | L_w = w·L + (1−w)·Σπ(h)L(h); π′ ∝ π·L_w (`diagnosis/probe_episodes.py:2081-2094`) | exact key match to the pinned bundles; 1.0 to the matched hypothesis, 0.0 to every other *measured* one, no entry for an unmeasured one (`diagnosis/causal_orchestrator.py:2538-2562`) |
+| Evidence | the instrument card's outcome likelihoods, every presentation answer and incidental attempts, damped by contamination, hints, exam type, dialogue share and trace mass (`diagnosis/probe_episodes.py:1915-1972`, `:2668-2678`) | the criterion features of the probe attempt only (`:2886-2940`) |
+| Independence | a discount on the weight (`:2669`) | a refusal to admit (`diagnosis/causal_orchestrator.py:2778-2796`) |
+| Held grades | the predicate, both channels (`diagnosis/probe_episodes.py:1907-1910`) | not consulted; protected by the criterion rule (§2.7) |
+| When | inside the attempt step | after the commit, in the grade-keyed hooks |
+| Stored | `probe_observations` (before and after), recomputed by every read | `causal_discriminating_observations`: `support_scores`, `resolved_factor` |
+| Read by | the scheduler (`scheduling/scheduler.py:2754-2774`), valuation (`instructional/valuation.py:207-226`, renormalized over concrete labels), passage cues (`source_retrieval/passage_cues.py:377-417`, raw mass, not renormalized), episode completion | the eight readers in strategy §2.10 |
+
+**Where they can disagree.** Different priors (support-weighted against verbalized or uniform), different evidence (the whole episode against one attempt's criteria), different independence rules, and a regrade that neither absorbs. A factor can be resolved by a single matched observation while the episode posterior still spreads its mass, or the episode can complete `decision_stable` on a hypothesis the discriminating channel never measured. Nothing compares them, and they don't share a set id.
+
+### 3.4 What each boundary passes, and whether each side can change alone
+
+| Boundary | What crosses | Change alone? |
+|---|---|---|
+| Attempt step → episode lane | ten arguments to `record_episode_evidence`, among them the in-flight held flag and the grader identity (`attempts/attempts.py:3500-3513`); returns the block-end payload | No: the block end runs inside the step (D9D4), and the step reads `probe_episodes` in five places (`:3069`, `:3097`, `:3382`, `:3498`, `:3655`) |
+| Post-attempt pipeline → follow-ups | the `AttemptResult` plus five behaviour flags (`normalization_prepared`, `applied_probe_episode_id`, `suppress_insertion_reason`, `defer_diagnosis_hooks`, `insertion_only`; `diagnosis/followups.py:586-601`) | No: each flag is a mode the other side must know about; `insertion_only` exists for FG1's fallback (`followup_run/lanes.py:100-104`) |
+| Sidecar → causal lane | `misconception_id` or `factor_id`, and `decision_receipt_id` (`learnloop_sidecar/handlers/remediation.py:159-228`) | Mostly: five functions, though the desktop copies the status mapping (`apps/learnloop-tauri/src/components/CausalAttribution.tsx:403-407` shows "You asked me not to check" for every withheld offer, while the orchestrator also withholds for recent burden and session budget, `diagnosis/causal_orchestrator.py:1875-1903`) |
+| FG1 → causal lane | `factor_id`, `candidate_id`, `router_decision_id`, `followup_workflow_id` into `accept_probe_offer` (`followup_run/admission.py:421`); four private-feeling helpers into `hard_refusal` | No: `hard_refusal` re-implements the orchestrator's conflict check, and the router's card facts read `repair_class_need_for_factor` (`followup_run/router.py:157-165`) |
+| Scheduler → episode lane | eleven names from `probe_episodes`, `probes.HypothesisSet` and `voi_stopping` (`scheduling/scheduler.py:26-39`, `:55`) | No: the scheduler builds its own probe ranking over the episode's entries (§3.1 #9) |
+| Readers → episode posterior | `episode_posterior(vault, repository, episode)` | Yes for the signature; but each reader normalizes differently (valuation renormalizes over concrete labels, passage cues doesn't) |
+| Sidecar practice → episode lane | the probe contract calls eleven functions and itself parks the episode when no grader is ready (`learnloop_sidecar/handlers/practice.py:573-581`) | No: an episode lifecycle transition lives in a handler |
+| Sidecar feedback → remediation | `_pick_primed_sibling` (`learnloop_sidecar/handlers/feedback.py:1063`) re-implements `remediation._rank_items` (`diagnosis/remediation.py:437`) with a boolean facet overlap, the source item excluded and `SystemClock().now()` (`learnloop_sidecar/handlers/feedback.py:1107`) instead of the injected clock | No |
+
+### Findings
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| D9B1 | high | **Ten sites answer "should we probe?", and two of them count rivals differently.** FG1's lane takes two rival hypotheses; the causal lane's verdict needs two repair classes; FG1's factor needs two episode keys. A miss whose rivals share one repair goes to FG1's probe lane while the causal lane would say "action equivalent". | §3.1 #1-#10; `followup_run/lanes.py:60-71`; `diagnosis/causal_probe_coherence.py:437-468`; `diagnosis/causal_attribution.py:2239-2244` |
+| D9B2 | high | **Two belief updates over two locked sets, and nothing reconciles them** (the Nov 8 map's finding, confirmed and widened: the sets differ by construction, the evidence differs, and a regrade moves neither). | §3.3; D9D1, D9D2 |
+| D9B3 | high | **The probe policy's "fitted" thresholds are constants.** Three resolvers read scopes nothing writes, so `recent_diagnostic_limit = 2`, the 0.0 margins, the 0.8 success cut, the 0.1 open-set weight and the burden defaults are hand-set numbers with a fitting path that can't run. | §3.2; `cli/fit.py:36`, `:130` |
+| D9B4 | medium | **Three copies of one resolver** (and, per the delegated sweep, the same validation in `failure_triage.py` and `goal_contracts.py`), each with its own dataclass and manifest. | §3.2 |
+| D9B5 | medium | **The desktop and a handler copy backend rules.** The feedback screen's divergence gate, the "Not now" copy that is wrong for two of the three withheld-offer arms, the primed-sibling ranking with the wall clock, and the probe contract's episode parking. | §3.4; `apps/learnloop-tauri/src/components/CausalAttribution.tsx:403-407` |
+| D9B6 | medium | **"Still open" is re-derived by three readers outside the package** (the plan's raw SQL, FG1's two checks), one of them a deliberate copy to keep a leaf clean. | §3.1 |
+| D9B7 | medium | **"Which factor" is "the first one" at five sites,** with no rule that they pick the same. | §3.1 |
+| D9B8 | medium | **Seven producers of same-cause verdicts,** one of which (normalization's match) shares no machinery with the others. | §3.1 |
