@@ -31,7 +31,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_learning_object
 
-from tests.helpers import NOW, create_basic_vault
+from tests.helpers import NOW, create_basic_vault, pin_old_basic_vault
 
 LO_ID = "lo_svd_definition"
 CLOCK = FrozenClock(NOW)
@@ -69,9 +69,11 @@ class FakeSurfacesClient(StructuredClientFake):
         )
 
 
-def _setup(tmp_path, *, trust_families: bool = True):
+def _setup(tmp_path, *, trust_families: bool = True, old_path: bool = False):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
+    if old_path:
+        paths = pin_old_basic_vault(paths)
     loaded = load_vault(vault_root)
     payload = loaded.learning_objects[LO_ID].model_dump()
     payload["confusables"] = ["eigendecomposition"]
@@ -116,7 +118,9 @@ def test_llm_surfaces_generate_with_provenance(tmp_path):
 
 
 def test_gate_rejected_llm_surfaces_fall_back_to_parametric(tmp_path):
-    _vault_root, loaded, repository = _setup(tmp_path)
+    # Old path only (D2a): parametric instance generation. From mvp-0.45 (FG1 §4.3) the model writes
+    # the family's question pattern and there is no parametric fallback.
+    _vault_root, loaded, repository = _setup(tmp_path, old_path=True)
     episode = enter_episode(loaded, repository, LO_ID, trigger="manual", clock=CLOCK)
     # Ungrounded prompts (no LO title/concept/facet mention) fail the
     # structural gate; leaky prompt equals its expected answer.
@@ -143,7 +147,9 @@ def test_gate_rejected_llm_surfaces_fall_back_to_parametric(tmp_path):
 
 
 def test_provider_failure_falls_back_to_parametric(tmp_path):
-    _vault_root, loaded, repository = _setup(tmp_path)
+    # Old path only (D2a): parametric instance generation. From mvp-0.45 (FG1 §4.3) the model writes
+    # the family's question pattern and there is no parametric fallback.
+    _vault_root, loaded, repository = _setup(tmp_path, old_path=True)
     episode = enter_episode(loaded, repository, LO_ID, trigger="manual", clock=CLOCK)
     client = FakeSurfacesClient(error=True)
 
@@ -155,7 +161,9 @@ def test_provider_failure_falls_back_to_parametric(tmp_path):
 
 
 def test_llm_surfaces_config_disable(tmp_path):
-    _vault_root, loaded, repository = _setup(tmp_path)
+    # Old path only (D2a): parametric instance generation. From mvp-0.45 (FG1 §4.3) the model writes
+    # the family's question pattern and there is no parametric fallback.
+    _vault_root, loaded, repository = _setup(tmp_path, old_path=True)
     loaded.config.probe.generation.llm_surfaces = False
     episode = enter_episode(loaded, repository, LO_ID, trigger="manual", clock=CLOCK)
     client = FakeSurfacesClient()

@@ -265,6 +265,14 @@ def test_a_cold_check_on_a_direct_open_is_served_as_on_main_unless_a_routine_dis
     ``open_queue_item`` then opens no administration and the task stops being
     due until the coverage ends."""
 
+    # Old path only (D2a): a cold retry after a non-routine reveal served cold "as on main". From
+    # mvp-0.27 (the one eligibility decision) such a reveal primes the item and the check is
+    # withdrawn and served as ordinary practice; not ported (the round-6 scenario is the point).
+    from tests.helpers import pin_old_basic_vault
+
+    pin_old_basic_vault(ctx.paths)
+    ctx.load(ctx.paths.root)
+
     from learnloop.attempts.attempts import AUTO_PRIME_REVEAL_THRESHOLD, reveal_total_for_submission
     from learnloop.attempts.reveal_ledger import record_reveal
     from learnloop_sidecar.registry import METHOD_REGISTRY

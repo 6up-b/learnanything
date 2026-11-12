@@ -13,6 +13,7 @@ from learnloop.scheduling.scheduler import build_due_queue
 
 from tests.helpers import NOW, add_followup_item, create_basic_vault
 from tests.followups_helpers import _surprising_attempt
+from tests.voi_stopping_helpers import _minutes
 
 
 def _evaluate(loaded, repository, result, *, available_minutes=30):
@@ -30,7 +31,10 @@ def _evaluate(loaded, repository, result, *, available_minutes=30):
     )
 
 
-def test_negative_surprise_inserts_followup_when_item_exists(tmp_path):
+def test_negative_surprise_inserts_followup_when_item_exists(tmp_path, monkeypatch):
+    # D2a: from mvp-0.21 (voi_stopping) a follow-up is queued only while its value pays for its
+    # minutes; pin the candidates' minutes low (as test_voi_stopping does) so it pays here.
+    _minutes(monkeypatch, 0.01)
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     add_followup_item(vault_root)
@@ -55,7 +59,10 @@ def test_negative_surprise_inserts_followup_when_item_exists(tmp_path):
     assert queue[0].plain_english[0] == "intervention follow-up"
 
 
-def test_negative_surprise_followup_stops_forcing_after_followup_attempt(tmp_path):
+def test_negative_surprise_followup_stops_forcing_after_followup_attempt(tmp_path, monkeypatch):
+    # D2a: from mvp-0.21 (voi_stopping) a follow-up is queued only while its value pays for its
+    # minutes; pin the candidates' minutes low (as test_voi_stopping does) so it pays here.
+    _minutes(monkeypatch, 0.01)
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     add_followup_item(vault_root)

@@ -24,7 +24,11 @@ from learnloop.diagnosis.probe_episodes import (
 )
 from learnloop.diagnosis.probe_hypotheses import H_OTHER
 
-from tests.helpers import NOW_ISO
+from learnloop.vault.loader import load_vault
+from learnloop.vault.paths import VaultPaths
+
+from tests.helpers import NOW_ISO, pin_old_basic_vault
+from tests.voi_stopping_helpers import _minutes
 from tests.probe_block_end_helpers import (
     CLOCK,
     ITEM_2,
@@ -122,16 +126,21 @@ def test_ordinary_attempt_outside_block_still_normalizes(tmp_path):
         loaded, repository, result=result, clock=CLOCK
     )
     assert decision.reason != "deferred_to_block_end"
-    assert repository.misconceptions_for_learning_object(
-        LO_ID, statuses=("active", "resolving", "resolved")
-    )
+    # Normalization ran for this attempt. From mvp-0.7 (KM promotion discipline) one ordinary
+    # attempt's belief is held as a candidate, not minted (tests/test_km4_taxonomy.py).
+    assert repository.misconception_candidates_for_learning_object(LO_ID)
 
 
 # --- §5.7 ordered hook: feedback, completion, routing --------------------------------
 
 
 def test_block_end_releases_feedback_and_routes_ordinary_practice(tmp_path):
+    # Old path only (D2a): a two-observation block whose first success leaves it open. From mvp-0.21
+    # (voi_stopping) the first success already makes the posterior stable, the next observation is
+    # worth nothing, and the block ends (and the one-observation placement episode completes) there.
     loaded, repository = _setup(tmp_path)
+    pin_old_basic_vault(VaultPaths(loaded.root, loaded.config))
+    loaded = load_vault(loaded.root)
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
 
     first = _commit(loaded, repository, episode, item_id=ITEM_ID)
@@ -206,7 +215,11 @@ def test_block_end_routes_diagnosed_gap_to_typed_tutoring_transition(tmp_path):
         assert block_end["route"] == "ordinary_practice"
 
 
-def test_continuing_episode_opens_fresh_segment_at_block_end(tmp_path):
+def test_continuing_episode_opens_fresh_segment_at_block_end(tmp_path, monkeypatch):
+    # D2a: from mvp-0.21 (voi_stopping) a block also closes, and the episode ends, once the next
+    # observation does not pay for its minutes; pin the candidates' minutes low (as test_voi_stopping
+    # does) so the episode keeps asking and the continuing-episode boundary under test runs.
+    _minutes(monkeypatch, 0.01)
     loaded, repository = _setup(tmp_path)
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
     # Force a wide budget so two observations cannot complete the episode.
@@ -462,7 +475,11 @@ def test_open_set_trigger_fires_at_threshold_with_dedup(tmp_path):
     assert episode_hypothesis_set(repository, episode).id == episode.hypothesis_set_id
 
 
-def test_block_end_payload_carries_open_set_evaluation(tmp_path):
+def test_block_end_payload_carries_open_set_evaluation(tmp_path, monkeypatch):
+    # D2a: from mvp-0.21 (voi_stopping) a block also closes, and the episode ends, once the next
+    # observation does not pay for its minutes; pin the candidates' minutes low (as test_voi_stopping
+    # does) so the episode keeps asking and the two-observation block end under test runs.
+    _minutes(monkeypatch, 0.01)
     loaded, repository = _setup(tmp_path)
     loaded.config.probe.episode.open_set_trigger_threshold = 0.05
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)

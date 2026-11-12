@@ -8,12 +8,20 @@ from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 
-from tests.helpers import NOW, NOW_ISO, admit_probe_instrument_card, create_basic_vault
+from tests.helpers import NOW, NOW_ISO, admit_probe_instrument_card, append_config_toml, create_basic_vault, pin_old_basic_vault
+
+# D2a: the head opens no opening episode per new LO (mvp-0.11 placement) and ignores a pristine one, so
+# these tests of an open episode's probe EIG keep it with placement.initial_probes.
+OPENING_PROBES = "[placement]\ninitial_probes = true\n"
 
 
-def _setup_probe_vault(tmp_path):
+def _setup_probe_vault(tmp_path, *, old_path: bool = False):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
+    if old_path:
+        paths = pin_old_basic_vault(paths)
+    else:
+        append_config_toml(vault_root, OPENING_PROBES)
     # Remove goals so probe_eig is the only thing that can keep the item in the queue.
     write_yaml(paths.goals_path, {"schema_version": 1, "goals": []})
     repository = Repository(paths.sqlite_path)
@@ -86,6 +94,7 @@ def test_short_session_suppresses_probe_eig(tmp_path):
 def test_short_session_keeps_probe_eig_when_probe_is_only_reason(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
+    append_config_toml(vault_root, OPENING_PROBES)
     write_yaml(paths.goals_path, {"schema_version": 1, "goals": []})
     repository = Repository(paths.sqlite_path)
     loaded = load_vault(vault_root)
@@ -147,7 +156,10 @@ def test_probe_eig_uses_prospective_familiarity_discount(tmp_path):
 
     from learnloop.vault.writer import upsert_practice_item
 
-    vault_root, repository = _setup_probe_vault(tmp_path)
+    # Old path only (D2a): from mvp-0.21 (voi_stopping) the discounted probe's value (0.08 min) no
+    # longer pays its 0.75 min, so value of information stops the probe before any discount shows;
+    # a head port needs a scenario where the discounted probe still pays (left for D2b).
+    vault_root, repository = _setup_probe_vault(tmp_path, old_path=True)
     upsert_practice_item(
         vault_root,
         {

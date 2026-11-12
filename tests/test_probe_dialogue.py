@@ -22,6 +22,7 @@ from learnloop.diagnosis.probe_episodes import enter_episode, episode_posterior
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, admit_probe_instrument_card, create_basic_vault
+from tests.voi_stopping_helpers import _minutes
 
 LO_ID = "lo_svd_definition"
 ITEM_ID = "pi_svd_define_001"
@@ -151,11 +152,15 @@ def test_dialogue_state_round_trips_through_json(tmp_path):
     assert restored.task_evidence_share == state.task_evidence_share
 
 
-def test_second_dialogue_block_on_same_lo_can_open(tmp_path):
+def test_second_dialogue_block_on_same_lo_can_open(tmp_path, monkeypatch):
     """Every block re-mints the same parametric turn surfaces; the §5.4
     duplication gate must exempt ephemeral dialogue instances or a second
     block on the LO could never mint a turn."""
 
+    # D2a: from mvp-0.21 (voi_stopping) a block also closes, and the episode ends, once the next
+    # observation does not pay for its minutes; pin the candidates' minutes low (as test_voi_stopping
+    # does) so the episode keeps asking and the second block under test runs.
+    _minutes(monkeypatch, 0.01)
     vault_root, loaded, repository, episode = _setup(tmp_path)
     state = begin_dialogue_block(loaded, repository, LO_ID, clock=CLOCK)
     state, turn = next_dialogue_turn(loaded, repository, state, clock=CLOCK)

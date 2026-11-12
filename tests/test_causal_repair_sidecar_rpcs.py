@@ -42,8 +42,9 @@ from learnloop.diagnosis.probe_episodes import (
 from learnloop_sidecar.handlers import practice as practice_handlers
 from learnloop_sidecar.handlers.remediation import ProbeOfferInput, RepairStatusInput
 from learnloop_sidecar.registry import METHOD_REGISTRY
+from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, admit_probe_instrument_card
+from tests.helpers import NOW, admit_probe_instrument_card, append_config_toml
 from tests.causal_orchestrator_helpers import (
     CLOCK,
     LO_ID,
@@ -395,7 +396,7 @@ def _offer_over_rpc(root, factor_id: str, first_id: str) -> dict:
 def test_take_the_quick_check_over_rpc_pins_the_probe(tmp_path):
     """"Take the quick check" serves a factor-aware episode with pinned bundles.
 
-    Run against the app's real starting state: `initialize` cold-starts a plain
+    Run against the opening-probe starting state: `initialize` cold-starts a plain
     `initial` diagnostic episode for this learning object, and at most one
     episode may be open per LO. That placement episode has measured nothing, so
     it is relocked onto the cause set rather than refusing the offer — before
@@ -403,6 +404,9 @@ def test_take_the_quick_check_over_rpc_pins_the_probe(tmp_path):
     """
 
     _vault_obj, repository, root = _vault(tmp_path, with_probe_item=True)
+    # D2a: the head opens no opening episode per new LO (mvp-0.11 placement), so this keeps
+    # `initialize`'s cold-started episode with placement.initial_probes; every other rule is the head's.
+    append_config_toml(root, "[placement]\ninitial_probes = true\n")
     factor_id, first_id, second_id = _seed_factor(repository)
     admit_probe_instrument_card(repository, items=(PROBE_ITEM,))
     _activate_probe_candidate(repository, factor_id, first_id, second_id)
@@ -447,6 +451,10 @@ def test_an_open_episode_with_observations_refuses_the_offer_with_a_typed_reason
     """
 
     vault, repository, root = _vault(tmp_path, with_probe_item=True)
+    # D2a: the head opens no opening episode per new LO (mvp-0.11 placement), so this keeps
+    # `initialize`'s cold-started episode with placement.initial_probes; every other rule is the head's.
+    append_config_toml(root, "[placement]\ninitial_probes = true\n")
+    vault = load_vault(root)
     factor_id, first_id, second_id = _seed_factor(repository)
     admit_probe_instrument_card(repository, items=(PROBE_ITEM,))
     _activate_probe_candidate(repository, factor_id, first_id, second_id)

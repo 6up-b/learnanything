@@ -37,6 +37,8 @@ def test_planted_types_pass_the_checkpoint_gate(validation_report):
     configured accuracy within the observation budget, with matching actions."""
 
     report = copy.deepcopy(validation_report)
+    # An empty report passes vacuously (D2a: it was empty at the head, which runs no opening episode).
+    assert report.results
     assert report.passes(label_accuracy_threshold=0.6, action_accuracy_threshold=0.6), (
         report.as_dict()["by_planted"]
     )

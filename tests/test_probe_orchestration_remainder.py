@@ -29,12 +29,14 @@ from learnloop.diagnosis.probe_episodes import (
 )
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
+from learnloop.vault.paths import VaultPaths
 from learnloop_sidecar.server import serve
 
 from tests.helpers import (
     NOW,
     NOW_ISO,
     append_config_toml,
+    pin_old_basic_vault,
 )
 from tests.probe_orchestration_remainder_helpers import CLOCK, ITEM_ID, LO_ID, _grade, _setup, _submit
 
@@ -241,7 +243,12 @@ def test_session_cap_blocks_further_probe_serving(tmp_path):
     from learnloop.diagnosis.probe_episodes import probe_serving_block_reason
     from learnloop.vault.writer import upsert_practice_item
 
+    # Old path only (D2a): the routine per-session count cap. From mvp-0.21 (voi_stopping) the cap is
+    # lifted onto value of information (``probe.episode.session_qualifying_observation_cap`` is its
+    # counterfactual), so the head never returns session_cap_reached here.
     vault_root, loaded, repository = _setup(tmp_path)
+    pin_old_basic_vault(VaultPaths(vault_root, loaded.config))
+    loaded = load_vault(vault_root)
     # Ordinary practice must exist on a DIFFERENT surface: administering the
     # instrument item itself would (correctly) trip the never-before-seen
     # probe gate and empty the eligible slate.

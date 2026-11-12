@@ -822,6 +822,12 @@ def test_f5_an_answer_with_no_contract_is_unrecorded(ctx):
     what it was graded against (round 3 F9: no inference from the item as it
     is now): no key, criteria or maximum presented as graded."""
 
+    # Old path only (D2a): "graded before contracts" exists only below mvp-0.7; from then on every
+    # graded answer records the contract it was graded against (the head reports "contract").
+    from tests.helpers import pin_old_basic_vault
+
+    pin_old_basic_vault(ctx.paths)
+    ctx.load(ctx.paths.root)
     vault, repository = ctx.require_vault()
     attempt_id = _self_graded(ctx, answer="U Sigma V^T")
     bundle = feedback_bundle(vault, repository, attempt_id)
@@ -2583,9 +2589,12 @@ def test_f1l_the_scheduler_never_commits_or_serves_a_covered_probe(tmp_path, mon
     from learnloop.substrate.state_sync import sync_vault_state
     from learnloop_sidecar.context import SidecarContext
     from learnloop_sidecar.handlers import practice as practice_handlers
-    from tests.helpers import admit_probe_instrument_card
+    from tests.helpers import admit_probe_instrument_card, append_config_toml
 
     paths = create_basic_vault(tmp_path / "vault")
+    # D2a: the head opens no opening episode per new LO (mvp-0.11 placement) and ignores a pristine
+    # one; this reproduction needs the in-progress episode, so it keeps it with placement.initial_probes.
+    append_config_toml(paths.root, "[placement]\ninitial_probes = true\n")
     repository = Repository(paths.sqlite_path)
     admit_probe_instrument_card(repository)
     loaded = load_vault(paths.root)

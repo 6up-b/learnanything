@@ -14,7 +14,14 @@ from learnloop.diagnosis.probe_episodes import (
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
-from tests.helpers import NOW, NOW_ISO, admit_probe_instrument_card, create_basic_vault, set_algorithm_version
+from tests.helpers import (
+    NOW,
+    NOW_ISO,
+    admit_probe_instrument_card,
+    create_basic_vault,
+    pin_old_basic_vault,
+    set_algorithm_version,
+)
 
 
 LO_ID = "lo_svd_definition"
@@ -28,9 +35,15 @@ def _setup(
     with_card: bool = True,
     extra_item: bool = False,
     algorithm_version: str | None = None,
+    old_path: bool = False,
 ):
+    """``old_path`` puts the vault back to the pre-D2a basic vault
+    (``pin_old_basic_vault``), for a test of a path no head vault takes."""
+
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
+    if old_path:
+        paths = pin_old_basic_vault(paths)
     if algorithm_version is not None:
         set_algorithm_version(paths, algorithm_version)
     if extra_item:

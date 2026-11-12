@@ -481,7 +481,10 @@ def test_self_graded_provider_parks_episode_without_observation(tmp_path):
 
 
 def test_two_independent_surfaces_complete_a_stable_episode(tmp_path):
-    _, loaded, repository = _setup(tmp_path, extra_item=True)
+    # Old path only (D2a): a sequential block closing after default_block_observations. From mvp-0.21
+    # (voi_stopping) it also closes once the next observation does not pay, so one success ends this
+    # one-observation placement episode as decision_stable.
+    _, loaded, repository = _setup(tmp_path, extra_item=True, old_path=True)
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
 
     first = _commit(loaded, repository, episode, item_id=ITEM_ID)
@@ -502,7 +505,10 @@ def test_next_probe_item_peeks_the_unused_surface_without_committing(tmp_path):
     # block. It must never commit a presentation itself (that stays
     # get_probe_contract's job) and must respect the same §5.4 exposure rule
     # eligible_instruments already enforces.
-    _, loaded, repository = _setup(tmp_path, extra_item=True)
+    # Old path only (D2a): a sequential block closing after default_block_observations. From mvp-0.21
+    # (voi_stopping) it also closes once the next observation does not pay, so one success ends this
+    # one-observation placement episode as decision_stable.
+    _, loaded, repository = _setup(tmp_path, extra_item=True, old_path=True)
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
 
     candidate = next_probe_item(loaded, repository, LO_ID)
@@ -531,7 +537,9 @@ def test_next_probe_item_peeks_the_unused_surface_without_committing(tmp_path):
 def test_budget_exhaustion_completes_episode(tmp_path):
     # Four signature-distinct surfaces: §5.4 forbids re-serving an observed
     # item or surface family, so budget exhaustion needs four fresh instruments.
-    vault_root, _stale, repository = _setup(tmp_path, with_card=False, extra_item=True)
+    # Old path only (D2a): the episode's count budget. From mvp-0.8 the robust gate ends this unstable
+    # episode first, and from mvp-0.21 (voi_stopping) value of information replaces the count.
+    vault_root, _stale, repository = _setup(tmp_path, with_card=False, extra_item=True, old_path=True)
     _add_item(vault_root, "pi_svd_define_003", surface_family="surface_three")
     _add_item(vault_root, "pi_svd_define_004", surface_family="surface_four")
     loaded = load_vault(vault_root)
@@ -551,7 +559,10 @@ def test_budget_exhaustion_completes_episode(tmp_path):
 
 
 def test_exhausted_instrument_pool_parks_episode_with_generation_need(tmp_path):
-    _, loaded, repository = _setup(tmp_path, extra_item=True)
+    # Old path only (D2a): a sequential block closing after default_block_observations. From mvp-0.21
+    # (voi_stopping) it also closes once the next observation does not pay, so one success ends this
+    # one-observation placement episode as decision_stable.
+    _, loaded, repository = _setup(tmp_path, extra_item=True, old_path=True)
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
     # Conflicting evidence on both available surfaces: the posterior stays
     # unstable and §5.4 forbids repeats, so the episode parks for generation
@@ -622,7 +633,9 @@ def test_stop_and_teach_ends_measurement_and_segments_evidence(tmp_path):
 
 
 def test_missing_instruments_park_episode_with_one_deduplicated_need(tmp_path):
-    vault_root, loaded, repository = _setup(tmp_path, with_card=False)
+    # Old path only (D2a): the opening probe episode sync opens per new LO, which mvp-0.11 (placement)
+    # retired; the head opens none and serves no opening episode.
+    vault_root, loaded, repository = _setup(tmp_path, with_card=False, old_path=True)
     sync_vault_state(loaded, repository, clock=CLOCK)
     episode = repository.open_probe_episode(LO_ID)
     assert episode is not None
@@ -641,7 +654,9 @@ def test_missing_instruments_park_episode_with_one_deduplicated_need(tmp_path):
 def test_pending_items_episode_keeps_lo_schedulable_with_belief_updates(tmp_path):
     from learnloop.scheduling.scheduler import build_due_queue
 
-    vault_root, loaded, repository = _setup(tmp_path, with_card=False)
+    # Old path only (D2a): the opening probe episode sync opens per new LO, which mvp-0.11 (placement)
+    # retired; the head opens none and serves no opening episode.
+    vault_root, loaded, repository = _setup(tmp_path, with_card=False, old_path=True)
     sync_vault_state(loaded, repository, clock=CLOCK)
     episode = repository.open_probe_episode(LO_ID)
     assert episode.status == "pending_items"
@@ -751,7 +766,9 @@ def test_presentation_snapshot_matches_compiled_instrument(tmp_path):
 
 
 def test_scheduler_slate_atomically_commits_its_selected_probe_presentation(tmp_path):
-    _, loaded, repository = _setup(tmp_path)
+    # Old path only (D2a): the opening probe episode sync opens per new LO, which mvp-0.11 (placement)
+    # retired; the head opens none and serves no opening episode.
+    _, loaded, repository = _setup(tmp_path, old_path=True)
     sync_vault_state(loaded, repository, clock=CLOCK)
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
 

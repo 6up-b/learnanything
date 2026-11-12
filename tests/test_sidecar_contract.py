@@ -21,6 +21,7 @@ from tests.helpers import (
     append_config_toml,
     configure_codex_http,
     create_basic_vault,
+    pin_old_basic_vault,
     seed_due_item,
 )
 from tests.owner_vaults import owner_vault, owner_vaults, require_owner_vault
@@ -482,7 +483,9 @@ def test_completed_submission_survives_lost_response_and_restart(tmp_path):
     recovered_result = recovered["result"]
     # These are the authoritative fields PracticeScreen uses for its normal
     # post-submit route; an attempt id alone would not be an equivalent reply.
-    assert recovered_result["probeEpisode"]["feedbackDeferred"] is False
+    # The head opens no opening episode per new LO (mvp-0.11 placement), so the
+    # route names no episode (nothing deferred) and no block end.
+    assert "probeEpisode" in recovered_result and recovered_result["probeEpisode"] is None
     assert recovered_result["probeBlockEnd"] is None
 
     repository = Repository(paths.sqlite_path)
@@ -1158,7 +1161,10 @@ def test_sidecar_submit_attempt_never_falls_back_to_codex_when_routed_ai_unavail
 
 def test_sidecar_canonical_codex_profile_wins_when_legacy_input_differs(tmp_path):
     vault_root = tmp_path / "vault"
-    paths = create_basic_vault(vault_root)
+    # Old path only (D2a): the HTTP provider double speaks only the joint grading operation; a split
+    # vault (mvp-0.10 on, so the head) grades through the isolated blind grader, which the double
+    # cannot serve, so grading falls back. Port it when the double gains the blind operation.
+    paths = pin_old_basic_vault(create_basic_vault(vault_root))
     seed_due_item(paths)
     checkout = tmp_path / "ai-codex"
     checkout.mkdir()
@@ -1503,6 +1509,9 @@ def test_sidecar_dialogue_microprobe_turn_flow(tmp_path):
 
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
+    # D2a: the head opens no opening episode per new LO (mvp-0.11 placement); this test's
+    # dialogue block needs the episode `initialize` cold-starts, so it keeps it with placement.initial_probes.
+    append_config_toml(vault_root, "[placement]\ninitial_probes = true\n")
     repository = Repository(paths.sqlite_path)
     admit_probe_instrument_card(repository, items=("pi_svd_define_001",))
 
@@ -1546,6 +1555,9 @@ def test_sidecar_dialogue_microprobe_turn_flow(tmp_path):
 def test_sidecar_feedback_exposes_probe_intervention_need(tmp_path):
     vault_root = tmp_path / "vault"
     create_basic_vault(vault_root)
+    # D2a: the head opens no opening episode per new LO (mvp-0.11 placement); this test's
+    # intervention need (from the episode's unfamiliar posterior) needs the episode `initialize` cold-starts, so it keeps it with placement.initial_probes.
+    append_config_toml(vault_root, "[placement]\ninitial_probes = true\n")
 
     session_id = _rpc(
         [
@@ -1590,7 +1602,11 @@ def test_sidecar_feedback_exposes_probe_intervention_need(tmp_path):
 
 def test_sidecar_counts_queued_intervention_followups_in_session_summary(tmp_path):
     vault_root = tmp_path / "vault"
-    paths = create_basic_vault(vault_root)
+    # Old path only (D2a): "I don't know" as an error-tagged negative surprise that queues the
+    # predecessor's intervention follow-up. From mvp-0.13 an empty stuck answer carries no error tag
+    # and no surprise, and from mvp-0.45 a miss's follow-up is the follow-up workflow's
+    # (the receipt suppresses `intervention_followup:followup_workflow_owns`).
+    paths = pin_old_basic_vault(create_basic_vault(vault_root))
     add_followup_item(vault_root)
     seed_due_item(paths)
 

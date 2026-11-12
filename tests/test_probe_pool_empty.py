@@ -36,6 +36,7 @@ from tests.helpers import (
     NOW,
     NOW_ISO,
     admit_probe_instrument_card,
+    append_config_toml,
     create_basic_vault,
 )
 
@@ -83,9 +84,13 @@ def _add_item(vault_root, item_id: str, *, practice_mode: str = "diagnostic_prob
     )
 
 
-def _vault(tmp_path):
+def _vault(tmp_path, *, opening_probes: bool = False):
     root = tmp_path / "vault"
     paths = create_basic_vault(root)
+    if opening_probes:
+        # D2a: the head opens no opening episode per new LO (mvp-0.11 placement) and leaves a pristine one
+        # out of the pool sweep; a test of an open episode's empty pool keeps it with placement.initial_probes.
+        append_config_toml(root, "[placement]\ninitial_probes = true\n")
     _add_item(root, DIAG_ITEM)
     vault = load_vault(root)
     repository = Repository(paths.sqlite_path)
@@ -164,7 +169,7 @@ def _pool_notices(repository, *, include_hidden: bool = False):
 
 
 def test_empty_pool_raises_exactly_one_urgent_deduplicated_notice(tmp_path):
-    vault, repository = _vault(tmp_path)
+    vault, repository = _vault(tmp_path, opening_probes=True)
     episode = _burn_whole_pool(vault, repository)
 
     result = reconcile_empty_probe_pools(
@@ -191,6 +196,8 @@ def test_empty_pool_raises_exactly_one_urgent_deduplicated_notice(tmp_path):
 def test_never_authored_pool_is_distinguished_from_excluded_as_seen(tmp_path):
     root = tmp_path / "vault"
     paths = create_basic_vault(root)
+    # D2a: keeps the opening episode the head no longer opens (see _vault).
+    append_config_toml(root, "[placement]\ninitial_probes = true\n")
     # Remove every practice item: the LO has never had a probe-capable surface.
     for item_path in root.rglob("practice-items/*.yaml"):
         item_path.unlink()
@@ -226,7 +233,7 @@ def test_pending_items_episode_with_fresh_surfaces_is_not_an_empty_pool(tmp_path
 
 
 def test_provider_routed_queues_one_deduplicated_generation_need(tmp_path):
-    vault, repository = _vault(tmp_path)
+    vault, repository = _vault(tmp_path, opening_probes=True)
     episode = _burn_whole_pool(vault, repository)
     assert repository.probe_generation_needs(probe_episode_id=episode.id) == []
 
@@ -246,7 +253,7 @@ def test_provider_routed_queues_one_deduplicated_generation_need(tmp_path):
 
 
 def test_no_provider_skips_queueing_but_still_raises_the_notice(tmp_path):
-    vault, repository = _vault(tmp_path)
+    vault, repository = _vault(tmp_path, opening_probes=True)
     episode = _burn_whole_pool(vault, repository)
 
     reconcile_empty_probe_pools(vault, repository, clock=CLOCK, provider_available=False)
@@ -262,7 +269,7 @@ def test_no_provider_skips_queueing_but_still_raises_the_notice(tmp_path):
 
 
 def test_notice_clears_when_a_fresh_surface_appears(tmp_path):
-    vault, repository = _vault(tmp_path)
+    vault, repository = _vault(tmp_path, opening_probes=True)
     _burn_whole_pool(vault, repository)
     reconcile_empty_probe_pools(vault, repository, clock=CLOCK, provider_available=False)
     assert len(_pool_notices(repository)) == 1
@@ -321,7 +328,7 @@ def test_scheduler_build_raises_the_notice_without_a_provider(tmp_path):
 
 
 def test_maintenance_feed_sustains_and_auto_resolves_the_notice(tmp_path):
-    vault, repository = _vault(tmp_path)
+    vault, repository = _vault(tmp_path, opening_probes=True)
     _burn_whole_pool(vault, repository)
 
     live = generate_maintenance_feed(vault, repository, clock=CLOCK)

@@ -44,6 +44,7 @@ from tests.helpers import (
     NOW,
     NOW_ISO,
     admit_probe_instrument_card,
+    append_config_toml,
     create_basic_vault,
 )
 
@@ -113,9 +114,13 @@ def _seed_mastery(repository: Repository) -> None:
     )
 
 
-def _vault(tmp_path, *, add_items=((DIAG_ITEM, "diagnostic_probe", None),)):
+def _vault(tmp_path, *, add_items=((DIAG_ITEM, "diagnostic_probe", None),), opening_probes: bool = False):
     root = tmp_path / "vault"
     paths = create_basic_vault(root)
+    if opening_probes:
+        # D2a: the head opens no opening episode per new LO (mvp-0.11 placement) and ignores a pristine
+        # one; a test of the probe-episode branch keeps it with placement.initial_probes.
+        append_config_toml(root, "[placement]\ninitial_probes = true\n")
     for item_id, mode, surface_family in add_items:
         _add_item(root, item_id, practice_mode=mode, surface_family=surface_family)
     vault = load_vault(root)
@@ -178,7 +183,7 @@ def test_fresh_diagnostic_probe_is_reserved_out_of_the_ordinary_queue(tmp_path):
 
 
 def test_fresh_diagnostic_probe_is_selectable_in_the_probe_episode_branch(tmp_path):
-    vault, repository = _vault(tmp_path)
+    vault, repository = _vault(tmp_path, opening_probes=True)
     admit_probe_instrument_card(repository, items=(DIAG_ITEM,))
     episode = enter_episode(vault, repository, LO_ID, clock=CLOCK)
     assert episode.status == "in_progress"
@@ -307,6 +312,7 @@ def test_probe_selection_hard_excludes_an_already_seen_surface_group(tmp_path):
             (DIAG_ITEM, "diagnostic_probe", "shared_surface"),
             ("pi_shared_ordinary", "short_answer", "shared_surface"),
         ),
+        opening_probes=True,
     )
     admit_probe_instrument_card(repository, items=(DIAG_ITEM,))
     episode = enter_episode(vault, repository, LO_ID, clock=CLOCK)

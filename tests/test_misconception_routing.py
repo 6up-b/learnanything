@@ -10,6 +10,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, add_followup_item, create_basic_vault
 from learnloop.db.repositories import MasteryState
+from tests.voi_stopping_helpers import _minutes
 
 
 def _surprising_attempt(vault_root, repository):
@@ -91,7 +92,10 @@ def test_active_mc_without_discriminator_routes_to_need(tmp_path):
     assert paraphrase["discriminates_target_misconception"] is False
 
 
-def test_active_mc_with_discriminator_queues_it(tmp_path):
+def test_active_mc_with_discriminator_queues_it(tmp_path, monkeypatch):
+    # D2a: from mvp-0.21 (voi_stopping) a follow-up is queued only while its value pays for its
+    # minutes; pin the candidates' minutes low (as test_voi_stopping does) so it pays here.
+    _minutes(monkeypatch, 0.01)
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     add_followup_item(vault_root)
@@ -125,7 +129,10 @@ def test_active_mc_with_discriminator_queues_it(tmp_path):
     assert row["gate_passed"] is True
 
 
-def test_no_active_misconception_is_unchanged(tmp_path):
+def test_no_active_misconception_is_unchanged(tmp_path, monkeypatch):
+    # D2a: from mvp-0.21 (voi_stopping) a follow-up is queued only while its value pays for its
+    # minutes; pin the candidates' minutes low (as test_voi_stopping does) so it pays here.
+    _minutes(monkeypatch, 0.01)
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     add_followup_item(vault_root)
@@ -139,7 +146,10 @@ def test_no_active_misconception_is_unchanged(tmp_path):
     assert decision.practice_item_id == "pi_svd_define_002"
 
 
-def test_config_flag_off_keeps_paraphrase(tmp_path):
+def test_config_flag_off_keeps_paraphrase(tmp_path, monkeypatch):
+    # D2a: from mvp-0.21 (voi_stopping) a follow-up is queued only while its value pays for its
+    # minutes; pin the candidates' minutes low (as test_voi_stopping does) so it pays here.
+    _minutes(monkeypatch, 0.01)
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     add_followup_item(vault_root)

@@ -11,7 +11,7 @@ from learnloop.diagnosis.probe_episodes import enter_episode
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.server import serve
 
-from tests.helpers import NOW, admit_probe_instrument_card, create_basic_vault
+from tests.helpers import NOW, admit_probe_instrument_card, append_config_toml, create_basic_vault
 
 
 def _rpc(messages: list[dict]) -> list[dict]:
@@ -47,6 +47,9 @@ def test_probe_contract_requires_grading_provider_and_parks_episode(tmp_path):
     # be SERVED — the contract refuses and the episode parks (test 33, serve side).
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
+    # D2a: the head opens no opening episode per new LO (mvp-0.11 placement) and ignores a pristine
+    # one; this test of an open episode's RPC keeps it with placement.initial_probes.
+    append_config_toml(vault_root, "[placement]\ninitial_probes = true\n")
     repository = Repository(paths.sqlite_path)
     admit_probe_instrument_card(repository)
     loaded = load_vault(vault_root)
@@ -103,6 +106,9 @@ def test_get_next_probe_item_reflects_the_open_episode(tmp_path):
     # without a visible queue round-trip.
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
+    # D2a: the head opens no opening episode per new LO (mvp-0.11 placement) and ignores a pristine
+    # one; this test of an open episode's RPC keeps it with placement.initial_probes.
+    append_config_toml(vault_root, "[placement]\ninitial_probes = true\n")
     repository = Repository(paths.sqlite_path)
     admit_probe_instrument_card(repository)
     loaded = load_vault(vault_root)

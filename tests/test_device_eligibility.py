@@ -44,7 +44,7 @@ from learnloop_sidecar.handlers import practice as practice_handlers
 from learnloop_sidecar.handlers import queue as queue_handlers
 
 from tests.source_service_fakes import set_config
-from tests.helpers import admit_probe_instrument_card, create_basic_vault, seed_due_item
+from tests.helpers import admit_probe_instrument_card, append_config_toml, create_basic_vault, seed_due_item
 from tests.device_eligibility_helpers import (
     CLOCK,
     HUNT,
@@ -308,6 +308,9 @@ def test_adopting_an_eligible_draft_carries_it_and_a_stale_generation_is_refused
 
 def _probe_world(tmp_path, monkeypatch):
     paths = create_basic_vault(tmp_path / "vault", fresh=True)
+    # D2a: the head opens no opening episode per new LO (mvp-0.11 placement) and ignores a pristine
+    # one; these tests need an open episode to serve, so they keep it with placement.initial_probes.
+    append_config_toml(paths.root, "[placement]\ninitial_probes = true\n")
     repository = Repository(paths.sqlite_path)
     admit_probe_instrument_card(repository)
     loaded = load_vault(paths.root)

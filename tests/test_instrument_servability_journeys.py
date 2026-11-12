@@ -71,6 +71,7 @@ from tests.helpers import (
     create_basic_vault,
     seed_due_item,
 )
+from tests.voi_stopping_helpers import _minutes
 
 CLOCK = FrozenClock(NOW)
 LO_ID = "lo_svd_definition"
@@ -564,12 +565,15 @@ def _surprising_miss(vault, repository):
     )
 
 
-def test_the_intervention_followup_records_no_servability_skips(tmp_path):
+def test_the_intervention_followup_records_no_servability_skips(tmp_path, monkeypatch):
     """The skip list lives on the decision-features row beside `candidate_slate`
     and `misconception_gate_blocked`, because that row is what the gate fitter and
     the follow-up audit read. It stays written and stays empty: a candidate that
     vanished from the slate with no reason is a false negative in both, whichever
     direction the predicate happens to answer."""
+    # D2a: from mvp-0.21 (voi_stopping) a follow-up is queued only while its value pays for its
+    # minutes; pin the candidates' minutes low (as test_voi_stopping does) so it pays here.
+    _minutes(monkeypatch, 0.01)
 
     from learnloop.diagnosis.followups import evaluate_negative_surprise_followup
 

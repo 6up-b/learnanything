@@ -56,8 +56,6 @@ def test_served_cold_attempt_is_enforced_unassisted_and_unprimed(tmp_path):
 
     with pytest.raises(AttemptValidationError):
         _attempt(vault, repository, cold_item, clock=due, primed=True)
-    with pytest.raises(AttemptValidationError):
-        _attempt(vault, repository, cold_item, clock=due, hints_used=1)
 
     # A clean unassisted, unprimed retry is accepted.
     result = _attempt(vault, repository, cold_item, clock=due)
@@ -66,6 +64,16 @@ def test_served_cold_attempt_is_enforced_unassisted_and_unprimed(tmp_path):
     )
     assert task["status"] == "consumed"
     assert task["consumed_attempt_id"] == result.attempt_id
+
+    # From mvp-0.35 (one Ask rule, ``ask.cold_help_converts``) help taken on a cold follow-up no
+    # longer refuses the attempt: submit admits it as practice with help, and it never answers the
+    # cold measurement.
+    vault, repository, misconception_id = _setup(tmp_path / "helped")
+    _, _, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
+    helped = _attempt(vault, repository, cold_item, clock=due, hints_used=1)
+    task = next(task for task in _all_tasks(repository) if task["kind"] == "cold_retry")
+    assert task["consumed_attempt_id"] != helped.attempt_id
+    assert task["status"] != "consumed"
 
 
 def test_cold_retry_is_consumed_exactly_once(tmp_path):
@@ -283,9 +291,11 @@ def test_a_deferred_cold_retry_still_expires_on_its_original_window(tmp_path):
     )
     expires_at = repository.followup_task(task_id)["expires_at"]
 
-    # A reveal on the last day pushes `not_before` past the expiry.
+    # A reveal on the last day pushes `not_before` past the expiry. It stays below the auto-prime
+    # threshold (0.35): from mvp-0.27 (the one eligibility decision) a reveal at or above it primes
+    # the item, and the check is withdrawn at once (`cold_check_answer_shown`) instead of deferred.
     _seed_reveal(
-        repository, cold_item, 0.4, clock=FrozenClock(NOW + timedelta(days=30, hours=12))
+        repository, cold_item, 0.2, clock=FrozenClock(NOW + timedelta(days=30, hours=12))
     )
     at = FrozenClock(NOW + timedelta(days=30, hours=13))
     assert cold_item not in _cold_lane_ids(vault, repository, at)

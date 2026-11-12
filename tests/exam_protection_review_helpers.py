@@ -28,6 +28,20 @@ def _with_exercise(root, practice_item_id: str, *, source_id: str, extraction_id
     upsert_practice_item(root, payload, clock=CLOCK)
 
 
+def _key_checked(root, repository, practice_item_id: str) -> None:
+    """Record a verified key check of an imported exercise's current content.
+
+    From mvp-0.18 (the answer-key gate, owner decision C3) an exercise import whose key is not
+    verified never enters an exam pool or a certification cold probe (D2a: the basic vault is
+    at the head, so these fixtures verify the key they rely on)."""
+
+    from learnloop.content.authoring.source_exercise_import import LadderResult, record_key_check
+
+    item = load_vault(root).practice_items[practice_item_id]
+    record_key_check(repository, item=item, result=LadderResult("checked", "test"), trigger="verify",
+                     started_at=CLOCK.now().isoformat().replace("+00:00", "Z"), clock=CLOCK)
+
+
 def _problem_book(repository) -> None:
     """``ext_problems``: a problems unit (``s1`` header, ``s2`` problem) and a notes unit (``s4``, ``s5``)."""
 
@@ -57,6 +71,7 @@ def _reserved_pool(tmp_path):
     _problem_book(repository)
     _with_exercise(paths.root, "pi_pool_apply_mid", source_id="src_problems", extraction_id="ext_problems",
                    span_id="s2")
+    _key_checked(paths.root, repository, "pi_pool_apply_mid")
     vault = load_vault(paths.root)
     report = reserve_exam_pool(vault, repository, vault.goals[0], item_count=3, clock=FrozenClock(NOW))
     assert {"pi_pool_apply_mid", "pi_pool_derive_hard"} <= set(report.reserved_item_ids)

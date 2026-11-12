@@ -54,6 +54,7 @@ from tests.source_inventory_helpers import _block, _ir, _persist
 from tests.helpers import MIGRATION_HEAD_FIXTURE
 from tests.exam_protection_review_helpers import (
     CLOCK,
+    _key_checked,
     _problem_book,
     _reserved_pool,
     _switch_off,
@@ -480,6 +481,7 @@ def test_with_the_switch_off_shown_material_is_selected_as_before(tmp_path):
     _problem_book(repository)
     _with_exercise(paths.root, "pi_pool_apply_mid", source_id="src_problems", extraction_id="ext_problems",
                    span_id="s2")
+    _key_checked(paths.root, repository, "pi_pool_apply_mid")
     _expose(repository, "ext_problems", "s2")
     _reveal(repository, "pi_pool_derive_hard")
     _switch_off(paths.root)

@@ -21,6 +21,7 @@ from learnloop.diagnosis.signal_quantiles import resolve_followup_thresholds
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, add_followup_item, create_basic_vault
+from tests.voi_stopping_helpers import _minutes
 
 CONFIG = SchedulerFollowupConfig(threshold_mode="absolute")
 
@@ -265,7 +266,10 @@ def _surprising_attempt(loaded, repository):
     )
 
 
-def test_score_mode_fires_on_surprising_failure_and_logs_scores(tmp_path):
+def test_score_mode_fires_on_surprising_failure_and_logs_scores(tmp_path, monkeypatch):
+    # D2a: from mvp-0.21 (voi_stopping) a follow-up is queued only while its value pays for its
+    # minutes; pin the candidates' minutes low (as test_voi_stopping does) so it pays here.
+    _minutes(monkeypatch, 0.01)
     loaded, repository = _score_mode_vault(tmp_path)
     result = _surprising_attempt(loaded, repository)
     assert result.surprise_direction == "negative"
