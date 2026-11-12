@@ -22,7 +22,6 @@ from tests.helpers import (
     configure_codex_http,
     create_basic_vault,
     seed_due_item,
-    use_init_algorithm_version,
 )
 from tests.owner_vaults import owner_vault, owner_vaults, require_owner_vault
 from tests.sidecar_contract_helpers import _rpc
@@ -818,8 +817,8 @@ def test_reopening_an_item_from_a_refreshed_queue_keeps_its_original_offer(tmp_p
 
 
 def test_serving_an_item_snapshots_its_contract_on_the_init_version(tmp_path):
+    # The basic vault is at the tag `learnloop init` writes.
     paths = create_basic_vault(tmp_path / "vault")
-    use_init_algorithm_version(paths, tmp_path / "init")
     sidecar = _InProcessSidecar(paths.root)
 
     detail = sidecar.result("get_practice_item", {"practiceItemId": "pi_svd_define_001"})

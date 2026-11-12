@@ -26,7 +26,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 from learnloop.vault.yaml_io import write_yaml
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault, use_init_algorithm_version
+from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, create_basic_vault
 
 LO_ID = "lo_svd_definition"
 ITEM_ID = "pi_svd_define_001"
@@ -35,9 +35,9 @@ CONTROL_ITEM_ID = "pi_svd_unique_001"
 
 
 def _init_version_vault(tmp_path, name: str):
+    # The basic vault is at the tag a new vault is given.
     paths = create_basic_vault(tmp_path / name / "vault")
-    version = use_init_algorithm_version(paths, tmp_path / name / "init")
-    assert version in P0_PROJECTION_VERSIONS
+    assert ALGORITHM_VERSION in P0_PROJECTION_VERSIONS
     return paths
 
 

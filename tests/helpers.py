@@ -6,8 +6,8 @@ import tomllib
 from datetime import UTC, datetime
 from pathlib import Path
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
-from learnloop.config import LearnLoopConfig
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.migrate import discover_migrations
 from learnloop.db.repositories import MasteryState, Repository
@@ -19,7 +19,9 @@ from learnloop.vault.writer import upsert_practice_item
 
 NOW = datetime(2026, 5, 19, 12, 0, tzinfo=UTC)
 NOW_ISO = "2026-05-19T12:00:00Z"
-ALGORITHM_VERSION = LearnLoopConfig().algorithms.algorithm_version
+#: The basic vault's tag: the one `learnloop init` writes (the head), not
+#: AlgorithmsConfig's field default, which is older than every real vault.
+ALGORITHM_VERSION = LATEST_ALGORITHM_VERSION
 _BASIC_VAULT_TEMPLATE: VaultPaths | None = None
 _FRESH_VAULTS = False
 #: The tracked vault at the migration head, in rollback mode. Its name carries no
@@ -83,15 +85,17 @@ def create_basic_vault(root: Path, *, fresh: bool = False) -> VaultPaths:
         copy_tree_with_databases(template.root, root, dirs_exist_ok=True)
         return VaultPaths(root.resolve(), template.config.model_copy(deep=True))
     clock = FrozenClock(NOW)
+    # The basic vault keeps the tag `learnloop init` writes (the head), so its
+    # tests run the path real vaults serve. A test of an older path pins its tag
+    # explicitly with set_algorithm_version.
     init_vault(root, clock=clock)
-    # The basic vault is an mvp-0.6 vault: its items declare ad-hoc facets with
-    # no facets.yaml registry, which is the pre-KM2 contract. `learnloop init`
-    # writes mvp-0.7, so pin mvp-0.6 here; KM tests that want mvp-0.7 flip it
-    # explicitly via set_algorithm_version.
-    _set_algorithm_version_at(root, ALGORITHM_VERSION)
     add_subject(root, "linear-algebra", "Linear Algebra", clock=clock)
     vault = load_vault(root)
     paths = VaultPaths(vault.root, vault.config)
+    # From mvp-0.7 (KM2) an item's evidence facets must be registry entries:
+    # doctor reports `evidence_facet:empty_registry` when items name facets and
+    # facets.yaml lists none. The item below declares `recall`.
+    write_facets(paths, [{"id": "recall", "kind": "definition", "claim": "Recall the SVD definition."}])
 
     write_yaml(
         paths.concepts_path,
@@ -380,23 +384,30 @@ def admit_probe_instrument_card(
 
 
 def set_algorithm_version(paths: VaultPaths, version: str) -> None:
-    """Rewrite learnloop.toml's algorithm_version in place (KM1 mvp-0.7 tests)."""
+    """Rewrite learnloop.toml's algorithm_version in place.
+
+    The basic vault is at the head; a test of an older tag's path pins it here,
+    explicitly, so D2b/D7 can find it when that tag's code goes."""
 
     _set_algorithm_version_at(paths.root, version)
 
 
-def use_init_algorithm_version(paths: VaultPaths, scratch_root: Path) -> str:
-    """Pin a basic vault to the algorithm version ``learnloop init`` writes.
+#: The basic vault's tag before refactor step D2a moved it to the head.
+OLD_BASIC_VAULT_TAG = "mvp-0.6"
 
-    The basic vault is pinned to mvp-0.6 for its ad-hoc facets; tests that must
-    follow whatever version a new vault gets initialize a throwaway vault at
-    ``scratch_root`` and copy its version. Returns that version.
-    """
 
-    init_vault(scratch_root, clock=FrozenClock(NOW))
-    version = load_vault(scratch_root).config.algorithms.algorithm_version
-    _set_algorithm_version_at(paths.root, version)
-    return version
+def pin_old_basic_vault(paths: VaultPaths) -> VaultPaths:
+    """Put a basic vault back to what it was before D2a: ``mvp-0.6`` with an empty
+    facet registry (the pre-KM2 contract), byte for byte.
+
+    Only for a test that describes a path no head vault takes (D2a's record lists
+    each and why); D2b and D7 port or retire them with that path. Returns the
+    reloaded paths, since the old ones carry the head's configuration."""
+
+    _set_algorithm_version_at(paths.root, OLD_BASIC_VAULT_TAG)
+    write_yaml(paths.facets_path, {"schema_version": 1, "facets": []})
+    vault = load_vault(paths.root)
+    return VaultPaths(vault.root, vault.config)
 
 
 def _set_algorithm_version_at(root: Path, version: str) -> None:

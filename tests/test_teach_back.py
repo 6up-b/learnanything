@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from tests.structured_ai import StructuredClientFake
+from tests.structured_ai import JointGraderAlsoBlind, StructuredClientFake
 
 import shutil
 
@@ -40,7 +40,7 @@ from learnloop.vault.yaml_io import read_yaml, write_yaml
 from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, create_basic_vault, seed_due_item
 from tests.teach_back_helpers import LO_ID, TEACH_ITEM_ID, _seed_lo_evidence, _setup, _teach_item_payload
 
-class FakeTeachBackClient(StructuredClientFake):
+class FakeTeachBackClient(JointGraderAlsoBlind, StructuredClientFake):
     """AI double: canned naive-student questions + full-points grading.
 
     ``points_by_criterion`` overrides awarded points per criterion; anything
@@ -908,14 +908,14 @@ def _init_version_teach_back_mastery(tmp_path, grading_source: str):
     """Mastery after one partially-correct teach-back graded under ``grading_source``."""
 
     from learnloop.algorithm_versions import P0_PROJECTION_VERSIONS
-    from tests.helpers import use_init_algorithm_version
+    from tests.helpers import ALGORITHM_VERSION
 
     vault_root = tmp_path / grading_source / "vault"
     paths = create_basic_vault(vault_root)
     # The model-grade soft-score lane of the mastery update is keyed on the P0
-    # projection versions, which include the version a new vault is given.
-    version = use_init_algorithm_version(paths, tmp_path / grading_source / "init")
-    assert version in P0_PROJECTION_VERSIONS
+    # projection versions, which include the version a new vault (and the basic
+    # vault) is given.
+    assert ALGORITHM_VERSION in P0_PROJECTION_VERSIONS
     clock = FrozenClock(NOW)
     upsert_practice_item(vault_root, _teach_item_payload(), clock=clock)
     vault = load_vault(vault_root)

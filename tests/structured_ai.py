@@ -226,3 +226,31 @@ class RecordingStructuredClientFake(StructuredClientFake):
         self.requests.append((request.purpose, request.prompt))
         return super().complete(request)
 
+
+
+class JointGraderAlsoBlind:
+    """Mixin for a fake written against the joint grader (``run_grading_proposal``)
+    that must also grade on a split vault (``mvp-0.10`` on, so the head), where
+    attempts go to the learner-blind grader instead.
+
+    The blind answer is the joint one restricted to the blind contract: the same
+    points, score, fatal errors and confidence, and each error's localization
+    without its causal fields (on a split vault causes are the diagnoser's).
+    The joint builder receives the :class:`BlindGradingContext`, which carries
+    the rubric, ids and answer but no learner history.
+    """
+
+    def run_blind_grading_proposal(self, context: Any) -> Any:
+        from learnloop.attempts.blind_grading import BlindErrorAttribution, BlindGradingProposal
+
+        joint = self.run_grading_proposal(context)  # type: ignore[attr-defined]
+        payload = joint.model_dump(mode="json")
+        blind_fields = set(BlindGradingProposal.model_fields)
+        attribution_fields = set(BlindErrorAttribution.model_fields) - {"validity_scope"}
+        blind = {key: value for key, value in payload.items() if key in blind_fields}
+        blind["error_attributions"] = [
+            {key: value for key, value in row.items() if key in attribution_fields}
+            for row in payload.get("error_attributions", [])
+        ]
+        blind["local_analysis_md"] = payload.get("diagnosis_md") or "Graded against the rubric."
+        return BlindGradingProposal.model_validate(blind)
