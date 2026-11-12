@@ -163,6 +163,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_outline_reports_structural_signals_and_token_sizes`
   - `test_selection_survives_reextraction_via_reanchor`
   - `test_unit_selection_persists_and_validates`
+- [tests/test_keep_ahead_append_units.py](../../../../../../../tests/test_keep_ahead_append_units.py) — direct import
+  - `test_the_second_build_appends_only_its_own_chapter`
 - [tests/test_keep_local_retired.py](../../../../../../../tests/test_keep_local_retired.py) — direct import
   - `test_the_reader_asks_about_a_book_carrying_the_retired_choice`
 - [tests/test_plan_first_transport_offer_grants_r5.py](../../../../../../../tests/test_plan_first_transport_offer_grants_r5.py) — direct import

@@ -219,6 +219,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_cli_json.py](../../../../../../tests/test_cli_json.py) — direct import
   - `test_misconception_gate_backfill_json_contract`
 - [tests/test_coldness_receipt.py](../../../../../../tests/test_coldness_receipt.py) — direct import
+- [tests/test_collection_append_units.py](../../../../../../tests/test_collection_append_units.py) — direct import
+  - `test_a_wholly_new_member_keeps_the_unfiltered_append`
 - [tests/test_contamination_report.py](../../../../../../tests/test_contamination_report.py) — direct import
   - `test_exam_leakage_shortlists_nearest_held_out_spans_for_the_judge`
 - [tests/test_coverage_on_extract.py](../../../../../../tests/test_coverage_on_extract.py) — direct import
