@@ -1,11 +1,23 @@
 # Migration-head fixture
 
-**Holds migration 254 (`254_decision_records_payload_retention.sql`), the head.** The directory's name carries no number (since
+**Holds migration 255 (`255_apply_intents_conflicted.sql`), the head.** The directory's name carries no number (since
 refactor A2): a new migration upgrades `state.sqlite` here in place, in rollback mode, and adds a section below naming
 the new head; no test or script changes for the number (`CLAUDE.md`, "Adding a migration"). Tests reach it
 through `MIGRATION_HEAD_FIXTURE` in `tests/helpers.py`; `tests/test_migrations.py` checks that it holds the newest
 file in `migrations/` and stays in rollback mode. Older sections below name the numbered directories it was renamed
 from, as they were then.
+
+## Refactor K3.5 (migration 255), `refactor/k3.5-apply-recovery`, 2026-11-12
+
+Upgraded in place (no rename; base: main at `72ace2968a`, head 254) by the B1 procedure below:
+`255_apply_intents_conflicted.sql` (rebuilds `apply_intents` temp-then-rename so `status` also admits `conflicted` and
+`set_aside`, adds the nullable `conflict_json`, `conflicted_at` and `set_aside_at`, and recreates
+`idx_apply_intents_status` unchanged) applied through `learnloop.db.migrate.apply_migrations` on a backup-API copy
+outside the checkout under `upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[255]` only;
+`wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty; written back with `backup_database`, no companion files. Compared with the 254 file: the
+only object whose definition changed is the `apply_intents` table (it holds no rows here), and the only table whose
+rows changed is `schema_migrations` (gains 255). The head holds 229 through 255.
 
 ## Arc B close fix round (migration 254), `refactor/arcB-review-fixes`, 2026-11-10
 
