@@ -320,6 +320,7 @@ For **D2b**:
 - `split_live_helpers.split_vault` seeds history at the basic vault's tag (now the head) before setting its explicit `version`; its 100 importers' seeded rows changed tag silently. Decide whether it seeds at its `version`.
 - `seed_due_item` and the 21 files seeding `MasteryState(..., ALGORITHM_VERSION, ...)` now stamp the head tag, including in pinned tests. The column is passed through, not gated on (every pinned test passes), but a pinned test's seed is no longer byte for byte the old one. A `version` parameter on `seed_due_item` would make it exact.
 - `create_placement_vault` (`mvp-0.11`), `create_daily_plan_vault` (`mvp-0.14`), `source_set_synthesis_helpers._setup(mvp07=False)`: explicit old-tag builders, 117+ files.
+- Basic-vault tests now run the head's seeded arms (RO5's stop coin, check rate and open picks, the router mixtures), several seeded on fresh ids. One test pair depended on such a draw and was fixed (§8); the open-pick arm was swept with a scratch plugin, the others were not. A head-path test that fails at random is the first suspect for this.
 
 For the owner: findings 1-4 (each needs a successor or a decision), and 5-6 (dead-at-head code for D6/D7's lists).
 
