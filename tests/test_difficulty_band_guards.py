@@ -23,7 +23,8 @@ from learnloop.content.authoring.practice_generation import (
 from learnloop.tutor.promotions import _recommended_difficulty_band
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW_ISO, OLD_BASIC_VAULT_TAG, create_basic_vault, pin_old_basic_vault
+from tests.canonical_facet_helpers import seed_canonical_facet_recall
+from tests.helpers import NOW_ISO, create_basic_vault
 
 LO_ID = "lo_svd_definition"
 
@@ -91,8 +92,7 @@ def test_probe_band_collapses_unguarded_and_stays_boundary_centred_guarded():
 def test_diagnostic_plan_band_is_never_degenerate(tmp_path):
     # End-to-end through build_diagnostic_practice_plan: a learner whose target
     # facet sits at recall_mean 0.02 used to receive a [0.0, 0.0] band.
-    # Old path only: it seeds the legacy per-LO facet state, which a canonical (head) vault never holds.
-    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
+    paths = create_basic_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     repository.upsert_intervention_need(
@@ -113,27 +113,8 @@ def test_diagnostic_plan_band_is_never_degenerate(tmp_path):
             "updated_at": NOW_ISO,
         }
     )
-    with repository.connection() as connection:
-        repository._upsert_facet_recall_state(
-            connection,
-            {
-                "learning_object_id": LO_ID,
-                "facet_id": "recall",
-                "practice_item_id": None,
-                "recall_alpha": 0.2,
-                "recall_beta": 9.8,
-                "recall_mean": 0.02,
-                "recall_variance": 0.01,
-                "independent_evidence_mass": 4.0,
-                "raw_coverage_mass": 4.0,
-                "last_attempt_at": NOW_ISO,
-                "last_error_at": None,
-                "consecutive_failures": 0,
-                "algorithm_version": OLD_BASIC_VAULT_TAG,
-                "created_at": NOW_ISO,
-                "updated_at": NOW_ISO,
-            },
-        )
+    # The facet's canonical belief (the head's): alpha 0.2, beta 9.8, mass 4.0.
+    seed_canonical_facet_recall(repository, facet_id="recall", mean=0.02, mass=4.0, last_observed_at=NOW_ISO)
 
     plan = build_diagnostic_practice_plan(vault, repository)
     (target,) = plan.targets

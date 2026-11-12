@@ -72,8 +72,10 @@ def _wrong_attempt(loaded, repository):
 
 def test_subthreshold_noisy_item_creates_single_facet_generation_need_and_logs_slate(tmp_path):
     root = tmp_path / "vault"
-    # Old path only: on the head the value-of-information gate suppresses this one-attempt follow-up
-    # (voi_value_below_minutes_cost) before the slate and the generation need this test reads.
+    # Old path only: the overlap gate under test applies only with per-LO facet uncertainty states
+    # (`gate_applies` in diagnosis/followups.select_followup), which a canonical (head) vault reads as
+    # empty (facet_state_reader's KM4 seam), so on the head the noisy item passes and is served (checked
+    # with the VOI minutes pinned low as well). Waits on D5 with the legacy uncertainty path.
     paths = pin_old_basic_vault(create_basic_vault(root))
     _add_item(root, "pi_noisy_recall", ["recall", "unrelated_a", "unrelated_b"])
     loaded = load_vault(root)

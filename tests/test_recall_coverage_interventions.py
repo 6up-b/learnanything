@@ -25,12 +25,14 @@ from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
 from tests.helpers import NOW, create_basic_vault, pin_old_basic_vault
+from tests.voi_stopping_helpers import _minutes
 
 
 def test_dont_know_keeps_full_coverage_and_updates_facet_recall(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     # Old path only: the per-LO facet recall row and its evidence masses (written below KM2). From mvp-0.7 (so the
-    # head) belief is the canonical projection, whose failure observations add no evidence mass (D2b ports this).
+    # head) belief is the canonical projection, whose failure observations add no evidence mass (D2a finding 7,
+    # the owner's call). Waits on D5 with the legacy per-LO facet path.
     paths = pin_old_basic_vault(paths)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
@@ -397,11 +399,12 @@ def test_high_unfamiliar_probe_posterior_records_intervention_need(tmp_path):
     assert f"intervention_followup:high_unfamiliar_posterior:{result.practice_item_id}" in decision.triggered_actions
 
 
-def test_second_same_facet_failure_counts_across_different_items(tmp_path):
+def test_second_same_facet_failure_counts_across_different_items(tmp_path, monkeypatch):
     paths = create_basic_vault(tmp_path / "vault")
-    # Old path only: the repeated-failure rule triggering the follow-up. At the head the intervention follow-up is
-    # priced by value of information (``robust_evsi``) and declines here (``voi_value_below_minutes_cost``).
-    paths = pin_old_basic_vault(paths)
+    # From mvp-0.21 (voi_stopping) the intervention follow-up is queued only while its value pays for
+    # its minutes; pinning the candidates' minutes low (tests/test_voi_stopping.py's seam) keeps the
+    # repeated-failure rule under test on the head path.
+    _minutes(monkeypatch, 0.01)
     first_item_path = paths.practice_item_path("linear-algebra", "pi_svd_define_001")
     second_item = read_yaml(first_item_path)
     second_item["id"] = "pi_svd_define_002"
@@ -431,8 +434,9 @@ def test_second_same_facet_failure_counts_across_different_items(tmp_path):
     second_event = repository.error_events_for_attempt(second.attempt_id)[0]
     second_debug = repository.attempt_debug_payload(second.attempt_id)
     assert second_event["severity"] >= 0.80
-    assert second_debug["severity_traces"]["recall_failure"]["recent_same_item_failures"] == 0
-    assert second_debug["severity_traces"]["recall_failure"]["recent_same_facet_failures"] == 1
+    # KM4 (mvp-0.7) names the legacy `recall_failure` `retrieval_failure` (error_taxonomy_map).
+    assert second_debug["severity_traces"]["retrieval_failure"]["recent_same_item_failures"] == 0
+    assert second_debug["severity_traces"]["retrieval_failure"]["recent_same_facet_failures"] == 1
 
     decision = evaluate_intervention_followup(
         vault,
