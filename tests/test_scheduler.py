@@ -19,7 +19,8 @@ from learnloop.scheduling.selection_rewards import SchedulerIntent
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import write_yaml
-from tests.helpers import create_basic_vault, pin_old_basic_vault, seed_due_item
+from tests.canonical_facet_helpers import seed_canonical_facet_recall
+from tests.helpers import create_basic_vault, seed_due_item
 
 
 NOW = datetime(2026, 5, 19, 12, 0, tzinfo=UTC)
@@ -381,9 +382,7 @@ def test_scheduler_orders_eligible_items_by_selection_reward_before_id(tmp_path)
 
 
 def test_scheduler_selects_item_on_weak_canonical_facet_boundary(tmp_path):
-    # Old path only: it seeds the legacy per-LO facet state (_insert_facet_state), which a canonical
-    # (head) vault never holds; there the boundary reads the canonical projection.
-    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
+    paths = create_basic_vault(tmp_path / "vault")
     write_yaml(
         paths.facets_path,
         {
@@ -476,8 +475,13 @@ def test_scheduler_selects_item_on_weak_canonical_facet_boundary(tmp_path):
         active=True,
         clock=clock,
     )
-    _insert_facet_state(repository, "recall", alpha=9.0, beta=1.0)
-    _insert_facet_state(repository, "spectral-norm", alpha=2.0, beta=3.0)
+    # The head reads each facet's canonical belief, keyed on the canonical id the projection
+    # resolves aliases to (recall alpha 9 / beta 1, the spectral facet alpha 2 / beta 3; mass = total - 2).
+    seed_canonical_facet_recall(repository, facet_id="recall", mean=0.9, pseudo_count=10.0, mass=8.0, last_observed_at=NOW_ISO)
+    seed_canonical_facet_recall(
+        repository, facet_id="compute_spectral_error_from_sigma", mean=0.4, pseudo_count=5.0, mass=3.0,
+        last_observed_at=NOW_ISO,
+    )
 
     queue = build_due_queue(loaded, repository, clock=clock, persist_explanations=False)
 
@@ -489,41 +493,6 @@ def test_scheduler_selects_item_on_weak_canonical_facet_boundary(tmp_path):
     ability = queue[0].reward_debug["ability_vector"]
     assert demand["evidence_weights"] == {"compute_spectral_error_from_sigma": 1.0}
     assert "compute_spectral_error_from_sigma" in ability["facet_recall_mean_by_facet"]
-
-
-def _insert_facet_state(repository: Repository, facet_id: str, *, alpha: float, beta: float) -> None:
-    total = alpha + beta
-    with repository.connection() as connection:
-        connection.execute(
-            """
-            INSERT INTO evidence_facet_recall_state(
-              id, learning_object_id, facet_id, practice_item_id,
-              recall_alpha, recall_beta, recall_mean, recall_variance,
-              independent_evidence_mass, raw_coverage_mass, last_attempt_at,
-              last_error_at, consecutive_failures, algorithm_version,
-              created_at, updated_at
-            )
-            VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                f"facet_{facet_id}",
-                "lo_svd_definition",
-                facet_id,
-                alpha,
-                beta,
-                alpha / total,
-                alpha * beta / ((total**2) * (total + 1.0)),
-                total - 2.0,
-                total - 2.0,
-                NOW_ISO,
-                NOW_ISO,
-                0,
-                "mvp-0.1",
-                NOW_ISO,
-                NOW_ISO,
-            ),
-        )
-        connection.commit()
 
 
 def test_scheduler_candidate_logs_are_retained_per_configured_limit(tmp_path):

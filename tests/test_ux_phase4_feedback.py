@@ -824,9 +824,9 @@ def test_f5_an_answer_with_no_contract_is_unrecorded(ctx):
 
     # Old path only (D2a): "graded before contracts" exists only below mvp-0.7; from then on every
     # graded answer records the contract it was graded against (the head reports "contract").
-    from tests.helpers import pin_old_basic_vault
+    from tests.helpers import OLD_BASIC_VAULT_TAG, pin_old_basic_vault
 
-    pin_old_basic_vault(ctx.paths)
+    seed_due_item(pin_old_basic_vault(ctx.paths), version=OLD_BASIC_VAULT_TAG)
     ctx.load(ctx.paths.root)
     vault, repository = ctx.require_vault()
     attempt_id = _self_graded(ctx, answer="U Sigma V^T")

@@ -34,6 +34,16 @@ class _Sidecar:
         assert "error" not in response, response
         return response["result"]
 
+    def diagnose(self, attempt_id):
+        """Run the queued diagnosis, then take the follow-up's way out.
+
+        From mvp-0.45 (FG1 §6.0) a miss opens the follow-up workflow, which holds
+        the card (the poll reports ``pending``) until the follow-up is answered or
+        shown anyway; the card's own rules apply once it is released."""
+
+        self.ctx.post_attempt_worker.run_pending("diagnose")
+        self.result("followup_show_anyway", {"attemptId": attempt_id})
+
     def submit(self, session_id, answer="A = U Sigma V wrong", item="pi_svd_compute_001", key="K1"):
         return self.result(
             "submit_attempt",
@@ -67,7 +77,7 @@ def test_submit_reports_pending_and_the_card_fills_after_the_worker_runs(card_se
     pending = sidecar.result("diagnosis_status", {"attemptId": attempt_id})
     assert pending["status"] == "pending" and "summaryMd" not in pending
 
-    sidecar.ctx.post_attempt_worker.run_pending("diagnose")
+    sidecar.diagnose(attempt_id)
     card = sidecar.result("diagnosis_status", {"attemptId": attempt_id})
 
     assert card["status"] == "done" and card["cardEnabled"] is True
@@ -93,7 +103,7 @@ def test_submit_reports_pending_and_the_card_fills_after_the_worker_runs(card_se
 def test_card_tap_is_recorded_and_card_only_values_are_not_forwarded(card_setup):
     paths, sidecar, _client, session_id = card_setup
     attempt_id = sidecar.submit(session_id)["attemptId"]
-    sidecar.ctx.post_attempt_worker.run_pending("diagnose")
+    sidecar.diagnose(attempt_id)
     card = sidecar.result("diagnosis_status", {"attemptId": attempt_id})
 
     recorded = sidecar.result(
@@ -110,7 +120,7 @@ def test_card_tap_is_recorded_and_card_only_values_are_not_forwarded(card_setup)
 def test_forwarding_happens_only_with_an_open_factor(card_setup):
     paths, sidecar, _client, session_id = card_setup
     attempt_id = sidecar.submit(session_id)["attemptId"]
-    sidecar.ctx.post_attempt_worker.run_pending("diagnose")
+    sidecar.diagnose(attempt_id)
     repository = Repository(paths.sqlite_path)
     card = sidecar.result("diagnosis_status", {"attemptId": attempt_id})
     factors = repository.unresolved_cause_factors_for_attempt(attempt_id, status="open")
@@ -131,7 +141,7 @@ def test_forwarding_happens_only_with_an_open_factor(card_setup):
 def test_not_same_mistake_needs_a_validated_citation_and_lands_in_the_ledger(card_setup):
     paths, sidecar, _client, session_id = card_setup
     attempt_id = sidecar.submit(session_id)["attemptId"]
-    sidecar.ctx.post_attempt_worker.run_pending("diagnose")
+    sidecar.diagnose(attempt_id)
     card = sidecar.result("diagnosis_status", {"attemptId": attempt_id})
 
     refused = sidecar.call(
@@ -166,7 +176,7 @@ def test_repairs_first_displayed_on_the_card_are_debited_once(card_setup):
     attempt_id = sidecar.submit(session_id)["attemptId"]
     # The learner opens the feedback BEFORE the diagnosis lands: nothing to debit.
     sidecar.result("get_feedback", {"attemptId": attempt_id})
-    sidecar.ctx.post_attempt_worker.run_pending("diagnose")
+    sidecar.diagnose(attempt_id)
 
     def card_reveals():
         with Repository(paths.sqlite_path).connection() as connection:
@@ -188,7 +198,7 @@ def test_card_kill_switch_hides_the_card_but_its_repairs_still_debit_once(tmp_pa
     session_id = sidecar.result("start_session", {})["sessionId"]
     attempt_id = sidecar.submit(session_id)["attemptId"]
     sidecar.result("get_feedback", {"attemptId": attempt_id})
-    sidecar.ctx.post_attempt_worker.run_pending("diagnose")
+    sidecar.diagnose(attempt_id)
 
     card = sidecar.result("diagnosis_status", {"attemptId": attempt_id})
     sidecar.result("diagnosis_status", {"attemptId": attempt_id})

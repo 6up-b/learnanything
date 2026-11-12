@@ -15,7 +15,7 @@ from types import SimpleNamespace
 
 from learnloop.scheduling import reentry_summary as re_mod
 
-from tests.helpers import add_followup_item, create_basic_vault, seed_due_item, pin_old_basic_vault
+from tests.helpers import add_followup_item, append_config_toml, create_basic_vault, seed_due_item
 
 LO_ID = "lo_svd_definition"
 SECOND_ITEM = "pi_svd_define_002"
@@ -25,7 +25,7 @@ def _iso(moment: datetime) -> str:
     return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _vault_after_a_break(tmp_path, monkeypatch, *, days_away: int, old_path: bool = False):
+def _vault_after_a_break(tmp_path, monkeypatch, *, days_away: int, plan: bool = True):
     """Two due items, and a last session that ended ``days_away`` days ago. FSRS
     decay is faked so exactly one facet slipped below target while away."""
 
@@ -33,8 +33,8 @@ def _vault_after_a_break(tmp_path, monkeypatch, *, days_away: int, old_path: boo
     from learnloop_sidecar.context import SidecarContext
 
     paths = create_basic_vault(tmp_path / "vault")
-    if old_path:
-        paths = pin_old_basic_vault(paths)
+    if not plan:
+        append_config_toml(paths.root, "[plan]\nenabled = false")
     repository = seed_due_item(paths)
     add_followup_item(paths.root, SECOND_ITEM)
     repository.upsert_practice_item_state(
@@ -79,10 +79,10 @@ def _served(queue) -> list[str]:
 
 
 def test_reentry_session_serves_exactly_the_refreshers_the_panel_shows(tmp_path, monkeypatch):
-    # Old path only (D2a): the pre-plan Today queue capped to the re-entry refreshers. From mvp-0.14
-    # (the daily plan) Today serves the plan's blocks, and the queue here held both due items; not
-    # ported (a plan-shaped rewrite of the scenario), left for D2b.
-    ctx = _vault_after_a_break(tmp_path, monkeypatch, days_away=30, old_path=True)
+    # The pre-plan Today queue capped to the re-entry refreshers. From mvp-0.14 (the daily plan)
+    # Today serves the plan's blocks; `plan.enabled` off serves the legacy queue as Today exactly.
+    # Goes with that switch in D7 (the plan-on re-entry case is the plan's own tests').
+    ctx = _vault_after_a_break(tmp_path, monkeypatch, days_away=30, plan=False)
     session = _call(ctx, "start_session", {"availableMinutes": 30})
 
     summary = _call(ctx, "get_reentry_summary", {})["summary"]

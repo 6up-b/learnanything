@@ -21,6 +21,7 @@ source_paths:
   - "tests/ad3_reading_helpers.py"
   - "tests/apply_write_ahead_helpers.py"
   - "tests/approach_map_fakes.py"
+  - "tests/canonical_facet_helpers.py"
   - "tests/causal_cold_outcomes_helpers.py"
   - "tests/causal_factor_deferral_helpers.py"
   - "tests/causal_orchestrator_helpers.py"
@@ -28,7 +29,6 @@ source_paths:
   - "tests/causal_shadow_selection_helpers.py"
   - "tests/certification_cold_probe_helpers.py"
   - "tests/conftest.py"
-  - "tests/device_eligibility_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/error-impacts"
@@ -76,6 +76,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/ad3_reading_helpers.py`
 - `tests/apply_write_ahead_helpers.py`
 - `tests/approach_map_fakes.py`
+- `tests/canonical_facet_helpers.py`
 - `tests/causal_cold_outcomes_helpers.py`
 - `tests/causal_factor_deferral_helpers.py`
 - `tests/causal_orchestrator_helpers.py`
@@ -83,7 +84,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/causal_shadow_selection_helpers.py`
 - `tests/certification_cold_probe_helpers.py`
 - `tests/conftest.py`
-- `tests/device_eligibility_helpers.py`
 
 ## Extension and modification guidance
 

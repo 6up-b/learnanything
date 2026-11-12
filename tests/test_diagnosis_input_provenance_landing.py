@@ -456,12 +456,14 @@ def test_q14_on_a_vault_the_coordinator_upgrades_the_receipt_commits_with_the_gr
     from learnloop.db.stores.write_provenance import grading_record
     from learnloop.substrate.state_sync import sync_vault_state
     from learnloop.vault.repository import vault_repository
-    from tests.helpers import create_basic_vault, pin_old_basic_vault
+    from tests.helpers import create_basic_vault, set_config_switch
     from tests.diagnostic_augmentation_helpers import _proposal, _SequenceDiagnostician
 
-    # Old path only: a joint grade's receipt in the grading transaction (Q14); the
-    # head's blind door writes its receipt as telemetry that never undoes a grade.
-    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
+    # A joint grade's receipt in the grading transaction (Q14); a split vault's (mvp-0.10 on) blind
+    # door writes its receipt as telemetry that never undoes a grade. `diagnosis.split_enabled` off
+    # restores the joint door for new attempts; goes with that switch in D7.
+    paths = create_basic_vault(tmp_path / "vault")
+    set_config_switch(paths.root, "diagnosis.split_enabled", False)
     with connect(paths.sqlite_path) as connection:
         for trigger in ("text_write_provenance_no_update", "text_write_provenance_no_delete",
                         "error_event_lineage_no_update", "error_event_lineage_no_delete"):

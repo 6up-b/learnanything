@@ -22,7 +22,8 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.helpers import NOW, configure_codex_http, create_basic_vault, pin_old_basic_vault, write_facets
+from tests.helpers import NOW, configure_codex_http, create_basic_vault, set_config_switch, write_facets
+from tests.http_provider_double import serve_structured
 
 import pytest
 
@@ -73,9 +74,11 @@ def test_deferred_regrade_supersedes_self_grade_and_updates_mastery(tmp_path):
 
 def test_deferred_regrade_validates_repaired_trace_against_learner_answer(tmp_path):
     vault_root = tmp_path / "vault"
-    # Old path only: the joint grader's repair suggestion and its repaired trace. A split
-    # (head) vault's blind grade carries no repair suggestions (repairs are the diagnoser's).
-    paths = pin_old_basic_vault(create_basic_vault(vault_root))
+    # The joint grader's repair suggestion and its repaired trace. A split vault's (mvp-0.10 on) blind
+    # grade carries no repair suggestions (repairs are the diagnoser's); `diagnosis.split_enabled` off
+    # restores joint grading for new attempts. Goes with that switch in D7.
+    paths = create_basic_vault(vault_root)
+    set_config_switch(vault_root, "diagnosis.split_enabled", False)
     vault = load_vault(vault_root)
     repository = Repository(paths.sqlite_path)
     clock = FrozenClock(NOW)
@@ -409,11 +412,12 @@ def test_deferred_regrade_failure_leaves_self_grade_current_and_agent_failed(tmp
     assert agent_status == "failed"
 
 
-def test_startup_maintenance_regrades_pending_self_grade_when_codex_ready(tmp_path):
+def test_startup_maintenance_regrades_pending_self_grade_when_codex_ready(tmp_path, monkeypatch):
     vault_root = tmp_path / "vault"
-    # Old path only: regrades through the HTTP double, the legacy endpoint adapter, which
-    # never receives an isolated operation, so it cannot be a split (head) vault's blind grader.
-    paths = pin_old_basic_vault(create_basic_vault(vault_root))
+    # The head regrades through the learner-blind grader, an isolated turn: the double serves
+    # as a structured, isolated transport (tests.http_provider_double.serve_structured).
+    serve_structured(monkeypatch)
+    paths = create_basic_vault(vault_root)
     checkout = tmp_path / "codex"
     checkout.mkdir()
     (checkout / "HEAD").write_text("abc123", encoding="utf-8")

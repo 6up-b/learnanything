@@ -25,9 +25,8 @@ from learnloop.diagnosis.probe_episodes import (
 from learnloop.diagnosis.probe_hypotheses import H_OTHER
 
 from learnloop.vault.loader import load_vault
-from learnloop.vault.paths import VaultPaths
 
-from tests.helpers import NOW_ISO, pin_old_basic_vault
+from tests.helpers import NOW_ISO, append_config_toml
 from tests.voi_stopping_helpers import _minutes
 from tests.probe_block_end_helpers import (
     CLOCK,
@@ -135,11 +134,12 @@ def test_ordinary_attempt_outside_block_still_normalizes(tmp_path):
 
 
 def test_block_end_releases_feedback_and_routes_ordinary_practice(tmp_path):
-    # Old path only (D2a): a two-observation block whose first success leaves it open. From mvp-0.21
+    # The predecessor's two-observation block, whose first success leaves it open. From mvp-0.21
     # (voi_stopping) the first success already makes the posterior stable, the next observation is
-    # worth nothing, and the block ends (and the one-observation placement episode completes) there.
+    # worth nothing, and the block ends there; `voi_stopping.enabled` off serves the count exactly.
+    # Goes with that switch in D7.
     loaded, repository = _setup(tmp_path)
-    pin_old_basic_vault(VaultPaths(loaded.root, loaded.config))
+    append_config_toml(loaded.root, "[voi_stopping]\nenabled = false")
     loaded = load_vault(loaded.root)
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
 

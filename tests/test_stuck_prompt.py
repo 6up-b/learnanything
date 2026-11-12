@@ -480,7 +480,9 @@ def test_cli_attempt_stuck_and_dont_know_conversion(tmp_path):
 def test_cli_refuses_stuck_where_it_is_not_offered(tmp_path):
     from learnloop.cli.app import app
 
-    paths, _vault, _repository = split_vault(tmp_path)
+    # Not offered: below mvp-0.13 or with `stuck_prompt.enabled` off. The head with the switch off is
+    # the case D2b keeps (it relied on split_vault's old default tag); it goes with the switch in D7.
+    paths, _vault, _repository = split_vault(tmp_path, config="[stuck_prompt]\nenabled = false")
     result = CliRunner().invoke(app, [
         "attempt", ITEM, "--stuck", "--answer", "", "--vault", str(paths.root), "--ai-provider", "manual",
     ])

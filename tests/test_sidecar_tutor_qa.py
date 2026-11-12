@@ -14,9 +14,9 @@ from tests.helpers import (
     NOW_ISO,
     admit_probe_instrument_card,
     create_basic_vault,
-    pin_old_basic_vault,
     seed_due_item,
 )
+from tests.http_provider_double import serve_structured
 
 import pytest
 from tests.sidecar_tutor_qa_helpers import _TutorServer, _configure_http_provider, _init, _rpc, _tutor_vault
@@ -136,15 +136,14 @@ def test_sidecar_ask_rate_transcript_and_limit(tmp_path):
         server.stop()
 
 
-def test_sidecar_submit_attempt_counts_question_hint_equivalents(tmp_path):
+def test_sidecar_submit_attempt_counts_question_hint_equivalents(tmp_path, monkeypatch):
     server = _TutorServer()
     server.start()
     try:
-        # Old path only: grades through the HTTP double, the legacy endpoint adapter, which
-        # never receives an isolated operation, so it cannot be a split (head) vault's blind
-        # grader; on the head this submit asks for a grading fallback.
+        # The head grades through the learner-blind grader, an isolated turn: the double serves as
+        # a structured, isolated transport (tests.http_provider_double.serve_structured).
+        serve_structured(monkeypatch)
         vault_root, paths = _tutor_vault(tmp_path, server)
-        paths = pin_old_basic_vault(paths)
         session_id = _rpc(
             [_init(vault_root), {"jsonrpc": "2.0", "id": 2, "method": "start_session", "params": {"energy": "medium"}}]
         )[1]["result"]["sessionId"]

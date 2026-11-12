@@ -1333,10 +1333,13 @@ def test_rubric_tier_defaults_to_core_for_existing_items(tmp_path):
 
 
 def test_scheduler_caps_teach_back_items_per_queue(tmp_path):
-    # Old path only: from mvp-0.21 (voi_stopping) the count cap is replaced by the
-    # teach-back value admission (scheduler._teach_back_value_admission).
+    # The predecessor's count cap: from mvp-0.21 the teach-back value admission
+    # (scheduler._teach_back_value_admission) replaces it, and `voi_stopping.enabled`
+    # off serves the cap exactly. Runs on the head with that switch off; goes with
+    # the switch in D7.
     second_item = _teach_item_payload("pi_svd_teach_002")
-    _root, vault, repository = _old_path_setup(tmp_path, extra_items=[second_item])
+    _root, vault, repository = _setup(tmp_path, extra_items=[second_item])
+    vault.config.voi_stopping.enabled = False
     _seed_lo_evidence(repository)
 
     queue = build_due_queue(

@@ -19,7 +19,9 @@ from learnloop.learner.recall_coverage import expected_facet_mass_gain
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
+from tests.canonical_facet_helpers import seed_canonical_facet_recall
 from tests.helpers import (
+    ALGORITHM_VERSION,
     NOW,
     NOW_ISO,
     OLD_BASIC_VAULT_TAG,
@@ -41,13 +43,14 @@ def _loaded(tmp_path):
 
 
 def _loaded_old_path(tmp_path):
-    """``_loaded`` on the pre-D2a vault (mvp-0.6). Old path only: the tests using it seed the legacy
-    per-LO facet state (``_seed_aggregate_facet``) that a canonical (head) vault never holds; the head
-    reads the canonical projection instead."""
+    """``_loaded`` on the pre-D2a vault (mvp-0.6). Old path only: a test using it seeds legacy per-LO
+    facet *uncertainty* (``upsert_facet_uncertainty_state``), which a canonical (head) vault never reads
+    (``facet_uncertainty_states_for_lo`` is the empty KM4 seam), so its label cannot arise at the head.
+    It waits on D5 (the pre-canonical path) with the uncertainty table's writers."""
 
     vault_root = tmp_path / "vault"
     paths = pin_old_basic_vault(create_basic_vault(vault_root))
-    repository = seed_due_item(paths)
+    repository = seed_due_item(paths, version=OLD_BASIC_VAULT_TAG)
     return load_vault(vault_root), paths, repository
 
 
@@ -102,7 +105,27 @@ def _seed_aggregate_facet(
     facet_id: str = FACET_ID,
     last_attempt_at: str = "2026-05-16T12:00:00Z",
 ) -> None:
-    """Directly seed an aggregate (practice_item_id NULL) facet recall row.
+    """Seed the facet's aggregate canonical belief (the head's): mean and mass on the one
+    capability the basic item observes (``tests.canonical_facet_helpers``).
+
+    Beta recall states carry no time decay, so seeding the mean/mass gives us
+    a deterministic ``current_recall`` and diagnostic label to project from.
+    """
+
+    seed_canonical_facet_recall(
+        repository, facet_id=facet_id, mean=mean, mass=mass, last_observed_at=last_attempt_at
+    )
+
+
+def _seed_legacy_aggregate_facet(
+    repository,
+    *,
+    mean: float,
+    mass: float = 2.0,
+    facet_id: str = FACET_ID,
+    last_attempt_at: str = "2026-05-16T12:00:00Z",
+) -> None:
+    """Directly seed an aggregate (practice_item_id NULL) legacy per-LO facet recall row (mvp-0.6).
 
     Beta recall states carry no time decay, so seeding the mean/mass gives us
     a deterministic ``current_recall`` and diagnostic label to project from.
@@ -155,7 +178,7 @@ def test_unexamined_facet_is_on_frontier_and_not_on_track(tmp_path):
 
 
 def test_solid_facet_above_target_no_decay_info_is_on_track(tmp_path):
-    vault, _paths, repository = _loaded_old_path(tmp_path)
+    vault, _paths, repository = _loaded(tmp_path)
     _seed_aggregate_facet(repository, mean=0.95)
     # No FSRS stability => no decay information => projection holds recall flat.
     repository.upsert_practice_item_state(
@@ -181,7 +204,7 @@ def test_solid_facet_above_target_no_decay_info_is_on_track(tmp_path):
 
 
 def test_solid_facet_decays_below_target_lands_on_frontier(tmp_path):
-    vault, _paths, repository = _loaded_old_path(tmp_path)
+    vault, _paths, repository = _loaded(tmp_path)
     _seed_aggregate_facet(repository, mean=0.9)
     # Low stability so recall erodes over a distant horizon.
     repository.upsert_practice_item_state(
@@ -207,7 +230,7 @@ def test_solid_facet_decays_below_target_lands_on_frontier(tmp_path):
 
 
 def test_projection_is_monotonically_non_increasing_with_horizon(tmp_path):
-    vault, _paths, repository = _loaded_old_path(tmp_path)
+    vault, _paths, repository = _loaded(tmp_path)
     _seed_aggregate_facet(repository, mean=0.9)  # stability 2.0 from seed_due_item
 
     previous = None
@@ -224,7 +247,7 @@ def test_projection_is_monotonically_non_increasing_with_horizon(tmp_path):
 def test_high_mastery_low_mass_is_on_track_but_uncertified_and_at_risk(tmp_path):
     """The two axes are independent: attainment can lead certification."""
 
-    vault, _paths, repository = _loaded_old_path(tmp_path)
+    vault, _paths, repository = _loaded(tmp_path)
     vault.goals[0].due_at = _due_iso(1)  # near horizon: negligible FSRS decay
     _seed_aggregate_facet(repository, mean=0.6, mass=0.2)
     repository.upsert_mastery_state(
@@ -234,7 +257,7 @@ def test_high_mastery_low_mass_is_on_track_but_uncertified_and_at_risk(tmp_path)
             logit_variance=0.5,
             evidence_count=6,
             last_evidence_at=NOW_ISO,
-            algorithm_version=OLD_BASIC_VAULT_TAG,
+            algorithm_version=ALGORITHM_VERSION,
             updated_at=NOW_ISO,
         )
     )
@@ -255,7 +278,7 @@ def test_high_mastery_low_mass_is_on_track_but_uncertified_and_at_risk(tmp_path)
 
 
 def test_attempts_to_certify_inverts_the_mass_equation(tmp_path):
-    vault, _paths, repository = _loaded_old_path(tmp_path)
+    vault, _paths, repository = _loaded(tmp_path)
     report = goal_report(vault, repository, vault.goals[0], clock=FrozenClock(NOW))
     projection = _recall_projection(report)
     assert projection.evidence_mass == 0.0
@@ -421,7 +444,7 @@ def test_decayed_certified_facet_reports_a_floor_not_zero(tmp_path):
     the line" for a facet that is demonstrably losing the line.
     """
 
-    vault, _paths, repository = _loaded_old_path(tmp_path)
+    vault, _paths, repository = _loaded(tmp_path)
     _seed_aggregate_facet(repository, mean=0.9, mass=2.0)
     repository.upsert_practice_item_state(
         ITEM_ID,
@@ -451,7 +474,7 @@ def test_decayed_certified_facet_reports_a_floor_not_zero(tmp_path):
 
 
 def test_attainment_aggregates(tmp_path):
-    vault, _paths, repository = _loaded_old_path(tmp_path)
+    vault, _paths, repository = _loaded(tmp_path)
     _seed_aggregate_facet(repository, mean=0.9, mass=2.0)
 
     report = goal_report(vault, repository, vault.goals[0], clock=FrozenClock(NOW))
@@ -470,7 +493,7 @@ def test_attainment_aggregates(tmp_path):
 
 def test_known_gap_facet_is_never_on_track(tmp_path):
     vault, _paths, repository = _loaded_old_path(tmp_path)
-    _seed_aggregate_facet(repository, mean=0.95, mass=2.0)
+    _seed_legacy_aggregate_facet(repository, mean=0.95, mass=2.0)
     attempt = complete_self_graded_attempt(
         vault,
         repository,
@@ -482,7 +505,7 @@ def test_known_gap_facet_is_never_on_track(tmp_path):
         SelfGradeInput(criterion_points={"correctness": 4}, confidence=5),
         clock=FrozenClock(NOW),
     )
-    _seed_aggregate_facet(repository, mean=0.95, mass=2.0)  # re-pin after the attempt's update
+    _seed_legacy_aggregate_facet(repository, mean=0.95, mass=2.0)  # re-pin after the attempt's update
     # Resolved uncertainty whose winning hypothesis is NOT facet_solid => known_gap.
     repository.upsert_facet_uncertainty_state(
         {

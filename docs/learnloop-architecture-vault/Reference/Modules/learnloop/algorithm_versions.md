@@ -294,6 +294,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/batch3_landing_helpers.py](../../../../../tests/batch3_landing_helpers.py) — direct import
+- [tests/canonical_facet_helpers.py](../../../../../tests/canonical_facet_helpers.py) — direct import
 - [tests/cold_retry_reschedule_helpers.py](../../../../../tests/cold_retry_reschedule_helpers.py) — direct import
 - [tests/curriculum_c1_plan_follows_path_helpers.py](../../../../../tests/curriculum_c1_plan_follows_path_helpers.py) — direct import
 - [tests/data_capture_a2_measurement_helpers.py](../../../../../tests/data_capture_a2_measurement_helpers.py) — direct import

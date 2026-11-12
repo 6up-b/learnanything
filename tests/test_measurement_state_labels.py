@@ -33,13 +33,12 @@ from learnloop.learner.measurement_state import (
 from learnloop.scheduling.selection_rewards import predicted_facet_recall
 from learnloop.vault.loader import load_vault
 
+from tests.canonical_facet_helpers import seed_canonical_facet_recall
 from tests.helpers import (
     ALGORITHM_VERSION,
     NOW,
     NOW_ISO,
-    OLD_BASIC_VAULT_TAG,
     create_basic_vault,
-    pin_old_basic_vault,
     seed_due_item,
 )
 
@@ -212,14 +211,9 @@ def test_every_classified_label_is_in_the_vocabulary():
 # -- the motivating case: the goal surface's pooled prediction ----------------
 
 
-def _loaded(tmp_path: Path, *, seed: bool = True, old_path: bool = False):
-    """``old_path``: the pre-D2a vault (mvp-0.6), for the tests that seed legacy per-LO facet state
-    (``_seed_aggregate_facet``); a canonical (head) vault never holds it and reads its projection."""
-
+def _loaded(tmp_path: Path, *, seed: bool = True):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
-    if old_path:
-        paths = pin_old_basic_vault(paths)
     repository = seed_due_item(paths) if seed else Repository(paths.sqlite_path)
     return load_vault(vault_root), paths, repository
 
@@ -229,27 +223,9 @@ def _projection(report):
 
 
 def _seed_aggregate_facet(repository, *, mean: float, mass: float) -> None:
-    with repository.connection() as connection:
-        repository._upsert_facet_recall_state(
-            connection,
-            {
-                "learning_object_id": LO_ID,
-                "facet_id": FACET_ID,
-                "practice_item_id": None,
-                "recall_alpha": mean * 10.0,
-                "recall_beta": (1.0 - mean) * 10.0,
-                "recall_mean": mean,
-                "recall_variance": 0.01,
-                "independent_evidence_mass": mass,
-                "raw_coverage_mass": mass,
-                "last_attempt_at": "2026-05-16T12:00:00Z",
-                "last_error_at": None,
-                "consecutive_failures": 0,
-                "algorithm_version": OLD_BASIC_VAULT_TAG,
-                "created_at": NOW_ISO,
-                "updated_at": NOW_ISO,
-            },
-        )
+    """The facet's aggregate canonical belief, as the head reads it (tests.canonical_facet_helpers)."""
+
+    seed_canonical_facet_recall(repository, facet_id=FACET_ID, mean=mean, mass=mass)
 
 
 def _insert_claim(repository) -> None:
@@ -290,7 +266,7 @@ def test_pooled_prediction_that_rendered_unlabelled_now_carries_inferred(tmp_pat
 
 
 def test_measured_label_on_a_facet_with_evidence_over_the_gate(tmp_path):
-    vault, _paths, repository = _loaded(tmp_path, old_path=True)
+    vault, _paths, repository = _loaded(tmp_path)
     _seed_aggregate_facet(repository, mean=0.95, mass=2.0)
 
     projection = _projection(goal_report(vault, repository, vault.goals[0], clock=FrozenClock(NOW)))
@@ -299,7 +275,7 @@ def test_measured_label_on_a_facet_with_evidence_over_the_gate(tmp_path):
 
 
 def test_sub_threshold_direct_mass_is_inferred_not_measured(tmp_path):
-    vault, _paths, repository = _loaded(tmp_path, old_path=True)
+    vault, _paths, repository = _loaded(tmp_path)
     _seed_aggregate_facet(repository, mean=0.8, mass=0.1)
 
     projection = _projection(goal_report(vault, repository, vault.goals[0], clock=FrozenClock(NOW)))
@@ -344,7 +320,7 @@ def test_claimed_label_when_only_a_learner_claim_covers_the_cell(tmp_path):
 def test_capability_grid_labels_the_ready_number(tmp_path):
     """§B2 names this surface: the grid renders Ready for untested cells."""
 
-    vault, _paths, repository = _loaded(tmp_path, old_path=True)
+    vault, _paths, repository = _loaded(tmp_path)
     grid = capability_grid(vault, repository, LO_ID)
     assert grid.cells
     for cell in grid.cells:
@@ -383,7 +359,7 @@ def _db_snapshot(repository) -> str:
 def test_labelling_writes_nothing(tmp_path):
     """Rendering a label is a read. The whole database is byte-identical after."""
 
-    vault, _paths, repository = _loaded(tmp_path, old_path=True)
+    vault, _paths, repository = _loaded(tmp_path)
     _seed_aggregate_facet(repository, mean=0.7, mass=0.2)
     _insert_claim(repository)
     before = _db_snapshot(repository)
@@ -408,7 +384,7 @@ def test_label_does_not_move_a_threshold_a_number_or_a_certification(tmp_path):
         ("inferred", True, 0.1, False),
         ("measured", True, 2.0, False),
     ):
-        vault, _paths, repository = _loaded(tmp_path / case, seed=seed, old_path=True)
+        vault, _paths, repository = _loaded(tmp_path / case, seed=seed)
         if mass is not None:
             _seed_aggregate_facet(repository, mean=0.9, mass=mass)
         if claim:

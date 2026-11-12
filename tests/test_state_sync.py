@@ -11,7 +11,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_learning_object, upsert_practice_item
 from learnloop.vault.yaml_io import write_yaml
 
-from tests.helpers import NOW, create_basic_vault, pin_old_basic_vault
+from tests.helpers import NOW, append_config_toml, create_basic_vault
 
 
 def test_state_sync_initializes_and_deactivates_missing_yaml(tmp_path):
@@ -45,9 +45,10 @@ def test_state_sync_initializes_and_deactivates_missing_yaml(tmp_path):
 
 def test_state_sync_enters_probe_for_new_active_goal_learning_object(tmp_path):
     vault_root = tmp_path / "vault"
-    # Old path only: from mvp-0.11 (learner field F2, placement.enabled) sync opens no initial probe
-    # episode for a new LO, so this describes the predecessor's opening probe.
-    paths = pin_old_basic_vault(create_basic_vault(vault_root))
+    # The predecessor's opening probe: from mvp-0.11 (learner field F2) sync opens no initial probe
+    # episode for a new LO, and `placement.enabled` off serves it exactly. Goes with that switch in D7.
+    paths = create_basic_vault(vault_root)
+    append_config_toml(vault_root, "[placement]\nenabled = false")
     repository = Repository(paths.sqlite_path)
     clock = FrozenClock(NOW)
 
@@ -66,9 +67,10 @@ def test_state_sync_enters_probe_for_new_active_goal_learning_object(tmp_path):
 
 def test_state_sync_enters_probe_for_new_active_learning_object_without_goal(tmp_path):
     vault_root = tmp_path / "vault"
-    # Old path only: from mvp-0.11 (learner field F2, placement.enabled) sync opens no initial probe
-    # episode for a new LO, so this describes the predecessor's opening probe.
-    paths = pin_old_basic_vault(create_basic_vault(vault_root))
+    # The predecessor's opening probe: from mvp-0.11 (learner field F2) sync opens no initial probe
+    # episode for a new LO, and `placement.enabled` off serves it exactly. Goes with that switch in D7.
+    paths = create_basic_vault(vault_root)
+    append_config_toml(vault_root, "[placement]\nenabled = false")
     write_yaml(paths.goals_path, {"schema_version": 1, "goals": []})
     repository = Repository(paths.sqlite_path)
     clock = FrozenClock(NOW)
@@ -88,9 +90,10 @@ def test_state_sync_enters_probe_for_new_active_learning_object_without_goal(tmp
 
 def test_state_sync_enters_probe_when_practice_item_arrives_after_learning_object(tmp_path):
     vault_root = tmp_path / "vault"
-    # Old path only: from mvp-0.11 (learner field F2, placement.enabled) sync opens no initial probe
-    # episode for a new LO, so this describes the predecessor's opening probe.
-    paths = pin_old_basic_vault(create_basic_vault(vault_root))
+    # The predecessor's opening probe: from mvp-0.11 (learner field F2) sync opens no initial probe
+    # episode for a new LO, and `placement.enabled` off serves it exactly. Goes with that switch in D7.
+    paths = create_basic_vault(vault_root)
+    append_config_toml(vault_root, "[placement]\nenabled = false")
     paths.practice_item_path("linear-algebra", "pi_svd_define_001").unlink()
     write_yaml(paths.goals_path, {"schema_version": 1, "goals": []})
     repository = Repository(paths.sqlite_path)

@@ -19,7 +19,8 @@ from learnloop.tutor.question_signal import (
     resolve_gap_declaration_likelihood,
 )
 from learnloop.vault.loader import load_vault
-from tests.helpers import NOW, NOW_ISO, create_basic_vault, pin_old_basic_vault
+from tests.canonical_facet_helpers import seed_canonical_facet_recall
+from tests.helpers import NOW, NOW_ISO, create_basic_vault
 
 LO_ID = "lo_svd_definition"
 ITEM_ID = "pi_svd_define_001"
@@ -27,11 +28,9 @@ QUESTION_ISO = "2026-05-19T11:00:00Z"
 LATER_ISO = "2026-05-19T11:30:00Z"
 
 
-def _setup(tmp_path, *, old: bool = False):
+def _setup(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
-    if old:
-        paths = pin_old_basic_vault(paths)
     return load_vault(vault_root), Repository(paths.sqlite_path)
 
 
@@ -109,35 +108,14 @@ def _insert_attempt(repository, *, attempt_id, created_at, correctness, facets=(
 
 
 def _insert_facet_recall_state(repository, facet_id, *, alpha, beta):
+    """The facet's canonical belief, as the head reads it (tests.canonical_facet_helpers): alpha, beta
+    and an independent mass of alpha + beta - 2."""
+
     total = alpha + beta
-    with repository.connection() as connection:
-        connection.execute(
-            """
-            INSERT INTO evidence_facet_recall_state(
-              id, learning_object_id, facet_id, practice_item_id,
-              recall_alpha, recall_beta, recall_mean, recall_variance,
-              independent_evidence_mass, raw_coverage_mass, last_attempt_at,
-              last_error_at, consecutive_failures, algorithm_version,
-              created_at, updated_at
-            )
-            VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, NULL, 0, 'mvp-0.1', ?, ?)
-            """,
-            (
-                f"facet_{facet_id}",
-                LO_ID,
-                facet_id,
-                alpha,
-                beta,
-                alpha / total,
-                alpha * beta / ((total**2) * (total + 1.0)),
-                total - 2.0,
-                total - 2.0,
-                NOW_ISO,
-                NOW_ISO,
-                NOW_ISO,
-            ),
-        )
-        connection.commit()
+    seed_canonical_facet_recall(
+        repository, facet_id=facet_id, mean=alpha / total, pseudo_count=total, mass=total - 2.0,
+        last_observed_at=NOW_ISO,
+    )
 
 
 # ── claim seeding (spec §3 G2 generalization) ────────────────────────────────
@@ -238,9 +216,7 @@ def test_gap_likelihood_calibrates_from_declaration_failure_lift(tmp_path):
 
 
 def test_transfer_gap_on_solid_facet_is_skipped(tmp_path):
-    # Old path only: the solid facet is a seeded per-LO facet recall row, which canonical vaults (KM2, mvp-0.7 on,
-    # so the head) never read; their facet belief is the projection over observations.
-    vault, repository = _setup(tmp_path, old=True)
+    vault, repository = _setup(tmp_path)
     _insert_facet_recall_state(repository, "recall", alpha=9.0, beta=1.0)  # solid (mass 8 > 0.5)
     _insert_gap_declaration(repository, question_nature="transfer")
     signal = collect_question_signal(vault, repository, LO_ID, clock=FrozenClock(NOW))

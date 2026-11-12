@@ -38,7 +38,7 @@ def _loaded_old_path(tmp_path):
 
     vault_root = tmp_path / "vault"
     paths = pin_old_basic_vault(create_basic_vault(vault_root))
-    repository = seed_due_item(paths)
+    repository = seed_due_item(paths, version=OLD_BASIC_VAULT_TAG)
     return load_vault(vault_root), paths, repository
 
 

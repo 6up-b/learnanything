@@ -28,13 +28,13 @@ source_paths:
   - "tests/apply_write_ahead_helpers.py"
   - "tests/approach_map_fakes.py"
   - "tests/assumed_known_helpers.py"
+  - "tests/canonical_facet_helpers.py"
   - "tests/causal_cold_outcomes_helpers.py"
   - "tests/causal_factor_deferral_helpers.py"
   - "tests/causal_orchestrator_helpers.py"
   - "tests/causal_p2_acceptance_helpers.py"
   - "tests/causal_shadow_selection_helpers.py"
   - "tests/certification_cold_probe_helpers.py"
-  - "tests/cold_retry_reschedule_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/evidence"
@@ -106,13 +106,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/apply_write_ahead_helpers.py`
 - `tests/approach_map_fakes.py`
 - `tests/assumed_known_helpers.py`
+- `tests/canonical_facet_helpers.py`
 - `tests/causal_cold_outcomes_helpers.py`
 - `tests/causal_factor_deferral_helpers.py`
 - `tests/causal_orchestrator_helpers.py`
 - `tests/causal_p2_acceptance_helpers.py`
 - `tests/causal_shadow_selection_helpers.py`
 - `tests/certification_cold_probe_helpers.py`
-- `tests/cold_retry_reschedule_helpers.py`
 
 ## Extension and modification guidance
 

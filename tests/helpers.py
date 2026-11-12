@@ -52,8 +52,11 @@ async def begin_session(app, pilot):
     return app.screen
 
 
-def seed_due_item(paths: VaultPaths) -> Repository:
-    """Seed mastery + a past-due Practice Item so the basic vault item schedules."""
+def seed_due_item(paths: VaultPaths, *, version: str = ALGORITHM_VERSION) -> Repository:
+    """Seed mastery + a past-due Practice Item so the basic vault item schedules.
+
+    ``version`` stamps the mastery row: the basic vault's tag by default; a test
+    pinned to an older vault passes that vault's tag so its seed is the old one."""
     repository = Repository(paths.sqlite_path)
     repository.upsert_mastery_state(
         MasteryState(
@@ -62,7 +65,7 @@ def seed_due_item(paths: VaultPaths) -> Repository:
             logit_variance=1.0,
             evidence_count=1,
             last_evidence_at="2026-05-18T12:00:00Z",
-            algorithm_version=ALGORITHM_VERSION,
+            algorithm_version=version,
             updated_at=NOW_ISO,
         )
     )
@@ -233,6 +236,38 @@ def append_config_toml(vault_root: Path, fragment: str) -> None:
             raise AssertionError(f"learnloop.toml already has [{table}]")
     updated = f"{current.rstrip()}\n\n{normalized}\n"
     tomllib.loads(updated)
+    config_path.write_text(updated, encoding="utf-8")
+
+
+def set_config_switch(vault_root: Path, dotted_key: str, value: bool) -> None:
+    """Set one boolean key (``"hints.fold_follows_attach"``) in learnloop.toml,
+    inside its table whether or not the template renders that table.
+
+    For a test of the predecessor a kill switch serves on the head vault: the
+    switch names what the test waits on (D7 removes it with its off-branch)."""
+
+    table, _, key = dotted_key.rpartition(".")
+    if not table or not key:
+        raise AssertionError(f"{dotted_key!r} names no table")
+    config_path = vault_root / "learnloop.toml"
+    text = config_path.read_text(encoding="utf-8")
+    literal = "true" if value else "false"
+    header = re.search(rf"(?m)^\[{re.escape(table)}\]\s*$", text)
+    if header is None:
+        updated = f"{text.rstrip()}\n\n[{table}]\n{key} = {literal}\n"
+    else:
+        end = re.search(r"(?m)^\[", text[header.end():])
+        body_end = header.end() + end.start() if end else len(text)
+        body = text[header.end():body_end]
+        body, count = re.subn(rf"(?m)^{re.escape(key)}\s*=.*$", f"{key} = {literal}", body, count=1)
+        if count == 0:
+            body = f"\n{key} = {literal}" + body
+        updated = text[:header.end()] + body + text[body_end:]
+    parsed = tomllib.loads(updated)
+    for part in dotted_key.split("."):
+        parsed = parsed[part]
+    if parsed is not value:
+        raise AssertionError(f"{dotted_key} did not take {value!r}")
     config_path.write_text(updated, encoding="utf-8")
 
 
