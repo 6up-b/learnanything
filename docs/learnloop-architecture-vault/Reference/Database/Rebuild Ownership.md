@@ -54,6 +54,7 @@ Owns no `DERIVED` table. It backfills missing authoritative activity observation
 
 - [[Reference/Database/Tables/ability_transition_events|ability_transition_events]]
 - [[Reference/Database/Tables/attempt_surprise|attempt_surprise]]
+- [[Reference/Database/Tables/facet_uncertainty|facet_uncertainty]] (per-LO; written on canonical vaults from `mvp-0.59`, the facet-belief successor)
 - [[Reference/Database/Tables/item_parameter_state|item_parameter_state]]
 - [[Reference/Database/Tables/learning_object_mastery|learning_object_mastery]]
 - [[Reference/Database/Tables/learning_outcome_labels|learning_outcome_labels]]

@@ -57,6 +57,8 @@ Examples:
 
 Examples: [[Reference/Database/Tables/attempt_surprise|attempt_surprise]], [[Reference/Database/Tables/learning_object_mastery|learning_object_mastery]], [[Reference/Database/Tables/facet_recall_state|facet_recall_state]], and [[Reference/Database/Tables/subject_identifiability_watermarks|subject_identifiability_watermarks]].
 
+[[Reference/Database/Tables/facet_uncertainty|facet_uncertainty]] moved here from `COMPAT` with the facet-belief successor (`mvp-0.59`): canonical vaults write the per-LO facet uncertainty again, and learner replay clears and rewrites it LO by LO (the legacy path's rows too).
+
 ## Receipt
 
 **54 tables.** `RECEIPT` rows record historical decisions, audit facts, lifecycle events, and evaluation reports. They survive rebuilds. Many families also have schema triggers preventing update or delete.
@@ -73,11 +75,11 @@ It also holds live overwritten state that rebuild must not clear wholesale: [[Re
 
 ## Compat
 
-**9 tables.** `COMPAT` is frozen state retained for old vaults, dormant designs, or incomplete successor cutovers. It is preserved during rebuilds and is not synonymous with “safe to remove.”
+**8 tables.** `COMPAT` is frozen state retained for old vaults, dormant designs, or incomplete successor cutovers. It is preserved during rebuilds and is not synonymous with “safe to remove.”
 
-The nine tables are:
+The eight tables are:
 
-- actively preserved legacy projections: [[Reference/Database/Tables/evidence_facet_recall_state|evidence_facet_recall_state]], [[Reference/Database/Tables/facet_uncertainty|facet_uncertainty]], [[Reference/Database/Tables/elicitation_events|elicitation_events]], [[Reference/Database/Tables/learner_state_beliefs|learner_state_beliefs]], and [[Reference/Database/Tables/lo_probe_state|lo_probe_state]];
+- actively preserved legacy projections: [[Reference/Database/Tables/evidence_facet_recall_state|evidence_facet_recall_state]], [[Reference/Database/Tables/elicitation_events|elicitation_events]], [[Reference/Database/Tables/learner_state_beliefs|learner_state_beliefs]], and [[Reference/Database/Tables/lo_probe_state|lo_probe_state]];
 - live despite the role: [[Reference/Database/Tables/hypothesis_sets|hypothesis_sets]], whose locked sets the probe paths write and read (its role is on the owner's list in `docs/reviews/table-review-2026-11-11.md`);
 - owner-gated dormant state: [[Reference/Database/Tables/source_exam_profiles|source_exam_profiles]], [[Reference/Database/Tables/source_locator_schemes|source_locator_schemes]], and [[Reference/Database/Tables/learner_theta|learner_theta]].
 
