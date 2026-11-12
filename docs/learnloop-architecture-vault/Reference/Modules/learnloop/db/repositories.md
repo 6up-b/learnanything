@@ -1590,6 +1590,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/apply_write_ahead_helpers.py](../../../../../../tests/apply_write_ahead_helpers.py) — direct import
 - [tests/approach_map_fakes.py](../../../../../../tests/approach_map_fakes.py) — direct import
 - [tests/assumed_known_helpers.py](../../../../../../tests/assumed_known_helpers.py) — direct import
+- [tests/canonical_facet_helpers.py](../../../../../../tests/canonical_facet_helpers.py) — direct import
 - [tests/capability_residual_helpers.py](../../../../../../tests/capability_residual_helpers.py) — direct import
 - [tests/capture_desktop_helpers.py](../../../../../../tests/capture_desktop_helpers.py) — direct import
 - [tests/causal_cold_outcomes_helpers.py](../../../../../../tests/causal_cold_outcomes_helpers.py) — direct import

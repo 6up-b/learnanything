@@ -21,6 +21,7 @@ source_paths:
   - "tests/ad23_contract_helpers.py"
   - "tests/ad_guard_offer_receipts_helpers.py"
   - "tests/batch3_landing_helpers.py"
+  - "tests/canonical_facet_helpers.py"
   - "tests/causal_orchestrator_helpers.py"
   - "tests/causal_p2_acceptance_helpers.py"
   - "tests/causal_shadow_selection_helpers.py"
@@ -29,7 +30,6 @@ source_paths:
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
   - "tests/data_capture_codex_review_helpers.py"
   - "tests/data_capture_successor_helpers.py"
-  - "tests/diagnostic_probe_single_use_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/algorithms"
@@ -62,6 +62,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/ad23_contract_helpers.py`
 - `tests/ad_guard_offer_receipts_helpers.py`
 - `tests/batch3_landing_helpers.py`
+- `tests/canonical_facet_helpers.py`
 - `tests/causal_orchestrator_helpers.py`
 - `tests/causal_p2_acceptance_helpers.py`
 - `tests/causal_shadow_selection_helpers.py`
@@ -70,7 +71,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
 - `tests/data_capture_codex_review_helpers.py`
 - `tests/data_capture_successor_helpers.py`
-- `tests/diagnostic_probe_single_use_helpers.py`
 
 ## Extension and modification guidance
 

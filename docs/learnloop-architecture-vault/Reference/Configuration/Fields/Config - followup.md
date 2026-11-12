@@ -18,6 +18,7 @@ source_paths:
   - "tests/test_config_refactor.py"
   - "src/learnloop/ai/plan_fallback.py"
   - "tests/hypothesis_marks_migration_helpers.py"
+  - "tests/sim_probe_validation_helpers.py"
   - "tests/test_architecture.py"
   - "tests/test_followup_fg1c_r1_exposure_independence.py"
   - "tests/test_followup_successor.py"
@@ -26,7 +27,8 @@ source_paths:
   - "tests/test_hypothesis_marks_migration.py"
   - "tests/test_ih7_lesson_sources_follow_diagnosis.py"
   - "tests/test_mobile_v2_feedback.py"
-  - "tests/test_sg_slip_vs_gap.py"
+  - "tests/test_probe_instance_generation.py"
+  - "tests/test_probe_llm_instances.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/followup"
@@ -58,6 +60,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/hypothesis_marks_migration_helpers.py`
+- `tests/sim_probe_validation_helpers.py`
 - `tests/test_architecture.py`
 - `tests/test_followup_fg1c_r1_exposure_independence.py`
 - `tests/test_followup_successor.py`
@@ -66,7 +69,8 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_hypothesis_marks_migration.py`
 - `tests/test_ih7_lesson_sources_follow_diagnosis.py`
 - `tests/test_mobile_v2_feedback.py`
-- `tests/test_sg_slip_vs_gap.py`
+- `tests/test_probe_instance_generation.py`
+- `tests/test_probe_llm_instances.py`
 
 ## Extension and modification guidance
 
