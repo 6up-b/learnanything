@@ -322,9 +322,17 @@ class _RecordingGrader:
 
         self.prompts.append(request.prompt)
         context = _request_context(request.prompt, request.purpose)
+        evidence = [CriterionEvidence(criterion_id="correctness", points_awarded=4, evidence="Right.")]
+        if request.purpose == "blind_grading":
+            # A split vault (the head) grades blind, in the wire model the request names.
+            return request.result_model.model_validate({
+                "local_analysis_md": "Right.", "attempt_id": context.attempt_id,
+                "practice_item_id": context.practice_item_id, "rubric_score": 4,
+                "criterion_evidence": [row.model_dump(mode="json") for row in evidence], "grader_confidence": 0.9,
+            })
         return GradingProposal(
             attempt_id=context.attempt_id, practice_item_id=context.practice_item_id, rubric_score=4,
-            criterion_evidence=[CriterionEvidence(criterion_id="correctness", points_awarded=4, evidence="Right.")],
+            criterion_evidence=evidence,
             fatal_errors=[], error_attributions=[], grader_confidence=0.9, repair_suggestions=[],
         )
 

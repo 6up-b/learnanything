@@ -106,7 +106,8 @@ def test_dont_know_attributes_recall_failure(tmp_path):
     assert result.rubric_score == 0
     assert result.error_event_ids
     events = repository.error_events_for_attempt(result.attempt_id)
-    assert [event["error_type"] for event in events] == ["recall_failure"]
+    # In KM4's mechanism vocabulary (mvp-0.7, error_taxonomy_map): recall_failure -> retrieval_failure.
+    assert [event["error_type"] for event in events] == ["retrieval_failure"]
     assert all(event["status"] == "active" for event in events)
 
 

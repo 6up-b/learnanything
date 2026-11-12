@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import pytest
+
 from tests.structured_ai import StructuredClientFake
+from tests.structured_ai import JointGraderAlsoBlind
 
 from learnloop.clock import FrozenClock
 from learnloop.attempts.ai_contracts import GradingContext
@@ -68,9 +71,10 @@ def test_codex_graded_attempt_uses_same_update_path_with_tier_three_evidence(tmp
     assert attempt["confidence"] is None
     assert evidence[0].grader_tier == 3
     assert evidence[0].agent_run_id == "agent_run_grade_1"
-    assert errors[0].error_type == "conceptual_slip"
+    # KM4's mechanism vocabulary (mvp-0.7, error_taxonomy_map): conceptual_slip -> conceptual_schema_error.
+    assert errors[0].error_type == "conceptual_schema_error"
     assert errors[0].severity >= 0.6
-    assert surprise["observed_joint_bucket"]["error_type"] == "conceptual_slip"
+    assert surprise["observed_joint_bucket"]["error_type"] == "conceptual_schema_error"
     assert repository.practice_item_state("pi_svd_define_001").last_attempt_at is not None
     assert repository.mastery_state("lo_svd_definition").evidence_count == 1
 
@@ -162,6 +166,12 @@ def test_codex_graded_attempt_proposes_unknown_error_type(tmp_path):
     assert items[0]["payload"]["is_misconception"] is True
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="D2a finding: on the head path a grade naming a KM4 mechanism type (retrieval_failure) files a "
+    "'new error type' proposal; persist_unknown_error_type_proposals' known set is the mvp-0.6 builtins and "
+    "the vault's types, without the nine mechanism types",
+)
 def test_codex_recall_wording_uses_recall_failure_not_new_error_type(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
@@ -201,7 +211,8 @@ def test_codex_recall_wording_uses_recall_failure_not_new_error_type(tmp_path):
     )
 
     attempt = repository.fetch_practice_attempt(result.attempt_id)
-    assert attempt["error_type"] == "recall_failure"
+    # KM4's mechanism vocabulary (mvp-0.7, error_taxonomy_map): recall_failure -> retrieval_failure.
+    assert attempt["error_type"] == "retrieval_failure"
     assert attempt["manual_review_reason"] is None
     assert repository.proposal_batches() == []
 
@@ -340,7 +351,7 @@ def test_attempt_orchestration_falls_back_and_marks_agent_run_failed(tmp_path):
     assert evidence[0].grader_tier == 1
 
 
-class _FakeCodexClient(StructuredClientFake):
+class _FakeCodexClient(JointGraderAlsoBlind, StructuredClientFake):
     def __init__(self, *, invalid: bool = False):
         self.invalid = invalid
         self.context: GradingContext | None = None

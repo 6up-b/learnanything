@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from tests.structured_ai import StructuredClientFake
+from tests.structured_ai import JointGraderAlsoBlind
 
 from learnloop.ai.runtime import AIRuntimeReport
 from learnloop.clock import FrozenClock
@@ -46,7 +47,7 @@ def test_attempt_ai_flow_records_provider_model_and_ai_source(tmp_path):
     assert agent_run["model"] == "deepseek-v4-flash"
 
 
-class _FakeAIClient(StructuredClientFake):
+class _FakeAIClient(JointGraderAlsoBlind, StructuredClientFake):
     provider_name = "deepseek_flash"
     provider_type = "openai_chat"
     model = "deepseek-v4-flash"

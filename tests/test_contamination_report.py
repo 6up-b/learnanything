@@ -137,11 +137,16 @@ def test_paraphrased_leak_missed_by_the_floor_is_judged_and_only_proposed(tutor_
     # Never executed: the live reveal ledger is untouched.
     with repository.connection() as connection:
         assert connection.execute("SELECT COUNT(*) FROM reveal_events").fetchone()[0] == reveals_before
-        row = connection.execute("SELECT * FROM judgment_ledger WHERE task='reveal'").fetchone()
+        # From mvp-0.22 (Tier 1) the Decider judges first; it is unavailable here, so the
+        # LLM judge is its fallback and writes the deciding row beside the Decider's.
+        decider_rows = connection.execute(
+            "SELECT verdict FROM judgment_ledger WHERE task='reveal' AND judge='decider'").fetchall()
+        row = connection.execute("SELECT * FROM judgment_ledger WHERE task='reveal' AND judge='llm'").fetchone()
         receipts = connection.execute(
             "SELECT purpose, owner_kind, resolved_model, budget_json FROM model_call_receipts "
             "WHERE owner_kind='contamination_report'"
         ).fetchall()
+    assert [r[0] for r in decider_rows] == ["unavailable"]
     assert (row["judge"], row["verdict"], row["judge_model"]) == ("llm", "reveal", "fake-resolved")
     assert (row["left_kind"], row["left_id"], row["right_kind"], row["right_id"]) == (
         "question_event", event, "practice_item", BASIC_ITEM)
@@ -276,7 +281,9 @@ def test_symbolic_verifier_decides_math_reveals_and_outranks_the_llm(tmp_path):
     assert tutor["decided"]["flags"] == 1 and tutor["proposals"][0]["decided_by"] == "verifier"
     with repository.connection() as connection:
         rows = connection.execute("SELECT judge, verdict, prompt_version FROM judgment_ledger ORDER BY judge").fetchall()
+    # From mvp-0.22 (Tier 1) the Decider judges first; unavailable here, the LLM judge falls back.
     assert [tuple(r) for r in rows] == [
+        ("decider", "unavailable", "tier1-decider-v1"),
         ("llm", "clean", "contamination-reveal-v1"), ("verifier", "reveal", "contamination-symbolic-v3"),
     ]
     assert event
@@ -366,11 +373,17 @@ def test_a_priced_subscription_run_records_a_numeric_estimate(tutor_vault):
     assert report["status"] == "complete" and report["judge"]["price_source"] == "owner_override"
     with repository.connection() as connection:
         usage = json.loads(connection.execute(
-            "SELECT usage_json FROM model_call_receipts WHERE owner_kind='contamination_report'"
+            # The LLM judge's receipt: from mvp-0.22 a Decider receipt (Tier 1) precedes it.
+            "SELECT usage_json FROM model_call_receipts WHERE owner_kind='contamination_report' "
+            "AND purpose='contamination_reveal_judgment'"
         ).fetchone()[0])
     assert usage["estimated_usd"] == pytest.approx(30 * 2e-6)
-    # The command budget keeps the planned reservation (never refunded).
-    assert report["judge"]["charged"]["estimated_usd"] == pytest.approx(planned["estimated_usd"])
+    # From mvp-0.22 (Tier 1, "Let the Decider decide the Tier-1 judgments") the Decider
+    # shares the command budget and a subscription LLM fallback reserves nothing in it
+    # (judge.run_judgments): the receipt above keeps the numeric estimate. Before Tier 1
+    # the budget kept the planned reservation.
+    assert planned["estimated_usd"] > 0
+    assert report["judge"]["charged"]["estimated_usd"] == 0.0
 
 
 def test_reruns_are_cached_and_a_new_revision_rejudges(tutor_vault):

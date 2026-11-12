@@ -20,7 +20,7 @@ from learnloop.clock import FrozenClock
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.attempts.ai_contracts import GradingContext
 from learnloop.attempts.ai_contracts import CriterionEvidence, GradingProposal
-from learnloop.ai.transport import STRUCTURED_COMPLETION, StructuredRequest
+from learnloop.ai.transport import ISOLATED_TURN, STRUCTURED_COMPLETION, StructuredRequest
 from learnloop.attempts.grading import request_grading_proposal
 from learnloop.config import AIProviderConfig
 from learnloop.db.connection import connect
@@ -277,13 +277,22 @@ class _MeteredGradingClient(TokenUsageAccounting):
         self.fail = fail
 
     def supports(self, capability: str) -> bool:
-        return capability == STRUCTURED_COMPLETION
+        # An isolated turn too: a split vault (the head) grades blind, isolated.
+        return capability in {STRUCTURED_COMPLETION, ISOLATED_TURN}
 
     def complete(self, request: StructuredRequest) -> GradingProposal:
         self.record_token_usage(2400, 310)
         if self.fail:
             raise CodexUnavailable("provider exploded after billing")
         context = json.loads(request.prompt.rsplit("\n\n", 1)[1])["context"]
+        if request.purpose == "blind_grading":
+            return request.result_model.model_validate({
+                "local_analysis_md": "Correct answer.", "attempt_id": context["attempt_id"],
+                "practice_item_id": context["practice_item_id"], "rubric_score": 4,
+                "criterion_evidence": [{"criterion_id": "correctness", "points_awarded": 4,
+                                        "evidence": "Correct answer."}],
+                "grader_confidence": 0.95,
+            })
         return GradingProposal(
             attempt_id=context["attempt_id"],
             practice_item_id=context["practice_item_id"],

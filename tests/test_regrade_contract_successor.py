@@ -405,7 +405,17 @@ def test_a_first_grade_made_before_contracts_keeps_its_compatibility_reading(tmp
     replays at the successor exactly as at the predecessor, until an item's
     maximum falls below a score: then that grade is held, never above 1."""
 
-    paths, vault, repository = _vault(tmp_path, version=PREDECESSOR)
+    # The history is seeded on the pre-D2a basic vault (mvp-0.6), as split_vault did
+    # before the default test vault moved to the head: that is what "graded before
+    # contracts" means. Seeded at the head, every grade records its contract.
+    from learnloop.db.repositories import Repository
+    from tests.diagnosis_split_helpers import build_diagnosis_vault, seed_history
+    from tests.helpers import pin_old_basic_vault, set_algorithm_version
+
+    paths = pin_old_basic_vault(build_diagnosis_vault(tmp_path / "vault"))
+    seed_history(paths)
+    set_algorithm_version(paths, PREDECESSOR)
+    vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
     _settle(vault, repository)
     before = _state(repository)
     vault = _flip(paths, VERSION)

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from learnloop.attempts.ai_contracts import GradingProposal
 
-from tests.structured_ai import StructuredClientFake
+from tests.structured_ai import JointGraderAlsoBlind, StructuredClientFake
 
 
 def _proposal(
@@ -82,7 +82,7 @@ def _proposal(
     return proposal
 
 
-class _SequenceDiagnostician(StructuredClientFake):
+class _SequenceDiagnostician(JointGraderAlsoBlind, StructuredClientFake):
     provider_name = "diagnostician"
     model = "claude-4"
 
@@ -97,17 +97,22 @@ class _SequenceDiagnostician(StructuredClientFake):
 
 
 def fail_after_the_joint_grade_commits(patch) -> None:
-    """Make a joint grading raise once its grade (with its receipt and grading
+    """Make a model grading raise once its grade (with its receipt and grading
     record) has committed: a later step that fails. Before Q14 a failing
     Phase-C receipt stood in for this; the receipt is now written in the
-    grading transaction, so it rolls the grade back instead."""
+    grading transaction, so it rolls the grade back instead.
+
+    Both doors are patched: the joint grading of an unsplit vault and the blind
+    grading of a split one (the head's), each of which commits its grade in one
+    transaction before the caller's later steps."""
 
     from learnloop.attempts import attempts
 
-    original = attempts._complete_joint_graded_attempt
+    for name in ("_complete_joint_graded_attempt", "_complete_blind_graded_attempt"):
+        original = getattr(attempts, name)
 
-    def committed_then_failed(*args, **kwargs):
-        original(*args, **kwargs)
-        raise ValueError("interrupted after the grade committed")
+        def committed_then_failed(*args, _original=original, **kwargs):
+            _original(*args, **kwargs)
+            raise ValueError("interrupted after the grade committed")
 
-    patch.setattr(attempts, "_complete_joint_graded_attempt", committed_then_failed)
+        patch.setattr(attempts, name, committed_then_failed)

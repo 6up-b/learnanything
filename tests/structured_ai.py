@@ -237,11 +237,15 @@ class JointGraderAlsoBlind:
     points, score, fatal errors and confidence, and each error's localization
     without its causal fields (on a split vault causes are the diagnoser's).
     The joint builder receives the :class:`BlindGradingContext`, which carries
-    the rubric, ids and answer but no learner history.
+    the rubric, ids and answer but no learner history. The answer is in the wire
+    model the request asks for (``blind_result_model``): with a PF-c reference
+    policy, as the head's items have, that is ``ReferencePolicyBlindGradingProposal``,
+    whose ``as_blind_proposal`` the grading run calls.
     """
 
     def run_blind_grading_proposal(self, context: Any) -> Any:
         from learnloop.attempts.blind_grading import BlindErrorAttribution, BlindGradingProposal
+        from learnloop.attempts.grading_support import blind_result_model
 
         joint = self.run_grading_proposal(context)  # type: ignore[attr-defined]
         payload = joint.model_dump(mode="json")
@@ -253,4 +257,4 @@ class JointGraderAlsoBlind:
             for row in payload.get("error_attributions", [])
         ]
         blind["local_analysis_md"] = payload.get("diagnosis_md") or "Graded against the rubric."
-        return BlindGradingProposal.model_validate(blind)
+        return blind_result_model(context).model_validate(BlindGradingProposal.model_validate(blind).model_dump(mode="json"))

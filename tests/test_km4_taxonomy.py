@@ -24,7 +24,7 @@ from learnloop.diagnosis.probe_instance_generation import ensure_instrument_card
 from learnloop.diagnosis.taxonomy_regrade import run_taxonomy_regrade_checks
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version
+from tests.helpers import NOW, NOW_ISO, create_basic_vault, pin_old_basic_vault, set_algorithm_version
 
 LO_ID = "lo_svd_definition"
 ITEM_ID = "pi_svd_define_001"
@@ -32,7 +32,8 @@ CONCEPT_ID = "singular_value_decomposition"
 
 
 def _mvp06(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
+    # The legacy vault these tests compare against, by name: the pre-D2a basic vault.
+    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
     return load_vault(tmp_path / "vault"), Repository(paths.sqlite_path)
 
 

@@ -16,7 +16,7 @@ from learnloop.db.repositories import Repository
 from learnloop.tutor.ai_contracts import TutorAnswer
 from learnloop.tutor.tutor_qa import ask_question
 from learnloop.vault.loader import load_vault
-from tests.helpers import NOW, create_basic_vault
+from tests.helpers import NOW, create_basic_vault, pin_old_basic_vault
 from tests.structured_ai import StructuredClientFake
 
 # The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
@@ -143,7 +143,11 @@ def test_practice_screen_payload_marks_help_before_work(tmp_path, attempt_progre
     server = _TutorServer(question_type="strategy")
     server.start()
     try:
+        # Old path only: grades through the HTTP double, the legacy endpoint adapter, which
+        # never receives an isolated operation, so it cannot be a split (head) vault's blind
+        # grader; on the head this submit asks for a grading fallback.
         vault_root, paths = _tutor_vault(tmp_path, server)
+        paths = pin_old_basic_vault(paths)
 
         def call(method, params):
             response = _rpc([_init(vault_root), {"jsonrpc": "2.0", "id": 2, "method": method, "params": params}])[1]

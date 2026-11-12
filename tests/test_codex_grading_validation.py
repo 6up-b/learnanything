@@ -30,7 +30,8 @@ def test_valid_codex_grade_validates(tmp_path):
 
     assert validated.rubric_score == 2
     assert validated.criterion_evidence[0].points_awarded == 2
-    assert validated.error_attributions[0].error_type == "conceptual_slip"
+    # The head grades in KM4's mechanism vocabulary (mvp-0.7, error_taxonomy_map): conceptual_slip -> conceptual_schema_error.
+    assert validated.error_attributions[0].error_type == "conceptual_schema_error"
     assert validated.manual_review_reason is None
 
 
@@ -136,7 +137,8 @@ def test_explicit_recall_wording_normalizes_to_recall_failure(tmp_path):
         learner_answer_md="I don't know the spectral norm.",
     )
 
-    assert validated.error_attributions[0].error_type == "recall_failure"
+    # The head grades in KM4's mechanism vocabulary (mvp-0.7, error_taxonomy_map): recall_failure -> retrieval_failure.
+    assert validated.error_attributions[0].error_type == "retrieval_failure"
     assert validated.manual_review_reason is None
 
 
@@ -331,7 +333,9 @@ def test_recall_normalization_does_not_scan_unrelated_answer_text(tmp_path):
         learner_answer_md="I am not sure how to count one earlier case. The later calculation is correct.",
     )
 
-    assert validated.error_attributions[0].error_type == "incomplete_answer"
+    # The head grades in KM4's mechanism vocabulary (mvp-0.7, error_taxonomy_map): incomplete_answer -> local_slip,
+    # still not a retrieval failure.
+    assert validated.error_attributions[0].error_type == "local_slip"
 
 
 def test_unanchored_known_facet_requests_review_instead_of_failing_grade(tmp_path):

@@ -15,7 +15,7 @@ RPC would undo the property the service is protecting:
 
 from __future__ import annotations
 
-from tests.structured_ai import StructuredClientFake
+from tests.structured_ai import JointGraderAlsoBlind, StructuredClientFake
 
 from datetime import timedelta
 
@@ -538,8 +538,9 @@ def test_the_retry_queue_rebuilds_the_exchange_from_the_stored_question(ctx):
 
     seen: dict[str, object] = {}
 
-    class _RecordingGrader(StructuredClientFake):
-        """Captures the context the retry hands the grader, then fails.
+    class _RecordingGrader(JointGraderAlsoBlind, StructuredClientFake):
+        """Captures the context the retry hands the grader, then fails (the joint
+        grader's, or on a split vault such as the head, the blind grader's).
 
         Failing on purpose: this test is about what the retry RECONSTRUCTS, and a
         failure keeps the answer on the queue so the recoverability assertion

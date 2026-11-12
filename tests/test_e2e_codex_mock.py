@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from tests.structured_ai import StructuredClientFake
+from tests.structured_ai import JointGraderAlsoBlind
 
 from learnloop.clock import FrozenClock
 from learnloop.attempts.ai_contracts import GradingContext
@@ -15,7 +16,7 @@ from learnloop.scheduling.scheduler import build_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import add_note, load_vault
 
-from tests.helpers import NOW, create_basic_vault
+from tests.helpers import NOW, create_basic_vault, write_facets
 
 
 class _FakeAuthoringClient(StructuredClientFake):
@@ -26,7 +27,7 @@ class _FakeAuthoringClient(StructuredClientFake):
         raise NotImplementedError
 
 
-class _FakeGradingClient(StructuredClientFake):
+class _FakeGradingClient(JointGraderAlsoBlind, StructuredClientFake):
     def run_grading_proposal(self, context: GradingContext) -> GradingProposal:
         return GradingProposal(
             attempt_id=context.attempt_id,
@@ -46,6 +47,12 @@ def _ready_runtime() -> AIRuntimeReport:
 def test_codex_mocked_end_to_end(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
+    # From mvp-0.7 (KM2) an authored item may name only registered facets: the
+    # proposal's item names `application`, so the vault registers it.
+    write_facets(paths, [
+        {"id": "recall", "kind": "definition", "claim": "Recall the SVD definition."},
+        {"id": "application", "kind": "procedure_contract", "claim": "Apply SVD to a matrix problem."},
+    ])
     add_note(vault_root, "linear-algebra", "note_svd", "SVD", "SVD compresses matrices.", clock=FrozenClock(NOW))
     clock = FrozenClock(NOW)
 

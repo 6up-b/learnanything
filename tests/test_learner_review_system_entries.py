@@ -16,6 +16,7 @@ All deterministic under FrozenClock.
 from __future__ import annotations
 
 from tests.structured_ai import StructuredClientFake
+from tests.structured_ai import JointGraderAlsoBlind
 
 from datetime import timedelta
 
@@ -34,7 +35,7 @@ from learnloop_sidecar.handlers.serializers import feedback_bundle
 from tests.helpers import NOW, create_basic_vault
 
 
-class _RegradeClient(StructuredClientFake):
+class _RegradeClient(JointGraderAlsoBlind, StructuredClientFake):
     def __init__(self, *, score: int, points: float):
         self.score = score
         self.points = points

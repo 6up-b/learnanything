@@ -31,12 +31,18 @@ def test_grading_context_is_deterministic_and_hashable(tmp_path):
     assert first.evidence_facets == ["recall"]
     assert first.evidence_weights == {"recall": 1.0}
     assert first.criterion_facet_weights == {"correctness": {"recall": 1.0}}
+    # The head offers KM4's nine mechanism types (mvp-0.7, error_taxonomy_map §10.1),
+    # not the mvp-0.6 grader vocabulary.
     assert [entry["id"] for entry in first.error_taxonomy["canonical_error_types"]] == [
-        "recall_failure",
-        "conceptual_slip",
-        "procedure_misapplication",
-        "arithmetic_slip",
-        "incomplete_answer",
+        "retrieval_failure",
+        "conceptual_schema_error",
+        "procedure_execution_error",
+        "selection_planning_error",
+        "condition_assumption_error",
+        "representation_notation_error",
+        "transfer_context_error",
+        "local_slip",
+        "assessment_ambiguity",
     ]
     assert "failed criterion" in first.error_taxonomy["targeting_policy"]
     assert "Passing criteria" in first.error_taxonomy["targeting_policy"]

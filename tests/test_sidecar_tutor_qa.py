@@ -14,6 +14,7 @@ from tests.helpers import (
     NOW_ISO,
     admit_probe_instrument_card,
     create_basic_vault,
+    pin_old_basic_vault,
     seed_due_item,
 )
 
@@ -139,7 +140,11 @@ def test_sidecar_submit_attempt_counts_question_hint_equivalents(tmp_path):
     server = _TutorServer()
     server.start()
     try:
+        # Old path only: grades through the HTTP double, the legacy endpoint adapter, which
+        # never receives an isolated operation, so it cannot be a split (head) vault's blind
+        # grader; on the head this submit asks for a grading fallback.
         vault_root, paths = _tutor_vault(tmp_path, server)
+        paths = pin_old_basic_vault(paths)
         session_id = _rpc(
             [_init(vault_root), {"jsonrpc": "2.0", "id": 2, "method": "start_session", "params": {"energy": "medium"}}]
         )[1]["result"]["sessionId"]

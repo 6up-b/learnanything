@@ -28,7 +28,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests import probe_block_end_helpers as block_setup
-from tests.helpers import create_basic_vault, set_algorithm_version
+from tests.helpers import create_basic_vault, pin_old_basic_vault, set_algorithm_version
 from tests.diagnostic_augmentation_helpers import (
     _proposal,
     _SequenceDiagnostician,
@@ -41,8 +41,10 @@ READY = AIRuntimeReport(
 )
 
 
-def _vault(tmp_path, algorithm_version: str | None = None):
+def _vault(tmp_path, algorithm_version: str | None = None, *, old_path: bool = False):
     paths = create_basic_vault(tmp_path / "vault")
+    if old_path:
+        paths = pin_old_basic_vault(paths)
     if algorithm_version is not None:
         set_algorithm_version(paths, algorithm_version)
     vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
@@ -189,7 +191,10 @@ def test_self_grade_fallback_records_why_and_which_run_failed(tmp_path):
 
 
 def test_resumed_completion_routes_to_the_episode_the_attempt_was_applied_under(tmp_path):
-    _paths, vault, repository = _vault(tmp_path)
+    # Old path only: from mvp-0.11 placement ignores an unanswered opening episode
+    # (servable_open_episode), so this fresh episode is no episode to route to on the
+    # head. A head port needs an episode with an answered observation.
+    _paths, vault, repository = _vault(tmp_path, old_path=True)
     learning_object_id = vault.learning_object_for_item(vault.practice_items[ITEM_ID]).id
     applied_under = enter_episode(vault, repository, learning_object_id)
     result = _self_graded(vault, repository, submission_id="sub-episode")
