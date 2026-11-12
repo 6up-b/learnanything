@@ -5254,6 +5254,7 @@ class DurableIngestJobs:
         members: list[dict[str, Any]],
         source_set_id: str,
         new_revision_ids: list[str] | None = None,
+        new_unit_ids: Mapping[str, Sequence[str]] | None = None,
         change_kind: str = "source_added",
         subject_id: str | None = None,
         brief: dict[str, Any] | None = None,
@@ -5268,7 +5269,8 @@ class DurableIngestJobs:
         member — same scoping/roles shape as the bootstrap build — followed by a single
         ``append_synthesis`` job that depends on all of them and reconciles ONLY the new
         material against the existing map through the bounded affected neighborhood. The
-        map is never resent or rebuilt; ``new_revision_ids`` pins the append scope.
+        map is never resent or rebuilt; ``new_revision_ids`` pins the append scope, and
+        ``new_unit_ids`` ({revision_id: [unit_id]}) narrows a revision to its new units.
 
         The append counterpart to :meth:`enqueue_source_set_build`. ``members`` may be
         empty (nothing new to inventory), in which case the append job runs alone and
@@ -5298,6 +5300,8 @@ class DurableIngestJobs:
             # stays a pending review proposal.
             "apply": True,
         }
+        if new_unit_ids:
+            append_payload["new_unit_ids"] = {revision: list(units) for revision, units in new_unit_ids.items()}
         if synthesis_budgets:
             append_payload["synthesis_budgets"] = dict(synthesis_budgets)
         if unlimited_token_budget:

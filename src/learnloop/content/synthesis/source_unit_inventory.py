@@ -265,6 +265,13 @@ def _effective_unit_id(unit_ids: list[str]) -> str:
     return "+".join(unit_ids)
 
 
+def inventoried_unit_ids(rows: list[dict[str, Any]]) -> set[str]:
+    """The source units these inventory rows cover, alone or as a member of a
+    merged (``merge_with_next``) unit."""
+
+    return {unit_id for row in rows for unit_id in str(row["unit_id"]).split("+")}
+
+
 def _effective_semantic_hash(members: list[Any]) -> str:
     if len(members) == 1:
         return str(members[0].semantic_hash)
