@@ -121,9 +121,8 @@ Two ways out: ... (same sentence)
 
 ## Open questions
 
-1. The 5-second budget holds on this machine only because of the process pool. If a slower machine or a loaded `-n 8`
-   run goes over, the cheapest cut is to skip tokenizing files with no `STAGE_COMMENT` match anywhere in their text; I
-   did not do it because the comment-line total in the script's report would then need a second path.
+1. The test's serial time is 6.6 to 7.7 s here and will be longer on a slower machine or a loaded `-n 8` run. The
+   tokenize-only-on-match cut is already made; the remaining cost is parsing 1,300 files.
 2. Measure f counts inline comments and a wider vocabulary than the audit; if the owner wants the audit's figure to
    stay the baseline, say which regex it was and I will use it.
 3. Measure g leaves out stage-id names. Whether a file named for its owner (`test_ro4_value.py`) should count is a
