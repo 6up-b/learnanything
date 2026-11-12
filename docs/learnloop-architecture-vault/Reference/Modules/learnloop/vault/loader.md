@@ -873,6 +873,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_shadow_rebuild_is_zero_with_the_fresh_retries_present`
   - `test_replay_schedules_nothing_and_leaves_the_lane_as_live_left_it`
 - [tests/test_coldness_receipt.py](../../../../../../tests/test_coldness_receipt.py) — direct import
+- [tests/test_collection_append_units.py](../../../../../../tests/test_collection_append_units.py) — direct import
+  - `test_a_wholly_new_member_keeps_the_unfiltered_append`
 - [tests/test_collection_dataset.py](../../../../../../tests/test_collection_dataset.py) — direct import
   - `test_adjudication_accepts_evidence_keyed_by_a_non_id_primary_key`
   - `test_exact_offer_survives_refresh_recovery_and_dataset_export`
@@ -1901,6 +1903,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_intent_fix_round7.py](../../../../../../tests/test_intent_fix_round7.py) — direct import
 - [tests/test_intent_plan.py](../../../../../../tests/test_intent_plan.py) — direct import
 - [tests/test_intent_planner.py](../../../../../../tests/test_intent_planner.py) — direct import
+- [tests/test_inventory_choice.py](../../../../../../tests/test_inventory_choice.py) — direct import
+  - `test_a_row_under_the_current_prompt_label_beats_an_older_label`
+  - `test_coverage_reads_the_row_synthesis_reads`
 - [tests/test_inventory_merge_parallel.py](../../../../../../tests/test_inventory_merge_parallel.py) — direct import
   - `test_synthesis_gather_folds_merged_group_once_with_member_fallback`
 - [tests/test_irt_difficulty.py](../../../../../../tests/test_irt_difficulty.py) — direct import
@@ -1920,6 +1925,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rebuild_recomputes_fingerprints_without_any_model_or_generator`
 - [tests/test_item_parameters.py](../../../../../../tests/test_item_parameters.py) — direct import
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
+- [tests/test_keep_ahead_append_units.py](../../../../../../tests/test_keep_ahead_append_units.py) — direct import
+  - `test_the_second_build_appends_only_its_own_chapter`
 - [tests/test_keep_local_retired.py](../../../../../../tests/test_keep_local_retired.py) — direct import
   - `test_a_book_carrying_the_retired_choice_gets_its_questions_built`
 - [tests/test_kinship_feature.py](../../../../../../tests/test_kinship_feature.py) — direct import

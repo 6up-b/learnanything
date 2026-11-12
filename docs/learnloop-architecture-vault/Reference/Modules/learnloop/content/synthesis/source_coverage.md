@@ -48,14 +48,14 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/synthesis/source_coverage.py](../../../../../../../src/learnloop/content/synthesis/source_coverage.py) |
-| Source lines | 273 |
+| Source lines | 262 |
 | Owning package | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `build_source_coverage(repo: Repository, vault: LoadedVault, source_set: SourceSet) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_coverage.py), line 83) — Deterministic coverage preview for one source set (§9.3).
+- `build_source_coverage(repo: Repository, vault: LoadedVault, source_set: SourceSet) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_coverage.py), line 67) — Deterministic coverage preview for one source set (§9.3).
 
 ### Module constants
 
@@ -64,9 +64,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ## Internal implementation anchors
 
-- `_best_inventory(rows: list[dict[str, Any]], unit_id: str, requested_profile: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_coverage.py), line 42) — The richest cached inventory for a unit that satisfies the request.
-- `_forms_for_inventory(inventory: dict[str, Any]) -> set[str]` ([source](../../../../../../../src/learnloop/content/synthesis/source_coverage.py), line 58)
-- `_readiness_report(*, source_set: SourceSet, concept_evidence: dict[str, dict[str, set[str]]], exam_profile: dict[str, Any] | None, not_inventoried: list[dict[str, str]], semantic_forms_present: bool, practice_present: bool, exam_present: bool, explanatory_member_present: bool) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_coverage.py), line 230) — The deterministic collection-readiness signals (§9.3).
+- `_forms_for_inventory(inventory: dict[str, Any]) -> set[str]` ([source](../../../../../../../src/learnloop/content/synthesis/source_coverage.py), line 42)
+- `_readiness_report(*, source_set: SourceSet, concept_evidence: dict[str, dict[str, set[str]]], exam_profile: dict[str, Any] | None, not_inventoried: list[dict[str, str]], semantic_forms_present: bool, practice_present: bool, exam_present: bool, explanatory_member_present: bool) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_coverage.py), line 219) — The deterministic collection-readiness signals (§9.3).
 
 ## Who imports or calls it
 
@@ -83,7 +82,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/sources/role_authority|learnloop.content.sources.role_authority]] — imports `role_authority`; calls `role_authority`
 - [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] — imports `resolve_extraction_id`; calls `resolve_extraction_id`
 - [[Reference/Modules/learnloop/content/synthesis/exam_profile|learnloop.content.synthesis.exam_profile]] — imports `ExamUnitEntry`, `aggregate_exam_profile`; calls `ExamUnitEntry`, `aggregate_exam_profile`
-- [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `profile_satisfies`; calls `profile_satisfies`
+- [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `choose_unit_inventory`, `current_inventory_identity`; calls `choose_unit_inventory`, `current_inventory_identity`
 - [[Reference/Modules/learnloop/content/synthesis/source_unit_selection|learnloop.content.synthesis.source_unit_selection]] — imports `effective_scope_groups`; calls `effective_scope_groups`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `SourceSet`
@@ -106,6 +105,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_inventory_choice.py](../../../../../../../tests/test_inventory_choice.py) — direct import
+  - `test_coverage_reads_the_row_synthesis_reads`
 - [tests/test_source_sets.py](../../../../../../../tests/test_source_sets.py) — direct import
   - `test_source_coverage_readiness_report`
 

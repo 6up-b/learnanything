@@ -149,6 +149,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/content/pipeline/quick_add|learnloop.content.pipeline.quick_add]] — imports `provider_for_task`; statically calls `provider_for_task`
 - [[Reference/Modules/learnloop/content/proposals/method_phrasing|learnloop.content.proposals.method_phrasing]] — imports `MANUAL_PROVIDER`, `configured_fallback`, `is_decider_profile`, `is_generation_profile`, `ready_client_for_task`; statically calls `configured_fallback`, `is_decider_profile`, `is_generation_profile`, `ready_client_for_task`
 - [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] — imports `ready_client_for_task`; statically calls `ready_client_for_task`
+- [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `provider_for_task`; statically calls `provider_for_task`
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `provider_for_task`, `ready_client_for_task`, `runtime_for_provider`; statically calls `provider_for_task`, `ready_client_for_task`, `runtime_for_provider`
 - [[Reference/Modules/learnloop/decider_judgments|learnloop.decider_judgments]] — imports `provider_for_task`, `ready_client_for_task`; statically calls `provider_for_task`, `ready_client_for_task`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply|learnloop.diagnosis.diagnostic_surface_supply]] — imports `ready_client_for_task`; statically calls `ready_client_for_task`
@@ -214,7 +215,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/ai/chatgpt_plan/routes|learnloop.ai.chatgpt_plan.routes]], [[Reference/Modules/learnloop/ai/disclosures|learnloop.ai.disclosures]], [[Reference/Modules/learnloop/ai/native_media|learnloop.ai.native_media]] and 55 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/ai/chatgpt_plan/routes|learnloop.ai.chatgpt_plan.routes]], [[Reference/Modules/learnloop/ai/disclosures|learnloop.ai.disclosures]], [[Reference/Modules/learnloop/ai/native_media|learnloop.ai.native_media]] and 56 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -1349,6 +1349,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_intent_rpc.py](../../../../../tests/test_intent_rpc.py) — direct import
 - [tests/test_intervention_outcomes_replayer.py](../../../../../tests/test_intervention_outcomes_replayer.py) — direct import
   - `test_the_replayer_reads_persisted_exposure`
+- [tests/test_inventory_choice.py](../../../../../tests/test_inventory_choice.py) — direct import
+  - `test_a_reinventory_by_a_newer_model_reaches_the_synthesis_prompt`
+  - `test_a_row_under_the_current_prompt_label_beats_an_older_label`
+  - `test_coverage_reads_the_row_synthesis_reads`
 - [tests/test_irt_difficulty.py](../../../../../tests/test_irt_difficulty.py) — direct import
   - `test_difficulty_source_round_trips_through_the_writer`
 - [tests/test_irt_end_to_end.py](../../../../../tests/test_irt_end_to_end.py) — direct import

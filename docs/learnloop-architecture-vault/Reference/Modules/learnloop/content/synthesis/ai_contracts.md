@@ -221,6 +221,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_public_import_inventory_dependency_resolves_extraction_and_units`
 - [tests/test_ingestion_checkpoints.py](../../../../../../../tests/test_ingestion_checkpoints.py) — direct import
   - `test_evidence_followup_keeps_the_full_inventory_in_its_cached_prefix`
+- [tests/test_inventory_choice.py](../../../../../../../tests/test_inventory_choice.py) — direct import
+  - `test_a_row_under_the_current_prompt_label_beats_an_older_label`
 - [tests/test_openai_chat_client.py](../../../../../../../tests/test_openai_chat_client.py) — direct import
   - `test_extended_method_repairs_invalid_json_once`
 - [tests/test_required_method_items.py](../../../../../../../tests/test_required_method_items.py) — direct import

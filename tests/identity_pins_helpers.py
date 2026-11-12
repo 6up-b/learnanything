@@ -399,6 +399,17 @@ def _bootstrap_scope(config_name: str) -> Callable[[], Any]:
     return compute
 
 
+def _append_scope(config_name: str) -> Callable[[], Any]:
+    def compute() -> Any:
+        from learnloop.content.synthesis.source_append import append_scope
+
+        return append_scope(
+            vault(CONFIGS[config_name]()), change_kind="source_added", revision_ids={"rev_pin_b", "rev_pin_a"},
+            neighborhood={"concepts": ["singular_value_decomposition"], "budget_tokens": 24000},
+        )
+    return compute
+
+
 def _manifest(config_name: str) -> dict[str, Any]:
     from learnloop.content.synthesis.ai_contracts import source_set_synthesis_prompt_version
     from learnloop.content.synthesis.synthesis_manifests import build_manifest
@@ -813,6 +824,12 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         {**{f"scope.{name}": _bootstrap_scope(name) for name in CONFIGS},
          # agent_run_input_context_hash(manifest) is the manifest hash itself (the documented cache seam).
          **{f"manifest_hash.{name}": (lambda name=name: _manifest(name)["manifest_hash"]) for name in CONFIGS}}),
+    IdentitySite(
+        "K3.2", "append synthesis scope without a unit filter",
+        ("src/learnloop/content/synthesis/source_append.py::append_scope",),
+        "agent_runs.input_context_hash of append (the manifest hash)",
+        "a completed append run is not reused: the append is paid again",
+        {f"scope.{name}": _append_scope(name) for name in CONFIGS}),
     IdentitySite(
         "A4", "task graph hash (blueprint dumps) in the synthesis manifest",
         ("src/learnloop/content/synthesis/synthesis_manifests.py::task_graph_hash",),

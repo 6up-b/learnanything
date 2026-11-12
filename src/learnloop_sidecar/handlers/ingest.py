@@ -1064,12 +1064,14 @@ def build_study_map_rpc(ctx: SidecarContext, params: BuildStudyMapInput) -> dict
     Routing mirrors the CLI's ``--mode auto``: when the subject has no live study
     map this BOOTSTRAPS (inventory every member's scoped units, then
     ``bootstrap_synthesis`` over the set). When a map already exists this APPENDS —
-    it inventories only the NEW (not-yet-synthesized) members and reconciles them
-    into the existing map through the bounded affected neighborhood, never resending
-    or rebuilding the map. Members added in the app aren't inventoried yet, so the
-    batch inventories first and synthesis gates run once."""
+    it inventories only the NEW units (scoped units with no inventory row, in any
+    member) and reconciles them into the existing map through the bounded affected
+    neighborhood, never resending or rebuilding the map. Units added in the app
+    aren't inventoried yet, so the batch inventories first and synthesis gates run
+    once."""
 
     from learnloop.content.synthesis.source_append import subject_has_applied_study_map
+    from learnloop.content.synthesis.source_unit_inventory import inventoried_unit_ids
     from learnloop.content.sources.source_outline import resolve_extraction_id
 
     vault, repository = ctx.require_vault()
@@ -1100,6 +1102,7 @@ def build_study_map_rpc(ctx: SidecarContext, params: BuildStudyMapInput) -> dict
 
     members_payload: list[dict[str, Any]] = []
     new_revision_ids: list[str] = []
+    new_unit_ids: dict[str, list[str]] = {}
     for member in source_set.members:
         extraction_id = resolve_extraction_id(repository, member.revision_id)
         if extraction_id is None:
@@ -1127,21 +1130,29 @@ def build_study_map_rpc(ctx: SidecarContext, params: BuildStudyMapInput) -> dict
         units = [unit for unit in units if not is_scope_only_role(unit["role"])]
         if not units:
             continue
-        entry = {"extraction_id": extraction_id, "units": units}
-        # A member is "new / not yet synthesized" when its revision carries no unit
-        # inventories yet — the in-app add path leaves them un-inventoried, so this
-        # cleanly scopes the append to freshly added material.
-        is_new = not repository.unit_inventories_for_revision(member.revision_id)
-        if resolved_mode == "bootstrap" or is_new:
-            members_payload.append(entry)
-        if is_new:
-            new_revision_ids.append(member.revision_id)
+        if resolved_mode == "bootstrap":
+            members_payload.append({"extraction_id": extraction_id, "units": units})
+            continue
+        # Newness is per unit: a unit with no inventory row is not yet synthesized,
+        # so it is inventoried and joins the append. Asking whether the revision had
+        # any row let one cached unit hide every unit selected beside it.
+        inventoried = inventoried_unit_ids(repository.unit_inventories_for_revision(member.revision_id))
+        new_units = [unit for unit in units if unit["unit_id"] not in inventoried]
+        if not new_units:
+            continue
+        members_payload.append({"extraction_id": extraction_id, "units": new_units})
+        new_revision_ids.append(member.revision_id)
+        if len(new_units) < len(units):
+            # Only a partly inventoried revision is filtered; a wholly new one sends
+            # all of its units, and its append keeps the manifest it always had.
+            new_unit_ids[member.revision_id] = [unit["unit_id"] for unit in new_units]
 
     if resolved_mode == "append":
         batch_id = ctx.ingest_jobs.enqueue_source_set_append(
             members=members_payload,
             source_set_id=params.source_set_id,
             new_revision_ids=new_revision_ids or None,
+            new_unit_ids=new_unit_ids or None,
             subject_id=source_set.subject_id,
             brief=_validated_brief(params.brief),
             input_budget_tokens=inventory_input_tokens,

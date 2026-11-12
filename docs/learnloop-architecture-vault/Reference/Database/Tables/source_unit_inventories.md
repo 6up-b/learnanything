@@ -127,9 +127,11 @@ Indexes and uniqueness:
 - `tests/reread_safety_helpers.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_ad_protected_readings.py`
+- `tests/test_collection_append_units.py`
 - `tests/test_curriculum_c3_exam_scoping.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_ingestion_checkpoints.py`
+- `tests/test_inventory_choice.py`
 - `tests/test_inventory_merge_parallel.py`
 - `tests/test_source_inventory.py`
 

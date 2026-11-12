@@ -1204,18 +1204,10 @@ def default_inventory_identity(ctx: JobContext) -> tuple[str, str] | None:
     client's identity before making a model call.
     """
 
-    from learnloop.ai.routing import provider_for_task
+    from learnloop.content.synthesis.source_unit_inventory import current_inventory_identity
     from learnloop.vault.loader import load_vault
 
-    config = load_vault(ctx.vault_root).config
-    provider_name = provider_for_task(config, "canonical_ingest").provider_name
-    profile = config.ai.providers.get(provider_name)
-    if profile is None:
-        return None
-    provider_type = profile.type.strip().lower()
-    if provider_type in {"http", "http_adapter"}:
-        provider_type = "http_adapter"
-    return provider_type, str(profile.model or "unknown")
+    return current_inventory_identity(load_vault(ctx.vault_root).config)
 
 
 def default_inventory_client(
@@ -1987,6 +1979,13 @@ def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
             source_set_id,
             client=client,
             new_revision_ids=[str(value) for value in payload.get("new_revision_ids") or []] or None,
+            # {revision_id: [unit_id]}: the units a planned build chose. Absent
+            # (an explicit append, a job queued before the filter), every unit
+            # of the revisions goes.
+            new_unit_ids=(
+                {str(revision): [str(unit) for unit in units] for revision, units in payload["new_unit_ids"].items()}
+                if isinstance(payload.get("new_unit_ids"), Mapping) else None
+            ),
             change_kind=str(payload.get("change_kind") or "source_added"),
             revision_diff=dict(payload.get("revision_diff") or {}),
             brief=dict(payload.get("brief") or {}),
@@ -5255,6 +5254,7 @@ class DurableIngestJobs:
         members: list[dict[str, Any]],
         source_set_id: str,
         new_revision_ids: list[str] | None = None,
+        new_unit_ids: Mapping[str, Sequence[str]] | None = None,
         change_kind: str = "source_added",
         subject_id: str | None = None,
         brief: dict[str, Any] | None = None,
@@ -5269,7 +5269,8 @@ class DurableIngestJobs:
         member — same scoping/roles shape as the bootstrap build — followed by a single
         ``append_synthesis`` job that depends on all of them and reconciles ONLY the new
         material against the existing map through the bounded affected neighborhood. The
-        map is never resent or rebuilt; ``new_revision_ids`` pins the append scope.
+        map is never resent or rebuilt; ``new_revision_ids`` pins the append scope, and
+        ``new_unit_ids`` ({revision_id: [unit_id]}) narrows a revision to its new units.
 
         The append counterpart to :meth:`enqueue_source_set_build`. ``members`` may be
         empty (nothing new to inventory), in which case the append job runs alone and
@@ -5299,6 +5300,8 @@ class DurableIngestJobs:
             # stays a pending review proposal.
             "apply": True,
         }
+        if new_unit_ids:
+            append_payload["new_unit_ids"] = {revision: list(units) for revision, units in new_unit_ids.items()}
         if synthesis_budgets:
             append_payload["synthesis_budgets"] = dict(synthesis_budgets)
         if unlimited_token_budget:
