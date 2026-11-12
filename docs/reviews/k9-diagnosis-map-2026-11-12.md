@@ -457,3 +457,139 @@ Delegated (read and grep only); each verdict below was spot-checked at the cited
 | D9V1 | high | **The one diagnosis concept note describes August's system** and names states that don't exist; a reader starting there won't find the decider, the second belief, the split or FG1. | above |
 | D9V2 | high | **No note explains who decides whether to probe, or the beliefs over hypotheses** — the two questions arc G changes. | above |
 | D9V3 | medium | **The version notes stop at `mvp-0.27` and `mvp-0.34`,** and the generated module notes all point at "Learning System". | above |
+
+## Possible bugs found (for the ledger)
+
+The rules ask for a row in `docs/reviews/refactor-bug-ledger.md` per bug found; this step's brief limits its output to this document, so the candidates are listed here for the orchestrator to file.
+
+| Candidate | Where | What |
+|---|---|---|
+| K9-1 | `apps/learnloop-tauri/src/components/CausalAttribution.tsx:403-407` | "You asked me not to check again for now" is shown for every withheld offer, but the orchestrator also withholds it for recent burden and the session budget (`diagnosis/causal_orchestrator.py:1875-1903`), when the learner asked nothing. Learner-visible wrong copy. |
+| K9-2 | `learnloop_sidecar/handlers/feedback.py:1107` | The primed-sibling ranking reads `SystemClock().now()` instead of the injected clock its original uses (`diagnosis/remediation.py:437`), so a frozen-clock test or replay sees wall time. |
+| K9-3 | `diagnosis/probe_episodes.py:1926`, `:2600` | A probe answer whose grade was held and is later released never enters the episode posterior (its observation keeps `updates_belief = 0`). Intent not established; may be by design. |
+| K9-4 | `diagnosis/causal_orchestrator.py:15-16`, `:2736-2738`; `diagnosis/causal_probe_coherence.py:432-433` | Three docstrings the code contradicts (D9C1). |
+
+## Not verified
+
+- **Nothing was run** except the AST sweep and `git log`/`git show`. The import graph is static: three string imports (§1.3) were found by grep, and others could exist.
+- **Delegated and only partly spot-checked:** the frontend survey (I read `FeedbackScreen.tsx:1975-1992` and `CausalAttribution.tsx:400-408`; the polling intervals, `FollowupPanel.tsx`, `PracticeScreen.tsx` and the TS `tauFollowupNats` default were not read); the sidecar handler table beyond `remediation.py:1-20`, `practice.py:573-581` and `feedback.py:1063-1131`; the phone allowlist; the registry's run-time readers other than `refresh` and the projection readers; `tests/test_registry_audit.py` and `tests/test_architecture.py:633-639`; the B9 identity pin's scope; the FG1 stage total (`bdfa849256^..d9c19b3bc4`), `fe4440d3c7` and `8a6a50b24f`; the vault notes' verdicts for `Attempt Processing`, `Process Model Output`, ADR-016 and the Pipeline Map's `:230`; the "missing notes" greps.
+- **Not traced:** whether normalization can create a model client when the attempt step's block end passes none (D9D4); what normalization's misconception match records; `router_objective/miss_cause.py` beyond `:280-290`; `probe_dialogue`, `calibration_sessions`, `guided_redo`, `quick_check`, `error_hunt`, `contrast_pairs`, `scoreboard`, `offline_review` (sizes and imports only); `causal_attribution.py` beyond the lines cited.
+- **Interpretation:** "hypothesis kind" in §6.3 and §7 is read two ways (an episode label, a causal factor shape); no episode label has been added since the Aug 20 squash, so (a)'s counts are the nearest real changes. The pin-like split of test files in the delegated counts is a regex heuristic.
+- **No data:** no vault or backup was opened, so how often the two beliefs disagree, how often the classifier declines, and whether any fitted set exists in a real vault (the code says none can be written) are unmeasured.
+
+## Appendix A: every module in diagnosis, classified
+
+Replaces the Nov 8 map's Appendix A rows for `learnloop.diagnosis`. "Importers" count modules, outside and inside the package; "imports" counts `src` modules imported; reach is from the sidecar, phone host and MCP server by static imports (§1.3). Module names drop `learnloop.diagnosis.`.
+
+| module | raw | code | public | importers outside | importers inside | imports | longest fn | class | reach |
+|---|---:|---:|---:|---:|---:|---:|---:|---|---|
+| `__init__` | 1 | 0 | 0 | 0 | 0 | 0 | 0 | init | serving |
+| `ai_contracts` | 396 | 321 | 25 | 3 | 4 | 3 | 33 | wide | serving |
+| `calibration_sessions` | 391 | 274 | 8 | 3 | 3 | 9 | 116 | deep | serving |
+| `causal_activity_policy` | 407 | 220 | 8 | 7 | 3 | 3 | 56 | medium | serving |
+| `causal_attribution` | 3780 | 2929 | 23 | 13 | 14 | 15 | 357 | deep | serving |
+| `causal_diagnostic_selector` | 671 | 507 | 5 | 1 | 2 | 8 | 360 | deep | serving |
+| `causal_factor_deferral` | 499 | 308 | 2 | 0 | 4 | 3 | 142 | deep | serving |
+| `causal_health` | 359 | 255 | 3 | 2 | 0 | 3 | 156 | deep | serving |
+| `causal_orchestrator` | 3471 | 2440 | 35 | 7 | 2 | 18 | 517 | wide | serving |
+| `causal_probe_coherence` | 2010 | 1572 | 28 | 6 | 9 | 10 | 183 | deep | serving |
+| `causal_probe_commissioning` | 759 | 522 | 8 | 2 | 0 | 4 | 342 | deep | serving |
+| `causal_selection_audit` | 228 | 189 | 1 | 2 | 0 | 5 | 169 | medium | serving |
+| `chain_records` | 296 | 195 | 12 | 1 | 4 | 2 | 44 | medium | serving |
+| `contrast_pairs` | 1043 | 611 | 18 | 5 | 0 | 10 | 155 | medium | serving |
+| `diagnosis_adjudication` | 865 | 625 | 9 | 2 | 3 | 5 | 156 | deep | serving |
+| `diagnostic_augmentation` | 1243 | 1019 | 16 | 3 | 3 | 13 | 176 | deep | serving |
+| `diagnostic_gate` | 514 | 363 | 6 | 6 | 3 | 6 | 146 | deep | serving |
+| `diagnostic_pack` | 501 | 344 | 12 | 2 | 0 | 5 | 88 | medium | serving |
+| `diagnostic_surface_supply` | 494 | 301 | 7 | 2 | 0 | 12 | 108 | deep | serving |
+| `discrimination_profiles` | 571 | 274 | 11 | 5 | 1 | 3 | 114 | medium | serving |
+| `error_hunt` | 728 | 407 | 9 | 4 | 0 | 11 | 120 | deep | serving |
+| `error_taxonomy` | 107 | 88 | 1 | 2 | 0 | 5 | 66 | medium | serving |
+| `error_taxonomy_map` | 266 | 148 | 2 | 5 | 3 | 0 | 30 | medium | serving |
+| `failure_triage` | 1054 | 751 | 8 | 0 | 0 | 6 | 142 | deep | none |
+| `followups` | 2626 | 2020 | 16 | 8 | 2 | 30 | 389 | deep | serving |
+| `forecast_receipts` | 610 | 435 | 7 | 1 | 2 | 8 | 130 | deep | serving |
+| `gate_fit` | 206 | 156 | 5 | 1 | 0 | 5 | 66 | medium | tooling-only |
+| `gate_score` | 337 | 235 | 6 | 1 | 2 | 4 | 52 | medium | serving |
+| `grading_hardcases` | 930 | 662 | 10 | 1 | 0 | 16 | 224 | deep | tooling-only |
+| `guided_redo` | 354 | 218 | 6 | 3 | 2 | 6 | 82 | medium | serving |
+| `longform_trace` | 276 | 190 | 7 | 0 | 1 | 0 | 80 | medium | serving |
+| `misconceptions` | 998 | 650 | 9 | 2 | 8 | 16 | 144 | deep | serving |
+| `missing_vocabulary` | 465 | 333 | 6 | 3 | 1 | 5 | 79 | deep | serving |
+| `offline_review` | 16 | 0 | 0 | 0 | 0 | 0 | 0 | init | serving |
+| `offline_review.decider_links` | 83 | 51 | 3 | 0 | 1 | 3 | 35 | shallow | serving |
+| `offline_review.judge` | 376 | 272 | 28 | 0 | 5 | 3 | 34 | wide | serving |
+| `offline_review.links` | 132 | 109 | 1 | 1 | 0 | 8 | 89 | medium | tooling-only |
+| `offline_review.planted` | 471 | 384 | 13 | 0 | 1 | 8 | 49 | medium | serving |
+| `offline_review.probes` | 289 | 193 | 12 | 0 | 2 | 6 | 43 | medium | serving |
+| `offline_review.report` | 1068 | 937 | 8 | 1 | 4 | 5 | 107 | deep | tooling-only |
+| `offline_review.runner` | 1980 | 1683 | 21 | 1 | 5 | 37 | 132 | deep | serving |
+| `offline_review.spend` | 6 | 1 | 0 | 5 | 9 | 1 | 0 | shallow | serving |
+| `offline_review.spot_check` | 482 | 381 | 9 | 1 | 1 | 10 | 144 | deep | tooling-only |
+| `predictive_eig` | 231 | 170 | 4 | 0 | 1 | 4 | 86 | medium | serving |
+| `probe_audit` | 727 | 562 | 13 | 2 | 1 | 7 | 117 | deep | tooling-only |
+| `probe_blocks` | 499 | 355 | 5 | 1 | 2 | 12 | 186 | deep | serving |
+| `probe_coverage` | 174 | 144 | 1 | 1 | 0 | 4 | 140 | medium | tooling-only |
+| `probe_dialogue` | 464 | 362 | 8 | 1 | 0 | 15 | 165 | deep | serving |
+| `probe_episodes` | 3651 | 2612 | 46 | 11 | 10 | 36 | 260 | wide | serving |
+| `probe_families` | 1793 | 1454 | 24 | 6 | 11 | 3 | 101 | deep | serving |
+| `probe_hypotheses` | 273 | 182 | 7 | 3 | 11 | 7 | 102 | medium | serving |
+| `probe_instance_generation` | 1532 | 1191 | 17 | 7 | 4 | 16 | 195 | deep | serving |
+| `probe_lifecycle` | 271 | 213 | 8 | 1 | 0 | 5 | 80 | medium | tooling-only |
+| `probe_outcome_mapping` | 178 | 98 | 5 | 0 | 2 | 2 | 23 | medium | serving |
+| `probe_remint` | 326 | 183 | 5 | 1 | 0 | 8 | 102 | medium | serving |
+| `probe_robust` | 309 | 207 | 9 | 3 | 2 | 10 | 43 | medium | serving |
+| `probe_targeting` | 860 | 577 | 15 | 0 | 2 | 5 | 123 | medium | serving |
+| `probes` | 1571 | 1181 | 22 | 9 | 7 | 7 | 137 | deep | serving |
+| `quick_check` | 432 | 335 | 4 | 2 | 0 | 15 | 73 | deep | serving |
+| `recurrence` | 14 | 0 | 0 | 0 | 0 | 0 | 0 | init | serving |
+| `recurrence.backlog` | 280 | 225 | 4 | 1 | 3 | 15 | 82 | medium | serving |
+| `recurrence.benchmarks` | 1379 | 1028 | 26 | 1 | 0 | 19 | 82 | medium | tooling-only |
+| `recurrence.display` | 83 | 44 | 5 | 2 | 3 | 0 | 16 | medium | serving |
+| `recurrence.escalation` | 179 | 130 | 5 | 0 | 2 | 5 | 43 | medium | serving |
+| `recurrence.guard` | 721 | 563 | 15 | 1 | 2 | 18 | 113 | medium | serving |
+| `recurrence.judging` | 326 | 203 | 19 | 2 | 7 | 18 | 48 | medium | serving |
+| `recurrence.kind` | 184 | 145 | 4 | 0 | 6 | 4 | 66 | medium | serving |
+| `recurrence.live` | 530 | 401 | 7 | 0 | 1 | 19 | 118 | deep | serving |
+| `recurrence.report` | 295 | 241 | 2 | 1 | 0 | 6 | 52 | medium | tooling-only |
+| `recurrence.upgrade` | 217 | 141 | 3 | 2 | 0 | 13 | 54 | medium | serving |
+| `remediation` | 1484 | 1020 | 19 | 11 | 4 | 16 | 281 | deep | serving |
+| `repair_splice` | 279 | 158 | 7 | 1 | 0 | 1 | 47 | medium | serving |
+| `robust_composition` | 607 | 396 | 14 | 10 | 4 | 1 | 91 | medium | serving |
+| `scoreboard` | 1833 | 1213 | 17 | 4 | 3 | 16 | 122 | deep | serving |
+| `signal_quantiles` | 141 | 105 | 2 | 0 | 2 | 3 | 56 | medium | serving |
+| `split` | 18 | 0 | 0 | 0 | 0 | 0 | 0 | init | serving |
+| `split.card` | 482 | 373 | 8 | 3 | 0 | 12 | 72 | deep | serving |
+| `split.context` | 1030 | 797 | 19 | 1 | 8 | 10 | 290 | deep | serving |
+| `split.contract` | 350 | 262 | 16 | 1 | 4 | 8 | 21 | medium | serving |
+| `split.diagnoser` | 250 | 197 | 4 | 1 | 2 | 11 | 140 | medium | serving |
+| `split.embeddings` | 416 | 323 | 12 | 1 | 7 | 12 | 98 | medium | serving |
+| `split.figure_trace` | 145 | 99 | 1 | 0 | 3 | 3 | 83 | medium | serving |
+| `split.history` | 1423 | 1058 | 12 | 1 | 9 | 13 | 297 | deep | serving |
+| `split.jobs` | 1732 | 1291 | 22 | 12 | 7 | 40 | 235 | deep | serving |
+| `split.legacy_view` | 214 | 174 | 3 | 0 | 3 | 2 | 35 | medium | serving |
+| `split.live` | 499 | 351 | 11 | 2 | 6 | 19 | 83 | medium | serving |
+| `split.pfc_report` | 437 | 379 | 6 | 1 | 0 | 14 | 110 | deep | tooling-only |
+| `split.prior_analysis` | 189 | 116 | 7 | 0 | 3 | 3 | 50 | medium | serving |
+| `split.provenance` | 619 | 378 | 17 | 0 | 4 | 2 | 63 | medium | serving |
+| `split.reports` | 349 | 293 | 2 | 1 | 0 | 6 | 85 | deep | tooling-only |
+| `split.retrieval` | 400 | 319 | 8 | 0 | 5 | 6 | 86 | deep | serving |
+| `split.settings` | 71 | 49 | 2 | 1 | 8 | 0 | 19 | medium | serving |
+| `split.snapshot` | 380 | 324 | 4 | 1 | 1 | 5 | 115 | deep | serving |
+| `split.validation` | 687 | 553 | 6 | 0 | 3 | 6 | 398 | deep | serving |
+| `split.workbench_trace` | 120 | 86 | 1 | 0 | 4 | 2 | 68 | medium | serving |
+| `taxonomy_regrade` | 120 | 85 | 1 | 1 | 0 | 6 | 79 | medium | tooling-only |
+| `text_gaps` | 3 | 0 | 0 | 0 | 0 | 0 | 0 | init | serving |
+| `text_gaps.actions` | 655 | 446 | 25 | 3 | 1 | 21 | 66 | wide | serving |
+| `text_gaps.candidates` | 287 | 214 | 6 | 0 | 2 | 10 | 81 | medium | serving |
+| `text_gaps.contract` | 409 | 254 | 4 | 1 | 9 | 4 | 10 | deep | serving |
+| `text_gaps.jobs` | 824 | 521 | 23 | 12 | 2 | 15 | 165 | medium | serving |
+| `text_gaps.judges` | 532 | 391 | 20 | 1 | 3 | 19 | 67 | wide | serving |
+| `text_gaps.kinds` | 203 | 155 | 6 | 0 | 2 | 6 | 20 | medium | serving |
+| `text_gaps.pipeline` | 1203 | 828 | 12 | 0 | 2 | 23 | 93 | deep | serving |
+| `text_gaps.provenance` | 413 | 249 | 9 | 1 | 2 | 4 | 40 | medium | serving |
+| `text_gaps.report` | 298 | 225 | 6 | 1 | 0 | 8 | 71 | medium | tooling-only |
+| `text_gaps.sources` | 1223 | 844 | 39 | 0 | 4 | 13 | 71 | wide | serving |
+| `text_gaps.tier1` | 305 | 213 | 4 | 0 | 1 | 12 | 68 | medium | serving |
+| `voi_forecasting` | 618 | 468 | 8 | 1 | 3 | 11 | 112 | deep | serving |
+| `voi_stopping` | 2503 | 1662 | 32 | 3 | 5 | 13 | 211 | wide | serving |
