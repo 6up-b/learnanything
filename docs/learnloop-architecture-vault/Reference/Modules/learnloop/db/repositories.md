@@ -2174,6 +2174,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_daily_plan_composition.py](../../../../../../tests/test_daily_plan_composition.py) — direct import
   - `test_an_empty_stuck_answer_on_a_plan_item_is_done_and_labelled_daily_plan`
 - [tests/test_daily_plan_kill_switch.py](../../../../../../tests/test_daily_plan_kill_switch.py) — direct import
+  - `test_router_off_places_no_randomized_check`
 - [tests/test_daily_plan_owner_decisions.py](../../../../../../tests/test_daily_plan_owner_decisions.py) — direct import
 - [tests/test_daily_plan_reading.py](../../../../../../tests/test_daily_plan_reading.py) — direct import
   - `test_a_partial_block_when_the_section_exceeds_the_minutes_left`
