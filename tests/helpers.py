@@ -652,6 +652,14 @@ def create_placement_vault(
     return VaultPaths(vault.root, vault.config)
 
 
+#: RO5's randomized cold check at its declared zero, which serves the predecessor exactly (a ``plan_toml``
+#: fragment). With the arm on, the day's first boundary places a cold check of an unseen item as its own block
+#: before the plan's first decision (seeded on the date): one more block, an unseen item planned whatever the
+#: lanes or admission say, and minutes off the budget. A test whose subject is the plan's lanes, blocks or
+#: decisions takes the arm at zero; a test of the check itself leaves it on.
+RANDOMIZED_CHECKS_OFF = '[router_objective]\ncheck_rate = "off"\n'
+
+
 def create_daily_plan_vault(
     root: Path,
     *,

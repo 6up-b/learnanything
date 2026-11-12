@@ -7,6 +7,7 @@ import learnloop_sidecar.handlers  # noqa: F401 -- populate METHOD_REGISTRY
 from learnloop.db.stores.practice_index import insert_proposal
 from learnloop.practice_index.usage import USAGE_TASK
 from learnloop_sidecar.errors import SidecarError
+from tests.helpers import RANDOMIZED_CHECKS_OFF, append_config_toml
 from tests.source_service_fakes import set_config
 from tests.learner_pick_proposal_helpers import _call, _draw, _interventions
 from tests.learner_pick_proposal_helpers import ctx  # noqa: F401 - fixtures, used by parameter name
@@ -115,7 +116,16 @@ def test_the_delivery_carries_r1s_decision_of_the_block_that_served_it(ctx, monk
     lands there in about one session in forty)."""
 
     _draw(monkeypatch, promoted)
-    context, _paths = ctx
+    context, paths = ctx
+    # The router's kill switch off: both cases are DL1's chooser pair, which builds the plan up front from the
+    # scheduler's pool (the greedy block's propensity 1, the seeded draw's promotion). With the router on, the
+    # staged frame's pool ignores the scheduler's draw and the objective plans one block at a time, so the pick is
+    # never inside the plan; the delivery's own contract on the head is the next test's. RO5's check arm at zero
+    # too: it still places its block with the router off (ledger D-16), which DL1's pair never had.
+    set_config(paths, "router", enabled=False)
+    append_config_toml(paths.root, RANDOMIZED_CHECKS_OFF)
+    context.load(paths.root)
+    context.grading_provider_override = "manual"
     session_id = _call(context, "start_session", {"availableMinutes": 25})["sessionId"]
     result = _call(context, "plan_learner_pick", {"practiceItemId": "pi_extra_1", "sessionId": session_id,
                                                    "proposalId": "pp_test"})

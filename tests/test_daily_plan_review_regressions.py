@@ -17,7 +17,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import write_yaml
 from tests.daily_plan_fakes import NOW, MovableClock, iso, record_attempt, seed_open_problem
-from tests.helpers import ALGORITHM_VERSION, create_daily_plan_vault
+from tests.helpers import ALGORITHM_VERSION, RANDOMIZED_CHECKS_OFF, create_daily_plan_vault
 
 
 def _no_goals(paths: VaultPaths) -> None:
@@ -41,10 +41,13 @@ def _ended_session(repository: Repository, session_id: str, moment) -> None:
 def _failed_and_unseen(tmp_path, *, error_days_ago: float, plan_toml: str | None = None):
     """One LO with a failed (attempted) item and an unseen sibling, real scheduler state."""
 
+    # RO5's check arm at zero: its draw takes an unseen item as the day's cold check, planned by its own rule
+    # whatever the lane, the re-entry or new-material admission says (a "scheduled check" by design); with no goals
+    # lo_err is the only valued topic, so the check is its unseen sibling, the item under test.
     paths = create_daily_plan_vault(
         tmp_path / "vault",
         learning_objects={"lo_err": [("pi_failed", 1.0), ("pi_unseen", 1.0)]},
-        plan_toml=plan_toml,
+        plan_toml=(plan_toml or "") + RANDOMIZED_CHECKS_OFF,
     )
     _no_goals(paths)
     repository = Repository(paths.sqlite_path)
@@ -248,7 +251,9 @@ def test_f3_plan_reads_never_call_the_live_chooser(tmp_path):
             return replace(choice, chosen_by="mixture", propensity=0.5)
 
     los = {f"lo_p{i}": [(f"pi_p{i}", 1.0)] for i in range(10)}
-    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los)
+    # RO5's check arm at zero: its block, placed by the rules, would be the first block, so the first step would
+    # make no chooser decision for the view to be compared against.
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los, plan_toml=RANDOMIZED_CHECKS_OFF)
     chooser = GuardedChooser()
     policy = PlanPolicy(source_name="fake_source", chooser=chooser, make_source=legacy_source)
     env = make_env(
@@ -284,7 +289,9 @@ def test_f4_followups_keep_a_reentry_plan_within_its_item_cap_and_lanes(tmp_path
     from tests.daily_plan_fakes import make_env, scheduled, seed_due
 
     los = {f"lo_r{i}": [(f"pi_r{i}", 1.0)] for i in range(14)}
-    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los)
+    # RO5's check arm at zero: its block (one of these items, never answered) would be the plan's first, placed by
+    # the rules, so the plan the follow-ups arrive in would not be the one this test builds.
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los, plan_toml=RANDOMIZED_CHECKS_OFF)
     _no_goals(paths)
     state = {"followups": []}
     base = [scheduled(f"pi_r{i}", f"lo_r{i}", forgetting_risk=0.7) for i in range(8)]
@@ -331,7 +338,9 @@ def test_f4_a_followup_that_cannot_fit_is_declined_not_appended(tmp_path):
     from tests.daily_plan_fakes import make_env, scheduled, seed_due
 
     los = {f"lo_{key}": [(f"pi_{key}", 1.5)] for key in "abcd"} | {"lo_f": [("pi_f", 9.5)]}
-    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los)
+    # RO5's check arm at zero: its block (one of these items, never answered) would be the plan's first, so the
+    # merged maintain block below would not be.
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los, plan_toml=RANDOMIZED_CHECKS_OFF)
     _no_goals(paths)
     state = {"followups": []}
     base = [scheduled(f"pi_{key}", f"lo_{key}", forgetting_risk=0.7) for key in "abcd"]
@@ -424,12 +433,12 @@ def test_f5_plan_rpcs_finalize_no_offer_and_picks_keep_the_list_offer(tmp_path, 
 # -- F6: every stop decision is an append-only receipt --
 
 
-def _small_plan_env(tmp_path, *, policy=None, count=3, minutes=3.0):
+def _small_plan_env(tmp_path, *, policy=None, count=3, minutes=3.0, plan_toml=None):
     from learnloop.daily_plan.engine import DEFAULT_POLICY
     from tests.daily_plan_fakes import make_env, scheduled, seed_due
 
     los = {f"lo_s{i}": [(f"pi_s{i}", minutes)] for i in range(count)}
-    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los)
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los, plan_toml=plan_toml)
     _no_goals(paths)
     clock = MovableClock(NOW)
     env = make_env(
@@ -489,7 +498,11 @@ def test_f6_a_router_stop_keeps_its_propensity_and_candidates(tmp_path):
         def choose(self, state, feasible):
             return BlockChoice(STOP_FOR_TODAY, "mixture", 0.3, "stop here", "model_written", "rd_1")
 
-    env, _clock = _small_plan_env(tmp_path, policy=PlanPolicy("fake_source", StoppingRouter(), legacy_source))
+    # RO5's check arm at zero: its block, placed by the rules before the router's first decision, would leave the
+    # plan open with a block.
+    env, _clock = _small_plan_env(
+        tmp_path, policy=PlanPolicy("fake_source", StoppingRouter(), legacy_source), plan_toml=RANDOMIZED_CHECKS_OFF
+    )
     # Four minutes: STOP is offered while a 3.5-minute item is still feasible.
     record = build_plan(env, kind="normal", budget=4.0, remembered=4, minutes_source="chip")
     assert record.status == "complete" and not record.blocks
@@ -554,8 +567,10 @@ def test_f7_malformed_choices_fall_back_and_are_flagged(tmp_path):
         (Router("mixture", True), "propensity_out_of_range"),
         (Router("mixture", 0.4, why_kind="vibes"), "why_kind_unknown"),
     ]
+    # RO5's check arm at zero: its block, placed by the rules, would be ``blocks[0]`` instead of the chooser's.
     for index, (router, reason) in enumerate(cases):
-        env, _clock = _small_plan_env(tmp_path / f"case{index}", policy=PlanPolicy("fake_source", router, legacy_source))
+        env, _clock = _small_plan_env(tmp_path / f"case{index}", policy=PlanPolicy("fake_source", router, legacy_source),
+                                      plan_toml=RANDOMIZED_CHECKS_OFF)
         record = build_plan(env, kind="normal", budget=10.0, remembered=10, minutes_source="chip")
         block = record.blocks[0]
         assert block.chosen["fallback"] is True and block.chosen["fallback_reason"] == reason, (router, block.chosen)
@@ -569,7 +584,8 @@ def test_f7_malformed_choices_fall_back_and_are_flagged(tmp_path):
             ).fetchone()
         assert kind is not None and kind[0] == "plan_block"
     # A well-formed sampled choice is kept as given.
-    env, _clock = _small_plan_env(tmp_path / "ok", policy=PlanPolicy("fake_source", Router("mixture", 0.4), legacy_source))
+    env, _clock = _small_plan_env(tmp_path / "ok", policy=PlanPolicy("fake_source", Router("mixture", 0.4), legacy_source),
+                                  plan_toml=RANDOMIZED_CHECKS_OFF)
     block = build_plan(env, kind="normal", budget=10.0, remembered=10, minutes_source="chip").blocks[0]
     assert block.chosen["fallback"] is False and block.chosen_by == "mixture"
     assert block.chosen["propensity"] == 0.4 and block.decision_ref == "rd_x"

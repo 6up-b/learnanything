@@ -32,7 +32,7 @@ from learnloop.db.repositories import Repository
 from learnloop_sidecar.context import SidecarContext
 from tests.owner_vaults import owner_vault, working_vault_params
 from tests.daily_plan_fakes import MovableClock, make_env, record_attempt, scheduled
-from tests.helpers import create_daily_plan_vault
+from tests.helpers import RANDOMIZED_CHECKS_OFF, create_daily_plan_vault
 from tests.daily_plan_build_helpers import _assert_finite, _seed_wide, _wide_items, _wide_vault
 from tests.daily_plan_kill_switch_helpers import _call, _copy, _today_reads
 
@@ -142,7 +142,9 @@ def test_plan_on_router_off_is_dl1s_deterministic_pair(tmp_path):
 def test_plan_on_router_on_keeps_the_containers_invariants(tmp_path):
     """G2, G12 and G13 hold with a model chooser in the seam."""
 
-    paths = _wide_vault(tmp_path)
+    # RO5's check arm at zero: its block, placed by the rules ahead of the chooser, would be a routed block that is
+    # neither the model's nor a fallback.
+    paths = _wide_vault(tmp_path, plan_toml=RANDOMIZED_CHECKS_OFF)
     clock = MovableClock()
     env = make_env(paths.root, _wide_items(), clock=clock, policy=_router_policy())
     _seed_wide(env.repository)

@@ -31,7 +31,7 @@ from learnloop.db.repositories import Repository
 from learnloop.outcome_contract import COLLECTION_VERSION
 from learnloop.vault.yaml_io import write_yaml
 from tests.daily_plan_fakes import NOW, MovableClock, iso, make_env, record_attempt, scheduled, seed_due
-from tests.helpers import create_daily_plan_vault
+from tests.helpers import RANDOMIZED_CHECKS_OFF, create_daily_plan_vault
 
 PAST = NOW - timedelta(days=1)
 LAST = NOW - timedelta(days=5)
@@ -159,7 +159,9 @@ def _reentry_env(tmp_path, last_minutes=40):
     los = {f"lo_r{i}": [(f"pi_r{i}", 1.0)] for i in range(14)}
     los["lo_push"] = [("pi_push_a", 2.0), ("pi_push_b", 2.0)]
     los["lo_new"] = [("pi_new_a", 3.0), ("pi_new_b", 3.0)]
-    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los)
+    # RO5's check arm at zero: its block (an unseen item, in the re-entry) changes the minutes the re-entry spends,
+    # so whether keep going is the day's remaining minutes or the extension.
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los, plan_toml=RANDOMIZED_CHECKS_OFF)
     _no_goals(paths)
     items = [scheduled(f"pi_r{i}", f"lo_r{i}", forgetting_risk=0.7) for i in range(14)]
     items += [scheduled("pi_push_a", "lo_push", goal_frontier=0.4), scheduled("pi_push_b", "lo_push", goal_frontier=0.4)]
@@ -269,7 +271,11 @@ def test_the_field_evaluation_keeps_the_daily_plan_label():
 
 
 def test_router_r1_logs_plan_block_decisions_through_the_boundary_hook(tmp_path):
-    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={"lo_a": [("pi_a", 1.0)]})
+    # RO5's check arm at zero: its block, placed by the rules, would be the plan's first and no decision is logged
+    # for it, so the first boundary's decision would never come in this test.
+    paths = create_daily_plan_vault(
+        tmp_path / "vault", learning_objects={"lo_a": [("pi_a", 1.0)]}, plan_toml=RANDOMIZED_CHECKS_OFF
+    )
     _no_goals(paths)
     env = make_env(paths.root, [scheduled("pi_a", "lo_a", forgetting_risk=0.5)], clock=MovableClock(NOW))
     seed_due(env.repository, "pi_a", due=PAST, last=LAST)
