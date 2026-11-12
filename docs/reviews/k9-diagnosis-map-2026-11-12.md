@@ -307,3 +307,37 @@ Records in diagnosis today: the domain receipts (`causal_probe_decision_receipts
 | D9O3 | medium | **Only two deciders in the package are pure,** `decide_probe` (given parameters) and the prior-analysis arm; `value_candidates` is one context object away. The rest read the database inside the decision, so none can return its record as L6 asks without a split first. | table above |
 | D9O4 | medium | **Records are built after the decision from its outputs,** so a new branch in a decider (a new verb, a new stop rule) is silently absent from its record. `decide_probe` returns prose reasons, not rule codes. | `diagnosis/chain_records.py:93-296`; `diagnosis/causal_probe_coherence.py:457-524` |
 | D9O5 | medium | **Stops record only the rule that fired.** The episode's seven rules, the serve gate's two count caps and the consultation's four skips leave no row for the arms that didn't fire or for "continue". | `diagnosis/probe_episodes.py:2902-3052`, `:1560-1573`; `diagnosis/followups.py:1037-1069` |
+
+## 5. Functional core and shell
+
+What can be called with plain values today, and what reads the database or the clock inside.
+
+| Piece | Code | Core or shell |
+|---|---|---|
+| Weighted Bayes step | `_bayes_update`, `diagnosis/probe_episodes.py:2074-2094`; `_entropy`, `:150` | **pure** |
+| Episode posterior | `episode_posterior`, `:1869` | **shell**: reads the hypothesis set, observations, every attempt on the learning object, presentations, state segments and the held predicate (`:1896-1910`, `:1943-1945`, `:1985`), and is recomputed from scratch by every reader (scheduler, valuation, passage cues, completion, the serve gate) |
+| Instrument likelihoods | `instrument_conditionals`, `instrument_observation_likelihoods`, `classify_outcome` (`diagnosis/probe_families.py:450`, `:505`, `:716`) | **pure** (an instrument and values) |
+| Incidental likelihoods | `_incidental_likelihoods`, `diagnosis/probe_episodes.py:2049`; `generic_bucket_marginals`, `diagnosis/probe_hypotheses.py:94` | the marginals are pure; the caller reads the item, rubric and the old IRT scalar through the vault (`resolve_item_irt`, `diagnosis/probe_episodes.py:2058`), the map's X2 path |
+| Causal prior | `build_causal_hypothesis_set`, `diagnosis/causal_probe_coherence.py:705` | **shell**: the weighting (`:747-801`) is inline with factor, hypothesis and parameter reads (`:725-747`) |
+| Probe verdict | `decide_probe`, `:413` | **pure** given `parameters`; it falls back to a repository read otherwise (`:436`) |
+| EVSI inputs | `_discrimination_inputs`, `_probe_burden_minutes`, `_avoided_overteaching_minutes`, `_recent_diagnostic_burden` (`diagnosis/causal_orchestrator.py:1115`, `:1067`, `:1014`, `:1090`) | the first is pure over a candidate row; the other three read the database |
+| Separability, classification | `rows_are_separable` (`diagnosis/causal_probe_coherence.py:370`) pure; `classify_against_blind_bundles` (`:1144`) and `blind_bundle_discrimination` (`:1040`) read the bundles by id | mixed |
+| Support scores | `_measured_hypotheses`, `_observation_support_scores` (`diagnosis/causal_orchestrator.py:2482`, `:2538`) | **pure**; the deterministic sensor (`:2886`) reads attempts, rubric and evidence, with a hard-coded 0.40 "passed" cut (`:2935`) |
+| VOI math | `_predictive`, `_posterior`, `_normalized` (`diagnosis/voi_stopping.py:613-660`), `predictive_information` (`:1494`), `greedy_information_admission` (`:1958`), `value_candidates` (`:996`) | **pure except the context**: no repository or clock read appears between `:480` and `:2176`; `VoiContext` reads latencies with raw SQL and the triage routes lazily (`:422-479`) |
+| Robust composition | `diagnosis/robust_composition.py:228`, `:600` | **pure**, seeded `random.Random(seed)`; its convention is stdlib only for bit-for-bit replay (`:24`) |
+| Misconception posterior | `misconception_posterior`, `diagnosis/misconceptions.py:850` | **shell**: an odds update over persisted attempts and events; prior clamped to [0.05, 0.95] (`:858`) |
+| Stopping rules | `_evaluate_completion`, `diagnosis/probe_episodes.py:2902` | **shell**: reads observations, eligibility and robust gates while deciding; the stability test (`:2939-2945`) is a two-line pure predicate inside it |
+
+**Clocks and randomness.** Diagnosis reads time through the injected `Clock`, with `SystemClock()` as the default at nine sites (`diagnosis/probes.py:120`, `diagnosis/probe_hypotheses.py:159`, `diagnosis/remediation.py:484`, `:954`, `:1305`, `diagnosis/followups.py:2048`, `:2625`, `diagnosis/causal_factor_deferral.py:389`, `diagnosis/split/jobs.py:261`); `time.monotonic` only for latency (`diagnosis/split/jobs.py:948`, `diagnosis/split/diagnoser.py:142`). Two report modules read `datetime.now` for a header (`diagnosis/split/reports.py:303`, `diagnosis/recurrence/report.py:221`). The one handler copy uses the wall clock where the original uses the injected one (`learnloop_sidecar/handlers/feedback.py:1107`). Randomness: seeded `random.Random` in robust composition, instance generation (`diagnosis/probe_instance_generation.py:640`) and offline review; the prior-analysis arm is a SHA-256 draw (`diagnosis/split/prior_analysis.py:93-95`); ids are ULIDs (23 `new_ulid()` sites), and the observation and bundle ids are content-addressed.
+
+**Four beliefs over hypotheses, not two.** Beside the episode posterior and the discriminating support (§3.3) there are the legacy probe-phase posterior (`probes.probe_posterior`, `diagnosis/probes.py:1147`), which the follow-up gate still reads for frozen pre-redesign phases (`diagnosis/followups.py:1174-1201`), and the misconception posterior above. The router's miss-cause sensor reads a fifth view, the episode's stored posteriors mapped to causal classes with its own SQL (`router_objective/miss_cause.py:280-290`).
+
+### Findings
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| D9F1 | high | **The episode posterior can't be called without a database, and every reader recomputes it from the whole learning object's history.** The Bayes step under it is pure; the replay that gathers its inputs is the shell, and five readers each run it and then normalize differently. | `diagnosis/probe_episodes.py:1869-1981`; §3.3 |
+| D9F2 | medium | **The stopping policy decides while it reads.** Seven rules interleave database reads, the robust gate and eligibility, so no rule can be tested with literals. | `diagnosis/probe_episodes.py:2902-3052` |
+| D9F3 | medium | **VOI is one object away from a functional core.** `VoiContext` mixes the settings, the minutes model and the loss tables with lazy raw SQL; supplied as values, `value_candidates` and the site functions would be pure. | `diagnosis/voi_stopping.py:389-479`, `:996` |
+| D9F4 | medium | **Hand-set numbers in the likelihood path:** the deterministic sensor's 0.40 "passed" cut, a rubric maximum of 4 when an item is missing (`diagnosis/probe_episodes.py:2041-2046`; again `diagnosis/probe_blocks.py:350`), the misconception prior's [0.05, 0.95] clamp, and the "fitted" probe policy that nothing fits (D9B3). | `diagnosis/causal_orchestrator.py:2935`; `diagnosis/misconceptions.py:858` |
+| D9F5 | medium | **Four beliefs over hypotheses** (episode, discriminating, legacy probe phase, misconception) and a fifth reader's view; strategy G3-G4 names two. | above |
