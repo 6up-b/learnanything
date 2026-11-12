@@ -5,10 +5,12 @@ from collections.abc import Iterable
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.attempts.grading import ValidatedErrorAttribution
+from learnloop.attempts.grading import ValidatedErrorAttribution, builtin_error_type_defaults
 from learnloop.vault.models import LoadedVault
 
 
+#: The mvp-0.6 grader vocabulary. Known at every tag: a canonical vault's validator maps
+#: these names onto the mechanisms, so one never reaches a proposal as new.
 BUILTIN_ERROR_TYPES = {
     "arithmetic_slip",
     "conceptual_slip",
@@ -39,7 +41,11 @@ def persist_unknown_error_type_proposals(
     """
     if agent_run_id is None:
         return None
-    known = set(vault.error_types) | BUILTIN_ERROR_TYPES
+    # The builtins are the vault's tag's vocabulary, as the grade validator reads them
+    # (``builtin_error_type_defaults``): from mvp-0.7 the nine KM4 mechanism types, so a
+    # grade naming ``retrieval_failure`` proposes no "new error type" (refactor bug ledger
+    # D-2). An mvp-0.6 vault's builtins are BUILTIN_ERROR_TYPES, as before.
+    known = set(vault.error_types) | BUILTIN_ERROR_TYPES | set(builtin_error_type_defaults(vault))
     unknown: list[ValidatedErrorAttribution] = []
     for attribution in attributions:
         if attribution.error_type in known:
