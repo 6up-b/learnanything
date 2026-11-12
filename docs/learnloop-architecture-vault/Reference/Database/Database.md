@@ -124,6 +124,6 @@ Run both documentation validators after regeneration:
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/validate_vault.py
 ```
 
-The database/config validator compares all 397 table notes and all 1180 effective configuration leaves to live authorities, including operational Function and runtime/refactor Status fields. The global validator then checks the entire Obsidian graph: frontmatter, source paths, Wikilinks, heading links, and block links.
+The database/config validator compares all 397 table notes and all 1181 effective configuration leaves to live authorities, including operational Function and runtime/refactor Status fields. The global validator then checks the entire Obsidian graph: frontmatter, source paths, Wikilinks, heading links, and block links.
 
 Table and configuration notes carry no commit, timestamp, or migration head of their own. The head is stated once in [[Database Catalog]], and the commit they were generated from is `db_generate_reference.py`'s row in [[Reference/_generated|Generated Reference Provenance]]. So a new migration no longer rewrites every table note.
