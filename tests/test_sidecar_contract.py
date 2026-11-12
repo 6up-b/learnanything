@@ -24,6 +24,7 @@ from tests.helpers import (
     pin_old_basic_vault,
     seed_due_item,
 )
+from tests.http_provider_double import serve_structured
 from tests.owner_vaults import owner_vault, owner_vaults, require_owner_vault
 from tests.sidecar_contract_helpers import _rpc
 
@@ -1159,12 +1160,12 @@ def test_sidecar_submit_attempt_never_falls_back_to_codex_when_routed_ai_unavail
     assert server.requests == []
 
 
-def test_sidecar_canonical_codex_profile_wins_when_legacy_input_differs(tmp_path):
+def test_sidecar_canonical_codex_profile_wins_when_legacy_input_differs(tmp_path, monkeypatch):
     vault_root = tmp_path / "vault"
-    # Old path only (D2a): the HTTP provider double speaks only the joint grading operation; a split
-    # vault (mvp-0.10 on, so the head) grades through the isolated blind grader, which the double
-    # cannot serve, so grading falls back. Port it when the double gains the blind operation.
-    paths = pin_old_basic_vault(create_basic_vault(vault_root))
+    # The head grades through the learner-blind grader, an isolated turn: the double serves as
+    # a structured, isolated transport (tests.http_provider_double.serve_structured).
+    serve_structured(monkeypatch)
+    paths = create_basic_vault(vault_root)
     seed_due_item(paths)
     checkout = tmp_path / "ai-codex"
     checkout.mkdir()

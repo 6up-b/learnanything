@@ -17,7 +17,8 @@ from learnloop.tui.app import LearnLoopApp
 from learnloop.tui.screens.feedback import FeedbackScreen
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import begin_session, configure_codex_http, create_basic_vault, pin_old_basic_vault, seed_due_item
+from tests.helpers import begin_session, configure_codex_http, create_basic_vault, seed_due_item
+from tests.http_provider_double import serve_structured
 
 # The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
 # H3); these tests drive an in-process HTTP server through it as a provider double.
@@ -108,12 +109,13 @@ def test_feedback_screen_reads_visible_self_grade_controls(tmp_path):
     asyncio.run(scenario())
 
 
-def test_feedback_submit_uses_codex_grading_when_runtime_ready(tmp_path):
+def test_feedback_submit_uses_codex_grading_when_runtime_ready(tmp_path, monkeypatch):
     async def scenario() -> None:
         vault_root = tmp_path / "vault"
-        # Old path only: grades through the HTTP double, the legacy endpoint adapter, which
-        # never receives an isolated operation, so it cannot be a split (head) vault's blind grader.
-        paths = pin_old_basic_vault(create_basic_vault(vault_root))
+        # The head grades through the learner-blind grader, an isolated turn: the double serves as
+        # a structured, isolated transport (tests.http_provider_double.serve_structured).
+        serve_structured(monkeypatch)
+        paths = create_basic_vault(vault_root)
         seed_due_item(paths)
         checkout = tmp_path / "codex"
         checkout.mkdir()

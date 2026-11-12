@@ -12,7 +12,8 @@ from typer.testing import CliRunner
 
 from learnloop.ai.execution import report_call_usage
 from learnloop.db.connection import connect
-from tests.helpers import begin_session, configure_codex_http, create_basic_vault, pin_old_basic_vault, seed_due_item
+from tests.helpers import begin_session, configure_codex_http, create_basic_vault, seed_due_item
+from tests.http_provider_double import serve_structured
 from tests.source_set_synthesis_helpers import FakeSynthesisClient, _setup
 
 import pytest
@@ -66,11 +67,12 @@ def test_cli_synthesize_records_receipts_with_usage_and_budgets(tmp_path, monkey
     assert len({row["owner_id"] for row in passes}) == 1
 
 
-def test_each_cli_run_is_its_own_owner(tmp_path):
+def test_each_cli_run_is_its_own_owner(tmp_path, monkeypatch):
     vault_root = tmp_path / "vault"
-    # Old path only: grades through the HTTP double, the legacy endpoint adapter, which
-    # never receives an isolated operation, so it cannot be a split (head) vault's blind grader.
-    pin_old_basic_vault(create_basic_vault(vault_root))
+    # The head grades through the learner-blind grader, an isolated turn: the double serves as
+    # a structured, isolated transport (tests.http_provider_double.serve_structured).
+    serve_structured(monkeypatch)
+    create_basic_vault(vault_root)
     checkout = tmp_path / "codex"
     checkout.mkdir()
     (checkout / "HEAD").write_text("abc123", encoding="utf-8")
@@ -102,15 +104,16 @@ def _attempt(vault_root):
     ])
 
 
-def test_tui_grading_records_receipts_with_usage(tmp_path):
+def test_tui_grading_records_receipts_with_usage(tmp_path, monkeypatch):
     pytest.importorskip("textual")  # the TUI needs the optional `tui` extra
     from learnloop.tui.app import LearnLoopApp
 
     async def scenario():
         vault_root = tmp_path / "vault"
-        # Old path only: grades through the HTTP double, the legacy endpoint adapter, which
-        # never receives an isolated operation, so it cannot be a split (head) vault's blind grader.
-        paths = pin_old_basic_vault(create_basic_vault(vault_root))
+        # The head grades through the learner-blind grader, an isolated turn: the double serves as
+        # a structured, isolated transport (tests.http_provider_double.serve_structured).
+        serve_structured(monkeypatch)
+        paths = create_basic_vault(vault_root)
         seed_due_item(paths)
         checkout = tmp_path / "codex"
         checkout.mkdir()

@@ -13,7 +13,8 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.helpers import NOW_ISO, configure_codex_http, create_basic_vault, pin_old_basic_vault
+from tests.helpers import NOW_ISO, configure_codex_http, create_basic_vault
+from tests.http_provider_double import serve_structured
 
 # The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
 # H3); these tests drive an in-process HTTP server through it as a provider double.
@@ -187,12 +188,12 @@ def test_cli_attempt_passes_available_minutes_to_followup_gate(tmp_path):
     assert surprise["suppressed_actions"] == ["intervention_followup:no_time"]
 
 
-def test_cli_attempt_uses_codex_http_when_runtime_ready(tmp_path):
+def test_cli_attempt_uses_codex_http_when_runtime_ready(tmp_path, monkeypatch):
     vault_root = tmp_path / "vault"
-    # Old path only: the HTTP double is the legacy endpoint adapter, which never
-    # receives an isolated operation, so it cannot be a split (head) vault's blind
-    # grader; on the head this grade falls back to the self grade.
-    pin_old_basic_vault(create_basic_vault(vault_root))
+    # The head grades through the learner-blind grader, an isolated turn: the double serves as
+    # a structured, isolated transport (tests.http_provider_double.serve_structured).
+    serve_structured(monkeypatch)
+    create_basic_vault(vault_root)
     checkout = tmp_path / "codex"
     checkout.mkdir()
     (checkout / "HEAD").write_text("abc123", encoding="utf-8")

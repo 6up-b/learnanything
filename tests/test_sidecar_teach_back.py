@@ -24,9 +24,9 @@ from tests.helpers import (
     NOW_ISO,
     configure_codex_http,
     create_basic_vault,
-    pin_old_basic_vault,
     seed_due_item,
 )
+from tests.http_provider_double import serve_structured
 
 import pytest
 
@@ -202,17 +202,17 @@ def _teach_item_payload() -> dict:
     }
 
 
-def _teach_vault(tmp_path, base_url: str, *, old_path: bool = False):
-    """``old_path``: the pre-D2a basic vault (mvp-0.6), for a test that grades the
-    transcript through the HTTP double. That double is the legacy endpoint
-    adapter, which never receives an isolated operation (``execute_structured_operation``),
-    so it cannot be a split vault's blind grader: on the head such a grade is
-    refused. Porting those tests means a blind-capable provider double."""
+def _teach_vault(tmp_path, base_url: str, *, grades_with=None):
+    """``grades_with``: the test's monkeypatch, for a test that grades the
+    transcript through the HTTP double. The head's split vault grades a
+    teach-back with the learner-blind grader, an isolated turn the legacy
+    endpoint adapter never receives, so the double serves as a structured,
+    isolated transport (``tests.http_provider_double.serve_structured``)."""
 
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
-    if old_path:
-        paths = pin_old_basic_vault(paths)
+    if grades_with is not None:
+        serve_structured(grades_with)
     seed_due_item(paths)
     upsert_practice_item(vault_root, _teach_item_payload(), clock=FrozenClock(NOW))
     checkout = tmp_path / "codex"
@@ -243,11 +243,11 @@ def _start_session(vault_root) -> str:
     return _call(vault_root, "start_session", {"energy": "medium"})["result"]["sessionId"]
 
 
-def test_sidecar_teach_back_conversation_checkpoints_and_grades(tmp_path):
+def test_sidecar_teach_back_conversation_checkpoints_and_grades(tmp_path, monkeypatch):
     server = _TeachBackServer()
     server.start()
     try:
-        vault_root, paths = _teach_vault(tmp_path, server.base_url, old_path=True)
+        vault_root, paths = _teach_vault(tmp_path, server.base_url, grades_with=monkeypatch)
         session_id = _start_session(vault_root)
 
         started = _call(
@@ -358,11 +358,11 @@ def test_sidecar_teach_back_conversation_checkpoints_and_grades(tmp_path):
         server.stop()
 
 
-def test_sidecar_teach_back_finish_early_grades_only_asked_criteria(tmp_path):
+def test_sidecar_teach_back_finish_early_grades_only_asked_criteria(tmp_path, monkeypatch):
     server = _TeachBackServer()
     server.start()
     try:
-        vault_root, paths = _teach_vault(tmp_path, server.base_url, old_path=True)
+        vault_root, paths = _teach_vault(tmp_path, server.base_url, grades_with=monkeypatch)
         session_id = _start_session(vault_root)
         _call(vault_root, "start_teach_back", {"sessionId": session_id, "practiceItemId": TEACH_ITEM_ID})
 
@@ -486,11 +486,11 @@ def test_sidecar_queue_excludes_teach_back_items_under_manual_grading(tmp_path):
         server.stop()
 
 
-def test_sidecar_teach_back_finish_under_manual_grading_is_typed_and_preserves_checkpoint(tmp_path):
+def test_sidecar_teach_back_finish_under_manual_grading_is_typed_and_preserves_checkpoint(tmp_path, monkeypatch):
     server = _TeachBackServer()
     server.start()
     try:
-        vault_root, paths = _teach_vault(tmp_path, server.base_url, old_path=True)
+        vault_root, paths = _teach_vault(tmp_path, server.base_url, grades_with=monkeypatch)
         session_id = _start_session(vault_root)
         _call(vault_root, "start_teach_back", {"sessionId": session_id, "practiceItemId": TEACH_ITEM_ID})
         _call(
@@ -544,7 +544,7 @@ def test_sidecar_teach_back_finish_survives_post_step_failure(tmp_path, monkeypa
     server = _TeachBackServer()
     server.start()
     try:
-        vault_root, paths = _teach_vault(tmp_path, server.base_url, old_path=True)
+        vault_root, paths = _teach_vault(tmp_path, server.base_url, grades_with=monkeypatch)
         session_id = _start_session(vault_root)
         _call(vault_root, "start_teach_back", {"sessionId": session_id, "practiceItemId": TEACH_ITEM_ID})
         _call(
@@ -581,13 +581,13 @@ def test_sidecar_teach_back_finish_survives_post_step_failure(tmp_path, monkeypa
         server.stop()
 
 
-def test_sidecar_teach_back_finish_retry_returns_same_attempt(tmp_path):
+def test_sidecar_teach_back_finish_retry_returns_same_attempt(tmp_path, monkeypatch):
     from learnloop_sidecar.handlers.sessions import SessionCheckpointInput, patch_checkpoint
 
     server = _TeachBackServer()
     server.start()
     try:
-        vault_root, paths = _teach_vault(tmp_path, server.base_url, old_path=True)
+        vault_root, paths = _teach_vault(tmp_path, server.base_url, grades_with=monkeypatch)
         session_id = _start_session(vault_root)
         _call(vault_root, "start_teach_back", {"sessionId": session_id, "practiceItemId": TEACH_ITEM_ID})
         _call(
@@ -657,13 +657,13 @@ def _queue_offer(vault_root, session_id: str, practice_item_id: str) -> str:
     )
 
 
-def test_sidecar_teach_back_from_a_queue_offer_links_the_graded_attempt(tmp_path):
+def test_sidecar_teach_back_from_a_queue_offer_links_the_graded_attempt(tmp_path, monkeypatch):
     from learnloop_sidecar.handlers.sessions import SessionCheckpointInput, patch_checkpoint
 
     server = _TeachBackServer()
     server.start()
     try:
-        vault_root, paths = _teach_vault(tmp_path, server.base_url, old_path=True)
+        vault_root, paths = _teach_vault(tmp_path, server.base_url, grades_with=monkeypatch)
         session_id = _start_session(vault_root)
         offer = _queue_offer(vault_root, session_id, TEACH_ITEM_ID)
         conversation = {"sessionId": session_id, "practiceItemId": TEACH_ITEM_ID}

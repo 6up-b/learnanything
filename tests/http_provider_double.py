@@ -21,6 +21,21 @@ What the fixture installs, and why each seam:
 
 The client and the readiness keep the adapter's behaviour as the tests knew it
 (its default endpoint paths, the ``proposal`` envelope, ``usage`` metering).
+
+**Serving the head's blind grader.** The adapter speaks only its eight named
+operations, and ``execute_structured_operation`` never sends a legacy endpoint
+an isolated turn, so on a split vault (``mvp-0.10`` on, the head) it cannot be
+the learner-blind grader and a model grade is refused. :func:`serve_structured`
+turns one test's double into a structured, isolated transport, as every head
+provider is: each request's context is read back from the prompt envelope
+(``render_structured_prompt`` appends ``{"context": ...}``, the same
+``prompt_safe`` value the legacy adapter posted) and posted to the operation's
+endpoint. The blind grader posts its ``BlindGradingContext`` (rubric, ids and
+answer, no learner history) to the server's joint grading endpoint, and the
+joint answer is restricted to the blind contract, as
+``tests.structured_ai.JointGraderAlsoBlind`` does for in-process fakes. A
+purpose with no endpoint is refused before any request, like a provider that
+does not serve it.
 """
 
 from __future__ import annotations
@@ -37,7 +52,13 @@ from pydantic import BaseModel, ValidationError
 from learnloop.ai.errors import AIInvalidOutput, AIProviderUnavailable, CodexUnavailable
 from learnloop.ai.execution import report_call_usage
 from learnloop.ai.schemas import describe_wire_validation_error
-from learnloop.ai.transport import StructuredRequest, WireResult, prompt_safe
+from learnloop.ai.transport import (
+    ISOLATED_TURN,
+    STRUCTURED_COMPLETION,
+    StructuredRequest,
+    WireResult,
+    prompt_safe,
+)
 from learnloop.ai.usage import TokenUsageAccounting, receipt_fields_from_chat_response, usage_from_chat_response
 
 HTTP_PROFILE_TYPES = frozenset({"http", "http_adapter"})
@@ -75,6 +96,9 @@ class HttpProviderDouble(TokenUsageAccounting):
     """
 
     provider_type = "http_adapter"
+    #: Set for one test by :func:`serve_structured`: a structured, isolated
+    #: transport over the same endpoints (the head's blind grader needs one).
+    structured = False
 
     def __init__(self, provider_name: str, profile: Any):
         self.provider_name = provider_name
@@ -84,7 +108,34 @@ class HttpProviderDouble(TokenUsageAccounting):
         self.timeout_seconds = _setting(profile, "timeout_seconds", 180)
 
     def supports(self, capability: str) -> bool:
+        if self.structured and capability in {STRUCTURED_COMPLETION, ISOLATED_TURN}:
+            return True
         return capability in _HTTP_PATHS
+
+    def complete(self, request: StructuredRequest[WireResult]) -> WireResult:
+        """One structured request (only under :func:`serve_structured`)."""
+
+        purpose = request.purpose
+        if not self.structured:
+            raise AIProviderUnavailable(f"Legacy HTTP adapter does not support structured operation {purpose!r}")
+        context = _prompt_context(request.prompt)
+        if purpose == "blind_grading":
+            attribute, default_path = _HTTP_PATHS["grading"]
+            payload = self._post(
+                _setting(self.profile, attribute, default_path),
+                {"context": context},
+                timeout_seconds=request.timeout_seconds,
+            )
+            return self._validated(request.result_model, _joint_restricted_to_blind(payload), purpose=purpose)
+        if purpose not in _HTTP_PATHS:
+            raise AIProviderUnavailable(f"HTTP provider double serves no endpoint for {purpose!r}")
+        attribute, default_path = _HTTP_PATHS[purpose]
+        payload = self._post(
+            _setting(self.profile, attribute, default_path),
+            {"context": context},
+            timeout_seconds=request.timeout_seconds,
+        )
+        return self._validated(request.result_model, payload, purpose=purpose)
 
     def complete_legacy(self, request: StructuredRequest[WireResult], *, context: object) -> WireResult:
         purpose = request.purpose
@@ -213,6 +264,44 @@ def install(monkeypatch: Any) -> None:
 
     monkeypatch.setattr(client, "make_ai_provider_client_from_profile", make_client)
     monkeypatch.setattr(runtime, "check_ai_runtime", check_ai_runtime)
+
+
+def serve_structured(monkeypatch: Any) -> None:
+    """For one test, the double is a structured, isolated transport (module docstring)."""
+
+    monkeypatch.setattr(HttpProviderDouble, "structured", True)
+
+
+def _prompt_context(prompt: str) -> Any:
+    """The ``context`` value of the JSON envelope a structured prompt ends with."""
+
+    for candidate in reversed(prompt.split("\n\n")):
+        try:
+            payload = json.loads(candidate)
+        except (TypeError, ValueError):
+            continue
+        if isinstance(payload, dict) and "context" in payload:
+            return payload["context"]
+    raise AIProviderUnavailable("structured request carried no JSON context envelope")
+
+
+def _joint_restricted_to_blind(payload: dict) -> dict:
+    """A joint grading answer cut to the blind contract: same points, score,
+    fatal errors and confidence; each error's localization without its causal
+    fields (on a split vault causes are the diagnoser's)."""
+
+    from learnloop.attempts.blind_grading import BlindErrorAttribution, BlindGradingProposal
+
+    body = payload["proposal"] if "proposal" in payload else payload
+    blind_fields = set(BlindGradingProposal.model_fields)
+    attribution_fields = set(BlindErrorAttribution.model_fields) - {"validity_scope"}
+    blind = {key: value for key, value in body.items() if key in blind_fields}
+    blind["error_attributions"] = [
+        {key: value for key, value in row.items() if key in attribution_fields}
+        for row in body.get("error_attributions", [])
+    ]
+    blind["local_analysis_md"] = body.get("diagnosis_md") or "Graded against the rubric."
+    return blind
 
 
 def _url(base_url: str, path: str) -> str:
