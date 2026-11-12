@@ -66,6 +66,22 @@ def _sha256_bytes(data: bytes) -> str:
     return "sha256:" + hashlib.sha256(data).hexdigest()
 
 
+def text_hash(text: str) -> str:
+    """A target's ``post_hash`` for ``text``, in the form the readers compare."""
+
+    return _sha256_bytes(text.encode("utf-8"))
+
+
+def _holds(found: str | None, recorded: str | None) -> bool:
+    """Whether a file's hash (``_sha256_bytes``; ``None``: no file) is the one
+    a target recorded. Both forms are read: a bare hex digest (what
+    ``write_registry_text`` gave before D-11) is the same hash."""
+
+    if found is None or recorded is None:
+        return found is recorded
+    return found == recorded or found == "sha256:" + recorded
+
+
 # --- dependency closure -----------------------------------------------------
 
 
@@ -370,7 +386,7 @@ def target_conflicts(root: Path, targets: list[dict[str, Any]]) -> list[dict[str
             continue
         dest = Path(root) / target["rel_path"]
         found = _sha256_bytes(dest.read_bytes()) if dest.exists() else None
-        if found == target["post_hash"] or found == target.get("pre_hash"):
+        if _holds(found, target["post_hash"]) or _holds(found, target.get("pre_hash")):
             continue
         conflicts.append(
             {
@@ -402,7 +418,7 @@ def materialize_targets(root: Path, targets: list[dict[str, Any]]) -> None:
     for target in targets:
         dest = root / target["rel_path"]
         post_bytes = target["post_content"].encode("utf-8")
-        if dest.exists() and _sha256_bytes(dest.read_bytes()) == target["post_hash"]:
+        if dest.exists() and _holds(_sha256_bytes(dest.read_bytes()), target["post_hash"]):
             continue
         dest.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp_name = tempfile.mkstemp(prefix=".apply-", dir=str(dest.parent))

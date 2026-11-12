@@ -150,6 +150,60 @@ def test_materialize_writes_over_the_pre_image_only(tmp_path):
     assert (root / "a.yaml").read_text(encoding="utf-8") == "plain\n"
 
 
+def _count_replaces(monkeypatch) -> list[str]:
+    replaced: list[str] = []
+    real = os.replace
+
+    def counting(src, dst, *args, **kwargs):
+        replaced.append(str(dst))
+        return real(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(apply_protocol.os, "replace", counting)
+    return replaced
+
+
+def test_a_registry_save_of_the_text_already_there_writes_nothing(tmp_path, monkeypatch):
+    """D-11: ``write_registry_text`` gave ``post_hash`` without the ``sha256:``
+    prefix, so the idempotent skip never matched and every save rewrote the file."""
+
+    from learnloop.content.facet_identity import authority
+
+    from tests.facet_identity_actions_helpers import _vault_with_duplicate
+
+    paths, _vault, _repository = _vault_with_duplicate(tmp_path)
+    text = paths.facets_path.read_text(encoding="utf-8")
+    replaced = _count_replaces(monkeypatch)
+
+    authority.write_registry_text(paths, text, basis={})
+
+    assert replaced == []
+    assert paths.facets_path.read_text(encoding="utf-8") == text
+
+
+def test_a_target_hashed_without_the_prefix_is_still_read(tmp_path, monkeypatch):
+    """Both forms are read: a target recorded before D-11 (a bare hex digest)
+    is skipped at its post-image and written over its pre-image, never a conflict."""
+
+    import hashlib
+
+    def bare(data: bytes) -> str:
+        return hashlib.sha256(data).hexdigest()
+
+    root = tmp_path / "tree"
+    root.mkdir()
+    (root / "a.yaml").write_text("before\n", encoding="utf-8")
+    target = {"rel_path": "a.yaml", "pre_hash": bare(b"before\n"), "post_content": "after\n",
+              "post_hash": bare(b"after\n")}
+    replaced = _count_replaces(monkeypatch)
+
+    assert apply_protocol.target_conflicts(root, [target]) == []
+    materialize_targets(root, [target])
+    assert (root / "a.yaml").read_text(encoding="utf-8") == "after\n"
+    assert apply_protocol.target_conflicts(root, [target]) == []
+    materialize_targets(root, [target])  # at the post-image: skipped
+    assert replaced == [str(root / "a.yaml")]
+
+
 # --- P-fail 2: the next sidecar bind finishes a crash between two renames --------------------------------------------
 
 
