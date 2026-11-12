@@ -28,6 +28,7 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.diagnosis.text_gaps import pipeline as gap_pipeline
+from learnloop.diagnosis.text_gaps import tier1 as gap_tier1
 from learnloop.diagnosis.text_gaps import sources as gap_sources
 from learnloop.diagnosis.text_gaps.jobs import process_next_gap_job, sweep_backlog
 from learnloop.figures import grammar as G
@@ -69,6 +70,9 @@ def test_f5_an_explanation_after_a_checkpointed_reading_is_its_own_text(tmp_path
         return real(*args, **kwargs)
 
     monkeypatch.setattr(gap_pipeline, "log_reading", fail_once)
+    # From the Decider's tier 1 (mvp-0.22, so the head) the kind is read in ``tier1.decide_kind``, which logs the
+    # reading through its own import.
+    monkeypatch.setattr(gap_tier1, "log_reading", fail_once)
     first = process_next_gap_job(paths.root, repository, owner="t", clients=clients)
     assert first.state == "retry_later"
     with repository.connection() as connection:

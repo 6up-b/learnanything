@@ -42,7 +42,12 @@ def golden(root: Path, *, switch: bool) -> dict[str, Any]:
     from learnloop.vault.paths import VaultPaths
     from tests.figure_fixtures import EXTRACTION, AuthorFake, build, build_figure_vault, call, context, flagship, set_config
 
+    from tests.helpers import set_algorithm_version
+
     paths, repository = build_figure_vault(root)
+    # The golden's fixed input is main's vault, whose basic vault was mvp-0.6 (refactor D2a moved this tree's to
+    # the head): keep the input at that tag, so the pin compares code, not vaults.
+    set_algorithm_version(paths, "mvp-0.6")
     if switch:
         set_config(paths, "figures", checked_labels_enabled=False)
     author = AuthorFake([flagship()])

@@ -34,6 +34,9 @@ from tests.text_gap_fakes import GapLLMFake
 
 GAP_TABLES = {"learner_text_gaps", "learner_text_gap_jobs", "judgment_ledger", "model_call_receipts",
               "text_write_provenance", "interaction_events", "judgment_work_claims", "model_work_checkpoints"}
+# A receipt, never learner state: at the head the gap reader asks the tier-1 Decider (mvp-0.22 on), and its
+# exclusion while the Decider is not ready leaves a decision record (arc B, ``learnloop.provenance``).
+GAP_TABLES = GAP_TABLES | {"decision_records"}
 #: A misconception reading may record a belief sighting or candidate (the
 #: pipeline's own tables, content only).
 BELIEF_TABLES = {"misconception_sightings", "belief_candidates", "misconception_candidates"}

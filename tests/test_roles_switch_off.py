@@ -24,6 +24,7 @@ from typing import Any
 
 import pytest
 
+from tests.helpers import OLD_BASIC_VAULT_TAG, set_algorithm_version
 from tests.library_ask_fixtures import OrganizerFake, ask_rows, call, context, table_counts
 from tests.passage_cue_fakes import CueJudgeFake, build_cue_vault, loaded, set_config
 from tests.source_service_fakes import FakeServiceLLM
@@ -103,6 +104,9 @@ def _record(tmp_path: Path) -> dict[str, Any]:
     from learnloop.source_retrieval import passage_cues as PC
 
     paths, repository, _spans = build_cue_vault(tmp_path / "vault")
+    # The golden's fixed input is the base tree's vault, whose basic vault was mvp-0.6 (refactor D2a moved the
+    # tip's to the head): keep the input at that tag, so the pin compares code, not vaults.
+    set_algorithm_version(paths, OLD_BASIC_VAULT_TAG)
     if not WRITE:
         set_config(paths, "roles", on_demand_enabled=False, positive_filter_enabled=False)
         _seed(loaded(paths), repository)

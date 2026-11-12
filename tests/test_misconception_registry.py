@@ -29,16 +29,21 @@ from learnloop.diagnosis.probes import (
 )
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, NOW_ISO, add_followup_item, create_basic_vault
+from tests.helpers import NOW, NOW_ISO, add_followup_item, create_basic_vault, pin_old_basic_vault
 
 LO_ID = "lo_svd_definition"
 ITEM_ID = "pi_svd_define_001"
 CONCEPT_ID = "singular_value_decomposition"
 
 
-def _setup(tmp_path):
+def _setup(tmp_path, *, old_normalization: bool = False):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
+    if old_normalization:
+        # Old path only: §2.2's normalization mints a registry row from one misconception event at once. From KM
+        # (mvp-0.7, so the head) it runs the promotion discipline over the attempt's episode (§10.2-10.3,
+        # ``_normalize_compositional``): one event is a candidate, never a durable belief.
+        paths = pin_old_basic_vault(paths)
     vault = load_vault(vault_root)
     repository = Repository(paths.sqlite_path)
     return vault, repository
@@ -139,7 +144,7 @@ def _discrimination(mc_id: str, *, item_id: str = ITEM_ID) -> ItemMisconceptionD
 
 
 def test_normalization_creates_row_with_provenance(tmp_path):
-    vault, repository = _setup(tmp_path)
+    vault, repository = _setup(tmp_path, old_normalization=True)
     _insert_mc_event(
         repository,
         attempt_id="att1",
@@ -168,7 +173,7 @@ def test_normalization_creates_row_with_provenance(tmp_path):
 
 
 def test_normalization_dedupes_by_normalized_statement(tmp_path):
-    vault, repository = _setup(tmp_path)
+    vault, repository = _setup(tmp_path, old_normalization=True)
     _insert_mc_event(repository, attempt_id="att1", event_id="ev1", statement="Reverses Q and Q^T.", severity=0.6)
     first = normalize_attempt_misconceptions(
         vault, repository, attempt_id="att1", learning_object_id=LO_ID, clock=FrozenClock(NOW)
@@ -194,7 +199,7 @@ def test_normalization_dedupes_by_normalized_statement(tmp_path):
 
 
 def test_normalization_reactivates_resolved_row(tmp_path):
-    vault, repository = _setup(tmp_path)
+    vault, repository = _setup(tmp_path, old_normalization=True)
     mc_id = repository.insert_misconception(
         learning_object_id=LO_ID,
         statement="reverses q and q t",
@@ -214,7 +219,7 @@ def test_normalization_reactivates_resolved_row(tmp_path):
 
 
 def test_statementless_events_create_nothing(tmp_path):
-    vault, repository = _setup(tmp_path)
+    vault, repository = _setup(tmp_path, old_normalization=True)
     _insert_mc_event(repository, attempt_id="att1", event_id="ev1", statement=None)
 
     touched = normalize_attempt_misconceptions(
@@ -227,7 +232,7 @@ def test_statementless_events_create_nothing(tmp_path):
 
 
 def test_normalization_is_idempotent(tmp_path):
-    vault, repository = _setup(tmp_path)
+    vault, repository = _setup(tmp_path, old_normalization=True)
     _insert_mc_event(repository, attempt_id="att1", event_id="ev1", statement="Reverses Q and Q^T.")
     normalize_attempt_misconceptions(
         vault, repository, attempt_id="att1", learning_object_id=LO_ID, clock=FrozenClock(NOW)
@@ -256,7 +261,7 @@ class _FakeClient(StructuredClientFake):
 
 
 def test_llm_match_same_merges(tmp_path):
-    vault, repository = _setup(tmp_path)
+    vault, repository = _setup(tmp_path, old_normalization=True)
     mc_id = repository.insert_misconception(
         learning_object_id=LO_ID, statement="an existing belief", concept_id=CONCEPT_ID, severity=0.5,
         clock=FrozenClock(NOW),
@@ -277,7 +282,7 @@ def test_llm_match_same_merges(tmp_path):
 
 
 def test_llm_match_new_inserts_over_text_match(tmp_path):
-    vault, repository = _setup(tmp_path)
+    vault, repository = _setup(tmp_path, old_normalization=True)
     repository.insert_misconception(
         learning_object_id=LO_ID, statement="reverses q and q t", concept_id=CONCEPT_ID, severity=0.5,
         clock=FrozenClock(NOW),

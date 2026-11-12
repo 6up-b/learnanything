@@ -595,6 +595,9 @@ def _due_cold_check(repository: Repository, item: str = ITEM):
 
 
 def test_a_workbench_submit_asks_the_same_eligibility_decision_as_every_submit(tmp_path, grader, monkeypatch):
+    # Built before the spy: at the head the vault's seeded history is applied through the submit decision too
+    # (below its tag the seeding asked none), and only the two submits below are compared.
+    paths, _repository = _vault(tmp_path)
     asked = []
     decide = serve_eligibility.decide
 
@@ -603,7 +606,6 @@ def test_a_workbench_submit_asks_the_same_eligibility_decision_as_every_submit(t
         return decide(inputs, request)
 
     monkeypatch.setattr(serve_eligibility, "decide", spy)
-    paths, _repository = _vault(tmp_path)
     ctx = _context(paths.root)
     practice_session = _call(ctx, "start_session", {})["sessionId"]
     # The practice screen's answer box with one hint: the reference.

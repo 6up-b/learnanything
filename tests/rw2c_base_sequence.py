@@ -74,6 +74,26 @@ class BridgeFake:
         return spans, {"basis": "retrieved_verified", "span_keys": [f"ext/s{index}" for index in range(1, 4)]}
 
 
+def _pin_the_base_vault() -> None:
+    """Keep the pin's fixed input fixed: the base code's basic vault is mvp-0.6 with an
+    empty facet registry, and the tip's moved to the head (refactor D2a). Both runs
+    build the base's vault, so the comparison is of code, not of vaults."""
+
+    import tests.approach_map_fakes as maps
+    from learnloop.vault.yaml_io import write_yaml
+    from tests.helpers import set_algorithm_version
+
+    build = maps.create_basic_vault
+
+    def base_vault(root: Path, **kwargs: Any) -> Any:
+        paths = build(root, **kwargs)
+        set_algorithm_version(paths, "mvp-0.6")
+        write_yaml(paths.facets_path, {"schema_version": 1, "facets": []})
+        return paths
+
+    maps.create_basic_vault = base_vault
+
+
 def main(root: Path) -> dict:
     import learnloop_sidecar.handlers  # noqa: F401 - registers the RPCs
     from learnloop.config.schema import WorkbenchConfig
@@ -81,6 +101,7 @@ def main(root: Path) -> dict:
     from tests.hint_fakes import ChooserFake, WriterFake, prefer
     from tests.workbench_help_fakes import call, open_problem, run_job, sidecar, wb_answer
 
+    _pin_the_base_vault()
     present = [name for name in SWITCHES if name in WorkbenchConfig.model_fields]
     config = ("[workbench]\n" + "".join(f"{name} = false\n" for name in present)) if present else ""
     writer = WriterFake([wb_answer] * 8)

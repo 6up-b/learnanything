@@ -373,8 +373,14 @@ def test_cold_active_ask_links_a_hint_equivalent_into_attempt_accounting(tmp_pat
         "created_at": "2026-05-19T12:00:00Z",
     })
 
+    class StrategyReader(RD.StubReaderClient):
+        # From Reader CA2 (mvp-0.34, the one help rule; so the head) a cold Ask counts as a hint only when the tutor
+        # reads it as substantive (``tutor_qa.HINT_EQUIVALENT_TYPES``); "How do I start?" is a strategy question.
+        def complete(self, request):
+            return super().complete(request).model_copy(update={"question_type": "strategy"})
+
     result = RD.ask(
-        vault, repo, RD.StubReaderClient(answer_md="Use the spectral decomposition."),
+        vault, repo, StrategyReader(answer_md="Use the spectral decomposition."),
         extraction_id="ext1", span_id="s1", question_md="How do I start?",
         cold_active=True, cold_attempt_id="cold_att_1", clock=_CLOCK,
     )

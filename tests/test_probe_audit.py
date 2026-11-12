@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from tests.structured_ai import StructuredClientFake
+from tests.structured_ai import JointGraderAlsoBlind, StructuredClientFake
 
 import json
 
@@ -252,7 +252,14 @@ def test_evidence_sources_stay_separate(tmp_path):
 
 def test_regrade_checks_record_agreement_and_confusion(tmp_path):
     loaded, repository = _setup(tmp_path)
-    _drive_two_observations(loaded, repository)
+    episode = _drive_two_observations(loaded, repository)
+    # At the head the first clean answer settles the episode (``decision_stable``); the second, contradicted
+    # observation comes from the next episode, which is all the regrade audit needs.
+    assert episode.status == "complete"
+    again = enter_episode(loaded, repository, LO_ID, trigger="manual", clock=CLOCK)
+    second = _commit(loaded, repository, again, item_id=ITEM_2)
+    _submit(loaded, repository, item_id=ITEM_2, presentation_id=second.id, score=1,
+            error_attributions=[GradeAttribution(error_type="conceptual_slip", severity=0.8, evidence="confused")])
     episodes = repository.list_probe_episodes()
     rows = [
         row
@@ -287,7 +294,7 @@ def test_regrade_checks_record_agreement_and_confusion(tmp_path):
     assert scope["confusion"][disagree["original_outcome"]][disagree["regrade_outcome"]] == 1
 
 
-class FakeGradingClient(StructuredClientFake):
+class FakeGradingClient(JointGraderAlsoBlind, StructuredClientFake):
     """Regrades every response as a clean full score."""
 
     provider_name = "fake_grader"

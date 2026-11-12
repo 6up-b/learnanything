@@ -115,8 +115,8 @@ def test_plan_trigger_judges_the_reading_section_decides_logs_and_builds(tmp_pat
     assert row["trigger_kind"] == "plan" and row["trigger_ref"] == "dp_1" and row["decision"] == "build"
     assert json.loads(row["anchor_json"]) == {"extraction_id": EXTRACTION, "span_ids": ["p3"]}
     assert row["goal_text"] is None and row["p_open_content"] == 0.8
-    # The test vaults sit below the figure wait estimate's tag (mvp-0.58), so they decide as prefetch_decision_v1.
-    assert row["model_version"] == PM.MODEL_VERSION_V1 and len(row["posterior_digest"]) == 64
+    # The basic vault is at the head, at or past the figure wait estimate's tag (mvp-0.58): prefetch_decision_v2.
+    assert row["model_version"] == PM.MODEL_VERSION and len(row["posterior_digest"]) == 64
     assert 0.0 <= row["propensity"] <= 1.0 and row["sampled_eu"] > 0 and row["w_minutes"] > 0
     assert row["horizon_kind"] == "plan_day_ended" and row["outcome"] is None
     (request,) = rows(repository, "figure_requests")

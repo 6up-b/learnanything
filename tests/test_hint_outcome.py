@@ -89,6 +89,9 @@ PLACEMENT_TABLES = {"judgment_ledger", "model_call_receipts", "model_work_checkp
 
 def test_a_hinted_wrong_answer_is_placed_and_each_hint_judged_measurement_only(tmp_path):
     paths, ctx, session = _sidecar(tmp_path)
+    # At the head a partial answer queues FG1's follow-up generation for the post-attempt worker; held queued, its
+    # thread cannot write between the two reads below and be taken for the placement's writes.
+    ctx.post_attempt_worker.autostart = False
     attempt_id = _hinted_attempt(ctx, session)
     before = _evidence(paths)
     fake = OutcomeFake()

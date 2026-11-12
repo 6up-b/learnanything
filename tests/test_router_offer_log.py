@@ -57,9 +57,15 @@ from tests.router_offer_log_helpers import (
 
 # ── the offer row ────────────────────────────────────────────────────────────
 
+#: These tests describe the legacy queue as Today, whose head is served (R1). At
+#: the head tag DL1's plan serves Today and this list is the full list one key
+#: away (``today_head_served``; covered by the ``full_list`` tests below), so they
+#: run with the plan's kill switch off, the head's own legacy-queue path.
+_LEGACY_TODAY = "[plan]\nenabled = false\n"
+
 
 def test_today_offer_logs_candidates_the_served_head_and_its_exact_propensity(tmp_path):
-    paths, repository, ctx, session_id = _two_due_items(tmp_path)
+    paths, repository, ctx, session_id = _two_due_items(tmp_path, toml=_LEGACY_TODAY)
 
     queue = _call(ctx, "get_today_queue", {"sessionId": session_id})
 
@@ -151,6 +157,7 @@ def test_an_empty_offer_logs_a_deterministic_stop(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     item_path = paths.practice_item_path("linear-algebra", "pi_svd_define_001")
     item_path.write_text(item_path.read_text().replace("practice_mode:", "status: retired\npractice_mode:", 1))
+    append_config_toml(paths.root, _LEGACY_TODAY)
     repository = Repository(paths.sqlite_path)
     session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=20, notes_md_path=None)
     ctx = _context(paths.root)
@@ -165,7 +172,7 @@ def test_an_empty_offer_logs_a_deterministic_stop(tmp_path):
 
 
 def test_skip_requeue_is_logged_with_the_skipped_item_removed(tmp_path):
-    paths, repository, ctx, session_id = _two_due_items(tmp_path)
+    paths, repository, ctx, session_id = _two_due_items(tmp_path, toml=_LEGACY_TODAY)
     first = _served(_call(ctx, "get_today_queue", {"sessionId": session_id}))
 
     requeued = _call(ctx, "skip_practice_item", {"sessionId": session_id, "practiceItemId": first[0]})
@@ -199,7 +206,7 @@ def _draft(ctx, session_id, item_id, candidate_id, submission_id="sub-1", answer
 
 
 def test_a_learner_pick_of_another_candidate_is_logged_without_propensity(tmp_path):
-    paths, repository, ctx, session_id = _two_due_items(tmp_path)
+    paths, repository, ctx, session_id = _two_due_items(tmp_path, toml=_LEGACY_TODAY)
     queue = _call(ctx, "get_today_queue", {"sessionId": session_id})
     items = [item for section in queue["sections"] for item in section["items"]]
     head, other = items[0], items[1]
@@ -220,7 +227,7 @@ def test_a_learner_pick_of_another_candidate_is_logged_without_propensity(tmp_pa
 
 
 def test_taking_the_offers_head_is_not_a_learner_pick(tmp_path):
-    paths, repository, ctx, session_id = _two_due_items(tmp_path)
+    paths, repository, ctx, session_id = _two_due_items(tmp_path, toml=_LEGACY_TODAY)
     queue = _call(ctx, "get_today_queue", {"sessionId": session_id})
     head = queue["sections"][0]["items"][0]
     _draft(ctx, session_id, head["practiceItemId"], head["schedulerCandidateId"])
@@ -495,7 +502,7 @@ def test_an_unregistered_design_is_refused():
 def test_today_offers_name_the_schedulers_own_exploration_as_their_design(tmp_path):
     """F5: the Today draw is not randomization_layer's epsilon_tiebreak."""
 
-    paths, repository, ctx, session_id = _two_due_items(tmp_path)
+    paths, repository, ctx, session_id = _two_due_items(tmp_path, toml=_LEGACY_TODAY)
     _call(ctx, "get_today_queue", {"sessionId": session_id})
     [row] = _decisions(repository)
     assert row["propensity_kind"] == "exact"
@@ -609,7 +616,7 @@ def test_the_head_rule_and_the_served_list_read_one_state_snapshot(tmp_path, mon
 
     from learnloop_sidecar.handlers import queue as queue_handler
 
-    paths, repository, ctx, session_id = _two_due_items(tmp_path, toml="[scheduler]\nselection_exploration_rate = 0.0\n")
+    paths, repository, ctx, session_id = _two_due_items(tmp_path, toml=_LEGACY_TODAY + "[scheduler]\nselection_exploration_rate = 0.0\n")
     original = queue_handler.scheduled_item_dtos
 
     def then_the_worker_reschedules(vault, repo, items, **kwargs):

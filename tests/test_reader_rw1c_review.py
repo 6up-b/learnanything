@@ -23,6 +23,7 @@ from types import SimpleNamespace
 import pytest
 
 from learnloop.tutor import reader_modes
+from tests.helpers import OLD_BASIC_VAULT_TAG, set_algorithm_version
 from tests.reader_tutor_fakes import ROOT_QUESTION, LookupTutor, ask, call, reader_ctx, spans_given
 from tests.source_service_fakes import set_item_answer, table_counts
 from tests.reader_tutor_retrieval_helpers import _bound_session, _workbench_steps
@@ -688,6 +689,10 @@ def test_a_cold_bound_ask_is_a_hint_whatever_its_type_and_its_cold_row(tmp_path,
 
     tutor = LookupTutor(question_type=question_type)
     _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    # Old path only: "a hint whatever its type" is the predecessor's L6 rule. From Reader CA2's one help rule
+    # (mvp-0.34, so the head) a cold question counts only when substantive (``help_converts_active``).
+    set_algorithm_version(_paths, OLD_BASIC_VAULT_TAG)
+    ctx.load(_paths.root)
     vault, _repository = ctx.require_vault()
     session = repository.create_session()
     answer = ask(ctx, workbenchSessionId=_bound_to(repository, ITEM, session), coldActive=True,
@@ -727,9 +732,9 @@ def test_an_offers_only_bound_question_counts_once(tmp_path, monkeypatch):
 @pytest.mark.parametrize("cold", [False, True])
 @pytest.mark.parametrize("question_type", ["mechanism", "other"])
 def test_the_responses_hint_flag_is_the_stored_flag(tmp_path, monkeypatch, retrieval, cold, question_type):
-    """R1: one source of truth. Bound, the flag is cold or the ordinary
-    classification, retrieval on or off, and the response and the exchange
-    read the stored value."""
+    """R1: one source of truth. Bound, the flag is the ordinary classification
+    (cold too, from Reader CA2), retrieval on or off, and the response and the
+    exchange read the stored value."""
 
     tutor = LookupTutor(question_type=question_type)
     _paths, ctx, repository, _spans = reader_ctx(
@@ -738,7 +743,9 @@ def test_the_responses_hint_flag_is_the_stored_flag(tmp_path, monkeypatch, retri
     session = repository.create_session()
     answer = ask(ctx, workbenchSessionId=_bound_to(repository, ITEM, session), **({"coldActive": True} if cold else {}))
     stored = repository.question_event(answer["eventId"])["hint_equivalent"]
-    assert stored is (cold or question_type == "mechanism")
+    # Reader CA2's one help rule (mvp-0.34, so the head): a cold question counts only when substantive, as any
+    # other does, so the flag is the ordinary classification; the predecessor's L6 also counted every cold one.
+    assert stored is (question_type == "mechanism")
     assert answer["hintEquivalent"] == stored
     with repository.connection() as connection:
         (payload,) = connection.execute("SELECT payload_json FROM interaction_events WHERE id = ?",

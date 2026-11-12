@@ -205,7 +205,9 @@ def test_dont_know_attaches_the_rows_too(tmp_path):
     payload = _call(ctx, "submit_dont_know", {
         "sessionId": session_id, "practiceItemId": ITEM, "hintsUsed": 1, "submissionId": "dk-1"})
     attempt = Repository(paths.sqlite_path).fetch_practice_attempt(payload["attemptId"])
-    assert attempt["attempt_type"] == "dont_know" and attempt["hints_used"] == 1
+    # From mvp-0.13 (the stuck prompt, so the head) "I don't know" records an empty stuck answer, whose type
+    # follows the hint count (``submit_dont_know_on``): one hint shown makes it a hinted attempt.
+    assert attempt["attempt_type"] == "hinted_attempt" and attempt["hints_used"] == 1
     assert [row["attempt_id"] for row in _rows(paths.sqlite_path)] == [payload["attemptId"]]
 
 
@@ -319,7 +321,8 @@ def test_hints_used_primed_reveals_and_evidence_are_identical_with_telemetry_on_
         attempts = connection.execute(
             "SELECT attempt_type, hints_used, primed FROM practice_attempts ORDER BY created_at, id").fetchall()
         reveals = connection.execute("SELECT COUNT(*) FROM reveal_events").fetchone()[0]
-    assert attempts == [("hinted_attempt", 1, 0), ("dont_know", 1, 0)]
+    # The don't-know after a hint is an empty stuck answer from mvp-0.13 on (the head): a hinted attempt.
+    assert attempts == [("hinted_attempt", 1, 0), ("hinted_attempt", 1, 0)]
     assert reveals == 0  # authored reveals still write no reveal row (§10.1 successor 3)
 
 

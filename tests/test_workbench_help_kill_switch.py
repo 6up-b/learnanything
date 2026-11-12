@@ -20,8 +20,11 @@ def _shape(tmp_path, config):
     view = call(ctx, "workbench.get", {"sessionId": wb})["session"]
     left = call(ctx, "workbench.leave", {"sessionId": wb})["session"]
     submitted = call(ctx, "workbench.submit", {"sessionId": wb, "practiceSessionId": session})
+    # The served contract's version id is a fresh ULID per vault, like the session ids (at the head every
+    # served item snapshots its assessment contract, so it is set on both sides; below, it was None).
+    assert view["assessmentContractVersionId"] is not None
     strip = ("sessionId", "createdAt", "updatedAt", "closedAt", "attemptId", "practiceSessionId", "steps",
-             "lastEditedStepId")
+             "lastEditedStepId", "assessmentContractVersionId")
     return {
         "workbench_key": snapshot.get("workbench"),
         "view": {key: value for key, value in view.items() if key not in strip},
@@ -35,7 +38,8 @@ def _shape(tmp_path, config):
 def test_switched_off_the_rw2a_workbench_is_byte_identical(tmp_path, grader):
     off = _shape(tmp_path / "off", "[workbench]\nhelp_enabled = false\n")
     on = _shape(tmp_path / "on", "")
-    assert off["workbench_key"] == {"enabled": True, "openSessionDays": 30}
+    # IH6 (the head's tag, failure_share_tag) adds ``openItem`` beside RW2a's keys, whatever the help switch.
+    assert off["workbench_key"] == {"enabled": True, "openSessionDays": 30, "openItem": True}
     # RW2b fix round 13: the help block carries the symbolic switch (off by default).
     # Reader RW2c's three DTO flags are on by default (present only while on).
     assert on["workbench_key"] == {**off["workbench_key"], "help": {"enabled": True, "bridge": True,

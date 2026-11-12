@@ -106,8 +106,8 @@ def test_prebuilds_record_no_measured_latency_then_sampled_eu_positive_with_the_
     before = why(paths.root, f"decision:{skip['id']}")["records"]
     (record,) = [item for item in before if item["kind"] == FR.KIND_PREBUILD]
     assert record["status"] == "excluded" and record["rule"] == PM.RULE_NO_MEASURED_LATENCY
-    # Below the figure wait estimate's tag (mvp-0.58) the pass decides as prefetch_decision_v1.
-    assert record["decided_by"] == PM.MODEL_VERSION_V1 and record["detail_table"] == "figure_prefetch_decisions"
+    # At the head (the figure wait estimate's tag, mvp-0.58, or later) the pass decides as prefetch_decision_v2.
+    assert record["decided_by"] == PM.MODEL_VERSION and record["detail_table"] == "figure_prefetch_decisions"
     facts = record["facts"]
     assert facts["verdict"] == "skip" and facts["eu"] is None and facts["propensity"] == 0.0
     assert facts["waits_n"] == 0 and facts["wait_min"] is None and facts["wait_basis"] == "none"

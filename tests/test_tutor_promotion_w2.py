@@ -19,7 +19,7 @@ from learnloop.tutor.question_signal import (
     resolve_gap_declaration_likelihood,
 )
 from learnloop.vault.loader import load_vault
-from tests.helpers import NOW, NOW_ISO, create_basic_vault
+from tests.helpers import NOW, NOW_ISO, create_basic_vault, pin_old_basic_vault
 
 LO_ID = "lo_svd_definition"
 ITEM_ID = "pi_svd_define_001"
@@ -27,9 +27,11 @@ QUESTION_ISO = "2026-05-19T11:00:00Z"
 LATER_ISO = "2026-05-19T11:30:00Z"
 
 
-def _setup(tmp_path):
+def _setup(tmp_path, *, old: bool = False):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
+    if old:
+        paths = pin_old_basic_vault(paths)
     return load_vault(vault_root), Repository(paths.sqlite_path)
 
 
@@ -148,9 +150,10 @@ def test_low_claim_now_seeds_prior(tmp_path):
     assert state.logit_mean == pytest.approx(logit(0.25))
     # A self-report may move the mean but cannot impersonate measured evidence;
     # the configured claim floor dominates the raw 1/pseudo-count variance.
-    assert state.logit_variance == pytest.approx(
-        vault.config.mastery.claim_prior_min_variance
-    )
+    # The claim-fixes successor (mvp-0.33, so the head): the seeded variance never drops below the cold start's.
+    assert state.logit_variance == pytest.approx(max(
+        vault.config.mastery.claim_prior_min_variance, vault.config.mastery.cold_start_prior_logit_variance
+    ))
     assert state.evidence_count == 0
 
 
@@ -160,9 +163,10 @@ def test_high_claim_preserves_mean_and_respects_claim_variance_floor(tmp_path):
     state = initial_mastery_state_for_learning_object(vault, repository, LO_ID, NOW_ISO)
     # 0.9 is inside [0.05, 0.98], so the mean clamp is a no-op.
     assert state.logit_mean == pytest.approx(logit(0.9))
-    assert state.logit_variance == pytest.approx(
-        vault.config.mastery.claim_prior_min_variance
-    )
+    # The claim-fixes successor (mvp-0.33, so the head): the seeded variance never drops below the cold start's.
+    assert state.logit_variance == pytest.approx(max(
+        vault.config.mastery.claim_prior_min_variance, vault.config.mastery.cold_start_prior_logit_variance
+    ))
 
 
 def test_very_high_claim_matches_native_logit_clamp(tmp_path):
@@ -234,7 +238,9 @@ def test_gap_likelihood_calibrates_from_declaration_failure_lift(tmp_path):
 
 
 def test_transfer_gap_on_solid_facet_is_skipped(tmp_path):
-    vault, repository = _setup(tmp_path)
+    # Old path only: the solid facet is a seeded per-LO facet recall row, which canonical vaults (KM2, mvp-0.7 on,
+    # so the head) never read; their facet belief is the projection over observations.
+    vault, repository = _setup(tmp_path, old=True)
     _insert_facet_recall_state(repository, "recall", alpha=9.0, beta=1.0)  # solid (mass 8 > 0.5)
     _insert_gap_declaration(repository, question_nature="transfer")
     signal = collect_question_signal(vault, repository, LO_ID, clock=FrozenClock(NOW))

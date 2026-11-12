@@ -21,7 +21,7 @@ from learnloop.db.repositories import Repository
 from learnloop.router.outcomes import S_ALPHA, derive_router_outcomes
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, add_followup_item, create_basic_vault, seed_due_item
+from tests.helpers import NOW, add_followup_item, append_config_toml, create_basic_vault, seed_due_item
 from tests.router_outcomes_helpers import A, B, LO, _at, _attempt, _decision, _reveal
 
 @pytest.fixture
@@ -160,6 +160,10 @@ def test_the_replayer_rebuilds_router_outcomes_deterministically_with_no_model_c
         B, difficulty=5.0, stability=2.0, due_at="2026-05-18T12:00:00Z",
         last_attempt_at="2026-05-16T12:00:00Z", active=True,
     )
+    # The offer's head is taken only where the legacy queue is Today: at the head
+    # tag DL1's plan serves Today and this list logs no served head
+    # (``today_head_served``), so the plan's kill switch is off here.
+    append_config_toml(paths.root, "[plan]\nenabled = false\n")
     ctx = SidecarContext()
     ctx.load(paths.root)
     ctx.grading_provider_override = "manual"
@@ -186,7 +190,8 @@ def test_the_replayer_rebuilds_router_outcomes_deterministically_with_no_model_c
     with sqlite3.connect(paths.sqlite_path) as connection:
         connection.row_factory = sqlite3.Row
         row = connection.execute("SELECT * FROM router_outcomes").fetchone()
-    assert row["action_status"] == "taken" and row["outcome_version"] == "router_outcomes_v2"
+    # Data capture (mvp-0.44 on, so the head) derives router_outcomes_v3.
+    assert row["action_status"] == "taken" and row["outcome_version"] == "router_outcomes_v3"
     # Router R2a: the offer's head is bound through its scheduler candidate.
     assert row["action_binding"] == "candidate"
     # The decision ledger is never touched by replay.

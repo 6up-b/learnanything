@@ -17,6 +17,7 @@ import learnloop.clock as clock_module
 from learnloop.hints import telemetry
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 from learnloop_sidecar.context import SidecarContext
+from learnloop_sidecar.post_attempt_worker import KINDS
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.helpers import append_config_toml, create_basic_vault
@@ -129,6 +130,9 @@ def _scenario(root: Path, monkeypatch) -> list[str]:
     ctx = SidecarContext()
     ctx.load(root)
     ctx.grading_provider_override = "manual"
+    # At the head a miss queues post-attempt work (FG1 follow-up generation and its surprise); its threads would
+    # race this run's deterministic ids, so it waits and is drained in order at the end, as the worker would.
+    ctx.post_attempt_worker.autostart = False
     session_id = _call(ctx, "start_session", {"energy": "medium"})["sessionId"]
     responses = [_call(ctx, "get_practice_item", {"practiceItemId": ITEM, "sessionId": session_id})]
     _reveal(ctx, session_id, 0, answer="U, Sigma", at="2026-10-17T08:59:00Z")
@@ -142,4 +146,6 @@ def _scenario(root: Path, monkeypatch) -> list[str]:
     responses.append(_call(ctx, "submit_dont_know", {
         "sessionId": session_id, "practiceItemId": ITEM, "hintsUsed": 1, "submissionId": "k2"}))
     responses.append(_call(ctx, "get_session", {"sessionId": session_id}))
+    for kind in KINDS:
+        ctx.post_attempt_worker.run_pending(kind)
     return [_scrub(response, root) for response in responses]

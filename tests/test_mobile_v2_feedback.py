@@ -18,11 +18,13 @@ from learnloop_mobile.host import create_app
 from tests.mobile_host_helpers import (
     HOSTNAME, ITEM, CountingGrader, Phone, config_for, install_grader, pair, rows, seeded_vault,
 )
+from tests.helpers import append_config_toml
 
 
-@pytest.fixture
-def answered(tmp_path, monkeypatch):
+def _answered(tmp_path, monkeypatch, config: str = ""):
     paths, repository = seeded_vault(tmp_path / "vault")
+    if config:
+        append_config_toml(paths.root, config)
     install_grader(monkeypatch, CountingGrader())
     # The contest's regrade finds no grader: the reason is kept and the grade goes to review; no model is asked.
     import learnloop_sidecar.handlers.ai_providers as providers
@@ -40,8 +42,23 @@ def answered(tmp_path, monkeypatch):
         yield phone, Phone(client, second), repository, session_id, attempt_id
 
 
+@pytest.fixture
+def answered(tmp_path, monkeypatch):
+    yield from _answered(tmp_path, monkeypatch)
+
+
+@pytest.fixture
+def answered_without_followups(tmp_path, monkeypatch):
+    """The head's no-workflow case: FG1's ``followup.generate_and_serve`` off (on, the miss opens a workflow)."""
+
+    yield from _answered(tmp_path, monkeypatch, "[followup]\ngenerate_and_serve = false\n")
+
+
 def test_j2_the_full_answers_display_is_recorded_once_per_display_id(answered):
     phone, _other, repository, _session_id, attempt_id = answered
+    # At the head the miss opens FG1's follow-up, which holds the full answer until it is answered (409
+    # ``followup_feedback_held``); the learner's "show it anyway" is the way to it here.
+    assert phone.rpc("followup_show_anyway", {"attemptId": attempt_id})["released"] is True
     first = phone.rpc("record_answer_display", {"attemptId": attempt_id, "displayId": "disp_1"})
     again = phone.rpc("record_answer_display", {"attemptId": attempt_id, "displayId": "disp_1"})
     assert first["recorded"] is True and again.get("alreadyRecorded") is True
@@ -59,8 +76,8 @@ def test_j2_the_contest_is_a_job_under_its_own_key_and_kept_once(answered):
     assert again["contest"] == bundle["contest"]
 
 
-def test_j3_the_follow_up_read_and_its_ways_out_answer_without_a_workflow(answered):
-    phone, _other, _repository, _session_id, attempt_id = answered
+def test_j3_the_follow_up_read_and_its_ways_out_answer_without_a_workflow(answered_without_followups):
+    phone, _other, _repository, _session_id, attempt_id = answered_without_followups
     assert phone.rpc("followup_status", {"attemptId": attempt_id})["enabled"] is False
     assert phone.rpc("followup_continue_without", {"attemptId": attempt_id})["continued"] in (True, False)
     assert phone.rpc("followup_show_anyway", {"attemptId": attempt_id})["released"] in (True, False)

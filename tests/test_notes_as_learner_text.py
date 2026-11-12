@@ -54,6 +54,9 @@ from tests.notes_as_learner_text_helpers import (
 #: work claims (the holding pen only for a belief, not exercised here).
 GAP_TABLES = {"learner_text_gaps", "learner_text_gap_jobs", "judgment_ledger", "model_call_receipts",
               "judgment_work_claims", "model_call_spend", "text_write_provenance"}
+# A receipt, never learner state: at the head the gap reader asks the tier-1 Decider (mvp-0.22 on), and its
+# exclusion while the Decider is not ready leaves a decision record (arc B, ``learnloop.provenance``).
+GAP_TABLES = GAP_TABLES | {"decision_records"}
 #: Evidence, mastery, grading, scheduling and claims: never written by a note's reading.
 NEVER_TABLES = ("practice_attempts", "grading_evidence", "facet_recall_state", "facet_capability_evidence",
                 "probe_observations", "fsrs_states", "learner_claims", "learner_gap_check_advances",
