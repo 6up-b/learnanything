@@ -68,6 +68,7 @@ These commands define the current verification procedure. A dated CI/release art
 - Add a synthetic negative architecture test when adding a new detector; prove the detector fails on a fabricated violation.
 - Prefer frozen clocks, stubbed runner services, and local provider fakes over sleeps/network.
 - Use migration-head fixtures for schema policy and historical fixtures for compatibility/upgrades.
+- The default test vault, `tests/helpers.py`'s `create_basic_vault` (and the per-session template copied from it), is at the head tag, the one `learnloop init` writes (`LATEST_ALGORITHM_VERSION`), with its item's `recall` facet registered in `facets.yaml`. `helpers.ALGORITHM_VERSION` is that tag, not `AlgorithmsConfig`'s field default, which is older than every real vault. A test of an older tag's path pins it explicitly: `set_algorithm_version(paths, tag)`, or `pin_old_basic_vault(paths)` for the pre-head basic vault (`mvp-0.6` with an empty facet registry, byte for byte). Refactor step D2a moved it; `docs/reviews/refactor-d2a.md` lists the pinned tests.
 - A refactor test should compare observable outcomes, not merely new import paths.
 
 ## When changing algorithms
