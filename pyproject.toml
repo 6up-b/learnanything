@@ -731,6 +731,7 @@ source_modules = [
     "learnloop.tutor",
     "learnloop.vault",
     "learnloop.vault_lock",
+    "learnloop.version_floor",
     "learnloop.voi_stopping_upgrade",
     "learnloop.why",
     "learnloop.workbench",

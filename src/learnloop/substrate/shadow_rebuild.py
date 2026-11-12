@@ -21,6 +21,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 from pydantic import ValidationError
 
+from learnloop.algorithm_versions import OLDEST_SUPPORTED
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import Repository
 from learnloop.substrate.rebuild_orchestrator import (
@@ -29,6 +30,7 @@ from learnloop.substrate.rebuild_orchestrator import (
 )
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
+from learnloop.version_floor import is_below_floor
 
 
 class ShadowRebuildError(RuntimeError):
@@ -192,10 +194,11 @@ def build_candidate_config(
 
     Values accept JSON scalars/containers; an unquoted value that is not valid
     JSON is treated as a string, which keeps common CLI input such as
-    ``algorithms.algorithm_version=mvp-0.9`` ergonomic.  Unknown paths are
+    ``plan.enabled=false`` ergonomic.  Unknown paths are
     rejected so a typo cannot silently turn a candidate experiment into the
     baseline configuration (``LearnLoopConfig`` intentionally allows legacy
-    extra keys when loading vaults).
+    extra keys when loading vaults), and a forced ``algorithms.algorithm_version``
+    below the oldest supported tag is refused.
     """
 
     payload = deepcopy(config.model_dump(mode="python"))
@@ -227,6 +230,14 @@ def build_candidate_config(
         candidate = type(config).model_validate(payload)
     except ValidationError as exc:
         raise ConfigOverrideError(f"candidate config is invalid: {exc}") from exc
+    # A replay forced below the floor would run code no vault may be opened at any longer. Only a forced tag is
+    # judged: the baseline's own tag was judged when the vault was opened.
+    forced = any(parts == ("algorithms", "algorithm_version") for _path, parts in requested_paths)
+    if forced and is_below_floor(candidate.algorithms.algorithm_version):
+        raise ConfigOverrideError(
+            f"algorithms.algorithm_version={candidate.algorithms.algorithm_version} is below "
+            f"{OLDEST_SUPPORTED}, the oldest version this LearnLoop opens; a shadow rebuild replays at it or later"
+        )
 
     normalized = candidate.model_dump(mode="json")
     applied: dict[str, Any] = {}

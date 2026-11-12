@@ -15,6 +15,7 @@ from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import write_yaml
 from learnloop.vault.writer import upsert_practice_item
+from learnloop.version_floor import allow_below_floor_in_tests, is_below_floor
 
 
 NOW = datetime(2026, 5, 19, 12, 0, tzinfo=UTC)
@@ -457,6 +458,19 @@ def _set_algorithm_version_at(root: Path, version: str) -> None:
     if count == 0:
         raise AssertionError("algorithm_version line not found in learnloop.toml")
     toml_path.write_text(updated, encoding="utf-8")
+    if is_below_floor(version):
+        allow_below_floor(root)
+
+
+def allow_below_floor(root: Path) -> None:
+    """Let this test's vault at ``root`` open below the oldest supported tag (ADR-018).
+
+    The suite's one allowance: set_algorithm_version and pin_old_basic_vault call it for an old tag, and a test
+    that writes an old tag (or copies an old vault) any other way calls it itself, so every test that still opens
+    a vault below the floor reaches it, and retiring the old code means emptying its callers. Production code
+    never calls it (tests/test_version_floor.py)."""
+
+    allow_below_floor_in_tests(root)
 
 
 def write_facets(paths: VaultPaths, facets: list[dict], *, schema_version: int = 2) -> None:

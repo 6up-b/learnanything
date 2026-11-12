@@ -27,9 +27,11 @@ from starlette.responses import JSONResponse, RedirectResponse, Response
 from starlette.staticfiles import StaticFiles
 
 from learnloop import activation_journal, capture
+from learnloop.config.loader import load_config as load_vault_config
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.session_ownership import SessionOwnershipError
+from learnloop.version_floor import BelowOldestSupported, refuse_below_floor
 from learnloop_mobile.adapter import error_body, status_for, translate
 from learnloop_mobile.allowlist import (
     ALLOWLIST, API_VERSION, PLAN_METHODS, PROBE_METHODS, READER_METHODS, ParamRejected, allowlist_digest,
@@ -140,6 +142,11 @@ def database_path(config: MobileConfig) -> Path:
 
 
 def attach(config: MobileConfig, *, read_only: bool = False) -> Repository:
+    try:
+        # First: below the floor, migrating (what the schema message below asks for) would not make it servable.
+        refuse_below_floor(config.vault, load_vault_config(config.vault / "learnloop.toml", load_environment=False))
+    except BelowOldestSupported as exc:
+        raise SchemaMismatch(str(exc)) from exc
     path = database_path(config)
     expected = {migration.version for migration in discover_migrations()}
     try:

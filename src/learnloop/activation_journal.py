@@ -48,9 +48,14 @@ journal beside the database. Nothing may serve the vault in that state:
   never migrate or write learner state; the MCP server and the phone host also
   say so as their own ``SchemaMismatch``.
 
+A journal whose upgrade starts below the oldest supported tag is not completed
+by an opener: :func:`complete` raises
+:class:`learnloop.version_floor.BelowOldestSupported`, and only ``learnloop
+upgrade`` finishes it.
+
 The journal's path follows from the database's alone, so the database layer
 can refuse without knowing the vault. This module is a leaf: it imports
-nothing of LearnLoop.
+nothing of LearnLoop but the version floor (itself a leaf).
 """
 
 from __future__ import annotations
@@ -60,6 +65,8 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
+
+from learnloop.version_floor import refuse_journal_below_floor
 
 #: The journal's name beside the vault database (``<database>.claim-fixes-activation``).
 JOURNAL_SUFFIX = ".claim-fixes-activation"
@@ -121,6 +128,16 @@ def message(sqlite_path: Path) -> str:
     )
 
 
+def _link(sqlite_path: Path) -> tuple[str, str] | None:
+    """The journalled upgrade's ``(predecessor, target)``, or None for a torn journal (its completion decides)."""
+
+    try:
+        payload = json.loads(journal_path(sqlite_path).read_text(encoding="utf-8"))
+        return (str(payload["predecessor"]), str(payload["target"]))
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
 def install_completer(completer: Callable[[Path], object] | None) -> None:
     """Install the process's completion (an entry point does, at import); None removes it."""
 
@@ -135,6 +152,11 @@ def complete(vault_root: Path, sqlite_path: Path) -> None:
 
     if completing() or not pending(sqlite_path):
         return
+    link = _link(sqlite_path)
+    if link is not None:
+        # Completing a journal runs its link's upgrade code, so one starting below the floor waits for
+        # ``learnloop upgrade``, like a vault below it.
+        refuse_journal_below_floor(Path(vault_root), *link)
     if _COMPLETER is None:
         raise InterruptedActivation(message(sqlite_path))
     try:

@@ -33,9 +33,12 @@ from learnloop.algorithm_versions import (
     UNEVIDENCED_RETURN_ALGORITHM_VERSION,
     WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
 )
+import functools
+
 from learnloop import provenance
 from learnloop.cli.receipts import command_receipts
 from learnloop.cli.runtime import *  # noqa: F403
+from learnloop.version_floor import upgrading as _upgrading_below_floor
 
 
 _runtime_ready_provider_for_task = _ready_provider_for_task
@@ -113,7 +116,21 @@ def init(
         raise typer.Exit(code=2) from exc
     typer.echo(f"Initialized LearnLoop vault at {result.root}")
 
+
+def _opens_the_vault_it_upgrades(command):
+    """Run the upgrade command with its vault exempt from the oldest-supported-tag refusal: every other door
+    refuses a vault below the floor and names this command, so without the exemption nothing could bring it there."""
+
+    @functools.wraps(command)
+    def run(*args, **kwargs):
+        with _upgrading_below_floor(_root(kwargs.get("vault"))):
+            return command(*args, **kwargs)
+
+    return run
+
+
 @app.command("upgrade")
+@_opens_the_vault_it_upgrades
 def upgrade(
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
     to: Annotated[

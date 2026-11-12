@@ -985,6 +985,11 @@ def successors_from(version: str) -> frozenset[str]:
     return frozenset(SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(version):])
 
 
+# The oldest tag a vault is opened at (ADR-018): one below it is refused at open until upgraded
+# (``learnloop.version_floor``). Moving the floor is this one line.
+OLDEST_SUPPORTED: str = FIGURE_WAIT_ALGORITHM_VERSION
+
+
 # Versions at which practice grading is split (kill switch
 # ``diagnosis.split_enabled`` restores joint grading for NEW attempts; an
 # attempt's grader mode is recorded per attempt and replay never reads the

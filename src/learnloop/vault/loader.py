@@ -17,6 +17,7 @@ from ruamel.yaml.error import YAMLError
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.config import load_config, write_default_config
 from learnloop.ids import kebab_case, snake_case
+from learnloop.version_floor import refuse_below_floor
 from learnloop.vault.models import (
     ActivityFamily,
     ConceptGraph,
@@ -310,6 +311,8 @@ def load_vault(
         if load_environment
         else load_config(vault_root / "learnloop.toml", load_environment=False)
     )
+    # Every door loads the vault here, so one check refuses a vault below the oldest supported tag everywhere.
+    refuse_below_floor(vault_root, config)
     paths = VaultPaths(vault_root, config)
     issues: list[DoctorIssue] = []
     loaded = LoadedVault(root=vault_root, config=config, issues=issues)

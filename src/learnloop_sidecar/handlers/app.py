@@ -4,9 +4,11 @@ from typing import Any
 
 from pydantic import Field
 
+from learnloop.version_floor import BelowOldestSupported
 from learnloop_sidecar import __version__
 from learnloop_sidecar.context import SidecarContext, config_dto, runtime_health, vault_summary
 from learnloop_sidecar.dto import ParamsModel, versioned
+from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import METHOD_REGISTRY, method
 
 
@@ -52,7 +54,15 @@ def _ensure_default_library(path: str) -> None:
 def initialize(ctx: SidecarContext, params: InitializeParams) -> dict[str, Any]:
     if params.create_if_missing:
         _ensure_default_library(params.vault_path)
-    ctx.load(params.vault_path)
+    try:
+        ctx.load(params.vault_path)
+    except BelowOldestSupported as exc:
+        # Unmapped, it would reach the desktop as an internal error with no message.
+        raise SidecarError(
+            "vault_below_oldest_supported",
+            str(exc),
+            details={"algorithm_version": exc.tag, "oldest_supported": exc.floor, "commands": list(exc.commands)},
+        ) from exc
     vault, repository = ctx.require_vault()
     return versioned(
         {

@@ -69,6 +69,7 @@ from learnloop.vault.models import (
 )
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml_data
+from learnloop.version_floor import refuse_below_floor
 
 Severity = Literal["error", "warning"]
 
@@ -151,6 +152,8 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
     config = _load_config_for_doctor(vault_root, issues)
     if config is None:
         return DoctorReport(root=vault_root, issues=issues)
+    # Before --fix-state migrates or recovers anything: load_vault below would refuse it only after those writes.
+    refuse_below_floor(vault_root, config)
     _check_retired_config(vault_root, issues)
     _check_codex_pins(vault_root, config, issues)
     _check_chatgpt_plan_routes(vault_root, config, issues, machine_state=ai)

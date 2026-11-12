@@ -51,6 +51,7 @@ from learnloop.vault.loader import (
 )
 from learnloop.vault.models import DoctorIssue, LoadedVault
 from learnloop.vault.paths import VaultPaths
+from learnloop.version_floor import BelowOldestSupported, refuse_below_floor
 
 #: Seconds a content fingerprint is reused before the vault's files are stat'ed again
 #: (the vault loader's, shared with ``SidecarContext.load_secondary``).
@@ -72,6 +73,17 @@ def vault_sqlite_path(vault_root: Path) -> Path:
     root = Path(vault_root).resolve()
     config = load_config(root / "learnloop.toml", load_environment=False)
     return VaultPaths(root, config).sqlite_path
+
+
+def refuse_below_floor_as_mismatch(vault_root: Path) -> None:
+    """Refuse a vault below the oldest supported tag as this process's own :class:`SchemaMismatch` (exit 78):
+    only ``learnloop upgrade`` brings it there, so a supervisor restarting the process would loop."""
+
+    root = Path(vault_root).resolve()
+    try:
+        refuse_below_floor(root, load_config(root / "learnloop.toml", load_environment=False))
+    except BelowOldestSupported as exc:
+        raise SchemaMismatch(str(exc)) from exc
 
 
 def check_schema(sqlite_path: Path, *, vault_root: Path | None = None) -> None:
@@ -118,6 +130,7 @@ class RemoteRuntime:
         if not (root / "learnloop.toml").is_file():
             raise SchemaMismatch(f"{root} is not a LearnLoop vault (no learnloop.toml)")
         sqlite_path = vault_sqlite_path(root)
+        refuse_below_floor_as_mismatch(root)
         check_schema(sqlite_path, vault_root=root)
         runtime = cls(vault_root=root, sqlite_path=sqlite_path,
                       repository=Repository.attach(sqlite_path, read_only=False),
@@ -139,7 +152,10 @@ class RemoteRuntime:
                 fingerprint = _digest(files)
                 self._checked_at = now
                 if self._vault is None or fingerprint != self._fingerprint:
-                    self._vault, self._fingerprint = self._settled_load(files, fingerprint)
+                    try:
+                        self._vault, self._fingerprint = self._settled_load(files, fingerprint)
+                    except BelowOldestSupported as exc:  # the tag was moved down under a running process
+                        raise SchemaMismatch(str(exc)) from exc
                     if self._fingerprint is None:
                         self._checked_at = float("-inf")  # unsettled: look again on the next request
             return self._vault
@@ -197,6 +213,7 @@ __all__ = [
     "SETTLE_ATTEMPTS",
     "SchemaMismatch",
     "check_schema",
+    "refuse_below_floor_as_mismatch",
     "refuse_interrupted_activation",
     "content_files",
     "vault_content_fingerprint",
