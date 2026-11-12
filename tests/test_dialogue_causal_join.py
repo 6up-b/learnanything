@@ -44,7 +44,7 @@ from learnloop.attempts.reveal_ledger import production_admissibility, record_re
 from learnloop.tutor.tutor_qa import ask_question
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault
+from tests.helpers import NOW, NOW_ISO, append_config_toml, create_basic_vault
 
 
 # --- wire schema: additive, legacy-tolerant ---------------------------------
@@ -749,6 +749,16 @@ def test_submit_eliciting_response_sidecar_method(tmp_path):
 # --- owner capture 2026-11-08: the question stays on screen after "That's it" ---
 
 
+def _vault_whose_belief_resolves(tmp_path):
+    """A head basic vault with RO5's seeded open-pick arm at its declared zero: the arm leaves
+    ``pick_open_share`` (0.1) of resolving picks open, seeded on the factor's fresh id, so a test of
+    the one-tap card resolving would otherwise fail at random."""
+
+    paths = create_basic_vault(tmp_path / "vault")
+    append_config_toml(paths.root, "[router_objective]\npick_open_share = 0.0")
+    return paths
+
+
 def _believed(repository: Repository, vault, attempt_id: str, factor_id: str) -> None:
     from learnloop.diagnosis.causal_attribution import record_unresolved_cause_self_report
 
@@ -761,7 +771,7 @@ def _believed(repository: Repository, vault, attempt_id: str, factor_id: str) ->
 def test_an_eliciting_response_after_the_factor_was_resolved_is_recorded(tmp_path):
     from learnloop.diagnosis.diagnosis_adjudication import latest_learner_report
 
-    paths = create_basic_vault(tmp_path / "vault")
+    paths = _vault_whose_belief_resolves(tmp_path)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     _insert_attempt(repository, attempt_id="att_elicit_late")
@@ -784,7 +794,7 @@ def test_an_eliciting_response_after_the_factor_was_resolved_is_recorded(tmp_pat
 
 
 def test_answering_the_question_first_leaves_the_one_tap_card_open(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
+    paths = _vault_whose_belief_resolves(tmp_path)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     _insert_attempt(repository, attempt_id="att_elicit_first")
