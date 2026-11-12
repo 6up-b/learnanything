@@ -330,5 +330,6 @@ For the owner: findings 1-4 (each needs a successor or a decision), and 5-6 (dea
 - Base check: the 296 run-1 failures pass on the base builder (296 passed), so all were caused by the move.
 - Targeted: every changed test file, every importer of a changed helper module, `test_identity_pins` (unchanged pins), `test_test_layout`, `test_vault_template`, `test_architecture`, `test_cli_help_snapshot`, `test_effective_defaults_golden`, `test_model_grade_lane`: 2,513 passed, 6 skipped, 6 xfailed, 1 failed, the TUI timing flake K0 recorded (`test_model_call_receipt_owners::test_tui_grading_records_receipts_with_usage`, which waits a fixed ten TUI pauses; pinned here, passes alone three times out of three and in run 2).
 - `ruff check`: clean. `lint-imports --no-cache`: 42 kept, 0 broken. `scripts/check_gate_partition.py`: 30,943 collected, landing 30,883 + arc_close 60.
-@@DURABILITY@@
-@@VAULT@@
+- Durability lane, `-m durability -n 4`, 5 GB scope, on `a037fd4857`: 417 passed, 1 skipped, 166.7 s.
+- Vault: the Testing note (`Architecture/Testing and Invariants.md`, test placement guidance) states the default test vault. References regenerated once after the source commits (`_scripts/generate_all.py`; 31 generated notes changed, test lists of the tables and config fields whose tests D2a edited, plus `_generated.md`'s rows at `a037fd4857`), committed as `53473fdd8a`; a second run on the clean tree changed nothing (a fixed point). The four validators pass: `db_validate_reference.py`, `module_validate.py`, `desktop_validate.py`, `validate_vault.py`.
+- Not run (the orchestrator's): `--fresh-connections`, the arc-close gate, vitest.
