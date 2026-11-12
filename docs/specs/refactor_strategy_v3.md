@@ -133,6 +133,8 @@ Ranked by what each costs a stage or a debugging session. Ids are the map's.
 - a retired config field goes into `config/retired.py`'s `RETIRED_FIELDS` in the commit that removes it, so identities keep their bytes;
 - an identity that should move is bumped deliberately, under `docs/algorithm-change-playbook.md` if it changes persisted meaning, and the pins are regenerated in that commit with the reason in the landing note.
 
+**Bugs a step finds (owner, Nov 12).** "As you refactor and find these bugs, they should be fixed at some point either by arc close or by landing." Each finding goes into `docs/reviews/refactor-bug-ledger.md` with the step that fixes it and its deadline, which is this landing or the current arc's close. An arc doesn't close with a row due at its close still open. A strict xfail is only ever the fail-first test of a queued fix.
+
 **Environment rules for every step.** Scripts outside pytest run under an empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`. No live or paid model calls. Copies only through `learnloop.db.copies`. Agents never open live vaults: the owner runs anything that reads them and pastes the output.
 
 ### 2.2 S0: re-baseline on the landed tip
