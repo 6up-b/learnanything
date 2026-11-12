@@ -110,8 +110,10 @@ from learnloop.learner.assessment_contracts import (
 from learnloop.learner.facet_state_reader import (
     CanonicalFacetStateReader,
     canonical_facet_uncertainty_on,
+    canonical_uncertainty_rows,
     current_facet_uncertainty,
     is_canonical_state_vault,
+    resolve_canonical_facet,
 )
 from learnloop.content.proposals.proposals import maybe_promote_self_tagged_fatal_error
 from learnloop.learner.recall_coverage import (
@@ -3308,7 +3310,12 @@ def _apply_attempt_in_transaction(
     # Canonical-state vaults own facet belief through the projection; the per-LO
     # recall bridge is written only for legacy algorithm versions. The per-LO
     # facet uncertainty (a diagnostic posterior, not belief) is written again
-    # from the facet-belief successor on (mvp-0.59, D-5).
+    # from the facet-belief successor on (mvp-0.59, D-5), keyed by canonical facet id.
+    if canonical_facet_uncertainty_on(vault):
+        application = replace(
+            application,
+            facet_uncertainty_states=canonical_uncertainty_rows(vault, repository, application.facet_uncertainty_states),
+        )
     _persist_attempt_application(
         repository,
         application,
@@ -4298,6 +4305,12 @@ def load_attempt_prior_state(
         def _recall(facet: str, scope: str | None = None) -> FacetRecallState | None:
             return repository.facet_recall_state(learning_object_id, facet, scope)
 
+    if canonical_facet_uncertainty_on(vault):
+        merge_map = repository.facet_merge_map()
+
+        def canonical_facet(facet: str) -> str:
+            return resolve_canonical_facet(vault, merge_map, facet)
+
     # held-grade-evidence: the recent attempts keep every exposure, and each
     # one the held predicate holds carries ``HELD_ROW_KEY``, so the readers of
     # their scores (item quality, error severity, familiarity) never read a
@@ -4335,9 +4348,12 @@ def load_attempt_prior_state(
             facet: _recall(facet, practice_item_id) for facet in facet_ids
         },
         facet_uncertainty=(
-            # The successor's prior is only a row it wrote (a legacy-era row was derived under another belief).
+            # The successor's prior is only a row it wrote (a legacy-era row was derived under another belief),
+            # found under the facet's canonical id, the key the successor writes it under.
             {
-                facet: current_facet_uncertainty(repository.facet_uncertainty_state(learning_object_id, facet))
+                facet: current_facet_uncertainty(
+                    repository.facet_uncertainty_state(learning_object_id, canonical_facet(facet))
+                )
                 for facet in facet_ids
             }
             if canonical_facet_uncertainty_on(vault)

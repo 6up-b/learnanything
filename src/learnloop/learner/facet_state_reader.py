@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import replace
-from typing import Iterable
+from typing import Any, Iterable, Mapping
 
 from learnloop.db.repositories import (
     CanonicalFacetRecallState,
@@ -78,6 +78,28 @@ def canonical_facet_uncertainty_on(vault: LoadedVault) -> bool:
     seam); the legacy (mvp-0.6) path writes and reads it as it always did."""
 
     return is_canonical_state_vault(vault) and facet_belief_fixes_on(vault.config)
+
+
+def canonical_uncertainty_rows(
+    vault: LoadedVault, repository: Repository, rows: Iterable[Mapping[str, Any]]
+) -> list[dict[str, Any]]:
+    """The successor's uncertainty updates keyed by canonical facet id (aliases, then merges).
+
+    The update is computed on the item's facet ids as authored; its row is written under the facet's
+    terminal survivor, the id every reader looks it up by. A row whose id was derived from an alias
+    takes the canonical id's deterministic one, so the upsert finds the row an earlier attempt wrote."""
+
+    from learnloop.learner.facet_diagnostics import _facet_uncertainty_id
+
+    merge_map = repository.facet_merge_map()
+    keyed: list[dict[str, Any]] = []
+    for row in rows:
+        canonical = resolve_canonical_facet(vault, merge_map, str(row["facet_id"]))
+        if canonical != row["facet_id"]:
+            row = {**row, "facet_id": canonical,
+                   "id": _facet_uncertainty_id(str(row["learning_object_id"]), canonical)}
+        keyed.append(dict(row))
+    return keyed
 
 
 def current_facet_uncertainty(state: FacetUncertaintyState | None) -> FacetUncertaintyState | None:

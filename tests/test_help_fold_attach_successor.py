@@ -53,7 +53,7 @@ def test_mvp042_is_one_constant_after_mvp041_and_the_latest():
     from learnloop.params.parameter_registry import classify_config_path
 
     # Teacher TE1b's mvp-0.43 follows it as the latest (and keeps it).
-    assert SUCCESSOR_CHAIN[-18:-16] == (PREDECESSOR, TAG) == ("mvp-0.41", "mvp-0.42")
+    assert SUCCESSOR_CHAIN[-19:-17] == (PREDECESSOR, TAG) == ("mvp-0.41", "mvp-0.42")
     assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.59" and UPGRADE_PREDECESSOR == PREDECESSOR
     assert HELP_FOLD_ATTACH_VERSIONS == frozenset({TAG, "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
     assert HintsConfig().fold_follows_attach is True
