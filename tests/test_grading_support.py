@@ -16,6 +16,7 @@ from learnloop.attempts.blind_grading import (
 )
 from learnloop.attempts.grading import resolved_rubric
 from learnloop.attempts.grading_support import (
+    METHOD_ROUTE_RULES_SUFFIX,
     REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION,
     REFERENCE_POLICY_PROMPT_VERSION,
     UNVERIFIED_REVIEW_REASON,
@@ -149,17 +150,20 @@ def test_live_blind_grade_records_grading_support_and_its_calibration_identity(t
     result = submit(vault, repository, client)
 
     record = repository.latest_blind_grade_record(result.attempt_id)
-    assert record["grading_prompt_version"] == REFERENCE_POLICY_PROMPT_VERSION
+    # The head grades with the method-explicit successor's rules, whose suffix names both the prompt
+    # and the calibration identity (grading_support.METHOD_ROUTE_RULES_SUFFIX), required method or not.
+    assert record["grading_prompt_version"] == REFERENCE_POLICY_PROMPT_VERSION + METHOD_ROUTE_RULES_SUFFIX
     support = record["record"]["grading_support"]
     assert support["reference_policy"]["reference_status"] == "authored"
     assert support["uncertainty_signal"]["shadow"] is True
-    assert record["record"]["calibration_prompt_version"] == REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION
+    calibration = REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION + METHOD_ROUTE_RULES_SUFFIX
+    assert record["record"]["calibration_prompt_version"] == calibration
     with repository.connection() as connection:
         identity = connection.execute(
             "SELECT grading_prompt_version, grader_output_schema_version FROM raw_grade_events WHERE attempt_id = ?",
             (result.attempt_id,),
         ).fetchone()
-    assert tuple(identity) == (REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION, "blind_grading_proposal_v1")
+    assert tuple(identity) == (calibration, "blind_grading_proposal_v1")
     assert "SOLVE FIRST" in client.prompts[0]
 
 

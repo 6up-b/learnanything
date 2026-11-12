@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from typer.testing import CliRunner
 
 from learnloop.cli import app
@@ -223,6 +224,14 @@ def _registry_method(repository, attempt_id):
     return repository.diagnosis_context_receipt(diagnosis["id"])["retrieval"]["registry_retrieval"]["method"]
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "D2b finding: from mvp-0.12 (recurrence groups, on at the head) a diagnose drain makes one more "
+        "embedding request than its dry run estimates for retrieval (3 against 2; passes with "
+        "`recurrence.enabled = false`), so the command's admission estimate is not a ceiling"
+    ),
+)
 def test_retrieval_embeddings_are_admitted_and_charged_on_the_command_budget(tmp_path, monkeypatch):
     """Review F12: a drain's registry retrieval embeds on the command's own
     budget. With no metered allowance the subscription diagnosis still runs

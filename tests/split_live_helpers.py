@@ -20,7 +20,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.diagnosis_split_helpers import at, build_diagnosis_vault, seed_history
-from tests.helpers import set_algorithm_version
+from tests.helpers import ALGORITHM_VERSION, set_algorithm_version
 
 
 class ReadyRuntime:
@@ -50,7 +50,7 @@ def enable_embeddings(root: Path) -> None:
     path.write_text(head + marker + tail, encoding="utf-8")
 
 
-def split_vault(tmp_path: Path, *, version: str = "mvp-0.10", config: str = "", seed: bool = True):
+def split_vault(tmp_path: Path, *, version: str = ALGORITHM_VERSION, config: str = "", seed: bool = True):
     """(paths, vault, repository) for a graded vault at ``version``.
 
     The history is seeded at ``version`` too, as a vault at that tag would have
