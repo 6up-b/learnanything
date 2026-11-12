@@ -14,7 +14,7 @@ from learnloop.diagnosis.probes import enter_probe, probe_posterior
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault, pin_old_basic_vault
+from tests.helpers import NOW, NOW_ISO, append_config_toml, create_basic_vault
 
 EASY_DIFFICULTY = 0.05    # b ~ -2.25
 HARD_DIFFICULTY = 0.95    # b ~ +2.25
@@ -45,11 +45,11 @@ def _add_item(vault_root, item_id: str, difficulty: float) -> None:
     )
 
 
-def _setup(tmp_path, *, prior_mean: float = 0.0, old_path: bool = False):
+def _setup(tmp_path, *, prior_mean: float = 0.0, interval_factor: bool = False):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
-    if old_path:
-        paths = pin_old_basic_vault(paths)
+    if interval_factor:
+        append_config_toml(vault_root, "[scheduler.surprise]\nremove_interval_factor = false")
     _add_item(vault_root, "pi_easy", EASY_DIFFICULTY)
     _add_item(vault_root, "pi_hard", HARD_DIFFICULTY)
     repository = Repository(paths.sqlite_path)
@@ -120,9 +120,10 @@ def test_hard_correct_has_larger_predictive_surprise_than_easy_correct(tmp_path)
 
 
 def test_fsrs_interval_factor_stretches_on_positive_surprise(tmp_path):
-    # Old path only: from mvp-0.46 (RO1, scheduler.surprise.remove_interval_factor) the surprise
-    # factor is no longer applied and is recorded as 1.0.
-    hv, hr = _setup(tmp_path / "h", old_path=True)
+    # The predecessor's surprise interval factor: from mvp-0.46 (RO1) it is no longer applied and is
+    # recorded as 1.0; `scheduler.surprise.remove_interval_factor` off serves it exactly. Goes with
+    # that switch in D7.
+    hv, hr = _setup(tmp_path / "h", interval_factor=True)
     result = _attempt(hv, hr, "pi_hard", 4)
     surprise = hr.latest_attempt_surprise(result.attempt_id)
     # Positive surprise pushes the FSRS interval factor above 1 (review later).
@@ -130,9 +131,10 @@ def test_fsrs_interval_factor_stretches_on_positive_surprise(tmp_path):
 
 
 def test_fsrs_interval_factor_compresses_on_negative_surprise(tmp_path):
-    # Old path only: from mvp-0.46 (RO1, scheduler.surprise.remove_interval_factor) the surprise
-    # factor is no longer applied and is recorded as 1.0.
-    ev, er = _setup(tmp_path / "e", old_path=True)
+    # The predecessor's surprise interval factor: from mvp-0.46 (RO1) it is no longer applied and is
+    # recorded as 1.0; `scheduler.surprise.remove_interval_factor` off serves it exactly. Goes with
+    # that switch in D7.
+    ev, er = _setup(tmp_path / "e", interval_factor=True)
     result = _attempt(ev, er, "pi_easy", 1)  # flunked a trivial item -> negative
     assert result.surprise_direction == "negative"
     surprise = er.latest_attempt_surprise(result.attempt_id)

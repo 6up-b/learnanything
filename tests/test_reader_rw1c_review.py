@@ -23,7 +23,7 @@ from types import SimpleNamespace
 import pytest
 
 from learnloop.tutor import reader_modes
-from tests.helpers import OLD_BASIC_VAULT_TAG, set_algorithm_version
+from tests.helpers import append_config_toml
 from tests.reader_tutor_fakes import ROOT_QUESTION, LookupTutor, ask, call, reader_ctx, spans_given
 from tests.source_service_fakes import set_item_answer, table_counts
 from tests.reader_tutor_retrieval_helpers import _bound_session, _workbench_steps
@@ -689,9 +689,10 @@ def test_a_cold_bound_ask_is_a_hint_whatever_its_type_and_its_cold_row(tmp_path,
 
     tutor = LookupTutor(question_type=question_type)
     _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
-    # Old path only: "a hint whatever its type" is the predecessor's L6 rule. From Reader CA2's one help rule
-    # (mvp-0.34, so the head) a cold question counts only when substantive (``help_converts_active``).
-    set_algorithm_version(_paths, OLD_BASIC_VAULT_TAG)
+    # "A hint whatever its type" is the predecessor's L6 rule. From Reader CA2's one help rule (mvp-0.34)
+    # a cold question counts only when substantive (``help_converts_active``); `ask.cold_help_converts`
+    # off serves the predecessor exactly. Goes with that switch in D7.
+    append_config_toml(_paths.root, "[ask]\ncold_help_converts = false")
     ctx.load(_paths.root)
     vault, _repository = ctx.require_vault()
     session = repository.create_session()

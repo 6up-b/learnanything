@@ -16,17 +16,17 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_learning_object
 
-from tests.helpers import NOW, create_basic_vault, pin_old_basic_vault
+from tests.helpers import NOW, append_config_toml, create_basic_vault
 
 LO_ID = "lo_svd_definition"
 CLOCK = FrozenClock(NOW)
 
 
-def _setup(tmp_path, *, trust_families: bool, with_confusable: bool = True, old_path: bool = False):
+def _setup(tmp_path, *, trust_families: bool, with_confusable: bool = True, predecessor: bool = False):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
-    if old_path:
-        paths = pin_old_basic_vault(paths)
+    if predecessor:
+        append_config_toml(vault_root, "[followup]\ngenerate_and_serve = false")
     if with_confusable:
         loaded = load_vault(vault_root)
         payload = loaded.learning_objects[LO_ID].model_dump()
@@ -53,9 +53,10 @@ def _setup(tmp_path, *, trust_families: bool, with_confusable: bool = True, old_
 
 
 def test_trusted_family_generation_unparks_episode_with_provenance(tmp_path):
-    # Old path only (D2a): parametric instance generation. From mvp-0.45 (FG1 §4.3) the model writes
-    # the family's question pattern and there is no parametric fallback (or manual review).
-    vault_root, loaded, repository = _setup(tmp_path, trust_families=True, old_path=True)
+    # The predecessor's parametric instance generation. From mvp-0.45 (FG1 §4.3) the model writes
+    # the family's question pattern with no parametric fallback; `followup.generate_and_serve` off
+    # serves the predecessor exactly. Goes with that switch in D7.
+    vault_root, loaded, repository = _setup(tmp_path, trust_families=True, predecessor=True)
     episode = enter_episode(loaded, repository, LO_ID, trigger="manual", clock=CLOCK)
     assert episode.status == "pending_items"
 
@@ -84,9 +85,10 @@ def test_trusted_family_generation_unparks_episode_with_provenance(tmp_path):
 
 
 def test_provisional_family_instances_park_behind_review(tmp_path):
-    # Old path only (D2a): parametric instance generation. From mvp-0.45 (FG1 §4.3) the model writes
-    # the family's question pattern and there is no parametric fallback (or manual review).
-    vault_root, loaded, repository = _setup(tmp_path, trust_families=False, old_path=True)
+    # The predecessor's parametric instance generation. From mvp-0.45 (FG1 §4.3) the model writes
+    # the family's question pattern with no parametric fallback; `followup.generate_and_serve` off
+    # serves the predecessor exactly. Goes with that switch in D7.
+    vault_root, loaded, repository = _setup(tmp_path, trust_families=False, predecessor=True)
     episode = enter_episode(loaded, repository, LO_ID, trigger="manual", clock=CLOCK)
 
     summary = generate_instances_for_episode(repository, loaded, episode.id, clock=CLOCK, seed=7)
@@ -110,9 +112,10 @@ def test_provisional_family_instances_park_behind_review(tmp_path):
 
 
 def test_generation_is_idempotent(tmp_path):
-    # Old path only (D2a): parametric instance generation. From mvp-0.45 (FG1 §4.3) the model writes
-    # the family's question pattern and there is no parametric fallback (or manual review).
-    vault_root, loaded, repository = _setup(tmp_path, trust_families=True, old_path=True)
+    # The predecessor's parametric instance generation. From mvp-0.45 (FG1 §4.3) the model writes
+    # the family's question pattern with no parametric fallback; `followup.generate_and_serve` off
+    # serves the predecessor exactly. Goes with that switch in D7.
+    vault_root, loaded, repository = _setup(tmp_path, trust_families=True, predecessor=True)
     episode = enter_episode(loaded, repository, LO_ID, trigger="manual", clock=CLOCK)
     first = generate_instances_for_episode(repository, loaded, episode.id, clock=CLOCK, seed=7)
     assert first.generated

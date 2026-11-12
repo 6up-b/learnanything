@@ -18,11 +18,16 @@ from tests.helpers import (
     NOW,
     NOW_ISO,
     admit_probe_instrument_card,
+    append_config_toml,
     create_basic_vault,
     pin_old_basic_vault,
     set_algorithm_version,
 )
 
+
+#: Kill-switch fragments for the predecessors probe tests pin (D7 removes each switch).
+VOI_STOPPING_OFF = "[voi_stopping]\nenabled = false"
+PLACEMENT_OFF = "[placement]\nenabled = false"
 
 LO_ID = "lo_svd_definition"
 ITEM_ID = "pi_svd_define_001"
@@ -36,14 +41,20 @@ def _setup(
     extra_item: bool = False,
     algorithm_version: str | None = None,
     old_path: bool = False,
+    switched_off: str | None = None,
 ):
     """``old_path`` puts the vault back to the pre-D2a basic vault
-    (``pin_old_basic_vault``), for a test of a path no head vault takes."""
+    (``pin_old_basic_vault``), for a test of a path no head vault takes.
+    ``switched_off`` is a TOML fragment turning a kill switch off on the head
+    vault, for a test of the predecessor that switch serves (it goes with the
+    switch in D7)."""
 
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     if old_path:
         paths = pin_old_basic_vault(paths)
+    if switched_off is not None:
+        append_config_toml(vault_root, switched_off)
     if algorithm_version is not None:
         set_algorithm_version(paths, algorithm_version)
     if extra_item:

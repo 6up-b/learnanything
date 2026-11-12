@@ -37,7 +37,7 @@ from learnloop.content.authoring.practice_generation import (
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.helpers import NOW_ISO, create_basic_vault, pin_old_basic_vault
+from tests.helpers import NOW_ISO, create_basic_vault, set_config_switch
 from tests.contract_commissioning_helpers import LO_ID, _write_blueprint
 
 # The basic vault's only item is `short_answer` on facet "recall", compiling to
@@ -232,9 +232,11 @@ def test_legacy_learning_object_keeps_the_mastery_band_rung(tmp_path):
     # `fixtures/arxiv` has 0 contract cells over 15 LOs. A vault with no authored
     # blueprints must be byte-for-byte unaffected — this change is not a policy
     # that applies everywhere, it is honouring contracts where they exist.
-    # Old path only: the mastery-band rung is the incumbent's; on the head the adaptive-difficulty
-    # generation contract (§7.1) commissions every plan's point, blueprint or not.
-    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
+    # The mastery-band rung is the incumbent's: from mvp-0.30 the adaptive-difficulty generation
+    # contract (§7.1) commissions every plan's point, blueprint or not, and
+    # `adaptive_difficulty.generation_contract` off serves the incumbent exactly. Goes with it in D7.
+    paths = create_basic_vault(tmp_path / "vault")
+    set_config_switch(paths.root, "adaptive_difficulty.generation_contract", False)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     _seed_cold_mastery(repository)

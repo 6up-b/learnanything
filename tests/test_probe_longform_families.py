@@ -40,7 +40,7 @@ from learnloop.diagnosis.probe_instance_generation import (
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import write_yaml
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault, pin_old_basic_vault
+from tests.helpers import NOW, NOW_ISO, append_config_toml, create_basic_vault
 
 CLOCK = FrozenClock(NOW)
 PROC_LO = "lo_svd_computation"
@@ -54,11 +54,11 @@ DERIVATION_CRITERIA = [
 ]
 
 
-def _setup(tmp_path, *, with_item: bool = True, old_path: bool = False):
+def _setup(tmp_path, *, with_item: bool = True, predecessor: bool = False):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
-    if old_path:
-        paths = pin_old_basic_vault(paths)
+    if predecessor:
+        append_config_toml(vault_root, "[followup]\ngenerate_and_serve = false")
     write_yaml(
         paths.learning_object_path("linear-algebra", PROC_LO),
         {
@@ -240,9 +240,10 @@ def test_derivation_separates_procedure_without_selection(tmp_path):
 
 
 def test_generation_produces_derivation_instance_with_obligation_rubric(tmp_path):
-    # Old path only (D2a): parametric instance generation. From mvp-0.45 (FG1 §4.3) the model writes
-    # the family's question pattern and there is no parametric fallback.
-    vault_root, loaded, repository = _setup(tmp_path, with_item=False, old_path=True)
+    # The predecessor's parametric instance generation. From mvp-0.45 (FG1 §4.3) the model writes
+    # the family's question pattern with no parametric fallback; `followup.generate_and_serve` off
+    # serves the predecessor exactly. Goes with that switch in D7.
+    vault_root, loaded, repository = _setup(tmp_path, with_item=False, predecessor=True)
     episode = enter_episode(loaded, repository, PROC_LO, clock=CLOCK)
     assert episode.status == "pending_items"
 

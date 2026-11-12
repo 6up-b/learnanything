@@ -18,7 +18,7 @@ import pytest
 
 from learnloop_sidecar.handlers import practice
 from learnloop_sidecar.handlers.workbench import WorkbenchOpenInput
-from tests.helpers import pin_old_basic_vault
+from tests.helpers import set_config_switch
 from tests.hint_fakes import ITEM, WORK, ChooserFake, assists, prefer
 from tests.hint_h2b_review_helpers import (  # noqa: F401 - ``grader`` is a fixture
     _attempt,
@@ -144,9 +144,10 @@ def test_r1_back_on_the_answer_box_it_counts_once_and_a_later_workbench_submit_c
 
 def test_r1_f10_an_interrupted_answer_box_attach_never_lets_a_problem_take_the_hint(tmp_path, grader, monkeypatch):
     paths, ctx, session = _sidecar(tmp_path)
-    # Old path only: the interrupted keyed attach exists below mvp-0.42; from it on (so at the head) the attach is in
-    # the attempt's own transaction and cannot be interrupted apart from it.
-    paths = pin_old_basic_vault(paths)
+    # The predecessor's keyed attach, after the commit: from mvp-0.42 the attach is in the attempt's own
+    # transaction and cannot be interrupted apart from it; `hints.fold_follows_attach` off serves the
+    # predecessor's fold and attach exactly. Goes with that switch in D7.
+    set_config_switch(paths.root, "hints.fold_follows_attach", False)
     ctx.load(paths.root)
     _hint(ctx, session, "k1")
     first = _open(ctx, session, "k1")["sessionId"]

@@ -236,6 +236,38 @@ def append_config_toml(vault_root: Path, fragment: str) -> None:
     config_path.write_text(updated, encoding="utf-8")
 
 
+def set_config_switch(vault_root: Path, dotted_key: str, value: bool) -> None:
+    """Set one boolean key (``"hints.fold_follows_attach"``) in learnloop.toml,
+    inside its table whether or not the template renders that table.
+
+    For a test of the predecessor a kill switch serves on the head vault: the
+    switch names what the test waits on (D7 removes it with its off-branch)."""
+
+    table, _, key = dotted_key.rpartition(".")
+    if not table or not key:
+        raise AssertionError(f"{dotted_key!r} names no table")
+    config_path = vault_root / "learnloop.toml"
+    text = config_path.read_text(encoding="utf-8")
+    literal = "true" if value else "false"
+    header = re.search(rf"(?m)^\[{re.escape(table)}\]\s*$", text)
+    if header is None:
+        updated = f"{text.rstrip()}\n\n[{table}]\n{key} = {literal}\n"
+    else:
+        end = re.search(r"(?m)^\[", text[header.end():])
+        body_end = header.end() + end.start() if end else len(text)
+        body = text[header.end():body_end]
+        body, count = re.subn(rf"(?m)^{re.escape(key)}\s*=.*$", f"{key} = {literal}", body, count=1)
+        if count == 0:
+            body = f"\n{key} = {literal}" + body
+        updated = text[:header.end()] + body + text[body_end:]
+    parsed = tomllib.loads(updated)
+    for part in dotted_key.split("."):
+        parsed = parsed[part]
+    if parsed is not value:
+        raise AssertionError(f"{dotted_key} did not take {value!r}")
+    config_path.write_text(updated, encoding="utf-8")
+
+
 def patch_plan_ready(monkeypatch) -> None:  # noqa: ANN001 - pytest's MonkeyPatch
     """Report every ChatGPT-plan profile ready, as a signed-in machine would.
 

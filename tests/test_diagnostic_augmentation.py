@@ -33,7 +33,7 @@ from learnloop.diagnosis.scoreboard import planted_ground_truth
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import create_basic_vault, pin_old_basic_vault
+from tests.helpers import create_basic_vault, set_config_switch
 from tests.diagnostic_augmentation_helpers import _SequenceDiagnostician, _proposal
 
 
@@ -271,10 +271,11 @@ def test_a_receipt_that_cannot_be_written_commits_no_augmented_grade(tmp_path, m
     reliably means "not augmented"."""
 
     from learnloop.attempts import attempts
-    # Old path only: Q14's rollback guards the joint door. A split (head) vault's
-    # blind door writes its receipt as telemetry that never undoes a committed grade
-    # (attempts._record_blind_grading_receipt), and its receipt shows no history.
-    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
+    # Q14's rollback guards the joint door. A split vault's (mvp-0.10 on) blind door writes its
+    # receipt as telemetry that never undoes a committed grade (attempts._record_blind_grading_receipt);
+    # `diagnosis.split_enabled` off restores the joint door for new attempts. Goes with it in D7.
+    paths = create_basic_vault(tmp_path / "vault")
+    set_config_switch(paths.root, "diagnosis.split_enabled", False)
     vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
     sync_vault_state(vault, repository)
     def fail(*args, **kwargs):

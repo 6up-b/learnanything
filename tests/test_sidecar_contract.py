@@ -21,8 +21,8 @@ from tests.helpers import (
     append_config_toml,
     configure_codex_http,
     create_basic_vault,
-    pin_old_basic_vault,
     seed_due_item,
+    set_config_switch,
 )
 from tests.http_provider_double import serve_structured
 from tests.owner_vaults import owner_vault, owner_vaults, require_owner_vault
@@ -1603,11 +1603,15 @@ def test_sidecar_feedback_exposes_probe_intervention_need(tmp_path):
 
 def test_sidecar_counts_queued_intervention_followups_in_session_summary(tmp_path):
     vault_root = tmp_path / "vault"
-    # Old path only (D2a): "I don't know" as an error-tagged negative surprise that queues the
-    # predecessor's intervention follow-up. From mvp-0.13 an empty stuck answer carries no error tag
-    # and no surprise, and from mvp-0.45 a miss's follow-up is the follow-up workflow's
-    # (the receipt suppresses `intervention_followup:followup_workflow_owns`).
-    paths = pin_old_basic_vault(create_basic_vault(vault_root))
+    # The predecessors' "I don't know": an error-tagged negative surprise that queues the intervention
+    # follow-up. From mvp-0.13 an empty stuck answer carries no error tag and no surprise
+    # (`stuck_prompt.enabled`), and from mvp-0.45 a miss's follow-up is the follow-up workflow's
+    # (`followup.generate_and_serve`); from mvp-0.21 the follow-up must pay for its minutes
+    # (`voi_stopping.enabled`). All three off serve the predecessors exactly; goes with them in D7.
+    paths = create_basic_vault(vault_root)
+    set_config_switch(vault_root, "stuck_prompt.enabled", False)
+    set_config_switch(vault_root, "followup.generate_and_serve", False)
+    set_config_switch(vault_root, "voi_stopping.enabled", False)
     add_followup_item(vault_root)
     seed_due_item(paths)
 
