@@ -103,7 +103,8 @@ def test_serving_records_each_coin_with_its_exact_probability_and_availability(t
         mixture = row["detail_json"]["mixture"]
         assert row["chosen_ref"] == coin["detail"]["served"] == mixture["served"]
         # The why surface reads the trace's probability ("a x% chance of picking it"): the same number as the ledger's.
-        assert traces[row["id"]]["trace"]["mixing"]["propensity"] == pytest.approx(row["propensity"])
+        # The trace keeps 6 digits (router_objective/trace.py:_round), so compare within that rounding.
+        assert traces[row["id"]]["trace"]["mixing"]["propensity"] == pytest.approx(row["propensity"], abs=1e-6)
         # The ledger's probability is the served one, exactly; the mix's μ stays beside it.
         served = SC.served_distribution(mixture["mix_pi"], 0.45, mixture["support"])
         assert row["propensity"] == pytest.approx(served[row["chosen_ref"]])
