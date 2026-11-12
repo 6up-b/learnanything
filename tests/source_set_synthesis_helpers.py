@@ -29,7 +29,7 @@ from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.writer import upsert_source_set
 
 from tests.structured_ai import StructuredClientFake
-from tests.helpers import set_algorithm_version
+from tests.helpers import ALGORITHM_VERSION, set_algorithm_version
 from tests.source_inventory_helpers import FakeInventoryClient, _block, _ir, _persist, _register_revision
 
 
@@ -208,9 +208,11 @@ def _setup(tmp_path: Path, *, with_exam: bool = True, mvp07: bool = True):
     paths_sqlite = root / "state.sqlite"
     from learnloop.vault.paths import VaultPaths
 
+    # ``mvp07``: a canonical-state vault (KM2, mvp-0.7 on); the head is one, so it keeps the tag
+    # ``init_vault`` wrote. False pins mvp-0.6, the legacy path its one caller tests.
     set_algorithm_version(
         VaultPaths(root, load_vault(root).config),
-        "mvp-0.7" if mvp07 else "mvp-0.6",
+        ALGORITHM_VERSION if mvp07 else "mvp-0.6",
     )
     repo = Repository(paths_sqlite)
 
@@ -258,7 +260,7 @@ def _setup_two_chapters(tmp_path: Path):
     add_subject(root, "linear-algebra", "Linear Algebra", clock=_CLOCK)
     from learnloop.vault.paths import VaultPaths
 
-    set_algorithm_version(VaultPaths(root, load_vault(root).config), "mvp-0.7")
+    set_algorithm_version(VaultPaths(root, load_vault(root).config), ALGORITHM_VERSION)
     repo = Repository(root / "state.sqlite")
 
     inv_client = FakeInventoryClient()
