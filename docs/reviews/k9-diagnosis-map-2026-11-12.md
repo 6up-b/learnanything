@@ -4,7 +4,27 @@ Refactor step K9, job 1: the deep map of `src/learnloop/diagnosis/` that the Nov
 
 ## Summary for the owner
 
-(Written last; see the end of this section.)
+Diagnosis is 110 modules and 73,609 lines (53,389 code): the causal repair lane, probe episodes and blocks, VOI stopping, follow-ups, the blind diagnose job, text gaps, recurrence and offline review. Its parts are often careful (pre-registered blind bundles, content-addressed observations, typed refusals, a pure Bayes step, B7's records). What's expensive is that the questions arc G is about are each answered in several places, by rules that differ, inside two very large modules.
+
+**The five most costly findings:**
+
+1. **Ten sites answer "should we probe?", and one probe answer moves two beliefs over two different locked sets (§3.1, §3.3; D9B1, D9B2, D9D1).** The causal lane's verdict counts repair classes, FG1's lane counts rival hypotheses and its factor counts episode keys, so a miss whose rivals share one repair goes to FG1's probe lane while the causal lane would call it action-equivalent. The episode posterior updates inside the attempt step over `enter_episode`'s set; the discriminating observation is written after the commit against commissioning's set, locked with support scores the second lock doesn't get. Nothing compares them, and there are two more beliefs beside them (a legacy probe-phase posterior and the misconception posterior, D9F5).
+2. **A regrade changes neither belief (§2.7; D9D2).** The episode keeps the outcome classified at submission and the discriminating observation is never reclassified, while the diagnosis, the grade interpretation and the recurrence groups move to the new grade. A held grade that is later released never enters the episode posterior.
+3. **The probe policy's "fitted" thresholds are constants, and three docstrings at the centre say otherwise (§3.2, §6.1; D9B3, D9C1).** Three copies of one resolver read fitted-parameter scopes that nothing writes (`learnloop fit` writes two other scopes), so `recent_diagnostic_limit = 2`, the 0.0 margins and the 0.8 success cut are hand-set. The orchestrator's docstrings also call the discriminating observation the only support channel (a self-report resolves factors too) and name `failure_triage`, which nothing calls, as its consumer.
+4. **Two modules hold the lane's decision, its learner actions, both beliefs, the stopping policy and the serve gate, inside a 21-module cycle closed only by function-local imports (§1; D9P1-D9P3).** `causal_orchestrator.py` (3,471 lines, 48 exports, the 517-line `_status_for_factor`) and `probe_episodes.py` (3,651 lines, seven stopping rules in one function); `probe_blocks` imports the latter's private functions and is imported back inside functions.
+5. **The causal lane's verdict and the classifier's declines are outside the trace (§4; D9O1, D9O2, D9D5).** `causal_probe_decision_receipts` is rich but has no `decision_records` row, so a withheld offer is reachable from an attempt only through its factor; the deterministic classifier declines in six ways and records none, and the four grade-keyed hooks still fail to a log line.
+
+**Also worth your attention:**
+- **`failure_triage` isn't unimported (§6.2).** Its functions have no caller, but the parameter registry imports it by string to resolve three constants, at sidecar vault open among other places; deleting it needs those entries removed in the same commit. Five `Repository` methods carry its name, three of them live.
+- **The block-end hook runs inside the attempt step (D9D4),** while the post-attempt pipeline normalizes outside any transaction because normalization may call a model.
+- **The desktop copies backend rules (D9B5),** and one copy is wrong: the "You asked me not to check" message also shows when the offer was withheld for burden or budget (candidate bug K9-1).
+- **The one diagnosis concept note describes August's system (D9V1),** and no note explains who decides to probe or the beliefs.
+
+**Deciders and purity (§4).** Pure today: `decide_probe` (given its parameters) and the prior-analysis arm; `value_candidates` is one context object away. Everything else reads the database while deciding, and every record is built after the decision from its outputs.
+
+**Change cost (§7).** A diagnosis change with no migration or successor touched 4-17 files (1-8 in diagnosis, 4-8 callers in `followup_run`, `scheduling`, `daily_plan` and the sidecar). With a migration or successor: 65-834 files, the difference being the head fixture (24), upgrade and pinned tests, `template.py` and, before mid-October, about 350 generated notes. The registry holds 381 `_reg_const` constants (39 in diagnosis), all `heuristic`, none read back at run time.
+
+**Limits.** Code-traced, not run; no vault data. Four sweeps were delegated and spot-checked; what wasn't checked is under "Not verified".
 
 ## How to read this
 
