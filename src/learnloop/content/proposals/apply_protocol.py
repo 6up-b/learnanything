@@ -29,8 +29,9 @@ post-image. Any other content means something changed the file after the intent
 was written: nothing of that intent is written, it is marked ``conflicted`` with
 the files that differ, and it stays for the owner (doctor reports it; the
 maintenance feed offers "Keep the files as they are", which sets it aside). While
-an intent is pending or conflicted, ``patches.apply_accepted_items`` refuses
-(``OutstandingApplyIntentError``), so no accept builds on a half-applied vault.
+an intent is pending or conflicted, ``patches.apply_accepted_items`` and
+``patches.reject_applied_items`` refuse (``OutstandingApplyIntentError``), so no
+accept or undo builds on a half-applied vault.
 """
 
 from __future__ import annotations

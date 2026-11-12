@@ -212,6 +212,14 @@ class ProposalDecisionInput(ParamsModel):
     item_ids: list[str] | None = None
 
 
+def apply_intent_outstanding(exc: OutstandingApplyIntentError) -> SidecarError:
+    """An accept or undo refused because an earlier apply is pending or
+    conflicted (K3.5, D-10): the client names the intent and points at
+    Maintain, where the feed's action settles it."""
+
+    return SidecarError("apply_intent_outstanding", str(exc), details={"intents": exc.intents})
+
+
 @method("accept_proposal_items", ProposalDecisionInput)
 def accept_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]:
     """Accept (and apply) pending proposal items, then return the refreshed inbox."""
@@ -223,9 +231,7 @@ def accept_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) ->
             _repository, params.patch_id
         )
     except OutstandingApplyIntentError as exc:
-        # K3.5: an earlier apply is pending or conflicted; the client names it and
-        # points at Maintain, where the feed's action settles it.
-        raise SidecarError("apply_intent_outstanding", str(exc), details={"intents": exc.intents}) from exc
+        raise apply_intent_outstanding(exc) from exc
     except PatchApplicationError as exc:
         raise SidecarError("invalid_request", str(exc)) from exc
     # Applying writes vault files, so refresh the in-memory vault — but proposal
@@ -244,6 +250,8 @@ def reject_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) ->
         reconcile_rejected_question_promotion_patch(
             repository, params.patch_id
         )
+    except OutstandingApplyIntentError as exc:
+        raise apply_intent_outstanding(exc) from exc
     except PatchApplicationError as exc:
         raise SidecarError("invalid_request", str(exc)) from exc
     # Reverting an applied item touches vault files; refresh without the Codex probe.
@@ -360,6 +368,8 @@ def delete_proposal_item(ctx: SidecarContext, params: DeleteProposalItemInput) -
     vault, _repository = ctx.require_vault()
     try:
         service_delete_proposal_item(vault.root, params.patch_id, params.item_id)
+    except OutstandingApplyIntentError as exc:
+        raise apply_intent_outstanding(exc) from exc
     except (PatchApplicationError, ValueError) as exc:
         raise SidecarError("invalid_request", str(exc)) from exc
     # A delete may revert an applied change (touching vault files), so refresh the
