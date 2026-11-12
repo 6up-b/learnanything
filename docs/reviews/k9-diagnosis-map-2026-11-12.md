@@ -325,7 +325,7 @@ What can be called with plain values today, and what reads the database or the c
 | Support scores | `_measured_hypotheses`, `_observation_support_scores` (`diagnosis/causal_orchestrator.py:2482`, `:2538`) | **pure**; the deterministic sensor (`:2886`) reads attempts, rubric and evidence, with a hard-coded 0.40 "passed" cut (`:2935`) |
 | VOI math | `_predictive`, `_posterior`, `_normalized` (`diagnosis/voi_stopping.py:613-660`), `predictive_information` (`:1494`), `greedy_information_admission` (`:1958`), `value_candidates` (`:996`) | **pure except the context**: no repository or clock read appears between `:480` and `:2176`; `VoiContext` reads latencies with raw SQL and the triage routes lazily (`:422-479`) |
 | Robust composition | `diagnosis/robust_composition.py:228`, `:600` | **pure**, seeded `random.Random(seed)`; its convention is stdlib only for bit-for-bit replay (`:24`) |
-| Misconception posterior | `misconception_posterior`, `diagnosis/misconceptions.py:850` | **shell**: an odds update over persisted attempts and events; prior clamped to [0.05, 0.95] (`:858`) |
+| Misconception posterior | `misconception_posterior`, `diagnosis/misconceptions.py:850` | **shell**: an odds update over persisted attempts and events; prior clamped to [0.05, 0.95] (`:841-842`, `:868`) |
 | Stopping rules | `_evaluate_completion`, `diagnosis/probe_episodes.py:2902` | **shell**: reads observations, eligibility and robust gates while deciding; the stability test (`:2939-2945`) is a two-line pure predicate inside it |
 
 **Clocks and randomness.** Diagnosis reads time through the injected `Clock`, with `SystemClock()` as the default at nine sites (`diagnosis/probes.py:120`, `diagnosis/probe_hypotheses.py:159`, `diagnosis/remediation.py:484`, `:954`, `:1305`, `diagnosis/followups.py:2048`, `:2625`, `diagnosis/causal_factor_deferral.py:389`, `diagnosis/split/jobs.py:261`); `time.monotonic` only for latency (`diagnosis/split/jobs.py:948`, `diagnosis/split/diagnoser.py:142`). Two report modules read `datetime.now` for a header (`diagnosis/split/reports.py:303`, `diagnosis/recurrence/report.py:221`). The one handler copy uses the wall clock where the original uses the injected one (`learnloop_sidecar/handlers/feedback.py:1107`). Randomness: seeded `random.Random` in robust composition, instance generation (`diagnosis/probe_instance_generation.py:640`) and offline review; the prior-analysis arm is a SHA-256 draw (`diagnosis/split/prior_analysis.py:93-95`); ids are ULIDs (23 `new_ulid()` sites), and the observation and bundle ids are content-addressed.
@@ -339,5 +339,56 @@ What can be called with plain values today, and what reads the database or the c
 | D9F1 | high | **The episode posterior can't be called without a database, and every reader recomputes it from the whole learning object's history.** The Bayes step under it is pure; the replay that gathers its inputs is the shell, and five readers each run it and then normalize differently. | `diagnosis/probe_episodes.py:1869-1981`; §3.3 |
 | D9F2 | medium | **The stopping policy decides while it reads.** Seven rules interleave database reads, the robust gate and eligibility, so no rule can be tested with literals. | `diagnosis/probe_episodes.py:2902-3052` |
 | D9F3 | medium | **VOI is one object away from a functional core.** `VoiContext` mixes the settings, the minutes model and the loss tables with lazy raw SQL; supplied as values, `value_candidates` and the site functions would be pure. | `diagnosis/voi_stopping.py:389-479`, `:996` |
-| D9F4 | medium | **Hand-set numbers in the likelihood path:** the deterministic sensor's 0.40 "passed" cut, a rubric maximum of 4 when an item is missing (`diagnosis/probe_episodes.py:2041-2046`; again `diagnosis/probe_blocks.py:350`), the misconception prior's [0.05, 0.95] clamp, and the "fitted" probe policy that nothing fits (D9B3). | `diagnosis/causal_orchestrator.py:2935`; `diagnosis/misconceptions.py:858` |
+| D9F4 | medium | **Hand-set numbers in the likelihood path:** the deterministic sensor's 0.40 "passed" cut, a rubric maximum of 4 when an item is missing (`diagnosis/probe_episodes.py:2041-2046`; again `diagnosis/probe_blocks.py:350`), the misconception prior's [0.05, 0.95] clamp, and the "fitted" probe policy that nothing fits (D9B3). | `diagnosis/causal_orchestrator.py:2935`; `diagnosis/misconceptions.py:841-842`, `:868` |
 | D9F5 | medium | **Four beliefs over hypotheses** (episode, discriminating, legacy probe phase, misconception) and a fifth reader's view; strategy G3-G4 names two. | above |
+
+## 6. Comments, dead code, onboarding
+
+### 6.1 Comments
+
+The package has 4,087 comment lines. A regex for review-round and stage names (`review F\d`, `re-review`, `fix round`, `round \d`, `ruling`, `Codex`, `owner batch`, `U-0\d\d`) matches 269 comment and docstring lines in 51 of the 110 modules (most: `text_gaps/jobs.py` 23, `voi_stopping.py`, `text_gaps/pipeline.py` and `probe_episodes.py` 17 each); `mvp-0.N` appears 131 times. Examples that name a round instead of saying what breaks: `diagnosis/split/jobs.py:844-846` ("codex re-review F3"), `:892` ("review F12"), `:938-940` ("RW2b fix round 14, item 3"), `:1111` ("review F3"); `diagnosis/probe_episodes.py:2756` ("TE2 landing ruling R1 (the re-review's open question)"); `diagnosis/causal_orchestrator.py:2027-2028`, `:2154`, `:2251`, `:2290-2291` ("UX Phase 4 round 7"); `diagnosis/followups.py:952` ("Codex review F8"). Most of these also say the why beside the tag, so the cost is noise, not missing reasons.
+
+**Why-comments that are the model** (strategy §2.1's convention): `diagnosis/causal_orchestrator.py:2199-2202` (accepting twice would strand a pin), `:2229-2231` (why the pin is nested under one key), `:2778-2783` (independence before admission); `diagnosis/probe_episodes.py:1951-1956` (the in-flight response counted twice), `:2713-2714` (signed information gain); the module docstrings of `causal_orchestrator` (`:1-99`), `probe_blocks` (`:1-19`), `text_gaps.pipeline` (`:1-58`) and `recurrence.live` (`:1-31`).
+
+**Long functions without an approach header:** `_status_for_factor` (517 lines, no docstring; the approach is in the module docstring's table), `_record_presentation_observation` (260, no docstring, `diagnosis/probe_episodes.py:2519-2535`), `_evaluate_completion` (151, seven rules, no docstring, `:2902-2911`).
+
+**Docstrings the code contradicts:**
+- `record_probe_classification` says validator-owned support "unlocks the §2.1 `causal_authority` promotion arm in `failure_triage`" (`diagnosis/causal_orchestrator.py:2736-2738`); `failure_triage` has no caller (§6.2).
+- `decide_probe` says "every threshold is resolved from the fitted store" (`diagnosis/causal_probe_coherence.py:432-433`); nothing writes the store (§3.2).
+- The orchestrator's module docstring calls the discriminating observation "the ONLY channel through which diagnosis support may move" (`diagnosis/causal_orchestrator.py:15-16`); a learner's self-report resolves a factor too (`diagnosis/causal_attribution.py:3738`), and the episode posterior moves independently.
+
+### 6.2 Dead and near-dead code
+
+- **`failure_triage.py`** (1,054 lines). Deletion-proof checks (strategy §2.1), delegated and spot-checked:
+  - static imports, function-local included, in `src`, `apps`, `scripts`: none;
+  - string dispatch: **yes** — `MODULE_INVENTORY["failure_triage"]` (`params/parameter_registry.py:127`) becomes `MODULE_IMPORTS` (`:296-299`), and `refresh` (`:3231`) imports it through `importlib.import_module` (`:3099`) to resolve its three registered constants (`:1136-1141`); `refresh` runs in the `registry` CLI, in 48 upgrade call sites and, through `figure_wait_upgrade.complete_interrupted_activation`, at sidecar vault open (`learnloop_sidecar/context.py:825-827`). No `METHOD_REGISTRY` entry, Typer command or TUI path names it;
+  - frontend callers: none;
+  - replay and rebuild: `rebuild_orchestrator`, `shadow_rebuild` and `doctor` don't reach it;
+  - its public functions `triage`, `decide`, `override`, `triage_status` have no caller in `src`;
+  - five `Repository` methods carry its name, not one: `failure_triage_routes` and `failure_triage_route_for_reason` are live (read by `voi_stopping.py:476`, `causal_probe_coherence.py:597`, `voi_forecasting.py:75`, `probe_episodes.py:3158`; the routes are seeded by `migrations/083_diagnostic_pack_and_triage.sql:149`), `failure_triage_events_for` is read by `causal_health.py:327`, and `append_failure_triage_event` (`db/repositories.py:24535`) and `failure_triage_event` (`:24621`) are used only by the module;
+  - tests: five files import it, eight name it.
+
+  **So the audit's "no importer" is wrong in letter and right in effect:** removing the module also needs its three registry entries removed in the same commit, or `refresh` fails on import (inferred from `:3099`, not run). The table it writes (`failure_triage_events`) is still read by `causal_health`, so the module is the table's only writer.
+- **The legacy probe-phase posterior** (`probes.probe_posterior`, `diagnosis/probes.py:1147`) "serves only frozen pre-redesign phases" (`diagnosis/followups.py:1174-1175`), and `record_probe_attempt` is "kept only for pre-redesign replay" (`attempts/attempts.py:3494-3496`). Legacy-only, still read.
+- **14 CLI-only report modules** (§1.3) are tooling, not dead; each has a CLI command and tests.
+- **The EVSI-2 shadow selector** (`causal_diagnostic_selector.py`, 671 lines) has zero live authority (`diagnosis/causal_orchestrator.py:1491-1494`); its receipts are read by `causal_selection_audit.py:126` for the measurement-health screen. Live, as a report.
+
+### 6.3 What a new contributor must read to add a thing
+
+| Add | Read and edit today | Why so many |
+|---|---|---|
+| (a) an episode hypothesis label | `probe_hypotheses.py:31-37` (label), `:45-53` (triage reason), `:94` (generic marginals), the template builder; `probe_families.py:807-892` (family rows naming labels); `voi_stopping.py:360-369` (the unresolved-cost label sets); `probe_blocks.py:459` (a literal `"robust_initial_grasp"`); `curriculum/depth_rungs.py:337-338`; a new triage reason also needs migration 083's CHECK widened (`migrations/083_diagnostic_pack_and_triage.sql:99-103`) | the label vocabulary is restated as string literals in five modules |
+| (a′) a causal hypothesis kind | `causal_attribution._hypothesis_specs` (`:1649`), repair classes and `probe_targeting.classify_cause_set`, `causal_probe_coherence` (prior, bundles), `followup_run/lanes.concrete_rivals` | two vocabularies meet (`diagnosis/causal_probe_coherence.py:713-722` says so) |
+| (b) a probe instrument | a family in `probe_families.py` and its admission gate (`:101`), `probe_instance_generation.py`, the card and compile path in `probe_episodes.resolve_instrument` (`:1037`); for a causal instrument also commissioning (`causal_probe_commissioning.py:383`), blind bundles, the manipulation audit (`causal_probe_coherence.py:1400`) and the review ladder (`:47`); for FG1, `followup_run/admission.py` and `authoring.py`; registry entries for any new module constant | the instrument is defined in the family, compiled in the episode, and commissioned in the causal lane |
+| (c) a stopping rule | `_evaluate_completion` (`probe_episodes.py:2902`), the `completion_reason` CHECK (`migrations/200_probe_value_of_information_stop.sql:36-50`, so a migration and the head fixture), a version gate and kill switch if it changes behaviour, and the serve gate if it applies per item | rules are positional `if`s in one function; the vocabulary is a CHECK |
+| (d) a text-gap judge or source kind | `text_gaps/judges.py` (prompt, executor, caps `:85`), `tier1.py` (Decider), `pipeline.py` (`_judge_all`, `_pair_authority`, `:317`, `:365`), `kinds.py` (match kinds), `sources.py` and `contract.py` for a source kind, `jobs.py` (enqueue), and the `source_kind` CHECK (`migrations/212_hint_feedback_source_kind.sql:27`; again in 231) | the source vocabulary is a CHECK, and authority is split across three modules |
+
+### Findings
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| D9C1 | high | **Three docstrings at the centre of the causal lane are false:** the support channel isn't the only one, the thresholds aren't fitted, and the promotion arm it names has no caller. Each sends a reader to the wrong place. | §6.1 |
+| D9C2 | medium | **`failure_triage` is dead code that the registry imports at run time,** and the only writer of a table another module reads. A deletion that follows imports breaks `refresh`. | §6.2 |
+| D9C3 | medium | **The hypothesis label vocabulary is restated as literals in five modules,** and the stop and source vocabularies are SQL CHECKs, so adding one is a migration. | §6.3 |
+| D9C4 | medium | **The three longest decision functions start with no approach paragraph;** two have no docstring at all. | §6.1 |
+| D9C5 | low | 269 comment and docstring lines name review rounds or rulings, mostly beside a real reason. | §6.1 |
