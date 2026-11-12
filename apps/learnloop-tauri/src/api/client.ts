@@ -957,6 +957,16 @@ export const api = {
     call<{ version: number; conflicts: SourceConflictDto[] }>("list_source_conflicts", { input: { status } }),
   resolveSourceConflict: (input: ResolveConflictInput) =>
     mutating([TAG.maintenance], call<{ version: number; conflict: SourceConflictDto }>("resolve_source_conflict", { input })),
+  // K3.5: the feed's action on an outstanding proposal apply. "complete" finishes a
+  // pending one; "keep_files" sets a conflicted one aside (files kept as they are).
+  resolveApplyIntent: (intentId: string, resolution: "complete" | "keep_files") =>
+    mutating(
+      [TAG.maintenance, TAG.graph, TAG.library, TAG.registry, TAG.queue, TAG.sources],
+      call<{
+        version: number;
+        intent: { id: string; status: string; proposedPatchId: string; paths: string[] };
+      }>("resolve_apply_intent", { input: { intentId, resolution } })
+    ),
   getExamReadiness: (subjectId?: string | null) =>
     call<{ version: number; report: ExamReadinessReportDto }>("exam_readiness", {
       input: { subjectId: subjectId ?? null }
