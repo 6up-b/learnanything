@@ -121,6 +121,107 @@ def profile_satisfies(
     return False
 
 
+def best_inventory(
+    rows: list[dict[str, Any]],
+    unit_id: str,
+    *,
+    semantic_hash: str | None,
+    prompt_version: str,
+    provider: str | None,
+    model: str | None,
+    profile: str,
+) -> dict[str, Any] | None:
+    """The one inventory row synthesis and coverage read for a unit.
+
+    A unit keeps a row per text, prompt label, provider and model, so a
+    re-read, a prompt bump or a model change adds a row beside the old one
+    instead of replacing it. Taking the oldest, as before, read the row that
+    predates the paid re-inventory. The profile rule filters first; then the
+    unit's current text wins, then the current prompt label, then the current
+    provider and model, then the newest. ``None`` for the hash or the route
+    means "not known here" and prefers nothing.
+    """
+
+    candidates = [row for row in rows if row["unit_id"] == unit_id]
+    if not candidates:
+        return None
+    satisfying = [
+        row
+        for row in candidates
+        if profile_satisfies(row["inventory_profile"], row["inventory_schema_version"], profile)
+    ]
+    pool = sorted(
+        satisfying or candidates,
+        key=lambda row: (str(row.get("created_at") or ""), str(row.get("id") or "")),
+        reverse=True,
+    )
+    # A stable sort keeps newest-first within each preference class.
+    pool.sort(
+        key=lambda row: (
+            row.get("unit_semantic_hash") != semantic_hash,
+            row.get("prompt_version") != prompt_version,
+            (row.get("provider"), row.get("model")) != (provider, model),
+            row["inventory_profile"] != "combined",
+            row["inventory_profile"],
+        )
+    )
+    return pool[0]
+
+
+def choose_unit_inventory(
+    rows: list[dict[str, Any]],
+    unit_id: str,
+    unit_ids: list[str],
+    *,
+    ir: DocumentIR | None,
+    route: tuple[str, str] | None,
+) -> dict[str, Any] | None:
+    """``best_inventory`` for one effective unit of ``ir``, under today's prompt
+    label and ``route`` (``current_inventory_identity``), for synthesis's
+    combined request."""
+
+    provider, model = route or (None, None)
+    return best_inventory(
+        rows,
+        unit_id,
+        semantic_hash=current_unit_semantic_hash(ir, unit_ids),
+        prompt_version=SOURCE_UNIT_INVENTORY_PROMPT_VERSION,
+        provider=provider,
+        model=model,
+        profile="combined",
+    )
+
+
+def current_unit_semantic_hash(ir: DocumentIR | None, unit_ids: list[str]) -> str | None:
+    """The semantic hash an inventory of these units would carry today, or ``None``."""
+
+    if ir is None:
+        return None
+    try:
+        return _effective_semantic_hash(_inventory_members(ir, list(unit_ids)))
+    except InventoryError:
+        return None
+
+
+def current_inventory_identity(config: Any) -> tuple[str, str] | None:
+    """The provider type and model an inventory job would record now.
+
+    Resolved from the ``canonical_ingest`` route without a runtime probe; a
+    fallback provider chosen at run time records its own identity instead.
+    """
+
+    from learnloop.ai.routing import provider_for_task
+
+    provider_name = provider_for_task(config, "canonical_ingest").provider_name
+    profile = config.ai.providers.get(provider_name)
+    if profile is None:
+        return None
+    provider_type = profile.type.strip().lower()
+    if provider_type in {"http", "http_adapter"}:
+        provider_type = "http_adapter"
+    return provider_type, str(profile.model or "unknown")
+
+
 def _approx_tokens(text: str) -> int:
     if not text:
         return 0

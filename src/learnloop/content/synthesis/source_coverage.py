@@ -28,7 +28,7 @@ from learnloop.content.synthesis.exam_profile import ExamUnitEntry, aggregate_ex
 from learnloop.content.sources.role_authority import role_authority
 from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.content.synthesis.source_unit_selection import effective_scope_groups
-from learnloop.content.synthesis.source_unit_inventory import profile_satisfies
+from learnloop.content.synthesis.source_unit_inventory import choose_unit_inventory, current_inventory_identity
 from learnloop.vault.models import LoadedVault, SourceSet
 
 # Real curriculum linkage arrives with entity_source_links in ING M5/M6; until
@@ -37,22 +37,6 @@ CURRICULUM_LINKAGE_SEAM = "entity_source_links_m5_m6"
 
 # inventory-evidence forms (§9.3).
 _FORMS = ("definition", "explanation", "example", "exercise", "assessment")
-
-
-def _best_inventory(rows: list[dict[str, Any]], unit_id: str, requested_profile: str) -> dict[str, Any] | None:
-    """The richest cached inventory for a unit that satisfies the request."""
-
-    candidates = [row for row in rows if row["unit_id"] == unit_id]
-    if not candidates:
-        return None
-    satisfying = [
-        row
-        for row in candidates
-        if profile_satisfies(row["inventory_profile"], row["inventory_schema_version"], requested_profile)
-    ]
-    pool = satisfying or candidates
-    pool.sort(key=lambda row: (row["inventory_profile"] != "combined", row["inventory_profile"]))
-    return pool[0]
 
 
 def _forms_for_inventory(inventory: dict[str, Any]) -> set[str]:
@@ -91,6 +75,7 @@ def build_source_coverage(repo: Repository, vault: LoadedVault, source_set: Sour
     practice_present = False
     exam_present = False
     explanatory_member_present = False
+    route = current_inventory_identity(vault.config)
 
     for member in source_set.members:
         authority = role_authority(member.default_role)
@@ -127,7 +112,9 @@ def build_source_coverage(repo: Repository, vault: LoadedVault, source_set: Sour
         )
         resolved_groups: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
         for group in groups:
-            inventory_row = _best_inventory(rows, str(group["unit_id"]), "combined")
+            inventory_row = choose_unit_inventory(
+                rows, str(group["unit_id"]), [str(value) for value in group["unit_ids"]], ir=ir, route=route
+            )
             if inventory_row is None and len(group["unit_ids"]) > 1:
                 for source_unit_id in group["unit_ids"]:
                     source_group = {
@@ -139,7 +126,9 @@ def build_source_coverage(repo: Repository, vault: LoadedVault, source_set: Sour
                     resolved_groups.append(
                         (
                             source_group,
-                            _best_inventory(rows, str(source_unit_id), "combined"),
+                            choose_unit_inventory(
+                                rows, str(source_unit_id), [str(source_unit_id)], ir=ir, route=route
+                            ),
                         )
                     )
             else:

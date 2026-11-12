@@ -1204,18 +1204,10 @@ def default_inventory_identity(ctx: JobContext) -> tuple[str, str] | None:
     client's identity before making a model call.
     """
 
-    from learnloop.ai.routing import provider_for_task
+    from learnloop.content.synthesis.source_unit_inventory import current_inventory_identity
     from learnloop.vault.loader import load_vault
 
-    config = load_vault(ctx.vault_root).config
-    provider_name = provider_for_task(config, "canonical_ingest").provider_name
-    profile = config.ai.providers.get(provider_name)
-    if profile is None:
-        return None
-    provider_type = profile.type.strip().lower()
-    if provider_type in {"http", "http_adapter"}:
-        provider_type = "http_adapter"
-    return provider_type, str(profile.model or "unknown")
+    return current_inventory_identity(load_vault(ctx.vault_root).config)
 
 
 def default_inventory_client(

@@ -82,7 +82,7 @@ from learnloop.content.synthesis.source_unit_selection import (
     compute_effective_units,
     effective_scope_groups,
 )
-from learnloop.content.synthesis.source_unit_inventory import profile_satisfies
+from learnloop.content.synthesis.source_unit_inventory import choose_unit_inventory, current_inventory_identity
 from learnloop.content.synthesis.synthesis_gates import (
     ATTACH_GROWABLE_FIELDS,
     GateContext,
@@ -219,20 +219,10 @@ class _SynthesisInputs:
     # effective role (Codex verification of F6): the one resolver the
     # facet-meaning chokepoint uses (``facet_identity.authority``).
     resolver: facet_meaning.CitationResolver | None = None
-
-
-def _best_inventory(rows: list[dict[str, Any]], unit_id: str, requested_profile: str) -> dict[str, Any] | None:
-    candidates = [row for row in rows if row["unit_id"] == unit_id]
-    if not candidates:
-        return None
-    satisfying = [
-        row
-        for row in candidates
-        if profile_satisfies(row["inventory_profile"], row["inventory_schema_version"], requested_profile)
-    ]
-    pool = satisfying or candidates
-    pool.sort(key=lambda row: (row["inventory_profile"] != "combined", row["inventory_profile"]))
-    return pool[0]
+    # "revision:unit" -> the chosen inventory row's id and extraction. Kept out
+    # of the entries and the manifest: the entries are rendered into the
+    # prompt whole, so a new key there would move every pass checkpoint.
+    inventory_rows: dict[str, dict[str, str]] = field(default_factory=dict)
 
 
 def _assessment_signal_spans(inventory: dict[str, Any], *, held_out_only: bool) -> set[str]:
@@ -255,7 +245,9 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
     extraction_spans: dict[str, set[str]] = {}
     membership: list[dict[str, Any]] = []
     unit_inventory_versions: dict[str, str] = {}
+    inventory_rows: dict[str, dict[str, str]] = {}
     span_origin: dict[str, dict[str, str]] = {}
+    inventory_route = current_inventory_identity(vault.config)
     # The one exam predicate over every source set of the vault: a unit held
     # out for evaluation (any role) or exam material of any revision never
     # feeds synthesis as teaching, and its spans join the leakage gate.
@@ -343,13 +335,13 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
                 # a generation source, so no inventory of it reaches a study map (bootstrap or
                 # append), whatever inventory a manual run made.
                 continue
-            row = _best_inventory(rows, unit_id, "combined")
+            row = choose_unit_inventory(rows, unit_id, source_unit_ids, ir=ir, route=inventory_route)
             if row is None and len(source_unit_ids) > 1:
                 # Transition-safe fallback: an existing per-member cache remains
                 # usable until the explicit composite inventory has been generated.
                 for source_unit_id in source_unit_ids:
-                    member_row = _best_inventory(
-                        rows, source_unit_id, "combined"
+                    member_row = choose_unit_inventory(
+                        rows, source_unit_id, [source_unit_id], ir=ir, route=inventory_route
                     )
                     if member_row is None:
                         continue
@@ -359,6 +351,7 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
                     ] = str(member_row.get("inventory_schema_version")) + "|" + str(
                         member_row.get("prompt_version")
                     )
+                    inventory_rows[f"{member.revision_id}:{source_unit_id}"] = _chosen_row(member_row)
                     unit_inventories.append(
                         {
                             "extraction_id": extraction_id,
@@ -378,6 +371,7 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
             unit_inventory_versions[f"{member.revision_id}:{unit_id}"] = str(
                 row.get("inventory_schema_version")
             ) + "|" + str(row.get("prompt_version"))
+            inventory_rows[f"{member.revision_id}:{unit_id}"] = _chosen_row(row)
             # Assessment-alignment lane: exam-role units contribute ONLY through
             # the aggregate exam profile + cited task metadata. Their raw
             # inventory is never placed in the synthesis context, and every
@@ -424,7 +418,15 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
         unit_inventory_versions=unit_inventory_versions,
         span_origin=span_origin,
         resolver=facet_meaning.CitationResolver.for_source_set(repo, source_set, exam_source_sets=vault.source_sets),
+        inventory_rows=inventory_rows,
     )
+
+
+def _chosen_row(row: Mapping[str, Any]) -> dict[str, str]:
+    """Which inventory row was read: its own id and extraction, which can be an
+    earlier reading than the one the entry's citations resolve against."""
+
+    return {"inventory_id": str(row.get("id") or ""), "extraction_id": str(row.get("extraction_id") or "")}
 
 
 def _registry_index(vault: LoadedVault) -> dict[str, Any]:
