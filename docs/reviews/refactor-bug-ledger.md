@@ -25,6 +25,7 @@ Status: **open**, **queued** (a step owns it), **fixed** (commit), **owner** (wa
 | D-13 | K0, D2a | `test_model_call_receipt_owners::test_tui_grading_records_receipts_with_usage` waits a fixed ten TUI pauses (timing flake). | — | Wait on the work, not on time | queued |
 | D-14 | D2a | RO5's seeded arms (open-pick, stop coin, check rate, mixtures) draw on fresh random ids, so tests that depend on them flake. Two fixed in D2a, one in K3. | — | Sweep the remaining arms' tests | queued |
 | D-15 | D2b | `test_instruct_handoff_ih1::test_no_new_draw_joins_an_open_item` failed once in a landing run (20/20 alone on main). | — | Find the race or close as a non-repro with evidence | queued |
+| D-16 | D2b part 2a | RO5's randomized check is gated on `[router_objective]` alone (`router_objective_switches.check_mode` reads `objective_on`, the tag and `enabled`), not on the objective serving, so with the router's kill switch off (`router.enabled = false`, documented to serve the predecessor exactly) Today still places a check block DL1's pair never had. `stop_coin_rate` has the same gate; whether it acts off the objective's path was not checked. | `test_daily_plan_kill_switch::test_router_off_places_no_randomized_check` | Small fix: gate the check on the objective serving (`daily_plan.policy.objective_active`, or the same condition in the switches leaf); serving-only, no persisted meaning moves, but read whether `staged` mode should keep the check | queued |
 
 ## Due before G6 (K1's list, strategy §2.17)
 

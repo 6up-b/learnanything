@@ -139,6 +139,33 @@ def test_plan_on_router_off_is_dl1s_deterministic_pair(tmp_path):
     assert all(block.chosen["chosen_by"] == "lane_quota" and block.chosen["propensity"] == 1.0 for block in record.blocks)
 
 
+@pytest.mark.xfail(strict=True, reason=(
+    "D2b2 finding (ledger D-16): RO5's randomized check is gated on [router_objective] alone (check_mode reads "
+    "objective_on), so with the router's kill switch off Today still places a check block DL1's pair never had"))
+def test_router_off_places_no_randomized_check(tmp_path):
+    from learnloop.daily_plan.engine import PlanEnv, ro5_check_origin
+    from learnloop.daily_plan.policy import policy_for
+    from learnloop.vault.loader import load_vault
+    from tests.helpers import set_config_switch
+
+    def today(name, *, router_on):
+        paths = create_daily_plan_vault(tmp_path / name)
+        if not router_on:
+            set_config_switch(paths.root, "router.enabled", False)
+        vault = load_vault(paths.root)
+        repository = Repository(paths.sqlite_path)
+        env = PlanEnv(vault=vault, repository=repository, clock=MovableClock(FROZEN),
+                      policy=policy_for(vault, repository))
+        return get_or_create_today(env)
+
+    # With the router on, the day's first boundary administers the check (the basic item is unseen).
+    assert any(item.origin == ro5_check_origin() for item in today("on", router_on=True).items())
+    # Off, Today is DL1's pair exactly (the router's kill switch): no check block.
+    off = today("off", router_on=False)
+    assert (off.row["source"], off.row["chooser"]) == ("legacy_lanes_v1", "lane_quota_v1")
+    assert not any(item.origin == ro5_check_origin() for item in off.items())
+
+
 def test_plan_on_router_on_keeps_the_containers_invariants(tmp_path):
     """G2, G12 and G13 hold with a model chooser in the seam."""
 
