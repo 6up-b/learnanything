@@ -276,4 +276,24 @@ nothing (the pin holds; the shape pin still fails).
 
 ## 11. Vault
 
-VAULT_NOTE
+References regenerated once after the source commits (`_scripts/generate_all.py`, 123 generated notes: the module
+notes of the edited modules, the configuration field notes that list the test helper sources, and the generators'
+record), committed as `7d23fd5680`; a second run on the clean tree changed nothing (a fixed point). No hand-written
+note mentions what K0 changed (the only notes naming `identity_dump`, `task_graph_hash` or `model_dump` are
+generated). The four validators pass: `db_validate_reference.py`, `module_validate.py`, `desktop_validate.py`,
+`validate_vault.py`.
+
+## 12. Gates run
+
+- `scripts/affected_tests.py --base ad194ddc3a` selects 1,280 test files (the `config/schema.py` and `vault`-adjacent
+  edits reach most of the suite); with the five named files (`test_identity_pins`, `test_retired_config_identities`,
+  `test_architecture`, `test_test_layout`, `test_eval_harness`), 1,285 files, run in seven chunks at `-n 4` under the
+  5 GB cap and the full-suite lock, `-m "not arc_close"`: 20,313 passed, 1 failed. The failure,
+  `test_model_call_receipt_owners.py::test_tui_grading_records_receipts_with_usage`, waits a fixed ten TUI pauses
+  for a grade; it ran while the vault generator was also running, and passes alone three times out of three. K0
+  touches nothing on the TUI or grading path. A first attempt at `-n 6` in one scope stopped silently at 42%
+  (likely the memory cap) with no failure printed.
+- `ruff check`: clean. `lint-imports --no-cache`: 42 kept, 0 broken. `scripts/check_gate_partition.py`: 30,943
+  collected, landing 30,883 + arc_close 60.
+- The four vault validators pass (§11).
+- Not run (the orchestrator's): the full suite, durability, `--fresh-connections`, vitest.
