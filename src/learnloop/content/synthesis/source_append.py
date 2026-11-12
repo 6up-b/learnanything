@@ -209,6 +209,78 @@ def select_new_inventories(
     return chosen
 
 
+def _units_by_revision(unit_keys: Collection[str], revision_ids: Collection[str]) -> dict[str, set[str]]:
+    """``{revision: units}`` from a manifest's ``"revision:unit"`` keys."""
+
+    units: dict[str, set[str]] = {}
+    for revision_id in revision_ids:
+        prefix = f"{revision_id}:"
+        units[revision_id] = {key[len(prefix):] for key in unit_keys if key.startswith(prefix)}
+    return units
+
+
+def _sent_units(repository: Repository, source_set_id: str, revision_ids: Collection[str]) -> dict[str, set[str]]:
+    """The units each kept synthesis of the set sent, per revision.
+
+    A completed run's manifest records them: a bootstrap sent every unit in
+    its ``unit_inventory_versions``, an append the units of its scope's
+    revisions (only the listed ones of a revision its ``new_unit_ids``
+    names). Kept: the run's proposal was not wholly rejected (a proposal
+    waiting for review counts, as a keep-ahead build's chapters count once
+    it builds them). A merged unit sent under a member's id counts as unsent,
+    so at worst it is sent again."""
+
+    sent: dict[str, set[str]] = {revision_id: set() for revision_id in revision_ids}
+    for manifest in repository.completed_synthesis_manifests(source_set_id):
+        proposal_id = manifest.get("proposal_id")
+        decisions = [item["decision"] for item in repository.proposal_items(proposal_id)] if proposal_id else []
+        if decisions and all(decision == "rejected" for decision in decisions):
+            continue
+        keys = list(manifest.get("unit_inventory_versions") or {})
+        scope = manifest.get("scope")
+        if isinstance(scope, dict) and scope.get("mode") == "append":
+            named = set(scope.get("new_revision_ids") or ())
+            unit_filter = scope.get("new_unit_ids") or {}
+        else:
+            named, unit_filter = set(revision_ids), {}
+        for revision_id, units in _units_by_revision(keys, named & set(revision_ids)).items():
+            listed = unit_filter.get(revision_id)
+            sent[revision_id] |= units if listed is None else units & set(listed)
+    return sent
+
+
+def units_not_yet_sent(root: Path, source_set_id: str) -> tuple[list[str], dict[str, list[str]]]:
+    """What an append that names no revision sends (the CLI's ``synthesize``):
+    the set's units no kept synthesis of it has sent (:func:`_sent_units`),
+    as ``(new_revision_ids, new_unit_ids)`` for :func:`append_source`.
+
+    A revision none of whose units was sent is named whole, with no unit
+    filter (a wholly new member, as the collection build sends it); a partly
+    sent one is narrowed to its unsent units (K3.2's filter); a wholly sent one
+    is left out. Both empty: nothing new. Without this every such append
+    re-sent the whole set's inventories, the bootstrap's book included.
+    Read-only, so a dry run may call it."""
+
+    vault = load_vault(root)
+    source_set = next((s for s in vault.source_sets if s.id == source_set_id), None)
+    if source_set is None:
+        raise StudyMapError("source_set_not_found", f"Source set '{source_set_id}' does not exist.")
+    repository = Repository.attach(VaultPaths(vault.root, vault.config).sqlite_path, read_only=True)
+    inputs = _collect_inputs(repository, vault, source_set)
+    current = _units_by_revision(list(inputs.unit_inventory_versions), inputs.selected_revision_ids)
+    sent = _sent_units(repository, source_set_id, inputs.selected_revision_ids)
+    revision_ids: list[str] = []
+    new_unit_ids: dict[str, list[str]] = {}
+    for revision_id in inputs.selected_revision_ids:
+        unsent = current[revision_id] - sent[revision_id]
+        if not unsent:
+            continue
+        revision_ids.append(revision_id)
+        if sent[revision_id]:
+            new_unit_ids[revision_id] = sorted(unsent)
+    return revision_ids, new_unit_ids
+
+
 def append_scope(
     vault: LoadedVault,
     *,
