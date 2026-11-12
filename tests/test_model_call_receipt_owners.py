@@ -15,6 +15,7 @@ from learnloop.db.connection import connect
 from tests.helpers import begin_session, configure_codex_http, create_basic_vault, seed_due_item
 from tests.http_provider_double import serve_structured
 from tests.source_set_synthesis_helpers import FakeSynthesisClient, _setup
+from tests.tui_helpers import wait_for_feedback_result
 
 import pytest
 
@@ -131,10 +132,8 @@ def test_tui_grading_records_receipts_with_usage(tmp_path, monkeypatch):
                 practice = app.screen
                 practice.set_answer("SVD is U Sigma V^T.")
                 feedback = await practice.open_feedback()
-                for _ in range(10):
-                    await pilot.pause()
-                    if feedback.result is not None:
-                        break
+                # Wait on the grading worker, not a fixed number of pauses (refactor bug ledger D-13).
+                await wait_for_feedback_result(pilot, feedback)
                 assert feedback.result is not None and feedback.result.grading_source == "codex"
                 owner_id = app.state.receipt_owner_id
         finally:
