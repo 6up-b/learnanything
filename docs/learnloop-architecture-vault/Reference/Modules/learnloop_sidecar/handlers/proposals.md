@@ -36,7 +36,7 @@ Up: [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.ha
 
 ## Why this module exists
 
-This module keeps proposals behavior inside its owning package, [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]]. Its public surface centers on `get_proposals`, `ProposalDecisionInput`, `accept_proposal_items`, `reject_proposal_items`, `reset_proposal_items`, `EditProposalItemInput`, `edit_proposal_item`, `RefreshProposalItemValidationInput` and 3 more public symbols.
+This module keeps proposals behavior inside its owning package, [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]]. Its public surface centers on `get_proposals`, `ProposalDecisionInput`, `accept_proposal_items`, `reject_proposal_items`, `ResolveApplyIntentInput`, `resolve_apply_intent`, `reset_proposal_items`, `EditProposalItemInput` and 5 more public symbols.
 
 The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/proposals.py](../../../../../../src/learnloop_sidecar/handlers/proposals.py) |
-| Source lines | 328 |
+| Source lines | 368 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -57,14 +57,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `get_proposals(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 200) — Codex authoring inbox: proposal batches + items + agent-run lineage.
 - `class ProposalDecisionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 210)
 - `accept_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 216) — Accept (and apply) pending proposal items, then return the refreshed inbox.
-- `reject_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 234) — Reject proposal items (reverting any already-applied change), then refresh.
-- `reset_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 251) — Undo a rejection (never-applied items back to pending), then refresh.
-- `class EditProposalItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 262)
-- `edit_proposal_item(ctx: SidecarContext, params: EditProposalItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 269) — Replace a pending proposal item's payload with edited JSON, then refresh.
-- `class RefreshProposalItemValidationInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 294)
-- `refresh_proposal_item_validation(ctx: SidecarContext, params: RefreshProposalItemValidationInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 300) — Re-run validation for the stored pending proposal payload, then refresh.
-- `class DeleteProposalItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 311)
-- `delete_proposal_item(ctx: SidecarContext, params: DeleteProposalItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 317) — Permanently remove a proposal item (reverting it first if applied), then refresh.
+- `reject_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 238) — Reject proposal items (reverting any already-applied change), then refresh.
+- `class ResolveApplyIntentInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 254)
+- `resolve_apply_intent(ctx: SidecarContext, params: ResolveApplyIntentInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 260) — The maintenance feed's action on an outstanding proposal apply (K3.5).
+- `reset_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 291) — Undo a rejection (never-applied items back to pending), then refresh.
+- `class EditProposalItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 302)
+- `edit_proposal_item(ctx: SidecarContext, params: EditProposalItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 309) — Replace a pending proposal item's payload with edited JSON, then refresh.
+- `class RefreshProposalItemValidationInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 334)
+- `refresh_proposal_item_validation(ctx: SidecarContext, params: RefreshProposalItemValidationInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 340) — Re-run validation for the stored pending proposal payload, then refresh.
+- `class DeleteProposalItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 351)
+- `delete_proposal_item(ctx: SidecarContext, params: DeleteProposalItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 357) — Permanently remove a proposal item (reverting it first if applied), then refresh.
 
 ### Module constants
 
@@ -94,7 +96,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `pending_reword_confirms`, `reword_confirms_by_item`; calls `pending_reword_confirms`, `reword_confirms_by_item`
-- [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `PatchApplicationError`
+- [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]] — imports `ApplyIntentResolutionError`, `resolve_apply_intent`; calls `resolve_apply_intent`
+- [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `OutstandingApplyIntentError`, `PatchApplicationError`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `accept_items`, `delete_proposal_item`, `edit_proposal_item`, `refresh_proposal_item_validation`, `reject_items`, `reset_items`; calls `accept_items`, `delete_proposal_item`, `edit_proposal_item`, `refresh_proposal_item_validation`, `reject_items`, `reset_items`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `reconcile_accepted_question_promotion_patch`, `reconcile_rejected_question_promotion_patch`, `reconcile_reset_question_promotion_patch`; calls `reconcile_accepted_question_promotion_patch`, `reconcile_rejected_question_promotion_patch`, `reconcile_reset_question_promotion_patch`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`

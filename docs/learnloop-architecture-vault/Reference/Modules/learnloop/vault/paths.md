@@ -303,6 +303,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_copy_from_backs_up_the_database_a_symlinked_path_opens`
   - `test_copy_from_relocates_a_database_configured_outside_the_vault`
   - `test_each_request_carries_the_output_budget_its_estimate_reports`
+- [tests/test_apply_recovery.py](../../../../../../tests/test_apply_recovery.py) — direct import
 - [tests/test_apply_write_ahead.py](../../../../../../tests/test_apply_write_ahead.py) — direct import
 - [tests/test_attempt_completion.py](../../../../../../tests/test_attempt_completion.py) — direct import
   - `test_block_closing_diagnostic_answer_keeps_grader_provenance`

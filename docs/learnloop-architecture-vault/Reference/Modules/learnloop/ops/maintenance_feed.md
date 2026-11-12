@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ops/maintenance_feed.py](../../../../../../src/learnloop/ops/maintenance_feed.py) |
-| Source lines | 514 |
+| Source lines | 545 |
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -55,34 +55,34 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 ## Public API
 
 - `class NoticeType` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 35)
-- `generate_maintenance_feed(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 89) — Regenerate the feed deterministically; return the live notices (§11).
-- `report_transcription_mismatch(vault: LoadedVault, repository: Repository, practice_item_id: str, *, origin: Any, note: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 356) — File the learner's report that an imported exercise's transcription doesn't match the page (ux_reader_compare_ask_v1 §8.2).
-- `dismiss_notice(repository: Repository, notice_id: str, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 487)
-- `snooze_notice(repository: Repository, notice_id: str, *, until: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 491) — Snooze a notice; escalation-policy notices raise severity after N snoozes.
+- `generate_maintenance_feed(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 94) — Regenerate the feed deterministically; return the live notices (§11).
+- `report_transcription_mismatch(vault: LoadedVault, repository: Repository, practice_item_id: str, *, origin: Any, note: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 387) — File the learner's report that an imported exercise's transcription doesn't match the page (ux_reader_compare_ask_v1 §8.2).
+- `dismiss_notice(repository: Repository, notice_id: str, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 518)
+- `snooze_notice(repository: Repository, notice_id: str, *, until: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 522) — Snooze a notice; escalation-policy notices raise severity after N snoozes.
 
 ### Module constants
 
 - `ESCALATION_SNOOZE_THRESHOLD` ([src/learnloop/ops/maintenance_feed.py](../../../../../../src/learnloop/ops/maintenance_feed.py), line 31)
 - `NOTICE_TYPES` ([src/learnloop/ops/maintenance_feed.py](../../../../../../src/learnloop/ops/maintenance_feed.py), line 42)
-- `TRANSCRIPTION_MISMATCH` ([src/learnloop/ops/maintenance_feed.py](../../../../../../src/learnloop/ops/maintenance_feed.py), line 74)
-- `_COLLECTORS` ([src/learnloop/ops/maintenance_feed.py](../../../../../../src/learnloop/ops/maintenance_feed.py), line 472)
+- `TRANSCRIPTION_MISMATCH` ([src/learnloop/ops/maintenance_feed.py](../../../../../../src/learnloop/ops/maintenance_feed.py), line 79)
+- `_COLLECTORS` ([src/learnloop/ops/maintenance_feed.py](../../../../../../src/learnloop/ops/maintenance_feed.py), line 503)
 
 ## Internal implementation anchors
 
-- `class _Notice` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 78)
-- `_collect(vault: LoadedVault, repository: Repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 156)
-- `_stale_link_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 163)
-- `_open_conflict_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 188)
-- `_partial_append_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 204)
-- `_lo_without_practice_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 218)
-- `_taught_blueprint_without_assessment_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 240) — A taught blueprint with no assessment_alignment provenance (§11).
-- `_source_outcome_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 259) — Provenance-outcome associations as additive suggestions (§11, ING M8).
-- `_graph_edit_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 287) — Graph-editor notices (§8/§12): ambiguous edge direction + queued restructure requests.
-- `_probe_pool_empty_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 317) — Empty diagnostic-probe pools, surfaced as a maintenance need rather than skipped.
-- `_prompt_sha256(prompt: str) -> str` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 350)
-- `_transcription_title(label: str | None, practice_item_id: str) -> str` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 440)
-- `_transcription_action(practice_item_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 444)
-- `_resolve_reworded_transcription_reports(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 448) — Resolve every live report whose item no longer has the wording reported (a reword, a re-import or the item gone).
+- `class _Notice` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 83)
+- `_collect(vault: LoadedVault, repository: Repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 161)
+- `_stale_link_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 168)
+- `_open_conflict_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 193)
+- `_partial_append_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 209) — Outstanding proposal applies (K3.5); both refuse accepts until settled.
+- `_lo_without_practice_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 249)
+- `_taught_blueprint_without_assessment_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 271) — A taught blueprint with no assessment_alignment provenance (§11).
+- `_source_outcome_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 290) — Provenance-outcome associations as additive suggestions (§11, ING M8).
+- `_graph_edit_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 318) — Graph-editor notices (§8/§12): ambiguous edge direction + queued restructure requests.
+- `_probe_pool_empty_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 348) — Empty diagnostic-probe pools, surfaced as a maintenance need rather than skipped.
+- `_prompt_sha256(prompt: str) -> str` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 381)
+- `_transcription_title(label: str | None, practice_item_id: str) -> str` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 471)
+- `_transcription_action(practice_item_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 475)
+- `_resolve_reworded_transcription_reports(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 479) — Resolve every live report whose item no longer has the wording reported (a reword, a re-import or the item gone).
 
 ## Who imports or calls it
 
@@ -121,6 +121,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_apply_recovery.py](../../../../../../tests/test_apply_recovery.py) — direct import
+  - `test_doctor_and_the_feed_surface_a_conflicted_intent`
+  - `test_keep_files_sets_the_intent_aside_and_accepts_open_again`
 - [tests/test_graph_edit_proposals.py](../../../../../../tests/test_graph_edit_proposals.py) — direct import
   - `test_ambiguous_edge_direction_notice_carries_evidence`
   - `test_ambiguous_edge_direction_omits_sparse_evidence`

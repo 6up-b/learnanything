@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src-tauri/src/main.rs](../../../../../apps/learnloop-tauri/src-tauri/src/main.rs) |
-| Source lines | 815 |
+| Source lines | 816 |
 | Language | `Rust` |
 | Area | [[Reference/Desktop/Rust/_area|Rust]] |
 | Refactor status | `ACTIVE` |
@@ -69,13 +69,13 @@ No library export; `fn main` is the Cargo binary entry point.
 - `fn serve_media_file( path: &std::path::Path, range_header: Option<&str>, ) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 134
 - `fn debug_zoom_enabled() -> bool` — fn, line 180
 - `fn main()` — fn, line 189
-- `fn llpdf_rejects_non_content_addressed_names()` — fn, line 709
-- `fn llpdf_404s_for_absent_store_file()` — fn, line 724
-- `fn llmedia_rejects_non_content_addressed_names()` — fn, line 730
-- `fn llmedia_404s_for_absent_animation()` — fn, line 747
-- `fn content_range(response: &tauri::http::Response<Cow<'static, [u8]>>) -> String` — fn, line 755
-- `fn llmedia_serves_bounded_ranges_from_a_real_file()` — fn, line 760
-- `fn slice_range_math()` — fn, line 799
+- `fn llpdf_rejects_non_content_addressed_names()` — fn, line 710
+- `fn llpdf_404s_for_absent_store_file()` — fn, line 725
+- `fn llmedia_rejects_non_content_addressed_names()` — fn, line 731
+- `fn llmedia_404s_for_absent_animation()` — fn, line 748
+- `fn content_range(response: &tauri::http::Response<Cow<'static, [u8]>>) -> String` — fn, line 756
+- `fn llmedia_serves_bounded_ranges_from_a_real_file()` — fn, line 761
+- `fn slice_range_math()` — fn, line 800
 
 ## Who imports or calls it
 

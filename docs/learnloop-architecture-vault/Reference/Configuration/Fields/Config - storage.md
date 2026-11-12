@@ -50,7 +50,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `storage.sqlite_path` | `"state.sqlite"` | string | explicit template decision | Locates the vault's SQLite machine-state file relative to the vault root unless an absolute path is supplied. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:12`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/content/proposals/apply_protocol.py:252` |
+| `storage.sqlite_path` | `"state.sqlite"` | string | explicit template decision | Locates the vault's SQLite machine-state file relative to the vault root unless an absolute path is supplied. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:12`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/content/proposals/apply_protocol.py:264` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Every effective default is one line of `tests/goldens/effective_defaults.toml`, so a changed default shows up in review, where the `algorithms.algorithm_version` decision is made, instead of every default being dumped into each vault.

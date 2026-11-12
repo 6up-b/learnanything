@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/content/proposals/patches.py"
   - "src/learnloop/ops/maintenance_feed.py"
+  - "src/learnloop_sidecar/context.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -47,7 +48,7 @@ It belongs to the **sources and ingest** navigation family. The family context l
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/044_provenance_manifests_apply_intents.sql`.
-- **Schema touched by:** `044_provenance_manifests_apply_intents.sql`.
+- **Schema touched by:** `044_provenance_manifests_apply_intents.sql`, `255_apply_intents_conflicted.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -65,6 +66,9 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
 | `applied_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
 | `rolled_back_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
+| `conflict_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
+| `conflicted_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
+| `set_aside_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
 
 ## Relationships and access paths
 
@@ -79,8 +83,13 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository.apply_intent()`
 - `Repository.insert_apply_intent()`
 - `Repository.mark_apply_intent_applied()`
+- `Repository.mark_apply_intent_conflicted()`
+- `Repository.mark_apply_intent_rolled_back()`
+- `Repository.mark_apply_intent_set_aside()`
+- `Repository.outstanding_apply_intents()`
 - `Repository.pending_apply_intents()`
 
 ### Direct SQL readers
@@ -97,12 +106,15 @@ Indexes and uniqueness:
 - `src/learnloop/content/proposals/patches.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/ops/maintenance_feed.py`
+- `src/learnloop_sidecar/context.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/apply_intents_conflicted_migration_helpers.py`
+- `tests/test_apply_recovery.py`
 - `tests/test_apply_write_ahead.py`
 - `tests/test_doctor.py`
 - `tests/test_migrations.py`
@@ -123,18 +135,21 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 > It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
 
 ```sql
-CREATE TABLE apply_intents (
+CREATE TABLE "apply_intents" (
   id TEXT PRIMARY KEY,
   proposed_patch_id TEXT NOT NULL,
   item_ids_json TEXT NOT NULL,       -- accepted closure item ids, in apply order
   targets_json TEXT NOT NULL,        -- [{rel_path, pre_hash, post_content, post_hash}]
   db_plan_json TEXT NOT NULL,        -- per-item change batch / content event / links
   status TEXT NOT NULL DEFAULT 'pending' CHECK (
-    status IN ('pending', 'applied', 'rolled_back')
+    status IN ('pending', 'applied', 'rolled_back', 'conflicted', 'set_aside')
   ),
   created_at TEXT NOT NULL,
   applied_at TEXT,
-  rolled_back_at TEXT
+  rolled_back_at TEXT,
+  conflict_json TEXT,                -- [{rel_path, pre_hash, post_hash, found_hash}] when conflicted
+  conflicted_at TEXT,
+  set_aside_at TEXT
 );
 ```
 

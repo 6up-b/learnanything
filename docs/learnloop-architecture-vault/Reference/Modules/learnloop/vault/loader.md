@@ -636,6 +636,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_answer_signal_arms.py](../../../../../../tests/test_answer_signal_arms.py) — direct import
   - `test_the_loader_reads_the_tap_and_the_graders_tone_reading`
 - [tests/test_anti_double_count.py](../../../../../../tests/test_anti_double_count.py) — direct import
+- [tests/test_apply_recovery.py](../../../../../../tests/test_apply_recovery.py) — direct import
+  - `test_a_crash_between_two_renames_is_completed_at_the_next_sidecar_bind`
+  - `test_doctor_and_the_feed_surface_a_conflicted_intent`
+  - `test_keep_files_sets_the_intent_aside_and_accepts_open_again`
 - [tests/test_apply_write_ahead.py](../../../../../../tests/test_apply_write_ahead.py) — direct import
   - `test_apply_writes_entity_source_links_and_marks_intent_applied`
   - `test_crash_between_intent_and_rename_recovers`

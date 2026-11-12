@@ -96,7 +96,8 @@ The verified empty-vault check reported the override under `applied_overrides`, 
 ## 5. Practice the repair decision
 
 - clean doctor + explainable shadow diff → no repair required;
-- pending migrations/apply intent → backed-up `doctor --fix-state` path;
+- pending migrations/apply intent → backed-up `doctor --fix-state` path (the app also finishes a pending apply intent when it opens the vault);
+- conflicted apply intent → read the files doctor names, then settle it from Maintain ([[Doctor Migrations and Recovery#Proposal apply recovery]]);
 - stale derived marker with accounted replay → consider backed-up live rebuild;
 - deprecated tables with rows or unaccounted attempts → stop and escalate.
 
