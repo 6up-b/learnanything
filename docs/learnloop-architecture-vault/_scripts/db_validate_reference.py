@@ -81,7 +81,7 @@ EXPECTED_STATUS_OVERRIDES = {
 }
 EXPECTED_LEGACY_TABLES = {
     "evidence_facet_recall_state",
-    "facet_uncertainty",
+    # facet_uncertainty left this set with the facet-belief successor (mvp-0.59): canonical vaults write it again.
     "elicitation_events",
     "learner_state_beliefs",
     "lo_probe_state",
