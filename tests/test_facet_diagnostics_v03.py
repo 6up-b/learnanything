@@ -21,7 +21,7 @@ from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
-from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, OLD_BASIC_VAULT_TAG, create_basic_vault, pin_old_basic_vault
+from tests.helpers import NOW, NOW_ISO, OLD_BASIC_VAULT_TAG, create_basic_vault, pin_old_basic_vault
 
 
 def _add_item(root, item_id: str, facets: list[str], *, repair_targets: list[str] | None = None) -> None:
@@ -59,7 +59,8 @@ def _add_item(root, item_id: str, facets: list[str], *, repair_targets: list[str
 
 def _wrong_attempt(loaded, repository):
     repository.upsert_mastery_state(
-        MasteryState("lo_svd_definition", 2.0, 1.0, 3, NOW_ISO, ALGORITHM_VERSION, NOW_ISO)
+        # Stamped with the vault's own tag (the head, or a pinned test's old one).
+        MasteryState("lo_svd_definition", 2.0, 1.0, 3, NOW_ISO, loaded.config.algorithms.algorithm_version, NOW_ISO)
     )
     return complete_self_graded_attempt(
         loaded,

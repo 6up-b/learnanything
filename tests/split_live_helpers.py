@@ -51,12 +51,15 @@ def enable_embeddings(root: Path) -> None:
 
 
 def split_vault(tmp_path: Path, *, version: str = "mvp-0.10", config: str = "", seed: bool = True):
-    """(paths, vault, repository) for a graded vault at ``version``."""
+    """(paths, vault, repository) for a graded vault at ``version``.
+
+    The history is seeded at ``version`` too, as a vault at that tag would have
+    recorded it (since D2a the basic vault it starts from is at the head)."""
 
     paths = build_diagnosis_vault(tmp_path / "vault")
+    set_algorithm_version(paths, version)
     if seed:
         seed_history(paths)
-    set_algorithm_version(paths, version)
     if config:
         append_config(paths.root, config)
     return paths, load_vault(paths.root), Repository(paths.sqlite_path)

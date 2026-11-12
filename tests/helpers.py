@@ -52,8 +52,11 @@ async def begin_session(app, pilot):
     return app.screen
 
 
-def seed_due_item(paths: VaultPaths) -> Repository:
-    """Seed mastery + a past-due Practice Item so the basic vault item schedules."""
+def seed_due_item(paths: VaultPaths, *, version: str = ALGORITHM_VERSION) -> Repository:
+    """Seed mastery + a past-due Practice Item so the basic vault item schedules.
+
+    ``version`` stamps the mastery row: the basic vault's tag by default; a test
+    pinned to an older vault passes that vault's tag so its seed is the old one."""
     repository = Repository(paths.sqlite_path)
     repository.upsert_mastery_state(
         MasteryState(
@@ -62,7 +65,7 @@ def seed_due_item(paths: VaultPaths) -> Repository:
             logit_variance=1.0,
             evidence_count=1,
             last_evidence_at="2026-05-18T12:00:00Z",
-            algorithm_version=ALGORITHM_VERSION,
+            algorithm_version=version,
             updated_at=NOW_ISO,
         )
     )
