@@ -187,3 +187,7 @@ The two files grow by 106 lines together: the tail's records carry a line of doc
 - The goldens do not exercise K2-10, K2-13, K2-14 or a facet-identity judge that answers (see "Not covered").
 - K2.4b (one head) and K2.4c (the append through the shard runner) follow; K2.4c removes `ask`, `drop_answers` and K2-12, K2-15 with them.
 - The Build a Study Map note's `:55` example and `:60` routing rule are K2.4b's.
+
+## Process
+
+Most source edits went in through short Python scripts that replace one exact block each and assert it occurs exactly once (the new `_gate_and_persist` and the tail, the append's loop and its replacement, import blocks, the comment fixes, the ported test and the goldens harness changes); a few through the Edit tool; one record line through `sed`. The throwaway probe plugin (a discard that drops by key alone) was never committed.
