@@ -52,7 +52,6 @@ from tests.plan_follows_path_helpers import (
     GUIDE_OFF,
     HEAD,
     OFF,
-    TAG,
     _fixture_copy,
     _plan_state,
     _split,
