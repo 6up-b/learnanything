@@ -37,3 +37,31 @@ journal removed, the transaction rolled back.
 
 **Not verified.** A real power loss between the rename and the read-back (the read-back is inside the transaction, so a
 death there is the existing "death after the publication" case the journal covers).
+
+## U3: a journal that cannot be read is not torn
+
+**Reproduced.** `tests/test_upgrades.py::test_a_journal_that_cannot_be_read_is_kept_and_the_vault_is_not_opened`: the
+interrupted state (journal written, config naming the successor, predecessor's database), then the journal's mode set
+to 0 (a real permission error; the directory still allows unlinking). At the base `open_vault_repository` did not
+raise: `_read_journal` took the `PermissionError` for a torn journal, deleted it, and the vault opened under the
+successor's label over the predecessor's database (the test's later `chmod` hit `FileNotFoundError`).
+
+**Fix.** One reader, `activation_journal.read`: `None` when the file is gone, `"torn"` only when its bytes were read
+and are not a whole record (malformed JSON, undecodable bytes, missing keys), and any other `OSError` raises
+`InterruptedActivation` naming the file and keeps it. The opener's floor pre-check (`activation_journal.complete`) and
+the completion (`upgrades.complete_interrupted_activation`) both read through it, so neither treats a read error as
+torn. `upgrade()` returns the refusal as a problem (`learnloop upgrade` exits 1 naming the journal) instead of a
+traceback. Once the file is readable again the next opener completes the activation (asserted).
+
+**Callers and siblings checked.**
+- `upgrades._read_journal` (removed; its one caller now uses `activation_journal.read`) and `activation_journal._link`
+  (removed, same) were the two readers that decided; both had the defect (`_link` sent the read error on to the
+  completer, which then deleted the file).
+- `activation_journal.message` swallows `OSError` only to choose the message's wording; it decides nothing. Sound.
+- `pending`, `refuse_if_interrupted`, `remote/runtime.py`, `learnloop_mobile/host.py`, `vault/repository.py` and
+  `upgrades._upgrade` test existence only and refuse; sound.
+- Other "torn" readers (`adaptive_difficulty/denial_log.py`, the contextual-embeddings adapters) are append logs
+  whose torn tail is a line, not a recovery record; not this question.
+
+**Not verified.** An I/O error other than a permission error (the test uses `chmod 0`; the code treats every
+`OSError` but `FileNotFoundError` the same). Running as root skips the test.

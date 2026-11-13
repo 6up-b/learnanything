@@ -144,6 +144,17 @@ def upgrade(
         except BelowOldestSupported as refused:
             return UpgradeResult(upgraded=False, from_version=refused.tag or "no algorithm_version", to_version=to,
                                  problems=[str(refused)])
+        except activation_journal.InterruptedActivation as refused:
+            # Raised before anything is written: a journal this process cannot read.
+            return UpgradeResult(upgraded=False, from_version=_named_or_unknown(root), to_version=to,
+                                 problems=[str(refused)])
+
+
+def _named_or_unknown(root: Path) -> str:
+    try:
+        return published_algorithm_version(root / "learnloop.toml") or "no algorithm_version"
+    except Exception:  # the result's label only; the refusal itself is the problem reported
+        return "unknown"
 
 
 def _upgrade(root: Path, *, to: str, clock: Clock | None, links: Sequence[Link]) -> UpgradeResult:
@@ -219,7 +230,8 @@ def complete_interrupted_activation(
         with activation_journal.completing_activation():
             vault = load_vault(root)
             journal_path = _journal_path(vault)
-            journal = _read_journal(journal_path)
+            # Raises, keeping the journal, when it cannot be read.
+            journal = activation_journal.read(VaultPaths(vault.root, vault.config).sqlite_path)
             if journal is None:
                 return None
             if journal == "torn":
@@ -313,16 +325,6 @@ def _activate_as_writer(root: Path, link: Link, *, publish: bool, clock: Clock |
 
 def _journal_path(vault: LoadedVault) -> Path:
     return activation_journal.journal_path(VaultPaths(vault.root, vault.config).sqlite_path)
-
-
-def _read_journal(path: Path) -> tuple[str, str] | str | None:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        return (str(payload["predecessor"]), str(payload["target"]))
-    except FileNotFoundError:
-        return None
-    except (OSError, ValueError, KeyError, TypeError):
-        return "torn"
 
 
 def write_activation_journal(path: Path, predecessor: str, target: str) -> None:

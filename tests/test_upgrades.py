@@ -415,6 +415,31 @@ def test_a_torn_journal_is_removed_and_nothing_activates(tmp_path, link):
 
 
 @LINKS
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads a file whatever its mode")
+def test_a_journal_that_cannot_be_read_is_kept_and_the_vault_is_not_opened(tmp_path, link):
+    # A journal that cannot be read may be a complete one after the publication: deleting it as torn would serve
+    # the successor's label over the predecessor's database.
+    paths = _interrupted(tmp_path, link)
+    before = _state(paths)
+    _journal(paths).chmod(0)
+    try:
+        with pytest.raises(InterruptedActivation):
+            open_vault_repository(paths.root, paths.sqlite_path)
+        refused = upgrade(paths.root, to=link.tag)
+        assert not refused.upgraded and refused.problems, refused
+        command = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", link.tag])
+        assert command.exit_code == 1 and _journal(paths).name in command.output, command.output
+        assert _journal(paths).exists() and _tag(paths) == link.tag
+        assert not _committed(paths, link) and _state(paths) == before
+    finally:
+        _journal(paths).chmod(0o600)
+
+    # Once it can be read, the next opener completes it.
+    open_vault_repository(paths.root, paths.sqlite_path)
+    assert not _journal(paths).exists() and _committed(paths, link)
+
+
+@LINKS
 def test_the_upgrade_command_completes_its_own_interrupted_activation(tmp_path, link):
     clean = _state(_clean(tmp_path, link))
     paths = _interrupted(tmp_path, link)
