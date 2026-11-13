@@ -5,8 +5,9 @@ identity, a factor id) and on the local date, and the numeric policy refines for
 a test that reaches those draws without pinning them passes most runs and fails some. ``tests/conftest.py`` installs
 the wrappers below; while a test without ``@pytest.mark.real_draws`` runs, each seed derivation returns a seed that
 depends only on the test's node id, the family, and how many distinct production seeds that family has returned so far
-in the test, and the numeric policy runs one batch of draws. A test whose subject is the draw takes the marker and
-gets production's seeds and refinement unchanged.
+in the test (the check day: its offset from the test's first date, from :data:`CHECK_ANCHOR`), and the numeric policy
+runs one batch of draws. A test whose subject is the draw takes the marker and gets production's seeds and refinement
+unchanged.
 
 The map from production's seed to the pinned one is one-to-one within a test, so two derivations that production
 makes equal stay equal and different ones stay different: a test comparing seeds, or a logged seed against
@@ -19,6 +20,7 @@ wins: it replaces what these wrappers wrap, or production never calls them.
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import date
 import hashlib
 import importlib
 import os
@@ -67,6 +69,28 @@ def _pin(family: str, production: str) -> str:
         return pinned
 
 
+#: The date a pinned test's first check day stands for. Production's check seed is a function of the date alone, so a
+#: suite with a frozen date was already deterministic and only a test on the real date moved with the calendar. The
+#: pinned check keeps the date's role and removes the calendar: a test's first date becomes this one and every later
+#: date keeps its offset from the first. This is the date most frozen suites use (``DAY`` in the phone-plan, daily-plan
+#: RPC and IH journeys), so they keep the check placement their assertions were written against; a different anchor
+#: put a check block into 11 of them that they do not account for.
+CHECK_ANCHOR = date(2026, 10, 12)
+
+
+def _check_day(production: Callable[[str], str], local_date: str) -> str:
+    try:
+        day = date.fromisoformat(local_date)
+    except (TypeError, ValueError):
+        return _pin("check", production(local_date))  # not a date (a test of the seed's spread): as the others
+    with _lock:
+        if not _scopes:
+            return production(local_date)
+        _key, seen = _scopes[-1]
+        first = date.fromisoformat(seen.setdefault("check_first_day", {}).setdefault("date", local_date))
+    return production((CHECK_ANCHOR + (day - first)).isoformat())
+
+
 def active() -> bool:
     with _lock:
         return bool(_scopes)
@@ -105,6 +129,8 @@ def pop() -> None:
 
 def _seed_wrapper(family: str, production: Callable[..., str]) -> Callable[..., str]:
     def pinned(*args: Any, **kwargs: Any) -> str:
+        if family == "check" and len(args) == 1 and not kwargs:
+            return _check_day(production, args[0])
         return _pin(family, production(*args, **kwargs))
 
     pinned.__wrapped__ = production  # type: ignore[attr-defined]

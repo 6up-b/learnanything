@@ -28,10 +28,13 @@ def _host_process(root: str, token: str, device_id: str, sessions: list[str], pi
         from learnloop_mobile.host import create_app
         from tests.helpers import allow_below_floor
         from tests.mobile_host_helpers import CountingGrader, Phone, config_for, ReadyRuntime
+        from tests.pinned_draws import pin_this_process
         from tests.router_model_fakes import never_stop_or_offer_draws
 
-        # The parent's registration of its vault below the floor does not cross into this process.
+        # The parent's registration of its vault below the floor does not cross into this process, nor do its pinned
+        # draws (conftest is not loaded here).
         allow_below_floor(Path(root))
+        pin_this_process("host")
         never_stop_or_offer_draws()
         grader = CountingGrader()
         practice.ready_grading_provider = lambda vault, override=None: ("fake", ReadyRuntime(), grader)

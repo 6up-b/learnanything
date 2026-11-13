@@ -95,7 +95,20 @@ def test_the_map_keeps_productions_equalities_and_differences(request):
     assert len(a) == len(production("key", "d1")) and a != production("key", "d1")
     assert a == pinned_draws.pinned_seed(request.node.nodeid, "objective_mix", 0, len(a))
     # Another family counts on its own: its first seed is its own 0.
-    assert checks.day_seed("2026-10-12") == pinned_draws.pinned_seed(request.node.nodeid, "check", 0, len(a))
+    assert mix.seed_for("key", "d3") != pinned_draws.pinned_seed(request.node.nodeid, "lesson", 0, len(a))
+    lesson = pinned_draws.production("learnloop.router.lesson_suggestions", "seed_for")
+    from learnloop.router import lesson_suggestions
+
+    assert lesson_suggestions.seed_for("day", "snapshot") == pinned_draws.pinned_seed(
+        request.node.nodeid, "lesson", 0, len(lesson("day", "snapshot")))
+
+
+def test_the_check_day_keeps_the_offset_from_the_tests_first_date_and_loses_the_calendar():
+    production = pinned_draws.production("learnloop.router_objective.checks", "day_seed")
+    assert checks.day_seed("2026-11-13") == production("2026-10-12")
+    assert checks.day_seed("2026-11-16") == production("2026-10-15")
+    assert checks.day_seed("2026-11-12") == production("2026-10-11")
+    assert checks.day_seed("2026-11-13") == production("2026-10-12")
 
 
 def test_the_numeric_policy_runs_one_batch(monkeypatch):

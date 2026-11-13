@@ -8,6 +8,8 @@ from typing import Any
 from learnloop.daily_plan import objective_chooser as OC
 from learnloop.db.stores import router_objective as trace_store
 
+from tests.pinned_draws import production
+
 
 def _traces(env) -> list[dict[str, Any]]:
     with env.repository.connection() as connection:
@@ -22,6 +24,10 @@ def _pin(monkeypatch) -> Any:
     monkeypatch.setattr(OC, "_hash", lambda value: real_hash(
         {k: v for k, v in value.items() if k not in ("version", "plan_id")} if isinstance(value, dict) else value))
     monkeypatch.setattr(OC, "_latest_attempt", lambda _repository: "pinned-attempt")
+    # The numeric seed is production's own hash of that pinned identity, not the suite's default map
+    # (tests/pinned_draws.py), which would put the twins on another seed: there sg1's twins make 5 or 6 decisions from
+    # one run to the next (ledger D-19).
+    monkeypatch.setattr(OC, "numeric_seed", production(OC.__name__, "numeric_seed"))
     return lambda _key, _decision: "pinned-seed"
 
 
