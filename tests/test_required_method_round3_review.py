@@ -176,10 +176,10 @@ def answered(request, tmp_path):
     import learnloop_sidecar.handlers  # noqa: F401 - register methods
     from learnloop_sidecar.context import SidecarContext
     from tests.durable_promotion_arms_helpers import _failure
-    from tests.km2_write_path_helpers import build_mvp07_vault
+    from tests.km2_write_path_helpers import build_shared_facet_vault
 
     then, now = HISTORY_CASES[request.param]
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
     stem = load_vault(paths.root).practice_items[ITEM].prompt
     if then is not None:
         _upsert(paths, ITEM, required_method={"name": then, "criterion_ids": ["correctness"]})

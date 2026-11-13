@@ -23,7 +23,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.models import Goal, GoalFacetScope
 
 from tests.helpers import NOW, NOW_ISO
-from tests.km2_write_path_helpers import SHARED, _attempt, build_mvp07_vault
+from tests.km2_write_path_helpers import SHARED, _attempt, build_shared_facet_vault
 
 DEFINE_LO = "lo_svd_definition"
 APPLY_LO = "lo_svd_application"
@@ -31,7 +31,7 @@ APPLY_LO = "lo_svd_application"
 
 @pytest.fixture
 def mvp07(tmp_path):
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))

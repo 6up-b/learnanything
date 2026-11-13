@@ -25,7 +25,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
 from tests.helpers import NOW, NOW_ISO, admit_probe_instrument_card
-from tests.km2_write_path_helpers import KM2_OLD_TAG, SELECT, SHARED, build_mvp07_vault
+from tests.km2_write_path_helpers import KM2_OLD_TAG, SELECT, SHARED, build_shared_facet_vault
 
 
 CLOCK = FrozenClock(NOW)
@@ -93,7 +93,7 @@ def _acceptance_vault(tmp_path, *, version: str = KM2_OLD_TAG):
     near-clone probe never certifies (§4.3).
     """
 
-    paths = build_mvp07_vault(tmp_path / "vault", version=version)
+    paths = build_shared_facet_vault(tmp_path / "vault", version=version)
     _extra_item(
         paths.root,
         PROBE_ITEM,

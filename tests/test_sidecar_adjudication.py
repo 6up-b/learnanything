@@ -25,7 +25,7 @@ from learnloop.diagnosis.diagnosis_adjudication import (
 from learnloop_sidecar.errors import SidecarError
 
 from tests.durable_promotion_arms_helpers import CLOCK, LO_ID, STATEMENT, _failure
-from tests.km2_write_path_helpers import build_mvp07_vault
+from tests.km2_write_path_helpers import build_shared_facet_vault
 
 
 @pytest.fixture()
@@ -33,7 +33,7 @@ def ctx(tmp_path):
     import learnloop_sidecar.handlers  # noqa: F401
     from learnloop_sidecar.context import SidecarContext
 
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
     context = SidecarContext()
     context.load(paths.root)
     return context

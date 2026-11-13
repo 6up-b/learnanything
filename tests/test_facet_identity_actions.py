@@ -21,7 +21,7 @@ from learnloop.vault.models import learning_object_facet_union
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
 from tests.helpers import NOW, write_facets
-from tests.km2_write_path_helpers import SELECT, SHARED, _attempt, _item, _rubric, build_mvp07_vault
+from tests.km2_write_path_helpers import SELECT, SHARED, _attempt, _item, _rubric, build_shared_facet_vault
 from tests.facet_identity_actions_helpers import (
     DUP,
     _CLOCK,
@@ -198,7 +198,7 @@ def test_a_merge_without_an_undo_says_so_and_refuses(tmp_path):
 
 
 def _vault_targeting(root, targets, *, recipe_facets=()):
-    paths = build_mvp07_vault(root)
+    paths = build_shared_facet_vault(root)
     write_facets(paths, [
         {"id": SHARED, "kind": "definition", "claim": "SVD factorizes into U, Sigma, V^T."},
         {"id": SELECT, "kind": "applicability_condition", "claim": "When SVD applies."},

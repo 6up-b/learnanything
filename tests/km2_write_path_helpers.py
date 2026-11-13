@@ -79,7 +79,7 @@ def _lo(lo_id, title, summary):
 KM2_OLD_TAG = "mvp-0.7"
 
 
-def build_mvp07_vault(root: Path, *, version: str = LATEST_ALGORITHM_VERSION):
+def build_shared_facet_vault(root: Path, *, version: str = LATEST_ALGORITHM_VERSION):
     """A minimal fixture at ``version`` (the head by default): one shared canonical facet across two LOs."""
 
     paths = create_basic_vault(root)

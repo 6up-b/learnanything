@@ -15,11 +15,11 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW
-from tests.km2_write_path_helpers import KM2_OLD_TAG, SHARED, _attempt, build_mvp07_vault
+from tests.km2_write_path_helpers import KM2_OLD_TAG, SHARED, _attempt, build_shared_facet_vault
 
 
 def test_attempted_item_correction_is_append_only_and_projection_versioned(tmp_path):
-    paths = build_mvp07_vault(tmp_path / "vault", version=KM2_OLD_TAG)
+    paths = build_shared_facet_vault(tmp_path / "vault", version=KM2_OLD_TAG)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
@@ -104,7 +104,7 @@ def test_attempted_item_correction_is_append_only_and_projection_versioned(tmp_p
 
 
 def test_historical_reinterpretation_rejects_a_changed_task(tmp_path):
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))

@@ -40,7 +40,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.learner.surfaced_beliefs import mark_belief_surfaced
 from learnloop.vault.loader import load_vault
 
-from tests.km2_write_path_helpers import build_mvp07_vault
+from tests.km2_write_path_helpers import build_shared_facet_vault
 from tests.durable_promotion_arms_helpers import CLOCK, LO_ID, STATEMENT, _failure, _verified_repair
 
 
@@ -50,7 +50,7 @@ from tests.durable_promotion_arms_helpers import CLOCK, LO_ID, STATEMENT, _failu
 AMBIGUOUS_ITEM = "pi_svd_ambiguous_001"
 
 def _vault(tmp_path):
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=CLOCK)

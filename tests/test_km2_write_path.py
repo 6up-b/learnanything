@@ -29,7 +29,7 @@ from tests.helpers import (
     NOW,
     NOW_ISO,
 )
-from tests.km2_write_path_helpers import KM2_OLD_TAG, SELECT, SHARED, _attempt, _rubric, build_mvp07_vault
+from tests.km2_write_path_helpers import KM2_OLD_TAG, SELECT, SHARED, _attempt, _rubric, build_shared_facet_vault
 
 def _is_open_set_arm(cause: dict) -> bool:
     """The open-set arm, before or after P1 hypothesis materialization."""
@@ -46,12 +46,12 @@ def _synced(paths):
 
 @pytest.fixture
 def mvp07(tmp_path):
-    return _synced(build_mvp07_vault(tmp_path / "vault"))
+    return _synced(build_shared_facet_vault(tmp_path / "vault"))
 
 
 @pytest.fixture
 def old_tag_vault(tmp_path):
-    return _synced(build_mvp07_vault(tmp_path / "vault", version=KM2_OLD_TAG))
+    return _synced(build_shared_facet_vault(tmp_path / "vault", version=KM2_OLD_TAG))
 
 
 def test_two_los_share_one_facet_parent(mvp07):
@@ -256,7 +256,7 @@ def test_golden_replay_identity_mvp07(mvp07):
 
 
 def test_rebuild_uses_presented_contract_after_live_target_change(tmp_path):
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     clock = FrozenClock(NOW)
