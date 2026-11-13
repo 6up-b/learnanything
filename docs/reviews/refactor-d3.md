@@ -103,6 +103,10 @@ All 47 modules, 10,073 lines (45 at the package root, 9,346 lines; `ops/vault_up
 
 **Left for D7** (a successor file's other half: the behaviour, its switch, the predecessor served exactly): every `test_*_successor.py` above keeps its constant, switch, gate, replay and predecessor tests; the same for the successor-like files (`test_lp_claim_fixes*`, `test_rebuild_equivalence_review`, `test_learner_report_superseded`, `test_cold_retry_reschedule`, `test_curriculum_c1_*`, `test_plan_follows_path`, `test_field_workbench_signals`, `test_reader_ca2_one_ask`, `test_batch3_landing`, `test_help_fold_attach_successor`, `test_attempt_content_state_successor`, `test_reader_followups_successor`, `test_teacher_te1*`, `test_placement_unevidenced_return`, `test_ro1_upgrade_report`, `test_regrade_contract_successor`).
 
+## 4. The census, recounted
+
+D1's plugin rebuilt as described in its record (a scratch pytest plugin wrapping `version_floor.may_open_below_floor`, and `shadow_rebuild`'s imported name, that records each test the allowance lets open a vault below the floor), over the whole landing selection in 14 chunks of 100 files plus the arc-close lane, at `1e8108137e`: **4,834 test cases in 464 files** (D1, at its own tip: 5,421 in 507). Between D1's census and this step's base other steps landed (d2c's builders among them), so not all of the drop is this step's: in the files this step touched, the count fell by 376 cases and 19 files left the census (the deleted chain walks and per-link suites, and the upgrade halves of the successor files). `test_upgrades.py` adds none (it builds every vault at or above the floor; the one below-floor vault of its jump test is refused, as intended). What remains is D7's (successor behaviour halves), D2b part 2's and the re-tagging step's (builders and helpers that set an old tag), D5's (`pin_old_basic_vault`) and the fixture step's (§1 (c)).
+
 ## 5. Proof
 
 **(a) The kept tests** pass: `tests/test_upgrades.py` (34), `tests/test_version_floor.py` (23), `tests/test_ad_denial_log.py` (25), and every edited test file (44 files: 621 passed, 12 skipped, 3 xfailed, the known strict xfails, after one fix in `test_placement_unevidenced_return`, §3). Fail-first: the table's tests have no base to fail against (they test new code); the door that is new, `learnloop upgrade` refusing a vault below the floor with the `pre-floor` route, contradicts base's behaviour, which D1's `test_the_upgrade_command_still_upgrades_a_vault_below_the_floor` pinned (base's command upgraded it); not run against base here.
@@ -138,6 +142,15 @@ Every other column of those tables is equal row for row: the two upgrades differ
 | vault notes; generated | 2,263; 2,166 | 2,217; 2,120 |
 
 The structure golden is lowered with `--write` (root modules 80 to 35, functions over 200 lines 83 to 82, stage comments 2,424 to 2,398, stage-named test files 185 to 184; no number rose). One comment in the new module ("never landed") matched the stage-artifact pattern and was reworded.
+
+## 6. Gates run
+
+All under the empty-home wrapper in 5 GB scopes.
+- **Every test file** of the landing selection (`-m "not arc_close"`, 1,390 files in 14 chunks of 100 at `-n 4` behind `flock /tmp/learnloop-fullsuite.lock`, with the census plugin), at `1e8108137e`: 30,419 passed, 104 skipped, 12 xfailed (the known strict xfails), no failure or error. `scripts/affected_tests.py` against the base selects the whole suite (`pyproject.toml` and `version_floor.py`, which `tests/conftest.py` imports, changed), so this run is the affected selection; it covers every file this step added or edited, `test_identity_pins` (no pin moved, nothing `--write`), `test_retired_config_identities`, `test_architecture`, `test_test_layout`, `test_effective_defaults_golden` (golden unchanged), `test_cli_help_snapshot` (`cli_surface.json` unchanged), `test_structure_ratchets` (golden lowered), `test_e0_isolation` and `test_module_catalog_inventory` (after the regeneration).
+- **Arc-close lane** (`-m arc_close`, its 5 files): 24 passed, 36 xfailed (`test_ad23_sim`'s pre-registered strict xfails).
+- `ruff check`: clean. `lint-imports --no-cache`: 42 kept, 0 broken (no ignore line was needed for `ops.upgrades`; the three `ops.vault_upgrade` / `recall_calibration` lines went). `scripts/check_gate_partition.py`: 30,655 collected, landing 30,595 + arc_close 60.
+- Vault: the four validators pass (`module_validate`, `db_validate_reference`, `desktop_validate`, `validate_vault`). References regenerated once after the source and docs commits (`09ef3536a6`: 128 notes, the new `ops/upgrades` note, and the 47 deleted modules' notes removed by hand, which the module generator does not delete and `module_validate`/`validate_vault` flagged); a second `generate_all.py` run changed nothing.
+- Not run (the orchestrator's): the durability lane, `--fresh-connections`, vitest, the owner lane.
 
 ## 7. Bug ledger
 
