@@ -1841,6 +1841,7 @@ def test_append_synthesis_forwards_budget_overrides(tmp_path, monkeypatch):
         return SimpleNamespace(
             as_dict=lambda: {"source_set_id": source_set_id},
             reused=False,
+            nothing_new=False,
             auto_applied_item_ids=[],
         )
 
