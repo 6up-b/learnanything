@@ -34,6 +34,8 @@ from learnloop_mobile.host import create_app
 
 from tests.helpers import create_daily_plan_vault
 from tests.mobile_host_helpers import HOSTNAME, Phone, config_for, pair, rows
+from tests.ih2_lessons_compete_helpers import QUIET
+from tests.router_model_fakes import never_stop_or_offer_draws
 
 def test_j1_the_phone_reads_the_shared_plan_with_its_device_line(plan_world):
     phone, _host, _repository, paths = plan_world
@@ -221,7 +223,8 @@ def test_a_none_origin_never_enters_the_device_branch(tmp_path, monkeypatch):
     origin). Every device-only function fails the test if it is reached."""
 
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: DAY)
-    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=ITEMS)
+    never_stop_or_offer_draws(monkeypatch, fixed_numeric_seed=True)
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=ITEMS, plan_toml=QUIET)
     _held_prompt(paths.root)
 
     def reached(*_args, **_kwargs):

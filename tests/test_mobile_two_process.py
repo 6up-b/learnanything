@@ -27,7 +27,9 @@ def _host_process(root: str, token: str, device_id: str, sessions: list[str], pi
         from starlette.testclient import TestClient
         from learnloop_mobile.host import create_app
         from tests.mobile_host_helpers import CountingGrader, Phone, config_for, ReadyRuntime
+        from tests.router_model_fakes import never_stop_or_offer_draws
 
+        never_stop_or_offer_draws()
         grader = CountingGrader()
         practice.ready_grading_provider = lambda vault, override=None: ("fake", ReadyRuntime(), grader)
         app = create_app(config_for(Path(root)))
@@ -183,7 +185,7 @@ def test_the_desktop_and_the_host_coexist_with_no_lost_writes(tmp_path):
         parent.close()
 
 
-def test_the_phone_and_the_desktop_take_turns_on_one_plan(tmp_path):
+def test_the_phone_and_the_desktop_take_turns_on_one_plan(tmp_path, monkeypatch):
     """Mobile v2 V2 (§5.6): one stored plan, read by both, its steps committed atomically. The session is
     handed over each turn (PR-4), each device serves the plan's next step and answers it; no item is
     served twice, every answer is recorded once, and each boundary records its device's surface."""
@@ -194,7 +196,9 @@ def test_the_phone_and_the_desktop_take_turns_on_one_plan(tmp_path):
     import learnloop_sidecar.handlers  # noqa: F401
     from tests.helpers import create_daily_plan_vault
     from tests.mobile_host_helpers import pair, rows
+    from tests.router_model_fakes import never_stop_or_offer_draws
 
+    never_stop_or_offer_draws(monkeypatch)
     paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={
         f"lo_turn_{index}": [(f"pi_turn_{index}_a", 2.0), (f"pi_turn_{index}_b", 2.0)] for index in range(3)
     })
