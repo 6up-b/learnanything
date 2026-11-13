@@ -35,12 +35,10 @@ from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from typing import Any, Iterable
 
-from learnloop.algorithm_versions import REGRADE_CONTRACT_VERSIONS
 from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import GradingEvidenceRecord, Repository
 from learnloop.grading_epochs import ordered_epochs
 from learnloop.db.scopes import pinned_repository_call
-from learnloop.learner.assessment_contracts import P0_PROJECTION_VERSIONS
 from learnloop.content.authoring.conjunctive_items import (
     cap_embedded_credit,
     supporting_unexercised,
@@ -411,19 +409,9 @@ def p0_evidence_mass_by_attempt(
 def _with_p0_masses(
     vault: LoadedVault, repository: Repository, snapshot: FacetTimelineSnapshot
 ) -> FacetTimelineSnapshot:
-    """Attach the P0 mass map to a snapshot when the vault runs the P0 projection.
+    """Attach the P0 mass map (the projection's reliability-discounted masses) to a
+    snapshot; one that already carries it is returned as it is."""
 
-    That means mvp-0.8 or any successor tag on the same namespace (mvp-0.9 = the
-    reveal-ledger recording change); the membership test is against
-    :data:`P0_PROJECTION_VERSIONS` rather than an equality check on
-    :data:`P0_ALGORITHM_VERSION`, so a version bump does not silently drop the mass
-    map out of the feedback timeline. On an mvp-0.7 vault (or a snapshot that
-    already carries the map) this is a no-op, keeping the legacy path
-    byte-identical.
-    """
-
-    if vault.config.algorithms.algorithm_version not in P0_PROJECTION_VERSIONS:
-        return snapshot
     if snapshot.p0_evidence_mass_by_attempt is not None:
         return snapshot
     return replace(
@@ -845,7 +833,6 @@ def _observation_events_by_facet(
         return current
 
     p0_masses = snapshot.p0_evidence_mass_by_attempt
-    regrade_contracts = vault.config.algorithms.algorithm_version in REGRADE_CONTRACT_VERSIONS
     for attempt in snapshot.attempts:
         item = vault.practice_items.get(attempt["practice_item_id"])
         rows = snapshot.grading_by_attempt.get(str(attempt["id"]), ())
@@ -856,17 +843,6 @@ def _observation_events_by_facet(
         evidence_mass_override = (
             p0_masses.get(str(attempt["id"]), 0.0) if p0_masses is not None else None
         )
-        # Group by immutable grading revision when present. Timestamp remains the
-        # compatibility key for legacy/manual regrades; a FrozenClock can give
-        # revisions the same timestamp, so it cannot be the primary new-data key.
-        epochs: dict[tuple[str, str], list] = {}
-        for record in rows:
-            revision_key = (
-                f"revision:{record.grading_revision}"
-                if record.grading_revision is not None
-                else f"legacy:{record.created_at}"
-            )
-            epochs.setdefault((record.created_at, revision_key), []).append(record)
         # P2 §4.4: one authority, shared with the canonical projection.
         activity = resolve_attempt_activity_policy(
             attempt_type=attempt["attempt_type"],
@@ -883,21 +859,15 @@ def _observation_events_by_facet(
         # state — what the canonical projection consumes) advances it.
         prior_seen = {cell: set(groups) for cell, groups in seen_groups_by_cell.items()}
         marked_by_latest_epoch: dict[tuple[str, str], set[str]] = {}
-        # Later grading epochs may restate only part of an attempt's criteria
-        # (a partial supersession); the effective state at each epoch is the
-        # cumulative latest row per criterion, matching the projection's
-        # non-superseded view at the final epoch.
-        cumulative_rows: dict[str, dict] = {}
-        epoch_items = sorted(epochs.items())
-        if regrade_contracts:
-            # Regrade contracts (mvp-0.26): one epoch order with replay and the
-            # projection (``learnloop.grading_epochs``: the current epoch last,
-            # never ordered by a first-seen stamp), and each epoch is a whole
-            # grading (the projection reads the current epoch's rows alone).
-            epoch_items = [
-                ((epoch.last_written[0], epoch.key), list(epoch.rows)) for epoch in ordered_epochs(rows)
-            ]
-        unrecorded = regrade_contracts and str(attempt["id"]) in snapshot.contract_unrecorded
+        # Regrade contracts (mvp-0.26): one epoch order with replay and the
+        # projection (``learnloop.grading_epochs``, which also reads rows written
+        # before grading revisions: the current epoch last, never ordered by a
+        # first-seen stamp), and each epoch is a whole grading (the projection
+        # reads the current epoch's rows alone).
+        epoch_items = [
+            ((epoch.last_written[0], epoch.key), list(epoch.rows)) for epoch in ordered_epochs(rows)
+        ]
+        unrecorded = str(attempt["id"]) in snapshot.contract_unrecorded
         # An attempt with no grading evidence marks nothing under projection v6:
         # absent evidence produces no criterion outcomes, so it can neither bank
         # mass nor advance surface-group novelty in either fold. (Pre-v6 this
@@ -931,18 +901,18 @@ def _observation_events_by_facet(
                 group = surface_group_id(item) if item is not None else f"item:{attempt['practice_item_id']}"
             if rubric is None or not rubric.criteria:
                 continue
-            if regrade_contracts:
-                cumulative_rows = {}
-            for record in records:
-                cumulative_rows[record.criterion_id] = {
+            epoch_rows = {
+                record.criterion_id: {
                     "points_awarded": record.points_awarded,
                     "attribution": _decoded_attribution(record.attribution_json),
                 }
+                for record in records
+            }
             if unrecorded and index == len(epoch_items) - 1:
                 # Held because its contract is unrecorded: like a held grade,
                 # the current epoch banks nothing, so it corrects the
                 # attempt's earlier contribution to none.
-                cumulative_rows = {}
+                epoch_rows = {}
             (
                 credits,
                 marked,
@@ -953,7 +923,7 @@ def _observation_events_by_facet(
                 vault,
                 item,
                 rubric,
-                rows_by_criterion=dict(cumulative_rows),
+                rows_by_criterion=epoch_rows,
                 attempt_type=attempt["attempt_type"],
                 surface_group=group,
                 assisted=assisted,
