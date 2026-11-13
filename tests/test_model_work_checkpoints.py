@@ -1,13 +1,16 @@
-"""Model-work checkpoints: stale results are discarded, and every path keys a
+"""Model-work checkpoints: one cycle (load, validate, discard, save) for every
+paid structured call; stale results are discarded, and every path keys a
 window the same way for the same inputs."""
 
 from __future__ import annotations
 
 from types import SimpleNamespace
 
+from pydantic import BaseModel
 import pytest
 
 from learnloop.ai.errors import AITurnTimeout
+from learnloop.ai.execution import ModelCheckpoint, checkpointed, content_key, request_key
 from learnloop.content.pipeline.runner import IngestRunner, JobSpec, RunnerServices
 from learnloop.content.synthesis.ai_contracts import ConceptGraphStructuring, ConceptMergeGroup
 from learnloop.content.synthesis import source_unit_inventory as inventory
@@ -21,6 +24,96 @@ from tests.source_set_synthesis_helpers import (
     _setup,
     _setup_two_chapters,
 )
+
+
+class _Store:
+    """A checkpoint store in memory, recording what the cycle does to it."""
+
+    def __init__(self, saved=None):
+        self.rows = dict(saved or {})
+        self.saves: list[tuple[str, str, dict, dict | None]] = []
+
+    def model_checkpoint(self, cache_key):
+        return {"result": self.rows[cache_key], "usage": {}} if cache_key in self.rows else None
+
+    def save_model_checkpoint(self, cache_key, *, purpose, result, usage=None):
+        self.saves.append((cache_key, purpose, result, usage))
+        self.rows.setdefault(cache_key, result)
+
+    def discard_model_checkpoint(self, cache_key):
+        self.rows.pop(cache_key, None)
+
+
+class _Answer(BaseModel):
+    text: str
+
+
+def test_the_request_key_is_what_is_sent_and_nothing_left_unset():
+    assert request_key(purpose="p", prompt="hello", schema={"type": "object"}, settings={"model": "m"}) == content_key(
+        {"purpose": "p", "prompt": "hello", "schema": {"type": "object"}, "settings": {"model": "m"}})
+    # The older shapes keep their own fields through identity_extra, and leave out what they never had.
+    assert request_key(purpose="p", prompt="hello", settings={"model": "m"}, identity_extra={"schema_version": 1}) == (
+        content_key({"purpose": "p", "prompt": "hello", "settings": {"model": "m"}, "schema_version": 1}))
+    assert request_key(purpose="p", prompt="hello!") != request_key(purpose="p", prompt="hello")
+
+
+def test_a_saved_answer_is_read_back_and_nothing_is_paid():
+    checkpoint = checkpointed(_Store(), purpose="p", prompt="q", schema=None, settings=None, result_model=_Answer)
+    checkpoint.store.rows[checkpoint.key] = {"text": "saved"}
+    paid = []
+
+    answer, reused = checkpoint.answer(lambda: paid.append(1) or _Answer(text="fresh"))
+
+    assert (answer, reused, paid) == (_Answer(text="saved"), True, [])
+
+
+def test_a_fresh_answer_is_saved_with_its_usage_before_it_is_returned():
+    store = _Store()
+    checkpoint = checkpointed(store, purpose="p", prompt="q", schema=None, settings=None, result_model=_Answer)
+
+    answer, reused = checkpoint.answer(lambda: _Answer(text="fresh"), usage=lambda a: {"chars": len(a.text)})
+
+    assert (answer, reused) == (_Answer(text="fresh"), False)
+    assert store.saves == [(checkpoint.key, "p", {"text": "fresh"}, {"chars": 5})]
+
+
+def test_a_failed_call_saves_nothing():
+    store = _Store()
+    checkpoint = checkpointed(store, purpose="p", prompt="q", schema=None, settings=None, result_model=_Answer)
+
+    def fail():
+        raise RuntimeError("provider down")
+
+    with pytest.raises(RuntimeError):
+        checkpoint.answer(fail)
+    assert store.saves == []
+
+
+@pytest.mark.parametrize("stored", [{"text": None}, ["not", "an", "object"], {"text": "short"}],
+                         ids=["invalid", "not_an_object", "fails_its_check"])
+def test_a_saved_answer_that_no_longer_reads_is_discarded_and_paid_once(stored):
+    def at_least_six(answer):
+        if len(answer.text) < 6:
+            raise ValueError("too short")
+
+    store = _Store()
+    checkpoint = checkpointed(store, purpose="p", prompt="q", schema=None, settings=None, result_model=_Answer,
+                              validate=at_least_six)
+    store.rows[checkpoint.key] = stored
+
+    answer, reused = checkpoint.answer(lambda: _Answer(text="a longer one"))
+
+    assert (answer.text, reused) == ("a longer one", False)
+    assert store.rows[checkpoint.key] == {"text": "a longer one"}
+
+
+def test_a_checkpoint_under_its_own_key_reads_its_own_shape():
+    store = _Store({"own:key": {"verdict": "same", "model": "m"}})
+    checkpoint = ModelCheckpoint(store, "own:key", "own", lambda stored: (stored["verdict"], stored["model"]))
+
+    assert checkpoint.load() == ("same", "m")
+    store.rows["own:key"] = {"model": "m"}
+    assert checkpoint.load() is None and "own:key" not in store.rows
 
 
 def _checkpoint_rows(repo, purpose):
