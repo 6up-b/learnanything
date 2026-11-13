@@ -19,9 +19,14 @@ from tests.mobile_host_helpers import (
     HOSTNAME, ITEM, CountingGrader, Phone, config_for, install_grader, pair, rows, seeded_vault,
 )
 from tests.helpers import append_config_toml
+from tests.ih2_lessons_compete_helpers import draw  # noqa: F401 -- the pinned-draw fixture
 
 
-def _answered(tmp_path, monkeypatch, config: str = ""):
+def _answered(tmp_path, monkeypatch, draw, config: str = ""):
+    # The miss's boundary draws on a fresh decision id: a drawn stop or lesson offer releases or closes the workflow the
+    # tests here hold, and `followup_show_anyway` then answers released false. Not what these tests are about.
+    draw.never_stop = True
+    draw.avoid = ("lesson_offer:",)
     paths, repository = seeded_vault(tmp_path / "vault")
     if config:
         append_config_toml(paths.root, config)
@@ -43,22 +48,24 @@ def _answered(tmp_path, monkeypatch, config: str = ""):
 
 
 @pytest.fixture
-def answered(tmp_path, monkeypatch):
-    yield from _answered(tmp_path, monkeypatch)
+def answered(tmp_path, monkeypatch, draw):
+    yield from _answered(tmp_path, monkeypatch, draw)
 
 
 @pytest.fixture
-def answered_without_followups(tmp_path, monkeypatch):
+def answered_without_followups(tmp_path, monkeypatch, draw):
     """The head's no-workflow case: FG1's ``followup.generate_and_serve`` off (on, the miss opens a workflow)."""
 
-    yield from _answered(tmp_path, monkeypatch, "[followup]\ngenerate_and_serve = false\n")
+    yield from _answered(tmp_path, monkeypatch, draw, "[followup]\ngenerate_and_serve = false\n")
 
 
 def test_j2_the_full_answers_display_is_recorded_once_per_display_id(answered):
     phone, _other, repository, _session_id, attempt_id = answered
     # At the head the miss opens FG1's follow-up, which holds the full answer until it is answered (409
-    # ``followup_feedback_held``); the learner's "show it anyway" is the way to it here.
-    assert phone.rpc("followup_show_anyway", {"attemptId": attempt_id})["released"] is True
+    # ``followup_feedback_held``); the learner's "show it anyway" is the way to it here. Its reply is not the subject: the
+    # follow-up's generation job runs beside the test with no model behind it and, when it ends first, has released the
+    # answer already (released false). Recording the display below fails while the answer is still held.
+    phone.rpc("followup_show_anyway", {"attemptId": attempt_id})
     first = phone.rpc("record_answer_display", {"attemptId": attempt_id, "displayId": "disp_1"})
     again = phone.rpc("record_answer_display", {"attemptId": attempt_id, "displayId": "disp_1"})
     assert first["recorded"] is True and again.get("alreadyRecorded") is True
