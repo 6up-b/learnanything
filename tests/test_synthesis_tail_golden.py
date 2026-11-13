@@ -13,7 +13,9 @@ the append also runs its narrow-adjunct preset. The fake answers are the house f
 
 Ids are reproducible: the process's ULID stream is seeded and its clock held for the whole case, setup included.
 Stamps written from the wall clock (the run rows' completion) read ``<wall>``; ids from a stream this does not seed
-read ``<ulid:n>`` in order of first appearance.
+read ``<ulid:n>`` in order of first appearance. The vault's algorithm tag reads ``<head tag>``, and the manifest
+and context hashes that fold it in read ``<manifest:n>`` and ``<context:n>``, so a new successor tag alone moves
+nothing here.
 
 A change that means to change what a build writes regenerates the files and shows the difference in review:
 
@@ -39,6 +41,7 @@ import pytest
 import yaml
 
 from learnloop.ai.usage import TokenUsage
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.content.proposals.proposals import reject_items
 from learnloop.content.synthesis.ai_contracts import (
     AppendConflict,
@@ -75,6 +78,10 @@ _ULID_MS = 1_790_000_000_000
 _ULID = re.compile(r"\b[0-9A-HJKMNP-TV-Z]{26}\b")
 _STAMP = re.compile(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?")
 #: Tables a build never writes on its own account; FTS shadow tables hold binary segments.
+#: A new algorithm tag is not a change of what a build writes: the vault's tag reads ``<head tag>``, and the
+#: manifest and context hashes that fold it in read ``<manifest:n>`` and ``<context:n>`` (the manifest's fields
+#: are recorded beside, so its content stays pinned).
+_HEAD_TAG = re.compile(re.escape(LATEST_ALGORITHM_VERSION) + r"(?![0-9.])")
 _SKIPPED_TABLE = re.compile(r"_(data|idx|content|docsize|config)$")
 
 
@@ -119,7 +126,7 @@ def _digest(text: str) -> str:
 
 
 def _normalize_text(text: str) -> str:
-    return _STAMP.sub(lambda match: _stamp(match.group(0)), text)
+    return _HEAD_TAG.sub("<head tag>", _STAMP.sub(lambda match: _stamp(match.group(0)), text))
 
 
 def _stamp(text: str) -> str:
@@ -135,8 +142,9 @@ def _stamp(text: str) -> str:
 class _Ids:
     """Ids the seeded stream did not mint, as ``<ulid:n>`` in order of first appearance."""
 
-    def __init__(self) -> None:
+    def __init__(self, named: dict[str, str]) -> None:
         self.seen: dict[str, str] = {}
+        self.named = named
 
     def __call__(self, text: str) -> str:
         def one(match: re.Match[str]) -> str:
@@ -145,6 +153,8 @@ class _Ids:
                 return value
             return self.seen.setdefault(value, f"<ulid:{len(self.seen)}>")
 
+        for value, name in self.named.items():
+            text = text.replace(value, name)
         return _ULID.sub(one, _normalize_text(text))
 
 
@@ -263,13 +273,21 @@ def _record(root: Path, repo: Any, client: _Recorder, run: Any) -> dict[str, Any
     database, files = _database(repo.sqlite_path), _files(root)
     client.requests, client._pending = [], 0
     outcome = _outcome(run)
-    ids = _Ids()
+    changes = _database_changes(database, _database(repo.sqlite_path))
+    manifests = [row["manifest_hash"] for row in changes.get("synthesis_manifests", {}).get("added", [])]
+    manifests += [outcome["result"]["manifest_hash"]] if "result" in outcome else []
+    contexts = [row["input_context_hash"] for row in changes.get("agent_runs", {}).get("added", [])]
+    named: dict[str, str] = {}
+    for label, values in (("manifest", manifests), ("context", contexts)):
+        for value in values:
+            if value and value not in named:
+                named[value] = f"<{label}:{sum(name.startswith(f'<{label}:') for name in named.values())}>"
     return _clean({
         **outcome,
         "model_requests": client.requests,
-        "database": _database_changes(database, _database(repo.sqlite_path)),
+        "database": changes,
         "files": _file_changes(files, _files(root)),
-    }, ids)
+    }, _Ids(named))
 
 
 @pytest.fixture

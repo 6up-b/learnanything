@@ -12,7 +12,7 @@
      "est_input_tokens": 0,
      "est_output_tokens": 0,
      "id": "01M3250V00TP209AYDNCPVR746",
-     "input_context_hash": "sha256:9884a73592623fb3254f6be56440423546abebb266ddcde789a6a9816c65391e",
+     "input_context_hash": "<manifest:0>",
      "model": "fake-synth-1",
      "output_schema": "SourceSetSynthesis",
      "prompt_template": "source-set-synthesis",
@@ -1645,7 +1645,7 @@
    "practice_item": 2,
    "task_blueprint": 1
   },
-  "manifest_hash": "sha256:9884a73592623fb3254f6be56440423546abebb266ddcde789a6a9816c65391e",
+  "manifest_hash": "<manifest:0>",
   "mode": "bootstrap",
   "nothing_new": false,
   "proposal_id": "01M3250V00TP209AYDNCPVR74P",

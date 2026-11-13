@@ -12,7 +12,7 @@
      "est_input_tokens": 0,
      "est_output_tokens": 0,
      "id": "01M3250V00TP209AYDNCPVR75G",
-     "input_context_hash": "sha256:2aac31fc67ba7b8c7a04fb0d0c61b0e6827ad9aa7870e447975bf906542e40c1",
+     "input_context_hash": "<manifest:0>",
      "model": "fake-append-1",
      "output_schema": "AppendReconciliation",
      "prompt_template": "append-reconciliation",
@@ -338,9 +338,9 @@
      },
      "facet_registry_hash": "sha256:2c57d2f3393f11ff9ade08cbc675b54d0647c5787412f0f8a06e738f2fe2bf44",
      "id": "01M3250V00TP209AYDNCPVR75F",
-     "learner_model_contract_version": "mvp-0.59",
+     "learner_model_contract_version": "<head tag>",
      "lock_fingerprint": null,
-     "manifest_hash": "sha256:2aac31fc67ba7b8c7a04fb0d0c61b0e6827ad9aa7870e447975bf906542e40c1",
+     "manifest_hash": "<manifest:0>",
      "membership_json": {
       "<json>": [
        {
@@ -625,7 +625,7 @@
   "item_counts": {
    "provenance_link": 1
   },
-  "manifest_hash": "sha256:2aac31fc67ba7b8c7a04fb0d0c61b0e6827ad9aa7870e447975bf906542e40c1",
+  "manifest_hash": "<manifest:0>",
   "merge_review_proposals": [],
   "neighborhood": {
    "budget_tokens": 24000,

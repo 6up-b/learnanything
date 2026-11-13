@@ -12,7 +12,7 @@
      "est_input_tokens": 0,
      "est_output_tokens": 0,
      "id": "01M3250V00TP209AYDNCPVR75R",
-     "input_context_hash": "sha256:91ffd70911e11b447472840bb0cdd947c1e5dd9c9ad098b4333a5fd10b5f16dc",
+     "input_context_hash": "<manifest:0>",
      "model": "fake-append-1",
      "output_schema": "AppendReconciliation",
      "prompt_template": "append-reconciliation",
@@ -307,7 +307,7 @@
   "item_counts": {
    "provenance_link": 1
   },
-  "manifest_hash": "sha256:91ffd70911e11b447472840bb0cdd947c1e5dd9c9ad098b4333a5fd10b5f16dc",
+  "manifest_hash": "<manifest:0>",
   "merge_review_proposals": [],
   "neighborhood": {
    "budget_tokens": 24000,
