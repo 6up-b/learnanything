@@ -9,7 +9,10 @@ its returned result, or its typed error.
 
 The cases cover, for each mode: a clean run (applied), a run a synthesis gate fails, a run an instrument gate holds,
 items off, a rerun an equal waiting proposal answers, and a rerun after the learner rejected the whole proposal;
-the append also runs its narrow-adjunct preset. The fake answers are the house fakes'.
+the append also runs its narrow-adjunct preset. The run's head (what is refused before anything is written, and what
+the manifest and run rows record) has its own cases: an unknown source set, bootstrap's unsupported mode, a run
+refused by its input ceiling after its rows were opened, an unlimited run's budget record, and the append's unit
+filter and revision diff. The fake answers are the house fakes'.
 
 Ids are reproducible: the process's ULID stream is seeded and its clock held for the whole case, setup included.
 Stamps written from the wall clock (the run rows' completion) read ``<wall>``; ids from a stream this does not seed
@@ -382,6 +385,36 @@ def test_bootstrap_rerun_after_a_wholly_rejected_proposal(tmp_path, seeded_ids):
     _check("bootstrap_rerun_rejected", _record(root, repo, client, lambda: _build(root, repo, client)))
 
 
+def test_bootstrap_an_unknown_source_set_is_refused_before_the_mode(tmp_path, seeded_ids):
+    root, repo = _setup(tmp_path, with_exam=False)
+    client = _SynthesisClient()
+    record = _record(root, repo, client, lambda: create_study_map(
+        root, "set_missing", client=client, repository=repo, clock=_CLOCK, mode="append"))
+    _check("bootstrap_unknown_source_set", record)
+
+
+def test_bootstrap_an_unsupported_mode_is_refused_before_any_write(tmp_path, seeded_ids):
+    root, repo = _setup(tmp_path, with_exam=False)
+    client = _SynthesisClient()
+    _check("bootstrap_unsupported_mode", _record(root, repo, client, lambda: _build(root, repo, client, mode="append")))
+
+
+def test_bootstrap_over_its_input_ceiling_fails_the_run_it_opened(tmp_path, seeded_ids):
+    root, repo = _setup(tmp_path, with_exam=False)
+    client = _SynthesisClient()
+    record = _record(root, repo, client, lambda: _build(
+        root, repo, client, budget_overrides={"synthesis_total_input_ceiling": 10}))
+    _check("bootstrap_over_input_ceiling", record)
+
+
+def test_bootstrap_unlimited_records_only_its_shard_size(tmp_path, seeded_ids):
+    root, repo = _setup(tmp_path, with_exam=False)
+    client = _SynthesisClient()
+    record = _record(root, repo, client, lambda: _build(
+        root, repo, client, unlimited_token_budget=True, budget_overrides={"synthesis_output_tokens": 123}))
+    _check("bootstrap_unlimited", record)
+
+
 # --- append ------------------------------------------------------------------
 
 
@@ -510,3 +543,32 @@ def test_append_narrow_adjunct_drops_model_restructures(tmp_path, seeded_ids):
     client = _AppendClient(builder=_with_restructure)
     record = _record(root, repo, client, lambda: _append(root, repo, client, brief={"authoring_preset": "narrow_adjunct"}))
     _check("append_narrow_adjunct", record)
+
+
+def test_append_an_unknown_source_set_is_refused_before_any_write(tmp_path, seeded_ids):
+    root, repo = _bootstrap_and_add(tmp_path)
+    client = _AppendClient()
+    record = _record(root, repo, client, lambda: append_source(
+        root, "set_missing", client=client, new_revision_ids=["rev_alt"], repository=repo, clock=_CLOCK))
+    _check("append_unknown_source_set", record)
+
+
+def test_append_over_its_input_ceiling_fails_the_run_it_opened(tmp_path, seeded_ids):
+    root, repo = _bootstrap_and_add(tmp_path)
+    client = _AppendClient()
+    record = _record(root, repo, client, lambda: _append(
+        root, repo, client, budget_overrides={"append_input_ceiling": 10}))
+    _check("append_over_input_ceiling", record)
+
+
+def test_append_a_unit_filter_a_revision_diff_and_no_limits(tmp_path, seeded_ids):
+    """The append-only inputs its scope records: the change kind, the unit filter, the revision diff's hash, and the
+    one budget an unlimited run still records."""
+
+    root, repo = _bootstrap_and_add(tmp_path)
+    client = _AppendClient()
+    record = _record(root, repo, client, lambda: _append(
+        root, repo, client, new_unit_ids={"rev_alt": ["chapter_symmetry_alt"]}, change_kind="revision_adopted",
+        revision_diff={"old_revision_id": "rev_text", "new_revision_id": "rev_alt"}, unlimited_token_budget=True,
+        budget_overrides={"append_neighborhood_input_tokens": 9000}, auto_apply=False))
+    _check("append_unit_filter_diff_unlimited", record)

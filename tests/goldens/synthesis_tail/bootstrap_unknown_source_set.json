@@ -1,0 +1,12 @@
+{
+ "database": {},
+ "error": {
+  "candidate_preserved": false,
+  "code": "source_set_not_found",
+  "diagnostics": [],
+  "message": "Source set 'set_missing' does not exist.",
+  "synthesis_run_id": null
+ },
+ "files": {},
+ "model_requests": []
+}

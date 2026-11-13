@@ -1,0 +1,12 @@
+{
+ "database": {},
+ "error": {
+  "candidate_preserved": false,
+  "code": "unsupported_mode",
+  "diagnostics": [],
+  "message": "mode 'append' is not supported by create_study_map (append is ING M7).",
+  "synthesis_run_id": null
+ },
+ "files": {},
+ "model_requests": []
+}

@@ -1,0 +1,177 @@
+{
+ "database": {
+  "agent_runs": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "actual_input_tokens": 0,
+     "actual_output_tokens": 0,
+     "codex_revision": null,
+     "completed_at": "2026-07-13T12:00:00Z",
+     "error_message": "budget_exceeded: Uncached synthesis base passes need about 7309 input tokens, over the total-input ceiling of 10. Each pass counts the full request: instructions, output schema, brief, registry index and the shard's inventories. Narrow the source scope or raise synthesis_total_input_ceiling.",
+     "est_input_tokens": 0,
+     "est_output_tokens": 0,
+     "id": "01M3250V00TP209AYDNCPVR73S",
+     "input_context_hash": "<manifest:0>",
+     "model": "fake-synth-1",
+     "output_schema": "SourceSetSynthesis",
+     "prompt_template": "source-set-synthesis",
+     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2",
+     "provider": "codex",
+     "provider_revision": null,
+     "provider_type": "codex",
+     "purpose": "source_set_synthesis",
+     "sdk_version": null,
+     "started_at": "2026-07-13T12:00:00Z",
+     "status": "failed"
+    }
+   ]
+  },
+  "synthesis_manifests": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "assessment_schema_version": null,
+     "asset_hashes_json": {
+      "<json>": {
+       "rev_text": "sha256:abc"
+      }
+     },
+     "brief_json": {
+      "<json>": {
+       "depth": "intro",
+       "practice_items": "upfront"
+      }
+     },
+     "created_at": "2026-07-13T12:00:00Z",
+     "curriculum_snapshot_hash": "sha256:e2926642eaaf0cded33d5e0792d0821f7de70538121e9e41187c196bea1ac9d2",
+     "estimated_usage_json": "null",
+     "extraction_ids_json": {
+      "<json>": [
+       "ext_text"
+      ]
+     },
+     "extractor_versions_json": {
+      "<json>": {
+       "ext_text": "text@1"
+      }
+     },
+     "facet_registry_hash": "sha256:126d335867aba9cbee8383925e949bf74d5122e0be0b21258ae30bb8d221b7fe",
+     "id": "01M3250V00TP209AYDNCPVR73R",
+     "learner_model_contract_version": "<head tag>",
+     "lock_fingerprint": null,
+     "manifest_hash": "<manifest:0>",
+     "membership_json": {
+      "<json>": [
+       {
+        "priority": 1,
+        "revision_id": "rev_text",
+        "role": "primary_textbook",
+        "role_overrides": {},
+        "source_id": "src_text"
+       }
+      ]
+     },
+     "model": "fake-synth-1",
+     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2",
+     "provider": "codex",
+     "revision_ids_json": {
+      "<json>": [
+       "rev_text"
+      ]
+     },
+     "schema_version": 1,
+     "scope_json": {
+      "<json>": {
+       "facet_identity": {
+        "config": {
+         "attach_top_k": 4,
+         "enabled": true,
+         "max_calls": 24,
+         "max_cost_usd": 0.5,
+         "max_facets": 400,
+         "max_group_size": 40,
+         "max_pairs": 20000,
+         "max_retries": 2,
+         "max_total_tokens": 600000,
+         "merge_locked_facets": true,
+         "price_per_million_input": null,
+         "price_per_million_output": null,
+         "reword_confirm": true,
+         "shortlist_top_k": 4
+        },
+        "prompt_version": "facet-identity-partition-v1",
+        "route": {
+         "billing": "subscription",
+         "cost_basis": "estimated_only",
+         "judge": "llm",
+         "model": "gpt-6-luna",
+         "output_tokens": 16384,
+         "price": {
+          "input_per_million": null,
+          "output_per_million": null,
+          "source": "unknown"
+         },
+         "problem": null,
+         "profile_type": "chatgpt_plan",
+         "provider": "chatgpt_luna",
+         "route": "facet_identity_judge"
+        }
+       },
+       "scope": null
+      }
+     },
+     "source_set_id": "set_la",
+     "task_graph_hash": "sha256:bb26c2901937c768f36d5650307b6db77ff25fd8f5518fd0c843c6fd7b54101b",
+     "token_budget_json": {
+      "<json>": {
+       "synthesis_output_tokens": 16000,
+       "synthesis_shard_input_tokens": 40000,
+       "synthesis_shard_output_tokens": 10000,
+       "synthesis_total_input_ceiling": 10
+      }
+     },
+     "unit_inventory_versions_json": {
+      "<json>": {
+       "rev_text:chapter_symmetry": {
+        "content_hash": "sha256:694ed3d3d80109a5daae0db957ee1aa7821d4e276a438acf395e0e3e28384c0e",
+        "extraction_id": "ext_text",
+        "inventory_id": "inv_01M3250V00TP209AYDNCPVR73Q",
+        "version": "1|mvp-0.7-source-unit-inventory-role-aware"
+       }
+      }
+     }
+    }
+   ]
+  },
+  "synthesis_runs": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "actual_usage_json": null,
+     "agent_run_id": "01M3250V00TP209AYDNCPVR73S",
+     "candidate_output_json": null,
+     "completed_at": "<wall>",
+     "coverage_decisions_json": null,
+     "created_at": "<wall>",
+     "id": "01M3250V00TP209AYDNCPVR73T",
+     "manifest_id": "01M3250V00TP209AYDNCPVR73R",
+     "mode": "bootstrap",
+     "proposal_id": null,
+     "resolved_span_hashes_json": null,
+     "span_request_json": null,
+     "status": "failed"
+    }
+   ]
+  }
+ },
+ "error": {
+  "candidate_preserved": false,
+  "code": "budget_exceeded",
+  "diagnostics": [],
+  "message": "Uncached synthesis base passes need about 7309 input tokens, over the total-input ceiling of 10. Each pass counts the full request: instructions, output schema, brief, registry index and the shard's inventories. Narrow the source scope or raise synthesis_total_input_ceiling.",
+  "synthesis_run_id": null
+ },
+ "files": {},
+ "model_requests": []
+}
