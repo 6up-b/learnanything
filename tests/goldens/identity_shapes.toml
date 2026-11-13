@@ -356,6 +356,19 @@ fields = [
   "one_facet_per_skill: bool = false",
 ]
 
+["learnloop.content.synthesis.ai_contracts:ConceptGraphContext"]
+sites = ["K2.1d"]
+fields = [
+  "source_set_id: str required",
+  "subject_id: str required",
+  "concepts: list = []",
+  "source_skeletons: list = []",
+  "registry_concepts: list = []",
+  "registry_edges: list = []",
+  "registry_concept_details: list = []",
+  "registry_nominations: list = []",
+]
+
 ["learnloop.content.synthesis.ai_contracts:SourceSetSynthesisContext"]
 sites = ["A14"]
 fields = [

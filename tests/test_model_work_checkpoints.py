@@ -9,11 +9,18 @@ import pytest
 
 from learnloop.ai.errors import AITurnTimeout
 from learnloop.content.pipeline.runner import IngestRunner, JobSpec, RunnerServices
+from learnloop.content.synthesis.ai_contracts import ConceptGraphStructuring, ConceptMergeGroup
 from learnloop.content.synthesis import source_unit_inventory as inventory
 from learnloop.content.synthesis.source_set_synthesis import StudyMapError, create_study_map
 from learnloop.db.repositories import Repository
 from tests.source_inventory_helpers import FakeInventoryClient, _block, _ir, _persist, _register_revision, _CLOCK
-from tests.source_set_synthesis_helpers import FakeSynthesisClient, _default_payload, _setup
+from tests.source_set_synthesis_helpers import (
+    FakeSynthesisClient,
+    _default_payload,
+    _distinct_title_builder,
+    _setup,
+    _setup_two_chapters,
+)
 
 
 def _checkpoint_rows(repo, purpose):
@@ -118,3 +125,62 @@ def test_ingest_job_and_direct_inventory_key_windows_identically(tmp_path):
 
     assert repo.ingest_jobs_for_batch(batch)[0]["status"] == "completed"
     assert sorted(row[0] for row in _checkpoint_rows(repo, "inventory_window")) == sorted(direct.window_keys)
+
+
+class _StructuringClient(FakeSynthesisClient):
+    """Two shards of distinct titles, and a structuring pass that merges them."""
+
+    def __init__(self, *, builder=_distinct_title_builder):
+        super().__init__(builder=builder)
+        self.structuring_contexts: list = []
+
+    def run_concept_graph_structuring(self, context):
+        self.structuring_contexts.append(context)
+        ids = [concept["client_item_id"] for concept in context.concepts]
+        return ConceptGraphStructuring(
+            merge_groups=[ConceptMergeGroup(canonical_client_id=ids[0], duplicate_client_ids=ids[1:])],
+        )
+
+
+def _two_shard_study_map(root, repo, client):
+    return create_study_map(root, "set_la", client=client, brief={"depth": "intro"}, repository=repo,
+                            clock=_CLOCK, budget_overrides={"synthesis_shard_input_tokens": 1})
+
+
+def test_a_retry_after_a_structuring_pass_reads_its_checkpoint(tmp_path, monkeypatch):
+    root, repo = _setup_two_chapters(tmp_path)
+    client = _StructuringClient()
+
+    def explode(self, batch, rows):
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(Repository, "persist_proposal_batch", explode)
+    with pytest.raises(RuntimeError, match="disk full"):
+        _two_shard_study_map(root, repo, client)
+    monkeypatch.undo()
+    assert len(client.structuring_contexts) == 1
+
+    result = _two_shard_study_map(root, repo, client)
+
+    assert len(client.structuring_contexts) == 1
+    assert result.item_counts["concept"] == 1
+    usage = repo.synthesis_run(result.synthesis_run_id)["actual_usage"]
+    assert usage["consolidated_concepts"] == 1
+    assert len(_checkpoint_rows(repo, "concept_graph_structuring")) == 1
+
+
+def test_a_gate_failure_drops_the_structuring_answer_it_judged(tmp_path):
+    def builder(context, n):
+        payload = _distinct_title_builder(context, n)
+        if n == 1:
+            payload.practice_items[1].depends_on_client_item_ids = ["no_such_item"]
+        return payload
+
+    root, repo = _setup_two_chapters(tmp_path)
+    client = _StructuringClient(builder=builder)
+    with pytest.raises(StudyMapError) as excinfo:
+        _two_shard_study_map(root, repo, client)
+    assert excinfo.value.code == "synthesis_gate_failed"
+    assert len(client.structuring_contexts) == 1
+
+    assert _checkpoint_rows(repo, "concept_graph_structuring") == []

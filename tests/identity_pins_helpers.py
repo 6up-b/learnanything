@@ -576,6 +576,30 @@ def _facet_judge_key(judge: str, reasoning_effort: str | None = None) -> Callabl
     return compute
 
 
+def _structuring_key(nominated: bool) -> Callable[[], Any]:
+    def compute() -> Any:
+        from learnloop.ai.execution import model_settings
+        from learnloop.content.synthesis.ai_contracts import ConceptGraphContext
+        from learnloop.content.synthesis.source_set_synthesis import structuring_checkpoint
+
+        context = ConceptGraphContext(
+            source_set_id="set_pin", subject_id="linear-algebra",
+            concepts=[{"client_item_id": "c_svd", "title": "SVD", "type": "concept", "aliases": [],
+                       "description": "A = U S V^T"}],
+            source_skeletons=[{"source_id": "src_pin", "units": [{"label": "Chapter 1"}]}],
+            registry_concepts=["singular_value_decomposition"],
+            registry_edges=[{"source": "a", "target": "b", "relation_type": "prerequisite"}],
+            registry_concept_details=(
+                [{"id": "singular_value_decomposition", "title": "SVD", "definition": "A = U S V^T"}] if nominated else []),
+            registry_nominations=(
+                [{"client_item_id": "c_svd", "registry_concept_ids": ["singular_value_decomposition"]}]
+                if nominated else []),
+        )
+        settings = {**model_settings(FakeStructuredClient()), "provider": "codex", "model": "fake-model"}
+        return structuring_checkpoint(None, context, settings).key
+    return compute
+
+
 def _glm_ocr_window_key() -> Any:
     from learnloop.ingest.extractors.glm_ocr import GlmOcrDocumentExtractor
 
@@ -979,6 +1003,13 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "every hosted OCR window is read (paid) again",
         {"window_key": _glm_ocr_window_key}),
     IdentitySite(
+        "K2.1d", "concept graph structuring checkpoint key (asdict of its context in the prompt; a pass key's shape)",
+        ("src/learnloop/content/synthesis/ai_contracts.py::concept_graph_structuring_prompt",
+         "src/learnloop/content/synthesis/source_set_synthesis.py::structuring_checkpoint"),
+        "concept graph structuring checkpoints (model_checkpoints)",
+        "a cached structuring answer misses and is paid again on retry",
+        {"key": _structuring_key(False), "key.nominated": _structuring_key(True)}),
+    IdentitySite(
         "A19", "family item input hash and the family plan dump",
         ("src/learnloop/substrate/families.py::family_item_input",
          "src/learnloop/substrate/families.py::family_item_input_hash",
@@ -1190,6 +1221,7 @@ SHAPE_ROOTS: dict[str, tuple[str, ...]] = {
     "learnloop.content.synthesis.ai_contracts:SourceSetSynthesisContext": ("A14",),
     "learnloop.content.synthesis.ai_contracts:AppendReconciliationContext": ("K3.4",),
     "learnloop.content.synthesis.ai_contracts:SourceUnitInventoryContext": ("A15",),
+    "learnloop.content.synthesis.ai_contracts:ConceptGraphContext": ("K2.1d",),
 }
 
 
@@ -1310,7 +1342,6 @@ PROVENANCE_ONLY: dict[str, str] = {
     "src/learnloop/content/proposals/proposals.py::persist_authoring_proposal":
         "agent_runs.input_context_hash of purpose 'authoring', which nothing looks up (only canonical ingest, "
         "synthesis and append read completed_agent_run*_by_context; sweep §1D)",
-    "src/learnloop/content/synthesis/ai_contracts.py::concept_graph_structuring_prompt": PROMPT_REASON,
     "src/learnloop/content/synthesis/ai_contracts.py::vault_epigraphs_prompt": PROMPT_REASON,
     "src/learnloop/curriculum/ai_contracts.py::rung_backfill_prompt": PROMPT_REASON,
     "src/learnloop/curriculum/ai_contracts.py::depth_edge_instance_prompt": PROMPT_REASON,

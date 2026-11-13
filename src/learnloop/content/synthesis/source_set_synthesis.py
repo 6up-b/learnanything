@@ -36,6 +36,7 @@ from typing import Any, Callable
 
 from learnloop.ai.execution import (
     ModelCheckpoint,
+    checkpointed,
     content_key,
     declared_budgets,
     generation_limit,
@@ -153,13 +154,34 @@ def request_concept_graph_structuring(
 
     return execute_structured_operation(
         client,
-        purpose="concept_graph_structuring",
+        purpose=STRUCTURING_PURPOSE,
         prompt=concept_graph_structuring_prompt(context),
-        result_model=(
-            ConceptGraphStructuringWithRegistry
-            if concept_graph_has_registry_nominations(context)
-            else ConceptGraphStructuring
-        ),
+        result_model=_structuring_result_model(context),
+    )
+
+
+STRUCTURING_PURPOSE = "concept_graph_structuring"
+
+
+def _structuring_result_model(context: ConceptGraphContext) -> type[ConceptGraphStructuring]:
+    return (
+        ConceptGraphStructuringWithRegistry
+        if concept_graph_has_registry_nominations(context)
+        else ConceptGraphStructuring
+    )
+
+
+def structuring_checkpoint(
+    repository: Any, context: ConceptGraphContext, settings: dict[str, Any],
+) -> ModelCheckpoint[ConceptGraphStructuring]:
+    """The structuring call's checkpoint: the request key of its rendered
+    prompt and of the result schema it asks for (with or without registry
+    merges), under the run's settings."""
+
+    result_model = _structuring_result_model(context)
+    return checkpointed(
+        repository, purpose=STRUCTURING_PURPOSE, prompt=concept_graph_structuring_prompt(context),
+        schema=result_model.model_json_schema(), settings=settings, result_model=result_model,
     )
 
 
@@ -2969,6 +2991,8 @@ def _run_synthesis(
         output_budget_tokens=spend.remaining_output(),
         progress=progress,
         nominator=nominator,
+        settings=settings,
+        answers=answers,
     )
     spend.calls += int(structuring_usage.pop("calls", 0))
     spend.input_tokens_estimate += int(structuring_usage.pop("input_tokens_estimate", 0))
@@ -3199,6 +3223,8 @@ def _model_graph_structuring(
     output_budget_tokens: int | None = None,
     progress: ProgressFn | None = None,
     nominator: Any = None,
+    settings: dict[str, Any] | None = None,
+    answers: _SavedAnswers | None = None,
 ) -> tuple[Any, dict[str, Any]]:
     """One bounded model pass over the WHOLE merged candidate (§8.5): folds
     semantic duplicate concepts AND authors the big-picture concept relations
@@ -3209,6 +3235,10 @@ def _model_graph_structuring(
     degrades to the deterministic same-title merge (and whatever relations the
     shards authored locally) rather than failing the synthesis. The model only
     NOMINATES merges/relations; validation and application stay deterministic.
+
+    The answer is checkpointed like a pass (``settings`` are the run's), so a
+    retry reads it instead of paying again, and joins ``answers``: the gates
+    judge the candidate it shaped, and a rejection drops it with the passes.
 
     Slice 2 T5: with a ``nominator``, the registry concepts nearest each
     candidate by definition embedding are shown with their titles and
@@ -3269,17 +3299,31 @@ def _model_graph_structuring(
     if registry_details:
         estimate_parts += [registry_details, registry_nominations]
     estimate = max(1, len(json.dumps(estimate_parts, default=str)) // 4)
-    if (
-        total_input_ceiling is not None
-        and input_tokens_estimate + estimate > total_input_ceiling
-    ):
-        return merged, {"graph_structuring_skipped": "total-input ceiling reached"}
-    _notify(progress, "synthesis", "Structuring the concept graph across sources")
+    checkpoint = structuring_checkpoint(
+        repository, context, settings if settings is not None else model_settings(client),
+    )
+    if answers is not None:
+        answers.pass_keys.append(checkpoint.key)
+    calls = 0
     try:
-        with generation_limit(output_budget_tokens):
-            outcome = request_concept_graph_structuring(client, context)
+        # A saved answer is free, so the input ceiling below applies only to a call.
+        outcome = checkpoint.load()
+        if outcome is None:
+            if (
+                total_input_ceiling is not None
+                and input_tokens_estimate + estimate > total_input_ceiling
+            ):
+                return merged, {"graph_structuring_skipped": "total-input ceiling reached"}
+            _notify(progress, "synthesis", "Structuring the concept graph across sources")
+            with generation_limit(output_budget_tokens):
+                outcome = request_concept_graph_structuring(client, context)
+            calls = 1
+            # Saved before the output check, as a pass is: a retry under a
+            # larger budget reuses this paid answer.
+            checkpoint.save(outcome, {"input_tokens_estimate": estimate, "output_tokens_estimate": _result_tokens(outcome)})
         if output_budget_tokens is not None and _result_tokens(outcome) > output_budget_tokens:
-            return merged, {"graph_structuring_skipped": "output budget exceeded", "calls": 1, "input_tokens_estimate": estimate}
+            return merged, {"graph_structuring_skipped": "output budget exceeded", "calls": calls,
+                            "input_tokens_estimate": estimate if calls else 0}
     except Exception as exc:  # noqa: BLE001 — never discard paid-for shards over this
         return merged, {"graph_structuring_skipped": f"{exc.__class__.__name__}: {exc}"}
     mapping = _validated_merge_mapping(outcome, merged)
@@ -3329,8 +3373,8 @@ def _model_graph_structuring(
         )
         authored += 1
     usage = {
-        "calls": 1,
-        "input_tokens_estimate": estimate,
+        "calls": calls,
+        "input_tokens_estimate": estimate if calls else 0,
         "consolidated_concepts": len(mapping),
         "authored_relations": authored,
     }
