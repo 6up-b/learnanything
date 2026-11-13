@@ -689,6 +689,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_anti_double_count_claim_seeds_prior_but_earns_no_mass`
   - `test_anti_double_count_projection_signal_earns_zero_certification`
   - `test_anti_double_count_replay_reproduces_identical_state`
+- [tests/test_approach_map_replay.py](../../../../../tests/test_approach_map_replay.py) — direct import
+  - `test_rebuild_and_replay_call_no_model_and_never_read_approach_maps`
 - [tests/test_approach_maps.py](../../../../../tests/test_approach_maps.py) — direct import
 - [tests/test_assessment_contracts.py](../../../../../tests/test_assessment_contracts.py) — direct import
   - `test_legacy_attempt_records_no_observation_lineage`
