@@ -40,7 +40,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGES = ("src/learnloop", "src/learnloop_sidecar", "src/learnloop_mobile", "src/learnloop_mcp")
 TAG = re.compile(r"mvp-0\.(\d+)")
-DEFAULT_FLOOR = "mvp-0.43"
 UPGRADE_FAMILY = re.compile(r"(upgrade|successor)")
 
 
@@ -923,9 +922,19 @@ def markdown(report: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _oldest_supported() -> str:
+    """The floor the code enforces: a gate is constant when every tag a vault can be opened at takes it."""
+
+    sys.path.insert(0, str(ROOT / "src"))
+    from learnloop.algorithm_versions import OLDEST_SUPPORTED
+
+    return OLDEST_SUPPORTED
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--floor", default=DEFAULT_FLOOR, help="oldest tag a live vault holds (default %(default)s)")
+    parser.add_argument("--floor", default=None,
+                        help="oldest tag a live vault holds (default: algorithm_versions.OLDEST_SUPPORTED)")
     parser.add_argument("--json", type=Path, help="write the JSON report here (default: stdout)")
     parser.add_argument("--markdown", type=Path, help="write the Markdown table here")
     parser.add_argument("--timed", default="", help="comma list of serial,n8,durability,landing,arc_close: run those suites (machine time)")
@@ -943,7 +952,7 @@ def main(argv: list[str] | None = None) -> int:
     report = {
         "commit": commit + ("+dirty" if dirty else ""),
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-        "computed": computed(args.floor),
+        "computed": computed(args.floor or _oldest_supported()),
         "timed_commands": [f"{n}: {shlex.join(timed_command(n, args.timed_dir / f'{n}.xml'))}" for n in TIMED],
         "timed": run_timed(names, args.timed_dir) if names else None,
         "manual": [{"measure": name, "procedure": how} for name, how in MANUAL],
