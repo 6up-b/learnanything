@@ -334,6 +334,9 @@ def test_a_need_decision_replacing_an_interrupting_offer_keeps_its_place_and_wha
     assert wf.lost_offer_decision(env.repository, workflow["id"]) == drawn["id"]
     SG.respond(env.vault, env.repository, decision_id=drawn["id"], response="declined", clock=env.clock)
     env.clock.advance(1)
+    # The resume's own decision draws on a fresh id, and its support holds another lesson's offer: the mix's floor drew
+    # that offer about one run in twenty (refactor bug ledger D-14). The subject is the block resuming, so no offer.
+    draw.prefer, draw.avoid = (), ("lesson_offer:",)
     _record, resumed = advance(env, serve=False)
     assert resumed["kind"] == "item"
 

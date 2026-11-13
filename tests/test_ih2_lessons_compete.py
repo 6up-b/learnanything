@@ -173,6 +173,10 @@ def test_a_requested_item_is_placed_at_the_build_with_no_offer_beside_it(tmp_pat
     env = _env(tmp_path, toml=NO_CHECKS)
     env.repository.requested_practice_item_ids = lambda *, skip_commitment_ids=(): ["pi_r1a"]
     draw.prefer = (OFFER,)
+    # No offer is in this support, so the mix serves its own draw: with the LLM down the numeric policy holds the whole
+    # mix, and its Monte Carlo (seeded on the plan's fresh id) drew stop about one run in thirty, ending the build
+    # before its block decision (refactor bug ledger D-14). The subject is the forced item, not stop.
+    draw.never_stop = True
     build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
     decision = _objective_rows(env)[0]
     assert [entry["practice_item_id"] for entry in decision["detail_json"]["forced"]] == ["pi_r1a"]

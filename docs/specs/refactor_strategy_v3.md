@@ -766,10 +766,15 @@ The map's methods were name- and import-based, so whole risk classes were invisi
 - **Scope:** `diagnosis/`, with `causal_orchestrator.py` and `probe_episodes.py` first; `params/parameter_registry.py`'s cost per change (in 11% of commits, about 380 registered constants). The orchestrator checks the map's claims before the strategy uses them.
 - **Output:** K9.1... after arc D. K6 widens from side effects to `source_retrieval`'s structure the same way, if the method pays a second time.
 
+**K10. Show me figures and explanation videos: deep map and structure strategy** (L; review, two jobs, K2's method). Owner, Nov 12: "show me figure creation and explanation videos should also be properly refactored with the same philosophy I stated in my first message", possibly also for the UX journey audit.
+- **Why:** `figures/` is 25 modules and about 20,800 lines that the Nov 8 map read by size. `figures/service.py` (3,956 lines, 76 public names) is one of its five god modules, arc B added records (B4) and nothing restructures it. The Manim tier (`figures/manim_figure.py`, `figures/rich.py`) and `teacher/visuals.py` run model-written code in a sandbox, and `figures/prefetch.py` holds 26 SQL calls beside the pre-build model's arithmetic.
+- **Scope:** `figures/`, `figure_admission.py`, `teacher/visuals.py`, every place that offers Show me, the sidecar's figures handlers, the phone's media side, the desktop's figure and video components, the sandboxes and where media is stored.
+- **Output:** the map (`docs/reviews/k10-figures-map-2026-11-12.md`), then the strategy and steps K10.1... The map's section 8 lists what the learner sees in each state of a figure or video request, as input to the UX journey audit: it names problems and redesigns nothing.
+
 **T2. Tests named for what they prove** (M; lowest priority). With the documentation stage.
 - **Does:** renames the 196 stage-named test files to behaviour names, one commit per feature, with no assertion changed. `scripts/affected_tests.py` follows imports, so selection doesn't move.
 
-**Order.** M0 now. L7 with D1. K9, K8 and L4's review are read-only and run beside arc D. L1 after D6. L5 in batches at arc closes. L2 at a quiet boundary. L3 with J. L6 from E2. **Cost:** roughly 12-18% on top of §2.15 (an estimate).
+**Order.** M0 now. L7 with D1. K9, K10, K8 and L4's review are read-only and run beside arc D. L1 after D6. L5 in batches at arc closes. L2 at a quiet boundary. L3 with J. L6 from E2. **Cost:** roughly 12-18% on top of §2.15 (an estimate).
 
 **Still the owner's:** which CLI-only code stays (L3's list, decision 7).
 

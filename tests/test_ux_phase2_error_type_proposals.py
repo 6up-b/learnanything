@@ -29,11 +29,13 @@ from learnloop.db.repositories import Repository
 from learnloop.diagnosis.error_taxonomy import persist_unknown_error_type_proposals
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
-from tests.helpers import NOW, create_basic_vault
+from tests.helpers import NOW, create_basic_vault, pin_old_basic_vault
 
 
-def _setup(tmp_path):
+def _setup(tmp_path, *, old_tag: bool = False):
     paths = create_basic_vault(tmp_path / "vault")
+    if old_tag:
+        paths = pin_old_basic_vault(paths)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     clock = FrozenClock(NOW)
@@ -74,13 +76,13 @@ def _attempt_refs(batch: dict) -> list[str]:
 
 def test_repeated_gradings_naming_one_new_error_type_leave_one_waiting_proposal(tmp_path):
     _paths, vault, repository, clock = _setup(tmp_path)
-    first = _grade(vault, repository, clock, "attempt_1", "local_slip")
+    first = _grade(vault, repository, clock, "attempt_1", "sign_convention_slip")
     assert first is not None
-    _grade(vault, repository, clock, "attempt_2", "local_slip")
-    _grade(vault, repository, clock, "attempt_3", "local_slip")
+    _grade(vault, repository, clock, "attempt_2", "sign_convention_slip")
+    _grade(vault, repository, clock, "attempt_3", "sign_convention_slip")
 
     pending = _pending_error_type_items(repository)
-    assert [item["client_item_id"] for item in pending] == ["error_type:local_slip"]
+    assert [item["client_item_id"] for item in pending] == ["error_type:sign_convention_slip"]
     # Every grading that named it is still on the waiting proposal.
     assert _attempt_refs(pending[0]["batch"]) == ["attempt_1", "attempt_2", "attempt_3"]
     assert len(repository.proposal_batches()) == 1
@@ -88,20 +90,20 @@ def test_repeated_gradings_naming_one_new_error_type_leave_one_waiting_proposal(
 
 def test_a_grading_naming_a_waiting_type_and_a_new_one_writes_only_the_new_one(tmp_path):
     _paths, vault, repository, clock = _setup(tmp_path)
-    _grade(vault, repository, clock, "attempt_1", "local_slip")
-    _grade(vault, repository, clock, "attempt_2", "local_slip", "representation_notation_error")
+    _grade(vault, repository, clock, "attempt_1", "sign_convention_slip")
+    _grade(vault, repository, clock, "attempt_2", "sign_convention_slip", "matrix_factor_order_error")
 
     pending = sorted(item["client_item_id"] for item in _pending_error_type_items(repository))
-    assert pending == ["error_type:local_slip", "error_type:representation_notation_error"]
+    assert pending == ["error_type:matrix_factor_order_error", "error_type:sign_convention_slip"]
     by_type = {item["client_item_id"]: item for item in _pending_error_type_items(repository)}
-    assert _attempt_refs(by_type["error_type:local_slip"]["batch"]) == ["attempt_1", "attempt_2"]
-    assert _attempt_refs(by_type["error_type:representation_notation_error"]["batch"]) == ["attempt_2"]
+    assert _attempt_refs(by_type["error_type:sign_convention_slip"]["batch"]) == ["attempt_1", "attempt_2"]
+    assert _attempt_refs(by_type["error_type:matrix_factor_order_error"]["batch"]) == ["attempt_2"]
 
 
 def test_a_regrade_of_the_same_attempt_adds_nothing(tmp_path):
     _paths, vault, repository, clock = _setup(tmp_path)
-    _grade(vault, repository, clock, "attempt_1", "local_slip")
-    assert _grade(vault, repository, clock, "attempt_1", "local_slip") is not None
+    _grade(vault, repository, clock, "attempt_1", "sign_convention_slip")
+    assert _grade(vault, repository, clock, "attempt_1", "sign_convention_slip") is not None
     pending = _pending_error_type_items(repository)
     assert len(pending) == 1
     assert _attempt_refs(pending[0]["batch"]) == ["attempt_1"]
@@ -113,11 +115,11 @@ def test_a_rejected_proposal_does_not_absorb_a_later_grading(tmp_path):
     before."""
 
     paths, vault, repository, clock = _setup(tmp_path)
-    _grade(vault, repository, clock, "attempt_1", "local_slip")
+    _grade(vault, repository, clock, "attempt_1", "sign_convention_slip")
     with connect(paths.sqlite_path) as connection:
         connection.execute("UPDATE proposed_patch_items SET decision = 'rejected' WHERE item_type = 'error_type'")
         connection.commit()
-    _grade(vault, repository, clock, "attempt_2", "local_slip")
+    _grade(vault, repository, clock, "attempt_2", "sign_convention_slip")
     pending = _pending_error_type_items(repository)
     assert len(pending) == 1
     assert _attempt_refs(pending[0]["batch"]) == ["attempt_2"]
@@ -134,7 +136,7 @@ def test_a_grading_that_waits_on_another_writer_sees_its_proposal(tmp_path):
 
     def second_grading() -> None:
         try:
-            outcome["batch"] = _grade(vault, Repository(paths.sqlite_path), clock, "attempt_2", "local_slip")
+            outcome["batch"] = _grade(vault, Repository(paths.sqlite_path), clock, "attempt_2", "sign_convention_slip")
         except BaseException as exc:  # surfaced below
             outcome["error"] = exc
         finally:
@@ -167,10 +169,10 @@ def test_a_grading_that_waits_on_another_writer_sees_its_proposal(tmp_path):
             (
                 "item_first",
                 "patch_first",
-                "error_type:local_slip",
+                "error_type:sign_convention_slip",
                 "error_type",
                 "create",
-                json.dumps({"id": "local_slip", "title": "Local Slip"}),
+                json.dumps({"id": "sign_convention_slip", "title": "Sign Convention Slip"}),
                 "pending",
                 "valid",
                 "[]",
@@ -189,7 +191,7 @@ def test_a_grading_that_waits_on_another_writer_sees_its_proposal(tmp_path):
         holder.close()
     assert "error" not in outcome, outcome.get("error")
     pending = _pending_error_type_items(repository)
-    assert [item["client_item_id"] for item in pending] == ["error_type:local_slip"]
+    assert [item["client_item_id"] for item in pending] == ["error_type:sign_convention_slip"]
     assert _attempt_refs(pending[0]["batch"]) == ["attempt_1", "attempt_2"]
 
 
@@ -214,8 +216,8 @@ def _rename_waiting(paths, repository: Repository, old: str, new: str) -> dict:
 
 def test_a_grading_naming_the_edited_id_joins_the_renamed_proposal(tmp_path):
     paths, vault, repository, clock = _setup(tmp_path)
-    _grade(vault, repository, clock, "attempt_1", "local_slip")
-    renamed = _rename_waiting(paths, repository, "local_slip", "notation_slip")
+    _grade(vault, repository, clock, "attempt_1", "sign_convention_slip")
+    renamed = _rename_waiting(paths, repository, "sign_convention_slip", "notation_slip")
 
     joined = _grade(vault, repository, clock, "attempt_2", "notation_slip")
 
@@ -228,16 +230,42 @@ def test_a_grading_naming_the_edited_id_joins_the_renamed_proposal(tmp_path):
 
 def test_a_grading_naming_the_old_id_of_a_renamed_proposal_proposes_it_afresh(tmp_path):
     paths, vault, repository, clock = _setup(tmp_path)
-    _grade(vault, repository, clock, "attempt_1", "local_slip")
-    renamed = _rename_waiting(paths, repository, "local_slip", "notation_slip")
+    _grade(vault, repository, clock, "attempt_1", "sign_convention_slip")
+    renamed = _rename_waiting(paths, repository, "sign_convention_slip", "notation_slip")
 
-    fresh = _grade(vault, repository, clock, "attempt_2", "local_slip")
+    fresh = _grade(vault, repository, clock, "attempt_2", "sign_convention_slip")
 
     assert fresh is not None and fresh != renamed["batch"]["id"]
     pending = _pending_error_type_items(repository)
     effective = sorted((item.get("edited_payload") or item["payload"])["id"] for item in pending)
-    assert effective == ["local_slip", "notation_slip"]
+    assert effective == ["notation_slip", "sign_convention_slip"]
     by_batch = {item["batch"]["id"]: item for item in pending}
     # The renamed proposal keeps only the attempt that named it; the new one has the new attempt.
     assert _attempt_refs(by_batch[renamed["batch"]["id"]]["batch"]) == ["attempt_1"]
     assert _attempt_refs(by_batch[fresh]["batch"]) == ["attempt_2"]
+
+
+# --- refactor bug ledger D-2: the tag's own vocabulary is known --------------------------------------------------
+
+
+def test_a_head_grading_naming_a_mechanism_type_proposes_nothing(tmp_path):
+    """At the head (mvp-0.7 on) the grader speaks KM4's nine mechanism types, so none of them is a "new error
+    type"; before D-2's fix each grading naming one filed a proposal (the known set was mvp-0.6's)."""
+
+    from learnloop.diagnosis.error_taxonomy_map import MECHANISM_TAXONOMY
+
+    _paths, vault, repository, clock = _setup(tmp_path)
+    for index, mechanism in enumerate(MECHANISM_TAXONOMY):
+        assert _grade(vault, repository, clock, f"attempt_{index}", mechanism) is None
+    assert repository.proposal_batches() == []
+
+
+def test_an_old_tag_grading_keeps_its_own_vocabulary(tmp_path):
+    """An mvp-0.6 vault's builtins stay the mvp-0.6 names: a mechanism name is still new there, as before."""
+
+    _paths, vault, repository, clock = _setup(tmp_path, old_tag=True)
+    assert _grade(vault, repository, clock, "attempt_1", "recall_failure") is None
+    assert _grade(vault, repository, clock, "attempt_2", "retrieval_failure") is not None
+    assert [item["client_item_id"] for item in _pending_error_type_items(repository)] == [
+        "error_type:retrieval_failure"
+    ]
