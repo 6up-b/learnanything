@@ -233,8 +233,10 @@ def select_neighborhood(
         score, reasons = scored.get(ref, (0.0, []))
         scored[ref] = (score + reason.score, [*reasons, reason])
 
-    name_tokensets = {name: _tokens(name) for name in signals.concept_names | signals.aliases}
-    hint_tokensets = {h: _tokens(h) for h in signals.prerequisite_hints}
+    # Sorted: a reason names the first name or hint that matched, and the manifest records it. In set order that
+    # name followed the process's hash seed whenever two of them matched one entity.
+    name_tokensets = {name: _tokens(name) for name in sorted(signals.concept_names | signals.aliases)}
+    hint_tokensets = {h: _tokens(h) for h in sorted(signals.prerequisite_hints)}
 
     for facet_id, facet in vault.evidence_facets.items():
         ref = f"facet:{facet_id}"
