@@ -19,6 +19,8 @@ from learnloop.db.repositories import Repository
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.registry import METHOD_REGISTRY
 from tests.helpers import create_daily_plan_vault
+from tests.ih2_lessons_compete_helpers import QUIET
+from tests.router_model_fakes import never_stop_or_offer_draws
 
 DAY1 = datetime(2026, 10, 12, 9, 0, tzinfo=UTC)
 
@@ -45,10 +47,12 @@ def _ctx(root):
 
 
 @pytest.fixture
-def vault(tmp_path):
+def vault(tmp_path, monkeypatch):
+    never_stop_or_offer_draws(monkeypatch)
     return create_daily_plan_vault(
         tmp_path / "vault",
         learning_objects={"lo_extra": [("pi_extra_1", 2.0), ("pi_extra_2", 2.0)]},
+        plan_toml=QUIET,
     )
 
 

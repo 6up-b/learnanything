@@ -247,3 +247,39 @@ def block_drawing_seed() -> Callable[[str, str], str]:
                 and uniform(seed, "stop_coin") >= 0.5):
             return lambda _key, _decision_id, seed=seed: seed
     raise AssertionError("no seed found")
+
+
+def never_stop_or_offer_draws(monkeypatch=None, *, fixed_numeric_seed: bool = False) -> None:
+    """The objective's mix never serves a stop or a lesson offer: a drawn one goes to the next option in the support, with
+    that option's own propensity. The sidecar's and the phone host's process runtime has no model behind it in a test, so
+    the numeric policy holds the whole mix and its draw, on a fresh plan id, lands on a stop or an offer now and then
+    (a pinned runtime seed does not reach it). Pass the test's ``monkeypatch``; a spawned host process, which has none,
+    calls it bare. ``fixed_numeric_seed``: the numeric policy's own Monte Carlo (seeded on the fresh plan id) takes one
+    fixed seed too, for a test that needs the same block order every run."""
+
+    from dataclasses import replace
+
+    from learnloop.router_objective import mix
+
+    real = mix.draw
+
+    def draw(support, parts, weights, epsilon, seed):
+        drawn = real(support, parts, weights, epsilon, seed)
+        avoided = ("stop_for_today", "lesson_offer:")
+        if not str(drawn.chosen).startswith(avoided):
+            return drawn
+        other = next((ref for ref in support if not str(ref).startswith(avoided)), None)
+        if other is None:
+            return drawn
+        return replace(drawn, chosen=other, propensity=drawn.pi[other])
+
+    from learnloop.daily_plan import objective_chooser
+
+    patches = [(mix, "draw", draw)]
+    if fixed_numeric_seed:
+        patches.append((objective_chooser, "numeric_seed", lambda _identity: "pinned-numeric-seed"))
+    for module, name, value in patches:
+        if monkeypatch is None:
+            setattr(module, name, value)
+        else:
+            monkeypatch.setattr(module, name, value)
