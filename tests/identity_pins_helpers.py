@@ -600,6 +600,14 @@ def _structuring_key(nominated: bool) -> Callable[[], Any]:
     return compute
 
 
+def _persona_fire_key() -> Any:
+    from learnloop.diagnosis.diagnostic_gate import fire_checkpoint
+
+    context = {"answer": "Q^T x is the coordinate vector", "expected": "Qx is the coordinate vector",
+               "payload": {"id": "pi_pin_svd_001", "prompt": "Which of Qx / Q^T x is the coordinate vector?"}}
+    return fire_checkpoint(None, FakeStructuredClient(), context, trial="belief_declared").key
+
+
 def _glm_ocr_window_key() -> Any:
     from learnloop.ingest.extractors.glm_ocr import GlmOcrDocumentExtractor
 
@@ -1009,6 +1017,13 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "concept graph structuring checkpoints (model_checkpoints)",
         "a cached structuring answer misses and is paid again on retry",
         {"key": _structuring_key(False), "key.nominated": _structuring_key(True)}),
+    IdentitySite(
+        "K2.1e", "persona fire judgement checkpoint key (rendered prompt, schema, grader settings, the trial)",
+        ("src/learnloop/diagnosis/ai_contracts.py::diagnostic_fire_prompt",
+         "src/learnloop/diagnosis/diagnostic_gate.py::fire_checkpoint"),
+        "persona fire judgement checkpoints (model_checkpoints)",
+        "every cached persona judgement misses and is paid again on retry",
+        {"key": _persona_fire_key}),
     IdentitySite(
         "A19", "family item input hash and the family plan dump",
         ("src/learnloop/substrate/families.py::family_item_input",
