@@ -981,12 +981,6 @@ _reg_const("grade_resolution:ADJUDICATION_GRADER_TIER", "constraint", kind="stru
            owner="grade_resolution", rationale="fixed provenance tier assigned to final "
            "adjudication records; an authority label, not a tunable decision parameter.")
 
-# administration_adapters (P1 step 5, spec_p1_shared_substrate §3.10). Structural
-# version gate for the hot-path FSRS cutover; OFF keeps the legacy path byte-identical.
-_reg_const("administration_adapters:P1_PURPOSE_ADAPTERS_ENABLED", "version", kind="structural",
-           owner="administration_adapters", rationale="U-018-style structural gate for the "
-           "purpose-adapter hot-path cutover; OFF = byte-identical legacy FSRS write (step 9 flips it).")
-
 # familiarity (P1 step 6, spec_p1_shared_substrate §4.2/§4.3).
 # familiarity_projection_v1 is a deterministic monotone heuristic; every coefficient
 # / threshold that can change evidence or rotation is a registered decision param.

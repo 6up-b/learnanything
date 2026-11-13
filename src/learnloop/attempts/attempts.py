@@ -4752,18 +4752,14 @@ def _compute_resolved_grade_application(
     fsrs_weights_fitted = fsrs_weights is not FSRS6_DEFAULT_WEIGHTS
     elapsed_days = _elapsed_days(previous_state, observed_at)
     previous_memory = _memory_state(previous_state)
-    # P1 step 5/9 (§3.10, §7.4): purpose-specific administration adapter seam. The
-    # purpose-adapter path is the LIVE scheduling authority for mvp-0.8 vaults (the
-    # step-9 cutover); legacy vaults keep the purpose-blind path byte-identical.
+    # P1 step 5/9 (§3.10, §7.4): purpose-specific administration adapter seam.
     #
     # The REAL evidence eligibility of the practice observation is threaded into the
     # decision (§3.8): a practice administration is scheduling-eligible unless its
     # evidence is ineligible (feedback revealed before response, quarantined /
     # out-of-band). For an eligible practice attempt -- the common case that reaches
-    # apply_attempt -- the review still applies, so both paths are byte-identical; on a
-    # LIVE mvp-0.8 vault an INELIGIBLE observation now correctly leaves card scheduling
-    # state EXACTLY as it was (no memory rewrite, no due-date recompute). A legacy vault
-    # bypasses the decision entirely (unconditional write, characterization-pinned).
+    # apply_attempt -- the review applies; an INELIGIBLE observation leaves card
+    # scheduling state EXACTLY as it was (no memory rewrite, no due-date recompute).
     from learnloop.substrate.activities import evidence_eligibility_for
     from learnloop.substrate.administration_adapters import hot_path_applies_practice_review
 
@@ -4785,7 +4781,6 @@ def _compute_resolved_grade_application(
     if not held and causal_activity.eligible_for_fsrs and hot_path_applies_practice_review(
         attempt_type=draft.attempt_type,
         eligible=observation_eligible,
-        algorithm_version=vault.config.algorithms.algorithm_version,
     ):
         next_memory = apply_review(previous_memory, fsrs_rating, elapsed_days, fsrs_weights)
         interval_days = (

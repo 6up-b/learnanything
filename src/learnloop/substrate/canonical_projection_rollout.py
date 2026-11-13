@@ -51,7 +51,6 @@ from typing import Any
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
-from learnloop.learner.assessment_contracts import CANONICAL_STATE_VERSIONS
 from learnloop.substrate.canonical_projection import (
     CANONICAL_PROJECTION_VERSION,
     project_canonical_facet_state,
@@ -80,8 +79,6 @@ def refresh_canonical_projection_on_startup(
     """
 
     algorithm_version = vault.config.algorithms.algorithm_version
-    if algorithm_version not in CANONICAL_STATE_VERSIONS:
-        return None
 
     # Startup is allowed to have multiple native callers (initialization,
     # watcher-driven reload, reconnect).  Serialize the check/project/stamp

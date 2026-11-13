@@ -16,17 +16,10 @@ familiarity / lifecycle semantics per the §3.10 matrix:
 FSRS remains **predictive scheduling only**; only the practice adapter, and only
 on an eligible observation, applies it.
 
-**Hot-path cutover posture (P0.3-level care).** The purpose-blind FSRS write in
-``attempts.apply_attempt`` is version-gated behind :data:`P1_PURPOSE_ADAPTERS_ENABLED`
-(default OFF). With the gate OFF the legacy attempt -> ``practice_item_state``
-transition is byte-identical (pinned by a characterization test); the adapter
-semantics here are exercised directly against the P1 substrate. Making the adapter
-path the live default is the step-9 dual-write cutover behind the six ordered
-gates. Rationale for gating rather than forcing: ``apply_attempt`` currently
-threads no administration id, so a live in-place cutover would rewrite the legacy
-scheduling computation on the attempt hot path -- exactly the P0.3-analogue risk
-the spec warns against (§7.4). The gate lands the mechanism now, keeps every
-legacy vault byte-identical, and defers the read cutover to step 9.
+**The attempt hot path.** ``attempts.apply_attempt`` applies its FSRS review
+through the practice adapter's eligibility (:func:`hot_path_applies_practice_review`):
+an eligible practice observation is reviewed as before, an ineligible one leaves
+the card's scheduling state as it was (§3.8).
 """
 
 from __future__ import annotations
@@ -40,12 +33,6 @@ from learnloop.substrate import card_lineage as _lineage
 from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS
 
 PURPOSES: tuple[str, ...] = ("diagnostic", "instructional", "practice", "assessment")
-
-# STRUCTURAL version/flag (U-018-style structural gate, not a tunable knob):
-# OFF keeps the legacy purpose-blind hot-path FSRS write byte-identical; ON routes
-# new-administration scheduling through the purpose adapter (step-9 cutover).
-P1_PURPOSE_ADAPTERS_ENABLED = False
-
 
 class PurposeMismatch(Exception):
     """An administration was routed to the wrong adapter (§7.5 purpose mismatch)."""
@@ -306,45 +293,14 @@ def project_administration(
 
 
 # ---------------------------------------------------------------------------
-# Hot-path seam (attempts.apply_attempt). Version-gated; OFF is byte-identical.
+# Hot-path seam (attempts.apply_attempt).
 # ---------------------------------------------------------------------------
 
-def purpose_adapter_path_live(algorithm_version: str | None) -> bool:
-    """Whether the purpose-adapter path is the LIVE scheduling authority for a vault.
+def hot_path_applies_practice_review(*, attempt_type: str, eligible: bool = True) -> bool:
+    """Whether the attempt hot path applies its FSRS practice review: the practice
+    adapter's eligibility semantics. ``apply_attempt`` is reached only by ordinary
+    practice attempts (diagnostic-probe/exam are excluded upstream); for an
+    eligible one the review applies, while an ineligible (quarantined /
+    out-of-band) observation leaves card state unchanged (§3.8)."""
 
-    Live for mvp-0.8 (the fresh-vault default after the 2026-07-19 owner decision)
-    AND every successor tag on that same projection namespace (mvp-0.9 = the
-    reveal-ledger recording change, migration 154), OR when the module-level global
-    override is forced ON. Legacy vaults (mvp-0.7 / mvp-0.6, or an unknown/None
-    version) keep the purpose-blind hot-path write and their characterization pins.
-
-    The membership test is against :data:`P0_PROJECTION_VERSIONS`, never against
-    :data:`P0_ALGORITHM_VERSION` directly: this gate is what
-    ``attempts.apply_attempt`` consults, so an equality check would silently return
-    every fresh vault to the legacy unconditional FSRS write on each version bump.
-    Imported without a cycle from :mod:`assessment_contracts`."""
-
-    if P1_PURPOSE_ADAPTERS_ENABLED:
-        return True
-    from learnloop.learner.assessment_contracts import P0_PROJECTION_VERSIONS
-
-    return algorithm_version in P0_PROJECTION_VERSIONS
-
-
-def hot_path_applies_practice_review(
-    *, attempt_type: str, eligible: bool = True, algorithm_version: str | None = None
-) -> bool:
-    """Whether the attempt hot path applies its FSRS practice review.
-
-    On a legacy vault with the gate OFF (default) this always returns ``True`` --
-    byte-identical to the historical unconditional write, since ``apply_attempt`` is
-    reached only by ordinary practice attempts (diagnostic-probe/exam are excluded
-    upstream). On a LIVE mvp-0.8 vault (or with the module override ON) it defers to
-    the practice adapter's eligibility semantics; for an eligible practice attempt the
-    review still applies, so the common case stays byte-identical, while an ineligible
-    (quarantined / out-of-band) observation now correctly leaves card state unchanged
-    (§3.8)."""
-
-    if not purpose_adapter_path_live(algorithm_version):
-        return True
     return PracticeAdapter().effects(eligible=eligible, failed=False).applies_fsrs_review
