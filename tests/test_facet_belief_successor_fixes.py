@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import pytest
+
 from learnloop.algorithm_versions import FACET_BELIEF_FIX_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock
@@ -162,3 +164,125 @@ def test_s1_with_the_switch_off_the_two_criterion_answer_is_the_predecessors(tmp
 
     assert _uncertainty_rows(off_repository) == _uncertainty_rows(old_repository) == []
     assert _canonical_belief(off_repository) == _canonical_belief(old_repository)
+
+
+# -- S2: with the switch off, nothing reads a row the successor stored. ----------------------------------------------
+
+BASIC_ITEM = "pi_svd_define_001"
+
+
+def _uncertainty_opened_then(tmp_path, *, switch_after: bool):
+    """Two don't-knows at the tag open the uncertainty on ``recall``; then the switch is set to ``switch_after``."""
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    sync_vault_state(vault, repository, clock=FrozenClock(NOW))
+    for offset in (0, 1):
+        complete_self_graded_attempt(
+            vault, repository,
+            AttemptDraft(BASIC_ITEM, "I do not know", attempt_type="dont_know"),
+            SelfGradeInput(criterion_points={"correctness": 4}, confidence=5),
+            clock=FrozenClock(NOW + timedelta(minutes=offset)),
+        )
+    assert [row[1] for row in _uncertainty_rows(repository)] == ["recall"]
+    set_config_switch(paths.root, SWITCH, switch_after)
+    return paths, load_vault(paths.root), repository
+
+
+def _reads(vault, repository):
+    """What each reader outside the diagnostic layer makes of the stored row."""
+
+    from learnloop.attempts.attempts import load_attempt_prior_state
+    from learnloop.instructional.reader_followups import open_questions
+    from learnloop.instructional.valuation import facet_problem, open_hypotheses
+
+    problem, _missing = facet_problem(vault, repository, LO_ID, "recall")
+    problems, _unavailable = open_hypotheses(vault, repository, facet_ids=["recall"], learning_object_ids=[LO_ID])
+    questions, _notes = open_questions(
+        vault, repository, {"facets_touched": ["recall"], "learning_objects_touched": [LO_ID]}, now=NOW,
+    )
+    prior = load_attempt_prior_state(
+        vault, repository, learning_object_id=LO_ID, practice_item_id=BASIC_ITEM, facets=["recall"], now_iso=NOW_ISO,
+    )
+    return {
+        "facet_problem": problem is not None,
+        "open_hypotheses": sorted(p.space_kind for p in problems),
+        "open_questions": sorted(
+            raised["source"] for q in questions for raised in q.raised_by if raised.get("source") == "facet_marginal"
+        ),
+        "attempt_prior": prior.facet_uncertainty.get("recall") is not None,
+    }
+
+
+def test_s2_with_the_switch_off_no_reader_sees_the_successors_rows(tmp_path):
+    from tests.helpers import set_algorithm_version
+
+    _paths, vault, repository = _uncertainty_opened_then(tmp_path / "off", switch_after=False)
+    old = create_basic_vault(tmp_path / "old")
+    set_algorithm_version(old, "mvp-0.58")
+    old_vault = load_vault(old.root)
+    old_repository = Repository(old.sqlite_path)
+    sync_vault_state(old_vault, old_repository, clock=FrozenClock(NOW))
+    for offset in (0, 1):
+        complete_self_graded_attempt(
+            old_vault, old_repository,
+            AttemptDraft(BASIC_ITEM, "I do not know", attempt_type="dont_know"),
+            SelfGradeInput(criterion_points={"correctness": 4}, confidence=5),
+            clock=FrozenClock(NOW + timedelta(minutes=offset)),
+        )
+
+    assert _reads(vault, repository) == _reads(old_vault, old_repository) == {
+        "facet_problem": False, "open_hypotheses": ["hypothesis_set"], "open_questions": [], "attempt_prior": False,
+    }
+
+
+def test_s2_with_the_switch_on_the_readers_see_the_row(tmp_path):
+    _paths, vault, repository = _uncertainty_opened_then(tmp_path, switch_after=True)
+
+    assert _reads(vault, repository) == {
+        "facet_problem": True, "open_hypotheses": ["facet_marginal", "hypothesis_set"],
+        "open_questions": ["facet_marginal"], "attempt_prior": True,
+    }
+
+
+@pytest.mark.parametrize("switch_after", [False, True])
+def test_s2_tutor_promotion_features_snapshot_the_uncertainty_only_with_the_switch_on(tmp_path, switch_after):
+    from learnloop.tutor.ai_contracts import PromotionAnalysis
+    from learnloop.tutor.promotions import promote_tutor_question
+
+    from tests.tutor_promotion_service_helpers import _AnalysisClient, _insert_event
+
+    paths, _vault, repository = _uncertainty_opened_then(tmp_path, switch_after=switch_after)
+    _insert_event(repository, "ev_snapshot")
+    client = _AnalysisClient(PromotionAnalysis(attributed_facets=["recall"], covered_by_practice_item_id=BASIC_ITEM))
+    promote_tutor_question(paths.root, client, event_id="ev_snapshot", intent="practice")
+
+    features = repository.decision_features(decision_id="ev_snapshot", decision_type="question_promotion")
+    snapshot = features["ability_vector"]["facet_uncertainty_snapshot"]
+    assert (set(snapshot) == {"recall"}) if switch_after else (snapshot == {})
+
+
+def test_s2_only_the_facet_state_reader_reads_the_uncertainty_rows():
+    """Every read of a stored row goes through ``learner.facet_state_reader``, which honours the switch; the
+    repository defines the queries, replay clears the table and the shadow rebuild compares it."""
+
+    import re
+    from pathlib import Path
+
+    import learnloop
+
+    allowed = {
+        "learnloop/learner/facet_state_reader.py", "learnloop/db/repositories.py",
+        "learnloop/substrate/rebuild_orchestrator.py", "learnloop/substrate/shadow_rebuild.py",
+    }
+    pattern = re.compile(r"\.facet_uncertainty_states?\(|FROM\s+facet_uncertainty\b")
+    root = Path(learnloop.__file__).parent.parent
+    readers = sorted(
+        path.relative_to(root).as_posix()
+        for package in ("learnloop", "learnloop_sidecar", "learnloop_mcp", "learnloop_mobile")
+        for path in (root / package).rglob("*.py")
+        if pattern.search(path.read_text(encoding="utf-8"))
+    )
+    assert "learnloop/learner/facet_state_reader.py" in readers
+    assert [path for path in readers if path not in allowed] == []
