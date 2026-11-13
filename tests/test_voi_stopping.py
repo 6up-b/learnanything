@@ -1045,7 +1045,10 @@ def test_a_pending_diagnosis_holds_the_event_out_of_the_lane(tmp_path, version, 
 
 
 def test_a_joint_vault_lane_is_unchanged(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, version="mvp-0.9", config="[diagnosis]\nshadow = true")
+    # A joint vault: the split's kill switch (no vault that opens is below the split's tag).
+    _paths, vault, repository = split_vault(
+        tmp_path, version="mvp-0.9", config="[diagnosis]\nshadow = true\nsplit_enabled = false",
+    )
     client = _StatementFake(causal_class="transient_execution")
     submit(vault, repository, client)
     drain_jobs(vault, repository, client)

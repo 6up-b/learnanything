@@ -79,6 +79,11 @@ def _teach_back_item() -> dict:
 
 def build_teach_back_sim_vault(root: Path) -> Path:
     build_sim_vault(root)
+    # The sim vault's mvp-0.7 baseline grades jointly; the simulator provider cannot run the
+    # isolated blind grader, and no vault that opens is below the split's tag, so its switch.
+    from tests.helpers import append_config_toml
+
+    append_config_toml(root, "[diagnosis]\nsplit_enabled = false")
     vault = load_vault(root)
     paths = VaultPaths(vault.root, vault.config)
     write_yaml(paths.practice_item_path("algebra", TEACH_ITEM_ID), _teach_back_item())
