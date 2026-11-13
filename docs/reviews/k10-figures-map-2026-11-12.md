@@ -365,3 +365,37 @@ B4 added four record kinds (`figures/records.py:39-42`) and B5 the gate's refusa
 | F10O4 | medium | Every record is built beside its decider from notes the decider takes (L6's "builder beside the decider"): nothing fails when the author loop gains an exit `AuthorAttempts` doesn't know, and the loop already has more exits than codes the brief named (B4's record). | `figures/records.py:296-327`; `docs/reviews/refactor-b4.md:31` |
 | F10O5 | medium | The gate's refusal record has no subject and `held` has no sub-reason, so `why figure:<id>` doesn't show that a build was stopped by protection, power or the plan. | `refusal_records.py:269-275`; `figure_admission.py:417-422` |
 | F10O6 | low | Delivery withholding, list drops and the prebuild cue budget are silent read-time decisions. | `learnloop_sidecar/handlers/figures.py:184-185`; `figures/service.py:3231-3232`, `:3536-3540`, `:3245-3283` |
+
+## 5. Functional core and shell
+
+A per-module count of database, clock, filesystem and randomness reads (grep over `figures/*.py`; the script line is in "Not verified") puts the package in three groups.
+
+**Pure today, callable with plain values:** `grammar`, `spec`, `elements`, `book_math` (given a parse tree), `verify`, `labels`, `display_format`, `records`'s builders, and `prefetch_model`, which says so (`figures/prefetch_model.py:59-62`) and takes its generator as an argument (`:569-592`). `wait_estimate` (`:358-385`), `open_posterior` (`:226-241`), `pause_posterior` (`:312-325`) and `Model.decide` all run on numbers. `request_hash` (`figures/service.py:1706-1775`) is pure over the request, the context and digests computed outside it.
+
+**Pure but for a sealed engine or a budget clock:** `sketch_verify.verify_sketch` (plain values in; it loads the engine bytes from `apps/` and reads `time.monotonic()` for its budget, `figures/sketch_verify.py:217`, `:632`), `katex_tree.Trees` (loads its wasm from disk, `figures/katex_tree.py:110-135`), `manim_figure.check_claims` (its runner is injectable, the default a sandbox subprocess, `figures/manim_figure.py:637-657`; a monotonic budget, `:778-815`).
+
+**Shell with decisions inside:**
+
+| function | what it decides | what it reads inside | could the decision be split out? |
+|---|---|---|---|
+| `prefetch.decide_and_log` `figures/prefetch.py:1096-1172` | the deferral and caps verdict (`:1134-1146`), the queue order (`:1126`) | the model (`PL.load_model`, 12 SQL reads in `prefetch_ledger`), today's render minutes and builds, the OS-entropy seed (`:1110`), the clock | yes: the model already is (`prefetch_ledger.load_model` `figures/prefetch_ledger.py:407-430` gathers, `prefetch_model` decides); the verdict loop is 13 lines over values |
+| `prefetch.horizon_at`, `close_horizons`, `_opened`, `_delivered`, `_asked` `figures/prefetch.py:1505-1676` | when a decision's horizon passed and its outcome (`opened`, `asked`, `neither`, `void`) | 15 of the module's 26 `execute` calls (`:1469-1642`), including other features' tables by raw SQL: `reader_section_progress` (`:1528`), `lessons` (`:1534`), `daily_plans` (`:1544`) | the outcome rules are per trigger kind and short; the reads are the bulk |
+| `prefetch._filtered` `:957-1004` | the ten filter rules | the exam predicate, item protection, the decided set, the build index | the order and rules are pure over a candidate's facts; each fact is a read |
+| `service._author_attempts_and_store` `figures/service.py:2482-2785` | retry, salvage, tier verdict, stored verification | the model, the gate, the sketch engine, the source check (database and sandbox) inside the loop | the per-attempt verdict (`status`, problems → next problems, rule code) is a function of the output and the verifiers' reports; the loop interleaves it with calls |
+| `service.figure_view` and `_presented_row` `:1325-1407`, `:1571-1582` | what a stored figure shows now | three to five database reads per figure (`_figure_request` `:1685-1691`, `fuller_state` `:1619-1669`, `SC.current_row` `:1493`, predictions `:1390-1392`), the sketch engine, a `judgment_ledger` write on re-verification (`:1166-1173`) | a view is a read path that may write |
+| `service._reusable` `:1778-1807` | reuse | the store per key | |
+| `rich.tiers_allowed` `figures/rich.py:181-191` | the menu | config, `sys.platform`, `bwrap` on the path, a `manim --version` subprocess (cached) | the rule is four conditions; the facts are probes |
+| `source_check.check_figure` `figures/source_check.py:523-533` | checked, differs, or a closed reason | document IR, block health (and writes it), the sandbox, the clock for its duration | |
+
+**Clock reads outside the injected clock:** `figures/service.py:1173` (a re-verification's `created_at`), `:3366` (`stored_plan_open_items`, falling back to `SystemClock`), `learnloop_sidecar/handlers/figures.py:885`, `:1093`, `:1356`, `:1460`. The build path itself takes `clock` and uses `utc_now_iso(clock)`.
+
+**Randomness:** one OS-entropy seed per prefetch pass, recorded (`figures/prefetch.py:1103-1112`; B4's proof that redrawing from it reproduces the pass, `docs/reviews/refactor-b4.md:41`); the sketch verifier's fixed seed; nothing else.
+
+### Findings
+
+| Id | Severity | Finding | Evidence |
+|---|---|---|---|
+| F10F1 | medium | The prefetch decision already has L4's shape (ledger reads gather, the model decides), but the verdict that turns a draw into `build`, `deferred_power`, `deferred_plan` or `capped`, and the outcome rules at the horizon, sit inside SQL-heavy shell functions; the horizon code reads three other features' tables directly. | `figures/prefetch.py:1134-1146`, `:1505-1556` |
+| F10F2 | medium | The author loop can't be tested without the gate, a route and (for step 3) a vault: its retry and salvage rules are interleaved with the calls and the verifiers. | `figures/service.py:2520-2699` |
+| F10F3 | medium | Presenting a figure reads the database several times per figure and can write a judgment; `reader.figures` does it for every chain on every poll (every 5 s while a rich build runs, `useFigures.ts:21`). | `figures/service.py:1325-1407`, `:1140-1173`, `:3197-3242` |
+| F10F4 | low | Six wall-clock reads bypass the injected clock in the service and the handler. | above |
