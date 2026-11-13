@@ -46,7 +46,6 @@ from learnloop.ai.execution import (
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.synthesis.ai_contracts import (
     CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION,
-    SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
     ConceptGraphContext,
     ConceptGraphStructuring,
     ConceptGraphStructuringWithRegistry,
@@ -2877,24 +2876,20 @@ def _run_synthesis(
 
     # Durable per-shard checkpoints: resolve every shard's cache slot up front so
     # the total-input preflight only charges for shards that will actually run.
+    # A completed shard is filed under its first pass's request key: a key of
+    # its own (labels and inputs, as before) kept answering after a prompt or
+    # schema edit that every pass request reflects. Budgets stay out of it, so
+    # a retry under revised ceilings still reuses the shard.
     shard_states: list[tuple[int, list[dict[str, Any]], str, dict[str, Any] | None]] = []
-    for ordinal, shard in enumerate(shards):
-        key = _shard_checkpoint_key(
-            source_set=source_set, brief=brief, registry=registry,
-            exam_profile=inputs.exam_profile, shard=shard,
-            ordinal=ordinal, count=len(shards), settings=settings,
-            prompt_version=source_set_synthesis_prompt_version(one_facet_per_skill),
-        )
-        cached = repository.synthesis_shard_result(key)
-        shard_states.append((ordinal, shard, key, cached if cached and cached.get("output") else None))
-        answers.shard_keys.append(key)
-
     base_reserves = {}
-    for ordinal, shard, _, cached in shard_states:
+    for ordinal, shard in enumerate(shards):
         checkpoint, tokens = pass_request(base_context(ordinal, shard))
+        cached = repository.synthesis_shard_result(checkpoint.key)
+        cached = cached if cached and cached.get("output") else None
+        shard_states.append((ordinal, shard, checkpoint.key, cached))
+        answers.shard_keys.append(checkpoint.key)
         answers.pass_keys.append(checkpoint.key)
-        reusable = cached or checkpoint.load() is not None
-        base_reserves[ordinal] = 0 if reusable else tokens
+        base_reserves[ordinal] = 0 if cached or checkpoint.load() is not None else tokens
     spend.check_base_passes(sum(base_reserves.values()))
 
     def run_pass(context, *, future_input_reserve=0):
@@ -3078,50 +3073,6 @@ def _namespace_synthesis_shard(result: Any, ordinal: int) -> Any:
     if hasattr(result, "model_dump"):
         return result.__class__.model_validate(rewrite(result.model_dump(mode="python")))
     return rewrite(result)
-
-
-def _shard_checkpoint_key(
-    *,
-    source_set: Any,
-    brief: dict[str, Any],
-    registry: dict[str, Any],
-    exam_profile: dict[str, Any] | None,
-    shard: list[dict[str, Any]],
-    ordinal: int,
-    count: int,
-    settings: dict[str, Any],
-    prompt_version: str = SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
-) -> str:
-    """Durable checkpoint identity for one synthesis shard.
-
-    Content-keyed (NOT manifest-keyed): the manifest hash includes the token
-    budgets, so a retry with revised ceilings mints a new manifest while its
-    shard inputs are identical — exactly the case per-shard reuse must survive.
-    Everything that shapes the model call participates: prompt version,
-    provider settings (see ``model_settings``), brief, registry index, exam
-    profile, the shard's inventory entries, and the shard's position (the
-    prompt sees ordinal/count)."""
-
-    import hashlib
-
-    payload = json.dumps(
-        {
-            "prompt_version": prompt_version,
-            "settings": settings,
-            "source_set_id": source_set.id,
-            "subject_id": source_set.subject_id,
-            "brief": brief,
-            "registry_index": registry,
-            "exam_profile": exam_profile or {},
-            "shard": shard,
-            "ordinal": ordinal,
-            "count": count,
-        },
-        sort_keys=True,
-        separators=(",", ":"),
-        default=str,
-    )
-    return "shard:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 # --- cross-shard concept consolidation ---------------------------------------

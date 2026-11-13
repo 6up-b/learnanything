@@ -94,6 +94,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_outer_cache_keys.py`
 - `tests/test_source_set_synthesis.py`
 - `tests/test_synthesis_runs_repo.py`
 

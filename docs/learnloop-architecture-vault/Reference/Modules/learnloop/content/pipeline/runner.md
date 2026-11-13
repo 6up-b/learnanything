@@ -349,6 +349,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_desktop_and_the_host_coexist_with_no_lost_writes`
 - [tests/test_model_work_checkpoints.py](../../../../../../../tests/test_model_work_checkpoints.py) — direct import
   - `test_ingest_job_and_direct_inventory_key_windows_identically`
+- [tests/test_outer_cache_keys.py](../../../../../../../tests/test_outer_cache_keys.py) — direct import
+  - `test_an_inventory_job_pays_again_for_an_edited_prompt_and_not_for_an_unchanged_one`
 - [tests/test_plan_first_transport.py](../../../../../../../tests/test_plan_first_transport.py) — direct import
   - `test_rr_f2_a_feature_that_needs_its_own_price_is_not_served_by_another_features_grant`
 - [tests/test_plan_first_transport_grant_scope.py](../../../../../../../tests/test_plan_first_transport_grant_scope.py) — direct import

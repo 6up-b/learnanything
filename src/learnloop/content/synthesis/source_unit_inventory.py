@@ -3,7 +3,8 @@
 This is the token-economics linchpin of the source layer. The cacheable unit is
 the DocumentUnit; an inventory is produced once and reused — at ZERO new tokens —
 across every collection/revision that presents the same normalized unit view
-under the same profile/schema/prompt/provider/model (the §7 UNIQUE key). A
+under the same profile/schema/provider/model and the same rendered prompt
+(``inventory_row_key``; rows from before it match the prompt label). A
 `combined` inventory may satisfy a narrower request only when its schema version
 guarantees the required fields (`profile_satisfies`, the one deterministic
 decider).
@@ -63,6 +64,9 @@ _OMIT_ROLE_HINTS: frozenset[str] = frozenset({"header", "footer", "boilerplate",
 
 _CHARS_PER_TOKEN = 4
 INVENTORY_WINDOW_PURPOSE = "inventory_window"
+INVENTORY_ROW_PURPOSE = "inventory_row"
+#: Where a row's ``usage`` records the ``inventory_row_key`` it was paid under.
+INVENTORY_ROW_KEY_FIELD = "request_key"
 
 # Which profiles a `combined` inventory at a given schema version guarantees it
 # can satisfy (§7). The ONE deterministic decider — keyed by schema version so a
@@ -679,6 +683,7 @@ def prepare_unit_inventory(
     # stored profile satisfies the request. Cross-revision candidates are rebound
     # only after all cited spans re-anchor exactly, then materialized as a binding
     # row for this revision/extraction.
+    row_key = inventory_row_key(provider=provider_name, model=model_name, schema_version=schema_version)
     for candidate in repo.reusable_unit_inventories(
         source_revision_id=revision_id,
         unit_id=effective_id,
@@ -687,6 +692,7 @@ def prepare_unit_inventory(
         prompt_version=prompt_version,
         provider=provider_name,
         model=model_name,
+        request_key=row_key,
     ):
         if not profile_satisfies(
             candidate["inventory_profile"],
@@ -711,6 +717,9 @@ def prepare_unit_inventory(
             or str(candidate.get("extraction_id") or "") != extraction_id
         ):
             binding_id = f"inv_{new_ulid()}"
+            # The binding carries the request its answer was paid under, or it
+            # would fall back to the label match; a row from before keeps none.
+            asked = (candidate.get("usage") or {}).get(INVENTORY_ROW_KEY_FIELD)
             repo.insert_unit_inventory(
                 id=binding_id,
                 source_revision_id=revision_id,
@@ -723,7 +732,10 @@ def prepare_unit_inventory(
                 provider=provider_name,
                 model=model_name,
                 inventory=reusable.model_dump(),
-                usage={"calls": 0, "rebound_from_inventory_id": candidate["id"]},
+                usage={
+                    "calls": 0, "rebound_from_inventory_id": candidate["id"],
+                    **({INVENTORY_ROW_KEY_FIELD: asked} if asked else {}),
+                },
                 reused_from_inventory_id=str(candidate["id"]),
                 clock=clock,
             )
@@ -828,6 +840,33 @@ def inventory_window_key(context: SourceUnitInventoryContext, settings: dict[str
     )
 
 
+def inventory_row_key(*, provider: str, model: str, schema_version: int) -> str:
+    """What an inventory row was asked, compared before the row is reused: the
+    request key of the inventory prompt rendered over an empty context, under
+    the schema version, provider and model.
+
+    A prompt edit under an unchanged label moves it, so the old row stops
+    answering and the edit is paid once; a row recorded under another label
+    whose request renders the same still answers. The unit's context is left
+    out because the cache names it itself: its text by the semantic hash, which
+    ignores span ids and layout so an unchanged unit is reused across readings
+    and revisions, and its role and profile by the profile rule. A window's own
+    key cannot stand in: its span ids differ per extraction and its split
+    follows the input budget. Settings beyond provider and model are not known
+    here, because a hit is decided before any client is built (a cached unit
+    starts no provider); the window keys hold them once a miss builds one.
+    """
+
+    return request_key(
+        purpose=INVENTORY_ROW_PURPOSE,
+        prompt=source_unit_inventory_prompt(
+            SourceUnitInventoryContext(unit_id="", semantic_hash="", role="", inventory_profile="")
+        ),
+        settings={"provider": provider, "model": model},
+        identity_extra={"schema_version": schema_version},
+    )
+
+
 def execute_prepared_inventory(
     prepared: PreparedInventory,
     client: Any,
@@ -922,7 +961,12 @@ def persist_prepared_inventory(
         provider=prepared.provider,
         model=prepared.model,
         inventory=execution.inventory.model_dump(),
-        usage=execution.usage,
+        usage={
+            **execution.usage,
+            INVENTORY_ROW_KEY_FIELD: inventory_row_key(
+                provider=prepared.provider, model=prepared.model, schema_version=prepared.schema_version,
+            ),
+        },
         made_as_role=prepared.role,
         clock=clock,
     )

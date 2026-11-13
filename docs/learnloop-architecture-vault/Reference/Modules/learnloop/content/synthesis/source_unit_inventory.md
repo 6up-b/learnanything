@@ -48,63 +48,66 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py) |
-| Source lines | 1023 |
+| Source lines | 1067 |
 | Owning package | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class InventoryError(ValueError)` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 75) — A unit/extraction reference or inventory profile is invalid.
-- `class InventoryValidationError(ValueError)` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 79) — A returned inventory cites an unknown span id or an uncited assertion.
-- `request_source_unit_inventory(client: StructuredTransport, context: SourceUnitInventoryContext) -> SourceUnitInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 83) — Inventory one source-unit window through the shared transport.
-- `normalize_profile(profile: str | None) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 96)
-- `profile_satisfies(stored_profile: str, stored_schema_version: int, requested_profile: str) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 105) — Does a cached inventory satisfy a request?
-- `best_inventory(rows: list[dict[str, Any]], unit_id: str, *, semantic_hash: str | None, prompt_version: str, provider: str | None, model: str | None, profile: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 123) — The one inventory row synthesis and coverage read for a unit.
-- `choose_unit_inventory(rows: list[dict[str, Any]], unit_id: str, unit_ids: list[str], *, ir: DocumentIR | None, route: tuple[str, str] | None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 170) — ``best_inventory`` for one effective unit of ``ir``, under today's prompt label and ``route`` (``current_inventory_identity``), for synthesis's combined request.
-- `current_unit_semantic_hash(ir: DocumentIR | None, unit_ids: list[str]) -> str | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 194) — The semantic hash an inventory of these units would carry today, or ``None``.
-- `current_inventory_identity(config: Any) -> tuple[str, str] | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 205) — The provider type and model an inventory job would record now.
-- `inventoried_unit_ids(rows: list[dict[str, Any]]) -> set[str]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 267) — The source units these inventory rows cover, alone or as a member of a merged (``merge_with_next``) unit.
-- `build_inventory_windows(ir: DocumentIR, unit_id: str, *, unit_ids: list[str] | None=None, input_budget_tokens: int) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 288) — Deterministic inventory view for one effective unit, split into windows.
-- `assign_deterministic_ids(inventory: SourceUnitInventory, *, unit_id: str, window_ordinal: int) -> SourceUnitInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 389) — Reassign every id from (unit_id, window_ordinal, item_ordinal, content-hash) and rewrite intra-inventory `*_ids`/`concept_mention_id` references (§7).
-- `validate_inventory(inventory: SourceUnitInventory, valid_span_ids: set[str]) -> None` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 446) — Reject uncited assertions and unknown span ids (§7, §3).
-- `merge_windows(inventories: list[SourceUnitInventory]) -> SourceUnitInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 467) — Deterministic concat + dedup by assigned id (§7).
-- `class InventoryResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 589)
-- `class PreparedInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 599) — Cache-missed inventory work with every database read already resolved.
-- `class InventoryExecution` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 625) — Fresh provider output awaiting runner-thread persistence.
-- `prepare_unit_inventory(repo: Repository, extraction_id: str, unit_id: str, *, unit_ids: list[str] | None=None, role: str, profile: str | None=None, client: Any=None, provider: str | None=None, model: str | None=None, input_budget_tokens: int=20000, output_budget_tokens: int | None=3000, clock: Clock | None=None, prompt_version: str=SOURCE_UNIT_INVENTORY_PROMPT_VERSION, schema_version: int=INVENTORY_SCHEMA_VERSION) -> InventoryResult | PreparedInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 632) — Resolve one inventory from cache or return provider-only work.
-- `window_checkpoint(repo: Any, key: str, valid_span_ids: Collection[str]) -> ModelCheckpoint[SourceUnitInventory]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 801) — One inventory window's checkpoint.
-- `inventory_window_key(context: SourceUnitInventoryContext, settings: dict[str, Any], *, schema_version: int) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 814) — Checkpoint identity of one inventory window.
-- `execute_prepared_inventory(prepared: PreparedInventory, client: Any, *, progress: Callable[[int, int], None] | None=None, checkpoint: Callable[[str, SourceUnitInventory, dict[str, Any]], None] | None=None) -> InventoryExecution` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 831) — Run provider windows without touching SQLite.
-- `persist_prepared_inventory(repo: Repository, prepared: PreparedInventory, execution: InventoryExecution, *, clock: Clock | None=None) -> InventoryResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 903) — Persist fresh provider output on the runner thread.
-- `run_unit_inventory(repo: Repository, extraction_id: str, unit_id: str, *, unit_ids: list[str] | None=None, role: str, profile: str | None=None, client: Any=None, provider: str | None=None, model: str | None=None, input_budget_tokens: int=20000, output_budget_tokens: int | None=3000, clock: Clock | None=None, prompt_version: str=SOURCE_UNIT_INVENTORY_PROMPT_VERSION, schema_version: int=INVENTORY_SCHEMA_VERSION, progress: Callable[[int, int], None] | None=None) -> InventoryResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 938) — Produce or reuse one effective unit inventory under a role/profile (§7).
-- `inventory_marker(repo: Repository, extraction_id: str, unit_id: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 989) — Whether a unit already has a cached inventory (wires the M3 outline seam).
+- `class InventoryError(ValueError)` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 79) — A unit/extraction reference or inventory profile is invalid.
+- `class InventoryValidationError(ValueError)` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 83) — A returned inventory cites an unknown span id or an uncited assertion.
+- `request_source_unit_inventory(client: StructuredTransport, context: SourceUnitInventoryContext) -> SourceUnitInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 87) — Inventory one source-unit window through the shared transport.
+- `normalize_profile(profile: str | None) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 100)
+- `profile_satisfies(stored_profile: str, stored_schema_version: int, requested_profile: str) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 109) — Does a cached inventory satisfy a request?
+- `best_inventory(rows: list[dict[str, Any]], unit_id: str, *, semantic_hash: str | None, prompt_version: str, provider: str | None, model: str | None, profile: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 127) — The one inventory row synthesis and coverage read for a unit.
+- `choose_unit_inventory(rows: list[dict[str, Any]], unit_id: str, unit_ids: list[str], *, ir: DocumentIR | None, route: tuple[str, str] | None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 174) — ``best_inventory`` for one effective unit of ``ir``, under today's prompt label and ``route`` (``current_inventory_identity``), for synthesis's combined request.
+- `current_unit_semantic_hash(ir: DocumentIR | None, unit_ids: list[str]) -> str | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 198) — The semantic hash an inventory of these units would carry today, or ``None``.
+- `current_inventory_identity(config: Any) -> tuple[str, str] | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 209) — The provider type and model an inventory job would record now.
+- `inventoried_unit_ids(rows: list[dict[str, Any]]) -> set[str]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 271) — The source units these inventory rows cover, alone or as a member of a merged (``merge_with_next``) unit.
+- `build_inventory_windows(ir: DocumentIR, unit_id: str, *, unit_ids: list[str] | None=None, input_budget_tokens: int) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 292) — Deterministic inventory view for one effective unit, split into windows.
+- `assign_deterministic_ids(inventory: SourceUnitInventory, *, unit_id: str, window_ordinal: int) -> SourceUnitInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 393) — Reassign every id from (unit_id, window_ordinal, item_ordinal, content-hash) and rewrite intra-inventory `*_ids`/`concept_mention_id` references (§7).
+- `validate_inventory(inventory: SourceUnitInventory, valid_span_ids: set[str]) -> None` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 450) — Reject uncited assertions and unknown span ids (§7, §3).
+- `merge_windows(inventories: list[SourceUnitInventory]) -> SourceUnitInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 471) — Deterministic concat + dedup by assigned id (§7).
+- `class InventoryResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 593)
+- `class PreparedInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 603) — Cache-missed inventory work with every database read already resolved.
+- `class InventoryExecution` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 629) — Fresh provider output awaiting runner-thread persistence.
+- `prepare_unit_inventory(repo: Repository, extraction_id: str, unit_id: str, *, unit_ids: list[str] | None=None, role: str, profile: str | None=None, client: Any=None, provider: str | None=None, model: str | None=None, input_budget_tokens: int=20000, output_budget_tokens: int | None=3000, clock: Clock | None=None, prompt_version: str=SOURCE_UNIT_INVENTORY_PROMPT_VERSION, schema_version: int=INVENTORY_SCHEMA_VERSION) -> InventoryResult | PreparedInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 636) — Resolve one inventory from cache or return provider-only work.
+- `window_checkpoint(repo: Any, key: str, valid_span_ids: Collection[str]) -> ModelCheckpoint[SourceUnitInventory]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 813) — One inventory window's checkpoint.
+- `inventory_window_key(context: SourceUnitInventoryContext, settings: dict[str, Any], *, schema_version: int) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 826) — Checkpoint identity of one inventory window.
+- `inventory_row_key(*, provider: str, model: str, schema_version: int) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 843) — What an inventory row was asked, compared before the row is reused: the request key of the inventory prompt rendered over an empty context, under the schema version, provider and model.
+- `execute_prepared_inventory(prepared: PreparedInventory, client: Any, *, progress: Callable[[int, int], None] | None=None, checkpoint: Callable[[str, SourceUnitInventory, dict[str, Any]], None] | None=None) -> InventoryExecution` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 870) — Run provider windows without touching SQLite.
+- `persist_prepared_inventory(repo: Repository, prepared: PreparedInventory, execution: InventoryExecution, *, clock: Clock | None=None) -> InventoryResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 942) — Persist fresh provider output on the runner thread.
+- `run_unit_inventory(repo: Repository, extraction_id: str, unit_id: str, *, unit_ids: list[str] | None=None, role: str, profile: str | None=None, client: Any=None, provider: str | None=None, model: str | None=None, input_budget_tokens: int=20000, output_budget_tokens: int | None=3000, clock: Clock | None=None, prompt_version: str=SOURCE_UNIT_INVENTORY_PROMPT_VERSION, schema_version: int=INVENTORY_SCHEMA_VERSION, progress: Callable[[int, int], None] | None=None) -> InventoryResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 982) — Produce or reuse one effective unit inventory under a role/profile (§7).
+- `inventory_marker(repo: Repository, extraction_id: str, unit_id: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 1033) — Whether a unit already has a cached inventory (wires the M3 outline seam).
 
 ### Module constants
 
-- `INVENTORY_SCHEMA_VERSION` ([src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 55)
-- `INVENTORY_PROFILES` ([src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 57)
-- `_OMIT_BLOCK_TYPES` ([src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 61)
-- `_OMIT_ROLE_HINTS` ([src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 62)
-- `_CHARS_PER_TOKEN` ([src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 64)
-- `INVENTORY_WINDOW_PURPOSE` ([src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 65)
-- `_COMBINED_SATISFIES` ([src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 70)
-- `_SPAN_CITING_FIELDS` ([src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 435)
+- `INVENTORY_SCHEMA_VERSION` ([src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 56)
+- `INVENTORY_PROFILES` ([src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 58)
+- `_OMIT_BLOCK_TYPES` ([src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 62)
+- `_OMIT_ROLE_HINTS` ([src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 63)
+- `_CHARS_PER_TOKEN` ([src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 65)
+- `INVENTORY_WINDOW_PURPOSE` ([src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 66)
+- `INVENTORY_ROW_PURPOSE` ([src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 67)
+- `INVENTORY_ROW_KEY_FIELD` ([src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 69)
+- `_COMBINED_SATISFIES` ([src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 74)
+- `_SPAN_CITING_FIELDS` ([src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 439)
 
 ## Internal implementation anchors
 
-- `_approx_tokens(text: str) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 224)
-- `_view_block(block) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 230) — One inventory-view block, or None when it is omitted boilerplate (§3).
-- `_section_key(block) -> tuple[str, ...]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 244)
-- `_inventory_members(ir: DocumentIR, unit_ids: list[str]) -> list[Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 248) — Resolve an ordered effective inventory unit from its source members.
-- `_effective_unit_id(unit_ids: list[str]) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 263)
-- `_effective_semantic_hash(members: list[Any]) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 274)
-- `_content_hash(*parts: Any) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 372)
-- `_stringify(value: Any) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 377)
-- `_assign_id(unit_id: str, window_ordinal: int, item_ordinal: int, content_hash: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 383) — Service-owned deterministic id (§7): stable for an unchanged semantic view.
-- `_cited_span_ids(inventory: SourceUnitInventory) -> set[str]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 508)
-- `_rebind_inventory_spans(inventory: SourceUnitInventory, *, span_aliases: Mapping[str, str], unit_id: str, semantic_hash: str) -> SourceUnitInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 517) — Return the same semantic artifact bound to a new extraction's span ids.
-- `_reusable_inventory_for_extraction(repo: Repository, candidate: Mapping[str, Any], *, current_ir: DocumentIR, current_extraction_id: str, current_unit_id: str, current_semantic_hash: str, valid_span_ids: set[str]) -> SourceUnitInventory | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 537) — Safely bind a cached semantic artifact to the current extraction.
+- `_approx_tokens(text: str) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 228)
+- `_view_block(block) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 234) — One inventory-view block, or None when it is omitted boilerplate (§3).
+- `_section_key(block) -> tuple[str, ...]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 248)
+- `_inventory_members(ir: DocumentIR, unit_ids: list[str]) -> list[Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 252) — Resolve an ordered effective inventory unit from its source members.
+- `_effective_unit_id(unit_ids: list[str]) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 267)
+- `_effective_semantic_hash(members: list[Any]) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 278)
+- `_content_hash(*parts: Any) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 376)
+- `_stringify(value: Any) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 381)
+- `_assign_id(unit_id: str, window_ordinal: int, item_ordinal: int, content_hash: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 387) — Service-owned deterministic id (§7): stable for an unchanged semantic view.
+- `_cited_span_ids(inventory: SourceUnitInventory) -> set[str]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 512)
+- `_rebind_inventory_spans(inventory: SourceUnitInventory, *, span_aliases: Mapping[str, str], unit_id: str, semantic_hash: str) -> SourceUnitInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 521) — Return the same semantic artifact bound to a new extraction's span ids.
+- `_reusable_inventory_for_extraction(repo: Repository, candidate: Mapping[str, Any], *, current_ir: DocumentIR, current_extraction_id: str, current_unit_id: str, current_semantic_hash: str, valid_span_ids: set[str]) -> SourceUnitInventory | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 541) — Safely bind a cached semantic artifact to the current extraction.
 
 ## Who imports or calls it
 
@@ -182,6 +185,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_model_work_checkpoints.py](../../../../../../../tests/test_model_work_checkpoints.py) — direct import
   - `test_ingest_job_and_direct_inventory_key_windows_identically`
   - `test_inventory_window_checkpoint_that_no_longer_validates_is_discarded`
+- [tests/test_outer_cache_keys.py](../../../../../../../tests/test_outer_cache_keys.py) — direct import
+  - `test_a_changed_inventory_model_is_paid_and_not_answered_by_the_old_row`
+  - `test_an_inventory_prompt_edited_under_the_same_label_is_paid_once`
+  - `test_an_inventory_row_answers_a_request_recorded_under_another_label`
+  - `test_an_inventory_row_from_before_the_request_key_keeps_its_label_match`
 - [tests/test_source_append.py](../../../../../../../tests/test_source_append.py) — direct import
   - `test_n_sources_append_linear_inventory_and_bounded_context`
 - [tests/test_source_inventory.py](../../../../../../../tests/test_source_inventory.py) — direct import
