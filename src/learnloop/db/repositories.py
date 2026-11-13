@@ -20610,8 +20610,14 @@ class Repository(
         prompt_version: str,
         provider: str,
         model: str,
+        request_key: str,
     ) -> list[dict[str, Any]]:
         """Cached rows sharing the non-profile semantic identity (§7).
+
+        A row that records the request it was paid under (``usage.request_key``)
+        matches only that request, whatever its prompt label, provider or model
+        column says; a row from before matches those columns, so it is not
+        orphaned.
 
         ``source_revision_id`` is a binding preference, not part of the reusable
         artifact identity.  An unchanged normalized unit may move to a new source
@@ -20626,8 +20632,10 @@ class Repository(
                 """
                 SELECT * FROM source_unit_inventories
                  WHERE unit_id = ? AND unit_semantic_hash = ?
-                   AND inventory_schema_version = ? AND prompt_version = ?
-                   AND provider = ? AND model = ?
+                   AND inventory_schema_version = ?
+                   AND CASE WHEN json_extract(usage_json, '$.request_key') IS NULL
+                            THEN prompt_version = ? AND provider = ? AND model = ?
+                            ELSE json_extract(usage_json, '$.request_key') = ? END
                  ORDER BY CASE WHEN source_revision_id = ? THEN 0 ELSE 1 END,
                           created_at
                 """,
@@ -20638,6 +20646,7 @@ class Repository(
                     prompt_version,
                     provider,
                     model,
+                    request_key,
                     source_revision_id,
                 ),
             ).fetchall()
@@ -21420,9 +21429,9 @@ class Repository(
     ) -> None:
         """Persist one completed synthesis shard's model output (durable checkpoint).
 
-        Keyed by the shard's full input identity so a retried synthesis reuses
-        finished shards at zero model cost, including retries whose revised token
-        ceilings mint a different manifest."""
+        Keyed by the request key of the shard's first pass (what it sends), so a
+        retried synthesis reuses finished shards at zero model cost, including
+        retries whose revised token ceilings mint a different manifest."""
 
         with self.connection() as connection:
             connection.execute(
