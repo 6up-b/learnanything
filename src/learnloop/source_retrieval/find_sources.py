@@ -641,8 +641,13 @@ def find_sources(
     compare_client: Any | None = None,
     rewrite: bool | None = None,
     planned_practice_question: str | None = None,
+    withhold: Callable[[Sequence[SpanHit]], Mapping[SpanKey, str]] | None = None,
 ) -> SourceHits:
     """Verbatim passages for ``intent`` under ``policy`` (the caller's, derived on the server).
+
+    ``withhold`` is a caller's own protection rule: it names the pool's hits (key to reason) the caller will
+    not show. They leave the pool before the verification model reads any of them, and their count per reason
+    is on the manifest (``withheld_before_verification``).
 
     ``misconceptions`` are the remediation targets the caller resolved (the
     diagnoser's overlay, a hypothesis ref or a named gap); ``learner_work_md``
@@ -768,6 +773,15 @@ def find_sources(
         pool = kept
     judged_keys = {tuple(key) for key in (cursor or {}).get("judged", [])}
     pool = [hit for hit in pool if hit.key not in judged_keys]
+    if withhold is not None and (verify or intent != "explain") and pool:
+        # Only a verification model reads the pool's text here; an unverified list is the caller's to filter.
+        dropped = dict(withhold(pool))
+        if dropped:
+            pool = [hit for hit in pool if hit.key not in dropped]
+            tally: dict[str, int] = {}
+            for reason in dropped.values():
+                tally[reason] = tally.get(reason, 0) + 1
+            result.manifest["withheld_before_verification"] = tally
     expansion_of = {key: name.removeprefix("expand_") for name, keys in extra.items()
                     if name.startswith("expand_") for key in keys}
     must_verify = verify or intent != "explain"

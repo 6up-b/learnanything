@@ -45,7 +45,7 @@ resolved, nothing is retrieved, shown or recorded as read.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -180,10 +180,16 @@ def find_passages(
     if not withheld_items(vault, repository).available:
         raise SourcesUnavailable(*_UNREADABLE)
     caller = caller_for(repository, "agent", call_id, learning_object_ids=los)
+    classify = _classifier(vault, repository, withheld_items(vault, repository))
+
+    def withhold(pool: Sequence[Any]) -> dict[tuple[str, str], str]:
+        return classify([(str(hit.extraction_id), str(hit.span_id), "", str(hit.block_type or "")) for hit in pool])
+
     try:
         hits = propose_sources(
             vault, repository, query, caller=caller, intent=intent, scope="library", learning_object_ids=los,
             target_hypotheses=targets, verify=bool(verify), limit=max(1, min(int(limit), 12)), clock=clock,
+            withhold=withhold,
         )
     except PolicyRefused as exc:
         raise SourcesUnavailable(getattr(exc, "code", "policy_refused"), str(exc)) from exc
@@ -208,37 +214,60 @@ def _record(vault: Any, repository: Any, result: PassageResult, *, call_id: str,
                                                                  initiator=exposure.TUTOR_CITATION))
 
 
+def _classifier(vault: Any, repository: Any, withheld: Any) -> Callable[[Sequence[tuple[str, str, str, str]]], dict[tuple[str, str], str]]:
+    """``(extraction, span, role, block type)`` rows to the reason each is withheld from a chat host
+    (``exam_material``, ``solutions`` or ``held_for_a_check``), the rows it keeps absent. One rule for the
+    search's pool (before its verification model reads a passage) and for the final response."""
+
+    from learnloop.content.sources.exam_material import exam_material
+    from learnloop.source_retrieval.corpus import MODEL_WITHHELD_ROLES, model_reader_withheld
+
+    protected_spans, protected_whole = _protected_spans(vault, repository, withheld)
+    exam = exam_material(vault, repository)
+
+    def classify(rows: Sequence[tuple[str, str, str, str]]) -> dict[tuple[str, str], str]:
+        # A model's view of a passage: the library scope drops no assessment-lane material (problem sets,
+        # unknown roles, exercise-linked spans) on its own.
+        lane = model_reader_withheld(vault, repository, [(extraction, span) for extraction, span, _r, _b in rows])
+        found: dict[tuple[str, str], str] = {}
+        for extraction, span, role, block_type in rows:
+            key = (extraction, span)
+            if exam.covers(*key) or exam.covers(extraction) or lane.get(key) == "assessment_lane":
+                found[key] = "exam_material"
+            elif (lane.get(key) == "solution" or role.lower() in MODEL_WITHHELD_ROLES
+                  or block_type.lower() in MODEL_WITHHELD_ROLES):
+                found[key] = "solutions"
+            elif key in protected_spans or extraction in protected_whole:
+                found[key] = "held_for_a_check"
+        return found
+
+    return classify
+
+
 def _shown(vault: Any, repository: Any, hits: Any, withheld: Any, *, intent: str, budget: int, los: list[str],
            unknown_los: list[str]) -> PassageResult:
     """Filter ``hits`` by the protection just read and build the payload."""
 
     from learnloop.content.pipeline.add_source import learner_title
-    from learnloop.content.sources.exam_material import exam_material
     from learnloop.db.connection import connect
     from learnloop.db.stores.source_block_fts import blocks_by_key
     from learnloop.ingest.locators import format_block_span
-    from learnloop.source_retrieval.corpus import MODEL_WITHHELD_ROLES, model_reader_withheld
 
-    protected_spans, protected_whole = _protected_spans(vault, repository, withheld)
-    exam = exam_material(vault, repository)
-    counts = {"exam_material": int(hits.manifest.get("exam_withheld") or 0), "solutions": 0,
-              "held_for_a_check": 0, "over_budget": 0}
+    classify = _classifier(vault, repository, withheld)
+    # What the search already took out before its verification model read anything (counted with the rest).
+    early = hits.manifest.get("withheld_before_verification") or {}
+    counts = {"exam_material": int(hits.manifest.get("exam_withheld") or 0) + int(early.get("exam_material") or 0),
+              "solutions": int(early.get("solutions") or 0), "held_for_a_check": int(early.get("held_for_a_check") or 0),
+              "over_budget": 0}
     kept: list[Mapping[str, Any]] = []
-    # A model's view of a passage: the library scope drops no assessment-lane
-    # material (problem sets, unknown roles, exercise-linked spans) on its own.
-    lane = model_reader_withheld(vault, repository, [(str(h["extraction_id"]), str(h["span_id"]))
-                                                     for h in hits.hits])
+    reasons = classify([(str(h["extraction_id"]), str(h["span_id"]), str(h.get("role") or ""),
+                         str(h.get("block_type") or "")) for h in hits.hits])
     for hit in hits.hits:
-        key = (str(hit["extraction_id"]), str(hit["span_id"]))
-        if exam.covers(*key) or exam.covers(key[0]) or lane.get(key) == "assessment_lane":
-            counts["exam_material"] += 1
-        elif (lane.get(key) == "solution" or str(hit.get("role") or "").lower() in MODEL_WITHHELD_ROLES
-              or str(hit.get("block_type") or "").lower() in MODEL_WITHHELD_ROLES):
-            counts["solutions"] += 1
-        elif key in protected_spans or key[0] in protected_whole:
-            counts["held_for_a_check"] += 1
-        else:
+        reason = reasons.get((str(hit["extraction_id"]), str(hit["span_id"])))
+        if reason is None:
             kept.append(hit)
+        else:
+            counts[reason] += 1
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         blocks = blocks_by_key(connection, [(str(h["extraction_id"]), str(h["span_id"])) for h in kept])
     titles: dict[str, str] = {}
