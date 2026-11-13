@@ -2320,6 +2320,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_exam_answers_certify_facet_evidence_on_canonical_vault`
 - [tests/test_facet_belief_successor.py](../../../../../../tests/test_facet_belief_successor.py) — direct import
   - `test_the_legacy_recall_bridge_stays_refused_at_the_tag`
+- [tests/test_facet_belief_successor_derivation.py](../../../../../../tests/test_facet_belief_successor_derivation.py) — direct import
+  - `test_s1_with_the_switch_off_the_two_criterion_answer_is_the_predecessors`
+  - `test_s2_with_the_switch_off_no_reader_sees_the_successors_rows`
+  - `test_s5_an_attempt_records_the_fixes_only_when_derived_with_them`
 - [tests/test_facet_candidates.py](../../../../../../tests/test_facet_candidates.py) — direct import
   - `test_harvests_candidates_from_multiple_sources`
   - `test_harvests_candidates_from_unit_inventories`

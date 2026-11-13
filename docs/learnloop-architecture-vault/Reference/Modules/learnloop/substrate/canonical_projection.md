@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/canonical_projection.py](../../../../../../src/learnloop/substrate/canonical_projection.py) |
-| Source lines | 1368 |
+| Source lines | 1378 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -64,7 +64,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `observed_unresolved_failure(observed_fraction: float, targets: Sequence[CriterionTarget], attribution: Mapping[tuple[str, str], float]) -> bool` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 457) — True when an OBSERVED failure has multiple candidate causes and no resolving attribution (§5.3) — the condition that opens an unresolved-cause factor.
 - `configured_repeat_discount(vault: LoadedVault) -> float` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 622)
 - `project_canonical_facet_state(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None, refresh_factor_candidates_for: Collection[str] | None=None, before: tuple[str, str] | None=None, through: tuple[str, str] | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 630) — Recompute and persist the canonical belief cache.
-- `project_capability_residuals(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 1180) — Derive lazy capability-residual activation state (§4.2, KM5; DEFAULT OFF).
+- `project_capability_residuals(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 1190) — Derive lazy capability-residual activation state (§4.2, KM5; DEFAULT OFF).
 
 ### Module constants
 
@@ -86,8 +86,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `_facet_target_cause(target: CriterionTarget) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 492) — One synthesized open-world arm for a criterion target.
 - `_open_candidate_causes(error_events: Sequence[Mapping[str, Any]], targets: Sequence[CriterionTarget]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 517) — Thin candidate set for an unresolved factor, always open-world.
 - `_adjudicated_score_fraction(adjudication: Mapping[str, Any] | None, interpretation: Mapping[str, Any] | None, score_fraction: Mapping[str, float]) -> float | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 586) — Observed-outcome override when an adjudication heads the interpretation chain.
-- `_ledger_position_within(row: Mapping[str, Any], bound: tuple[str, str], *, inclusive: bool) -> bool` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 1167) — Whether a ledger row lies before (or, inclusive, at) ``bound``.
-- `_sync_unresolved_cause_factors(repository: Repository, unresolved: list[dict[str, object]], *, clock: Clock | None, refresh_attempt_ids: Collection[str] | None=None, retire_within_attempt_ids: Collection[str] | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 1305) — Idempotently reconcile open unresolved-cause factors with the projection.
+- `_ledger_position_within(row: Mapping[str, Any], bound: tuple[str, str], *, inclusive: bool) -> bool` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 1177) — Whether a ledger row lies before (or, inclusive, at) ``bound``.
+- `_sync_unresolved_cause_factors(repository: Repository, unresolved: list[dict[str, object]], *, clock: Clock | None, refresh_attempt_ids: Collection[str] | None=None, retire_within_attempt_ids: Collection[str] | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 1315) — Idempotently reconcile open unresolved-cause factors with the projection.
 
 ## Who imports or calls it
 
@@ -121,7 +121,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `UNVERIFIED_CRITERION_BLOCK`, `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `surface_group_id`; statically calls `surface_group_id`
-- [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] — imports `DEFAULT_REPEAT_SURFACE_DISCOUNT`, `FAILURE_THRESHOLD`, `attribution_weights`, `configured_repeat_discount`, `observed_unresolved_failure`, `p0_effective_evidence_mass`, `surface_group_id`, `transfer_tier_mass_scale`, `unassessed_evidence_row`; statically calls `attribution_weights`, `configured_repeat_discount`, `observed_unresolved_failure`, `p0_effective_evidence_mass`, `surface_group_id`, `transfer_tier_mass_scale`, `unassessed_evidence_row`
+- [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] — imports `DEFAULT_REPEAT_SURFACE_DISCOUNT`, `FAILURE_THRESHOLD`, `attribution_weights`, `configured_repeat_discount`, `observed_unresolved_failure`, `p0_effective_evidence_mass`, `surface_group_id`, `transfer_tier_mass_scale`, `unassessed_evidence_row`, `unverified_evidence_row`; statically calls `attribution_weights`, `configured_repeat_discount`, `observed_unresolved_failure`, `p0_effective_evidence_mass`, `surface_group_id`, `transfer_tier_mass_scale`, `unassessed_evidence_row`, `unverified_evidence_row`
 - [[Reference/Modules/learnloop/learner/independence_audit|learnloop.learner.independence_audit]] — imports `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/learner/residual_diagnostics|learnloop.learner.residual_diagnostics]] — imports `FAILURE_THRESHOLD`, `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/ops/pf_publish|learnloop.ops.pf_publish]] — imports `surface_group_id`; statically calls `surface_group_id`
@@ -155,7 +155,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `contract_unrecorded_attempts`, `held_for_review_attempts`, `pfc_assessments`; calls `contract_unrecorded_attempts`
 - [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`, `P0_PROJECTION_VERSIONS`
 - [[Reference/Modules/learnloop/learner/capability_mapping|learnloop.learner.capability_mapping]] — imports `CriterionOutcome`, `allocate_success_mass`, `certification_credit`, `compile_criterion_targets`, `criterion_pseudo_mass`, `localize_criterion_outcomes`; calls `CriterionOutcome`, `allocate_success_mass`, `certification_credit`, `compile_criterion_targets`, `criterion_pseudo_mass`, `localize_criterion_outcomes`
-- [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `facet_belief_fixes_on`; calls `facet_belief_fixes_on`
+- [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `facet_belief_corrections_on`, `facet_belief_fixes_on`; calls `facet_belief_corrections_on`, `facet_belief_fixes_on`
 - [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] — imports `UNASSESSED_INTERPRETATION`, `UNVERIFIED_CRITERION_BLOCK`, `UNVERIFIED_INTERPRETATION_KEY`, `unassessed_evidence_row`, `unverified_evidence_row`; calls `unassessed_evidence_row`, `unverified_evidence_row`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `CriterionTarget`, `LoadedVault`, `PracticeItem`; calls `CriterionTarget`
 

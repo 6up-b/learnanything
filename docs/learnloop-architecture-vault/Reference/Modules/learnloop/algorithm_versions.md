@@ -344,6 +344,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_replay_never_reads_the_switch`
 - [tests/test_facet_belief_successor.py](../../../../../tests/test_facet_belief_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_the_figure_wait_estimate_and_the_latest`
+- [tests/test_facet_belief_successor_derivation.py](../../../../../tests/test_facet_belief_successor_derivation.py) — direct import
 - [tests/test_facet_state_write_on_change.py](../../../../../tests/test_facet_state_write_on_change.py) — direct import
 - [tests/test_field_split_outcomes.py](../../../../../tests/test_field_split_outcomes.py) — direct import
   - `test_blind_grades_diagnoses_and_regrades_keep_the_epoch_contract`

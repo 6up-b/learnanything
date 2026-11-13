@@ -1298,6 +1298,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_facet_belief_successor.py](../../../../../../tests/test_facet_belief_successor.py) — direct import
   - `test_a_rebuild_records_the_switch_only_at_the_tag`
   - `test_the_gate_reads_off_below_the_tag_and_with_the_switch_off`
+- [tests/test_facet_belief_successor_derivation.py](../../../../../../tests/test_facet_belief_successor_derivation.py) — direct import
+  - `test_s1_a_rebuild_after_the_items_mapping_changed_keeps_the_uncertainty_where_the_contract_put_it`
+  - `test_s1_with_the_switch_off_the_two_criterion_answer_is_the_predecessors`
+  - `test_s2_with_the_switch_off_no_reader_sees_the_successors_rows`
+  - `test_s5_an_attempt_records_the_fixes_only_when_derived_with_them`
+  - `test_s5_doctor_still_warns_after_the_switch_went_off_and_back_on_with_answers_between`
 - [tests/test_facet_candidates.py](../../../../../../tests/test_facet_candidates.py) — direct import
   - `test_harvest_is_deterministic`
   - `test_harvests_candidates_from_multiple_sources`

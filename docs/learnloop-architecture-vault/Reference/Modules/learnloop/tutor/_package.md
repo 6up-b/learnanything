@@ -53,10 +53,10 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/tutor/__init__|learnloop.tutor]] | [[Reference/Modules/learnloop/tutor/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]] | [[Reference/Modules/learnloop/tutor/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 9 | 62 |
+| [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]] | [[Reference/Modules/learnloop/tutor/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 9 | 63 |
 | [[Reference/Modules/learnloop/tutor/context_delivery|learnloop.tutor.context_delivery]] | [[Reference/Modules/learnloop/tutor/context_delivery#^module-purpose|purpose]] | `ACTIVE` | 7 | 4 |
 | [[Reference/Modules/learnloop/tutor/durable_promotion|learnloop.tutor.durable_promotion]] | [[Reference/Modules/learnloop/tutor/durable_promotion#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
-| [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] | [[Reference/Modules/learnloop/tutor/promotions#^module-purpose|purpose]] | `ACTIVE` | 5 | 6 |
+| [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] | [[Reference/Modules/learnloop/tutor/promotions#^module-purpose|purpose]] | `ACTIVE` | 5 | 7 |
 | [[Reference/Modules/learnloop/tutor/question_queue|learnloop.tutor.question_queue]] | [[Reference/Modules/learnloop/tutor/question_queue#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 | [[Reference/Modules/learnloop/tutor/question_signal|learnloop.tutor.question_signal]] | [[Reference/Modules/learnloop/tutor/question_signal#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
 | [[Reference/Modules/learnloop/tutor/reader_modes|learnloop.tutor.reader_modes]] | [[Reference/Modules/learnloop/tutor/reader_modes#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
@@ -70,7 +70,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 - [[Reference/Modules/learnloop/_package|learnloop]] — 14 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 14 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 11 static module edges
-- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 8 static module edges
+- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 9 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 7 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 4 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 4 static module edges
@@ -132,7 +132,7 @@ flowchart LR
     n_learnloop_sidecar_handlers -->|14| center
     center -->|11| n_learnloop_ai
     n_learnloop_learner -->|1| center
-    center -->|8| n_learnloop_learner
+    center -->|9| n_learnloop_learner
     center -->|7| n_learnloop_db
     n_learnloop_diagnosis -->|3| center
     center -->|4| n_learnloop_diagnosis

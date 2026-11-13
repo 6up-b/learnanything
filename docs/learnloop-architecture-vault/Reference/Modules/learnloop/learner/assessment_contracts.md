@@ -143,6 +143,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_single_hash_moves_when_any_covered_component_changes`
 - [tests/test_diagnosis_input_provenance.py](../../../../../../tests/test_diagnosis_input_provenance.py) — direct import
   - `test_the_tutor_records_the_contract_a_mid_attempt_question_is_about`
+- [tests/test_facet_belief_successor_derivation.py](../../../../../../tests/test_facet_belief_successor_derivation.py) — direct import
 - [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — direct import
   - `test_review_f3_an_edited_or_removed_item_keeps_the_signal_on_the_frozen_lo`
 - [tests/test_probability_prep.py](../../../../../../tests/test_probability_prep.py) — direct import

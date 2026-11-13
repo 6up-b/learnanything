@@ -205,6 +205,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_evaluation.py](../../../../../../tests/test_evaluation.py) — direct import
   - `test_gate_section_counts_manual_false_negatives`
   - `test_report_on_real_session_flow`
+- [tests/test_facet_belief_successor_derivation.py](../../../../../../tests/test_facet_belief_successor_derivation.py) — direct import
+  - `test_s4_full_marks_on_a_massless_repeat_surface_end_the_failure_streak`
+  - `test_s4_with_the_switch_off_the_streak_is_the_predecessors`
 - [tests/test_facet_diagnostics_v03.py](../../../../../../tests/test_facet_diagnostics_v03.py) — direct import
   - `test_diagnostic_plan_carries_grader_repair_rationales`
   - `test_need_target_builder_freezes_structured_repair_focus`
