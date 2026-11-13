@@ -606,6 +606,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_attempt_an_older_tag_wrote_replays_with_no_stuck_declaration_at_the_head`
   - `test_historical_dont_know_rows_replay_unchanged_under_the_successor`
   - `test_the_kill_switch_never_changes_how_stuck_answers_replay`
+- [tests/test_synthesis_tail_golden.py](../../../../../tests/test_synthesis_tail_golden.py) — direct import
 - [tests/test_te3a_lesson_opportunity.py](../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
 - [tests/test_te3a_successor.py](../../../../../tests/test_te3a_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_te2_and_the_latest`
