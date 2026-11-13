@@ -34,9 +34,14 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Callable
 
-from pydantic import BaseModel, ValidationError
-
-from learnloop.ai.execution import content_key, declared_budgets, generation_limit, model_settings
+from learnloop.ai.execution import (
+    ModelCheckpoint,
+    content_key,
+    declared_budgets,
+    generation_limit,
+    model_settings,
+    request_key,
+)
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.synthesis.ai_contracts import (
     CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION,
@@ -2837,7 +2842,8 @@ def _run_synthesis(
     def pass_request(context):
         prompt = source_set_synthesis_prompt(context)
         tokens = max(1, (len(prompt) + len(json.dumps(schema))) // 4)
-        return _synthesis_pass_key(prompt, schema, settings), tokens
+        key = _synthesis_pass_key(prompt, schema, settings)
+        return ModelCheckpoint(repository, key, "synthesis_pass", SourceSetSynthesis.model_validate), tokens
 
     def base_context(ordinal, shard):
         return SourceSetSynthesisContext(
@@ -2863,18 +2869,18 @@ def _run_synthesis(
 
     base_reserves = {}
     for ordinal, shard, _, cached in shard_states:
-        key, tokens = pass_request(base_context(ordinal, shard))
-        answers.pass_keys.append(key)
-        reusable = cached or _checkpointed_pass(repository, key) is not None
+        checkpoint, tokens = pass_request(base_context(ordinal, shard))
+        answers.pass_keys.append(checkpoint.key)
+        reusable = cached or checkpoint.load() is not None
         base_reserves[ordinal] = 0 if reusable else tokens
     spend.check_base_passes(sum(base_reserves.values()))
 
     def run_pass(context, *, future_input_reserve=0):
-        key, tokens = pass_request(context)
-        answers.pass_keys.append(key)
-        checkpointed = _checkpointed_pass(repository, key)
-        if checkpointed is not None:
-            return checkpointed
+        checkpoint, tokens = pass_request(context)
+        answers.pass_keys.append(checkpoint.key)
+        saved = checkpoint.load()
+        if saved is not None:
+            return saved
         spend.check_next_pass_input(tokens, reserve=future_input_reserve)
         output_limit = spend.pass_output_limit()
         meter = UsageMeter(client or transport)
@@ -2882,9 +2888,9 @@ def _run_synthesis(
             result = request_source_set_synthesis(transport, context)
         output_charge = meter.output_charge(_result_tokens(result))
         spend.charge_pass(estimated_input=tokens, reported_input=meter.reported().input_tokens, output=output_charge)
-        # Save before the budget check. The key does not include the budget:
-        # a validated pass is reusable under any budget, and it is already paid.
-        repository.save_model_checkpoint(key, purpose="synthesis_pass", result=result.model_dump(mode="json"), usage={"input_tokens_estimate": tokens, "output_tokens_estimate": _result_tokens(result)})
+        # Save before the budget check: the key has no budget in it, so a
+        # retry under a larger one reuses this paid answer.
+        checkpoint.save(result, {"input_tokens_estimate": tokens, "output_tokens_estimate": _result_tokens(result)})
         if output_limit is not None and output_charge > output_limit:
             raise StudyMapError("budget_exceeded", "A synthesis pass exceeded its output budget.")
         return result
@@ -2978,33 +2984,15 @@ def _run_synthesis(
     return merged, span_request_count, resolved_hashes, usage
 
 
-def _checkpointed_pass(repository: Repository, key: str, result_model: type[BaseModel] = SourceSetSynthesis) -> Any:
-    """Return a saved synthesis pass (or append call: ``result_model``),
-    discarding one that no longer validates.
-
-    Checkpoints are write-once, so an unreadable pass would otherwise fail
-    every retry, and the budget preflight would count it as already paid.
-    """
-
-    checkpoint = repository.model_checkpoint(key)
-    if checkpoint is None:
-        return None
-    try:
-        return result_model.model_validate(checkpoint["result"])
-    except ValidationError:
-        repository.discard_model_checkpoint(key)
-        return None
-
-
 def _synthesis_pass_key(
     prompt: str, schema: dict[str, Any], settings: dict[str, Any], *, purpose: str = "synthesis_pass",
 ) -> str:
-    """Checkpoint identity of one synthesis pass: the exact prompt and schema
-    sent, and the provider settings that shape the answer. The output budget
-    is deliberately absent, so a validated pass is reusable under any budget.
-    The append call keys the same way under its own ``purpose``."""
+    """Checkpoint identity of one synthesis pass: the request key of the
+    exact prompt and schema sent, under the provider settings that shape the
+    answer, with no budget in it. The append call keys the same way under its
+    own ``purpose``."""
 
-    return content_key({"purpose": purpose, "prompt": prompt, "schema": schema, "settings": settings})
+    return request_key(purpose=purpose, prompt=prompt, schema=schema, settings=settings)
 
 
 def _result_tokens(result: Any) -> int:

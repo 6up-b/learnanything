@@ -1384,7 +1384,6 @@ def test_r3_f7_a_double_fallback_stores_the_versions_of_what_read_it(monkeypatch
 def test_r3_f13_a_stored_window_that_no_longer_reads_is_paid_for_once(monkeypatch, tmp_path):
     import hashlib
 
-    from learnloop.content.pipeline.jobs import _ModelCheckpoints
     from tests.ux_phase1_support import fresh_library, repository
 
     sent = record(monkeypatch)
@@ -1395,7 +1394,7 @@ def test_r3_f13_a_stored_window_that_no_longer_reads_is_paid_for_once(monkeypatc
     # An answer saved under an earlier mapping that today's can't read.
     repo.save_model_checkpoint(key, purpose="glm_ocr_window", result={"layout_details": []})
     for _ in range(2):
-        ir = extractor.extract(raw, ok(checkpoints=_ModelCheckpoints(repo)))
+        ir = extractor.extract(raw, ok(checkpoints=repo))
         assert [block.page for block in ir.blocks] == [0, 1]
     assert len(sent) == 1  # asked once, then the new answer is the one kept
 

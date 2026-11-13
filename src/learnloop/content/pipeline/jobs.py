@@ -349,32 +349,6 @@ def _extraction_interrupt(ctx: JobContext) -> Any:
     return interrupt
 
 
-class _ModelCheckpoints:
-    """GLM-OCR's paid window answers in ``model_work_checkpoints`` (second
-    review F5), so a retry or a re-read pays only for what is unanswered."""
-
-    def __init__(self, repo: Any) -> None:
-        self._repo = repo
-
-    @classmethod
-    def of(cls, ctx: JobContext) -> "_ModelCheckpoints | None":
-        repo = getattr(ctx, "repo", None)
-        return cls(repo) if repo is not None else None
-
-    def load(self, key: str) -> dict[str, Any] | None:
-        saved = self._repo.model_checkpoint(key)
-        return saved["result"] if saved else None
-
-    def save(self, key: str, result: dict[str, Any]) -> None:
-        self._repo.save_model_checkpoint(key, purpose="glm_ocr_window", result=result)
-
-    def discard(self, key: str) -> None:
-        # Checkpoints are write-once: a stored answer that no longer reads is
-        # removed before it is asked again, so the new answer is the one kept
-        # (third review F13).
-        self._repo.discard_model_checkpoint(key)
-
-
 def _upload_allowed(ctx: JobContext, flow: str) -> bool:
     from learnloop.content.pipeline.add_source import file_upload_allowed
     from learnloop.vault.loader import load_vault
@@ -500,7 +474,10 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
             config={"whole_file_upload_allowed": getattr(extractor, "backend", None) == "api"},
             page_selection=tuple(pages) if pages is not None else None,
             interrupt=_extraction_interrupt(ctx),
-            checkpoints=_ModelCheckpoints.of(ctx),
+            # A hosted reader's paid window answers are kept in the import's
+            # model_work_checkpoints, so a retry or a re-read pays only for
+            # what is unanswered.
+            checkpoints=getattr(ctx, "repo", None),
         )
         try:
             ir = _extract_pdf_locally(fetched, extractor, pdf_config, context)
@@ -1492,6 +1469,7 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
         execute_prepared_inventory,
         persist_prepared_inventory,
         prepare_unit_inventory,
+        window_checkpoint,
     )
 
     payload = ctx.payload
@@ -1615,7 +1593,7 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
                     raise JobCancelled()
                 return mailbox.call(lambda: ctx.repo.record_model_event(action, event, owner_kind="ingest_job", owner_id=ctx.job["id"]))
             def checkpoint(key, result, usage):
-                mailbox.call(lambda: ctx.repo.save_model_checkpoint(key, purpose="inventory_window", result=result.model_dump(mode="json"), usage=usage))
+                mailbox.call(lambda: window_checkpoint(ctx.repo, key, prepared.valid_span_ids).save(result, usage))
             def report_window(current, total):
                 def report():
                     nonlocal completed_model_windows

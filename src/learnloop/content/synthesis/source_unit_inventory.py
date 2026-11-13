@@ -33,13 +33,11 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from typing import Any, Callable, Mapping
-
-from pydantic import ValidationError
+from typing import Any, Callable, Collection, Mapping
 
 from learnloop.clock import Clock
 from learnloop.ai.transport import StructuredTransport, execute_structured_operation
-from learnloop.ai.execution import content_key, generation_limit, model_settings
+from learnloop.ai.execution import ModelCheckpoint, generation_limit, model_settings, request_key
 from learnloop.ai.usage import UsageMeter
 from learnloop.content.synthesis.ai_contracts import (
     SOURCE_UNIT_INVENTORY_PROMPT_VERSION,
@@ -64,6 +62,7 @@ _OMIT_BLOCK_TYPES: frozenset[str] = frozenset({"page_header", "page_footer", "pa
 _OMIT_ROLE_HINTS: frozenset[str] = frozenset({"header", "footer", "boilerplate", "page_number"})
 
 _CHARS_PER_TOKEN = 4
+INVENTORY_WINDOW_PURPOSE = "inventory_window"
 
 # Which profiles a `combined` inventory at a given schema version guarantees it
 # can satisfy (§7). The ONE deterministic decider — keyed by schema version so a
@@ -619,7 +618,7 @@ class PreparedInventory:
     prompt_version: str
     schema_version: int
     window_keys: tuple[str, ...] = ()
-    cached_windows: tuple[dict[str, Any] | None, ...] = ()
+    cached_windows: tuple[SourceUnitInventory | None, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -794,48 +793,39 @@ def prepare_unit_inventory(
         schema_version=schema_version,
         window_keys=keys,
         cached_windows=tuple(
-            _reusable_window_checkpoint(repo, key, valid_span_ids) for key in keys
+            window_checkpoint(repo, key, valid_span_ids).load() for key in keys
         ),
     )
 
 
-def _reusable_window_checkpoint(
-    repo: Repository, key: str, valid_span_ids: frozenset[str]
-) -> dict[str, Any] | None:
-    """Return a saved inventory window, discarding one that no longer validates.
+def window_checkpoint(repo: Any, key: str, valid_span_ids: Collection[str]) -> ModelCheckpoint[SourceUnitInventory]:
+    """One inventory window's checkpoint. A saved window must still cite only
+    spans the unit has: one that fails today's model or span checks is
+    discarded and asked again."""
 
-    Checkpoints are write-once, so a stored window that fails today's model or
-    span checks would otherwise fail every retry of its unit.
-    """
-
-    checkpoint = repo.model_checkpoint(key)
-    if checkpoint is None:
-        return None
-    try:
-        window = SourceUnitInventory.model_validate(checkpoint["result"])
+    def read(stored: Any) -> SourceUnitInventory:
+        window = SourceUnitInventory.model_validate(stored)
         validate_inventory(window, set(valid_span_ids))
-    except (ValidationError, InventoryValidationError):
-        repo.discard_model_checkpoint(key)
-        return None
-    return checkpoint
+        return window
+
+    return ModelCheckpoint(repo, key, INVENTORY_WINDOW_PURPOSE, read)
 
 
 def inventory_window_key(context: SourceUnitInventoryContext, settings: dict[str, Any], *, schema_version: int) -> str:
     """Checkpoint identity of one inventory window.
 
-    Keyed on the rendered prompt rather than its version label, so a prompt
-    edit never replays windows produced from different text, and on the
+    The request key of the rendered prompt rather than its version label, so a
+    prompt edit never replays windows produced from different text, and of the
     provider settings, so two profiles sharing a model slug but differing in
-    endpoint or reasoning settings never share output. The output budget is
-    absent: a validated window is reusable under any budget.
+    endpoint or reasoning settings never share output. The schema is named by
+    its version (an older shape kept for its bytes). No budget: a validated
+    window is reusable under any budget.
     """
 
-    return content_key({
-        "purpose": "inventory_window",
-        "prompt": source_unit_inventory_prompt(context),
-        "schema_version": schema_version,
-        "settings": settings,
-    })
+    return request_key(
+        purpose=INVENTORY_WINDOW_PURPOSE, prompt=source_unit_inventory_prompt(context), settings=settings,
+        identity_extra={"schema_version": schema_version},
+    )
 
 
 def execute_prepared_inventory(
@@ -864,8 +854,8 @@ def execute_prepared_inventory(
             unit_view=window,
         )
         cached = prepared.cached_windows[ordinal - 1] if prepared.cached_windows else None
-        if cached:
-            assigned = SourceUnitInventory.model_validate(cached["result"])
+        if cached is not None:
+            assigned = cached
             usage["reused_windows"] += 1
         else:
             if remaining_output is not None and remaining_output <= 0:
@@ -879,12 +869,12 @@ def execute_prepared_inventory(
             usage["calls"] += 1
         validate_inventory(assigned, set(prepared.valid_span_ids))
         window_tokens = max(1, len(assigned.model_dump_json()) // _CHARS_PER_TOKEN)
-        if not cached:
+        if cached is None:
             window_tokens = meter.output_charge(window_tokens)
         # Save before the budget check. The key does not include the budget:
         # a window that validated is reusable whatever budget the retry runs
         # under, and it has already been paid for.
-        if not cached and checkpoint is not None and prepared.window_keys:
+        if cached is None and checkpoint is not None and prepared.window_keys:
             checkpoint(prepared.window_keys[ordinal - 1], assigned, {"output_tokens_estimate": window_tokens})
         if remaining_output is not None:
             remaining_output -= window_tokens
@@ -991,7 +981,7 @@ def run_unit_inventory(
         return prepared
     execution = execute_prepared_inventory(
         prepared, client, progress=progress,
-        checkpoint=lambda key, result, usage: repo.save_model_checkpoint(key, purpose="inventory_window", result=result.model_dump(mode="json"), usage=usage),
+        checkpoint=lambda key, result, usage: window_checkpoint(repo, key, prepared.valid_span_ids).save(result, usage),
     )
     return persist_prepared_inventory(repo, prepared, execution, clock=clock)
 

@@ -61,7 +61,7 @@ from urllib.parse import urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from uuid import uuid4
 
-from learnloop.ai.execution import model_call
+from learnloop.ai.execution import ModelCheckpoint, model_call
 from learnloop.ingest.block_roles import classify_block_role, numbered_label
 from learnloop.ingest.extractors.base import ExtractionContext, units_from_toc_entries
 from learnloop.ingest.extractors.glm_text_layer import (
@@ -360,18 +360,14 @@ class GlmOcrDocumentExtractor:
         self, raw: bytes, mime: str, reader: Any, pages: list[int], *, total_pages: int,
         context: ExtractionContext, asset: str | None = None,
     ) -> list[tuple[dict, list[int]]]:
-        key = self._checkpoint_key(asset, pages) if asset else None
-        saved = context.checkpoints.load(key) if key else None
-        if isinstance(saved, dict):
-            try:
-                _validated(saved, pages)
-                return [(saved, pages)]
-            except GlmOcrExtractionError:
-                # An answer this mapping can't read is asked for again, and
-                # the new answer replaces it (checkpoints are write-once).
-                discard = getattr(context.checkpoints, "discard", None)
-                if discard is not None:
-                    discard(key)
+        checkpoint = (
+            ModelCheckpoint(context.checkpoints, self._checkpoint_key(asset, pages), "glm_ocr_window",
+                            _saved_window_reader(pages))
+            if asset else None
+        )
+        saved = checkpoint.load() if checkpoint is not None else None
+        if saved is not None:
+            return [(saved, pages)]
         if self.backend == "local":
             images = _render_pages(raw, pages) if reader is not None else [_data_uri(mime, raw)]
             return [(self._answer({"images": images}, pages, context), pages)]
@@ -401,8 +397,8 @@ class GlmOcrDocumentExtractor:
         if page_range is not None:
             payload["start_page_id"], payload["end_page_id"] = page_range
         result = self._answer(payload, pages, context)
-        if key:
-            context.checkpoints.save(key, result)
+        if checkpoint is not None:
+            checkpoint.save(result)
         return [(result, pages)]
 
     def _answer(self, payload: dict, pages: list[int], context: ExtractionContext) -> dict:
@@ -715,6 +711,22 @@ def _page_regions(result: dict, count: int, page_ids: list[int] | None = None) -
     if any(not _is_region(region) for page in pages for region in page):
         raise GlmOcrExtractionError("GLM-OCR returned regions LearnLoop can't read")
     return pages, shape
+
+
+def _saved_window_reader(pages: list[int]):
+    """Read a saved window answer back: one this mapping can no longer read is
+    a stale checkpoint (``ValueError``), discarded and asked for again."""
+
+    def read(saved: Any) -> dict:
+        if not isinstance(saved, dict):
+            raise TypeError("a saved GLM-OCR window answer is not an object")
+        try:
+            _validated(saved, pages)
+        except GlmOcrExtractionError as exc:
+            raise ValueError(str(exc)) from exc
+        return saved
+
+    return read
 
 
 def _validated(result: dict, pages: list[int]) -> None:

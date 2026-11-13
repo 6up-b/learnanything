@@ -9,18 +9,20 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from contextvars import ContextVar
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import wraps
 import hashlib
 import json
 import logging
-from typing import Any, Callable, Protocol
+from typing import Any, Callable, Generic, Protocol, TypeVar
 from uuid import uuid4
 
 from learnloop.ai.errors import AIInterrupted, AIOutputTruncated
 from learnloop.provenance import current_trace
 
 logger = logging.getLogger(__name__)
+T = TypeVar("T")
 
 _observer: ContextVar[Callable[[str, dict[str, Any]], Any] | None] = ContextVar("model_observer", default=None)
 _parent: ContextVar[str | None] = ContextVar("model_call_parent", default=None)
@@ -194,6 +196,113 @@ def model_settings(client: Any) -> dict[str, Any]:
         "thinking": getattr(profile, "thinking", None),
         "response_format": getattr(profile, "response_format", None),
     }
+
+
+class CheckpointStore(Protocol):
+    """Where paid answers are kept (``model_work_checkpoints``; a ``Repository``)."""
+
+    def model_checkpoint(self, cache_key: str) -> dict[str, Any] | None:
+        ...
+
+    def save_model_checkpoint(
+        self, cache_key: str, *, purpose: str, result: dict[str, Any], usage: dict[str, Any] | None = None,
+    ) -> None:
+        ...
+
+    def discard_model_checkpoint(self, cache_key: str) -> None:
+        ...
+
+
+def request_key(
+    *, purpose: str, prompt: Any, schema: Any = None, settings: dict[str, Any] | None = None,
+    identity_extra: dict[str, Any] | None = None,
+) -> str:
+    """Checkpoint identity of one paid structured request: what it sends.
+
+    The purpose, the rendered prompt, the result schema and the client
+    settings that shape the answer (``model_settings``). The output budget is
+    left out, so an answer that validated is reused under any budget; a caller
+    adds it through ``identity_extra`` only where a truncated answer could
+    still validate (the facet judge). Two older keys keep their bytes through
+    ``identity_extra`` too: the inventory window names its schema by version,
+    and the legacy window carries provider and model in place of settings.
+    """
+
+    identity: dict[str, Any] = {"purpose": purpose, "prompt": prompt}
+    if schema is not None:
+        identity["schema"] = schema
+    if settings is not None:
+        identity["settings"] = settings
+    identity.update(identity_extra or {})
+    return content_key(identity)
+
+
+@dataclass(frozen=True)
+class ModelCheckpoint(Generic[T]):
+    """One paid answer's slot: load, validate, discard, save.
+
+    ``read`` turns the stored result back into the answer and raises
+    ``ValueError`` (a pydantic ``ValidationError`` is one), ``KeyError`` or
+    ``TypeError`` when it no longer reads. Such an answer is discarded on load:
+    checkpoints are write-once, so it would otherwise fail every retry of the
+    work it was meant to save, and a budget preflight would count it as paid.
+    """
+
+    store: CheckpointStore
+    key: str
+    purpose: str
+    read: Callable[[Any], T]
+
+    def load(self) -> T | None:
+        saved = self.store.model_checkpoint(self.key)
+        if saved is None:
+            return None
+        try:
+            return self.read(saved["result"])
+        except (ValueError, KeyError, TypeError):
+            self.discard()
+            return None
+
+    def save(self, result: Any, usage: dict[str, Any] | None = None) -> None:
+        payload = result.model_dump(mode="json") if hasattr(result, "model_dump") else dict(result)
+        self.store.save_model_checkpoint(self.key, purpose=self.purpose, result=payload, usage=usage)
+
+    def discard(self) -> None:
+        self.store.discard_model_checkpoint(self.key)
+
+    def answer(
+        self, call: Callable[[], T], *, usage: Callable[[T], dict[str, Any]] | None = None,
+    ) -> tuple[T, bool]:
+        """The saved answer, or ``call()``'s saved before it is returned, and
+        whether it was reused. ``call`` returns an answer it has already
+        checked; the caller's budget checks come after, so an answer that is
+        over budget is still kept for a retry under a larger one."""
+
+        saved = self.load()
+        if saved is not None:
+            return saved, True
+        result = call()
+        self.save(result, usage(result) if usage is not None else None)
+        return result, False
+
+
+def checkpointed(
+    store: CheckpointStore, *, purpose: str, prompt: Any, schema: Any, settings: dict[str, Any] | None,
+    result_model: type[T], identity_extra: dict[str, Any] | None = None,
+    validate: Callable[[T], Any] | None = None,
+) -> ModelCheckpoint[T]:
+    """The checkpoint of one paid structured call keyed on what it sends
+    (:func:`request_key`), reading its answer back as ``result_model`` and,
+    when given, ``validate`` (which raises on an answer that no longer holds)."""
+
+    def read(stored: Any) -> T:
+        answer = result_model.model_validate(stored)  # type: ignore[attr-defined]
+        if validate is not None:
+            validate(answer)
+        return answer
+
+    key = request_key(purpose=purpose, prompt=prompt, schema=schema, settings=settings, identity_extra=identity_extra)
+    return ModelCheckpoint(store, key, purpose, read)
 
 
 @contextmanager
