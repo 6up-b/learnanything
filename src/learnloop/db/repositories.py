@@ -4113,6 +4113,16 @@ class Repository(
         now = utc_now_iso(clock)
         with self.connection() as connection:
             if not self._read_only:
+                lapsed_episodes = {
+                    str(row[0]) for row in connection.execute(
+                        """
+                        SELECT remediation_episode_id FROM followup_tasks
+                        WHERE kind = 'cold_retry' AND remediation_episode_id IS NOT NULL
+                          AND status IN ('pending', 'served') AND expires_at IS NOT NULL AND expires_at < ?
+                        """,
+                        (now,),
+                    )
+                }
                 connection.execute(
                     """
                     UPDATE followup_tasks SET status = 'expired', updated_at = ?
@@ -4121,6 +4131,9 @@ class Repository(
                     """,
                     (now, now),
                 )
+                # The retry the episode reserved its cold item for has ended unanswered.
+                for episode_id in sorted(lapsed_episodes):
+                    self._release_cold_reservation(connection, episode_id, now)
             rows = connection.execute(
                 """
                 SELECT * FROM followup_tasks
@@ -4191,6 +4204,32 @@ class Repository(
                 (kind, case_ref),
             ).fetchone()
         return _decode_followup_task(row) if row is not None else None
+
+    @staticmethod
+    def _release_cold_reservation(connection: Any, episode_id: str, now: str) -> bool:
+        """End a ``cold_scheduled`` episode whose cold retry has no open task left, so its cold item
+        stops being reserved. An episode with a live retry (a replacement was scheduled) is untouched."""
+
+        cursor = connection.execute(
+            """
+            UPDATE remediation_episodes SET state = 'abandoned', updated_at = ?
+            WHERE id = ? AND state = 'cold_scheduled'
+              AND NOT EXISTS (
+                SELECT 1 FROM followup_tasks
+                WHERE remediation_episode_id = remediation_episodes.id AND kind = 'cold_retry'
+                  AND status IN ('pending', 'served'))
+            """,
+            (now, episode_id),
+        )
+        return cursor.rowcount > 0
+
+    def release_cold_reservation(self, episode_id: str, *, clock: Clock | None = None) -> bool:
+        """:meth:`_release_cold_reservation` for the caller that ended the retry (a withdrawal)."""
+
+        with self.connection() as connection:
+            released = self._release_cold_reservation(connection, episode_id, utc_now_iso(clock))
+            connection.commit()
+        return released
 
     def open_remediation_cold_item_ids(self) -> set[str]:
         """The cold items live remediation episodes chose, before their cold

@@ -65,3 +65,50 @@ def test_the_routine_due_queue_does_not_serve_a_reserved_cold_item_before_its_ch
     repository.update_remediation_episode(episode["id"], state="completed")
     assert cold_item in [item.practice_item_id for item in build_due_queue(vault, repository)]
 
+
+def _scheduled_retry(repository: Repository, cold_item: str, *, not_before: str, expires_at: str):
+    episode = _episode(repository, cold_item, "cold_scheduled")
+    task = repository.create_followup_task(
+        kind="cold_retry", case_kind="diagnosis", case_ref="att_1", source_attempt_id=None,
+        remediation_episode_id=episode["id"], not_before=not_before, expires_at=expires_at,
+        selected_item_id=cold_item, context={},
+    )
+    return episode, task
+
+
+def test_a_cold_retry_that_expires_unanswered_releases_its_reservation(world):
+    """The reservation ends with the thing it reserves for: a retry left to expire frees the item for the
+    queue and for practice admission, whichever reader looks next."""
+
+    from datetime import UTC, datetime
+
+    from learnloop.clock import FrozenClock
+    from learnloop.scheduling.scheduler import build_due_queue
+
+    vault, repository = world
+    cold_item = next(iter(vault.practice_items))
+    episode, _task = _scheduled_retry(
+        repository, cold_item, not_before="2026-01-02T00:00:00Z", expires_at="2026-01-09T00:00:00Z")
+    assert cold_administration_open(repository, cold_item)
+    during = FrozenClock(datetime(2026, 1, 5, tzinfo=UTC))
+    repository.due_followup_tasks(clock=during)
+    assert cold_administration_open(repository, cold_item)  # the window is still open
+    after = FrozenClock(datetime(2026, 1, 20, tzinfo=UTC))
+    repository.due_followup_tasks(clock=after)  # the queue's own expiry
+    assert repository.open_followup_tasks_of_kind("cold_retry") == []
+    assert not cold_administration_open(repository, cold_item)
+    assert repository.remediation_episode(episode["id"])["state"] == "abandoned"
+    assert cold_item in [item.practice_item_id for item in build_due_queue(vault, repository, clock=after)]
+
+
+def test_a_withdrawn_cold_retry_with_no_replacement_releases_its_reservation(world):
+    from learnloop.diagnosis.remediation import withdraw_cold_measurement
+    from learnloop.serve_eligibility import COLD_CHECK_HELP_TAKEN
+
+    vault, repository = world
+    cold_item = next(iter(vault.practice_items))
+    episode, task = _scheduled_retry(
+        repository, cold_item, not_before="2026-01-02T00:00:00Z", expires_at="2099-01-09T00:00:00Z")
+    withdraw_cold_measurement(vault, repository, task["id"], reason=COLD_CHECK_HELP_TAKEN)
+    assert not cold_administration_open(repository, cold_item)
+    assert repository.remediation_episode(episode["id"])["state"] == "abandoned"
