@@ -98,3 +98,28 @@ No assertion changed. No per-test pin was removed: proof (b) below found that th
 | `test_mobile_v2_plan::test_a_none_origin_never_enters_the_device_branch` | `plan_toml=STAGED_ROUTER` | **2 of 5 fail** (`pi_a1` not among the first eight steps) | still needs its pin: at one fixed seed and a fixed draw count the objective's block order varies run to run, so the variation is not the seed and not refinement (the no-model branch never refines); see D-28 |
 
 The pins stay (above). D-14's three and D-15 were not rerun without their pins.
+
+**(c) The landing selection three times running** (the brief's command under the lock, `-n 8 --dist worksteal -m "not arc_close"`, 10 GB scope; runs 1-2 on `3a3383a9d4`, run 3 on `061ff2ea7e`, which changes only documents):
+
+- run 1: 30509 passed, 104 skipped, 12 xfailed, 70 warnings in 825.28s (0:13:45)
+- run 2: 30509 passed, 104 skipped, 12 xfailed, 70 warnings in 838.97s (0:13:58)
+- run 3: 30509 passed, 104 skipped, 12 xfailed, 70 warnings in 844.56s (0:14:04)
+
+**(d) The arc-close lane once** (`-m arc_close -n 8 --dist worksteal`, same scope, with the census plugin): 24 passed, 36 xfailed, 2 warnings in 500.10s. The default applies there as everywhere (conftest does not look at the lane). Three arc-close tests reach a seed source, all three on `numeric`, `objective_mix` and `check`: `test_ro5_calibration::test_the_first_week_on_a_copy_shaped_synthetic_vault`, `test_ro6_tail_data::test_a_few_weeks_on_a_copy_shaped_synthetic_vault` and `test_rofu_weeks::test_two_weeks_after_the_batch` (164 decisions between them). They pass under the default and pass with every test's draws left to production (a scratch plugin marking every test `real_draws`: 3 passed). No other arc-close test (the AD sims, the EVSI multisim, the xfailed pre-registered sims) reaches a wrapped source, so the default changes nothing in them; the AD sims draw on their own seeds, which this step does not wrap.
+
+## Ledger
+
+- **D-19** (open, not closed): the twins hold at their own seed and `_pin` now keeps them there under the default. At the seed the default would have given them, sg1's twin made a sixth decision in 6 of 10 runs with the same seeds: the divergence D-19 records is, at least at that seed, not a function of the seed. Row updated with this.
+- **D-28** (new, open, due at arc D's close): block order under the objective varies with every wrapped seed fixed and one batch of draws; the source is not isolated (what is ruled out is in the row). `test_a_none_origin` keeps its staged frame and the IH4 twins their own seed until then.
+
+## Gates
+
+(Filled in at hand-back.)
+
+## What was not verified
+
+- That no spawned CLI subprocess reaches the objective path: the census ran in-process.
+- D-14's three hand-pinned tests and D-15's were not rerun without their pins.
+- The pinned check's anchor makes suites frozen at other dates draw as if on 2026-10-12; none failed, but their check placement is not the one their date gave before.
+- Wider-scoped fixtures that draw: the census logged no draw during a module- or class-scoped fixture's setup that I could tell from a test's own draws (the census keys on the test), so the fixture branch is exercised only by its own logic, not by a test that needed it.
+- A test marked `real_draws` that shares a module-scoped fixture with pinned tests gets that fixture in whichever mode its first consumer built it.
