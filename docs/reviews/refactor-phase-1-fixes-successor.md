@@ -95,7 +95,10 @@ One part is not gated, deliberately: S2's switch-off reading (successor rows inv
 
 ## 5. Gates
 
-GATES_PLACEHOLDER
+- Targeted tests: `scripts/affected_tests.py --base e231d7fb59` names 1,128 test files (the successor test file and the identity pins among them). They ran in 12 chunks of up to 100 files, `-n 4 -m "not arc_close"`, each behind `flock /tmp/learnloop-fullsuite.lock` in a 5 GB scope through the empty-home wrapper, on the source tip `abaa90304e`: **26,580 passed, 96 skipped, 12 xfailed, 0 failed**.
+- `tests/test_identity_pins.py`, `test_retired_config_identities`, `test_architecture`, `test_test_layout`, `test_effective_defaults_golden`, `test_cli_help_snapshot`, `test_structure_ratchets` and both successor files: 314 passed. No pin moved, no golden changed, no ratchet number rose (the new test file's first name, ending in `_fixes`, counted as a fix-round name and was renamed).
+- `ruff check`: clean. `lint-imports --no-cache`: 42 kept, 0 broken. `scripts/check_gate_partition.py`: 30,754 collected, landing 30,694 + arc_close 60.
+- Vault: references regenerated after the source commits (`c9f23cb91a`, 52 notes: line anchors, the new tests and the reader's new functions); a second `generate_all.py` on the clean tree changed nothing. `db_validate_reference.py`, `module_validate.py`, `desktop_validate.py` (reproducible) and `validate_vault.py` pass.
 
 ## 6. Not verified
 
