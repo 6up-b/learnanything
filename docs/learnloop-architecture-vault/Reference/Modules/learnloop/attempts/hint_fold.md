@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/hint_fold.py](../../../../../../src/learnloop/attempts/hint_fold.py) |
-| Source lines | 401 |
+| Source lines | 397 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,11 +61,11 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `primed(self, folded_primed: bool | None=None) -> bool` (line 218; public)
   - `attempt_type(self, current: str, folded: int | None=None) -> str` (line 222; public)
 - `fold_follows_attach(vault: Any) -> bool` ([source](../../../../../../src/learnloop/attempts/hint_fold.py), line 230) — Whether a keyed fold counts the key's rows in any practice session and its attempt takes them in its own transaction (follow-ups Nov 2; Codex review F1: it changes ``hints_used`` and ``primed`` of new attempts, so it is the successor ``HELP_FOLD_ATTACH_ALGORITHM_VERSION`` with t…
-- `read_fold(connection: Any, *, practice_item_id: str, session_id: str, submission_id: str | None, any_session: bool=False) -> tuple[int, bool, str | None]` ([source](../../../../../../src/learnloop/attempts/hint_fold.py), line 246) — The fold over the rows shown now, and a keyless submit's window start (a vault without ``help_assists`` folds nothing).
-- `refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | None]` ([source](../../../../../../src/learnloop/attempts/hint_fold.py), line 267) — ``draft`` as its submit would have built it from the fold read on ``connection`` (the attempt's write transaction), and the new fold when it differs from the one read before grading; ``(draft, None)`` when nothing changed or the draft carries no fold.
-- `attach_held(connection: Any, draft: Any, attempt_id: str) -> int` ([source](../../../../../../src/learnloop/attempts/hint_fold.py), line 341) — RW2b fix round 13: the attempt takes the workbench server assists it counted (its fold's union, as the refold left it), in its own write transaction, so no later attempt counts them again.
-- `attach_keyless(connection: Any, draft: Any, attempt_id: str) -> int` ([source](../../../../../../src/learnloop/attempts/hint_fold.py), line 359) — A keyless submit's attempt takes the rows its fold counted (round 3b), in its own write transaction after the attempt row exists: the window :func:`refolded_draft` read under the same lock.
-- `attach_keyed(connection: Any, draft: Any, attempt_id: str) -> int` ([source](../../../../../../src/learnloop/attempts/hint_fold.py), line 377) — A keyed submit's attempt takes the rows its fold counted (follow-ups Nov 2), in its own write transaction, as :func:`attach_keyless` does for a keyless one: the submission's rows of the item in any practice session (a hint shown before the session rolled over included), through…
+- `read_fold(connection: Any, *, practice_item_id: str, session_id: str, submission_id: str | None, any_session: bool=False) -> tuple[int, bool, str | None]` ([source](../../../../../../src/learnloop/attempts/hint_fold.py), line 242) — The fold over the rows shown now, and a keyless submit's window start (a vault without ``help_assists`` folds nothing).
+- `refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | None]` ([source](../../../../../../src/learnloop/attempts/hint_fold.py), line 263) — ``draft`` as its submit would have built it from the fold read on ``connection`` (the attempt's write transaction), and the new fold when it differs from the one read before grading; ``(draft, None)`` when nothing changed or the draft carries no fold.
+- `attach_held(connection: Any, draft: Any, attempt_id: str) -> int` ([source](../../../../../../src/learnloop/attempts/hint_fold.py), line 337) — RW2b fix round 13: the attempt takes the workbench server assists it counted (its fold's union, as the refold left it), in its own write transaction, so no later attempt counts them again.
+- `attach_keyless(connection: Any, draft: Any, attempt_id: str) -> int` ([source](../../../../../../src/learnloop/attempts/hint_fold.py), line 355) — A keyless submit's attempt takes the rows its fold counted (round 3b), in its own write transaction after the attempt row exists: the window :func:`refolded_draft` read under the same lock.
+- `attach_keyed(connection: Any, draft: Any, attempt_id: str) -> int` ([source](../../../../../../src/learnloop/attempts/hint_fold.py), line 373) — A keyed submit's attempt takes the rows its fold counted (follow-ups Nov 2), in its own write transaction, as :func:`attach_keyless` does for a keyless one: the submission's rows of the item in any practice session (a hint shown before the session rolled over included), through…
 
 ### Explicit exports
 
@@ -98,7 +98,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `HELP_FOLD_ATTACH_VERSIONS`
 - [[Reference/Modules/learnloop/attempts/stuck|learnloop.attempts.stuck]] — imports `stuck_attempt_type`; calls `stuck_attempt_type`
 - [[Reference/Modules/learnloop/db/stores/help_assists|learnloop.db.stores.help_assists]] — imports `attach_keyed_fold`, `attach_keyless_fold`, `attach_workbench_rows`, `keyless_window_start`, `server_fold`, `unattached_ids`; calls `attach_keyed_fold`, `attach_keyless_fold`, `attach_workbench_rows`, `keyless_window_start`, `server_fold`, `unattached_ids`
 
@@ -122,7 +121,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followups_nov2_help_fold.py](../../../../../../tests/test_followups_nov2_help_fold.py) — direct import
   - `test_the_keyless_window_still_reads_its_own_session_only`
 - [tests/test_help_fold_attach_successor.py](../../../../../../tests/test_help_fold_attach_successor.py) — direct import
-  - `test_the_fold_is_gated_by_the_tag_and_the_switch`
+  - `test_the_fold_is_gated_by_the_switch`
 - [tests/test_hint_h2a_review_round2.py](../../../../../../tests/test_hint_h2a_review_round2.py) — direct import
   - `test_v1_the_fold_rule_is_the_submits_own`
 - [tests/test_hint_h2a_review_round3.py](../../../../../../tests/test_hint_h2a_review_round3.py) — direct import

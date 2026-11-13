@@ -454,7 +454,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_decider_readiness_is_key_presence_without_network`
   - `test_the_llm_judge_runs_on_the_subscription_route_by_default`
 - [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import
-  - `test_one_switch_on_by_default_classified_and_gated_by_the_tag`
+  - `test_one_switch_on_by_default_classified_and_gating`
 - [tests/test_method_explicit_landing.py](../../../../../../tests/test_method_explicit_landing.py) — direct import
   - `test_the_judges_decider_defaults_to_the_tier1_deciders_profile`
   - `test_the_statement_judgment_is_a_tier1_content_task_with_its_own_switch`

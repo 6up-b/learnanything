@@ -161,6 +161,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_iii_a_figure_grant_never_meters_an_ask_and_an_ask_grant_meters_it_under_the_cap`
 - [tests/test_facet_belief_successor.py](../../../../../../tests/test_facet_belief_successor.py) — direct import
   - `test_the_upgrade_derives_the_successors_state_from_the_history`
+- [tests/test_mvp017_route_check_replay.py](../../../../../../tests/test_mvp017_route_check_replay.py) — direct import
+  - `test_an_mvp017_history_at_the_floor_replays_its_grades_and_then_changes_nothing`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict`
 - [tests/test_upgrades.py](../../../../../../tests/test_upgrades.py) — direct import

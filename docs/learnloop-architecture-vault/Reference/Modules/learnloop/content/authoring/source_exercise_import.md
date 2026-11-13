@@ -291,7 +291,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_regrade_never_raises_an_attempts_status`
   - `test_a_shadow_rebuild_at_the_tag_shows_zero_deltas`
   - `test_attempts_record_the_key_status_and_unverified_ones_never_certify`
-  - `test_below_the_tag_the_gate_never_runs`
   - `test_the_projection_reads_the_recorded_status_on_replay`
 - [tests/test_required_method_round3_rereview.py](../../../../../../../tests/test_required_method_round3_rereview.py) — direct import
   - `test_f1_a_ladder_result_committed_later_keeps_the_identity_it_was_computed_under`

@@ -646,7 +646,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rebuild_and_replay_call_no_model_and_never_read_approach_maps`
 - [tests/test_approach_maps.py](../../../../../tests/test_approach_maps.py) — direct import
 - [tests/test_assessment_contracts.py](../../../../../tests/test_assessment_contracts.py) — direct import
-  - `test_legacy_attempt_records_no_observation_lineage`
   - `test_mvp07_attempt_stamps_observation_lineage`
 - [tests/test_assessment_enforcement.py](../../../../../tests/test_assessment_enforcement.py) — direct import
 - [tests/test_assumed_known.py](../../../../../tests/test_assumed_known.py) — direct import

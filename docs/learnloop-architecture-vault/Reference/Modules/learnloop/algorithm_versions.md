@@ -176,13 +176,6 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]] — imports `ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION`, `ADAPTIVE_DIFFICULTY_VERSIONS`, `LESSON_OPPORTUNITY_VERSIONS`
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `ATTEMPT_CONTENT_STATE_VERSIONS`, `P0_PROJECTION_VERSIONS`, `REGRADE_CONTRACT_VERSIONS`, `REPLAY_LEDGER_VERSIONS`, `SOURCE_REFERENCE_GATE_VERSIONS`
-- [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] — imports `DIAGNOSIS_SPLIT_VERSIONS`
-- [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] — imports `REGRADE_CONTRACT_VERSIONS`, `SOURCE_REFERENCE_GATE_VERSIONS`
-- [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] — imports `METHOD_EXPLICIT_VERSIONS`, `ROUTE_RULES_VERSIONS`
-- [[Reference/Modules/learnloop/attempts/hint_fold|learnloop.attempts.hint_fold]] — imports `HELP_FOLD_ATTACH_VERSIONS`
-- [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `REGRADE_CONTRACT_VERSIONS`, `SOURCE_REFERENCE_GATE_VERSIONS`
-- [[Reference/Modules/learnloop/attempts/stuck|learnloop.attempts.stuck]] — imports `STUCK_PROMPT_VERSIONS`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `LATEST_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/config/template|learnloop.config.template]] — imports `LATEST_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `DAILY_PLAN_VERSIONS`, `DELIVERABLE_PLAN_VERSIONS`, `READING_PATH_PLAN_VERSIONS`
@@ -210,7 +203,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `P0_PROJECTION_VERSIONS`, `P0_SUCCESSOR_VERSIONS`, `REVEAL_LEDGER_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] — imports `REGRADE_CONTRACT_VERSIONS`
 - [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `FACET_BELIEF_FIX_VERSIONS`
-- [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `CLAIM_FIXES_VERSIONS`, `SUPERSEDED_CLAIMS_VERSIONS`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `LEGACY_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `FACET_BELIEF_FIX_ALGORITHM_VERSION`, `LATEST_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
 - [[Reference/Modules/learnloop/placement/report|learnloop.placement.report]] — imports `PLACEMENT_VERSIONS`
@@ -249,7 +241,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] and 46 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/config/template|learnloop.config.template]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] and 38 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -309,7 +301,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_assumed_known.py](../../../../../tests/test_assumed_known.py) — direct import
   - `test_new_vaults_start_with_placement_on`
 - [tests/test_attempt_content_state_race.py](../../../../../tests/test_attempt_content_state_race.py) — direct import
-  - `test_below_the_tag_the_retiring_sync_is_still_undone_as_the_predecessor`
 - [tests/test_attempt_content_state_successor.py](../../../../../tests/test_attempt_content_state_successor.py) — direct import
   - `test_mvp037_is_one_constant_after_mvp036`
 - [tests/test_batch3_landing.py](../../../../../tests/test_batch3_landing.py) — direct import
@@ -409,7 +400,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v3_successor.py](../../../../../tests/test_mobile_v3_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_te3b_and_the_latest`
 - [tests/test_model_grade_lane.py](../../../../../tests/test_model_grade_lane.py) — direct import
-  - `test_rebuild_moves_only_learning_objects_with_model_graded_attempts`
+- [tests/test_mvp017_route_check_replay.py](../../../../../tests/test_mvp017_route_check_replay.py) — direct import
+  - `test_an_mvp017_history_at_the_floor_replays_its_grades_and_then_changes_nothing`
 - [tests/test_observation_ledger_bulk.py](../../../../../tests/test_observation_ledger_bulk.py) — direct import
   - `test_p0_replays_bulk_load_calibration_references_once`
 - [tests/test_pfc_unverified_unassessed.py](../../../../../tests/test_pfc_unverified_unassessed.py) — direct import
@@ -429,7 +421,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_successor_is_one_constant_after_rw2d`
 - [tests/test_pr4_superseded_claims_landing.py](../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
   - `test_landing_i_a_too_easy_retirement_during_a_session`
-  - `test_landing_i_control_below_the_tag_the_same_session_reopens_the_retired_row`
+  - `test_landing_i_control_switched_off_the_same_session_reopens_the_retired_row`
 - [tests/test_reader_ca2_one_ask.py](../../../../../tests/test_reader_ca2_one_ask.py) — direct import
   - `test_the_successor_is_one_constant_after_rebuild_equivalence`
 - [tests/test_reader_cues.py](../../../../../tests/test_reader_cues.py) — direct import
@@ -463,8 +455,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reference_gate_imports.py](../../../../../tests/test_reference_gate_imports.py) — direct import
   - `test_a_regrade_after_the_tag_binds_an_attempt_recorded_before_it`
   - `test_a_shadow_rebuild_at_the_tag_shows_zero_deltas`
-  - `test_below_the_tag_a_regrade_changes_nothing`
-  - `test_below_the_tag_the_gate_never_runs`
   - `test_the_gate_is_a_successor_after_the_route_check`
   - `test_the_projection_reads_the_recorded_status_on_replay`
   - `test_the_regraded_grade_is_gated_live_and_on_rebuild`
@@ -598,6 +588,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_reload_refused_below_the_floor_stops_serving_until_a_load_succeeds`
 - [tests/test_source_first_needs.py](../../../../../tests/test_source_first_needs.py) — direct import
   - `test_below_the_tag_and_with_the_switch_off_nothing_runs`
+- [tests/test_stuck_prompt_composition.py](../../../../../tests/test_stuck_prompt_composition.py) — direct import
+  - `test_a_stuck_answers_pfc_unverified_criteria_are_unassessed`
 - [tests/test_stuck_prompt_replay.py](../../../../../tests/test_stuck_prompt_replay.py) — direct import
   - `test_a_joint_stuck_reading_survives_rebuild_with_no_model_call`
   - `test_a_stuck_vault_rebuilds_to_a_fixed_point_with_no_model_call`
