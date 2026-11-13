@@ -262,6 +262,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_synthesis_capabilities_use_closed_vocabulary`
   - `test_synthesis_shards_namespace_declarations_and_references`
 - [tests/test_structured_transport_parity.py](../../../../../../../tests/test_structured_transport_parity.py) — direct import
+- [tests/test_synthesis_answer_reuse.py](../../../../../../../tests/test_synthesis_answer_reuse.py) — direct import
+  - `test_a_bootstrap_rejection_keeps_a_fresh_answer_another_run_saved`
+  - `test_a_checkpoint_discard_keeps_an_answer_saved_after_the_one_judged`
 - [tests/test_synthesis_criterion_dependencies.py](../../../../../../../tests/test_synthesis_criterion_dependencies.py) — direct import
   - `test_the_prompts_say_criterion_depends_on_names_sibling_criteria_only`
 - [tests/test_ux_phase1_usability_round1.py](../../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
