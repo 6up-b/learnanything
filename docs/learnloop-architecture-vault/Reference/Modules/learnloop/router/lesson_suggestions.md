@@ -239,6 +239,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_trivial_slip_and_a_severe_miss_are_both_candidates_and_differ_only_through_the_routers_evidence`
   - `test_the_renamed_reason_enters_the_acceptance_model_through_the_same_effect_with_its_history`
   - `test_the_words_name_the_latest_miss_and_survive_the_record`
+- [tests/test_pinned_draws.py](../../../../../../tests/test_pinned_draws.py) — direct import
+  - `test_the_map_keeps_productions_equalities_and_differences`
 - [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
   - `test_f3_a_lesson_suggestion_keeps_its_ad_numbers_read_before_its_transaction`
 - [tests/test_te3b_codex_review.py](../../../../../../tests/test_te3b_codex_review.py) — direct import

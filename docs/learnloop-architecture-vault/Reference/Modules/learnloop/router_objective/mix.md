@@ -140,6 +140,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/ih2_lessons_compete_helpers.py](../../../../../../tests/ih2_lessons_compete_helpers.py) — direct import
+- [tests/router_model_fakes.py](../../../../../../tests/router_model_fakes.py) — direct import
 - [tests/te3b_offers_helpers.py](../../../../../../tests/te3b_offers_helpers.py) — direct import
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_a_lesson_win_after_a_miss_generates_nothing_and_the_offer_page_opens_from_next`
@@ -158,6 +159,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_with_the_llm_down_numeric_takes_the_whole_mix_and_staged_is_only_the_last_resort`
 - [tests/test_instruct_handoff_ih1.py](../../../../../../tests/test_instruct_handoff_ih1.py) — direct import
   - `test_no_new_draw_joins_an_open_item`
+- [tests/test_pinned_draws.py](../../../../../../tests/test_pinned_draws.py) — direct import
+  - `test_the_map_keeps_productions_equalities_and_differences`
 - [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
   - `test_f1_a_slow_llm_leaves_the_numeric_share_in_place`
 - [tests/test_ro4_objective_serving.py](../../../../../../tests/test_ro4_objective_serving.py) — direct import

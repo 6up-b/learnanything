@@ -214,6 +214,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f5_a_check_restored_from_its_checkpoint_the_next_day_stays_cold`
 - [tests/test_mobile_v2_review_fixes.py](../../../../../../tests/test_mobile_v2_review_fixes.py) — direct import
   - `test_f5_the_open_randomized_check_is_named_cold_until_it_is_answered`
+- [tests/test_pinned_draws.py](../../../../../../tests/test_pinned_draws.py) — direct import
+  - `test_the_check_day_keeps_the_offset_from_the_tests_first_date_and_loses_the_calendar`
 - [tests/test_ro5_calibration.py](../../../../../../tests/test_ro5_calibration.py) — direct import
   - `test_alpha_is_labelled_provisional_and_a_check_is_never_the_blocks_action`
   - `test_the_combiner_is_fitted_on_resolved_checks_and_is_its_prior_with_none`

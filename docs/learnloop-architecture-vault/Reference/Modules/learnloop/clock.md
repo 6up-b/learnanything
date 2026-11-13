@@ -1462,6 +1462,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_p3_journeys.py](../../../../../tests/test_p3_journeys.py) — direct import
 - [tests/test_pfc_unassessed_readers.py](../../../../../tests/test_pfc_unassessed_readers.py) — direct import
   - `test_a_cold_retry_with_nothing_assessed_neither_confirms_nor_fails_the_repair`
+- [tests/test_pinned_draws.py](../../../../../tests/test_pinned_draws.py) — direct import
 - [tests/test_placement_diagnosis_decides.py](../../../../../tests/test_placement_diagnosis_decides.py) — direct import
   - `test_a_decided_miss_is_not_reopened_by_a_regrade`
   - `test_a_decided_miss_is_not_reopened_by_a_retry`
