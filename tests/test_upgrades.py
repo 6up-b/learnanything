@@ -448,6 +448,50 @@ def test_the_upgrade_command_completes_its_own_interrupted_activation(tmp_path, 
     assert not _journal(paths).exists() and _state(paths) == clean
 
 
+def _startup_projection_receipt(paths) -> None:
+    """The desktop restarted before the retry: its startup refresh stamps a receipt under the tag without replaying
+    the history."""
+
+    from learnloop.substrate.canonical_projection_rollout import refresh_canonical_projection_on_startup
+
+    assert refresh_canonical_projection_on_startup(load_vault(paths.root), Repository(paths.sqlite_path))
+
+
+def _per_lo_rebuild_receipt(paths) -> None:
+    """An item edit's or a regrade's rebuild under the tag: it replays only its own learning objects."""
+
+    from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+
+    rebuild_all_derived_state(load_vault(paths.root), Repository(paths.sqlite_path),
+                              learning_object_ids=["lo_svd_definition"])
+
+
+WRONG_SCOPE_RECEIPTS = {"startup projection": _startup_projection_receipt, "per-LO rebuild": _per_lo_rebuild_receipt}
+
+
+@LINKS
+@pytest.mark.parametrize("start", ["interrupted", "born at the tag"])
+@pytest.mark.parametrize("receipt", sorted(WRONG_SCOPE_RECEIPTS))
+def test_a_wrong_scope_receipt_under_the_tag_does_not_complete_the_activation(tmp_path, link, start, receipt):
+    """Only the activation's own receipt marks it complete: a receipt of another scope under the tag must not stop
+    the recovery (or the completion of a vault born at the tag) from deriving the tag's state."""
+
+    clean = _state(_clean(tmp_path, link))
+    paths = _interrupted(tmp_path, link) if start == "interrupted" else _vault_at(tmp_path, link.tag, "born")
+    before = _receipts(paths, link.tag)
+    # Written as the activation's own writer, so the standing journal does not refuse it.
+    with activation_journal.completing_activation():
+        WRONG_SCOPE_RECEIPTS[receipt](paths)
+    assert _receipts(paths, link.tag) > before and not _committed(paths, link)
+
+    result = upgrade(paths.root, to=link.tag)
+
+    assert result.upgraded and not _journal(paths).exists() and _committed(paths, link)
+    if start == "interrupted":
+        assert result.notes == [f"completed the interrupted activation of {link.tag}"]
+        assert _state(paths) == clean
+
+
 # -- the openers -------------------------------------------------------------------------------------------------
 
 

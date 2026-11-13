@@ -241,3 +241,24 @@ the whole-vault receipt, a successor-tagged uncertainty row for the LO and a str
 **Callers and siblings checked.** The other deleted tests of that file (the chain from mvp-0.47, mvp-0.8 refused, born
 at the tag, the CLI by name and default) are covered per row by `tests/test_upgrades.py` over the table, or are below
 the floor (refused by `test_version_floor.py`); not restored.
+
+## T1: a wrong-scope receipt under the tag still runs the activation
+
+**Reproduced.** Mutant of the table's `whole_vault_rebuild.committed` that accepts any receipt under the tag (the
+regression the deleted tests guarded), applied and reverted: `tests/test_upgrades.py`, `test_facet_belief_successor.py`
+and `test_version_floor.py` all passed on it (84 cases) except the new test's four cases.
+
+**Fix (test only).** `tests/test_upgrades.py::test_a_wrong_scope_receipt_under_the_tag_does_not_complete_the_activation`,
+per row of the table, two receipts (`refresh_canonical_projection_on_startup`'s `canonical_projection_startup`
+receipt: the desktop restarted before the retry; a per-LO `rebuild_all_derived_state`: an item edit's or a regrade's)
+times two starts (the interrupted state with its journal, and a vault born at the tag). Each writes the receipt under
+the tag (as the activation's writer, so the journal does not refuse it), checks that it is not the activation's, then
+requires `upgrade` to run the whole-vault activation: its receipt committed, the journal gone, and for the interrupted
+start the "completed the interrupted activation" note and the state of a clean upgrade. Restores the deleted
+`test_a_startup_receipt_after_a_died_activation_does_not_hide_it` and
+`test_a_partial_rebuild_under_the_tag_does_not_complete_the_activation` (`tests/test_rebuild_equivalence_review.py`,
+d8678ad0bd) over the table.
+
+**Callers and siblings checked.** `idempotent_projection.committed` reads only `p0_projection_activation` receipts;
+no row of today's table uses it, so the test runs over `whole_vault_rebuild` (the parametrization follows `UPGRADES`).
+`test_each_activation_kind_commits_its_own_receipt_once` covers both kinds' own receipts.
