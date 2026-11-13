@@ -112,3 +112,49 @@ def test_a_withdrawn_cold_retry_with_no_replacement_releases_its_reservation(wor
     withdraw_cold_measurement(vault, repository, task["id"], reason=COLD_CHECK_HELP_TAKEN)
     assert not cold_administration_open(repository, cold_item)
     assert repository.remediation_episode(episode["id"])["state"] == "abandoned"
+
+
+def test_an_episode_whose_cold_retry_was_never_scheduled_reserves_nothing_after_its_primed_attempt(tmp_path):
+    """The schedule-refusal branch of ``record_remediation_attempt`` leaves the episode in ``treatment`` with
+    its cold item set and no retry task: nothing is left to protect, so the item is back in routine practice."""
+
+    from learnloop.clock import FrozenClock
+    from learnloop.scheduling.scheduler import build_due_queue
+    from tests.helpers import NOW
+    from tests.remediation_cold_retry_helpers import _attempt, _setup
+    from learnloop.diagnosis.remediation import (
+        prescribe_remediation, start_remediation_episode, start_remediation_treatment)
+
+    vault, repository, misconception_id = _setup(tmp_path)
+    episode = start_remediation_episode(repository, misconception_id, clock=FrozenClock(NOW))
+    prescribe_remediation(vault, repository, episode["id"], clock=FrozenClock(NOW))
+    treatment = start_remediation_treatment(vault, repository, episode["id"], clock=FrozenClock(NOW))
+    primed_item = treatment["primed_item_id"]
+    # A legacy episode that reused the primed surface as its cold item.
+    repository.update_remediation_episode(episode["id"], cold_item_id=primed_item)
+    assert primed_item in repository.open_remediation_cold_item_ids()  # before its primed attempt: reserved
+    _attempt(vault, repository, primed_item, clock=FrozenClock(NOW), primed=True)
+    stored = repository.remediation_episode(episode["id"])
+    assert stored["state"] == "treatment" and stored["primed_attempt_id"]
+    assert repository.open_followup_tasks_of_kind("cold_retry") == []
+    assert primed_item not in repository.open_remediation_cold_item_ids()
+    assert not cold_administration_open(repository, primed_item)
+
+
+def test_a_reserved_cold_item_is_named_and_counted_by_the_slate_and_why(world):
+    """``why item:<id>`` and the slate record's exclusions by rule both carry ``cold_check_reserved``."""
+
+    from learnloop.scheduling.scheduler import OfferTrace, build_due_queue, exclusion_now
+    from learnloop.scheduling.slate_record import by_rule, merged_exclusions
+
+    vault, repository = world
+    cold_item = next(iter(vault.practice_items))
+    _episode(repository, cold_item, "treatment")
+    assert exclusion_now(vault, repository, cold_item) == "cold_check_reserved"
+    trace = OfferTrace()
+    build_due_queue(vault, repository, persist_explanations=False, offer_trace=trace)
+    recorded = by_rule(merged_exclusions(
+        trace.exclusions, greedy_ids=trace.greedy_item_ids,
+        considered_ids=[item.practice_item_id for item in trace.considered],
+        teach_back_rule="teach_back_session_cap", cold_deferrals=trace.cold_deferrals))
+    assert recorded["cold_check_reserved"]["n"] == 1

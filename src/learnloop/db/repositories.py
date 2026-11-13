@@ -4232,14 +4232,23 @@ class Repository(
         return released
 
     def open_remediation_cold_item_ids(self) -> set[str]:
-        """The cold items live remediation episodes chose, before their cold
-        task exists (it is created after the primed attempt): reserved from
-        the moment they are chosen."""
+        """The cold items of live remediation episodes that still have something to do: reserved from the
+        moment they are chosen, before the cold task exists (it is created after the primed attempt).
+
+        An episode that has taken its primed attempt reserves its item only while a cold retry stands open:
+        one whose retry was never scheduled (no independent surface) has nothing left to protect, and
+        reserving would hold the item out of routine practice for good."""
 
         with self.connection() as connection:
             rows = connection.execute(
-                "SELECT cold_item_id FROM remediation_episodes WHERE cold_item_id IS NOT NULL "
-                "AND state NOT IN ('completed', 'abandoned')"
+                """
+                SELECT cold_item_id FROM remediation_episodes AS episode
+                WHERE cold_item_id IS NOT NULL AND state NOT IN ('completed', 'abandoned')
+                  AND (primed_attempt_id IS NULL OR EXISTS (
+                    SELECT 1 FROM followup_tasks AS task
+                    WHERE task.remediation_episode_id = episode.id AND task.kind = 'cold_retry'
+                      AND task.status IN ('pending', 'served')))
+                """
             ).fetchall()
         return {str(row[0]) for row in rows}
 
