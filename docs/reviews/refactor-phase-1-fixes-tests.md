@@ -40,3 +40,21 @@ use is the bare positive guard, so no import edge and no measure changed. Rerunn
 with the new and with the old script gives the same file: two comment-line counts one lower than the golden
 (`comment_lines_naming_a_stage_artifact` 2398 -> 2397, `content/pipeline/jobs.py` 33 -> 32), a drift already present at this tip
 and unrelated to imports (the ratchet tolerates a fall). I did not write it: the golden is unchanged by this row.
+
+## T7 / P8: identity pin C3 and the boundary the chooser assembles
+
+`C3.boundary.*` hashed `_boundary()`, a dictionary the test wrote out, so a change to what `ObjectiveChooser.choose`
+assembles (a field, an order, `BlockCandidate.log_row`'s fields) moved nothing. Mutation: a field added to `log_row` (reverted):
+all 216 existing pins passed.
+
+New pin `C3b.chooser` (new site C3b in `tests/identity_pins_helpers.py`): `_chooser_boundary()` builds a new vault at the head,
+a fake runtime with both models ready, an `ObjectiveChooser(start_only=True)` with `_start_objective` stubbed (the job it
+starts is not what is pinned), and drives `choose` on a fixed `PlanState` and two fixed candidates; the dictionary the
+chooser hands to `_hash` is captured, and the pin holds it, its key and `numeric_seed` of it. With the same mutation only
+`test_identity_pin[C3b.chooser]` fails. The existing `C3.*` values are untouched (the golden diff is the one added line); I only
+corrected `_boundary`'s docstring and the module docstring, which said the hand-written literal was what production builds.
+`test_identity_pin` is already `real_draws`, so `numeric_seed` is production's.
+`as_of` is null in this vault (no attempts), `plan_id` is the state's own, so nothing volatile is in the identity.
+
+Not covered: the preference and miss-cause marks (`_preference_mark`, `_miss_cause_mark`) are empty at this config; the pin
+does not exercise them.
