@@ -608,6 +608,17 @@ def _persona_fire_key() -> Any:
     return fire_checkpoint(None, FakeStructuredClient(), context, trial="belief_declared").key
 
 
+def _epigraph_key() -> Any:
+    from learnloop.content.synthesis.ai_contracts import VaultEpigraphContext
+    from learnloop.content.synthesis.vault_epigraphs import epigraph_checkpoint
+
+    context = VaultEpigraphContext(
+        subject_id="linear-algebra", source_set_id="set_pin", mode="bootstrap", subject_title="Linear Algebra",
+        source_set_title="Notes", brief={"depth": "intro"}, summary="SVD", concepts=["SVD"],
+        claims=["A = U S V^T"], learning_objects=["Compute an SVD"], recent_epigraphs=["Rank is destiny."])
+    return epigraph_checkpoint(None, FakeStructuredClient(), context).key
+
+
 def _glm_ocr_window_key() -> Any:
     from learnloop.ingest.extractors.glm_ocr import GlmOcrDocumentExtractor
 
@@ -1025,6 +1036,13 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "every cached persona judgement misses and is paid again on retry",
         {"key": _persona_fire_key}),
     IdentitySite(
+        "K2.1f", "vault epigraph batch checkpoint key (asdict of its context in the prompt)",
+        ("src/learnloop/content/synthesis/ai_contracts.py::vault_epigraphs_prompt",
+         "src/learnloop/content/synthesis/vault_epigraphs.py::epigraph_checkpoint"),
+        "vault epigraph checkpoints (model_checkpoints)",
+        "a cached epigraph batch misses and is paid again on retry",
+        {"key": _epigraph_key}),
+    IdentitySite(
         "A19", "family item input hash and the family plan dump",
         ("src/learnloop/substrate/families.py::family_item_input",
          "src/learnloop/substrate/families.py::family_item_input_hash",
@@ -1237,6 +1255,7 @@ SHAPE_ROOTS: dict[str, tuple[str, ...]] = {
     "learnloop.content.synthesis.ai_contracts:AppendReconciliationContext": ("K3.4",),
     "learnloop.content.synthesis.ai_contracts:SourceUnitInventoryContext": ("A15",),
     "learnloop.content.synthesis.ai_contracts:ConceptGraphContext": ("K2.1d",),
+    "learnloop.content.synthesis.ai_contracts:VaultEpigraphContext": ("K2.1f",),
 }
 
 
@@ -1357,7 +1376,6 @@ PROVENANCE_ONLY: dict[str, str] = {
     "src/learnloop/content/proposals/proposals.py::persist_authoring_proposal":
         "agent_runs.input_context_hash of purpose 'authoring', which nothing looks up (only canonical ingest, "
         "synthesis and append read completed_agent_run*_by_context; sweep §1D)",
-    "src/learnloop/content/synthesis/ai_contracts.py::vault_epigraphs_prompt": PROMPT_REASON,
     "src/learnloop/curriculum/ai_contracts.py::rung_backfill_prompt": PROMPT_REASON,
     "src/learnloop/curriculum/ai_contracts.py::depth_edge_instance_prompt": PROMPT_REASON,
     "src/learnloop/daily_plan/engine.py::_config_hash":

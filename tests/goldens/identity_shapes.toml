@@ -395,6 +395,22 @@ fields = [
   "unit_view: dict = {}",
 ]
 
+["learnloop.content.synthesis.ai_contracts:VaultEpigraphContext"]
+sites = ["K2.1f"]
+fields = [
+  "subject_id: str required",
+  "source_set_id: str required",
+  "mode: str required",
+  "subject_title: str = \"\"",
+  "source_set_title: str = \"\"",
+  "brief: dict = {}",
+  "summary: str = \"\"",
+  "concepts: list = []",
+  "claims: list = []",
+  "learning_objects: list = []",
+  "recent_epigraphs: list = []",
+]
+
 ["learnloop.daily_plan.types:ReadingTarget"]
 sites = ["C3"]
 fields = [
