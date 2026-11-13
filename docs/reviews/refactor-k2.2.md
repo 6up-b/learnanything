@@ -148,8 +148,18 @@ source commits.
 
 ## Gates
 
-See the report for the tip's gate results (targeted tests, `lint-imports`, `ruff`, the four vault validators,
-`check_gate_partition.py`, the reference regeneration).
+- `scripts/affected_tests.py --base 9eb0194c2c` selects the full suite (`db/repositories.py` is imported by
+  `conftest.py`), so every test file (1,391, including `test_outer_cache_keys`, `test_identity_pins`,
+  `test_retired_config_identities`, `test_architecture`, `test_test_layout`, `test_effective_defaults_golden`,
+  `test_cli_help_snapshot`, `test_structure_ratchets`) ran on `310796ec1d` with `-m "not arc_close"`, in 14 chunks of
+  up to 100 at `-n 4` under the 5 GB cap behind the full-suite lock: 30,453 passed, 0 failed (skips and xfails only).
+  The structure ratchets did not move.
+- `lint-imports --no-cache`: 42 kept. `ruff check`: clean.
+- The four vault validators pass (`db_validate_reference.py`, `module_validate.py`, `desktop_validate.py` after the
+  regeneration, `validate_vault.py`); `scripts/check_gate_partition.py`: 30,689 collected, landing 30,629 + arc_close 60.
+- References regenerated once after the source commits (`31127bb931`, 12 generated notes); a second run changed
+  nothing.
+- No full suite with `arc_close` (the orchestrator's landing gate).
 
 ## Open items
 
