@@ -15,6 +15,7 @@ import sqlite3
 
 import pytest
 
+from learnloop.algorithm_versions import CLAIM_FIXES_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.learner.mastery import reanchor_mastery_from_claim
@@ -140,7 +141,7 @@ def test_f4_a_claim_seed_never_starts_below_the_cold_variance_and_replay_agrees(
 @pytest.mark.parametrize("variant", ["switch_off", "below_tag"])
 def test_f4_off_the_predecessor_seed_variance_is_kept(tmp_path, variant):
     paths, vault, repository = _vault(
-        tmp_path, version=PREDECESSOR if variant == "below_tag" else TAG, toml=OFF if variant == "switch_off" else None,
+        tmp_path, version=PREDECESSOR if variant == "below_tag" else CLAIM_FIXES_ALGORITHM_VERSION, toml=OFF if variant == "switch_off" else None,
     )
     repository.insert_learner_claim({
         "claim_type": "self_rating", "scope_type": "learning_object", "scope_id": LO, "evidence_family": "recall",
@@ -250,6 +251,6 @@ def test_f6_off_no_claim_line(tmp_path, variant):
     from learnloop.placement.claim_check import claim_check
 
     _paths, vault, repository, (_unrelated, resolving, _later) = _known_then_reviews(
-        tmp_path, version=PREDECESSOR if variant == "below_tag" else TAG, toml=OFF if variant == "switch_off" else None,
+        tmp_path, version=PREDECESSOR if variant == "below_tag" else CLAIM_FIXES_ALGORITHM_VERSION, toml=OFF if variant == "switch_off" else None,
     )
     assert claim_check(vault, repository, resolving) is None

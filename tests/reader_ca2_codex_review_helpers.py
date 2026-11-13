@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.algorithm_versions import ONE_ASK_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.db.repositories import Repository
 from learnloop.tutor.ai_contracts import TutorAnswer, TutorCitation
 from learnloop.vault.loader import load_vault
@@ -18,7 +18,7 @@ from tests.ux_phase1_support import set_config
 
 
 ITEM = "pi_svd_define_001"
-TAG = ONE_ASK_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 
 
 class FakeTutor(StructuredClientFake):

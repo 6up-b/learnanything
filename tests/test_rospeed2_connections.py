@@ -26,6 +26,8 @@ from typing import Any
 
 import pytest
 
+from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION
+
 from learnloop.db import connection as DBC
 from learnloop.db.connection import connect, reused_connections
 from tests.rospeed2_connections_helpers import _canon
@@ -459,7 +461,7 @@ def test_the_job_opens_a_handful_of_connections(tmp_path, monkeypatch):
 
     monkeypatch.setattr(sqlite3, "connect", counting)
     monkeypatch.setattr(OC, "_objective_job", job)
-    _journey(tmp_path)
+    _journey(tmp_path, version=ROUTER_FOLLOWUPS_ALGORITHM_VERSION)
     # Landing ruling R4: a checkout that ran a PRAGMA with an argument (the repositories' ``table_info`` column
     # checks) or a write (the job's model-call receipts) closes its connection, so a job opens about a dozen (5
     # before R4; main: hundreds).
@@ -592,7 +594,7 @@ def test_r2_the_numeric_seed_is_mains_whatever_the_speed_switches(tmp_path, monk
         return real_env(tmp_path, runtime, **{**kwargs, "toml": toml})
 
     monkeypatch.setattr(RMH, "mixture_env", env)
-    _journey(tmp_path, steps=3)
+    _journey(tmp_path, steps=3, version=ROUTER_FOLLOWUPS_ALGORITHM_VERSION)
     print("ROSPEED2_R2", json.dumps(seen, default=str))
     assert seen
     for row in seen:

@@ -8,7 +8,7 @@ import sqlite3
 from contextlib import closing
 from pathlib import Path
 
-from learnloop.algorithm_versions import READING_PATH_PLAN_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.db.connection import connect
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import Repository
@@ -25,7 +25,7 @@ from tests.reading_path_fixtures import (
 )
 
 
-TAG = READING_PATH_PLAN_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 OFF = "[reading_paths]\nplan_uses_path = false\n"
 GUIDE_OFF = "[reading_paths]\nenabled = false\n"
 

@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from learnloop.algorithm_versions import FAILURE_SHARE_ALGORITHM_VERSION, PHONE_PROBES_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, PHONE_PROBES_ALGORITHM_VERSION
 from learnloop.daily_plan import engine as E
 from learnloop.daily_plan import lesson_suggestion as SG
 from learnloop.daily_plan.engine import advance, build_plan
@@ -27,7 +27,7 @@ from tests.daily_plan_build_helpers import _wide_items
 from tests.te3b_offers_helpers import OFFER
 
 
-TAG = FAILURE_SHARE_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 OLD = PHONE_PROBES_ALGORITHM_VERSION
 QUIET = "[router_objective]\nstop_coin = 0.0\n"
 OFF = "[router_objective]\nstop_coin = 0.0\nlessons_compete_with_followups = false\n"

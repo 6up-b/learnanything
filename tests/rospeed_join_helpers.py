@@ -3,13 +3,13 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 
 from __future__ import annotations
 
-from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 
 
-TAG = ROUTER_FOLLOWUPS_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 
 
-def _journey(tmp_path, steps: int = 3):
+def _journey(tmp_path, steps: int = 3, *, version: str = TAG):
     """A journey at the tag, both policies answering through fakes. Three steps: the first decisions' blocks, so
     their untouched topics are still untouched (a later answer on one is a cold outcome with no exposure between)."""
 
@@ -18,6 +18,6 @@ def _journey(tmp_path, steps: int = 3):
     from tests.ro4_objective_serving_helpers import policy_answer
 
     env = mixture_env(tmp_path, fake_runtime(llm=FakeLLM(answer=policy_answer), seed=block_drawing_seed()),
-                      version=TAG)
+                      version=version)
     run(env, steps=steps)
     return env

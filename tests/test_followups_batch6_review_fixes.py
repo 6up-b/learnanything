@@ -17,6 +17,7 @@ import json
 
 import pytest
 
+from learnloop.algorithm_versions import LESSON_SUGGESTIONS_ALGORITHM_VERSION
 from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.figures import power as P
 from learnloop.figures import prefetch as PF
@@ -284,7 +285,7 @@ def test_f3_the_cli_labels_the_r_cold_comparison_with_observed_cold_outcomes(tmp
     from learnloop.teacher import service as S
     from tests.teacher_fakes import TeacherFake, clients, plan_turn
 
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card, lesson = _start(paths, repository)
     S.open_lesson(load_vault(paths.root), repository, entry="learning_object", clients=clients(TeacherFake([plan_turn])),
                   origin="router", origin_ref=card["decision_id"], lesson_id=lesson["lesson_id"], clock=_clock(hours=2))
@@ -321,7 +322,7 @@ def test_f4_a_card_with_a_released_line_moves_its_version_and_te1bs_card_keeps_i
     from learnloop.router.card import CARD_VERSION, SUGGESTION_CARD_SUFFIX, SUGGESTION_RELEASE_CARD_SUFFIX
     from tests.teacher_te1b_review_fixes_helpers import _card
 
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card, _lesson = _start(paths, repository)
     before = _card(paths, repository, "2026-11-03T09:00:00Z")
     assert before.card_version == CARD_VERSION + SUGGESTION_CARD_SUFFIX  # TE1b's card, unchanged

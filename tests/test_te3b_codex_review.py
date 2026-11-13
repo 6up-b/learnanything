@@ -19,6 +19,7 @@ from typing import Any
 
 import pytest
 
+from learnloop.algorithm_versions import LESSON_OFFERS_ALGORITHM_VERSION
 from learnloop.daily_plan import engine as E
 from learnloop.daily_plan import lesson_offer as LO
 from learnloop.daily_plan import lesson_suggestion as SG
@@ -35,11 +36,11 @@ from tests.te3b_offers_helpers import TAG, _objective_rows, offer_drawn, offerab
 pytestmark = pytest.mark.usefixtures("offerable", "offer_drawn")
 
 
-def _env(tmp_path):
+def _env(tmp_path, *, version=TAG):
     """The TE3b mixture env with RO5's stop coin off (``stop_coin = 0``): the coin could otherwise serve ``stop`` at the
     first objective boundary, by its seeded draw, where these tests need the drawn offer."""
 
-    return mixture_env(tmp_path, fake_runtime(), version=TAG, toml="[router_objective]\nstop_coin = 0.0\n")
+    return mixture_env(tmp_path, fake_runtime(), version=version, toml="[router_objective]\nstop_coin = 0.0\n")
 
 
 def _prefetched_offer(env) -> tuple[Any, dict[str, Any]]:
@@ -95,7 +96,7 @@ def _assert_probe_served(env, step, probe: str, offer_block_id: str) -> None:
 
 
 def test_f1_a_probe_ready_after_the_prefetched_offer_is_served_next_and_the_offer_withdrawn(tmp_path, monkeypatch):
-    env = _env(tmp_path)
+    env = _env(tmp_path, version=LESSON_OFFERS_ALGORITHM_VERSION)
     record, step = _prefetched_offer(env)
     decision_id, block_id = step["offer"]["decision_id"], step["block_id"]
     probe = _probe_ready(env, record, monkeypatch)
@@ -116,7 +117,7 @@ def test_f1_a_probe_ready_after_the_prefetched_offer_is_served_next_and_the_offe
 @pytest.mark.parametrize("answer", ["accepted", "declined"])
 def test_f1_an_answer_after_the_plan_took_the_offer_back_is_refused_and_the_probe_served(tmp_path, monkeypatch,
                                                                                         answer):
-    env = _env(tmp_path)
+    env = _env(tmp_path, version=LESSON_OFFERS_ALGORITHM_VERSION)
     record, step = _prefetched_offer(env)
     decision_id, block_id = step["offer"]["decision_id"], step["block_id"]
     probe = _probe_ready(env, record, monkeypatch)
@@ -144,7 +145,7 @@ def test_f1_a_start_answered_before_the_plan_reads_again_keeps_the_lesson_and_th
 
 
 def test_f1_a_shown_card_with_a_probe_ready_is_withdrawn_not_ignored(tmp_path, monkeypatch):
-    env = _env(tmp_path)
+    env = _env(tmp_path, version=LESSON_OFFERS_ALGORITHM_VERSION)
     record, step = _prefetched_offer(env)
     decision_id, block_id = step["offer"]["decision_id"], step["block_id"]
     _record, shown = advance(env, serve=True)  # the card is shown
