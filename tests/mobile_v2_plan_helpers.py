@@ -34,10 +34,25 @@ def _held_prompt(root: Path, item_id: str = HELD) -> None:
     write_yaml(path, payload)
 
 
+#: The router's staged frame (head code, the objective's failure fallback) composes these phone journeys. On the
+#: objective's path, which chooses each block in turn, a journey here ended early or took another order in about one
+#: run of these files in two (the mix's draws are seeded on fresh decision ids, and the rollouts' draw count follows a
+#: deadline), and ``mobile_v2_review_fixes_helpers._stop_past_held_work``'s stop, forced at ``engine.decide``, which
+#: the objective also reaches from the phone's boundary prefetch, was not always the stop a boundary recorded. Taking
+#: the stop coin and the exploration floor to zero did not settle it. These tests are about the device's side of the
+#: plan (what it serves, holds, stops and hands back), which no chooser changes; the objective on the phone is
+#: ``tests/test_ih3_phone_host.py``'s.
+STAGED_ROUTER = '[router]\nmode = "staged"\n'
+
+
 @pytest.fixture
-def plan_world(tmp_path, monkeypatch):
+def plan_world(tmp_path, monkeypatch, request):
+    """The phone host over a head plan vault on the staged frame (:data:`STAGED_ROUTER`). Parametrized indirectly,
+    the value is the ``plan_toml`` fragment in its place."""
+
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: DAY)
-    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=ITEMS)
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=ITEMS,
+                                    plan_toml=getattr(request, "param", STAGED_ROUTER))
     _held_prompt(paths.root)
     from learnloop.db.repositories import Repository
 

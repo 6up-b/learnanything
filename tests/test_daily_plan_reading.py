@@ -17,16 +17,27 @@ from learnloop.db.repositories import Repository
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.registry import METHOD_REGISTRY
 from tests.helpers import create_daily_plan_vault
-from tests.daily_plan_reading_helpers import DAY1, _Clock, _sections, _seed_as_you_read
+from tests.daily_plan_reading_helpers import DAY1, _Clock, _planned_minutes_of, _sections, _seed_as_you_read
+from tests.ih2_lessons_compete_helpers import QUIET, draw  # noqa: F401 - ``draw`` is a fixture
 
 def _call(ctx, name, params):
     spec = METHOD_REGISTRY[name]
     return spec.handler(ctx, spec.params_model.model_validate(params))
 
 
+def _reaching_the_reading(tmp_path, draw):
+    """A head plan vault whose plan reaches its reading block. Each boundary's mix may draw stop_for_today
+    (seeded on fresh decision ids, so at random), and the stop coin may offer one, before the items ahead of the
+    reading are skipped, or draw a lesson offer (a step with no item to skip); none is these tests' subject, so the
+    coin is at zero and no drawn stop or offer stands."""
+
+    draw.never_stop, draw.avoid = True, ("lesson_offer:",)
+    return create_daily_plan_vault(tmp_path / "vault", plan_toml=QUIET)
+
+
 @pytest.fixture
-def reading_vault(tmp_path):
-    paths = create_daily_plan_vault(tmp_path / "vault")
+def reading_vault(tmp_path, draw):
+    paths = _reaching_the_reading(tmp_path, draw)
     _seed_as_you_read(paths)
     return paths
 
@@ -115,12 +126,12 @@ def test_leaving_or_skipping_ends_the_block_and_counts_its_estimate(reading_vaul
     ended = _call(ctx, "plan_reading_ended", {"outcome": outcome, "sessionId": session_id})
     block = next(b for b in ended["plan"]["blocks"] if b["reading"])
     assert block["outcome"] == outcome and block["status"] == "done"
-    assert ended["plan"]["totals"]["plannedMinutes"] == pytest.approx(before["totals"]["plannedMinutes"])
+    assert _planned_minutes_of(ended["plan"], before) == pytest.approx(before["totals"]["plannedMinutes"])
     assert ended["step"]["kind"] in ("item", "done")
 
 
-def test_a_partial_block_when_the_section_exceeds_the_minutes_left(tmp_path, monkeypatch):
-    paths = create_daily_plan_vault(tmp_path / "vault")
+def test_a_partial_block_when_the_section_exceeds_the_minutes_left(tmp_path, monkeypatch, draw):
+    paths = _reaching_the_reading(tmp_path, draw)
     extraction_id = _seed_as_you_read(paths)
     repo = Repository(paths.sqlite_path)
     first = _sections(repo, extraction_id)[0]

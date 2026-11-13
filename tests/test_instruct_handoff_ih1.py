@@ -22,7 +22,7 @@ from learnloop.daily_plan.engine import advance
 from learnloop.router_objective import mix
 
 from tests.router_mixture_helpers import mixture_env, rows
-from tests.router_model_fakes import fake_runtime
+from tests.router_model_fakes import block_drawing_seed, fake_runtime
 from tests.te3b_offers_helpers import (  # noqa: F401 - fixtures
     OFFER, TAG, _first_decision, _objective_rows, _policy_arm_seed, offer_drawn, offerable)
 
@@ -137,7 +137,10 @@ def test_no_new_draw_joins_an_open_item(tmp_path, offerable, monkeypatch):
         return drawn
 
     monkeypatch.setattr(mix, "draw", draw)
-    env = mixture_env(tmp_path, fake_runtime(seed=_policy_arm_seed()), version=TAG)
+    # A block at the first decision, deterministically (refactor bug ledger D-15): the stop coin's policy arm alone
+    # left the mix's draw to the numeric policy's share, whose Monte Carlo is seeded on the plan's fresh id, so its
+    # argmax was stop about one run in forty. ``block_drawing_seed`` serves the staged rule's block.
+    env = mixture_env(tmp_path, fake_runtime(seed=block_drawing_seed()), version=TAG)
     _record, step = _first_decision(env)
     assert step["kind"] == "item"
     before = rows(env)

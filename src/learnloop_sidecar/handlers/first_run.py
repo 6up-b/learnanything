@@ -349,7 +349,13 @@ def source_action(ctx: SidecarContext, params: SourceActionInput) -> dict[str, A
         raise SidecarError("source_not_found", "That book is no longer in your library.")
 
     if params.action == "undo_questions":
-        result["reverted"] = core.undo_source_questions(ctx.ingest_jobs, params.source_id)
+        from learnloop.content.proposals.patches import OutstandingApplyIntentError
+        from learnloop_sidecar.handlers.proposals import apply_intent_outstanding
+
+        try:
+            result["reverted"] = core.undo_source_questions(ctx.ingest_jobs, params.source_id)
+        except OutstandingApplyIntentError as exc:
+            raise apply_intent_outstanding(exc) from exc
         ctx.reload(maintenance=False)
     elif params.action == "build_now":
         result["batch_id"] = core.request_auto_build(ctx.ingest_jobs, params.source_id, approved=True)

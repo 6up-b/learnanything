@@ -1369,7 +1369,8 @@ def _recover_apply_intents(
                 "apply_intents:conflicted",
                 f"Proposal apply intent {intent['id']} (proposal {intent['proposed_patch_id']}) stopped because "
                 f"{changed} changed after it was written; the newer files were kept and nothing was written. "
-                "Accepts are refused until it is settled: in the app, Maintain > Keep the files as they are.",
+                "Accepts and undos are refused until it is settled: in the app, Maintain > Keep the files as they "
+                "are.",
                 paths.sqlite_path,
                 entity_id=intent["id"],
                 details={"proposed_patch_id": intent["proposed_patch_id"], "conflicts": intent.get("conflicts") or []},

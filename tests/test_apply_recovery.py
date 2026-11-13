@@ -150,6 +150,60 @@ def test_materialize_writes_over_the_pre_image_only(tmp_path):
     assert (root / "a.yaml").read_text(encoding="utf-8") == "plain\n"
 
 
+def _count_replaces(monkeypatch) -> list[str]:
+    replaced: list[str] = []
+    real = os.replace
+
+    def counting(src, dst, *args, **kwargs):
+        replaced.append(str(dst))
+        return real(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(apply_protocol.os, "replace", counting)
+    return replaced
+
+
+def test_a_registry_save_of_the_text_already_there_writes_nothing(tmp_path, monkeypatch):
+    """D-11: ``write_registry_text`` gave ``post_hash`` without the ``sha256:``
+    prefix, so the idempotent skip never matched and every save rewrote the file."""
+
+    from learnloop.content.facet_identity import authority
+
+    from tests.facet_identity_actions_helpers import _vault_with_duplicate
+
+    paths, _vault, _repository = _vault_with_duplicate(tmp_path)
+    text = paths.facets_path.read_text(encoding="utf-8")
+    replaced = _count_replaces(monkeypatch)
+
+    authority.write_registry_text(paths, text, basis={})
+
+    assert replaced == []
+    assert paths.facets_path.read_text(encoding="utf-8") == text
+
+
+def test_a_target_hashed_without_the_prefix_is_still_read(tmp_path, monkeypatch):
+    """Both forms are read: a target recorded before D-11 (a bare hex digest)
+    is skipped at its post-image and written over its pre-image, never a conflict."""
+
+    import hashlib
+
+    def bare(data: bytes) -> str:
+        return hashlib.sha256(data).hexdigest()
+
+    root = tmp_path / "tree"
+    root.mkdir()
+    (root / "a.yaml").write_text("before\n", encoding="utf-8")
+    target = {"rel_path": "a.yaml", "pre_hash": bare(b"before\n"), "post_content": "after\n",
+              "post_hash": bare(b"after\n")}
+    replaced = _count_replaces(monkeypatch)
+
+    assert apply_protocol.target_conflicts(root, [target]) == []
+    materialize_targets(root, [target])
+    assert (root / "a.yaml").read_text(encoding="utf-8") == "after\n"
+    assert apply_protocol.target_conflicts(root, [target]) == []
+    materialize_targets(root, [target])  # at the post-image: skipped
+    assert replaced == [str(root / "a.yaml")]
+
+
 # --- P-fail 2: the next sidecar bind finishes a crash between two renames --------------------------------------------
 
 
@@ -243,6 +297,84 @@ def test_the_sidecar_accept_names_the_outstanding_intent(tmp_path):
     (named,) = error["data"]["details"]["intents"]
     assert named["status"] == "conflicted" and named["paths"] == [first["rel_path"]]
     assert "Keep the files as they are" in error["message"]
+
+
+# --- D-10: an undo is refused as an accept is ---------------------------------------------------------------------------
+
+
+def _applied_two_then_crash(paths: VaultPaths, repository: Repository, *, renamed: int) -> None:
+    """``patch_two`` applied cleanly, then ``patch_wa``'s apply crashes after ``renamed`` renames."""
+
+    _seed_lo_and_pi_proposal_two(repository)
+    apply_accepted_items(paths.root, "patch_two")
+    _seed_lo_and_pi_proposal(repository)
+    _crash_after(paths, renamed=renamed)
+
+
+def test_an_undo_with_a_pending_intent_is_refused(tmp_path):
+    """Reverting applied items writes vault files, so it must not run over a
+    half-applied vault any more than an accept may."""
+
+    from learnloop.content.proposals.patches import reject_applied_items
+    from learnloop.content.proposals.proposals import reject_items
+
+    paths = create_vault_registering_application(tmp_path / "vault")
+    repository = _repo(paths)
+    _applied_two_then_crash(paths, repository, renamed=0)
+    intent = _pending_intent(repository)
+    applied = {path: path.read_bytes() for path in paths.root.rglob("*.yaml")}
+
+    for undo in (lambda: reject_applied_items(paths.root, "patch_two"), lambda: reject_items(paths.root, "patch_two")):
+        with pytest.raises(OutstandingApplyIntentError) as raised:
+            undo()
+        assert [named["id"] for named in raised.value.intents] == [intent["id"]]
+        assert str(raised.value).startswith("Refusing to undo")
+
+    assert repository.proposal_item("item_lo_two")["decision"] == "accepted"
+    assert {path: path.read_bytes() for path in paths.root.rglob("*.yaml")} == applied
+
+
+def test_the_sidecar_reject_names_the_outstanding_intent(tmp_path):
+    paths = create_vault_registering_application(tmp_path / "vault")
+    repository = _repo(paths)
+    _applied_two_then_crash(paths, repository, renamed=1)
+    first = _pending_intent(repository)["targets"][0]
+    _hand_edit(paths, first)  # conflicted at the bind, so it is still outstanding after it
+
+    responses = _initialize(paths, {"method": "reject_proposal_items", "params": {"patchId": "patch_two"}})
+
+    error = responses[1]["error"]
+    assert error["data"]["code"] == "apply_intent_outstanding"
+    (named,) = error["data"]["details"]["intents"]
+    assert named["status"] == "conflicted" and named["paths"] == [first["rel_path"]]
+    assert repository.proposal_item("item_lo_two")["decision"] == "accepted"
+
+
+def test_the_book_cards_undo_is_refused_before_it_changes_anything(tmp_path):
+    """The card's Undo advances the book's generation and cancels its builds
+    before it reverts; refused, it does none of that."""
+
+    from learnloop_sidecar.errors import SidecarError
+
+    from tests.ux_phase1_add_source_helpers import _draining_ctx, call
+    from tests.ux_phase1_support import fresh_library, grant_consent, write_book
+
+    root = fresh_library(tmp_path)
+    grant_consent(root)
+    ctx = _draining_ctx(root)
+    source_id = call(ctx, "add_source", {"sources": [str(write_book(tmp_path))]})["items"][0]["sourceId"]
+    generation = ctx.repository.source_auto_build_state(source_id)["generation"]
+    intent_id = ctx.repository.insert_apply_intent(proposed_patch_id="patch_elsewhere", item_ids=[], targets=[],
+                                                   db_plan=[])
+
+    with pytest.raises(SidecarError) as raised:
+        call(ctx, "source_action", {"sourceId": source_id, "action": "undo_questions"})
+
+    assert raised.value.code == "apply_intent_outstanding"
+    assert [named["id"] for named in raised.value.details["intents"]] == [intent_id]
+    assert ctx.repository.source_auto_build_state(source_id)["generation"] == generation
+    card = next(c for c in call(ctx, "get_source_library", {})["sources"] if c["sourceId"] == source_id)
+    assert card["statusLine"]["text"] == "Questions for Ch. 1–2 come up as you read"
 
 
 # --- W6: recovery recalibrates ----------------------------------------------------------------------------------------

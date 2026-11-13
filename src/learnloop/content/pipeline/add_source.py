@@ -2091,11 +2091,17 @@ def undo_source_questions(ingest_jobs, source_id: str, *, clock: Clock | None = 
     can no longer apply, queued work for the book is cancelled, and reading
     stops growing the book's questions until the learner builds them again.
     Then every applied proposal of the book is reverted, and the verdict is
-    recorded in ``judgment_ledger`` (review F12)."""
+    recorded in ``judgment_ledger`` (review F12).
 
+    Refused (:class:`OutstandingApplyIntentError`) before any of that while an
+    earlier apply is pending or conflicted: the revert would be refused after
+    the generation had moved and the builds were cancelled."""
+
+    from learnloop.content.proposals.patches import refuse_while_an_apply_is_outstanding
     from learnloop.content.proposals.proposals import reject_items
 
     repo = ingest_jobs.repository
+    refuse_while_an_apply_is_outstanding(repo, action="undo")
     generation = repo.advance_source_auto_build_generation(source_id, clock=clock)
     for job in auto_jobs(repo, source_id):
         if _active(job):

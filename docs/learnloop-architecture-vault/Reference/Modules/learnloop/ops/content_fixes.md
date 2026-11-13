@@ -47,18 +47,18 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ops/content_fixes.py](../../../../../../src/learnloop/ops/content_fixes.py) |
-| Source lines | 195 |
+| Source lines | 194 |
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `fix_criterion_dependencies(root: Path, *, dry_run: bool=True) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/content_fixes.py), line 82) — Remove criterion ``depends_on`` entries that name no criterion of the item.
+- `fix_criterion_dependencies(root: Path, *, dry_run: bool=True) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/content_fixes.py), line 81) — Remove criterion ``depends_on`` entries that name no criterion of the item.
 
 ### Module constants
 
-- `FIX` ([src/learnloop/ops/content_fixes.py](../../../../../../src/learnloop/ops/content_fixes.py), line 39)
+- `FIX` ([src/learnloop/ops/content_fixes.py](../../../../../../src/learnloop/ops/content_fixes.py), line 38)
 
 ### Explicit exports
 
@@ -69,8 +69,8 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ## Internal implementation anchors
 
-- `_sibling_filter(criteria: list[Any]) -> tuple[list[dict[str, Any]], list[str]]` ([source](../../../../../../src/learnloop/ops/content_fixes.py), line 42) — Per-criterion ``{criterion_id, removed, kept}`` for criteria that change, and the ids of criteria that depend on themselves (kept, reported).
-- `_plain(value: Any) -> Any` ([source](../../../../../../src/learnloop/ops/content_fixes.py), line 74)
+- `_sibling_filter(criteria: list[Any]) -> tuple[list[dict[str, Any]], list[str]]` ([source](../../../../../../src/learnloop/ops/content_fixes.py), line 41) — Per-criterion ``{criterion_id, removed, kept}`` for criteria that change, and the ids of criteria that depend on themselves (kept, reported).
+- `_plain(value: Any) -> Any` ([source](../../../../../../src/learnloop/ops/content_fixes.py), line 73)
 
 ## Who imports or calls it
 
@@ -83,13 +83,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]] — imports `materialize_targets`; calls `materialize_targets`
+- [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]] — imports `materialize_targets`, `text_hash`; calls `materialize_targets`, `text_hash`
 - [[Reference/Modules/learnloop/vault/yaml_io|learnloop.vault.yaml_io]] — imports `read_yaml`, `yaml_to_string`; calls `read_yaml`, `yaml_to_string`
 - [[Reference/Modules/learnloop/vault_lock|learnloop.vault_lock]] — imports `vault_mutation_lock`; calls `vault_mutation_lock`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `hashlib`, `pathlib`, `tempfile`, `typing`
+- Standard library: `__future__`, `pathlib`, `tempfile`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

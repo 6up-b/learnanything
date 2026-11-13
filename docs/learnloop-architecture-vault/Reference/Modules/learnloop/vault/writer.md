@@ -216,6 +216,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_probe_prefers_the_whole_task_item_that_covers_integration`
   - `test_shared_surface_group_makes_the_certificate_unmeasurable`
 - [tests/test_characterization_assessment_exam.py](../../../../../../tests/test_characterization_assessment_exam.py) — direct import
+- [tests/test_cli_append_units.py](../../../../../../tests/test_cli_append_units.py) — direct import
 - [tests/test_cli_json.py](../../../../../../tests/test_cli_json.py) — direct import
   - `test_misconception_gate_backfill_json_contract`
 - [tests/test_coldness_receipt.py](../../../../../../tests/test_coldness_receipt.py) — direct import

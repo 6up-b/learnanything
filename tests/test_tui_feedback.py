@@ -19,6 +19,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import begin_session, configure_codex_http, create_basic_vault, seed_due_item
 from tests.http_provider_double import serve_structured
+from tests.tui_helpers import wait_for_feedback_result
 
 # The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
 # H3); these tests drive an in-process HTTP server through it as a provider double.
@@ -133,11 +134,8 @@ def test_feedback_submit_uses_codex_grading_when_runtime_ready(tmp_path, monkeyp
                 practice = app.screen
                 practice.set_answer("SVD is U Sigma V^T.")
                 feedback = await practice.open_feedback()
-                for _ in range(10):
-                    await pilot.pause()
-                    if feedback.result is not None:
-                        break
-                result = feedback.result
+                # Wait on the grading worker, not a fixed number of pauses (refactor bug ledger D-13).
+                result = await wait_for_feedback_result(pilot, feedback)
         finally:
             server.stop()
 
@@ -239,7 +237,9 @@ def test_committed_model_grade_is_not_regraded_when_a_later_step_fails(tmp_path,
             practice = app.screen
             practice.set_answer("A = U Sigma")
             feedback = await practice.open_feedback()
-            await pilot.pause()
+            # The screen's own grading worker (started on mount) commits the grade and fails after it:
+            # wait on that work, or a slow worker and this call both grade (D-13's forced-failure sweep).
+            await wait_for_feedback_result(pilot, feedback)
             graded = await feedback.auto_submit_ai()
             feedback.set_points("correctness", 4)
             feedback.set_confidence(5)

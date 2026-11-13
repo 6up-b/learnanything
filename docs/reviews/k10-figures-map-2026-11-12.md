@@ -1,0 +1,616 @@
+# Figures and explanation videos map (K10, 2026-11-12)
+
+Refactor step K10, job 1: the deep map of "Show me" figures and explanation videos that the Nov 8 map (`docs/reviews/architecture-map-2026-11-08.md`) read by size only. It names problems and recommends nothing; job 2 (the structure strategy) stands on it after the orchestrator has checked its claims. **Base: main `c4556cc700`**, branch `refactor/k10-figures-map`. Docs only; no source, test or vault note changed.
+
+## Summary for the owner
+
+"Show me" is about 24,000 lines of Python (the 25-module `figures/` package is 20,732, with `figure_admission`, the sidecar's handler, the teacher's visuals and the prefetch runtime) and a desktop tree that draws each tier again. It builds three tiers (a declarative grammar figure, a sealed sketch program, a Manim video), verifies each by code before it shows, labels nothing a model wrote as checked, builds ahead of need with a learned, logged decision, and rechecks protection whenever a figure goes out. The parts are often careful: the pre-build model is pure and recorded with its seed, the admission gate stops a build on any configuration change, the sketch runs in a sealed wasm engine pinned by digest, the video renders under bubblewrap in a capped scope. What's expensive is that the package grew by six stages, each adding a switch whose off-state must reproduce its predecessor byte for byte, and nothing was restructured between them.
+
+**The five most costly findings:**
+
+1. **"May this figure go out now?" is answered by about twenty functions in six modules (§3.1; F10B1).** One exam predicate, composed with the figure's homes, its learner-state lineage (stored in three places), item protection and cold rules in different combinations by `service`, `rich`, `prefetch`, `learner_state`, `help` and the sidecar. Each was added by a review round to close the next path, so no function states the rule, and a new host or tier has to find them all.
+2. **`service.py` is eight modules in one, and every stage is a switch that multiplies variants (§1.2, §6.1; F10P1, F10C1, F10C2, F10B5).** 3,956 lines, 78 public names (31 unused outside it), a 304-line author loop holding tier choice, verification, retries, salvage and storage. The prompt version is built from five flags, the reuse key is computed six ways per build, and the view's keys change with four switches and the prompt contract's with six. About 630 comment lines name a stage or review round, and the module docstring is a stage history.
+3. **The questions people actually ask after a failure have no stored answer (§4; F10O1, F10O2).** A Manim build keeps one failure reason, with no per-attempt record (B8's open item); refusals at the request (exam material, a switch, a cold check, not offered) leave no row at all; why a tier wasn't on the menu and which reuse key matched are computed and dropped.
+4. **One build function, four execution models, and cancel doesn't cancel (§2; F10D1, F10D2, F10U3).** A press is an in-memory job (lost on restart), a video a durable queue job, a lesson figure a synchronous call, a prebuild a drain-thread call. Cancelling a press only hides the job: the build and its paid calls go on, and the figure appears on the next read (candidate K10-1).
+5. **Policy lives in the sidecar handler and is re-derived on the desktop (§3; F10B2, F10B3, F10U1).** The attempt-host rules (host resolution with raw SQL, the take step, one hint-equivalent per figure, the reveal rows, the cost line) are in `handlers/figures.py`, where no second frontend can call them. The desktop recomputes "shown" (four literal copies), the badge for all three tiers (ignoring the server's label, whose wording differs), the cold flag and the quick-only rule, and never reads `withheld`, so a figure withheld at delivery just vanishes.
+
+**Also worth your attention:**
+- **The phone has no figures at all** (§2.6, §8.3): no Show me, no reopening, no video; a figure made on the desktop for a passage is invisible when that passage is read on the phone.
+- **No wait estimate is ever shown** for a press, and the Reader's and Ask panel's polling has no timeout (§8; F10U2). The only measured wait is the pre-builder's, used to decide and never shown.
+- **The cycle is small and local:** `service` ↔ `rich` (with `routes`, `prefetch_ledger`), four modules, all through function-local imports; no figures module is in the codebase's 191-module cycle (§1.3).
+- **Python verification loads the desktop's wasm by path** (`apps/learnloop-tauri/...`), deliberately, for parity (F10P3).
+- **No vault note explains the feature** (F10V1).
+
+**Deciders and purity (§4).** Pure today: the pre-build model's `decide` and `wait_estimate`, the grammar verifier, the parsers' prediction salvage, `request_hash`; nearly pure: the sketch verifier (a sealed engine from disk, a budget clock). Everything else reads the database or a machine probe while deciding: the tier menu, reuse, the author loop, the source check, the filters, the queue's caps and the horizons, the gate, the request checks, delivery. Every figure record is built beside its decider from notes taken during the decision.
+
+**Change cost (§7).** A grammar or verification change touched 2-6 figure files and 1-3 tests; a prompt change one file plus two goldens. A new tier or place (RW5b-RW5d) touched 15-60 source and desktop files and 15-70 tests, most of it shared plumbing (the head fixture, successor re-points, 400-560 generated notes); the figures-specific part of a tier is about 15 places in 7 Python modules plus the desktop.
+
+**Limits.** Code-traced, not run; no vault data. Three sweeps were delegated and spot-checked; what wasn't checked is under "Not verified".
+
+## How to read this
+
+**Scope** (brief K10): `src/learnloop/figures/` whole (25 modules), `figure_admission.py`, `teacher/visuals.py`, the sidecar's `handlers/figures.py` and `prefetch_runtime.py`, `reader/phone_media.py`, the figure stores (`db/stores/figures.py`, `db/stores/figure_prefetch.py`), the parts of `content/authoring/concept_animation.py` and `pf_sandbox.py` the figure tiers call, the `[figures]` config, and the desktop's figure and video code under `apps/learnloop-tauri/src` and `src-tauri`.
+
+**Severity** is what a finding costs. **High:** it hides a cause, makes two answers to one question possible, or regularly costs a stage real time. **Medium:** it costs when you're in that area. **Low:** noise. Ids are prefixed `F10` so they don't collide with the Nov 8 map's, K2's or K9's: F10P packages and imports, F10D journeys, F10B boundaries and duplicated predicates, F10O decisions and what's recorded, F10F functional core, F10C comments, dead code and onboarding, F10H change cost, F10U what the learner sees, F10V vault.
+
+**Evidence** is `file:line` at `c4556cc700`; `src/learnloop/` is dropped from paths under it, so `figures/service.py:2482` means `src/learnloop/figures/service.py:2482`. Paths under `src/learnloop_sidecar/` keep the `learnloop_sidecar/` prefix, and frontend paths start `apps/`. A bare `:line` continues the file before it. "Read" means I read the code; "traced" means I followed the calls without running them. Nothing was executed except an AST and import sweep over `src/` (K9's script, scoped to figures; script and output in the orchestrator's scratch, `refactor-k10/sweep_k10.py`, `sweep.txt`, `importers.txt`, `fs_names.txt`) and read-only `git log`/`git show`. No vault, backup or learner data was opened. Three read-only sweeps were delegated (the desktop's figure and video code; change cost from git history; the vault notes). Every claim of theirs used below was spot-checked at its cited line or commit, and those not checked are listed in "Not verified".
+
+| § | Contents | Brief item |
+|---|---|---|
+| 1 | Packages, modules, deep and shallow, long functions, `service.py`'s names, imports and cycles, reachability | 1 |
+| 2 | The journeys end to end | 2 |
+| 3 | Boundaries and duplicated predicates | 3 |
+| 4 | Decision points and what's recorded; which deciders are pure | 4 |
+| 5 | Functional core and shell | 5 |
+| 6 | Comments, dead code, onboarding | 6 |
+| 7 | Change cost, counted | 7 |
+| 8 | What the learner sees (input to the UX journey audit) | 8 |
+| 9 | The vault notes | 9 |
+| | Possible bugs found; Not verified | |
+
+## 1. Packages and modules
+
+Sizes are from the AST and tokenizer sweep at this tip; "code" means non-blank lines that aren't comments or docstrings, as in the Nov 8 map. Public names are module-level functions, classes and lower-case assignments without a leading underscore (upper-case constants left out, as K9 counts them). The class heuristic is the Nov 8 map's (deep: ≥250 code lines and ≤10 public names, or ≥400 and ≤1 public name per 40 lines; wide: ≥30 public names, or ≥20 with under 20 lines per name), corrected by reading where the heuristic misleads (noted in the last column). "Outside importers" are modules outside the scope list above.
+
+| module | raw | code | public | outside importers (file:line) | class |
+|---|---:|---:|---:|---|---|
+| `figures/service.py` | 3,956 | 2,483 | 78 | `cli/reader.py:113`, `learnloop_sidecar/handlers/correspondents.py:47`, `handlers/hints.py:347`, `handlers/lesson.py:176`, `learnloop_sidecar/prefetch_runtime.py:109` (and the sidecar's `handlers/figures.py:75`, `teacher/visuals.py:65`) | wide; the god module |
+| `figures/prefetch.py` | 1,862 | 1,260 | 37 | `learnloop_sidecar/prefetch_runtime.py:72`, `:98` (function-local only) | wide; composition layer |
+| `figures/book_math.py` | 1,301 | 970 | 9 | none (source check only) | deep |
+| `figures/spec.py` | 1,239 | 916 | 50 | none | wide (the grammar's data model: many small types) |
+| `figures/rich.py` | 1,165 | 743 | 33 | `content/pipeline/jobs.py:3882` | wide; menu + route + job + readers in one |
+| `figures/source_check.py` | 1,092 | 797 | 26 | `cli/reader.py:85`, `:114` | medium |
+| `figures/manim_figure.py` | 930 | 674 | 17 | none | medium |
+| `figures/sketch.py` | 910 | 642 | 32 | none | wide (the sketch program's types) |
+| `figures/grammar.py` | 820 | 558 | 17 | none | medium; the expression grammar, imported by 8 figure modules |
+| `figures/sketch_verify.py` | 818 | 554 | 8 | none | deep |
+| `figures/source_check_harness.py` | 813 | 633 | 37 | none (read as text: §1.4) | a program, not a module |
+| `figures/prefetch_model.py` | 633 | 377 | 17 | none | medium; pure (§5) |
+| `figures/prefetch_ledger.py` | 616 | 391 | 25 | `cli/reader.py:79`, `:143` | wide |
+| `figures/routes.py` | 613 | 405 | 17 | none | medium; prompt assembly + route |
+| `figures/elements.py` | 603 | 427 | 11 | none | medium |
+| `figures/sketch_engine.py` | 500 | 319 | 8 | none | deep (sealed wasm runner) |
+| `figures/verify.py` | 467 | 315 | 13 | none | medium |
+| `figures/learner_state.py` | 464 | 284 | 10 | none | deep |
+| `figures/help.py` | 461 | 282 | 8 | `learnloop_sidecar/handlers/hints.py:267` | deep by count; half of it is a number formatter (§3.1) |
+| `figures/records.py` | 435 | 296 | 10 | none | deep; B4's records |
+| `figures/labels.py` | 320 | 171 | 6 | none | medium |
+| `figures/power.py` | 317 | 195 | 9 | `learnloop_sidecar/prefetch_runtime.py:32` | medium |
+| `figures/katex_tree.py` | 184 | 107 | 2 | none | medium |
+| `figures/display_format.py` | 126 | 86 | 2 | none | medium (also run inside the sandbox) |
+| `figures/foreground.py` | 87 | 50 | 4 | `learnloop_sidecar/server.py:223` | medium |
+| `figures/__init__.py` | 28 | 0 | 0 | | init |
+| **figures total** | **20,732** | **13,935** | | | 25 modules + init |
+| `figure_admission.py` | 476 | 225 | 23 | 11 modules: `diagnosis/text_gaps/{jobs,sources}`, `diagnosis/split/figure_trace`, `source_retrieval/{library_ask,reader_tutor}`, `tutor/{reader_modes,tutor_qa}`, `workbench/help_outcomes`, `learnloop_sidecar/{context, handlers/hints, handlers/reader_tutor}` (`importers.txt`) | wide; a leaf so evidence-side code needn't import figures (`figure_admission.py:1-7`) |
+| `learnloop_sidecar/handlers/figures.py` | 1,520 | 930 | 42 | `handlers/__init__.py:3`, `handlers/hints.py:268`, `handlers/reader.py:559`, `prefetch_runtime.py:99` | wide; adapts and decides (§3.3) |
+| `teacher/visuals.py` | 375 | 217 | 18 | `teacher/service.py:74` | medium |
+| `reader/phone_media.py` | 250 | 157 | 8 | `learnloop_mobile/media.py:53`, `learnloop_sidecar/phone_reader.py:23`, `learnloop_sidecar/serving.py:86` | medium; holds no figure code (§2.6) |
+| `db/stores/figures.py`, `db/stores/figure_prefetch.py` | 412, 54 | | | | stores |
+| `learnloop_sidecar/prefetch_runtime.py` | 202 | | | | the drain thread |
+
+Together the scope is about 24,000 lines of Python (23,381 for the 30 swept modules) plus the desktop's `screens/reader/figures/` tree (§8).
+
+### 1.1 The functions over about 200 lines
+
+Only one function in the scope passes 200 lines; four more are over 120.
+
+| lines | function | what it does |
+|---:|---|---|
+| 304 | `_author_attempts_and_store`, `figures/service.py:2482` | the whole author loop: up to two calls, three output contracts (V1/V2/V3 by flags), the free-text label rule, the tier verdict, a rich brief with an optional quick spec or sketch, the sketch path, the grammar path, step 3 (source check) inside the loop, then the row, the request row, two judgments and the check row in one transaction (§2.1 steps 9-14) |
+| 187 | `verify_sketch`, `figures/sketch_verify.py:610` | runs a sketch program in the sealed engine over a grid and checks its declared probes and claims |
+| 159 | `parse_sketch`, `figures/sketch.py:457` | the sketch program's parser and caps |
+| 141 | `scene_problems`, `figures/sketch.py:680` | the sketch scene's validation |
+| 124 | `_build`, `figures/service.py:2116` | grounding, context, the crop, the menu, the learner state, the reuse key and five alternative keys, reuse, the per-input lock, the request identity, then the author or the rich revision |
+
+### 1.2 What `service.py`'s 78 public names are, and who calls each group
+
+The Nov 8 map counted 76; this sweep counts 78 (the definitions are in `fs_names.txt`, each with its line). 31 of the 78 have no caller outside `service.py` in `src`; 11 of those are used by tests only (`SourceContext`, `Grounding`, `build_key`, `offer_build_key`, `key_for`, `learner_state_withheld`, `sketch_row`, `reverify_hash`, `fuller_state`, `BuildOutcome`, `stored_plan_open_items`) and 20 by nothing outside the module (for example `lesson_hosted` `:360`, `prediction_home` `:374`, `show_me_input` `:392`, `show_me_build_key` `:438`, `advanced_enabled` `:490`, `sketch_switch` `:516`, `inherited_learner_inputs` `:709`, `figure_homes` `:771`, `ground` `:947`, `crop_image` `:1013`, `property_checks` `:1265`, `ensure_rich_job` `:2795`, `rich_base_keys` `:3425`). Grouped by job:
+
+| group | names (line) | callers |
+|---|---|---|
+| Request model and validation | `FigureRefused` `:257`, `FigureRequest` `:272`, `SourceContext` `:329`, `Grounding` `:341`, `BuildOutcome` `:1994`, `attempt_hosted` `:353`, `lesson_hosted`, `anchored` `:386`, `show_me_input`, `offered` `:431`, `check_request` `:1942` | the sidecar (`learnloop_sidecar/handlers/figures.py:439`, `:492`, `:652`, `:1265`), `teacher/visuals.py:207`, `figures/prefetch.py:335`, `:1419` |
+| Admission keys | `build_key` `:405`, `offer_build_key` `:424`, `show_me_build_key` `:438`, `key_for` `:444` | inside `build_figure` only (`:2089`) |
+| Switches (one-line wrappers over `figure_admission`) | `enabled` `:399`, `predictions_enabled` `:478`, `region_enabled` `:482`, `revisions_enabled` `:486`, `advanced_enabled` `:490`, `figure_offers_enabled` `:496`, `show_me_enabled` `:502`, `help_enabled` `:508`, `sketch_switch` `:516`, `sketch_enabled` `:522`, `rich_enabled` `:534`, `teacher_visuals_switch` `:367` | the sidecar (`handlers/figures.py:107-125`), `teacher/visuals.py:67`, `handlers/correspondents.py:90`, `prefetch_runtime.py:111` |
+| Protection | `withheld_message` `:554`, `keys_withheld` `:581`, `row_withheld` `:597`, `learner_state_withheld` `:624`, `inherited_learner_inputs` `:709`, `figure_homes` `:771`, `figure_withheld` `:787`, `item_passages` `:3377`, `rich_base_keys`, `rich_base_item_protected` `:3444` | `figures/prefetch.py:959`, `figures/rich.py:423`, `:444` (function-local), `figures/help.py:393`, `cli/reader.py:113`, the sidecar (`handlers/figures.py:184`, `handlers/hints.py:347`), `teacher/visuals.py:334` |
+| Context and grounding | `source_context` `:805`, `passages_context` `:839`, `ground` `:947`, `crop_image` `:1013`, `FindSources` `:892` | `figures/prefetch.py:335` (`source_context`); the rest inside `_build` |
+| Presentation | `shown_row` `:1038`, `advanced_off_row` `:1068`, `sketch_row` `:1086`, `sketch_off_row` `:1092`, `rich_off_row` `:1104`, `rich_row` `:540`, `reverify_hash` `:1125`, `sketch_rechecked` `:1176`, `worded_row` `:1223`, `drawable_now` `:1258`, `property_checks` `:1265`, `figure_view` `:1325`, `source_rejected` `:1486`, `redelivered_view` `:1585`, `fuller_state` `:1619`, `show_me_row` `:781`, `prediction_home` | the sidecar (`handlers/figures.py:190`, `:1512`), `teacher/visuals.py:339`, `figures/help.py`, `figures/labels.py` |
+| Build | `request_hash` `:1706`, `build_figure` `:2062`, `retry_rich_job` `:2291`, `ensure_rich_job` `:2795`, `resume_rich_intents` `:2814`, `revision_request` `:3147`, `rebuild_request` `:1556`, `rich_revision_retry` `:3717`, `build_prefetch_figure` `:3510` | the sidecar (`handlers/figures.py:262`, `:840`, `:849`), `handlers/lesson.py:180`, `figures/prefetch.py:1431` |
+| Listing and reading | `list_figures` `:3530`, `section_figures` `:3544`, `rich_pending` `:3597`, `shown_figure` `:3746`, `prefetch_pending` `:3308`, `prefetch_plan_waits` `:3458`, `stored_plan_open_items` `:3357` | the sidecar (`handlers/figures.py:740-753`, `:1506`), `handlers/correspondents.py:213`, `figures/prefetch.py:1746` |
+| Predictions | `record_prediction` `:3786`, `record_explanation` `:3858` | the sidecar (`handlers/figures.py:906`) |
+
+The module also re-exports labels and constants it doesn't own (`NOT_FROM_BOOKS_LABEL = L.NOT_FROM_BOOKS_LABEL` `:222`, `SKETCH_LABEL` `:248-250`, `GROUNDING_PASSAGES = ADMISSION_GROUNDING_PASSAGES` `:216`). Eight unrelated jobs share one namespace, and the module docstring (`:1-142`) is a history of six stages rather than a description of the module.
+
+### 1.3 Imports and cycles
+
+No figures module is in the codebase's largest import component (the 191-module cycle): the sweep's `big_scc` holds none of the 30 swept modules. Of 430 import statements from the scope to `src` modules, 265 are function-local (`sweep.txt`).
+
+**One cycle inside the package, four modules, closed only by function-local imports:**
+
+| edge | where |
+|---|---|
+| `service` → `rich` | top level `figures/service.py:183`; also local `:1678`, `:2313`, `:3478`, `:3689` |
+| `service` → `routes` | top level `figures/service.py:184` |
+| `service` → `prefetch_ledger` | local `figures/service.py:3323` |
+| `rich` → `routes` | top level `figures/rich.py:76` |
+| `rich` → `service` | local `figures/rich.py:423`, `:444` |
+| `rich` → `prefetch_ledger` | local `figures/rich.py:597` |
+| `routes` → `rich` | local `figures/routes.py:368` |
+| `prefetch_ledger` → `service` | local `figures/prefetch_ledger.py:169` |
+
+So `service` and `rich` depend on each other: `service` owns the quick build and calls into `rich` for the menu and the job, while `rich`'s job asks `service` for the one protection predicate (`withheld_message`, `keys_withheld`, `rich_base_item_protected`). To avoid a third edge, `rich` keeps its own copy of `service.ATTEMPT_HOST_REFS` (`figures/rich.py:364-365` against `figures/service.py:208`). `prefetch` imports `service` 11 times, all function-local (`figures/prefetch.py:320`, `:332`, `:463`, `:586`, `:671`, `:801`, `:959`, `:1353`, `:1628`, `:1729`), and nothing in the package imports `prefetch` back, as its docstring promises (`figures/prefetch.py:5-6`).
+
+**Leaves.** `grammar` imports nothing in the package and is imported by eight modules; `spec`, `verify`, `display_format`, `foreground`, `prefetch_model`, `labels` and `katex_tree` import at most `grammar`, `spec` or one sibling. The functional parts are leaves; the cycle is among the modules that do I/O.
+
+**Across the edge.** `figure_admission` is imported by `service` (`:166-178`, `:511`), `rich` (`:71-73`), `source_check` (`:47`), `learner_state` (`:68`), `help` (`:39`) and eleven outside modules (§1 table); it imports only `ai.execution` (`figure_admission.py:36`). The sidecar's handler imports `service` at top level and `rich`, `source_check`, `help` and `prefetch_runtime` function-locally (`learnloop_sidecar/handlers/figures.py:75`, `:136`, `:673`, `:751`). `prefetch_runtime` imports the handler back function-locally (`learnloop_sidecar/prefetch_runtime.py:99`, `:189`) for `_rich_spawner`, a private name.
+
+### 1.4 Reachability
+
+Every figures module is reachable from the sidecar's serving roots (`sweep.txt`, column `reach`), except one:
+
+- **`figures/source_check_harness.py` is not imported; it is read as text.** `figures/source_check.py:88-94` reads it and `display_format.py` with `Path(__file__).parent / "source_check_harness.py"` at import time, and `:518-519` sends the text to `pf_sandbox.run_sandboxed_python`. The harness says so itself (`figures/source_check_harness.py:3-6`) and imports `sympy` and `mpmath` at module level (`:51-53`), so importing it as a module would load them; its `display_format` import falls back to the package copy when imported rather than run (`:56-59`). Because `source_check` is imported at the top of `service` (`figures/service.py:186`), the harness file is read from disk whenever the figure service is imported.
+- **Two modules read the desktop's tree at run time.** `figures/sketch_engine.py:51-53` loads `apps/learnloop-tauri/src/screens/reader/figures/sketch/sketch-engine.wasm` and `apps/learnloop-tauri/sketch-engine/engine.lock.json` through `Path(__file__).resolve().parents[3]`, and `figures/katex_tree.py:44-46` loads `apps/learnloop-tauri/sketch-engine/book-math-engine.wasm` the same way. The Python package's verification depends on files under the desktop app, so it works only from a source checkout.
+- **CLI-only callers.** `cli/reader.py` imports `prefetch_ledger` (`:79`, `:143`), `source_check` (`:85`, `:114`) and `service` (`:113`) for reports; nothing in the package is reachable only from the CLI.
+- **Phone and MCP.** Neither imports a figure module. The phone's host never registers a figure method: all 14 RPCs (`learnloop_sidecar/handlers/figures.py:84-99`) are pinned desktop-only by `tests/test_mobile_allowlist.py:649-652`, and the prefetch runtime refuses secondary contexts (`learnloop_sidecar/prefetch_runtime.py:141`).
+
+### Findings
+
+| Id | Severity | Finding | Evidence |
+|---|---|---|---|
+| F10P1 | high | `service.py` is eight modules in one (request model, admission keys, twelve switch wrappers, protection, context, presentation, build, listing, predictions) with 78 public names, 31 of them unused outside it; the 304-line author loop and the 124-line `_build` hold the tier choice, verification, retries, salvage and storage together. A reader can't change how a figure is presented without scrolling past the build, or the build without the rich job's intent plumbing. | §1.1, §1.2; `figures/service.py:2482`, `:2116` |
+| F10P2 | medium | `service` ↔ `rich` (with `routes` and `prefetch_ledger`) is a cycle held only by function-local imports, and `rich` copies `ATTEMPT_HOST_REFS` to avoid one more edge. The menu, the rich route, the job and the job readers live in `rich`, the quick build and the protection predicate in `service`, so a change to "what may go to the rich author" touches both. | `figures/rich.py:364-365`, `:423`, `:444`; `figures/service.py:183`, `:208` |
+| F10P3 | medium | Backend verification loads wasm artifacts from `apps/learnloop-tauri/` by relative path. Python and TypeScript share one engine on purpose (the sketch's parity), but the dependency is invisible to packaging and import tooling. | `figures/sketch_engine.py:51-53`; `figures/katex_tree.py:44-46` |
+| F10P4 | low | `source_check_harness.py` sits in the package as a module, is read as text at import time and imports `sympy` if anyone ever imports it; a module walker or a coverage tool sees a module nothing imports. | `figures/source_check.py:88-94`; `figures/source_check_harness.py:51-59` |
+| F10P5 | low | `service.py` re-exports constants and one-line switch wrappers over `figure_admission` (twelve wrappers), so a switch has two names (`FS.show_me_enabled` and `figure_admission.show_me_enabled`) and callers use both. | `figures/service.py:399-537`; `teacher/visuals.py:67`; `figures/prefetch.py:987` |
+
+## 2. The journeys end to end
+
+Each journey is a numbered trace. Under each, **Persistence** names tables (role from `db/table_roles.py`) and files, **Model calls** the route, prompt and keys, **Randomness and clock** what isn't fixed, **Threads** who runs it, and **Spend** what is spent and how it's admitted. Tables and their roles: `interactive_figures` WORKFLOW (`db/table_roles.py:344`), `figure_requests` RAW_LEDGER (`:287`), `figure_predictions` RAW_LEDGER (`:281`), `figure_prefetch_decisions` RAW_LEDGER (`:294`), `figure_source_checks` RAW_LEDGER (`:296`), `plan_usage_pauses` RAW_LEDGER (`:297`), `judgment_ledger` RAW_LEDGER (`:368`), `decision_records` RECEIPT (`:174`), `help_assists` RAW_LEDGER (`:326`), `reveal_events` RAW_LEDGER (`:571`). Nothing in figures is replayed: B4's record notes `test_decision_records_is_unreachable_from_replay` passes with no figures module in the rebuild closure (`docs/reviews/refactor-b4.md:69`).
+
+### 2.1 The learner presses Show me in the Reader (a selection, a goal in their words, or a tutor's offer)
+
+1. **The press.** The desktop's `useFigures.request` (`apps/learnloop-tauri/src/screens/reader/figures/useFigures.ts:369-387`) calls `figure.request` (goal, with or without an anchor) or `reader.figure_request` (anchor only, or a library or tutor offer). It gates on the prompt contract's `showMe` and `offers` flags first (`:369`, `:370`, `:383`).
+2. **The handler validates** (`learnloop_sidecar/handlers/figures.py:413-511`): passage identity (`:427-431`), service origins refused (`:432-435`), the goal's switch (`:437`), attempt hosts sent to their own path (`:439-445`), the client's `cold_active` flag refused (`:446-449`), lesson references refused (`:450-452`), a tutor goal matched to its stored answer and its ledger row (`:457-466`, `tutor_figure_goal` `:348-368`), an offered block matched to its judgment (`:467-474`, `offered_spans` `:298-345`), the caller derived from a question event or the Reader (`:480-485`), and policy `cold_attempt` or anything but `reading` refused (`:486-490`).
+3. **The service validates again** (`FS.check_request`, `figures/service.py:1942-1990`, through `_validated_request` `:1817-1903`): switches, origin, goal author, home, region, revision; then the one exam predicate on the selection or the home (`:1947-1958`, `withheld_message` `:554` → `content/sources/exam_material.spans_withheld`) and, for a revision, the base row's state (`:1959-1989`).
+4. **Salience events** (`handlers/figures.py:498-510`): `interaction_events` rows of kind `reader_action_invoked` (`:155-158`), never the goal's words.
+5. **A build job, in memory.** `_start` (`handlers/figures.py:241-276`) starts a `LibraryJobs` job of kind `figure_build` (`:275`): a thread spawned through the context's background jobs (`learnloop_sidecar/handlers/library_ask.py:292-317`), a fresh `Repository.attach` (`:301`), receipts owned as `reader.library_figure_build:<job>` (`:303-304`). The job is kept in memory, at most 64 of them (`library_ask.py:62`, `:217-230`); a restart loses it. The RPC answers at once with the job id; the desktop polls `reader.figure_job` every 1.5 s (`useFigures.ts:18`, `:317-321`) with no overall timeout.
+6. **The gate.** `build_figure` (`figures/service.py:2062-2095`) checks the request again (`:2075`), removes the rich spawner for a lesson host (`:2076-2079`), and installs one `FiguresGate` (`:2089`, `figure_admission.py:350-447`) keyed by `key_for(request)` (`figures/service.py:444-471`): before every physical model request it reloads the vault configuration and refuses if the switch, route, cap, price or a host-specific switch changed (`figure_admission.py:405-430`). The pressed build runs inside `foreground("figure")` so prebuilds yield (`handlers/figures.py:261`).
+7. **Grounding** (`ground`, `figures/service.py:947-1000`): an anchor is its own grounding; fixed keys (a tutor goal's cited spans) are rechecked per key (`:961-970`); otherwise `find_sources_for_caller(intent="explain", verify=True)` (`:974-977`, a retrieval with its own model calls), each kept hit rechecked against the exam predicate (`:989-996`); failure or nothing verified means grounding `none`, built anyway (`:980-999`). Then `gate.check("grounding")` (`:2122`).
+8. **Context and image.** `source_context` (`:805-836`) sends the selection and two blocks either side, held-out neighbours skipped (`:829-835`); `passages_context` (`:839-887`) does the same per retrieved passage. `crop_image` (`:1013-1031`) renders a region or the figure block's crop; a region on a route that can't read images is refused (`:2137-2145`).
+9. **The tier menu, chosen by code.** `RICH.tiers_allowed` (`figures/rich.py:181-191`): `grammar` always, `sketch` when its switch is on and the wasm engine loads (`figures/service.py:522-531`), `js_animation` never (`figures/rich.py:86`, `:187`), `manim` with the rich switch, the standing opt-in and Linux, `bwrap` and Manim present (`:163-168`, `:126-160`). The menu needs a spawner; without one it is grammar, or grammar and sketch (`figures/service.py:2152-2153`). Attempt hosts and lessons pass none (`handlers/figures.py:252`, `figures/service.py:2079`).
+10. **The learner state** (`_learner_state`, `figures/service.py:2242-2260` → `learner_state.read_learner_state`, `figures/learner_state.py:328`): with `figures.author_learner_state` on, status words, open misconception and gap statements and up to two answers on the passage's topics, read through `learner_protection`; it marks the prompt `+learner-v1`.
+11. **The reuse key and five alternatives.** `request_hash` (`figures/service.py:1706-1775`) hashes spec and prompt versions, the passage, the image digest, and, by flag, the goal, grounding, sketch engine digest, rich menu and Manim runtime, and the learner-state hash. `_build` computes five more keys for the other settings of the panels, sketch and rich flags (`:2169-2173`) and, with a learner state, their "recorded-inputs" twins (`:2174-2179`), so a figure shown under other settings is reused (`_reusable` `:1778-1807`). A reused figure records its request and returns (`_reused` `:2375-2398`); an input whose rich job is pending returns the pending line (`_rich_pending` `:2263-2276`, `:2190-2203`).
+12. **One build per input.** A process-wide lock per `(vault, input_hash)` (`_building` `:2318-2341`); inside it the reuse read is repeated (`:2207-2220`). The request identity is `content_key({input_hash, generation})` (`:2226`), so a crash recovers a paid answer by its checkpoint and a stored failure starts a new generation.
+13. **The author loop** (`_author_attempts_and_store`, `:2482-2785`), at most `MAX_AUTHOR_ATTEMPTS = 2` (`figures/routes.py:77`): the prompt (`routes.author_prompt` `:440-447`, instructions assembled by string replacement with asserts `:400-427`, version by suffixes `:430-437`), the output model V1, V2 or V3 by flags (`:450-456`). Per attempt: the free-text label rule (`figures/service.py:2554-2561`); under V3 the status is the medium chosen from the menu, with `why_this_tier` required (`:2562-2575`); a rich status parses the brief and verifies an optional quick spec or sketch, dropped if it fails (`:2576-2630`); `unsupported` ends the loop (`:2639-2643`); a sketch is parsed and run in the sealed engine (`:2644-2671`); a spec is parsed (bad predictions are dropped, not fatal: `spec.parse_author_spec`) and verified numerically (`:2673-2688`), then source-checked (§2.9) with a difference sent to attempt 2 (`:2692-2699`). Problems go to the second prompt as `problems_with_the_last_attempt` (`:2053-2054`).
+14. **Storage, one transaction** (`:2758-2771`): `figure_requests` row, `interactive_figures` row (`verification` `illustrative`, `failed` or `unsupported`, the spec, the report, `input_span_ids`/`input_span_keys` for every later recheck `:2716-2720`), the request's figure id, a `judgment_ledger` verdict (task `figure_verified`, judge `verifier`, `:2764-2766`), a `figure_tier` judgment when the tier was chosen (`:2767-2768`, `_append_tier` `:3016`) and the source-check row (`:2769-2771`). A unique-index clash means another process stored it first, and that row is reused (`:2772-2779`). A rich status with a shown quick figure commits the rich job's whole payload into the quick row's report as `rich_intent` (`:2755-2757`) and then enqueues it (§2.5). After the build, one `figure_author` decision record per attempt (`_author_and_store` `:2464-2479`, `figures/records.py:296-391`).
+15. **Delivery.** On the next `reader.figure_job` read the finished result is rechecked (`deliver_figure`, `handlers/figures.py:175-208`): withheld now (`FS.figure_withheld` `figures/service.py:787-798`) gives `{"figure": null, "withheld": true}`; otherwise the view is rebuilt from current rows (`redelivered_view` `:1585-1616`). The view (`figure_view` `:1325-1407`) passes the stored row through five presentation steps (`_presented_row` `:1571-1582`) and adds keys per switch.
+16. **What the screen shows while waiting:** "◐ building an interactive version — keep reading" (`FigureInline.tsx:182`), or "…from your words · keep reading" (`showMe.ts:16`), with a cancel link. No estimate of how long (§8).
+
+- **Persistence:** above; plus `model_call_receipts` per call and the call checkpoints that make the request identity recover paid answers. No file is written for a grammar figure or a sketch.
+- **Model calls:** route `figure_author` (`figures/routes.py:70`), an isolated tool-free turn or refused (`:540-547`), images only for a crop (`:562-574`); the grounding retrieval's own calls; route `figure_prefetch_judge` never here. Reuse key `input_hash`; request identity `content_key(input_hash, generation)`.
+- **Randomness and clock:** none in the decisions; ULIDs for ids; `utc_now_iso(clock)` with the injected clock; the sketch verifier's fixed seed (`SV.VERIFY_SEED`, `figures/service.py:1426`); the source check's sandbox wall clock.
+- **Threads:** the RPC thread, then one `LibraryJobs` thread per build; the per-input lock is per process (`:2324-2328` says the sidecar is the only builder).
+- **Spend:** `FigureRoute.problem` (`figures/routes.py:512-526`): the route, the price for a metered route, the shared daily envelope `figures.max_daily_cost_usd` (`:470-474`) and the request's call cap; `SpendLimitExceeded` from the envelope becomes `capped` (`figures/service.py:2535-2541`). On the ChatGPT plan no money is admitted at all; the gate still checks the configuration before each request.
+
+### 2.2 Show me on a practice item (the Ask panel), on feedback, or from the hint chooser
+
+1. **The press.** The Ask panel's "show me ▸" (`apps/learnloop-tauri/src/components/AskOverlay.tsx:1295-1306`) is shown when `algoConfig().ask.figures` is on and the target is a practice item or a feedback attempt (`apps/learnloop-tauri/src/components/askFigures.tsx:50-54`; that flag is the sidecar's `help_kind_enabled`, `learnloop_sidecar/context.py:951-954`, `:1055`). On a check on your own the client first calls `figure.take_step` (`askFigures.tsx:149-162`).
+2. **The take step** (`handlers/figures.py:1423-1470`): resolves the host, refuses where no help is taken (`take_step_available` `:1078-1100`), and writes one `help_assists` row (`request = "take_step"`, level `FIGURE_LEVEL`) that converts the attempt to practice with help.
+3. **The request** (`_request_attempt_figure`, `handlers/figures.py:1246-1275`): the host resolved on the server (`_attempt_host` `:1146-1217`, including raw SQL on `practice_attempts` `:1115-1117` and `sessions` `:1139-1140`, and the tutor handler's private `_item_cold` `:1072-1075`), the caller derived (`_attempt_caller` `:1220-1243`), `cold_attempt` refused without a take step (`:1260-1263`), then `FS.check_request` with origin `ask`, no anchor, the goal (`:1265-1267`). The response carries the cost line chosen in the handler (`AttemptHost.cost_line` `:997-1002`, `:1274`).
+4. **The build** is §2.1 steps 5-14 with no rich spawner (`:252`): grammar or sketch only, grounded by retrieval under the attempt's derived policy.
+5. **Delivery records the help** (`deliver_figure` `:192-204` → `record_attempt_figure` `:1297-1385`): in one transaction, one `help_assists` figure row per figure chain per attempt (`:1347-1367`) and, when the figure's text overlaps the item's key, a `reveal_events` row with basis `figure:<id>` (`:1369-1375`). If that write fails the figure isn't shown (`:1376-1381`). Feedback, or a submitted attempt, is free and writes nothing (`:1323-1324`, `:1340-1343`).
+6. **The hint chooser** offers `explore_figure` when a shown figure for the item's topic exists (`learnloop_sidecar/handlers/hints.py:252-281` → `figures/help.py:383`); pressing "open" calls `figure.open` (`handlers/figures.py:1479-1516`), which refuses rich figures and the item's own blocks (`:1504`, `:1509`) and records the help as in step 5.
+7. **The screen:** "◐ building an interactive version · keep working" (`askFigures.tsx:33`), polled every 400 ms with no timeout and no cancel (`askFigures.tsx:47`, `:98-104`).
+
+- **Spend:** the model call as §2.1; the learner's spend is one hint-equivalent per figure per open attempt (`help_assists`), decided in the sidecar handler.
+
+### 2.3 A figure in a lesson
+
+1. With `teacher.visuals` on (and figures and show me on, `teacher/visuals.py:61-67`), a teacher turn may carry a `visual`; code completes it into a `FigureRequest` with origin `teacher`, goal author `teacher`, the lesson as host and the delivered passages as fixed grounding keys (`teacher/visuals.py:202-216`).
+2. The lesson handler's builder calls `FS.build_figure` on the turn's thread with no spawner (`learnloop_sidecar/handlers/lesson.py:172-186`); `LESSON_TIERS = ("grammar", "sketch")` (`figures/service.py:205`). The turn waits for the figure.
+3. `teacher/visuals.build` (`teacher/visuals.py:249-280`) turns the outcome into a lesson status: `withheld` for `exam_material`, `unavailable` for a route refusal (its own copy of the refusal codes, `:220`), `failed` for anything else, and `shown` only when the view's verification is `verified` or `illustrative` (`:277`). A lesson's own spend envelope refusal closes the lesson (`:223-232`, `:260-261`).
+4. The lesson view strips predictions and the fuller version (`lesson_view` `:327-346`); the desktop strips them again (`apps/learnloop-tauri/src/screens/LessonScreen.tsx:556`).
+5. **The screen** while the turn builds is the lesson's own turn spinner (not traced); afterwards the status copy (`LessonScreen.tsx:519-522`).
+
+### 2.4 Figures built ahead of need (pre-builds)
+
+1. **Triggers.** Five hooks call `prefetch_runtime.notify` from their RPCs (`learnloop_sidecar/prefetch_runtime.py:156-172`): the daily plan (`learnloop_sidecar/handlers/daily_plan.py:442`), section progress (`handlers/reader.py:2238`), tutor and library offers (`handlers/reader.py:289-291`, `handlers/library_ask.py:407-409` → `notify_offer` `prefetch_runtime.py:175-199`), a lesson turn (`handlers/lesson.py:266`) and the gap worker (`learnloop_sidecar/context.py:514`). Never on the phone or MCP (`prefetch_runtime.py:137-146`).
+2. **One drain thread per context** (`PrefetchRuntime`, `:37-92`) runs one pass at a time under the trace of the request that queued it (`:85-86`).
+3. **The pass** (`figures/prefetch.py:1771-1814`), under one `FiguresGate` keyed by the switch and the judge route's billing (`:1681-1684`) with the background hold (`:1687-1694`): record any new plan usage pause (`observe_pause` `:1031-1054`, `plan_usage_pauses`); close horizons (`close_horizons` `:1624`); read mains power and whether the plan is paused or not the author's route (`:1787-1788`); collect pending builds (`:1790`).
+4. **Candidates** (`candidates` `:830`): the plan's section, the next section, offered blocks, a lesson's planned visuals, open gaps on the plan's topics. A section's blocks go to the listwise judge `figure_prefetch_judge` (`judge_section` `:506`), plan only, cached as a `judgment_ledger` receipt by the section's content hash (`:493-504`); a gap's goal from `judge_gap` (`:580`).
+5. **Filters** (`filter_candidates`, `:938-1004`), in order: protection unreadable (fail closed), duplicate, open horizon, decided for this trigger, no spans, show me off, withheld by the exam predicate, a planned visual's grounding withheld, an item's own passage under a live administration or held open by the stored plan (`item_protection` `:315-325` → `service.item_passages` `figures/service.py:3377`), already built. Each exclusion is noted in a `FilterLog` and one `figure_prefetch_filter` record per pass (`figures/prefetch.py:943-953`).
+6. **The model** is loaded from the ledger (`PL.load_model`, `figures/prefetch_ledger.py:407`): the opening posterior from closed decisions (`prefetch_model.open_posterior` `figures/prefetch_model.py:226-241`), the pause posterior from plan days (`:312-325`), the waits from measured calls (`prefetch_ledger.waits` `figures/prefetch_ledger.py:340`, `prefetch_model.wait_estimate` `figures/prefetch_model.py:358-385` under `prefetch_decision_v2`), the blocked minutes (`prefetch_ledger.py:263-311`).
+7. **The draw and its seed** (`decide_and_log`, `figures/prefetch.py:1096-1172`): one OS-entropy seed per pass, recorded (`:1103-1112`); `Model.decide` (`figures/prefetch_model.py:580-592`) makes one Thompson draw (build iff sampled EU > 0) and 64 more for the logged propensity; no measured wait means a skip with rule `no_measured_latency` (`:584-587`).
+8. **Queue and caps** (`figures/prefetch.py:1126-1161`): sampled-EU order; a build becomes `deferred_power` off mains, `deferred_plan` while the plan waits, `capped` past `max_daily_builds` (default 10) or `max_daily_render_minutes` (default 30) (`config/schema.py:2678-2679`).
+9. **The ledger:** one `figure_prefetch_decisions` row per decided candidate and its `figure_prebuild` record in one transaction (`figures/prefetch.py:1165-1170`).
+10. **Builds** (`run_builds`, `:1349-1448`), one at a time (`_BUILD_SLOTS` `:1231`): each waits for foreground work (`foreground.wait_idle`), a background animation, the switch, mains, the author on the plan, the item protection again, already built, render minutes, the day's builds (`:1371-1414`), each stop a `figure_prebuild_stop` record (`:1357-1369`); then `FS.build_prefetch_figure` (`figures/service.py:3510`), origin `prefetch`, under `quiet()`, its gate also holding on the plan route (`_prefetch_build_hold` `:2103-2113`).
+11. **Outcomes** at the horizon: `opened`, `asked`, `neither` or `void` (`figures/prefetch.py:1624-1676`), set once; they feed the next pass's opening posterior.
+12. **Listing.** An unpressed prebuilt figure lists only while the switch is on and only within the Reader's cue budget per section (`_prebuilt_listed` `figures/service.py:3286-3297`, `_prebuilt_within_budget` `:3245-3283`); a press of the same input reuses it by its input hash.
+
+- **Threads and leases:** one daemon-style drain thread per sidecar context; builds hold a process semaphore; a prebuild's rich job goes to the durable ingest queue at the default band (`content/pipeline/jobs.py:5076-5083`).
+- **Spend:** plan-only for the judge, the author and the rich author (`figures/prefetch.py:1070-1093`; `figures/rich.py:600-610`), so never metered; capped in builds and render minutes per local day.
+
+### 2.5 An explanation video (the Manim tier), from request to playable file
+
+1. **The choice.** In §2.1's step 13, a V3 author answers `manim` with a brief (`figures/rich.py:224-260`) and, optionally, a quick spec or sketch shown at once.
+2. **Two ways to start the job.** With a quick figure, its row stores the job's payload as `rich_intent` and, after commit, `ensure_rich_job` enqueues it once (`figures/service.py:2926-2937`, `:2795-2811`); a later read of the source starts any intent whose job never started (`resume_rich_intents` `:2814-2851`, called from `reader.figures` `handlers/figures.py:732-739`). With no quick figure, the request row and the tier judgment commit and the job is enqueued at once (`_RichSpawn.only` `figures/service.py:2939-2959`). The payload carries the author's context (passages, learner state), the brief, every span's text and the base row (`:2884-2919`); it is stored in `ingest_jobs.payload` and, for a quick figure, again inside its `verification_report`.
+3. **The queue.** `enqueue_figure_rich` (`content/pipeline/jobs.py:5067-5086`) puts a `figure_rich` job on the durable ingest queue (leases, heartbeats, cancellation at `report()`), at the interactive band for a press and the default band for a prebuild (`:5076-5083`). A press whose action is granted passes its plan-fallback grant (`handlers/figures.py:218-238`).
+4. **The worker** (`handle_figure_rich`, `content/pipeline/jobs.py:3871-3893` → `run_rich_job`, `figures/rich.py:470-572`): refuses attempt-hosted jobs (`:480-483`), anything but `manim` (`:484`), the switch, the opt-in and the runtime (`:486-491`); returns an already stored figure (`:493-495`); rechecks the exam predicate on the saved base (`:496-499`) and the saved learner state and inherited states (`:501-530`); a prebuild also checks item protection, the plan route and render minutes before every request (`:532-558`, `:590-612`). One `FiguresGate` keyed by `rich_build_key` (`:350-361`).
+5. **The rich author** (`_run`, `:749-864`): route `figure_rich_author`, at most `MAX_RICH_ATTEMPTS = 2` (`:90`), prompt `figure_rich_author.v1-manim` built from the concept animation prompt and scaffold plus the declared-functions contract (`:297-343`). Each attempt: parse (`manim_figure.parse_figure`), `validate_scene_code`, the declared functions' claims run in the PF sandbox (`manim_figure.sandboxed_runner`, `figures/manim_figure.py:640-657`: 30 s, 1 GB `:59-60`), the pacing lint (a failing pacing becomes the second attempt and the valid scene is kept as fallback `:828-834`).
+6. **Render** (`:840-860`): `concept_animation.render_scene` (`content/authoring/concept_animation.py:857-945`) in a fresh temp dir under bubblewrap (`_sandboxed_command` `:446-492`: all namespaces unshared, `/usr`, `/lib*`, `/bin`, fonts and the interpreter's prefix read-only, the workdir the only writable path) inside a `systemd-run --user --scope` with memory, swap, CPU and task caps (`capped_scope_prefix` `:399-415`), niced for a prebuild. Timeout `animation.timeout_seconds` (`render_scene` default 300 s, `:862`). TeX is reachable only if installed under the read-only `/usr`; `latex_available` in the prompt is the config's `latex_enabled` (`figures/rich.py:326`), not a probe of the sandbox.
+7. **One render repair** when an attempt is left: the stderr tail and the failed scene go back to the author (`_repair_render`, `figures/rich.py:867-926`).
+8. **Store** (`_store`, `:949-1009`): the mp4 is remuxed and written content-addressed under `<vault>/media/animations/` (`store_video_bytes`, `content/authoring/concept_animation.py:1156-1174`); one `interactive_figures` row (`tier` manim, `fuller_of_id` the quick figure, `media_file_name`, checks) or a `failed` row with one reason (`:985-988`), and a `figure_verified` judgment, in one transaction.
+9. **Failure classes.** Ending with no row: `RichJobStopped` codes `figures_changed`, `rich_disabled`, `manim_unavailable`, `exam_material`, `waiting_for_plan` (retryable), `capped` and the route's refusals (`figures/rich.py:394-404`), stored as the job's error (`content/pipeline/jobs.py:3892-3893`). Ending with a failed row: the model failed, the scene failed validation, a claim failed, the render failed or timed out; only the last attempt's reason is kept (`failure`, `figures/rich.py:783-864`).
+10. **Plan waits.** A job waiting for the plan is requeued at most once per 300 s per process (`due_for_plan_retry`, `:1108-1117`), by `reader.figures` reads (`handlers/figures.py:742-750`, `:771-784`) or by a pass that follows the learner's own action (`figures/prefetch.py:1703-1759`).
+11. **Playing it.** The view carries `manim.media_file_name` (`figures/service.py:1461-1483`); the desktop's `AnimationPlayer` fetches `llmedia://localhost/<sha256-…>.mp4` (`apps/learnloop-tauri/src/components/AnimationPlayer.tsx:54`), served by `serve_llmedia` (`apps/learnloop-tauri/src-tauri/src/main.rs:109`, registered `:211`), which accepts only content-addressed mp4 names, with Range support.
+12. **The screen:** the pending line's phases "◐ writing an animation for this passage", "◐ checking it", "◐ rendering the video (manim)" from the job's heartbeat (`RichFigure.tsx:61-65`), "waiting for the ChatGPT plan" (`:53`), the fuller line under a quick figure (`:36-42`), all re-read every 5 s (`useFigures.ts:21`).
+
+- **Threads and leases:** the ingest queue's worker thread with a lease and heartbeats; the render as a child process tree.
+- **Spend:** the rich route through the same daily envelope as the figure author (`figures/routes.py:75`, `:470-474`); a prebuild on the plan only; render minutes counted per day for prebuilds (`figures/prefetch_ledger.py:449-497`).
+
+### 2.6 A figure reopened later
+
+**Desktop.** Opening a source calls `reader.figures` (`useFigures.ts:208`; `handlers/figures.py:723-761`): it may start lost rich intents (`:732-739`), then `list_figures` (`figures/service.py:3530-3541`) picks one row per version chain (`_listed` `:3197-3242`: show me off hides goal figures, unpressed prebuilds filtered, the newest shown and drawable version, a chain whose pick is withheld left out entirely), and `figure_view` presents each. A grammar figure stored with a spec that no longer parses is dropped from the list without a line (`:3538-3540`). A sketch verified under another engine or verifier version is re-run on open and a `judgment_ledger` verdict appended once per (figure, engine, verifier) (`sketch_rechecked` `:1176-1220`, `_record_reverification` `:1140-1173`). A grammar figure with no check at the current certification version gets `recheck_due`, and the desktop asks `reader.figure_recheck` when it is expanded (`FigureInline.tsx:625`; `handlers/figures.py:664-688`). The same presentation is repeated, with a variation, for figures that follow a section into other books (`section_figures` `figures/service.py:3544-3594`, §3.1).
+
+**Phone.** No path. No figure RPC is on the phone's allowlist (`tests/test_mobile_allowlist.py:649-652`; `learnloop_mobile/allowlist.py:293` has none), `reader/phone_media.py` serves pages and images only and holds no figure code (`reader/phone_media.py:1-15`), and the phone's Reader renders a book's own printed figures as `<figure>` blocks (`apps/learnloop-mobile/src/read/ReaderScreen.tsx:450-453`). The phone V4 record says figures "stay off" (`docs/reviews/phone-v2-v4-reader.md:119`).
+
+### 2.7 A figure that fails verification
+
+1. **Quick tiers.** A spec whose numeric verification fails (`verify.verify_numerics`), a sketch whose run fails (`sketch_verify.verify_sketch`), or a source check that proves a stated claim different, sends its problems to attempt 2 (`figures/service.py:2684-2696`, `:2666-2670`). After attempt 2 the row is stored `failed` with the first problem as `reason` (at most 300 characters) and up to 12 structural problems (`:2731-2734`); a figure whose claim still differs is stored but shown failed through the ledger (`_source_rejected_row` `:1497-1502`).
+2. **Records.** One `figure_author` record per attempt with its typed problem code (`figures/records.py:72-105`), so attempt 1's problems survive (`docs/reviews/refactor-b4.md:29`); the stored row keeps only the last attempt's reason.
+3. **The screen:** the figure's line reads "couldn't build a reliable version of this (reason)" (`figures/service.py:1299`; `FigureInline.tsx:33`, `:597-611`) with "try again" (a revision of a new generation).
+4. **Rich.** A rich failure is a `failed` row with one reason and no per-attempt record (§4); the fuller line reads "the fuller animation couldn't be built" with "why ▸" showing `fuller.reason` (`RichFigure.tsx:40`; `figures/service.py:1654-1657`).
+
+### 2.8 A source check (RW5c's step 3)
+
+1. **At build.** For a grammar spec that passed steps 1-2 and the switch on, `_step_three` (`figures/service.py:2442-2461`) runs `SC.check_figure` (`figures/source_check.py:523-533`): it reads the book's equations from the figure's own input spans (`read_candidates` `:192`, which may write `source_block_health` rows on the way: `_health` `:167-181`), parses them with the page's own markdown and KaTeX pipeline in the sealed wasm engine (`figures/katex_tree.py`, `figures/book_math.py`), and compares each definition drawn by bare reference in the PF sandbox (`_run_sandbox` `:518-520`; the harness text `:88-94`; limits 20 s CPU, 30 s wall `:80`). Anything it can't read is a closed reason, never `checked` (`:526-527`); an exception is a failed check that costs the figure nothing (`figures/service.py:2459-2461`).
+2. **Storage:** a `figure_source_checks` row and its `figure_source_check` judgment in the figure's transaction (`figures/service.py:2769-2771`, `SC.record` `figures/source_check.py:806`).
+3. **On open.** A stored grammar figure with no check at `CERTIFICATION_VERSION = 7` (`:69`) is due (`recheck_due` `:854`); `reader.figure_recheck` runs `SC.recheck` (`:867-905`) as an in-memory job under its own gate, at most one per figure per process.
+4. **The screen:** "matches the book's equation (checked)" per element (`FigureInline.tsx:37`), a "rebuild" button when a claim differs (`:600-603`), and the closed reasons in words (`:50-113`).
+
+- **Model calls:** none. **Spend:** sandbox CPU only.
+
+### 2.9 A prediction (formative)
+
+`reader.figure_predict` (`handlers/figures.py:899-914`) → `record_prediction` (`figures/service.py:3786`): code decides `matched` from the observed readout; a missed one queues a learner-text gap job (`_queue_formative` `:3889-3892` → `diagnosis/text_gaps/jobs.enqueue_figure_prediction`), whose model calls pass their own `FiguresGate` (`figure_admission.text_key` `figure_admission.py:323-327`). `figure_predictions` row; no attempt, evidence or scheduling write (`figures/service.py:134-141`).
+
+### Findings
+
+| Id | Severity | Finding | Evidence |
+|---|---|---|---|
+| F10D1 | high | A pressed quick build is an in-memory job on a sidecar thread, a rich build a durable queue job, a lesson figure a synchronous call on the turn's thread, and a prebuild a call on the drain thread: four execution models for one build function, with four different answers to "what happens if LearnLoop stops now" (the pressed job is lost, `LibraryJobs` keeps 64; the rich job is recovered; the lesson turn fails; the pass resumes from its ledger). | `handlers/figures.py:275`; `library_ask.py:62`, `:292-317`; `content/pipeline/jobs.py:5067-5086`; `handlers/lesson.py:172-186`; `prefetch_runtime.py:71-92` |
+| F10D2 | high | Cancelling a pressed build only marks the in-memory job cancelled: the build thread is never told, both author calls can still run, and the figure is stored and listed on the next read. The job runner's `fenced` helper exists for exactly this and figure builds don't use it. | `handlers/figures.py:708-716`, `:254-273`; `library_ask.py:205-214`, `:24-25` |
+| F10D3 | medium | A request is validated three times by three hands (the desktop's contract checks, the handler's 15 checks, the service's `_validated_request` and `check_request`), and protection is checked at the request, again in the build, again on delivery, again on every read. The rechecks are deliberate (the configuration may change mid-build); the duplicated validation is not, and the copies differ in their error codes (`SidecarError("cold_check")` against `FigureRefused`). | §2.1 steps 1-3; `handlers/figures.py:432-490`; `figures/service.py:1817-1990` |
+| F10D4 | medium | The rich job's payload (book passages, the author's context with the learner state) is stored twice: in `ingest_jobs.payload` and inside the quick figure's `verification_report` as `rich_intent`. Every reader of the report and every protection recheck has to know the intent may be there. | `figures/service.py:2884-2924`, `:2755-2757`, `:667-669` |
+| F10D5 | medium | A grammar figure whose stored spec no longer parses disappears from the Reader's list with no line and no record. | `figures/service.py:3536-3540` |
+| F10D6 | low | The source check, a check, writes `source_block_health` rows during a build as a side effect of reading. | `figures/source_check.py:167-181` |
+
+## 3. Boundaries and duplicated predicates
+
+### 3.1 Who answers each question
+
+**"May this figure be built or shown?"** The exam predicate has one owner (`content/sources/exam_material.spans_withheld`, reached through `figures/service.py:554-562`), and K1 recorded that figures use the all-exam set where the Reader's Ask uses held-out only (`docs/reviews/refactor-k1.md:27`, `:54-57`; ledger row K1-7). What surrounds it is answered in many places, each composing the predicate differently:
+
+| question | sites | how they differ |
+|---|---|---|
+| Is any span the author was sent exam material now? | `withheld_message` `figures/service.py:554`; `keys_withheld` `:581`; `row_withheld` `:597-621`; `figure_withheld` `:787-798`; `rich._withheld` `figures/rich.py:422-435`; the prefetch filter `figures/prefetch.py:990-996`; `check_request` `figures/service.py:1947-1958`; `ground`'s per-hit recheck `:989-991`; `close_horizons`' void `figures/prefetch.py:1628` | `row_withheld` adds the figure's homes and its learner-state lineage; `rich._withheld` reads the job payload's `base` and `home`; the prefetch filter checks the anchor and, separately, a planned visual's grounding keys |
+| Was the author sent learner state read from something protected now? | `learner_state.inputs_withheld` `figures/learner_state.py:420`; `service.learner_state_withheld` `figures/service.py:624-657` (the lineage); `rich.stored_learner_state_withheld` `figures/rich.py:680-691`, `intent_learner_state_withheld` `:694-702`, `_learner_state_withheld` `:722-730`, `_inherited_withheld` `:667-677`; `service._learner_inputs_unrecorded` `figures/service.py:672-684`, `_unrecorded_occupant` `:730-739`, `_recorded_input_key` `:742-751` | eight functions across two modules, three storage places for one record (`verification_report`, the `rich_intent` inside it, the job payload) |
+| Is an item's own passage under a live administration or held open by the plan? | `service.item_passages` `figures/service.py:3377`; `prefetch.item_protection` and `protected` `figures/prefetch.py:315-355`; `rich._item_protected` `figures/rich.py:438-446` → `service.rich_base_item_protected` `figures/service.py:3444`; `help.qualifying_figure` (the item's own blocks) `figures/help.py:383`; the sidecar's `_refuse_own_blocks` `learnloop_sidecar/handlers/figures.py:1388-1397` | one core (`item_passages`), three wrappers; the hint chooser and `figure.open` use `item_exclusions` instead |
+| Is a check on your own open? | the client's `cold_active` (`handlers/figures.py:446-449`, `:567-568`); `derive_policy(...) == "cold_attempt"` (`:487`, `:647`, `:1260`, `:1496`); `AttemptHost.cold` from the tutor handler's private `_item_cold` (`:1072-1075`, `:1206`); `take_step_available` (`:1078-1100`); the desktop's cold flag (`apps/learnloop-tauri/src/components/AskOverlay.tsx:310`) and its take-step decision (`askFigures.tsx:149`) | the client flag only narrows (`:567`); the server's answer is `derive_policy`, but the attempt host computes `cold` from a second source |
+| Is the switch for this place on? | `figure_admission` (13 predicates, `figure_admission.py:39-320`); `service`'s 12 wrappers (`figures/service.py:399-537`); `prefetch`'s raw `vault.config.figures.show_me_enabled` (`figures/prefetch.py:987`) and the runtime's raw `offers_enabled` (`learnloop_sidecar/prefetch_runtime.py:183`); the desktop's contract flags (`useFigures.ts:369-383`) and `algoConfig().ask.figures` (`askFigures.tsx:50-54`) | the raw reads skip the `figures.enabled` parent the predicates include (`figure_admission.py:70-78`); the passes that make them run only with figures on, so they agree today by context, not by construction |
+| May this build go on as configured now? | `FiguresGate` with `key_for` (`figures/service.py:444-471`), `rich_build_key` (`figures/rich.py:350-361`), the pass's `_key` (`figures/prefetch.py:1681-1684`), `SC.recheck_key` (`figures/source_check.py:104`), `text_key` (`figure_admission.py:323-327`); holds: `_prefetch_build_hold` (`figures/service.py:2103-2113`), `rich._prefetch_hold` (`figures/rich.py:590-612`), `power.background_hold` (`figures/power.py:277`) | one mechanism, five keys; each key is a tuple whose order and members are its admission rule |
+| May money be spent? | `FigureRoute.problem` (`figures/routes.py:512-526`) with the shared envelope (`:470-474`); the plan-only rule for prebuilds (`figures/prefetch.py:1070-1093`; `figures/service.py:2103-2113`; `figures/rich.py:606-607`) | money and "plan only" are separate rules in three modules |
+
+**"Which tier?"** The menu is code's, the pick within it the model's:
+
+| site | rule |
+|---|---|
+| `rich.tiers_allowed` `figures/rich.py:181-191` | grammar; sketch if on and the engine loads; js_animation never; manim if on, opted in and runnable |
+| `service._build` `figures/service.py:2152-2153` | no spawner, no rich tier |
+| `service.build_figure` `:2076-2079`, `LESSON_TIERS` `:205` | lessons: grammar and sketch |
+| sidecar `_start` `learnloop_sidecar/handlers/figures.py:252` | attempt hosts: no spawner |
+| `rich.attempt_hosted_job` `figures/rich.py:372-391`, `ATTEMPT_HOST_READER_ONLY` `:368` | the worker refuses an attempt-hosted job (a copy of the host refs, `:365`) |
+| sidecar `_refuse_rich`, `attempt_view`, `record_attempt_figure` `handlers/figures.py:1013-1026`, `:1344-1346` | attempt hosts never open or record a rich figure |
+| desktop `quickOnly` `apps/learnloop-tauri/src/components/askFigures.tsx:81-83` | the panel drops `fuller` again |
+| `teacher/visuals.py:277` | a lesson treats a `manim` view as failed |
+| `prefetch.run_builds` `figures/prefetch.py:1415-1418` | a planned visual: no spawner |
+| the author's status `figures/service.py:2562-2575` | the model's choice, with `why_this_tier` |
+
+**"Is this figure shown?"** `db/stores/figures.py:40` defines `SHOWN = ("verified", "illustrative")`. Literal copies: `teacher/visuals.py:277`, `:340`; the store's own `reusable` query adds `unsupported` (`db/stores/figures.py:270`); the desktop's `FigureInline.tsx:569`, `useFigures.ts:331`, `:500` and `askFigures.tsx:128`. What "shown now" means is decided by the presentation chain `_presented_row` (`figures/service.py:1571-1582`: stored verified as illustrative, panels off, sketch off, rich off, sketch re-verification, a source check that differs, the label rule), copied with one step left out in `section_figures` (`:3564-3574`), approximated by `drawable_now` (`:1258-1262`) and `shown_figure` (`:3746-3760`), and by `_listed`'s pick (`:3225-3230`).
+
+**"Is this label trustworthy?"** Labels are code's (`figures/labels.py:77-98`, `CODE_OWNED_LABELS`), and model free text that reads like one is repaired or stripped (`figures/service.py:2554-2561`, `worded_row` `:1223-1255`). The server computes a `label` per view (`_label` `:1275-1299`), and the desktop ignores it: it draws its own badge from the verification, grounding and checks (`frameBadge` `apps/learnloop-tauri/src/screens/reader/figures/FigureInline.tsx:128-133`, `manimBadge` `RichFigure.tsx:67-72`, `sketchBadge` `sketch/SketchFigure.tsx:81-84`; the DTO says so, `apps/learnloop-tauri/src/api/dto.ts:9487-9488`), except that it compares the server's label with its own "can't show this kind here" string to choose a branch (`FigureInline.tsx:595-596`). The two vocabularies already differ: the server's not-from-books label is "AI-built illustration · not from your books" (`figures/labels.py:84`), the desktop's "not from your books — LearnLoop's model's illustration · not checked against the book" (`FigureInline.tsx:32`).
+
+**Number formatting** has three implementations that must agree to the digit: the desktop's `formatValue` (`FigurePanels.tsx`, per `figures/display_format.py:3-4`), `display_format.format_value` (`:92`, also run inside the sandbox), and `help.format_value` with its own `_round_half_up` and `_js_number` (`figures/help.py:115-172`), the reveal check's copy.
+
+### 3.2 What each boundary passes, and whether each side can change alone
+
+| boundary | what passes | can each side change alone? |
+|---|---|---|
+| desktop → sidecar (14 RPCs, `handlers/figures.py:84-99`) | a request with an anchor, a goal, host references, `cold_active`, a take-step token (`:557-570`); back, a job id, then a figure view whose keys depend on four switches (`figures/service.py:1348-1373`, `:1513-1519`) and a prompt contract whose keys depend on six (`handlers/figures.py:102-131`) | no: the view's shape changes with every switch ("absent while off, so the view is P1's key for key", `figures/service.py:1359`), and the desktop re-derives shown, badges and tier rules (§3.1) |
+| sidecar handler → figure service | a `FigureRequest` (21 fields, `figures/service.py:272-325`, eight of which "set by the build, never by a client") | partly: the handler holds attempt-host rules (host resolution, take step, help rows, reveal; `handlers/figures.py:960-1470`) that belong to no package, so a second frontend would re-implement them |
+| service → rich job | a payload dict (`figures/service.py:2884-2919`) persisted in the queue and in the quick row | no: `rich` reads `service`'s protection back through function-local imports (§1.3) |
+| service → verifiers | a compiled spec or program; back, a report object whose keys `figure_view` and `sketch_rechecked` copy by name (`figures/service.py:1216-1218`, `:1425-1440`, `:1474-1482`) | a verifier can change its checks alone; not its report keys |
+| figures → concept animation pipeline | `render_scene`, `validate_scene_code`, `lint_scene_pacing`, `store_video_bytes` as a library (`figures/rich.py:754-761`, `:952`) | yes for the renderer (injectable `renderer`, `:471`); the sandbox profile is shared with the concept inspector, so a change there changes both |
+| figures (Python) → desktop wasm | `sketch-engine.wasm` and `book-math-engine.wasm` by path (`figures/sketch_engine.py:51-53`, `figures/katex_tree.py:44-46`), pinned digests | deliberately not: both sides must run the same engine bytes |
+| prefetch → service | `build_prefetch_figure` and 11 function-local reads (§1.3) | yes in one direction: nothing imports prefetch back |
+
+**What a new tier touches** (traced, not counted from a commit; §7 counts the sketch and Manim stages): the menu (`figures/rich.py:181-191`) or the build's menu (`figures/service.py:2152`); the tier sentences and status text (`figures/routes.py:318-366`); the output contract (`:291-312`, `:450-456`); the author loop's branches (`figures/service.py:2562-2699`); the reuse key (`:1762-1770`) and its alternatives (`:2169-2173`); a row predicate (`rich_row` `:540`, `sketch_row` `:1086`) and an off-state (`:1092-1114`); `drawable_now` (`:1258`); `_label` (`:1275-1299`); `figure_view`'s keys (`:1358-1379`); the records' status set (`figures/records.py:109`); the prefetch model's tier sets (`figures/prefetch_model.py:86-87`); the report's SQL literal (`reader/reader_report.py:490`); the desktop's dispatch and badge (`FigureInline.tsx:640-646`, §8) and the DTO. About 15 places in 7 files, before tests.
+
+### Findings
+
+| Id | Severity | Finding | Evidence |
+|---|---|---|---|
+| F10B1 | high | "May this figure go out now?" is answered by about twenty functions across `service`, `rich`, `prefetch`, `learner_state`, `help` and the sidecar, composing one exam predicate with lineage, homes, learner-state records, item protection and cold rules in different combinations. Each was added by a review round to close the next path (the module docstrings say so), so no single function states the rule, and a new path (a new host, a new tier) must find all of them. | §3.1 first table |
+| F10B2 | high | The sidecar handler decides attempt-host policy: host resolution with raw SQL, the take step, one hint-equivalent per figure per attempt, the reveal rows, the cost line. None of it is in a package a second frontend could call, and it borrows the tutor handler's private `_item_cold`. | `learnloop_sidecar/handlers/figures.py:960-1470`, `:1072-1075`, `:1115-1117`, `:1139-1140` |
+| F10B3 | medium | The desktop re-derives what the server already decided: whether a figure is shown (four literal copies), the badge text for all three tiers (the server's `label` is sent and unused, and its vocabulary differs), the cold flag, the take step, and the attempt hosts' quick-only rule; it branches on an English label string. | `FigureInline.tsx:128-133`, `:569`, `:595`; `RichFigure.tsx:67-72`; `askFigures.tsx:81-83`, `:128`, `:149`; `dto.ts:9487` |
+| F10B4 | medium | Tier rules are spread over ten sites in five modules plus the desktop; "attempt hosts and lessons are quick-only" is enforced five times. | §3.1 tier table |
+| F10B5 | medium | Every switch changes the wire shape ("absent while off, key for key"), so the view's keys depend on four switches (show me, sketch, rich, the source check) and the prompt contract's on six, and a frontend must handle every combination. | `figures/service.py:1348-1373`; `handlers/figures.py:102-131` |
+| F10B6 | low | Number formatting is implemented three times (TS, `display_format`, `help`), and the shown set is a literal in five places. | §3.1 |
+
+## 4. Decision points and what is recorded
+
+B4 added four record kinds (`figures/records.py:39-42`) and B5 the gate's refusal (`figure_admission.py:423-428`, `refusal_records.figure_gate_record` `refusal_records.py:269-275`). B8 left the rich jobs' per-attempt codes open (ADR-017's inventory row and open items, `docs/learnloop-architecture-vault/Decisions/ADR-017 One decision record, one trace id, one entry point.md:166`, `:169`). Every figure record is built beside its decider (in `records.py`) from what the decider noted, after it decided: B4's `AuthorAttempts` takes list appends in the loop (`figures/records.py:296-327`) and writes when the build ends (`figures/service.py:2464-2479`). The table says, for each decider, what answers "why x and not y" from stored rows today and whether the decider is a pure function that could return its record with its result (strategy §2.18 L6).
+
+| decision | decider | what answers "why" today | silent parts | pure? |
+|---|---|---|---|---|
+| Which tiers are on the menu | `rich.tiers_allowed` `figures/rich.py:181-191`, `service._build` `figures/service.py:2152-2153`, the host rules (§3.1) | `figure_requests.tiers_allowed` (`figures/service.py:2363`) and the prompt version's suffixes (`figures/routes.py:430-437`) | why a tier was off: the switch, the opt-in, `no_bwrap`, `no_manim`, `off_linux`, a lesson or attempt host (`manim_runtime_state` returns the reason, `figures/rich.py:139-160`, and nothing keeps it) | no: reads config, probes the machine (`manim --version`, cached per process, `:149-156`), loads the wasm engine |
+| Which tier the author chose | the model (V3 status, `figures/service.py:2562-2575`) | `figure_tier` judgment with the verdict and the model's own reason, at most 400 chars of prose (`:3016-3025`); `figure_author` record's `author_status` (`figures/records.py:364-369`) | nothing, but the reason is prose in `judgment_ledger`, not a code | n/a (model) |
+| Reuse or build | `_reusable` `figures/service.py:1778-1807`, the in-lock reread `:2207-2220`, `_rich_pending` `:2263-2276` | the `figure_requests` row names the figure it took (`_reused` `:2386-2389`) | which of the six keys matched (another setting's figure, a recorded-inputs key), and that it was a reuse at all: no `figure_author` record is written on the reuse paths, which return before `_author_and_store` (`:2188-2189`, `:2217-2220`) | no: reads the database |
+| Author retry and salvage | `_author_attempts_and_store` `:2482-2785` | one `figure_author` record per attempt: status, rule (`accepted`, `prediction_dropped`, `spec_invalid`, `verification_failed`, `source_differs`, `label_text`, `status_invalid`, `brief_invalid`, `model_failed`, a route refusal…), extras, counts, prompt version, model (`figures/records.py:72-105`, `:329-380`) | a refusal before the build (`check_request`, `figures/service.py:2075`) or a `FiguresChanged` stop writes none (`:2466-2469`; B4's record `docs/reviews/refactor-b4.md:37`) | no: model calls, the gate, the source check's database reads inside the loop |
+| Prediction salvage | `spec.parse_author_spec`, `sketch.parse_author_sketch` | `prediction_dropped` with a count; the stored report's `dropped_predictions` | which prediction and why, beyond its index | yes (parsers over values) |
+| Verification verdict, grammar | `verify.verify_numerics`, `check_claims`, `verified_assumptions` (`figures/service.py:2682`, `:2736-2737`) | the row's `verification`, `verification_report` (`reason` ≤300 chars, `structural` ≤12, `:2731-2734`), a `figure_verified` judgment (`:2764-2766`) | the first attempt's report is replaced by the second's (B4 keeps its codes only) | yes |
+| Verification verdict, sketch | `sketch_verify.verify_sketch` `figures/sketch_verify.py:610` | the report on the row; a re-verification judgment per (figure, engine, verifier) (`figures/service.py:1140-1173`) | | nearly: plain values in, but it loads the engine bytes from disk and reads `time.monotonic()` for its budget (`figures/sketch_verify.py:217`, `:632`) |
+| Verification verdict, source check | `source_check.check_figure` `figures/source_check.py:523` | `figure_source_checks` row and its judgment; closed reason keys | | no: reads the database (and may write block health, §2.8), runs the sandbox |
+| Verification verdict, Manim | `manim_figure.check_claims` and the render (`figures/rich.py:812-860`) | the stored row's checks, or one failure reason (`:985-988`); the job's error for a stop | every attempt but the last: no per-attempt record (B8's open item); `_repair_render`'s own outcome is folded into the one reason | no: sandbox subprocess, render subprocess |
+| Pre-build yes or no | `prefetch_model.Model.decide` `figures/prefetch_model.py:580-592` | `figure_prefetch_decisions` row and a `figure_prebuild` record with rule, EU, propensity, wait basis and estimate, blocked basis, seed, draw index (`figures/records.py:157-198`) | | yes, given the model and the generator; `decide_and_log`'s deferral and caps (`figures/prefetch.py:1134-1146`) are inline in the shell |
+| Pre-build filters | `prefetch._filtered` `figures/prefetch.py:957-1004` | one `figure_prefetch_filter` record per pass: counts by rule and up to 10 keys each (`figures/records.py:217-251`) | a pass cut by the switch writes none (`figures/prefetch.py:963`) | no: database, exam predicate, item protection |
+| Pre-build queue stops | `run_builds` `:1349-1448` | `figure_prebuild_stop` per stop (`figures/records.py:254-268`) | a switched-off or cancelled queue (`figures/prefetch.py:1372-1374`, `:1384-1386`) | no |
+| Unpressed prebuilds listed within the cue budget | `_prebuilt_within_budget` `figures/service.py:3245-3283` | nothing | which prebuilt figures were left off a section | no |
+| Admission (the gate) | `FiguresGate.check` `figure_admission.py:405-430` | one `figure_admission` record on the first refusal: rule (`vault_closed`, `figures_off`, `config_changed`, `held`) and purpose (`refusal_records.py:269-275`) | the record has no subject, so `why figure:<id>` can't reach it, only the trace; `held` carries no sub-code (exam, learner state, item protection, power, plan) | no |
+| Request refusal | `check_request` `figures/service.py:1942-1990`, the handler's checks (§2.1 step 2) | nothing: a `FigureRefused` or `SidecarError` goes back to the RPC | every refusal at the request (exam material, switches, validation, cold check, not offered) | the validation is pure over the request and config; the exam check reads the database |
+| Spend refusal | `FigureRoute.problem` `figures/routes.py:512-526`; the shared envelope | a `spend_admission`/`envelope_cap` record for the envelope (ADR-017 `:131`, per the vault sweep); a `figure_author` record with the refusal's code when inside the loop (`figures/service.py:2530-2541`) | `unrouted`, `unpriced` or `not_isolated` before the loop (`:2494-2496` raises before `attempts.start`, so the record is the "refusal before any call" one, `figures/records.py:337-342`) | no |
+| Delivery withheld | `deliver_figure` `learnloop_sidecar/handlers/figures.py:184-185`; `list_figures`/`_listed` `figures/service.py:3231-3232` | nothing | a built figure withheld at delivery or dropped from a list | no |
+| Wait estimate | `prefetch_model.wait_estimate` `figures/prefetch_model.py:358-385` | the `figure_prebuild` record's `wait_estimate_by_tier` | not shown to the learner, so there is no "shown" decision | yes |
+| Rich job stop | `run_rich_job` `figures/rich.py:470-572` | the queue job's error code and message (`content/pipeline/jobs.py:3892-3893`) | the error is replaced when the job is requeued (ADR-017's open item on `ingest_jobs.error_json`, `:169`) | no |
+| Attempt-host help | `record_attempt_figure` `learnloop_sidecar/handlers/figures.py:1297-1385` | `help_assists` and `reveal_events` rows | a take step refused, a figure not recorded (only a log event, `:1377-1379`) | no |
+| Lesson visual | `teacher/visuals.build` `teacher/visuals.py:249-280` | the lesson's turn keeps the status and code (per the vault sweep; `teacher/visuals.py:43-55` defines them) | | no |
+
+**Trace.** A pressed build runs under its RPC's trace; a pass under the queuing request's trace (`learnloop_sidecar/prefetch_runtime.py:85-86`); a rich job's records and calls under the worker's (not traced here: §3.3 of the strategy says a job continues the enqueuer's trace through a `job_enqueued` record, and I did not find figures' enqueue writing one). The `figure_author` records of one build share a trace (`figures/records.py:145-150`).
+
+### Findings
+
+| Id | Severity | Finding | Evidence |
+|---|---|---|---|
+| F10O1 | high | A rich (Manim) build keeps one failure reason; its attempts, its render repair, a claim that failed on attempt 1, and a stop that was later requeued leave no record. For the minutes-long, model-written, sandboxed tier, "why did this video fail?" is the least answerable question in the package. | `figures/rich.py:783-864`, `:985-988`; ADR-017 `:166`, `:169` |
+| F10O2 | high | Refusals at the request are silent: exam material, a switch off, a cold check, not offered, validation. The learner gets an error string; no row says that a request was made and refused, so "why didn't Show me work yesterday?" has no stored answer. | `figures/service.py:1942-1990`; `learnloop_sidecar/handlers/figures.py:413-490` |
+| F10O3 | medium | Why a tier was not on the menu (the reason `manim_runtime_state` computes) and which reuse key matched are computed and dropped; a reuse writes no `figure_author` record. | `figures/rich.py:139-160`; `figures/service.py:2188-2189` |
+| F10O4 | medium | Every record is built beside its decider from notes the decider takes (L6's "builder beside the decider"): nothing fails when the author loop gains an exit `AuthorAttempts` doesn't know, and the loop already has more exits than codes the brief named (B4's record). | `figures/records.py:296-327`; `docs/reviews/refactor-b4.md:31` |
+| F10O5 | medium | The gate's refusal record has no subject and `held` has no sub-reason, so `why figure:<id>` doesn't show that a build was stopped by protection, power or the plan. | `refusal_records.py:269-275`; `figure_admission.py:417-422` |
+| F10O6 | low | Delivery withholding, list drops and the prebuild cue budget are silent read-time decisions. | `learnloop_sidecar/handlers/figures.py:184-185`; `figures/service.py:3231-3232`, `:3536-3540`, `:3245-3283` |
+
+## 5. Functional core and shell
+
+A per-module count of database, clock, filesystem and randomness reads (grep over `figures/*.py`; the script line is in "Not verified") puts the package in three groups.
+
+**Pure today, callable with plain values:** `grammar`, `spec`, `elements`, `book_math` (given a parse tree), `verify`, `labels`, `display_format`, `records`'s builders, and `prefetch_model`, which says so (`figures/prefetch_model.py:59-62`) and takes its generator as an argument (`:569-592`). `wait_estimate` (`:358-385`), `open_posterior` (`:226-241`), `pause_posterior` (`:312-325`) and `Model.decide` all run on numbers. `request_hash` (`figures/service.py:1706-1775`) is pure over the request, the context and digests computed outside it.
+
+**Pure but for a sealed engine or a budget clock:** `sketch_verify.verify_sketch` (plain values in; it loads the engine bytes from `apps/` and reads `time.monotonic()` for its budget, `figures/sketch_verify.py:217`, `:632`), `katex_tree.Trees` (loads its wasm from disk, `figures/katex_tree.py:110-135`), `manim_figure.check_claims` (its runner is injectable, the default a sandbox subprocess, `figures/manim_figure.py:637-657`; a monotonic budget, `:778-815`).
+
+**Shell with decisions inside:**
+
+| function | what it decides | what it reads inside | could the decision be split out? |
+|---|---|---|---|
+| `prefetch.decide_and_log` `figures/prefetch.py:1096-1172` | the deferral and caps verdict (`:1134-1146`), the queue order (`:1126`) | the model (`PL.load_model`, 12 SQL reads in `prefetch_ledger`), today's render minutes and builds, the OS-entropy seed (`:1110`), the clock | yes: the model already is (`prefetch_ledger.load_model` `figures/prefetch_ledger.py:407-430` gathers, `prefetch_model` decides); the verdict loop is 13 lines over values |
+| `prefetch.horizon_at`, `close_horizons`, `_opened`, `_delivered`, `_asked` `figures/prefetch.py:1505-1676` | when a decision's horizon passed and its outcome (`opened`, `asked`, `neither`, `void`) | 15 of the module's 26 `execute` calls (`:1469-1642`), including other features' tables by raw SQL: `reader_section_progress` (`:1528`), `lessons` (`:1534`), `daily_plans` (`:1544`) | the outcome rules are per trigger kind and short; the reads are the bulk |
+| `prefetch._filtered` `:957-1004` | the ten filter rules | the exam predicate, item protection, the decided set, the build index | the order and rules are pure over a candidate's facts; each fact is a read |
+| `service._author_attempts_and_store` `figures/service.py:2482-2785` | retry, salvage, tier verdict, stored verification | the model, the gate, the sketch engine, the source check (database and sandbox) inside the loop | the per-attempt verdict (`status`, problems → next problems, rule code) is a function of the output and the verifiers' reports; the loop interleaves it with calls |
+| `service.figure_view` and `_presented_row` `:1325-1407`, `:1571-1582` | what a stored figure shows now | three to five database reads per figure (`_figure_request` `:1685-1691`, `fuller_state` `:1619-1669`, `SC.current_row` `:1493`, predictions `:1390-1392`), the sketch engine, a `judgment_ledger` write on re-verification (`:1166-1173`) | a view is a read path that may write |
+| `service._reusable` `:1778-1807` | reuse | the store per key | |
+| `rich.tiers_allowed` `figures/rich.py:181-191` | the menu | config, `sys.platform`, `bwrap` on the path, a `manim --version` subprocess (cached) | the rule is four conditions; the facts are probes |
+| `source_check.check_figure` `figures/source_check.py:523-533` | checked, differs, or a closed reason | document IR, block health (and writes it), the sandbox, the clock for its duration | |
+
+**Clock reads outside the injected clock:** `figures/service.py:1173` (a re-verification's `created_at`), `:3366` (`stored_plan_open_items`, falling back to `SystemClock`), `learnloop_sidecar/handlers/figures.py:885`, `:1093`, `:1356`, `:1460`. The build path itself takes `clock` and uses `utc_now_iso(clock)`.
+
+**Randomness:** one OS-entropy seed per prefetch pass, recorded (`figures/prefetch.py:1103-1112`; B4's proof that redrawing from it reproduces the pass, `docs/reviews/refactor-b4.md:41`); the sketch verifier's fixed seed; nothing else.
+
+### Findings
+
+| Id | Severity | Finding | Evidence |
+|---|---|---|---|
+| F10F1 | medium | The prefetch decision already has L4's shape (ledger reads gather, the model decides), but the verdict that turns a draw into `build`, `deferred_power`, `deferred_plan` or `capped`, and the outcome rules at the horizon, sit inside SQL-heavy shell functions; the horizon code reads three other features' tables directly. | `figures/prefetch.py:1134-1146`, `:1505-1556` |
+| F10F2 | medium | The author loop can't be tested without the gate, a route and (for step 3) a vault: its retry and salvage rules are interleaved with the calls and the verifiers. | `figures/service.py:2520-2699` |
+| F10F3 | medium | Presenting a figure reads the database several times per figure and can write a judgment; `reader.figures` does it for every chain on every poll (every 5 s while a rich build runs, `useFigures.ts:21`). | `figures/service.py:1325-1407`, `:1140-1173`, `:3197-3242` |
+| F10F4 | low | Six wall-clock reads bypass the injected clock in the service and the handler. | above |
+
+## 6. Comments, dead code, onboarding
+
+### 6.1 Comments
+
+The convention (strategy §2.1) is that a comment says what breaks without the line or why the obvious approach is wrong, and names no review round, ruling or stage. Counted over the 25 figures modules, `figures/__init__.py`, `figure_admission.py`, `teacher/visuals.py`, the sidecar's `handlers/figures.py` and `prefetch_runtime.py`, 30 files (lines matching each pattern; script `cnt.sh` in the orchestrator's scratch):
+
+| pattern | lines |
+|---|---:|
+| a stage name `RW5a`-`RW5d` | 317 |
+| `Codex review` | 181 |
+| `Codex re-review` | 36 |
+| `byte for byte`, `key for key`, `exactly as before`, `predecessor's` | 36 |
+| `follow-ups batch` or `follow-ups Nov` | 33 |
+| `ruling R…`, `Landing ruling`, `orchestrator ruling` | 30 |
+| `fix round`, `final round` | 24 |
+| `Codex verify`, `final verify` | 11 |
+
+All 30 files name a stage. `service.py` alone has 253 such lines, the sidecar handler 77, `prefetch.py` 46, `rich.py` 34. The module docstring of `service.py` (`figures/service.py:1-142`) is six stage sections (RW5a, RW5b, RW5d P1, P2, P2b, RW5c, P5) rather than a description of what the module does. Many comments carry real "why" content wrapped in a round's name (for example `figures/service.py:2204-2210`, "One build per input at a time (Codex review F7) … Reread inside the lock (fix round 2, F7): a build that committed between the reads above left `reused` empty"); the round's name is the noise, the reason is the content. The "byte for byte" comments mark switch-off paths that must reproduce a predecessor's prompt, key or view exactly (for example `figures/service.py:1359`, `figures/routes.py:426`, `teacher/visuals.py:27-29`): they document an invariant, but one the code can't check locally.
+
+**Good models to keep:** `figure_admission.py:22-27` (why a gate and not checks at named call sites), `:331-343` (why `FiguresChanged` is a `BaseException`), `figures/prefetch_model.py:1-62` (the model as equations, priors and their bases), `figures/sketch_engine.py:1-36` (the sealing and the caps), `figures/records.py:1-22`, `figures/prefetch_model.py:108-114` (why the wait prior's strength is one measurement).
+
+**Approach headers.** `_author_attempts_and_store` (304 lines) has three lines (`figures/service.py:2490-2492`) about the record notes, not the loop's approach; `_build` (124 lines, `:2116`) has none.
+
+### 6.2 Dead, superseded and legacy-only paths
+
+| what | evidence | status |
+|---|---|---|
+| The `js_animation` tier | `JS_ANIMATION_BUILD_FLAG = False` (`figures/rich.py:86`), so it is never on a menu (`:187`); yet it has a tier sentence (`figures/routes.py:323`), a place in the rich-menu test (`:343`, `:363`, `:395`), the records' status set (`figures/records.py:109`), the prefetch model's tier set (`figures/prefetch_model.py:86`), the report's SQL (`reader/reader_report.py:490`) and the config docstring (`config/schema.py:2748`) | a gated future tier: unreachable today, present in seven files; whether it stays is the owner's |
+| Legacy `verified` rows | nothing writes `verified` (`figures/verify.py` has no such outcome); `SHOWN` keeps it (`db/stores/figures.py:40`) and `shown_row` presents a stored one as an illustration (`figures/service.py:1038-1047`) | legacy reader for rows built before 2026-10-21; needs a row count before anyone removes it |
+| The author contracts V1 and V2 and their prompt variants | selected by the switches (`figures/routes.py:450-456`); the prompt version is assembled from five flags (`:430-437`) | live: every switch-off path must reproduce its predecessor's bytes |
+| `prefetch_decision_v1` | kept behind `figures.prefetch.pressed_waits = false` (`config/schema.py:2681`; `figures/prefetch_model.py:78-84`; `figure_wait_upgrade.py:21-22`) | live kill switch (D7's territory) |
+| `figure_wait_upgrade.py` | 226 lines, one successor link (`figure_wait_upgrade.py:1-22`) | live upgrade chain (arc D's territory) |
+| Unused public names | 20 of `service.py`'s 78 have no caller outside the module (§1.2) | not dead (used inside), but public for no caller |
+
+No figures module is unreachable except the harness (read as text, §1.4).
+
+### 6.3 What a new contributor must read to add a thing
+
+| change | must read and probably edit | count |
+|---|---|---:|
+| (a) a figure element or grammar feature | `figures/grammar.py` (if an expression form), `figures/spec.py` (the panel schema and parser), `figures/verify.py` (numeric checks), `figures/routes.py` (`GRAMMAR_TEXT`, `SPEC_TEXT`, `ADVANCED_PANELS_TEXT`, `:111-182`), `figures/elements.py` and `figures/source_check.py` if it can carry a book label, `figures/help.py` (`_readouts`, for the reveal text, `:175-201`); the desktop's `figureSpec.ts`, `figureGrammar.ts`, `FigurePanels.tsx` or `AdvancedPanels.tsx` and a corpus | 6-9 Python and 3-5 desktop files |
+| (b) a verification check | one verifier (`verify.py`, `sketch_verify.py`, `manim_figure.py` or `source_check.py` with its harness and `book_math.py`), its version constant (`VERIFIER_REPORT_VERSION`, `CERTIFICATION_VERSION` `figures/source_check.py:69`) which triggers rechecks on open, the records' problem codes (`figures/records.py:72-105`) if it's a new exit, the desktop's reason copy (`FigureInline.tsx:50-113`) if it has a closed reason; for the sketch, the desktop parity corpus | 2-5 |
+| (c) a new tier or renderer | §3.2's list: the menu, prompt text, contract, author loop, reuse key, row predicate, off-state, `drawable_now`, `_label`, the view, records, prefetch model, report SQL, the desktop's dispatch, badge and DTO | about 15 places in 7 Python files and 3-4 desktop files |
+| (d) a new place that offers Show me | the handler's validation and host rules (`learnloop_sidecar/handlers/figures.py:413-490`, the RPC input's origin literal `:563`), `service.ORIGINS` and the goal-author table (`figures/service.py:198`, `:1851-1852`), the host switch in `key_for` (`:444-463`), the host's tier rule (§3.1), its protection (a caller policy), its delivery (help rows for an attempt host), the desktop entry and its contract flag | 4-6 Python and 2-4 desktop files |
+
+The minimum reading before any of these: `service.py` (to find the branch), `figure_admission.py` (the switches and the gate), `routes.py` (the prompt is assembled by string replacement with asserts, `figures/routes.py:400-427`), and the review files of the stage that last touched the area, because the comments point there.
+
+### Findings
+
+| Id | Severity | Finding | Evidence |
+|---|---|---|---|
+| F10C1 | high | About 630 comment and docstring line matches (a line can match two patterns) name a stage, a review round or a ruling, and `service.py`'s module docstring is a stage history. A reader can't tell from the code which rules are invariants and which were one round's patch; the reasons are often there, under the names. | §6.1 counts; `figures/service.py:1-142`, `:2204-2210` |
+| F10C2 | medium | The switch-off invariants ("byte for byte", 36 lines) are comments, not tests next to the code: each new switch multiplies the prompt, key and view variants the next change must preserve. | `figures/routes.py:400-437`; `figures/service.py:2169-2179`, `:1348-1373` |
+| F10C3 | medium | Adding a tier touches about 15 places; adding a place that offers Show me needs the handler's 15 checks understood first. | §6.3 |
+| F10C4 | low | `js_animation` is unreachable but present in seven files; legacy `verified` rows keep a presentation path. | §6.2 |
+
+## 7. Change cost, counted
+
+From `git log`/`git show` on non-merge commits (a delegated sweep; the single commits below I re-counted with `git show --stat`, the stage unions are the sweep's and are listed under "Not verified"). Groups: **figures** = the scope's Python files; **other src**; **desktop** (source, tests, corpora); **tests** that assert behaviour; **pins** = goldens, snapshots, fixtures, `tests/cli_surface.json`, `tests/goldens/*`, successor and upgrade tests that only re-point a version or the head fixture, and the head fixture (about 24 files per migration); **generated** = `docs/learnloop-architecture-vault/Reference`.
+
+**Figures' history.** 109 non-merge commits touch `src/learnloop/figures` since 2026-10-01, the package's whole history (the first is `f5f96ec7d9`, 2026-10-20). The files outside `figures/` most often edited with it (re-counted): `learnloop_sidecar/handlers/figures.py` 28, `params/parameter_registry.py` 20, `db/stores/figures.py` 14, `figure_admission.py` 13, `config/schema.py` 13, `apps/learnloop-tauri/src/screens/reader/figures/useFigures.ts` 11.
+
+### 7.1 Single changes
+
+| kind | commit | figures | other src | desktop | tests (behaviour) | pins | generated | total |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| (a) grammar: a bad prediction drops itself, not the figure | `214c206ff1` (2026-11-08) | 6 (`routes`, `service`, `sketch`, `sketch_verify`, `spec`, `verify`) | 0 | 0 | 1 | 1 in a follow-up commit (`1975294a0c`, `tests/fixtures/rw5c_switch_off_golden.json`: "214c206ff1 bumped both prompt versions") | 0 | 7 + 1 |
+| (b) a sketch check: claims checked at every prediction's graded step | `db1d84da96` (2026-10-31) | 1 (`sketch_verify`) | 0 | 3 (two corpora, one test) | 3 (two are corpus helpers) | 0 | 0 | 8 (with its review file) |
+| (b) a book-math reading: `\cdots` in words, certification 6 → 7 | `8974d41869` (2026-11-05) | 2 | 0 | 0 | 3 | 0 | 0 | 5 |
+| (d) the teacher's visuals, first commit | `463f9a3041` (2026-11-02) | 3 (`service`, `teacher/visuals`, sidecar handler) | 4 (`teacher/contracts`, `teacher/service`, the doctrine paragraph, `handlers/lesson`) | 0 | 0 | 0 | 0 | 8 (of 22 for the stage) |
+| (e) a prompt and a contract: the figure author's learner state | `32a29ab775` (2026-11-01) | 4 | 2 (`ai/disclosures`, `params/parameter_registry`) | 0 | 0 | 0 (config 2) | 0 | 8 |
+| a successor: the figure wait estimate (mvp-0.58) | `afd5a257bc` (2026-11-10) | 4 | 9 (the upgrade module, `algorithm_versions`, CLI, registry, sidecar context) | 0 | 2 new | 2 (`cli_surface.json`, `effective_defaults.toml`) + about 32 successor tests that bump `mvp-0.57` → `mvp-0.58` | 0 | 70 |
+
+### 7.2 Whole stages (the sweep's unions)
+
+| kind | stage | figures | other src + config | desktop | tests | pins (head fixture, successor re-points, goldens) | generated |
+|---|---|---:|---:|---:|---:|---:|---:|
+| (a) four advanced panels | RW5b (19 commits) | 6 | 14 | 19 | 11 | 0 | 412 |
+| (c) checked labels, book math | RW5c (47 commits matching "RW5c") | 17 | 12 + 1 migration | 21 + 15 engine files | 69 | 24 + 16 + 4 | 560 |
+| (c) the sketch tier | RW5d P2 (29 commits) | 9 | 6 | 29 + 13 engine files | 17 | 0 | 459 |
+| (c) the Manim tier | RW5d P2b (18 commits) | 7 | 13 | 8 + 2 | 15 | 0 | 462 |
+| (d) Show me from the tutor and the Ask rail | RW5d P1 (13 commits) | 5 | 18 + 1 migration | 16 + 2 | 37 | 24 + 15 | 428 |
+| (d) figures on attempt hosts | RW5d P3 (21 commits) | 6 | 23 + 1 migration | 11 + 2 | 43 | 24 + 15 | 467 |
+| (d) the teacher's visuals | RW5d P4b (9 commits) | 3 | 7 | 4 | 2 | 1 | 0 |
+
+### 7.3 What the counts say
+
+- **A change inside one concern is small:** a grammar or verification change edits 2-6 figure files and 1-3 tests (§7.1).
+- **A prompt change pays in pins, not code.** `214c206ff1` changed `routes.py` and needed a separate commit to re-record the switch-off golden; since B4 (`0ed4761bf0`, 2026-11-10) a prompt change also re-records `tests/fixtures/figure_prompts_golden.json` (`FIGURE_PROMPTS_WRITE_GOLDEN=1`). No prompt has changed since that golden was written.
+- **A new tier or place costs 15-60 source and desktop files and 15-70 tests**, and most of the size is plumbing every stage shares: a migration brings the head fixture (24 files) and about 15 successor tests that re-point it; a config key brings `config/schema.py`, `params/parameter_registry.py` and, since Nov 9, the defaults golden and the CLI surface; each regeneration rewrote 400-560 generated notes (before the stamps were removed). These are arc A and D's costs, not figures'.
+- **The figures-specific part of a tier** is the §3.2 list (about 15 places in 7 Python files) plus 8-29 desktop files: the tier is implemented twice, once to author and verify and once to draw.
+
+### Findings
+
+| Id | Severity | Finding | Evidence |
+|---|---|---|---|
+| F10H1 | medium | A new tier costs about 15 places across 7 Python modules and the desktop, because the tier is a branch in the author loop, the reuse key, the presentation chain, the label, the view, the records and the prefetch model rather than one module. | §3.2; §7.2 |
+| F10H2 | medium | The sidecar handler is the most co-edited file (28 of 109 commits): every new place or rule edits it, because it holds policy (§3, F10B2). | §7 history |
+| F10H3 | low | A prompt change edits one file and re-records two goldens (the switch-off golden and, since B4, the prompt golden). | `1975294a0c`; `docs/reviews/refactor-b4.md:53` |
+
+## 8. What the learner sees (input to the UX journey audit)
+
+Problems only; nothing here proposes a screen. Desktop paths are under `apps/learnloop-tauri/src/`; the delegated survey's claims used here were spot-checked at the lines cited.
+
+### 8.1 Every state a request can be in, and what each screen shows
+
+| state | backend knows | Reader (`screens/reader/figures/`) | Ask panel on practice, feedback, workbench (`components/askFigures.tsx`) | lesson (`screens/LessonScreen.tsx`) |
+|---|---|---|---|---|
+| not offered | which switch, offline, no route | button absent (`ReaderScreen.tsx:497`; `AskRail.tsx:303-305`) | absent (`askFigures.tsx:50-54`) | no visual in the turn |
+| waiting, quick | the job's state only (an in-memory job has no phase) | "◐ building an interactive version — keep reading" or "…from your words · keep reading" (`FigureInline.tsx:182`; `showMe.ts:16`), a cancel link, polled every 1.5 s with no overall timeout (`useFigures.ts:18`, `:317-321`) | "◐ building an interactive version · keep working" (`askFigures.tsx:33`), polled every 400 ms, no timeout, no cancel (`:47`, `:98-104`) | the turn waits on the figure (§2.3) |
+| waiting, rich | the job's phase from its heartbeat; queued position, plan wait | "◐ writing an animation for this passage" / "◐ checking it" / "◐ rendering the video (manim)" (`RichFigure.tsx:61-65`), re-read every 5 s (`useFigures.ts:21`); "◐ the animation is waiting for the ChatGPT plan" (`RichFigure.tsx:53`) | never (quick only) | never |
+| how long | nothing for a press: the only wait estimate in the code is the pre-builder's W (`figures/prefetch_model.py:358-385`), used to decide, never shown | no estimate anywhere (the survey found no wait or ETA field under `src`; `RichFigure.tsx:60` says "no percentages") | none | none |
+| partial | a quick figure shown, its fuller version pending, waiting, failed or cancelled (`figures/service.py:1619-1669`) | the fuller line: "◌ a fuller animation is being written · keep reading", "◇ a fuller animation is ready", "the fuller animation is waiting for the ChatGPT plan", "the fuller animation couldn't be built" with "why ▸" (`RichFigure.tsx:36-42`) | fuller dropped (`askFigures.tsx:81-83`) | fuller dropped (`LessonScreen.tsx:556`) |
+| failed verification | the reason (≤300 chars), the structural problems, every attempt's codes in `figure_author` records | "couldn't build a reliable version of this" with the reason (`FigureInline.tsx:33`, `:597-611`; server `figures/service.py:1299`), "try again" | "couldn't build an interactive version of this" (`askFigures.tsx:39`, `:260`) | "couldn't build a figure for this step" (`LessonScreen.tsx:520`) |
+| failed build (error) | a `FigureRefused` or `SidecarError` code (`capped`, `unrouted`, `unavailable`, `figures_changed`, `storage_busy`, …) | the error's message, or "couldn't build an interactive version"; the code is stored on the pending line and never rendered (`useFigures.ts:343-345`; `FigureInline.tsx:258-260`) | the message, or the generic line (`askFigures.tsx:260`) | `unavailable` for route refusals, `failed` otherwise (`teacher/visuals.py:262-263`; `LessonScreen.tsx:520-522`) |
+| refused (protection, cold check, not offered, switch) | the refusal code and an English message | the server's message as an error, no distinct state | the message; a cold check first asks for the take step (`askFigures.tsx:149-162`) | `withheld`: "…it would give an answer away, or its passage is held out now" (`LessonScreen.tsx:521`) |
+| refused for spend | `capped` with "Today's figure budget ($x) is used" (`figures/routes.py:519-522`) | the message only; no budget state | the message | `unavailable` |
+| withheld at delivery | `{"figure": null, "withheld": true}` (`learnloop_sidecar/handlers/figures.py:184-185`) | the pending line disappears and nothing is said: `withheld` is never read (`useFigures.ts:323-340`; `api/dto.ts:9709` declares it) | the generic failed line | n/a |
+| cancelled | the job marked cancelled; the build goes on (F10D2) | the line goes; the figure appears on a later read | no cancel | n/a |
+| lost (sidecar restarted) | the in-memory job is gone: "That figure request is no longer kept; ask again." (`learnloop_sidecar/handlers/figures.py:704`) | the error message on the pending line | the message | n/a |
+| stale | the sketch engine or verifier changed; a book check is due or differs; a switch turned off since | "couldn't run under this version · rebuild" (`figures/service.py:253`, `:1210-1212`); "rebuild" when a claim differs (`FigureInline.tsx:600-603`); a recheck runs on expand (`:625`); "can't draw this yet" or "can't show this kind here" for a switched-off kind (`figures/service.py:1298`, `figures/rich.py:103`) | same view | not shown when no longer shown (`teacher/visuals.py:334-341`) |
+| disappeared | a stored spec that no longer parses (`figures/service.py:3538-3540`); a pick withheld now (`:3231-3232`) | gone from the list with no line | | |
+| opt-in | the Manim tier needs the standing opt-in | an inline "allow · not now" line (`RichFigure.tsx:54-57`; `FigureInline.tsx:682`) | never | never |
+| attempt-host help | counted, free, not recorded, disabled (`learnloop_sidecar/handlers/figures.py:1297-1385`) | n/a | "counts as a hint" or "free" from `countsAsHint` (`askFigures.tsx:251`), copy for not recorded and disabled (`:129-135`); the take-step banner (`:162`); the server's `help.line` and `help.message` text is not rendered | n/a |
+
+### 8.2 Where the backend knows a reason the screen can't show
+
+- The error **code** of every failed build (stored, not rendered), so "budget used", "no route", "switched off mid-build" and "vault busy, try again" look alike except for their message text.
+- **Withheld at delivery**: the backend says why nothing came; the Reader shows nothing.
+- **Why a tier wasn't offered** (no `bwrap`, no Manim, not opted in, a lesson or attempt host): computed (`figures/rich.py:139-160`), not sent.
+- **How long**: no estimate exists for a press; the pre-builder's W is the only measured wait and the Reader never sees it.
+- **What the rich job is doing beyond its phase**: attempt 2, a render repair, a claim that failed; only the last reason reaches "why ▸".
+- **That a cancel didn't cancel**.
+
+### 8.3 Where desktop and phone differ
+
+- **The phone has no figures at all**: no Show me, no reopening, no fuller line, no video (§2.6). The phone's Reader shows the book's own printed figures as `<figure>` blocks (`apps/learnloop-mobile/src/read/ReaderScreen.tsx:450-453`). A figure built on the desktop for a passage is invisible when the learner reads that passage on the phone; whether that's by design beyond V4's "stay off" is not recorded.
+- **Within the desktop**, four hosts show the same build four ways (§8.1 columns): different pending copy, poll rates (1.5 s, 400 ms, 5 s), cancel or none, timeout none, and three failure vocabularies.
+
+### Findings
+
+| Id | Severity | Finding | Evidence |
+|---|---|---|---|
+| F10U1 | high | A built figure withheld at delivery disappears from the Reader with no word; the response says `withheld` and nothing reads it. | `learnloop_sidecar/handlers/figures.py:184-185`; `useFigures.ts:323-340`; `api/dto.ts:9709` |
+| F10U2 | high | No wait estimate for any press, and polling has no timeout: a stuck quick build shows "building…" forever on the Reader and the Ask panel, and the Ask panel can't be cancelled. | `useFigures.ts:317-321`; `askFigures.tsx:98-104` |
+| F10U3 | high | Cancel doesn't cancel: the build and its paid calls go on, and the figure appears later. | F10D2 |
+| F10U4 | medium | Failure states are one generic line per host: the code is dropped, spend refusals and protection refusals look like any error, and the rich failure's "why ▸" shows only the last attempt's reason. | `useFigures.ts:343-345`; `FigureInline.tsx:258-260`; `figures/rich.py:985-988` |
+| F10U5 | medium | The same figure is presented by four hosts with different copy, poll rates and cancel rules; the badges are the desktop's own vocabulary, not the server's label. | §8.1; §3.1 |
+| F10U6 | medium | No figure reaches the phone, including figures the learner made for the passage being read there. | §8.3 |
+| F10U7 | low | A figure can vanish from the list (unparseable spec, withheld pick) without a line. | `figures/service.py:3231-3232`, `:3538-3540` |
+
+## 9. The vault notes for figures and videos
+
+The vault (`docs/learnloop-architecture-vault/`) was swept by a delegated read; the verdicts below were spot-checked at the lines named.
+
+**Missing (the Nov 8 map's finding stands).** No Concept, Workflow, Architecture, Map or Example note explains figures or explanation videos as a feature: the tiers and how one is chosen, verification and what "checked" means, code-owned labels, the source check, the pre-build model, admission and spend, the rich job and its sandbox, protection's rechecks, or the attempt-host rules. `Home.md` and the Maps don't mention them. The Architecture Overview's layer table has no `figures` (or `teacher`) entry (`Architecture/Architecture Overview.md:66-73`).
+
+**True.** The debugging notes are current for what they cover: `Workflows/Debug a decision.md:31` (a failed figure and a pre-build are `why` targets), `:84-86` (the pre-build rules and, from mvp-0.58, `wait_estimate_by_tier`; checked against `figures/records.py:182-186` and `figures/prefetch_model.py:505-507`); `Workflows/Inspect Persistent State.md:180-192` (the `figure` subject and the shared cap's `spend_admission`); `Architecture/Desktop Architecture.md:118` (`llmedia://` with Range for video seeking; `apps/learnloop-tauri/src-tauri/src/main.rs:109`); ADR-017's figure rows (kinds, subject, detail table, the open rich-attempt item at `:166`, `:169`).
+
+**Stale.**
+- `Architecture/AI Architecture.md:53` lists the routes as "grading, canonical ingest (and retry), authoring, tutor QA, teach-back, rung variants, animation, and transcription"; `figure_author`, `figure_rich_author` and `figure_prefetch_judge` (`figures/routes.py:70`, `figures/rich.py:79`, `figures/prefetch.py:127`) are among those it leaves out.
+- ADR-017's example `decided_by` value `prefetch_eu_v1` (`Decisions/ADR-017 One decision record, one trace id, one entry point.md:61`) doesn't exist; a `figure_prebuild` record's `decided_by` is the model version, `prefetch_decision_v1` or `v2` (`figures/records.py:194`, `figures/prefetch_model.py:81-84`).
+
+**Generated reference.** `Reference/Modules/learnloop/figures/` has a note for each of the 25 modules, the init and the package (27 files), plus notes for `figure_admission`, `figure_wait_upgrade`, `teacher/visuals`, `reader/phone_media`, the sidecar handler and both stores; the table notes exist for every figure table; the desktop notes cover `screens/reader/figures/` and `sketch/`. They describe each file, not the feature.
+
+### Findings
+
+| Id | Severity | Finding | Evidence |
+|---|---|---|---|
+| F10V1 | high | No note explains figures or videos: a contributor's only map is `service.py`'s stage-history docstring and the review files. | above; `figures/service.py:1-142` |
+| F10V2 | low | The AI architecture note's route list and ADR-017's `prefetch_eu_v1` example are stale. | `Architecture/AI Architecture.md:53`; ADR-017 `:61` |
+
+## Possible bugs found (for the ledger)
+
+The rules ask for a row in `docs/reviews/refactor-bug-ledger.md` per bug found; this step's brief limits its output to this document, so the candidates are listed here for the orchestrator to file (as K9 did).
+
+| Candidate | Where | What |
+|---|---|---|
+| K10-1 | `learnloop_sidecar/handlers/figures.py:708-716`, `:254-275`; `learnloop_sidecar/handlers/library_ask.py:205-214` | `reader.figure_job_cancel` only marks the in-memory job: the build thread goes on, both author calls may be paid, and the stored figure lists on the next read. Traced, not run. |
+| K10-2 | `apps/learnloop-tauri/src/screens/reader/figures/useFigures.ts:323-340`; `learnloop_sidecar/handlers/figures.py:184-185` | A figure withheld at delivery returns `withheld: true`, which the Reader never reads: the pending line vanishes with no explanation. Learner-visible. |
+| K10-3 | `content/pipeline/jobs.py:5067-5086` | A rich job's enqueue writes no `job_enqueued` record (only `db/stores/{diagnoses,followup_serve,learner_gaps}.py` and `diagnosis/chain_records.py` call `record_job_enqueued`), so per strategy §3.3 the worker can't continue the press's trace. Not traced inside the ingest runner; may be covered another way. |
+| K10-4 | `Decisions/ADR-017 …md:61`; `Architecture/AI Architecture.md:53` | Two stale doc lines (F10V2). |
+| K10-5 | `figures/labels.py:84`; `apps/learnloop-tauri/src/screens/reader/figures/FigureInline.tsx:32`, `:595` | The not-from-books badge says different things on the server and the desktop, and the desktop branches on the server's English label. The DTO comment (`api/dto.ts:9487`) says the desktop draws its own badge on purpose; whether the server's copy should match is the owner's or the UX audit's. |
+
+## Not verified
+
+- **Nothing was run** except the AST sweep (`sweep_k10.py`, K9's script scoped to figures), a `grep`-count script (`cnt.sh`), a name-use script over `service.py` (`fs_names.txt`) and read-only `git log`/`git show`. The import graph is static; string imports were not searched beyond grep for module paths. The per-module database, clock and filesystem counts in §5 are a grep heuristic (`connect(`, `repository.`, `.execute(`; `time.*`, `datetime.now`, `utc_now`, `SystemClock`; `open(`, `read_text`, `Path(`, `subprocess`, `__file__`), read only where cited.
+- **The `service.py` caller map (§1.2)** comes from a regex over `FS.<name>` and `from …service import`; docstring mentions can count as uses (for example `prefetch_ledger.py` for `build_figure`), so "no caller" is the reliable direction.
+- **Delegated and spot-checked:** the desktop survey (checked: `useFigures.ts:18-28`, `:315-346`, `:331`, `:500`; `FigureInline.tsx:30-37`, `:125-133`, `:182`, `:255-262`, `:569`, `:595-596`, `:600-603`, `:625`, `:640-646`; `askFigures.tsx:33`, `:50-54`, `:64-69`, `:81-83`, `:98-105`, `:128-135`; `RichFigure.tsx:36-65`, `:67-72`, `:207-213`; `SketchFigure.tsx:81-84`; `AskRail.tsx:143`; `LessonScreen.tsx:519-522`, `:556`; `AskOverlay.tsx:308-311`, `:1295-1297`; `AnimationPlayer.tsx:54`; `src-tauri/src/main.rs:109`, `:211`; `api/dto.ts:9487-9488`, `:9705-9712`). Not checked: the sketch compartment and frame guard (`sketchCompartment.ts`, `frame_guard.rs`), `ConceptAnimationSection.tsx`, `TutorOffers.tsx`, `LibraryAnswer.tsx`, `HintPanel.tsx`, the poll's lifetime logic (`useFigures.ts:247-271`) and the Rust `llmedia` Range code beyond its entry point.
+- **Delegated change-cost unions (§7.2)** are the sweep's; I re-counted only the single commits in §7.1 and the co-edit table. Its stage grep is by subject tag, so a stage's union may include or miss commits (my own grep for "P4b" finds 15 commits where the sweep counted 9).
+- **Delegated vault sweep:** checked `Architecture/AI Architecture.md:53`, `Architecture/Architecture Overview.md:66-73`, ADR-017 `:61`, `:166-169`, `Workflows/Debug a decision.md:31`, `:84-86`, `Architecture/Desktop Architecture.md:118` and the module-note listing; not the table and desktop note contents.
+- **Not traced:** the lesson turn's own waiting UI (§2.3 step 5); the ingest runner's lease and heartbeat code for `figure_rich` beyond `enqueue_figure_rich` and `handle_figure_rich`; `pf_sandbox`'s isolation; whether TeX inside the render sandbox works on this machine (the mounts are read; nothing was run); the grounding retrieval's own calls and records; `sketch.py`, `elements.py`, `book_math.py`, `katex_tree.py`, `labels.py` beyond the lines cited; `learner_state.py` beyond its signatures; the prediction path beyond `record_prediction`'s head.
+- **No data:** no vault or backup was opened, so how often builds are refused, withheld at delivery, cancelled, or fail per tier, and how many legacy `verified` rows exist, are unmeasured.

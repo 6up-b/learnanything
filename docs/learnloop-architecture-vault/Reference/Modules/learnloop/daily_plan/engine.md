@@ -618,6 +618,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_plan_off_rows_serve_the_open_queue_whatever_the_router`
   - `test_plan_on_router_off_is_dl1s_deterministic_pair`
   - `test_plan_on_router_on_keeps_the_containers_invariants`
+  - `test_router_off_places_no_randomized_check`
 - [tests/test_daily_plan_owner_decisions.py](../../../../../../tests/test_daily_plan_owner_decisions.py) — direct import
   - `test_plan_served_attempts_have_the_daily_plan_serving_kind`
   - `test_reentry_stays_short_and_keep_going_leads_with_new_material`
