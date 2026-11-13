@@ -2930,13 +2930,19 @@ def _run_synthesis(
     # A completed shard is filed under its first pass's request key: a key of
     # its own (labels and inputs, as before) kept answering after a prompt or
     # schema edit that every pass request reflects. Budgets stay out of it, so
-    # a retry under revised ceilings still reuses the shard.
+    # a retry under revised ceilings still reuses the shard. The key names the
+    # first request only, so a shard that also had a span round is never
+    # answered here: its second request depends on the span cap and count and
+    # on the spans' text, and a changed one must be sent. Its passes run again,
+    # each answered by its own checkpoint when unchanged.
     shard_states: list[tuple[int, list[dict[str, Any]], str, dict[str, Any] | None]] = []
     base_reserves = {}
     for ordinal, shard in enumerate(shards):
         checkpoint, tokens = pass_request(base_context(ordinal, shard))
         cached = repository.synthesis_shard_result(checkpoint.key)
         cached = cached if cached and cached.get("output") else None
+        if cached is not None and int(cached["output"].get("span_request_count") or 0):
+            cached = None
         shard_states.append((ordinal, shard, checkpoint.key, cached))
         answers.shard_keys.append(checkpoint.key)
         answers.pass_keys.append(checkpoint.key)
