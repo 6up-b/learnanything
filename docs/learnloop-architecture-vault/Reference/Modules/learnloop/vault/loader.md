@@ -290,6 +290,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/hint_h2a_review_round2_helpers.py](../../../../../../tests/hint_h2a_review_round2_helpers.py) — direct import
 - [tests/hint_h2b_review_helpers.py](../../../../../../tests/hint_h2b_review_helpers.py) — direct import
 - [tests/hint_service_helpers.py](../../../../../../tests/hint_service_helpers.py) — direct import
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/ih6_workbench_open_item_helpers.py](../../../../../../tests/ih6_workbench_open_item_helpers.py) — direct import
 - [tests/intent_fakes.py](../../../../../../tests/intent_fakes.py) — direct import
 - [tests/km3_projections_helpers.py](../../../../../../tests/km3_projections_helpers.py) — direct import
@@ -1553,6 +1554,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
   - `test_f20_what_a_crashed_run_pinned_closes_with_the_exhausted_job`
   - `test_reserved_questions_and_what_quotes_them_stay_out_of_the_authors_context`
+  - `test_the_mint_and_batch_paths_refuse_a_reserved_question_at_the_tag_only`
   - `test_wording_an_ordinary_item_already_shows_is_no_match`
 - [tests/test_followup_single_use.py](../../../../../../tests/test_followup_single_use.py) — direct import
   - `test_an_exam_never_reserves_one`
@@ -3161,6 +3163,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_kill_switch_restores_dont_know_exactly`
   - `test_the_tui_worked_answer_is_recorded_as_a_reveal_and_primes_the_retry`
 - [tests/test_stuck_prompt_replay.py](../../../../../../tests/test_stuck_prompt_replay.py) — direct import
+  - `test_a_recorded_stuck_answer_replays_as_stuck_under_a_tag_that_does_not_offer_the_prompt`
+  - `test_an_attempt_an_older_tag_wrote_replays_with_no_stuck_declaration_at_the_head`
   - `test_historical_dont_know_rows_replay_unchanged_under_the_successor`
   - `test_the_kill_switch_never_changes_how_stuck_answers_replay`
 - [tests/test_subject_registry.py](../../../../../../tests/test_subject_registry.py) — direct import

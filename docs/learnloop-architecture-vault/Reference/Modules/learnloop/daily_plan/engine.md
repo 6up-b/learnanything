@@ -890,6 +890,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r2_done_for_today_on_a_pending_stop_records_that_stop_accepted`
   - `test_r3_a_refused_keep_going_leaves_no_override_receipt`
   - `test_r3_keep_going_commits_its_override_with_the_plan_update`
+- [tests/test_mobile_v2_objective_stop.py](../../../../../../tests/test_mobile_v2_objective_stop.py) — direct import
+  - `test_objective_f7_done_for_today_on_the_pending_stop_leaves_the_held_work_for_the_desktop`
+  - `test_objective_f7_keep_going_overrides_the_pending_stop_in_place_and_keeps_the_held_work`
+  - `test_objective_f7_the_stop_drawn_past_held_work_is_offered_on_the_phone`
 - [tests/test_mobile_v2_plan.py](../../../../../../tests/test_mobile_v2_plan.py) — direct import
   - `test_a_none_origin_never_enters_the_device_branch`
   - `test_j1_a_read_never_crosses_past_held_work_and_next_does_once`
@@ -909,6 +913,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f6_the_check_is_a_phone_origins_too`
 - [tests/test_mobile_v3_carried.py](../../../../../../tests/test_mobile_v3_carried.py) — direct import
 - [tests/test_mobile_v3_codex_review.py](../../../../../../tests/test_mobile_v3_codex_review.py) — direct import
+- [tests/test_objective_refinement.py](../../../../../../tests/test_objective_refinement.py) — direct import
 - [tests/test_placement_unevidenced_return.py](../../../../../../tests/test_placement_unevidenced_return.py) — direct import
   - `test_the_plan_admits_it_as_new_material`
 - [tests/test_plan_determinism.py](../../../../../../tests/test_plan_determinism.py) — direct import

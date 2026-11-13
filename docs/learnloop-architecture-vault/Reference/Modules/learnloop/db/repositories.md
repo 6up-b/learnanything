@@ -1634,6 +1634,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/hint_h2a_review_round2_helpers.py](../../../../../../tests/hint_h2a_review_round2_helpers.py) — direct import
 - [tests/hint_service_helpers.py](../../../../../../tests/hint_service_helpers.py) — direct import
 - [tests/hypothesis_marks_context_helpers.py](../../../../../../tests/hypothesis_marks_context_helpers.py) — direct import
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/ingest_runner_helpers.py](../../../../../../tests/ingest_runner_helpers.py) — direct import
 - [tests/instruct_handoff_ih0_helpers.py](../../../../../../tests/instruct_handoff_ih0_helpers.py) — direct import
 - [tests/intent_fakes.py](../../../../../../tests/intent_fakes.py) — direct import

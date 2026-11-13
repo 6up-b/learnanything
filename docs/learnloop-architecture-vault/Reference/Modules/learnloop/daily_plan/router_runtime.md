@@ -214,6 +214,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/instruct_handoff_ih0_helpers.py](../../../../../../tests/instruct_handoff_ih0_helpers.py) — direct import
 - [tests/router_model_fakes.py](../../../../../../tests/router_model_fakes.py) — direct import
 - [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — direct import
@@ -225,6 +226,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_generation_receipts_are_in_the_daily_total`
   - `test_f1_generation_spend_refuses_the_routers_own_next_request`
 - [tests/test_followup_next_matrix.py](../../../../../../tests/test_followup_next_matrix.py) — direct import
+- [tests/test_mobile_v2_objective_stop.py](../../../../../../tests/test_mobile_v2_objective_stop.py) — direct import
+- [tests/test_objective_refinement.py](../../../../../../tests/test_objective_refinement.py) — direct import
 - [tests/test_plan_determinism_landing.py](../../../../../../tests/test_plan_determinism_landing.py) — direct import
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
   - `test_a_guard_record_that_cannot_be_built_still_refuses`
