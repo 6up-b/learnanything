@@ -140,7 +140,7 @@ fail them; the earlier 20 files are untouched (the extra record is only in the n
 Nominations on were not added: they change only the neighbourhood's content (the head's, K2.4b), which reaches the call
 through the same context builder; `test_graph_nomination_ingest` covers the path and passes.
 
-All 25 passed under `PYTHONHASHSEED` 0-7 and `-n 4` at the base; at the tip they pass unchanged.
+At the base the 24 cases then present passed under `PYTHONHASHSEED` 0-7 and `-n 4`; at the tip all 25 pass unchanged under the same eight seeds and `-n 4`.
 
 ## Measures
 
@@ -184,3 +184,125 @@ the two modes' small call functions, and four kept booleans with their documenta
    production observer is what writes receipts).
 8. **Unused imports** after the move were removed with `ruff check --select F401 --fix` on the two files; every other
    edit was a short script replacing one exact block (asserted to occur once) or the Edit tool.
+
+## Part B: splitting an oversized append (design only, not built)
+
+Today an append whose request is over `append_input_ceiling` (84,000 by default) is refused before anything is paid
+(K3.4: typed `append_input_over_ceiling`, not retryable, shown on the book card as "too much to write at once"). Since
+K3.2 sends only new units, this happens when many units are new at once: a long member added to an existing map, a
+revision adopted with most units changed, `--new-revision` sending revisions whole. The strategy replaces the refusal
+with a split by new units into checkpointed passes. After Part A this is a change to the append's `SynthesisCall` and
+`_AppendBudget`, not a second call path.
+
+### How new units are grouped into passes
+
+- **The unit is a unit inventory**, as the bootstrap's shards are: the chosen inventory of one source unit, never cut.
+- **Greedy, in order** (`select_new_inventories`' order: revision, then unit order, so a book's chapters stay in reading
+  order and a chapter's sections stay together), exactly `_shards`' packing, with the append's own per-pass inventory
+  budget: `append_input_ceiling` minus the fixed part of every request (instructions and schema, about 6,600 tokens
+  today: schema about 5,100, instructions about 1,400; plus the brief, the exam profile and the revision diff, measured
+  from the rendered empty-inventory prompt, not guessed) minus the neighbourhood's cap (`append_neighborhood_input_tokens`,
+  24,000) minus a span-round reserve (`synthesis_span_request_max_count` × `synthesis_span_char_cap` / 4, 12,000 by
+  default). With the defaults that is about 41,000 inventory tokens per pass, close to bootstrap's 40,000 shard.
+- **The reserve is for the span round**: the ceiling holds each request alone, and a span round sends its base request
+  again with the resolved spans; without the reserve a pass could pay its base call and then be refused at its span
+  round.
+- **An append that fits one pass is not split**: `shard_count` stays 1, and every byte, key and row stays as in Part A.
+  This is the whole compatibility story: only appends refused today ever take the new path.
+
+### What each pass sends as context
+
+- **The run's one neighbourhood, with every pass** (option a, recommended first): the head selects it around all the
+  new inventories, as now, and the manifest records it once. Simple, cache-stable, and the manifest's scope keeps its
+  meaning. Its cost: the neighbourhood is chosen around the whole append, so a pass may get neighbours chosen for
+  another pass's units.
+- Option b, **a neighbourhood per pass** (selected around that pass's units, same cap): better context per pass, but
+  the head would have to split before it records the scope (the split depends only on inventory sizes and caps, so
+  that is possible), and the manifest would record one neighbourhood per pass. Worth it only if option a's proposals
+  are measurably worse.
+- Each pass's context sets `shard_ordinal` and `shard_count` (fields the append context already has, at 0 and 1). A
+  sentence telling the model it sees part k of n, that sibling passes cover the other new units, and that it should not
+  restructure from partial evidence, goes in only when `shard_count > 1` (like the one-facet rule today), so an
+  unsplit append's prompt bytes do not move and no stored checkpoint misses.
+- **Independent passes, not chained.** A chained pass (pass k sees what passes 1..k-1 proposed) would avoid duplicate
+  new coverage, but its key would depend on the earlier answers, a rerun after one changed answer would re-pay every
+  later pass, and passes could never run in parallel. Duplicates are handled after the passes instead (below).
+
+### After the passes
+
+- **Ids:** each pass's client ids made local (`shard_N__`, as bootstrap) only when there is more than one pass. This
+  splits `SynthesisCall.sharded` into two values: filing shard rows (bootstrap only; the append's pass checkpoints
+  already answer a rerun) and namespacing split passes (both).
+- **Merge:** a merge for `AppendReconciliation` (its list fields: new coverage, provenance links, notation mappings,
+  conflicts, restructures, candidates, dispositions, notes; the summaries joined). `_merge_synthesis` names only
+  bootstrap's fields.
+- **Duplicates:** same-title concepts consolidated (bootstrap's `_consolidate_same_title_concepts`, to be checked against the append's fields before
+  reuse); near-duplicate facets are what facet identity's plan groups when it is on, and the existing
+  near-duplicate facet doctor runs after apply. Two passes' restructures of the same target: keep the first, drop the
+  rest with a review diagnostic naming them (the preset's pattern), since two updates of one entity in one proposal
+  would conflict at apply.
+- **One proposal**, one review, one auto-apply decision, as today.
+
+### The caps that remain
+
+- **Per request:** `append_input_ceiling` stays, now the pass size. A single unit inventory over the per-pass budget is
+  still refused with the same code (the message names the unit): that is an inventory-stage problem, not a synthesis
+  one.
+- **Per run (new):** a total input ceiling for a split append, checked before the first pass over every pass not yet
+  paid (bootstrap's preflight, `check_base_passes` over the list Part A already passes), so an append that cannot
+  finish pays for nothing. Either a new default (`append_total_input_ceiling`) or a multiple of the per-request
+  ceiling; a new default is cleaner and shows in the settings. Over it: the same typed refusal with the total in the
+  message, so the book card, the job's non-retryable set (`jobs.py:1996`) and `add_source.py:2525` need no change.
+- **Output:** each pass under `append_output_tokens` as now; no total output cap (bootstrap's exists because its passes
+  merge into one answer that must fit a downstream budget; the append's merged answer is persisted as rows).
+- **Spend gates:** a metered automatic build admits each request separately (`add_source.py:991-995`), so a split append
+  is held to the daily cap request by request, as a bootstrap is.
+
+### What the learner sees
+
+The book card's "too much to write at once" goes away for all but a single oversized unit or an append over the new
+total; the build runs longer and ends in one proposal, as an unsplit append does. `append_source` has no progress
+parameter today; the job could pass one so the card says "part k of n" (bootstrap's progress already does). A failure
+part way keeps every answer paid (pass checkpoints), so Retry pays only for the passes not saved (I4).
+
+### Cost
+
+Not measured on the owner's books: the agent rules forbid opening `~/learnloop-books` and the owner's vaults, and the
+copies' inventory sizes are not in this worktree. From the request's shape: with an inventory total `I` and a fixed part
+`F` per request (about 6,600 tokens plus the brief, exam profile and revision diff) and a neighbourhood `N` (at most
+24,000), a split into `n = ceil(I / 41,000)` passes costs about `I + n (F + N)` input tokens plus up to `n` span rounds
+(each about its base request plus the spans), and at most `n × 10,000` output. The unsplit request would have cost
+`I + F + N`, so the split adds `(n - 1)(F + N)`, at most about 30,600 tokens per extra pass. Against the K2 map's
+projections (one July append on a copy cost about 3×10^4 input and 4×10^3 output; a whole textbook's inventories come
+to about 35 builds at the 40k cap, so about 1.4×10^6 tokens): an append of a whole new 200,000-token member would
+be 5 passes, about 350,000 input tokens and up to 50,000 output, where today it is refused; a whole textbook's
+inventories at once would be about 35 passes and 2.5×10^6 input, about what building it chapter by chapter costs
+(each keep-ahead append carries the same fixed part and neighbourhood). With checkpoints, a retry after a failure part
+way pays only the unsaved passes.
+
+### Playbook items (`docs/algorithm-change-playbook.md`)
+
+- **Track:** behaviour (it changes what the learner gets: a proposal where there was a refusal); lands alone.
+- **No algorithm tag:** nothing persisted is reinterpreted and no stored meaning moves; an unsplit append is
+  byte-identical (Part A's goldens stay as they are). Splits produce rows only where none were written before.
+- **Kill switch:** an `[ingest]` switch for the split (default on once landed) whose off position serves the
+  predecessor exactly: the K3.4 refusal. Required by the playbook's "a kill switch that serves the predecessor
+  exactly".
+- **Identity pins:** a new budget default (the total) joins `test_effective_defaults_golden` and K0's config pins; if
+  the append's manifest starts recording `append_input_ceiling` and the total (K2.4b's open item), the manifest pins
+  move deliberately, "provenance only" (since K2.3 nothing reuses a run by its manifest), as K3.4's bump did. The
+  append checkpoint key's pinned site is unchanged (the pins render the default `shard_count` 1).
+- **Prompt version:** the part-k-of-n sentence is conditional, so `append_reconciliation_prompt_version` need not
+  change for unsplit appends; if the owner prefers one version per prompt text, bump it only for the split path's
+  version string (the version is recorded per run).
+- **Proofs:** a fail-first test (an append over the ceiling refuses today; split, it makes `n` passes and one
+  proposal); a rerun after a failure on pass 2 of 3 pays only passes 2 and 3; a single unit over the per-pass budget
+  still refuses; a golden for a split append; the 25 Part A goldens unchanged; P-shadow not applicable (no projection
+  or schedule changes).
+- **Docs:** Build a Study Map (`:61`'s "refuses before paying a request over `append_input_ceiling`"), the
+  configuration notes for the new default, the book card's line in `add_source.py` (its comment names K2.4).
+
+### Size
+
+About 120-150 lines of source: the split unit function and its per-pass budget, the append merge, the restructure
+dedupe, the conditional prompt sentence, the total check in `_AppendBudget`, the switch; plus the tests above.
