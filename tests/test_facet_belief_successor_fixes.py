@@ -462,3 +462,75 @@ def test_s5_doctor_still_warns_after_the_switch_went_off_and_back_on_with_answer
     assert "facet-belief fixes" in issue.message
     rebuild_all_derived_state(load_vault(paths.root), repository, clock=FrozenClock(NOW + timedelta(minutes=15)))
     assert _stale_switch_warnings(paths) == []
+
+
+# -- S6: the Demonstrated curve leaves out the failures the belief leaves out. ---------------------------------------
+
+#: A zero-point row of each kind the projection books no failure for, though it names no unassessed criterion: the
+#: older PF-c unverified representation (no interpretation mark), and an attribution naming none of its targets.
+_UNBOOKED_FAILURES = {
+    "unverified_without_interpretation": '{"negative_evidence_blocked":"valid_alternative_unverified"}',
+    "attribution_outside_the_targets": '{"targets":[{"facet":"geometry","capability":"conceptual_explanation","weight":1.0}]}',
+}
+
+
+def _unbooked_failure_then_success(root, attribution_json, *, belief_fixes=True, version=None):
+    from tests.helpers import set_algorithm_version
+
+    paths = create_basic_vault(root)
+    if version is not None:
+        set_algorithm_version(paths, version)
+    if not belief_fixes:
+        set_config_switch(paths.root, SWITCH, False)
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    sync_vault_state(vault, repository, clock=FrozenClock(NOW))
+    failure = complete_self_graded_attempt(
+        vault, repository,
+        AttemptDraft(BASIC_ITEM, "A matrix factorization."),
+        SelfGradeInput(criterion_points={"correctness": 0}, confidence=5),
+        clock=FrozenClock(NOW),
+    )
+    with repository.connection() as connection:
+        connection.execute(
+            "UPDATE grading_evidence SET attribution_json = ? WHERE attempt_id = ?",
+            (attribution_json, failure.attempt_id),
+        )
+        connection.commit()
+    complete_self_graded_attempt(
+        vault, repository,
+        AttemptDraft(BASIC_ITEM, "SVD factors a matrix as U Sigma V transpose."),
+        SelfGradeInput(criterion_points={"correctness": 4}, confidence=5),
+        clock=FrozenClock(NOW + timedelta(minutes=1)),
+    )
+    return vault, repository
+
+
+def _demonstrated_and_banked(vault, repository):
+    from learnloop.learner.facet_evidence_timeline import facet_evidence_timeline
+
+    banked = sum(cell.certification_credit for cell in repository.facet_capability_evidence_all()
+                 if cell.facet_id == "recall")
+    series = facet_evidence_timeline(vault, repository, "recall")
+    return (series[-1].demonstrated if series else 0.0), banked
+
+
+@pytest.mark.parametrize("kind", sorted(_UNBOOKED_FAILURES))
+def test_s6_a_failure_the_belief_leaves_out_does_not_discount_the_later_credit_in_the_timeline(tmp_path, kind):
+    vault, repository = _unbooked_failure_then_success(tmp_path / "vault", _UNBOOKED_FAILURES[kind])
+    demonstrated, banked = _demonstrated_and_banked(vault, repository)
+
+    assert banked > 0
+    assert demonstrated == pytest.approx(banked, abs=1e-12)
+
+
+@pytest.mark.parametrize("kind", sorted(_UNBOOKED_FAILURES))
+def test_s6_with_the_switch_off_the_timeline_is_the_predecessors(tmp_path, kind):
+    off_vault, off_repository = _unbooked_failure_then_success(
+        tmp_path / "off", _UNBOOKED_FAILURES[kind], belief_fixes=False,
+    )
+    old_vault, old_repository = _unbooked_failure_then_success(
+        tmp_path / "old", _UNBOOKED_FAILURES[kind], version="mvp-0.58",
+    )
+
+    assert _demonstrated_and_banked(off_vault, off_repository) == _demonstrated_and_banked(old_vault, old_repository)
