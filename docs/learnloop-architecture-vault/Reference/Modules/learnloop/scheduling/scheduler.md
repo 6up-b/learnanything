@@ -345,7 +345,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_k1_remediation_cold_reservation.py](../../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import
   - `test_a_cold_retry_that_expires_unanswered_releases_its_reservation`
   - `test_a_reserved_cold_item_is_named_and_counted_by_the_slate_and_why`
-  - `test_the_routine_due_queue_does_not_serve_a_reserved_cold_item_before_its_check`
+  - `test_the_routine_due_queue_withholds_a_cold_item_only_while_its_check_is_pending`
 - [tests/test_km5_sim_gates.py](../../../../../../tests/test_km5_sim_gates.py) — direct import
   - `test_shadow_intent_logs_practice_integration_at_the_right_moment`
 - [tests/test_large_practice_flow.py](../../../../../../tests/test_large_practice_flow.py) — direct import

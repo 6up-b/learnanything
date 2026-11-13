@@ -98,6 +98,7 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository._release_cold_reservation()`
+- `Repository._remediation_cold_item_ids()`
 - `Repository.active_followup_task_for_item()`
 - `Repository.attach_followup_task_measurement_opportunity()`
 - `Repository.consume_followup_task()`
@@ -113,7 +114,6 @@ Indexes and uniqueness:
 - `Repository.followup_tasks_of_kind()`
 - `Repository.open_followup_tasks_for_item()`
 - `Repository.open_followup_tasks_of_kind()`
-- `Repository.open_remediation_cold_item_ids()`
 
 ### Direct SQL readers
 
