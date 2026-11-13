@@ -114,3 +114,27 @@ completed batch from `on_complete` and to hold the job at batch 2 (so the next `
   from outside; the test pins the behaviour (stops at the deadline), not that clause.
 Assertions use bounded waits (60 s) on events and a 0.2 s settle for "no further batch"; 3 consecutive runs passed (4.3 s each).
 No production seam was missing. `advance(env, serve=False)` with `check_rate = "off"` starts the first boundary's job (a check block otherwise precedes it).
+
+## T2: the phone's stop-and-handoff journeys on the objective path
+
+New `tests/test_mobile_v2_objective_stop.py`: the three F7 journeys of `tests/test_mobile_v2_rereview_fixes.py` (the pending stop
+offered on the phone, *Keep going* overriding it in place, *Done for today* leaving the held work to the desktop) on a vault whose
+Today is chosen by the objective (`plan_toml` empty, not `STAGED_ROUTER`). The staged file is untouched.
+
+Determinism, and what varied. Without help the first journey failed 3 of 3: the objective's own stop coin drew a stop at the first
+boundary (`'done'` with the objective's stop reason instead of the forced one). The file takes `never_stop_or_offer_draws(monkeypatch,
+fixed_numeric_seed=True)` (the helper made for a test that needs the same block order every run), so the only stop is the one forced
+at `engine.decide`, as in the staged journeys, and the numeric policy's Monte Carlo has one seed. The boundary prefetch is waited for:
+`_settle()` joins the `learnloop-router-*` / `learnloop-objective-*` threads before each phone request and after the last answer.
+With those, 50 consecutive runs of the three journeys passed (150 of 150). So D-28's block-order variation did not show up in these
+journeys with the numeric seed fixed (it is the `fixed_numeric_seed` that removed it; I did not find what else varied and I did not try without it
+beyond the first failure above, which was the stop coin). The phone's `plan_prefetch` needs a model to start a job, so a fixture
+installs a fake-model runtime as the process's default (`router_runtime._DEFAULT`).
+
+New assertion the staged frame cannot make: at the pending stop, `plan_prefetch` answers `reason == "stop_pending"`, not started.
+Mutation: the `stop_pending` return removed from `engine.prefetch_boundary` (reverted): all 7 staged journeys passed; the objective
+journey fails (`'started' == 'stop_pending'`).
+
+Not covered: the objective chooser's own stop (as opposed to a stop forced at `decide`) reaching a pending stop on the phone;
+and a stop pending while the prefetch's models answer late. After the final change (the prefetch call and runtime fixture) the
+journeys passed 12 consecutive runs (the loop was cut by a timeout), not 50.
