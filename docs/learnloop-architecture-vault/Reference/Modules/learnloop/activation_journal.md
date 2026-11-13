@@ -47,28 +47,28 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py) |
-| Source lines | 166 |
+| Source lines | 188 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class InterruptedActivation(RuntimeError)` ([source](../../../../../src/learnloop/activation_journal.py), line 74) — The vault's activation did not commit; it is not served until it completes.
-- `journal_path(sqlite_path: Path) -> Path` ([source](../../../../../src/learnloop/activation_journal.py), line 78) — The activation journal beside ``sqlite_path``.
-- `pending(sqlite_path: Path) -> bool` ([source](../../../../../src/learnloop/activation_journal.py), line 85) — Whether an activation journal stands beside ``sqlite_path``.
-- `completing() -> bool` ([source](../../../../../src/learnloop/activation_journal.py), line 91) — Whether this context is completing (or running) the activation itself.
-- `completing_activation() -> Iterator[None]` ([source](../../../../../src/learnloop/activation_journal.py), line 98) — Mark this context as the activation's own writer, so its opens are not refused.
-- `message(sqlite_path: Path) -> str` ([source](../../../../../src/learnloop/activation_journal.py), line 108) — What to tell the learner: which upgrade did not finish, and the command that completes it.
-- `install_completer(completer: Callable[[Path], object] | None) -> None` ([source](../../../../../src/learnloop/activation_journal.py), line 124) — Install the process's completion (an entry point does, at import); None removes it.
-- `complete(vault_root: Path, sqlite_path: Path) -> None` ([source](../../../../../src/learnloop/activation_journal.py), line 131) — Complete a journalled activation before an opener attaches, or raise :class:`InterruptedActivation`.
-- `refuse_if_interrupted(sqlite_path: Path) -> None` ([source](../../../../../src/learnloop/activation_journal.py), line 148) — Raise :class:`InterruptedActivation` while a journal stands (unless this context completes it).
+- `class InterruptedActivation(RuntimeError)` ([source](../../../../../src/learnloop/activation_journal.py), line 81) — The vault's activation did not commit; it is not served until it completes.
+- `journal_path(sqlite_path: Path) -> Path` ([source](../../../../../src/learnloop/activation_journal.py), line 85) — The activation journal beside ``sqlite_path``.
+- `pending(sqlite_path: Path) -> bool` ([source](../../../../../src/learnloop/activation_journal.py), line 92) — Whether an activation journal stands beside ``sqlite_path``.
+- `completing() -> bool` ([source](../../../../../src/learnloop/activation_journal.py), line 98) — Whether this context is completing (or running) the activation itself.
+- `completing_activation() -> Iterator[None]` ([source](../../../../../src/learnloop/activation_journal.py), line 105) — Mark this context as the activation's own writer, so its opens are not refused.
+- `message(sqlite_path: Path) -> str` ([source](../../../../../src/learnloop/activation_journal.py), line 115) — What to tell the learner: which upgrade did not finish, and the command that completes it.
+- `install_completer(completer: Callable[[Path], object] | None) -> None` ([source](../../../../../src/learnloop/activation_journal.py), line 141) — Install the process's completion (an entry point does, at import); None removes it.
+- `complete(vault_root: Path, sqlite_path: Path) -> None` ([source](../../../../../src/learnloop/activation_journal.py), line 148) — Complete a journalled activation before an opener attaches, or raise :class:`InterruptedActivation`.
+- `refuse_if_interrupted(sqlite_path: Path) -> None` ([source](../../../../../src/learnloop/activation_journal.py), line 170) — Raise :class:`InterruptedActivation` while a journal stands (unless this context completes it).
 
 ### Module constants
 
-- `JOURNAL_SUFFIX` ([src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py), line 65)
-- `_COMPLETING` ([src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py), line 68)
-- `_COMPLETER` ([src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py), line 71)
+- `JOURNAL_SUFFIX` ([src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py), line 72)
+- `_COMPLETING` ([src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py), line 75)
+- `_COMPLETER` ([src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py), line 78)
 
 ### Explicit exports
 
@@ -87,7 +87,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_link(sqlite_path: Path) -> tuple[str, str] | None` ([source](../../../../../src/learnloop/activation_journal.py), line 131) — The journalled upgrade's ``(predecessor, target)``, or None for a torn journal (its completion decides).
 
 ## Who imports or calls it
 
@@ -130,7 +130,7 @@ No private top-level function or class definition is declared in this file.
 
 ### LearnLoop dependencies
 
-No internal Python dependency was found by static analysis.
+- [[Reference/Modules/learnloop/version_floor|learnloop.version_floor]] — imports `refuse_journal_below_floor`; calls `refuse_journal_below_floor`
 
 ### Platform and third-party dependencies
 
@@ -177,6 +177,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_without_a_completion_an_attach_refuses_and_the_upgrade_still_completes_the_mvp038_journal`
 - [tests/test_teacher_te1_successor.py](../../../../../tests/test_teacher_te1_successor.py) — direct import
   - `test_a_bare_upgrade_goes_through_mvp041_along_the_chain`
+- [tests/test_version_floor.py](../../../../../tests/test_version_floor.py) — direct import
+  - `test_a_journal_from_the_floor_is_still_completed_by_an_opener`
+  - `test_a_journal_naming_a_link_below_the_floor_is_refused`
+  - `test_the_upgrade_command_completes_a_journal_from_below_the_floor`
 
 ## Modification guidance
 

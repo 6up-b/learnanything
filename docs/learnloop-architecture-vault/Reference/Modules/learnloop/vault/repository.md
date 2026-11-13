@@ -260,6 +260,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`
 - [tests/test_t6_followup_review.py](../../../../../../tests/test_t6_followup_review.py) — direct import
 - [tests/test_te3b_population.py](../../../../../../tests/test_te3b_population.py) — direct import
+- [tests/test_version_floor.py](../../../../../../tests/test_version_floor.py) — direct import
+  - `test_a_journal_from_the_floor_is_still_completed_by_an_opener`
+  - `test_a_journal_naming_a_link_below_the_floor_is_refused`
+  - `test_the_upgrade_command_completes_a_journal_from_below_the_floor`
 
 ## Modification guidance
 

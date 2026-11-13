@@ -83,7 +83,7 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 | [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] | [[Reference/Modules/learnloop/substrate/rebuild_orchestrator#^module-purpose|purpose]] | `ACTIVE` | 6 | 87 |
 | [[Reference/Modules/learnloop/substrate/recurrence_groups|learnloop.substrate.recurrence_groups]] | [[Reference/Modules/learnloop/substrate/recurrence_groups#^module-purpose|purpose]] | `ACTIVE` | 12 | 17 |
 | [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] | [[Reference/Modules/learnloop/substrate/replay#^module-purpose|purpose]] | `ACTIVE` | 8 | 40 |
-| [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] | [[Reference/Modules/learnloop/substrate/shadow_rebuild#^module-purpose|purpose]] | `ACTIVE` | 1 | 24 |
+| [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] | [[Reference/Modules/learnloop/substrate/shadow_rebuild#^module-purpose|purpose]] | `ACTIVE` | 1 | 25 |
 | [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] | [[Reference/Modules/learnloop/substrate/state_sync#^module-purpose|purpose]] | `ACTIVE` | 17 | 173 |
 | [[Reference/Modules/learnloop/substrate/surface_mint|learnloop.substrate.surface_mint]] | [[Reference/Modules/learnloop/substrate/surface_mint#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 
@@ -95,7 +95,7 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 31 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 33 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 25 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 19 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 17 static module edges
@@ -174,7 +174,7 @@ flowchart LR
     n_learnloop_ops["learnloop.ops"]
     n_learnloop_goals["learnloop.goals"]
     n_learnloop -->|46| center
-    center -->|31| n_learnloop
+    center -->|33| n_learnloop
     n_learnloop_diagnosis -->|22| center
     center -->|5| n_learnloop_diagnosis
     center -->|25| n_learnloop_db

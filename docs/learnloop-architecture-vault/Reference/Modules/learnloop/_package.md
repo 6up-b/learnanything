@@ -83,6 +83,7 @@ source_paths:
   - "src/learnloop/text_canon.py"
   - "src/learnloop/unevidenced_return_upgrade.py"
   - "src/learnloop/vault_lock.py"
+  - "src/learnloop/version_floor.py"
   - "src/learnloop/voi_stopping_upgrade.py"
   - "src/learnloop/workbench_field_signals_upgrade.py"
 generated: true
@@ -123,10 +124,10 @@ For system intent, use [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/__init__|learnloop]] | [[Reference/Modules/learnloop/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 6 |
 | [[Reference/Modules/learnloop/__main__|learnloop.__main__]] | [[Reference/Modules/learnloop/__main__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/activation_journal|learnloop.activation_journal]] | [[Reference/Modules/learnloop/activation_journal#^module-purpose|purpose]] | `ACTIVE` | 31 | 14 |
+| [[Reference/Modules/learnloop/activation_journal|learnloop.activation_journal]] | [[Reference/Modules/learnloop/activation_journal#^module-purpose|purpose]] | `ACTIVE` | 31 | 15 |
 | [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]] | [[Reference/Modules/learnloop/ad_successor_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/adf_numeric|learnloop.adf_numeric]] | [[Reference/Modules/learnloop/adf_numeric#^module-purpose|purpose]] | `ACTIVE` | 7 | 1 |
-| [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] | [[Reference/Modules/learnloop/algorithm_versions#^module-purpose|purpose]] | `ACTIVE` | 92 | 205 |
+| [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] | [[Reference/Modules/learnloop/algorithm_versions#^module-purpose|purpose]] | `ACTIVE` | 94 | 206 |
 | [[Reference/Modules/learnloop/app_launch|learnloop.app_launch]] | [[Reference/Modules/learnloop/app_launch#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]] | [[Reference/Modules/learnloop/attempt_content_state_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/attempt_types|learnloop.attempt_types]] | [[Reference/Modules/learnloop/attempt_types#^module-purpose|purpose]] | `ACTIVE` | 8 | 2 |
@@ -199,6 +200,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/text_canon|learnloop.text_canon]] | [[Reference/Modules/learnloop/text_canon#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
 | [[Reference/Modules/learnloop/unevidenced_return_upgrade|learnloop.unevidenced_return_upgrade]] | [[Reference/Modules/learnloop/unevidenced_return_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/vault_lock|learnloop.vault_lock]] | [[Reference/Modules/learnloop/vault_lock#^module-purpose|purpose]] | `ACTIVE` | 50 | 7 |
+| [[Reference/Modules/learnloop/version_floor|learnloop.version_floor]] | [[Reference/Modules/learnloop/version_floor#^module-purpose|purpose]] | `ACTIVE` | 7 | 6 |
 | [[Reference/Modules/learnloop/voi_stopping_upgrade|learnloop.voi_stopping_upgrade]] | [[Reference/Modules/learnloop/voi_stopping_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/workbench_field_signals_upgrade|learnloop.workbench_field_signals_upgrade]] | [[Reference/Modules/learnloop/workbench_field_signals_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 
@@ -282,21 +284,21 @@ For system intent, use [[Architecture Overview]].
 ### Packages that import this package
 
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 79 static module edges
-- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 72 static module edges
+- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 73 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 59 static module edges
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 51 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 52 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 50 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 38 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 37 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 34 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 34 static module edges
-- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 31 static module edges
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 33 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 29 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 28 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 27 static module edges
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 25 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 24 static module edges
-- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 22 static module edges
+- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 23 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 21 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 21 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 19 static module edges
@@ -315,10 +317,10 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 12 static module edges
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 12 static module edges
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 11 static module edges
-- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 10 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 11 static module edges
 - [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 9 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 9 static module edges
-- [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] — 8 static module edges
+- [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] — 9 static module edges
 - [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 8 static module edges
 - [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 7 static module edges
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 6 static module edges
@@ -355,24 +357,24 @@ flowchart LR
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_ops["learnloop.ops"]
     n_learnloop_daily_plan["learnloop.daily_plan"]
-    n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
+    n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_params["learnloop.params"]
     n_learnloop_db_stores["learnloop.db.stores"]
-    n_learnloop_vault -->|10| center
+    n_learnloop_vault -->|11| center
     center -->|141| n_learnloop_vault
     n_learnloop_diagnosis -->|79| center
-    n_learnloop_substrate -->|31| center
+    n_learnloop_substrate -->|33| center
     center -->|46| n_learnloop_substrate
-    n_learnloop_cli -->|72| center
+    n_learnloop_cli -->|73| center
     center -->|1| n_learnloop_cli
-    n_learnloop_ops -->|22| center
+    n_learnloop_ops -->|23| center
     center -->|45| n_learnloop_ops
     n_learnloop_daily_plan -->|59| center
     center -->|1| n_learnloop_daily_plan
+    n_learnloop_sidecar_handlers -->|52| center
     n_learnloop_attempts -->|50| center
     center -->|1| n_learnloop_attempts
-    n_learnloop_sidecar_handlers -->|51| center
     n_learnloop_params -->|2| center
     center -->|45| n_learnloop_params
     n_learnloop_db_stores -->|34| center

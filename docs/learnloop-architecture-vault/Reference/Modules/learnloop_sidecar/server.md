@@ -185,6 +185,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_source_space_resolver.py](../../../../../tests/test_source_space_resolver.py) — direct import
   - `test_the_open_rpc_records_nothing_with_the_switches_off`
 - [tests/test_ux_phase1_first_run.py](../../../../../tests/test_ux_phase1_first_run.py) — direct import
+- [tests/test_version_floor.py](../../../../../tests/test_version_floor.py) — direct import
 
 ## Modification guidance
 

@@ -73,7 +73,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop_sidecar/prefetch_runtime|learnloop_sidecar.prefetch_runtime]] | [[Reference/Modules/learnloop_sidecar/prefetch_runtime#^module-purpose|purpose]] | `ACTIVE` | 6 | 7 |
 | [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] | [[Reference/Modules/learnloop_sidecar/registry#^module-purpose|purpose]] | `ACTIVE` | 71 | 144 |
 | [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]] | [[Reference/Modules/learnloop_sidecar/request_origin#^module-purpose|purpose]] | `ACTIVE` | 8 | 11 |
-| [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] | [[Reference/Modules/learnloop_sidecar/server#^module-purpose|purpose]] | `ACTIVE` | 1 | 41 |
+| [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] | [[Reference/Modules/learnloop_sidecar/server#^module-purpose|purpose]] | `ACTIVE` | 1 | 42 |
 | [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] | [[Reference/Modules/learnloop_sidecar/serving#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
 | [[Reference/Modules/learnloop_sidecar/source_identity|learnloop_sidecar.source_identity]] | [[Reference/Modules/learnloop_sidecar/source_identity#^module-purpose|purpose]] | `ACTIVE` | 5 | 0 |
 

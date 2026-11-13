@@ -46,53 +46,53 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py) |
-| Source lines | 874 |
+| Source lines | 877 |
 | Owning package | [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `vault_loads_forbidden(reason: str | None) -> Iterator[None]` ([source](../../../../../../src/learnloop/vault/loader.py), line 90) — Refuse :func:`load_vault` in this context (``reason``), or allow it again (None).
-- `content_files(root: Path) -> dict[str, tuple[int, int]]` ([source](../../../../../../src/learnloop/vault/loader.py), line 120) — ``{relative path: (size, mtime_ns)}`` for every file :func:`load_vault` can read.
-- `content_digest(files: dict[str, tuple[int, int]]) -> str` ([source](../../../../../../src/learnloop/vault/loader.py), line 182) — One digest over path, size and mtime of ``files`` (:func:`content_files`), and its link entries.
-- `vault_content_fingerprint(root: Path) -> str` ([source](../../../../../../src/learnloop/vault/loader.py), line 189) — The vault's content fingerprint: path, size and mtime of the files the loader reads.
-- `class SettledLoad` ([source](../../../../../../src/learnloop/vault/loader.py), line 211) — A vault load checked against the files it was read from.
-  - `settled(self) -> bool` (line 228; public)
-- `settled_load_vault(root: Path, *, load: Callable[[Path], LoadedVault] | None=None, fingerprint: str | None=None, attempts: int=SETTLE_ATTEMPTS, pause_seconds: float=SETTLE_PAUSE_SECONDS) -> SettledLoad` ([source](../../../../../../src/learnloop/vault/loader.py), line 232) — Load the vault while another process may be writing it (a secondary's read).
-- `load_vault(root: Path | None=None, *, read_yaml_file: YamlFileReader=read_yaml_data, load_environment: bool=True) -> LoadedVault` ([source](../../../../../../src/learnloop/vault/loader.py), line 292) — Parse every vault file into a ``LoadedVault``; problems become ``issues``.
-- `load_practice_item_file(path: Path, loaded: LoadedVault, *, issues: list[DoctorIssue] | None=None, read_yaml_file: YamlFileReader=read_yaml_data) -> PracticeItem | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 665) — Parse one Practice Item through the canonical full-loader path.
-- `init_vault(root: Path, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 727)
-- `add_subject(root: Path, subject_id: str, title: str, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 777)
-- `add_note(root: Path, subject_id: str, note_id: str, title: str, body: str, *, source_type: str='learner_note', related_los: list[str] | None=None, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 817)
-- `move_note(root: Path, note_id: str, subject_id: str, *, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 853) — Make ``subject_id`` a note's only subject and file it in that subject's folder.
+- `vault_loads_forbidden(reason: str | None) -> Iterator[None]` ([source](../../../../../../src/learnloop/vault/loader.py), line 91) — Refuse :func:`load_vault` in this context (``reason``), or allow it again (None).
+- `content_files(root: Path) -> dict[str, tuple[int, int]]` ([source](../../../../../../src/learnloop/vault/loader.py), line 121) — ``{relative path: (size, mtime_ns)}`` for every file :func:`load_vault` can read.
+- `content_digest(files: dict[str, tuple[int, int]]) -> str` ([source](../../../../../../src/learnloop/vault/loader.py), line 183) — One digest over path, size and mtime of ``files`` (:func:`content_files`), and its link entries.
+- `vault_content_fingerprint(root: Path) -> str` ([source](../../../../../../src/learnloop/vault/loader.py), line 190) — The vault's content fingerprint: path, size and mtime of the files the loader reads.
+- `class SettledLoad` ([source](../../../../../../src/learnloop/vault/loader.py), line 212) — A vault load checked against the files it was read from.
+  - `settled(self) -> bool` (line 229; public)
+- `settled_load_vault(root: Path, *, load: Callable[[Path], LoadedVault] | None=None, fingerprint: str | None=None, attempts: int=SETTLE_ATTEMPTS, pause_seconds: float=SETTLE_PAUSE_SECONDS) -> SettledLoad` ([source](../../../../../../src/learnloop/vault/loader.py), line 233) — Load the vault while another process may be writing it (a secondary's read).
+- `load_vault(root: Path | None=None, *, read_yaml_file: YamlFileReader=read_yaml_data, load_environment: bool=True) -> LoadedVault` ([source](../../../../../../src/learnloop/vault/loader.py), line 293) — Parse every vault file into a ``LoadedVault``; problems become ``issues``.
+- `load_practice_item_file(path: Path, loaded: LoadedVault, *, issues: list[DoctorIssue] | None=None, read_yaml_file: YamlFileReader=read_yaml_data) -> PracticeItem | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 668) — Parse one Practice Item through the canonical full-loader path.
+- `init_vault(root: Path, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 730)
+- `add_subject(root: Path, subject_id: str, title: str, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 780)
+- `add_note(root: Path, subject_id: str, note_id: str, title: str, body: str, *, source_type: str='learner_note', related_los: list[str] | None=None, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 820)
+- `move_note(root: Path, note_id: str, subject_id: str, *, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 856) — Make ``subject_id`` a note's only subject and file it in that subject's folder.
 
 ### Module constants
 
-- `T` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 50)
-- `_LOADS_FORBIDDEN` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 86)
-- `CONTENT_FINGERPRINT_TTL_SECONDS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 103)
-- `_CONTENT_SUFFIXES` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 106)
-- `_ROOT_SKIP_DIRS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 112)
-- `LINK_ENTRY_SUFFIX` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 117)
-- `SETTLE_ATTEMPTS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 206)
-- `SETTLE_PAUSE_SECONDS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 207)
-- `_MODALITY_RANK` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 560)
-- `DEFAULT_ERROR_TYPE_SEEDS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 693)
+- `T` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 51)
+- `_LOADS_FORBIDDEN` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 87)
+- `CONTENT_FINGERPRINT_TTL_SECONDS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 104)
+- `_CONTENT_SUFFIXES` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 107)
+- `_ROOT_SKIP_DIRS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 113)
+- `LINK_ENTRY_SUFFIX` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 118)
+- `SETTLE_ATTEMPTS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 207)
+- `SETTLE_PAUSE_SECONDS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 208)
+- `_MODALITY_RANK` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 563)
+- `DEFAULT_ERROR_TYPE_SEEDS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 696)
 
 ## Internal implementation anchors
 
-- `_load_yaml_model(path: Path, model: type[T], issues: list[DoctorIssue], read_yaml_file: YamlFileReader=read_yaml_data) -> T | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 54)
-- `_load_markdown_model(path: Path, model: type[T], issues: list[DoctorIssue]) -> tuple[T | None, str]` ([source](../../../../../../src/learnloop/vault/loader.py), line 69)
-- `_source_sets_caught_empty(root: Path, vault: LoadedVault, files: dict[str, tuple[int, int]]) -> bool` ([source](../../../../../../src/learnloop/vault/loader.py), line 271) — The source-sets file is empty: a writer truncated it to rewrite it.
-- `_load_subject_dir(subject_dir: Path, loaded: LoadedVault, read_yaml_file: YamlFileReader) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 380)
-- `_load_note(path: Path, root: Path, folder_subject: str, issues: list[DoctorIssue]) -> Note | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 432)
-- `_validate_loaded_vault(loaded: LoadedVault) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 451)
-- `_facet_aliases(facets_file: EvidenceFacetsFile) -> dict[str, str]` ([source](../../../../../../src/learnloop/vault/loader.py), line 494)
-- `_canonicalized_practice_item_facets(loaded: LoadedVault, item: PracticeItem) -> PracticeItem` ([source](../../../../../../src/learnloop/vault/loader.py), line 503)
-- `_collapsed_alias_targets(targets: list[Any], canonical: Any) -> list[Any]` ([source](../../../../../../src/learnloop/vault/loader.py), line 563) — Criterion targets with aliases resolved, one per canonical (facet, capability).
-- `_collapsed_alias_components(values: list[Any], canonical: Any) -> list[Any]` ([source](../../../../../../src/learnloop/vault/loader.py), line 595) — Recipe components with aliases resolved, one per canonical (facet, capability).
-- `_canonicalized_learning_object_facets(loaded: LoadedVault, learning_object: LearningObject) -> LearningObject` ([source](../../../../../../src/learnloop/vault/loader.py), line 624) — Recipe components name canonical facets: an alias resolves at load.
+- `_load_yaml_model(path: Path, model: type[T], issues: list[DoctorIssue], read_yaml_file: YamlFileReader=read_yaml_data) -> T | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 55)
+- `_load_markdown_model(path: Path, model: type[T], issues: list[DoctorIssue]) -> tuple[T | None, str]` ([source](../../../../../../src/learnloop/vault/loader.py), line 70)
+- `_source_sets_caught_empty(root: Path, vault: LoadedVault, files: dict[str, tuple[int, int]]) -> bool` ([source](../../../../../../src/learnloop/vault/loader.py), line 272) — The source-sets file is empty: a writer truncated it to rewrite it.
+- `_load_subject_dir(subject_dir: Path, loaded: LoadedVault, read_yaml_file: YamlFileReader) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 383)
+- `_load_note(path: Path, root: Path, folder_subject: str, issues: list[DoctorIssue]) -> Note | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 435)
+- `_validate_loaded_vault(loaded: LoadedVault) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 454)
+- `_facet_aliases(facets_file: EvidenceFacetsFile) -> dict[str, str]` ([source](../../../../../../src/learnloop/vault/loader.py), line 497)
+- `_canonicalized_practice_item_facets(loaded: LoadedVault, item: PracticeItem) -> PracticeItem` ([source](../../../../../../src/learnloop/vault/loader.py), line 506)
+- `_collapsed_alias_targets(targets: list[Any], canonical: Any) -> list[Any]` ([source](../../../../../../src/learnloop/vault/loader.py), line 566) — Criterion targets with aliases resolved, one per canonical (facet, capability).
+- `_collapsed_alias_components(values: list[Any], canonical: Any) -> list[Any]` ([source](../../../../../../src/learnloop/vault/loader.py), line 598) — Recipe components with aliases resolved, one per canonical (facet, capability).
+- `_canonicalized_learning_object_facets(loaded: LoadedVault, learning_object: LearningObject) -> LearningObject` ([source](../../../../../../src/learnloop/vault/loader.py), line 627) — Recipe components name canonical facets: an alias resolves at load.
 
 ## Who imports or calls it
 
@@ -259,6 +259,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `ActivityFamily`, `ConceptGraph`, `ConceptsFile`, `DefaultRubric`, `DoctorIssue`, `ErrorTypesFile`, `EvidenceFacetsFile`, `GoalsFile`, `LearningObject`, `LoadedVault`, `Note`, `PracticeItem`, `RelationsFile`, `SourceSetsFile`, `Subject`, `SubjectMetadata`, `recipe_components`; calls `ConceptGraph`, `DoctorIssue`, `LoadedVault`, `Subject`, `recipe_components`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`, `find_vault_root`; calls `VaultPaths`, `find_vault_root`
 - [[Reference/Modules/learnloop/vault/yaml_io|learnloop.vault.yaml_io]] — imports `read_markdown_frontmatter_data`, `read_markdown_with_frontmatter`, `read_yaml_data`, `write_markdown_with_frontmatter`, `write_yaml`; calls `read_markdown_frontmatter_data`, `read_markdown_with_frontmatter`, `write_markdown_with_frontmatter`, `write_yaml`
+- [[Reference/Modules/learnloop/version_floor|learnloop.version_floor]] — imports `refuse_below_floor`; calls `refuse_below_floor`
 
 ### Platform and third-party dependencies
 
@@ -3671,6 +3672,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_writer_refuses_implicit_entity_moves`
   - `test_writer_updates_depth_rung_metadata_on_existing_practice_item`
   - `test_writer_upserts_graph_error_lo_and_practice_item`
+- [tests/test_version_floor.py](../../../../../../tests/test_version_floor.py) — direct import
+  - `test_a_shadow_rebuild_cannot_be_forced_below_the_floor`
+  - `test_a_vault_at_the_floor_or_the_head_opens`
+  - `test_a_vault_whose_config_names_no_tag_is_refused`
+  - `test_the_suites_allowance_opens_any_vault_until_the_test_ends`
+  - `test_the_upgrade_allowance_covers_only_the_vault_it_upgrades`
+  - `test_the_upgrade_command_still_upgrades_a_vault_below_the_floor`
 - [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import
   - `test_followup_outcome_needs_the_frozen_facet_map`
 - [tests/test_voi_merge_composition.py](../../../../../../tests/test_voi_merge_composition.py) — direct import
