@@ -301,8 +301,23 @@ is at mvp-0.54, below the version floor (mvp-0.58), so the vault does not open o
 
 ## Gates
 
-See the report for the commits' gates: targeted tests (every test file, in chunks), `lint-imports`, `ruff`, the four
-vault validators, `check_gate_partition` and the regeneration.
+- **Targeted tests.** `scripts/affected_tests.py --base ff8b42530b` selects the full suite (`db/repositories.py`;
+  `jobs.py` and the synthesis modules do too), so every test file ran on `98ee8560ac`. That was 1,392 files with
+  `-m "not arc_close"`, in 14 chunks of up to 100 at `-n 4` under the 5 GB cap behind the full-suite lock:
+  - 30,470 passed and 2 failed.
+  - `test_module_catalog_inventory`: the new module had no catalog note until the regeneration (`176eb9465a`).
+  - `test_ingest_runner::test_append_synthesis_forwards_budget_overrides`: its stand-in `AppendResult` lacked
+    `nothing_new`. It gained the field (`nothing_new=False`) in `5ca9274b84`; no assertion changed.
+  - Both files, plus `test_rerun_proposals`, `test_identity_pins`, `test_structure_ratchets`, `test_test_layout` and
+    `test_architecture`, passed again at the tip: 333 passed.
+- **Structure ratchets.** They did not move.
+- **Lint.** `lint-imports --no-cache`: 42 kept. `ruff check`: clean.
+- **Vault validators.** All four pass: `db_validate_reference.py` (no errors), `module_validate.py`,
+  `desktop_validate.py` and `validate_vault.py`.
+- **Gate partition.** `scripts/check_gate_partition.py`: 30,708 collected, landing 30,648 + arc_close 60.
+- **Regeneration.** References were regenerated once after the source commits (`176eb9465a`, 34 generated notes); a
+  second run changed nothing.
+- **Not run.** No full suite with `arc_close` (the orchestrator's landing gate).
 
 ## Process
 
