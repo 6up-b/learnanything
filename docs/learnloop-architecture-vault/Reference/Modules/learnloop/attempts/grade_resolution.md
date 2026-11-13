@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py) |
-| Source lines | 1241 |
+| Source lines | 1238 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -63,7 +63,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `quarantine_observation(repository: Repository, *, observation_id: str, surface_id: str | None, reason: str, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 642) — Immediately quarantine the observation's active interpretation (§4.4).
 - `flag_observation_for_review(repository: Repository, *, observation_id: str, reason: str, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 702) — Queue the observation's active grade for review (§4.4), keeping its authority.
 - `append_adjudication_evidence_revision(repository: Repository, *, attempt_id: str, resolved_fraction: float, adjudication_id: str, adjudicator_source: str, rationale: str | None, vault: 'LoadedVault | None'=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 793) — Ruling A (2026-07-27): write the adjudicated DIRECTION into the ledger.
-- `append_adjudication(repository: Repository, *, observation_id: str, administration_id: str, reviewed_raw_event_ids: Sequence[str], adjudicator_source: str, resolved_class: str | None=None, resolved_distribution: Mapping[str, float] | None=None, rationale: str | None=None, bounded_trust_weight: float | None=None, superseded_adjudication_id: str | None=None, vault: 'LoadedVault | None'=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1045) — Append an adjudication + a NEW interpretation and repoint the head (§3.3/§4.4).
+- `append_adjudication(repository: Repository, *, observation_id: str, administration_id: str, reviewed_raw_event_ids: Sequence[str], adjudicator_source: str, resolved_class: str | None=None, resolved_distribution: Mapping[str, float] | None=None, rationale: str | None=None, bounded_trust_weight: float | None=None, superseded_adjudication_id: str | None=None, vault: 'LoadedVault | None'=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1042) — Append an adjudication + a NEW interpretation and repoint the head (§3.3/§4.4).
 
 ### Module constants
 
@@ -73,7 +73,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `INFLUENCE_CERTAINTY_FLOOR` ([src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py), line 52)
 - `BOUNDED_TRUST_WEIGHT_DEFAULT` ([src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py), line 55)
 - `ADJUDICATION_GRADER_TIER` ([src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py), line 790)
-- `KEY_BASED_ADJUDICATOR_SOURCES` ([src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1020)
+- `KEY_BASED_ADJUDICATOR_SOURCES` ([src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1019)
 
 ## Internal implementation anchors
 
@@ -81,7 +81,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_record_dual_write_degradation(repository: Repository, kwargs: Mapping[str, Any], exc: Exception) -> None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 608)
 - `_leading_class(posterior: Mapping[str, float]) -> str | None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 771) — The unique argmax of a class posterior; ``None`` on empty or tied.
 - `_append_adjudication_evidence_revision(repository: Repository, *, attempt_id: str, resolved_fraction: float, adjudication_id: str, adjudicator_source: str, rationale: str | None, vault: 'LoadedVault | None', clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 838) — :func:`append_adjudication_evidence_revision` inside its transaction.
-- `_bind_key_adjudication(repository: Repository, vault: 'LoadedVault | None', attempt: Mapping[str, Any], *, adjudicator_source: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1023) — C3 (canonical sources §7.3a, "Replacement grades"): a verdict against the key binds like a regrade.
+- `_bind_key_adjudication(repository: Repository, vault: 'LoadedVault | None', attempt: Mapping[str, Any], *, adjudicator_source: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1022) — C3 (canonical sources §7.3a, "Replacement grades"): a verdict against the key binds like a regrade.
 
 ## Who imports or calls it
 
@@ -99,7 +99,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `REGRADE_CONTRACT_VERSIONS`, `SOURCE_REFERENCE_GATE_VERSIONS`
 - [[Reference/Modules/learnloop/attempts/effective_observation|learnloop.attempts.effective_observation]] — imports `module`; calls `shared_certainty_lcb`
 - [[Reference/Modules/learnloop/attempts/grade_classifier|learnloop.attempts.grade_classifier]] — imports `CRITERION_CLASSIFIER_VERSION`, `RESPONSE_CLASSIFIER_VERSION`, `bucket_confidence`, `classify_criteria`, `classify_response`, `length_bucket_for_text`, `schema_shape_from_row`; calls `bucket_confidence`, `classify_criteria`, `classify_response`, `length_bucket_for_text`, `schema_shape_from_row`
 - [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]] — imports `module`; calls `certainty`, `credible_interval`, `grader_identity_hash`, `posterior_over_true_class`, `resolve_calibration_model`

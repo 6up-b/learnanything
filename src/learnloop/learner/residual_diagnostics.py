@@ -24,9 +24,6 @@ from collections import defaultdict
 from typing import Any
 
 from learnloop.db.repositories import Repository
-from learnloop.learner.assessment_contracts import (
-    CANONICAL_STATE_VERSIONS,
-)
 from learnloop.substrate.canonical_projection import FAILURE_THRESHOLD, surface_group_id
 from learnloop.learner.capability_mapping import compile_criterion_targets
 from learnloop.vault.models import LoadedVault
@@ -260,15 +257,6 @@ def residual_dependence_report(
     vault: LoadedVault, repository: Repository, *, subject_id: str | None = None
 ) -> dict[str, Any]:
     """The §8.4 residual-dependence diagnostics report (report-only, deterministic)."""
-
-    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
-        return {
-            "version": 1,
-            "subject": subject_id,
-            "suggestions": [],
-            "totals": {"suggestions": 0, "facet_pairs": 0},
-            "note": "residual diagnostics run only under the canonical model (mvp-0.7/mvp-0.8)",
-        }
 
     scoped_los: set[str] | None = None
     scoped_facets: set[str] | None = None

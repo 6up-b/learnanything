@@ -10,8 +10,8 @@ modules_in_an_import_cycle = 286
 first_level_packages = 46
 first_level_root_modules = 35
 first_level_root_modules_not_upgrade = 35
-functions_over_200_lines = 82
-comment_lines_naming_a_stage_artifact = 2398
+functions_over_200_lines = 81
+comment_lines_naming_a_stage_artifact = 2395
 test_files_named_for_a_stage = 184
 
 [members]
@@ -284,7 +284,6 @@ functions_over_200_lines = [
     "src/learnloop/diagnosis/grading_hardcases.py run_hardcases",
     "src/learnloop/diagnosis/probe_episodes.py _record_presentation_observation",
     "src/learnloop/diagnosis/remediation.py record_remediation_attempt",
-    "src/learnloop/diagnosis/remediation.py reschedule_assisted_cold_retry",
     "src/learnloop/diagnosis/split/context.py assemble_diagnosis_context",
     "src/learnloop/diagnosis/split/history.py _load",
     "src/learnloop/diagnosis/split/jobs.py _diagnose",
@@ -562,7 +561,7 @@ stage_test_files = [
 "src/learnloop/attempts/grading_support.py" = 15
 "src/learnloop/attempts/hint_fold.py" = 21
 "src/learnloop/attempts/post_attempt.py" = 2
-"src/learnloop/attempts/regrade.py" = 18
+"src/learnloop/attempts/regrade.py" = 16
 "src/learnloop/attempts/reveal_ledger.py" = 7
 "src/learnloop/attempts/salience_firewall.py" = 2
 "src/learnloop/attempts/stuck.py" = 1
@@ -599,7 +598,7 @@ stage_test_files = [
 "src/learnloop/content/facet_identity/plan.py" = 1
 "src/learnloop/content/pipeline/add_source.py" = 25
 "src/learnloop/content/pipeline/ai_contracts.py" = 1
-"src/learnloop/content/pipeline/jobs.py" = 33
+"src/learnloop/content/pipeline/jobs.py" = 32
 "src/learnloop/content/pipeline/quick_add.py" = 1
 "src/learnloop/content/pipeline/reread.py" = 3
 "src/learnloop/content/pipeline/runner.py" = 3

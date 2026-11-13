@@ -177,6 +177,7 @@ Indexes and uniqueness:
 - `tests/mcp_world.py`
 - `tests/method_explicit_landing_helpers.py`
 - `tests/reader_active_reading_helpers.py`
+- `tests/regrade_contract_successor_helpers.py`
 - `tests/reread_safety_landing_helpers.py`
 - `tests/source_service_fakes.py`
 - `tests/teacher_te0_confidence_events_helpers.py`
@@ -188,7 +189,6 @@ Indexes and uniqueness:
 - `tests/test_assumed_known.py`
 - `tests/test_characterization_certification_ledger.py`
 - `tests/test_cli_attempt.py`
-- `tests/test_cli_json.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

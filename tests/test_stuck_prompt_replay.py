@@ -181,13 +181,15 @@ def test_historical_dont_know_rows_replay_unchanged_under_the_successor(tmp_path
     ].effective_mass == pytest.approx(0.7)
 
 
-#: A tag before the successor: it does not offer "I'm stuck" (``STUCK_PROMPT_VERSIONS``), whatever the switch says.
+#: A tag before the successor. No vault that opens is below it, so the tag no longer decides whether "I'm stuck" is
+#: offered (``stuck_prompt.enabled`` does); replay under it still runs the older tag's remaining paths.
 BEFORE_STUCK_PROMPT = "mvp-0.12"
 
 
-def test_a_recorded_stuck_answer_replays_as_stuck_under_a_tag_that_does_not_offer_the_prompt(tmp_path):
-    """Replay reconstructs the stored declaration (``declared_stuck`` on the ledger row); today's tag and switch decide only
-    whether a NEW stuck answer is accepted, so a vault that moves to a tag without the prompt keeps its stuck history."""
+def test_a_recorded_stuck_answer_replays_as_stuck_under_an_older_tag_with_the_prompt_off(tmp_path):
+    """Replay reconstructs the stored declaration (``declared_stuck`` on the ledger row); the switch decides only whether a
+    NEW stuck answer is accepted, so a vault that stops offering the prompt, and replays under an older tag, keeps its
+    stuck history."""
 
     paths, vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
     confused = StuckFake(
@@ -205,8 +207,10 @@ def test_a_recorded_stuck_answer_replays_as_stuck_under_a_tag_that_does_not_offe
     assert any(factors == [1.0] for factors in live_factors.values())  # the empty stuck answer counts as engaged
 
     set_algorithm_version(paths, BEFORE_STUCK_PROMPT)
+    with open(paths.root / "learnloop.toml", "a", encoding="utf-8") as handle:
+        handle.write("\n[stuck_prompt]\nenabled = false\n")
     older = load_vault(paths.root)
-    assert not stuck_prompt_active(older)
+    assert older.config.algorithms.algorithm_version == BEFORE_STUCK_PROMPT and not stuck_prompt_active(older)
     rebuild_all_derived_state(older, repository, clock=CLOCK)
     rebuild_all_derived_state(older, repository, clock=CLOCK)
     with connect(repository.sqlite_path, read_only=True) as connection:

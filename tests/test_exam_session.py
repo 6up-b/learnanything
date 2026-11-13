@@ -287,11 +287,14 @@ def test_an_exam_answer_is_stamped_with_its_graders_calibration_identity(tmp_pat
     from learnloop.substrate.state_sync import sync_vault_state
     from learnloop_sidecar.handlers.exams import _grade_and_record_exam_answer
     from tests.diagnosis_fakes import ReviewFakeClient
-    from tests.helpers import set_algorithm_version
+    from tests.helpers import append_config_toml, set_algorithm_version
 
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     set_algorithm_version(paths, version)
+    if version == "mvp-0.9":
+        # A joint vault: the split's kill switch (no vault that opens is below the split's tag).
+        append_config_toml(vault_root, "[diagnosis]\nsplit_enabled = false")
     _add_item(vault_root, "pi_exam_a", facets=["recall"], difficulty=0.5)
     vault = load_vault(vault_root)
     repository = Repository(paths.sqlite_path)

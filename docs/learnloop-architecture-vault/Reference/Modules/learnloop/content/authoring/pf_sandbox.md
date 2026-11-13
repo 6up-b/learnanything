@@ -188,8 +188,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rw2b_review.py](../../../../../../../tests/test_reader_rw2b_review.py) — direct import
 - [tests/test_reference_gate_imports.py](../../../../../../../tests/test_reference_gate_imports.py) — direct import
   - `test_a_regrade_after_the_tag_binds_an_attempt_recorded_before_it`
-  - `test_below_the_tag_a_regrade_changes_nothing`
-  - `test_below_the_tag_the_gate_never_runs`
 - [tests/test_required_method_authority.py](../../../../../../../tests/test_required_method_authority.py) — direct import
   - `test_a_variant_with_no_verdict_or_an_edited_stem_is_not_published`
   - `test_pf_judges_each_selected_variant_once_and_publication_reads_the_verdict`

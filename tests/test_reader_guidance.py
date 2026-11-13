@@ -104,6 +104,10 @@ def test_timestamp_provenance_anchors_video_transcript_guidance(tmp_path):
 
 # -- the diagnosis overlay (Slice 1 M2 split; reader workbench spec G30) ------
 
+#: A joint vault with shadow diagnosis: the split's kill switch (no vault that opens is below its tag).
+JOINT_SHADOW = "[diagnosis]\nshadow = true\nsplit_enabled = false"
+
+
 def _svd_passage(plan) -> dict:
     passages = [
         passage
@@ -171,7 +175,7 @@ def test_joint_guide_plan_is_unchanged_by_the_overlay_read(tmp_path, monkeypatch
     """
 
     _paths, vault, repository = _graded_vault_with_extraction(
-        tmp_path, version="mvp-0.9", config="[diagnosis]\nshadow = true",
+        tmp_path, version="mvp-0.9", config=JOINT_SHADOW,
     )
     client = _StatementFake()
     result = submit(vault, repository, client)
@@ -284,7 +288,7 @@ def test_joint_guide_plan_never_waits_on_a_shadow_diagnosis(tmp_path):
     """A queued shadow diagnosis stores no overlay, so a joint plan waits on nothing."""
 
     _paths, vault, repository = _graded_vault_with_extraction(
-        tmp_path, version="mvp-0.9", config="[diagnosis]\nshadow = true",
+        tmp_path, version="mvp-0.9", config=JOINT_SHADOW,
     )
     client = _StatementFake()
     result = submit(vault, repository, client)

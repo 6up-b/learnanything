@@ -25,7 +25,6 @@ from tests.assumed_known_helpers import _answer
 from tests.lp_claim_fixes_review_helpers import (
     ITEM,
     LO,
-    PREDECESSOR,
     TAG,
     _gap,
     _gap_claims,
@@ -138,11 +137,8 @@ def test_f4_a_claim_seed_never_starts_below_the_cold_variance_and_replay_agrees(
     assert _mastery(_rebuild(paths)) == pytest.approx(live, rel=1e-12, abs=1e-12)
 
 
-@pytest.mark.parametrize("variant", ["switch_off", "below_tag"])
-def test_f4_off_the_predecessor_seed_variance_is_kept(tmp_path, variant):
-    paths, vault, repository = _vault(
-        tmp_path, version=PREDECESSOR if variant == "below_tag" else CLAIM_FIXES_ALGORITHM_VERSION, toml=OFF if variant == "switch_off" else None,
-    )
+def test_f4_off_the_predecessor_seed_variance_is_kept(tmp_path):
+    paths, vault, repository = _vault(tmp_path, version=CLAIM_FIXES_ALGORITHM_VERSION, toml=OFF)
     repository.insert_learner_claim({
         "claim_type": "self_rating", "scope_type": "learning_object", "scope_id": LO, "evidence_family": "recall",
         "claimed_level": 0.9, "prior_pseudo_count": 2.0, "source": "learner_report", "created_at": _iso(1),
@@ -246,11 +242,10 @@ def test_f6_get_feedback_attaches_the_line_to_the_resolving_review_only(tmp_path
     assert "marked this as known" not in str(attempt)
 
 
-@pytest.mark.parametrize("variant", ["switch_off", "below_tag"])
-def test_f6_off_no_claim_line(tmp_path, variant):
+def test_f6_off_no_claim_line(tmp_path):
     from learnloop.placement.claim_check import claim_check
 
     _paths, vault, repository, (_unrelated, resolving, _later) = _known_then_reviews(
-        tmp_path, version=PREDECESSOR if variant == "below_tag" else CLAIM_FIXES_ALGORITHM_VERSION, toml=OFF if variant == "switch_off" else None,
+        tmp_path, version=CLAIM_FIXES_ALGORITHM_VERSION, toml=OFF
     )
     assert claim_check(vault, repository, resolving) is None

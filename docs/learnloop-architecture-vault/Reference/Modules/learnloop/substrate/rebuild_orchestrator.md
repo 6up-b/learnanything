@@ -264,7 +264,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_off_is_the_predecessor_on_a_tracked_fixture_copy`
   - `test_owner_copies_off_is_the_predecessor_and_on_reports_the_mastery_deltas`
 - [tests/test_mvp017_route_check_replay.py](../../../../../../tests/test_mvp017_route_check_replay.py) — direct import
-  - `test_an_mvp017_vault_replays_its_grades_exactly`
+  - `test_an_mvp017_history_at_the_floor_replays_its_grades_and_then_changes_nothing`
   - `test_the_bounded_replay_corrects_the_copy_in_one_rebuild_and_then_changes_nothing`
 - [tests/test_pfc_unassessed_readers.py](../../../../../../tests/test_pfc_unassessed_readers.py) — direct import
   - `test_a_record_written_before_the_rule_keeps_its_interpretation_until_regraded`

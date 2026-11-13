@@ -22,7 +22,6 @@ from datetime import UTC, datetime
 from math import copysign, exp, log, sqrt
 from typing import TYPE_CHECKING, Any
 
-from learnloop.algorithm_versions import CLAIM_FIXES_VERSIONS, SUPERSEDED_CLAIMS_VERSIONS
 from learnloop.clock import parse_utc, utc_now_iso
 from learnloop.config import MasteryConfig
 from learnloop.db.repositories import ItemParameterState, MasteryState
@@ -173,34 +172,15 @@ def initial_mastery_state(
 
 
 def claim_fixes_live(vault) -> bool:
-    """LP-min (a): the claim-fixes successor's tag AND its kill switch.
+    """LP-min (a): the claim-fixes successor's kill switch.
 
-    ``mastery.claim_fixes_enabled`` off, or a version below
-    ``CLAIM_FIXES_ALGORITHM_VERSION``: every claim seed, re-anchor, merge,
+    ``mastery.claim_fixes_enabled`` off: every claim seed, re-anchor, merge,
     ranking and replay is the predecessor's exactly. Read defensively because
     time-frozen callers (``field.priors``) pass a namespace vault.
     """
 
-    config = getattr(vault, "config", None)
-    algorithms = getattr(config, "algorithms", None)
-    mastery = getattr(config, "mastery", None)
-    return (
-        getattr(algorithms, "algorithm_version", None) in CLAIM_FIXES_VERSIONS
-        and bool(getattr(mastery, "claim_fixes_enabled", False))
-    )
-
-
-def replaced_claims_kept(vault) -> bool:
-    """The successor mvp-0.36: the replace seam keeps a replaced claim (``superseded_by``).
-
-    Below ``SUPERSEDED_CLAIMS_ALGORITHM_VERSION`` the seam deletes it, as the
-    predecessor. No kill switch: no live reader sees a replaced row
-    (``Repository.learner_claims`` reads the claims in force), so keeping it
-    changes only what replay can apply."""
-
-    config = getattr(vault, "config", None)
-    algorithms = getattr(config, "algorithms", None)
-    return getattr(algorithms, "algorithm_version", None) in SUPERSEDED_CLAIMS_VERSIONS
+    mastery = getattr(getattr(vault, "config", None), "mastery", None)
+    return bool(getattr(mastery, "claim_fixes_enabled", False))
 
 
 def _in_force(claims: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -527,17 +507,16 @@ def replace_claim_and_reanchor(vault, repository, claim: dict[str, Any], *, cloc
     ``claim`` replaces the in-force claim of its source on its LO
     (``Repository.replace_learner_claim``) and re-anchors that LO's mastery at
     once, recording its application position (``reanchor_mastery_from_claim``
-    with ``claim_id``). From the successor mvp-0.36 on (review F1) the three
-    are one ``BEGIN IMMEDIATE`` transaction (a savepoint inside a caller's):
-    another writer's report on the same LO lands wholly before or after, so
-    the order the claims replace one another is the order their merges ran,
-    which is the order replay applies them in; and a failure between the
-    replacement and its re-anchor leaves neither. Below the tag both are
-    written exactly as the predecessor wrote them."""
+    with ``claim_id``). The replaced claim is kept (``superseded_by``, the
+    successor mvp-0.36), so replay can apply each claim at its own time. The
+    three writes are one ``BEGIN IMMEDIATE`` transaction (a savepoint inside a
+    caller's): another writer's report on the same LO lands wholly before or
+    after, so the order the claims replace one another is the order their
+    merges ran, which is the order replay applies them in; and a failure
+    between the replacement and its re-anchor leaves neither."""
 
-    keep = replaced_claims_kept(vault)
-    with repository.atomic() if keep else nullcontext():
-        claim_id = repository.replace_learner_claim(claim, keep_replaced=keep, clock=clock)
+    with repository.atomic():
+        claim_id = repository.replace_learner_claim(claim, keep_replaced=True, clock=clock)
         reanchor_mastery_from_claim(
             vault,
             repository,

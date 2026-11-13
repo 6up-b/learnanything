@@ -14,7 +14,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.helpers import NOW, create_basic_vault, pin_old_basic_vault, set_algorithm_version
+from tests.helpers import NOW, create_basic_vault, set_algorithm_version
 
 
 def test_snapshot_authoritative_after_live_rubric_change(tmp_path):
@@ -127,32 +127,3 @@ def test_mvp07_attempt_stamps_observation_lineage(tmp_path):
     assert row.observation_id == f"{result.attempt_id}:correctness:0"
     assert row.grading_revision == 0
     assert row.assessment_contract_version_id is not None
-
-
-def test_legacy_attempt_records_no_observation_lineage(tmp_path):
-    # Old path only, by name: an mvp-0.6 attempt (the pre-D2a basic vault) writes no
-    # KM1 lineage; the head's lineage is the mvp-0.7 tests' subject.
-    paths = pin_old_basic_vault(create_basic_vault(tmp_path / "vault"))
-    vault = load_vault(paths.root)
-    repository = Repository(paths.sqlite_path)
-    clock = FrozenClock(NOW)
-    sync_vault_state(vault, repository, clock=clock)
-
-    result = complete_self_graded_attempt(
-        vault,
-        repository,
-        AttemptDraft(
-            practice_item_id="pi_svd_define_001",
-            learner_answer_md="SVD is U Sigma V^T.",
-            attempt_type="independent_attempt",
-        ),
-        SelfGradeInput(criterion_points={"correctness": 4}, fatal_errors=[], confidence=4),
-        clock=clock,
-    )
-    evidence = repository.fetch_grading_evidence(result.attempt_id)
-    assert evidence
-    # Legacy path leaves the KM1 lineage columns NULL (replay stays identical).
-    assert evidence[0].observation_id is None
-    assert evidence[0].assessment_contract_version_id is None
-    contracts = repository.fetch_assessment_contract_version("nonexistent")
-    assert contracts is None

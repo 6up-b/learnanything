@@ -11,7 +11,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from learnloop.attempts.attempts import complete_attempt_with_ai_required
-from learnloop.attempts.grading_support import REFERENCE_POLICY_PROMPT_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
+from learnloop.attempts.grading_support import METHOD_ROUTE_RULES_SUFFIX, REFERENCE_POLICY_PROMPT_VERSION
 from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 from learnloop.attempts.stuck import STUCK_READING_JUDGMENT_TASK, STUCK_READING_KEY, stuck_answers
 from learnloop.clock import FrozenClock
@@ -83,7 +84,7 @@ def test_a_stuck_answers_pfc_unverified_criteria_are_unassessed(tmp_path):
     unassessed exactly as on any other answer (out of the grade, no facet
     evidence either way), and the stuck reading is recorded beside it."""
 
-    _paths, vault, repository = _mapped_split_vault(tmp_path, "mvp-0.13")
+    _paths, vault, repository = _mapped_split_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     project_canonical_facet_state(vault, repository)
     recall_before = _mass(repository, "recall")
     answer = "I'm not sure why this route works.\nFinal answer: U Sigma V^T"
@@ -97,7 +98,8 @@ def test_a_stuck_answers_pfc_unverified_criteria_are_unassessed(tmp_path):
     assert support["assessed_shortfall"] is False and UNVERIFIED_INTERPRETATION_KEY in support
     record = repository.latest_blind_grade_record(result.attempt_id)
     assert record["record"][STUCK_READING_KEY]["describes_confusion"] is True
-    assert record["grading_prompt_version"] == f"{REFERENCE_POLICY_PROMPT_VERSION}+stuck-v1"
+    # At the head the own-route rules (method-explicit) compose with both.
+    assert record["grading_prompt_version"] == f"{REFERENCE_POLICY_PROMPT_VERSION}{METHOD_ROUTE_RULES_SUFFIX}+stuck-v1"
     rows = {row.criterion_id: row for row in repository.fetch_grading_evidence(result.attempt_id)}
     assert unassessed_evidence_row(rows["result"].attribution_json)
     assert not unassessed_evidence_row(rows["setup"].attribution_json)

@@ -245,18 +245,6 @@ def test_a_live_write_is_the_same_below_and_at_the_tag(tmp_path):
     assert _mastery(below) == _mastery(at)
 
 
-def test_below_the_tag_replay_is_the_predecessors(tmp_path):
-    """The same-version golden behaviour: a predecessor rebuild still reads the
-    whole ledger (and so differs from live on this history), exactly as
-    before the successor."""
-
-    from tests.rebuild_equivalence_helpers import _mastery
-
-    _paths, vault, repository = _two_attempt_history(tmp_path, "below", version=PREDECESSOR)
-    live = _mastery(repository)
-    assert _rebuilt(vault, repository) != live
-
-
 def test_at_the_tag_replay_reproduces_live_and_the_switch_restores_the_predecessor(tmp_path):
     from tests.rebuild_equivalence_helpers import _mastery
 
@@ -264,7 +252,9 @@ def test_at_the_tag_replay_reproduces_live_and_the_switch_restores_the_predecess
     live = _mastery(repository)
     assert _rebuilt(vault, repository) == live
 
-    _paths, below_vault, below = _two_attempt_history(tmp_path, "below", version=PREDECESSOR)
+    # The predecessor's replay, which reads the whole ledger, is served through the switch alone: no
+    # vault that opens is below the tag.
+    _paths, below_vault, below = _two_attempt_history(tmp_path, "below", version=PREDECESSOR, config=SWITCH_OFF)
     predecessor = _rebuilt(below_vault, below)
     _paths, off_vault, off = _two_attempt_history(tmp_path, "off", version=TAG, config=SWITCH_OFF)
     assert off_vault.config.replay.ledger_bounded is False

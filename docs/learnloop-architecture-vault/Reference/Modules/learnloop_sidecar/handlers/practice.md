@@ -239,7 +239,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followups_nov2_help_fold.py](../../../../../../tests/test_followups_nov2_help_fold.py) — direct import
   - `test_a_counted_row_is_attached_in_the_attempts_own_transaction`
 - [tests/test_help_fold_attach_successor.py](../../../../../../tests/test_help_fold_attach_successor.py) — direct import
-  - `test_the_fold_is_gated_by_the_tag_and_the_switch`
+  - `test_the_fold_is_gated_by_the_switch`
 - [tests/test_hint_h2a_review_round2.py](../../../../../../tests/test_hint_h2a_review_round2.py) — direct import
   - `test_v1_a_hint_delivered_after_the_fold_and_before_the_commit_is_counted`
 - [tests/test_hint_h2a_review_round3.py](../../../../../../tests/test_hint_h2a_review_round3.py) — direct import

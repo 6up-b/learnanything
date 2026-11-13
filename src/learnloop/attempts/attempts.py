@@ -73,13 +73,6 @@ from learnloop.learner.mastery import (
     update_item_difficulty,
     update_mastery_traced,
 )
-from learnloop.algorithm_versions import (
-    P0_PROJECTION_VERSIONS,
-    REGRADE_CONTRACT_VERSIONS,
-    ATTEMPT_CONTENT_STATE_VERSIONS,
-    REPLAY_LEDGER_VERSIONS,
-    SOURCE_REFERENCE_GATE_VERSIONS,
-)
 from learnloop.db.connection import connect
 from learnloop.db.stores.source_service import reference_status_for_item
 from learnloop.attempts.blind_grading import (
@@ -102,7 +95,6 @@ from learnloop.attempts.stuck import (
     verified_stuck_reading,
 )
 from learnloop.learner.assessment_contracts import (
-    CANONICAL_STATE_VERSIONS,
     compile_assessment_contract,
     contract_required_method,
     rubric_from_contract,
@@ -1369,26 +1361,22 @@ _REPLAY_IDENTITY_FROM_LEDGER: Any = object()
 
 def replay_reads_bounded_ledger(vault: LoadedVault) -> bool:
     """Whether replay bounds its ledger reads at the replayed attempt
-    (rebuild equivalence, ``REPLAY_LEDGER_VERSIONS`` and the kill switch
-    ``replay.ledger_bounded``). Below the tag, or off, replay reads the whole
-    ledger as the predecessor did. Live writes never ask."""
+    (rebuild equivalence, the kill switch ``replay.ledger_bounded``). Off,
+    replay reads the whole ledger as the predecessor did. Live writes never
+    ask."""
 
     replay_config = getattr(vault.config, "replay", None)
-    return vault.config.algorithms.algorithm_version in REPLAY_LEDGER_VERSIONS and bool(
-        getattr(replay_config, "ledger_bounded", True)
-    )
+    return bool(getattr(replay_config, "ledger_bounded", True))
 
 
 def attempt_keeps_content_state(vault: LoadedVault) -> bool:
     """Whether a live attempt writes only its item row's scheduling columns
-    (mobile PR-4, ``ATTEMPT_CONTENT_STATE_VERSIONS`` and the kill switch
-    ``practice.attempt_keeps_content_state``). Below the tag, or off, the
-    attempt writes the whole row as the predecessor did. Replay never asks."""
+    (mobile PR-4, the kill switch ``practice.attempt_keeps_content_state``).
+    Off, the attempt writes the whole row as the predecessor did. Replay never
+    asks."""
 
     practice_config = getattr(vault.config, "practice", None)
-    return vault.config.algorithms.algorithm_version in ATTEMPT_CONTENT_STATE_VERSIONS and bool(
-        getattr(practice_config, "attempt_keeps_content_state", True)
-    )
+    return bool(getattr(practice_config, "attempt_keeps_content_state", True))
 
 
 def replay_existing_attempt(
@@ -1409,24 +1397,12 @@ def replay_existing_attempt(
     the identity its new grade was produced under.
     """
 
-    evidence = repository.fetch_grading_evidence(attempt["id"])
-    contract_version_id = next(
-        (
-            row.assessment_contract_version_id
-            for row in evidence
-            if row.assessment_contract_version_id is not None
-        ),
-        None,
-    )
-    reading: CurrentEpochReading | None = None
-    if vault.config.algorithms.algorithm_version in REGRADE_CONTRACT_VERSIONS:
-        # Regrade contracts (mvp-0.26): the CURRENT grading epoch's rows and
-        # its own contract, never the first live row's. Below the tag every
-        # row replays exactly as before (all live rows, the first cited
-        # contract).
-        reading = current_epoch_reading(vault, repository, attempt, live_rows=evidence)
-        evidence = list(reading.rows)
-        contract_version_id = reading.contract_version_id
+    # Regrade contracts (mvp-0.26): the CURRENT grading epoch's rows and its
+    # own contract, never the first live row's. Rows graded before contracts
+    # are read by their shape there (``current_epoch_reading``).
+    reading = current_epoch_reading(vault, repository, attempt)
+    evidence = list(reading.rows)
+    contract_version_id = reading.contract_version_id
     criterion_points = {row.criterion_id: row.points_awarded for row in evidence}
     # PF-c: the live grade's unverified criteria, read back from the block its
     # evidence rows carry (never from config), so replay leaves them
@@ -1480,16 +1456,15 @@ def replay_existing_attempt(
     blind_record = repository.latest_blind_grade_record(attempt["id"])
     from learnloop.held_grades import record_held_for_review
 
-    unrecorded = reading is not None and reading.unrecorded
+    unrecorded = reading.unrecorded
     manual_review_reason = attempt.get("manual_review_reason")
-    if reading is not None:
-        # Replay owns the unrecorded-contract hold's reason: it records it on
-        # a grade whose contract is unrecorded and clears it once a recorded
-        # epoch replaced that grade (the reason the new grade wrote stands).
-        if unrecorded:
-            manual_review_reason = GRADE_CONTRACT_UNRECORDED
-        elif manual_review_reason == GRADE_CONTRACT_UNRECORDED:
-            manual_review_reason = None
+    # Replay owns the unrecorded-contract hold's reason: it records it on a
+    # grade whose contract is unrecorded and clears it once a recorded epoch
+    # replaced that grade (the reason the new grade wrote stands).
+    if unrecorded:
+        manual_review_reason = GRADE_CONTRACT_UNRECORDED
+    elif manual_review_reason == GRADE_CONTRACT_UNRECORDED:
+        manual_review_reason = None
 
     return apply_attempt(
         vault,
@@ -1533,7 +1508,7 @@ def replay_existing_attempt(
             # own-route rule) replays held, from the record it was written with.
             grade_held_for_review=record_held_for_review(blind_record),
             grade_contract_unrecorded=unrecorded,
-            unrecorded_correctness=reading.unrecorded_correctness if unrecorded and reading is not None else None,
+            unrecorded_correctness=reading.unrecorded_correctness if unrecorded else None,
             replay_ledger_position=(
                 (str(attempt["created_at"]), str(attempt["id"]))
                 if attempt.get("created_at") is not None and replay_reads_bounded_ledger(vault)
@@ -2966,16 +2941,13 @@ def _dual_write_grade_channel(
         if item is None:
             return
         grade = attempt.grade
-        if vault.config.algorithms.algorithm_version in REGRADE_CONTRACT_VERSIONS:
-            # Regrade contracts (mvp-0.26): the channel classifies the grade
-            # out of the maximum it was computed against (its cited
-            # contract's), never the item's as it is now; a grade whose
-            # contract is unrecorded is held and has nothing to classify.
-            if application.grade_contract_unrecorded:
-                return
-            rubric = application.rubric or vault.rubric_for_item(item)
-        else:
-            rubric = vault.rubric_for_item(item)
+        # Regrade contracts (mvp-0.26): the channel classifies the grade out
+        # of the maximum it was computed against (its cited contract's), never
+        # the item's as it is now; a grade whose contract is unrecorded is held
+        # and has nothing to classify.
+        if application.grade_contract_unrecorded:
+            return
+        rubric = application.rubric or vault.rubric_for_item(item)
         max_points = rubric.max_points if rubric is not None else 4
         criterion_max = (
             {c.id: c.points for c in rubric.criteria} if rubric is not None else None
@@ -3635,16 +3607,13 @@ def _project_canonical_belief(
 ) -> None:
     """Recompute the canonical shared belief cache after an attempt (mvp-0.7).
 
-    A no-op on legacy vaults (the projection early-returns), so mvp-0.6 replay is
-    byte-identical. The recompute is a deterministic fold over the immutable
-    observation ledger. Live, the ledger ends at this attempt; replay bounds
-    the fold to the replayed attempt's ledger position (``before`` / ``through``)
-    so it folds the same rows, and the replay's closing whole-ledger
-    projection reconciles what a bounded fold leaves alone.
+    The recompute is a deterministic fold over the immutable observation
+    ledger. Live, the ledger ends at this attempt; replay bounds the fold to
+    the replayed attempt's ledger position (``before`` / ``through``) so it
+    folds the same rows, and the replay's closing whole-ledger projection
+    reconciles what a bounded fold leaves alone.
     """
 
-    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
-        return
     from learnloop.substrate.canonical_projection import project_canonical_facet_state
 
     project_canonical_facet_state(vault, repository, clock=clock, before=before, through=through)
@@ -3728,17 +3697,14 @@ def _stamp_observation_lineage(
 ) -> None:
     """Snapshot the assessment contract and stamp observation ids (KM §5.2).
 
-    Only runs on canonical-state vaults, and only for freshly recorded grading evidence
-    (not the replace/replay path, which reuses stored rows). Legacy vaults skip
-    this entirely, so mvp-0.6 replay reproduces byte-identical derived state.
+    Only for freshly recorded grading evidence (not the replace/replay path,
+    which reuses stored rows).
     """
 
     from learnloop.learner.assessment_contracts import (
         snapshot_for_presentation,
     )
 
-    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
-        return
     if attempt.replace_existing or not application.evidence_rows:
         return
     item = vault.practice_items.get(attempt.draft.practice_item_id)
@@ -4351,18 +4317,18 @@ def load_attempt_prior_state(
     )
 
 
-def _attempt_reference_status(vault: LoadedVault, repository: Repository, item: PracticeItem,
+def _attempt_reference_status(repository: Repository, item: PracticeItem,
                               draft: AttemptDraft, *, replay: bool) -> str:
     """The attempt-time answer-key signal (canonical sources S1, C3).
 
-    Read from the served item's effective key status at or above the gate's
-    tag; ``not_applicable`` below it, for items that are not exercise imports,
-    and on replay unless the stored row says otherwise.
+    Read from the served item's effective key status; ``not_applicable`` for
+    items that are not exercise imports, and on replay unless the stored row
+    says otherwise.
     """
 
     if draft.reference_status is not None:
         return draft.reference_status
-    if replay or vault.config.algorithms.algorithm_version not in SOURCE_REFERENCE_GATE_VERSIONS:
+    if replay:
         return "not_applicable"
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         return reference_status_for_item(connection, item)
@@ -4576,15 +4542,10 @@ def _compute_resolved_grade_application(
     # widens R and never biases y. Certification is untouched: canonical
     # projection consumes the channel through build_effective_observation.
     # Deterministic and self grades are not channel-interpreted, so they keep
-    # the raw score and confidence with no extra noise. Every P0-projection
-    # version (mvp-0.8 and its successors) takes this lane.
+    # the raw score and confidence with no extra noise.
     grader_confidence_source = grade.grader_confidence
     interpretation_variance = 0.0
-    if (
-        vault.config.algorithms.algorithm_version in P0_PROJECTION_VERSIONS
-        and draft.attempt_type != "dont_know"
-        and grading_source in ("ai", "codex")
-    ):
+    if draft.attempt_type != "dont_know" and grading_source in ("ai", "codex"):
         try:
             from learnloop.attempts.grade_resolution import response_soft_score
 
@@ -4886,7 +4847,7 @@ def _compute_resolved_grade_application(
         "evidence_origin": draft.evidence_origin,
         "declared_dont_know": draft.declared_dont_know,
         "declared_stuck": draft.declared_stuck,
-        "reference_status": _attempt_reference_status(vault, repository, item, draft, replay=replay),
+        "reference_status": _attempt_reference_status(repository, item, draft, replay=replay),
         **_ad_logged_fields(vault, draft),
         "received_at": draft.received_at,
     }

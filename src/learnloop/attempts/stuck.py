@@ -36,7 +36,6 @@ from typing import Any, Mapping
 from pydantic import Field
 
 from learnloop.ai.schemas import WireModel
-from learnloop.algorithm_versions import STUCK_PROMPT_VERSIONS
 from learnloop.attempt_types import default_attempt_type
 
 #: The control's label and the one prompt it opens the answer box with.
@@ -70,14 +69,11 @@ EMPTY_STUCK_FEEDBACK = (
 def stuck_prompt_active(vault: Any) -> bool:
     """Does this vault offer "I'm stuck" for NEW answers?
 
-    The algorithm version gates it; ``stuck_prompt.enabled`` is its kill
-    switch. Read only when an answer is recorded or a surface is drawn.
+    ``stuck_prompt.enabled`` is its kill switch. Read only when an answer is
+    recorded or a surface is drawn.
     """
 
-    config = vault.config
-    if config.algorithms.algorithm_version not in STUCK_PROMPT_VERSIONS:
-        return False
-    section = getattr(config, "stuck_prompt", None)
+    section = getattr(vault.config, "stuck_prompt", None)
     return bool(getattr(section, "enabled", True))
 
 

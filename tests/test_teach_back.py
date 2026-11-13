@@ -1137,12 +1137,18 @@ class BlindTeachBackClient(FakeTeachBackClient):
         )
 
 
-def _teach_back_vault_at(tmp_path, version: str):
-    from tests.helpers import set_algorithm_version
+#: Joint grading: the split's kill switch (no vault that opens is below the split's tag).
+JOINT_SWITCH = "\n[diagnosis]\nsplit_enabled = false\n"
+
+
+def _teach_back_vault_at(tmp_path, version: str, *, joint: bool = False):
+    from tests.helpers import append_config_toml, set_algorithm_version
 
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     set_algorithm_version(paths, version)
+    if joint:
+        append_config_toml(vault_root, JOINT_SWITCH)
     upsert_practice_item(vault_root, _teach_item_payload(), clock=FrozenClock(NOW))
     return paths, load_vault(vault_root), Repository(paths.sqlite_path)
 
@@ -1191,7 +1197,7 @@ def test_a_teach_back_grade_is_calibrated_and_replayed_under_its_graders_identit
     its calibration lookups use the blind identity, live and on replay
     (teach-back writes no blind record). A joint vault keeps the joint one."""
 
-    _paths, vault, repository = _teach_back_vault_at(tmp_path, version)
+    _paths, vault, repository = _teach_back_vault_at(tmp_path, version, joint=identity == JOINT_CALIBRATION)
     lookups = _calibration_lookups(monkeypatch)
     clock = FrozenClock(NOW)
     client = BlindTeachBackClient(points_by_criterion={"core_geometry": 0.25})
@@ -1224,7 +1230,7 @@ def test_a_teach_back_regraded_blind_keeps_the_blind_identity_through_rebuilds(t
     from learnloop.attempts.regrade import regrade_attempt
     from tests.helpers import set_algorithm_version
 
-    paths, vault, repository = _teach_back_vault_at(tmp_path, "mvp-0.9")
+    paths, vault, repository = _teach_back_vault_at(tmp_path, "mvp-0.9", joint=True)
     clock = FrozenClock(NOW)
     client = BlindTeachBackClient()
     item = vault.practice_items[TEACH_ITEM_ID]
@@ -1232,7 +1238,12 @@ def test_a_teach_back_regraded_blind_keeps_the_blind_identity_through_rebuilds(t
     attempt_id = finish_teach_back(vault, repository, state, client, clock=clock).attempt.attempt_id
     assert _stamped_identities(repository, attempt_id) == [JOINT_CALIBRATION]
 
+    # After the split: the tag, and the switch back on.
     set_algorithm_version(paths, "mvp-0.10")
+    config = paths.root / "learnloop.toml"
+    text = config.read_text(encoding="utf-8")
+    assert text.count(JOINT_SWITCH) == 1
+    config.write_text(text.replace(JOINT_SWITCH, ""), encoding="utf-8")
     vault = load_vault(paths.root)
     lookups = _calibration_lookups(monkeypatch)
     regrade_client = BlindTeachBackClient(points_by_criterion={"core_geometry": 0.0})

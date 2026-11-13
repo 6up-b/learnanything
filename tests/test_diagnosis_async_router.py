@@ -88,7 +88,8 @@ def test_a_pick_served_while_the_diagnosis_is_pending_is_receipted(tmp_path, mon
 
 
 def test_no_wait_and_no_receipt_without_a_pending_diagnosis(tmp_path, monkeypatch):
-    paths, _vault, _repository = split_vault(tmp_path, version="mvp-0.9")
+    # A joint vault, which queues no diagnosis: the split's kill switch (no vault that opens is below its tag).
+    paths, _vault, _repository = split_vault(tmp_path, version="mvp-0.9", config="[diagnosis]\nsplit_enabled = false")
     sidecar = _Sidecar(paths.root, ReviewFakeClient(), monkeypatch, autostart=False)
     sidecar.result("initialize", {"vaultPath": str(paths.root)})
     session_id = sidecar.result("start_session", {})["sessionId"]
