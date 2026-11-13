@@ -177,7 +177,7 @@ Most source and test edits went in through short Python scripts that replace one
 
 ## Gates
 
-- **Targeted tests.** `scripts/affected_tests.py --base fea17dccae` chose 323 files; with the rules block's list and the files this step adds or edits, 332, run at `62558179d3` (the source tip) with `-m "not arc_close"` in 4 chunks of up to 85 at `-n 4` under the 5 GB cap behind the full-suite lock: 6,404 passed, 26 skipped, 0 failed.
+- **Targeted tests.** `scripts/affected_tests.py --base fea17dccae` chose 329 files; with the rules block's list and the files this step adds or edits, 332, run at `62558179d3` (the source tip) with `-m "not arc_close"` in 4 chunks of up to 85 at `-n 4` under the 5 GB cap behind the full-suite lock: 6,404 passed, 26 skipped, 0 failed.
 - **Identity pins:** unmoved. K2-16 moves no pinned identity (no pin builds a neighbourhood).
 - **Structure ratchets:** no number moved (functions over 200 lines in the two files stay `_normalize` and `_normalize_append`).
 - **Lint:** `lint-imports --no-cache` 42 kept; `ruff check` clean.
