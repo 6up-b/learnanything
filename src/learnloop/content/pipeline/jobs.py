@@ -2000,9 +2000,10 @@ def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
         # Same mapping as the bootstrap lane above. Flattening the code into the
         # message left every append failure as `invalid_job`, dropped the gate
         # diagnostics the Activity panel renders, and asserted retryable=False
-        # for a gate rejection. Since K3.4 a retry reads the checkpointed answer
-        # (zero calls), so it clears a gate failure only when the vault changed.
-        # An input over append_input_ceiling refuses the same way every time.
+        # for a gate rejection. A gate rejection drops the answer it judged, so
+        # a retry pays for a fresh one; a retry after any other failure reads
+        # the checkpointed answer (zero calls). An input over
+        # append_input_ceiling refuses the same way every time.
         raise IngestRunnerError(
             str(exc),
             code=exc.code,

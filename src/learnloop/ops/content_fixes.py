@@ -27,12 +27,11 @@ back as the same item with only those lists changed.
 
 from __future__ import annotations
 
-import hashlib
 import tempfile
 from pathlib import Path
 from typing import Any
 
-from learnloop.content.proposals.apply_protocol import materialize_targets
+from learnloop.content.proposals.apply_protocol import materialize_targets, text_hash
 from learnloop.vault.yaml_io import read_yaml, yaml_to_string
 from learnloop.vault_lock import vault_mutation_lock
 
@@ -186,7 +185,7 @@ def fix_criterion_dependencies(root: Path, *, dry_run: bool = True) -> dict[str,
             materialize_targets(root, [{
                 "rel_path": str(path.relative_to(root)),
                 "post_content": text,
-                "post_hash": "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest(),
+                "post_hash": text_hash(text),
             }])
             record(change)
     return report

@@ -178,6 +178,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/source_inventory_helpers.py](../../../../../../../tests/source_inventory_helpers.py) — direct import
 - [tests/source_set_synthesis_helpers.py](../../../../../../../tests/source_set_synthesis_helpers.py) — direct import
 - [tests/structured_ai.py](../../../../../../../tests/structured_ai.py) — direct import
+- [tests/test_cli_append_units.py](../../../../../../../tests/test_cli_append_units.py) — direct import
 - [tests/test_codex_output_schema.py](../../../../../../../tests/test_codex_output_schema.py) — direct import
   - `test_append_schema_declares_properties_on_bare_restructure_payload`
 - [tests/test_exam_protection_identity.py](../../../../../../../tests/test_exam_protection_identity.py) — direct import
@@ -231,6 +232,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_required_method_rereview.py](../../../../../../../tests/test_required_method_rereview.py) — direct import
   - `test_f14_the_generation_guidance_leaves_the_sentence_to_the_writer`
 - [tests/test_source_append.py](../../../../../../../tests/test_source_append.py) — direct import
+  - `test_a_retry_after_an_append_gate_failure_pays_for_a_fresh_answer`
   - `test_append_vocabulary_auto_apply_rules`
   - `test_conflict_accept_creates_open_row_reject_creates_none`
   - `test_conflict_reject_creates_no_row`

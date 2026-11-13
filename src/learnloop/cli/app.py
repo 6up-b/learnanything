@@ -1078,7 +1078,10 @@ def synthesize_command(
     brief_file: Annotated[Path | None, typer.Option("--brief-file", help="JSON synthesis brief (§8.3).")] = None,
     apply_map: Annotated[bool, typer.Option("--apply", help="Accept the study map under the vault lock (requires mvp-0.7).")] = False,
     create_goal: Annotated[bool, typer.Option("--create-goal", help="Create an exam-prep Goal wired to the minted facets.")] = False,
-    new_revision: Annotated[list[str] | None, typer.Option("--new-revision", help="Revision id(s) newly added/changed (append mode).")] = None,
+    new_revision: Annotated[list[str] | None, typer.Option("--new-revision", help=(
+        "Revision id(s) newly added/changed (append mode), sent whole. Without it an append sends only the units "
+        "no kept synthesis of the set has sent."
+    ))] = None,
     ai_provider: Annotated[str | None, typer.Option("--ai-provider", help="AI provider profile to use for synthesis.")] = None,
     dry_run: Annotated[bool, typer.Option(
         "--dry-run",
@@ -1091,9 +1094,11 @@ def synthesize_command(
 
     mode=auto routes to append when the vault already has an applied study map
     (facets present), else bootstrap — adding a member to a set with a study map
-    updates it incrementally with a bounded affected-neighborhood pass."""
+    updates it incrementally with a bounded affected-neighborhood pass. An
+    append that names no --new-revision sends the set's units that no kept
+    synthesis of it has sent (``units_not_yet_sent``), not the whole set."""
 
-    from learnloop.content.synthesis.source_append import append_source, plan_append_embedding
+    from learnloop.content.synthesis.source_append import append_source, plan_append_embedding, units_not_yet_sent
     from learnloop.content.synthesis.source_set_synthesis import (
         StudyMapError,
         create_study_map,
@@ -1119,10 +1124,22 @@ def synthesize_command(
     if mode == "auto":
         resolved_mode = "append" if loaded.evidence_facets else "bootstrap"
 
+    unit_filter: dict[str, list[str]] | None = None
+    if resolved_mode == "append" and not new_revision:
+        new_revision, found_filter = units_not_yet_sent(vault_root, set_id)
+        # No filter when every new revision is wholly new: the manifest an
+        # explicit --new-revision gives, so a finished run is reused.
+        unit_filter = found_filter or None
+        if not new_revision:
+            message = (f"Nothing new to append: every unit of '{set_id}' is in a kept synthesis of it. "
+                       "Name --new-revision to send a revision again.")
+            typer.echo(_dump({"version": 1, "nothingNew": True, "message": message}) if json_output else message)
+            return
+
     if dry_run:
         # Before any provider is resolved: a dry run constructs no client.
         plan = (
-            plan_append_embedding(vault_root, set_id, new_revision_ids=new_revision)
+            plan_append_embedding(vault_root, set_id, new_revision_ids=new_revision, new_unit_ids=unit_filter)
             if resolved_mode == "append"
             else plan_study_map_embedding(vault_root, set_id)
         )
@@ -1140,7 +1157,7 @@ def synthesize_command(
     if resolved_mode == "append":
         try:
             append = append_source(vault_root, set_id, client=client, brief=brief,
-                                   new_revision_ids=new_revision)
+                                   new_revision_ids=new_revision, new_unit_ids=unit_filter)
         except StudyMapError as exc:
             if json_output:
                 typer.echo(_dump({"version": 1, "error": exc.code, "message": str(exc),

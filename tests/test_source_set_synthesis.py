@@ -822,6 +822,39 @@ def test_auto_repair_drops_criterion_id_dependencies(tmp_path):
     assert run["candidate_output"]["practice_items"][1]["depends_on_client_item_ids"]
 
 
+def test_a_fresh_synthesis_after_a_gate_failure_pays_for_a_fresh_answer(tmp_path):
+    """D-9's bootstrap half: the shard result and the pass checkpoint replayed
+    the rejected answer, so the card's fresh Retry (after its zero-model repair
+    failed) met the same gates at zero cost, forever. A gate failure drops
+    them; the preserved candidate stays for the repair."""
+
+    def builder(context, n):
+        payload = _default_payload(context)
+        if n == 1:
+            payload.practice_items[1].depends_on_client_item_ids = ["no_such_item"]
+        return payload
+
+    root, repo = _setup(tmp_path)
+    client = FakeSynthesisClient(builder=builder)
+    with pytest.raises(StudyMapError) as excinfo:
+        create_study_map(root, "set_la", client=client, brief={"depth": "intro"},
+                         repository=repo, clock=_CLOCK)
+    assert excinfo.value.code == "synthesis_gate_failed"
+    assert len(client.calls) == 1
+    with repo.connection() as connection:
+        shards = connection.execute("SELECT COUNT(*) FROM synthesis_shard_results").fetchone()[0]
+        passes = connection.execute(
+            "SELECT COUNT(*) FROM model_work_checkpoints WHERE purpose = 'synthesis_pass'").fetchone()[0]
+    assert (shards, passes) == (0, 0)
+    assert repo.synthesis_run(excinfo.value.synthesis_run_id)["candidate_output"]
+
+    result = create_study_map(root, "set_la", client=client, brief={"depth": "intro"},
+                              repository=repo, clock=_CLOCK)
+
+    assert len(client.calls) == 2
+    assert repo.synthesis_run(result.synthesis_run_id)["status"] == "completed"
+
+
 def test_derive_candidate_repairs_only_targets_criterion_refs():
     """Dangling deps that don't match an embedded criterion id are left for a
     human or agent: no judgment calls are derived mechanically."""

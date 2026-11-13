@@ -985,7 +985,7 @@ def successors_from(version: str) -> frozenset[str]:
     return frozenset(SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(version):])
 
 
-# The oldest tag a vault is opened at (ADR-018): one below it is refused at open until upgraded
+# The oldest tag a vault is opened at (ADR-019): one below it is refused at open until upgraded
 # (``learnloop.version_floor``). Moving the floor is this one line.
 OLDEST_SUPPORTED: str = FIGURE_WAIT_ALGORITHM_VERSION
 

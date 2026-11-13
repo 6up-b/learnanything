@@ -97,6 +97,7 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository.completed_synthesis_manifests()`
 - `Repository.delete_source_artifact()`
 - `Repository.insert_synthesis_manifest()`
 - `Repository.synthesis_manifest()`

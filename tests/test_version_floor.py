@@ -1,4 +1,4 @@
-"""The oldest supported tag (ADR-018): a vault below it is refused at every door, and ``learnloop upgrade``
+"""The oldest supported tag (ADR-019): a vault below it is refused at every door, and ``learnloop upgrade``
 brings it there.
 
 A vault is put below the floor here by rewriting its tag directly, never through ``tests.helpers``'

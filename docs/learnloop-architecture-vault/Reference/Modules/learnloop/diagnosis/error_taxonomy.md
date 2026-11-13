@@ -47,23 +47,23 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/error_taxonomy.py](../../../../../../src/learnloop/diagnosis/error_taxonomy.py) |
-| Source lines | 107 |
+| Source lines | 113 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `persist_unknown_error_type_proposals(vault: LoadedVault, repository: Repository, *, attributions: Iterable[ValidatedErrorAttribution], attempt_id: str, agent_run_id: str | None, related_concept_id: str | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/error_taxonomy.py), line 22) — Propose the error types a grading named that the vault doesn't know.
+- `persist_unknown_error_type_proposals(vault: LoadedVault, repository: Repository, *, attributions: Iterable[ValidatedErrorAttribution], attempt_id: str, agent_run_id: str | None, related_concept_id: str | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/error_taxonomy.py), line 24) — Propose the error types a grading named that the vault doesn't know.
 
 ### Module constants
 
-- `BUILTIN_ERROR_TYPES` ([src/learnloop/diagnosis/error_taxonomy.py](../../../../../../src/learnloop/diagnosis/error_taxonomy.py), line 12)
+- `BUILTIN_ERROR_TYPES` ([src/learnloop/diagnosis/error_taxonomy.py](../../../../../../src/learnloop/diagnosis/error_taxonomy.py), line 14)
 
 ## Internal implementation anchors
 
-- `_error_type_payload(attribution: ValidatedErrorAttribution, related_concept_id: str | None) -> dict[str, object]` ([source](../../../../../../src/learnloop/diagnosis/error_taxonomy.py), line 90)
-- `_title_from_id(error_type: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/error_taxonomy.py), line 105)
+- `_error_type_payload(attribution: ValidatedErrorAttribution, related_concept_id: str | None) -> dict[str, object]` ([source](../../../../../../src/learnloop/diagnosis/error_taxonomy.py), line 96)
+- `_title_from_id(error_type: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/error_taxonomy.py), line 111)
 
 ## Who imports or calls it
 
@@ -77,7 +77,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `ValidatedErrorAttribution`
+- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `ValidatedErrorAttribution`, `builtin_error_type_defaults`; calls `builtin_error_type_defaults`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`

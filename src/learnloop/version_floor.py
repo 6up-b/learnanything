@@ -1,6 +1,6 @@
 """The oldest supported tag: a vault below it is refused where it is opened.
 
-``algorithm_versions.OLDEST_SUPPORTED`` is the floor (ADR-018). A vault whose
+``algorithm_versions.OLDEST_SUPPORTED`` is the floor (ADR-019). A vault whose
 ``learnloop.toml`` names a tag below it, or names none, is not served: every
 door raises :class:`BelowOldestSupported`, which names the vault's tag, the
 floor and the commands that bring the vault there. The doors that check:

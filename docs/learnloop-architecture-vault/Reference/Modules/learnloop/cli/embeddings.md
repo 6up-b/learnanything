@@ -156,6 +156,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/test_cli_append_units.py](../../../../../../tests/test_cli_append_units.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_cli_generate_practice.py](../../../../../../tests/test_cli_generate_practice.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_cli_ingest.py](../../../../../../tests/test_cli_ingest.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_facet_identity_ingest.py](../../../../../../tests/test_facet_identity_ingest.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
@@ -167,7 +168,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_family_memory_projection.py](../../../../../../tests/test_family_memory_projection.py) — imports consumer [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]]
 - [tests/test_field_signal_production_paths.py](../../../../../../tests/test_field_signal_production_paths.py) — imports consumer [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]]
 - [tests/test_probability_prep.py](../../../../../../tests/test_probability_prep.py) — imports consumer [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]]
-- [tests/test_interaction_signals.py](../../../../../../tests/test_interaction_signals.py) — imports consumer [[Reference/Modules/learnloop/cli/field_classification|learnloop.cli.field_classification]]
 
 ## Modification guidance
 

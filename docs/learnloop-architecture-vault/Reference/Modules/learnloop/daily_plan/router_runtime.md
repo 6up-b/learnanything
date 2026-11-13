@@ -224,6 +224,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_an_in_flight_generation_reserves_against_the_next`
   - `test_f1_generation_receipts_are_in_the_daily_total`
   - `test_f1_generation_spend_refuses_the_routers_own_next_request`
+- [tests/test_followup_next_matrix.py](../../../../../../tests/test_followup_next_matrix.py) — direct import
 - [tests/test_plan_determinism_landing.py](../../../../../../tests/test_plan_determinism_landing.py) — direct import
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
   - `test_a_guard_record_that_cannot_be_built_still_refuses`

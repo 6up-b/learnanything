@@ -37,7 +37,7 @@ Up: [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.p
 
 ## Why this module exists
 
-This module keeps patches behavior inside its owning package, [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]]. Its public surface centers on `PatchApplicationError`, `OutstandingApplyIntentError`, `CompiledPatch`, `PatchApplyResult`, `apply_accepted_items`, `applied_content_learning_object_ids`, `recalibrate_applied_content`, `compute_target_hash` and 2 more public symbols.
+This module keeps patches behavior inside its owning package, [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]]. Its public surface centers on `PatchApplicationError`, `OutstandingApplyIntentError`, `refuse_while_an_apply_is_outstanding`, `CompiledPatch`, `PatchApplyResult`, `apply_accepted_items`, `applied_content_learning_object_ids`, `recalibrate_applied_content` and 3 more public symbols.
 
 The authoritative system-level explanation remains in [[Learning System]], [[AI Architecture]]; this note records where this source module participates rather than restating those concepts.
 
@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/proposals/patches.py](../../../../../../../src/learnloop/content/proposals/patches.py) |
-| Source lines | 1403 |
+| Source lines | 1414 |
 | Owning package | [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -56,57 +56,58 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 ## Public API
 
 - `class PatchApplicationError(ValueError)` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 40)
-- `class OutstandingApplyIntentError(PatchApplicationError)` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 44) — An earlier apply is pending or conflicted, so no accept may build on the vault (K3.5).
-  - `__init__(self, intents: list[dict[str, Any]]) -> None` (line 51; internal)
-- `class CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 73)
-- `class PatchApplyResult` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 93)
-- `apply_accepted_items(root: Path, patch_id: str, item_ids: list[str] | None=None, *, clock: Clock | None=None) -> PatchApplyResult` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 98) — Accept a dependency-closed set of proposal items as one logical transaction.
-- `applied_content_learning_object_ids(items: list[dict[str, Any]]) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 272) — The learning objects whose LO or blueprint content an applied closure changed.
-- `recalibrate_applied_content(vault_after: LoadedVault, repository: Repository, items: list[dict[str, Any]], *, clock: Clock | None) -> None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 290) — Stamp the recalibration boundary at an apply that changed LO or blueprint content.
-- `compute_target_hash(vault: LoadedVault, item_type: str, entity_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 318) — Content hash of the current on-vault target entity (§8.2 expected_target_hash).
-- `reject_applied_items(root: Path, patch_id: str, item_ids: list[str] | None=None, *, clock: Clock | None=None) -> int` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 385)
-- `compile_proposal_item(vault: LoadedVault, item: dict[str, Any], *, facet_authority: authority.ProposalAuthority | None=None) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 419) — Compile one proposal item against ``vault`` (the staging vault at apply).
+- `class OutstandingApplyIntentError(PatchApplicationError)` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 44) — An earlier apply is pending or conflicted, so no accept or undo may build on the vault (K3.5; D-10 for undo).
+  - `__init__(self, intents: list[dict[str, Any]], *, action: str='accept') -> None` (line 53; internal)
+- `refuse_while_an_apply_is_outstanding(repository: Repository, *, action: str) -> None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 74) — Raise :class:`OutstandingApplyIntentError` while an intent is pending or conflicted.
+- `class CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 83)
+- `class PatchApplyResult` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 103)
+- `apply_accepted_items(root: Path, patch_id: str, item_ids: list[str] | None=None, *, clock: Clock | None=None) -> PatchApplyResult` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 108) — Accept a dependency-closed set of proposal items as one logical transaction.
+- `applied_content_learning_object_ids(items: list[dict[str, Any]]) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 280) — The learning objects whose LO or blueprint content an applied closure changed.
+- `recalibrate_applied_content(vault_after: LoadedVault, repository: Repository, items: list[dict[str, Any]], *, clock: Clock | None) -> None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 298) — Stamp the recalibration boundary at an apply that changed LO or blueprint content.
+- `compute_target_hash(vault: LoadedVault, item_type: str, entity_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 326) — Content hash of the current on-vault target entity (§8.2 expected_target_hash).
+- `reject_applied_items(root: Path, patch_id: str, item_ids: list[str] | None=None, *, clock: Clock | None=None) -> int` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 393)
+- `compile_proposal_item(vault: LoadedVault, item: dict[str, Any], *, facet_authority: authority.ProposalAuthority | None=None) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 430) — Compile one proposal item against ``vault`` (the staging vault at apply).
 
 ### Module constants
 
 - `LEARNABLE_MAP_ITEM_TYPES` ([src/learnloop/content/proposals/patches.py](../../../../../../../src/learnloop/content/proposals/patches.py), line 37)
-- `_LINK_RELATIONS` ([src/learnloop/content/proposals/patches.py](../../../../../../../src/learnloop/content/proposals/patches.py), line 461)
+- `_LINK_RELATIONS` ([src/learnloop/content/proposals/patches.py](../../../../../../../src/learnloop/content/proposals/patches.py), line 472)
 
 ## Internal implementation anchors
 
-- `_ask_span_support(vault: LoadedVault, repository: Repository, patch_id: str, item_ids: list[str] | None, clock: Clock | None) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 127) — Each facet item's span-support verdict, asked before the vault lock, by input hash (review F1).
-- `_apply_accepted_locked(vault: LoadedVault, repository: Repository, patch_id: str, item_ids: list[str] | None, clock: Clock | None, *, span_verdicts: Mapping[str, Mapping[str, Any]] | None=None) -> PatchApplyResult` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 171)
-- `_accept_time_rechecks(vault: LoadedVault, repository: Repository, ordered_items: list[dict[str, Any]]) -> None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 348)
-- `_noop_apply(root: Path, clock: Clock | None) -> None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 464)
-- `_compile_provenance_link(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 468) — `provenance_link` create: insert a supporting entity_source_links row (§10.3).
-- `_compile_notation_mapping(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 521) — `notation_mapping` create: append a contextual notation equivalence (§10.2).
-- `_compile_source_conflict(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 563) — `source_conflict` create: persist an OPEN two-sided conflict (§10.2).
-- `_refuse_learnable_on_legacy(vault: LoadedVault, item_type: str, entity_id: str) -> None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 608) — Bootstrap evidence refusal (§8.2 enforcement 2, knowledge-model §12.7).
-- `_compile_facet(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any], *, facet_authority: authority.ProposalAuthority | None=None) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 623) — A facet create or update, through the meaning-authority chokepoint.
-- `_held_for_confirm(item: dict[str, Any], entity_id: str, before: dict[str, Any] | None, data: dict[str, Any], payload: dict[str, Any], verdict: authority.MeaningVerdict, contributed: tuple[authority.Contribution, ...], facet_authority: authority.ProposalAuthority) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 709) — A reword with no explanatory support, held for the owner's one-tap confirm (owner, 2026-10-13).
-- `_facet_version(vault: LoadedVault, item: dict[str, Any], entity_id: str, data: dict[str, Any], *, sources: list[dict[str, Any]] | None=None, span_support: dict[str, Any] | None=None) -> tuple[dict[str, Any], dict[str, Any] | None]` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 767) — A write that changes an existing facet's meaning becomes a facet version.
-- `_compile_task_blueprint(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 832)
-- `_proposal_apply_order(item: dict[str, Any]) -> tuple[int, int, str]` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 864)
-- `_proposal_origin(repository: Repository, patch_id: str) -> str` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 887)
-- `_compile_concept(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 900)
-- `_compile_concept_edge(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 916)
-- `_compile_learning_object(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 951)
-- `_upsert_learning_object_with_concept(root: Path, data: dict[str, Any], *, auto_create_concept: bool, clock: Clock | None) -> Path` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 984)
-- `_concept_from_learning_object(data: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 997)
-- `_compile_practice_item(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1018)
-- `_reject_unregistered_facets(vault: LoadedVault, entity_id: str, data: dict[str, Any]) -> None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1071) — Generated-item facet gate (knowledge-model §3.2, mirrors the probe gate).
-- `_compile_rubric(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1120)
-- `_compile_error_type(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1139)
-- `_compile_deactivate(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1158)
-- `_compile_concept_edge_deactivate(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1181) — Retire a concept edge: accepting removes it from relations.yaml.
-- `_apply_reject_side_effect(vault: LoadedVault, repository: Repository, item: dict[str, Any], *, origin: str, clock: Clock | None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1205)
-- `_revert_deactivate_side_effect(vault: LoadedVault, repository: Repository, item: dict[str, Any], payload: dict[str, Any], entity_id: str, *, origin: str, now: str, clock: Clock | None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1292) — Revert an applied ``deactivate``.
-- `_concept_revert_blockers(vault: LoadedVault, concept_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1339)
-- `_normalize_rubric_payload(payload: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1371)
-- `_entity_id(item: dict[str, Any], payload: dict[str, Any], default: str | None=None) -> str` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1379)
-- `_default_edge_id(payload: dict[str, Any]) -> str | None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1386)
-- `_edge_by_id(vault: LoadedVault, edge_id: str) -> Any | None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1395)
-- `_event_type(operation: str) -> str` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1402)
+- `_ask_span_support(vault: LoadedVault, repository: Repository, patch_id: str, item_ids: list[str] | None, clock: Clock | None) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 137) — Each facet item's span-support verdict, asked before the vault lock, by input hash (review F1).
+- `_apply_accepted_locked(vault: LoadedVault, repository: Repository, patch_id: str, item_ids: list[str] | None, clock: Clock | None, *, span_verdicts: Mapping[str, Mapping[str, Any]] | None=None) -> PatchApplyResult` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 181)
+- `_accept_time_rechecks(vault: LoadedVault, repository: Repository, ordered_items: list[dict[str, Any]]) -> None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 356)
+- `_noop_apply(root: Path, clock: Clock | None) -> None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 475)
+- `_compile_provenance_link(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 479) — `provenance_link` create: insert a supporting entity_source_links row (§10.3).
+- `_compile_notation_mapping(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 532) — `notation_mapping` create: append a contextual notation equivalence (§10.2).
+- `_compile_source_conflict(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 574) — `source_conflict` create: persist an OPEN two-sided conflict (§10.2).
+- `_refuse_learnable_on_legacy(vault: LoadedVault, item_type: str, entity_id: str) -> None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 619) — Bootstrap evidence refusal (§8.2 enforcement 2, knowledge-model §12.7).
+- `_compile_facet(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any], *, facet_authority: authority.ProposalAuthority | None=None) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 634) — A facet create or update, through the meaning-authority chokepoint.
+- `_held_for_confirm(item: dict[str, Any], entity_id: str, before: dict[str, Any] | None, data: dict[str, Any], payload: dict[str, Any], verdict: authority.MeaningVerdict, contributed: tuple[authority.Contribution, ...], facet_authority: authority.ProposalAuthority) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 720) — A reword with no explanatory support, held for the owner's one-tap confirm (owner, 2026-10-13).
+- `_facet_version(vault: LoadedVault, item: dict[str, Any], entity_id: str, data: dict[str, Any], *, sources: list[dict[str, Any]] | None=None, span_support: dict[str, Any] | None=None) -> tuple[dict[str, Any], dict[str, Any] | None]` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 778) — A write that changes an existing facet's meaning becomes a facet version.
+- `_compile_task_blueprint(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 843)
+- `_proposal_apply_order(item: dict[str, Any]) -> tuple[int, int, str]` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 875)
+- `_proposal_origin(repository: Repository, patch_id: str) -> str` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 898)
+- `_compile_concept(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 911)
+- `_compile_concept_edge(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 927)
+- `_compile_learning_object(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 962)
+- `_upsert_learning_object_with_concept(root: Path, data: dict[str, Any], *, auto_create_concept: bool, clock: Clock | None) -> Path` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 995)
+- `_concept_from_learning_object(data: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1008)
+- `_compile_practice_item(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1029)
+- `_reject_unregistered_facets(vault: LoadedVault, entity_id: str, data: dict[str, Any]) -> None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1082) — Generated-item facet gate (knowledge-model §3.2, mirrors the probe gate).
+- `_compile_rubric(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1131)
+- `_compile_error_type(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1150)
+- `_compile_deactivate(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1169)
+- `_compile_concept_edge_deactivate(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1192) — Retire a concept edge: accepting removes it from relations.yaml.
+- `_apply_reject_side_effect(vault: LoadedVault, repository: Repository, item: dict[str, Any], *, origin: str, clock: Clock | None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1216)
+- `_revert_deactivate_side_effect(vault: LoadedVault, repository: Repository, item: dict[str, Any], payload: dict[str, Any], entity_id: str, *, origin: str, now: str, clock: Clock | None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1303) — Revert an applied ``deactivate``.
+- `_concept_revert_blockers(vault: LoadedVault, concept_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1350)
+- `_normalize_rubric_payload(payload: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1382)
+- `_entity_id(item: dict[str, Any], payload: dict[str, Any], default: str | None=None) -> str` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1390)
+- `_default_edge_id(payload: dict[str, Any]) -> str | None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1397)
+- `_edge_by_id(vault: LoadedVault, edge_id: str) -> Any | None` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1406)
+- `_event_type(operation: str) -> str` ([source](../../../../../../../src/learnloop/content/proposals/patches.py), line 1413)
 
 ## Who imports or calls it
 
@@ -114,6 +115,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `PatchApplicationError`
+- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `refuse_while_an_apply_is_outstanding`; statically calls `refuse_while_an_apply_is_outstanding`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `PatchApplicationError`
 - [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]] — imports `PatchApplicationError`, `_proposal_apply_order`, `compile_proposal_item`, `recalibrate_applied_content`; statically calls `PatchApplicationError`, `_proposal_apply_order`, `compile_proposal_item`, `recalibrate_applied_content`
 - [[Reference/Modules/learnloop/content/proposals/method_phrasing|learnloop.content.proposals.method_phrasing]] — imports `compute_target_hash`; statically calls `compute_target_hash`
@@ -123,6 +125,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `apply_accepted_items`, `compute_target_hash`; statically calls `apply_accepted_items`, `compute_target_hash`
 - [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] — imports `compute_target_hash`; statically calls `compute_target_hash`
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `PatchApplicationError`
+- [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `OutstandingApplyIntentError`
 - [[Reference/Modules/learnloop_sidecar/handlers/proposals|learnloop_sidecar.handlers.proposals]] — imports `OutstandingApplyIntentError`, `PatchApplicationError`
 
 ## Dependencies
@@ -163,7 +166,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]], [[Reference/Modules/learnloop/content/proposals/method_phrasing|learnloop.content.proposals.method_phrasing]], [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] and 6 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]], [[Reference/Modules/learnloop/content/proposals/method_phrasing|learnloop.content.proposals.method_phrasing]] and 8 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -174,6 +177,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_apply_recovery.py](../../../../../../../tests/test_apply_recovery.py) — direct import
   - `test_an_accept_whose_target_changes_under_it_writes_nothing_and_rolls_back`
   - `test_an_accept_with_a_pending_intent_is_refused`
+  - `test_an_undo_with_a_pending_intent_is_refused`
   - `test_keep_files_sets_the_intent_aside_and_accepts_open_again`
   - `test_the_apply_recalibrates_before_it_marks_the_intent_applied`
 - [tests/test_apply_write_ahead.py](../../../../../../../tests/test_apply_write_ahead.py) — direct import

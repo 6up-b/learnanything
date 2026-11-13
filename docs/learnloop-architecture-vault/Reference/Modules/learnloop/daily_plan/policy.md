@@ -125,6 +125,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ro5_calibration_helpers.py](../../../../../../tests/ro5_calibration_helpers.py) — direct import
 - [tests/router_card_helpers.py](../../../../../../tests/router_card_helpers.py) — direct import
 - [tests/router_mixture_helpers.py](../../../../../../tests/router_mixture_helpers.py) — direct import
+- [tests/test_daily_plan_kill_switch.py](../../../../../../tests/test_daily_plan_kill_switch.py) — direct import
+  - `test_router_off_places_no_randomized_check`
 - [tests/test_evsi_staged_binding.py](../../../../../../tests/test_evsi_staged_binding.py) — direct import
   - `test_a_committed_staged_forecast_joins_the_attempt_bound_to_its_presentation`
   - `test_an_unbound_attempt_on_the_chosen_item_is_never_the_forecasts_outcome`

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
 from typer.testing import CliRunner
 
 from learnloop.cli import app
@@ -224,19 +223,17 @@ def _registry_method(repository, attempt_id):
     return repository.diagnosis_context_receipt(diagnosis["id"])["retrieval"]["registry_retrieval"]["method"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "D2b finding: from mvp-0.12 (recurrence groups, on at the head) a diagnose drain makes one more "
-        "embedding request than its dry run estimates for retrieval (3 against 2; passes with "
-        "`recurrence.enabled = false`), so the command's admission estimate is not a ceiling"
-    ),
-)
 def test_retrieval_embeddings_are_admitted_and_charged_on_the_command_budget(tmp_path, monkeypatch):
     """Review F12: a drain's registry retrieval embeds on the command's own
     budget. With no metered allowance the subscription diagnosis still runs
     and retrieval falls back to the exact set without a single embedding
-    request; with one, the dry run estimates retrieval and the run charges it."""
+    request; with one, the dry run estimates retrieval and the run charges it.
+
+    From mvp-0.12 the job's recurrence step (Slice 2 T1) embeds the attempt's
+    own hypotheses on the same embedding route, and the dry run estimates that
+    request in its ``recurrence`` part: the run's embedding requests are bounded
+    by both parts together (refactor bug ledger D-8, a D2b strict xfail: the
+    bound read the retrieval part alone, 3 requests against 2)."""
 
     paths, vault, repository, client, embedder = _retrieval_vault(tmp_path, monkeypatch)
     first = submit(vault, repository, ReviewFakeClient(), when=at(20))
@@ -259,9 +256,12 @@ def test_retrieval_embeddings_are_admitted_and_charged_on_the_command_budget(tmp
     second = submit(vault, repository, ReviewFakeClient(), item_id="pi_svd_compute_002", answer="B = U Sigma V nope", when=at(22))
     dry = runner.invoke(app, ["diagnose", "drain", "--vault", root, "--kind", "diagnose", "--dry-run", "--json"])
     assert dry.exit_code == 0, dry.output
-    retrieval = json.loads(dry.output)["diagnose"]["retrieval"]
+    planned = json.loads(dry.output)["diagnose"]
+    retrieval = planned["retrieval"]
     assert retrieval["calls"] >= 1 and retrieval["estimated_input_tokens"] > 0
     assert retrieval["route"]["billing"] == "metered" and retrieval["fits"] is True
+    recurrence_embedding = planned["recurrence"]["by_part"]["embedding"]
+    assert planned["recurrence"]["routes"]["embedding"]["route"] == retrieval["route"]["route"]
     assert embedder.calls == 0
 
     ran = runner.invoke(app, ["diagnose", "drain", "--vault", root, "--kind", "diagnose", "--json"])
@@ -273,7 +273,8 @@ def test_retrieval_embeddings_are_admitted_and_charged_on_the_command_budget(tmp
     assert spend["routes"]["embedding"]["calls"] == embedder.calls
     assert spend["charged"]["calls"] == 1 + embedder.calls
     assert spend["charged"]["metered_total_tokens"] > 0 and spend["charged"]["metered_estimated_usd"] > 0
-    assert embedder.calls <= retrieval["calls"]
+    # The dry run's estimate is a ceiling on the route: retrieval's requests plus the recurrence step's.
+    assert embedder.calls <= retrieval["calls"] + recurrence_embedding["calls"]
 
 
 def test_retrieval_never_takes_the_call_a_queued_diagnosis_needs(tmp_path, monkeypatch):

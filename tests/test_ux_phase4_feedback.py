@@ -39,7 +39,7 @@ from learnloop_sidecar.context import config_dto
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.serializers import feedback_bundle
 from tests.diagnosis_fakes import ReviewFakeClient
-from tests.helpers import create_basic_vault, seed_due_item
+from tests.helpers import RANDOMIZED_CHECKS_OFF, create_basic_vault, seed_due_item
 from tests.split_live_helpers import ReadyRuntime, split_vault
 from tests.held_grade_evidence_helpers import T, _graded_apply, _held_apply
 from tests.route_rules_in_grader_helpers import ITEM as SPLIT_ITEM
@@ -2183,7 +2183,7 @@ def test_f1j_every_reader_agrees_at_the_exact_boundary_second(ctx):
 # -- Cold checks: every serve path revalidates against the one coverage ------------------------
 
 
-def _plan_with_a_cold_check(tmp_path, name: str):
+def _plan_with_a_cold_check(tmp_path, name: str, *, plan_toml: str | None = None):
     """A daily plan whose pool holds a due cold retry on ``pi_cold`` (a real
     open task) beside ordinary reviews, at 10:00."""
 
@@ -2195,6 +2195,7 @@ def _plan_with_a_cold_check(tmp_path, name: str):
     start = datetime(2026, 10, 12, 10, 0, tzinfo=UTC)
     paths = create_daily_plan_vault(
         tmp_path / name, learning_objects={"lo_c": [("pi_cold", 1.0)], "lo_a": [("pi_a", 1.0), ("pi_b", 1.0)]},
+        plan_toml=plan_toml,
     )
     items = [
         scheduled("pi_cold", "lo_c", priority=0.9, followup_kind="cold_retry"),
@@ -2240,13 +2241,15 @@ def test_f1j_a_planned_cold_check_revealed_before_it_is_served_is_not_served(tmp
 
     from learnloop.daily_plan.engine import advance, get_or_create_today
 
-    control, control_clock = _plan_with_a_cold_check(tmp_path, "control")
+    # RO5's check arm at zero in both plans: its block (pi_b, never answered) would be the plan's first, so the
+    # control would serve pi_b, not the cold retry this test compares.
+    control, control_clock = _plan_with_a_cold_check(tmp_path, "control", plan_toml=RANDOMIZED_CHECKS_OFF)
     get_or_create_today(control)
     control_clock.advance(5)
     advance(control, serve=True)
     assert "pi_cold" in _served_items(control)
 
-    env, clock = _plan_with_a_cold_check(tmp_path, "revealed")
+    env, clock = _plan_with_a_cold_check(tmp_path, "revealed", plan_toml=RANDOMIZED_CHECKS_OFF)
     get_or_create_today(env)
     clock.advance(1)
     _display_on(env, "pi_cold", clock, "display_other_window")
@@ -2494,7 +2497,9 @@ def test_f1k_a_routine_display_hold_clears_by_itself(tmp_path):
     from learnloop.daily_plan.engine import advance, get_or_create_today
     from learnloop.reveal_coverage import ROUTINE_DISPLAY_COVERAGE
 
-    env, clock = _plan_with_a_cold_check(tmp_path, "clears")
+    # RO5's check arm at zero: its block (pi_b, never answered) would come first, and with pi_a after it the four
+    # steps end before the lifted hold's cold retry is served.
+    env, clock = _plan_with_a_cold_check(tmp_path, "clears", plan_toml=RANDOMIZED_CHECKS_OFF)
     get_or_create_today(env)
     _display_on(env, "pi_cold", clock, "display_clears")
     clock.advance(1)
@@ -2979,9 +2984,10 @@ def test_f1m_a_valid_stop_with_work_feasible_is_kept(tmp_path, other_minutes, li
         def choose(self, state, feasible):
             return BlockChoice(STOP_FOR_TODAY, "mixture", 0.5, "stop here", "model_written", "rd_stop")
 
+    # RO5's check arm at zero: its block, placed by the rules before the stop is drawn, would leave the plan open.
     env, _clock = _held_plan_env(
         tmp_path, [("pi_s", other_minutes)], lift_in=lift_in,
-        policy=PlanPolicy("fake_source", StoppingChooser(), legacy_source),
+        policy=PlanPolicy("fake_source", StoppingChooser(), legacy_source), plan_toml=RANDOMIZED_CHECKS_OFF,
     )
     record = build_plan(env, kind="normal", budget=4.0, remembered=4, minutes_source="chip")
 

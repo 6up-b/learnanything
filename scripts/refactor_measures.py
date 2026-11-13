@@ -23,6 +23,7 @@ import argparse
 import ast
 import importlib
 import io
+import os
 import json
 import re
 import shlex
@@ -33,6 +34,7 @@ import tokenize
 import tomllib
 import xml.etree.ElementTree as ET
 from collections import Counter
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -82,17 +84,20 @@ def _string_statement_lines(tree: ast.AST) -> set[int]:
     return lines
 
 
-def python_facts(path: Path) -> dict:
-    """Raw and code lines, statements, functions, long functions, and the
-    ``mvp-0.N`` literals by where they sit (comment / docstring or multi-line
-    string / code string). Same definitions as the map's §1 sweep."""
+def python_facts(path: Path, text: str | None = None, tree: ast.AST | None = None) -> dict:
+    """Raw and code lines, statements, functions, long functions, comment lines
+    (and those naming a stage artifact), and the ``mvp-0.N`` literals by where
+    they sit (comment / docstring or multi-line string / code string). Same
+    definitions as the map's §1 sweep. ``text`` and ``tree`` let a caller that
+    already parsed the file share the parse."""
 
-    text = read(path)
+    text = read(path) if text is None else text
     facts = {"raw": text.count("\n") + (0 if text.endswith("\n") or not text else 1),
              "code": 0, "statements": 0, "functions": 0, "long_functions": [],
+             "comments": 0, "stage_comments": 0,
              "tags": {"comment": 0, "docstring": 0, "code": 0}}
     try:
-        tree = ast.parse(text)
+        tree = tree or ast.parse(text)
     except SyntaxError:
         return facts
     doc_lines = _string_statement_lines(tree)
@@ -106,6 +111,8 @@ def python_facts(path: Path) -> dict:
         kind = tok.type
         if kind == tokenize.COMMENT:
             facts["tags"]["comment"] += len(TAG.findall(tok.string))
+            facts["comments"] += 1
+            facts["stage_comments"] += bool(STAGE_COMMENT.search(NOQA.sub("", tok.string)))
             continue
         if kind == getattr(tokenize, "FSTRING_START", -1):
             fstring_triple.append(tok.string.rstrip().endswith(('"""', "'''")))
@@ -389,6 +396,300 @@ def import_contracts() -> int:
     return len(data.get("tool", {}).get("importlinter", {}).get("contracts", []))
 
 
+# -- structure: what the refactor removes and must not let back ----------------
+
+# A comment that names a stage artifact: a ruling, Codex, a review or fix round, a landing, or an F-/R-number
+# ("review F3", "R12"). It matches the comment token's text, so a string holding "round 2" is not counted. The
+# `noqa:` code list is cut first because F401 and F403 are lint codes, not findings.
+STAGE_COMMENT = re.compile(
+    r"\b(?:rulings?|ruled|codex|rounds?[ -]?\d+|fix[ -]rounds?|landings?|landed)\b|(?-i:\b[FR]-?\d{1,2}\b)",
+    re.IGNORECASE,
+)
+NOQA = re.compile(r"noqa:[^#]*", re.IGNORECASE)
+# A test file named for the pass that produced it, not for the behaviour it checks: a fix round (`_fix_round4`,
+# `_fix10`, `_fix_r5`), a review pass (`codex_review`, `rereview`, `_review_fixes`, `_review_r3`), a final
+# verification, a ruling, or a landing (`_landing`, `_close_fixes`). A stage id alone (`test_ro4_value.py`) is not
+# matched: those name a feature's owner, and the behaviour they check is still the file's subject.
+STAGE_TEST_NAME = re.compile(
+    r"^test_.*(?:fix_?r(?:ound)?\d|_fix\d+|_rounds?\d*(?:_|\.py)|_r\d+(?:_|\.py)|rereview|codex_(?:re)?review|codex_verify"
+    r"|final_(?:round|verify)|rulings?(?:_|\.py)|_fixes\.py$|landing|close_fixes|review_regressions"
+    r"|review(?:\d|_r\d|_round|_fixes))"
+)
+CLOCK_ATTRS = {("datetime", "now"), ("datetime", "utcnow"), ("date", "today"), ("time", "time")}
+CLOCK_MODULE = "learnloop.clock"
+SERVING_ROOTS = ("learnloop_sidecar", "learnloop_mobile", "learnloop_mcp")
+TERMINAL_ROOTS = ("learnloop.cli", "learnloop.tui")
+
+
+def module_name(path: Path) -> str:
+    parts = list(path.relative_to(ROOT / "src").with_suffix("").parts)
+    if parts[-1] == "__init__":
+        parts.pop()
+    return ".".join(parts)
+
+
+class _Imports(ast.NodeVisitor):
+    """Import edges (top level apart from function-local) and wall-clock reads of one module."""
+
+    def __init__(self, name: str, is_package: bool, modules: set[str]) -> None:
+        self.name, self.is_package, self.modules = name, is_package, modules
+        self.depth = 0
+        self.top: set[str] = set()
+        self.local: set[str] = set()
+        self.clock = Counter()
+
+    def _nearest(self, dotted: str) -> str | None:
+        while dotted and dotted not in self.modules:
+            dotted = dotted.rpartition(".")[0]
+        return dotted or None
+
+    def _targets(self, node: ast.Import | ast.ImportFrom) -> list[str]:
+        if isinstance(node, ast.Import):
+            return [t for a in node.names if (t := self._nearest(a.name))]
+        base = node.module or ""
+        if node.level:
+            package = self.name if self.is_package else self.name.rpartition(".")[0]
+            for _ in range(node.level - 1):
+                package = package.rpartition(".")[0]
+            base = f"{package}.{base}" if base else package
+        found = []
+        for alias in node.names:
+            # `from pkg import mod` imports the submodule when there is one, else the package.
+            target = f"{base}.{alias.name}" if f"{base}.{alias.name}" in self.modules else self._nearest(base)
+            if target:
+                found.append(target)
+        return found
+
+    def _record(self, node: ast.Import | ast.ImportFrom) -> None:
+        edges = self.local if self.depth else self.top
+        edges.update(t for t in self._targets(node) if t != self.name)
+
+    visit_Import = visit_ImportFrom = _record
+
+    def visit_If(self, node: ast.If) -> None:
+        # An import under TYPE_CHECKING never runs, so it is no edge; the else branch does run.
+        if "TYPE_CHECKING" in ast.unparse(node.test):
+            for child in node.orelse:
+                self.visit(child)
+        else:
+            self.generic_visit(node)
+
+    def _function(self, node: ast.AST) -> None:
+        self.depth += 1
+        self.generic_visit(node)
+        self.depth -= 1
+
+    visit_FunctionDef = visit_AsyncFunctionDef = _function
+
+    def visit_Attribute(self, node: ast.Attribute) -> None:
+        owner = node.value
+        owner_name = owner.id if isinstance(owner, ast.Name) else owner.attr if isinstance(owner, ast.Attribute) else None
+        if (owner_name, node.attr) in CLOCK_ATTRS:
+            self.clock[f"{owner_name}.{node.attr}"] += 1
+        elif (owner_name, node.attr) == ("time", "monotonic"):
+            self.clock["time.monotonic"] += 1
+        self.generic_visit(node)
+
+
+def strongly_connected(edges: dict[str, set[str]]) -> list[list[str]]:
+    """Tarjan's components of size > 1, largest first. Iterative: the graph is deeper than the recursion limit allows."""
+
+    index: dict[str, int] = {}
+    low: dict[str, int] = {}
+    on_stack: set[str] = set()
+    stack: list[str] = []
+    out: list[list[str]] = []
+    for root in sorted(edges):
+        if root in index:
+            continue
+        work = [(root, iter(sorted(edges.get(root, ()))))]
+        index[root] = low[root] = len(index)
+        stack.append(root)
+        on_stack.add(root)
+        while work:
+            node, children = work[-1]
+            for child in children:
+                if child not in edges:
+                    continue
+                if child not in index:
+                    index[child] = low[child] = len(index)
+                    stack.append(child)
+                    on_stack.add(child)
+                    work.append((child, iter(sorted(edges.get(child, ())))))
+                    break
+                if child in on_stack:
+                    low[node] = min(low[node], index[child])
+            else:
+                work.pop()
+                if work:
+                    low[work[-1][0]] = min(low[work[-1][0]], low[node])
+                if low[node] == index[node]:
+                    component = []
+                    while True:
+                        member = stack.pop()
+                        on_stack.discard(member)
+                        component.append(member)
+                        if member == node:
+                            break
+                    if len(component) > 1:
+                        out.append(sorted(component))
+    return sorted(out, key=len, reverse=True)
+
+
+def reachable(roots: list[str], edges: dict[str, set[str]]) -> set[str]:
+    """Modules importing from ``roots`` can run; importing ``a.b.c`` runs ``a`` and ``a.b`` first."""
+
+    seen: set[str] = set()
+    todo = [r for r in roots if r in edges]
+    while todo:
+        module = todo.pop()
+        if module in seen:
+            continue
+        seen.add(module)
+        parts = module.split(".")
+        todo.extend(p for i in range(1, len(parts)) if (p := ".".join(parts[:i])) in edges)
+        todo.extend(edges[module])
+    return seen
+
+
+def lean_facts(text: str, tree: ast.AST) -> dict:
+    """The few ``python_facts`` the ratchets read, without tokenizing every file: raw lines, long functions, and the
+    stage-artifact comments. A file whose text never matches ``STAGE_COMMENT`` has none, so only the rest are tokenized."""
+
+    facts = {"raw": text.count("\n") + (0 if text.endswith("\n") or not text else 1), "long_functions": [],
+             "comments": None, "stage_comments": 0}
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            length = (node.end_lineno or node.lineno) - node.lineno + 1
+            if length > 100:
+                facts["long_functions"].append((node.name, node.lineno, length))
+    if STAGE_COMMENT.search(text):
+        try:
+            for tok in tokenize.generate_tokens(io.StringIO(text).readline):
+                if tok.type == tokenize.COMMENT and STAGE_COMMENT.search(NOQA.sub("", tok.string)):
+                    facts["stage_comments"] += 1
+        except (tokenize.TokenError, SyntaxError):
+            pass
+    return facts
+
+
+def file_record(path: Path, modules: frozenset[str], lean: bool = False) -> dict:
+    """Everything the sweep needs from one src file, from one parse: its facts, import edges and clock reads."""
+
+    text = read(path)
+    tree = ast.parse(text)
+    visitor = _Imports(module_name(path), path.name == "__init__.py", modules)
+    visitor.visit(tree)
+    facts = lean_facts(text, tree) if lean else python_facts(path, text, tree)
+    return {"facts": facts, "top": visitor.top, "local": visitor.local, "clock": visitor.clock}
+
+
+def sweep_files(src_files: list[Path], parallel: bool = True) -> dict[Path, dict]:
+    """``file_record`` for every file. The command-line run spreads the full ``python_facts`` over up to 8 processes
+    (parsing and tokenizing 1,300 files is ~17 s on one core); the test calls ``structure_sweep`` for the serial lean path."""
+
+    modules = frozenset(module_name(p) for p in src_files)
+    workers = max(1, min(8, os.cpu_count() or 1))
+    if not parallel or workers == 1:
+        return {p: file_record(p, modules, lean=not parallel) for p in src_files}
+    with ProcessPoolExecutor(max_workers=workers) as pool:
+        return dict(zip(src_files, pool.map(file_record, src_files, [modules] * len(src_files), chunksize=16), strict=True))
+
+
+def structure(src_files: list[Path], records: dict[Path, dict]) -> dict:
+    """The structure measures (M0), from ``sweep_files``' records."""
+
+    file_facts = {p: r["facts"] for p, r in records.items()}
+    names = {module_name(p): p for p in src_files}
+    modules = set(names)
+    top = {name: records[path]["top"] for name, path in names.items()}
+    local = {name: records[path]["local"] for name, path in names.items()}
+    clock = Counter()
+    clock_files: dict[str, int] = {}
+    for name, path in names.items():
+        if name != CLOCK_MODULE:
+            clock.update(records[path]["clock"])
+            clock_files[name] = sum(v for k, v in records[path]["clock"].items() if k != "time.monotonic")
+    every = {m: top[m] | local[m] for m in modules}
+    components = strongly_connected(every)
+    largest = components[0] if components else []
+    lines = {name: file_facts[path]["raw"] for name, path in names.items()}
+    local_only = {m: local[m] - top[m] for m in modules}
+
+    serving = reachable([m for m in modules if m.startswith(SERVING_ROOTS)], every)
+    terminal = reachable([m for m in modules if m.startswith(TERMINAL_ROOTS)], every)
+    terminal_only = terminal - serving
+    unreached = modules - serving - terminal
+
+    root_dir = ROOT / "src" / "learnloop"
+    root_files = sorted(p.stem for p in src_files if p.parent == root_dir and p.name not in {"__init__.py", "__main__.py"})
+    # `content` holds modules only in a subpackage, so a package is any first-level directory with a source file below it.
+    packages = sorted({p.relative_to(root_dir).parts[0] for p in src_files if p.parent != root_dir and p.is_relative_to(root_dir)})
+
+    over_200 = sorted(
+        f"{rel(path)} {name}" for path in src_files
+        for name, _line, length in file_facts[path]["long_functions"] if length > 200
+    )
+    stage_by_file = {rel(p): f["stage_comments"] for p, f in file_facts.items() if f["stage_comments"]}
+    stage_tests = sorted(p.name for p in tracked("tests", suffix=".py") if STAGE_TEST_NAME.match(p.name))
+
+    schema = ast.parse(read(ROOT / "src/learnloop/config/schema.py"))
+    enabled = sum(
+        isinstance(n, ast.AnnAssign) and isinstance(n.target, ast.Name) and "enabled" in n.target.id
+        and ast.unparse(n.annotation) == "bool"
+        for n in ast.walk(schema)
+    )
+    golden = ROOT / "tests" / "goldens" / "effective_defaults.toml"
+    golden_lines = read(golden).splitlines() if golden.is_file() else []
+    set_keys = sum(1 for line in golden_lines if line and not line.startswith("#"))
+    null_keys = sum(1 for line in golden_lines if line.startswith("# ") and line.endswith(" = null"))
+
+    return {
+        "import_component": {
+            "modules": len(largest), "lines": sum(lines[m] for m in largest), "members": largest,
+            "next_components": [len(c) for c in components[1:5]],
+        },
+        "modules_in_a_cycle": sum(len(c) for c in components),
+        "function_local_only_edges": sum(len(v) for v in local_only.values()),
+        "modules_with_a_function_local_only_edge": sum(1 for v in local_only.values() if v),
+        "first_level_names": {
+            "packages": len(packages), "root_modules": len(root_files),
+            "root_modules_not_upgrade": sum(1 for n in root_files if not n.endswith("_upgrade")),
+            "root_module_names": root_files,
+        },
+        "functions_over_200_lines": over_200,
+        "stage_comments": {
+            "comment_lines": None if any(f["comments"] is None for f in file_facts.values())
+            else sum(f["comments"] for f in file_facts.values()),
+            "naming_a_stage_artifact": sum(stage_by_file.values()), "by_file": stage_by_file,
+            "regex": STAGE_COMMENT.pattern,
+        },
+        "stage_test_files": {"count": len(stage_tests), "names": stage_tests, "regex": STAGE_TEST_NAME.pattern},
+        "wall_clock_reads_outside_clock_py": {
+            "datetime_now": clock["datetime.now"], "datetime_utcnow": clock["datetime.utcnow"],
+            "date_today": clock["date.today"], "time_time": clock["time.time"],
+            "total": sum(clock[k] for k in ("datetime.now", "datetime.utcnow", "date.today", "time.time")),
+            "modules": sum(1 for v in clock_files.values() if v), "time_monotonic": clock["time.monotonic"],
+        },
+        "serving_reach": {
+            "terminal_only_modules": len(terminal_only), "terminal_only_lines": sum(lines[m] for m in terminal_only),
+            "unreached_modules": len(unreached), "unreached_lines": sum(lines[m] for m in unreached),
+        },
+        "config": {
+            "enabled_booleans_in_schema": enabled,
+            "effective_default_keys": set_keys + null_keys, "effective_default_keys_unset": null_keys,
+        },
+    }
+
+
+def structure_sweep() -> dict:
+    """``structure`` over the tracked src files, serial and lean: one parse each, tokenizing only files that may hold a
+    stage comment. The test calls this (inside xdist workers, so no processes) and imports no learnloop."""
+
+    src_files = tracked(*PACKAGES, suffix=".py")
+    return structure(src_files, sweep_files(src_files, parallel=False))
+
+
 # -- the computed sweep --------------------------------------------------------
 
 
@@ -399,8 +700,9 @@ def computed(floor: str) -> dict:
     tag_where = Counter()
     long_fns: list[tuple[str, str, int, int]] = []
     per_file_raw: dict[str, int] = {}
+    records = sweep_files(src_files)
     for path in src_files:
-        f = python_facts(path)
+        f = records[path]["facts"]
         per_file_raw[rel(path)] = f["raw"]
         for key in ("raw", "code", "statements", "functions"):
             totals[key] += f[key]
@@ -438,6 +740,7 @@ def computed(floor: str) -> dict:
             "tag_gates": gates,
             "import_linter_contracts": import_contracts(),
         },
+        "structure": structure(src_files, records),
         "plumbing": {
             "head_fixture": head_fixture_refs(),
             **defaults_digests(),
@@ -540,6 +843,30 @@ def markdown(report: dict) -> str:
     tags = rules.get("tag_literals", {})
     head = plumb.get("head_fixture", {})
     tests = plumb.get("tests", {})
+    st = c.get("structure", {})
+    comp, names, comments = st.get("import_component", {}), st.get("first_level_names", {}), st.get("stage_comments", {})
+    clock, reach, cfg = st.get("wall_clock_reads_outside_clock_py", {}), st.get("serving_reach", {}), st.get("config", {})
+    structure_rows = [
+        ("Largest import component: modules (lines); next components",
+         f"{comp.get('modules')} ({comp.get('lines')}); {comp.get('next_components')}"),
+        ("Modules in any import cycle", st.get("modules_in_a_cycle")),
+        ("Import edges only inside functions; modules with one",
+         f"{st.get('function_local_only_edges')}; {st.get('modules_with_a_function_local_only_edge')}"),
+        ("First-level names in `src/learnloop`: packages; root modules; root modules not `*_upgrade`",
+         f"{names.get('packages')}; {names.get('root_modules')}; {names.get('root_modules_not_upgrade')}"),
+        ("Functions over 200 lines", len(st.get("functions_over_200_lines", []))),
+        ("Comment lines naming a stage artifact (of all comment lines)",
+         f"{comments.get('naming_a_stage_artifact')} ({comments.get('comment_lines')})"),
+        ("Test files named for a stage or fix round", st.get("stage_test_files", {}).get("count")),
+        ("Wall-clock reads outside `clock.py`: total (now / utcnow / today / time); `time.monotonic`",
+         f"{clock.get('total')} ({clock.get('datetime_now')} / {clock.get('datetime_utcnow')} / "
+         f"{clock.get('date_today')} / {clock.get('time_time')}); {clock.get('time_monotonic')}"),
+        ("Reachable only from `cli` and `tui`: modules (lines); reachable from nothing",
+         f"{reach.get('terminal_only_modules')} ({reach.get('terminal_only_lines')}); "
+         f"{reach.get('unreached_modules')} ({reach.get('unreached_lines')})"),
+        ("`enabled` booleans in `config/schema.py`; effective config leaves (unset)",
+         f"{cfg.get('enabled_booleans_in_schema')}; {cfg.get('effective_default_keys')} ({cfg.get('effective_default_keys_unset')})"),
+    ]
     rows = [
         ("Python files, all four packages", size.get("python_files")),
         ("Raw lines; code lines", f"{size.get('raw_lines')}; {size.get('code_lines')}"),
@@ -578,6 +905,8 @@ def markdown(report: dict) -> str:
              f"Computed {report['generated_at']}. Floor {gates.get('floor')}.", "",
              "| Measure | Value |", "|---|---|"]
     lines += [f"| {k} | {v} |" for k, v in rows]
+    lines += ["", "## Structure", "", "| Measure | Value |", "|---|---|"]
+    lines += [f"| {k} | {v} |" for k, v in structure_rows]
     lines += ["", "## Timed", ""]
     timed = report.get("timed")
     if timed:

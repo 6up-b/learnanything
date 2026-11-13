@@ -36,7 +36,7 @@ Up: [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.ha
 
 ## Why this module exists
 
-This module keeps proposals behavior inside its owning package, [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]]. Its public surface centers on `get_proposals`, `ProposalDecisionInput`, `accept_proposal_items`, `reject_proposal_items`, `ResolveApplyIntentInput`, `resolve_apply_intent`, `reset_proposal_items`, `EditProposalItemInput` and 5 more public symbols.
+This module keeps proposals behavior inside its owning package, [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]]. Its public surface centers on `get_proposals`, `ProposalDecisionInput`, `apply_intent_outstanding`, `accept_proposal_items`, `reject_proposal_items`, `ResolveApplyIntentInput`, `resolve_apply_intent`, `reset_proposal_items` and 6 more public symbols.
 
 The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/proposals.py](../../../../../../src/learnloop_sidecar/handlers/proposals.py) |
-| Source lines | 368 |
+| Source lines | 378 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -56,17 +56,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `get_proposals(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 200) — Codex authoring inbox: proposal batches + items + agent-run lineage.
 - `class ProposalDecisionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 210)
-- `accept_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 216) — Accept (and apply) pending proposal items, then return the refreshed inbox.
-- `reject_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 238) — Reject proposal items (reverting any already-applied change), then refresh.
-- `class ResolveApplyIntentInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 254)
-- `resolve_apply_intent(ctx: SidecarContext, params: ResolveApplyIntentInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 260) — The maintenance feed's action on an outstanding proposal apply (K3.5).
-- `reset_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 291) — Undo a rejection (never-applied items back to pending), then refresh.
-- `class EditProposalItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 302)
-- `edit_proposal_item(ctx: SidecarContext, params: EditProposalItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 309) — Replace a pending proposal item's payload with edited JSON, then refresh.
-- `class RefreshProposalItemValidationInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 334)
-- `refresh_proposal_item_validation(ctx: SidecarContext, params: RefreshProposalItemValidationInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 340) — Re-run validation for the stored pending proposal payload, then refresh.
-- `class DeleteProposalItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 351)
-- `delete_proposal_item(ctx: SidecarContext, params: DeleteProposalItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 357) — Permanently remove a proposal item (reverting it first if applied), then refresh.
+- `apply_intent_outstanding(exc: OutstandingApplyIntentError) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 215) — An accept or undo refused because an earlier apply is pending or conflicted (K3.5, D-10): the client names the intent and points at Maintain, where the feed's action settles it.
+- `accept_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 224) — Accept (and apply) pending proposal items, then return the refreshed inbox.
+- `reject_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 244) — Reject proposal items (reverting any already-applied change), then refresh.
+- `class ResolveApplyIntentInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 262)
+- `resolve_apply_intent(ctx: SidecarContext, params: ResolveApplyIntentInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 268) — The maintenance feed's action on an outstanding proposal apply (K3.5).
+- `reset_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 299) — Undo a rejection (never-applied items back to pending), then refresh.
+- `class EditProposalItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 310)
+- `edit_proposal_item(ctx: SidecarContext, params: EditProposalItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 317) — Replace a pending proposal item's payload with edited JSON, then refresh.
+- `class RefreshProposalItemValidationInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 342)
+- `refresh_proposal_item_validation(ctx: SidecarContext, params: RefreshProposalItemValidationInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 348) — Re-run validation for the stored pending proposal payload, then refresh.
+- `class DeleteProposalItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 359)
+- `delete_proposal_item(ctx: SidecarContext, params: DeleteProposalItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 365) — Permanently remove a proposal item (reverting it first if applied), then refresh.
 
 ### Module constants
 
@@ -89,6 +90,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]] — imports `module`
+- [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `apply_intent_outstanding`; statically calls `apply_intent_outstanding`
 - [[Reference/Modules/learnloop_sidecar/handlers/graph_edit|learnloop_sidecar.handlers.graph_edit]] — imports `_proposals_payload`; statically calls `_proposals_payload`
 
 ## Dependencies
@@ -117,7 +119,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]], [[Reference/Modules/learnloop_sidecar/handlers/graph_edit|learnloop_sidecar.handlers.graph_edit]].
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]], [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]], [[Reference/Modules/learnloop_sidecar/handlers/graph_edit|learnloop_sidecar.handlers.graph_edit]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

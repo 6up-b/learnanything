@@ -989,6 +989,25 @@ def generate_post_probe_practice_proposal(
     )
 
 
+def _empty_goal_scope_message(goal: Any, ad_view: Any) -> str:
+    """Why a goal has no scope to populate (refactor bug ledger D-7: the refusal hid a cause).
+
+    With AD's generation contract on, the scope is resolved on AD's material view (F37), so a goal
+    whose concepts or facets only held-out exam material measures has none: the refusal names that
+    cause. It names it as the rule, never by checking whether held-out material is what emptied this
+    goal: AD's A8 contract (``test_ad23_contract``) makes protected material indistinguishable from
+    absent material in every outcome, this refusal included, so the message reads the same whether
+    the goal's material is held out or does not exist."""
+
+    message = f"Goal {goal.id} has no active learning objects in scope"
+    if ad_view is None:
+        return message + "."
+    return (
+        message + ": no practice material measures its concepts or facets "
+        "(material held out for an exam does not count)."
+    )
+
+
 def build_goal_practice_plan(
     vault: LoadedVault,
     repository: Repository,
@@ -1015,7 +1034,7 @@ def build_goal_practice_plan(
     ad_view = _ad_material_view(vault, repository)
     scope = resolve_goal_scope(ad_view.vault_view() if ad_view is not None else vault, goal, repository)
     if not scope:
-        raise PracticeExpansionError(f"Goal {goal.id} has no active learning objects in scope.")
+        raise PracticeExpansionError(_empty_goal_scope_message(goal, ad_view))
     reserved = repository.reserved_exam_pool_item_ids()
     plan = build_practice_expansion_plan(
         vault,

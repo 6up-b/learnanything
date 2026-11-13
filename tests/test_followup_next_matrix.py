@@ -301,8 +301,16 @@ def test_a_wait_outlasting_its_plan_is_served_by_a_later_plan_with_its_answer_la
 
 
 def _displaced_probe(tmp_path, monkeypatch):
-    """Codex's reproduction: the fetch places a ready probe, then the minutes are cut until it's displaced."""
+    """Codex's reproduction: the fetch places a ready probe, then the minutes are cut until it's displaced.
 
+    The process's router runtime draws on a pinned block-drawing seed (refactor bug ledger D-14): on fresh decision ids
+    the objective's mix drew stop at the floor about one run in twenty-five, which closed the plan these tests need
+    open."""
+
+    from learnloop.daily_plan import router_runtime
+    from tests.router_model_fakes import block_drawing_seed
+
+    monkeypatch.setattr(router_runtime, "_DEFAULT", router_runtime.RouterRuntime(seed=block_drawing_seed()))
     desk = _desk(tmp_path, monkeypatch, arm=router.ASK_NOW, items=12)
     desk.call("get_daily_plan", {"sessionId": desk.session})
     attempt_id = _miss(desk, "plan")

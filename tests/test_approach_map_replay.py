@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import sqlite3
 from contextlib import closing
+from datetime import UTC, datetime
 from pathlib import Path
 
 import learnloop.db.connection as db_connection
@@ -122,6 +123,7 @@ def _refuse_map_reads(monkeypatch, reads: list[str]) -> None:
 
 
 def test_rebuild_and_replay_call_no_model_and_never_read_approach_maps(tmp_path, monkeypatch):
+    from learnloop.clock import FrozenClock
     from learnloop.db.copies import copy_tree_with_databases
     from learnloop.db.table_roles import TableRole, tables_for_role
     from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
@@ -148,8 +150,11 @@ def test_rebuild_and_replay_call_no_model_and_never_read_approach_maps(tmp_path,
     with monkeypatch.context() as patch:
         _forbid_clients(patch)
         _refuse_map_reads(patch, reads)
-        rebuild_all_derived_state(load_vault(paths.root), Repository.attach(paths.sqlite_path))
-        rebuild_all_derived_state(load_vault(gone), Repository.attach(gone / "state.sqlite"))
+        # Replayers stamp created_at/updated_at/checked_at from the clock; two system-clock rebuilds straddling a
+        # second boundary differ in those columns only, so both share one instant.
+        clock = FrozenClock(datetime(2026, 10, 19, 12, 0, tzinfo=UTC))
+        rebuild_all_derived_state(load_vault(paths.root), Repository.attach(paths.sqlite_path), clock=clock)
+        rebuild_all_derived_state(load_vault(gone), Repository.attach(gone / "state.sqlite"), clock=clock)
         result = shadow_rebuild(load_vault(paths.root), assignments=())
         assert result is not None
     assert reads == []

@@ -157,6 +157,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/source_append_helpers.py](../../../../../../../tests/source_append_helpers.py) — direct import
 - [tests/source_set_synthesis_helpers.py](../../../../../../../tests/source_set_synthesis_helpers.py) — direct import
 - [tests/test_build_study_map_routing.py](../../../../../../../tests/test_build_study_map_routing.py) — direct import
+- [tests/test_cli_append_units.py](../../../../../../../tests/test_cli_append_units.py) — direct import
 - [tests/test_collection_append_units.py](../../../../../../../tests/test_collection_append_units.py) — direct import
   - `test_inventoried_unit_ids_counts_merged_members`
   - `test_new_units_of_a_partly_inventoried_member_are_inventoried_and_appended`
