@@ -58,3 +58,38 @@ corrected `_boundary`'s docstring and the module docstring, which said the hand-
 
 Not covered: the preference and miss-cause marks (`_preference_mark`, `_miss_cause_mark`) are empty at this config; the pin
 does not exercise them.
+
+## T4: `test_stuck_prompt_replay` and the other files the mechanical re-tag touched
+
+Commit 9006b0f9fb took `test_historical_dont_know_rows_replay_unchanged_under_the_successor` to a head-to-head check (its
+`set_algorithm_version(paths, "mvp-0.13")` was removed) and left no test of replay at a tag other than the one that wrote the rows.
+
+Mutation (missed by every test in the old file, 4 passed): `replay`'s reconstructed draft ignores the stored flag
+(`declared_stuck=False` where `attempts.py` rebuilds the draft from the ledger row). The stuck answer's coverage trace then
+re-derives `response_engagement_factor` 0.5 (a blank) instead of 1.0 (an engaged empty "I'm stuck" answer). A second mutation,
+`declared_stuck=... and stuck_prompt_active(vault)`, is caught by the old kill-switch test, as it should be, and by the new test.
+
+New tests in `tests/test_stuck_prompt_replay.py`:
+- `test_a_recorded_stuck_answer_replays_as_stuck_under_a_tag_that_does_not_offer_the_prompt`: records two stuck answers (one empty)
+  at the head, moves the vault to `mvp-0.12` (not in `STUCK_PROMPT_VERSIONS`), rebuilds twice; the stored flags, the stuck
+  read-back, the field rows and each attempt's recorded engagement factor are what the live grade wrote. Fails under the first
+  mutation (and under dropping `not replay and` from the validation, which the old file also caught).
+- `test_an_attempt_an_older_tag_wrote_replays_with_no_stuck_declaration_at_the_head`: rows written at `mvp-0.12` with `declared_stuck = 0`,
+  rebuilt at the head where the prompt is offered, stay ordinary attempts (no stuck row appears, the ledger rows are byte-equal).
+- `test_historical_dont_know_rows_replay_unchanged_under_the_successor` restored to its transition: the rows are written at
+  `mvp-0.12`, rebuilt at the head. It no longer compares whole derived snapshots across tags (they differ by the version stamp
+  and by every change between the tags); it compares the attempt rows, the field rows of the two `dont_know` attempts and
+  the configured 0.7 mass. I did not find a mutation specific to this one that the head-to-head version missed.
+
+Audit of the other files 9006b0f9fb touched (56 files; list the test names and docstrings that say replay, upgrade, historical,
+legacy, "below the tag", "written at", and read the old version argument in the diff):
+- `tests/test_followup_reserved_only.py::test_the_mint_and_batch_paths_refuse_a_reserved_question_at_the_tag_only`: LOSS, and
+  a weakness older than the re-tag. Its "below" vault was a different vault (without the reserved question), so it passed
+  with or without the tag gate; the re-tag made it the head. Mutation `generate_and_serve_on` ignoring the version: the test
+  passed. Now the same vault with only its tag lowered (`BELOW_THE_TAG = "mvp-0.44"`, asserted outside
+  `FOLLOWUP_SERVE_VERSIONS`); it fails under the mutation.
+- `test_field_split_outcomes::test_blind_grades_diagnoses_and_regrades_keep_the_epoch_contract`: the joint twin at mvp-0.9 became a head vault. Its subject is blind-versus-joint grading, set by `split_enabled`, not the tag. Fine (the first line `split_vault(... version=LATEST)` is also a joint-vs-split pair at the same tag, as before).
+- `test_stuck_prompt_replay.py` (the three above); `test_hint_telemetry::test_an_empty_stuck_answer_attaches_the_rows_too` (0.13 to head): subject is the stuck answer's telemetry rows. Fine.
+- `test_recurrence_benchmarks` (b3 replays), `test_observation_ledger_bulk` (p0 replays bulk load), `test_projection_evidence_polarity`, `test_required_method_*` (`gated_successor`, replay under the frozen field): the tag was a setup choice (the first tag where a feature exists); each asserts the feature's own behaviour, which the head has. Fine.
+- The `_mvp07_vault`-style helpers (`test_characterization_*`, `test_conjunctive_instruments`, `test_scoreboard`, `test_contract_frontier_coverage`, `test_coverage_denominator_boundary`, `test_discrimination_profiles`, `test_error_hunt_items`, `test_laddered_stems`, `test_contrast_pairs`, `test_km5_sim_gates`, `test_causal_attribution_exhibit`, `capability_residual_helpers`, `identifiability_doctor_helpers`): "legacy" in their text means a vault without blueprints or targets, not an older tag. The helper names `_mvp07_vault`, and docstrings saying "mvp-0.7", are now wrong. I did not rename them (a rename across 13 files is outside this row).
+- `test_ro4_trace_report`, `test_ro5_codex_review`, `test_rofu_ad_latent`, `test_instruct_handoff_ih1`, `test_router_offer_log`, `test_router_why_copy`, `test_sidecar_close_cancels_jobs`, `test_planted_misgrade`, `test_grading_cli`, `test_tier1_decider`, `test_hypothesis_marks`, `test_daily_plan_composition`, `test_learner_protection_predicates`, `test_placement_*`, `test_reader_cues`, `test_intent_fix_round5/7`, `test_teacher_*`, `test_mobile_v3_codex_review`: tag was setup for a chooser or feature; none names a below-the-tag, replay or upgrade subject in its assertions. Read from the diff and test names only; I did not run each against a tag-dependent mutation.
