@@ -45,7 +45,7 @@ def _synced(paths):
 
 
 @pytest.fixture
-def mvp07(tmp_path):
+def facet_vault(tmp_path):
     return _synced(build_shared_facet_vault(tmp_path / "vault"))
 
 
@@ -54,8 +54,8 @@ def old_tag_vault(tmp_path):
     return _synced(build_shared_facet_vault(tmp_path / "vault", version=KM2_OLD_TAG))
 
 
-def test_two_los_share_one_facet_parent(mvp07):
-    vault, repository = mvp07
+def test_two_los_share_one_facet_parent(facet_vault):
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, clock)
     _attempt(vault, repository, "pi_svd_apply_001", {"uses_factorization": 4}, clock)
@@ -74,8 +74,8 @@ def test_two_los_share_one_facet_parent(mvp07):
     assert parent.recall_mean > 0.6
 
 
-def test_retrieval_evidence_cannot_certify_method_selection(mvp07):
-    vault, repository = mvp07
+def test_retrieval_evidence_cannot_certify_method_selection(facet_vault):
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, clock)
 
@@ -86,8 +86,8 @@ def test_retrieval_evidence_cannot_certify_method_selection(mvp07):
     assert repository.facet_capability_evidence(SHARED, "method_selection") is None
 
 
-def test_certification_credit_zero_when_assisted(mvp07):
-    vault, repository = mvp07
+def test_certification_credit_zero_when_assisted(facet_vault):
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, clock, hints_used=1)
     retrieval = repository.facet_capability_evidence(SHARED, "retrieval")
@@ -119,8 +119,8 @@ def test_near_clones_globally_discounted(old_tag_vault):
     assert 2.0 < parent.recall_alpha < 3.0
 
 
-def test_wrong_answer_no_work_creates_unresolved_cause_set(mvp07):
-    vault, repository = mvp07
+def test_wrong_answer_no_work_creates_unresolved_cause_set(facet_vault):
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     _attempt(vault, repository, "pi_svd_ambiguous_001", {"whole_item": 0}, clock)
 
@@ -146,14 +146,14 @@ def test_wrong_answer_no_work_creates_unresolved_cause_set(mvp07):
         assert hypothesis["status"] == "open_set"
 
 
-def test_open_set_arm_survives_apply_attempt_into_the_probe_path(mvp07):
+def test_open_set_arm_survives_apply_attempt_into_the_probe_path(facet_vault):
     """The P2 probe path must not fail closed on a real materialized factor.
 
     `build_causal_hypothesis_set` raises when a factor lost its open-set arm, so
     this drives the real write path (apply_attempt -> canonical projection ->
     P1 materialization) rather than a hand-built factor dict."""
 
-    vault, repository = mvp07
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     _attempt(vault, repository, "pi_svd_ambiguous_001", {"whole_item": 0}, clock)
 
@@ -166,8 +166,8 @@ def test_open_set_arm_survives_apply_attempt_into_the_probe_path(mvp07):
     assert len(labels) >= 3  # two concrete causes plus the open-set arm
 
 
-def test_explicit_failure_attribution_penalizes_only_selected_target(mvp07):
-    vault, repository = mvp07
+def test_explicit_failure_attribution_penalizes_only_selected_target(facet_vault):
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     apply_attempt(
         vault,
@@ -218,8 +218,8 @@ def test_explicit_failure_attribution_penalizes_only_selected_target(mvp07):
     assert not repository.open_unresolved_cause_observation_ids()
 
 
-def test_golden_replay_identity_mvp07(mvp07):
-    vault, repository = mvp07
+def test_golden_replay_identity_mvp07(facet_vault):
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, clock)
     _attempt(vault, repository, "pi_svd_apply_001", {"uses_factorization": 3}, clock)

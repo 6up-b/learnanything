@@ -78,7 +78,7 @@ APPLICABILITY_REF = {
 }
 
 
-def _mvp07(tmp_path):
+def _shared_facet_vault(tmp_path):
     paths = build_shared_facet_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
@@ -178,7 +178,7 @@ def test_authored_divergent_repairs_fill_repair_class_id_end_to_end(tmp_path):
     correctly gone, a null column means discrimination probes never fire.
     """
 
-    vault, repository = _mvp07(tmp_path)
+    vault, repository = _shared_facet_vault(tmp_path)
     result = _ambiguous_failure(
         vault,
         repository,
@@ -274,7 +274,7 @@ def test_repair_declared_by_criterion_maps_to_a_facet_targeted_cause(tmp_path):
     ``target_ref`` produced a spurious null whenever the model used the two
     sub-vocabularies it was explicitly told it could use."""
 
-    vault, repository = _mvp07(tmp_path)
+    vault, repository = _shared_facet_vault(tmp_path)
     result = _ambiguous_failure(
         vault,
         repository,
@@ -341,7 +341,7 @@ def test_self_graded_attempt_records_no_repair_authored_not_a_silent_null(tmp_pa
     and resurrect the removed fallback under a new name.
     """
 
-    vault, repository = _mvp07(tmp_path)
+    vault, repository = _shared_facet_vault(tmp_path)
     _attempt(
         vault, repository, "pi_svd_ambiguous_001", {"whole_item": 0}, FrozenClock(NOW)
     )
@@ -401,7 +401,7 @@ def test_two_repairs_on_one_target_are_ambiguous_rather_than_a_guess(tmp_path):
     test_the_persisted_repair_class_is_the_structurally_selected_one.
     """
 
-    vault, repository = _mvp07(tmp_path)
+    vault, repository = _shared_facet_vault(tmp_path)
     result = _ambiguous_failure(
         vault,
         repository,
@@ -545,7 +545,7 @@ def test_open_set_cause_id_and_probe_label_are_distinct_namespaces(tmp_path):
     it did all the work."""
 
     assert OPEN_SET_CAUSE_ID != H_OTHER
-    vault, repository = _mvp07(tmp_path)
+    vault, repository = _shared_facet_vault(tmp_path)
     _attempt(
         vault, repository, "pi_svd_ambiguous_001", {"whole_item": 0}, FrozenClock(NOW)
     )

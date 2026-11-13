@@ -35,7 +35,7 @@ class _Student:
 
 
 @pytest.fixture
-def mvp07(tmp_path):
+def facet_vault(tmp_path):
     paths = build_shared_facet_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
@@ -43,11 +43,11 @@ def mvp07(tmp_path):
     return vault, repository
 
 
-def test_shared_facet_belief_mae_beats_per_lo(mvp07):
+def test_shared_facet_belief_mae_beats_per_lo(facet_vault):
     """One attempt per LO on the shared facet: the pooled canonical parent tracks
     truth better than either per-LO belief on the same evidence."""
 
-    vault, repository = mvp07
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, clock)
     _attempt(vault, repository, "pi_svd_apply_001", {"uses_factorization": 4}, clock)
@@ -70,12 +70,12 @@ def test_shared_facet_belief_mae_beats_per_lo(mvp07):
     assert canonical_mae < per_lo_mae
 
 
-def test_shared_facet_certifies_with_fewer_attempts(mvp07):
+def test_shared_facet_certifies_with_fewer_attempts(facet_vault):
     """Attempts-to-certify improves: two attempts (one per LO) pool into two
     independent surface groups on the shared parent — the certification-coverage
     threshold — whereas the per-LO keying still has only one group each."""
 
-    vault, repository = mvp07
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, clock)
     _attempt(vault, repository, "pi_svd_apply_001", {"uses_factorization": 4}, clock)
@@ -90,10 +90,10 @@ def test_shared_facet_certifies_with_fewer_attempts(mvp07):
     assert define is not None and len(define.independent_surface_groups) == 2
 
 
-def test_no_capability_inflation_sim(mvp07):
+def test_no_capability_inflation_sim(facet_vault):
     """Retrieval evidence never certifies method_selection (no inflation)."""
 
-    vault, repository = mvp07
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, clock)
     _attempt(vault, repository, "pi_svd_apply_001", {"uses_factorization": 4}, clock)
