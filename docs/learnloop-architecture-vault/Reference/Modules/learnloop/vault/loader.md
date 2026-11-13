@@ -2177,6 +2177,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_starting_instruction_closes_measurement_segment_and_reentry_is_fresh`
 - [tests/test_p2_leakage_suite.py](../../../../../../tests/test_p2_leakage_suite.py) — direct import
 - [tests/test_p3_journeys.py](../../../../../../tests/test_p3_journeys.py) — direct import
+- [tests/test_p4_tutor_tool_withhold.py](../../../../../../tests/test_p4_tutor_tool_withhold.py) — direct import
 - [tests/test_patch_applier.py](../../../../../../tests/test_patch_applier.py) — direct import
   - `test_accept_cli_all_flag_applies_every_pending_item`
   - `test_accept_cli_applies_and_show_proposal_includes_items`

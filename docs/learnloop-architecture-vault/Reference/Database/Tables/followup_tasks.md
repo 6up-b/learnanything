@@ -113,6 +113,7 @@ Indexes and uniqueness:
 - `Repository.followup_tasks_of_kind()`
 - `Repository.open_followup_tasks_for_item()`
 - `Repository.open_followup_tasks_of_kind()`
+- `Repository.open_remediation_cold_item_ids()`
 
 ### Direct SQL readers
 

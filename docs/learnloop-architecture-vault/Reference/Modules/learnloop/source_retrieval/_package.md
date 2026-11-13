@@ -86,7 +86,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/source_retrieval/__init__|learnloop.source_retrieval]] | [[Reference/Modules/learnloop/source_retrieval/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/source_retrieval/b4|learnloop.source_retrieval.b4]] | [[Reference/Modules/learnloop/source_retrieval/b4#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/source_retrieval/bench|learnloop.source_retrieval.bench]] | [[Reference/Modules/learnloop/source_retrieval/bench#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
-| [[Reference/Modules/learnloop/source_retrieval/compare|learnloop.source_retrieval.compare]] | [[Reference/Modules/learnloop/source_retrieval/compare#^module-purpose|purpose]] | `ACTIVE` | 4 | 15 |
+| [[Reference/Modules/learnloop/source_retrieval/compare|learnloop.source_retrieval.compare]] | [[Reference/Modules/learnloop/source_retrieval/compare#^module-purpose|purpose]] | `ACTIVE` | 4 | 16 |
 | [[Reference/Modules/learnloop/source_retrieval/compare_scope|learnloop.source_retrieval.compare_scope]] | [[Reference/Modules/learnloop/source_retrieval/compare_scope#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/source_retrieval/contracts|learnloop.source_retrieval.contracts]] | [[Reference/Modules/learnloop/source_retrieval/contracts#^module-purpose|purpose]] | `ACTIVE` | 5 | 6 |
 | [[Reference/Modules/learnloop/source_retrieval/corpus|learnloop.source_retrieval.corpus]] | [[Reference/Modules/learnloop/source_retrieval/corpus#^module-purpose|purpose]] | `ACTIVE` | 43 | 27 |
@@ -96,7 +96,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/source_retrieval/evaluation|learnloop.source_retrieval.evaluation]] | [[Reference/Modules/learnloop/source_retrieval/evaluation#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/source_retrieval/fallback_space|learnloop.source_retrieval.fallback_space]] | [[Reference/Modules/learnloop/source_retrieval/fallback_space#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
 | [[Reference/Modules/learnloop/source_retrieval/feedback|learnloop.source_retrieval.feedback]] | [[Reference/Modules/learnloop/source_retrieval/feedback#^module-purpose|purpose]] | `ACTIVE` | 10 | 2 |
-| [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] | [[Reference/Modules/learnloop/source_retrieval/find_sources#^module-purpose|purpose]] | `ACTIVE` | 15 | 28 |
+| [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] | [[Reference/Modules/learnloop/source_retrieval/find_sources#^module-purpose|purpose]] | `ACTIVE` | 15 | 29 |
 | [[Reference/Modules/learnloop/source_retrieval/kept_comparisons|learnloop.source_retrieval.kept_comparisons]] | [[Reference/Modules/learnloop/source_retrieval/kept_comparisons#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
 | [[Reference/Modules/learnloop/source_retrieval/library|learnloop.source_retrieval.library]] | [[Reference/Modules/learnloop/source_retrieval/library#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
 | [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] | [[Reference/Modules/learnloop/source_retrieval/library_ask#^module-purpose|purpose]] | `ACTIVE` | 8 | 13 |
@@ -104,7 +104,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/source_retrieval/note_gaps|learnloop.source_retrieval.note_gaps]] | [[Reference/Modules/learnloop/source_retrieval/note_gaps#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] | [[Reference/Modules/learnloop/source_retrieval/note_links#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/source_retrieval/passage_cues|learnloop.source_retrieval.passage_cues]] | [[Reference/Modules/learnloop/source_retrieval/passage_cues#^module-purpose|purpose]] | `ACTIVE` | 4 | 14 |
-| [[Reference/Modules/learnloop/source_retrieval/policy|learnloop.source_retrieval.policy]] | [[Reference/Modules/learnloop/source_retrieval/policy#^module-purpose|purpose]] | `ACTIVE` | 23 | 21 |
+| [[Reference/Modules/learnloop/source_retrieval/policy|learnloop.source_retrieval.policy]] | [[Reference/Modules/learnloop/source_retrieval/policy#^module-purpose|purpose]] | `ACTIVE` | 23 | 22 |
 | [[Reference/Modules/learnloop/source_retrieval/queries|learnloop.source_retrieval.queries]] | [[Reference/Modules/learnloop/source_retrieval/queries#^module-purpose|purpose]] | `ACTIVE` | 13 | 6 |
 | [[Reference/Modules/learnloop/source_retrieval/query_student|learnloop.source_retrieval.query_student]] | [[Reference/Modules/learnloop/source_retrieval/query_student#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/source_retrieval/reader_tutor|learnloop.source_retrieval.reader_tutor]] | [[Reference/Modules/learnloop/source_retrieval/reader_tutor#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |

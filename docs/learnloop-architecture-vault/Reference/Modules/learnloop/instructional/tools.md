@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/instructional/tools.py](../../../../../../src/learnloop/instructional/tools.py) |
-| Source lines | 689 |
+| Source lines | 703 |
 | Owning package | [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -66,14 +66,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `tool_schemas() -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 154) — Every tool's declaration, as ``FIND_PRACTICE_TOOL`` publishes one.
 - `validate_arguments(name: str, arguments: Mapping[str, Any]) -> _Args` ([source](../../../../../../src/learnloop/instructional/tools.py), line 162)
 - `drop_unknown_ids(vault: LoadedVault, repository: Repository, args: _Args) -> tuple[_Args, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 173) — Unknown facet, LO and hypothesis ids are dropped; each drop is reported.
-- `execute_tool(vault: LoadedVault, repository: Repository, name: str, args: _Args, *, caller: CallerContext, injections: Mapping[str, Any] | None=None, clients: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 399) — Run one validated tool under ``caller``; the model-reader view plus refs.
-- `request_tool(vault: LoadedVault, repository: Repository, name: str, arguments: Mapping[str, Any], *, caller: CallerContext, model: str | None=None, prompt_version: str | None=None, refusal: tuple[str, str] | None=None, extra_dropped: Sequence[Mapping[str, Any]]=(), clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 493) — Validate a request and write its ``request`` row (``refused`` when it may not run).
-- `run_requested_tool(vault: LoadedVault, repository: Repository, request_id: str, *, injections: Mapping[str, Any] | None=None, clients: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 545) — Run a stored request under its stored caller context; writes the ``run`` row.
-- `run_tool(vault: LoadedVault, repository: Repository, name: str, arguments: Mapping[str, Any], *, caller: CallerContext, injections: Mapping[str, Any] | None=None, clients: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 592) — The dispatcher (§10.1): request row, then the run under the same caller.
-- `tutor_tools_active(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/instructional/tools.py), line 612)
-- `tutor_tool_requests(vault: LoadedVault, repository: Repository, *, event_id: str, requests: Sequence[Any], model: str | None, prompt_version: str | None, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 617) — Validate a tutor answer's requests before anything is shown.
-- `offered_tool_requests(repository: Repository, event_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 654) — The offers a tutor answer carried, re-read from their request rows (a recovered response says what the original said).
-- `tutor_request_handler(vault: LoadedVault) -> Callable[..., list[dict[str, Any]]] | None` ([source](../../../../../../src/learnloop/instructional/tools.py), line 666) — What the adapters pass to ``ask_question(tool_request_handler=...)``; None when off.
+- `execute_tool(vault: LoadedVault, repository: Repository, name: str, args: _Args, *, caller: CallerContext, injections: Mapping[str, Any] | None=None, clients: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 411) — Run one validated tool under ``caller``; the model-reader view plus refs.
+- `request_tool(vault: LoadedVault, repository: Repository, name: str, arguments: Mapping[str, Any], *, caller: CallerContext, model: str | None=None, prompt_version: str | None=None, refusal: tuple[str, str] | None=None, extra_dropped: Sequence[Mapping[str, Any]]=(), clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 507) — Validate a request and write its ``request`` row (``refused`` when it may not run).
+- `run_requested_tool(vault: LoadedVault, repository: Repository, request_id: str, *, injections: Mapping[str, Any] | None=None, clients: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 559) — Run a stored request under its stored caller context; writes the ``run`` row.
+- `run_tool(vault: LoadedVault, repository: Repository, name: str, arguments: Mapping[str, Any], *, caller: CallerContext, injections: Mapping[str, Any] | None=None, clients: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 606) — The dispatcher (§10.1): request row, then the run under the same caller.
+- `tutor_tools_active(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/instructional/tools.py), line 626)
+- `tutor_tool_requests(vault: LoadedVault, repository: Repository, *, event_id: str, requests: Sequence[Any], model: str | None, prompt_version: str | None, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 631) — Validate a tutor answer's requests before anything is shown.
+- `offered_tool_requests(repository: Repository, event_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 668) — The offers a tutor answer carried, re-read from their request rows (a recovered response says what the original said).
+- `tutor_request_handler(vault: LoadedVault) -> Callable[..., list[dict[str, Any]]] | None` ([source](../../../../../../src/learnloop/instructional/tools.py), line 680) — What the adapters pass to ``ask_question(tool_request_handler=...)``; None when off.
 
 ### Module constants
 
@@ -116,9 +116,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_practice_view(vault: LoadedVault, result: Mapping[str, Any], withhold: _Withhold) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 254)
 - `_passage(hit: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 310)
 - `_model_withheld(vault: LoadedVault, repository: Repository, keys: Sequence[tuple[str, str]], withhold: _Withhold) -> dict[tuple[str, str], str]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 316) — Solution regions and assessment-lane spans, for every caller (§5.3, SC3): a bound item's answer filter is not the only thing a model must not read.
-- `_sources_view(vault: LoadedVault, repository: Repository, hits: Any, withhold: _Withhold) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 327)
-- `_comparison_view(vault: LoadedVault, repository: Repository, comparison: Any, withhold: _Withhold) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 336)
-- `_availability(vault: LoadedVault, repository: Repository, args: PracticeAvailabilityArgs, *, caller: CallerContext, estimator: Any | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 365)
+- `_lane_rule(vault: LoadedVault, repository: Repository, withhold: _Withhold) -> Callable[[Sequence[Any]], dict[tuple[str, str], str]]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 327) — The retrieval's ``withhold`` rule for this tool: the spans a model may not read (solutions, assessment lane), so the search's verification and comparison models never read them.
+- `_sources_view(vault: LoadedVault, repository: Repository, hits: Any, withhold: _Withhold) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 339)
+- `_comparison_view(vault: LoadedVault, repository: Repository, comparison: Any, withhold: _Withhold) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 348)
+- `_availability(vault: LoadedVault, repository: Repository, args: PracticeAvailabilityArgs, *, caller: CallerContext, estimator: Any | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/tools.py), line 377)
 
 ## Who imports or calls it
 
@@ -177,6 +178,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_hypothesis_reference_contract.py](../../../../../../tests/test_hypothesis_reference_contract.py) — direct import
   - `test_a_named_gap_runs_through_the_tool_as_what_it_names`
   - `test_schema_valid_references_run_through_the_tool`
+- [tests/test_p4_tutor_tool_withhold.py](../../../../../../tests/test_p4_tutor_tool_withhold.py) — direct import
+  - `test_the_compare_sources_tool_never_sends_an_assessment_lane_passage_to_verification`
+  - `test_the_find_sources_tool_never_sends_an_assessment_lane_passage_to_verification`
 - [tests/test_practice_availability.py](../../../../../../tests/test_practice_availability.py) — direct import
   - `test_availability_counts_without_calling_a_model`
 - [tests/test_reader_rw1c_review.py](../../../../../../tests/test_reader_rw1c_review.py) — direct import

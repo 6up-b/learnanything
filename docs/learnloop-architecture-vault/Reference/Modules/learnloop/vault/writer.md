@@ -314,6 +314,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_reading_exam_material_covers_whole_reaches_the_phone_not_at_all`
   - `test_an_image_that_is_a_protected_books_original_is_withheld`
 - [tests/test_model_grade_lane.py](../../../../../../tests/test_model_grade_lane.py) — direct import
+- [tests/test_p4_tutor_tool_withhold.py](../../../../../../tests/test_p4_tutor_tool_withhold.py) — direct import
 - [tests/test_patch_applier.py](../../../../../../tests/test_patch_applier.py) — direct import
   - `test_reject_accepted_concept_create_blocks_when_referenced`
 - [tests/test_patch_compiler.py](../../../../../../tests/test_patch_compiler.py) — direct import

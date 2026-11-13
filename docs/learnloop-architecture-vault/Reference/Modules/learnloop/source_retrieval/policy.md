@@ -163,6 +163,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_hypothesis_reference_contract.py](../../../../../../tests/test_hypothesis_reference_contract.py) — direct import
   - `test_a_named_gap_runs_through_the_tool_as_what_it_names`
   - `test_schema_valid_references_run_through_the_tool`
+- [tests/test_p4_tutor_tool_withhold.py](../../../../../../tests/test_p4_tutor_tool_withhold.py) — direct import
+  - `test_the_compare_sources_tool_never_sends_an_assessment_lane_passage_to_verification`
+  - `test_the_find_sources_tool_never_sends_an_assessment_lane_passage_to_verification`
 - [tests/test_reader_ca3_codex_review.py](../../../../../../tests/test_reader_ca3_codex_review.py) — direct import
   - `test_f3_a_pin_from_a_book_not_named_is_dropped_before_verification`
   - `test_f3_the_anchor_stays_the_one_exception`

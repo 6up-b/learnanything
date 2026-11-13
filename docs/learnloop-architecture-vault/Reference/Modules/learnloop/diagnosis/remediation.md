@@ -206,6 +206,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_remediation_treatment_skips_nothing_for_servability`
 - [tests/test_k1_remediation_cold_reservation.py](../../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import
   - `test_a_withdrawn_cold_retry_with_no_replacement_releases_its_reservation`
+  - `test_an_episode_whose_cold_retry_was_never_scheduled_reserves_nothing_after_its_primed_attempt`
 - [tests/test_misconception_transitions_intake.py](../../../../../../tests/test_misconception_transitions_intake.py) — direct import
   - `test_reactivation_wipes_resolved_at_but_returned_stays_derivable`
 - [tests/test_pfc_unassessed_readers.py](../../../../../../tests/test_pfc_unassessed_readers.py) — direct import

@@ -152,6 +152,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_cold_retry_that_expires_unanswered_releases_its_reservation`
   - `test_a_finished_episode_reserves_nothing`
   - `test_a_withdrawn_cold_retry_with_no_replacement_releases_its_reservation`
+  - `test_an_episode_whose_cold_retry_was_never_scheduled_reserves_nothing_after_its_primed_attempt`
 - [tests/test_library_ask_review.py](../../../../../../tests/test_library_ask_review.py) — direct import
   - `test_the_tutor_refuses_a_bound_ask_while_its_cold_administration_is_open`
 - [tests/test_practice_availability.py](../../../../../../tests/test_practice_availability.py) — direct import

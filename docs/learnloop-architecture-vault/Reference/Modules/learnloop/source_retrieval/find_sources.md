@@ -248,6 +248,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mcp_c1a_review.py](../../../../../../tests/test_mcp_c1a_review.py) — direct import
   - `test_no_character_encodes_wider_than_the_dry_runs_filler`
   - `test_the_dry_run_bounds_the_live_verification`
+- [tests/test_p4_tutor_tool_withhold.py](../../../../../../tests/test_p4_tutor_tool_withhold.py) — direct import
+  - `test_the_find_sources_tool_never_sends_an_assessment_lane_passage_to_verification`
 - [tests/test_prescription_passages.py](../../../../../../tests/test_prescription_passages.py) — direct import
   - `test_ranked_and_verified_passages_replace_the_first_linked_span`
 - [tests/test_reader_find_sources_callers.py](../../../../../../tests/test_reader_find_sources_callers.py) — direct import
