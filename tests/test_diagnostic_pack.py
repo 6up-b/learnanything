@@ -13,11 +13,13 @@ from learnloop.curriculum.golden_path_fixture import (
 )
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
+from tests.helpers import allow_below_floor
 
 
 @pytest.fixture
 def fixture(tmp_path):
     root = tmp_path / "vault"
+    allow_below_floor(root)
     fx = build_golden_path_fixture(root)
     vault = load_vault(root)
     repo = Repository(VaultPaths(vault.root, vault.config).sqlite_path)

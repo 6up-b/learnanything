@@ -27,6 +27,7 @@ from learnloop.attempts.attempts import (
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault
+from tests.helpers import allow_below_floor
 
 
 def _row(
@@ -567,6 +568,7 @@ def test_triage_records_tier_one_basis_on_the_result_and_the_event(tmp_path):
     import json
 
     root = tmp_path / "vault"
+    allow_below_floor(root)
     fixture = build_golden_path_fixture(root)
     vault = load_vault(root)
     repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)

@@ -32,6 +32,7 @@ from learnloop.diagnosis.probe_episodes import (
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from tests.p2_acceptance_helpers import CLOCK, _admit_probe_card, _drive_probe_item, _reviewed_pack
+from tests.helpers import allow_below_floor
 
 # ---------------------------------------------------------------------------
 # Fixtures + helpers
@@ -48,6 +49,7 @@ def _open_repo(fx) -> Repository:
 # ---------------------------------------------------------------------------
 
 def test_starting_instruction_closes_measurement_segment_and_reentry_is_fresh(tmp_path):
+    allow_below_floor(tmp_path / "vault")
     fx = build_golden_path_fixture(tmp_path / "vault")
     vault = load_vault(fx.root)
     repo = _open_repo(fx)
@@ -90,6 +92,7 @@ def test_event_replay_equivalence_after_full_walk(tmp_path):
     """After the full walk, rebuild the run and certification projections from events
     ALONE and assert equality with the live projections."""
 
+    allow_below_floor(tmp_path / "vault")
     fx = build_golden_path_fixture(tmp_path / "vault")
     vault = load_vault(fx.root)
     repo = _open_repo(fx)
@@ -148,6 +151,7 @@ def test_fault_injection_diagnostic_baseline_boundary_yields_exactly_one(tmp_pat
     track suites. The diagnostic-baseline boundary is exercised here: a crash/retry
     reuses the open episode + the single pack pin -- exactly one of each side effect."""
 
+    allow_below_floor(tmp_path / "vault")
     fx = build_golden_path_fixture(tmp_path / "vault")
     vault = load_vault(fx.root)
     repo = _open_repo(fx)

@@ -12,9 +12,11 @@ from learnloop.curriculum.golden_path_fixture import (
 )
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.loader import load_vault
+from tests.helpers import allow_below_floor
 
 
 def test_fixture_bootstrap_confirms_a_certifying_run(tmp_path):
+    allow_below_floor(tmp_path / "vault")
     fixture = build_golden_path_fixture(tmp_path / "vault")
     assert fixture.receipt.mode == "certifying"
     assert fixture.receipt.current_state == "ready"
@@ -32,7 +34,9 @@ def test_fixture_bootstrap_confirms_a_certifying_run(tmp_path):
 
 
 def test_fixture_is_deterministic_across_two_builds(tmp_path):
+    allow_below_floor(tmp_path / "a")
     a = build_golden_path_fixture(tmp_path / "a")
+    allow_below_floor(tmp_path / "b")
     b = build_golden_path_fixture(tmp_path / "b")
     # Two builds produce identical content hashes (ids/timestamps excluded, §12.8).
     assert a.content_hashes == b.content_hashes
@@ -41,12 +45,14 @@ def test_fixture_is_deterministic_across_two_builds(tmp_path):
 
 
 def test_fixture_vault_is_mvp_0_8(tmp_path):
+    allow_below_floor(tmp_path / "vault")
     fixture = build_golden_path_fixture(tmp_path / "vault")
     vault = load_vault(fixture.root)
     assert vault.config.algorithms.algorithm_version == "mvp-0.8"
 
 
 def test_fixture_blueprint_is_active_after_confirmation(tmp_path):
+    allow_below_floor(tmp_path / "vault")
     fixture = build_golden_path_fixture(tmp_path / "vault")
     vault = load_vault(fixture.root)
     repo = Repository(VaultPaths(vault.root, vault.config).sqlite_path)

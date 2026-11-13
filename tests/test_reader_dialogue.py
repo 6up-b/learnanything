@@ -24,6 +24,7 @@ from learnloop.substrate.activities import (
 from learnloop.vault.loader import load_vault
 
 from tests.reader_dialogue_helpers import _CLOCK, _setup
+from tests.helpers import allow_below_floor
 
 # ── the reader tutor context + manifest (scope 1) ──────────────────────────────
 
@@ -425,6 +426,7 @@ def test_golden_path_completes_with_reader_never_invoked(tmp_path):
     from learnloop.curriculum.golden_path_fixture import build_golden_path_fixture
     from learnloop.vault.paths import VaultPaths
 
+    allow_below_floor(tmp_path / "vault")
     fixture = build_golden_path_fixture(tmp_path / "vault")
     assert fixture.receipt.current_state == "ready"
     # §12.3.2: the canonical walk must complete with the reader DISABLED —

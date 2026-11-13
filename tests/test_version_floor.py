@@ -285,6 +285,7 @@ def test_the_commands_take_a_vault_older_than_the_chain_through_its_steps(tag, s
 def test_production_code_never_enters_the_test_allowance():
     """Only tests/helpers.py's allow_below_floor registers a vault below the floor; src/ and scripts/ never do."""
 
+    names = {"allow_below_floor_in_tests", "end_test_allowance", "_TEST_ROOTS", "_TEST_OPEN"}
     offenders = []
     for base in ("src", "scripts"):
         for path in sorted((ROOT / base).rglob("*.py")):
@@ -293,10 +294,23 @@ def test_production_code_never_enters_the_test_allowance():
             tree = ast.parse(path.read_text(encoding="utf-8"))
             for node in ast.walk(tree):
                 name = node.attr if isinstance(node, ast.Attribute) else node.id if isinstance(node, ast.Name) else None
-                if name in {"allow_below_floor_in_tests", "_TEST_ROOTS"}:
+                if name in names:
                     offenders.append(f"{path.relative_to(ROOT)}:{node.lineno}")
-                if isinstance(node, ast.ImportFrom) and any(
-                    alias.name in {"allow_below_floor_in_tests", "_TEST_ROOTS"} for alias in node.names
-                ):
+                if isinstance(node, ast.ImportFrom) and any(alias.name in names for alias in node.names):
                     offenders.append(f"{path.relative_to(ROOT)}:{node.lineno}")
     assert offenders == []
+
+
+def test_the_suites_allowance_opens_any_vault_until_the_test_ends(tmp_path):
+    from learnloop.version_floor import end_test_allowance
+    from tests.helpers import allow_below_floor
+
+    registered = _below_floor_vault(tmp_path / "a")
+    copy = _below_floor_vault(tmp_path / "b")
+    allow_below_floor(registered)
+    # A copy of the registered vault (the test's own, or production's scratch copy) opens during the test.
+    load_vault(copy)
+    end_test_allowance()  # what tests/conftest.py does after every test
+    load_vault(registered)  # a registered root stays open, for fixtures that outlive one test
+    with pytest.raises(BelowOldestSupported):
+        load_vault(copy)

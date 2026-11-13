@@ -157,8 +157,11 @@ from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
+from tests.helpers import allow_below_floor
 
 root, sqlite_path, when = sys.argv[1:4]
+# The parent's registration of its vault below the floor does not cross into this process.
+allow_below_floor(Path(root))
 sync_vault_state(load_vault(Path(root)), Repository(Path(sqlite_path)), clock=FrozenClock(datetime.fromisoformat(when)))
 """
 

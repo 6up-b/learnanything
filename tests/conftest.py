@@ -403,6 +403,17 @@ from tests import background_owners as _background_owners  # noqa: E402
 _background_owners.install()
 
 
+# Set up before close_test_background_owners, so it closes after the test's background work has stopped: a test
+# that built a vault below the oldest supported tag (tests.helpers.allow_below_floor) may open any vault until then,
+# and the next test starts without that allowance.
+@pytest.fixture(autouse=True)
+def end_below_floor_allowance():
+    from learnloop.version_floor import end_test_allowance
+
+    yield
+    end_test_allowance()
+
+
 @pytest.fixture(autouse=True)
 def close_test_background_owners():
     start = _background_owners.mark()

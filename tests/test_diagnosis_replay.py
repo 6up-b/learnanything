@@ -20,6 +20,7 @@ from learnloop.vault.loader import load_vault
 from tests.diagnosis_fakes import FakeEmbeddingClient, ReviewFakeClient
 from tests.split_live_helpers import at, drain_jobs, enable_embeddings, split_vault, submit
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.helpers import allow_below_floor
 
 pytestmark = pytest.mark.durability
 
@@ -96,6 +97,7 @@ def test_replay_makes_zero_model_and_embedding_calls(tmp_path, monkeypatch):
 def test_joint_reads_are_untouched_by_the_overlay(tmp_path):
     root = tmp_path / "head"
     copy_tree_with_databases(HEAD_FIXTURE, root)
+    allow_below_floor(root)
     repository = Repository(root / "state.sqlite")
     with connect(repository.sqlite_path, read_only=True) as connection:
         attempt_ids = [row[0] for row in connection.execute("SELECT id FROM practice_attempts")]
@@ -117,6 +119,7 @@ def test_joint_fixture_rebuild_is_identical_at_the_previous_version(tmp_path):
 
     root = tmp_path / "head"
     copy_tree_with_databases(HEAD_FIXTURE, root)
+    allow_below_floor(root)
     vault = load_vault(root)
     repository = Repository(root / "state.sqlite")
     tables = {*tables_for_role(TableRole.DERIVED), *REWRITTEN}

@@ -66,6 +66,7 @@ from tests.held_grade_evidence_helpers import (
     attempt_grade_held,
     held_attempt_ids,
 )
+from tests.helpers import allow_below_floor
 
 #: ``outcome_contract.HOLD_KEPT_FROM_KEY`` (spelled out so this module imports
 #: on the commit before the fix, where the fail-first run read it).
@@ -837,6 +838,7 @@ def test_review_f3_diagnostic_observations_held_by_a_regrade_qualify_nothing(tmp
     from tests.p2_acceptance_helpers import CLOCK as GP_CLOCK
     from tests.p2_acceptance_helpers import _admit_probe_card, _drive_probe_item, _reviewed_pack
 
+    allow_below_floor(tmp_path / "vault")
     fx = build_golden_path_fixture(tmp_path / "vault")
     vault = load_vault(fx.root)
     repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)

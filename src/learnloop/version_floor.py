@@ -46,7 +46,12 @@ _UPGRADING: ContextVar[Path | None] = ContextVar("learnloop_floor_upgrading", de
 
 #: Vault roots a test built below the floor on purpose. Only ``tests/helpers.py`` adds to it. A process-wide set,
 #: not a context variable, because the vault is opened later from worker threads that start with an empty context.
+#: A root stays registered after its test, for a fixture that outlives one test.
 _TEST_ROOTS: set[Path] = set()
+#: Whether the running test registered a vault below the floor. While it is set, every vault opens: such a test
+#: also opens copies of its vault (its own, or production's scratch copies, such as an apply's dry run) at roots
+#: nothing registered. ``tests/conftest.py`` clears it after each test.
+_TEST_OPEN: list[bool] = [False]
 
 
 def _number(tag: str) -> int | None:
@@ -114,9 +119,11 @@ class BelowOldestSupported(RuntimeError):
         )
 
 
-def _allowed(vault_root: Path) -> bool:
+def may_open_below_floor(vault_root: Path) -> bool:
+    """Whether this vault opens below the floor here: ``learnloop upgrade`` is upgrading it, or a test built it."""
+
     root = Path(vault_root).resolve()
-    return _UPGRADING.get() == root or root in _TEST_ROOTS
+    return _UPGRADING.get() == root or _TEST_OPEN[0] or root in _TEST_ROOTS
 
 
 def refuse_below_floor(vault_root: Path, config) -> None:
@@ -126,14 +133,14 @@ def refuse_below_floor(vault_root: Path, config) -> None:
     algorithms = config.algorithms
     # The field has a default for configs built in code; a vault's file must say which tag it is at.
     tag = algorithms.algorithm_version if "algorithm_version" in algorithms.model_fields_set else None
-    if is_below_floor(tag) and not _allowed(vault_root):
+    if is_below_floor(tag) and not may_open_below_floor(vault_root):
         raise BelowOldestSupported(Path(vault_root).resolve(), tag)
 
 
 def refuse_journal_below_floor(vault_root: Path, predecessor: str, target: str) -> None:
     """Raise :class:`BelowOldestSupported` for a journalled upgrade from below the floor, unless allowed."""
 
-    if is_below_floor(predecessor) and not _allowed(vault_root):
+    if is_below_floor(predecessor) and not may_open_below_floor(vault_root):
         raise BelowOldestSupported(Path(vault_root).resolve(), target, journal=(predecessor, target))
 
 
@@ -149,15 +156,25 @@ def upgrading(vault_root: Path) -> Iterator[None]:
 
 
 def allow_below_floor_in_tests(vault_root: Path) -> None:
-    """Let a test's vault below the floor open (``tests/helpers.py``'s ``allow_below_floor`` only)."""
+    """Let a test's vault below the floor, and for the rest of that test any vault, open
+    (``tests/helpers.py``'s ``allow_below_floor`` only)."""
 
     _TEST_ROOTS.add(Path(vault_root).resolve())
+    _TEST_OPEN[0] = True
+
+
+def end_test_allowance() -> None:
+    """Close the running test's allowance (``tests/conftest.py``, after each test)."""
+
+    _TEST_OPEN[0] = False
 
 
 __all__ = [
     "BelowOldestSupported",
     "allow_below_floor_in_tests",
+    "end_test_allowance",
     "is_below_floor",
+    "may_open_below_floor",
     "refuse_below_floor",
     "refuse_journal_below_floor",
     "upgrade_commands",

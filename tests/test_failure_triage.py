@@ -10,6 +10,7 @@ from learnloop.curriculum import golden_path_run as GPR
 from learnloop.curriculum.golden_path_fixture import build_golden_path_fixture
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
+from tests.helpers import allow_below_floor
 
 
 @pytest.fixture
@@ -17,6 +18,7 @@ def triaging(tmp_path):
     """A run advanced to the ``triaging`` gate, ready for a triage decision."""
 
     root = tmp_path / "vault"
+    allow_below_floor(root)
     fx = build_golden_path_fixture(root)
     vault = load_vault(root)
     repo = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
@@ -86,6 +88,7 @@ def test_quarantined_surface_routes_fault_never_a_deficit(triaging):
 )
 def test_high_confidence_signature_takes_intended_route(tmp_path, signature, expected, stage):
     root = tmp_path / "vault"
+    allow_below_floor(root)
     fx = build_golden_path_fixture(root)
     vault = load_vault(root)
     repo = Repository(VaultPaths(vault.root, vault.config).sqlite_path)

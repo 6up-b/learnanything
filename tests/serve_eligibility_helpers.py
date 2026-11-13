@@ -6,6 +6,9 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from learnloop.clock import FrozenClock, utc_now_iso
+from learnloop.version_floor import is_below_floor
+
+from tests.helpers import allow_below_floor
 
 
 START = datetime(2026, 10, 12, 10, 0, tzinfo=UTC)
@@ -28,6 +31,8 @@ def _at_version(root, version: str = SUCCESSOR, *, enabled: bool = True) -> None
     if not enabled:
         text += "\n[eligibility]\nenabled = false\n"
     toml.write_text(text)
+    if is_below_floor(version):
+        allow_below_floor(root)
 
 
 def _repair(tmp_path, version: str = SUCCESSOR, *, enabled: bool = True):

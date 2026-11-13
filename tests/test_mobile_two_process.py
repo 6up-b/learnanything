@@ -26,8 +26,11 @@ def _host_process(root: str, token: str, device_id: str, sessions: list[str], pi
         import learnloop_sidecar.handlers.practice as practice
         from starlette.testclient import TestClient
         from learnloop_mobile.host import create_app
+        from tests.helpers import allow_below_floor
         from tests.mobile_host_helpers import CountingGrader, Phone, config_for, ReadyRuntime
 
+        # The parent's registration of its vault below the floor does not cross into this process.
+        allow_below_floor(Path(root))
         grader = CountingGrader()
         practice.ready_grading_provider = lambda vault, override=None: ("fake", ReadyRuntime(), grader)
         app = create_app(config_for(Path(root)))

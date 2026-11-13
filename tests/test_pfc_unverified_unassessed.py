@@ -57,6 +57,7 @@ from tests.pfc_unverified_unassessed_helpers import (
     _mass,
     _support,
 )
+from tests.helpers import allow_below_floor
 
 LO = "lo_svd_compute"
 HEAD_FIXTURE = MIGRATION_HEAD_FIXTURE
@@ -344,6 +345,7 @@ def test_joint_fixture_replays_through_the_unchanged_path(tmp_path, monkeypatch)
 
     root = tmp_path / "head"
     copy_tree_with_databases(HEAD_FIXTURE, root)
+    allow_below_floor(root)
     vault = load_vault(root)
     repository = Repository(root / "state.sqlite")
     with connect(repository.sqlite_path, read_only=True) as connection:

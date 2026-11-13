@@ -30,7 +30,7 @@ from learnloop.substrate.rebuild_orchestrator import (
 )
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
-from learnloop.version_floor import is_below_floor
+from learnloop.version_floor import is_below_floor, may_open_below_floor
 
 
 class ShadowRebuildError(RuntimeError):
@@ -189,6 +189,8 @@ _PROJECTION_SPECS: tuple[_ProjectionSpec, ...] = (
 def build_candidate_config(
     config: LearnLoopConfig,
     assignments: Sequence[str] = (),
+    *,
+    vault_root: Path | None = None,
 ) -> tuple[LearnLoopConfig, dict[str, Any]]:
     """Return a validated config with repeated dotted assignments applied.
 
@@ -233,7 +235,8 @@ def build_candidate_config(
     # A replay forced below the floor would run code no vault may be opened at any longer. Only a forced tag is
     # judged: the baseline's own tag was judged when the vault was opened.
     forced = any(parts == ("algorithms", "algorithm_version") for _path, parts in requested_paths)
-    if forced and is_below_floor(candidate.algorithms.algorithm_version):
+    allowed = vault_root is not None and may_open_below_floor(vault_root)
+    if forced and is_below_floor(candidate.algorithms.algorithm_version) and not allowed:
         raise ConfigOverrideError(
             f"algorithms.algorithm_version={candidate.algorithms.algorithm_version} is below "
             f"{OLDEST_SUPPORTED}, the oldest version this LearnLoop opens; a shadow rebuild replays at it or later"
@@ -285,7 +288,7 @@ def shadow_rebuild(
         baseline_snapshot = _learner_state_snapshot(live_repository)
         if observe is not None:
             observed_before = _observed(observe, vault, live_repository, "the live database")
-        candidate_config, applied = build_candidate_config(vault.config, assignments)
+        candidate_config, applied = build_candidate_config(vault.config, assignments, vault_root=vault.root)
         candidate_vault = replace(vault, config=candidate_config)
         with tempfile.TemporaryDirectory(prefix="learnloop-shadow-rebuild-") as scratch:
             scratch_path = Path(scratch) / "state.sqlite"

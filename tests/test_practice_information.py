@@ -20,12 +20,14 @@ from learnloop.scheduling.scheduler import _practice_information, _priority
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
+from tests.helpers import allow_below_floor
 
 
 @pytest.fixture()
 def golden_vault():
     with tempfile.TemporaryDirectory() as td:
         root = Path(td) / "gp"
+        allow_below_floor(root)
         build_golden_path_fixture(root)
         vault = load_vault(root)
         repository = Repository(VaultPaths(root, vault.config).sqlite_path)

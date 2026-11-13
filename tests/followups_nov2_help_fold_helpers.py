@@ -3,6 +3,9 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 
 from __future__ import annotations
 
+from learnloop.version_floor import is_below_floor
+
+from tests.helpers import allow_below_floor
 from tests.hint_fakes import ITEM, WORK, ChooserFake, WriterFake, prefer, store_map
 from tests.hint_fakes import hint_vault as _hint_vault
 from tests.hint_h2a_review_round2_helpers import ARGMAX, SELF_GRADE, _call, _context
@@ -21,6 +24,8 @@ def hint_vault(tmp_path, *, version: str | None = None, **kwargs):
     target = version or HELP_FOLD_ATTACH_ALGORITHM_VERSION
     if current != target:
         rewrite_algorithm_version(paths.root / "learnloop.toml", current, target, durable=True)
+    if is_below_floor(target):
+        allow_below_floor(paths.root)
     return paths
 
 

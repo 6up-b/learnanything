@@ -16,6 +16,7 @@ from learnloop.db.stores.judgments import append_judgment
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.helpers import allow_below_floor
 
 
 @pytest.fixture
@@ -265,6 +266,7 @@ def test_replay_preserves_paid_inputs_without_models(tmp_path, monkeypatch):
     sdk = install_fake_openai(monkeypatch)
     root = tmp_path / "vault"
     copy_tree_with_databases(MIGRATION_HEAD_FIXTURE, root)
+    allow_below_floor(root)
     repository = Repository(root / "state.sqlite")
     with repository.connection() as connection:
         put_vector(connection, **identity(), vector=[1, 2])

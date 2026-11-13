@@ -42,6 +42,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 
 from tests.hint_h2b_review_helpers import grader  # noqa: F401 - the blind grader fixture
+from tests.helpers import allow_below_floor
 from tests.batch3_landing_helpers import PREDECESSOR, TAG, _activated, _interrupted, _journal, _vault_at
 
 @pytest.fixture(autouse=True)
@@ -250,6 +251,7 @@ def test_i_a_figure_goal_from_the_ask_rail_or_the_tutor_never_spends_an_ask_ques
     paths, repository, ctx, _tutor, author, _find, answer = _tutor_ask(tmp_path, monkeypatch, figure_goal=goal)
     rewrite_algorithm_version(paths.root / "learnloop.toml", load_vault(paths.root).config.algorithms.algorithm_version,
                               TAG)  # CA2's successor, its panel on (the default)
+    allow_below_floor(paths.root)
     ctx.load(paths.root)
     vault = load_vault(paths.root)
     assert vault.config.algorithms.algorithm_version == TAG and vault.config.ask.panel_enabled
@@ -344,6 +346,7 @@ def test_iii_a_figure_grant_never_meters_an_ask_and_an_ask_grant_meters_it_under
     try:
         root = _priced_vault(tmp_path)
         rewrite_algorithm_version(root / "learnloop.toml", load_vault(root).config.algorithms.algorithm_version, TAG)
+        allow_below_floor(root)
         vault = load_vault(root)
         assert vault.config.algorithms.algorithm_version == TAG and vault.config.ask.panel_enabled
 

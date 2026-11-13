@@ -36,6 +36,7 @@ from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import Repository
 from learnloop.provenance import DecisionRecord
 from tests.helpers import MIGRATION_HEAD_FIXTURE, create_basic_vault
+from tests.helpers import allow_below_floor
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 
@@ -44,6 +45,7 @@ SRC = Path(__file__).resolve().parents[1] / "src"
 def head_db(tmp_path: Path) -> Path:
     root = tmp_path / "head"
     copy_tree_with_databases(MIGRATION_HEAD_FIXTURE, root, database_names=("state.sqlite",))
+    allow_below_floor(root)
     return root / "state.sqlite"
 
 
@@ -458,6 +460,7 @@ def test_a_rebuild_never_calls_the_record_and_keeps_its_rows(tmp_path: Path, mon
 
     root = tmp_path / "head"
     copy_tree_with_databases(MIGRATION_HEAD_FIXTURE, root, database_names=("state.sqlite",))
+    allow_below_floor(root)
     path = root / "state.sqlite"
     with provenance.trace_scope("TRACE_KEPT"):
         _write(path, DecisionRecord(kind="plan_block", status="chosen", facts={"n": 1}))

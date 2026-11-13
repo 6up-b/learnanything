@@ -22,7 +22,9 @@ from learnloop.db.repositories import Repository
 from learnloop.ops.settings_store import apply_config_updates
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
+from learnloop.version_floor import is_below_floor
 
+from tests.helpers import allow_below_floor
 from tests.source_append_helpers import FakeAppendClient
 from tests.source_inventory_helpers import FakeInventoryClient
 from tests.source_set_synthesis_helpers import FakeSynthesisClient
@@ -91,6 +93,9 @@ def fresh_library(tmp_path: Path, *, name: str = "LearnLoop", scope_cap: int | N
 
 def set_config(root: Path, updates: dict[tuple[str, ...], Any]) -> None:
     apply_config_updates(root / "learnloop.toml", updates)
+    tag = updates.get(("algorithms", "algorithm_version"))
+    if tag is not None and is_below_floor(tag):
+        allow_below_floor(root)
 
 
 def grant_consent(root: Path, key: str = "codex") -> None:

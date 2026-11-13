@@ -35,6 +35,7 @@ from learnloop.learner.facet_evidence_timeline import (
 from learnloop.substrate.canonical_projection import configured_repeat_discount
 from learnloop.vault.loader import load_vault
 from learnloop.vault.repository import open_vault_repository
+from tests.helpers import allow_below_floor
 from tests.owner_vaults import fixture_vault_params, owner_vault, owner_vaults
 
 # The vaults git tracks under fixtures/, plus the owner lane's copies.
@@ -54,6 +55,7 @@ def _loaded_fixture(tmp_path, source, algorithm_version="mvp-0.7"):
     )
     assert count == 1
     toml_path.write_text(text, encoding="utf-8")
+    allow_below_floor(root)
     vault = load_vault(root)
     repository = open_vault_repository(root, root / "state.sqlite")
     return vault, repository

@@ -21,6 +21,7 @@ from learnloop.substrate.rebuild_orchestrator import (
 from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.vault.loader import load_vault
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.helpers import allow_below_floor
 
 FIXTURE_VAULT = (MIGRATION_HEAD_FIXTURE)
 CLOCK = FrozenClock(datetime(2026, 5, 19, 12, 0, tzinfo=UTC))
@@ -145,6 +146,7 @@ def test_content_recalibration_replay_cannot_lose_its_ingest_lease_midway(tmp_pa
 def _copy_fixture(tmp_path: Path, name: str) -> Path:
     destination = tmp_path / name
     shutil.copytree(FIXTURE_VAULT, destination)
+    allow_below_floor(destination)
     return destination
 
 

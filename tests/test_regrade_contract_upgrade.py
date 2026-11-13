@@ -385,7 +385,10 @@ _CRASH_AFTER_PUBLICATION = """
 import os, sys
 from pathlib import Path
 import learnloop.regrade_contract_upgrade as upgrade
+from tests.helpers import allow_below_floor
 
+# The parent's registration of its vault below the floor does not cross into this process.
+allow_below_floor(Path(sys.argv[1]))
 real = upgrade.rewrite_algorithm_version
 
 def publish_then_die(*args, **kwargs):

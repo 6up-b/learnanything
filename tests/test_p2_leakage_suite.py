@@ -59,6 +59,7 @@ from learnloop.vault.paths import VaultPaths
 from tests.test_reader_dialogue import (
     test_ask_warms_and_invalidates_a_revealed_reserve as _reader_reveal_burns_reserve,
 )
+from tests.helpers import allow_below_floor
 
 CLOCK = FrozenClock(FIX_NOW)
 
@@ -67,6 +68,7 @@ def _fixture(tmp_path):
     """The (vault, repo, fx) triple on the golden-path fixture vault."""
 
     root = tmp_path / "vault"
+    allow_below_floor(root)
     fx = build_golden_path_fixture(root)
     vault = load_vault(root)
     repo = Repository(VaultPaths(vault.root, vault.config).sqlite_path)

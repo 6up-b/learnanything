@@ -74,6 +74,7 @@ from tests.route_rules_in_grader_helpers import (
     _schedule,
     _support,
 )
+from tests.helpers import allow_below_floor
 
 #: When a test that regrades at ``CLOCK`` submits its attempt. ``submit`` with
 #: no ``when`` stamps the attempt with the wall clock, and the latest grade is
@@ -531,6 +532,7 @@ def test_migration_186_keeps_its_trigger_which_nothing_writes_now(tmp_path):
     head = MIGRATION_HEAD_FIXTURE
     root = tmp_path / "head"
     copy_tree_with_databases(head, root)
+    allow_below_floor(root)
     with connect(root / "state.sqlite") as connection:
         sql = connection.execute(
             "SELECT sql FROM sqlite_master WHERE name = 'grading_clarifications'").fetchone()[0]
@@ -926,6 +928,7 @@ def test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict(tmp_path):
     expected = json.loads((MVP017_FIXTURE / "expected.json").read_text(encoding="utf-8"))["attempts"]
     root = tmp_path / "vault"
     copy_tree_with_databases(MVP017_FIXTURE, root)
+    allow_below_floor(root)
     vault, repository = load_vault(root), open_vault_repository(root, root / "state.sqlite")
     held, restored = expected["held"]["attempt_id"], expected["restored_both"]["attempt_id"]
     later = FrozenClock(CLOCK.now() + timedelta(days=60))  # after every fixture grade

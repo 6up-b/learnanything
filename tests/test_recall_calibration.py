@@ -12,6 +12,7 @@ from learnloop.learner.recall_calibration import (
     format_recall_calibration_table,
     run_recall_calibration_harness,
 )
+from tests.helpers import allow_below_floor
 
 
 def test_recall_calibration_examples_are_config_backed():
@@ -30,6 +31,8 @@ def test_recall_calibration_examples_are_config_backed():
 
 
 def test_recall_calibration_harness_is_deterministic_and_in_band(tmp_path):
+    # The harness builds its scenario vaults at mvp-0.6, below the floor (ledger D-17).
+    allow_below_floor(tmp_path)
     first = run_recall_calibration_harness(tmp_path / "first")
     second = run_recall_calibration_harness(tmp_path / "second")
 
@@ -44,7 +47,8 @@ def test_recall_calibration_harness_is_deterministic_and_in_band(tmp_path):
     assert "0.700->0.760" in table
 
 
-def test_recall_calibration_cli_json_and_assert_mode():
+def test_recall_calibration_cli_json_and_assert_mode(tmp_path):
+    allow_below_floor(tmp_path)  # the harness's scratch vaults are at mvp-0.6 (ledger D-17)
     result = CliRunner().invoke(app, ["recall-calibration", "--json", "--assert"])
 
     assert result.exit_code == 0, result.output

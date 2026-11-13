@@ -29,6 +29,7 @@ from learnloop.held_grades import held_attempt_ids
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.repository import open_vault_repository
+from tests.helpers import allow_below_floor
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "mvp017_route_check_replay"
 EXPECTED = json.loads((FIXTURE / "expected.json").read_text(encoding="utf-8"))
@@ -51,6 +52,7 @@ RAW_GRADE_EVENT_KEY = (
 def _copy(tmp_path):
     root = tmp_path / "vault"
     copy_tree_with_databases(FIXTURE, root)
+    allow_below_floor(root)
     return root, load_vault(root), open_vault_repository(root, root / "state.sqlite")
 
 

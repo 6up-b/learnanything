@@ -15,6 +15,7 @@ from learnloop.db.repositories import Repository
 from learnloop.substrate.shadow_rebuild import ConfigOverrideError, shadow_rebuild
 from learnloop.vault.loader import load_vault
 from tests.helpers import MIGRATION_HEAD_FIXTURE
+from tests.helpers import allow_below_floor
 
 
 FIXTURE_VAULT = (MIGRATION_HEAD_FIXTURE)
@@ -23,6 +24,7 @@ FIXTURE_VAULT = (MIGRATION_HEAD_FIXTURE)
 def _copy_fixture(tmp_path: Path, name: str) -> Path:
     destination = tmp_path / name
     shutil.copytree(FIXTURE_VAULT, destination)
+    allow_below_floor(destination)
     return destination
 
 
