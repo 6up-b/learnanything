@@ -356,10 +356,13 @@ def test_today_shows_the_stored_plan_and_writes_nothing(tmp_path, monkeypatch):
     from learnloop.daily_plan.engine import build_plan
     from learnloop.remote import views
     from tests.daily_plan_fakes import NOW, MovableClock, make_env, scheduled, seed_due
-    from tests.helpers import create_daily_plan_vault
+    from tests.helpers import RANDOMIZED_CHECKS_OFF, create_daily_plan_vault
 
     no_model_calls(monkeypatch)
-    paths = create_daily_plan_vault(tmp_path / "plan", learning_objects={"lo_m1": [("pi_m1a", 2.0), ("pi_m1b", 2.0)]})
+    # RO5's check arm at zero: its block would be today's first, and a check carries no why (it is shown to the
+    # learner as an ordinary item), so the computed why this view must show would not be there.
+    paths = create_daily_plan_vault(tmp_path / "plan", learning_objects={"lo_m1": [("pi_m1a", 2.0), ("pi_m1b", 2.0)]},
+                                    plan_toml=RANDOMIZED_CHECKS_OFF)
     clock = MovableClock()
     env = make_env(paths.root, [scheduled("pi_m1a", "lo_m1", forgetting_risk=0.6),
                                 scheduled("pi_m1b", "lo_m1", forgetting_risk=0.5)], clock=clock)

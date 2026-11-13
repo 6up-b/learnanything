@@ -65,3 +65,12 @@ def _sections(repo, extraction_id):
 
     rows, _blocks, _spans = extraction_sections(repo.load_document_ir(extraction_id))
     return rows
+
+
+def _planned_minutes_of(plan, before) -> float:
+    """The minutes ``plan`` (a plan view) plans for the blocks ``before`` (an earlier view of it) held. Ending a
+    block crosses a boundary, and the head's plan decides the next block there at once, adding that block's minutes
+    to the total; what an ended block keeps charged is read on the blocks that were already there."""
+
+    ids = {block["id"] for block in before["blocks"]}
+    return sum(block["estMinutes"] for block in plan["blocks"] if block["id"] in ids)
