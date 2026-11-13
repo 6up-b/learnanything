@@ -49,14 +49,15 @@ from learnloop.content.synthesis.append_neighborhood import select_neighborhood
 from learnloop.content.synthesis.graph_nomination import GraphNominator, plan_ingest_embedding
 from learnloop.content.proposals.patches import compute_target_hash
 from learnloop.content.facet_identity import authority as facet_meaning
-from learnloop.content.synthesis.proposal_match import match_proposal
+from learnloop.content.synthesis.proposal_match import RejectedProposalMatch
 from learnloop.content.synthesis.source_set_synthesis import (
     StudyMapError,
+    SynthesisMode,
     _Normalized,
     _count_items,
     _facet_identity_plan,
     _collect_inputs,
-    _gate_context,
+    _gate_and_persist,
     _normalize,
     _resolve_span_requests,
     _result_tokens,
@@ -71,9 +72,7 @@ from learnloop.content.synthesis.source_set_synthesis import (
 from learnloop.content.synthesis.synthesis_gates import (
     ASSESSMENT_ONLY_ROLES,
     GateItem,
-    GateProposal,
     ProvenanceRef,
-    run_synthesis_gates,
 )
 from learnloop.content.synthesis.synthesis_manifests import (
     agent_run_input_context_hash,
@@ -581,121 +580,26 @@ def _append(
                 subject_id, change_kind, revision_diff, brief, budgets,
                 one_facet_per_skill=one_facet_per_skill,
             )
-            preset_diagnostics: list[dict[str, Any]] = []
-            if brief.get("authoring_preset") == "narrow_adjunct":
-                # The preset's no-restructure promise is a deterministic boundary,
-                # not merely prompt advice. Preserve every additive candidate and
-                # drop only model-emitted restructure operations.
-                restructures = list(getattr(reconciliation, "restructures", []) or [])
-                if restructures:
-                    if hasattr(reconciliation, "model_copy"):
-                        reconciliation = reconciliation.model_copy(update={"restructures": []})
-                    elif isinstance(reconciliation, dict):
-                        reconciliation = {**reconciliation, "restructures": []}
-                    preset_diagnostics.append(
-                        {
-                            "gate": "narrow_adjunct",
-                            "severity": "review",
-                            "entity_refs": [],
-                            "message": (
-                                f"dropped {len(restructures)} model-emitted restructure operation(s): "
-                                "the enrichment preset permits additive changes only"
-                            ),
-                            "suggested_action": "review the additive proposal; use a standard append to restructure",
-                        }
-                    )
+            reconciliation, preset_diagnostics = _within_preset(reconciliation, brief)
             # Facet identity: consolidate the new facets among themselves and judge
             # them against the registered facets T5 nominates (D2 with a decision).
             facet_identity_plan = _facet_identity_plan(
-                SourceSetSynthesis(
-                    concepts=getattr(reconciliation, "concepts", []) or [],
-                    facets=getattr(reconciliation, "facets", []) or [],
-                ),
-                vault, repository, synthesis_run_id, nominator=nominator, client=facet_identity_client,
+                reconciliation, vault, repository, synthesis_run_id, nominator=nominator, client=facet_identity_client,
             )
-            normalized = _normalize_append(
-                reconciliation, inputs, vault, now, subject_id=subject_id,
-                items_off=items_off, nominator=nominator, facet_identity_plan=facet_identity_plan,
-            )
-            rows, auto_apply_ids = normalized.rows, normalized.auto_apply_ids
-
-            gate_ctx = _gate_context(vault, repository, inputs, [], nominator=nominator)
-            gate_ctx.append_mode = True
-            gate_proposal = GateProposal(
-                items=normalized.gate_items,
-                conflict_candidates=normalized.conflict_candidates,
-                non_conflict_dispositions=normalized.non_conflict_dispositions,
-            )
-            report = run_synthesis_gates(gate_proposal, gate_ctx)
-            diagnostics = [d.to_dict() for d in report.diagnostics]
-            diagnostics.extend(normalized.edge_diagnostics)
-            diagnostics.extend(preset_diagnostics)
-            if report.blocked:
-                raise StudyMapError("append_gate_failed", "Append proposal failed hard quality gates.",
-                                    diagnostics=diagnostics)
-
-            # Stage-5.3/6 instrument gates — the one shared composition (see
-            # `_gate_and_persist`); this lane used to persist practice items with
-            # no instrument judgement at all. Row-level verdicts, never batch aborts.
-            from learnloop.content.authoring.authoring_gates import build_instrument_gates
-
-            instrument_gates = build_instrument_gates(vault, repository, grading_client=client)
-            instrument_gates(rows)
-            diagnostics.extend(instrument_gates.diagnostics())
-
-            match = match_proposal(
-                repository, source_set_id=source_set.id, purpose=APPEND_PROPOSAL_PURPOSE, rows=rows,
-            )
-            if match is not None and match.kind == "rejected":
-                if not fresh_answers:
-                    call.discard_answers()
-                    continue
-                match = None
+            usage = {"facet_identity": facet_identity_plan.as_dict()} if facet_identity_plan is not None else None
+            try:
+                patch_id, diagnostics, _needs, normalized, match = _gate_and_persist(
+                    vault, repository, source_set, reconciliation, inputs, mode=APPEND,
+                    subject_id=subject_id, agent_run_id=agent_run_id, synthesis_run_id=synthesis_run_id,
+                    now=now, usage=usage, resolved_hashes=None, clock=clock, items_off=items_off,
+                    client=client, nominator=nominator, facet_identity_plan=facet_identity_plan,
+                    fresh_answers=fresh_answers, answer_diagnostics=preset_diagnostics,
+                )
+            except RejectedProposalMatch:
+                call.discard_answers()
+                continue
             break
-        if match is not None:
-            patch_id = match.proposal_id
-            repository.complete_synthesis_run(
-                synthesis_run_id, status="completed", proposal_id=patch_id,
-                coverage_decisions={"gate_diagnostics": diagnostics, "auto_apply_item_ids": auto_apply_ids,
-                                    "matched_proposal": {"proposal_id": patch_id, "kind": match.kind}},
-            )
-            finish_agent_run(repository, agent_run_id, client, clock=clock)
-        else:
-            patch_id = new_ulid()
-            repository.persist_proposal_batch(
-                {
-                    "id": patch_id,
-                    "agent_run_id": agent_run_id,
-                    "purpose": APPEND_PROPOSAL_PURPOSE,
-                    "source_refs": [],
-                    "summary": getattr(reconciliation, "summary", "") or f"append reconciliation for {subject_id}",
-                    "created_at": now,
-                    "updated_at": now,
-                },
-                rows,
-            )
-            coverage = {"gate_diagnostics": diagnostics, "auto_apply_item_ids": auto_apply_ids}
-            if nominator is not None:
-                coverage["graph_nomination"] = {
-                    **(normalized.graph_nomination or {}), "summary": nominator.summary(),
-                }
-            actual_usage: dict[str, Any] | None = None
-            if facet_identity_plan is not None:
-                from learnloop.content.facet_identity.actions import record_proposed_actions
-
-                coverage["facet_identity"] = {
-                    **facet_identity_plan.summary(),
-                    "action_ids": record_proposed_actions(
-                        repository, normalized.facet_identity_actions, origin="append",
-                        run_id=synthesis_run_id, proposal_id=patch_id, clock=clock,
-                    ),
-                }
-                actual_usage = {"facet_identity": facet_identity_plan.as_dict()}
-            repository.complete_synthesis_run(
-                synthesis_run_id, status="completed", proposal_id=patch_id,
-                coverage_decisions=coverage, actual_usage=actual_usage,
-            )
-            finish_agent_run(repository, agent_run_id, client, clock=clock)
+        rows, auto_apply_ids = normalized.rows, normalized.auto_apply_ids or []
     except StudyMapError as exc:
         if exc.code == "append_gate_failed":
             call.discard_answers()
@@ -1035,6 +939,47 @@ def _normalize_append(reconciliation, inputs, vault, now, *, subject_id,
         edge_diagnostics=[*normalized.edge_diagnostics, *dropped_diagnostics],
         auto_apply_ids=auto_apply_ids,
     )
+
+
+APPEND = SynthesisMode(
+    proposal_purpose=APPEND_PROPOSAL_PURPOSE,
+    summary_fallback="append reconciliation for {subject}",
+    gate_failure=("append_gate_failed", "Append proposal failed hard quality gates."),
+    normalize=_normalize_append,
+    append_vocabulary=True,
+    facet_action_origin="append",
+    epigraph_mode="append",
+    keeps_candidate_for_repair=False,
+    checks_client_id_collisions=False,
+    analyzes_identifiability=False,
+    meters_the_model_call=False,
+    usage_only_with_a_proposal=True,
+)
+
+
+def _within_preset(reconciliation: Any, brief: Mapping[str, Any]) -> tuple[Any, list[dict[str, Any]]]:
+    """The answer the brief's authoring preset allows, with a review record of what it dropped.
+
+    The narrow-adjunct preset's no-restructure promise is a deterministic boundary, not merely prompt advice:
+    every additive candidate is kept and only model-emitted restructure operations are dropped."""
+
+    restructures = list(getattr(reconciliation, "restructures", []) or [])
+    if brief.get("authoring_preset") != "narrow_adjunct" or not restructures:
+        return reconciliation, []
+    if hasattr(reconciliation, "model_copy"):
+        reconciliation = reconciliation.model_copy(update={"restructures": []})
+    elif isinstance(reconciliation, dict):
+        reconciliation = {**reconciliation, "restructures": []}
+    return reconciliation, [{
+        "gate": "narrow_adjunct",
+        "severity": "review",
+        "entity_refs": [],
+        "message": (
+            f"dropped {len(restructures)} model-emitted restructure operation(s): "
+            "the enrichment preset permits additive changes only"
+        ),
+        "suggested_action": "review the additive proposal; use a standard append to restructure",
+    }]
 
 
 @dataclass(frozen=True)
