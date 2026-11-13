@@ -47,30 +47,30 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/residual_diagnostics.py](../../../../../../src/learnloop/learner/residual_diagnostics.py) |
-| Source lines | 308 |
+| Source lines | 296 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `residual_dependence_report(vault: LoadedVault, repository: Repository, *, subject_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 259) — The §8.4 residual-dependence diagnostics report (report-only, deterministic).
+- `residual_dependence_report(vault: LoadedVault, repository: Repository, *, subject_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 256) — The §8.4 residual-dependence diagnostics report (report-only, deterministic).
 
 ### Module constants
 
-- `MIN_JOINT_ATTEMPTS` ([src/learnloop/learner/residual_diagnostics.py](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 35)
-- `RESIDUAL_DEPENDENCE_THRESHOLD` ([src/learnloop/learner/residual_diagnostics.py](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 37)
-- `COMBINED_FAILURE_THRESHOLD` ([src/learnloop/learner/residual_diagnostics.py](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 39)
-- `COMPONENT_STRONG_THRESHOLD` ([src/learnloop/learner/residual_diagnostics.py](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 40)
-- `CONTEXT_DIVERGENCE_THRESHOLD` ([src/learnloop/learner/residual_diagnostics.py](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 42)
+- `MIN_JOINT_ATTEMPTS` ([src/learnloop/learner/residual_diagnostics.py](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 32)
+- `RESIDUAL_DEPENDENCE_THRESHOLD` ([src/learnloop/learner/residual_diagnostics.py](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 34)
+- `COMBINED_FAILURE_THRESHOLD` ([src/learnloop/learner/residual_diagnostics.py](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 36)
+- `COMPONENT_STRONG_THRESHOLD` ([src/learnloop/learner/residual_diagnostics.py](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 37)
+- `CONTEXT_DIVERGENCE_THRESHOLD` ([src/learnloop/learner/residual_diagnostics.py](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 39)
 
 ## Internal implementation anchors
 
-- `_facet_outcomes_per_attempt(vault: LoadedVault, repository: Repository, scoped_los: set[str] | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 45) — Per-attempt facet pass/fail + surface group (deterministic, ledger order).
-- `_residual_dependence_suggestions(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]` ([source](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 85) — Positive residual co-failure between co-tasked facets (missing factor).
-- `_integration_suggestions(rows: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 132) — Systematic combined-task failure with strong components (missing integration).
-- `_context_divergence_suggestions(vault: LoadedVault, repository: Repository, scoped_facets: set[str] | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 182) — Capability-sliced belief spread within a facet (transfer / capability hint).
-- `_identifiability_referrals(vault: LoadedVault, repository: Repository, subject_id: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 222) — Indistinguishable response signatures -> hand off to the §11.3 doctor.
+- `_facet_outcomes_per_attempt(vault: LoadedVault, repository: Repository, scoped_los: set[str] | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 42) — Per-attempt facet pass/fail + surface group (deterministic, ledger order).
+- `_residual_dependence_suggestions(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]` ([source](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 82) — Positive residual co-failure between co-tasked facets (missing factor).
+- `_integration_suggestions(rows: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 129) — Systematic combined-task failure with strong components (missing integration).
+- `_context_divergence_suggestions(vault: LoadedVault, repository: Repository, scoped_facets: set[str] | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 179) — Capability-sliced belief spread within a facet (transfer / capability hint).
+- `_identifiability_referrals(vault: LoadedVault, repository: Repository, subject_id: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/residual_diagnostics.py), line 219) — Indistinguishable response signatures -> hand off to the §11.3 doctor.
 
 ## Who imports or calls it
 
@@ -84,7 +84,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
-- [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `CANONICAL_STATE_VERSIONS`
 - [[Reference/Modules/learnloop/learner/capability_mapping|learnloop.learner.capability_mapping]] — imports `compile_criterion_targets`; calls `compile_criterion_targets`
 - [[Reference/Modules/learnloop/learner/identifiability|learnloop.learner.identifiability]] — imports `analyze_identifiability`, `build_registry_view`; calls `analyze_identifiability`, `build_registry_view`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `FAILURE_THRESHOLD`, `surface_group_id`; calls `surface_group_id`

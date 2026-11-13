@@ -12,7 +12,7 @@ attempt's scheduling fields land while the content columns stay the sync's.
 
 The fix is the successor ``ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION`` (Codex
 review F4: it also changes serving without a concurrent writer), so these
-vaults run at that tag; below it, or with
+vaults run at that tag; with
 ``practice.attempt_keeps_content_state`` off, the attempt writes the whole row
 as the predecessor did and the race stays (the last test is that control;
 ``tests/test_attempt_content_state_successor.py`` covers the gate).
@@ -40,9 +40,9 @@ from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
-from learnloop.algorithm_versions import ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION, SUPERSEDED_CLAIMS_ALGORITHM_VERSION
+from learnloop.algorithm_versions import ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION
 
-from tests.helpers import NOW, create_basic_vault, set_algorithm_version
+from tests.helpers import NOW, append_config_toml, create_basic_vault, set_algorithm_version
 from tests.state_sync_scheduling_race_helpers import (
     PROBE,
     _add_diagnostic_probe,
@@ -230,12 +230,15 @@ def test_an_attempt_on_an_item_with_no_row_inserts_the_whole_row(tmp_path):
     assert state.last_attempt_at is not None and state.stability is not None
 
 
-def test_below_the_tag_the_retiring_sync_is_still_undone_as_the_predecessor(tmp_path, monkeypatch):
-    """The control for the gate: an mvp-0.36 vault writes the whole row, so the
-    retiring sync committed while the answer was graded is undone (the race
-    the successor closes)."""
+def test_switched_off_the_retiring_sync_is_still_undone_as_the_predecessor(tmp_path, monkeypatch):
+    """The control for the gate: with the kill switch off the attempt writes the
+    whole row, so the retiring sync committed while the answer was graded is
+    undone (the race the successor closes)."""
 
-    paths, repository = _fresh_vault(tmp_path, SUPERSEDED_CLAIMS_ALGORITHM_VERSION)
+    paths = _at_the_tag(tmp_path)
+    append_config_toml(paths.root, "\n[practice]\nattempt_keeps_content_state = false\n")
+    repository = Repository(paths.sqlite_path)
+    sync_vault_state(load_vault(paths.root), repository, clock=SYNC_CLOCK)
     stale = load_vault(paths.root)
     _edit_item(paths.root, status="retired")
     seen = _sync_before_the_attempt_commits(monkeypatch, _sync_in_this_process(paths.root, paths.sqlite_path))

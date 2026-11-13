@@ -196,7 +196,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_library_exercises.py](../../../../../../tests/test_library_exercises.py) — direct import
   - `test_the_rw4b_switches_are_classified_in_the_parameter_registry`
 - [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import
-  - `test_one_switch_on_by_default_classified_and_gated_by_the_tag`
+  - `test_one_switch_on_by_default_classified_and_gating`
 - [tests/test_open_world_gate.py](../../../../../../tests/test_open_world_gate.py) — direct import
 - [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_the_switch_is_on_by_default_classified_and_acts_only_at_the_tag_with_the_guide_on`

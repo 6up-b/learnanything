@@ -521,7 +521,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_opening_today_never_asks_and_using_teach_back_still_does`
 - [tests/test_pr4_superseded_claims_landing.py](../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
   - `test_landing_i_a_too_easy_retirement_during_a_session`
-  - `test_landing_i_control_below_the_tag_the_same_session_reopens_the_retired_row`
+  - `test_landing_i_control_switched_off_the_same_session_reopens_the_retired_row`
 - [tests/test_practice_index_adapters.py](../../../../../tests/test_practice_index_adapters.py) — direct import
   - `test_sidecar_rpcs`
 - [tests/test_provenance.py](../../../../../tests/test_provenance.py) — direct import

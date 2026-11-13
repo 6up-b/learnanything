@@ -7,7 +7,6 @@ from typing import Any
 
 from learnloop.ai.client import AIProviderClient
 from learnloop.ai.runtime import AIRuntimeReport
-from learnloop.algorithm_versions import REGRADE_CONTRACT_VERSIONS, SOURCE_REFERENCE_GATE_VERSIONS
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.db.repositories import Repository
@@ -212,12 +211,6 @@ def regrade_attempt(
     # and isolated in a split vault, no blind record: it is never diagnosed).
     # A joint vault, or the kill switch, regrades jointly exactly as before.
     prior_blind = repository.latest_blind_grade_record(attempt["id"])
-    # held-grade-evidence: is the grade this regrade replaces held for review
-    # now (THE predicate over the ledger: the latest record AND the current
-    # evidence, so an adjudication's release counts)?
-    from learnloop.held_grades import attempt_grade_held
-
-    prior_held = prior_blind is not None and attempt_grade_held(repository, attempt["id"])
     blind_plan = None
     if prior_blind is not None or (
         split_grading_active(vault) and attempt.get("attempt_type") != TEACH_BACK_ATTEMPT_TYPE
@@ -446,28 +439,6 @@ def regrade_attempt(
                 "created_at": now,
             }
         )
-    # Regrade contracts (mvp-0.26): the regrade cites the contract it graded
-    # against on every row it writes (the frozen one for a method-explicit
-    # answer, else a snapshot of the item it read, taken in the publication
-    # transaction), carries the attempt's next grading revision, and
-    # supersedes every live row: its grade is the attempt's only current
-    # epoch, whatever tier the grade it replaces was (decision: an ordinary
-    # regrade of a model grade supersedes the model tier too). Below the tag
-    # it writes as before.
-    cites_contract = vault.config.algorithms.algorithm_version in REGRADE_CONTRACT_VERSIONS
-    if cites_contract:
-        supersede_tiers = ALL_GRADER_TIERS
-    elif graded_criteria is not None or clarification_exchange or prior_held or held:
-        # held-grade-evidence F4: a regrade of a held grade (release or kept
-        # hold) supersedes its AI-graded rows too, so no stale unassessed row
-        # outlives the grade that replaced it in any projection. Review F1: so
-        # does a regrade INTO a hold: the assessed rows of the grade it
-        # replaces would otherwise stay live, the ledger would read the
-        # attempt as assessed (not held) while replay holds it, and the
-        # ledger's readers would take the held grade's provisional score.
-        supersede_tiers = (1, 3)
-    else:
-        supersede_tiers = (1,)
     try:
         # One publication (review F4): the grading revision, the attempt's
         # grade, the superseding blind record (which retires the old
@@ -488,8 +459,6 @@ def regrade_attempt(
                 agent_run_id=agent_run_id,
                 new_evidence_rows=new_evidence_rows,
                 first_new_evidence_id=first_new_evidence_id,
-                supersede_tiers=supersede_tiers,
-                cite_contract=cites_contract,
                 new_score=new_score,
                 rubric=rubric,
                 # Review F13, F19: the grade binds to the content it was
@@ -564,11 +533,9 @@ def _publish_regrade(
     agent_run_id: str,
     new_evidence_rows: list[dict],
     first_new_evidence_id: str,
-    supersede_tiers: tuple[int, ...],
     new_score: int,
     rubric,
     bind_frozen: Any | None,
-    cite_contract: bool = False,
     primary_error_type: str | None,
     content_events: list[dict],
     blind_record: dict | None,
@@ -580,34 +547,32 @@ def _publish_regrade(
 ) -> None:
     """Every write of one regrade, in order, inside the caller's transaction."""
 
-    if cite_contract:
-        # mvp-0.26: the contract this regrade graded against, recorded in its
-        # own transaction (content-addressed: an unchanged item reuses its
-        # snapshot), and the attempt's next grading revision, on every row.
-        from learnloop.attempts.attempts import snapshot_graded_contract
-        from learnloop.grading_epochs import next_grading_revision
+    # Regrade contracts (mvp-0.26): every row the regrade writes cites the
+    # contract it graded against (the frozen one for a method-explicit answer,
+    # else a snapshot of the item it read, content-addressed so an unchanged
+    # item reuses its snapshot) and carries the attempt's next grading
+    # revision. Replay and the projection read the current epoch by these.
+    from learnloop.attempts.attempts import snapshot_graded_contract
+    from learnloop.grading_epochs import next_grading_revision
 
-        contract_version_id = (
-            bind_frozen.version_id
-            if bind_frozen is not None
-            else snapshot_graded_contract(repository, vault, item, rubric=rubric, clock=clock)
-        )
-        revision = next_grading_revision(repository.fetch_grading_evidence(attempt["id"], include_superseded=True))
-        new_evidence_rows = [
-            {**row, "assessment_contract_version_id": contract_version_id, "grading_revision": revision}
-            for row in new_evidence_rows
-        ]
+    contract_version_id = (
+        bind_frozen.version_id
+        if bind_frozen is not None
+        else snapshot_graded_contract(repository, vault, item, rubric=rubric, clock=clock)
+    )
+    revision = next_grading_revision(repository.fetch_grading_evidence(attempt["id"], include_superseded=True))
+    new_evidence_rows = [
+        {**row, "assessment_contract_version_id": contract_version_id, "grading_revision": revision}
+        for row in new_evidence_rows
+    ]
     repository.insert_regrade_evidence(
         attempt_id=attempt["id"],
         new_evidence_rows=new_evidence_rows,
         superseded_by_evidence_id=first_new_evidence_id,
-        # Teach-back originals are tier-3 (AI-graded) rows; supersede them too
-        # or the replay log would carry both gradings of the same criteria. A
-        # clarification resolution (Meas §3.A8) supersedes for the same reason:
-        # the grade it replaces was itself a model grade, and leaving it live
-        # would put two gradings of one criterion in the replay log — the
-        # provisional one the question existed to fix, and the resolved one.
-        supersede_tiers=supersede_tiers,
+        # Every live row, whatever tier the grade it replaces was (an ordinary
+        # regrade of a model grade supersedes the model tier too): the
+        # regrade's grade is the attempt's only current epoch.
+        supersede_tiers=ALL_GRADER_TIERS,
         clock=clock,
     )
     repository.update_attempt_grade(
@@ -630,20 +595,18 @@ def _publish_regrade(
     # unverified revision made since never lowers the grade, and a later
     # dispute of the revision graded does.
     connection = repository.connection()
-    gated = vault.config.algorithms.algorithm_version in SOURCE_REFERENCE_GATE_VERSIONS
     # The key identities (method-explicit-3 re-review F1): whether the
     # revision graded has a method, and the legacy identity a contract
     # frozen before that review recorded for it.
     graded_contents, graded_revision, legacy_contents = (
         bind_frozen.graded_reference_contents(vault, item, connection, attempt=attempt)
-        if bind_frozen is not None and gated
+        if bind_frozen is not None
         else (None, "current", {})
     )
     bind_replacement_grade(
         connection,
         attempt_id=attempt["id"],
         item=item,
-        gated=gated,
         grading="regrade",
         created_at=utc_now_iso(clock),
         graded_contents=graded_contents,

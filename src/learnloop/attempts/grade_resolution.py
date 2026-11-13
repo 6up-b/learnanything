@@ -859,11 +859,10 @@ def _append_adjudication_evidence_revision(
     # CURRENT grading epoch, under the contract that epoch cites (else a
     # snapshot of the item whose rubric scales it, cited on its rows), as the
     # attempt's next grading revision; its correctness is the score over that
-    # contract's maximum, exactly what replay computes. Below the tag (or
-    # without the vault, which names the tag) it writes as before.
-    from learnloop.algorithm_versions import REGRADE_CONTRACT_VERSIONS
-
-    regrade_contracts = vault is not None and vault.config.algorithms.algorithm_version in REGRADE_CONTRACT_VERSIONS
+    # contract's maximum, exactly what replay computes. Without the vault it
+    # revises every live row under the contract they cite, as before
+    # contracts: nothing names the item to snapshot.
+    regrade_contracts = vault is not None
     snapshot_of: tuple[Any, Any] | None = None
     if regrade_contracts:
         from learnloop.grading_epochs import current_epoch
@@ -1023,21 +1022,19 @@ KEY_BASED_ADJUDICATOR_SOURCES = frozenset({"deterministic_key"})
 def _bind_key_adjudication(repository: Repository, vault: "LoadedVault | None", attempt: Mapping[str, Any], *,
                            adjudicator_source: str, clock: Clock | None) -> None:
     """C3 (canonical sources §7.3a, "Replacement grades"): a verdict against the
-    key binds like a regrade. Without the vault the item and the tag are
-    unknown, so nothing is bound (every grade adjudication caller passes it)."""
+    key binds like a regrade. Without the vault the item is unknown, so
+    nothing is bound (every grade adjudication caller passes it)."""
 
     if adjudicator_source not in KEY_BASED_ADJUDICATOR_SOURCES or vault is None:
         return
     item = vault.practice_items.get(str(attempt.get("practice_item_id")))
     if item is None:
         return
-    from learnloop.algorithm_versions import SOURCE_REFERENCE_GATE_VERSIONS
     from learnloop.clock import utc_now_iso
     from learnloop.db.stores.source_service import bind_replacement_grade
 
     bind_replacement_grade(
         repository.connection(), attempt_id=str(attempt["id"]), item=item,
-        gated=vault.config.algorithms.algorithm_version in SOURCE_REFERENCE_GATE_VERSIONS,
         grading=f"adjudication:{adjudicator_source}", created_at=utc_now_iso(clock),
     )
 

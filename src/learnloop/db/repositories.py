@@ -5951,11 +5951,10 @@ class Repository(
 
         One source keeps one claim in force per scope (init-wizard global
         claims, rung-variant requests and too-easy/too-hard reports per LO).
-        ``keep_replaced`` (the successor mvp-0.36,
-        ``mastery.replaced_claims_kept``): the replaced rows stay, marked
-        ``superseded_by`` the new claim's id in the transaction that inserts
-        it, so replay can apply each at its own time. Otherwise (below the
-        tag) they are deleted first, exactly as the predecessor's seam
+        ``keep_replaced`` (the successor mvp-0.36): the replaced rows stay,
+        marked ``superseded_by`` the new claim's id in the transaction that
+        inserts it, so replay can apply each at its own time. Otherwise they
+        are deleted first, exactly as the predecessor's seam
         (:meth:`delete_learner_claims`, then :meth:`insert_learner_claim`)."""
 
         if not keep_replaced:

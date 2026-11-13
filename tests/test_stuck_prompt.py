@@ -21,6 +21,7 @@ from learnloop.attempts.attempts import (
     complete_attempt_with_ai_required,
     complete_self_graded_attempt,
 )
+from learnloop.attempts.grading_support import METHOD_ROUTE_RULES_SUFFIX
 from learnloop.attempts.stuck import (
     STUCK_PROMPT_TEXT,
     STUCK_READING_KEY,
@@ -53,7 +54,7 @@ LO = "lo_svd_compute"
 
 
 def _stuck_vault(tmp_path, *, config: str = ""):
-    return split_vault(tmp_path, version="mvp-0.13", config=config)
+    return split_vault(tmp_path, config=config)
 
 
 def _field_row(vault, repository, attempt_id):
@@ -70,10 +71,7 @@ def _field_row(vault, repository, attempt_id):
 # -- the gate -------------------------------------------------------------------
 
 
-def test_the_successor_gates_the_control_and_the_switch_restores_it(tmp_path):
-    for version in ("mvp-0.10", "mvp-0.11", "mvp-0.12"):
-        _paths, vault, _repository = split_vault(tmp_path / version, version=version)
-        assert not stuck_prompt_active(vault), version
+def test_the_control_is_offered_and_the_switch_restores_it(tmp_path):
     _paths, vault, _repository = _stuck_vault(tmp_path / "b")
     assert stuck_prompt_active(vault)
     _paths, vault, _repository = _stuck_vault(tmp_path / "c", config="[stuck_prompt]\nenabled = false")
@@ -81,9 +79,7 @@ def test_the_successor_gates_the_control_and_the_switch_restores_it(tmp_path):
 
 
 def test_a_stuck_draft_is_refused_where_the_control_is_not_offered(tmp_path):
-    for version, config in (
-        ("mvp-0.10", ""), ("mvp-0.12", ""), ("mvp-0.13", "[stuck_prompt]\nenabled = false"),
-    ):
+    for version, config in (("mvp-0.13", "[stuck_prompt]\nenabled = false"),):
         _paths, vault, repository = split_vault(tmp_path / version, version=version, config=config)
         with pytest.raises(AttemptValidationError, match="I'm stuck"):
             complete_attempt_with_ai_required(
@@ -125,8 +121,9 @@ def test_a_partial_stuck_answer_is_graded_blind_at_standard_mass_and_diagnosed(t
     assert record["prompt_version"].endswith("+stuck-v1")
     assert record[STUCK_READING_KEY]["attempts_answer"] is True
     assert record[STUCK_READING_KEY]["describes_confusion"] is False
-    # The base grader's calibration identity: the scoring rules are unchanged.
-    assert record["calibration_prompt_version"] == "grading_prompt_v2_1_blind_reference_policy"
+    # The base grader's calibration identity: the scoring rules are unchanged
+    # (the own-route rules' suffix is the base grader's at the head, not the stuck prompt's).
+    assert record["calibration_prompt_version"] == "grading_prompt_v2_1_blind_reference_policy" + METHOD_ROUTE_RULES_SUFFIX
     # Standard attempt mass: the attempt type's own mass, not dont_know's 0.7.
     row = _field_row(vault, repository, result.attempt_id)
     assert row.effective_mass > 0
@@ -148,7 +145,7 @@ def test_an_ordinary_answer_keeps_its_prompt_and_context_exactly(tmp_path):
     assert "answer_prompt" not in client.contexts[0]
     assert "STUCK PROMPT" not in client.prompts[0]
     record = repository.latest_blind_grade_record(result.attempt_id)["record"]
-    assert record["prompt_version"] == "mvp-2.1-blind-reference-policy"
+    assert record["prompt_version"] == "mvp-2.1-blind-reference-policy" + METHOD_ROUTE_RULES_SUFFIX
     assert STUCK_READING_KEY not in record
     assert repository.fetch_practice_attempt(result.attempt_id)["declared_stuck"] is False
 
@@ -410,11 +407,12 @@ def _dont_know_shape(repository, attempt_id):
 
 def test_kill_switch_restores_dont_know_exactly(tmp_path):
     """Switch off in mvp-0.13 == mvp-0.12, for the button, a stale stuck
-    submission and the scoring (attempt shape, field mass)."""
+    submission and the scoring (attempt shape, field mass). The predecessor is
+    served through the switch alone: no vault that opens is below the tag."""
 
     shapes, masses = {}, {}
     for label, version, config in (
-        ("previous", "mvp-0.12", ""),
+        ("previous", "mvp-0.12", "[stuck_prompt]\nenabled = false"),
         ("switched_off", "mvp-0.13", "[stuck_prompt]\nenabled = false"),
     ):
         paths, vault, repository = split_vault(tmp_path / label, version=version, config=config)

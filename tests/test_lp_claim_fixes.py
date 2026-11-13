@@ -130,7 +130,7 @@ def test_the_successor_is_one_constant_after_its_predecessor():
     assert CLAIM_FIXES_VERSIONS == frozenset({TAG, "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", LATEST_ALGORITHM_VERSION})
 
 
-def test_one_switch_on_by_default_classified_and_gated_by_the_tag():
+def test_one_switch_on_by_default_classified_and_gating():
     from learnloop.config.schema import MasteryConfig
     from learnloop.params import parameter_registry as registry
 
@@ -140,11 +140,10 @@ def test_one_switch_on_by_default_classified_and_gated_by_the_tag():
     config = type("C", (), {"algorithms": type("A", (), {"algorithm_version": TAG})(), "mastery": MasteryConfig()})()
     vault = type("V", (), {"config": config})()
     assert claim_fixes_live(vault)
-    config.algorithms.algorithm_version = PREDECESSOR
-    assert not claim_fixes_live(vault)
-    config.algorithms.algorithm_version = TAG
     config.mastery = MasteryConfig(claim_fixes_enabled=False)
     assert not claim_fixes_live(vault)
+    # A namespace vault with no config (field.priors' kind, read defensively) reads off.
+    assert not claim_fixes_live(type("V", (), {})())
 
 
 # ── defect 1: a gap declaration re-anchors ───────────────────────────────────
@@ -181,11 +180,8 @@ def test_defect1_on_a_gap_on_a_practised_lo_moves_the_mean_down_and_keeps_the_va
     assert evidence == before[2]
 
 
-@pytest.mark.parametrize("variant", ["switch_off", "below_tag"])
-def test_defect1_off_a_gap_declaration_writes_the_claim_only(tmp_path, variant):
-    paths, _vault_, repository = _vault(
-        tmp_path, version=PREDECESSOR if variant == "below_tag" else TAG, toml=OFF if variant == "switch_off" else None,
-    )
+def test_defect1_off_a_gap_declaration_writes_the_claim_only(tmp_path):
+    paths, _vault_, repository = _vault(tmp_path, toml=OFF)
     cold = _mastery(repository)
 
     result = _gap(paths.root, repository)
@@ -257,11 +253,8 @@ def test_defect2_on_a_claim_between_attempts_reanchors_between_them(tmp_path, mo
     assert seen == [(_iso(10), 1)]
 
 
-@pytest.mark.parametrize("variant", ["switch_off", "below_tag"])
-def test_defect2_off_replay_seeds_from_the_claims_in_force_now(tmp_path, variant):
-    paths, vault, repository = _vault(
-        tmp_path, version=PREDECESSOR if variant == "below_tag" else TAG, toml=OFF if variant == "switch_off" else None,
-    )
+def test_defect2_off_replay_seeds_from_the_claims_in_force_now(tmp_path):
+    paths, vault, repository = _vault(tmp_path, toml=OFF)
     _answer(vault, repository, ITEM, 4.0, minutes=5)
     live = _mastery(repository)
     _claim(repository, minutes=20, level=0.05, pseudo_count=4.0)
@@ -296,11 +289,8 @@ def test_defect3_on_a_warm_reanchor_keeps_the_variance(tmp_path):
     assert after.logit_mean > before[0]
 
 
-@pytest.mark.parametrize("variant", ["switch_off", "below_tag"])
-def test_defect3_off_a_warm_reanchor_shrinks_the_variance(tmp_path, variant):
-    _paths, vault, repository = _vault(
-        tmp_path, version=PREDECESSOR if variant == "below_tag" else TAG, toml=OFF if variant == "switch_off" else None,
-    )
+def test_defect3_off_a_warm_reanchor_shrinks_the_variance(tmp_path):
+    _paths, vault, repository = _vault(tmp_path, toml=OFF)
     _answer(vault, repository, ITEM, 4.0, minutes=5)
     before = _mastery(repository)
 
@@ -333,11 +323,8 @@ def test_defect4_on_the_most_recent_claim_wins_then_pseudo_count_never_level(tmp
     assert covering_learner_claim(vault, repository, LO)["id"] == "claim_0_newest_large"
 
 
-@pytest.mark.parametrize("variant", ["switch_off", "below_tag"])
-def test_defect4_off_the_predecessor_prefers_pseudo_count_then_the_higher_level(tmp_path, variant):
-    _paths, vault, repository = _vault(
-        tmp_path, version=PREDECESSOR if variant == "below_tag" else TAG, toml=OFF if variant == "switch_off" else None,
-    )
+def test_defect4_off_the_predecessor_prefers_pseudo_count_then_the_higher_level(tmp_path):
+    _paths, vault, repository = _vault(tmp_path, toml=OFF)
     _tied_claims(repository)
     assert covering_learner_claim(vault, repository, LO)["id"] == "claim_old"
     assert covering_learner_claim(vault, repository, "lo_diag")["id"] == "g_a"
@@ -362,7 +349,8 @@ def _mastery_rows(path):
 
 
 def test_off_is_the_predecessor_byte_for_byte_live_and_rebuilt(tmp_path):
-    base_paths, base_vault, base_repo = _vault(tmp_path, "base", version=PREDECESSOR)
+    # The predecessor is served through the switch alone: no vault that opens is below the tag.
+    base_paths, base_vault, base_repo = _vault(tmp_path, "base", version=PREDECESSOR, toml=OFF)
     off_paths, off_vault, off_repo = _vault(tmp_path, "off", version=TAG, toml=OFF)
     _everything(base_paths, base_vault, base_repo)
     _everything(off_paths, off_vault, off_repo)
@@ -416,7 +404,7 @@ def _claims_on_fixture(root):
 
 def test_off_is_the_predecessor_on_a_tracked_fixture_copy(tmp_path):
     rows = {}
-    for name, version, toml in (("base", PREDECESSOR, None), ("off", TAG, OFF), ("on", TAG, None)):
+    for name, version, toml in (("base", PREDECESSOR, OFF), ("off", TAG, OFF), ("on", TAG, None)):
         root = _fixture_copy(tmp_path, name, version=version, toml=toml)
         vault, repository = _claims_on_fixture(root)
         rebuild_all_derived_state(vault, repository, clock=FrozenClock(NOW))
@@ -444,7 +432,7 @@ def test_owner_copies_off_is_the_predecessor_and_on_reports_the_mastery_deltas(t
     if not (owner_vault(fixture) / "state.sqlite").exists():
         pytest.skip(f"{fixture} copy absent")
     rows = {}
-    for name, version, toml in (("base", PREDECESSOR, None), ("off", TAG, OFF), ("on", TAG, None)):
+    for name, version, toml in (("base", PREDECESSOR, OFF), ("off", TAG, OFF), ("on", TAG, None)):
         root = tmp_path / name
         copy_tree_with_databases(owner_vault(fixture), root)
         set_algorithm_version(type("Paths", (), {"root": root})(), version)

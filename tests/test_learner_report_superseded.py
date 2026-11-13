@@ -35,7 +35,7 @@ from learnloop.content.authoring.item_authoring import retire_item
 from learnloop.content.authoring.rung_variants import RungVariantError, request_rung_variant
 from learnloop.db.repositories import Repository
 from learnloop.learner.learner_profile import seed_global_learner_claim
-from learnloop.learner.mastery import covering_learner_claim, replaced_claims_kept
+from learnloop.learner.mastery import covering_learner_claim
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
@@ -96,17 +96,6 @@ def test_a_second_too_easy_report_keeps_the_first_as_a_replaced_row_that_no_live
     assert {claim["id"] for claim in repository.learner_claims(include_superseded=True)} >= {first["id"], second["id"]}
 
 
-@pytest.mark.parametrize("version", ["mvp-0.33", "mvp-0.35"])
-def test_below_the_tag_the_seam_still_deletes_the_replaced_claim(tmp_path, version):
-    paths, vault, repository = _vault(tmp_path, version=version)
-    assert not replaced_claims_kept(vault)
-    _answer(vault, repository, "pi_diag_easy", minutes=1, points=1.0)
-    retire_item(paths.root, repository, practice_item_id="pi_diag_easy", reason="too_easy", clock=_at(2))
-    retire_item(paths.root, repository, practice_item_id="pi_diag_mid", reason="too_easy", clock=_at(4))
-    reports = [row for row in _rows(repository) if row["source"] == "learner_report"]
-    assert len(reports) == 1 and reports[0]["superseded_by"] is None
-
-
 def test_a_rung_variant_request_replaces_only_its_own_source_on_its_own_lo(tmp_path):
     paths, vault, repository = _vault(tmp_path)
     _answer(vault, repository, "pi_diag_easy", minutes=1, points=4.0)
@@ -137,7 +126,7 @@ def test_a_new_starting_level_keeps_the_old_one_for_an_lo_first_practised_under_
     vault = load_vault(paths.root)
     sync_vault_state(vault, repository, clock=_at(0))
     _answer(vault, repository, "pi_svd_define_001", minutes=2, points=2.0)
-    seed_global_learner_claim(repository, "new_to_this", keep_replaced=replaced_claims_kept(vault), clock=_at(3))
+    seed_global_learner_claim(repository, "new_to_this", keep_replaced=True, clock=_at(3))
     wizard = [row for row in _rows(repository) if row["source"] == "init_wizard"]
     assert len(wizard) == 2 and wizard[0]["superseded_by"] == wizard[1]["id"]
     live = _mastery(repository)

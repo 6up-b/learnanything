@@ -1,17 +1,13 @@
-"""The model-grade observation lane on every P0-projection vault version.
+"""The model-grade observation lane on every vault version that opens.
 
 An AI or Codex grade feeds the mastery update the grade channel's
 interpretation variance as extra measurement noise; a self or deterministic
-grade does not. The lane is keyed on the P0 projection version set, so it must
-hold on the version ``learnloop init`` writes, not only on mvp-0.8.
+grade does not. It holds on the version ``learnloop init`` writes.
 """
 
 from __future__ import annotations
 
-import pytest
-
 from learnloop.algorithm_versions import P0_PROJECTION_VERSIONS
-from learnloop.attempts import attempts as attempts_module
 from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
@@ -144,36 +140,14 @@ def _add_control_learning_object(paths) -> None:
     )
 
 
-def test_rebuild_moves_only_learning_objects_with_model_graded_attempts(tmp_path, monkeypatch):
+def test_replay_reenters_each_attempts_stored_lane(tmp_path):
+    """Replay reads each attempt's stored grading source, so a model grade and
+    a self grade side by side rebuild to what their live writes left."""
+
     paths = _init_version_vault(tmp_path, "rebuild")
     _add_control_learning_object(paths)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
-
-    # History recorded while the lane was keyed on mvp-0.8 alone: on this
-    # version, model grades took the self lane.
-    monkeypatch.setattr(attempts_module, "P0_PROJECTION_VERSIONS", frozenset({"mvp-0.8"}))
     _apply_grade(vault, repository, ITEM_ID, "ai")
     _apply_grade(vault, repository, CONTROL_ITEM_ID, "self")
-    unchanged = shadow_rebuild(vault).learner_state_diff
-    assert unchanged["summary"] == {"mastery": 0, "facet": 0, "schedule": 0}
-
-    monkeypatch.setattr(attempts_module, "P0_PROJECTION_VERSIONS", P0_PROJECTION_VERSIONS)
-    diff = shadow_rebuild(vault).learner_state_diff
-
-    # Replay reads each attempt's stored grading source: only the AI-graded
-    # attempt's learning object moves. Its mastery is less certain; the
-    # self-graded control and every facet projection are unchanged. Below
-    # router objective RO1's mvp-0.46 the due date shifted with that mastery
-    # (through the surprise interval factor); from it the due date is
-    # interval_for_retention(S) alone, which mastery does not feed.
-    assert diff["summary"] == {"mastery": 1, "facet": 0, "schedule": 0}
-    (mastery_change,) = diff["mastery"]["changes"]
-    assert mastery_change["key"]["learning_object_id"] == LO_ID
-    assert mastery_change["after"]["logit_variance"] > mastery_change["before"]["logit_variance"]
-    assert mastery_change["after"]["logit_mean"] == pytest.approx(
-        mastery_change["before"]["logit_mean"], abs=0.05
-    )
-    # Below the tag the item's due date moved with that mastery (one schedule change, due_at only);
-    # tests/test_ro1_projection.py pins the predecessor's schedule byte for byte.
-    assert diff["schedule"]["changes"] == []
+    assert shadow_rebuild(vault).learner_state_diff["summary"] == {"mastery": 0, "facet": 0, "schedule": 0}

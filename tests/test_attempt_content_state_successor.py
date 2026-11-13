@@ -13,8 +13,8 @@ kill switch:
 
 * at the tag with ``practice.attempt_keeps_content_state`` on, the attempt
   keeps the closed row closed and its content hash as content sync wrote it;
-* off, or below the tag (an mvp-0.36 vault), the attempt writes the whole
-  row exactly as the predecessor (the row reopens and the item is served);
+* off, the attempt writes the whole row exactly as the predecessor (the row
+  reopens and the item is served); no vault that opens is below the tag;
 * replay keeps its full upsert, so a same-version rebuild reproduces the live
   row at every setting (rebuild equivalence);
 * the upgrade is the chain's next journalled link.
@@ -120,9 +120,9 @@ def test_mvp037_is_one_constant_after_mvp036():
 
 
 @pytest.mark.parametrize(("version", "switch", "keeps"), [
-    (TAG, None, True), (TAG, False, False), (PREDECESSOR, None, False), (PREDECESSOR, True, False),
-], ids=["tag", "tag-switch-off", "predecessor", "predecessor-switch-on"])
-def test_the_gate_is_the_tag_and_its_switch(tmp_path, version, switch, keeps):
+    (TAG, None, True), (TAG, False, False),
+], ids=["tag", "tag-switch-off"])
+def test_the_gate_is_its_switch(tmp_path, version, switch, keeps):
     paths = _vault_at(tmp_path, "v", version, switch=switch)
     assert attempt_keeps_content_state(load_vault(paths.root)) is keeps
 
@@ -141,9 +141,8 @@ def test_at_the_tag_an_answer_keeps_a_closed_row_closed_and_out_of_serving(tmp_p
     assert not _served(vault, repository)
 
 
-@pytest.mark.parametrize(("version", "switch"), [(TAG, False), (PREDECESSOR, None)],
-                         ids=["tag-switch-off", "predecessor"])
-def test_off_or_below_the_tag_the_answer_reopens_the_row_as_the_predecessor(tmp_path, version, switch):
+@pytest.mark.parametrize(("version", "switch"), [(TAG, False)], ids=["tag-switch-off"])
+def test_off_the_answer_reopens_the_row_as_the_predecessor(tmp_path, version, switch):
     paths = _vault_at(tmp_path, "pred", version, switch=switch)
     vault, repository, _before = _closed_then_answered(paths)
 
@@ -153,8 +152,7 @@ def test_off_or_below_the_tag_the_answer_reopens_the_row_as_the_predecessor(tmp_
     assert _served(vault, repository)
 
 
-@pytest.mark.parametrize(("version", "switch"), [(TAG, None), (TAG, False), (PREDECESSOR, None)],
-                         ids=["tag", "tag-switch-off", "predecessor"])
+@pytest.mark.parametrize(("version", "switch"), [(TAG, None), (TAG, False)], ids=["tag", "tag-switch-off"])
 def test_a_same_version_rebuild_reproduces_the_live_row(tmp_path, version, switch):
     paths = _vault_at(tmp_path, "rebuild", version, switch=switch)
     vault, repository, _before = _closed_then_answered(paths)

@@ -70,10 +70,11 @@ def seed_global_learner_claim(
 ) -> str:
     """Replace the init-wizard global claim with one for ``starting_level``.
 
-    ``keep_replaced`` (the successor mvp-0.36, ``mastery.replaced_claims_kept``
-    of the vault): the earlier claim stays as a replaced row, so replay seeds
-    an LO first practised before the change from the level in force then.
-    Below it the earlier claim is deleted, as before."""
+    ``keep_replaced`` (the successor mvp-0.36; the sidecar's re-seed passes
+    it): the earlier claim stays as a replaced row, so replay seeds an LO
+    first practised before the change from the level in force then. Without
+    it the earlier claim is deleted, which is what a new vault's first seed
+    (``bootstrap``, no earlier claim) does."""
 
     claimed_level = STARTING_LEVEL_CLAIMS.get(starting_level)
     if claimed_level is None:

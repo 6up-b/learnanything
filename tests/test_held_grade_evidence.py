@@ -67,6 +67,7 @@ from tests.held_grade_evidence_helpers import (
     held_attempt_ids,
 )
 from tests.helpers import allow_below_floor
+from tests.regrade_contract_successor_helpers import as_regraded_before_contracts
 
 #: ``outcome_contract.HOLD_KEPT_FROM_KEY`` (spelled out so this module imports
 #: on the commit before the fix, where the fail-first run read it).
@@ -752,6 +753,10 @@ def test_review_f1_the_ledger_reads_the_evidence_as_the_attempt_step_does(tmp_pa
         runtime=ReadyRuntime(), client=HOLDING(), grading_source="ai",
         clock=FrozenClock(T + timedelta(days=4)),
     )
+    # A regrade before regrade contracts (mvp-0.26) superseded the machine
+    # tiers only (today's supersedes every tier): such rows are built, since
+    # no vault that opens writes them now; a vault at the floor still holds them.
+    as_regraded_before_contracts(repository, graded.attempt_id, supersede_tiers=(1, 3))
     tiers = sorted(row.grader_tier for row in repository.fetch_grading_evidence(graded.attempt_id))
     assert tiers == [3, 3, 4, 4]  # the adjudication's rows stay live
     assert _ledger_and_replay_held(vault, repository, graded.attempt_id) == (True, True)

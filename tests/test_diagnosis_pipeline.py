@@ -266,7 +266,10 @@ def test_registry_match_links_a_durable_belief_without_misconception_match(tmp_p
 
 
 def test_shadow_diagnosis_on_a_joint_vault_changes_nothing_live(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, version="mvp-0.9", config="[diagnosis]\nshadow = true")
+    # A joint vault: the split's kill switch (no vault that opens is below the split's tag).
+    _paths, vault, repository = split_vault(
+        tmp_path, version="mvp-0.9", config="[diagnosis]\nshadow = true\nsplit_enabled = false",
+    )
     client = ReviewFakeClient()
     result = submit(vault, repository, client)
     hypotheses_before = repository.causal_hypotheses_for_attempt(result.attempt_id)
@@ -539,7 +542,10 @@ def test_non_practice_graders_use_the_blind_contract_in_an_isolated_turn(tmp_pat
     assert report["checked"] >= 1 and report["prompt_version"] == "mvp-2.0-blind-local-grader"
     assert set(client.calls) == {"blind_grading"} and all(client.isolated)
 
-    joint_paths, joint_vault, _joint_repository = split_vault(tmp_path / "joint", version="mvp-0.9")
+    # A joint vault: the split's kill switch (no vault that opens is below the split's tag).
+    joint_paths, joint_vault, _joint_repository = split_vault(
+        tmp_path / "joint", version="mvp-0.9", config="[diagnosis]\nsplit_enabled = false",
+    )
     joint_client = ReviewFakeClient()
     request_vault_grading_proposal(joint_vault, joint_client, context)
     assert joint_client.calls == ["grading"]

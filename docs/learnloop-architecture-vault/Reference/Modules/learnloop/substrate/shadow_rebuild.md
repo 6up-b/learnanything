@@ -152,7 +152,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_hint_telemetry.py](../../../../../../tests/test_hint_telemetry.py) — direct import
   - `test_rebuild_with_help_assists_populated_calls_no_model_and_never_reads_it`
 - [tests/test_model_grade_lane.py](../../../../../../tests/test_model_grade_lane.py) — direct import
-  - `test_rebuild_moves_only_learning_objects_with_model_graded_attempts`
+  - `test_replay_reenters_each_attempts_stored_lane`
 - [tests/test_reader_digest_narrative.py](../../../../../../tests/test_reader_digest_narrative.py) — direct import
   - `test_rebuild_shadow_is_zero_with_a_narrative_present`
 - [tests/test_reader_followups.py](../../../../../../tests/test_reader_followups.py) — direct import

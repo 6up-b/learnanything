@@ -100,17 +100,6 @@ def test_items_that_are_not_imports_record_not_applicable(gated):
     assert _status(repository, result.attempt_id) == "not_applicable"
 
 
-def test_below_the_tag_the_gate_never_runs(tmp_path, monkeypatch):
-    paths, repository, spans = build_textbook_vault(tmp_path / "vault")
-    set_algorithm_version(paths, PROOF_ROUTE_CHECK_ALGORITHM_VERSION)
-    monkeypatch.setattr(pf_sandbox, "_sandbox_bwrap_path", lambda: None)
-    result = SEI.import_source_exercise(
-        paths.root, repository, extraction_id="ext_text", span_ids=[spans["exercises"][2]], caller="learner",
-        clients=service_clients(FakeServiceLLM(drop_cited_quote=True)))
-    attempt = _attempt(paths, repository, result["practice_item_id"])
-    assert _status(repository, attempt.attempt_id) == "not_applicable"
-
-
 def test_a_historical_reader_import_resolves_to_model_answer(gated):
     paths, repository, _spans = gated
     upsert_practice_item(paths.root, {
@@ -304,30 +293,25 @@ def test_a_regrade_never_raises_an_attempts_status(gated):
 
 def test_a_regrade_after_the_tag_binds_an_attempt_recorded_before_it(tmp_path, monkeypatch):
     """Recorded below the tag (``not_applicable``), regraded at it against an
-    unverified key: the new grade is written under the gate, so it is gated."""
+    unverified key: the new grade is written under the gate, so it is gated.
+    No vault that opens records below the tag now, so the old attempt is
+    built: recorded at the tag, its status set to what an attempt below it
+    recorded (the only column the gate changed)."""
     paths, repository, spans = build_textbook_vault(tmp_path / "vault")
-    set_algorithm_version(paths, PROOF_ROUTE_CHECK_ALGORITHM_VERSION)
+    set_algorithm_version(paths, SOURCE_REFERENCE_GATE_ALGORITHM_VERSION)
     monkeypatch.setattr(pf_sandbox, "_sandbox_bwrap_path", lambda: None)
     item_id = _verified_import(paths, repository, spans)
     attempt = _attempt(paths, repository, item_id)
+    with repository.connection() as connection:
+        connection.execute(
+            "UPDATE practice_attempts SET reference_status = 'not_applicable' WHERE id = ?", (attempt.attempt_id,)
+        )
+        connection.commit()
     assert _status(repository, attempt.attempt_id) == "not_applicable"
-    set_algorithm_version(paths, SOURCE_REFERENCE_GATE_ALGORITHM_VERSION)
     _edit_key(paths, repository, item_id)
     _regrade(paths, repository, attempt.attempt_id)
     assert _status(repository, attempt.attempt_id) == "unverified"
     assert "attempt_time_status=not_applicable" in _bindings(repository, attempt.attempt_id)[0]["rationale"]
-
-
-def test_below_the_tag_a_regrade_changes_nothing(tmp_path, monkeypatch):
-    paths, repository, spans = build_textbook_vault(tmp_path / "vault")
-    set_algorithm_version(paths, PROOF_ROUTE_CHECK_ALGORITHM_VERSION)
-    monkeypatch.setattr(pf_sandbox, "_sandbox_bwrap_path", lambda: None)
-    item_id = _verified_import(paths, repository, spans)
-    attempt = _attempt(paths, repository, item_id)
-    _edit_key(paths, repository, item_id)
-    _regrade(paths, repository, attempt.attempt_id)
-    assert _status(repository, attempt.attempt_id) == "not_applicable"
-    assert _bindings(repository, attempt.attempt_id) == []
 
 
 def test_a_regrade_of_an_item_that_is_not_an_import_changes_nothing(gated):

@@ -640,7 +640,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_assessment_contracts.py](../../../../../../tests/test_assessment_contracts.py) — direct import
   - `test_contract_hash_changes_when_targets_change`
   - `test_identical_item_versions_reuse_one_snapshot`
-  - `test_legacy_attempt_records_no_observation_lineage`
   - `test_mvp07_attempt_stamps_observation_lineage`
   - `test_snapshot_authoritative_after_live_rubric_change`
 - [tests/test_assessment_enforcement.py](../../../../../../tests/test_assessment_enforcement.py) — direct import
@@ -659,9 +658,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_attempt_graded_before_a_retiring_sync_keeps_the_item_closed`
   - `test_an_attempt_graded_before_an_editing_sync_keeps_the_edited_hash`
   - `test_an_attempt_on_an_item_with_no_row_inserts_the_whole_row`
-  - `test_below_the_tag_the_retiring_sync_is_still_undone_as_the_predecessor`
+  - `test_switched_off_the_retiring_sync_is_still_undone_as_the_predecessor`
 - [tests/test_attempt_content_state_successor.py](../../../../../../tests/test_attempt_content_state_successor.py) — direct import
-  - `test_the_gate_is_the_tag_and_its_switch`
+  - `test_the_gate_is_its_switch`
 - [tests/test_attempt_write_order.py](../../../../../../tests/test_attempt_write_order.py) — direct import
   - `test_canonical_attempt_write_order_is_receipt_grade_evidence_state_then_post`
 - [tests/test_attempts.py](../../../../../../tests/test_attempts.py) — direct import
@@ -1732,7 +1731,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_authored_reveal_keeps_the_draft`
 - [tests/test_help_fold_attach_successor.py](../../../../../../tests/test_help_fold_attach_successor.py) — direct import
   - `test_a_rebuild_changes_no_attempt_and_a_shadow_rebuild_is_zero`
-  - `test_the_fold_is_gated_by_the_tag_and_the_switch`
+  - `test_the_fold_is_gated_by_the_switch`
 - [tests/test_help_outcomes.py](../../../../../../tests/test_help_outcomes.py) — direct import
   - `test_f6_a_hold_released_after_as_of_still_held_then`
   - `test_f6_a_later_regrade_never_changes_what_as_of_said`
@@ -1917,6 +1916,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_km3_projections.py](../../../../../../tests/test_km3_projections.py) — direct import
 - [tests/test_km4_taxonomy.py](../../../../../../tests/test_km4_taxonomy.py) — direct import
   - `test_promotion_on_independent_surface`
+  - `test_taxonomy_regrade_check_no_attribution_regressions`
 - [tests/test_km5_sim_gates.py](../../../../../../tests/test_km5_sim_gates.py) — direct import
   - `test_residual_activation_improves_capability_mae_without_parent_inflation`
   - `test_shadow_intent_logs_practice_integration_at_the_right_moment`
@@ -2117,8 +2117,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v4_eligibility.py](../../../../../../tests/test_mobile_v4_eligibility.py) — direct import
 - [tests/test_model_grade_lane.py](../../../../../../tests/test_model_grade_lane.py) — direct import
   - `test_ai_graded_practice_takes_the_soft_score_lane_on_the_init_version`
-  - `test_rebuild_moves_only_learning_objects_with_model_graded_attempts`
+  - `test_replay_reenters_each_attempts_stored_lane`
 - [tests/test_mvp017_route_check_replay.py](../../../../../../tests/test_mvp017_route_check_replay.py) — direct import
+  - `test_an_mvp017_history_at_the_floor_replays_its_grades_and_then_changes_nothing`
 - [tests/test_notes_as_learner_text.py](../../../../../../tests/test_notes_as_learner_text.py) — direct import
   - `test_a_changed_note_is_read_with_its_current_snapshot_and_the_old_one_is_not`
   - `test_a_hidden_link_is_never_read_and_undo_queues_it_again`
@@ -2300,6 +2301,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_post_attempt_pipeline.py](../../../../../../tests/test_post_attempt_pipeline.py) — direct import
 - [tests/test_pr4_superseded_claims_landing.py](../../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
   - `test_landing_i_a_too_easy_retirement_during_a_session`
+  - `test_landing_i_control_switched_off_the_same_session_reopens_the_retired_row`
 - [tests/test_practice_index_adapters.py](../../../../../../tests/test_practice_index_adapters.py) — direct import
   - `test_batch_dry_runs_never_migrate_an_older_rollback_database`
   - `test_cli_eval_dry_run_find_coverage_status_and_tool_spec`

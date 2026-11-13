@@ -27,7 +27,6 @@ from typing import Any, Literal
 from pydantic import Field, model_validator
 
 from learnloop.ai.schemas import AttributionTargetRef, WireModel
-from learnloop.algorithm_versions import DIAGNOSIS_SPLIT_VERSIONS
 from learnloop.ai.transport import (
     OperationClient,
     execute_structured_operation,
@@ -75,16 +74,13 @@ GRADER_MODE_BLIND = "blind"
 def split_grading_active(vault: LoadedVault) -> bool:
     """Does this vault grade NEW practice attempts blind (spec §6.2)?
 
-    The algorithm version gates the split; ``diagnosis.split_enabled`` is its
-    kill switch. Both are read only when an attempt is graded: replay and
-    every later read go by the attempt's persisted grader mode (a blind grade
-    record exists or it does not), never by today's config.
+    ``diagnosis.split_enabled`` is the split's kill switch. It is read only
+    when an attempt is graded: replay and every later read go by the
+    attempt's persisted grader mode (a blind grade record exists or it does
+    not), never by today's config.
     """
 
-    config = vault.config
-    if config.algorithms.algorithm_version not in DIAGNOSIS_SPLIT_VERSIONS:
-        return False
-    diagnosis = getattr(config, "diagnosis", None)
+    diagnosis = getattr(vault.config, "diagnosis", None)
     return bool(getattr(diagnosis, "split_enabled", True))
 
 

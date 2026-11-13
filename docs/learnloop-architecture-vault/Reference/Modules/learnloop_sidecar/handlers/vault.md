@@ -77,7 +77,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] — imports `BootstrapError`, `create_vault`; calls `create_vault`
 - [[Reference/Modules/learnloop/content/synthesis/brief|learnloop.content.synthesis.brief]] — imports `STARTING_LEVELS`
 - [[Reference/Modules/learnloop/learner/learner_profile|learnloop.learner.learner_profile]] — imports `read_learner_profile`, `seed_global_learner_claim`, `write_learner_profile`; calls `read_learner_profile`, `seed_global_learner_claim`, `write_learner_profile`
-- [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `replaced_claims_kept`; calls `replaced_claims_kept`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `EmptyParams`, `ParamsModel`, `versioned`; calls `versioned`

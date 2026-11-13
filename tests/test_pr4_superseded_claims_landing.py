@@ -171,15 +171,20 @@ def test_landing_i_a_too_easy_retirement_during_a_session(tmp_path, monkeypatch)
     assert _shadow_summary(paths)["summary"] == ZERO
 
 
-def test_landing_i_control_below_the_tag_the_same_session_reopens_the_retired_row(tmp_path, monkeypatch):
-    """The control: at the kept replaced claims' mvp-0.36 (below PR-4's tag)
-    the replace seam is the same, but the attempt's whole-row write reopens
-    the row the concurrent retirement closed (PR-2's reverse race, which
-    mvp-0.37 closes)."""
+def test_landing_i_control_switched_off_the_same_session_reopens_the_retired_row(tmp_path, monkeypatch):
+    """The control: with PR-4's kill switch off (``practice.attempt_keeps_content_state``;
+    no vault that opens is below its tag) the replace seam is the same, but the
+    attempt's whole-row write reopens the row the concurrent retirement closed
+    (PR-2's reverse race, which mvp-0.37 closes)."""
 
     from learnloop.algorithm_versions import SUPERSEDED_CLAIMS_ALGORITHM_VERSION
+    from learnloop.vault.loader import load_vault as _load
+
+    from tests.helpers import append_config_toml
 
     paths, _vault_loaded, repository = _vault(tmp_path, version=SUPERSEDED_CLAIMS_ALGORITHM_VERSION)
+    append_config_toml(paths.root, "[practice]\nattempt_keeps_content_state = false")
+    assert _load(paths.root).config.practice.attempt_keeps_content_state is False
     ctx = SidecarContext()
     ctx.load_secondary(paths.root)
     ctx.grading_provider_override = "manual"

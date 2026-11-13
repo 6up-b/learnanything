@@ -634,7 +634,7 @@ AMBIGUOUS_METHOD_REVISION = "ambiguous_method"
 UNESTABLISHED_REVISIONS = frozenset({AMBIGUOUS_DEFAULT_REVISION, AMBIGUOUS_METHOD_REVISION})
 
 
-def bind_replacement_grade(connection: sqlite3.Connection, *, attempt_id: str, item: Any, gated: bool,
+def bind_replacement_grade(connection: sqlite3.Connection, *, attempt_id: str, item: Any,
                            grading: str, created_at: str, graded_contents: Sequence[str] | None = None,
                            graded_revision: str = "current", method_revision: bool | None = None,
                            legacy_contents: Mapping[str, str] | None = None) -> str | None:
@@ -642,8 +642,7 @@ def bind_replacement_grade(connection: sqlite3.Connection, *, attempt_id: str, i
 
     A regrade, or an adjudication against the key, reads the item as it is
     now, so the grade it writes is bound to that content exactly as an
-    attempt's first grade is. When the vault is at the gate's tag (``gated``)
-    and that content's key is not verified, the attempt's
+    attempt's first grade is. When that content's key is not verified, the attempt's
     ``reference_status`` is lowered to ``unverified`` in the caller's
     transaction, before its replay, so every reader of the column (the
     projection, the evidence timeline, the learner field, rebuilds) gates the
@@ -679,7 +678,7 @@ def bind_replacement_grade(connection: sqlite3.Connection, *, attempt_id: str, i
     under that identity still bind it.
     """
 
-    if not gated or not column_exists(connection, "practice_attempts", "reference_status"):
+    if not column_exists(connection, "practice_attempts", "reference_status"):
         return None
     if graded_contents is None:
         contents, method_revision = [reference_content_hash(item)], has_required_method(item)
