@@ -9,7 +9,8 @@
   beside direct credit a later regrade took away answers nothing.
 
 Everything runs through the production writes (the attempt step, the regrade
-door with a deterministic grader fake, the mvp-0.26 upgrade), extraction,
+door with a deterministic grader fake, a whole-vault rebuild at the head),
+extraction,
 fold, certification and recap; no snapshot or timeline is mocked. Fakes only;
 no model call.
 """
@@ -34,7 +35,7 @@ from learnloop.learner.facet_evidence_timeline import (
     vault_timeline_snapshot,
 )
 from learnloop.reader import recap as RC
-from learnloop.regrade_contract_upgrade import upgrade_to_mvp026
+from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
@@ -52,6 +53,15 @@ from tests.reader_recap_review_r2_helpers import (
     _self_graded,
 )
 from tests.regrade_contract_replay_helpers import PointsGrader
+
+
+def _rebuilt_at_the_head(paths, repository, clock):
+    """History written below mvp-0.26 (an uncited regrade), read at the head: a whole-vault rebuild replays it."""
+
+    set_algorithm_version(paths, LATEST_ALGORITHM_VERSION)
+    vault = load_vault(paths.root)
+    rebuild_all_derived_state(vault, repository, clock=clock)
+    return vault
 
 
 def _stamp(minutes: float) -> str:
@@ -93,7 +103,8 @@ def _held_then_released(tmp_path):
     * minute 10: attempt O, self-graded 2 of 4 on a second surface;
     * minute 20: H regraded to 4 of 4 by the predecessor's regrade door,
       which records no contract;
-    * minute 30: ``upgrade --to mvp-0.26`` holds H (``grade_contract_unrecorded``);
+    * minute 30: the vault moves to the head and a whole-vault rebuild holds H
+      (``grade_contract_unrecorded``), as the mvp-0.26 activation did;
     * minute 40: the previous session ends (the cutoff);
     * minute 50: H regraded to 4 of 4 again at mvp-0.26, which cites its
       contract and releases the hold.
@@ -113,9 +124,7 @@ def _held_then_released(tmp_path):
     _regrade(vault, repository, held, 20, 4)
     epoch = current_epoch(repository.fetch_grading_evidence(held))
     assert epoch is not None and epoch.contract_version_id is None
-    result = upgrade_to_mvp026(paths.root, clock=FrozenClock(NOW + timedelta(minutes=30)))
-    assert result.upgraded, result.problems
-    vault = load_vault(paths.root)
+    vault = _rebuilt_at_the_head(paths, repository, FrozenClock(NOW + timedelta(minutes=30)))
     assert attempt_grade_held(repository, held)
     return paths, vault, repository, held, other
 
@@ -234,17 +243,15 @@ def test_f2_r3_embedded_credit_banking_beside_standing_direct_credit_answers_the
     assert _claimed(vault, repo, session) == []
 
 
-def test_f1_r3_the_as_of_hold_agrees_with_the_upgrade_on_every_shape(tmp_path):
-    """The upgrade suite's predecessor vault: a seeded history of only grades,
-    ``att_keep`` (cites its contract), ``att_blind`` and ``att_self`` (uncited
-    regrades). The predicate holds exactly the two the upgrade's replay held."""
+def test_f1_r3_the_as_of_hold_agrees_with_replay_on_every_shape(tmp_path):
+    """A seeded history of only grades written at mvp-0.25, ``att_keep`` (cites its contract), ``att_blind`` and
+    ``att_self`` (uncited regrades). The predicate holds exactly the two the head's replay holds."""
 
     from learnloop.learner.facet_evidence_timeline import _epoch_held_as_of
     from tests.regrade_contract_upgrade_helpers import CLOCK, _legacy_vault
 
     paths, vault, repository = _legacy_vault(tmp_path)
-    assert upgrade_to_mvp026(paths.root, clock=CLOCK).upgraded
-    vault = load_vault(paths.root)
+    vault = _rebuilt_at_the_head(paths, repository, CLOCK)
     snapshot = vault_timeline_snapshot(vault, repository)
     items = {str(row["id"]): row.get("practice_item_id") for row in snapshot.attempts}
     predicted = {
