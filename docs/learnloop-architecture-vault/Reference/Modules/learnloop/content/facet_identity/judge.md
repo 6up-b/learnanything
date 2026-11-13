@@ -48,83 +48,84 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py) |
-| Source lines | 1294 |
+| Source lines | 1292 |
 | Owning package | [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class FacetSetVerdict(WireModel)` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 153)
-- `class FacetPartitionVerdict(WireModel)` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 161)
-- `class Member` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 166)
-- `class GroupRequest` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 180)
-  - `member(self, label: str) -> Member | None` (line 191; public)
-  - `by_key(self, key: str) -> Member | None` (line 194; public)
-  - `pairs(self) -> list[tuple[Member, Member]]` (line 197; public) — Pairs the judge decides (registered pairs are not decided in attach mode).
-  - `new_count(self) -> int` (line 208; public)
-- `class DecidedSet` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 213)
-  - `as_dict(self) -> dict[str, Any]` (line 220; public)
-- `class GroupOutcome` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 225)
-  - `judgments_for(self, keys: Sequence[str]) -> list[str]` (line 236; public)
-  - `summary(self) -> dict[str, Any]` (line 243; public)
-- `build_request(members: Sequence[Member], *, mode: str, shortlisted: Iterable[Iterable[str]]=()) -> GroupRequest` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 260) — Label members (E*/N* in attach mode, F* otherwise) and render the prompt.
-- `judge_output_tokens(config: Any | None, provider: str | None=None) -> int` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 307) — The LLM judge's output budget: the shared policy's for its route.
-- `estimate_tokens(request: GroupRequest, output_tokens: int=DEFAULT_OUTPUT_TOKENS) -> int` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 319)
-- `validate_partition(request: GroupRequest, verdict: FacetPartitionVerdict) -> tuple[list[DecidedSet], list[str]]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 327) — The merge/absorb sets a verdict decides, repaired conservatively.
-- `same_set(sets: Sequence[DecidedSet]) -> dict[str, int]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 384)
-- `existing_judgments(connection: Any, request: GroupRequest, *, judge: str, judge_model: str, prompt_version: str) -> dict[tuple[str, str], str]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 399) — Ledger rows already written for exactly this question (pair keys -> id).
-- `raw_pair_verdicts(request: GroupRequest, verdict: FacetPartitionVerdict) -> Callable[[Member, Member], tuple[bool, dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 419) — The judge's own verdict on a pair, from its raw partition (before repair).
-- `append_partition_judgments(connection: Any, request: GroupRequest, sets: Sequence[DecidedSet], *, judge: str, judge_model: str, prompt_version: str, judged: Callable[[Member, Member], tuple[bool, Mapping[str, Any]]] | None=None, repair_reason: str='kept apart when the partition was validated', pair_detail: Callable[[Member, Member], Mapping[str, Any]] | None=None, pair_score: Callable[[Member, Member], float | None] | None=None) -> dict[tuple[str, str], str]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 450) — The judge's verdict on its merged and shortlisted pairs; returns pair keys -> id.
-- `owner_vetoes(connection: Any, request: GroupRequest) -> set[frozenset[str]]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 520) — Member-key pairs of ``request`` the owner currently says are ``different``.
-- `apply_owner_vetoes(request: GroupRequest, sets: Sequence[DecidedSet], vetoes: set[frozenset[str]]) -> tuple[list[DecidedSet], list[str]]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 547) — Drop from each set every member the owner said differs from a kept one.
-- `class Pricing` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 576)
-  - `known(self) -> bool` (line 582; public)
-  - `usd(self, input_tokens: int, output_tokens: int) -> float | None` (line 585; public)
-- `pricing_for(model: str | None, *, input_override: float | None=None, output_override: float | None=None) -> Pricing` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 591)
-- `request_estimate(request: GroupRequest, pricing: Pricing, *, retry: bool=False, new_facets: int | None=None, new_pairs: int | None=None, output_tokens: int=DEFAULT_OUTPUT_TOKENS) -> SpendEstimate` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 601)
-- `plan_estimate(requests: Sequence[GroupRequest], pricing: Pricing, *, decider: bool=False, output_tokens: int=DEFAULT_OUTPUT_TOKENS) -> SpendEstimate` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 614) — The whole plan, for a dry run and the up-front cap check.
-- `class LLMGroupJudge` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 650) — One structured call per group, under the Slice A spend controls.
-  - `__init__(self, *, client: Any, provider: str, model: str | None, caps: SpendCaps, pricing: Pricing, repository: Any, owner_id: str, cancelled: Callable[[], bool] | None=None, output_tokens: int | None=None, reasoning_effort: str | None=None) -> None` (line 669; internal)
-  - `declared(self) -> dict[str, Any]` (line 699; public)
-  - `checkpoint_key(self, request: GroupRequest) -> str` (line 710; public)
-  - `run(self, requests: Sequence[GroupRequest]) -> list[GroupOutcome]` (line 723; public)
-  - `_finish(self, request: GroupRequest, verdict: FacetPartitionVerdict, model: str, *, status: str) -> GroupOutcome` (line 844; internal)
-  - `charged(self) -> dict[str, Any]` (line 862; public)
-- `choice_question(instructions: str, options: Mapping[str, str | None]) -> ChoiceQuestion` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 869) — Router R0's typed choice question (the Decider client accepts nothing else).
-- `partition_from_pairs(request: GroupRequest, choices: Mapping[tuple[str, str], tuple[str, Mapping[str, float]]]) -> list[DecidedSet]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 875) — Same-skill sets from per-pair choices, with the no-chaining refusal.
-- `class DeciderGroupJudge` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 948) — The Decider: one typed ``choice`` question per pair (router spec §6).
-  - `__init__(self, *, client: Any, model: str | None, caps: SpendCaps, pricing: Pricing, repository: Any, owner_id: str, cancelled: Callable[[], bool] | None=None) -> None` (line 960; internal)
-  - `declared(self) -> dict[str, Any]` (line 970; public)
-  - `checkpoint_key(self, request: GroupRequest) -> str` (line 974; public)
-  - `_stored_choices(self, request: GroupRequest) -> tuple[dict[tuple[str, str], tuple[str, Mapping[str, float]]], str] | None` (line 981; internal)
+- `class FacetSetVerdict(WireModel)` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 155)
+- `class FacetPartitionVerdict(WireModel)` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 163)
+- `class Member` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 168)
+- `class GroupRequest` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 182)
+  - `member(self, label: str) -> Member | None` (line 193; public)
+  - `by_key(self, key: str) -> Member | None` (line 196; public)
+  - `pairs(self) -> list[tuple[Member, Member]]` (line 199; public) — Pairs the judge decides (registered pairs are not decided in attach mode).
+  - `new_count(self) -> int` (line 210; public)
+- `class DecidedSet` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 215)
+  - `as_dict(self) -> dict[str, Any]` (line 222; public)
+- `class GroupOutcome` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 227)
+  - `judgments_for(self, keys: Sequence[str]) -> list[str]` (line 238; public)
+  - `summary(self) -> dict[str, Any]` (line 245; public)
+- `build_request(members: Sequence[Member], *, mode: str, shortlisted: Iterable[Iterable[str]]=()) -> GroupRequest` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 262) — Label members (E*/N* in attach mode, F* otherwise) and render the prompt.
+- `judge_output_tokens(config: Any | None, provider: str | None=None) -> int` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 309) — The LLM judge's output budget: the shared policy's for its route.
+- `estimate_tokens(request: GroupRequest, output_tokens: int=DEFAULT_OUTPUT_TOKENS) -> int` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 321)
+- `validate_partition(request: GroupRequest, verdict: FacetPartitionVerdict) -> tuple[list[DecidedSet], list[str]]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 329) — The merge/absorb sets a verdict decides, repaired conservatively.
+- `same_set(sets: Sequence[DecidedSet]) -> dict[str, int]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 386)
+- `existing_judgments(connection: Any, request: GroupRequest, *, judge: str, judge_model: str, prompt_version: str) -> dict[tuple[str, str], str]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 401) — Ledger rows already written for exactly this question (pair keys -> id).
+- `raw_pair_verdicts(request: GroupRequest, verdict: FacetPartitionVerdict) -> Callable[[Member, Member], tuple[bool, dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 421) — The judge's own verdict on a pair, from its raw partition (before repair).
+- `append_partition_judgments(connection: Any, request: GroupRequest, sets: Sequence[DecidedSet], *, judge: str, judge_model: str, prompt_version: str, judged: Callable[[Member, Member], tuple[bool, Mapping[str, Any]]] | None=None, repair_reason: str='kept apart when the partition was validated', pair_detail: Callable[[Member, Member], Mapping[str, Any]] | None=None, pair_score: Callable[[Member, Member], float | None] | None=None) -> dict[tuple[str, str], str]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 452) — The judge's verdict on its merged and shortlisted pairs; returns pair keys -> id.
+- `owner_vetoes(connection: Any, request: GroupRequest) -> set[frozenset[str]]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 522) — Member-key pairs of ``request`` the owner currently says are ``different``.
+- `apply_owner_vetoes(request: GroupRequest, sets: Sequence[DecidedSet], vetoes: set[frozenset[str]]) -> tuple[list[DecidedSet], list[str]]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 549) — Drop from each set every member the owner said differs from a kept one.
+- `class Pricing` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 578)
+  - `known(self) -> bool` (line 584; public)
+  - `usd(self, input_tokens: int, output_tokens: int) -> float | None` (line 587; public)
+- `pricing_for(model: str | None, *, input_override: float | None=None, output_override: float | None=None) -> Pricing` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 593)
+- `request_estimate(request: GroupRequest, pricing: Pricing, *, retry: bool=False, new_facets: int | None=None, new_pairs: int | None=None, output_tokens: int=DEFAULT_OUTPUT_TOKENS) -> SpendEstimate` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 603)
+- `plan_estimate(requests: Sequence[GroupRequest], pricing: Pricing, *, decider: bool=False, output_tokens: int=DEFAULT_OUTPUT_TOKENS) -> SpendEstimate` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 616) — The whole plan, for a dry run and the up-front cap check.
+- `class LLMGroupJudge` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 652) — One structured call per group, under the Slice A spend controls.
+  - `__init__(self, *, client: Any, provider: str, model: str | None, caps: SpendCaps, pricing: Pricing, repository: Any, owner_id: str, cancelled: Callable[[], bool] | None=None, output_tokens: int | None=None, reasoning_effort: str | None=None) -> None` (line 671; internal)
+  - `declared(self) -> dict[str, Any]` (line 701; public)
+  - `checkpoint_key(self, request: GroupRequest) -> str` (line 712; public)
+  - `_checkpoint(self, request: GroupRequest) -> ModelCheckpoint[tuple[FacetPartitionVerdict, str]]` (line 725; internal)
+  - `run(self, requests: Sequence[GroupRequest]) -> list[GroupOutcome]` (line 732; public)
+  - `_finish(self, request: GroupRequest, verdict: FacetPartitionVerdict, model: str, *, status: str) -> GroupOutcome` (line 846; internal)
+  - `charged(self) -> dict[str, Any]` (line 864; public)
+- `choice_question(instructions: str, options: Mapping[str, str | None]) -> ChoiceQuestion` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 871) — Router R0's typed choice question (the Decider client accepts nothing else).
+- `partition_from_pairs(request: GroupRequest, choices: Mapping[tuple[str, str], tuple[str, Mapping[str, float]]]) -> list[DecidedSet]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 877) — Same-skill sets from per-pair choices, with the no-chaining refusal.
+- `class DeciderGroupJudge` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 950) — The Decider: one typed ``choice`` question per pair (router spec §6).
+  - `__init__(self, *, client: Any, model: str | None, caps: SpendCaps, pricing: Pricing, repository: Any, owner_id: str, cancelled: Callable[[], bool] | None=None) -> None` (line 962; internal)
+  - `declared(self) -> dict[str, Any]` (line 972; public)
+  - `checkpoint_key(self, request: GroupRequest) -> str` (line 976; public)
+  - `_checkpoint(self, request: GroupRequest) -> ModelCheckpoint[tuple[dict[tuple[str, str], tuple[str, Mapping[str, float]]], str]]` (line 983; internal) — The group's saved answers; one that does not answer exactly this group's pairs no longer reads.
   - `_observer(self, request: GroupRequest, tokens: int) -> Callable[[str, dict[str, Any]], None]` (line 1000; internal) — Receipts for the Decider's paid calls, owned like the LLM judge's.
   - `run(self, requests: Sequence[GroupRequest]) -> list[GroupOutcome]` (line 1016; public)
-  - `_finish(self, request: GroupRequest, choices: Mapping[tuple[str, str], tuple[str, Mapping[str, float]]], model: str, *, status: str) -> GroupOutcome` (line 1079; internal)
-  - `charged(self) -> dict[str, Any]` (line 1110; public)
-- `class JudgeRoute` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1118) — The resolved judge route, before any client exists (dry runs stop here).
-  - `as_dict(self) -> dict[str, Any]` (line 1133; public) — The route as synthesis hashes it into its manifest (:func:`manifest_identity`), so every key is named here: a field added to the route or to :class:`Pricing` stays out.
-- `resolve_route(config: Any, *, client: Any=None, input_price: float | None=None, output_price: float | None=None) -> JudgeRoute` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1150)
-- `manifest_identity(config: Any, *, client: Any=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1195) — The judge's identity as bootstrap synthesis and append hash it into their manifest (handoff §4), so a cached run is reused only under the same route and policy.
-- `build_judge(vault: Any, repository: Any, *, owner_id: str, caps: SpendCaps, client: Any=None, cancelled: Callable[[], bool] | None=None, input_price: float | None=None, output_price: float | None=None) -> tuple[LLMGroupJudge | DeciderGroupJudge | None, JudgeRoute]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1210) — A ready judge for the route, or ``None`` with the route's problem set.
-- `caps_from_config(settings: Any, **overrides: Any) -> SpendCaps` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1250)
+  - `_finish(self, request: GroupRequest, choices: Mapping[tuple[str, str], tuple[str, Mapping[str, float]]], model: str, *, status: str) -> GroupOutcome` (line 1077; internal)
+  - `charged(self) -> dict[str, Any]` (line 1108; public)
+- `class JudgeRoute` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1116) — The resolved judge route, before any client exists (dry runs stop here).
+  - `as_dict(self) -> dict[str, Any]` (line 1131; public) — The route as synthesis hashes it into its manifest (:func:`manifest_identity`), so every key is named here: a field added to the route or to :class:`Pricing` stays out.
+- `resolve_route(config: Any, *, client: Any=None, input_price: float | None=None, output_price: float | None=None) -> JudgeRoute` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1148)
+- `manifest_identity(config: Any, *, client: Any=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1193) — The judge's identity as bootstrap synthesis and append hash it into their manifest (handoff §4), so a cached run is reused only under the same route and policy.
+- `build_judge(vault: Any, repository: Any, *, owner_id: str, caps: SpendCaps, client: Any=None, cancelled: Callable[[], bool] | None=None, input_price: float | None=None, output_price: float | None=None) -> tuple[LLMGroupJudge | DeciderGroupJudge | None, JudgeRoute]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1208) — A ready judge for the route, or ``None`` with the route's problem set.
+- `caps_from_config(settings: Any, **overrides: Any) -> SpendCaps` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1248)
 
 ### Module constants
 
-- `TASK` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 88)
-- `PROMPT_VERSION` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 89)
-- `DECIDER_QUESTION_SET_VERSION` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 90)
-- `OWNER_KIND` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 91)
-- `PURPOSE` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 92)
-- `ROUTE` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 93)
-- `METERED_JUDGE_TYPES` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 94)
-- `DECIDER_MAX_QUESTIONS` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 96)
-- `KNOWN_PRICES_PER_MILLION` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 101)
-- `RULES` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 107)
-- `ATTACH_RULES` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 134)
-- `DECIDER_INSTRUCTIONS` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 139)
-- `DECIDER_OPTIONS` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 145)
-- `MANIFEST_CONFIG_FIELDS` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1188)
+- `TASK` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 90)
+- `PROMPT_VERSION` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 91)
+- `DECIDER_QUESTION_SET_VERSION` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 92)
+- `OWNER_KIND` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 93)
+- `PURPOSE` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 94)
+- `ROUTE` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 95)
+- `METERED_JUDGE_TYPES` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 96)
+- `DECIDER_MAX_QUESTIONS` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 98)
+- `KNOWN_PRICES_PER_MILLION` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 103)
+- `RULES` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 109)
+- `ATTACH_RULES` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 136)
+- `DECIDER_INSTRUCTIONS` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 141)
+- `DECIDER_OPTIONS` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 147)
+- `MANIFEST_CONFIG_FIELDS` ([src/learnloop/content/facet_identity/judge.py](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 1186)
 
 ### Explicit exports
 
@@ -163,7 +164,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ## Internal implementation anchors
 
-- `_ordered_pair(left: Member, right: Member) -> tuple[Member, Member]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 395)
+- `_ordered_pair(left: Member, right: Member) -> tuple[Member, Member]` ([source](../../../../../../../src/learnloop/content/facet_identity/judge.py), line 397)
 
 ## Who imports or calls it
 
@@ -183,7 +184,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - [[Reference/Modules/learnloop/ai/decisions|learnloop.ai.decisions]] — imports `ChoiceQuestion`; calls `ChoiceQuestion`
 - [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIInterrupted`, `AIInvalidOutput`, `AIOutputTruncated`, `AIProviderUnavailable`
-- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `call_labels`, `content_key`, `generation_limit`, `model_settings`, `observe_model_calls`, `requested_reasoning_effort`, `single_request`; calls `call_labels`, `content_key`, `generation_limit`, `model_settings`, `observe_model_calls`, `requested_reasoning_effort`, `single_request`
+- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `ModelCheckpoint`, `call_labels`, `content_key`, `generation_limit`, `model_settings`, `observe_model_calls`, `request_key`, `requested_reasoning_effort`, `single_request`; calls `ModelCheckpoint`, `call_labels`, `content_key`, `generation_limit`, `model_settings`, `observe_model_calls`, `request_key`, `requested_reasoning_effort`, `single_request`
 - [[Reference/Modules/learnloop/ai/output_budget|learnloop.ai.output_budget]] — imports `DEFAULT_OUTPUT_TOKENS`, `TruncationRetry`, `output_budget`, `output_ceiling`, `reasoning_effort`; calls `TruncationRetry`, `output_budget`, `output_ceiling`, `reasoning_effort`
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `module`, `ready_client_for_task`; calls `is_decider_profile`, `provider_for_task`, `ready_client_for_task`
 - [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] — imports `WireModel`

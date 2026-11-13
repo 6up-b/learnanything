@@ -20,6 +20,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping
 
+from learnloop.ai.execution import ModelCheckpoint, checkpointed, model_settings
 from learnloop.ai.transport import StructuredTransport, execute_structured_operation
 from learnloop.ai.usage import consume_client_usage
 from learnloop.clock import Clock
@@ -67,6 +68,18 @@ def request_vault_epigraphs(
         client,
         purpose=EPIGRAPH_PURPOSE,
         prompt=vault_epigraphs_prompt(context),
+        result_model=VaultEpigraphBatch,
+    )
+
+
+def epigraph_checkpoint(store: Any, client: Any, context: VaultEpigraphContext) -> ModelCheckpoint[VaultEpigraphBatch]:
+    """One epigraph batch's checkpoint, keyed on what it sends: the rendered
+    prompt (which lists the subject's recent epigraphs, so a batch that was
+    kept changes the next request), the schema and the client's settings."""
+
+    return checkpointed(
+        store, purpose=EPIGRAPH_PURPOSE, prompt=vault_epigraphs_prompt(context),
+        schema=VaultEpigraphBatch.model_json_schema(), settings=model_settings(client),
         result_model=VaultEpigraphBatch,
     )
 
@@ -289,8 +302,9 @@ def _generate(
         learning_objects=list(digest.learning_objects),
         recent_epigraphs=[str(row.get("text") or "") for row in recent[:RECENT_IN_PROMPT]],
     )
+    checkpoint = epigraph_checkpoint(repository, client, context)
     try:
-        batch = request_vault_epigraphs(client, context)
+        batch, _reused = checkpoint.answer(lambda: request_vault_epigraphs(client, context))
     finally:
         # The synthesis already drained its own usage before this hook ran;
         # anything left in the accumulator is ours, and must not leak into the
@@ -312,6 +326,9 @@ def _generate(
         if len(accepted) >= EPIGRAPHS_PER_SYNTHESIS:
             break
     if not accepted:
+        # A batch the checks rejected whole is dropped: kept, every retry of
+        # this request would read it back into the same empty result for free.
+        checkpoint.discard()
         logger.info("vault epigraphs: nothing valid returned for %s (run %s)", subject_id, synthesis_run_id)
         return []
 
@@ -355,6 +372,7 @@ __all__ = [
     "EPIGRAPH_PURPOSE",
     "digest_for_append",
     "digest_from_proposal_rows",
+    "epigraph_checkpoint",
     "generate_vault_epigraphs",
     "normalize_epigraph",
     "request_vault_epigraphs",

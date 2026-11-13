@@ -47,42 +47,43 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py) |
-| Source lines | 361 |
+| Source lines | 379 |
 | Owning package | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `request_vault_epigraphs(client: StructuredTransport, context: VaultEpigraphContext) -> VaultEpigraphBatch` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 61) — Author one epigraph batch through the shared transport (raw call).
-- `class ContentDigest` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 78) — What the model gets to write about: bounded, deduplicated titles/claims.
-- `digest_from_proposal_rows(rows: Iterable[Mapping[str, Any]], *, summary: str='') -> ContentDigest` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 87) — Digest the proposal rows a synthesis persisted (bootstrap or the new_coverage part of an append).
-- `digest_for_append(rows: Iterable[Mapping[str, Any]], new_inventories: Iterable[Mapping[str, Any]] | None, neighborhood: Mapping[str, Any] | None, *, summary: str='') -> ContentDigest` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 110) — An append may emit only provenance links, so top the row digest up from the new unit inventories and the bounded affected neighborhood.
-- `normalize_epigraph(item: VaultEpigraph | Mapping[str, Any]) -> tuple[str, list[str]] | None` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 175) — ``(kind, lines)`` for a well-formed epigraph, else None.
-- `generate_vault_epigraphs(repository: Repository, vault: LoadedVault, client: Any, *, subject_id: str, source_set_id: str | None, synthesis_run_id: str | None, mode: str, digest: ContentDigest, brief: Mapping[str, Any] | None=None, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 226) — Author and persist one batch.
+- `request_vault_epigraphs(client: StructuredTransport, context: VaultEpigraphContext) -> VaultEpigraphBatch` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 62) — Author one epigraph batch through the shared transport (raw call).
+- `epigraph_checkpoint(store: Any, client: Any, context: VaultEpigraphContext) -> ModelCheckpoint[VaultEpigraphBatch]` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 75) — One epigraph batch's checkpoint, keyed on what it sends: the rendered prompt (which lists the subject's recent epigraphs, so a batch that was kept changes the next request), the schema and the client's settings.
+- `class ContentDigest` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 91) — What the model gets to write about: bounded, deduplicated titles/claims.
+- `digest_from_proposal_rows(rows: Iterable[Mapping[str, Any]], *, summary: str='') -> ContentDigest` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 100) — Digest the proposal rows a synthesis persisted (bootstrap or the new_coverage part of an append).
+- `digest_for_append(rows: Iterable[Mapping[str, Any]], new_inventories: Iterable[Mapping[str, Any]] | None, neighborhood: Mapping[str, Any] | None, *, summary: str='') -> ContentDigest` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 123) — An append may emit only provenance links, so top the row digest up from the new unit inventories and the bounded affected neighborhood.
+- `normalize_epigraph(item: VaultEpigraph | Mapping[str, Any]) -> tuple[str, list[str]] | None` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 188) — ``(kind, lines)`` for a well-formed epigraph, else None.
+- `generate_vault_epigraphs(repository: Repository, vault: LoadedVault, client: Any, *, subject_id: str, source_set_id: str | None, synthesis_run_id: str | None, mode: str, digest: ContentDigest, brief: Mapping[str, Any] | None=None, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 239) — Author and persist one batch.
 
 ### Module constants
 
-- `EPIGRAPH_PURPOSE` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 38)
-- `EPIGRAPHS_PER_SYNTHESIS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 39)
-- `EPIGRAPH_KINDS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 40)
-- `QUOTE_MAX_WORDS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 41)
-- `QUOTE_MAX_CHARS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 42)
-- `HAIKU_LINES` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 43)
-- `HAIKU_LINE_MAX_WORDS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 44)
-- `HAIKU_LINE_MAX_CHARS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 45)
-- `MAX_DIGEST_CONCEPTS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 46)
-- `MAX_DIGEST_CLAIMS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 47)
-- `MAX_DIGEST_LEARNING_OBJECTS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 48)
-- `MAX_DIGEST_ITEM_CHARS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 49)
-- `MAX_SUMMARY_CHARS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 50)
-- `RECENT_FOR_DEDUPE` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 51)
-- `RECENT_IN_PROMPT` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 52)
-- `_BRIEF_KEYS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 53)
-- `_WRAPPING_QUOTES` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 54)
-- `_MARKDOWN_LEAD` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 55)
-- `_ATTRIBUTION_TAIL` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 57)
-- `_WHITESPACE` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 58)
+- `EPIGRAPH_PURPOSE` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 39)
+- `EPIGRAPHS_PER_SYNTHESIS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 40)
+- `EPIGRAPH_KINDS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 41)
+- `QUOTE_MAX_WORDS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 42)
+- `QUOTE_MAX_CHARS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 43)
+- `HAIKU_LINES` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 44)
+- `HAIKU_LINE_MAX_WORDS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 45)
+- `HAIKU_LINE_MAX_CHARS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 46)
+- `MAX_DIGEST_CONCEPTS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 47)
+- `MAX_DIGEST_CLAIMS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 48)
+- `MAX_DIGEST_LEARNING_OBJECTS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 49)
+- `MAX_DIGEST_ITEM_CHARS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 50)
+- `MAX_SUMMARY_CHARS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 51)
+- `RECENT_FOR_DEDUPE` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 52)
+- `RECENT_IN_PROMPT` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 53)
+- `_BRIEF_KEYS` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 54)
+- `_WRAPPING_QUOTES` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 55)
+- `_MARKDOWN_LEAD` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 56)
+- `_ATTRIBUTION_TAIL` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 58)
+- `_WHITESPACE` ([src/learnloop/content/synthesis/vault_epigraphs.py](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 59)
 
 ### Explicit exports
 
@@ -93,21 +94,22 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `EPIGRAPH_PURPOSE`
 - `digest_for_append`
 - `digest_from_proposal_rows`
+- `epigraph_checkpoint`
 - `generate_vault_epigraphs`
 - `normalize_epigraph`
 - `request_vault_epigraphs`
 
 ## Internal implementation anchors
 
-- `_field_of(entries: Any, key: str) -> list[Any]` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 140)
-- `_digest(summary: Any, concepts: list[Any], claims: list[Any], learning_objects: list[Any]) -> ContentDigest` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 144)
-- `_bounded(values: Iterable[Any], cap: int) -> list[str]` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 153)
-- `_collapse(text: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 168)
-- `_rejected_line(line: str) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 208)
-- `_dedupe_key(text: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 219)
-- `_generate(repository: Repository, vault: LoadedVault, client: Any, *, subject_id: str, source_set_id: str | None, synthesis_run_id: str | None, mode: str, digest: ContentDigest, brief: Mapping[str, Any] | None, clock: Clock | None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 258)
-- `_subject_title(vault: LoadedVault, subject_id: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 339)
-- `_source_set_title(vault: LoadedVault, source_set_id: str | None) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 345)
+- `_field_of(entries: Any, key: str) -> list[Any]` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 153)
+- `_digest(summary: Any, concepts: list[Any], claims: list[Any], learning_objects: list[Any]) -> ContentDigest` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 157)
+- `_bounded(values: Iterable[Any], cap: int) -> list[str]` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 166)
+- `_collapse(text: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 181)
+- `_rejected_line(line: str) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 221)
+- `_dedupe_key(text: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 232)
+- `_generate(repository: Repository, vault: LoadedVault, client: Any, *, subject_id: str, source_set_id: str | None, synthesis_run_id: str | None, mode: str, digest: ContentDigest, brief: Mapping[str, Any] | None, clock: Clock | None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 271)
+- `_subject_title(vault: LoadedVault, subject_id: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 356)
+- `_source_set_title(vault: LoadedVault, source_set_id: str | None) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/vault_epigraphs.py), line 362)
 
 ## Who imports or calls it
 
@@ -121,6 +123,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `ModelCheckpoint`, `checkpointed`, `model_settings`; calls `checkpointed`, `model_settings`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `StructuredTransport`, `execute_structured_operation`; calls `execute_structured_operation`
 - [[Reference/Modules/learnloop/ai/usage|learnloop.ai.usage]] — imports `consume_client_usage`; calls `consume_client_usage`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
@@ -145,6 +148,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_structured_transport_parity.py](../../../../../../../tests/test_structured_transport_parity.py) — direct import
 - [tests/test_vault_epigraphs.py](../../../../../../../tests/test_vault_epigraphs.py) — direct import
   - `test_digest_caps_dedupes_and_truncates`

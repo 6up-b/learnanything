@@ -1189,7 +1189,6 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `Repository`
 - [[Reference/Modules/learnloop/content/pipeline/revision_refresh|learnloop.content.pipeline.revision_refresh]] — imports `Repository`
 - [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `Repository`
-- [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `Repository`
 - [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]] — imports `Repository`
 - [[Reference/Modules/learnloop/content/proposals/conflict_resolution|learnloop.content.proposals.conflict_resolution]] — imports `Repository`
 - [[Reference/Modules/learnloop/content/proposals/method_phrasing|learnloop.content.proposals.method_phrasing]] — imports `Repository`
@@ -2683,6 +2682,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rebuild_moves_only_learning_objects_with_model_graded_attempts`
 - [tests/test_model_usage_report.py](../../../../../../tests/test_model_usage_report.py) — direct import
 - [tests/test_model_work_checkpoints.py](../../../../../../tests/test_model_work_checkpoints.py) — direct import
+  - `test_a_retry_after_a_structuring_pass_reads_its_checkpoint`
   - `test_ingest_job_and_direct_inventory_key_windows_identically`
   - `test_inventory_window_checkpoint_that_no_longer_validates_is_discarded`
 - [tests/test_notes_linked.py](../../../../../../tests/test_notes_linked.py) — direct import

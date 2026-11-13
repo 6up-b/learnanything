@@ -63,7 +63,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/content/synthesis/__init__|learnloop.content.synthesis]] | [[Reference/Modules/learnloop/content/synthesis/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/content/synthesis/ai_contracts|learnloop.content.synthesis.ai_contracts]] | [[Reference/Modules/learnloop/content/synthesis/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 5 | 33 |
+| [[Reference/Modules/learnloop/content/synthesis/ai_contracts|learnloop.content.synthesis.ai_contracts]] | [[Reference/Modules/learnloop/content/synthesis/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 5 | 34 |
 | [[Reference/Modules/learnloop/content/synthesis/append_neighborhood|learnloop.content.synthesis.append_neighborhood]] | [[Reference/Modules/learnloop/content/synthesis/append_neighborhood#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/content/synthesis/brief|learnloop.content.synthesis.brief]] | [[Reference/Modules/learnloop/content/synthesis/brief#^module-purpose|purpose]] | `ACTIVE` | 7 | 1 |
 | [[Reference/Modules/learnloop/content/synthesis/coverage_rollup|learnloop.content.synthesis.coverage_rollup]] | [[Reference/Modules/learnloop/content/synthesis/coverage_rollup#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
@@ -81,14 +81,14 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/synthesis/synthesis_eval|learnloop.content.synthesis.synthesis_eval]] | [[Reference/Modules/learnloop/content/synthesis/synthesis_eval#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/content/synthesis/synthesis_gates|learnloop.content.synthesis.synthesis_gates]] | [[Reference/Modules/learnloop/content/synthesis/synthesis_gates#^module-purpose|purpose]] | `ACTIVE` | 9 | 9 |
 | [[Reference/Modules/learnloop/content/synthesis/synthesis_manifests|learnloop.content.synthesis.synthesis_manifests]] | [[Reference/Modules/learnloop/content/synthesis/synthesis_manifests#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
-| [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs|learnloop.content.synthesis.vault_epigraphs]] | [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
+| [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs|learnloop.content.synthesis.vault_epigraphs]] | [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 26 static module edges
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 19 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 20 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 12 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 11 static module edges
 - [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 9 static module edges
@@ -133,7 +133,7 @@ flowchart LR
     n_learnloop_content_pipeline["learnloop.content.pipeline"]
     n_learnloop_ingest["learnloop.ingest"]
     center -->|26| n_learnloop_vault
-    center -->|19| n_learnloop_ai
+    center -->|20| n_learnloop_ai
     n_learnloop_content_facet_identity -->|6| center
     center -->|9| n_learnloop_content_facet_identity
     n_learnloop -->|1| center

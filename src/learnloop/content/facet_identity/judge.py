@@ -56,11 +56,13 @@ from pydantic import Field, ValidationError
 from learnloop.ai.decisions import ChoiceQuestion
 from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIOutputTruncated, AIProviderUnavailable
 from learnloop.ai.execution import (
+    ModelCheckpoint,
     call_labels,
     content_key,
     generation_limit,
     model_settings,
     observe_model_calls,
+    request_key,
     requested_reasoning_effort,
     single_request,
 )
@@ -708,17 +710,24 @@ class LLMGroupJudge:
         }
 
     def checkpoint_key(self, request: GroupRequest) -> str:
-        # The output budget (and a requested effort) is part of the request's
-        # identity, as everywhere under the policy: an answer produced under
+        # Unlike other request keys, this one carries the output budget (and a
+        # requested effort): a verdict cut short under a smaller budget can
+        # still validate, as a shorter partition, so an answer produced under
         # another budget is not replayed for this one.
-        identity: dict[str, Any] = {
-            "purpose": PURPOSE, "prompt": request.prompt,
-            "schema": FacetPartitionVerdict.model_json_schema(), "settings": self.settings,
-            "output_tokens": self.output_tokens,
-        }
+        extra: dict[str, Any] = {"output_tokens": self.output_tokens}
         if self.reasoning_effort:
-            identity["reasoning_effort"] = self.reasoning_effort
-        return content_key(identity)
+            extra["reasoning_effort"] = self.reasoning_effort
+        return request_key(
+            purpose=PURPOSE, prompt=request.prompt, schema=FacetPartitionVerdict.model_json_schema(),
+            settings=self.settings, identity_extra=extra,
+        )
+
+    def _checkpoint(self, request: GroupRequest) -> ModelCheckpoint[tuple[FacetPartitionVerdict, str]]:
+        def read(stored: Any) -> tuple[FacetPartitionVerdict, str]:
+            return (FacetPartitionVerdict.model_validate(stored["verdict"]),
+                    str(stored.get("judge_model") or self.model or ""))
+
+        return ModelCheckpoint(self.repository, self.checkpoint_key(request), PURPOSE, read)
 
     def run(self, requests: Sequence[GroupRequest]) -> list[GroupOutcome]:
         outcomes: list[GroupOutcome] = []
@@ -757,18 +766,12 @@ class LLMGroupJudge:
             if stopped is not None:
                 outcomes.append(GroupOutcome(request, "not_run", judge=self.judge, judge_model=self.model, error=stopped))
                 continue
-            key = self.checkpoint_key(request)
-            checkpoint = self.repository.model_checkpoint(key)
-            if checkpoint is not None:
-                try:
-                    stored = checkpoint["result"]
-                    verdict = FacetPartitionVerdict.model_validate(stored["verdict"])
-                    model = str(stored.get("judge_model") or self.model or "")
-                except (ValidationError, KeyError, TypeError):
-                    self.repository.discard_model_checkpoint(key)
-                else:
-                    outcomes.append(self._finish(request, verdict, model, status="reused"))
-                    continue
+            checkpoint = self._checkpoint(request)
+            saved = checkpoint.load()
+            if saved is not None:
+                verdict, model = saved
+                outcomes.append(self._finish(request, verdict, model, status="reused"))
+                continue
             attempts = 0
             truncation = TruncationRetry(self.output_tokens, role=ROUTE, provider=self.provider, model=self.model,
                                          owner_kind=OWNER_KIND, owner_id=self.owner_id,
@@ -832,10 +835,9 @@ class LLMGroupJudge:
                                                  error=type(exc).__name__))
                     break
                 model = str(usage.get("resolved_model") or self.model or self.provider)
-                self.repository.save_model_checkpoint(
-                    key, purpose=PURPOSE,
-                    result={"verdict": verdict.model_dump(mode="json"), "judge_model": model},
-                    usage={"input_tokens": usage.get("input_tokens"), "output_tokens": usage.get("output_tokens")},
+                checkpoint.save(
+                    {"verdict": verdict.model_dump(mode="json"), "judge_model": model},
+                    {"input_tokens": usage.get("input_tokens"), "output_tokens": usage.get("output_tokens")},
                 )
                 outcomes.append(self._finish(request, verdict, model, status="judged"))
                 break
@@ -978,24 +980,22 @@ class DeciderGroupJudge:
             "options": DECIDER_OPTIONS, "model": self.model,
         })
 
-    def _stored_choices(self, request: GroupRequest) -> tuple[dict[tuple[str, str], tuple[str, Mapping[str, float]]], str] | None:
-        key = self.checkpoint_key(request)
-        checkpoint = self.repository.model_checkpoint(key)
-        if checkpoint is None:
-            return None
-        try:
-            stored = checkpoint["result"]
+    def _checkpoint(
+        self, request: GroupRequest,
+    ) -> ModelCheckpoint[tuple[dict[tuple[str, str], tuple[str, Mapping[str, float]]], str]]:
+        """The group's saved answers; one that does not answer exactly this
+        group's pairs no longer reads."""
+
+        wanted = {(left.key, right.key) for left, right in request.pairs()}
+
+        def read(stored: Any) -> tuple[dict[tuple[str, str], tuple[str, Mapping[str, float]]], str]:
             choices = {(str(first), str(second)): (str(choice), dict(probs))
                        for first, second, choice, probs in stored["choices"]}
-            model = str(stored.get("judge_model") or self.model or "")
-        except (KeyError, TypeError, ValueError):
-            self.repository.discard_model_checkpoint(key)
-            return None
-        wanted = {(left.key, right.key) for left, right in request.pairs()}
-        if set(choices) != wanted:
-            self.repository.discard_model_checkpoint(key)
-            return None
-        return choices, model
+            if set(choices) != wanted:
+                raise ValueError("the saved answers are for other pairs")
+            return choices, str(stored.get("judge_model") or self.model or "")
+
+        return ModelCheckpoint(self.repository, self.checkpoint_key(request), PURPOSE, read)
 
     def _observer(self, request: GroupRequest, tokens: int) -> Callable[[str, dict[str, Any]], None]:
         """Receipts for the Decider's paid calls, owned like the LLM judge's."""
@@ -1022,7 +1022,8 @@ class DeciderGroupJudge:
                                              prompt_version=self.prompt_version, error=stopped))
                 continue
             # A rerun reuses the answers and their ledger rows (review F8).
-            stored = self._stored_choices(request)
+            checkpoint = self._checkpoint(request)
+            stored = checkpoint.load()
             if stored is not None:
                 choices, model = stored
                 outcomes.append(self._finish(request, choices, model, status="reused"))
@@ -1067,12 +1068,9 @@ class DeciderGroupJudge:
                 outcomes.append(GroupOutcome(request, "failed", judge=self.judge, judge_model=model or None,
                                              prompt_version=self.prompt_version, error=type(exc).__name__))
                 continue
-            self.repository.save_model_checkpoint(
-                self.checkpoint_key(request), purpose=PURPOSE,
-                result={"choices": [[first, second, choice, dict(probs)]
-                                    for (first, second), (choice, probs) in sorted(choices.items())],
-                        "judge_model": model},
-            )
+            checkpoint.save({"choices": [[first, second, choice, dict(probs)]
+                                         for (first, second), (choice, probs) in sorted(choices.items())],
+                             "judge_model": model})
             outcomes.append(self._finish(request, choices, model, status="judged"))
         return outcomes
 

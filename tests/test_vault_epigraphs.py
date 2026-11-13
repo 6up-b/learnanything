@@ -187,6 +187,35 @@ def test_generate_survives_a_repository_failure(tmp_path, monkeypatch):
     assert _generate(repo, vault, FakeClient()) == []
 
 
+def test_a_retry_after_a_lost_insert_reads_the_paid_batch(tmp_path, monkeypatch):
+    vault, repo = _setup(tmp_path)
+    client = FakeClient()
+
+    def boom(**_kwargs):
+        raise sqlite3.OperationalError("disk full")
+
+    monkeypatch.setattr(repo, "insert_vault_epigraphs", boom)
+    assert _generate(repo, vault, client) == []
+    monkeypatch.undo()
+
+    rows = _generate(repo, vault, client)
+
+    assert len(client.calls) == 1
+    assert len(rows) == 3
+
+
+def test_a_batch_with_nothing_valid_is_not_replayed(tmp_path):
+    vault, repo = _setup(tmp_path)
+    client = FakeClient(VaultEpigraphBatch(epigraphs=[VaultEpigraph(kind="quote", lines=["- a bullet point"])]))
+
+    assert _generate(repo, vault, client) == []
+    client.batch = GOOD
+    rows = _generate(repo, vault, client)
+
+    assert len(client.calls) == 2
+    assert len(rows) == 3
+
+
 def test_generate_drains_client_usage_even_when_the_call_fails(tmp_path):
     vault, repo = _setup(tmp_path)
     ok = FakeClient()

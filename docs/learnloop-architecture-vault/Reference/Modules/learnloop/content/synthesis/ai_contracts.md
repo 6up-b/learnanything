@@ -224,6 +224,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_evidence_followup_keeps_the_full_inventory_in_its_cached_prefix`
 - [tests/test_inventory_choice.py](../../../../../../../tests/test_inventory_choice.py) — direct import
   - `test_a_row_under_the_current_prompt_label_beats_an_older_label`
+- [tests/test_model_work_checkpoints.py](../../../../../../../tests/test_model_work_checkpoints.py) — direct import
 - [tests/test_openai_chat_client.py](../../../../../../../tests/test_openai_chat_client.py) — direct import
   - `test_extended_method_repairs_invalid_json_once`
 - [tests/test_required_method_items.py](../../../../../../../tests/test_required_method_items.py) — direct import
@@ -261,6 +262,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_prompts_say_criterion_depends_on_names_sibling_criteria_only`
 - [tests/test_ux_phase1_usability_round1.py](../../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
 - [tests/test_vault_epigraphs.py](../../../../../../../tests/test_vault_epigraphs.py) — direct import
+  - `test_a_batch_with_nothing_valid_is_not_replayed`
   - `test_generate_drops_invalid_items_and_in_batch_duplicates`
   - `test_generate_persists_three_rows_with_stamps`
   - `test_prompt_round_trips_through_the_structured_fake`

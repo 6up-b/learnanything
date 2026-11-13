@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/authoring/persona_gate.py](../../../../../../../src/learnloop/content/authoring/persona_gate.py) |
-| Source lines | 1629 |
+| Source lines | 1643 |
 | Owning package | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -71,36 +71,36 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `class PersonaGateReason(StrEnum)` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 423) — Closed vocabulary of *why*.
 - `class SeparationVerdict` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 508) — Whether one item's personas separate, with the trials that decided it.
   - `as_dict(self) -> dict[str, Any]` (line 516; public)
-- `separation_verdict(*, expected_answer: str, personas: Sequence[Persona], require_keyed_detector: bool, has_keyed_detector: bool, grading_client: Any=None, fire_context: Mapping[str, Any] | None=None) -> SeparationVerdict` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 558) — §3.0's single question, asked over one item's personas.
-- `declares_error_count(prompt: str) -> bool` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 636) — Does this prompt tell the learner how many errors to look for?
-- `error_hunt_verdict(payload: Mapping[str, Any], *, personas: Sequence[Persona], vault: LoadedVault, repository: Repository | None=None, grading_client: Any=None) -> SeparationVerdict` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 711) — §3.0's separation question, asked the way an A3 item answers it.
-- `build_personas(payload: Mapping[str, Any], *, vault: LoadedVault, repository: Repository | None=None) -> tuple[Persona, ...]` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 833) — Plant the personas §3.0 needs from whatever the payload/registry supplies.
-- `class PersonaGateOutcome` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 955) — One row's typed gate outcome — the thing persisted into ``audit_json``.
-  - `gated(self) -> bool` (line 971; public) — Did the gate make a prediction about this item?
-  - `as_dict(self) -> dict[str, Any]` (line 980; public)
-- `class PersonaGate` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 1001) — §3.0 as a ``row_transform`` over persisted proposal rows (plan item 5.3).
-  - `__init__(self, vault: LoadedVault, repository: Repository | None=None, *, grading_client: Any=None) -> None` (line 1011; internal)
-  - `blocked(self) -> list[PersonaGateOutcome]` (line 1025; public)
-  - `flagged(self) -> list[PersonaGateOutcome]` (line 1029; public)
-  - `violations(self) -> list[str]` (line 1033; public) — Hard-tier failures, in ``_RungGate``'s ``"<ref>: <message>"`` shape.
-  - `warnings(self) -> list[str]` (line 1042; public)
-  - `summary(self) -> dict[str, Any]` (line 1048; public)
-  - `__call__(self, rows: list[dict[str, Any]]) -> None` (line 1065; internal)
-  - `_is_authored_item(row: Mapping[str, Any]) -> bool` (line 1099; internal)
-  - `_apply(self, row: dict[str, Any], outcome: PersonaGateOutcome) -> None` (line 1106; internal)
-  - `persona_generator_family(self) -> str | None` (line 1111; public) — B3 family identity of whatever authored the personas being gated.
-  - `_licenses_this_gate(self, row: Mapping[str, Any]) -> bool` (line 1131; internal) — Is this B2 run a license for the material THIS gate is judging?
-  - `_authored_signature_runs(self, outcome: PersonaGateOutcome) -> tuple[list[Mapping[str, Any]], PersonaGateOutcome | None]` (line 1159; internal) — Read the B2 ledger.
-  - `_apply_realism_license(self, outcome: PersonaGateOutcome) -> PersonaGateOutcome` (line 1189; internal) — B2 licenses a pass, or invalidates it when personas are separable.
-  - `_judge_contrast_pair(self, key: str, members: Sequence[Mapping[str, Any]]) -> list[PersonaGateOutcome]` (line 1265; internal) — §3.0's A4 clause: the belief-holder must fail EXACTLY one member.
-  - `_pair_outcome(row: Mapping[str, Any], decision: GateDecision, verdict: SeparationVerdict) -> PersonaGateOutcome` (line 1347; internal)
-  - `judge(self, payload: Mapping[str, Any], *, client_item_id: str='item') -> PersonaGateOutcome` (line 1362; public) — Judge one payload.
-  - `_decide(instrument_class: InstrumentClass, tier: GateTier, verdict: SeparationVerdict) -> GateDecision` (line 1421; internal) — Map a separation verdict onto a route decision, given the tier.
-  - `_record(row: dict[str, Any], outcome: PersonaGateOutcome) -> None` (line 1438; internal) — Persist the typed outcome onto the row (audit + route), never log-only.
-- `class GatePrecisionRow` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 1470) — One persisted gate outcome, joined to the reviewer's later decision.
-  - `gated(self) -> bool` (line 1484; public)
-- `gate_precision(repository: Repository, *, blinded_labels: Mapping[str, bool] | None=None, since: str | None=None) -> Metric` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 1488) — ``persona_gate_precision``: of the items the gate blocked or flagged, how many were genuinely bad.
-- `persona_gate_rows(repository: Repository, *, since: str | None=None) -> list[GatePrecisionRow]` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 1611) — Every persisted persona-gate outcome, joined to its reviewer decision.
+- `separation_verdict(*, expected_answer: str, personas: Sequence[Persona], require_keyed_detector: bool, has_keyed_detector: bool, grading_client: Any=None, fire_context: Mapping[str, Any] | None=None, checkpoints: Any=None) -> SeparationVerdict` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 563) — §3.0's single question, asked over one item's personas.
+- `declares_error_count(prompt: str) -> bool` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 644) — Does this prompt tell the learner how many errors to look for?
+- `error_hunt_verdict(payload: Mapping[str, Any], *, personas: Sequence[Persona], vault: LoadedVault, repository: Repository | None=None, grading_client: Any=None) -> SeparationVerdict` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 719) — §3.0's separation question, asked the way an A3 item answers it.
+- `build_personas(payload: Mapping[str, Any], *, vault: LoadedVault, repository: Repository | None=None) -> tuple[Persona, ...]` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 844) — Plant the personas §3.0 needs from whatever the payload/registry supplies.
+- `class PersonaGateOutcome` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 966) — One row's typed gate outcome — the thing persisted into ``audit_json``.
+  - `gated(self) -> bool` (line 982; public) — Did the gate make a prediction about this item?
+  - `as_dict(self) -> dict[str, Any]` (line 991; public)
+- `class PersonaGate` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 1012) — §3.0 as a ``row_transform`` over persisted proposal rows (plan item 5.3).
+  - `__init__(self, vault: LoadedVault, repository: Repository | None=None, *, grading_client: Any=None) -> None` (line 1022; internal)
+  - `blocked(self) -> list[PersonaGateOutcome]` (line 1036; public)
+  - `flagged(self) -> list[PersonaGateOutcome]` (line 1040; public)
+  - `violations(self) -> list[str]` (line 1044; public) — Hard-tier failures, in ``_RungGate``'s ``"<ref>: <message>"`` shape.
+  - `warnings(self) -> list[str]` (line 1053; public)
+  - `summary(self) -> dict[str, Any]` (line 1059; public)
+  - `__call__(self, rows: list[dict[str, Any]]) -> None` (line 1076; internal)
+  - `_is_authored_item(row: Mapping[str, Any]) -> bool` (line 1110; internal)
+  - `_apply(self, row: dict[str, Any], outcome: PersonaGateOutcome) -> None` (line 1117; internal)
+  - `persona_generator_family(self) -> str | None` (line 1122; public) — B3 family identity of whatever authored the personas being gated.
+  - `_licenses_this_gate(self, row: Mapping[str, Any]) -> bool` (line 1142; internal) — Is this B2 run a license for the material THIS gate is judging?
+  - `_authored_signature_runs(self, outcome: PersonaGateOutcome) -> tuple[list[Mapping[str, Any]], PersonaGateOutcome | None]` (line 1170; internal) — Read the B2 ledger.
+  - `_apply_realism_license(self, outcome: PersonaGateOutcome) -> PersonaGateOutcome` (line 1200; internal) — B2 licenses a pass, or invalidates it when personas are separable.
+  - `_judge_contrast_pair(self, key: str, members: Sequence[Mapping[str, Any]]) -> list[PersonaGateOutcome]` (line 1276; internal) — §3.0's A4 clause: the belief-holder must fail EXACTLY one member.
+  - `_pair_outcome(row: Mapping[str, Any], decision: GateDecision, verdict: SeparationVerdict) -> PersonaGateOutcome` (line 1360; internal)
+  - `judge(self, payload: Mapping[str, Any], *, client_item_id: str='item') -> PersonaGateOutcome` (line 1375; public) — Judge one payload.
+  - `_decide(instrument_class: InstrumentClass, tier: GateTier, verdict: SeparationVerdict) -> GateDecision` (line 1435; internal) — Map a separation verdict onto a route decision, given the tier.
+  - `_record(row: dict[str, Any], outcome: PersonaGateOutcome) -> None` (line 1452; internal) — Persist the typed outcome onto the row (audit + route), never log-only.
+- `class GatePrecisionRow` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 1484) — One persisted gate outcome, joined to the reviewer's later decision.
+  - `gated(self) -> bool` (line 1498; public)
+- `gate_precision(repository: Repository, *, blinded_labels: Mapping[str, bool] | None=None, since: str | None=None) -> Metric` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 1502) — ``persona_gate_precision``: of the items the gate blocked or flagged, how many were genuinely bad.
+- `persona_gate_rows(repository: Repository, *, since: str | None=None) -> list[GatePrecisionRow]` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 1625) — Every persisted persona-gate outcome, joined to its reviewer decision.
 
 ### Module constants
 
@@ -110,21 +110,21 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `DIAGNOSTIC_INSTRUMENT_CLASSES` ([src/learnloop/content/authoring/persona_gate.py](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 214)
 - `_A_CLASS_TOKENS` ([src/learnloop/content/authoring/persona_gate.py](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 221)
 - `CONTRAST_PAIR_TAG_PREFIX` ([src/learnloop/content/authoring/persona_gate.py](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 259)
-- `_REGISTRY_PLANT_SOURCES` ([src/learnloop/content/authoring/persona_gate.py](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 620)
-- `_ERROR_COUNT_PATTERNS` ([src/learnloop/content/authoring/persona_gate.py](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 628)
-- `GATE_PRECISION_METRIC` ([src/learnloop/content/authoring/persona_gate.py](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 1466)
+- `_REGISTRY_PLANT_SOURCES` ([src/learnloop/content/authoring/persona_gate.py](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 628)
+- `_ERROR_COUNT_PATTERNS` ([src/learnloop/content/authoring/persona_gate.py](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 636)
+- `GATE_PRECISION_METRIC` ([src/learnloop/content/authoring/persona_gate.py](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 1480)
 
 ## Internal implementation anchors
 
 - `_rubric_of(payload: Mapping[str, Any]) -> Mapping[str, Any] | None` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 236)
 - `_fatal_errors_of(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 241)
 - `_keyed_misconception_ids(payload: Mapping[str, Any]) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 248)
-- `_fires(answer: str, *, expected: str, grading_client: Any=None, fire_context: Mapping[str, Any] | None=None) -> bool` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 525) — Grade one persona answer in memory.
-- `_plant_holder(plant: Mapping[str, Any], *, vault: LoadedVault, repository: Repository | None, personas: Sequence[Persona]) -> Persona | None` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 652) — The persona who holds the belief THIS plant was drawn from, or ``None``.
-- `_facet_error_signatures(vault: LoadedVault, facet_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 826)
-- `_expected_text(payload: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 937)
-- `_ref(row: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 944)
-- `_tally(values: Iterable[str]) -> dict[str, int]` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 1604)
+- `_fires(answer: str, *, expected: str, grading_client: Any=None, fire_context: Mapping[str, Any] | None=None, checkpoints: Any=None, trial: str='') -> bool` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 525) — Grade one persona answer in memory.
+- `_plant_holder(plant: Mapping[str, Any], *, vault: LoadedVault, repository: Repository | None, personas: Sequence[Persona]) -> Persona | None` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 660) — The persona who holds the belief THIS plant was drawn from, or ``None``.
+- `_facet_error_signatures(vault: LoadedVault, facet_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 837)
+- `_expected_text(payload: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 948)
+- `_ref(row: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 955)
+- `_tally(values: Iterable[str]) -> dict[str, int]` ([source](../../../../../../../src/learnloop/content/authoring/persona_gate.py), line 1618)
 
 ## Who imports or calls it
 

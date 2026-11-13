@@ -11,10 +11,8 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Callable, Literal
 
-from pydantic import ValidationError
-
 from learnloop.ai.client import AIProviderClient
-from learnloop.ai.execution import content_key
+from learnloop.ai.execution import ModelCheckpoint, request_key
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.config import PdfIngestConfig
 from learnloop.content.pipeline.ai_contracts import (
@@ -27,7 +25,6 @@ from learnloop.content.pipeline.ai_contracts import (
 )
 from learnloop.ai.transport import execute_structured_operation
 from learnloop.content.proposals.ai_contracts import AuthoringProposal
-from learnloop.db.repositories import Repository
 from learnloop.vault.repository import vault_repository
 from learnloop.ids import kebab_case, new_ulid, snake_case
 from learnloop.ingest.models import UnsupportedSourceError
@@ -42,6 +39,7 @@ from learnloop.vault_lock import vault_mutation_lock
 
 KindOption = Literal["auto", "website_page", "youtube_video", "arxiv_html", "textbook_chapter"]
 IngestProgress = Callable[[str, dict[str, Any]], None]
+LEGACY_WINDOW_PURPOSE = "legacy_ingest_window"
 
 
 def request_canonical_ingest(
@@ -499,16 +497,31 @@ def _run_ingest_windows(
             target_learning_object_ids=target_learning_object_ids,
             instructions=instructions,
         )
-        key = content_key({"purpose": "legacy_ingest_window", "prompt": canonical_ingest_prompt(context), "schema": AuthoringProposal.model_json_schema(), "provider": getattr(client, "provider_name", None), "model": getattr(client, "model", None)})
-        proposal = _checkpointed_window_proposal(repository, key)
-        if proposal is None:
+        checkpoint = ModelCheckpoint(
+            repository, legacy_window_key(context, client), LEGACY_WINDOW_PURPOSE, AuthoringProposal.model_validate,
+        )
+
+        def call(context=context, window=window) -> AuthoringProposal:
             if usage is not None:
                 usage["calls"] = usage.get("calls", 0) + 1
             proposal = request_canonical_ingest(client, context)
-            proposal = _proposal_with_locator_validation(proposal, registered, window)
-            repository.save_model_checkpoint(key, purpose="legacy_ingest_window", result=proposal.model_dump(mode="json"))
+            return _proposal_with_locator_validation(proposal, registered, window)
+
+        proposal, _reused = checkpoint.answer(call)
         proposals.append(proposal)
     return merge_window_proposals(proposals)
+
+
+def legacy_window_key(context: Any, client: Any) -> str:
+    """Checkpoint identity of one legacy ingest window: the request key of the
+    rendered prompt and schema, with the provider and model in place of the
+    client settings (an older shape, kept for its bytes)."""
+
+    return request_key(
+        purpose=LEGACY_WINDOW_PURPOSE, prompt=canonical_ingest_prompt(context),
+        schema=AuthoringProposal.model_json_schema(),
+        identity_extra={"provider": getattr(client, "provider_name", None), "model": getattr(client, "model", None)},
+    )
 
 
 def _report_progress(progress: IngestProgress | None, phase: str, **details: Any) -> None:
@@ -1067,19 +1080,6 @@ def _register_canonical_source_locked(
         subject_id=subject_id,
         canonical_source=canonical_source,
     )
-
-
-def _checkpointed_window_proposal(repository: Repository, key: str) -> AuthoringProposal | None:
-    """Return a window's saved proposal, discarding one that no longer validates."""
-
-    checkpoint = repository.model_checkpoint(key)
-    if checkpoint is None:
-        return None
-    try:
-        return AuthoringProposal.model_validate(checkpoint["result"])
-    except ValidationError:
-        repository.discard_model_checkpoint(key)
-        return None
 
 
 def merge_window_proposals(proposals: list[AuthoringProposal]) -> AuthoringProposal:
