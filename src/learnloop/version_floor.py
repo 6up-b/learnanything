@@ -23,6 +23,11 @@ register it through ``tests/helpers.py``'s ``allow_below_floor``, the only
 caller of :func:`allow_below_floor_in_tests` (``tests/test_version_floor.py``
 pins that nothing in ``src/`` or ``scripts/`` calls it).
 
+The route is ``pre-floor``'s ``learnloop upgrade`` alone: at that tag only the upgrade opens a vault below the
+floor, so no other command it might ask for first can run there. The one link that asks for one is mvp-0.12's
+same-cause guard (``recurrence guard``) when ``recurrence.require_guard`` is true; the refusal then names the
+tag's documented switch that makes the guard advisory.
+
 This module is a leaf: it imports only ``algorithm_versions``.
 """
 
@@ -32,7 +37,7 @@ import re
 import shlex
 from pathlib import Path
 
-from learnloop.algorithm_versions import OLDEST_SUPPORTED
+from learnloop.algorithm_versions import OLDEST_SUPPORTED, RECURRENCE_GROUP_ALGORITHM_VERSION
 
 _TAG = re.compile(r"^mvp-0\.(\d+)$")
 
@@ -91,15 +96,32 @@ def upgrade_commands(vault_root: Path, tag: str | None) -> tuple[str, ...]:
     return (f"git worktree add {_PRE_FLOOR_WORKTREE} {PRE_FLOOR_TAG}", *steps, f"{upgrade} --vault {root}")
 
 
+#: ``pre-floor``'s link to this tag refuses until the same-cause guard passes when ``recurrence.require_guard`` is
+#: true, and asks for ``learnloop recurrence guard``, which there (as here) refuses a vault below the floor: only
+#: ``learnloop upgrade`` opens one. The tag's own documented switch makes the guard advisory.
+_GUARDED_TAG = RECURRENCE_GROUP_ALGORITHM_VERSION
+_GUARD_ROUTE = (
+    f" Its config sets recurrence.require_guard = true, so {PRE_FLOOR_TAG}'s upgrade refuses at {_GUARDED_TAG} "
+    "until the same-cause guard passes, and `learnloop recurrence guard` cannot run on a vault below the floor "
+    f"there or here: set `recurrence.require_guard = false` under [recurrence] (the default) first, and the "
+    "upgrade reports the guard's status instead of refusing."
+)
+
+
 class BelowOldestSupported(RuntimeError):
     """A vault (or an unfinished upgrade's journal) below the oldest supported tag: it is not opened."""
 
-    def __init__(self, vault_root: Path, tag: str | None, *, journal: tuple[str, str] | None = None) -> None:
+    def __init__(self, vault_root: Path, tag: str | None, *, journal: tuple[str, str] | None = None,
+                 guard_required: bool = False) -> None:
         self.vault_root = Path(vault_root)
         self.tag = tag
         self.floor = OLDEST_SUPPORTED
         self.journal = journal
-        self.commands = upgrade_commands(self.vault_root, tag if journal is None else journal[0])
+        start = tag if journal is None else journal[0]
+        self.commands = upgrade_commands(self.vault_root, start)
+        # Only a route that crosses the guarded link meets the guard.
+        self.guard_gates_route = guard_required and (start is None or _number(start) is None
+                                                     or _number(start) < _number(_GUARDED_TAG))  # type: ignore[operator]
         super().__init__(self._message())
 
     def _message(self) -> str:
@@ -107,7 +129,7 @@ class BelowOldestSupported(RuntimeError):
         route = (
             f"This LearnLoop has no upgrade below {self.floor}; the code tagged {PRE_FLOOR_TAG} has it. In your "
             f"LearnLoop checkout, run {then}; then open the vault here."
-        )
+        ) + (_GUARD_ROUTE if self.guard_gates_route else "")
         if self.journal is not None:
             predecessor, target = self.journal
             return (
@@ -140,7 +162,9 @@ def refuse_below_floor(vault_root: Path, config) -> None:
     # The field has a default for configs built in code; a vault's file must say which tag it is at.
     tag = algorithms.algorithm_version if "algorithm_version" in algorithms.model_fields_set else None
     if is_below_floor(tag) and not may_open_below_floor(vault_root):
-        raise BelowOldestSupported(Path(vault_root).resolve(), tag)
+        recurrence = getattr(config, "recurrence", None)
+        raise BelowOldestSupported(Path(vault_root).resolve(), tag,
+                                   guard_required=bool(getattr(recurrence, "require_guard", False)))
 
 
 def refuse_journal_below_floor(vault_root: Path, predecessor: str, target: str) -> None:

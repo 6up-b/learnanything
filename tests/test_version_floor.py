@@ -206,6 +206,31 @@ def test_a_vault_below_the_floor_is_refused_at_each_door(tmp_path, door):
     _assert_names_the_three_parts(message, root.resolve(), BELOW)
 
 
+GUARD_ROUTE = "set `recurrence.require_guard = false`"
+
+
+@pytest.mark.parametrize(("tag", "require_guard", "named"), [
+    ("mvp-0.11", True, True),     # pre-floor's mvp-0.12 link refuses until the guard passes
+    ("mvp-0.11", False, False),   # the guard is advisory there: nothing to do first
+    (BELOW, True, False),         # already past mvp-0.12: the guard gates nothing on the route
+])
+def test_the_route_names_what_works_at_pre_floor_for_a_required_guard(tmp_path, tag, require_guard, named):
+    # At pre-floor only `learnloop upgrade` opens a vault below the floor, so the `recurrence guard` its mvp-0.12
+    # refusal asks for cannot run there (nor here); the tag's documented key makes the guard advisory.
+    paths = create_basic_vault(tmp_path / "vault")
+    _retag(paths.root, tag)
+    config = paths.root / "learnloop.toml"
+    config.write_text(config.read_text("utf-8") + f"\n[recurrence]\nrequire_guard = {str(require_guard).lower()}\n",
+                      encoding="utf-8")
+    with pytest.raises(BelowOldestSupported) as refused:
+        load_vault(paths.root)
+    message = str(refused.value)
+    _assert_names_the_three_parts(message, paths.root.resolve(), tag)
+    assert (GUARD_ROUTE in message) is named, message
+    if named:
+        assert "`learnloop recurrence guard` cannot run on a vault below" in message
+
+
 @pytest.mark.parametrize("tag", sorted({OLDEST_SUPPORTED, LATEST_ALGORITHM_VERSION}))
 def test_a_vault_at_the_floor_or_the_head_opens(tmp_path, tag):
     paths = create_basic_vault(tmp_path / "vault")

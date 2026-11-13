@@ -180,3 +180,43 @@ helper instead of its own copy.
 
 **Not verified.** The sidecar's handlers that take a vault path of their own (vault creation, a switch) go through
 `SidecarContext.load`, refused there; the TUI opens through `load_vault`. The full CLI suite runs at landing.
+
+## U7: what the `pre-floor` route can and cannot do
+
+**What the tagged code does** (`git show pre-floor:<path>`, tag at `5231b1bf1b`):
+- `version_floor.upgrading` is the only allowance below the floor, and only `cli/app.py`'s `upgrade` enters it; every
+  other command (`recurrence guard` included: `cli/recurrence.py` loads through `load_vault`) refuses a vault below
+  `mvp-0.58` there, as here.
+- Of the 48 upgrade modules at the tag, one refuses and asks for another command: `diagnosis/recurrence/upgrade.py`
+  (`mvp-0.12`). With `recurrence.require_guard = true` and the guard not passed for the configured judge, it refuses
+  and asks for `learnloop recurrence guard` (or `--from-run <M1 run dir>`). That command cannot run on such a vault
+  at the tag (nor here). The tag's documented switch is `recurrence.require_guard` (schema default `false` since
+  2026-10-12; the upgrade then reports the guard's status in `notes` and proceeds). Its other refusal, "cannot tell
+  which model the same-cause judge route resolves to", is a config setting and is reached only while the guard is
+  required.
+- No other link names a command: `mvp-0.7`'s readiness problems are vault files to edit (facet registry), and the
+  rest are jumps or "already at" results. `regrade_contract_upgrade`'s "held for review until a regrade" is a note.
+
+**The honest answer, for the orchestrator:** a vault below `mvp-0.12` whose config sets
+`recurrence.require_guard = true` and whose guard has not passed cannot be upgraded through `pre-floor` without
+editing its config (`recurrence.require_guard = false`). Keeping the guard required and upgrading is impossible on
+either code. I made the route say so and stopped there; no command was invented.
+
+**Reproduced** (the message's gap, not the tagged code's behaviour, which was read, not run):
+`tests/test_version_floor.py::test_the_route_names_what_works_at_pre_floor_for_a_required_guard`: at the base the
+refusal for a vault at `mvp-0.11` with `require_guard = true` did not name the switch (the `[mvp-0.11-True-True]` case
+failed; the two cases that must not name it passed).
+
+**Fix.** `BelowOldestSupported` takes `guard_required` (from the config `refuse_below_floor` already has) and, when the
+route crosses `mvp-0.12` (the vault's tag, or a journal's predecessor, below it, or no tag), adds: the upgrade there
+refuses until the guard passes, `learnloop recurrence guard` cannot run below the floor there or here, set
+`recurrence.require_guard = false` under `[recurrence]` first. ADR-019's "Restoring a backup below the floor" gains
+the paragraph "What `pre-floor` can and cannot do"; `version_floor`'s docstring says the same.
+
+**Callers and siblings checked.** `BelowOldestSupported` is raised by `refuse_below_floor` (every load and the new CLI
+resolvers; it has the config) and `refuse_journal_below_floor` (a journal's predecessor; no config at hand, so the
+guard line is not added there: a journal from below the floor is at least `mvp-0.57`'s predecessor in practice, past
+`mvp-0.12`).
+
+**Not verified.** The route was not run end to end in a `pre-floor` worktree (no checkout of the tag was made; the
+reading above is from `git show`).
