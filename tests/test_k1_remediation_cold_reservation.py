@@ -119,7 +119,6 @@ def test_an_episode_whose_cold_retry_was_never_scheduled_reserves_nothing_after_
     its cold item set and no retry task: nothing is left to protect, so the item is back in routine practice."""
 
     from learnloop.clock import FrozenClock
-    from learnloop.scheduling.scheduler import build_due_queue
     from tests.helpers import NOW
     from tests.remediation_cold_retry_helpers import _attempt, _setup
     from learnloop.diagnosis.remediation import (
