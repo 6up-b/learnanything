@@ -122,7 +122,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/error_taxonomy|learnloop.diagnosis.error_taxonomy]] | [[Reference/Modules/learnloop/diagnosis/error_taxonomy#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/error_taxonomy_map|learnloop.diagnosis.error_taxonomy_map]] | [[Reference/Modules/learnloop/diagnosis/error_taxonomy_map#^module-purpose|purpose]] | `ACTIVE` | 8 | 4 |
 | [[Reference/Modules/learnloop/diagnosis/failure_triage|learnloop.diagnosis.failure_triage]] | [[Reference/Modules/learnloop/diagnosis/failure_triage#^module-purpose|purpose]] | `ACTIVE` | 0 | 5 |
-| [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] | [[Reference/Modules/learnloop/diagnosis/followups#^module-purpose|purpose]] | `ACTIVE` | 10 | 26 |
+| [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] | [[Reference/Modules/learnloop/diagnosis/followups#^module-purpose|purpose]] | `ACTIVE` | 10 | 27 |
 | [[Reference/Modules/learnloop/diagnosis/forecast_receipts|learnloop.diagnosis.forecast_receipts]] | [[Reference/Modules/learnloop/diagnosis/forecast_receipts#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/gate_fit|learnloop.diagnosis.gate_fit]] | [[Reference/Modules/learnloop/diagnosis/gate_fit#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/gate_score|learnloop.diagnosis.gate_score]] | [[Reference/Modules/learnloop/diagnosis/gate_score#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
@@ -147,7 +147,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/probe_targeting|learnloop.diagnosis.probe_targeting]] | [[Reference/Modules/learnloop/diagnosis/probe_targeting#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/probes|learnloop.diagnosis.probes]] | [[Reference/Modules/learnloop/diagnosis/probes#^module-purpose|purpose]] | `ACTIVE` | 16 | 15 |
 | [[Reference/Modules/learnloop/diagnosis/quick_check|learnloop.diagnosis.quick_check]] | [[Reference/Modules/learnloop/diagnosis/quick_check#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
-| [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] | [[Reference/Modules/learnloop/diagnosis/remediation#^module-purpose|purpose]] | `ACTIVE` | 15 | 28 |
+| [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] | [[Reference/Modules/learnloop/diagnosis/remediation#^module-purpose|purpose]] | `ACTIVE` | 15 | 29 |
 | [[Reference/Modules/learnloop/diagnosis/repair_splice|learnloop.diagnosis.repair_splice]] | [[Reference/Modules/learnloop/diagnosis/repair_splice#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/robust_composition|learnloop.diagnosis.robust_composition]] | [[Reference/Modules/learnloop/diagnosis/robust_composition#^module-purpose|purpose]] | `ACTIVE` | 14 | 12 |
 | [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]] | [[Reference/Modules/learnloop/diagnosis/scoreboard#^module-purpose|purpose]] | `ACTIVE` | 7 | 5 |

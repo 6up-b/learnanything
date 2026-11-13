@@ -350,6 +350,88 @@ def test_the_sidecar_reject_names_the_outstanding_intent(tmp_path):
     assert repository.proposal_item("item_lo_two")["decision"] == "accepted"
 
 
+def test_deleting_a_pending_item_is_refused_while_an_apply_is_outstanding(tmp_path):
+    """An intent committed before its renames names pending items; deleting one would let recovery apply content
+    that has no inbox row left to undo it from."""
+
+    from learnloop.content.proposals.proposals import delete_proposal_item
+
+    paths = create_vault_registering_application(tmp_path / "vault")
+    repository = _repo(paths)
+    _seed_lo_and_pi_proposal(repository)
+    _crash_after(paths, renamed=0)
+    intent = _pending_intent(repository)
+
+    with pytest.raises(OutstandingApplyIntentError) as raised:
+        delete_proposal_item(paths.root, "patch_wa", "item_pi")
+
+    assert [named["id"] for named in raised.value.intents] == [intent["id"]]
+    assert str(raised.value).startswith("Refusing to delete")
+    assert repository.proposal_item("item_pi") is not None
+
+
+def test_the_sidecar_delete_names_the_outstanding_intent(tmp_path):
+    paths = create_vault_registering_application(tmp_path / "vault")
+    repository = _repo(paths)
+    _seed_lo_and_pi_proposal(repository)
+    _crash_after(paths, renamed=1)
+    first = _pending_intent(repository)["targets"][0]
+    _hand_edit(paths, first)  # conflicted at the bind, so it is still outstanding after it
+
+    responses = _initialize(paths, {"method": "delete_proposal_item",
+                                    "params": {"patchId": "patch_wa", "itemId": "item_pi"}})
+
+    assert responses[1]["error"]["data"]["code"] == "apply_intent_outstanding"
+    assert repository.proposal_item("item_pi") is not None
+
+
+def test_editing_an_item_an_outstanding_intent_names_is_refused(tmp_path):
+    from learnloop.content.proposals.proposals import edit_proposal_item, refresh_proposal_item_validation
+
+    paths = create_vault_registering_application(tmp_path / "vault")
+    repository = _repo(paths)
+    _seed_lo_and_pi_proposal(repository)
+    _crash_after(paths, renamed=0)
+    payload = repository.proposal_item("item_pi")["payload"]
+
+    with pytest.raises(OutstandingApplyIntentError, match="Refusing to edit"):
+        edit_proposal_item(paths.root, "patch_wa", "item_pi", {**payload, "prompt": "Changed."})
+    with pytest.raises(OutstandingApplyIntentError, match="Refusing to refresh"):
+        refresh_proposal_item_validation(paths.root, "patch_wa", "item_pi")
+
+    assert repository.proposal_item("item_pi")["edited_payload"] is None
+
+
+def test_rejecting_a_pending_item_is_refused_while_an_apply_is_outstanding(tmp_path):
+    from learnloop.content.proposals.proposals import reject_items
+
+    paths = create_vault_registering_application(tmp_path / "vault")
+    repository = _repo(paths)
+    _seed_lo_and_pi_proposal(repository)
+    _crash_after(paths, renamed=0)
+
+    with pytest.raises(OutstandingApplyIntentError):
+        reject_items(paths.root, "patch_wa", ["item_pi"])
+
+    assert repository.proposal_item("item_pi")["decision"] == "pending"
+
+
+def test_recovery_fails_loudly_when_an_intent_names_an_item_that_is_gone(tmp_path):
+    paths = create_vault_registering_application(tmp_path / "vault")
+    repository = _repo(paths)
+    _seed_lo_and_pi_proposal(repository)
+    _crash_after(paths, renamed=0)
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        connection.execute("PRAGMA foreign_keys=OFF")
+        connection.execute("DELETE FROM proposed_patch_items WHERE id = 'item_pi'")
+        connection.commit()
+
+    with pytest.raises(apply_protocol.ApplyIntentItemMissing, match="item_pi"):
+        recover_apply_intents(paths.root, repository)
+
+    assert repository.outstanding_apply_intents()  # still the owner's to settle
+
+
 def test_the_book_cards_undo_is_refused_before_it_changes_anything(tmp_path):
     """The card's Undo advances the book's generation and cancels its builds
     before it reverts; refused, it does none of that."""
@@ -375,6 +457,44 @@ def test_the_book_cards_undo_is_refused_before_it_changes_anything(tmp_path):
     assert ctx.repository.source_auto_build_state(source_id)["generation"] == generation
     card = next(c for c in call(ctx, "get_source_library", {})["sources"] if c["sourceId"] == source_id)
     assert card["statusLine"]["text"] == "Questions for Ch. 1–2 come up as you read"
+
+
+def test_the_book_cards_undo_holds_the_vault_lock_from_its_check_to_its_last_change(tmp_path, monkeypatch):
+    """An apply commits its intent under the vault lock. Undo checks for an outstanding intent and then moves the
+    generation and cancels builds: both under one hold, so no intent can land between them."""
+
+    import threading
+
+    from learnloop.vault_lock import VaultLockTimeout, vault_mutation_lock
+
+    from tests.ux_phase1_add_source_helpers import _draining_ctx, call
+    from tests.ux_phase1_support import fresh_library, grant_consent, write_book
+
+    root = fresh_library(tmp_path)
+    grant_consent(root)
+    ctx = _draining_ctx(root)
+    source_id = call(ctx, "add_source", {"sources": [str(write_book(tmp_path))]})["items"][0]["sourceId"]
+    real_advance = ctx.repository.advance_source_auto_build_generation
+    outcomes: list[str] = []
+
+    def advance_while_another_writer_tries_the_lock(*args, **kwargs):
+        def another_writer() -> None:
+            try:
+                with vault_mutation_lock(ctx.ingest_jobs.vault_root, purpose="apply", timeout_s=0.3):
+                    outcomes.append("acquired")
+            except VaultLockTimeout:
+                outcomes.append("refused")
+
+        thread = threading.Thread(target=another_writer)
+        thread.start()
+        thread.join()
+        return real_advance(*args, **kwargs)
+
+    monkeypatch.setattr(ctx.repository, "advance_source_auto_build_generation", advance_while_another_writer_tries_the_lock)
+
+    call(ctx, "source_action", {"sourceId": source_id, "action": "undo_questions"})
+
+    assert outcomes == ["refused"]
 
 
 # --- W6: recovery recalibrates ----------------------------------------------------------------------------------------
@@ -441,6 +561,78 @@ def test_an_accept_whose_target_changes_under_it_writes_nothing_and_rolls_back(t
     with closing(sqlite3.connect(paths.sqlite_path)) as connection:
         assert [row[0] for row in connection.execute("SELECT status FROM apply_intents")] == ["rolled_back"]
     assert repository.proposal_item("item_lo")["decision"] == "pending"
+
+
+def _edit_live_file_during_staging(monkeypatch, path: Path, text: str) -> None:
+    """A writer that bypassed the vault lock changes ``path`` once, after staging copied the vault and before it diffs."""
+
+    from learnloop.content.proposals import patches
+
+    real_compile = patches.compile_proposal_item
+    done: list[bool] = []
+
+    def compile_then_race(*args, **kwargs):
+        if not done:
+            done.append(True)
+            path.write_text(text, encoding="utf-8")
+        return real_compile(*args, **kwargs)
+
+    monkeypatch.setattr(patches, "compile_proposal_item", compile_then_race)
+
+
+def test_a_file_edited_while_staging_ran_is_not_overwritten_with_the_stale_copy(tmp_path, monkeypatch):
+    """The staged copy of a file no item touches is not a target: an edit made after the staging copy survives
+    the apply instead of being replaced by what staging read."""
+
+    paths = create_vault_registering_application(tmp_path / "vault")
+    repository = _repo(paths)
+    _seed_lo_and_pi_proposal(repository)
+    unrelated = paths.root / "profile" / "goals.md"
+    _edit_live_file_during_staging(monkeypatch, unrelated, "# edited while the apply staged\n")
+
+    apply_accepted_items(paths.root, "patch_wa")
+
+    assert unrelated.read_text(encoding="utf-8") == "# edited while the apply staged\n"
+    assert repository.proposal_item("item_lo")["decision"] == "accepted"
+
+
+def test_a_target_changed_while_staging_ran_is_refused_and_keeps_the_edit(tmp_path, monkeypatch):
+    """A file an item does change, edited after staging read it, is a target whose pre-image is what staging
+    read: the apply writes nothing and rolls back, as when it changes after staging returns."""
+
+    paths = create_vault_registering_application(tmp_path / "vault")
+    repository = _repo(paths)
+    _seed_lo_and_pi_proposal(repository)
+    lo_file = paths.root / "subjects/linear-algebra/learning-objects" / f"{LO_ID}.yaml"
+    assert not lo_file.exists()
+    _edit_live_file_during_staging(monkeypatch, lo_file, "# written by hand while the apply staged\n")
+
+    with pytest.raises(PatchApplicationError, match="nothing was written"):
+        apply_accepted_items(paths.root, "patch_wa")
+
+    assert lo_file.read_text(encoding="utf-8") == "# written by hand while the apply staged\n"
+    assert repository.outstanding_apply_intents() == []
+    assert repository.proposal_item("item_lo")["decision"] == "pending"
+
+
+def test_only_the_files_the_items_change_become_targets(tmp_path, monkeypatch):
+    """A file edited during staging that no item touches is no target at all, so a retry applies cleanly."""
+
+    paths = create_vault_registering_application(tmp_path / "vault")
+    repository = _repo(paths)
+    _seed_lo_and_pi_proposal(repository)
+    unrelated = paths.root / "profile" / "goals.md"
+    _edit_live_file_during_staging(monkeypatch, unrelated, "# edited while the apply staged\n")
+    requested = repository.pending_proposal_items("patch_wa")
+    ordered_ids, _blocked = apply_protocol.compute_dependency_closure(repository, requested)
+    by_id = {item["id"]: item for item in requested}
+
+    targets, _plan = apply_protocol.stage_target_contents(
+        paths.root, load_vault(paths.root), [by_id[item_id] for item_id in ordered_ids], "codex", "patch_wa", clock=None
+    )
+
+    assert "profile/goals.md" not in {target["rel_path"] for target in targets}
+    assert unrelated.read_text(encoding="utf-8") == "# edited while the apply staged\n"
 
 
 # --- the maintenance action's handler and the owner's settlement ------------------------------------------------------

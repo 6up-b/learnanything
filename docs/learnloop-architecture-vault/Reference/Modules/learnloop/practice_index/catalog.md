@@ -124,10 +124,10 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/reader_followups_round4_helpers.py](../../../../../../tests/reader_followups_round4_helpers.py) — imports consumer [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]]
 - [tests/reader_followups_round7_helpers.py](../../../../../../tests/reader_followups_round7_helpers.py) — imports consumer [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]]
 - [tests/test_curriculum_c1_landing.py](../../../../../../tests/test_curriculum_c1_landing.py) — imports consumer [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]]
+- [tests/test_facet_belief_successor_derivation.py](../../../../../../tests/test_facet_belief_successor_derivation.py) — imports consumer [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]]
 - [tests/test_reader_ca6_side_by_side.py](../../../../../../tests/test_reader_ca6_side_by_side.py) — imports consumer [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]]
 - [tests/test_reader_digest_narrative.py](../../../../../../tests/test_reader_digest_narrative.py) — imports consumer [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]]
 - [tests/test_reader_followup_valuation.py](../../../../../../tests/test_reader_followup_valuation.py) — imports consumer [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]]
-- [tests/test_reader_followups.py](../../../../../../tests/test_reader_followups.py) — imports consumer [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]]
 
 ## Modification guidance
 

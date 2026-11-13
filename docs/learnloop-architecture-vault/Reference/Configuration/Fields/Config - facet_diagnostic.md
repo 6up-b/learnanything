@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/ai/plan_fallback.py"
   - "src/learnloop/learner/facet_diagnostics.py"
   - "tests/test_facet_belief_successor.py"
+  - "tests/test_facet_belief_successor_derivation.py"
   - "tests/test_facet_diagnostics_v03.py"
   - "tests/test_recall_coverage_interventions.py"
   - "tests/test_retired_config_identities.py"
@@ -45,8 +46,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 |---|---|---|---|---|---|---|
 | `facet_diagnostic.tau_facet_failed` | `0.4` | number | modeled default or validator seed | Sets the decision cutoff for facet failed in facet failure and uncertainty classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:549`; `src/learnloop/ai/plan_fallback.py:138` |
 | `facet_diagnostic.tau_facet_uncertain_variance` | `0.15` | number | modeled default or validator seed | Sets the decision cutoff for facet uncertain variance in facet failure and uncertainty classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:550`; `src/learnloop/ai/plan_fallback.py:138` |
-| `facet_diagnostic.hedge_uncertainty_floor` | `0.5` | number | modeled default or validator seed | Controls hedge uncertainty floor in facet failure and uncertainty classification, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:551`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/learner/facet_diagnostics.py:535` |
-| `facet_diagnostic.facet_resolved_threshold` | `0.1` | number | modeled default or validator seed | Sets the decision cutoff for facet resolved in facet failure and uncertainty classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:552`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/learner/facet_diagnostics.py:538` |
+| `facet_diagnostic.hedge_uncertainty_floor` | `0.5` | number | modeled default or validator seed | Controls hedge uncertainty floor in facet failure and uncertainty classification, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:551`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/learner/facet_diagnostics.py:543` |
+| `facet_diagnostic.facet_resolved_threshold` | `0.1` | number | modeled default or validator seed | Sets the decision cutoff for facet resolved in facet failure and uncertainty classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:552`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/learner/facet_diagnostics.py:546` |
 | `facet_diagnostic.canonical_belief_fixes` | `true` | boolean | modeled default or validator seed | Turns canonical belief fixes behavior on or off within facet failure and uncertainty classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:554`; `src/learnloop/ai/plan_fallback.py:138` |
 
 > [!warning] Omitted does not mean frozen in the file
@@ -57,6 +58,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/test_facet_belief_successor.py`
+- `tests/test_facet_belief_successor_derivation.py`
 - `tests/test_facet_diagnostics_v03.py`
 - `tests/test_recall_coverage_interventions.py`
 - `tests/test_retired_config_identities.py`

@@ -41,6 +41,7 @@ from learnloop.vault.loader import (
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.repository import open_vault_repository
+from learnloop.version_floor import BelowOldestSupported
 from learnloop_sidecar.dto import to_camel, versioned
 from learnloop_sidecar.background_jobs import BackgroundJobs
 from learnloop_sidecar.errors import SidecarError
@@ -50,6 +51,23 @@ from learnloop_sidecar.request_origin import RequestOrigin, bump_for_host
 from learnloop.content.pipeline.jobs import IngestJobManager
 
 _LOGGER = logging.getLogger(__name__)
+
+#: What makes a vault unservable once it is bound: it was refused below the oldest supported tag, or an upgrade's
+#: activation journal stands beside its database.
+Unservable = BelowOldestSupported | activation_journal.InterruptedActivation
+
+
+def unservable_error(refused: Unservable) -> SidecarError:
+    """The desktop's error for an unservable vault: its message names what to run."""
+
+    if isinstance(refused, BelowOldestSupported):
+        return SidecarError(
+            "vault_below_oldest_supported",
+            str(refused),
+            details={"algorithm_version": refused.tag, "oldest_supported": refused.floor,
+                     "commands": list(refused.commands)},
+        )
+    return SidecarError("vault_upgrade_unfinished", str(refused))
 
 
 class LoadedVaultProvider:
@@ -77,8 +95,10 @@ class LoadedVaultProvider:
         published between reading it and the admission it decides; the lock
         is held for this comparison only (fix round 6, V1-a)."""
 
+        if not self._context.serving():
+            return False
         with self._context._vault_lock:
-            return int(self._context.vault_generation) == generation
+            return self._context.refusal is None and int(self._context.vault_generation) == generation
 
 
 @dataclass
@@ -142,6 +162,11 @@ class SidecarContext:
     # queue_revision bump failed. A host request on that vault pays it, and only
     # that vault's (request_origin.bump_for_host, Codex review F4, Sol verify V3).
     host_bumps_owed: set[Path] = field(default_factory=set, repr=False)
+    # Why the bound vault is not served, or None. Set when a reload of it is refused below the oldest supported
+    # tag or an activation journal is seen beside its database; it holds until a load succeeds, since the vault
+    # still cached here is the one the refusal is about (a journal that goes away has changed the database under
+    # it). ``require_vault``, the worker's supplier and the loaded-vault provider's admission all refuse on it.
+    refusal: Unservable | None = field(default=None, repr=False)
 
     @property
     def origin_device_id(self) -> str | None:
@@ -194,16 +219,18 @@ class SidecarContext:
         # Adaptive difficulty AD1 (Codex review F10): a reload of the same
         # vault compares its items with these, to prepare new revisions.
         previous = self.vault if self.vault_root is not None and target == self.vault_root else None
-        vault = load_vault(target)
-        # LP-min (a) (claim-fixes re-review F2): an upgrade that died after
-        # publishing the successor's config and before its commit left a
-        # journal; the opener completes that activation before anything
-        # serves or re-projects the vault, or raises InterruptedActivation,
-        # and then nothing of this vault is bound or served.
-        repository = open_vault_repository(vault.root, VaultPaths(vault.root, vault.config).sqlite_path)
+        with self._stops_serving_when_refused(target):
+            vault = load_vault(target)
+            # LP-min (a) (claim-fixes re-review F2): an upgrade that died after
+            # publishing the successor's config and before its commit left a
+            # journal; the opener completes that activation before anything
+            # serves or re-projects the vault, or raises InterruptedActivation,
+            # and then nothing of this vault is bound or served.
+            repository = open_vault_repository(vault.root, VaultPaths(vault.root, vault.config).sqlite_path)
         self.vault_root = target
         self.vault = vault
         self.repository = repository
+        self.refusal = None
         self.map_builds.bind(self.repository.sqlite_path)
         # Finish a facet merge or undo that a previous process left mid-flight
         # before anything reads or re-projects the vault (facet identity F12).
@@ -342,7 +369,8 @@ class SidecarContext:
         # place, and a source-sets file read mid-rewrite parses as no source
         # sets, so exam protection would vanish from the published vault.
         # ``load_vault`` is looked up at call time (tests patch this module's).
-        loaded = settled_load_vault(target, load=lambda root: load_vault(root))
+        with self._stops_serving_when_refused(target):
+            loaded = settled_load_vault(target, load=lambda root: load_vault(root))
         if not loaded.settled:
             raise SidecarError(
                 "vault_unsettled",
@@ -365,9 +393,12 @@ class SidecarContext:
             from learnloop.ai import plan_fallback
 
             plan_fallback.revoke_all()
+        with self._stops_serving_when_refused(target):
+            repository = Repository.attach(sqlite_path, read_only=False)
         self.vault_root = target
-        self.repository = Repository.attach(sqlite_path, read_only=False)
+        self.repository = repository
         self.vault = vault
+        self.refusal = None
         self.secondary = True
         self.content_fingerprint = loaded.fingerprint
         # The window starts when the snapshot was verified against the files,
@@ -516,7 +547,7 @@ class SidecarContext:
         notify(self, "gap", "gaps")
 
     def _worker_target(self) -> tuple[LoadedVault, Path] | None:
-        if self.vault is None or self.repository is None:
+        if self.vault is None or self.repository is None or not self.serving():
             return None
         return self.vault, self.repository.sqlite_path
 
@@ -620,6 +651,11 @@ class SidecarContext:
         canonical activatability rule in ``state_sync``.
         """
 
+        if self.vault is not None and self.repository is not None and not self.serving():
+            if expected_root is None or Path(expected_root).resolve() == self.vault_root:
+                # Refused until a load succeeds: a watched change (the upgrade's own publication among them) is the
+                # moment to try one. It raises again while the vault stays unservable.
+                return self._full_refresh()
         vault, repository = self.require_vault()
         root = vault.root.resolve()
         if expected_root is not None and Path(expected_root).resolve() != root:
@@ -656,16 +692,7 @@ class SidecarContext:
             for path, relative in resolved
         )
         if not practice_files:
-            self.reload(maintenance=False)
-            repository = self.require_vault()[1]
-            revision = repository.bump_queue_revision()
-            return {
-                "mode": "full",
-                "changed_practice_item_ids": [],
-                "queue_revision": revision,
-                "practice_item_count": len(self.require_vault()[0].practice_items),
-                "snapshot": self.app_snapshot(),
-            }
+            return self._full_refresh()
 
         from learnloop.diagnosis.probe_instance_generation import (
             pending_review_instance_ids,
@@ -749,16 +776,7 @@ class SidecarContext:
             # Editors that rewrite in place can briefly expose an incomplete
             # document. The full loader owns issue reporting and conservative
             # recovery for malformed/cross-entity changes.
-            self.reload(maintenance=False)
-            repository = self.require_vault()[1]
-            revision = repository.bump_queue_revision()
-            return {
-                "mode": "full",
-                "changed_practice_item_ids": [],
-                "queue_revision": revision,
-                "practice_item_count": len(self.require_vault()[0].practice_items),
-                "snapshot": self.app_snapshot(),
-            }
+            return self._full_refresh()
 
         if changed:
             self.prepare_new_revisions(None, item_ids=changed)
@@ -774,10 +792,60 @@ class SidecarContext:
             "practice_item_count": len(vault.practice_items),
         }
 
+    def _full_refresh(self) -> dict[str, Any]:
+        self.reload(maintenance=False)
+        vault, repository = self.require_vault()
+        revision = repository.bump_queue_revision()
+        return {
+            "mode": "full",
+            "changed_practice_item_ids": [],
+            "queue_revision": revision,
+            "practice_item_count": len(vault.practice_items),
+            "snapshot": self.app_snapshot(),
+        }
+
     def require_vault(self) -> tuple[LoadedVault, Repository]:
+        """The bound vault and its repository, for a handler; refused while the vault is unservable."""
+
         if self.vault is None or self.repository is None:
             raise SidecarError("vault_not_loaded", "No vault has been initialized.")
+        if not self.serving():
+            raise unservable_error(self.refusal)
         return self.vault, self.repository
+
+    def serving(self) -> bool:
+        """Whether the bound vault may be served: no refusal holds, and no activation journal stands beside its
+        database (one ``stat``). A journal seen here stops serving until a load succeeds."""
+
+        if self.refusal is not None:
+            return False
+        repository = self.repository
+        if repository is None or activation_journal.completing():
+            return True
+        if activation_journal.pending(repository.sqlite_path):
+            self._stop_serving(activation_journal.InterruptedActivation(
+                activation_journal.message(repository.sqlite_path)))
+            return False
+        return True
+
+    def _stop_serving(self, refused: Unservable) -> None:
+        # The generation moves with it, so a background job's admission of a snapshot taken before fails.
+        with self._vault_lock:
+            object.__setattr__(self, "refusal", refused)
+            object.__setattr__(self, "vault_generation", int(self.vault_generation) + 1)
+
+    @contextmanager
+    def _stops_serving_when_refused(self, target: Path) -> Iterator[None]:
+        """Around a load: a refusal of the vault already bound here stops serving it (the cached vault is the one
+        refused); the refusal propagates either way."""
+
+        bound = self.vault_root if self.vault is not None else None
+        try:
+            yield
+        except (BelowOldestSupported, activation_journal.InterruptedActivation) as refused:
+            if bound is not None and target == bound:
+                self._stop_serving(refused)
+            raise
 
     def app_snapshot(self) -> dict[str, Any]:
         vault, repository = self.require_vault()

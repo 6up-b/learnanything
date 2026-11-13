@@ -108,12 +108,13 @@ from learnloop.learner.assessment_contracts import (
     rubric_from_contract,
 )
 from learnloop.learner.facet_state_reader import (
+    DERIVED_WITH_BELIEF_FIXES_KEY,
     CanonicalFacetStateReader,
+    attempt_uncertainty_priors,
     canonical_facet_uncertainty_on,
     canonical_uncertainty_rows,
-    current_facet_uncertainty,
+    facet_belief_corrections_on,
     is_canonical_state_vault,
-    resolve_canonical_facet,
 )
 from learnloop.content.proposals.proposals import maybe_promote_self_tagged_fatal_error
 from learnloop.learner.recall_coverage import (
@@ -4305,12 +4306,6 @@ def load_attempt_prior_state(
         def _recall(facet: str, scope: str | None = None) -> FacetRecallState | None:
             return repository.facet_recall_state(learning_object_id, facet, scope)
 
-    if canonical_facet_uncertainty_on(vault):
-        merge_map = repository.facet_merge_map()
-
-        def canonical_facet(facet: str) -> str:
-            return resolve_canonical_facet(vault, merge_map, facet)
-
     # held-grade-evidence: the recent attempts keep every exposure, and each
     # one the held predicate holds carries ``HELD_ROW_KEY``, so the readers of
     # their scores (item quality, error severity, familiarity) never read a
@@ -4347,21 +4342,7 @@ def load_attempt_prior_state(
         item_facet_recall={
             facet: _recall(facet, practice_item_id) for facet in facet_ids
         },
-        facet_uncertainty=(
-            # The successor's prior is only a row it wrote (a legacy-era row was derived under another belief),
-            # found under the facet's canonical id, the key the successor writes it under.
-            {
-                facet: current_facet_uncertainty(
-                    repository.facet_uncertainty_state(learning_object_id, canonical_facet(facet))
-                )
-                for facet in facet_ids
-            }
-            if canonical_facet_uncertainty_on(vault)
-            else {
-                facet: repository.facet_uncertainty_state(learning_object_id, facet)
-                for facet in facet_ids
-            }
-        ),
+        facet_uncertainty=attempt_uncertainty_priors(vault, repository, learning_object_id, facet_ids),
         item_parameter_state=(
             repository.item_parameter_state(practice_item_id)
             if vault.config.mastery.irt.eb_difficulty_enabled
@@ -4567,6 +4548,24 @@ def _compute_resolved_grade_application(
         error_attributions=grade_attributions,
         criterion_facet_weights=pfc_facet_weights,
     )
+    # The per-LO facet uncertainty reads the criterion -> facet map the assessment contract froze, as the
+    # canonical belief does. The item's own map is today's: after an author edits it, a rebuild would move an
+    # old answer's failure to another facet while the belief kept it, and without that map (authored criterion
+    # targets only) the lexical guess would map nothing and smear the grade over every facet.
+    uncertainty_facet_weights: dict[str, dict[str, float]] | None = None
+    uncertainty_facet_outcomes = facet_outcomes
+    if canonical_facet_uncertainty_on(vault) and facet_belief_corrections_on(vault.config):
+        uncertainty_facet_weights = target_criterion_facet_weights(item, rubric, resolve=vault.canonical_facet_id)
+        uncertainty_facet_outcomes = derive_facet_outcomes(
+            item,
+            rubric,
+            criterion_points=criterion_points,
+            covered_facets=coverage.covered_facets,
+            correctness=correctness,
+            attempt_type=draft.attempt_type,
+            error_attributions=grade_attributions,
+            criterion_facet_weights=uncertainty_facet_weights,
+        )
     # Prediction lane, mean-preserving (P1 revision): the mastery EKF keeps the
     # RAW rubric fraction as its observation y and consumes the calibrated grade
     # channel only through Var[s(Z)|emission] added to measurement noise. Using
@@ -4932,7 +4931,8 @@ def _compute_resolved_grade_application(
         rubric=rubric,
         learning_object_id=learning_object.id,
         attempt_id=attempt_id,
-        facet_outcomes=facet_outcomes,
+        facet_outcomes=uncertainty_facet_outcomes,
+        criterion_facet_weights=uncertainty_facet_weights,
         normalized_facet_weights=coverage.normalized_facet_weights,
         evidence_rows=facet_evidence_rows,
         error_attributions=resolved_attributions,
@@ -5104,6 +5104,8 @@ def _compute_resolved_grade_application(
         "auto_primed_reveal_total": draft.auto_primed_reveal_total,
         "priming_b_offset": vault.config.mastery.irt.priming_b_offset if draft.primed else None,
         "fsrs_weights_fitted": fsrs_weights_fitted,
+        # What this attempt was derived under, for doctor: off, the payload is the predecessor's.
+        **({DERIVED_WITH_BELIEF_FIXES_KEY: True} if facet_belief_corrections_on(vault.config) else {}),
         "algorithm_version": vault.config.algorithms.algorithm_version,
         "created_at": now_iso,
     }

@@ -35,7 +35,7 @@ Up: [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] · Root: [[Mo
 
 ## Why this module exists
 
-This module keeps loader behavior inside its owning package, [[Reference/Modules/learnloop/vault/_package|learnloop.vault]]. Its public surface centers on `vault_loads_forbidden`, `content_files`, `content_digest`, `vault_content_fingerprint`, `SettledLoad`, `settled_load_vault`, `load_vault`, `load_practice_item_file` and 4 more public symbols.
+This module keeps loader behavior inside its owning package, [[Reference/Modules/learnloop/vault/_package|learnloop.vault]]. Its public surface centers on `vault_loads_forbidden`, `content_files`, `content_digest`, `vault_content_fingerprint`, `SettledLoad`, `settled_load_vault`, `refuse_vault_below_floor`, `load_vault` and 5 more public symbols.
 
 The authoritative system-level explanation remains in [[State and Persistence]]; this note records where this source module participates rather than restating those concepts.
 
@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py) |
-| Source lines | 877 |
+| Source lines | 905 |
 | Owning package | [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -60,12 +60,13 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - `class SettledLoad` ([source](../../../../../../src/learnloop/vault/loader.py), line 212) — A vault load checked against the files it was read from.
   - `settled(self) -> bool` (line 229; public)
 - `settled_load_vault(root: Path, *, load: Callable[[Path], LoadedVault] | None=None, fingerprint: str | None=None, attempts: int=SETTLE_ATTEMPTS, pause_seconds: float=SETTLE_PAUSE_SECONDS) -> SettledLoad` ([source](../../../../../../src/learnloop/vault/loader.py), line 233) — Load the vault while another process may be writing it (a secondary's read).
-- `load_vault(root: Path | None=None, *, read_yaml_file: YamlFileReader=read_yaml_data, load_environment: bool=True) -> LoadedVault` ([source](../../../../../../src/learnloop/vault/loader.py), line 293) — Parse every vault file into a ``LoadedVault``; problems become ``issues``.
-- `load_practice_item_file(path: Path, loaded: LoadedVault, *, issues: list[DoctorIssue] | None=None, read_yaml_file: YamlFileReader=read_yaml_data) -> PracticeItem | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 668) — Parse one Practice Item through the canonical full-loader path.
-- `init_vault(root: Path, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 730)
-- `add_subject(root: Path, subject_id: str, title: str, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 780)
-- `add_note(root: Path, subject_id: str, note_id: str, title: str, body: str, *, source_type: str='learner_note', related_los: list[str] | None=None, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 820)
-- `move_note(root: Path, note_id: str, subject_id: str, *, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 856) — Make ``subject_id`` a note's only subject and file it in that subject's folder.
+- `refuse_vault_below_floor(vault_root: Path) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 293) — Raise :class:`learnloop.version_floor.BelowOldestSupported` when the vault at ``vault_root`` is below the oldest supported tag, reading only its ``learnloop.toml`` (no environment).
+- `load_vault(root: Path | None=None, *, read_yaml_file: YamlFileReader=read_yaml_data, load_environment: bool=True) -> LoadedVault` ([source](../../../../../../src/learnloop/vault/loader.py), line 311) — Parse every vault file into a ``LoadedVault``; problems become ``issues``.
+- `load_practice_item_file(path: Path, loaded: LoadedVault, *, issues: list[DoctorIssue] | None=None, read_yaml_file: YamlFileReader=read_yaml_data) -> PracticeItem | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 696) — Parse one Practice Item through the canonical full-loader path.
+- `init_vault(root: Path, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 758)
+- `add_subject(root: Path, subject_id: str, title: str, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 808)
+- `add_note(root: Path, subject_id: str, note_id: str, title: str, body: str, *, source_type: str='learner_note', related_los: list[str] | None=None, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 848)
+- `move_note(root: Path, note_id: str, subject_id: str, *, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 884) — Make ``subject_id`` a note's only subject and file it in that subject's folder.
 
 ### Module constants
 
@@ -77,22 +78,22 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - `LINK_ENTRY_SUFFIX` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 118)
 - `SETTLE_ATTEMPTS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 207)
 - `SETTLE_PAUSE_SECONDS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 208)
-- `_MODALITY_RANK` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 563)
-- `DEFAULT_ERROR_TYPE_SEEDS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 696)
+- `_MODALITY_RANK` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 591)
+- `DEFAULT_ERROR_TYPE_SEEDS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 724)
 
 ## Internal implementation anchors
 
 - `_load_yaml_model(path: Path, model: type[T], issues: list[DoctorIssue], read_yaml_file: YamlFileReader=read_yaml_data) -> T | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 55)
 - `_load_markdown_model(path: Path, model: type[T], issues: list[DoctorIssue]) -> tuple[T | None, str]` ([source](../../../../../../src/learnloop/vault/loader.py), line 70)
 - `_source_sets_caught_empty(root: Path, vault: LoadedVault, files: dict[str, tuple[int, int]]) -> bool` ([source](../../../../../../src/learnloop/vault/loader.py), line 272) — The source-sets file is empty: a writer truncated it to rewrite it.
-- `_load_subject_dir(subject_dir: Path, loaded: LoadedVault, read_yaml_file: YamlFileReader) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 383)
-- `_load_note(path: Path, root: Path, folder_subject: str, issues: list[DoctorIssue]) -> Note | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 435)
-- `_validate_loaded_vault(loaded: LoadedVault) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 454)
-- `_facet_aliases(facets_file: EvidenceFacetsFile) -> dict[str, str]` ([source](../../../../../../src/learnloop/vault/loader.py), line 497)
-- `_canonicalized_practice_item_facets(loaded: LoadedVault, item: PracticeItem) -> PracticeItem` ([source](../../../../../../src/learnloop/vault/loader.py), line 506)
-- `_collapsed_alias_targets(targets: list[Any], canonical: Any) -> list[Any]` ([source](../../../../../../src/learnloop/vault/loader.py), line 566) — Criterion targets with aliases resolved, one per canonical (facet, capability).
-- `_collapsed_alias_components(values: list[Any], canonical: Any) -> list[Any]` ([source](../../../../../../src/learnloop/vault/loader.py), line 598) — Recipe components with aliases resolved, one per canonical (facet, capability).
-- `_canonicalized_learning_object_facets(loaded: LoadedVault, learning_object: LearningObject) -> LearningObject` ([source](../../../../../../src/learnloop/vault/loader.py), line 627) — Recipe components name canonical facets: an alias resolves at load.
+- `_load_subject_dir(subject_dir: Path, loaded: LoadedVault, read_yaml_file: YamlFileReader) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 411)
+- `_load_note(path: Path, root: Path, folder_subject: str, issues: list[DoctorIssue]) -> Note | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 463)
+- `_validate_loaded_vault(loaded: LoadedVault) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 482)
+- `_facet_aliases(facets_file: EvidenceFacetsFile) -> dict[str, str]` ([source](../../../../../../src/learnloop/vault/loader.py), line 525)
+- `_canonicalized_practice_item_facets(loaded: LoadedVault, item: PracticeItem) -> PracticeItem` ([source](../../../../../../src/learnloop/vault/loader.py), line 534)
+- `_collapsed_alias_targets(targets: list[Any], canonical: Any) -> list[Any]` ([source](../../../../../../src/learnloop/vault/loader.py), line 594) — Criterion targets with aliases resolved, one per canonical (facet, capability).
+- `_collapsed_alias_components(values: list[Any], canonical: Any) -> list[Any]` ([source](../../../../../../src/learnloop/vault/loader.py), line 626) — Recipe components with aliases resolved, one per canonical (facet, capability).
+- `_canonicalized_learning_object_facets(loaded: LoadedVault, learning_object: LearningObject) -> LearningObject` ([source](../../../../../../src/learnloop/vault/loader.py), line 655) — Recipe components name canonical facets: an alias resolves at load.
 
 ## Who imports or calls it
 
@@ -113,7 +114,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/cli/embeddings|learnloop.cli.embeddings]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/evaluation|learnloop.cli.evaluation]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/evsi|learnloop.cli.evsi]] — imports `load_vault`; statically calls `load_vault`
-- [[Reference/Modules/learnloop/cli/facets|learnloop.cli.facets]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/facets|learnloop.cli.facets]] — imports `load_vault`, `refuse_vault_below_floor`; statically calls `load_vault`, `refuse_vault_below_floor`
 - [[Reference/Modules/learnloop/cli/families|learnloop.cli.families]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/field_classification|learnloop.cli.field_classification]] — imports `load_vault`; statically calls `load_vault`
@@ -124,11 +125,12 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/cli/placement|learnloop.cli.placement]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/plan|learnloop.cli.plan]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/practice_index|learnloop.cli.practice_index]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/project|learnloop.cli.project]] — imports `refuse_vault_below_floor`; statically calls `refuse_vault_below_floor`
 - [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/receipts|learnloop.cli.receipts]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/recurrence|learnloop.cli.recurrence]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] — imports `load_vault`; statically calls `load_vault`
-- [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `add_note`, `add_subject`, `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `add_note`, `add_subject`, `load_vault`, `refuse_vault_below_floor`; statically calls `load_vault`, `refuse_vault_below_floor`
 - [[Reference/Modules/learnloop/cli/source_set|learnloop.cli.source_set]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/teacher|learnloop.cli.teacher]] — imports `load_vault`; statically calls `load_vault`
@@ -177,7 +179,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/reader/reader_quick_check|learnloop.reader.reader_quick_check]] — imports `load_vault`; statically calls `load_vault`
-- [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]] — imports `CONTENT_FINGERPRINT_TTL_SECONDS`, `SETTLE_ATTEMPTS`, `SETTLE_PAUSE_SECONDS`, `content_digest`, `content_files`, `load_vault`, `settled_load_vault`, `vault_content_fingerprint`; statically calls `content_digest`, `content_files`, `load_vault`, `settled_load_vault`
+- [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]] — imports `CONTENT_FINGERPRINT_TTL_SECONDS`, `SETTLE_ATTEMPTS`, `SETTLE_PAUSE_SECONDS`, `content_digest`, `content_files`, `load_vault`, `refuse_vault_below_floor`, `settled_load_vault`, `vault_content_fingerprint`; statically calls `content_digest`, `content_files`, `load_vault`, `refuse_vault_below_floor`, `settled_load_vault`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `load_vault`; statically calls `load_vault`
@@ -227,7 +229,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 91 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 92 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -595,6 +597,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_crash_between_two_renames_is_completed_at_the_next_sidecar_bind`
   - `test_doctor_and_the_feed_surface_a_conflicted_intent`
   - `test_keep_files_sets_the_intent_aside_and_accepts_open_again`
+  - `test_only_the_files_the_items_change_become_targets`
 - [tests/test_apply_write_ahead.py](../../../../../../tests/test_apply_write_ahead.py) — direct import
   - `test_apply_writes_entity_source_links_and_marks_intent_applied`
   - `test_crash_between_intent_and_rename_recovers`
@@ -1298,6 +1301,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_facet_belief_successor.py](../../../../../../tests/test_facet_belief_successor.py) — direct import
   - `test_a_rebuild_records_the_switch_only_at_the_tag`
   - `test_the_gate_reads_off_below_the_tag_and_with_the_switch_off`
+  - `test_the_upgrade_derives_the_successors_state_from_the_history`
+- [tests/test_facet_belief_successor_derivation.py](../../../../../../tests/test_facet_belief_successor_derivation.py) — direct import
+  - `test_s1_a_rebuild_after_the_items_mapping_changed_keeps_the_uncertainty_where_the_contract_put_it`
+  - `test_s1_with_the_switch_off_the_two_criterion_answer_is_the_predecessors`
+  - `test_s2_with_the_switch_off_no_reader_sees_the_successors_rows`
+  - `test_s5_an_attempt_records_the_fixes_only_when_derived_with_them`
+  - `test_s5_doctor_still_warns_after_the_switch_went_off_and_back_on_with_answers_between`
 - [tests/test_facet_candidates.py](../../../../../../tests/test_facet_candidates.py) — direct import
   - `test_harvest_is_deterministic`
   - `test_harvests_candidates_from_multiple_sources`
@@ -1879,9 +1889,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_item_parameters.py](../../../../../../tests/test_item_parameters.py) — direct import
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
 - [tests/test_k1_mcp_find_sources.py](../../../../../../tests/test_k1_mcp_find_sources.py) — direct import
+  - `test_a_reserved_probe_passage_never_reaches_the_verification_model`
 - [tests/test_k1_remediation_cold_reservation.py](../../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import
 - [tests/test_k1_serve_door_reservation.py](../../../../../../tests/test_k1_serve_door_reservation.py) — direct import
 - [tests/test_k1_source_sets_gate.py](../../../../../../tests/test_k1_source_sets_gate.py) — direct import
+  - `test_a_snapshot_loaded_from_an_empty_file_stays_unreadable_after_the_file_is_restored`
   - `test_a_valid_file_still_reads_the_exam_member_as_exam_material`
   - `test_a_vault_double_without_a_root_is_not_gated`
   - `test_every_shared_reader_refuses_unloaded_source_sets`
@@ -1889,6 +1901,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_premise_the_corrupt_file_is_unreadable`
   - `test_the_readers_that_already_asked_still_refuse_and_ask_once`
   - `test_the_tutor_figures_and_phone_withhold_when_source_sets_did_not_load`
+  - `test_two_source_set_saves_that_read_the_same_file_do_not_lose_one_another`
 - [tests/test_keep_ahead_append_units.py](../../../../../../tests/test_keep_ahead_append_units.py) — direct import
   - `test_an_append_over_its_input_ceiling_fails_once_and_the_card_says_so`
   - `test_the_second_build_appends_only_its_own_chapter`
@@ -2174,6 +2187,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_starting_instruction_closes_measurement_segment_and_reentry_is_fresh`
 - [tests/test_p2_leakage_suite.py](../../../../../../tests/test_p2_leakage_suite.py) — direct import
 - [tests/test_p3_journeys.py](../../../../../../tests/test_p3_journeys.py) — direct import
+- [tests/test_p4_tutor_tool_withhold.py](../../../../../../tests/test_p4_tutor_tool_withhold.py) — direct import
 - [tests/test_patch_applier.py](../../../../../../tests/test_patch_applier.py) — direct import
   - `test_accept_cli_all_flag_applies_every_pending_item`
   - `test_accept_cli_applies_and_show_proposal_includes_items`
@@ -2720,6 +2734,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_z_ai_ok_line_names_pages_and_cost_for_a_404_page_book`
 - [tests/test_reread_safety_landing.py](../../../../../../tests/test_reread_safety_landing.py) — direct import
   - `test_an_unmarked_reading_of_a_protected_book_is_withheld_from_every_model_visible_path`
+- [tests/test_rerun_proposals.py](../../../../../../tests/test_rerun_proposals.py) — direct import
+  - `test_an_append_resolves_its_brief_and_inherits_the_learners_level`
+  - `test_the_curriculum_snapshot_names_the_concept_edges`
 - [tests/test_residual_diagnostics.py](../../../../../../tests/test_residual_diagnostics.py) — direct import
   - `test_positive_residual_dependence_flags_missing_factor`
 - [tests/test_retired_config_keys_load.py](../../../../../../tests/test_retired_config_keys_load.py) — direct import
@@ -3421,6 +3438,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_shadow_rebuild_cannot_be_forced_below_the_floor`
   - `test_a_vault_at_the_floor_or_the_head_opens`
   - `test_a_vault_whose_config_names_no_tag_is_refused`
+  - `test_the_route_names_what_works_at_pre_floor_for_a_required_guard`
   - `test_the_suites_allowance_opens_any_vault_until_the_test_ends`
 - [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import
   - `test_followup_outcome_needs_the_frozen_facet_map`

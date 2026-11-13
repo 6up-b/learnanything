@@ -64,7 +64,9 @@ from learnloop.substrate.canonical_projection import (
     surface_group_id,
     transfer_tier_mass_scale,
     unassessed_evidence_row,
+    unverified_evidence_row,
 )
+from learnloop.learner.facet_state_reader import facet_belief_corrections_on
 from learnloop.attempts.evidence import attempt_evidence_mass
 from learnloop.goals.receipt_contributions import itemize_observation_contributions
 from learnloop.vault.models import LoadedVault
@@ -691,6 +693,7 @@ def _epoch_certification_credit(
 
     repeat_discount = configured_repeat_discount(vault)
     transfer_scale = transfer_tier_mass_scale(vault.config, "transfer")
+    belief_corrections = facet_belief_corrections_on(vault.config)
     assistance = "hinted" if assisted else "unassisted"
     for outcome in outcomes:
         local = localized[outcome.criterion_id]
@@ -763,7 +766,14 @@ def _epoch_certification_credit(
         # later attempts' novelty discounts stay identical to the banked fold.
         if negative_fraction <= 0 or unresolved_negative:
             continue
-        if not attribution and len(targets) == 1:
+        raw_attribution = row.get("attribution") if row is not None else None
+        if belief_corrections and unverified_evidence_row(raw_attribution):
+            # The projection books no failure for a PF-c shortfall written before the unassessed rule, so it
+            # marks no group: marking one here would discount the next success the belief credits in full.
+            continue
+        if not attribution and len(targets) == 1 and (not belief_corrections or raw_attribution is None):
+            # As the projection: only a failure with no attribution on record falls to its one target. One
+            # whose attribution names none of the targets lands nowhere and marks nothing.
             attribution = {(targets[0].facet, targets[0].capability): 1.0}
         for target in targets:
             share = attribution.get((target.facet, target.capability), 0.0)

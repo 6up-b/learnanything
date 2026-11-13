@@ -71,7 +71,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `_start(self, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None` (line 123; internal) — AD's start receipt, which fails closed (fix round 8).
   - `_close_refused(self, event: dict[str, Any], refusal: BaseException, *, owner_kind: str, owner_id: str) -> None` (line 162; internal)
   - `save_model_checkpoint(self, cache_key: str, *, purpose: str, result: dict[str, Any], usage: dict[str, Any] | None=None) -> None` (line 181; public)
-  - `discard_model_checkpoint(self, cache_key: str) -> None` (line 191; public)
+  - `discard_model_checkpoint(self, cache_key: str, *, result: Any=None) -> None` (line 191; public)
 - `class Worker` ([source](../../../../../../src/learnloop/adaptive_difficulty/claims.py), line 201) — A held claim: :attr:`repository` writes fenced; :meth:`live` before each request.
   - `__init__(self, repository: Any, claim: Any) -> None` (line 204; internal)
   - `live(self) -> bool` (line 209; public)

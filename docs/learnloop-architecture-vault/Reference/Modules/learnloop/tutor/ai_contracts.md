@@ -196,6 +196,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_codex_output_schema.py](../../../../../../tests/test_codex_output_schema.py) — direct import
 - [tests/test_dialogue_causal_join.py](../../../../../../tests/test_dialogue_causal_join.py) — direct import
   - `test_tutor_answer_round_trips_extraction_fields_and_legacy_payloads`
+- [tests/test_facet_belief_successor_derivation.py](../../../../../../tests/test_facet_belief_successor_derivation.py) — direct import
+  - `test_s2_tutor_promotion_features_snapshot_the_uncertainty_only_with_the_switch_on`
 - [tests/test_field_signal_production_paths.py](../../../../../../tests/test_field_signal_production_paths.py) — direct import
 - [tests/test_figure_offers.py](../../../../../../tests/test_figure_offers.py) — direct import
   - `test_the_tutor_context_asks_for_explorable_only_with_a_block_to_judge`

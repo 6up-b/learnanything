@@ -953,38 +953,40 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
     IdentitySite(
         "A1", "facet identity config in the synthesis manifest scope",
         ("src/learnloop/content/facet_identity/judge.py::manifest_identity",),
-        "agent_runs.input_context_hash of bootstrap synthesis and append (the manifest hash)",
-        "a completed bootstrap or append run is not reused: synthesis is paid again",
+        "synthesis_manifests.manifest_hash of bootstrap synthesis and append, recorded in agent_runs.input_context_hash (a record: nothing reuses a run by it since K2.3)",
+        "the record names a run's facet identity config differently; nothing is paid again",
         _per_config(_a1_facet_identity)),
     IdentitySite(
         "A2", "facet identity judge route in the synthesis manifest scope",
         ("src/learnloop/content/facet_identity/judge.py::JudgeRoute.as_dict",
          "src/learnloop/content/facet_identity/judge.py::resolve_route"),
-        "agent_runs.input_context_hash of bootstrap synthesis and append (the manifest hash)",
-        "a completed bootstrap or append run is not reused: synthesis is paid again (prices, policy output "
-        "budget and the problem text are identity here)",
+        "synthesis_manifests.manifest_hash of bootstrap synthesis and append, recorded in agent_runs.input_context_hash (a record: nothing reuses a run by it since K2.3)",
+        "the record names a run's judge route differently (prices, policy output budget and the problem text "
+        "are in it); nothing is paid again",
         _route_variants()),
     IdentitySite(
         "A3", "graph nominator identity in the synthesis manifest scope",
         ("src/learnloop/content/synthesis/graph_nomination.py::GraphNominator.identity",),
-        "agent_runs.input_context_hash of bootstrap synthesis and append (the manifest hash)",
-        "a completed bootstrap or append run is not reused: synthesis is paid again",
+        "synthesis_manifests.manifest_hash of bootstrap synthesis and append, recorded in agent_runs.input_context_hash (a record: nothing reuses a run by it since K2.3)",
+        "the record names a run's nominator differently; nothing is paid again",
         {"legacy.embedding_on": _a3_graph_nomination}),
     IdentitySite(
         "A1-A4", "bootstrap synthesis scope and full manifest hash",
         ("src/learnloop/content/synthesis/source_set_synthesis.py::bootstrap_scope",
          "src/learnloop/content/synthesis/synthesis_manifests.py::build_manifest",
          "src/learnloop/content/synthesis/synthesis_manifests.py::agent_run_input_context_hash"),
-        "agent_runs.input_context_hash of bootstrap synthesis (synthesis_manifests.manifest_hash)",
-        "a completed bootstrap run is not reused: synthesis is paid again",
+        "synthesis_manifests.manifest_hash of bootstrap synthesis, recorded in agent_runs.input_context_hash (a "
+        "record: nothing reuses a run by it since K2.3)",
+        "a bootstrap's record is named differently; nothing is paid again",
         {**{f"scope.{name}": _bootstrap_scope(name) for name in CONFIGS},
-         # agent_run_input_context_hash(manifest) is the manifest hash itself (the documented cache seam).
+         # agent_run_input_context_hash(manifest) is the manifest hash itself (what the agent run records).
          **{f"manifest_hash.{name}": (lambda name=name: _manifest(name)["manifest_hash"]) for name in CONFIGS}}),
     IdentitySite(
         "K3.2", "append synthesis scope without a unit filter",
         ("src/learnloop/content/synthesis/source_append.py::append_scope",),
-        "agent_runs.input_context_hash of append (the manifest hash)",
-        "a completed append run is not reused: the append is paid again",
+        "synthesis_manifests.scope of append, inside its manifest hash (a record: nothing reuses a run by it since "
+        "K2.3)",
+        "an append's record is named differently; nothing is paid again",
         {f"scope.{name}": _append_scope(name) for name in CONFIGS}),
     IdentitySite(
         "K3.4", "append call checkpoint key (asdict of its context in the prompt; a synthesis pass key's shape)",
@@ -996,8 +998,8 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
     IdentitySite(
         "A4", "task graph hash (blueprint dumps) in the synthesis manifest",
         ("src/learnloop/content/synthesis/synthesis_manifests.py::task_graph_hash",),
-        "synthesis_manifests.task_graph_hash, inside the manifest hash",
-        "a completed bootstrap or append run is not reused: synthesis is paid again",
+        "synthesis_manifests.task_graph_hash, inside the manifest hash (a record since K2.3)",
+        "the record names a run's task graph differently; nothing is paid again",
         {"fixed_vault": _a4_task_graph}),
     IdentitySite(
         "A6", "PF role call input hash (whole provider profile and schema)",

@@ -25,7 +25,8 @@ source_paths:
   - "src/learnloop/tutor/tutor_qa.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/instructional/reader_followups.py"
+  - "src/learnloop/learner/facet_state_reader.py"
+  - "src/learnloop/substrate/replay.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/derived"
@@ -104,15 +105,11 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/attempts/attempts.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
-- `src/learnloop/instructional/reader_followups.py`
-- `src/learnloop/instructional/valuation.py`
 - `src/learnloop/learner/facet_state_reader.py`
 - `src/learnloop/substrate/replay.py`
-- `src/learnloop/tutor/promotions.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 
 > [!note] Static-reference boundary
@@ -122,6 +119,7 @@ Indexes and uniqueness:
 
 - `tests/ad23_contract_helpers.py`
 - `tests/test_facet_belief_successor.py`
+- `tests/test_facet_belief_successor_derivation.py`
 - `tests/test_migrations.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_shadow_rebuild.py`

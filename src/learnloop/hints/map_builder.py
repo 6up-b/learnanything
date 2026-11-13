@@ -682,10 +682,10 @@ class _FencedRepository:
         except _LeaseLost:
             self._dropped("checkpoint", {"key": cache_key})
 
-    def discard_model_checkpoint(self, cache_key: str) -> None:
+    def discard_model_checkpoint(self, cache_key: str, *, result: Any = None) -> None:
         try:
             with _fenced_txn(self._repository, self._claim) as connection:
-                delete_checkpoint(connection, cache_key)
+                delete_checkpoint(connection, cache_key, result=result)
         except _LeaseLost:
             self._dropped("checkpoint discard", {"key": cache_key})
 

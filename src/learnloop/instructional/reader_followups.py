@@ -79,6 +79,7 @@ from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.curriculum import commitments as C
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
+from learnloop.learner.facet_state_reader import stored_facet_uncertainty_state
 from learnloop.db.stores import reader_digests as RDG
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.db.stores.practice_index import judgments_by_ids
@@ -291,7 +292,7 @@ def open_questions(vault: LoadedVault, repository: Repository, summary: Mapping[
     for facet in summary.get("facets_touched") or []:
         canonical = vault.canonical_facet_id(str(facet))
         for lo_id in sorted(set(_facet_los(vault, canonical)) & session_los):
-            state = repository.facet_uncertainty_state(lo_id, canonical)
+            state = stored_facet_uncertainty_state(vault, repository, lo_id, canonical)
             if state is None or not state.hypothesis_marginal:
                 continue
             q = question(f"discriminate:{lo_id}", PURPOSE_DISCRIMINATING, [lo_id])

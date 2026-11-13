@@ -80,7 +80,9 @@ class ServingExclusions:
     reserved_exam_item_ids: frozenset[str]
     rung_variant_hold_ids: frozenset[str]
     staged_owned_item_ids: frozenset[str]
-    #: Out-of-timing rules; empty from :func:`routine_serving_exclusions`.
+    #: The routine sets carry only the cold items whose check is actually pending (an open cold retry:
+    #: ``pending_remediation_cold_item_ids``); :func:`out_of_timing_serving_exclusions` widens it to the open
+    #: cold tasks' items and every live episode's chosen item (``open_remediation_cold_item_ids``).
     cold_check_reserved_item_ids: frozenset[str] = frozenset()
     revealed_recently_item_ids: frozenset[str] = frozenset()
     #: Items made from held-out material (empty with ``goals.held_out_selection`` off).
@@ -125,6 +127,7 @@ def routine_serving_exclusions(vault: Any, repository: Repository) -> ServingExc
         generated_probe_ids=all_generated_probe_ids(repository),
         staged_owned_item_ids=frozenset(controller_ownership.staged_owned_practice_item_ids(vault, repository)),
         held_out_item_ids=held_out_items(vault, repository) if held_out_selection_active(vault) else frozenset(),
+        cold_check_reserved_item_ids=frozenset(repository.pending_remediation_cold_item_ids()),
     )
 
 
@@ -148,6 +151,10 @@ def routine_withhold_reason(vault: Any, item: Any, state: Any, exclusions: Servi
         return "reserved_exam"
     if item_id in exclusions.held_out_item_ids:
         return "held_out_material"
+    # A remediation episode's cold item: ordinary practice before its check would spoil it. The check itself
+    # reaches the queue as a follow-up task, which does not ask this gate.
+    if item_id in exclusions.cold_check_reserved_item_ids:
+        return "cold_check_reserved"
     # Pending-variant hold: the learner asked for an easier/harder sibling of
     # this exact card and it is still being authored; re-serving the very card
     # the learner stepped away from inverts the variant-first ordering.
@@ -192,6 +199,7 @@ ROUTINE_GATES: tuple[str, ...] = (
     "inactive_state",
     "reserved_exam",
     "held_out_material",
+    "cold_check_reserved",
     "rung_variant_hold",
     "staged_owned",
     "generated_probe_closed",

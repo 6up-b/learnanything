@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/facet_state_reader.py](../../../../../../src/learnloop/learner/facet_state_reader.py) |
-| Source lines | 380 |
+| Source lines | 538 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -55,33 +55,43 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - `is_canonical_state_vault(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 49) — True when this vault reads/writes canonical (mvp-0.7 or mvp-0.8) facet state.
 - `facet_belief_fixes_on(config) -> bool` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 59) — The facet-belief successor (mvp-0.59, ``FACET_BELIEF_FIX_VERSIONS``) with its switch ``facet_diagnostic.canonical_belief_fixes`` on.
-- `canonical_facet_uncertainty_on(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 74) — A canonical vault that writes and reads per-LO facet uncertainty (the facet-belief successor).
-- `canonical_uncertainty_rows(vault: LoadedVault, repository: Repository, rows: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 83) — The successor's uncertainty updates keyed by canonical facet id (aliases, then merges).
-- `current_facet_uncertainty(state: FacetUncertaintyState | None) -> FacetUncertaintyState | None` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 105) — A row the facet-belief successor wrote, or None.
-- `resolve_canonical_facet(vault: LoadedVault, merge_map: dict[str, str], facet_id: str) -> str` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 116) — Resolve a facet id to its terminal canonical survivor (§7.1).
-- `class CanonicalFacetStateReader` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 206) — Serves legacy-shaped per-LO facet states from canonical mvp-0.7 rows.
-  - `__init__(self, vault: LoadedVault, repository: Repository) -> None` (line 214; internal)
-  - `_resolve(self, facet_id: str) -> str` (line 239; internal)
-  - `states_for_lo(self, learning_object_id: str) -> list[FacetRecallState]` (line 247; public)
-  - `state_for_facet(self, learning_object_id: str, facet_id: str, practice_item_id: str | None=None) -> FacetRecallState | None` (line 275; public)
-- `facet_states_by_lo(vault: LoadedVault, repository: Repository) -> dict[str, list[FacetRecallState]]` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 301) — ``{learning_object_id: [FacetRecallState, ...]}`` for every LO in the vault.
-- `facet_recall_states_for_lo(vault: LoadedVault, repository: Repository, learning_object_id: str, *, reader: CanonicalFacetStateReader | None=None) -> list[FacetRecallState]` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 312)
-- `facet_recall_state_for_lo(vault: LoadedVault, repository: Repository, learning_object_id: str, facet_id: str, practice_item_id: str | None=None, *, reader: CanonicalFacetStateReader | None=None) -> FacetRecallState | None` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 325)
-- `facet_uncertainty_states_for_lo(vault: LoadedVault, repository: Repository, learning_object_id: str, *, statuses: tuple[str, ...] | None=None) -> list[FacetUncertaintyState]` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 340) — Per-LO facet uncertainty states (KM §7.1).
+- `facet_belief_corrections_on(config) -> bool` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 84) — The corrections to the successor's derivation: the uncertainty layer reads the frozen contract's criterion targets, the stored rows are read only through this module and relabelled when rekeyed, a success on a massless repeat surface still ends the failure streak, the timeline l…
+- `canonical_facet_uncertainty_on(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 100) — A canonical vault that writes and reads per-LO facet uncertainty (the facet-belief successor).
+- `canonical_uncertainty_rows(vault: LoadedVault, repository: Repository, rows: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 109) — The successor's uncertainty updates keyed by canonical facet id (aliases, then merges).
+- `relabelled_marginal(marginal: Mapping[str, float], old_facet: str, new_facet: str) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 144) — A facet's hypothesis marginal under another id of the same facet.
+- `current_facet_uncertainty(state: FacetUncertaintyState | None) -> FacetUncertaintyState | None` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 162) — A row the facet-belief successor wrote, or None.
+- `resolve_canonical_facet(vault: LoadedVault, merge_map: dict[str, str], facet_id: str) -> str` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 173) — Resolve a facet id to its terminal canonical survivor (§7.1).
+- `class CanonicalFacetStateReader` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 263) — Serves legacy-shaped per-LO facet states from canonical mvp-0.7 rows.
+  - `__init__(self, vault: LoadedVault, repository: Repository) -> None` (line 271; internal)
+  - `_resolve(self, facet_id: str) -> str` (line 296; internal)
+  - `states_for_lo(self, learning_object_id: str) -> list[FacetRecallState]` (line 304; public)
+  - `state_for_facet(self, learning_object_id: str, facet_id: str, practice_item_id: str | None=None) -> FacetRecallState | None` (line 332; public)
+- `facet_states_by_lo(vault: LoadedVault, repository: Repository) -> dict[str, list[FacetRecallState]]` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 358) — ``{learning_object_id: [FacetRecallState, ...]}`` for every LO in the vault.
+- `facet_recall_states_for_lo(vault: LoadedVault, repository: Repository, learning_object_id: str, *, reader: CanonicalFacetStateReader | None=None) -> list[FacetRecallState]` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 369)
+- `facet_recall_state_for_lo(vault: LoadedVault, repository: Repository, learning_object_id: str, facet_id: str, practice_item_id: str | None=None, *, reader: CanonicalFacetStateReader | None=None) -> FacetRecallState | None` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 382)
+- `facet_uncertainty_states_for_lo(vault: LoadedVault, repository: Repository, learning_object_id: str, *, statuses: tuple[str, ...] | None=None) -> list[FacetUncertaintyState]` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 397) — Per-LO facet uncertainty states (KM §7.1).
+- `stored_facet_uncertainty_for_lo(vault: LoadedVault, repository: Repository, learning_object_id: str, *, statuses: tuple[str, ...] | None=None) -> list[FacetUncertaintyState]` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 448) — One LO's stored uncertainty rows as the readers outside the diagnostic layer see them: the instructional valuation, the Reader's open questions, tutor promotions and an attempt's prior.
+- `attempt_uncertainty_priors(vault: LoadedVault, repository: Repository, learning_object_id: str, facets: Iterable[str]) -> dict[str, FacetUncertaintyState | None]` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 473) — The stored row each of an attempt's facets updates from, keyed by the facet id the item names.
+- `stored_facet_uncertainty_state(vault: LoadedVault, repository: Repository, learning_object_id: str, facet_id: str) -> FacetUncertaintyState | None` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 512) — One LO's stored uncertainty row on ``facet_id`` (its canonical survivor when the successor reads it), by the rules of :func:`stored_facet_uncertainty_for_lo`.
+
+### Module constants
+
+- `FACET_BELIEF_CORRECTION_VERSIONS` ([src/learnloop/learner/facet_state_reader.py](../../../../../../src/learnloop/learner/facet_state_reader.py), line 76)
+- `DERIVED_WITH_BELIEF_FIXES_KEY` ([src/learnloop/learner/facet_state_reader.py](../../../../../../src/learnloop/learner/facet_state_reader.py), line 81)
 
 ## Internal implementation anchors
 
-- `_max_iso(a: str | None, b: str | None) -> str | None` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 134)
-- `_min_iso(a: str | None, b: str | None) -> str | None` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 142)
-- `_capability_scope(rows: Iterable[CanonicalFacetRecallState]) -> str` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 150)
-- `_fold(rows: list[CanonicalFacetRecallState], *, learning_object_id: str, facet_id: str, practice_item_id: str | None) -> FacetRecallState` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 155) — Fold capability-sliced canonical rows into one legacy-shaped state.
+- `_max_iso(a: str | None, b: str | None) -> str | None` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 191)
+- `_min_iso(a: str | None, b: str | None) -> str | None` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 199)
+- `_capability_scope(rows: Iterable[CanonicalFacetRecallState]) -> str` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 207)
+- `_fold(rows: list[CanonicalFacetRecallState], *, learning_object_id: str, facet_id: str, practice_item_id: str | None) -> FacetRecallState` ([source](../../../../../../src/learnloop/learner/facet_state_reader.py), line 212) — Fold capability-sliced canonical rows into one legacy-shaped state.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `CanonicalFacetStateReader`, `canonical_facet_uncertainty_on`, `canonical_uncertainty_rows`, `current_facet_uncertainty`, `is_canonical_state_vault`, `resolve_canonical_facet`; statically calls `CanonicalFacetStateReader`, `canonical_facet_uncertainty_on`, `canonical_uncertainty_rows`, `current_facet_uncertainty`, `is_canonical_state_vault`, `resolve_canonical_facet`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `CanonicalFacetStateReader`, `DERIVED_WITH_BELIEF_FIXES_KEY`, `attempt_uncertainty_priors`, `canonical_facet_uncertainty_on`, `canonical_uncertainty_rows`, `facet_belief_corrections_on`, `is_canonical_state_vault`; statically calls `CanonicalFacetStateReader`, `attempt_uncertainty_priors`, `canonical_facet_uncertainty_on`, `canonical_uncertainty_rows`, `facet_belief_corrections_on`, `is_canonical_state_vault`
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `is_canonical_state_vault`; statically calls `is_canonical_state_vault`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `facet_recall_states_for_lo`; statically calls `facet_recall_states_for_lo`
 - [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]] — imports `is_canonical_state_vault`; statically calls `is_canonical_state_vault`
@@ -91,14 +101,18 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] — imports `facet_recall_states_for_lo`; statically calls `facet_recall_states_for_lo`
 - [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]] — imports `is_canonical_state_vault`; statically calls `is_canonical_state_vault`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `facet_states_by_lo`, `facet_uncertainty_states_for_lo`, `is_canonical_state_vault`; statically calls `facet_states_by_lo`, `facet_uncertainty_states_for_lo`, `is_canonical_state_vault`
+- [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `stored_facet_uncertainty_state`; statically calls `stored_facet_uncertainty_state`
+- [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]] — imports `stored_facet_uncertainty_state`; statically calls `stored_facet_uncertainty_state`
 - [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]] — imports `facet_recall_states_for_lo`, `is_canonical_state_vault`; statically calls `facet_recall_states_for_lo`, `is_canonical_state_vault`
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `facet_recall_states_for_lo`, `facet_uncertainty_states_for_lo`, `is_canonical_state_vault`; statically calls `facet_recall_states_for_lo`, `facet_uncertainty_states_for_lo`, `is_canonical_state_vault`
-- [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] — imports `is_canonical_state_vault`, `resolve_canonical_facet`; statically calls `is_canonical_state_vault`, `resolve_canonical_facet`
+- [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] — imports `facet_belief_corrections_on`, `is_canonical_state_vault`, `resolve_canonical_facet`; statically calls `facet_belief_corrections_on`, `is_canonical_state_vault`, `resolve_canonical_facet`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `facet_recall_state_for_lo`; statically calls `facet_recall_state_for_lo`
 - [[Reference/Modules/learnloop/learner/recall_coverage|learnloop.learner.recall_coverage]] — imports `CanonicalFacetStateReader`, `facet_recall_state_for_lo`, `is_canonical_state_vault`; statically calls `CanonicalFacetStateReader`, `facet_recall_state_for_lo`, `is_canonical_state_vault`
+- [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `DERIVED_WITH_BELIEF_FIXES_KEY`, `FACET_BELIEF_CORRECTION_VERSIONS`, `facet_belief_corrections_on`; statically calls `facet_belief_corrections_on`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `facet_states_by_lo`; statically calls `facet_states_by_lo`
 - [[Reference/Modules/learnloop/scheduling/selection_rewards|learnloop.scheduling.selection_rewards]] — imports `is_canonical_state_vault`; statically calls `is_canonical_state_vault`
-- [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `facet_belief_fixes_on`; statically calls `facet_belief_fixes_on`
+- [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `facet_belief_corrections_on`, `facet_belief_fixes_on`; statically calls `facet_belief_corrections_on`, `facet_belief_fixes_on`
+- [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `stored_facet_uncertainty_for_lo`; statically calls `stored_facet_uncertainty_for_lo`
 - [[Reference/Modules/learnloop/tutor/question_signal|learnloop.tutor.question_signal]] — imports `facet_recall_states_for_lo`, `facet_uncertainty_states_for_lo`; statically calls `facet_recall_states_for_lo`, `facet_uncertainty_states_for_lo`
 - [[Reference/Modules/learnloop_sidecar/handlers/facet_detail|learnloop_sidecar.handlers.facet_detail]] — imports `CanonicalFacetStateReader`, `facet_recall_states_for_lo`, `is_canonical_state_vault`, `resolve_canonical_facet`; statically calls `CanonicalFacetStateReader`, `facet_recall_states_for_lo`, `is_canonical_state_vault`, `resolve_canonical_facet`
 - [[Reference/Modules/learnloop_sidecar/handlers/facets|learnloop_sidecar.handlers.facets]] — imports `is_canonical_state_vault`; statically calls `is_canonical_state_vault`
@@ -125,7 +139,7 @@ Use this module in context through:
 
 - [[Reader to Practice Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] and 17 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] and 21 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -140,8 +154,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_legacy_era_uncertainty_row_is_never_the_successors_prior_or_read`
   - `test_at_the_tag_the_three_fixes_and_the_uncertainty_show`
   - `test_the_gate_reads_off_below_the_tag_and_with_the_switch_off`
+  - `test_the_upgrade_derives_the_successors_state_from_the_history`
   - `test_uncertainty_is_written_under_the_merged_facets_survivor`
   - `test_with_the_switch_off_the_belief_is_the_predecessors_exactly`
+- [tests/test_facet_belief_successor_derivation.py](../../../../../../tests/test_facet_belief_successor_derivation.py) — direct import
+  - `test_s3_a_row_read_under_its_facets_new_id_keeps_its_solid_reading`
+  - `test_s3_after_an_alias_the_next_answer_updates_the_row_it_had_and_a_rebuild_agrees`
+  - `test_s5_an_attempt_records_the_fixes_only_when_derived_with_them`
 - [tests/test_km2b_consumer_rekey.py](../../../../../../tests/test_km2b_consumer_rekey.py) — direct import
   - `test_exam_attempt_moves_shared_parent_across_los`
   - `test_two_los_share_one_facet_parent_in_scheduler_view`

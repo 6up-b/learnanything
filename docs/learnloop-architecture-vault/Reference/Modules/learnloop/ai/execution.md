@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/execution.py](../../../../../../src/learnloop/ai/execution.py) |
-| Source lines | 546 |
+| Source lines | 566 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -70,29 +70,31 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - `class CheckpointStore(Protocol)` ([source](../../../../../../src/learnloop/ai/execution.py), line 201) — Where paid answers are kept (``model_work_checkpoints``; a ``Repository``).
   - `model_checkpoint(self, cache_key: str) -> dict[str, Any] | None` (line 204; public)
   - `save_model_checkpoint(self, cache_key: str, *, purpose: str, result: dict[str, Any], usage: dict[str, Any] | None=None) -> None` (line 207; public)
-  - `discard_model_checkpoint(self, cache_key: str) -> None` (line 212; public)
+  - `discard_model_checkpoint(self, cache_key: str, *, result: Any=None) -> None` (line 212; public)
 - `request_key(*, purpose: str, prompt: Any, schema: Any=None, settings: dict[str, Any] | None=None, identity_extra: dict[str, Any] | None=None) -> str` ([source](../../../../../../src/learnloop/ai/execution.py), line 216) — Checkpoint identity of one paid structured request: what it sends.
 - `class ModelCheckpoint(Generic[T])` ([source](../../../../../../src/learnloop/ai/execution.py), line 241) — One paid answer's slot: load, validate, discard, save.
-  - `load(self) -> T | None` (line 256; public)
-  - `save(self, result: Any, usage: dict[str, Any] | None=None) -> None` (line 266; public)
-  - `discard(self) -> None` (line 270; public)
-  - `answer(self, call: Callable[[], T], *, usage: Callable[[T], dict[str, Any]] | None=None) -> tuple[T, bool]` (line 273; public) — The saved answer, or ``call()``'s saved before it is returned, and whether it was reused.
-- `checkpointed(store: CheckpointStore, *, purpose: str, prompt: Any, schema: Any, settings: dict[str, Any] | None, result_model: type[T], identity_extra: dict[str, Any] | None=None, validate: Callable[[T], Any] | None=None) -> ModelCheckpoint[T]` ([source](../../../../../../src/learnloop/ai/execution.py), line 289) — The checkpoint of one paid structured call keyed on what it sends (:func:`request_key`), reading its answer back as ``result_model`` and, when given, ``validate`` (which raises on an answer that no longer holds).
-- `observe_model_calls(observer: Callable[[str, dict[str, Any]], Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 309)
-- `tee_model_calls(observer: Callable[[str, dict[str, Any]], Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 318) — Also observe model calls with ``observer``, keeping the context's own observer.
-- `class RequestGate(Protocol)` ([source](../../../../../../src/learnloop/ai/execution.py), line 343) — Admission for each physical model request made in a context.
-  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any` (line 355; public)
-  - `settle(self, admission: Any, usage: dict[str, Any]) -> None` (line 358; public)
-- `gate_model_requests(gate: RequestGate)` ([source](../../../../../../src/learnloop/ai/execution.py), line 363) — Admit every physical model request started in this context through ``gate``.
-- `active_request_gate() -> RequestGate | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 373) — The request gate installed in this context, if any: a caller adding a check of its own composes with it instead of replacing it.
-- `class ModelEventStore(Protocol)` ([source](../../../../../../src/learnloop/ai/execution.py), line 380)
-  - `record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None` (line 381; public)
-- `record_model_calls(store: ModelEventStore, *, owner_kind: str, owner_id: str)` ([source](../../../../../../src/learnloop/ai/execution.py), line 385) — Observe every model call in this context into ``store`` under one owner.
-- `declared_budgets(budgets: dict[str, Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 398) — Record the token budgets an operation runs under on its root receipts.
-- `generation_limit(output_tokens: int | None)` ([source](../../../../../../src/learnloop/ai/execution.py), line 413)
-- `output_limit() -> int | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 425)
-- `observed_sdk_turn(function)` ([source](../../../../../../src/learnloop/ai/execution.py), line 429)
-- `model_call(client: Any, *, purpose: str, prompt: Any=None, schema: Any=None, budget: int | None=None, wrapper: bool=False)` ([source](../../../../../../src/learnloop/ai/execution.py), line 440) — One model call: a receipt for the observer and, unless ``wrapper`` (an operation around the physical requests a provider makes), admission through the context's request gate before anything is sent.
+  - `fetch(self) -> tuple[T, Any] | None` (line 256; public) — The saved answer and the stored result it was read from (what :meth:`discard` names).
+  - `load(self) -> T | None` (line 268; public)
+  - `save(self, result: Any, usage: dict[str, Any] | None=None) -> Any` (line 272; public) — Save ``result`` and return the stored form :meth:`discard` names (kept only if nothing was saved under the key first: checkpoints are write-once).
+  - `discard(self, stored: Any) -> None` (line 280; public) — Drop the saved answer ``stored`` (from :meth:`fetch` or :meth:`save`), and only it: dropped by key alone, a rejection could delete a fresh answer another run saved since.
+  - `answer(self, call: Callable[[], T], *, usage: Callable[[T], dict[str, Any]] | None=None) -> tuple[T, bool]` (line 286; public) — The saved answer, or ``call()``'s saved before it is returned, and whether it was reused.
+  - `answer_stored(self, call: Callable[[], T], *, usage: Callable[[T], dict[str, Any]] | None=None) -> tuple[T, bool, Any]` (line 297; public) — :meth:`answer`, with the stored form of the answer served (what :meth:`discard` names).
+- `checkpointed(store: CheckpointStore, *, purpose: str, prompt: Any, schema: Any, settings: dict[str, Any] | None, result_model: type[T], identity_extra: dict[str, Any] | None=None, validate: Callable[[T], Any] | None=None) -> ModelCheckpoint[T]` ([source](../../../../../../src/learnloop/ai/execution.py), line 309) — The checkpoint of one paid structured call keyed on what it sends (:func:`request_key`), reading its answer back as ``result_model`` and, when given, ``validate`` (which raises on an answer that no longer holds).
+- `observe_model_calls(observer: Callable[[str, dict[str, Any]], Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 329)
+- `tee_model_calls(observer: Callable[[str, dict[str, Any]], Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 338) — Also observe model calls with ``observer``, keeping the context's own observer.
+- `class RequestGate(Protocol)` ([source](../../../../../../src/learnloop/ai/execution.py), line 363) — Admission for each physical model request made in a context.
+  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any` (line 375; public)
+  - `settle(self, admission: Any, usage: dict[str, Any]) -> None` (line 378; public)
+- `gate_model_requests(gate: RequestGate)` ([source](../../../../../../src/learnloop/ai/execution.py), line 383) — Admit every physical model request started in this context through ``gate``.
+- `active_request_gate() -> RequestGate | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 393) — The request gate installed in this context, if any: a caller adding a check of its own composes with it instead of replacing it.
+- `class ModelEventStore(Protocol)` ([source](../../../../../../src/learnloop/ai/execution.py), line 400)
+  - `record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None` (line 401; public)
+- `record_model_calls(store: ModelEventStore, *, owner_kind: str, owner_id: str)` ([source](../../../../../../src/learnloop/ai/execution.py), line 405) — Observe every model call in this context into ``store`` under one owner.
+- `declared_budgets(budgets: dict[str, Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 418) — Record the token budgets an operation runs under on its root receipts.
+- `generation_limit(output_tokens: int | None)` ([source](../../../../../../src/learnloop/ai/execution.py), line 433)
+- `output_limit() -> int | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 445)
+- `observed_sdk_turn(function)` ([source](../../../../../../src/learnloop/ai/execution.py), line 449)
+- `model_call(client: Any, *, purpose: str, prompt: Any=None, schema: Any=None, budget: int | None=None, wrapper: bool=False)` ([source](../../../../../../src/learnloop/ai/execution.py), line 460) — One model call: a receipt for the observer and, unless ``wrapper`` (an operation around the physical requests a provider makes), admission through the context's request gate before anything is sent.
 
 ### Module constants
 
@@ -102,9 +104,9 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 ## Internal implementation anchors
 
-- `_observed_call(client: Any, *, purpose: str, prompt: Any, schema: Any, budget: int | None, collect_usage: bool=False)` ([source](../../../../../../src/learnloop/ai/execution.py), line 474)
-- `_failure_status(exc: BaseException) -> str` ([source](../../../../../../src/learnloop/ai/execution.py), line 527)
-- `_record_finish(observer: Callable[[str, dict[str, Any]], Any], call_id: str, metadata: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/ai/execution.py), line 535) — Best-effort: the durable start is the safety guarantee, the finish is telemetry.
+- `_observed_call(client: Any, *, purpose: str, prompt: Any, schema: Any, budget: int | None, collect_usage: bool=False)` ([source](../../../../../../src/learnloop/ai/execution.py), line 494)
+- `_failure_status(exc: BaseException) -> str` ([source](../../../../../../src/learnloop/ai/execution.py), line 547)
+- `_record_finish(observer: Callable[[str, dict[str, Any]], Any], call_id: str, metadata: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/ai/execution.py), line 555) — Best-effort: the durable start is the safety guarantee, the finish is telemetry.
 
 ## Who imports or calls it
 
@@ -451,6 +453,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_declared_caps_persist_on_real_receipt_for_success_and_failure`
   - `test_dry_run_is_nonmutating_and_does_not_emit_model_receipts`
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
+- [tests/test_synthesis_answer_reuse.py](../../../../../../tests/test_synthesis_answer_reuse.py) — direct import
+  - `test_a_checkpoint_discard_keeps_an_answer_saved_after_the_one_judged`
 - [tests/test_t6_followup_composition.py](../../../../../../tests/test_t6_followup_composition.py) — direct import
   - `test_the_seed_unit_is_admitted_at_the_policy_budget`
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import

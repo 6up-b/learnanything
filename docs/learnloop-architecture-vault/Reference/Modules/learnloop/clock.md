@@ -1044,6 +1044,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_whole_vault_rebuild_reproduces_the_belief_and_the_uncertainty`
   - `test_doctor_warns_when_the_switch_moved_after_the_last_whole_vault_rebuild`
   - `test_uncertainty_is_written_under_the_merged_facets_survivor`
+- [tests/test_facet_belief_successor_derivation.py](../../../../../tests/test_facet_belief_successor_derivation.py) — direct import
+  - `test_s1_a_rebuild_after_the_items_mapping_changed_keeps_the_uncertainty_where_the_contract_put_it`
+  - `test_s1_explicit_criterion_targets_place_the_uncertainty_without_an_items_map`
+  - `test_s1_with_the_switch_off_the_two_criterion_answer_is_the_predecessors`
+  - `test_s2_with_the_switch_off_no_reader_sees_the_successors_rows`
+  - `test_s3_a_row_written_under_the_merge_survivor_names_the_survivor`
+  - `test_s3_after_an_alias_the_next_answer_updates_the_row_it_had_and_a_rebuild_agrees`
+  - `test_s5_an_attempt_records_the_fixes_only_when_derived_with_them`
+  - `test_s5_doctor_still_warns_after_the_switch_went_off_and_back_on_with_answers_between`
 - [tests/test_facet_diagnostics_v03.py](../../../../../tests/test_facet_diagnostics_v03.py) — direct import
   - `test_facet_uncertainty_rebuilds_from_attempts_and_grading_evidence`
   - `test_hedged_learner_confidence_opens_uncertainty_even_with_partial_credit`
@@ -1320,6 +1329,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_hard_correct_completes_probe_on_hypothesis_convergence`
 - [tests/test_item_authoring.py](../../../../../tests/test_item_authoring.py) — direct import
 - [tests/test_item_parameters.py](../../../../../tests/test_item_parameters.py) — direct import
+- [tests/test_k1_remediation_cold_reservation.py](../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import
+  - `test_a_cold_retry_that_expires_unanswered_releases_its_reservation`
+  - `test_an_episode_whose_cold_retry_was_never_scheduled_reserves_nothing_after_its_primed_attempt`
 - [tests/test_kinship_feature.py](../../../../../tests/test_kinship_feature.py) — direct import
 - [tests/test_km2_sim_gates.py](../../../../../tests/test_km2_sim_gates.py) — direct import
   - `test_no_capability_inflation_sim`
@@ -1741,6 +1753,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_required_method_round3.py](../../../../../tests/test_required_method_round3.py) — direct import
 - [tests/test_reread_safety.py](../../../../../tests/test_reread_safety.py) — direct import
   - `test_redesign_a_refresh_keeps_an_exam_scoped_member_on_its_revision`
+- [tests/test_rerun_proposals.py](../../../../../tests/test_rerun_proposals.py) — direct import
 - [tests/test_residual_diagnostics.py](../../../../../tests/test_residual_diagnostics.py) — direct import
   - `test_positive_residual_dependence_flags_missing_factor`
 - [tests/test_reveal_ledger.py](../../../../../tests/test_reveal_ledger.py) — direct import

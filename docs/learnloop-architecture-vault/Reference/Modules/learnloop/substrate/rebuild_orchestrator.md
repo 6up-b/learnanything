@@ -223,6 +223,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_whole_vault_rebuild_reproduces_the_belief_and_the_uncertainty`
   - `test_doctor_warns_when_the_switch_moved_after_the_last_whole_vault_rebuild`
   - `test_the_uncertainty_table_is_derived_and_learner_replay_owns_it`
+  - `test_uncertainty_is_written_under_the_merged_facets_survivor`
+- [tests/test_facet_belief_successor_derivation.py](../../../../../../tests/test_facet_belief_successor_derivation.py) — direct import
+  - `test_s1_a_rebuild_after_the_items_mapping_changed_keeps_the_uncertainty_where_the_contract_put_it`
+  - `test_s1_explicit_criterion_targets_place_the_uncertainty_without_an_items_map`
+  - `test_s3_after_an_alias_the_next_answer_updates_the_row_it_had_and_a_rebuild_agrees`
+  - `test_s5_doctor_still_warns_after_the_switch_went_off_and_back_on_with_answers_between`
 - [tests/test_family_memory_projection.py](../../../../../../tests/test_family_memory_projection.py) — direct import
   - `test_rebuild_and_evaluation_fold_the_same_leak_aware_rows`
   - `test_registry_has_exactly_one_owner_on_the_outcome_view`
@@ -368,6 +374,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te2_review_fixes.py](../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
   - `test_f1_a_probe_answer_carries_reliable_canonical_mass_live_and_after_a_rebuild`
   - `test_f7_a_blind_lesson_probe_grade_keeps_the_blind_calibration_identity`
+- [tests/test_upgrades.py](../../../../../../tests/test_upgrades.py) — direct import
 - [tests/test_voi_stopping.py](../../../../../../tests/test_voi_stopping.py) — direct import
 - [tests/test_workbench_assistance.py](../../../../../../tests/test_workbench_assistance.py) — direct import
   - `test_an_abandoned_problem_writes_no_attempt_and_a_rebuild_leaves_the_evidence`

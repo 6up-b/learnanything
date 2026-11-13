@@ -19,11 +19,13 @@ source_paths:
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/synthesis/source_append.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
+  - "src/learnloop/content/synthesis/synthesis_manifests.py"
   - "src/learnloop/daily_plan/reading.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/sources/provenance.py"
   - "src/learnloop/content/sources/source_deletion.py"
+  - "src/learnloop/content/synthesis/proposal_match.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -118,6 +120,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/facet_identity/authority.py`
 - `src/learnloop/content/sources/provenance.py`
 - `src/learnloop/content/sources/source_deletion.py`
+- `src/learnloop/content/synthesis/proposal_match.py`
 - `src/learnloop/content/synthesis/source_append.py`
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/content/synthesis/synthesis_manifests.py`
@@ -135,6 +138,7 @@ Indexes and uniqueness:
 - `tests/test_ingest_ownership.py`
 - `tests/test_migrations.py`
 - `tests/test_mobile_host_coexistence.py`
+- `tests/test_rerun_proposals.py`
 - `tests/test_secondary_attach.py`
 - `tests/test_synthesis_manifests.py`
 - `tests/test_synthesis_runs_repo.py`

@@ -162,7 +162,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 80 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 81 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 55 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 27 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 27 static module edges
@@ -237,7 +237,7 @@ flowchart LR
     n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_field["learnloop.field"]
     n_learnloop_practice_index["learnloop.practice_index"]
-    center -->|80| n_learnloop_vault
+    center -->|81| n_learnloop_vault
     center -->|55| n_learnloop_ai
     n_learnloop -->|1| center
     center -->|27| n_learnloop

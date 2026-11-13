@@ -71,6 +71,32 @@ def facet_belief_fixes_on(config) -> bool:
     return bool(getattr(getattr(config, "facet_diagnostic", None), "canonical_belief_fixes", False))
 
 
+#: The tags whose derivation carries the corrections to the facet-belief successor (see
+#: :func:`facet_belief_corrections_on`). They share the successor's own tags.
+FACET_BELIEF_CORRECTION_VERSIONS = FACET_BELIEF_FIX_VERSIONS
+
+#: The key an attempt's debug payload carries (True) when the attempt was derived with the corrections on;
+#: ``doctor`` compares it with the config, since a switch turned off and on again leaves the attempts between
+#: derived without them while the last rebuild's record and the config agree.
+DERIVED_WITH_BELIEF_FIXES_KEY = "facet_belief_fixes"
+
+
+def facet_belief_corrections_on(config) -> bool:
+    """The corrections to the successor's derivation: the uncertainty layer reads the frozen contract's
+    criterion targets, the stored rows are read only through this module and relabelled when rekeyed, a
+    success on a massless repeat surface still ends the failure streak, the timeline leaves out what the
+    projection leaves out, and each attempt records that it was derived with them.
+
+    They were made before any vault was known to hold the successor, so they share its tag and switch. Every
+    correction asks this predicate (and its tag set, ``FACET_BELIEF_CORRECTION_VERSIONS``) and nothing else:
+    were a vault already at the successor as first landed, a new tag and switch would gate them here alone."""
+
+    algorithms = getattr(config, "algorithms", None)
+    if getattr(algorithms, "algorithm_version", None) not in FACET_BELIEF_CORRECTION_VERSIONS:
+        return False
+    return facet_belief_fixes_on(config)
+
+
 def canonical_facet_uncertainty_on(vault: LoadedVault) -> bool:
     """A canonical vault that writes and reads per-LO facet uncertainty (the facet-belief successor).
 
@@ -92,14 +118,45 @@ def canonical_uncertainty_rows(
     from learnloop.learner.facet_diagnostics import _facet_uncertainty_id
 
     merge_map = repository.facet_merge_map()
+    corrections = facet_belief_corrections_on(vault.config)
     keyed: list[dict[str, Any]] = []
     for row in rows:
-        canonical = resolve_canonical_facet(vault, merge_map, str(row["facet_id"]))
-        if canonical != row["facet_id"]:
-            row = {**row, "facet_id": canonical,
-                   "id": _facet_uncertainty_id(str(row["learning_object_id"]), canonical)}
+        authored = str(row["facet_id"])
+        learning_object_id = str(row["learning_object_id"])
+        canonical = resolve_canonical_facet(vault, merge_map, authored)
+        if corrections:
+            # The prior may be the row the facet had under an earlier id, whose id is not the canonical row's:
+            # the upsert matches on (learning object, facet) and then writes by id, so the id must be the
+            # canonical row's, or the update would land on the old row (or collide with it).
+            existing = repository.facet_uncertainty_state(learning_object_id, canonical)
+            row = {
+                **row,
+                "facet_id": canonical,
+                "id": existing.id if existing is not None else _facet_uncertainty_id(learning_object_id, canonical),
+                "hypothesis_marginal": relabelled_marginal(row["hypothesis_marginal"], authored, canonical),
+            }
+        elif canonical != authored:
+            row = {**row, "facet_id": canonical, "id": _facet_uncertainty_id(learning_object_id, canonical)}
         keyed.append(dict(row))
     return keyed
+
+
+def relabelled_marginal(marginal: Mapping[str, float], old_facet: str, new_facet: str) -> dict[str, float]:
+    """A facet's hypothesis marginal under another id of the same facet.
+
+    Its two facet hypotheses name the facet (``facet_solid:<id>``, ``facet_absent:<id>``), and every reader
+    compares them with the id the row is read under: kept under the old id, a solid facet would read as a
+    known gap and the likelihood model would not recognise either hypothesis."""
+
+    if old_facet == new_facet:
+        return dict(marginal)
+    renamed = {f"facet_solid:{old_facet}": f"facet_solid:{new_facet}",
+               f"facet_absent:{old_facet}": f"facet_absent:{new_facet}"}
+    relabelled: dict[str, float] = {}
+    for label, probability in marginal.items():
+        target = renamed.get(label, label)
+        relabelled[target] = relabelled.get(target, 0.0) + float(probability)
+    return relabelled
 
 
 def current_facet_uncertainty(state: FacetUncertaintyState | None) -> FacetUncertaintyState | None:
@@ -370,7 +427,15 @@ def facet_uncertainty_states_for_lo(
                 continue
             facet = resolve_canonical_facet(vault, merge_map, state.facet_id)
             if facet != state.facet_id:
-                state = replace(state, facet_id=facet)
+                state = replace(
+                    state,
+                    facet_id=facet,
+                    hypothesis_marginal=(
+                        relabelled_marginal(state.hypothesis_marginal, state.facet_id, facet)
+                        if facet_belief_corrections_on(vault.config)
+                        else state.hypothesis_marginal
+                    ),
+                )
             kept = latest.get(facet)
             if kept is None or (state.updated_at, state.id) > (kept[1].updated_at, kept[1].id):
                 latest[facet] = (position, state)
@@ -378,3 +443,96 @@ def facet_uncertainty_states_for_lo(
     return list(
         repository.facet_uncertainty_states(learning_object_id, statuses=statuses)
     )
+
+
+def stored_facet_uncertainty_for_lo(
+    vault: LoadedVault,
+    repository: Repository,
+    learning_object_id: str,
+    *,
+    statuses: tuple[str, ...] | None = None,
+) -> list[FacetUncertaintyState]:
+    """One LO's stored uncertainty rows as the readers outside the diagnostic layer see them: the instructional
+    valuation, the Reader's open questions, tutor promotions and an attempt's prior.
+
+    Those readers always read the table as it stands (a canonical vault's stray mvp-0.6 rows included), so
+    that is the predecessor's reading. With the successor off (its switch, or below its tag) a row the
+    successor wrote is left out: the predecessor never wrote one, and a switch turned off after rows were
+    written must still serve the predecessor exactly. On, they read what the diagnostic layer reads."""
+
+    if is_canonical_state_vault(vault) and canonical_facet_uncertainty_on(vault):
+        if facet_belief_corrections_on(vault.config):
+            return facet_uncertainty_states_for_lo(vault, repository, learning_object_id, statuses=statuses)
+        return repository.facet_uncertainty_states(learning_object_id, statuses=statuses)
+    rows = repository.facet_uncertainty_states(learning_object_id, statuses=statuses)
+    if not is_canonical_state_vault(vault):
+        return rows
+    return [row for row in rows if row.algorithm_version not in FACET_BELIEF_FIX_VERSIONS]
+
+
+def attempt_uncertainty_priors(
+    vault: LoadedVault,
+    repository: Repository,
+    learning_object_id: str,
+    facets: Iterable[str],
+) -> dict[str, FacetUncertaintyState | None]:
+    """The stored row each of an attempt's facets updates from, keyed by the facet id the item names.
+
+    At the successor: only a row it wrote (a legacy-era row was derived under another belief), found under the
+    facet's canonical id, the key it writes under. That includes the row the facet had under an earlier id (an
+    alias or a merge since), read under the id the item names now: a rebuild keys every answer by today's ids,
+    so its chain never breaks there, and a live chain that restarted would not equal it. Otherwise the
+    predecessor's prior (see :func:`stored_facet_uncertainty_state`)."""
+
+    if canonical_facet_uncertainty_on(vault) and facet_belief_corrections_on(vault.config):
+        priors: dict[str, FacetUncertaintyState | None] = {}
+        for facet in facets:
+            state = stored_facet_uncertainty_state(vault, repository, learning_object_id, facet)
+            priors[facet] = (
+                replace(
+                    state,
+                    facet_id=facet,
+                    hypothesis_marginal=relabelled_marginal(state.hypothesis_marginal, state.facet_id, facet),
+                )
+                if state is not None
+                else None
+            )
+        return priors
+    if canonical_facet_uncertainty_on(vault):
+        merge_map = repository.facet_merge_map()
+        return {
+            facet: current_facet_uncertainty(
+                repository.facet_uncertainty_state(learning_object_id, resolve_canonical_facet(vault, merge_map, facet))
+            )
+            for facet in facets
+        }
+    return {facet: stored_facet_uncertainty_state(vault, repository, learning_object_id, facet) for facet in facets}
+
+
+def stored_facet_uncertainty_state(
+    vault: LoadedVault,
+    repository: Repository,
+    learning_object_id: str,
+    facet_id: str,
+) -> FacetUncertaintyState | None:
+    """One LO's stored uncertainty row on ``facet_id`` (its canonical survivor when the successor reads it), by the
+    rules of :func:`stored_facet_uncertainty_for_lo`."""
+
+    if is_canonical_state_vault(vault) and canonical_facet_uncertainty_on(vault) and facet_belief_corrections_on(
+        vault.config
+    ):
+        canonical = resolve_canonical_facet(vault, repository.facet_merge_map(), facet_id)
+        return next(
+            (state for state in facet_uncertainty_states_for_lo(vault, repository, learning_object_id)
+             if state.facet_id == canonical),
+            None,
+        )
+    state = repository.facet_uncertainty_state(learning_object_id, facet_id)
+    if (
+        state is not None
+        and is_canonical_state_vault(vault)
+        and not canonical_facet_uncertainty_on(vault)
+        and state.algorithm_version in FACET_BELIEF_FIX_VERSIONS
+    ):
+        return None
+    return state

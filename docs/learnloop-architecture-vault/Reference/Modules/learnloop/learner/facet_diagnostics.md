@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/facet_diagnostics.py](../../../../../../src/learnloop/learner/facet_diagnostics.py) |
-| Source lines | 849 |
+| Source lines | 857 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -65,31 +65,31 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `covered_required_fraction(vault: LoadedVault, repository: Repository, *, learning_object_id: str, aggregate_facet_recall: Mapping[str, FacetRecallState | Mapping[str, Any] | None] | None=None, inferred_cells: Mapping[tuple[str, str], float] | None=None) -> tuple[float, dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 280) — Fraction of the contract frontier that carries evidence (§5.2).
 - `variance_floor(config: LearnLoopConfig, covered_fraction: float) -> float` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 459)
 - `apply_mastery_variance_floor(state: MasteryState, config: LearnLoopConfig, *, covered_fraction: float) -> tuple[MasteryState, float]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 467)
-- `build_facet_uncertainty_updates(vault: LoadedVault, *, item: PracticeItem, rubric: Rubric, learning_object_id: str, attempt_id: str, facet_outcomes: Mapping[str, float], normalized_facet_weights: Mapping[str, float], evidence_rows: Iterable[Mapping[str, Any] | Any], error_attributions: Iterable[Any], prior_uncertainties: Mapping[str, FacetUncertaintyState | None], prior_facet_recall: Mapping[str, FacetRecallState | None], observed_error_type: str | None, algorithm_version: str, now_iso: str) -> tuple[list[dict[str, Any]], dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 479)
-- `facet_state_label(facet_id: str, uncertainty: FacetUncertaintyState | None, recall: FacetRecallState | None, min_evidence_mass: float) -> str` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 570) — Diagnostic bucket for one required facet.
-- `unresolved_question_facet_counts(vault: LoadedVault, repository: Repository, learning_object_id: str, *, recall_states: Mapping[str, FacetRecallState] | None=None, clock: Clock | None=None) -> dict[str, int]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 608) — Recent unresolved tutor questions per facet for one LO.
-- `mastery_diagnostic_view(vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 659)
-- `facet_outcome_bucket(outcome: float) -> str` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 826) — The score bucket the facet updater observes for one facet's outcome.
+- `build_facet_uncertainty_updates(vault: LoadedVault, *, item: PracticeItem, rubric: Rubric, learning_object_id: str, attempt_id: str, facet_outcomes: Mapping[str, float], normalized_facet_weights: Mapping[str, float], evidence_rows: Iterable[Mapping[str, Any] | Any], error_attributions: Iterable[Any], prior_uncertainties: Mapping[str, FacetUncertaintyState | None], prior_facet_recall: Mapping[str, FacetRecallState | None], observed_error_type: str | None, algorithm_version: str, now_iso: str, criterion_facet_weights: Mapping[str, Mapping[str, float]] | None=None) -> tuple[list[dict[str, Any]], dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 479) — ``criterion_facet_weights``: the criterion -> facet map ``facet_outcomes`` was derived with, which a hedged criterion's facets come from too; None keeps the item's own map.
+- `facet_state_label(facet_id: str, uncertainty: FacetUncertaintyState | None, recall: FacetRecallState | None, min_evidence_mass: float) -> str` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 578) — Diagnostic bucket for one required facet.
+- `unresolved_question_facet_counts(vault: LoadedVault, repository: Repository, learning_object_id: str, *, recall_states: Mapping[str, FacetRecallState] | None=None, clock: Clock | None=None) -> dict[str, int]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 616) — Recent unresolved tutor questions per facet for one LO.
+- `mastery_diagnostic_view(vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 667)
+- `facet_outcome_bucket(outcome: float) -> str` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 834) — The score bucket the facet updater observes for one facet's outcome.
 
 ### Module constants
 
 - `INFERRED_CELL_COVERAGE_DISCOUNT` ([src/learnloop/learner/facet_diagnostics.py](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 110)
 - `COVERAGE_DENOMINATOR_SEMANTICS` ([src/learnloop/learner/facet_diagnostics.py](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 116)
 - `COVERAGE_DENOMINATOR_VERSION` ([src/learnloop/learner/facet_diagnostics.py](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 119)
-- `_QUESTION_BUMP_WINDOW_DAYS` ([src/learnloop/learner/facet_diagnostics.py](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 604)
-- `_QUESTION_BUMP_MAX_COUNT` ([src/learnloop/learner/facet_diagnostics.py](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 605)
+- `_QUESTION_BUMP_WINDOW_DAYS` ([src/learnloop/learner/facet_diagnostics.py](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 612)
+- `_QUESTION_BUMP_MAX_COUNT` ([src/learnloop/learner/facet_diagnostics.py](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 613)
 
 ## Internal implementation anchors
 
 - `_covered_frontier_fraction(vault: LoadedVault, repository: Repository, *, learning_object_id: str, frontier: set[tuple[str, str]], aggregate_facet_recall: Mapping[str, FacetRecallState | Mapping[str, Any] | None] | None, inferred_cells: Mapping[tuple[str, str], float] | None) -> tuple[float, dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 360) — Per-cell coverage over the contract frontier.
-- `_open_reason(outcome: float, *, hedged: bool, prior_recall: FacetRecallState | None, config: Any) -> str | None` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 731)
-- `_facet_uncertainty_id(learning_object_id: str, facet_id: str) -> str` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 749)
-- `_initial_hypothesis_marginal(vault: LoadedVault, learning_object_id: str, facet_id: str, error_attributions: Iterable[Any]) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 755)
-- `_attribution_targets_facet(vault: LoadedVault, learning_object_id: str, attribution: Any, facet_id: str) -> bool` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 777)
-- `_hedged_facets(evidence_rows: Iterable[Mapping[str, Any] | Any], criterion_facets: Mapping[str, Mapping[str, float]], item_facets: Iterable[str]) -> set[str]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 793)
-- `_row_value(row: Mapping[str, Any] | Any, key: str) -> Any` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 812)
-- `_facet_outcome_bucket(outcome: float) -> str` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 818)
-- `_raise_entropy_floor(distribution: Mapping[str, float], floor: float) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 836)
+- `_open_reason(outcome: float, *, hedged: bool, prior_recall: FacetRecallState | None, config: Any) -> str | None` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 739)
+- `_facet_uncertainty_id(learning_object_id: str, facet_id: str) -> str` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 757)
+- `_initial_hypothesis_marginal(vault: LoadedVault, learning_object_id: str, facet_id: str, error_attributions: Iterable[Any]) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 763)
+- `_attribution_targets_facet(vault: LoadedVault, learning_object_id: str, attribution: Any, facet_id: str) -> bool` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 785)
+- `_hedged_facets(evidence_rows: Iterable[Mapping[str, Any] | Any], criterion_facets: Mapping[str, Mapping[str, float]], item_facets: Iterable[str]) -> set[str]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 801)
+- `_row_value(row: Mapping[str, Any] | Any, key: str) -> Any` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 820)
+- `_facet_outcome_bucket(outcome: float) -> str` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 826)
+- `_raise_entropy_floor(distribution: Mapping[str, float], floor: float) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 844)
 
 ## Who imports or calls it
 
@@ -172,6 +172,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_legacy_vault_hashes_the_empty_frontier`
   - `test_removing_a_cell_changes_the_version`
   - `test_version_is_semantics_plus_frontier_hash`
+- [tests/test_facet_belief_successor_derivation.py](../../../../../../tests/test_facet_belief_successor_derivation.py) — direct import
+  - `test_s3_a_row_read_under_its_facets_new_id_keeps_its_solid_reading`
 - [tests/test_facet_diagnostics_v03.py](../../../../../../tests/test_facet_diagnostics_v03.py) — direct import
   - `test_full_breadth_multi_facet_attempt_keeps_coverage_scale_at_one`
   - `test_mastery_diagnostic_view_distinguishes_known_gap_from_unexamined`

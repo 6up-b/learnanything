@@ -121,6 +121,7 @@ Database triggers:
 ## Tests that define behavior
 
 - `tests/test_collection_dataset.py`
+- `tests/test_facet_belief_successor_derivation.py`
 - `tests/test_facet_diagnostics_v03.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_instrument_servability_journeys.py`
@@ -139,7 +140,6 @@ Database triggers:
 - `tests/test_e2e_codex_mock.py`
 - `tests/test_probe_episodes.py`
 - `tests/test_show.py`
-- `tests/test_source_ingestion.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

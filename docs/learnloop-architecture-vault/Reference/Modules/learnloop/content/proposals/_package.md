@@ -57,8 +57,8 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/proposals/conflict_resolution|learnloop.content.proposals.conflict_resolution]] | [[Reference/Modules/learnloop/content/proposals/conflict_resolution#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/content/proposals/method_phrasing|learnloop.content.proposals.method_phrasing]] | [[Reference/Modules/learnloop/content/proposals/method_phrasing#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 | [[Reference/Modules/learnloop/content/proposals/method_statement_judge|learnloop.content.proposals.method_statement_judge]] | [[Reference/Modules/learnloop/content/proposals/method_statement_judge#^module-purpose|purpose]] | `ACTIVE` | 5 | 6 |
-| [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] | [[Reference/Modules/learnloop/content/proposals/patches#^module-purpose|purpose]] | `ACTIVE` | 13 | 28 |
-| [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] | [[Reference/Modules/learnloop/content/proposals/proposals#^module-purpose|purpose]] | `ACTIVE` | 13 | 31 |
+| [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] | [[Reference/Modules/learnloop/content/proposals/patches#^module-purpose|purpose]] | `ACTIVE` | 13 | 29 |
+| [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] | [[Reference/Modules/learnloop/content/proposals/proposals#^module-purpose|purpose]] | `ACTIVE` | 13 | 32 |
 | [[Reference/Modules/learnloop/content/proposals/required_method_override|learnloop.content.proposals.required_method_override]] | [[Reference/Modules/learnloop/content/proposals/required_method_override#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 
 ## Cross-package dependencies
@@ -77,9 +77,9 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 - [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] — 2 static module edges
 - [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 2 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 2 static module edges
+- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 2 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 1 static module edge
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 1 static module edge
-- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 1 static module edge
 
 ### Packages that import this package
 
@@ -112,8 +112,8 @@ flowchart LR
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_content_pipeline["learnloop.content.pipeline"]
     n_learnloop_cli["learnloop.cli"]
+    n_learnloop_ops["learnloop.ops"]
     n_learnloop_content_facet_identity["learnloop.content.facet_identity"]
-    n_learnloop_curriculum["learnloop.curriculum"]
     center -->|22| n_learnloop_vault
     center -->|19| n_learnloop_ai
     center -->|17| n_learnloop
@@ -123,10 +123,10 @@ flowchart LR
     n_learnloop_sidecar_handlers -->|8| center
     n_learnloop_content_pipeline -->|7| center
     n_learnloop_cli -->|6| center
+    n_learnloop_ops -->|4| center
+    center -->|2| n_learnloop_ops
     n_learnloop_content_facet_identity -->|2| center
     center -->|3| n_learnloop_content_facet_identity
-    n_learnloop_curriculum -->|4| center
-    center -->|1| n_learnloop_curriculum
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

@@ -216,10 +216,12 @@ def test_a_legacy_era_uncertainty_row_is_never_the_successors_prior_or_read(tmp_
 
 
 def test_uncertainty_is_written_under_the_merged_facets_survivor(tmp_path):
-    # Readers outside facet_state_reader (valuation, reader follow-ups, tutor promotions) look a row up by the
-    # facet's canonical id, so the successor writes it there: the item names the retired id, the row the survivor.
+    # Readers look a row up by the facet's canonical id, so the successor writes it there: the item names the
+    # retired id, the row the survivor. The answer after the merge updates the row the facet had before it, as
+    # a rebuild does (it keys every answer by the survivor, so its chain never restarts at the merge).
     paths = create_basic_vault(tmp_path / "vault")
     vault, repository = _play(paths)
+    first_opener = repository.facet_uncertainty_state(LO_ID, "recall").opened_by_attempt_id
     repository.insert_facet_merge(retired_facet_id="recall", surviving_facet_id="recall_v2", clock=FrozenClock(NOW))
     later = complete_self_graded_attempt(
         vault, repository,
@@ -229,9 +231,14 @@ def test_uncertainty_is_written_under_the_merged_facets_survivor(tmp_path):
     )
 
     survivor = repository.facet_uncertainty_state(LO_ID, "recall_v2")
-    assert survivor is not None and survivor.opened_by_attempt_id == later.attempt_id
+    assert survivor is not None and survivor.opened_by_attempt_id == first_opener != later.attempt_id
+    assert survivor.last_evidence_at == "2026-05-19T12:03:00Z"
     (state,) = facet_uncertainty_states_for_lo(vault, repository, LO_ID)
     assert state.facet_id == "recall_v2" and state.id == survivor.id
+    live = (state.hypothesis_marginal, state.uncertainty, state.status, state.opened_by_attempt_id)
+    rebuild_all_derived_state(vault, repository, clock=FrozenClock(NOW + timedelta(days=1)))
+    (rebuilt,) = facet_uncertainty_states_for_lo(vault, repository, LO_ID)
+    assert (rebuilt.hypothesis_marginal, rebuilt.uncertainty, rebuilt.status, rebuilt.opened_by_attempt_id) == live
 
 
 def test_the_legacy_recall_bridge_stays_refused_at_the_tag(tmp_path):
@@ -263,6 +270,39 @@ def test_doctor_warns_when_the_switch_moved_after_the_last_whole_vault_rebuild(t
 
 
 # -- The upgrade link. ----------------------------------------------------------------------------------------------
+
+
+def _aggregate_streak(repository) -> int:
+    recall, _capability, _rows = _belief(repository)
+    aggregate = next(row for row in recall if row[2] is None)
+    return dict(zip(_RECALL_COLUMNS, aggregate, strict=True))["consecutive_failures"]
+
+
+def test_the_upgrade_derives_the_successors_state_from_the_history(tmp_path):
+    """Through the upgrade table: the activation replays the predecessor's history under the tag, so a receipt
+    without the derived state would fail here (``tests/test_upgrades.py`` checks the table's mechanics)."""
+
+    from learnloop.ops.upgrades import upgrade
+
+    paths = create_basic_vault(tmp_path / "vault")
+    set_algorithm_version(paths, OLD)
+    _old_vault, old_repository = _play(paths)
+    assert _belief(old_repository)[2] == 0  # the predecessor writes no uncertainty
+    assert _aggregate_streak(old_repository) > 0  # nor ends the streak on the success (D-1)
+
+    result = upgrade(paths.root, to=TAG)
+
+    assert result.upgraded and (result.from_version, result.to_version) == (OLD, TAG)
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    assert vault.config.algorithms.algorithm_version == TAG
+    assert repository.has_whole_vault_rebuild(algorithm_version=TAG)
+    # The activation's replay wrote the history's uncertainty and re-projected the belief with the fixes.
+    (state,) = facet_uncertainty_states_for_lo(vault, repository, LO_ID)
+    assert state.algorithm_version == TAG
+    assert _aggregate_streak(repository) == 0
+    again = upgrade(paths.root, to=TAG)
+    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
 
 
 # -- D-3 in the Demonstrated curve: the timeline folds the same transfer scale the belief banks. ------------------

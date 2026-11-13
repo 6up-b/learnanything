@@ -89,6 +89,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/learner/lesson_weight.py`
+- `src/learnloop/ops/doctor.py`
 
 ### Direct SQL writers
 
@@ -138,10 +139,10 @@ Indexes and uniqueness:
 - `tests/test_deferred_regrade.py`
 - `tests/test_diagnose_review.py`
 - `tests/test_error_hunt_items.py`
+- `tests/test_facet_belief_successor_derivation.py`
 - `tests/test_facet_diagnostics_v03.py`
 - `tests/test_held_grade_evidence.py`
 - `tests/test_item_parameters.py`
-- `tests/test_minimal_repair_selection_a1.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

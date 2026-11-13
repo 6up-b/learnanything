@@ -29,6 +29,7 @@ from learnloop.tutor.ai_contracts import (
 )
 from learnloop.db.repositories import Repository
 from learnloop.vault.repository import vault_repository
+from learnloop.learner.facet_state_reader import stored_facet_uncertainty_for_lo
 from learnloop.learner.mastery import claim_fixes_live, display_mastery, reanchor_mastery_from_claim
 from learnloop.content.authoring.practice_generation import (
     PracticeExpansionError,
@@ -932,8 +933,8 @@ def _record_promotion_decision_features(
     band = _recommended_difficulty_band(vault, mastery_mean)
     uncertainty_snapshot: dict[str, float] = {}
     if origin_lo is not None:
-        for state in repository.facet_uncertainty_states(
-            origin_lo.id, statuses=("open", "resolving", "resolved")
+        for state in stored_facet_uncertainty_for_lo(
+            vault, repository, origin_lo.id, statuses=("open", "resolving", "resolved")
         ):
             uncertainty_snapshot[state.facet_id] = float(state.uncertainty)
 

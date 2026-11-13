@@ -392,6 +392,14 @@ def test_verdicts_split_across_two_models_do_not_pass_for_the_configured_one(tmp
     judge_pairs(repository, GUARD_KIND, guard_pairs(negatives[:3]), execute=_ModelB())
     status = guard_status(repository)
     assert "deepseek-v4-pro@high" in status["judge_models_seen"] and status["missing"] == []
+    assert "model-a" in status["judge_models_seen"]
+    # For the configured model the guard is rejected: model A's verdicts do not fill in B's missing negatives.
+    configured = guard_status(repository, judge_model=_judge_model(vault))
+    assert _judge_model(vault) == "deepseek-v4-pro@high"
+    assert configured["passed"] is False and configured["switch_ready"] is False
+    assert configured["negatives"] == len(negatives)
+    assert configured["missing"] == [case.case_id for case in negatives[3:]]
+    assert configured["judge_models_seen"] == ["deepseek-v4-pro@high"]
 
 
 def _codex_judge(effort: str, decide_from: JudgeFake | None = None) -> JudgeFake:

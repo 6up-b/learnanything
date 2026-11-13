@@ -56,7 +56,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] | [[Reference/Modules/learnloop/db/connection#^module-purpose|purpose]] | `ACTIVE` | 181 | 236 |
 | [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]] | [[Reference/Modules/learnloop/db/copies#^module-purpose|purpose]] | `ACTIVE` | 10 | 51 |
 | [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] | [[Reference/Modules/learnloop/db/migrate#^module-purpose|purpose]] | `ACTIVE` | 10 | 91 |
-| [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 391 | 701 |
+| [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 392 | 704 |
 | [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] | [[Reference/Modules/learnloop/db/scopes#^module-purpose|purpose]] | `ACTIVE` | 16 | 5 |
 | [[Reference/Modules/learnloop/db/storage|learnloop.db.storage]] | [[Reference/Modules/learnloop/db/storage#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
 | [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] | [[Reference/Modules/learnloop/db/table_roles#^module-purpose|purpose]] | `ACTIVE` | 6 | 71 |
@@ -94,9 +94,9 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 16 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 13 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 13 static module edges
+- [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 12 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 12 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 11 static module edges
-- [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 11 static module edges
 - [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 11 static module edges
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 11 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 10 static module edges

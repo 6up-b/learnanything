@@ -582,6 +582,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_causal_probe_review_transition_returns_a_typed_sidecar_error`
   - `test_generate_commissioning_practice_rejects_unknown_learning_objects`
   - `test_integration_backfill_requires_explicit_confirmation`
+- [tests/test_sidecar_stops_serving.py](../../../../../tests/test_sidecar_stops_serving.py) — direct import
 - [tests/test_sidecar_trace_and_clarification.py](../../../../../tests/test_sidecar_trace_and_clarification.py) — direct import
   - `test_an_empty_answer_is_refused_rather_than_burning_the_one_question`
   - `test_answering_a_question_that_was_never_asked_is_a_typed_refusal`

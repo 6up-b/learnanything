@@ -96,6 +96,7 @@ No test imports this module directly. These tests exercise a direct production c
 
 - [tests/test_conjunctive_instruments.py](../../../../../../tests/test_conjunctive_instruments.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
 - [tests/test_facet_belief_successor.py](../../../../../../tests/test_facet_belief_successor.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
+- [tests/test_facet_belief_successor_derivation.py](../../../../../../tests/test_facet_belief_successor_derivation.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
 - [tests/test_facet_evidence_timeline.py](../../../../../../tests/test_facet_evidence_timeline.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
 - [tests/test_learner_read_model_pinning.py](../../../../../../tests/test_learner_read_model_pinning.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
 - [tests/test_observation_ledger_bulk.py](../../../../../../tests/test_observation_ledger_bulk.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
@@ -105,7 +106,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_reader_recap_review.py](../../../../../../tests/test_reader_recap_review.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
 - [tests/test_reader_recap_review_r2.py](../../../../../../tests/test_reader_recap_review_r2.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
 - [tests/test_reader_recap_review_r3.py](../../../../../../tests/test_reader_recap_review_r3.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
-- [tests/test_reader_workbench_rw2a.py](../../../../../../tests/test_reader_workbench_rw2a.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
 
 ## Modification guidance
 

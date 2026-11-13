@@ -35,10 +35,18 @@ def insert_checkpoint(connection: Any, cache_key: str, *, purpose: str, result: 
     )
 
 
-def delete_checkpoint(connection: Any, cache_key: str) -> None:
-    """Delete one checkpoint on the caller's connection (the caller owns the transaction)."""
+def delete_checkpoint(connection: Any, cache_key: str, *, result: Any = None) -> None:
+    """Delete one checkpoint on the caller's connection (the caller owns the transaction).
 
-    connection.execute("DELETE FROM model_work_checkpoints WHERE cache_key=?", (cache_key,))
+    With ``result``, only while the stored answer is that one: a run drops the answer it judged, and by the time
+    it does another run may have dropped it and saved a fresh one under the same key. The comparison is on the
+    stored text, written by :func:`insert_checkpoint` with the same serialization, in one statement."""
+
+    if result is None:
+        connection.execute("DELETE FROM model_work_checkpoints WHERE cache_key=?", (cache_key,))
+        return
+    connection.execute("DELETE FROM model_work_checkpoints WHERE cache_key=? AND result_json=?",
+                       (cache_key, json.dumps(result, sort_keys=True)))
 
 
 class ModelCallStoreMixin:
@@ -153,13 +161,15 @@ class ModelCallStoreMixin:
         with allow_late_model_records(), closing(connect(self.sqlite_path, read_only=self._read_only)) as connection, connection:
             insert_checkpoint(connection, cache_key, purpose=purpose, result=result, usage=usage)
 
-    def discard_model_checkpoint(self, cache_key: str) -> None:
+    def discard_model_checkpoint(self, cache_key: str, *, result: Any = None) -> None:
         """Delete a checkpoint whose stored result no longer validates, or
         whose answer the quality gates rejected.
 
         Checkpoints are write-once, so an unreadable or rejected one would
-        otherwise fail every retry of the work it was meant to save.
+        otherwise fail every retry of the work it was meant to save. ``result``
+        names the stored answer that was read or judged: a newer one saved
+        under the key since is kept (:func:`delete_checkpoint`).
         """
 
         with self.connection() as connection:
-            delete_checkpoint(connection, cache_key)
+            delete_checkpoint(connection, cache_key, result=result)

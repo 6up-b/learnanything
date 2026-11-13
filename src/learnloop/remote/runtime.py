@@ -46,12 +46,13 @@ from learnloop.vault.loader import (
     content_digest as _digest,
     content_files,
     load_vault,
+    refuse_vault_below_floor,
     settled_load_vault,
     vault_content_fingerprint,
 )
 from learnloop.vault.models import DoctorIssue, LoadedVault
 from learnloop.vault.paths import VaultPaths
-from learnloop.version_floor import BelowOldestSupported, refuse_below_floor
+from learnloop.version_floor import BelowOldestSupported
 
 #: Seconds a content fingerprint is reused before the vault's files are stat'ed again
 #: (the vault loader's, shared with ``SidecarContext.load_secondary``).
@@ -79,9 +80,8 @@ def refuse_below_floor_as_mismatch(vault_root: Path) -> None:
     """Refuse a vault below the oldest supported tag as this process's own :class:`SchemaMismatch` (exit 78):
     only ``learnloop upgrade`` brings it there, so a supervisor restarting the process would loop."""
 
-    root = Path(vault_root).resolve()
     try:
-        refuse_below_floor(root, load_config(root / "learnloop.toml", load_environment=False))
+        refuse_vault_below_floor(Path(vault_root).resolve())
     except BelowOldestSupported as exc:
         raise SchemaMismatch(str(exc)) from exc
 
@@ -150,14 +150,20 @@ class RemoteRuntime:
             if self._vault is None or now - self._checked_at >= FINGERPRINT_TTL_SECONDS:
                 files = content_files(self.vault_root)
                 fingerprint = _digest(files)
-                self._checked_at = now
                 if self._vault is None or fingerprint != self._fingerprint:
                     try:
                         self._vault, self._fingerprint = self._settled_load(files, fingerprint)
-                    except BelowOldestSupported as exc:  # the tag was moved down under a running process
-                        raise SchemaMismatch(str(exc)) from exc
-                    if self._fingerprint is None:
-                        self._checked_at = float("-inf")  # unsettled: look again on the next request
+                    except BaseException as failure:
+                        # The cached vault is the one the failed load was replacing: keeping it, or advancing the
+                        # window, would serve it to the next requests while the change stands.
+                        self._vault, self._fingerprint, self._checked_at = None, None, float("-inf")
+                        if isinstance(failure, BelowOldestSupported):  # the tag was moved down under the process
+                            raise SchemaMismatch(str(failure)) from failure
+                        raise
+                    # Unsettled (no fingerprint): look again on the next request.
+                    self._checked_at = now if self._fingerprint is not None else float("-inf")
+                else:
+                    self._checked_at = now
             return self._vault
 
     def _settled_load(self, files: dict[str, tuple[int, int]], fingerprint: str) -> tuple[LoadedVault, str | None]:

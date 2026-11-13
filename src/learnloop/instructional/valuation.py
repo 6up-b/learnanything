@@ -40,6 +40,7 @@ from typing import Any
 
 from learnloop.ai.execution import content_key
 from learnloop.db.repositories import Repository
+from learnloop.learner.facet_state_reader import stored_facet_uncertainty_state
 from learnloop.diagnosis import robust_composition as RC
 from learnloop.diagnosis.probe_hypotheses import H_OTHER
 from learnloop.diagnosis.probes import (
@@ -193,7 +194,7 @@ def lo_problem(vault: LoadedVault, repository: Repository, lo_id: str,
 
 def facet_problem(vault: LoadedVault, repository: Repository, lo_id: str, facet_id: str,
                   refs: Sequence[HypothesisRef] = ()) -> tuple[ValuationProblem | None, list[dict[str, Any]]]:
-    state = repository.facet_uncertainty_state(lo_id, facet_id)
+    state = stored_facet_uncertainty_state(vault, repository, lo_id, facet_id)
     if state is None or not state.hypothesis_marginal:
         return None, [{"ref": {"kind": "facet_state", "id": facet_id}, "reason": "no_prior"}]
     slots = tuple(sorted(state.hypothesis_marginal))
@@ -543,7 +544,7 @@ def open_hypotheses(vault: LoadedVault, repository: Repository, *, facet_ids: Se
         for lo_id in los:
             add(lo_problem(vault, repository, lo_id))
             for facet in facet_ids:
-                state = repository.facet_uncertainty_state(lo_id, vault.canonical_facet_id(facet))
+                state = stored_facet_uncertainty_state(vault, repository, lo_id, vault.canonical_facet_id(facet))
                 if state is not None and state.hypothesis_marginal:
                     add(facet_problem(vault, repository, lo_id, vault.canonical_facet_id(facet)))
     return list(problems.values()), unavailable

@@ -49,18 +49,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/facets.py](../../../../../../src/learnloop/cli/facets.py) |
-| Source lines | 184 |
+| Source lines | 187 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `facets_dedupe(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], dry_run: Annotated[bool, typer.Option('--dry-run', help='Plan the groups, calls and estimated cost; no client, no call, no change.')]=False, subject: Annotated[str | None, typer.Option('--subject', help='Only facets this subject uses.')]=None, max_calls: Annotated[int | None, typer.Option('--max-calls', min=0)]=None, max_facets: Annotated[int | None, typer.Option('--max-facets', min=0)]=None, max_pairs: Annotated[int | None, typer.Option('--max-pairs', min=0)]=None, max_retries: Annotated[int | None, typer.Option('--max-retries', min=0)]=None, max_tokens: Annotated[int | None, typer.Option('--max-tokens', min=0)]=None, max_cost_usd: Annotated[float | None, typer.Option('--max-cost-usd', min=0)]=None, price_input: Annotated[float | None, typer.Option('--price-per-million-input', min=0, help='Owner price (USD per million input tokens) for a metered judge model without a known price.')]=None, price_output: Annotated[float | None, typer.Option('--price-per-million-output', min=0, help='Owner price per million output tokens (default: input price).')]=None, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/facets.py), line 34) — Partition each concept neighbourhood's facets with the judge and apply merges.
-- `facets_actions(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], run_id: Annotated[str | None, typer.Option('--run', help='Only one synthesis or dedupe run.')]=None, limit: Annotated[int, typer.Option('--limit', min=1, max=10000)]=50, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/facets.py), line 83) — Facet merges, absorbs and rewords (facet versions), newest first, with their undo state.
-- `facets_undo(action_id: Annotated[str, typer.Argument(help='The action id from the result or `facets actions`.')], vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/facets.py), line 111) — Restore the facets one merge, absorb or reword replaced; re-fold their evidence.
-- `facets_confirm(action_id: Annotated[str, typer.Argument(help='A reword waiting for your confirm (`facets actions`).')], vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/facets.py), line 160) — Confirm a reword that had no explanatory source behind it: it applies, with an undo.
-- `facets_keep(action_id: Annotated[str, typer.Argument(help='A reword waiting for your confirm (`facets actions`).')], vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/facets.py), line 175) — Keep the facet's current wording: the held reword closes and nothing is written.
+- `facets_dedupe(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], dry_run: Annotated[bool, typer.Option('--dry-run', help='Plan the groups, calls and estimated cost; no client, no call, no change.')]=False, subject: Annotated[str | None, typer.Option('--subject', help='Only facets this subject uses.')]=None, max_calls: Annotated[int | None, typer.Option('--max-calls', min=0)]=None, max_facets: Annotated[int | None, typer.Option('--max-facets', min=0)]=None, max_pairs: Annotated[int | None, typer.Option('--max-pairs', min=0)]=None, max_retries: Annotated[int | None, typer.Option('--max-retries', min=0)]=None, max_tokens: Annotated[int | None, typer.Option('--max-tokens', min=0)]=None, max_cost_usd: Annotated[float | None, typer.Option('--max-cost-usd', min=0)]=None, price_input: Annotated[float | None, typer.Option('--price-per-million-input', min=0, help='Owner price (USD per million input tokens) for a metered judge model without a known price.')]=None, price_output: Annotated[float | None, typer.Option('--price-per-million-output', min=0, help='Owner price per million output tokens (default: input price).')]=None, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/facets.py), line 37) — Partition each concept neighbourhood's facets with the judge and apply merges.
+- `facets_actions(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], run_id: Annotated[str | None, typer.Option('--run', help='Only one synthesis or dedupe run.')]=None, limit: Annotated[int, typer.Option('--limit', min=1, max=10000)]=50, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/facets.py), line 86) — Facet merges, absorbs and rewords (facet versions), newest first, with their undo state.
+- `facets_undo(action_id: Annotated[str, typer.Argument(help='The action id from the result or `facets actions`.')], vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/facets.py), line 114) — Restore the facets one merge, absorb or reword replaced; re-fold their evidence.
+- `facets_confirm(action_id: Annotated[str, typer.Argument(help='A reword waiting for your confirm (`facets actions`).')], vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/facets.py), line 163) — Confirm a reword that had no explanatory source behind it: it applies, with an undo.
+- `facets_keep(action_id: Annotated[str, typer.Argument(help='A reword waiting for your confirm (`facets actions`).')], vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/facets.py), line 178) — Keep the facet's current wording: the held reword closes and nothing is written.
 
 ### Explicit exports
 
@@ -72,7 +72,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `_emit(report: dict, json_output: bool, *, ok: set[str]) -> None` ([source](../../../../../../src/learnloop/cli/facets.py), line 19)
 - `_root(vault: Path) -> Path` ([source](../../../../../../src/learnloop/cli/facets.py), line 27)
-- `_decide_reword(action_id: str, vault: Path, json_output: bool, *, confirm: bool) -> None` ([source](../../../../../../src/learnloop/cli/facets.py), line 137)
+- `_decide_reword(action_id: str, vault: Path, json_output: bool, *, confirm: bool) -> None` ([source](../../../../../../src/learnloop/cli/facets.py), line 140)
 
 ## Who imports or calls it
 
@@ -88,7 +88,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/cli/embeddings|learnloop.cli.embeddings]] — imports `_cancellation`; calls `_cancellation`
 - [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `FacetIdentityActionError`, `confirm_reword`, `describe`, `keep_current_wording`, `list_actions`, `undo_action`; calls `describe`, `list_actions`, `undo_action`
 - [[Reference/Modules/learnloop/content/facet_identity/dedupe|learnloop.content.facet_identity.dedupe]] — imports `run_dedupe`; calls `run_dedupe`
-- [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
+- [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`, `refuse_vault_below_floor`; calls `load_vault`, `refuse_vault_below_floor`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `open_vault_repository`; calls `open_vault_repository`
 

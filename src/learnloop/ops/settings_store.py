@@ -91,17 +91,29 @@ def apply_config_updates(config_path: Path, updates: Mapping[tuple[str, ...], An
     sibling + ``Path.replace``); an unparseable file raises without touching
     disk."""
 
-    import tomlkit
-    from tomlkit.exceptions import TOMLKitError
-
     try:
         text = config_path.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
         raise SettingsStoreError("config_missing", f"{config_path} does not exist") from exc
+    updated = updated_config_text(text, updates, source=config_path)
+    tmp = config_path.with_suffix(config_path.suffix + ".tmp")
+    tmp.write_text(updated, encoding="utf-8")
+    tmp.replace(config_path)
+
+
+def updated_config_text(text: str, updates: Mapping[tuple[str, ...], Any], *, source: Path | str = "config") -> str:
+    """``text`` (a ``learnloop.toml``) with each dotted key-path set, every comment and the layout kept.
+
+    The keys are found by parsing the TOML, so a comment or another table holding the same text is never the one
+    changed. Intermediate tables are created when absent; unparseable text raises :class:`SettingsStoreError`."""
+
+    import tomlkit
+    from tomlkit.exceptions import TOMLKitError
+
     try:
         document = tomlkit.parse(text)
     except TOMLKitError as exc:
-        raise SettingsStoreError("config_unreadable", f"{config_path} is not valid TOML: {exc}") from exc
+        raise SettingsStoreError("config_unreadable", f"{source} is not valid TOML: {exc}") from exc
 
     for key_path, value in updates.items():
         if not key_path:
@@ -121,10 +133,7 @@ def apply_config_updates(config_path: Path, updates: Mapping[tuple[str, ...], An
             else:
                 node = existing
         node[key_path[-1]] = value
-
-    tmp = config_path.with_suffix(config_path.suffix + ".tmp")
-    tmp.write_text(tomlkit.dumps(document), encoding="utf-8")
-    tmp.replace(config_path)
+    return tomlkit.dumps(document)
 
 
 def copy_ai_settings(source_path: Path, target_path: Path) -> bool:

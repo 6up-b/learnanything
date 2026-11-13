@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py) |
-| Source lines | 1067 |
+| Source lines | 1065 |
 | Owning package | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -73,13 +73,13 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `class PreparedInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 603) — Cache-missed inventory work with every database read already resolved.
 - `class InventoryExecution` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 629) — Fresh provider output awaiting runner-thread persistence.
 - `prepare_unit_inventory(repo: Repository, extraction_id: str, unit_id: str, *, unit_ids: list[str] | None=None, role: str, profile: str | None=None, client: Any=None, provider: str | None=None, model: str | None=None, input_budget_tokens: int=20000, output_budget_tokens: int | None=3000, clock: Clock | None=None, prompt_version: str=SOURCE_UNIT_INVENTORY_PROMPT_VERSION, schema_version: int=INVENTORY_SCHEMA_VERSION) -> InventoryResult | PreparedInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 636) — Resolve one inventory from cache or return provider-only work.
-- `window_checkpoint(repo: Any, key: str, valid_span_ids: Collection[str]) -> ModelCheckpoint[SourceUnitInventory]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 813) — One inventory window's checkpoint.
-- `inventory_window_key(context: SourceUnitInventoryContext, settings: dict[str, Any], *, schema_version: int) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 826) — Checkpoint identity of one inventory window.
-- `inventory_row_key(*, provider: str, model: str, schema_version: int) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 843) — What an inventory row was asked, compared before the row is reused: the request key of the inventory prompt rendered over an empty context, under the schema version, provider and model.
-- `execute_prepared_inventory(prepared: PreparedInventory, client: Any, *, progress: Callable[[int, int], None] | None=None, checkpoint: Callable[[str, SourceUnitInventory, dict[str, Any]], None] | None=None) -> InventoryExecution` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 870) — Run provider windows without touching SQLite.
-- `persist_prepared_inventory(repo: Repository, prepared: PreparedInventory, execution: InventoryExecution, *, clock: Clock | None=None) -> InventoryResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 942) — Persist fresh provider output on the runner thread.
-- `run_unit_inventory(repo: Repository, extraction_id: str, unit_id: str, *, unit_ids: list[str] | None=None, role: str, profile: str | None=None, client: Any=None, provider: str | None=None, model: str | None=None, input_budget_tokens: int=20000, output_budget_tokens: int | None=3000, clock: Clock | None=None, prompt_version: str=SOURCE_UNIT_INVENTORY_PROMPT_VERSION, schema_version: int=INVENTORY_SCHEMA_VERSION, progress: Callable[[int, int], None] | None=None) -> InventoryResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 982) — Produce or reuse one effective unit inventory under a role/profile (§7).
-- `inventory_marker(repo: Repository, extraction_id: str, unit_id: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 1033) — Whether a unit already has a cached inventory (wires the M3 outline seam).
+- `window_checkpoint(repo: Any, key: str, valid_span_ids: Collection[str]) -> ModelCheckpoint[SourceUnitInventory]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 812) — One inventory window's checkpoint.
+- `inventory_window_key(context: SourceUnitInventoryContext, settings: dict[str, Any], *, schema_version: int) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 825) — Checkpoint identity of one inventory window.
+- `inventory_row_key(*, provider: str, model: str, schema_version: int) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 842) — What an inventory row was asked, compared before the row is reused: the request key of the inventory prompt rendered over an empty context, under the schema version, provider and model.
+- `execute_prepared_inventory(prepared: PreparedInventory, client: Any, *, progress: Callable[[int, int], None] | None=None, checkpoint: Callable[[str, SourceUnitInventory, dict[str, Any]], None] | None=None) -> InventoryExecution` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 869) — Run provider windows without touching SQLite.
+- `persist_prepared_inventory(repo: Repository, prepared: PreparedInventory, execution: InventoryExecution, *, clock: Clock | None=None) -> InventoryResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 941) — Persist fresh provider output on the runner thread.
+- `run_unit_inventory(repo: Repository, extraction_id: str, unit_id: str, *, unit_ids: list[str] | None=None, role: str, profile: str | None=None, client: Any=None, provider: str | None=None, model: str | None=None, input_budget_tokens: int=20000, output_budget_tokens: int | None=3000, clock: Clock | None=None, prompt_version: str=SOURCE_UNIT_INVENTORY_PROMPT_VERSION, schema_version: int=INVENTORY_SCHEMA_VERSION, progress: Callable[[int, int], None] | None=None) -> InventoryResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 980) — Produce or reuse one effective unit inventory under a role/profile (§7).
+- `inventory_marker(repo: Repository, extraction_id: str, unit_id: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 1031) — Whether a unit already has a cached inventory (wires the M3 outline seam).
 
 ### Module constants
 
@@ -163,6 +163,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_build_study_map_routing.py](../../../../../../../tests/test_build_study_map_routing.py) — direct import
 - [tests/test_cli_append_units.py](../../../../../../../tests/test_cli_append_units.py) — direct import
 - [tests/test_collection_append_units.py](../../../../../../../tests/test_collection_append_units.py) — direct import
+  - `test_a_fully_inventoried_unsent_member_is_appended_with_no_inventory_work`
   - `test_inventoried_unit_ids_counts_merged_members`
   - `test_new_units_of_a_partly_inventoried_member_are_inventoried_and_appended`
 - [tests/test_exam_protection_identity.py](../../../../../../../tests/test_exam_protection_identity.py) — direct import
@@ -190,6 +191,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_inventory_prompt_edited_under_the_same_label_is_paid_once`
   - `test_an_inventory_row_answers_a_request_recorded_under_another_label`
   - `test_an_inventory_row_from_before_the_request_key_keeps_its_label_match`
+- [tests/test_rerun_proposals.py](../../../../../../../tests/test_rerun_proposals.py) — direct import
+  - `test_an_inventory_re_read_in_place_reaches_synthesis_and_the_record`
 - [tests/test_source_append.py](../../../../../../../tests/test_source_append.py) — direct import
   - `test_n_sources_append_linear_inventory_and_bounded_context`
 - [tests/test_source_inventory.py](../../../../../../../tests/test_source_inventory.py) — direct import

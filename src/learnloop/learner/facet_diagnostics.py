@@ -492,11 +492,19 @@ def build_facet_uncertainty_updates(
     observed_error_type: str | None,
     algorithm_version: str,
     now_iso: str,
+    criterion_facet_weights: Mapping[str, Mapping[str, float]] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """``criterion_facet_weights``: the criterion -> facet map ``facet_outcomes`` was derived with, which a hedged
+    criterion's facets come from too; None keeps the item's own map."""
+
     config = vault.config.facet_diagnostic
     support = candidate_facet_support(item)
     fatal_error_ids = {fatal_error.id for fatal_error in rubric.fatal_errors}
-    criterion_facets = criterion_facet_weights_for_item(item, rubric)
+    criterion_facets = (
+        dict(criterion_facet_weights)
+        if criterion_facet_weights is not None
+        else criterion_facet_weights_for_item(item, rubric)
+    )
     hedged_facets = _hedged_facets(evidence_rows, criterion_facets, item.evidence_facets)
     updates: list[dict[str, Any]] = []
     update_trace: dict[str, Any] = {"updates": {}, "hedged_facets": sorted(hedged_facets)}

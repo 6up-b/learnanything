@@ -134,12 +134,12 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/source_library.py`
 - `src/learnloop/content/sources/source_outline.py`
 - `src/learnloop/content/sources/span_aliases.py`
+- `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/content/synthesis/source_unit_selection.py`
 - `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/experiments/contextual_embeddings/corpus.py`
 - `src/learnloop/figures/prefetch.py`
-- `src/learnloop/figures/service.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

@@ -47,51 +47,51 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/tutor/promotions.py](../../../../../../src/learnloop/tutor/promotions.py) |
-| Source lines | 1180 |
+| Source lines | 1181 |
 | Owning package | [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `request_promotion_analysis(client: OperationClient, context: PromotionAnalysisContext) -> PromotionAnalysis` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 51) — Run the feature-owned tutor-promotion analysis operation.
-- `class PromotionError(ValueError)` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 67)
-- `class PromotionNoItemError(PromotionError)` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 71) — The authoring turn completed but proposed no practice item.
-- `promotion_target_ids(vault: LoadedVault, repository: Repository, event: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 75) — Deterministic LO choices available to a question promotion.
-- `promote_tutor_question(root: Path, client: Any, *, event_id: str, intent: str, subject_id: str | None=None, learning_object_id: str | None=None, authoring_client: Any | None=None, authoring_client_factory: Callable[[], Any] | None=None, progress: Callable[[str], None] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 181) — Promote one answered tutor turn (spec_tutor_promotion.md §3).
-- `reconcile_accepted_question_promotion_patch(repository: Repository, patch_id: str, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 377) — Make accepted reviewed items consume their original promotion request.
-- `reconcile_rejected_question_promotion_patch(repository: Repository, patch_id: str, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 432) — Expose a fully rejected practice proposal as a retryable request failure.
-- `reconcile_reset_question_promotion_patch(repository: Repository, patch_id: str, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 468) — Restore the awaiting-review request state after undoing a rejection.
+- `request_promotion_analysis(client: OperationClient, context: PromotionAnalysisContext) -> PromotionAnalysis` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 52) — Run the feature-owned tutor-promotion analysis operation.
+- `class PromotionError(ValueError)` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 68)
+- `class PromotionNoItemError(PromotionError)` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 72) — The authoring turn completed but proposed no practice item.
+- `promotion_target_ids(vault: LoadedVault, repository: Repository, event: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 76) — Deterministic LO choices available to a question promotion.
+- `promote_tutor_question(root: Path, client: Any, *, event_id: str, intent: str, subject_id: str | None=None, learning_object_id: str | None=None, authoring_client: Any | None=None, authoring_client_factory: Callable[[], Any] | None=None, progress: Callable[[str], None] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 182) — Promote one answered tutor turn (spec_tutor_promotion.md §3).
+- `reconcile_accepted_question_promotion_patch(repository: Repository, patch_id: str, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 378) — Make accepted reviewed items consume their original promotion request.
+- `reconcile_rejected_question_promotion_patch(repository: Repository, patch_id: str, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 433) — Expose a fully rejected practice proposal as a retryable request failure.
+- `reconcile_reset_question_promotion_patch(repository: Repository, patch_id: str, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 469) — Restore the awaiting-review request state after undoing a rejection.
 
 ### Module constants
 
-- `_TUTOR_PROMOTED_TAG` ([src/learnloop/tutor/promotions.py](../../../../../../src/learnloop/tutor/promotions.py), line 47)
-- `_TRANSFER_NATURES` ([src/learnloop/tutor/promotions.py](../../../../../../src/learnloop/tutor/promotions.py), line 48)
+- `_TUTOR_PROMOTED_TAG` ([src/learnloop/tutor/promotions.py](../../../../../../src/learnloop/tutor/promotions.py), line 48)
+- `_TRANSFER_NATURES` ([src/learnloop/tutor/promotions.py](../../../../../../src/learnloop/tutor/promotions.py), line 49)
 
 ## Internal implementation anchors
 
-- `_reader_anchor(event: dict[str, Any]) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 118)
-- `_suggestion_note(vault: LoadedVault, event: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 132) — Name a recorded nearest-LO suggestion (Slice 2 T6), labelled as one.
-- `_reader_target_ids(vault: LoadedVault, repository: Repository, event: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 152)
-- `_reader_source_refs(vault: LoadedVault, repository: Repository, event: dict[str, Any], origin_lo: LearningObject | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 158)
-- `_run_promotion_analysis(client: Any, vault: LoadedVault, origin_lo: LearningObject | None, thread: list[dict[str, Any]], intent: str, *, subject_id: str | None=None) -> PromotionAnalysis` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 502) — Step-0 structured extraction; degrades to an empty analysis when unavailable.
-- `_promote_existing_item(root: Path, repository: Repository, vault: LoadedVault, *, event: dict[str, Any], intent: str, analysis: PromotionAnalysis, attributed: list[str], origin_lo: LearningObject | None, existing_item_id: str, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 553) — Dedup route: schedule the existing item; gap intent still writes the claim (§3 Step 0).
-- `_promote_practice(root: Path, repository: Repository, vault: LoadedVault, client: Any, *, event: dict[str, Any], analysis: PromotionAnalysis, attributed: list[str], origin_lo: LearningObject | None, saved_note_id: str, reader_source_refs: list[dict[str, Any]] | None, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 599) — Practice route: author a practice item, enforcing routing in code (§3 Steps 2-3).
-- `_promote_gap(root: Path, repository: Repository, vault: LoadedVault, client: Any, *, event: dict[str, Any], analysis: PromotionAnalysis, attributed: list[str], origin_lo: LearningObject, saved_note_id: str, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 711) — Gap route: self-report claim + intervention need + inline diagnostic gen (§3 Step 2.5).
-- `_write_gap_claim(repository: Repository, vault: LoadedVault, origin_lo: LearningObject, attributed: list[str], *, event_id: str, clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 778) — G2 self-report: a low ``tutor_gap_declaration`` claim scoped to the LO / facet.
-- `_gap_claim_key(event_id: str) -> str` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 852) — The idempotency suffix of a gap claim's id: the question event it came from.
-- `_file_gap_need(repository: Repository, *, origin_lo: LearningObject, attributed: list[str], analysis: PromotionAnalysis, event: dict[str, Any], clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 858) — G3 instrument authoring: file a ``tutor_gap_declaration`` intervention need.
-- `_thread_from_event(event: dict[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 900) — The promoted turn as a one-item thread for the need's steering context.
-- `_record_promotion_decision_features(repository: Repository, vault: LoadedVault, *, event: dict[str, Any], origin_lo: LearningObject | None, analysis: PromotionAnalysis, attributed: list[str], intent: str, outcome: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 912) — Log the promotion training signal (§3 Step 4 / §0 fitting contract).
-- `_origin_mastery(repository: Repository, origin_lo: LearningObject | None) -> tuple[float | None, float | None]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 972)
-- `_recommended_difficulty_band(vault: LoadedVault, mastery_mean: float | None) -> tuple[float, float]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 984) — Mode-ladder difficulty band (§3 Step 2.6) — reuses the expansion planner math.
-- `_promotion_instructions(vault: LoadedVault, repository: Repository, origin_lo: LearningObject | None, analysis: PromotionAnalysis, attributed: list[str], event: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 1007) — TUTOR_PROMOTION_PROMPT + the PROMOTION_CONTEXT payload (thread, origin, band).
-- `_promotion_source_refs(vault: LoadedVault, saved_note_id: str, origin_lo: LearningObject | None, *, additional_refs: list[dict[str, Any]] | None=None) -> tuple[list[dict[str, Any]], bool]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 1052) — Grounding note + authoritative source material.
-- `_promotion_subjects(vault: LoadedVault, origin_lo: LearningObject | None, saved_note_id: str) -> list[str] | None` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 1090)
-- `_created_entities(repository: Repository, patch_id: str) -> tuple[str | None, str | None, bool, bool]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 1101) — (created_practice_item_id, created_learning_object_id, auto_applied, has_lo_create).
-- `_origin_facet_vocabulary(vault: LoadedVault, origin_lo: LearningObject) -> list[str]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 1125)
-- `_origin_existing_items(vault: LoadedVault, origin_lo: LearningObject) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 1136)
-- `_concept_neighbors(vault: LoadedVault, origin_lo: LearningObject) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 1153)
+- `_reader_anchor(event: dict[str, Any]) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 119)
+- `_suggestion_note(vault: LoadedVault, event: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 133) — Name a recorded nearest-LO suggestion (Slice 2 T6), labelled as one.
+- `_reader_target_ids(vault: LoadedVault, repository: Repository, event: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 153)
+- `_reader_source_refs(vault: LoadedVault, repository: Repository, event: dict[str, Any], origin_lo: LearningObject | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 159)
+- `_run_promotion_analysis(client: Any, vault: LoadedVault, origin_lo: LearningObject | None, thread: list[dict[str, Any]], intent: str, *, subject_id: str | None=None) -> PromotionAnalysis` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 503) — Step-0 structured extraction; degrades to an empty analysis when unavailable.
+- `_promote_existing_item(root: Path, repository: Repository, vault: LoadedVault, *, event: dict[str, Any], intent: str, analysis: PromotionAnalysis, attributed: list[str], origin_lo: LearningObject | None, existing_item_id: str, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 554) — Dedup route: schedule the existing item; gap intent still writes the claim (§3 Step 0).
+- `_promote_practice(root: Path, repository: Repository, vault: LoadedVault, client: Any, *, event: dict[str, Any], analysis: PromotionAnalysis, attributed: list[str], origin_lo: LearningObject | None, saved_note_id: str, reader_source_refs: list[dict[str, Any]] | None, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 600) — Practice route: author a practice item, enforcing routing in code (§3 Steps 2-3).
+- `_promote_gap(root: Path, repository: Repository, vault: LoadedVault, client: Any, *, event: dict[str, Any], analysis: PromotionAnalysis, attributed: list[str], origin_lo: LearningObject, saved_note_id: str, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 712) — Gap route: self-report claim + intervention need + inline diagnostic gen (§3 Step 2.5).
+- `_write_gap_claim(repository: Repository, vault: LoadedVault, origin_lo: LearningObject, attributed: list[str], *, event_id: str, clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 779) — G2 self-report: a low ``tutor_gap_declaration`` claim scoped to the LO / facet.
+- `_gap_claim_key(event_id: str) -> str` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 853) — The idempotency suffix of a gap claim's id: the question event it came from.
+- `_file_gap_need(repository: Repository, *, origin_lo: LearningObject, attributed: list[str], analysis: PromotionAnalysis, event: dict[str, Any], clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 859) — G3 instrument authoring: file a ``tutor_gap_declaration`` intervention need.
+- `_thread_from_event(event: dict[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 901) — The promoted turn as a one-item thread for the need's steering context.
+- `_record_promotion_decision_features(repository: Repository, vault: LoadedVault, *, event: dict[str, Any], origin_lo: LearningObject | None, analysis: PromotionAnalysis, attributed: list[str], intent: str, outcome: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 913) — Log the promotion training signal (§3 Step 4 / §0 fitting contract).
+- `_origin_mastery(repository: Repository, origin_lo: LearningObject | None) -> tuple[float | None, float | None]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 973)
+- `_recommended_difficulty_band(vault: LoadedVault, mastery_mean: float | None) -> tuple[float, float]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 985) — Mode-ladder difficulty band (§3 Step 2.6) — reuses the expansion planner math.
+- `_promotion_instructions(vault: LoadedVault, repository: Repository, origin_lo: LearningObject | None, analysis: PromotionAnalysis, attributed: list[str], event: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 1008) — TUTOR_PROMOTION_PROMPT + the PROMOTION_CONTEXT payload (thread, origin, band).
+- `_promotion_source_refs(vault: LoadedVault, saved_note_id: str, origin_lo: LearningObject | None, *, additional_refs: list[dict[str, Any]] | None=None) -> tuple[list[dict[str, Any]], bool]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 1053) — Grounding note + authoritative source material.
+- `_promotion_subjects(vault: LoadedVault, origin_lo: LearningObject | None, saved_note_id: str) -> list[str] | None` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 1091)
+- `_created_entities(repository: Repository, patch_id: str) -> tuple[str | None, str | None, bool, bool]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 1102) — (created_practice_item_id, created_learning_object_id, auto_applied, has_lo_create).
+- `_origin_facet_vocabulary(vault: LoadedVault, origin_lo: LearningObject) -> list[str]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 1126)
+- `_origin_existing_items(vault: LoadedVault, origin_lo: LearningObject) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 1137)
+- `_concept_neighbors(vault: LoadedVault, origin_lo: LearningObject) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/promotions.py), line 1154)
 
 ## Who imports or calls it
 
@@ -116,6 +116,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `generate_authoring_proposal`; calls `generate_authoring_proposal`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
+- [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `stored_facet_uncertainty_for_lo`; calls `stored_facet_uncertainty_for_lo`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `claim_fixes_live`, `display_mastery`, `reanchor_mastery_from_claim`; calls `claim_fixes_live`, `display_mastery`, `reanchor_mastery_from_claim`
 - [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] — imports `learning_objects_for_span`, `source_refs_for_span`; calls `learning_objects_for_span`, `source_refs_for_span`
 - [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]] — imports `PromotionAnalysis`, `PromotionAnalysisContext`, `TUTOR_PROMOTION_PROMPT`, `promotion_analysis_prompt`; calls `PromotionAnalysis`, `PromotionAnalysisContext`, `promotion_analysis_prompt`
@@ -146,6 +147,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_difficulty_band_guards.py](../../../../../../tests/test_difficulty_band_guards.py) — direct import
   - `test_promotion_band_is_floored_like_the_expansion_planner`
   - `test_promotion_band_unchanged_at_ordinary_mastery`
+- [tests/test_facet_belief_successor_derivation.py](../../../../../../tests/test_facet_belief_successor_derivation.py) — direct import
+  - `test_s2_tutor_promotion_features_snapshot_the_uncertainty_only_with_the_switch_on`
 - [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import
 - [tests/test_source_retrieval_tutor.py](../../../../../../tests/test_source_retrieval_tutor.py) — direct import
   - `test_a_reader_question_records_the_suggestion_and_promotion_names_it`

@@ -9,7 +9,8 @@ ADR-019), so the first row's predecessor is the floor. The upgrade from below th
 Every link activates the same way (playbook step 3), in ONE ``BEGIN IMMEDIATE`` transaction under the vault
 mutation lock: the predecessor's parameter manifest is frozen, the link's activation runs under the tag, the
 registry is refreshed, the journal (``predecessor``, ``target``) is written durably beside the database, and the
-config's tag is published LAST by an atomic rename; the commit follows. So the database never holds the
+config's ``[algorithms] algorithm_version`` setting is published LAST by an atomic rename and read back from the
+renamed file; the commit follows. So the database never holds the
 successor's state under the predecessor's label, and a label without its database is always journalled: a death
 between the publication and the commit leaves the journal, and the next opener that may write completes the
 activation from it (``activation_journal`` runs :func:`complete_interrupted_activation`, which the CLI and the
@@ -35,7 +36,9 @@ from learnloop.algorithm_versions import (
     SUCCESSOR_CHAIN,
 )
 from learnloop.clock import Clock
+from learnloop.config import load_config
 from learnloop.db.repositories import Repository
+from learnloop.ops.settings_store import updated_config_text
 from learnloop.params import parameter_registry as registry_service
 from learnloop.substrate.p0_projection import activate_p0_projection
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
@@ -55,6 +58,10 @@ class UpgradeResult:
     problems: list[str] = field(default_factory=list)
     # Advisory lines printed with the result; never a refusal reason.
     notes: list[str] = field(default_factory=list)
+
+
+class UnpublishedTag(RuntimeError):
+    """The config read back after the publication does not name the successor; the activation does not commit."""
 
 
 @dataclass(frozen=True)
@@ -137,6 +144,17 @@ def upgrade(
         except BelowOldestSupported as refused:
             return UpgradeResult(upgraded=False, from_version=refused.tag or "no algorithm_version", to_version=to,
                                  problems=[str(refused)])
+        except activation_journal.InterruptedActivation as refused:
+            # Raised before anything is written: a journal this process cannot read.
+            return UpgradeResult(upgraded=False, from_version=_named_or_unknown(root), to_version=to,
+                                 problems=[str(refused)])
+
+
+def _named_or_unknown(root: Path) -> str:
+    try:
+        return published_algorithm_version(root / "learnloop.toml") or "no algorithm_version"
+    except Exception:  # the result's label only; the refusal itself is the problem reported
+        return "unknown"
 
 
 def _upgrade(root: Path, *, to: str, clock: Clock | None, links: Sequence[Link]) -> UpgradeResult:
@@ -212,7 +230,8 @@ def complete_interrupted_activation(
         with activation_journal.completing_activation():
             vault = load_vault(root)
             journal_path = _journal_path(vault)
-            journal = _read_journal(journal_path)
+            # Raises, keeping the journal, when it cannot be read.
+            journal = activation_journal.read(VaultPaths(vault.root, vault.config).sqlite_path)
             if journal is None:
                 return None
             if journal == "torn":
@@ -276,18 +295,24 @@ def _activate_as_writer(root: Path, link: Link, *, publish: bool, clock: Clock |
                     published = True
 
                 publish_algorithm_version(config_path, predecessor, target, renamed=renamed)
+                # Read back from the renamed file as an opener will read it: committing while the config names
+                # anything else would serve the successor's state under another tag's behaviour.
+                named = published_algorithm_version(config_path)
+                if named != target:
+                    raise UnpublishedTag(f"{config_path} names {named!r} after publishing {target}")
     except BaseException as failure:
         if not publish:
             raise
         restored = True
         if published:
-            # The transaction rolled back after the config named the successor: name the predecessor again.
+            # The transaction rolled back after the rename: name the predecessor again, whatever the renamed file
+            # names (its read-back can be what failed).
             try:
-                publish_algorithm_version(config_path, target, predecessor)
+                publish_algorithm_version(config_path, None, predecessor)
             except Exception as restore_failure:  # pragma: no cover - a second failure on the same file
                 restored = False
                 failure.add_note(
-                    f"{config_path} still names {target} over the {predecessor} database "
+                    f"{config_path} may still name {target} over the {predecessor} database "
                     f"({restore_failure}); the activation journal stays, so the next start or "
                     f"`learnloop upgrade --to {target}` completes it"
                 )
@@ -300,16 +325,6 @@ def _activate_as_writer(root: Path, link: Link, *, publish: bool, clock: Clock |
 
 def _journal_path(vault: LoadedVault) -> Path:
     return activation_journal.journal_path(VaultPaths(vault.root, vault.config).sqlite_path)
-
-
-def _read_journal(path: Path) -> tuple[str, str] | str | None:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        return (str(payload["predecessor"]), str(payload["target"]))
-    except FileNotFoundError:
-        return None
-    except (OSError, ValueError, KeyError, TypeError):
-        return "torn"
 
 
 def write_activation_journal(path: Path, predecessor: str, target: str) -> None:
@@ -329,7 +344,7 @@ def write_activation_journal(path: Path, predecessor: str, target: str) -> None:
 
 
 def publish_algorithm_version(
-    config_path: Path, from_version: str, to_version: str, *, renamed: Callable[[], None] | None = None
+    config_path: Path, from_version: str | None, to_version: str, *, renamed: Callable[[], None] | None = None
 ) -> None:
     """The config's durable publication: the rename lands before the caller commits, and after a power loss it is
     never older than the commit (the temporary file is fsynced before the rename, the directory after it).
@@ -343,19 +358,28 @@ def publish_algorithm_version(
     _fsync_directory(config_path.parent)
 
 
-def rewrite_algorithm_version(
-    config_path: Path, from_version: str, to_version: str, *, durable: bool = False
-) -> None:
-    """Atomically replace the config's one ``algorithm_version = "<from_version>"`` line (write-temp + rename).
+def published_algorithm_version(config_path: Path) -> str | None:
+    """The tag the config at ``config_path`` names, parsed as every opener parses it; None when it names none."""
 
-    ``durable`` fsyncs the temporary file before the rename (a failure there removes it and leaves the config
-    untouched), so the rename is the last step and anything that can fail after it is the caller's."""
+    algorithms = load_config(config_path, load_environment=False).algorithms
+    return algorithms.algorithm_version if "algorithm_version" in algorithms.model_fields_set else None
+
+
+def rewrite_algorithm_version(
+    config_path: Path, from_version: str | None, to_version: str, *, durable: bool = False
+) -> None:
+    """Atomically set the config's ``[algorithms] algorithm_version`` to ``to_version`` (write-temp + rename),
+    keeping every comment and the layout. ``from_version``: the tag the config must name now (None: any).
+
+    The setting is found by parsing the TOML: a comment or another table holding the same text matched first and
+    left the setting as it was. ``durable`` fsyncs the temporary file before the rename (a failure there removes
+    it and leaves the config untouched), so the rename is the last step and anything that can fail after it is the
+    caller's."""
 
     text = config_path.read_text(encoding="utf-8")
-    needle = f'algorithm_version = "{from_version}"'
-    if needle not in text:
-        raise ValueError(f"algorithm_version = \"{from_version}\" not found in {config_path}")
-    updated = text.replace(needle, f'algorithm_version = "{to_version}"', 1)
+    if from_version is not None and published_algorithm_version(config_path) != from_version:
+        raise ValueError(f"{config_path} does not name algorithm_version = \"{from_version}\" under [algorithms]")
+    updated = updated_config_text(text, {("algorithms", "algorithm_version"): to_version}, source=config_path)
     tmp = config_path.with_suffix(config_path.suffix + ".tmp")
     if not durable:
         tmp.write_text(updated, encoding="utf-8")
@@ -384,10 +408,12 @@ __all__ = [
     "UPGRADES",
     "Activation",
     "Link",
+    "UnpublishedTag",
     "UpgradeResult",
     "complete_interrupted_activation",
     "idempotent_projection",
     "publish_algorithm_version",
+    "published_algorithm_version",
     "rewrite_algorithm_version",
     "targets",
     "upgrade",

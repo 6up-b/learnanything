@@ -70,12 +70,12 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/instructional/policy|learnloop.instructional.policy]] | [[Reference/Modules/learnloop/instructional/policy#^module-purpose|purpose]] | `ACTIVE` | 14 | 17 |
 | [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]] | [[Reference/Modules/learnloop/instructional/practice#^module-purpose|purpose]] | `ACTIVE` | 8 | 9 |
 | [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]] | [[Reference/Modules/learnloop/instructional/reader_digest#^module-purpose|purpose]] | `ACTIVE` | 2 | 6 |
-| [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] | [[Reference/Modules/learnloop/instructional/reader_followups#^module-purpose|purpose]] | `ACTIVE` | 3 | 19 |
+| [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] | [[Reference/Modules/learnloop/instructional/reader_followups#^module-purpose|purpose]] | `ACTIVE` | 3 | 20 |
 | [[Reference/Modules/learnloop/instructional/screen|learnloop.instructional.screen]] | [[Reference/Modules/learnloop/instructional/screen#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/instructional/sources|learnloop.instructional.sources]] | [[Reference/Modules/learnloop/instructional/sources#^module-purpose|purpose]] | `ACTIVE` | 9 | 25 |
-| [[Reference/Modules/learnloop/instructional/tools|learnloop.instructional.tools]] | [[Reference/Modules/learnloop/instructional/tools#^module-purpose|purpose]] | `ACTIVE` | 5 | 15 |
+| [[Reference/Modules/learnloop/instructional/tools|learnloop.instructional.tools]] | [[Reference/Modules/learnloop/instructional/tools#^module-purpose|purpose]] | `ACTIVE` | 5 | 16 |
 | [[Reference/Modules/learnloop/instructional/validation|learnloop.instructional.validation]] | [[Reference/Modules/learnloop/instructional/validation#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]] | [[Reference/Modules/learnloop/instructional/valuation#^module-purpose|purpose]] | `ACTIVE` | 6 | 7 |
+| [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]] | [[Reference/Modules/learnloop/instructional/valuation#^module-purpose|purpose]] | `ACTIVE` | 6 | 8 |
 | [[Reference/Modules/learnloop/instructional/wiring|learnloop.instructional.wiring]] | [[Reference/Modules/learnloop/instructional/wiring#^module-purpose|purpose]] | `ACTIVE` | 7 | 2 |
 
 ## Cross-package dependencies
@@ -94,6 +94,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 4 static module edges
 - [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 3 static module edges
+- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 3 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 3 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 3 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 2 static module edges
@@ -101,7 +102,6 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 1 static module edge
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 1 static module edge
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 1 static module edge
-- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 1 static module edge
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 1 static module edge
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 1 static module edge
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 1 static module edge

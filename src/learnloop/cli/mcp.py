@@ -37,6 +37,15 @@ def _root(vault: Path | None) -> Path:
     if not (root / "learnloop.toml").is_file():
         typer.echo(f"{root} is not a LearnLoop vault (no learnloop.toml).", err=True)
         raise typer.Exit(2)
+    from learnloop.remote.runtime import SchemaMismatch, refuse_below_floor_as_mismatch
+
+    try:
+        # Before anything of the vault is read or written (``activity`` attaches its database directly, a token
+        # is written into it); exit 78 as ``serve`` refuses, so a supervisor does not restart in a loop.
+        refuse_below_floor_as_mismatch(root)
+    except SchemaMismatch as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(78) from None
     bind_command_vault(root)
     return root
 

@@ -27,6 +27,9 @@ def _emit(report: dict, json_output: bool, *, ok: set[str]) -> None:
 def _root(vault: Path) -> Path:
     if not (vault / "learnloop.toml").is_file():
         raise ValueError("--vault must contain learnloop.toml")
+    from learnloop.vault.loader import refuse_vault_below_floor
+
+    refuse_vault_below_floor(vault)
     return vault
 
 

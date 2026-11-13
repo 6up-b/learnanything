@@ -144,6 +144,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/content/proposals/required_method_override.py`
 - `src/learnloop/content/sources/provenance.py`
+- `src/learnloop/content/synthesis/proposal_match.py`
 - `src/learnloop/content/synthesis/source_append.py`
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/content/synthesis/study_map_diff.py`
@@ -151,7 +152,6 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/error_taxonomy.py`
-- `src/learnloop/ops/doctor.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -160,6 +160,7 @@ Indexes and uniqueness:
 
 - `tests/test_ad23_owner_decisions.py`
 - `tests/test_ad_epoch.py`
+- `tests/test_apply_recovery.py`
 - `tests/test_patch_applier.py`
 - `tests/test_ux_phase2_error_type_proposals.py`
 - `tests/apply_write_ahead_helpers.py`
@@ -168,7 +169,6 @@ Indexes and uniqueness:
 - `tests/facet_rewords_helpers.py`
 - `tests/patch_applier_helpers.py`
 - `tests/test_agent_runs.py`
-- `tests/test_apply_recovery.py`
 - `tests/test_apply_write_ahead.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_cli_generate_practice.py`

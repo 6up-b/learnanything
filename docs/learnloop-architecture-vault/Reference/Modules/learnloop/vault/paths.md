@@ -350,6 +350,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_report.py](../../../../../../tests/test_reader_report.py) — direct import
   - `test_the_passage_quick_check_is_a_model_backed_action_in_the_funnel`
 - [tests/test_recall_coverage_interventions.py](../../../../../../tests/test_recall_coverage_interventions.py) — direct import
+- [tests/test_rerun_proposals.py](../../../../../../tests/test_rerun_proposals.py) — direct import
+  - `test_an_append_resolves_its_brief_and_inherits_the_learners_level`
 - [tests/test_ro0_report.py](../../../../../../tests/test_ro0_report.py) — direct import
   - `test_each_row_reports_what_was_written_and_measured_bytes`
 - [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import

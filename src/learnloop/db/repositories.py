@@ -4113,6 +4113,16 @@ class Repository(
         now = utc_now_iso(clock)
         with self.connection() as connection:
             if not self._read_only:
+                lapsed_episodes = {
+                    str(row[0]) for row in connection.execute(
+                        """
+                        SELECT remediation_episode_id FROM followup_tasks
+                        WHERE kind = 'cold_retry' AND remediation_episode_id IS NOT NULL
+                          AND status IN ('pending', 'served') AND expires_at IS NOT NULL AND expires_at < ?
+                        """,
+                        (now,),
+                    )
+                }
                 connection.execute(
                     """
                     UPDATE followup_tasks SET status = 'expired', updated_at = ?
@@ -4121,6 +4131,9 @@ class Repository(
                     """,
                     (now, now),
                 )
+                # The retry the episode reserved its cold item for has ended unanswered.
+                for episode_id in sorted(lapsed_episodes):
+                    self._release_cold_reservation(connection, episode_id, now)
             rows = connection.execute(
                 """
                 SELECT * FROM followup_tasks
@@ -4192,17 +4205,65 @@ class Repository(
             ).fetchone()
         return _decode_followup_task(row) if row is not None else None
 
-    def open_remediation_cold_item_ids(self) -> set[str]:
-        """The cold items live remediation episodes chose, before their cold
-        task exists (it is created after the primed attempt): reserved from
-        the moment they are chosen."""
+    @staticmethod
+    def _release_cold_reservation(connection: Any, episode_id: str, now: str) -> bool:
+        """End a ``cold_scheduled`` episode whose cold retry has no open task left, so its cold item
+        stops being reserved. An episode with a live retry (a replacement was scheduled) is untouched."""
+
+        cursor = connection.execute(
+            """
+            UPDATE remediation_episodes SET state = 'abandoned', updated_at = ?
+            WHERE id = ? AND state = 'cold_scheduled'
+              AND NOT EXISTS (
+                SELECT 1 FROM followup_tasks
+                WHERE remediation_episode_id = remediation_episodes.id AND kind = 'cold_retry'
+                  AND status IN ('pending', 'served'))
+            """,
+            (now, episode_id),
+        )
+        return cursor.rowcount > 0
+
+    def release_cold_reservation(self, episode_id: str, *, clock: Clock | None = None) -> bool:
+        """:meth:`_release_cold_reservation` for the caller that ended the retry (a withdrawal)."""
 
         with self.connection() as connection:
+            released = self._release_cold_reservation(connection, episode_id, utc_now_iso(clock))
+            connection.commit()
+        return released
+
+    def _remediation_cold_item_ids(self, *, awaiting_primed: bool) -> set[str]:
+        """Cold items of live remediation episodes: those with a cold retry open, and (``awaiting_primed``)
+        those still waiting for the primed attempt, before any task exists. An episode that took its primed
+        attempt and has no open retry reserves nothing: a retry that was never scheduled has nothing left to
+        protect."""
+
+        waiting = "primed_attempt_id IS NULL OR " if awaiting_primed else ""
+        with self.connection() as connection:
             rows = connection.execute(
-                "SELECT cold_item_id FROM remediation_episodes WHERE cold_item_id IS NOT NULL "
-                "AND state NOT IN ('completed', 'abandoned')"
+                f"""
+                SELECT cold_item_id FROM remediation_episodes AS episode
+                WHERE cold_item_id IS NOT NULL AND state NOT IN ('completed', 'abandoned')
+                  AND ({waiting}EXISTS (
+                    SELECT 1 FROM followup_tasks AS task
+                    WHERE task.remediation_episode_id = episode.id AND task.kind = 'cold_retry'
+                      AND task.status IN ('pending', 'served')))
+                """
             ).fetchall()
         return {str(row[0]) for row in rows}
+
+    def open_remediation_cold_item_ids(self) -> set[str]:
+        """The wider reservation, for the learner-initiated selectors and the tutor (``find_practice``, the
+        quick check, practice admission, AD's slot check, ``cold_administration_open``, protection): the cold
+        item is held from the moment the episode chooses it, while its primed attempt is still to be taken."""
+
+        return self._remediation_cold_item_ids(awaiting_primed=True)
+
+    def pending_remediation_cold_item_ids(self) -> set[str]:
+        """The narrower reservation Today's routine queue honours: only an open cold retry. An episode whose
+        primed attempt is never taken has no lifetime (nothing ends it), and withholding the item from the
+        queue without one would take it out of practice indefinitely, so the queue waits for a real check."""
+
+        return self._remediation_cold_item_ids(awaiting_primed=False)
 
     def open_followup_tasks_of_kind(
         self, kind: str, *, learning_object_id: str | None = None
@@ -11046,22 +11107,6 @@ class Repository(
                 (purpose, input_context_hash),
             ).fetchone()
         return dict(row) if row is not None else None
-
-    def completed_agent_runs_by_context(self, purpose: str, input_context_hash: str) -> list[dict[str, Any]]:
-        """Every completed run for this context, newest first (the order of
-        :meth:`completed_agent_run_by_context`), for callers that must also
-        check what a candidate run recorded before reusing it."""
-
-        with self.connection() as connection:
-            rows = connection.execute(
-                """
-                SELECT * FROM agent_runs
-                WHERE purpose = ? AND input_context_hash = ? AND status = 'completed'
-                ORDER BY completed_at DESC, started_at DESC
-                """,
-                (purpose, input_context_hash),
-            ).fetchall()
-        return [dict(row) for row in rows]
 
     def agent_run(self, run_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:
@@ -20530,7 +20575,7 @@ class Repository(
         made_as_role: str | None = None,
         reused_from_inventory_id: str | None = None,
         clock: Clock | None = None,
-    ) -> None:
+    ) -> str:
         """Write one cached inventory (§7) and, for a model run on
         ``extraction_id`` (not a reuse), its held-out signals into the
         append-only ``source_held_out_signal_marks`` ledger, in one
@@ -20542,7 +20587,11 @@ class Repository(
         re-anchored (recorded in ``usage`` as ``rebound_from_inventory_id``,
         as before): a reuse writes no ledger row, so it never marks the
         reading it is bound to, and the origin's ledger row stays.
-        ``made_as_role`` is the role the model run was made under."""
+        ``made_as_role`` is the role the model run was made under.
+
+        Returns the id of the row now holding the key: ``id``, or the existing
+        row's when the key was already there (the update keeps that row's id), so
+        every reference to the inventory names a row that exists."""
 
         now = utc_now_iso(clock)
         usage_row = dict(usage or {})
@@ -20589,6 +20638,16 @@ class Repository(
                     now,
                 ),
             )
+            stored_id = connection.execute(
+                """
+                SELECT id FROM source_unit_inventories
+                WHERE source_revision_id = ? AND unit_id = ? AND unit_semantic_hash = ?
+                  AND inventory_profile = ? AND inventory_schema_version = ?
+                  AND prompt_version = ? AND provider = ? AND model = ?
+                """,
+                (source_revision_id, unit_id, unit_semantic_hash, inventory_profile,
+                 inventory_schema_version, prompt_version, provider, model),
+            ).fetchone()["id"]
             if held_out_spans and not reused:
                 spans_json = _json(held_out_spans)
                 digest = hashlib.sha256(
@@ -20597,9 +20656,10 @@ class Repository(
                 connection.execute(
                     "INSERT OR IGNORE INTO source_held_out_signal_marks(id, revision_id, extraction_id, unit_id, "
                     "inventory_id, made_as_role, span_ids_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    (f"hos_{digest}", source_revision_id, extraction_id, unit_id, id, made_as_role, spans_json, now),
+                    (f"hos_{digest}", source_revision_id, extraction_id, unit_id, stored_id, made_as_role, spans_json, now),
                 )
             connection.commit()
+        return str(stored_id)
 
     def held_out_signal_marks(self) -> list[dict[str, Any]]:
         """Every row of the held-out signal ledger (exam protection by
@@ -21240,7 +21300,7 @@ class Repository(
     def insert_synthesis_manifest(self, manifest: Mapping[str, Any]) -> str:
         """Persist an immutable synthesis manifest (§8.4). Idempotent on
         ``manifest_hash`` — an identical manifest returns the existing id and is
-        never re-inserted (the cache seam)."""
+        never re-inserted."""
 
         manifest_hash = str(manifest["manifest_hash"])
         with self.connection() as connection:
@@ -21480,12 +21540,23 @@ class Repository(
         data["output"] = _loads(data.pop("output_json", None), None)
         return data
 
-    def discard_synthesis_shard_result(self, shard_key: str) -> None:
+    def discard_synthesis_shard_result(self, shard_key: str, *, output: Mapping[str, Any] | None = None) -> None:
         """Delete one shard's saved output, so the next synthesis pays for a
-        fresh answer instead of replaying one the quality gates rejected."""
+        fresh answer instead of replaying one the quality gates rejected.
+
+        With ``output`` (the output that was judged), only while the row still
+        holds it: another run may have saved a fresh one under the key since.
+        Compared on the stored text, which :meth:`save_synthesis_shard_result`
+        writes with the same serialization."""
 
         with self.connection() as connection:
-            connection.execute("DELETE FROM synthesis_shard_results WHERE shard_key = ?", (shard_key,))
+            if output is None:
+                connection.execute("DELETE FROM synthesis_shard_results WHERE shard_key = ?", (shard_key,))
+            else:
+                connection.execute(
+                    "DELETE FROM synthesis_shard_results WHERE shard_key = ? AND output_json = ?",
+                    (shard_key, _json(dict(output))),
+                )
             connection.commit()
 
     def finalize_stale_synthesis_runs(

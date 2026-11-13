@@ -49,6 +49,7 @@ from learnloop.content.synthesis.append_neighborhood import select_neighborhood
 from learnloop.content.synthesis.graph_nomination import GraphNominator, plan_ingest_embedding
 from learnloop.content.proposals.patches import compute_target_hash
 from learnloop.content.facet_identity import authority as facet_meaning
+from learnloop.content.synthesis.proposal_match import match_proposal
 from learnloop.content.synthesis.source_set_synthesis import (
     StudyMapError,
     _facet_identity_plan,
@@ -62,6 +63,8 @@ from learnloop.content.synthesis.source_set_synthesis import (
     _support_citations,
     _synthesis_pass_key,
     facet_identity_result,
+    manifest_inputs,
+    resolve_brief,
 )
 from learnloop.content.synthesis.synthesis_gates import (
     ASSESSMENT_ONLY_ROLES,
@@ -73,6 +76,7 @@ from learnloop.content.synthesis.synthesis_gates import (
 from learnloop.content.synthesis.synthesis_manifests import (
     agent_run_input_context_hash,
     build_manifest,
+    content_hash,
     persist_manifest,
 )
 from learnloop.content.synthesis.vault_epigraphs import digest_for_append, generate_vault_epigraphs
@@ -128,8 +132,8 @@ class _AppendCall:
     settings: dict[str, Any]
     input_ceiling: int | None
     output_budget: int | None
-    #: The checkpoint keys this run's answers came from, fresh or reused.
-    keys: list[str] = field(default_factory=list)
+    #: Each answer this run used, fresh or reused: its checkpoint key and the stored form it was served from.
+    answers: list[tuple[str, Any]] = field(default_factory=list)
 
     def __call__(self, context: AppendReconciliationContext) -> AppendReconciliation:
         prompt = append_reconciliation_prompt(context)
@@ -137,7 +141,6 @@ class _AppendCall:
             self.repository, append_checkpoint_key(prompt, self.settings), APPEND_AGENT_PURPOSE,
             AppendReconciliation.model_validate,
         )
-        self.keys.append(checkpoint.key)
         # The same estimate as a bootstrap pass: the prompt and schema sent.
         tokens = max(1, (len(prompt) + len(json.dumps(AppendReconciliation.model_json_schema()))) // 4)
 
@@ -147,9 +150,10 @@ class _AppendCall:
             with generation_limit(self.output_budget):
                 return request_append_reconciliation(self.client, context)
 
-        result, _reused = checkpoint.answer(
+        result, _reused, stored = checkpoint.answer_stored(
             call, usage=lambda answer: {"input_tokens_estimate": tokens, "output_tokens_estimate": _result_tokens(answer)},
         )
+        self.answers.append((checkpoint.key, stored))
         if self.output_budget is not None and _result_tokens(result) > self.output_budget:
             raise StudyMapError("budget_exceeded", "Append reconciliation exceeded its output budget.")
         return result
@@ -159,10 +163,11 @@ class _AppendCall:
         A rejected answer is the model's, not the budget's: kept, it would be
         replayed into the same rejection by every retry at zero cost while the
         card offers Retry. An over-budget answer is not dropped: a raised
-        budget reuses it."""
+        budget reuses it. Each is dropped only while it is still the saved
+        answer, so a fresh one another run saved since is kept."""
 
-        for key in self.keys:
-            self.repository.discard_model_checkpoint(key)
+        for key, stored in self.answers:
+            self.repository.discard_model_checkpoint(key, result=stored)
 
 
 def _over_ceiling(tokens: int, ceiling: int) -> StudyMapError:
@@ -290,10 +295,10 @@ def append_scope(
     neighborhood: dict[str, Any],
     new_unit_ids: Mapping[str, Sequence[str]] | None = None,
     facet_identity_client: Any = None,
+    revision_diff: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """The append manifest's ``scope``. A key exists only when its input
-    does, so an append without a unit filter keeps the manifest it always had
-    and its completed run is still reused."""
+    """The append manifest's ``scope``: what changed and what the append read around it. A key exists only when its
+    input does, so the record of an append without a unit filter or a revision diff keeps its earlier shape."""
 
     scope: dict[str, Any] = {
         "mode": "append",
@@ -303,6 +308,9 @@ def append_scope(
     }
     if new_unit_ids is not None:
         scope["new_unit_ids"] = {revision: sorted(units) for revision, units in sorted(new_unit_ids.items())}
+    if revision_diff:
+        # Rendered into the append request, so the record names it.
+        scope["revision_diff_hash"] = content_hash(dict(revision_diff))
     # Facet identity (handoff §4): the judge's identity in the manifest only
     # while the switch is on.
     if vault.config.facet_identity.enabled:
@@ -336,7 +344,10 @@ class AppendResult:
     manifest_hash: str
     synthesis_run_id: str | None = None
     proposal_id: str | None = None
+    # The proposal is an earlier run's equal one (``proposal_match``); nothing new was written.
     reused: bool = False
+    # ... and that proposal had nothing left waiting: the append added nothing.
+    nothing_new: bool = False
     auto_applied_item_ids: list[str] = field(default_factory=list)
     review_item_ids: list[str] = field(default_factory=list)
     item_counts: dict[str, int] = field(default_factory=dict)
@@ -357,6 +368,7 @@ class AppendResult:
             "synthesis_run_id": self.synthesis_run_id,
             "proposal_id": self.proposal_id,
             "reused": self.reused,
+            "nothing_new": self.nothing_new,
             "auto_applied_item_ids": list(self.auto_applied_item_ids),
             "review_item_ids": list(self.review_item_ids),
             "item_counts": dict(self.item_counts),
@@ -467,6 +479,10 @@ def _append(
     if source_set is None:
         raise StudyMapError("source_set_not_found", f"Source set '{source_set_id}' does not exist.")
     subject_id = source_set.subject_id
+    # Resolved before the manifest, as bootstrap resolves it: the record names
+    # the brief the request renders, and an append inherits the learner's level.
+    brief = resolve_brief(vault, brief)
+    items_off = brief["practice_items"] == "as_you_read"
 
     inputs = _collect_inputs(repository, vault, source_set)
     revs = set(new_revision_ids or inputs.selected_revision_ids)
@@ -496,15 +512,12 @@ def _append(
     append_prompt_version = append_reconciliation_prompt_version(one_facet_per_skill)
     scope = append_scope(
         vault, change_kind=change_kind, revision_ids=revs, neighborhood=neighborhood.as_manifest_record(),
-        new_unit_ids=new_unit_ids, facet_identity_client=facet_identity_client,
+        new_unit_ids=new_unit_ids, facet_identity_client=facet_identity_client, revision_diff=revision_diff,
     )
     manifest = build_manifest(
         vault,
         source_set_id=source_set.id,
-        membership=inputs.membership,
-        revision_ids=sorted(revs),
-        extraction_ids=inputs.extraction_ids,
-        unit_inventory_versions=inputs.unit_inventory_versions,
+        **{**manifest_inputs(inputs), "revision_ids": sorted(revs)},
         scope=scope,
         brief=brief,
         prompt_version=append_prompt_version,
@@ -529,15 +542,6 @@ def _append(
     persist_manifest(repository, manifest)
     manifest_id = repository.synthesis_manifest_by_hash(manifest_hash)["id"]
     context_hash = agent_run_input_context_hash(manifest)
-
-    cached = repository.completed_agent_run_by_context(APPEND_AGENT_PURPOSE, context_hash)
-    if cached is not None:
-        batch = repository.proposal_batch_for_agent_run(cached["id"])
-        return AppendResult(
-            source_set_id=source_set.id, subject_id=subject_id, change_kind=change_kind,
-            manifest_hash=manifest_hash, proposal_id=(batch or {}).get("id"), reused=True,
-            neighborhood=neighborhood.as_manifest_record(),
-        )
 
     now = utc_now_iso(clock)
     agent_run_id = repository.insert_agent_run(
@@ -567,125 +571,137 @@ def _append(
         output_budget=None if unlimited_token_budget else budgets.append_output_tokens,
     )
     try:
-        reconciliation, span_request_count = _run_reconciliation(
-            call, repository, inputs, new_inventories, neighborhood, source_set,
-            subject_id, change_kind, revision_diff, brief, budgets,
-            one_facet_per_skill=one_facet_per_skill,
-        )
-        preset_diagnostics: list[dict[str, Any]] = []
-        if brief.get("authoring_preset") == "narrow_adjunct":
-            # The preset's no-restructure promise is a deterministic boundary,
-            # not merely prompt advice. Preserve every additive candidate and
-            # drop only model-emitted restructure operations.
-            restructures = list(getattr(reconciliation, "restructures", []) or [])
-            if restructures:
-                if hasattr(reconciliation, "model_copy"):
-                    reconciliation = reconciliation.model_copy(update={"restructures": []})
-                elif isinstance(reconciliation, dict):
-                    reconciliation = {**reconciliation, "restructures": []}
-                preset_diagnostics.append(
-                    {
-                        "gate": "narrow_adjunct",
-                        "severity": "review",
-                        "entity_refs": [],
-                        "message": (
-                            f"dropped {len(restructures)} model-emitted restructure operation(s): "
-                            "the enrichment preset permits additive changes only"
-                        ),
-                        "suggested_action": "review the additive proposal; use a standard append to restructure",
-                    }
-                )
-        # Same items-off resolution as the create lane (`_create_study_map`):
-        # the brief decides, falling back to the vault's standing bootstrap
-        # setting. Without this the append lane authored practice items
-        # unconditionally — the `as_you_read` guard was a create-lane-only
-        # invariant.
-        brief_items = (brief or {}).get("practice_items")
-        if brief_items not in ("upfront", "as_you_read"):
-            brief_items = vault.config.ingest.bootstrap_practice_items
-        items_off = brief_items == "as_you_read"
-        # Facet identity: consolidate the new facets among themselves and judge
-        # them against the registered facets T5 nominates (D2 with a decision).
-        facet_identity_plan = _facet_identity_plan(
-            SourceSetSynthesis(
-                concepts=getattr(reconciliation, "concepts", []) or [],
-                facets=getattr(reconciliation, "facets", []) or [],
-            ),
-            vault, repository, synthesis_run_id, nominator=nominator, client=facet_identity_client,
-        )
-        (
-            rows,
-            gate_items,
-            conflict_candidates,
-            dispositions,
-            auto_apply_ids,
-            normalizer_diagnostics,
-            graph_nomination,
-            facet_identity_actions,
-        ) = _normalize_append(
-            reconciliation, inputs, vault, neighborhood, now, subject_id=subject_id,
-            items_off=items_off, nominator=nominator, facet_identity_plan=facet_identity_plan,
-        )
-
-        gate_ctx = _gate_context(vault, repository, inputs, [], nominator=nominator)
-        gate_ctx.append_mode = True
-        gate_proposal = GateProposal(
-            items=gate_items,
-            conflict_candidates=conflict_candidates,
-            non_conflict_dispositions=dispositions,
-        )
-        report = run_synthesis_gates(gate_proposal, gate_ctx)
-        diagnostics = [d.to_dict() for d in report.diagnostics]
-        diagnostics.extend(normalizer_diagnostics)
-        diagnostics.extend(preset_diagnostics)
-        if report.blocked:
-            raise StudyMapError("append_gate_failed", "Append proposal failed hard quality gates.",
-                                diagnostics=diagnostics)
-
-        # Stage-5.3/6 instrument gates — the one shared composition (see
-        # `_gate_and_persist`); this lane used to persist practice items with
-        # no instrument judgement at all. Row-level verdicts, never batch aborts.
-        from learnloop.content.authoring.authoring_gates import build_instrument_gates
-
-        instrument_gates = build_instrument_gates(vault, repository, grading_client=client)
-        instrument_gates(rows)
-        diagnostics.extend(instrument_gates.diagnostics())
-
-        patch_id = new_ulid()
-        repository.persist_proposal_batch(
-            {
-                "id": patch_id,
-                "agent_run_id": agent_run_id,
-                "purpose": APPEND_PROPOSAL_PURPOSE,
-                "source_refs": [],
-                "summary": getattr(reconciliation, "summary", "") or f"append reconciliation for {subject_id}",
-                "created_at": now,
-                "updated_at": now,
-            },
-            rows,
-        )
-        coverage = {"gate_diagnostics": diagnostics, "auto_apply_item_ids": auto_apply_ids}
-        if nominator is not None:
-            coverage["graph_nomination"] = {
-                **(graph_nomination or {}), "summary": nominator.summary(),
-            }
-        actual_usage: dict[str, Any] | None = None
-        if facet_identity_plan is not None:
-            from learnloop.content.facet_identity.actions import record_proposed_actions
-
-            coverage["facet_identity"] = {
-                **facet_identity_plan.summary(),
-                "action_ids": record_proposed_actions(
-                    repository, facet_identity_actions, origin="append",
-                    run_id=synthesis_run_id, proposal_id=patch_id, clock=clock,
+        # At most twice: the second time only after the rows equalled a proposal
+        # the learner wholly rejected, whose answers were dropped (proposal_match).
+        for fresh_answers in (False, True):
+            reconciliation, span_request_count = _run_reconciliation(
+                call, repository, inputs, new_inventories, neighborhood, source_set,
+                subject_id, change_kind, revision_diff, brief, budgets,
+                one_facet_per_skill=one_facet_per_skill,
+            )
+            preset_diagnostics: list[dict[str, Any]] = []
+            if brief.get("authoring_preset") == "narrow_adjunct":
+                # The preset's no-restructure promise is a deterministic boundary,
+                # not merely prompt advice. Preserve every additive candidate and
+                # drop only model-emitted restructure operations.
+                restructures = list(getattr(reconciliation, "restructures", []) or [])
+                if restructures:
+                    if hasattr(reconciliation, "model_copy"):
+                        reconciliation = reconciliation.model_copy(update={"restructures": []})
+                    elif isinstance(reconciliation, dict):
+                        reconciliation = {**reconciliation, "restructures": []}
+                    preset_diagnostics.append(
+                        {
+                            "gate": "narrow_adjunct",
+                            "severity": "review",
+                            "entity_refs": [],
+                            "message": (
+                                f"dropped {len(restructures)} model-emitted restructure operation(s): "
+                                "the enrichment preset permits additive changes only"
+                            ),
+                            "suggested_action": "review the additive proposal; use a standard append to restructure",
+                        }
+                    )
+            # Facet identity: consolidate the new facets among themselves and judge
+            # them against the registered facets T5 nominates (D2 with a decision).
+            facet_identity_plan = _facet_identity_plan(
+                SourceSetSynthesis(
+                    concepts=getattr(reconciliation, "concepts", []) or [],
+                    facets=getattr(reconciliation, "facets", []) or [],
                 ),
-            }
-            actual_usage = {"facet_identity": facet_identity_plan.as_dict()}
-        repository.complete_synthesis_run(
-            synthesis_run_id, status="completed", proposal_id=patch_id,
-            coverage_decisions=coverage, actual_usage=actual_usage,
-        )
-        finish_agent_run(repository, agent_run_id, client, clock=clock)
+                vault, repository, synthesis_run_id, nominator=nominator, client=facet_identity_client,
+            )
+            (
+                rows,
+                gate_items,
+                conflict_candidates,
+                dispositions,
+                auto_apply_ids,
+                normalizer_diagnostics,
+                graph_nomination,
+                facet_identity_actions,
+            ) = _normalize_append(
+                reconciliation, inputs, vault, neighborhood, now, subject_id=subject_id,
+                items_off=items_off, nominator=nominator, facet_identity_plan=facet_identity_plan,
+            )
+
+            gate_ctx = _gate_context(vault, repository, inputs, [], nominator=nominator)
+            gate_ctx.append_mode = True
+            gate_proposal = GateProposal(
+                items=gate_items,
+                conflict_candidates=conflict_candidates,
+                non_conflict_dispositions=dispositions,
+            )
+            report = run_synthesis_gates(gate_proposal, gate_ctx)
+            diagnostics = [d.to_dict() for d in report.diagnostics]
+            diagnostics.extend(normalizer_diagnostics)
+            diagnostics.extend(preset_diagnostics)
+            if report.blocked:
+                raise StudyMapError("append_gate_failed", "Append proposal failed hard quality gates.",
+                                    diagnostics=diagnostics)
+
+            # Stage-5.3/6 instrument gates — the one shared composition (see
+            # `_gate_and_persist`); this lane used to persist practice items with
+            # no instrument judgement at all. Row-level verdicts, never batch aborts.
+            from learnloop.content.authoring.authoring_gates import build_instrument_gates
+
+            instrument_gates = build_instrument_gates(vault, repository, grading_client=client)
+            instrument_gates(rows)
+            diagnostics.extend(instrument_gates.diagnostics())
+
+            match = match_proposal(
+                repository, source_set_id=source_set.id, purpose=APPEND_PROPOSAL_PURPOSE, rows=rows,
+            )
+            if match is not None and match.kind == "rejected":
+                if not fresh_answers:
+                    call.discard_answers()
+                    continue
+                match = None
+            break
+        if match is not None:
+            patch_id = match.proposal_id
+            repository.complete_synthesis_run(
+                synthesis_run_id, status="completed", proposal_id=patch_id,
+                coverage_decisions={"gate_diagnostics": diagnostics, "auto_apply_item_ids": auto_apply_ids,
+                                    "matched_proposal": {"proposal_id": patch_id, "kind": match.kind}},
+            )
+            finish_agent_run(repository, agent_run_id, client, clock=clock)
+        else:
+            patch_id = new_ulid()
+            repository.persist_proposal_batch(
+                {
+                    "id": patch_id,
+                    "agent_run_id": agent_run_id,
+                    "purpose": APPEND_PROPOSAL_PURPOSE,
+                    "source_refs": [],
+                    "summary": getattr(reconciliation, "summary", "") or f"append reconciliation for {subject_id}",
+                    "created_at": now,
+                    "updated_at": now,
+                },
+                rows,
+            )
+            coverage = {"gate_diagnostics": diagnostics, "auto_apply_item_ids": auto_apply_ids}
+            if nominator is not None:
+                coverage["graph_nomination"] = {
+                    **(graph_nomination or {}), "summary": nominator.summary(),
+                }
+            actual_usage: dict[str, Any] | None = None
+            if facet_identity_plan is not None:
+                from learnloop.content.facet_identity.actions import record_proposed_actions
+
+                coverage["facet_identity"] = {
+                    **facet_identity_plan.summary(),
+                    "action_ids": record_proposed_actions(
+                        repository, facet_identity_actions, origin="append",
+                        run_id=synthesis_run_id, proposal_id=patch_id, clock=clock,
+                    ),
+                }
+                actual_usage = {"facet_identity": facet_identity_plan.as_dict()}
+            repository.complete_synthesis_run(
+                synthesis_run_id, status="completed", proposal_id=patch_id,
+                coverage_decisions=coverage, actual_usage=actual_usage,
+            )
+            finish_agent_run(repository, agent_run_id, client, clock=clock)
     except StudyMapError as exc:
         if exc.code == "append_gate_failed":
             call.discard_answers()
@@ -707,13 +723,21 @@ def _append(
         )
         raise
 
-    row_by_client = {r["client_item_id"]: r["id"] for r in rows}
-    auto_ids = [row_by_client[c] for c in auto_apply_ids if c in row_by_client]
-    review_ids = [r["id"] for r in rows if r["id"] not in set(auto_ids)]
+    if match is None:
+        row_by_client = {r["client_item_id"]: r["id"] for r in rows}
+        auto_ids = [row_by_client[c] for c in auto_apply_ids if c in row_by_client]
+        review_ids = [r["id"] for r in rows if r["id"] not in set(auto_ids)]
+    else:
+        # The earlier proposal's items: only those still waiting apply or wait.
+        waiting = {item["client_item_id"]: item["id"] for item in repository.proposal_items(patch_id)
+                   if item["decision"] == "pending"}
+        auto_ids = [waiting[c] for c in auto_apply_ids if c in waiting]
+        review_ids = [item_id for item_id in waiting.values() if item_id not in set(auto_ids)]
 
     result = AppendResult(
         source_set_id=source_set.id, subject_id=subject_id, change_kind=change_kind,
         manifest_hash=manifest_hash, synthesis_run_id=synthesis_run_id, proposal_id=patch_id,
+        reused=match is not None, nothing_new=match is not None and match.kind == "settled",
         item_counts=_count(rows), gate_diagnostics=diagnostics,
         neighborhood=neighborhood.as_manifest_record(), span_request_count=span_request_count,
         review_item_ids=review_ids,
@@ -741,6 +765,10 @@ def _append(
             )
         ]
 
+    if match is not None:
+        # Nothing new was persisted, so there is nothing new to write about; the
+        # earlier proposal's run recorded its facet identity.
+        return result
     result.facet_identity = facet_identity_result(root, repository, facet_identity_plan, synthesis_run_id)
 
     # Best-effort Start-screen epigraphs (see vault_epigraphs.py): an append
