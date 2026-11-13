@@ -34,6 +34,21 @@ Status: **open**, **queued** (a step owns it), **fixed** (commit), **owner** (wa
 | D-23 | D1 | Every `activity_administrations` and `measurement_events` row is stamped `mvp-0.6` whatever the vault's tag: `substrate/activities._algorithm_version(None)` falls back to `LearnLoopConfig()`'s default, and all four production callers of `open_administration`/`append_observation` omit the tag. No reader of the two columns was found. | new | Pass the vault's tag from the four callers (a provenance stamp; check for readers first) | queued |
 | D-24 | D1 | Two production harnesses build scratch vaults below the floor, so the floor refuses them: `learnloop goldenpath bootstrap` (`curriculum/golden_path_fixture.py`, pinned `mvp-0.8`) and `learnloop recall-calibration` (`learner/recall_calibration.py`, pinned `mvp-0.6`). Their tests run under the test allowance. | `test_golden_path_fixture`, `test_recall_calibration` (allowed) | Port each to the floor (its assertions read on the head path) or retire it with the old tags (D3) | queued |
 | D-25 | D1 | On the Nov 9 `arxiv_v2` copy upgraded to `mvp-0.58`, `rebuild --shadow` moves 9 of 50 `practice_item_state.due_at` values exactly one second earlier (interval ratios 1.0); the same on base `16a9e3fd48`, so it predates D1. Mastery's other differences are only the rows' `algorithm_version` stamp. | new | Find the sub-second rounding difference between the live write and replay | queued |
+| D-26 | landing gate of the facet-belief successor | `test_mobile_v2_feedback::test_j2_the_full_answers_display_is_recorded_once_per_display_id` fails 2 of 20 alone, and 3 of 20 on a branch without the successor: `followup_show_anyway` returns `released` false, so the follow-up was not holding the answer in those runs. | the test itself | With D-21's sweep or T3: find whether the hold depends on a seeded draw or on the follow-up job's timing | queued |
+
+## From the K9 and K10 maps (due with their packages' steps; K9-1, K9-3, K10-1 and K10-2 are learner-visible and are fixed first)
+
+| Id | Found in | Bug | Fix | Status |
+|---|---|---|---|---|
+| K9-1 | K9 map D9B5 | The desktop shows "You asked me not to check" when the probe offer was withheld for burden or budget, not by the learner. | Small fix: the screen reads the withheld reason | queued |
+| K9-2 | K9 map | A sidecar handler in the diagnosis lane reads the wall clock instead of the injected clock. | Small fix | queued |
+| K9-3 | K9 map D9D2 | A held grade that is later released never enters the episode posterior (its observation keeps `updates_belief = 0`), and a regrade changes neither belief. | Behaviour track: with arc G's one belief (G4), or its own successor | queued |
+| K9-4 | K9 map D9C1 | Three docstrings in the causal lane contradict the code ("only support channel", "every threshold is resolved from the fitted store", `failure_triage` as consumer). | Docstrings, with L5 | queued |
+| K10-1 | K10 map F10D2 | Cancelling a Show me press only marks the job: the build and its paid calls continue, and the figure lists on the next read. | Small fix: the build checks the mark between attempts; a cancelled build's figure is not listed | queued |
+| K10-2 | K10 map F10U1 | The Reader never reads a figure's `withheld` flag, so a figure withheld at delivery vanishes with no message. | Small fix | queued |
+| K10-3 | K10 map | The rich (video) job's enqueue writes no `job_enqueued` record, so its trace does not join the press that asked for it. | With K10's record step | queued |
+| K10-4 | K10 map | Two stale vault lines (AI Architecture; ADR-017's `prefetch_eu_v1`). | Notes | queued |
+| K10-5 | K10 map | The "not from books" badge is worded differently by the server and the desktop. | UX audit's call | owner |
 
 ## Due before G6 (K1's list, strategy §2.17)
 

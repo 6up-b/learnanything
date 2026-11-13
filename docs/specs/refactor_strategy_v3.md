@@ -327,7 +327,7 @@ No change at any fixed input, and no learner reach except where stated. Each rem
 - **Before any code:** the owner runs `scripts/vault_report.py`, read-only and small, over live and retired vaults: each vault's tag, whether an activation journal stands beside its database, and which config keys it sets that C3, C4 or D7 would remove. It prints no learner data. The owner upgrades each live vault to the floor, which they must do for mvp-0.55 anyway.
 - **Files:** `algorithm_versions.py` (`OLDEST_SUPPORTED`), the opener (`vault/repository.py`, `activation_journal.py`), `substrate/shadow_rebuild.py:195`, an annotated git tag `pre-floor` (the owner or orchestrator creates it; agents don't push).
 - **Does:** a vault below the floor is refused at open, naming the tag and the two commands that upgrade it there. A journal naming a link below the floor is refused the same way. A shadow rebuild can no longer be forced below it. New `algorithm_version` default stays until D2.
-- **Proof:** a Nov 3 copy, upgraded in a worktree at `pre-floor`, then opened, doctored and shadow-rebuilt on tip with no differences; a refusal test. **Verify:** owner confirms the retired-vault route is acceptable. **Vault:** ADR-018 (the floor), Algorithm Versions.
+- **Proof:** a Nov 3 copy, upgraded in a worktree at `pre-floor`, then opened, doctored and shadow-rebuilt on tip with no differences; a refusal test. **Verify:** owner confirms the retired-vault route is acceptable. **Vault:** ADR-019 (the floor), Algorithm Versions.
 
 **D2a. The default test vault moves to the head** (L) `[T]`.
 - **Problem:** finding 3 in §1. Basic-vault tests run the path below every real vault's tag, so later removals would delete what they test while leaving the real path untested.
@@ -347,7 +347,7 @@ No change at any fixed input, and no learner reach except where stated. Each rem
 - **Deletes:** all 42 modules (about 8,900 lines; `recurrence/upgrade.py` and `ops/vault_upgrade.py` included), about 400 lines of `cli/app.py`, most of 8,808 lines of tests, the chain-walking tests (Z1).
 - **Adds:** one table: `Link(tag, activate)`, where `activate` is `idempotent_projection` or `whole_vault_rebuild`, or a function if a link needs one. It replaces 42 clones with one transaction, journal and publication. A successor adds a row.
 - **Keeps, with tests:** refuses jumps, journal before publication and publication last, recovery after death at each point, idempotent re-run, an old config readable when preparation fails (playbook step 3 and 8), the AD guard's denial mark.
-- **Proof:** the kept tests run parametrized over each link on one small fixture, instead of walking from mvp-0.9. A fresh-copy upgrade through the table gives the same projection as `pre-floor`'s code. **Vault:** Add ADR-018's table; Version Registry; playbook steps 3 and 8.
+- **Proof:** the kept tests run parametrized over each link on one small fixture, instead of walking from mvp-0.9. A fresh-copy upgrade through the table gives the same projection as `pre-floor`'s code. **Vault:** Add ADR-019's table; Version Registry; playbook steps 3 and 8.
 - **Target:** a new tag is 1 constant, 1 row, 1 test row.
 
 **D4. Constant gates: attempts, mastery, grading** (L) `[IH] [RE0]`.
@@ -372,7 +372,7 @@ No change at any fixed input, and no learner reach except where stated. Each rem
 - **Rule proposed:** a switch goes when every vault is past its tag and no vault sets it. `replay.ledger_bounded` needs reading first (it affects rebuild results, `attempts/attempts.py:1378`).
 - **Also goes:** the pre-eligibility cold lane and hold (`scheduling/scheduler.py:1831`, `:2018`), `RouterChooser`'s mixture path and `StagedChooser` if `router.mode` and the floor leave them unreachable, with their tests, "predecessor exactly" goldens and D2b's remaining tests.
 - **Keeps:** every switch above the floor; the staged rule as the failure fallback.
-- **Proof:** P-draw with switches at default; P-shadow. Removing a switch changes behaviour only for a vault that set it, and the owner's script shows none do. **Vault:** Config generated; ADR-018 states the rule.
+- **Proof:** P-draw with switches at default; P-shadow. Removing a switch changes behaviour only for a vault that set it, and the owner's script shows none do. **Vault:** Config generated; ADR-019 states the rule.
 - **Identity (K0):** `tests/test_identity_pins.py` C3-C6 show what each removal does to the router seeds, `FOLLOWUP_SWITCHES` and RO6's generator key; per switch, keep its served value in the identity or fold the change into E8's one change point.
 
 **D8. The pinned replay gaps** (L, one landing per gap; owner, Nov 9). `docs/reviews/test-suite-audit.md` §4 pins four gaps with eight strict xfails, each of which goes red when fixed:
@@ -491,7 +491,7 @@ Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever move
 - **Problem:** Nov 3 item 1: six sites answer.
 - **Does:** a probe on the repair lane becomes a candidate of the next decision, with `probe_facts` on its card; hard stops stay hard: machine checks, episode conflicts, the learner's "Not now". `RemediationBlocked`'s hold of repair becomes the candidate's reason to stand, and `decide_probe`'s verdict goes. `followup_run/lanes.py:59`'s rival count stays as the rule for which lane exists, since it's a fact about the factor, not a judgment of worth.
 - **Scheduler EIG** (`scheduling/scheduler.py:2688`) stays as ranking for a staged fallback.
-- **Proof:** P-playbook, with a successor and kill switch serving the predecessor exactly. Report: on copies, how often each path would have differed. **Verify:** owner reads the report. **Vault:** ADR-019.
+- **Proof:** P-playbook, with a successor and kill switch serving the predecessor exactly. Report: on copies, how often each path would have differed. **Verify:** owner reads the report. **Vault:** ADR-020.
 - **Screens:** none redesigned. The existing feedback offer stays for the switch-off path; the UX stage decides how it reads.
 - **Independent review, Nov 9 (Fable; the owner accepted the direction; the cited code rechecked by the orchestrator except where noted):** the router stays the one decider, but as written this step has two faults.
   - **Timing.** The post-miss `Next` already is a router decision (`followup_run/router.py:179-209`). Moving the probe to a later boundary is the WAIT arm, which releases feedback and marks the probe exposed, so it can no longer settle the cause (`followup_run/jobs.py:411-412`; the card says so at `objective_chooser.py:1780-1783`). So the post-miss probe stays at that Next, with feedback held. Only the learner lane's feedback-screen offer changes (`FeedbackScreen.tsx:48`, `handlers/remediation.py:170-191`).
@@ -717,7 +717,7 @@ The map's methods were name- and import-based, so whole risk classes were invisi
 - **Adds:** §6's structure table. One test: a held number may fall, and may rise only when the golden changes in the same commit, with the reason in the commit message. The golden is lowered at arc closes, not per commit, so parallel branches don't conflict on it. It's A3's pattern, so no new concept.
 - **Proof:** the test passes at the tip and fails, naming the module, on a scratch edit that joins a module to the largest import component.
 
-**L7. The floor follows the vaults** (S). With D1, in ADR-018.
+**L7. The floor follows the vaults** (S). **Done** with D1: the rule is in ADR-019; its test of switches at or below the floor is D7's.
 - **Problem:** D1 sets a floor once and D7 removes switches once. The chain is 49 tags long and each successor adds a switch and a gate, so arc D would have to be run again.
 - **Does:** states the rule. When the owner's `scripts/vault_report.py` shows every live vault at or past a tag, one chore step raises `OLDEST_SUPPORTED` and removes the gates and switches at or below it (D4-D7's method, by then small). A test lists the switches whose tag is at or below the floor: it must be empty, or each must be on a short kept-because list.
 - **Target:** the next floor move is one step.
@@ -777,6 +777,36 @@ The map's methods were name- and import-based, so whole risk classes were invisi
 **Order.** M0 now. L7 with D1. K9, K10, K8 and L4's review are read-only and run beside arc D. L1 after D6. L5 in batches at arc closes. L2 at a quiet boundary. L3 with J. L6 from E2. **Cost:** roughly 12-18% on top of §2.15 (an estimate).
 
 **Still the owner's:** which CLI-only code stays (L3's list, decision 7).
+
+**Decision note numbers (Nov 12).** C4 took ADR-018 for the Codex transport's retirement, so the floor is ADR-019 (D1) and the router as the one decider is ADR-020 (G2); this document's references follow.
+
+### 2.19 Lanes: what runs in parallel (owner, Nov 12: "Run parallel arc implementation as you laid out, but ensure to clean up the worktrees and pytest_tmp as you proceed and close each step")
+
+Dependencies allow about three code lanes and read-only work beside them. The limits are the owner's model usage, one full-suite lock (about two landings an hour, so two to four steps share a gate), memory (5 GB per test run), and the files every lane touches: `db/repositories.py`, `algorithm_versions.py`, `config/schema.py`, `tests/helpers.py`, the bug ledger.
+
+| When | Lane 1 | Lane 2 | Lane 3 | Beside them |
+|---|---|---|---|---|
+| After D1 | D3 | D4, then D5 | D2b part 2b, T3, K1's small fixes | K9 and K10 job 2, K8, L4's review, H2, G3 |
+| After D4 and D5 | D6, then D7 | K2.1-K2.5 (one chain) | I1, I2 | F1, RE2 |
+| After D7 | Arc E (serial inside: it reworks `objective_chooser.py` and `value.py`) | K2.6-K2.12, G6, G1 | H1, then H3-H6 after I1 | L1, L5 per idle package |
+| Last | F2 (needs E5, E8, RE2) | G2 (needs E6 and G1), G4 | J2-J4 | Z |
+
+- **Serial whatever the lanes:** arc E's steps; D6 before D7; every behaviour-track step lands alone; L2 (`repositories.py` by file) runs at arc D's close, before the lanes fan out, with no branch open on that file.
+- **Closing a step:** after its landing, its worktree is removed (clean and merged, no `--force`; the branch is kept), its `fixtures-local` scratch is deleted or archived, its `.pytest_tmp` and the gate's temp directory are gone, and the queue notes say so. A landing isn't closed until that is done.
+
+**Tests through the arcs (owner, Nov 12).** No separate test-suite pass now: arc D deletes or ports a large share, and arcs E and I change how the central paths are tested. Three additions:
+
+**T3. Seeded draws pinned by default** (M). Now, after D-21's sweep.
+- **Problem:** four landing gates on Nov 12 each hit a flaky test, five tests in all, three of them one class: the router's draws are seeded on fresh random ids (the mix's decision seed, the numeric policy's seed, open pick, the check day, lesson suggestions), and the numeric policy's draw count follows a wall-clock deadline. The cause is production's (E2 and E3 remove it); until then each sweep (D-14, D-21) finds the next test.
+- **Does:** the shared test builders and runtimes pin every seed source unless a test asks for real draws by a marker; a guard, in the style of `tests/thread_guard.py`, fails a test that reaches an unpinned seed source without the marker. D-14's census plugin is the guard's starting point.
+- **Proof:** the guard fails on a scratch test that draws unpinned; the landing selection passes three times running with no failure.
+
+**T4. Tests follow the core, not its private names** (a rule, with a ratchet in M0's golden). From D3 on.
+- **Problem:** 545 `setattr` patches of private names and 83 `inspect.getsource` assertions in 36 files tie tests to where code sits. Every step that moves a private function breaks them in bulk.
+- **Does:** when a step extracts a pure core or moves a function, the tests that patched its old private name are ported to call the core with plain values, or deleted when the core's own tests cover them; they are not pointed at the new location. Both counts join the structure ratchet, so they can only fall.
+
+**T5. The shape pass** (M; once, at Z2, with T2). After D7 and arc E, when what remains is stable: fix-round and stage-named files merged into behaviour-named ones, the slowest 1% remeasured. Not earlier.
+
 
 ## 3. The decision record
 
@@ -963,8 +993,8 @@ Status after B8: every row below is either recorded or written down in ADR-017 w
 | Inspect Persistent State, State and Persistence | Head path; head number by reference, not literal | A2 |
 | Algorithm Versions and Reproducibility, Version Registry, playbook | Defaults file; floor; upgrade table | A3, D1, D3 |
 | ADR-017 (new) | The decision record | B1 |
-| ADR-018 (new) | The floor, the upgrade table, the kill-switch rule; supersedes the chain parts of the playbook | D1, D3, D7 |
-| ADR-019 (new) | The router as one decider | G2 |
+| ADR-019 (new) | The floor, the upgrade table, the kill-switch rule; supersedes the chain parts of the playbook | D1, D3, D7 |
+| ADR-020 (new) | The router as one decider | G2 |
 | "Debug a decision" workflow (new) | How to use `why` | B9 |
 | ADR-005, ADR-011, ADR-012, ADR-003 | Mark as amended or superseded when the step makes it so | C4, D, C1 |
 | AI Architecture | Provider table | C4 |

@@ -8,8 +8,8 @@
 largest_import_component = 189
 modules_in_an_import_cycle = 286
 first_level_packages = 46
-first_level_root_modules = 79
-first_level_root_modules_not_upgrade = 34
+first_level_root_modules = 80
+first_level_root_modules_not_upgrade = 35
 functions_over_200_lines = 83
 comment_lines_naming_a_stage_artifact = 2424
 test_files_named_for_a_stage = 185
@@ -284,6 +284,7 @@ root_modules = [
     "text_canon",
     "unevidenced_return_upgrade",
     "vault_lock",
+    "version_floor",
     "voi_stopping_upgrade",
     "workbench_field_signals_upgrade",
 ]
