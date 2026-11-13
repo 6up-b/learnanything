@@ -50,33 +50,33 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/app.py](../../../../../../src/learnloop_sidecar/handlers/app.py) |
-| Source lines | 201 |
+| Source lines | 192 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class InitializeParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 15)
-- `class RefreshVaultFilesInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 24)
-- `initialize(ctx: SidecarContext, params: InitializeParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 54)
-- `shutdown(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 83)
-- `rpc_ping(_ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 90) — Process-level readiness probe that deliberately requires no vault.
-- `load_vault_handler(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 107)
-- `reload_vault_handler(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 112)
-- `refresh_vault_files(ctx: SidecarContext, params: RefreshVaultFilesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 118) — Rust watcher handoff: incrementally refresh supported changed files.
-- `get_runtime_health(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 127)
-- `get_config(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 133)
-- `get_review_counts(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 180) — Counts behind the nav-tab badges: what is waiting on the learner.
+- `class InitializeParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 13)
+- `class RefreshVaultFilesInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 22)
+- `initialize(ctx: SidecarContext, params: InitializeParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 52)
+- `shutdown(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 74)
+- `rpc_ping(_ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 81) — Process-level readiness probe that deliberately requires no vault.
+- `load_vault_handler(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 98)
+- `reload_vault_handler(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 103)
+- `refresh_vault_files(ctx: SidecarContext, params: RefreshVaultFilesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 109) — Rust watcher handoff: incrementally refresh supported changed files.
+- `get_runtime_health(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 118)
+- `get_config(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 124)
+- `get_review_counts(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 171) — Counts behind the nav-tab badges: what is waiting on the learner.
 
 ### Module constants
 
-- `_BADGE_COUNT_QUERIES` ([src/learnloop_sidecar/handlers/app.py](../../../../../../src/learnloop_sidecar/handlers/app.py), line 145)
-- `_MAINTAIN_BADGE_KEYS` ([src/learnloop_sidecar/handlers/app.py](../../../../../../src/learnloop_sidecar/handlers/app.py), line 171)
+- `_BADGE_COUNT_QUERIES` ([src/learnloop_sidecar/handlers/app.py](../../../../../../src/learnloop_sidecar/handlers/app.py), line 136)
+- `_MAINTAIN_BADGE_KEYS` ([src/learnloop_sidecar/handlers/app.py](../../../../../../src/learnloop_sidecar/handlers/app.py), line 162)
 
 ## Internal implementation anchors
 
-- `_ensure_default_library(path: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 29) — Create the default library (no subject, the default level) unless it already is one; never scaffold into a folder holding someone's files.
+- `_ensure_default_library(path: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/app.py), line 27) — Create the default library (no subject, the default level) unless it already is one; never scaffold into a folder holding someone's files.
 
 ## Who imports or calls it
 
@@ -90,7 +90,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] — imports `BootstrapError`, `create_vault`; calls `create_vault`
-- [[Reference/Modules/learnloop/version_floor|learnloop.version_floor]] — imports `BelowOldestSupported`
 - [[Reference/Modules/learnloop_sidecar/__init__|learnloop_sidecar]] — imports `__version__`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`, `config_dto`, `runtime_health`, `vault_summary`; calls `config_dto`, `runtime_health`, `vault_summary`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`

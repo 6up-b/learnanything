@@ -368,6 +368,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te2_review_fixes.py](../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
   - `test_f1_a_probe_answer_carries_reliable_canonical_mass_live_and_after_a_rebuild`
   - `test_f7_a_blind_lesson_probe_grade_keeps_the_blind_calibration_identity`
+- [tests/test_upgrades.py](../../../../../../tests/test_upgrades.py) — direct import
 - [tests/test_voi_stopping.py](../../../../../../tests/test_voi_stopping.py) — direct import
 - [tests/test_workbench_assistance.py](../../../../../../tests/test_workbench_assistance.py) — direct import
   - `test_an_abandoned_problem_writes_no_attempt_and_a_rebuild_leaves_the_evidence`

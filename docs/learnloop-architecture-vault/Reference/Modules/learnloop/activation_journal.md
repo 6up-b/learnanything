@@ -47,28 +47,29 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py) |
-| Source lines | 162 |
+| Source lines | 179 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class InterruptedActivation(RuntimeError)` ([source](../../../../../src/learnloop/activation_journal.py), line 55) — The vault's activation did not commit; it is not served until it completes.
-- `journal_path(sqlite_path: Path) -> Path` ([source](../../../../../src/learnloop/activation_journal.py), line 59) — The activation journal beside ``sqlite_path``.
-- `pending(sqlite_path: Path) -> bool` ([source](../../../../../src/learnloop/activation_journal.py), line 66) — Whether an activation journal stands beside ``sqlite_path``.
-- `completing() -> bool` ([source](../../../../../src/learnloop/activation_journal.py), line 72) — Whether this context is completing (or running) the activation itself.
-- `completing_activation() -> Iterator[None]` ([source](../../../../../src/learnloop/activation_journal.py), line 79) — Mark this context as the activation's own writer, so its opens are not refused.
-- `message(sqlite_path: Path) -> str` ([source](../../../../../src/learnloop/activation_journal.py), line 89) — What to tell the learner: which upgrade did not finish, and the command that completes it.
-- `install_completer(completer: Callable[[Path], object] | None) -> None` ([source](../../../../../src/learnloop/activation_journal.py), line 115) — Install the process's completion (an entry point does, at import); None removes it.
-- `complete(vault_root: Path, sqlite_path: Path) -> None` ([source](../../../../../src/learnloop/activation_journal.py), line 122) — Complete a journalled activation before an opener attaches, or raise :class:`InterruptedActivation`.
-- `refuse_if_interrupted(sqlite_path: Path) -> None` ([source](../../../../../src/learnloop/activation_journal.py), line 144) — Raise :class:`InterruptedActivation` while a journal stands (unless this context completes it).
+- `class InterruptedActivation(RuntimeError)` ([source](../../../../../src/learnloop/activation_journal.py), line 56) — The vault's activation did not commit; it is not served until it completes.
+- `journal_path(sqlite_path: Path) -> Path` ([source](../../../../../src/learnloop/activation_journal.py), line 60) — The activation journal beside ``sqlite_path``.
+- `pending(sqlite_path: Path) -> bool` ([source](../../../../../src/learnloop/activation_journal.py), line 67) — Whether an activation journal stands beside ``sqlite_path``.
+- `completing() -> bool` ([source](../../../../../src/learnloop/activation_journal.py), line 73) — Whether this context is completing (or running) the activation itself.
+- `completing_activation() -> Iterator[None]` ([source](../../../../../src/learnloop/activation_journal.py), line 80) — Mark this context as the activation's own writer, so its opens are not refused.
+- `message(sqlite_path: Path) -> str` ([source](../../../../../src/learnloop/activation_journal.py), line 90) — What to tell the learner: which upgrade did not finish, and the command that completes it.
+- `read(sqlite_path: Path) -> tuple[str, str] | Literal['torn'] | None` ([source](../../../../../src/learnloop/activation_journal.py), line 106) — The journalled upgrade's ``(predecessor, target)``; ``"torn"`` when the journal was read and is not a whole record (it died before its fsync, which precedes the publication); None when there is none.
+- `install_completer(completer: Callable[[Path], object] | None) -> None` ([source](../../../../../src/learnloop/activation_journal.py), line 131) — Install the process's completion (an entry point does, at import); None removes it.
+- `complete(vault_root: Path, sqlite_path: Path) -> None` ([source](../../../../../src/learnloop/activation_journal.py), line 138) — Complete a journalled activation before an opener attaches, or raise :class:`InterruptedActivation`.
+- `refuse_if_interrupted(sqlite_path: Path) -> None` ([source](../../../../../src/learnloop/activation_journal.py), line 160) — Raise :class:`InterruptedActivation` while a journal stands (unless this context completes it).
 
 ### Module constants
 
-- `JOURNAL_SUFFIX` ([src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py), line 46)
-- `_COMPLETING` ([src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py), line 49)
-- `_COMPLETER` ([src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py), line 52)
+- `JOURNAL_SUFFIX` ([src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py), line 47)
+- `_COMPLETING` ([src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py), line 50)
+- `_COMPLETER` ([src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py), line 53)
 
 ### Explicit exports
 
@@ -83,11 +84,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `journal_path`
 - `message`
 - `pending`
+- `read`
 - `refuse_if_interrupted`
 
 ## Internal implementation anchors
 
-- `_link(sqlite_path: Path) -> tuple[str, str] | None` ([source](../../../../../src/learnloop/activation_journal.py), line 105) — The journalled upgrade's ``(predecessor, target)``, or None for a torn journal (its completion decides).
+No private top-level function or class definition is declared in this file.
 
 ## Who imports or calls it
 
@@ -96,10 +98,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `module`; statically calls `install_completer`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `refuse_if_interrupted`; statically calls `refuse_if_interrupted`
-- [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `module`; statically calls `completing_activation`, `journal_path`, `message`, `pending`
+- [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `module`; statically calls `completing_activation`, `journal_path`, `message`, `pending`, `read`
 - [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]] — imports `module`; statically calls `message`, `pending`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `module`; statically calls `complete`, `completing`, `pending`
-- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `module`; statically calls `install_completer`
+- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `module`; statically calls `InterruptedActivation`, `completing`, `install_completer`, `message`, `pending`
+- [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `InterruptedActivation`
 
 ## Dependencies
 
@@ -109,7 +112,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `contextlib`, `contextvars`, `json`, `pathlib`
+- Standard library: `__future__`, `collections`, `contextlib`, `contextvars`, `json`, `pathlib`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -119,15 +122,19 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]], [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]], [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]], [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]], [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
 - [tests/test_ad_denial_log.py](../../../../../tests/test_ad_denial_log.py) — direct import
+- [tests/test_sidecar_stops_serving.py](../../../../../tests/test_sidecar_stops_serving.py) — direct import
+  - `test_a_journal_that_appears_while_bound_stops_serving_until_a_load_succeeds`
 - [tests/test_upgrades.py](../../../../../tests/test_upgrades.py) — direct import
   - `test_a_failure_before_the_commit_leaves_the_predecessor_readable_and_no_journal`
+  - `test_a_journal_that_cannot_be_read_is_kept_and_the_vault_is_not_opened`
+  - `test_a_wrong_scope_receipt_under_the_tag_does_not_complete_the_activation`
   - `test_an_activation_that_cannot_complete_stops_the_opener`
   - `test_an_opener_in_a_process_that_cannot_complete_refuses`
   - `test_attaches_that_never_write_refuse_while_the_journal_stands`

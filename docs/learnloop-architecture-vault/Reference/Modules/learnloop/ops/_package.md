@@ -84,9 +84,9 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 | [[Reference/Modules/learnloop/ops/pf_selection|learnloop.ops.pf_selection]] | [[Reference/Modules/learnloop/ops/pf_selection#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/ops/pf_verify|learnloop.ops.pf_verify]] | [[Reference/Modules/learnloop/ops/pf_verify#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/ops/plan_transport|learnloop.ops.plan_transport]] | [[Reference/Modules/learnloop/ops/plan_transport#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/ops/settings_store|learnloop.ops.settings_store]] | [[Reference/Modules/learnloop/ops/settings_store#^module-purpose|purpose]] | `ACTIVE` | 9 | 10 |
+| [[Reference/Modules/learnloop/ops/settings_store|learnloop.ops.settings_store]] | [[Reference/Modules/learnloop/ops/settings_store#^module-purpose|purpose]] | `ACTIVE` | 10 | 10 |
 | [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] | [[Reference/Modules/learnloop/ops/startup#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
-| [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] | [[Reference/Modules/learnloop/ops/upgrades#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
+| [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] | [[Reference/Modules/learnloop/ops/upgrades#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
 | [[Reference/Modules/learnloop/ops/vault_lock|learnloop.ops.vault_lock]] | [[Reference/Modules/learnloop/ops/vault_lock#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 
 ## Child package maps
@@ -104,7 +104,7 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 14 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 12 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 10 static module edges
-- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 8 static module edges
+- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 9 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 5 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 5 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 4 static module edges
@@ -169,7 +169,7 @@ flowchart LR
     center -->|10| n_learnloop_content_authoring
     center -->|12| n_learnloop_substrate
     n_learnloop_sidecar_handlers -->|10| center
-    center -->|8| n_learnloop_config
+    center -->|9| n_learnloop_config
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

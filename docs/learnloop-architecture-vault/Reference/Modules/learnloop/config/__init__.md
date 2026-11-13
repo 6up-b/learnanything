@@ -109,6 +109,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ops/plan_transport|learnloop.ops.plan_transport]] — imports `LearnLoopConfig`
 - [[Reference/Modules/learnloop/ops/settings_store|learnloop.ops.settings_store]] — imports `AIProviderConfig`, `CODEX_PROVIDER_NAMES`, `ENV_KEY_RE`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `CODEX_PROVIDER_NAMES`
+- [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `load_config`; statically calls `load_config`
 - [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] — imports `LearnLoopConfig`; statically calls `LearnLoopConfig`
 - [[Reference/Modules/learnloop/projects/ai_runtime|learnloop.projects.ai_runtime]] — imports `LearnLoopConfig`
 - [[Reference/Modules/learnloop/projects/capture|learnloop.projects.capture]] — imports `LearnLoopConfig`, `load_config`; statically calls `load_config`
@@ -154,7 +155,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/chatgpt_plan/routes|learnloop.ai.chatgpt_plan.routes]], [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]], [[Reference/Modules/learnloop/ai/disclosures|learnloop.ai.disclosures]], [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]], [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] and 63 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/chatgpt_plan/routes|learnloop.ai.chatgpt_plan.routes]], [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]], [[Reference/Modules/learnloop/ai/disclosures|learnloop.ai.disclosures]], [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]], [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] and 64 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

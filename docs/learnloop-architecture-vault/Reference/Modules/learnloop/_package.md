@@ -80,9 +80,9 @@ For system intent, use [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/__init__|learnloop]] | [[Reference/Modules/learnloop/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 6 |
 | [[Reference/Modules/learnloop/__main__|learnloop.__main__]] | [[Reference/Modules/learnloop/__main__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/activation_journal|learnloop.activation_journal]] | [[Reference/Modules/learnloop/activation_journal#^module-purpose|purpose]] | `ACTIVE` | 6 | 3 |
+| [[Reference/Modules/learnloop/activation_journal|learnloop.activation_journal]] | [[Reference/Modules/learnloop/activation_journal#^module-purpose|purpose]] | `ACTIVE` | 7 | 4 |
 | [[Reference/Modules/learnloop/adf_numeric|learnloop.adf_numeric]] | [[Reference/Modules/learnloop/adf_numeric#^module-purpose|purpose]] | `ACTIVE` | 7 | 1 |
-| [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] | [[Reference/Modules/learnloop/algorithm_versions#^module-purpose|purpose]] | `ACTIVE` | 51 | 209 |
+| [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] | [[Reference/Modules/learnloop/algorithm_versions#^module-purpose|purpose]] | `ACTIVE` | 51 | 211 |
 | [[Reference/Modules/learnloop/app_launch|learnloop.app_launch]] | [[Reference/Modules/learnloop/app_launch#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/attempt_types|learnloop.attempt_types]] | [[Reference/Modules/learnloop/attempt_types#^module-purpose|purpose]] | `ACTIVE` | 8 | 2 |
 | [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] | [[Reference/Modules/learnloop/bootstrap#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
@@ -114,7 +114,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/symbolic_view|learnloop.symbolic_view]] | [[Reference/Modules/learnloop/symbolic_view#^module-purpose|purpose]] | `ACTIVE` | 12 | 1 |
 | [[Reference/Modules/learnloop/text_canon|learnloop.text_canon]] | [[Reference/Modules/learnloop/text_canon#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
 | [[Reference/Modules/learnloop/vault_lock|learnloop.vault_lock]] | [[Reference/Modules/learnloop/vault_lock#^module-purpose|purpose]] | `ACTIVE` | 24 | 6 |
-| [[Reference/Modules/learnloop/version_floor|learnloop.version_floor]] | [[Reference/Modules/learnloop/version_floor#^module-purpose|purpose]] | `ACTIVE` | 7 | 7 |
+| [[Reference/Modules/learnloop/version_floor|learnloop.version_floor]] | [[Reference/Modules/learnloop/version_floor#^module-purpose|purpose]] | `ACTIVE` | 8 | 8 |
 
 ## Child package maps
 
@@ -193,7 +193,7 @@ For system intent, use [[Architecture Overview]].
 
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 79 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 59 static module edges
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 52 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 51 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 50 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 38 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 37 static module edges
@@ -215,10 +215,10 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 18 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 17 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 16 static module edges
+- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 16 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 14 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 13 static module edges
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 13 static module edges
-- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 13 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 12 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 12 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 12 static module edges
@@ -272,7 +272,7 @@ flowchart LR
     n_learnloop_diagnosis -->|79| center
     n_learnloop_daily_plan -->|59| center
     center -->|1| n_learnloop_daily_plan
-    n_learnloop_sidecar_handlers -->|52| center
+    n_learnloop_sidecar_handlers -->|51| center
     n_learnloop_attempts -->|50| center
     n_learnloop_db_stores -->|34| center
     center -->|9| n_learnloop_db_stores
