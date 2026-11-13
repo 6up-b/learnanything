@@ -7,8 +7,6 @@ grade does not. It holds on the version ``learnloop init`` writes.
 
 from __future__ import annotations
 
-import pytest
-
 from learnloop.algorithm_versions import P0_PROJECTION_VERSIONS
 from learnloop.attempts.attempts import (
     ApplyAttemptInput,
