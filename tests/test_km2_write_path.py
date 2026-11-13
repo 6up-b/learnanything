@@ -29,6 +29,7 @@ from tests.helpers import (
     NOW,
     NOW_ISO,
 )
+from tests.certain_grade_helpers import make_grade_certain
 from tests.km2_write_path_helpers import SELECT, SHARED, _attempt, _rubric, build_mvp07_vault
 
 def _is_open_set_arm(cause: dict) -> bool:
@@ -93,8 +94,11 @@ def test_near_clones_globally_discounted(mvp07):
     vault, repository = mvp07
     clock = FrozenClock(NOW)
     # Two attempts on items sharing one source-example family (define + clone).
-    _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, clock)
-    _attempt(vault, repository, "pi_svd_clone_001", {"uses_factorization": 4}, clock)
+    # Each grade certain, so each observation carries its attempt type's whole mass
+    # (``tests/certain_grade_helpers.py``).
+    for item_id, points in (("pi_svd_define_001", {"correctness": 4}), ("pi_svd_clone_001", {"uses_factorization": 4})):
+        result = _attempt(vault, repository, item_id, points, clock)
+        make_grade_certain(vault, repository, result.attempt_id, clock=clock)
 
     ledger = repository.facet_capability_evidence(SHARED, "retrieval")
     assert ledger is not None

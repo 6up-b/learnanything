@@ -13,6 +13,7 @@ from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_s
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.server import serve
 
+from tests.certain_grade_helpers import make_grade_certain
 from tests.helpers import NOW
 from tests.km3_projections_helpers import COMP_A, INTEG, LO_ID, build_blueprint_vault
 
@@ -47,6 +48,8 @@ def _seed_blueprint_vault(root):
             SelfGradeInput(criterion_points={"c1": points}, fatal_errors=[], confidence=4),
             clock=FrozenClock(NOW),
         )
+        # One uncertain self-grade certifies nothing (``tests/certain_grade_helpers.py``).
+        make_grade_certain(vault, repository, attempt.attempt_id, clock=FrozenClock(NOW))
         first = first or attempt
     return paths, first.attempt_id
 

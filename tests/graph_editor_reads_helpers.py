@@ -11,6 +11,7 @@ from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_s
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
+from tests.certain_grade_helpers import make_grade_certain
 from tests.helpers import NOW, write_facets
 from tests.km3_projections_helpers import COMP_A, COMP_B, INTEG, build_blueprint_vault
 
@@ -59,7 +60,7 @@ def _blueprint_ctx(root: Path):
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
     for item_id, points in (("pi_comp_a", 4), ("pi_comp_b", 4)):
-        complete_self_graded_attempt(
+        result = complete_self_graded_attempt(
             vault,
             repository,
             AttemptDraft(
@@ -71,6 +72,8 @@ def _blueprint_ctx(root: Path):
             SelfGradeInput(criterion_points={"c1": points}, fatal_errors=[], confidence=4),
             clock=FrozenClock(NOW),
         )
+        # One uncertain self-grade certifies nothing (``tests/certain_grade_helpers.py``).
+        make_grade_certain(vault, repository, result.attempt_id, clock=FrozenClock(NOW))
     context = SidecarContext()
     context.load(paths.root)
     return context

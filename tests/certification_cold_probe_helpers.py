@@ -11,6 +11,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
+from tests.certain_grade_helpers import make_grade_certain
 from tests.helpers import NOW, add_followup_item, create_basic_vault, set_algorithm_version
 
 
@@ -81,7 +82,8 @@ def _certify(tmp_path, **kwargs):
     """Vault whose one LO holds a real certificate from one unassisted attempt."""
 
     paths, vault, repository = _vault(tmp_path, **kwargs)
-    _attempt(vault, repository, CERTIFYING_ITEM)
+    certifying = _attempt(vault, repository, CERTIFYING_ITEM)
+    make_grade_certain(vault, repository, certifying.attempt_id, clock=FrozenClock(NOW))
     certificate = current_certificate(vault, repository, vault.learning_objects[LO_ID])
     assert certificate is not None, "fixture must actually certify"
     return paths, vault, repository, certificate

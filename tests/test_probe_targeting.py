@@ -33,6 +33,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version, write_facets
+from tests.certain_grade_helpers import make_grade_certain
 from tests.km2_write_path_helpers import SELECT, SHARED, _attempt, _item, _rubric, build_mvp07_vault
 
 
@@ -359,7 +360,9 @@ def test_integration_condition_probes_coordination_not_components(tmp_path):
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
     # Demonstrate the component (procedure_execution) across two surface groups.
-    _attempt(vault, repository, "pi_svd_define_001", {"component": 4}, FrozenClock(NOW))
+    result = _attempt(vault, repository, "pi_svd_define_001", {"component": 4}, FrozenClock(NOW))
+    # One uncertain self-grade certifies nothing (``tests/certain_grade_helpers.py``).
+    make_grade_certain(vault, repository, result.attempt_id, clock=FrozenClock(NOW))
     lo = vault.learning_objects["lo_svd_definition"]
 
     target = integration_condition_target(vault, repository, lo)

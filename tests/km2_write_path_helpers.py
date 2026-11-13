@@ -162,7 +162,7 @@ def build_mvp07_vault(root: Path):
 
 
 def _attempt(vault, repository, item_id, points, clock, *, hints_used=0):
-    complete_self_graded_attempt(
+    return complete_self_graded_attempt(
         vault,
         repository,
         AttemptDraft(

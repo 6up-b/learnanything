@@ -45,6 +45,7 @@ from tests.helpers import (
     NOW_ISO,
     add_followup_item,
 )
+from tests.certain_grade_helpers import make_grade_certain
 from tests.certification_cold_probe_helpers import (
     CAPABILITY,
     CERTIFYING_ITEM,
@@ -61,6 +62,13 @@ from tests.certification_cold_probe_helpers import (
 # ---------------------------------------------------------------------------
 # Scheduling
 # ---------------------------------------------------------------------------
+
+
+def _certain(vault, repository, result):
+    """One answer certifies its cell only when its grade is certain (``tests/certain_grade_helpers.py``)."""
+
+    make_grade_certain(vault, repository, result.attempt_id, clock=FrozenClock(NOW))
+    return result
 
 
 def test_probe_is_due_at_the_horizon_and_invisible_before_it(tmp_path):
@@ -209,7 +217,7 @@ def test_shared_surface_group_makes_the_certificate_unmeasurable(tmp_path):
             clock=FrozenClock(NOW),
         )
     vault = load_vault(paths.root)
-    _attempt(vault, repository, CERTIFYING_ITEM)
+    _certain(vault, repository, _attempt(vault, repository, CERTIFYING_ITEM))
     certificate = current_certificate(vault, repository, vault.learning_objects[LO_ID])
     assert certificate is not None
     assert certificate.used_surface_groups() == ("stim_svd",)
@@ -442,8 +450,8 @@ def test_probe_prefers_the_whole_task_item_that_covers_integration(tmp_path):
             clock=FrozenClock(NOW),
         )
     vault = load_vault(paths.root)
-    _attempt(vault, repository, CERTIFYING_ITEM)
-    _attempt(vault, repository, "pi_cert_integration")
+    _certain(vault, repository, _attempt(vault, repository, CERTIFYING_ITEM))
+    _certain(vault, repository, _attempt(vault, repository, "pi_cert_integration"))
     certificate = current_certificate(vault, repository, vault.learning_objects[LO_ID])
     assert certificate is not None
     assert certificate.integration_cell is not None
@@ -783,7 +791,7 @@ def test_rate_is_correct_over_a_mix_of_held_and_failed_certificates(tmp_path):
     vault = load_vault(paths.root)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
     for index in (1, 2, 3):
-        _attempt(vault, repository, f"pi_extra_{index}_a")
+        _certain(vault, repository, _attempt(vault, repository, f"pi_extra_{index}_a"))
 
     report = schedule_certification_cold_probes(vault, repository, clock=FrozenClock(NOW))
     assert report.counts["scheduled"] == 3
