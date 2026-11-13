@@ -71,16 +71,29 @@ def facet_belief_fixes_on(config) -> bool:
     return bool(getattr(getattr(config, "facet_diagnostic", None), "canonical_belief_fixes", False))
 
 
+#: The tags whose derivation carries the corrections to the facet-belief successor (see
+#: :func:`facet_belief_corrections_on`). They share the successor's own tags.
+FACET_BELIEF_CORRECTION_VERSIONS = FACET_BELIEF_FIX_VERSIONS
+
+#: The key an attempt's debug payload carries (True) when the attempt was derived with the corrections on;
+#: ``doctor`` compares it with the config, since a switch turned off and on again leaves the attempts between
+#: derived without them while the last rebuild's record and the config agree.
+DERIVED_WITH_BELIEF_FIXES_KEY = "facet_belief_fixes"
+
+
 def facet_belief_corrections_on(config) -> bool:
     """The corrections to the successor's derivation: the uncertainty layer reads the frozen contract's
     criterion targets, the stored rows are read only through this module and relabelled when rekeyed, a
-    massless success still ends the failure streak, the timeline leaves out what the projection leaves out,
-    and each attempt records the switch it was derived under.
+    success on a massless repeat surface still ends the failure streak, the timeline leaves out what the
+    projection leaves out, and each attempt records that it was derived with them.
 
     They were made before any vault was known to hold the successor, so they share its tag and switch. Every
-    correction asks this predicate and nothing else: were a vault already at the successor as first landed,
-    a new tag and switch would gate them here alone."""
+    correction asks this predicate (and its tag set, ``FACET_BELIEF_CORRECTION_VERSIONS``) and nothing else:
+    were a vault already at the successor as first landed, a new tag and switch would gate them here alone."""
 
+    algorithms = getattr(config, "algorithms", None)
+    if getattr(algorithms, "algorithm_version", None) not in FACET_BELIEF_CORRECTION_VERSIONS:
+        return False
     return facet_belief_fixes_on(config)
 
 

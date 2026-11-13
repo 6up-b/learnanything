@@ -432,3 +432,33 @@ def test_s4_with_the_switch_off_the_streak_is_the_predecessors(tmp_path):
 
     assert _canonical_belief(off_repository) == _canonical_belief(old_repository)
     assert current_same_facet_failure_streak(off_vault, off_repository, LO_ID, ["recall"]) == 2
+
+
+# -- S5: doctor warns while any attempt was derived under the other setting of the switch. ---------------------------
+
+
+def _stale_switch_warnings(paths):
+    from learnloop.ops.doctor import run_doctor
+
+    return [issue for issue in run_doctor(paths.root).issues if issue.code == "sql:projection_switches_stale"]
+
+
+def test_s5_doctor_still_warns_after_the_switch_went_off_and_back_on_with_answers_between(tmp_path):
+    paths, vault, repository = _uncertainty_opened_then(tmp_path, switch_after=True)
+    rebuild_all_derived_state(vault, repository, clock=FrozenClock(NOW + timedelta(minutes=5)))
+    assert _stale_switch_warnings(paths) == []
+
+    set_config_switch(paths.root, SWITCH, False)
+    off_vault = load_vault(paths.root)
+    complete_self_graded_attempt(
+        off_vault, repository,
+        AttemptDraft(BASIC_ITEM, "SVD factors a matrix as U Sigma V transpose."),
+        SelfGradeInput(criterion_points={"correctness": 4}, confidence=5),
+        clock=FrozenClock(NOW + timedelta(minutes=10)),
+    )
+    set_config_switch(paths.root, SWITCH, True)
+
+    (issue,) = _stale_switch_warnings(paths)
+    assert "facet-belief fixes" in issue.message
+    rebuild_all_derived_state(load_vault(paths.root), repository, clock=FrozenClock(NOW + timedelta(minutes=15)))
+    assert _stale_switch_warnings(paths) == []

@@ -1625,6 +1625,50 @@ def _check_derived_state_rebuild_marker(vault: LoadedVault, repository: Reposito
     )
 
 
+def _check_facet_belief_attempts(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None:
+    """The facet-belief successor's switch, attempt by attempt: the attempts derived under the other setting.
+
+    The last whole-vault rebuild's record says how every attempt was derived only until the switch moves: one
+    turned off and on again agrees with that record while the answers given in between were derived without the
+    fixes (no uncertainty update, the predecessor's belief readings), so the next answer resumes from a stale
+    posterior. Each attempt's payload says whether it was derived with them; a rebuild rewrites every payload."""
+
+    from learnloop.learner.facet_state_reader import (
+        DERIVED_WITH_BELIEF_FIXES_KEY,
+        FACET_BELIEF_CORRECTION_VERSIONS,
+        facet_belief_corrections_on,
+    )
+
+    version = vault.config.algorithms.algorithm_version
+    if version not in FACET_BELIEF_CORRECTION_VERSIONS:
+        return
+    wanted = facet_belief_corrections_on(vault.config)
+    tags = sorted(FACET_BELIEF_CORRECTION_VERSIONS)
+    with repository.connection() as connection:
+        (other,) = connection.execute(
+            f"SELECT COUNT(*) FROM attempt_debug_payloads WHERE algorithm_version IN ({', '.join('?' for _ in tags)}) "
+            "AND (COALESCE(json_extract(payload_json, ?), 0) != 0) != ?",
+            (*tags, f"$.{DERIVED_WITH_BELIEF_FIXES_KEY}", int(wanted)),
+        ).fetchone()
+    if not other:
+        return
+    applied = "without" if wanted else "with"
+    wanted_text = "with" if wanted else "without"
+    issues.append(
+        _issue(
+            "warning",
+            "sql:projection_switches_stale",
+            (
+                f"{other} attempt(s) were derived {applied} the facet-belief fixes, and the config now says "
+                f"{wanted_text} them ([facet_diagnostic] canonical_belief_fixes at {version}); the facet uncertainty "
+                "and later attempts' readings of facet belief follow them until rebuild-derived-state re-derives them"
+            ),
+            repository.sqlite_path,
+            details={"attempts_derived_otherwise": other, "config": {DERIVED_WITH_BELIEF_FIXES_KEY: wanted}},
+        )
+    )
+
+
 def _check_projection_switches(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None:
     """Router objective RO1 (spec §5.5): persisted due dates were derived under a switch the config no longer says.
 
@@ -1643,27 +1687,33 @@ def _check_projection_switches(vault: LoadedVault, repository: Repository, issue
     marker = repository.latest_whole_vault_rebuild()
     recorded = (marker or {}).get("projection_switches")
     if not isinstance(recorded, dict):
+        _check_facet_belief_attempts(vault, repository, issues)
         return
     configured = projection_switches(vault.config)
     # The facet-belief successor's switch (mvp-0.59): recorded only by rebuilds at its tag, compared only there.
-    if FACET_BELIEF_FIXES_SNAPSHOT_KEY in recorded and FACET_BELIEF_FIXES_SNAPSHOT_KEY in configured:
-        if bool(recorded[FACET_BELIEF_FIXES_SNAPSHOT_KEY]) != configured[FACET_BELIEF_FIXES_SNAPSHOT_KEY]:
-            applied = "with" if recorded[FACET_BELIEF_FIXES_SNAPSHOT_KEY] else "without"
-            wanted = "with" if configured[FACET_BELIEF_FIXES_SNAPSHOT_KEY] else "without"
-            issues.append(
-                _issue(
-                    "warning",
-                    "sql:projection_switches_stale",
-                    (
-                        f"Stored facet uncertainty and attempt readings of facet belief were last derived {applied} "
-                        f"the facet-belief fixes, and the config now says {wanted} them ([facet_diagnostic] "
-                        f"canonical_belief_fixes at {vault.config.algorithms.algorithm_version}); run "
-                        "rebuild-derived-state to re-derive them"
-                    ),
-                    repository.sqlite_path,
-                    details={"recorded": dict(recorded), "config": configured},
-                )
+    if (
+        FACET_BELIEF_FIXES_SNAPSHOT_KEY in recorded
+        and FACET_BELIEF_FIXES_SNAPSHOT_KEY in configured
+        and bool(recorded[FACET_BELIEF_FIXES_SNAPSHOT_KEY]) != configured[FACET_BELIEF_FIXES_SNAPSHOT_KEY]
+    ):
+        applied = "with" if recorded[FACET_BELIEF_FIXES_SNAPSHOT_KEY] else "without"
+        wanted = "with" if configured[FACET_BELIEF_FIXES_SNAPSHOT_KEY] else "without"
+        issues.append(
+            _issue(
+                "warning",
+                "sql:projection_switches_stale",
+                (
+                    f"Stored facet uncertainty and attempt readings of facet belief were last derived {applied} "
+                    f"the facet-belief fixes, and the config now says {wanted} them ([facet_diagnostic] "
+                    f"canonical_belief_fixes at {vault.config.algorithms.algorithm_version}); run "
+                    "rebuild-derived-state to re-derive them"
+                ),
+                repository.sqlite_path,
+                details={"recorded": dict(recorded), "config": configured},
             )
+        )
+    else:
+        _check_facet_belief_attempts(vault, repository, issues)
     if INTERVAL_FACTOR_SNAPSHOT_KEY not in recorded:
         return
     current = configured[INTERVAL_FACTOR_SNAPSHOT_KEY]

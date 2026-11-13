@@ -108,6 +108,7 @@ from learnloop.learner.assessment_contracts import (
     rubric_from_contract,
 )
 from learnloop.learner.facet_state_reader import (
+    DERIVED_WITH_BELIEF_FIXES_KEY,
     CanonicalFacetStateReader,
     attempt_uncertainty_priors,
     canonical_facet_uncertainty_on,
@@ -5103,6 +5104,8 @@ def _compute_resolved_grade_application(
         "auto_primed_reveal_total": draft.auto_primed_reveal_total,
         "priming_b_offset": vault.config.mastery.irt.priming_b_offset if draft.primed else None,
         "fsrs_weights_fitted": fsrs_weights_fitted,
+        # What this attempt was derived under, for doctor: off, the payload is the predecessor's.
+        **({DERIVED_WITH_BELIEF_FIXES_KEY: True} if facet_belief_corrections_on(vault.config) else {}),
         "algorithm_version": vault.config.algorithms.algorithm_version,
         "created_at": now_iso,
     }
