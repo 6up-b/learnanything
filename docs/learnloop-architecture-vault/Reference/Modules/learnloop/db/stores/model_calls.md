@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/model_calls.py](../../../../../../../src/learnloop/db/stores/model_calls.py) |
-| Source lines | 164 |
+| Source lines | 165 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -65,7 +65,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
   - `model_route_receipts(self) -> list[dict[str, Any]]` (line 126; public) — Root receipts, oldest first, for the doctor's route health.
   - `model_checkpoint(self, cache_key: str) -> dict[str, Any] | None` (line 144; public)
   - `save_model_checkpoint(self, cache_key: str, *, purpose: str, result: dict[str, Any], usage: dict[str, Any] | None=None) -> None` (line 149; public)
-  - `discard_model_checkpoint(self, cache_key: str) -> None` (line 156; public) — Delete a checkpoint whose stored result no longer validates.
+  - `discard_model_checkpoint(self, cache_key: str) -> None` (line 156; public) — Delete a checkpoint whose stored result no longer validates, or whose answer the quality gates rejected.
 
 ### Module constants
 

@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/first_run.py](../../../../../../src/learnloop_sidecar/handlers/first_run.py) |
-| Source lines | 490 |
+| Source lines | 496 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -80,8 +80,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_route_every_use_case(updates: dict[tuple[str, ...], Any], target: str, tiers: dict[str, str] | None=None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 168)
 - `_written_plan_model(vault) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 178) — The slug written under ``[ai.providers.chatgpt] model`` in the vault's file ("" when unset).
 - `_allow_file_upload(ctx: SidecarContext, flow: str | None=None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 306) — The separate OK for sending whole files out (spec §6.6, review F1), recorded once with its date like the connection's OK.
-- `_latest_import_pages(repository, source_id: str) -> list[int] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 464)
-- `_reread_plan(ctx: SidecarContext, vault, repository, source_id: str, artifact) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 470) — What reading this book again reads, costs and carries; refuses at once when its original file changed or went missing (re-read safety E1).
+- `_latest_import_pages(repository, source_id: str) -> list[int] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 470)
+- `_reread_plan(ctx: SidecarContext, vault, repository, source_id: str, artifact) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 476) — What reading this book again reads, costs and carries; refuses at once when its original file changed or went missing (re-read safety E1).
 
 ## Who imports or calls it
 
@@ -104,6 +104,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/content/pipeline/exam_marking|learnloop.content.pipeline.exam_marking]] — imports `module`; calls `mark_exam_material`, `mark_plan`
 - [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]] — imports `module`, `restore_readable_revision`; calls `carry_owed`, `finish_carry_over`, `original_bytes`, `reread_plan`, `restore_readable_revision`
 - [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `IngestRunnerError`
+- [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `OutstandingApplyIntentError`
 - [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] — imports `build_source_outline`; calls `build_source_outline`
 - [[Reference/Modules/learnloop/decider_judgments|learnloop.decider_judgments]] — imports `connection_note`; calls `connection_note`
 - [[Reference/Modules/learnloop/ingest/extractors/glm_ocr|learnloop.ingest.extractors.glm_ocr]] — imports `selected_backend`; calls `selected_backend`
@@ -112,6 +113,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `EmptyParams`, `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `_parse_page_selection`; calls `_parse_page_selection`
+- [[Reference/Modules/learnloop_sidecar/handlers/proposals|learnloop_sidecar.handlers.proposals]] — imports `apply_intent_outstanding`; calls `apply_intent_outstanding`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
 
 ### Platform and third-party dependencies

@@ -108,7 +108,9 @@ None found by exact static reference scan.
 - `tests/test_practice_index_find.py`
 - `tests/test_reader_rw3b_protection.py`
 - `tests/test_recurrence_benchmarks.py`
+- `tests/test_source_append.py`
 - `tests/test_source_ingestion_v2lite.py`
+- `tests/test_source_set_synthesis.py`
 - `tests/test_t6_followup_review.py`
 - `tests/test_workbench_text_gaps.py`
 

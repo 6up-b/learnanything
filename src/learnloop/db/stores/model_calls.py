@@ -154,10 +154,11 @@ class ModelCallStoreMixin:
             insert_checkpoint(connection, cache_key, purpose=purpose, result=result, usage=usage)
 
     def discard_model_checkpoint(self, cache_key: str) -> None:
-        """Delete a checkpoint whose stored result no longer validates.
+        """Delete a checkpoint whose stored result no longer validates, or
+        whose answer the quality gates rejected.
 
-        Checkpoints are write-once, so an unreadable one would otherwise fail
-        every retry of the work it was meant to save.
+        Checkpoints are write-once, so an unreadable or rejected one would
+        otherwise fail every retry of the work it was meant to save.
         """
 
         with self.connection() as connection:

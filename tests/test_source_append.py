@@ -21,6 +21,7 @@ from learnloop.content.synthesis.ai_contracts import (
     AppendReconciliation,
     AppendRestructure,
     SynthSpanRef,
+    SynthSpanRequest,
 )
 from learnloop.content.synthesis.append_neighborhood import select_neighborhood
 from learnloop.content.synthesis.source_append import append_source
@@ -28,7 +29,7 @@ from learnloop.content.synthesis.source_set_synthesis import StudyMapError, crea
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_source_set
 
-from tests.facet_reword_paths_helpers import _facet_restructure
+from tests.facet_reword_paths_helpers import NEW_SPAN, _facet_restructure
 from tests.source_inventory_helpers import _block, _ir, _persist, _register_revision
 from tests.source_set_synthesis_helpers import FakeSynthesisClient, _setup
 from tests.source_append_helpers import (
@@ -602,19 +603,40 @@ def _long_summary_append(context, _n):
     return _default_append(context).model_copy(update={"summary": "symmetric " * 400})
 
 
-def test_a_retry_after_an_append_gate_failure_makes_no_model_call(tmp_path):
+def test_a_retry_after_an_append_gate_failure_pays_for_a_fresh_answer(tmp_path):
+    """D-9: the checkpoint replayed the rejected answer, so every Retry failed
+    the same gates at zero cost. A gate failure drops the answers it judged
+    (the first call and its span round); the retry asks again."""
+
     root, repo = _bootstrap_and_add(tmp_path, add_role="exam")
-    client = FakeAppendClient(builder=_facet_restructure())
+    rejected = _facet_restructure()
 
-    for _attempt in range(2):
-        with pytest.raises(StudyMapError) as raised:
-            append_source(root, "set_la", client=client, new_revision_ids=["rev_alt"],
-                          repository=repo, clock=_CLOCK)
-        assert raised.value.code == "append_gate_failed"
+    def builder(context, n):
+        if n == 1:  # the first call asks for a span round
+            return AppendReconciliation(summary="needs a span", span_requests=[
+                SynthSpanRequest(**NEW_SPAN, purpose="check")])
+        if n == 2:  # the span round's answer: an exam-only reword, hard-failed
+            return rejected(context, n)
+        return _default_append(context)
 
-    # The paid answer was checkpointed: the retry read it instead of paying again.
-    assert len(client.calls) == 1
-    assert _append_run_statuses(repo) == (["failed", "failed"], ["failed", "failed"])
+    client = FakeAppendClient(builder=builder)
+    with pytest.raises(StudyMapError) as raised:
+        append_source(root, "set_la", client=client, new_revision_ids=["rev_alt"],
+                      repository=repo, clock=_CLOCK)
+    assert raised.value.code == "append_gate_failed"
+    assert len(client.calls) == 2
+    with repo.connection() as connection:
+        saved = connection.execute(
+            "SELECT COUNT(*) FROM model_work_checkpoints WHERE purpose = 'append_reconciliation'").fetchone()[0]
+    assert saved == 0  # both answers dropped
+
+    result = append_source(root, "set_la", client=client, new_revision_ids=["rev_alt"],
+                           repository=repo, clock=_CLOCK)
+
+    # The retry paid for its first call again (a fresh answer, no span round).
+    assert len(client.calls) == 3 and client.calls[2].resolved_spans == []
+    assert repo.synthesis_run(result.synthesis_run_id)["status"] == "completed"
+    assert _append_run_statuses(repo) == (["failed", "completed"], ["failed", "completed"])
 
 
 def test_an_over_budget_append_answer_is_checkpointed_and_the_retry_does_not_repay(tmp_path):

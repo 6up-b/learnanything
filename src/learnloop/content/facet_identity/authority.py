@@ -91,7 +91,6 @@ not lost at accept; the guarantee does not depend on them.
 from __future__ import annotations
 
 import copy
-import hashlib
 import json
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -1262,13 +1261,13 @@ def write_registry_text(
     temp file and a rename).
     """
 
-    from learnloop.content.proposals.apply_protocol import materialize_targets
+    from learnloop.content.proposals.apply_protocol import materialize_targets, text_hash
 
     check_registry_text(paths, text, basis=basis, resolver=resolver)
     materialize_targets(paths.root, [{
         "rel_path": str(paths.facets_path.relative_to(paths.root)),
         "post_content": text,
-        "post_hash": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        "post_hash": text_hash(text),
     }])
 
 

@@ -53,7 +53,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/content/facet_identity/__init__|learnloop.content.facet_identity]] | [[Reference/Modules/learnloop/content/facet_identity/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] | [[Reference/Modules/learnloop/content/facet_identity/actions#^module-purpose|purpose]] | `ACTIVE` | 13 | 17 |
-| [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]] | [[Reference/Modules/learnloop/content/facet_identity/authority#^module-purpose|purpose]] | `ACTIVE` | 5 | 9 |
+| [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]] | [[Reference/Modules/learnloop/content/facet_identity/authority#^module-purpose|purpose]] | `ACTIVE` | 5 | 10 |
 | [[Reference/Modules/learnloop/content/facet_identity/dedupe|learnloop.content.facet_identity.dedupe]] | [[Reference/Modules/learnloop/content/facet_identity/dedupe#^module-purpose|purpose]] | `ACTIVE` | 1 | 5 |
 | [[Reference/Modules/learnloop/content/facet_identity/grouping|learnloop.content.facet_identity.grouping]] | [[Reference/Modules/learnloop/content/facet_identity/grouping#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/content/facet_identity/judge|learnloop.content.facet_identity.judge]] | [[Reference/Modules/learnloop/content/facet_identity/judge#^module-purpose|purpose]] | `ACTIVE` | 6 | 6 |

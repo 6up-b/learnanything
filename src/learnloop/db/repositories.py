@@ -21290,6 +21290,22 @@ class Repository(
             ).fetchone()
         return _decode_synthesis_manifest(row) if row is not None else None
 
+    def completed_synthesis_manifests(self, source_set_id: str) -> list[dict[str, Any]]:
+        """The manifest of each completed synthesis run of a source set, oldest
+        first, with the run's ``proposal_id`` beside it."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT m.*, r.proposal_id AS proposal_id
+                FROM synthesis_runs r JOIN synthesis_manifests m ON m.id = r.manifest_id
+                WHERE m.source_set_id = ? AND r.status = 'completed'
+                ORDER BY r.created_at, r.id
+                """,
+                (source_set_id,),
+            ).fetchall()
+        return [_decode_synthesis_manifest(row) for row in rows]
+
     def insert_synthesis_run(
         self,
         *,
@@ -21442,6 +21458,14 @@ class Repository(
         data = dict(row)
         data["output"] = _loads(data.pop("output_json", None), None)
         return data
+
+    def discard_synthesis_shard_result(self, shard_key: str) -> None:
+        """Delete one shard's saved output, so the next synthesis pays for a
+        fresh answer instead of replaying one the quality gates rejected."""
+
+        with self.connection() as connection:
+            connection.execute("DELETE FROM synthesis_shard_results WHERE shard_key = ?", (shard_key,))
+            connection.commit()
 
     def finalize_stale_synthesis_runs(
         self, *, before_iso: str, clock: Clock | None = None
