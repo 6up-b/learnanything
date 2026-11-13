@@ -2099,40 +2099,45 @@ def undo_source_questions(ingest_jobs, source_id: str, *, clock: Clock | None = 
 
     from learnloop.content.proposals.patches import refuse_while_an_apply_is_outstanding
     from learnloop.content.proposals.proposals import reject_items
+    from learnloop.vault_lock import vault_mutation_lock
 
     repo = ingest_jobs.repository
-    refuse_while_an_apply_is_outstanding(repo, action="undo")
-    generation = repo.advance_source_auto_build_generation(source_id, clock=clock)
-    for job in auto_jobs(repo, source_id):
-        if _active(job):
-            planner_batch = repo.get_ingest_batch(job["batch_id"]) or {}
-            if planner_batch.get("workflow_type") == AUTO_BUILD_WORKFLOW:
-                ingest_jobs.cancel_batch(job["batch_id"])
-            else:
-                # The planner only: an Add's batch also holds the book's import.
-                repo.set_ingest_job_cancel_requested(job["id"])
-        outcome = planner_outcome(repo, job)
-        batch_id = (outcome or {}).get("build_batch_id")
-        if batch_id and _active(repo.get_ingest_batch(batch_id)):
-            # Waiting jobs are cancelled now; a running one stops at its next
-            # checkpoint and, either way, can no longer apply (generation).
-            ingest_jobs.cancel_batch(batch_id)
-    reverted = 0
-    for job in auto_jobs(repo, source_id):
-        outcome = planner_outcome(repo, job)
-        if not outcome or outcome.get("outcome") != "building":
-            continue
-        state = _build_state(repo, outcome, generation=-1)
-        if not state["proposal_id"]:
-            continue
-        item_ids = [
-            item["id"] for item in repo.proposal_items(state["proposal_id"])
-            if _revertable(item) and item.get("decision") in {"accepted", "pending"}
-        ]
-        if item_ids:
-            reverted += reject_items(ingest_jobs.vault_root, state["proposal_id"], item_ids)
-            _record_undo_judgment(repo, source_id, state["proposal_id"], item_ids, generation, clock=clock)
-    return reverted
+    # One hold from the check to the last revert: an apply commits its intent under
+    # this lock, so none can land after the check and leave the undo refused
+    # after it moved the generation and cancelled builds.
+    with vault_mutation_lock(Path(ingest_jobs.vault_root), purpose="source_undo_questions"):
+        refuse_while_an_apply_is_outstanding(repo, action="undo")
+        generation = repo.advance_source_auto_build_generation(source_id, clock=clock)
+        for job in auto_jobs(repo, source_id):
+            if _active(job):
+                planner_batch = repo.get_ingest_batch(job["batch_id"]) or {}
+                if planner_batch.get("workflow_type") == AUTO_BUILD_WORKFLOW:
+                    ingest_jobs.cancel_batch(job["batch_id"])
+                else:
+                    # The planner only: an Add's batch also holds the book's import.
+                    repo.set_ingest_job_cancel_requested(job["id"])
+            outcome = planner_outcome(repo, job)
+            batch_id = (outcome or {}).get("build_batch_id")
+            if batch_id and _active(repo.get_ingest_batch(batch_id)):
+                # Waiting jobs are cancelled now; a running one stops at its next
+                # checkpoint and, either way, can no longer apply (generation).
+                ingest_jobs.cancel_batch(batch_id)
+        reverted = 0
+        for job in auto_jobs(repo, source_id):
+            outcome = planner_outcome(repo, job)
+            if not outcome or outcome.get("outcome") != "building":
+                continue
+            state = _build_state(repo, outcome, generation=-1)
+            if not state["proposal_id"]:
+                continue
+            item_ids = [
+                item["id"] for item in repo.proposal_items(state["proposal_id"])
+                if _revertable(item) and item.get("decision") in {"accepted", "pending"}
+            ]
+            if item_ids:
+                reverted += reject_items(ingest_jobs.vault_root, state["proposal_id"], item_ids)
+                _record_undo_judgment(repo, source_id, state["proposal_id"], item_ids, generation, clock=clock)
+        return reverted
 
 
 def _import_waiting_for_upload_ok(repo, source_id: str) -> dict[str, Any] | None:

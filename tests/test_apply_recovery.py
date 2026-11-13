@@ -459,6 +459,44 @@ def test_the_book_cards_undo_is_refused_before_it_changes_anything(tmp_path):
     assert card["statusLine"]["text"] == "Questions for Ch. 1–2 come up as you read"
 
 
+def test_the_book_cards_undo_holds_the_vault_lock_from_its_check_to_its_last_change(tmp_path, monkeypatch):
+    """An apply commits its intent under the vault lock. Undo checks for an outstanding intent and then moves the
+    generation and cancels builds: both under one hold, so no intent can land between them."""
+
+    import threading
+
+    from learnloop.vault_lock import VaultLockTimeout, vault_mutation_lock
+
+    from tests.ux_phase1_add_source_helpers import _draining_ctx, call
+    from tests.ux_phase1_support import fresh_library, grant_consent, write_book
+
+    root = fresh_library(tmp_path)
+    grant_consent(root)
+    ctx = _draining_ctx(root)
+    source_id = call(ctx, "add_source", {"sources": [str(write_book(tmp_path))]})["items"][0]["sourceId"]
+    real_advance = ctx.repository.advance_source_auto_build_generation
+    outcomes: list[str] = []
+
+    def advance_while_another_writer_tries_the_lock(*args, **kwargs):
+        def another_writer() -> None:
+            try:
+                with vault_mutation_lock(ctx.ingest_jobs.vault_root, purpose="apply", timeout_s=0.3):
+                    outcomes.append("acquired")
+            except VaultLockTimeout:
+                outcomes.append("refused")
+
+        thread = threading.Thread(target=another_writer)
+        thread.start()
+        thread.join()
+        return real_advance(*args, **kwargs)
+
+    monkeypatch.setattr(ctx.repository, "advance_source_auto_build_generation", advance_while_another_writer_tries_the_lock)
+
+    call(ctx, "source_action", {"sourceId": source_id, "action": "undo_questions"})
+
+    assert outcomes == ["refused"]
+
+
 # --- W6: recovery recalibrates ----------------------------------------------------------------------------------------
 
 
