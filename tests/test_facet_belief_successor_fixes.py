@@ -286,3 +286,84 @@ def test_s2_only_the_facet_state_reader_reads_the_uncertainty_rows():
     )
     assert "learnloop/learner/facet_state_reader.py" in readers
     assert [path for path in readers if path not in allowed] == []
+
+
+# -- S3: a row read or written under another facet id names that id in its hypotheses. -------------------------------
+
+
+def _solid_recall_row(tmp_path):
+    """The basic vault's row on ``recall``, settled solid (the posterior a run of successes leaves)."""
+
+    paths, _vault, repository = _uncertainty_opened_then(tmp_path, switch_after=True)
+    with repository.connection() as connection:
+        connection.execute(
+            "UPDATE facet_uncertainty SET hypothesis_marginal = ?, uncertainty = 0.05, status = 'resolved'",
+            ('{"facet_absent:recall":0.01,"facet_solid:recall":0.99}',),
+        )
+        connection.commit()
+    return paths, repository
+
+
+def _alias_recall_to(paths, survivor):
+    write_facets(paths, [
+        {"id": survivor, "kind": "definition", "claim": "Recall the SVD definition.", "aliases": ["recall"]},
+    ])
+    return load_vault(paths.root)
+
+
+def test_s3_a_row_read_under_its_facets_new_id_keeps_its_solid_reading(tmp_path):
+    from learnloop.learner.facet_diagnostics import facet_state_label
+    from learnloop.learner.facet_state_reader import facet_uncertainty_states_for_lo
+
+    paths, repository = _solid_recall_row(tmp_path)
+    vault = _alias_recall_to(paths, "recall_v2")
+
+    (state,) = facet_uncertainty_states_for_lo(vault, repository, LO_ID)
+    assert state.facet_id == "recall_v2"
+    assert set(state.hypothesis_marginal) == {"facet_solid:recall_v2", "facet_absent:recall_v2"}
+    assert facet_state_label("recall_v2", state, None, 0.5) != "known_gap"
+
+
+def test_s3_a_row_written_under_the_merge_survivor_names_the_survivor(tmp_path):
+    paths, vault, repository = _uncertainty_opened_then(tmp_path, switch_after=True)
+    repository.insert_facet_merge(retired_facet_id="recall", surviving_facet_id="recall_v2", clock=FrozenClock(NOW))
+    complete_self_graded_attempt(
+        vault, repository,
+        AttemptDraft(BASIC_ITEM, "I do not know", attempt_type="dont_know"),
+        SelfGradeInput(criterion_points={"correctness": 4}, confidence=5),
+        clock=FrozenClock(NOW + timedelta(minutes=3)),
+    )
+
+    survivor = repository.facet_uncertainty_state(LO_ID, "recall_v2")
+    assert survivor is not None
+    facet_labels = {label for label in survivor.hypothesis_marginal if label.startswith("facet_")}
+    assert facet_labels == {"facet_solid:recall_v2", "facet_absent:recall_v2"}
+
+
+def test_s3_after_an_alias_the_next_answer_updates_the_row_it_had_and_a_rebuild_agrees(tmp_path):
+    from learnloop.learner.facet_state_reader import facet_uncertainty_states_for_lo
+
+    paths, _vault, repository = _uncertainty_opened_then(tmp_path, switch_after=True)
+    first_opener = _uncertainty_rows(repository)[0][5]
+    vault = _alias_recall_to(paths, "recall_v2")
+    sync_vault_state(vault, repository, clock=FrozenClock(NOW + timedelta(minutes=2)))
+    complete_self_graded_attempt(
+        vault, repository,
+        AttemptDraft(BASIC_ITEM, "SVD factors a matrix as U Sigma V transpose."),
+        SelfGradeInput(criterion_points={"correctness": 4}, confidence=5),
+        clock=FrozenClock(NOW + timedelta(minutes=3)),
+    )
+
+    def read():
+        return [
+            (s.facet_id, s.hypothesis_marginal, s.uncertainty, s.status, s.opened_by_attempt_id, s.opened_reason,
+             s.last_evidence_at)
+            for s in facet_uncertainty_states_for_lo(vault, repository, LO_ID)
+        ]
+
+    live = read()
+    assert [entry[0] for entry in live] == ["recall_v2"]
+    # The chain continued from the row the facet had under its old id, through this answer.
+    assert live[0][4] == first_opener and live[0][6] == "2026-05-19T12:03:00Z"
+    rebuild_all_derived_state(vault, repository, clock=FrozenClock(NOW + timedelta(days=1)))
+    assert read() == live

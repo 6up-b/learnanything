@@ -216,10 +216,12 @@ def test_a_legacy_era_uncertainty_row_is_never_the_successors_prior_or_read(tmp_
 
 
 def test_uncertainty_is_written_under_the_merged_facets_survivor(tmp_path):
-    # Readers outside facet_state_reader (valuation, reader follow-ups, tutor promotions) look a row up by the
-    # facet's canonical id, so the successor writes it there: the item names the retired id, the row the survivor.
+    # Readers look a row up by the facet's canonical id, so the successor writes it there: the item names the
+    # retired id, the row the survivor. The answer after the merge updates the row the facet had before it, as
+    # a rebuild does (it keys every answer by the survivor, so its chain never restarts at the merge).
     paths = create_basic_vault(tmp_path / "vault")
     vault, repository = _play(paths)
+    first_opener = repository.facet_uncertainty_state(LO_ID, "recall").opened_by_attempt_id
     repository.insert_facet_merge(retired_facet_id="recall", surviving_facet_id="recall_v2", clock=FrozenClock(NOW))
     later = complete_self_graded_attempt(
         vault, repository,
@@ -229,9 +231,14 @@ def test_uncertainty_is_written_under_the_merged_facets_survivor(tmp_path):
     )
 
     survivor = repository.facet_uncertainty_state(LO_ID, "recall_v2")
-    assert survivor is not None and survivor.opened_by_attempt_id == later.attempt_id
+    assert survivor is not None and survivor.opened_by_attempt_id == first_opener != later.attempt_id
+    assert survivor.last_evidence_at == "2026-05-19T12:03:00Z"
     (state,) = facet_uncertainty_states_for_lo(vault, repository, LO_ID)
     assert state.facet_id == "recall_v2" and state.id == survivor.id
+    live = (state.hypothesis_marginal, state.uncertainty, state.status, state.opened_by_attempt_id)
+    rebuild_all_derived_state(vault, repository, clock=FrozenClock(NOW + timedelta(days=1)))
+    (rebuilt,) = facet_uncertainty_states_for_lo(vault, repository, LO_ID)
+    assert (rebuilt.hypothesis_marginal, rebuilt.uncertainty, rebuilt.status, rebuilt.opened_by_attempt_id) == live
 
 
 def test_the_legacy_recall_bridge_stays_refused_at_the_tag(tmp_path):

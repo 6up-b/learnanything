@@ -105,14 +105,45 @@ def canonical_uncertainty_rows(
     from learnloop.learner.facet_diagnostics import _facet_uncertainty_id
 
     merge_map = repository.facet_merge_map()
+    corrections = facet_belief_corrections_on(vault.config)
     keyed: list[dict[str, Any]] = []
     for row in rows:
-        canonical = resolve_canonical_facet(vault, merge_map, str(row["facet_id"]))
-        if canonical != row["facet_id"]:
-            row = {**row, "facet_id": canonical,
-                   "id": _facet_uncertainty_id(str(row["learning_object_id"]), canonical)}
+        authored = str(row["facet_id"])
+        learning_object_id = str(row["learning_object_id"])
+        canonical = resolve_canonical_facet(vault, merge_map, authored)
+        if corrections:
+            # The prior may be the row the facet had under an earlier id, whose id is not the canonical row's:
+            # the upsert matches on (learning object, facet) and then writes by id, so the id must be the
+            # canonical row's, or the update would land on the old row (or collide with it).
+            existing = repository.facet_uncertainty_state(learning_object_id, canonical)
+            row = {
+                **row,
+                "facet_id": canonical,
+                "id": existing.id if existing is not None else _facet_uncertainty_id(learning_object_id, canonical),
+                "hypothesis_marginal": relabelled_marginal(row["hypothesis_marginal"], authored, canonical),
+            }
+        elif canonical != authored:
+            row = {**row, "facet_id": canonical, "id": _facet_uncertainty_id(learning_object_id, canonical)}
         keyed.append(dict(row))
     return keyed
+
+
+def relabelled_marginal(marginal: Mapping[str, float], old_facet: str, new_facet: str) -> dict[str, float]:
+    """A facet's hypothesis marginal under another id of the same facet.
+
+    Its two facet hypotheses name the facet (``facet_solid:<id>``, ``facet_absent:<id>``), and every reader
+    compares them with the id the row is read under: kept under the old id, a solid facet would read as a
+    known gap and the likelihood model would not recognise either hypothesis."""
+
+    if old_facet == new_facet:
+        return dict(marginal)
+    renamed = {f"facet_solid:{old_facet}": f"facet_solid:{new_facet}",
+               f"facet_absent:{old_facet}": f"facet_absent:{new_facet}"}
+    relabelled: dict[str, float] = {}
+    for label, probability in marginal.items():
+        target = renamed.get(label, label)
+        relabelled[target] = relabelled.get(target, 0.0) + float(probability)
+    return relabelled
 
 
 def current_facet_uncertainty(state: FacetUncertaintyState | None) -> FacetUncertaintyState | None:
@@ -383,7 +414,15 @@ def facet_uncertainty_states_for_lo(
                 continue
             facet = resolve_canonical_facet(vault, merge_map, state.facet_id)
             if facet != state.facet_id:
-                state = replace(state, facet_id=facet)
+                state = replace(
+                    state,
+                    facet_id=facet,
+                    hypothesis_marginal=(
+                        relabelled_marginal(state.hypothesis_marginal, state.facet_id, facet)
+                        if facet_belief_corrections_on(vault.config)
+                        else state.hypothesis_marginal
+                    ),
+                )
             kept = latest.get(facet)
             if kept is None or (state.updated_at, state.id) > (kept[1].updated_at, kept[1].id):
                 latest[facet] = (position, state)
@@ -427,9 +466,25 @@ def attempt_uncertainty_priors(
     """The stored row each of an attempt's facets updates from, keyed by the facet id the item names.
 
     At the successor: only a row it wrote (a legacy-era row was derived under another belief), found under the
-    facet's canonical id, the key it writes under. Otherwise the predecessor's prior (see
-    :func:`stored_facet_uncertainty_state`)."""
+    facet's canonical id, the key it writes under. That includes the row the facet had under an earlier id (an
+    alias or a merge since), read under the id the item names now: a rebuild keys every answer by today's ids,
+    so its chain never breaks there, and a live chain that restarted would not equal it. Otherwise the
+    predecessor's prior (see :func:`stored_facet_uncertainty_state`)."""
 
+    if canonical_facet_uncertainty_on(vault) and facet_belief_corrections_on(vault.config):
+        priors: dict[str, FacetUncertaintyState | None] = {}
+        for facet in facets:
+            state = stored_facet_uncertainty_state(vault, repository, learning_object_id, facet)
+            priors[facet] = (
+                replace(
+                    state,
+                    facet_id=facet,
+                    hypothesis_marginal=relabelled_marginal(state.hypothesis_marginal, state.facet_id, facet),
+                )
+                if state is not None
+                else None
+            )
+        return priors
     if canonical_facet_uncertainty_on(vault):
         merge_map = repository.facet_merge_map()
         return {
