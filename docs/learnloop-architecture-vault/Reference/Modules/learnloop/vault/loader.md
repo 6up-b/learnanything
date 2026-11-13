@@ -3194,7 +3194,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_synthesis_run_introducing_entity_lineage`
   - `test_synthesis_run_lifecycle`
 - [tests/test_synthesis_sweep_primary_only.py](../../../../../../tests/test_synthesis_sweep_primary_only.py) — direct import
-- [tests/test_synthesis_tail_golden.py](../../../../../../tests/test_synthesis_tail_golden.py) — direct import
 - [tests/test_t6_followup_composition.py](../../../../../../tests/test_t6_followup_composition.py) — direct import
   - `test_a_truncated_facet_judgment_is_retried_once_at_double_the_budget`
   - `test_b1_writer_budget_follows_the_policy_and_the_flag`

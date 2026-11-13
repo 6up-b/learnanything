@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/synthesis/append_neighborhood.py](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py) |
-| Source lines | 542 |
+| Source lines | 544 |
 | Owning package | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -75,11 +75,11 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `_estimate_tokens(obj: Any) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 64)
 - `class _NewSignals` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 141)
 - `_hash_entity(payload: dict[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 203)
-- `_embedding_reasons(nominator: Any, new_inventories: list[dict[str, Any]]) -> dict[str, MatchReason]` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 306) — The top-k definition-embedding neighbours of the new material (T5).
-- `_provenance_matched_entities(repository: Repository, signals: _NewSignals) -> dict[str, MatchReason]` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 351)
-- `_unresolved_candidates(signals: _NewSignals, scored: dict[str, tuple[float, list[MatchReason]]]) -> list[str]` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 371) — Concept names in the new inventory that matched no existing entity yet.
-- `_materialize(vault: LoadedVault, repository: Repository, ordered: list[tuple[str, tuple[float, list[MatchReason]]]], *, budget_tokens: int, rounds: int) -> Neighborhood` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 381)
-- `_facet_contract(facet: Any) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 530)
+- `_embedding_reasons(nominator: Any, new_inventories: list[dict[str, Any]]) -> dict[str, MatchReason]` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 308) — The top-k definition-embedding neighbours of the new material (T5).
+- `_provenance_matched_entities(repository: Repository, signals: _NewSignals) -> dict[str, MatchReason]` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 353)
+- `_unresolved_candidates(signals: _NewSignals, scored: dict[str, tuple[float, list[MatchReason]]]) -> list[str]` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 373) — Concept names in the new inventory that matched no existing entity yet.
+- `_materialize(vault: LoadedVault, repository: Repository, ordered: list[tuple[str, tuple[float, list[MatchReason]]]], *, budget_tokens: int, rounds: int) -> Neighborhood` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 383)
+- `_facet_contract(facet: Any) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 532)
 
 ## Who imports or calls it
 
