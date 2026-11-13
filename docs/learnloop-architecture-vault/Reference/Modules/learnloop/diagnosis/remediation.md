@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py) |
-| Source lines | 1484 |
+| Source lines | 1513 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -71,9 +71,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `record_remediation_attempt(repository: Repository, attempt: dict[str, Any], *, clock: Clock | None=None, vault: LoadedVault | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 819) — Link treatment attempts and consume delayed tasks exactly once.
 - `reschedule_cold_after_assist_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1113) — The cold-retry reschedule (``COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION``, ``mvp-0.38``): at that tag or later with ``practice.reschedule_cold_after_assist`` on, and with Reader CA2's rule on (``serve_eligibility.help_converts_active``: without it submit refuses an assisted attempt…
 - `reschedule_assisted_cold_retry(vault: LoadedVault | None, repository: Repository, attempt: Mapping[str, Any], *, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1137) — Help taken on a due repair cold retry: end it and schedule ONE fresh cold retry for the same repair (owner decision 2026-10-25, Reader CA2 follow-up Q4; ``mvp-0.38``).
-- `assisted_attempt(attempt: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1349) — Did the attempt take help (hints, a hinted type) or see its answer (primed)?
-- `withdraw_cold_measurement(vault: LoadedVault | None, repository: Repository, task_id: str, *, reason: str, reveal_event_ids: tuple[str, ...] | list[str]=(), decision: Mapping[str, Any] | None=None, stage: str='serve', clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1370) — Withdraw an open cold measurement its selected surface can no longer give a cold reading (the one eligibility decision, ``mvp-0.27``; Codex review F2): the item's answer was shown with no lapse (submit primes it until an attempt, and an attempt on it is a hard exposure of the co…
-- `misconception_status_history(repository: Repository, misconception_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1477)
+- `assisted_attempt(attempt: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1372) — Did the attempt take help (hints, a hinted type) or see its answer (primed)?
+- `withdraw_cold_measurement(vault: LoadedVault | None, repository: Repository, task_id: str, *, reason: str, reveal_event_ids: tuple[str, ...] | list[str]=(), decision: Mapping[str, Any] | None=None, stage: str='serve', release_reservation: bool=True, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1393) — Withdraw an open cold measurement its selected surface can no longer give a cold reading (the one eligibility decision, ``mvp-0.27``; Codex review F2): the item's answer was shown with no lapse (submit primes it until an attempt, and an attempt on it is a hard exposure of the co…
+- `misconception_status_history(repository: Repository, misconception_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1506)
 
 ### Module constants
 
@@ -86,7 +86,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `RECENT_ATTEMPT_WINDOW` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 349)
 - `ASSISTED_RESCHEDULE_CONTEXT_KEY` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 1105)
 - `ASSISTED_RESCHEDULE_TRIGGER` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 1110)
-- `WITHDRAWN_COLD_RETRY_OUTCOME` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 1367)
+- `WITHDRAWN_COLD_RETRY_OUTCOME` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 1390)
 
 ## Internal implementation anchors
 
@@ -96,6 +96,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_independent_cold_candidates(vault: LoadedVault, repository: Repository, candidates: list[Any], *, excluded_surfaces: set[str | None]) -> list[Any]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 692) — Every candidate :func:`_independent_cold_item` accepts, in rank order.
 - `_record_unbound_primed_disposition(repository: Repository, attempt: dict[str, Any], *, vault: LoadedVault | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 708) — Typed §4.3 disposition for a primed repair attempt with NO episode.
 - `_repair_forecast(vault: LoadedVault | None, repository: Repository, attempt: Mapping[str, Any], *, repair_class_id: str | None, hypothesis_ids: list[str] | tuple[str, ...]=(), episode: Mapping[str, Any] | None=None, task: Mapping[str, Any] | None=None, censor_reason: str | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 792) — Saved diagnosis forecasts: the repair's predicted cold outcome, in the primed attempt's transaction (bound to its cold task, or censored at birth with the reason none was scheduled).
+- `_reschedule_assisted_cold_retry(vault: LoadedVault | None, repository: Repository, attempt: Mapping[str, Any], *, withdrawn_episode_ids: list[str], clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1203) — The rescheduling itself; ``withdrawn_episode_ids`` collects the episode of a retry it withdrew.
 
 ## Who imports or calls it
 
@@ -203,6 +204,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_instrument_servability_journeys.py](../../../../../../tests/test_instrument_servability_journeys.py) — direct import
   - `test_a_repair_whose_only_items_are_instruments_now_prescribes_one`
   - `test_remediation_treatment_skips_nothing_for_servability`
+- [tests/test_k1_remediation_cold_reservation.py](../../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import
+  - `test_a_withdrawn_cold_retry_with_no_replacement_releases_its_reservation`
 - [tests/test_misconception_transitions_intake.py](../../../../../../tests/test_misconception_transitions_intake.py) — direct import
   - `test_reactivation_wipes_resolved_at_but_returned_stays_derivable`
 - [tests/test_pfc_unassessed_readers.py](../../../../../../tests/test_pfc_unassessed_readers.py) — direct import

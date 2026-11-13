@@ -97,6 +97,7 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository._release_cold_reservation()`
 - `Repository.active_followup_task_for_item()`
 - `Repository.attach_followup_task_measurement_opportunity()`
 - `Repository.consume_followup_task()`

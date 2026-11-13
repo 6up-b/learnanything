@@ -91,6 +91,7 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository._release_cold_reservation()`
 - `Repository.create_remediation_episode()`
 - `Repository.get_or_create_open_remediation_episode()`
 - `Repository.open_remediation_cold_item_ids()`

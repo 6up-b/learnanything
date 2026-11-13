@@ -242,6 +242,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r2_one_attributable_disclosure_function`
 - [tests/test_k1_remediation_cold_reservation.py](../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import
   - `test_a_cold_item_chosen_for_a_treatment_is_reserved_before_its_task_exists`
+  - `test_a_withdrawn_cold_retry_with_no_replacement_releases_its_reservation`
   - `test_the_cold_task_kinds_are_defined_once`
 - [tests/test_reader_ca2_one_ask.py](../../../../../tests/test_reader_ca2_one_ask.py) — direct import
   - `test_the_predecessor_refuses_a_hinted_cold_check_and_the_successor_converts_it`
