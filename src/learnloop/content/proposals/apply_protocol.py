@@ -471,6 +471,14 @@ def _fsync_dir(directory: Path) -> None:
 # --- DB side effects (shared by the normal path and recovery) ---------------
 
 
+class ApplyIntentItemMissing(RuntimeError):
+    """An apply intent names a proposal item that no longer exists."""
+
+    def __init__(self, item_id: str) -> None:
+        self.item_id = item_id
+        super().__init__(f"an apply intent names proposal item {item_id}, which no longer exists")
+
+
 def perform_db_effects(
     repository: Repository, db_plan: list[dict[str, Any]], *, clock: Clock | None
 ) -> list[str]:
@@ -485,6 +493,10 @@ def perform_db_effects(
     for entry in db_plan:
         change_batch_ids.append(entry["change_batch_id"])
         existing = repository.proposal_item(entry["item_id"])
+        if existing is None:
+            # The intent is the plan of record: an item row that is gone would
+            # leave its content written with no decision row to undo it from.
+            raise ApplyIntentItemMissing(entry["item_id"])
         already_accepted = bool(existing) and existing.get("decision") == "accepted"
         if not already_accepted:
             # Specialized side effect FIRST + idempotently: if a crash lands between

@@ -350,6 +350,88 @@ def test_the_sidecar_reject_names_the_outstanding_intent(tmp_path):
     assert repository.proposal_item("item_lo_two")["decision"] == "accepted"
 
 
+def test_deleting_a_pending_item_is_refused_while_an_apply_is_outstanding(tmp_path):
+    """An intent committed before its renames names pending items; deleting one would let recovery apply content
+    that has no inbox row left to undo it from."""
+
+    from learnloop.content.proposals.proposals import delete_proposal_item
+
+    paths = create_vault_registering_application(tmp_path / "vault")
+    repository = _repo(paths)
+    _seed_lo_and_pi_proposal(repository)
+    _crash_after(paths, renamed=0)
+    intent = _pending_intent(repository)
+
+    with pytest.raises(OutstandingApplyIntentError) as raised:
+        delete_proposal_item(paths.root, "patch_wa", "item_pi")
+
+    assert [named["id"] for named in raised.value.intents] == [intent["id"]]
+    assert str(raised.value).startswith("Refusing to delete")
+    assert repository.proposal_item("item_pi") is not None
+
+
+def test_the_sidecar_delete_names_the_outstanding_intent(tmp_path):
+    paths = create_vault_registering_application(tmp_path / "vault")
+    repository = _repo(paths)
+    _seed_lo_and_pi_proposal(repository)
+    _crash_after(paths, renamed=1)
+    first = _pending_intent(repository)["targets"][0]
+    _hand_edit(paths, first)  # conflicted at the bind, so it is still outstanding after it
+
+    responses = _initialize(paths, {"method": "delete_proposal_item",
+                                    "params": {"patchId": "patch_wa", "itemId": "item_pi"}})
+
+    assert responses[1]["error"]["data"]["code"] == "apply_intent_outstanding"
+    assert repository.proposal_item("item_pi") is not None
+
+
+def test_editing_an_item_an_outstanding_intent_names_is_refused(tmp_path):
+    from learnloop.content.proposals.proposals import edit_proposal_item, refresh_proposal_item_validation
+
+    paths = create_vault_registering_application(tmp_path / "vault")
+    repository = _repo(paths)
+    _seed_lo_and_pi_proposal(repository)
+    _crash_after(paths, renamed=0)
+    payload = repository.proposal_item("item_pi")["payload"]
+
+    with pytest.raises(OutstandingApplyIntentError, match="Refusing to edit"):
+        edit_proposal_item(paths.root, "patch_wa", "item_pi", {**payload, "prompt": "Changed."})
+    with pytest.raises(OutstandingApplyIntentError, match="Refusing to refresh"):
+        refresh_proposal_item_validation(paths.root, "patch_wa", "item_pi")
+
+    assert repository.proposal_item("item_pi")["edited_payload"] is None
+
+
+def test_rejecting_a_pending_item_is_refused_while_an_apply_is_outstanding(tmp_path):
+    from learnloop.content.proposals.proposals import reject_items
+
+    paths = create_vault_registering_application(tmp_path / "vault")
+    repository = _repo(paths)
+    _seed_lo_and_pi_proposal(repository)
+    _crash_after(paths, renamed=0)
+
+    with pytest.raises(OutstandingApplyIntentError):
+        reject_items(paths.root, "patch_wa", ["item_pi"])
+
+    assert repository.proposal_item("item_pi")["decision"] == "pending"
+
+
+def test_recovery_fails_loudly_when_an_intent_names_an_item_that_is_gone(tmp_path):
+    paths = create_vault_registering_application(tmp_path / "vault")
+    repository = _repo(paths)
+    _seed_lo_and_pi_proposal(repository)
+    _crash_after(paths, renamed=0)
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        connection.execute("PRAGMA foreign_keys=OFF")
+        connection.execute("DELETE FROM proposed_patch_items WHERE id = 'item_pi'")
+        connection.commit()
+
+    with pytest.raises(apply_protocol.ApplyIntentItemMissing, match="item_pi"):
+        recover_apply_intents(paths.root, repository)
+
+    assert repository.outstanding_apply_intents()  # still the owner's to settle
+
+
 def test_the_book_cards_undo_is_refused_before_it_changes_anything(tmp_path):
     """The card's Undo advances the book's generation and cancels its builds
     before it reverts; refused, it does none of that."""

@@ -332,6 +332,8 @@ def edit_proposal_item(ctx: SidecarContext, params: EditProposalItemInput) -> di
         raise SidecarError("invalid_payload", "Payload must be a JSON object.")
     try:
         service_edit_proposal_item(vault.root, params.patch_id, params.item_id, payload)
+    except OutstandingApplyIntentError as exc:
+        raise apply_intent_outstanding(exc) from exc
     except ValueError as exc:
         raise SidecarError("invalid_request", str(exc)) from exc
     # Editing a payload changes no vault files — the snapshot reads proposal state
@@ -351,6 +353,8 @@ def refresh_proposal_item_validation(ctx: SidecarContext, params: RefreshProposa
     vault, _repository = ctx.require_vault()
     try:
         service_refresh_proposal_item_validation(vault.root, params.patch_id, params.item_id)
+    except OutstandingApplyIntentError as exc:
+        raise apply_intent_outstanding(exc) from exc
     except ValueError as exc:
         raise SidecarError("invalid_request", str(exc)) from exc
     return _proposals_payload(ctx)
