@@ -117,13 +117,15 @@ def upgrade(
         raise typer.Exit(code=2)
     # The AD guard's denial log as the command found it: only these lines are archived after a
     # successful upgrade; a denial logged after this stays counted.
-    denial_mark = _mark_ad_denial_log(_root(vault))
-    result = upgrade_vault(_root(vault), to=to)
+    # The table refuses a vault below the floor itself, naming the route through pre-floor.
+    root = _root(vault, below_floor=True)
+    denial_mark = _mark_ad_denial_log(root)
+    result = upgrade_vault(root, to=to)
     if result.upgraded:
         typer.echo(f"Upgraded vault: {result.from_version} -> {result.to_version}")
         for note in result.notes:
             typer.echo(f"  - {note}")
-        _archive_ad_denial_log(_root(vault), result.from_version, result.to_version, denial_mark)
+        _archive_ad_denial_log(root, result.from_version, result.to_version, denial_mark)
         return
     typer.echo(f"Vault not upgraded (currently {result.from_version}):")
     for problem in result.problems:

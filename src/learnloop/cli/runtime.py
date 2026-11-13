@@ -102,7 +102,7 @@ from learnloop.ops.startup import run_startup_maintenance
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import add_note as add_note_to_vault
 from learnloop.vault.loader import add_subject as add_subject_to_vault
-from learnloop.vault.loader import load_vault
+from learnloop.vault.loader import load_vault, refuse_vault_below_floor
 from learnloop.vault.paths import VaultPaths, find_vault_root
 from learnloop.vault.repository import open_vault_repository
 from learnloop.vault.yaml_io import read_yaml, yaml_to_string
@@ -114,8 +114,14 @@ _INGEST_SPINNER_FRAMES = ("|", "/", "-", "\\")
 
 _INGEST_PROGRESS_EVENT = "learnloop_ingest_progress"
 
-def _root(vault: Path | None) -> Path:
+def _root(vault: Path | None, *, below_floor: bool = False) -> Path:
+    """The command's vault root. A vault below the oldest supported tag is refused here, before the command reads
+    or writes any of it: many commands write (a config repair, a source set) before they load the vault, and
+    some never load it. ``below_floor``: the caller refuses with its own message (``upgrade``)."""
+
     root = vault.resolve() if vault else find_vault_root(Path.cwd())
+    if not below_floor:
+        refuse_vault_below_floor(root)
     bind_command_vault(root)
     return root
 

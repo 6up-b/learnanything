@@ -133,3 +133,50 @@ request loads again and nothing older is served meanwhile; a floor refusal is st
 - The journal check (`refuse_interrupted_activation`) runs before the cache on every request; sound.
 
 **Not verified.** The MCP server end to end over stdio after such a refusal (the runtime is what every tool asks).
+
+## U5 and U6: every CLI door meets the floor before it reads or writes the vault
+
+One commit for both rows: the fix is one check at the CLI's vault-root resolvers.
+
+**Reproduced.** Five new doors in `tests/test_version_floor.py::test_a_vault_below_the_floor_is_refused_at_each_door`,
+each through `_cli_refused_unchanged` (every file under the vault byte-identical, none added, and the refusal naming the
+floor and the `pre-floor` route). At the base all five failed:
+- `doctor_fix` (U5; the config's `active_provider` pinned to Codex): `learnloop.toml` was rewritten before
+  `run_doctor` refused.
+- `mcp_activity` (U6): exit 0 with the stored activity report.
+- `mcp_token` (`mcp token show`, found by the sweep): `.learnloop/mcp/endpoint-token` and its `.gitignore` written.
+- `project_enroll` (U6): `projects/project_store.sqlite` created.
+- `source_set_create` (`source-set create`, found by the sweep): `sources/source_sets.yaml` and the subject's
+  `subject.md` written before the command's own `load_vault` refused.
+
+**Fix.** `vault.loader.refuse_vault_below_floor(root)` reads only `learnloop.toml` (no environment) and refuses below
+the floor; a missing or unreadable config is left to the command's own load (`doctor` reports it as
+`config:invalid`). It runs in each resolver a command gets its vault root from: `cli/runtime._root` (about 200
+commands, `doctor` among them), `cli/project._vault_root` (every `project` command), `cli/mcp._root` (`serve`,
+`token show|rotate`, `activity`; refused there with exit 78, as `serve` already refused at attach, so a supervisor does
+not loop) and `cli/facets._root`. `upgrade` alone passes `below_floor=True`: its table refuses with the route itself
+and its result message is what the owner reads. `remote/runtime.refuse_below_floor_as_mismatch` now uses the same
+helper instead of its own copy.
+
+**The doors listed** (grep under `src/learnloop/cli` for `load_config`, `Repository.attach`, `vault_sqlite_path`,
+`connect(`, `Repository(`; then the library functions they call with a bare root):
+- Config or database opened without `load_vault`: `doctor --fix` (`app.py`, `fix_codex_pins`), `mcp activity`
+  (`vault_sqlite_path` + `Repository.attach`), `project *` (`_config`, `ProjectStore`), `ai compare`
+  (`_configured_database`, below). Fixed except `ai compare`.
+- Writers reached with a bare root: `source-set create|update` (`vault/writer.upsert_source_set` loads the config
+  itself), `mcp token show|rotate` (`endpoint_token`), `doctor --fix-content` (`fix_criterion_dependencies`), every
+  `_root` caller that writes before its load. Fixed by the resolvers.
+- Every other `Repository.attach` / `connect` in the CLI (`ad`, `placement`, `recurrence`, `embeddings`,
+  `data_capture`, `diagnose`, `decider`, `field`, `field_classification`, `gaps`, `plan`, `reader`, `router`,
+  `practice_index`, `success_head`, `probability_arms`, `receipts`, `app.py`'s three) takes its path from a
+  `load_vault` result: already refused there.
+- Outside the CLI: `vault/writer._vault_paths` (FR-C's file; reached from the CLI only through `source-set`, now
+  refused first, and from the sidecar, whose bound vault passed the floor), `projects/capture.py` (through the
+  `project` commands), the ingest pipeline's `load_config` calls (inside a sidecar or CLI runner bound to a vault that
+  passed), `symbolic_view` (reads one switch), `bootstrap`/`init_vault` (create a vault at the head), `ops/doctor`
+  (after `run_doctor`'s own refusal), `learnloop_mobile/cli.py` (the host's `attach`, already refused).
+- Not changed: `ai compare --vault <copy>` reads a source vault's `storage.sqlite_path` to copy it; the copy is then
+  loaded and refused. It writes nothing into the source. Left as a read for a copy; say if it should refuse first.
+
+**Not verified.** The sidecar's handlers that take a vault path of their own (vault creation, a switch) go through
+`SidecarContext.load`, refused there; the TUI opens through `load_vault`. The full CLI suite runs at landing.

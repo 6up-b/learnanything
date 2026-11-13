@@ -46,12 +46,13 @@ from learnloop.vault.loader import (
     content_digest as _digest,
     content_files,
     load_vault,
+    refuse_vault_below_floor,
     settled_load_vault,
     vault_content_fingerprint,
 )
 from learnloop.vault.models import DoctorIssue, LoadedVault
 from learnloop.vault.paths import VaultPaths
-from learnloop.version_floor import BelowOldestSupported, refuse_below_floor
+from learnloop.version_floor import BelowOldestSupported
 
 #: Seconds a content fingerprint is reused before the vault's files are stat'ed again
 #: (the vault loader's, shared with ``SidecarContext.load_secondary``).
@@ -79,9 +80,8 @@ def refuse_below_floor_as_mismatch(vault_root: Path) -> None:
     """Refuse a vault below the oldest supported tag as this process's own :class:`SchemaMismatch` (exit 78):
     only ``learnloop upgrade`` brings it there, so a supervisor restarting the process would loop."""
 
-    root = Path(vault_root).resolve()
     try:
-        refuse_below_floor(root, load_config(root / "learnloop.toml", load_environment=False))
+        refuse_vault_below_floor(Path(vault_root).resolve())
     except BelowOldestSupported as exc:
         raise SchemaMismatch(str(exc)) from exc
 

@@ -290,6 +290,24 @@ def _source_sets_caught_empty(root: Path, vault: LoadedVault, files: dict[str, t
     return found[0] == 0
 
 
+def refuse_vault_below_floor(vault_root: Path) -> None:
+    """Raise :class:`learnloop.version_floor.BelowOldestSupported` when the vault at ``vault_root`` is below the
+    oldest supported tag, reading only its ``learnloop.toml`` (no environment).
+
+    For the doors that write or read before they load the vault, or never load it (a config repair, a project
+    store, a token, a source set): :func:`load_vault` refuses too, but only when it runs. A missing or unreadable
+    config is left to the command's own load to report (``doctor`` reports it)."""
+
+    config_path = Path(vault_root) / "learnloop.toml"
+    if not config_path.is_file():
+        return
+    try:
+        config = load_config(config_path, load_environment=False)
+    except Exception:  # noqa: BLE001 - the command's own load reports an unreadable config
+        return
+    refuse_below_floor(Path(vault_root), config)
+
+
 def load_vault(
     root: Path | None = None,
     *,

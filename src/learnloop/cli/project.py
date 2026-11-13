@@ -20,6 +20,7 @@ from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.cli.embeddings import _cancellation
 from learnloop.clock import Clock, SystemClock, utc_now_iso
 from learnloop.config import LearnLoopConfig, load_config
+from learnloop.vault.loader import refuse_vault_below_floor
 from learnloop.ids import new_ulid
 from learnloop.projects.ai_runtime import (
     PaidCalls,
@@ -92,6 +93,8 @@ def _vault_root(vault: Path | None) -> Path:
     root = (vault or find_vault_root(Path.cwd())).expanduser().resolve()
     if not (root / "learnloop.toml").is_file():
         raise ValueError(f"{root} is not a vault (no learnloop.toml)")
+    # The project store lives inside the vault: nothing is created or read in one below the floor.
+    refuse_vault_below_floor(root)
     return root
 
 
