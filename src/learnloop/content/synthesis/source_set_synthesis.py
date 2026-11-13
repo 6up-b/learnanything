@@ -2539,9 +2539,9 @@ class SynthesisAnswer:
     #: What facet identity, the normalizer and the summaries read.
     candidate: Any
     span_request_count: int = 0
-    #: The span hashes the call resolved; None: the mode's call does not report them, and the run records none.
+    #: The span hashes the call resolved; None: the mode does not record them, and the run records none.
     resolved_span_hashes: list[str] | None = None
-    #: The call's own usage record (bootstrap's shard runner); facet identity's joins it.
+    #: The call's own usage record (None: the mode does not record it); facet identity's joins it.
     usage: dict[str, Any] | None = None
     #: The mode's review records about the answer itself, reported after the normalizer's.
     diagnostics: list[dict[str, Any]] = field(default_factory=list)
