@@ -10,8 +10,8 @@ modules_in_an_import_cycle = 286
 first_level_packages = 46
 first_level_root_modules = 35
 first_level_root_modules_not_upgrade = 35
-functions_over_200_lines = 82
-comment_lines_naming_a_stage_artifact = 2398
+functions_over_200_lines = 79
+comment_lines_naming_a_stage_artifact = 2395
 test_files_named_for_a_stage = 184
 
 [members]
@@ -261,9 +261,7 @@ functions_over_200_lines = [
     "src/learnloop/content/authoring/source_exercise_import.py _import_source_exercise",
     "src/learnloop/content/pipeline/jobs.py handle_inventory",
     "src/learnloop/content/pipeline/source_ingestion.py ingest_canonical_source",
-    "src/learnloop/content/synthesis/source_append.py _append",
     "src/learnloop/content/synthesis/source_append.py _normalize_append",
-    "src/learnloop/content/synthesis/source_set_synthesis.py _create_study_map",
     "src/learnloop/content/synthesis/source_set_synthesis.py _normalize",
     "src/learnloop/daily_plan/engine.py _boundary",
     "src/learnloop/daily_plan/engine.py advance_with_context",
@@ -284,7 +282,6 @@ functions_over_200_lines = [
     "src/learnloop/diagnosis/grading_hardcases.py run_hardcases",
     "src/learnloop/diagnosis/probe_episodes.py _record_presentation_observation",
     "src/learnloop/diagnosis/remediation.py record_remediation_attempt",
-    "src/learnloop/diagnosis/remediation.py reschedule_assisted_cold_retry",
     "src/learnloop/diagnosis/split/context.py assemble_diagnosis_context",
     "src/learnloop/diagnosis/split/history.py _load",
     "src/learnloop/diagnosis/split/jobs.py _diagnose",
@@ -599,7 +596,7 @@ stage_test_files = [
 "src/learnloop/content/facet_identity/plan.py" = 1
 "src/learnloop/content/pipeline/add_source.py" = 25
 "src/learnloop/content/pipeline/ai_contracts.py" = 1
-"src/learnloop/content/pipeline/jobs.py" = 33
+"src/learnloop/content/pipeline/jobs.py" = 32
 "src/learnloop/content/pipeline/quick_add.py" = 1
 "src/learnloop/content/pipeline/reread.py" = 3
 "src/learnloop/content/pipeline/runner.py" = 3
@@ -612,8 +609,7 @@ stage_test_files = [
 "src/learnloop/content/sources/role_authority.py" = 1
 "src/learnloop/content/sources/span_aliases.py" = 1
 "src/learnloop/content/synthesis/ai_contracts.py" = 2
-"src/learnloop/content/synthesis/source_append.py" = 1
-"src/learnloop/content/synthesis/source_set_synthesis.py" = 8
+"src/learnloop/content/synthesis/source_set_synthesis.py" = 7
 "src/learnloop/content/synthesis/source_unit_inventory.py" = 1
 "src/learnloop/content/synthesis/synthesis_gates.py" = 3
 "src/learnloop/curriculum/commitment_arcs.py" = 1
