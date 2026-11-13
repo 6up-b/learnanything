@@ -367,3 +367,68 @@ def test_s3_after_an_alias_the_next_answer_updates_the_row_it_had_and_a_rebuild_
     assert live[0][4] == first_opener and live[0][6] == "2026-05-19T12:03:00Z"
     rebuild_all_derived_state(vault, repository, clock=FrozenClock(NOW + timedelta(days=1)))
     assert read() == live
+
+
+# -- S4: a success ends the failure streak even when its repeat surface carries no mass. -----------------------------
+
+
+def _without_repeat_credit(root):
+    """``[evidence.correlation] repeat_surface_discount = 0``: a repeat of a surface adds no mass at all."""
+
+    import tomllib
+
+    config_path = root / "learnloop.toml"
+    text = config_path.read_text(encoding="utf-8")
+    assert "[evidence.correlation]" not in text
+    text = f"{text.rstrip()}\n\n[evidence.correlation]\nrepeat_surface_discount = 0.0\n"
+    assert tomllib.loads(text)["evidence"]["correlation"]["repeat_surface_discount"] == 0.0
+    config_path.write_text(text, encoding="utf-8")
+
+
+def _two_misses_then_full_marks(paths):
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    sync_vault_state(vault, repository, clock=FrozenClock(NOW))
+    for offset in (0, 1):
+        complete_self_graded_attempt(
+            vault, repository,
+            AttemptDraft(BASIC_ITEM, "I do not know", attempt_type="dont_know"),
+            SelfGradeInput(criterion_points={"correctness": 4}, confidence=5),
+            clock=FrozenClock(NOW + timedelta(minutes=offset)),
+        )
+    complete_self_graded_attempt(
+        vault, repository,
+        AttemptDraft(BASIC_ITEM, "SVD factors a matrix as U Sigma V transpose."),
+        SelfGradeInput(criterion_points={"correctness": 4}, confidence=5),
+        clock=FrozenClock(NOW + timedelta(minutes=2)),
+    )
+    return vault, repository
+
+
+def test_s4_full_marks_on_a_massless_repeat_surface_end_the_failure_streak(tmp_path):
+    from learnloop.diagnosis.followups import current_same_facet_failure_streak
+
+    paths = create_basic_vault(tmp_path / "vault")
+    _without_repeat_credit(paths.root)
+    vault, repository = _two_misses_then_full_marks(paths)
+
+    assert current_same_facet_failure_streak(vault, repository, LO_ID, ["recall"]) == 0
+    assert all(row[5] == 0 for row in _canonical_belief(repository))
+
+
+def test_s4_with_the_switch_off_the_streak_is_the_predecessors(tmp_path):
+    from learnloop.diagnosis.followups import current_same_facet_failure_streak
+
+    from tests.helpers import set_algorithm_version
+
+    off = create_basic_vault(tmp_path / "off")
+    set_config_switch(off.root, SWITCH, False)
+    _without_repeat_credit(off.root)
+    old = create_basic_vault(tmp_path / "old")
+    set_algorithm_version(old, "mvp-0.58")
+    _without_repeat_credit(old.root)
+    off_vault, off_repository = _two_misses_then_full_marks(off)
+    old_vault, old_repository = _two_misses_then_full_marks(old)
+
+    assert _canonical_belief(off_repository) == _canonical_belief(old_repository)
+    assert current_same_facet_failure_streak(off_vault, off_repository, LO_ID, ["recall"]) == 2

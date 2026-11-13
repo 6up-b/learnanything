@@ -44,7 +44,7 @@ from learnloop.learner.capability_mapping import (
     criterion_pseudo_mass,
     localize_criterion_outcomes,
 )
-from learnloop.learner.facet_state_reader import facet_belief_fixes_on
+from learnloop.learner.facet_state_reader import facet_belief_corrections_on, facet_belief_fixes_on
 from learnloop.content.authoring.conjunctive_items import cap_embedded_credit, supporting_unexercised
 from learnloop.attempts.evidence import attempt_evidence_mass
 from learnloop.goals.receipt_contributions import itemize_observation_contributions
@@ -671,6 +671,7 @@ def project_canonical_facet_state(
     if algorithm_version not in CANONICAL_STATE_VERSIONS:
         return
     belief_fixes = facet_belief_fixes_on(vault.config)
+    belief_corrections = facet_belief_corrections_on(vault.config)
     use_p0 = algorithm_version in P0_PROJECTION_VERSIONS
     p0_score_fraction: dict[str, float] = {}
     if use_p0:
@@ -984,6 +985,15 @@ def project_canonical_facet_state(
                 w = alloc.pseudo_mass * discount
                 positive = w * fraction
                 if positive <= 0:
+                    if belief_corrections and fraction >= FAILURE_THRESHOLD and alloc.pseudo_mass > 0:
+                        # D-1 for a success on a repeat surface discounted to nothing: the failure branch
+                        # counts a repeat failure toward the streak whatever its discounted mass, so the
+                        # repeat success must end it the same way. Only cells already folded: a new one has
+                        # no streak. (A massless attempt type, pseudo-mass 0, keeps the predecessor's reading.)
+                        for scope in (None, attempt["practice_item_id"]):
+                            existing = recall.get((facet, capability, scope))
+                            if existing is not None:
+                                existing.consecutive_failures = 0
                     continue
                 relationship = "embedded" if alloc.role == "supporting" else "direct"
                 if relationship == "embedded":
