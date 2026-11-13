@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
+from learnloop.algorithm_versions import FOLLOWUP_SERVE_VERSIONS
 from learnloop import learner_protection
 from learnloop.db.stores import write_provenance as wp
 from learnloop.followup_run import authoring, router
@@ -22,6 +22,7 @@ from learnloop.followup_serve import identity, workflow as wf
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
+from tests.helpers import set_algorithm_version
 from tests.followup_serve_helpers import (
     CLOCK,
     AuthorFake,
@@ -259,6 +260,10 @@ def test_an_exam_sittings_miss_reaches_the_probe_lane_after_the_sitting(tmp_path
     assert row["state"] == wf.READY and row["lane"] == wf.LANE_PROBE and fake.calls == 1
 
 
+#: A tag below the generate-and-serve successor: the reserved-question gate is off there.
+BELOW_THE_TAG = "mvp-0.44"
+
+
 def test_the_mint_and_batch_paths_refuse_a_reserved_question_at_the_tag_only(tmp_path, monkeypatch):
     from learnloop.diagnosis.probe_instance_generation import _reproduces_reserved
 
@@ -268,7 +273,10 @@ def test_the_mint_and_batch_paths_refuse_a_reserved_question_at_the_tag_only(tmp
     payload = {"prompt": f"Try: {STEM}", "expected_answer": "x", "grading_rubric": {"criteria": []}}
     assert _reproduces_reserved(vault, repository, payload)
     assert not _reproduces_reserved(vault, repository, {**payload, "prompt": "Something else entirely here."})
-    below = live_shape_vault(tmp_path / "below", version=LATEST_ALGORITHM_VERSION)[1]
+    assert BELOW_THE_TAG not in FOLLOWUP_SERVE_VERSIONS
+    # The same vault, reserved question and protection, with only its tag lowered: nothing else can turn the gate off.
+    set_algorithm_version(paths, BELOW_THE_TAG)
+    below = load_vault(paths.root)
     assert not _reproduces_reserved(below, repository, payload)
 
 

@@ -11,8 +11,8 @@ prompt to this module's registry. The design is the serialization sweep of Nov 1
 
 The fixed inputs are written out here and never read from a template vault or the init template's text beyond
 its config, so a change elsewhere in the tests never moves a pin. Each pin calls the production function that
-computes the identity; where production builds the identity inline from production pieces (the router's boundary
-identity), the pin builds the same literal from the same pieces and says so.
+computes the identity; where production builds the identity inline (the router's boundary identity), the pin drives
+the production method that assembles it and captures the dictionary it hashes (C3b).
 
 Vault models keep unknown keys (``extra="allow"``), so a field removed from one stays in the dump of an input
 that set it explicitly: the fixed inputs leave several defaulted fields unset so a removal or a default change
@@ -818,8 +818,8 @@ def _objective_settings(config_name: str) -> Callable[[], Any]:
 
 
 def _boundary(config_name: str) -> dict[str, Any]:
-    """An objective block's boundary identity as ``ObjectiveChooser`` assembles it (``objective_chooser.py``,
-    ``identity = {...}`` in the objective-block path), from the production settings at a fixed state and support."""
+    """A hand-written boundary identity with the production settings at a fixed state and support: what ``C3.boundary``
+    holds ``numeric_seed`` and ``_hash`` to. It is not what the chooser assembles (``C3b`` pins that)."""
 
     from learnloop.daily_plan.objective_chooser import KEY_VERSION, objective_settings
     from learnloop.daily_plan.router_chooser import router_settings
@@ -832,6 +832,59 @@ def _boundary(config_name: str) -> dict[str, Any]:
         "staged": "blk_review", "as_of": "att_pin", "version": config.algorithms.algorithm_version,
         "settings": router_settings(config), "objective": objective_settings(config), "ready": ("decider", "llm"),
     }
+
+
+def _chooser_boundary() -> Any:
+    """The identity ``ObjectiveChooser.choose`` assembles for an objective block, captured as the chooser hashes it, on a
+    new vault at the head and two fixed candidates: so a field the chooser adds, drops or reorders (its own literal, a
+    candidate's ``log_row``, the settings it reads) moves the pin, which ``_boundary``'s hand-built dictionary cannot."""
+
+    import tempfile
+
+    from learnloop.daily_plan import objective_chooser as OC
+    from learnloop.daily_plan.router_runtime import DecisionPending
+    from learnloop.daily_plan.types import BlockCandidate, PlanState
+    from learnloop.vault.paths import VaultPaths
+    from learnloop.db.repositories import Repository
+    from learnloop.vault.loader import load_vault
+
+    from tests.helpers import create_basic_vault
+    from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
+
+    def candidate(candidate_id: str, lane: str, minutes: float, value: float) -> BlockCandidate:
+        return BlockCandidate(
+            candidate_id=candidate_id, lane=lane, action="maintain", subtype=None, learning_object_ids=("lo_pin",),
+            item_ids=(f"pi_{candidate_id}",), reading=None, est_minutes=minutes, planner_value=value, reason="pin",
+            annotations={"reason_code": "maintain", "reversible": True})
+
+    state = PlanState(plan_id="plan_pin", kind="normal", minutes_budget=25.0, minutes_left=20.0,
+                      lane_minutes_left={"maintain": 10.0, "new": 10.0}, days_since_last_activity=0, streak_days=1,
+                      current_block_id=None, items_left=4)
+    seen: list[dict[str, Any]] = []
+    real_hash = OC._hash
+
+    def recording(value: Any) -> str:
+        if isinstance(value, dict) and value.get("kind") == "objective_block":
+            seen.append(copy.deepcopy(value))
+        return real_hash(value)
+
+    with tempfile.TemporaryDirectory() as root:
+        paths = create_basic_vault(Path(root) / "vault")
+        vault = load_vault(paths.root)
+        repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+        runtime = fake_runtime(decider=FakeDecider(), llm=FakeLLM())
+        # start_only: the chooser assembles the identity, starts the boundary's job (stubbed) and leaves the decision open.
+        chooser = OC.ObjectiveChooser(vault, repository, runtime, start_only=True)
+        chooser._start_objective = lambda *args, **kwargs: None  # type: ignore[method-assign]
+        OC._hash = recording
+        try:
+            chooser.choose(state, [candidate("blk_a", "maintain", 5.0, 0.5), candidate("blk_b", "new", 6.0, 0.4)])
+        except DecisionPending:
+            pass
+        finally:
+            OC._hash = real_hash
+    identity = seen[-1]
+    return {"identity": identity, "key": real_hash(identity), "numeric_seed": OC.numeric_seed(identity)}
 
 
 def _numeric_seed(config_name: str) -> Callable[[], Any]:
@@ -1168,6 +1221,13 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "different draws at a fixed input (P-draw fails) and prefetched decisions miss",
         {**{f"router_settings.{name}": _router_settings(name) for name in CONFIGS},
          **{f"boundary.{name}": _numeric_seed(name) for name in CONFIGS}}),
+    IdentitySite(
+        "C3b", "the objective block's boundary identity as ObjectiveChooser.choose assembles it",
+        ("src/learnloop/daily_plan/objective_chooser.py::ObjectiveChooser.choose",
+         "src/learnloop/daily_plan/types.py::BlockCandidate.log_row"),
+        "the prefetch boundary key and the numeric policy's seed (a started job is looked up by it at the serve)",
+        "prefetched decisions miss and the numeric draws move at a fixed input",
+        {"chooser": _chooser_boundary}),
     IdentitySite(
         "C4", "objective settings and the follow-up switch snapshot (the kill-switch list D7 deletes)",
         ("src/learnloop/daily_plan/objective_chooser.py::objective_settings",

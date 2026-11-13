@@ -768,6 +768,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_tui_worked_answer_is_recorded_as_a_reveal_and_primes_the_retry`
 - [tests/test_stuck_prompt_composition.py](../../../../../../tests/test_stuck_prompt_composition.py) — direct import
 - [tests/test_stuck_prompt_replay.py](../../../../../../tests/test_stuck_prompt_replay.py) — direct import
+  - `test_an_attempt_an_older_tag_wrote_replays_with_no_stuck_declaration_at_the_head`
   - `test_historical_dont_know_rows_replay_unchanged_under_the_successor`
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
 - [tests/test_teacher_te1_lesson.py](../../../../../../tests/test_teacher_te1_lesson.py) — direct import

@@ -121,6 +121,7 @@ def _half_and_half(seed: str) -> LS.Target:
     return LS.Target("test", chosen, {"lesson:a": 0.5, "lesson:b": 0.5}, {})
 
 
+@pytest.mark.real_draws  # its subject is production's seed derivation: the default pin would measure the substituted seeds
 def test_logged_propensities_give_no_effect_when_targets_differ_and_the_card_does_nothing():
     """Two candidates drawn half and half, shown at 0.9 and 0.1; the outcome is 1 on A and 0 on B whatever
     the arm (no lesson effect). Inverse-propensity means of each arm over the drawn target's outcome, with

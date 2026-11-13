@@ -256,7 +256,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_index_is_derived_with_one_owner_and_its_shadow_tables_are_not_tables`
 - [tests/test_stuck_prompt_replay.py](../../../../../../tests/test_stuck_prompt_replay.py) — direct import
   - `test_a_stuck_vault_rebuilds_to_a_fixed_point_with_no_model_call`
-  - `test_historical_dont_know_rows_replay_unchanged_under_the_successor`
   - `test_the_kill_switch_never_changes_how_stuck_answers_replay`
 - [tests/test_table_review.py](../../../../../../tests/test_table_review.py) — direct import
   - `test_the_registry_parser_reads_this_trees_roles`

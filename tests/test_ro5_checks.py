@@ -44,6 +44,7 @@ def test_the_same_date_and_eligible_set_draw_the_same_and_r_is_exact():
     assert rated.r == pytest.approx({"a": 0.5, "b": 0.5, "c": 0.5, "z": 0.0})
 
 
+@pytest.mark.real_draws  # its subject is production's day seed: the default pin would measure the substituted seeds
 def test_the_draw_is_uniform_over_topics_across_dates():
     eligible = {lo: [f"{lo}1"] for lo in "abcd"}
     counts = {lo: 0 for lo in "abcd"}

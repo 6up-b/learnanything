@@ -113,6 +113,7 @@ def test_mixture_mode_draws_the_target_by_the_routers_model_mixture(tmp_path, sh
     assert row["propensity"] == pytest.approx(detail["pi_drawn"] * detail["p_show_drawn"])
 
 
+@pytest.mark.real_draws  # its subject is production's seed derivation: the default pin would measure the substituted seeds
 def test_the_mixture_floor_draws_a_non_staged_target_with_its_exact_propensity():
     a = LS.ScoredCandidate(LS.Candidate("lesson:a", ("a",), "new_goal", 0.2), 0.9, 0.8, math.log(0.72))
     b = LS.ScoredCandidate(LS.Candidate("lesson:b", ("b",), "new_goal", 0.5), 0.6, 0.5, math.log(0.30))

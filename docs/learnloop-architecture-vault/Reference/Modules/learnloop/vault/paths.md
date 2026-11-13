@@ -229,6 +229,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/facet_identity_helpers.py](../../../../../../tests/facet_identity_helpers.py) — direct import
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
 - [tests/hypothesis_marks_context_helpers.py](../../../../../../tests/hypothesis_marks_context_helpers.py) — direct import
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/intent_fakes.py](../../../../../../tests/intent_fakes.py) — direct import
 - [tests/mcp_world.py](../../../../../../tests/mcp_world.py) — direct import
 - [tests/plan_first_transport_offer_grants_helpers.py](../../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import

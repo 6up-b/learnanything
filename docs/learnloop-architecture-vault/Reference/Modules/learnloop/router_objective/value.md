@@ -208,6 +208,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_followup_decision_values_the_unwritten_probe_with_the_probe_interface`
   - `test_the_journey_on_a_real_miss_lesson_then_not_now_then_the_question`
   - `test_the_offers_declined_branch_is_the_followup_not_the_tail`
+- [tests/test_objective_refinement.py](../../../../../../tests/test_objective_refinement.py) — direct import
 - [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
   - `test_f5_mid_block_alternatives_are_ordered_sequences_of_their_own_blocks`
   - `test_f8_a_reading_candidate_starts_from_ads_dose_position`

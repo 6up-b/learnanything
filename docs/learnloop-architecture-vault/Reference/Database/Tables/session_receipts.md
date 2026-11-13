@@ -122,6 +122,7 @@ None found by exact static reference scan.
 
 - `tests/router_objective_migration_helpers.py`
 - `tests/test_mobile_v2_landing_fixes.py`
+- `tests/test_mobile_v2_objective_stop.py`
 - `tests/test_mobile_v2_rereview_fixes.py`
 - `tests/test_mobile_v3_carried.py`
 - `tests/test_ro0_gate.py`

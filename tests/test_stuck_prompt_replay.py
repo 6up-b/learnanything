@@ -14,7 +14,7 @@ import pytest
 from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.ai import transport as transport_module
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.attempts.stuck import stuck_answers
+from learnloop.attempts.stuck import stuck_answers, stuck_prompt_active
 from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
@@ -24,6 +24,7 @@ from learnloop.field.signals import load_interaction_signals
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
 
+from tests.helpers import set_algorithm_version
 from tests.split_live_helpers import at, drain_jobs, split_vault
 from tests.stuck_prompt_helpers import StuckFake, _draft, _grade
 
@@ -53,6 +54,27 @@ def _field(vault, repository):
         signals = load_interaction_signals(connection, vault, rows)
         stuck = stuck_answers(connection)
     return rows, signals, stuck
+
+
+def _engagement_factors(repository: Repository, attempt_ids) -> dict[str, list[float]]:
+    """The coverage trace's response-engagement factor each attempt's debug payload recorded (1.0 for an empty answer sent
+    with "I'm stuck", 0.5 for an accidental blank): what replay re-derives from the stored declaration."""
+
+    def found(node):
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == "response_engagement_factor":
+                    yield value
+                else:
+                    yield from found(value)
+        elif isinstance(node, list):
+            for value in node:
+                yield from found(value)
+
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        rows = connection.execute("SELECT attempt_id, payload_json FROM attempt_debug_payloads").fetchall()
+    return {row["attempt_id"]: sorted(found(json.loads(row["payload_json"]))) for row in rows
+            if row["attempt_id"] in attempt_ids}
 
 
 def test_a_stuck_vault_rebuilds_to_a_fixed_point_with_no_model_call(tmp_path, monkeypatch):
@@ -119,11 +141,11 @@ def test_the_kill_switch_never_changes_how_stuck_answers_replay(tmp_path):
 
 
 def test_historical_dont_know_rows_replay_unchanged_under_the_successor(tmp_path):
-    """A vault with dont_know history rebuilds identically at mvp-0.12 and at
-    mvp-0.13 (only the version stamp differs), and the learner field reads the
-    dont_know rows at the configured mass under both."""
+    """A vault whose dont_know history an older tag (mvp-0.12) recorded keeps its attempt rows through a rebuild at the head,
+    reads them as the ordinary dont_know attempts they were (no stuck declaration), and the learner field gives them
+    the configured mass under both tags."""
 
-    paths, vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
+    paths, vault, repository = split_vault(tmp_path, version=BEFORE_STUCK_PROMPT)
     for offset, item in ((20, "pi_svd_compute_001"), (21, "pi_transpose_001")):
         complete_self_graded_attempt(
             vault,
@@ -132,24 +154,23 @@ def test_historical_dont_know_rows_replay_unchanged_under_the_successor(tmp_path
             SelfGradeInput(criterion_points={}, confidence=3),
             clock=FrozenClock(at(offset)),
         )
-    tables = {*tables_for_role(TableRole.DERIVED), *REWRITTEN}
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
-    previous = _snapshot(repository, tables)
     previous_rows = {row.attempt_id: row for row in _field(vault, repository)[0]}
     with connect(repository.sqlite_path, read_only=True) as connection:
         attempts_before = [tuple(row) for row in connection.execute("SELECT * FROM practice_attempts ORDER BY id")]
 
+    set_algorithm_version(paths, LATEST_ALGORITHM_VERSION)
     vault = load_vault(paths.root)
+    assert vault.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
-    successor = _snapshot(repository, tables, version_alias=("mvp-0.13", "mvp-0.12"))
-    assert successor == previous
     with connect(repository.sqlite_path, read_only=True) as connection:
         assert [tuple(row) for row in connection.execute("SELECT * FROM practice_attempts ORDER BY id")] == attempts_before
         dont_know_ids = [
             row[0] for row in connection.execute("SELECT id FROM practice_attempts WHERE attempt_type = 'dont_know'")
         ]
+        assert connection.execute("SELECT COUNT(*) FROM practice_attempts WHERE declared_stuck = 1").fetchone()[0] == 0
     successor_rows = {row.attempt_id: row for row in _field(vault, repository)[0]}
     assert len(dont_know_ids) == 2
     for attempt_id in dont_know_ids:
@@ -158,6 +179,70 @@ def test_historical_dont_know_rows_replay_unchanged_under_the_successor(tmp_path
     assert previous_rows[dont_know_ids[0]].effective_mass == pytest.approx(0.7) or previous_rows[
         dont_know_ids[1]
     ].effective_mass == pytest.approx(0.7)
+
+
+#: A tag before the successor: it does not offer "I'm stuck" (``STUCK_PROMPT_VERSIONS``), whatever the switch says.
+BEFORE_STUCK_PROMPT = "mvp-0.12"
+
+
+def test_a_recorded_stuck_answer_replays_as_stuck_under_a_tag_that_does_not_offer_the_prompt(tmp_path):
+    """Replay reconstructs the stored declaration (``declared_stuck`` on the ledger row); today's tag and switch decide only
+    whether a NEW stuck answer is accepted, so a vault that moves to a tag without the prompt keeps its stuck history."""
+
+    paths, vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
+    confused = StuckFake(
+        reading={"attempts_answer": False, "describes_confusion": True, "confusion_quote": "where Sigma comes from"}
+    )
+    _grade(vault, repository, confused, _draft("I can't see where Sigma comes from"), when=20)
+    _grade(vault, repository, StuckFake(), _draft("", item_id="pi_svd_compute_002"), when=21)
+    drain_jobs(vault, repository, confused, clock=FrozenClock(at(22)))
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        stuck_ids = {row[0] for row in connection.execute("SELECT id FROM practice_attempts WHERE declared_stuck = 1")}
+    live_rows, _signals, live_stuck = _field(vault, repository)
+    live_stuck_rows = {row.attempt_id: row for row in live_rows if row.attempt_id in stuck_ids}
+    assert len(stuck_ids) == 2 and len(live_stuck) == 2 and len(live_stuck_rows) == 2
+    live_factors = _engagement_factors(repository, stuck_ids)
+    assert any(factors == [1.0] for factors in live_factors.values())  # the empty stuck answer counts as engaged
+
+    set_algorithm_version(paths, BEFORE_STUCK_PROMPT)
+    older = load_vault(paths.root)
+    assert not stuck_prompt_active(older)
+    rebuild_all_derived_state(older, repository, clock=CLOCK)
+    rebuild_all_derived_state(older, repository, clock=CLOCK)
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        assert {row[0] for row in connection.execute("SELECT id FROM practice_attempts WHERE declared_stuck = 1")} == stuck_ids
+    rows, _signals, stuck = _field(older, repository)
+    assert stuck == live_stuck
+    assert {row.attempt_id: row for row in rows if row.attempt_id in stuck_ids} == live_stuck_rows
+    # The derived trace is what reads the declaration back: an empty stuck answer stays engaged, not a blank.
+    assert _engagement_factors(repository, stuck_ids) == live_factors
+
+
+def test_an_attempt_an_older_tag_wrote_replays_with_no_stuck_declaration_at_the_head(tmp_path):
+    """Rows written before the prompt existed carry ``declared_stuck = 0``; replay at the head, where the prompt is
+    offered, keeps them ordinary attempts (it reads the stored flag, never infers one from the empty answer)."""
+
+    paths, vault, repository = split_vault(tmp_path, version=BEFORE_STUCK_PROMPT)
+    for offset, item in ((20, "pi_svd_compute_001"), (21, "pi_transpose_001")):
+        complete_self_graded_attempt(
+            vault,
+            repository,
+            AttemptDraft(practice_item_id=item, learner_answer_md="", attempt_type="independent_attempt"),
+            SelfGradeInput(criterion_points={}, confidence=3),
+            clock=FrozenClock(at(offset)),
+        )
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        before = [tuple(row) for row in connection.execute("SELECT * FROM practice_attempts ORDER BY id")]
+    assert len(before) >= 2
+
+    set_algorithm_version(paths, LATEST_ALGORITHM_VERSION)
+    head = load_vault(paths.root)
+    assert stuck_prompt_active(head)
+    rebuild_all_derived_state(head, repository, clock=CLOCK)
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        assert [tuple(row) for row in connection.execute("SELECT * FROM practice_attempts ORDER BY id")] == before
+        assert connection.execute("SELECT COUNT(*) FROM practice_attempts WHERE declared_stuck = 1").fetchone()[0] == 0
+    assert _field(head, repository)[2] == []
 
 
 def test_a_joint_stuck_reading_survives_rebuild_with_no_model_call(tmp_path, monkeypatch):

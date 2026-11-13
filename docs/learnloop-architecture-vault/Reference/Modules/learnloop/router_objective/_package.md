@@ -109,7 +109,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/router_objective/tail_serve|learnloop.router_objective.tail_serve]] | [[Reference/Modules/learnloop/router_objective/tail_serve#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
 | [[Reference/Modules/learnloop/router_objective/trace|learnloop.router_objective.trace]] | [[Reference/Modules/learnloop/router_objective/trace#^module-purpose|purpose]] | `ACTIVE` | 5 | 4 |
 | [[Reference/Modules/learnloop/router_objective/trajectory|learnloop.router_objective.trajectory]] | [[Reference/Modules/learnloop/router_objective/trajectory#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/router_objective/value|learnloop.router_objective.value]] | [[Reference/Modules/learnloop/router_objective/value#^module-purpose|purpose]] | `ACTIVE` | 2 | 24 |
+| [[Reference/Modules/learnloop/router_objective/value|learnloop.router_objective.value]] | [[Reference/Modules/learnloop/router_objective/value#^module-purpose|purpose]] | `ACTIVE` | 2 | 25 |
 | [[Reference/Modules/learnloop/router_objective/weight|learnloop.router_objective.weight]] | [[Reference/Modules/learnloop/router_objective/weight#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 
 ## Cross-package dependencies
