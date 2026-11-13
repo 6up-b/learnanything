@@ -119,8 +119,6 @@ learnloop.ops.maintenance_feed -> learnloop.content.sources.source_outcome_analy
 learnloop.ops.maintenance_feed -> learnloop.curriculum.graph_edit_proposals
 learnloop.ops.maintenance_feed -> learnloop.diagnosis.diagnostic_surface_supply
 learnloop.ops.startup -> learnloop.attempts.clarification
-learnloop.ops.vault_upgrade -> learnloop.params.parameter_registry
-learnloop.ops.vault_upgrade -> learnloop.substrate.p0_projection
 learnloop.params.sensitivity_certificates -> learnloop.sim.sweep
 learnloop.reader.reader_authoring -> learnloop.attempts.salience_firewall
 learnloop.reader.reader_authoring -> learnloop.substrate.activities
