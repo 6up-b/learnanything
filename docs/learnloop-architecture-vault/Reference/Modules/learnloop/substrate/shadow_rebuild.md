@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/shadow_rebuild.py](../../../../../../src/learnloop/substrate/shadow_rebuild.py) |
-| Source lines | 497 |
+| Source lines | 513 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,8 +61,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `class ShadowRebuildResult` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 57) — Candidate replay result, semantic deltas, and live-isolation proof.
   - `live_database_unchanged(self) -> bool` (line 80; public)
   - `as_dict(self) -> dict[str, Any]` (line 83; public)
-- `build_candidate_config(config: LearnLoopConfig, assignments: Sequence[str]=(), *, vault_root: Path | None=None) -> tuple[LearnLoopConfig, dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 189) — Return a validated config with repeated dotted assignments applied.
-- `shadow_rebuild(vault: LoadedVault, *, assignments: Sequence[str]=(), observe: Callable[[LoadedVault, Repository], Any] | None=None) -> ShadowRebuildResult` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 255) — Replay all history on a scratch DB and compare learner projections.
+- `build_candidate_config(config: LearnLoopConfig, assignments: Sequence[str]=(), *, vault_root: Path | None=None) -> tuple[LearnLoopConfig, dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 205) — Return a validated config with repeated dotted assignments applied.
+- `shadow_rebuild(vault: LoadedVault, *, assignments: Sequence[str]=(), observe: Callable[[LoadedVault, Repository], Any] | None=None) -> ShadowRebuildResult` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 271) — Replay all history on a scratch DB and compare learner projections.
 
 ### Module constants
 
@@ -82,14 +82,14 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 ## Internal implementation anchors
 
 - `class _ProjectionSpec` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 100)
-- `_observed(observe: Callable[[LoadedVault, Repository], Any], vault: LoadedVault, repository: Repository, side: str) -> Any` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 335)
-- `_parse_override_value(raw_value: str) -> Any` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 347)
-- `_sha256_database(path: Path) -> str` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 354) — Digest of the main database file followed by its ``-wal``.
-- `_backup_database(source: Repository, destination: Repository) -> None` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 375) — Make a transactionally consistent copy using the requested attach APIs.
-- `_learner_state_snapshot(repository: Repository) -> dict[str, dict[tuple[Any, ...], dict[str, Any]]]` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 383)
-- `_semantic_diff(before: Mapping[str, Mapping[tuple[Any, ...], Mapping[str, Any]]], after: Mapping[str, Mapping[tuple[Any, ...], Mapping[str, Any]]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 409)
-- `_key_fields_for_projection(projection: str) -> frozenset[str]` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 462)
-- `_numeric_delta(before: Mapping[str, Any] | None, after: Mapping[str, Any] | None) -> dict[str, int | float]` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 469)
+- `_observed(observe: Callable[[LoadedVault, Repository], Any], vault: LoadedVault, repository: Repository, side: str) -> Any` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 351)
+- `_parse_override_value(raw_value: str) -> Any` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 363)
+- `_sha256_database(path: Path) -> str` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 370) — Digest of the main database file followed by its ``-wal``.
+- `_backup_database(source: Repository, destination: Repository) -> None` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 391) — Make a transactionally consistent copy using the requested attach APIs.
+- `_learner_state_snapshot(repository: Repository) -> dict[str, dict[tuple[Any, ...], dict[str, Any]]]` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 399)
+- `_semantic_diff(before: Mapping[str, Mapping[tuple[Any, ...], Mapping[str, Any]]], after: Mapping[str, Mapping[tuple[Any, ...], Mapping[str, Any]]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 425)
+- `_key_fields_for_projection(projection: str) -> frozenset[str]` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 478)
+- `_numeric_delta(before: Mapping[str, Any] | None, after: Mapping[str, Any] | None) -> dict[str, int | float]` ([source](../../../../../../src/learnloop/substrate/shadow_rebuild.py), line 485)
 
 ## Who imports or calls it
 
