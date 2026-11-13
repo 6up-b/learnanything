@@ -550,3 +550,46 @@ Problems only; nothing here proposes a screen. Desktop paths are under `apps/lea
 | F10U5 | medium | The same figure is presented by four hosts with different copy, poll rates and cancel rules; the badges are the desktop's own vocabulary, not the server's label. | §8.1; §3.1 |
 | F10U6 | medium | No figure reaches the phone, including figures the learner made for the passage being read there. | §8.3 |
 | F10U7 | low | A figure can vanish from the list (unparseable spec, withheld pick) without a line. | `figures/service.py:3231-3232`, `:3538-3540` |
+
+## 9. The vault notes for figures and videos
+
+The vault (`docs/learnloop-architecture-vault/`) was swept by a delegated read; the verdicts below were spot-checked at the lines named.
+
+**Missing (the Nov 8 map's finding stands).** No Concept, Workflow, Architecture, Map or Example note explains figures or explanation videos as a feature: the tiers and how one is chosen, verification and what "checked" means, code-owned labels, the source check, the pre-build model, admission and spend, the rich job and its sandbox, protection's rechecks, or the attempt-host rules. `Home.md` and the Maps don't mention them. The Architecture Overview's layer table has no `figures` (or `teacher`) entry (`Architecture/Architecture Overview.md:66-73`).
+
+**True.** The debugging notes are current for what they cover: `Workflows/Debug a decision.md:31` (a failed figure and a pre-build are `why` targets), `:84-86` (the pre-build rules and, from mvp-0.58, `wait_estimate_by_tier`; checked against `figures/records.py:182-186` and `figures/prefetch_model.py:505-507`); `Workflows/Inspect Persistent State.md:180-192` (the `figure` subject and the shared cap's `spend_admission`); `Architecture/Desktop Architecture.md:118` (`llmedia://` with Range for video seeking; `apps/learnloop-tauri/src-tauri/src/main.rs:109`); ADR-017's figure rows (kinds, subject, detail table, the open rich-attempt item at `:166`, `:169`).
+
+**Stale.**
+- `Architecture/AI Architecture.md:53` lists the routes as "grading, canonical ingest (and retry), authoring, tutor QA, teach-back, rung variants, animation, and transcription"; `figure_author`, `figure_rich_author` and `figure_prefetch_judge` (`figures/routes.py:70`, `figures/rich.py:79`, `figures/prefetch.py:127`) are among those it leaves out.
+- ADR-017's example `decided_by` value `prefetch_eu_v1` (`Decisions/ADR-017 One decision record, one trace id, one entry point.md:61`) doesn't exist; a `figure_prebuild` record's `decided_by` is the model version, `prefetch_decision_v1` or `v2` (`figures/records.py:194`, `figures/prefetch_model.py:81-84`).
+
+**Generated reference.** `Reference/Modules/learnloop/figures/` has a note for each of the 25 modules, the init and the package (27 files), plus notes for `figure_admission`, `figure_wait_upgrade`, `teacher/visuals`, `reader/phone_media`, the sidecar handler and both stores; the table notes exist for every figure table; the desktop notes cover `screens/reader/figures/` and `sketch/`. They describe each file, not the feature.
+
+### Findings
+
+| Id | Severity | Finding | Evidence |
+|---|---|---|---|
+| F10V1 | high | No note explains figures or videos: a contributor's only map is `service.py`'s stage-history docstring and the review files. | above; `figures/service.py:1-142` |
+| F10V2 | low | The AI architecture note's route list and ADR-017's `prefetch_eu_v1` example are stale. | `Architecture/AI Architecture.md:53`; ADR-017 `:61` |
+
+## Possible bugs found (for the ledger)
+
+The rules ask for a row in `docs/reviews/refactor-bug-ledger.md` per bug found; this step's brief limits its output to this document, so the candidates are listed here for the orchestrator to file (as K9 did).
+
+| Candidate | Where | What |
+|---|---|---|
+| K10-1 | `learnloop_sidecar/handlers/figures.py:708-716`, `:254-275`; `learnloop_sidecar/handlers/library_ask.py:205-214` | `reader.figure_job_cancel` only marks the in-memory job: the build thread goes on, both author calls may be paid, and the stored figure lists on the next read. Traced, not run. |
+| K10-2 | `apps/learnloop-tauri/src/screens/reader/figures/useFigures.ts:323-340`; `learnloop_sidecar/handlers/figures.py:184-185` | A figure withheld at delivery returns `withheld: true`, which the Reader never reads: the pending line vanishes with no explanation. Learner-visible. |
+| K10-3 | `content/pipeline/jobs.py:5067-5086` | A rich job's enqueue writes no `job_enqueued` record (only `db/stores/{diagnoses,followup_serve,learner_gaps}.py` and `diagnosis/chain_records.py` call `record_job_enqueued`), so per strategy §3.3 the worker can't continue the press's trace. Not traced inside the ingest runner; may be covered another way. |
+| K10-4 | `Decisions/ADR-017 …md:61`; `Architecture/AI Architecture.md:53` | Two stale doc lines (F10V2). |
+| K10-5 | `figures/labels.py:84`; `apps/learnloop-tauri/src/screens/reader/figures/FigureInline.tsx:32`, `:595` | The not-from-books badge says different things on the server and the desktop, and the desktop branches on the server's English label. The DTO comment (`api/dto.ts:9487`) says the desktop draws its own badge on purpose; whether the server's copy should match is the owner's or the UX audit's. |
+
+## Not verified
+
+- **Nothing was run** except the AST sweep (`sweep_k10.py`, K9's script scoped to figures), a `grep`-count script (`cnt.sh`), a name-use script over `service.py` (`fs_names.txt`) and read-only `git log`/`git show`. The import graph is static; string imports were not searched beyond grep for module paths. The per-module database, clock and filesystem counts in §5 are a grep heuristic (`connect(`, `repository.`, `.execute(`; `time.*`, `datetime.now`, `utc_now`, `SystemClock`; `open(`, `read_text`, `Path(`, `subprocess`, `__file__`), read only where cited.
+- **The `service.py` caller map (§1.2)** comes from a regex over `FS.<name>` and `from …service import`; docstring mentions can count as uses (for example `prefetch_ledger.py` for `build_figure`), so "no caller" is the reliable direction.
+- **Delegated and spot-checked:** the desktop survey (checked: `useFigures.ts:18-28`, `:315-346`, `:331`, `:500`; `FigureInline.tsx:30-37`, `:125-133`, `:182`, `:255-262`, `:569`, `:595-596`, `:600-603`, `:625`, `:640-646`; `askFigures.tsx:33`, `:50-54`, `:64-69`, `:81-83`, `:98-105`, `:128-135`; `RichFigure.tsx:36-65`, `:67-72`, `:207-213`; `SketchFigure.tsx:81-84`; `AskRail.tsx:143`; `LessonScreen.tsx:519-522`, `:556`; `AskOverlay.tsx:308-311`, `:1295-1297`; `AnimationPlayer.tsx:54`; `src-tauri/src/main.rs:109`, `:211`; `api/dto.ts:9487-9488`, `:9705-9712`). Not checked: the sketch compartment and frame guard (`sketchCompartment.ts`, `frame_guard.rs`), `ConceptAnimationSection.tsx`, `TutorOffers.tsx`, `LibraryAnswer.tsx`, `HintPanel.tsx`, the poll's lifetime logic (`useFigures.ts:247-271`) and the Rust `llmedia` Range code beyond its entry point.
+- **Delegated change-cost unions (§7.2)** are the sweep's; I re-counted only the single commits in §7.1 and the co-edit table. Its stage grep is by subject tag, so a stage's union may include or miss commits (my own grep for "P4b" finds 15 commits where the sweep counted 9).
+- **Delegated vault sweep:** checked `Architecture/AI Architecture.md:53`, `Architecture/Architecture Overview.md:66-73`, ADR-017 `:61`, `:166-169`, `Workflows/Debug a decision.md:31`, `:84-86`, `Architecture/Desktop Architecture.md:118` and the module-note listing; not the table and desktop note contents.
+- **Not traced:** the lesson turn's own waiting UI (§2.3 step 5); the ingest runner's lease and heartbeat code for `figure_rich` beyond `enqueue_figure_rich` and `handle_figure_rich`; `pf_sandbox`'s isolation; whether TeX inside the render sandbox works on this machine (the mounts are read; nothing was run); the grounding retrieval's own calls and records; `sketch.py`, `elements.py`, `book_math.py`, `katex_tree.py`, `labels.py` beyond the lines cited; `learner_state.py` beyond its signatures; the prediction path beyond `record_prediction`'s head.
+- **No data:** no vault or backup was opened, so how often builds are refused, withheld at delivery, cancelled, or fail per tier, and how many legacy `verified` rows exist, are unmeasured.
