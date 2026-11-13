@@ -51,7 +51,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/remote/__init__|learnloop.remote]] | [[Reference/Modules/learnloop/remote/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/remote/endpoint_token|learnloop.remote.endpoint_token]] | [[Reference/Modules/learnloop/remote/endpoint_token#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/remote/errors|learnloop.remote.errors]] | [[Reference/Modules/learnloop/remote/errors#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
-| [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]] | [[Reference/Modules/learnloop/remote/runtime#^module-purpose|purpose]] | `ACTIVE` | 1 | 12 |
+| [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]] | [[Reference/Modules/learnloop/remote/runtime#^module-purpose|purpose]] | `ACTIVE` | 1 | 13 |
 | [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]] | [[Reference/Modules/learnloop/remote/sources#^module-purpose|purpose]] | `ACTIVE` | 0 | 1 |
 | [[Reference/Modules/learnloop/remote/telemetry|learnloop.remote.telemetry]] | [[Reference/Modules/learnloop/remote/telemetry#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/remote/views|learnloop.remote.views]] | [[Reference/Modules/learnloop/remote/views#^module-purpose|purpose]] | `ACTIVE` | 0 | 2 |

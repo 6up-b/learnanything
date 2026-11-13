@@ -234,6 +234,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_intent_fix_round4.py](../../../../../../tests/test_intent_fix_round4.py) — direct import
 - [tests/test_intent_orchestrator_rulings.py](../../../../../../tests/test_intent_orchestrator_rulings.py) — direct import
 - [tests/test_intent_rpc.py](../../../../../../tests/test_intent_rpc.py) — direct import
+- [tests/test_k1_unreadable_adapters.py](../../../../../../tests/test_k1_unreadable_adapters.py) — direct import
 - [tests/test_keep_local_retired.py](../../../../../../tests/test_keep_local_retired.py) — direct import
 - [tests/test_learner_pick_proposal.py](../../../../../../tests/test_learner_pick_proposal.py) — direct import
 - [tests/test_lp_claim_fixes_review.py](../../../../../../tests/test_lp_claim_fixes_review.py) — direct import
