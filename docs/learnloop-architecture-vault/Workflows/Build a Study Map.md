@@ -52,12 +52,13 @@ Review selected units, revision pins, roles, and readiness flags. Fix source mem
 ```bash
 uv run learnloop synthesize "$SET_ID" \
   --mode auto \
-  --ai-provider codex \
   --json \
   --vault "$VAULT"
 ```
 
-Without `--apply`, the result remains a proposal. `--mode auto` chooses `bootstrap` when no study map/facets have been applied and `append` when the subject already has one. Append mode limits regeneration to the affected neighborhood. An append sends as new only the set's units that no kept synthesis of it has sent (a completed run whose proposal was not wholly rejected, read from the runs' manifests): a wholly new member whole, a partly sent one narrowed to its unsent units. If nothing is new it sends nothing and says so; `--new-revision <id>` sends the named revisions whole instead.
+The model comes from the `canonical_ingest` route in `[ai.routing]` (the ChatGPT plan's `chatgpt_medium` profile by default); `--ai-provider <profile>` picks another profile for this run (see [[Configure AI Providers]]).
+
+Without `--apply`, the result remains a proposal. The CLI's `--mode auto` chooses `append` when the vault already has evidence facets (in any subject) and `bootstrap` otherwise; the desktop's builds (a collection's build batch, and a bootstrap job queued with `auto`) decide per subject: `append` once a learning object is scoped to the source set's subject (`subject_has_applied_study_map`). An append sends the existing map only as the bounded neighbourhood around its new material (capped by `append_neighborhood_input_tokens`), and refuses before paying a request over `append_input_ceiling`. An append sends as new only the set's units that no kept synthesis of it has sent (a completed run whose proposal was not wholly rejected, read from the runs' manifests): a wholly new member whole, a partly sent one narrowed to its unsent units. If nothing is new it sends nothing and says so; `--new-revision <id>` sends the named revisions whole instead.
 
 The response identifies the proposal/run, item counts, reuse state, gate diagnostics, and identifiability generation needs. Inspect pending proposals:
 
@@ -68,10 +69,13 @@ uv run learnloop proposals --json --vault "$VAULT"
 > [!important] Gate invariant
 > A candidate is applied only after referential, source-grounding, rubric, dependency, and identifiability gates accept it. Model output is a proposal; validators own acceptance.
 
-### One tail, two modes
+### One head, one tail, two modes
 
-Bootstrap and append differ in what they read and ask (their heads: the whole scope's inventories in shards, or the new inventories with a bounded neighbourhood) and share everything after the answer: `finish_synthesis_run` in `content/synthesis/source_set_synthesis.py`. It plans facet identity, normalizes, runs the synthesis gates and the instrument gates, compares the rows with the set's earlier proposals (an equal waiting proposal is the result; an equal wholly rejected one is paid for again, once), persists, finalizes the run rows, applies, and writes epigraphs. What the two modes decide differently is one record with a row each, `SynthesisMode` (`BOOTSTRAP`, and `APPEND` in `source_append.py`):
+Both modes open their run in one function, `open_synthesis_run` in `content/synthesis/source_set_synthesis.py`: it finds the source set, resolves the brief (with the learner's declared level), reads the set's inputs, lets the mode decide its scope, then persists the manifest that records all of it and opens the agent run and the synthesis run. An unknown source set (and, for bootstrap, a mode other than `auto` or `bootstrap`) is refused before anything is written. The mode's scope step is its own: bootstrap records the brief's scope and reads every scope unit; an append selects its new inventories and the neighbourhood around them, whose record (with each entity's match reasons, names tried in sorted order) the manifest keeps and whose context the request reads.
 
+Bootstrap and append differ in what they ask (the whole scope's inventories in shards, or the new inventories with the neighbourhood) and share everything after the answer: `finish_synthesis_run`, beside the head. It plans facet identity, normalizes, runs the synthesis gates and the instrument gates, compares the rows with the set's earlier proposals (an equal waiting proposal is the result; an equal wholly rejected one is paid for again, once), persists, finalizes the run rows, applies, and writes epigraphs. What the two modes decide differently is one record with a row each, `SynthesisMode` (`BOOTSTRAP`, and `APPEND` in `source_append.py`):
+
+- the agent run's purpose, prompt template, output schema and prompt version, the mode the synthesis run records, and which budgets the manifest's `token_budget` names;
 - the append's normalizer adds its own item kinds (provenance links, notation mappings, conflicts, restructures) and the client ids §10.3 auto-applies; the gates judge the append vocabulary;
 - bootstrap keeps its candidate on the run for the zero-call repair below; append has none;
 - what is applied: bootstrap the whole proposal (and the exam goal) when asked; append its routine links, then the study-map diff and the facet doctor;
