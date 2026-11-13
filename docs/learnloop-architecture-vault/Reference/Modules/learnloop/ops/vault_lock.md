@@ -66,6 +66,7 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
 
 ## Dependencies
@@ -85,7 +86,7 @@ Use this module in context through:
 
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]].
+Static participation evidence comes from [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]], [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

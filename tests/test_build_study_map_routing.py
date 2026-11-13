@@ -151,6 +151,10 @@ def test_existing_map_routes_to_append_over_new_members_only(tmp_path: Path, mon
         "learnloop.content.synthesis.source_append.subject_has_applied_study_map",
         lambda vault, subject_id: True,
     )
+    # rev_a is the member the map was built from: a kept synthesis sent its unit (the seam stands in for that run).
+    monkeypatch.setattr(
+        "learnloop.content.synthesis.source_append.units_not_yet_sent", lambda root, source_set_id: ([], {})
+    )
     jobs = _RecordingJobs()
     result = build_study_map_rpc(_ctx(root, repo, jobs), BuildStudyMapInput(source_set_id="set_x"))
 

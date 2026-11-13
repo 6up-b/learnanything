@@ -720,7 +720,7 @@ def prepare_unit_inventory(
             # The binding carries the request its answer was paid under, or it
             # would fall back to the label match; a row from before keeps none.
             asked = (candidate.get("usage") or {}).get(INVENTORY_ROW_KEY_FIELD)
-            repo.insert_unit_inventory(
+            bound_id = repo.insert_unit_inventory(
                 id=binding_id,
                 source_revision_id=revision_id,
                 extraction_id=extraction_id,
@@ -739,18 +739,17 @@ def prepare_unit_inventory(
                 reused_from_inventory_id=str(candidate["id"]),
                 clock=clock,
             )
-            # The table has one binding per semantic identity within a revision.
-            # Rebinding a repaired extraction therefore updates that existing row
-            # through its UNIQUE key and retains its id; a genuinely new revision
-            # inserts the fresh binding id. A reuse never marks exam protection
-            # on the reading it is bound to: the held-out signal ledger keeps
-            # each signal on the reading its model run read (exam protection
-            # by extraction identity, final verify F2).
-            inventory_id = (
-                str(candidate["id"])
-                if str(candidate.get("source_revision_id") or "") == revision_id
-                else binding_id
-            )
+            # Rebinding a repaired extraction of the same revision keeps naming the
+            # candidate; a new revision names the row that now holds its key (the
+            # insert keeps an existing row's id, so the id it was offered may not
+            # be stored). A reuse never marks exam protection on the reading it is
+            # bound to: the held-out signal ledger keeps each signal on the
+            # reading its model run read (exam protection by extraction identity,
+            # final verify F2).
+            if str(candidate.get("source_revision_id") or "") == revision_id:
+                inventory_id = str(candidate["id"])
+            else:
+                inventory_id = bound_id
         return InventoryResult(
             inventory=reusable,
             inventory_id=inventory_id,
@@ -948,9 +947,8 @@ def persist_prepared_inventory(
 ) -> InventoryResult:
     """Persist fresh provider output on the runner thread."""
 
-    inventory_id = f"inv_{new_ulid()}"
-    repo.insert_unit_inventory(
-        id=inventory_id,
+    inventory_id = repo.insert_unit_inventory(
+        id=f"inv_{new_ulid()}",
         source_revision_id=prepared.revision_id,
         extraction_id=prepared.extraction_id,
         unit_id=prepared.unit_id,

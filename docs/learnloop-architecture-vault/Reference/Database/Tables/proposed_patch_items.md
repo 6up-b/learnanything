@@ -160,6 +160,7 @@ Indexes and uniqueness:
 
 - `tests/test_ad23_owner_decisions.py`
 - `tests/test_ad_epoch.py`
+- `tests/test_apply_recovery.py`
 - `tests/test_patch_applier.py`
 - `tests/test_ux_phase2_error_type_proposals.py`
 - `tests/apply_write_ahead_helpers.py`
@@ -168,7 +169,6 @@ Indexes and uniqueness:
 - `tests/facet_rewords_helpers.py`
 - `tests/patch_applier_helpers.py`
 - `tests/test_agent_runs.py`
-- `tests/test_apply_recovery.py`
 - `tests/test_apply_write_ahead.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_cli_generate_practice.py`

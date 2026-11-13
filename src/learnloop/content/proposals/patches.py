@@ -79,6 +79,27 @@ def refuse_while_an_apply_is_outstanding(repository: Repository, *, action: str)
         raise OutstandingApplyIntentError(outstanding, action=action)
 
 
+def refuse_while_an_apply_names_items(
+    repository: Repository, patch_id: str, item_ids: list[str] | None, *, action: str
+) -> None:
+    """Raise :class:`OutstandingApplyIntentError` when an outstanding intent
+    names any of ``item_ids`` (every item of ``patch_id`` when ``None``).
+
+    A pending item an intent names is applied by recovery from the intent's
+    frozen plan, so changing the item underneath it (edit, validation refresh)
+    would leave the inbox showing something other than what was written.
+    """
+
+    named = [
+        intent
+        for intent in repository.outstanding_apply_intents()
+        if intent["proposed_patch_id"] == patch_id
+        and (item_ids is None or set(item_ids) & set(intent["item_ids"]))
+    ]
+    if named:
+        raise OutstandingApplyIntentError(named, action=action)
+
+
 @dataclass(frozen=True)
 class CompiledPatch:
     proposal_item_id: str

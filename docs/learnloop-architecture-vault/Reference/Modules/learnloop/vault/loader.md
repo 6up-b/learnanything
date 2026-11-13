@@ -597,6 +597,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_crash_between_two_renames_is_completed_at_the_next_sidecar_bind`
   - `test_doctor_and_the_feed_surface_a_conflicted_intent`
   - `test_keep_files_sets_the_intent_aside_and_accepts_open_again`
+  - `test_only_the_files_the_items_change_become_targets`
 - [tests/test_apply_write_ahead.py](../../../../../../tests/test_apply_write_ahead.py) — direct import
   - `test_apply_writes_entity_source_links_and_marks_intent_applied`
   - `test_crash_between_intent_and_rename_recovers`

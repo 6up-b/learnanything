@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/proposals.py](../../../../../../src/learnloop_sidecar/handlers/proposals.py) |
-| Source lines | 378 |
+| Source lines | 382 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -64,10 +64,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `reset_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 299) — Undo a rejection (never-applied items back to pending), then refresh.
 - `class EditProposalItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 310)
 - `edit_proposal_item(ctx: SidecarContext, params: EditProposalItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 317) — Replace a pending proposal item's payload with edited JSON, then refresh.
-- `class RefreshProposalItemValidationInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 342)
-- `refresh_proposal_item_validation(ctx: SidecarContext, params: RefreshProposalItemValidationInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 348) — Re-run validation for the stored pending proposal payload, then refresh.
-- `class DeleteProposalItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 359)
-- `delete_proposal_item(ctx: SidecarContext, params: DeleteProposalItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 365) — Permanently remove a proposal item (reverting it first if applied), then refresh.
+- `class RefreshProposalItemValidationInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 344)
+- `refresh_proposal_item_validation(ctx: SidecarContext, params: RefreshProposalItemValidationInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 350) — Re-run validation for the stored pending proposal payload, then refresh.
+- `class DeleteProposalItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 363)
+- `delete_proposal_item(ctx: SidecarContext, params: DeleteProposalItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 369) — Permanently remove a proposal item (reverting it first if applied), then refresh.
 
 ### Module constants
 

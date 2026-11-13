@@ -105,7 +105,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `APPEND_INPUT_OVER_CEILING`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `APPEND_INPUT_OVER_CEILING`, `append_source`, `subject_has_applied_study_map`; statically calls `append_source`, `subject_has_applied_study_map`
 - [[Reference/Modules/learnloop/content/pipeline/revision_refresh|learnloop.content.pipeline.revision_refresh]] — imports `append_source`; statically calls `append_source`
-- [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `append_source`, `subject_has_applied_study_map`; statically calls `append_source`, `subject_has_applied_study_map`
+- [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `append_source`, `subject_has_applied_study_map`, `units_not_yet_sent`; statically calls `append_source`, `subject_has_applied_study_map`, `units_not_yet_sent`
 
 ## Dependencies
 
@@ -163,6 +163,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_cli_append_units.py](../../../../../../../tests/test_cli_append_units.py) — direct import
   - `test_a_partly_sent_member_sends_only_its_new_units`
   - `test_a_wholly_rejected_append_leaves_its_units_new`
+- [tests/test_collection_append_units.py](../../../../../../../tests/test_collection_append_units.py) — direct import
+  - `test_an_inventoried_unit_a_kept_synthesis_sent_is_not_sent_again`
 - [tests/test_facet_authority.py](../../../../../../../tests/test_facet_authority.py) — direct import
   - `test_a_provenance_link_to_an_unselected_unit_is_dropped`
   - `test_a_reword_citing_a_span_outside_its_unit_drops_the_citation`
