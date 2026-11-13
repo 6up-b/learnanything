@@ -534,3 +534,33 @@ def test_s6_with_the_switch_off_the_timeline_is_the_predecessors(tmp_path, kind)
     )
 
     assert _demonstrated_and_banked(off_vault, off_repository) == _demonstrated_and_banked(old_vault, old_repository)
+
+
+def test_s5_an_attempt_records_the_fixes_only_when_derived_with_them(tmp_path):
+    from learnloop.learner.facet_state_reader import DERIVED_WITH_BELIEF_FIXES_KEY
+
+    from tests.helpers import set_algorithm_version
+
+    def payload_keys(paths):
+        vault = load_vault(paths.root)
+        repository = Repository(paths.sqlite_path)
+        sync_vault_state(vault, repository, clock=FrozenClock(NOW))
+        result = complete_self_graded_attempt(
+            vault, repository,
+            AttemptDraft(BASIC_ITEM, "SVD factors a matrix as U Sigma V transpose."),
+            SelfGradeInput(criterion_points={"correctness": 4}, confidence=5),
+            clock=FrozenClock(NOW),
+        )
+        return repository.attempt_debug_payload(result.attempt_id)
+
+    on = payload_keys(create_basic_vault(tmp_path / "on"))
+    off_paths = create_basic_vault(tmp_path / "off")
+    set_config_switch(off_paths.root, SWITCH, False)
+    off = payload_keys(off_paths)
+    old_paths = create_basic_vault(tmp_path / "old")
+    set_algorithm_version(old_paths, "mvp-0.58")
+    old = payload_keys(old_paths)
+
+    assert on[DERIVED_WITH_BELIEF_FIXES_KEY] is True
+    assert DERIVED_WITH_BELIEF_FIXES_KEY not in off
+    assert sorted(off) == sorted(old)  # off, the payload is the predecessor's but for its tag

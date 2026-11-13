@@ -48,6 +48,11 @@ from learnloop.learner.assessment_contracts import (
     CANONICAL_STATE_VERSIONS,
 )
 from learnloop.learner.calibration import difficulty_miscalibration_flags
+from learnloop.learner.facet_state_reader import (
+    DERIVED_WITH_BELIEF_FIXES_KEY,
+    FACET_BELIEF_CORRECTION_VERSIONS,
+    facet_belief_corrections_on,
+)
 from learnloop.substrate.instrument_serving import (
     UNSERVABLE_REMEDIES,
     unservable_reason,
@@ -1632,12 +1637,6 @@ def _check_facet_belief_attempts(vault: LoadedVault, repository: Repository, iss
     turned off and on again agrees with that record while the answers given in between were derived without the
     fixes (no uncertainty update, the predecessor's belief readings), so the next answer resumes from a stale
     posterior. Each attempt's payload says whether it was derived with them; a rebuild rewrites every payload."""
-
-    from learnloop.learner.facet_state_reader import (
-        DERIVED_WITH_BELIEF_FIXES_KEY,
-        FACET_BELIEF_CORRECTION_VERSIONS,
-        facet_belief_corrections_on,
-    )
 
     version = vault.config.algorithms.algorithm_version
     if version not in FACET_BELIEF_CORRECTION_VERSIONS:
