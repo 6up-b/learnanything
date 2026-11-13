@@ -185,6 +185,26 @@ the two modes' small call functions, and four kept booleans with their documenta
 8. **Unused imports** after the move were removed with `ruff check --select F401 --fix` on the two files; every other
    edit was a short script replacing one exact block (asserted to occur once) or the Edit tool.
 
+## Ledger
+
+- **K2-11, K2-12, K2-15:** stay open (arc K's close); each row now names its `SynthesisMode` field and the golden that
+  moves when it is flipped.
+- **K2-17** (new): the append declares no budgets on its receipts; kept as `declares_its_budgets`, open.
+- No bug fixed here; no other row changed.
+
+## Gates
+
+- **Targeted tests.** `scripts/affected_tests.py --base cb8bcb9a7f` chose 324 files; with the rules block's list and
+  the files this step edits, 327, run at `30d1a16b56` (the last source commit; later commits are docs) with
+  `-m "not arc_close"` in 4 chunks of up to 87 at `-n 4` under the 5 GB cap behind the full-suite lock: 6,369 passed,
+  26 skipped, 0 failed.
+- **Goldens:** 25 pass under `PYTHONHASHSEED` 0-7 and `-n 4`.
+- **Identity pins:** unmoved. **Structure ratchets:** no number moved.
+- **Lint:** `lint-imports --no-cache` 42 kept; `ruff check` clean.
+- **Vault validators:** all four pass. **Gate partition:** 30,833 collected (landing 30,773 + arc_close 60).
+- **Regeneration:** after the source commits (`69740955c6`); a second run changed nothing.
+- **Not run:** the full suite and the durability lane (the orchestrator's landing gate).
+
 ## Part B: splitting an oversized append (design only, not built)
 
 Today an append whose request is over `append_input_ceiling` (84,000 by default) is refused before anything is paid
