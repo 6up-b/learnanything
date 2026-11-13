@@ -199,3 +199,8 @@ All under the empty-home wrapper in 5 GB scopes.
 - The desktop's feedback screen with the `contract` source after a regrade (no GUI); the `trigger_regrade` response was checked through the sidecar in tests only.
 - P-shadow covers the owner copies' histories, which are small and hold no regrade written before contracts; the replay of such rows at the floor was checked on the tracked `mvp-0.17` fixture and on rows built by the tests' helpers, not on a real owner history.
 - The constructed old rows (§3) were checked against the base writers for the scenarios the tests use, not for every shape an older tag could write (a clarified or partial regrade's `(1, 3)` supersession is built by the same helper with its tiers, and was not compared against the base writer).
+
+## Added at landing (orchestrator)
+
+Main gained `tests/test_stuck_prompt_replay.py`'s restored cross-version tests (phase 1 review, T4) after this step branched. One asserted that the tag `mvp-0.12` turns the stuck prompt off; with site A-stuck's tag half gone, only `stuck_prompt.enabled` does. The test now sets the older tag and the switch off (`test_a_recorded_stuck_answer_replays_as_stuck_under_an_older_tag_with_the_prompt_off`), keeps every other assertion, and still fails when replay takes `declared_stuck=False` instead of the stored flag (checked, reverted). This step's ledger rows are D-31 and D-32: main's D-30 is another row.
+
