@@ -10,6 +10,7 @@ from learnloop.clock import FrozenClock
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import write_yaml
+from tests.helpers import allow_below_floor
 
 
 NOW = datetime(2026, 5, 19, 12, 0, tzinfo=UTC)
@@ -72,6 +73,7 @@ def build_sim_vault(root: Path) -> Path:
                 _cfg.read_text(encoding="utf-8"), count=1),
         encoding="utf-8",
     )
+    allow_below_floor(root)
     add_subject(root, "algebra", "Algebra", clock=clock)
     vault = load_vault(root)
     paths = VaultPaths(vault.root, vault.config)

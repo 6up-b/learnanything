@@ -21,6 +21,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import write_yaml
 
+from tests.helpers import allow_below_floor
 from tests.simulation_helpers import NOW_ISO, PLANTED_FACET, build_sim_vault
 
 TEACH_ITEM_ID = "pi_teach_move_terms"
@@ -254,6 +255,8 @@ def test_default_sweep_spec_includes_teach_back_knobs() -> None:
 
 
 def test_sweep_runs_with_teach_back_knobs(teach_vault: Path, tmp_path: Path) -> None:
+    # The module's sim vault is at mvp-0.7, and the sweep opens copies of it: register again in this test.
+    allow_below_floor(teach_vault)
     report = run_sweep(
         teach_vault,
         _profile(),
