@@ -2221,8 +2221,8 @@ def _create_study_map(
         client=client, brief=brief, requested_mode=mode, clock=clock, budget_overrides=budget_overrides,
         unlimited_token_budget=unlimited_token_budget, embedding_client_factory=embedding_client_factory,
         facet_identity_client=facet_identity_client, progress=progress,
-        decide_scope=lambda brief, _inputs, _budgets, nominator: RunScope(bootstrap_scope(
-            vault, brief, nominator=nominator, facet_identity_client=facet_identity_client,
+        decide_scope=lambda resolved_brief, _inputs, _budgets, nominator: RunScope(bootstrap_scope(
+            vault, resolved_brief, nominator=nominator, facet_identity_client=facet_identity_client,
         )),
     )
     manifest_hash = run.manifest["manifest_hash"]

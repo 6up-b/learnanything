@@ -530,7 +530,6 @@ def _append(
         manifest_hash=run.manifest["manifest_hash"], synthesis_run_id=run.synthesis_run_id,
         proposal_id=outcome.proposal_id, reused=outcome.reused, nothing_new=outcome.nothing_new,
         item_counts=_count_items(outcome.normalized.rows), gate_diagnostics=outcome.gate_diagnostics,
-        # The neighbourhood as its manifest records it (match reasons and entity hashes, not its context).
         neighborhood=run.manifest["scope"]["neighborhood"], span_request_count=outcome.answer.span_request_count,
         facet_identity=outcome.facet_identity, **outcome.applied,
     )
