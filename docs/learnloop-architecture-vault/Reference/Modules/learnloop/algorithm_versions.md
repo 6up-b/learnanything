@@ -300,6 +300,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad23_fakes.py](../../../../../tests/ad23_fakes.py) — direct import
+- [tests/ad_fakes.py](../../../../../tests/ad_fakes.py) — direct import
 - [tests/batch3_landing_helpers.py](../../../../../tests/batch3_landing_helpers.py) — direct import
 - [tests/canonical_facet_helpers.py](../../../../../tests/canonical_facet_helpers.py) — direct import
 - [tests/cold_retry_reschedule_helpers.py](../../../../../tests/cold_retry_reschedule_helpers.py) — direct import
@@ -323,10 +325,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/reader_followups_helpers.py](../../../../../tests/reader_followups_helpers.py) — direct import
 - [tests/reader_rw3a_landing_helpers.py](../../../../../tests/reader_rw3a_landing_helpers.py) — direct import
 - [tests/rebuild_equivalence_helpers.py](../../../../../tests/rebuild_equivalence_helpers.py) — direct import
+- [tests/recurrence_benchmarks_helpers.py](../../../../../tests/recurrence_benchmarks_helpers.py) — direct import
 - [tests/regrade_contract_successor_helpers.py](../../../../../tests/regrade_contract_successor_helpers.py) — direct import
 - [tests/regrade_contract_upgrade_helpers.py](../../../../../tests/regrade_contract_upgrade_helpers.py) — direct import
 - [tests/required_method_grading_helpers.py](../../../../../tests/required_method_grading_helpers.py) — direct import
-- [tests/required_method_round3_review_helpers.py](../../../../../tests/required_method_round3_review_helpers.py) — direct import
 - [tests/ro5_calibration_helpers.py](../../../../../tests/ro5_calibration_helpers.py) — direct import
 - [tests/ro5_checks_helpers.py](../../../../../tests/ro5_checks_helpers.py) — direct import
 - [tests/rospeed_join_helpers.py](../../../../../tests/rospeed_join_helpers.py) — direct import
@@ -339,6 +341,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/teacher_te2_probes_helpers.py](../../../../../tests/teacher_te2_probes_helpers.py) — direct import
 - [tests/test_ad23_successor.py](../../../../../tests/test_ad23_successor.py) — direct import
   - `test_the_successor_is_the_next_link`
+- [tests/test_ad2_serving.py](../../../../../tests/test_ad2_serving.py) — direct import
+  - `test_generation_prompt_has_no_band_language_under_successor`
+  - `test_selection_switch_off_restores_lane_order`
 - [tests/test_ad_denial_log.py](../../../../../tests/test_ad_denial_log.py) — direct import
 - [tests/test_ai_config.py](../../../../../tests/test_ai_config.py) — direct import
   - `test_default_config_contains_ai_codex_profile`
@@ -371,6 +376,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_chain_is_rw6b_then_c1`
 - [tests/test_curriculum_c1_plan_follows_path.py](../../../../../tests/test_curriculum_c1_plan_follows_path.py) — direct import
   - `test_the_successor_is_one_constant_after_rw6bs_followups`
+- [tests/test_daily_plan_composition.py](../../../../../tests/test_daily_plan_composition.py) — direct import
+  - `test_a_check_miss_awaiting_its_diagnosis_stays_assumed_and_is_not_rechecked`
 - [tests/test_data_capture_a1_prefilter.py](../../../../../tests/test_data_capture_a1_prefilter.py) — direct import
 - [tests/test_data_capture_a2_measurement.py](../../../../../tests/test_data_capture_a2_measurement.py) — direct import
 - [tests/test_data_capture_a5_not_ready_floor.py](../../../../../tests/test_data_capture_a5_not_ready_floor.py) — direct import
@@ -389,6 +396,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name`
   - `test_the_successor_is_one_constant_after_the_figure_wait_estimate_and_the_latest`
 - [tests/test_facet_state_write_on_change.py](../../../../../tests/test_facet_state_write_on_change.py) — direct import
+- [tests/test_field_split_outcomes.py](../../../../../tests/test_field_split_outcomes.py) — direct import
+  - `test_blind_grades_diagnoses_and_regrades_keep_the_epoch_contract`
 - [tests/test_field_workbench_signals.py](../../../../../tests/test_field_workbench_signals.py) — direct import
   - `test_the_successor_vocabulary_is_one_constant_after_its_predecessor`
 - [tests/test_figure_wait_estimate.py](../../../../../tests/test_figure_wait_estimate.py) — direct import
@@ -397,15 +406,26 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figure_wait_successor.py](../../../../../tests/test_figure_wait_successor.py) — direct import
   - `test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name`
   - `test_the_successor_is_one_constant_after_slip_or_gap_and_the_latest`
+- [tests/test_followup_codex_review.py](../../../../../tests/test_followup_codex_review.py) — direct import
+  - `test_f6_a_crash_after_the_diagnosis_ended_is_recovered_by_next`
+  - `test_f6_startup_recovery_needs_no_click`
+- [tests/test_followup_reserved_only.py](../../../../../tests/test_followup_reserved_only.py) — direct import
+  - `test_the_mint_and_batch_paths_refuse_a_reserved_question_at_the_tag_only`
 - [tests/test_followup_successor.py](../../../../../tests/test_followup_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_data_capture`
-- [tests/test_followups_batch5_recap_dependencies.py](../../../../../tests/test_followups_batch5_recap_dependencies.py) — direct import
 - [tests/test_forecast_receipts.py](../../../../../tests/test_forecast_receipts.py) — direct import
   - `test_a_regrade_re_resolves_the_forecast`
 - [tests/test_forecast_receipts_landing.py](../../../../../tests/test_forecast_receipts_landing.py) — direct import
   - `test_the_resolver_reads_the_regraded_events_the_lineage_names_never_a_retired_one`
+- [tests/test_held_grade_composition.py](../../../../../tests/test_held_grade_composition.py) — direct import
+  - `test_a_diagnosis_of_a_held_attempt_is_never_read_as_a_wrong_answer`
+  - `test_a_held_attempt_queues_no_gap_reading_as_a_failure`
+  - `test_an_empty_stuck_answer_never_reaches_the_grader`
+  - `test_placement_and_the_field_read_a_held_attempt_as_unassessed`
 - [tests/test_help_fold_attach_successor.py](../../../../../tests/test_help_fold_attach_successor.py) — direct import
   - `test_mvp042_is_one_constant_after_mvp041_and_the_latest`
+- [tests/test_hypothesis_marks.py](../../../../../tests/test_hypothesis_marks.py) — direct import
+  - `test_with_no_causes_on_the_attempt_the_bundle_has_no_key`
 - [tests/test_ih3_learner_preferences.py](../../../../../tests/test_ih3_learner_preferences.py) — direct import
 - [tests/test_ih4_preferences_inform_router.py](../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
 - [tests/test_ih5_successor.py](../../../../../tests/test_ih5_successor.py) — direct import
@@ -414,6 +434,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ih6_workbench_open_item.py](../../../../../tests/test_ih6_workbench_open_item.py) — direct import
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
 - [tests/test_ih_lesson_candidate_after_cold_miss.py](../../../../../tests/test_ih_lesson_candidate_after_cold_miss.py) — direct import
+- [tests/test_instruct_handoff_ih1.py](../../../../../tests/test_instruct_handoff_ih1.py) — direct import
+  - `test_no_new_draw_joins_an_open_item`
 - [tests/test_intent_codex_rereview.py](../../../../../tests/test_intent_codex_rereview.py) — direct import
   - `test_f2_the_chain_ends_at_the_intent_successor`
   - `test_f2_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest`
@@ -426,6 +448,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_intent_plan.py](../../../../../tests/test_intent_plan.py) — direct import
 - [tests/test_km2b_consumer_rekey.py](../../../../../tests/test_km2b_consumer_rekey.py) — direct import
   - `test_every_canonical_version_refuses_legacy_facet_state_write`
+- [tests/test_learner_protection_predicates.py](../../../../../tests/test_learner_protection_predicates.py) — direct import
 - [tests/test_learner_report_superseded.py](../../../../../tests/test_learner_report_superseded.py) — direct import
   - `test_a_bare_upgrade_targets_the_latest_through_mvp036`
   - `test_the_tag_is_one_constant_after_mvp035_and_the_latest`
@@ -485,10 +508,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_new_vaults_start_at_the_mixture_successor`
   - `test_the_mixture_successor_follows_the_staged_frame_and_keeps_every_predecessor`
   - `test_upgrade_command_defaults_to_the_latest`
+- [tests/test_observation_ledger_bulk.py](../../../../../tests/test_observation_ledger_bulk.py) — direct import
+  - `test_p0_replays_bulk_load_calibration_references_once`
 - [tests/test_pfc_unverified_unassessed.py](../../../../../tests/test_pfc_unverified_unassessed.py) — direct import
+- [tests/test_placement_diagnosis_decides.py](../../../../../tests/test_placement_diagnosis_decides.py) — direct import
 - [tests/test_placement_fixture_copies.py](../../../../../tests/test_placement_fixture_copies.py) — direct import
   - `test_no_lo_answered_without_a_due_time_leaves_the_queue_at_the_latest_tag`
   - `test_the_hole_stays_at_the_old_tag_and_with_the_switch_off`
+- [tests/test_placement_split_grades.py](../../../../../tests/test_placement_split_grades.py) — direct import
 - [tests/test_placement_unevidenced_return.py](../../../../../tests/test_placement_unevidenced_return.py) — direct import
   - `test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name`
   - `test_the_successor_is_one_constant_after_its_predecessor_and_the_latest`
@@ -506,6 +533,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_landing_iii_upgrade_to_mvp037_archives_the_denial_log_exactly_once`
 - [tests/test_reader_ca2_one_ask.py](../../../../../tests/test_reader_ca2_one_ask.py) — direct import
   - `test_the_successor_is_one_constant_after_rebuild_equivalence`
+- [tests/test_reader_cues.py](../../../../../tests/test_reader_cues.py) — direct import
+  - `test_a_split_cue_names_the_diagnosers_statement_as_the_rail_does`
 - [tests/test_reader_digest_narrative.py](../../../../../tests/test_reader_digest_narrative.py) — direct import
   - `test_below_the_follow_ups_successor_the_summary_row_says_so`
 - [tests/test_reader_followups_successor.py](../../../../../tests/test_reader_followups_successor.py) — direct import
@@ -529,10 +558,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rebuild_equivalence_review.py](../../../../../tests/test_rebuild_equivalence_review.py) — direct import
   - `test_the_successor_is_one_constant_after_its_predecessor`
   - `test_upgrade_from_the_predecessor_rebuilds_to_live_and_through_the_chain`
+- [tests/test_recurrence_benchmarks.py](../../../../../tests/test_recurrence_benchmarks.py) — direct import
+  - `test_b3_replays_the_vaults_labelled_pairs`
 - [tests/test_recurrence_commands.py](../../../../../tests/test_recurrence_commands.py) — direct import
   - `test_successor_vocabulary`
   - `test_the_upgrade_command_defaults_to_the_latest`
   - `test_the_upgrade_command_prints_the_advisory_guard_status`
+- [tests/test_recurrence_merge_composition.py](../../../../../tests/test_recurrence_merge_composition.py) — direct import
 - [tests/test_reference_gate_imports.py](../../../../../tests/test_reference_gate_imports.py) — direct import
   - `test_a_regrade_after_the_tag_binds_an_attempt_recorded_before_it`
   - `test_a_shadow_rebuild_at_the_tag_shows_zero_deltas`
@@ -547,11 +579,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_regrade_contract_upgrade.py](../../../../../tests/test_regrade_contract_upgrade.py) — direct import
   - `test_upgrade_command_reaches_the_successor`
 - [tests/test_required_method_authority.py](../../../../../tests/test_required_method_authority.py) — direct import
+  - `test_a_live_answer_its_regrade_and_replay_are_graded_under_the_frozen_field`
 - [tests/test_required_method_grading.py](../../../../../tests/test_required_method_grading.py) — direct import
   - `test_the_method_explicit_successor_is_the_latest_after_the_route_rules`
-- [tests/test_required_method_reopened.py](../../../../../tests/test_required_method_reopened.py) — direct import
-- [tests/test_required_method_rereview.py](../../../../../tests/test_required_method_rereview.py) — direct import
-- [tests/test_required_method_round3.py](../../../../../tests/test_required_method_round3.py) — direct import
 - [tests/test_ro0_codex_review.py](../../../../../tests/test_ro0_codex_review.py) — direct import
   - `test_f3_a_list_that_served_no_head_still_decides_nothing_and_reads_no_ad`
   - `test_f3_a_served_offer_keeps_its_candidates_ad_numbers`
@@ -581,8 +611,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro4_successor.py](../../../../../tests/test_ro4_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_ro1_and_the_latest`
 - [tests/test_ro4_trace_report.py](../../../../../tests/test_ro4_trace_report.py) — direct import
+  - `test_the_cli_prints_a_decisions_trace_and_the_report`
+  - `test_the_first_day_report_against_the_predecessor_on_a_synthetic_vault`
+  - `test_the_why_surface_offers_the_trace_in_plain_words`
 - [tests/test_ro5_calibration.py](../../../../../tests/test_ro5_calibration.py) — direct import
   - `test_below_the_tag_the_cli_report_has_no_calibration_section`
+- [tests/test_ro5_codex_review.py](../../../../../tests/test_ro5_codex_review.py) — direct import
+  - `test_f5_the_check_arm_off_restores_ro4s_weight_after_scores_accumulated`
 - [tests/test_ro5_landing.py](../../../../../tests/test_ro5_landing.py) — direct import
   - `test_r5_1_below_the_tag_and_with_the_objective_off_fg1s_gate_is_unchanged`
   - `test_r5_2_the_objective_report_prints_w_and_its_posterior`
@@ -646,6 +681,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_staged_frame_keeps_refusals_through_the_projection`
 - [tests/test_router_g4_restraint.py](../../../../../tests/test_router_g4_restraint.py) — direct import
   - `test_a_follow_up_joins_the_current_block_today_and_waits_with_a_decider_near_zero`
+- [tests/test_router_offer_log.py](../../../../../tests/test_router_offer_log.py) — direct import
+  - `test_placement_components_and_exclusions_are_in_the_candidate_set`
 - [tests/test_router_r2a_landing.py](../../../../../tests/test_router_r2a_landing.py) — direct import
 - [tests/test_router_r2a_serving.py](../../../../../tests/test_router_r2a_serving.py) — direct import
 - [tests/test_router_r2b_serving.py](../../../../../tests/test_router_r2b_serving.py) — direct import
@@ -663,8 +700,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sg_successor.py](../../../../../tests/test_sg_successor.py) — direct import
   - `test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name`
   - `test_the_successor_is_one_constant_after_the_placement_hole_and_the_latest`
+- [tests/test_sidecar_close_cancels_jobs.py](../../../../../tests/test_sidecar_close_cancels_jobs.py) — direct import
 - [tests/test_source_first_needs.py](../../../../../tests/test_source_first_needs.py) — direct import
   - `test_below_the_tag_and_with_the_switch_off_nothing_runs`
+- [tests/test_stuck_prompt_replay.py](../../../../../tests/test_stuck_prompt_replay.py) — direct import
+  - `test_a_joint_stuck_reading_survives_rebuild_with_no_model_call`
+  - `test_a_stuck_vault_rebuilds_to_a_fixed_point_with_no_model_call`
+  - `test_historical_dont_know_rows_replay_unchanged_under_the_successor`
+  - `test_the_kill_switch_never_changes_how_stuck_answers_replay`
 - [tests/test_te3a_lesson_opportunity.py](../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
 - [tests/test_te3a_successor.py](../../../../../tests/test_te3a_successor.py) — direct import
   - `test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name`
@@ -681,7 +724,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teach_back.py](../../../../../tests/test_teach_back.py) — direct import
 - [tests/test_teacher_exam_question_guard.py](../../../../../tests/test_teacher_exam_question_guard.py) — direct import
   - `test_a_logged_field_quoting_a_reserved_stem_is_withheld_by_location`
-- [tests/test_teacher_te1_curriculum_c4.py](../../../../../tests/test_teacher_te1_curriculum_c4.py) — direct import
 - [tests/test_teacher_te1_successor.py](../../../../../tests/test_teacher_te1_successor.py) — direct import
   - `test_a_bare_upgrade_goes_through_mvp041_along_the_chain`
   - `test_the_tag_is_the_chains_last_link_after_curriculum_c1`
@@ -694,11 +736,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_ordinary_practice_regrade_already_carries_the_newer_calibration`
   - `test_fg1s_presentation_path_stamps_the_submissions_identity_and_its_regrade_the_replacements`
 - [tests/test_teacher_te2_lessons.py](../../../../../tests/test_teacher_te2_lessons.py) — direct import
+- [tests/test_teacher_te2_review_fixes.py](../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
+  - `test_f5_a_metered_typed_goal_resolver_is_sent_nothing`
 - [tests/test_teacher_te2_sidecar.py](../../../../../tests/test_teacher_te2_sidecar.py) — direct import
   - `test_below_the_tag_the_goal_rpc_refuses_and_the_config_carries_no_te2_key`
 - [tests/test_teacher_te2_successor.py](../../../../../tests/test_teacher_te2_successor.py) — direct import
   - `test_the_cli_upgrade_reaches_the_tag_by_default`
   - `test_the_successor_is_one_constant_after_the_router_followups_and_the_latest`
+- [tests/test_tier1_decider.py](../../../../../tests/test_tier1_decider.py) — direct import
+  - `test_text_gap_kind_authority`
+  - `test_text_gap_kind_is_reused_never_paid_for_twice`
+  - `test_the_learner_text_gaps_decider_switch_still_keeps_learner_text_from_the_decider`
 - [tests/test_ux_phase1_round2_rereview.py](../../../../../tests/test_ux_phase1_round2_rereview.py) — direct import
   - `test_f2_every_plan_version_serves_the_reading_step_behind_its_kill_switch`
 - [tests/test_ux_phase4_landing.py](../../../../../tests/test_ux_phase4_landing.py) — direct import

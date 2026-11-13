@@ -120,6 +120,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad23_contract.py`
 - `tests/test_facet_belief_successor.py`
 - `tests/test_migrations.py`
 - `tests/test_rebuild_orchestrator.py`
