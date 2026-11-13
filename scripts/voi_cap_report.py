@@ -1,9 +1,9 @@
 """How often the four former count caps bound, and what value of information does instead.
 
 Run on a backup-API copy of a vault (``learnloop.db.copies.copy_tree_with_databases``)
-under ``fixtures-local/``; the script refuses any other path. It upgrades the
-copy to the value-of-information successor if it is below it (through the
-chain), then reports, per site:
+under ``fixtures-local/``; the script refuses any other path. Every vault this
+code opens is past the value-of-information successor (mvp-0.21). It reports,
+per site:
 
 * **history**: how often the former cap bound in the copy's recorded sessions
   (qualifying probe observations per session past
@@ -38,33 +38,6 @@ def _refuse_unless_copy(root: Path) -> None:
     resolved = root.resolve()
     if "fixtures-local" not in resolved.parts:
         sys.exit(f"refusing {resolved}: run this on a backup-API copy under fixtures-local/")
-
-
-def _upgrade(root: Path) -> list[str]:
-    from learnloop.algorithm_versions import (
-        P0_ALGORITHM_VERSION,
-        REVEAL_LEDGER_ALGORITHM_VERSION,
-        VOI_STOPPING_ALGORITHM_VERSION,
-    )
-    from learnloop.ops.vault_upgrade import upgrade_to_mvp09
-    from learnloop.vault.loader import load_vault
-    from learnloop.voi_stopping_upgrade import upgrade_to_mvp021
-
-    steps: list[str] = []
-    version = load_vault(root).config.algorithms.algorithm_version
-    if version == P0_ALGORITHM_VERSION:
-        result = upgrade_to_mvp09(root)
-        if not result.upgraded:
-            sys.exit(f"mvp-0.9 step refused: {result.problems}")
-        steps.append(f"{result.from_version} -> {result.to_version}")
-        version = REVEAL_LEDGER_ALGORITHM_VERSION
-    if version != VOI_STOPPING_ALGORITHM_VERSION:
-        result = upgrade_to_mvp021(root)
-        if not result.upgraded:
-            sys.exit(f"upgrade refused: {result.problems}")
-        steps.append(f"{result.from_version} -> {result.to_version}")
-        steps.extend(f"note: {note}" for note in result.notes)
-    return steps
 
 
 def _history(vault: Any, repository: Any) -> dict[str, Any]:
@@ -357,7 +330,6 @@ def main(argv: list[str] | None = None) -> int:
     from learnloop.vault.loader import load_vault
     from learnloop.vault.paths import VaultPaths
 
-    steps = _upgrade(root)
     vault = load_vault(root)
     repository = open_vault_repository(vault.root, VaultPaths(vault.root, vault.config).sqlite_path)
     history = _history(vault, repository)
@@ -376,7 +348,6 @@ def main(argv: list[str] | None = None) -> int:
     report = {
         "vault": str(root),
         "algorithm_version": vault.config.algorithms.algorithm_version,
-        "upgrade": steps,
         "history": history,
         "today": today,
     }

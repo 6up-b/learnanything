@@ -6,7 +6,7 @@ Two write paths, both new to the codebase (config was previously read-only):
   per-vault ``learnloop.toml`` via tomlkit (needle replacement can't target
   repeated keys like ``model =`` across provider tables, and can't create
   absent tables). Atomic write-temp + replace, mirroring
-  ``learnloop.ops.vault_upgrade._rewrite_algorithm_version``.
+  ``learnloop.ops.upgrades.rewrite_algorithm_version``.
 - ``upsert_env_var`` — targeted ``KEY=value`` edits to a dotenv-style file
   (the machine-global ``settings.env``); secrets never land in the committed
   ``learnloop.toml``. Every other line is preserved byte-for-byte.

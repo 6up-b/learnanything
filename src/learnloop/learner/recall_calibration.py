@@ -13,7 +13,7 @@ from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_s
 from learnloop.learner.facet_state_reader import facet_recall_state_for_lo
 from learnloop.diagnosis.followups import FollowupDecision, evaluate_intervention_followup
 from learnloop.substrate.state_sync import sync_vault_state
-from learnloop.ops.vault_upgrade import LEGACY_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LEGACY_ALGORITHM_VERSION
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.writer import upsert_concept, upsert_learning_object, upsert_practice_item

@@ -7,6 +7,10 @@ import upward.  Domain modules re-export them for compatibility.
 
 from __future__ import annotations
 
+# The legacy model's tag, before the knowledge model: what a vault whose config predates the key is. The
+# recall-calibration harness still builds its scratch vault there (refactor bug ledger D-24).
+LEGACY_ALGORITHM_VERSION = "mvp-0.6"
+
 # Activation gate: the snapshot path only runs on vaults upgraded to the new
 # knowledge model. Legacy vaults never compute or read snapshots.
 KM_ALGORITHM_VERSION = "mvp-0.7"

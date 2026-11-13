@@ -120,23 +120,12 @@ def _root(vault: Path | None) -> Path:
     return root
 
 def _complete_interrupted_activation(vault_root: Path) -> None:
-    """Complete an activation a dead upgrade left journalled (LP-min (a) re-review F2; mvp-0.34 to mvp-0.42 too).
+    """Complete an activation a dead upgrade left journalled.
 
     Installed for every CLI command (``learnloop.activation_journal``), so
     each command's opener completes it before the command reads the vault."""
 
-    # The chain's latest upgrade completes its own journal and hands an
-    # earlier link's to that link (rebuild equivalence's landing; Reader CA2's
-    # mvp-0.35 at the batch landing; the kept replaced claims' mvp-0.36;
-    # mobile PR-4's mvp-0.37; the cold-retry reschedule's mvp-0.38; Reader
-    # RW6b's mvp-0.39; curriculum C1's mvp-0.40; teacher TE1's mvp-0.41; follow-ups Nov 2's mvp-0.42;
-    # teacher TE1b's mvp-0.43; data capture's mvp-0.44; FG1's mvp-0.45; router objective RO1's mvp-0.46;
-    # router objective RO4's mvp-0.47; router objective RO5's mvp-0.48; router objective RO6's mvp-0.49;
-    # the router objective's follow-up batch's mvp-0.50; teacher TE2's mvp-0.51; teacher TE3a's lesson
-    # opportunity, mvp-0.52; teacher TE3b's lesson offers, mvp-0.53; phone V3's probes on the phone, mvp-0.54; instruct hand-off IH5's
-    # failure share, mvp-0.55; the placement hole's unevidenced return, mvp-0.56; slip or gap, mvp-0.57; the figure
-    # wait estimate, mvp-0.58; the facet-belief fixes, mvp-0.59).
-    from learnloop.facet_belief_upgrade import complete_interrupted_activation
+    from learnloop.ops.upgrades import complete_interrupted_activation
 
     complete_interrupted_activation(vault_root)
 
