@@ -2211,100 +2211,31 @@ def _create_study_map(
     facet_identity_client: Any = None,
     apply_gate: Callable[[], bool] | None = None,
 ) -> StudyMapResult:
-    """The bootstrap's head opens the run: the resolved brief, every scope unit's inventory, the budgets, the
-    manifest recording them, and the agent and synthesis run rows. Its call is the shard runner
-    (:func:`_run_synthesis`); everything after the answer is the shared tail (:func:`finish_synthesis_run`), under
-    the ``BOOTSTRAP`` mode, with the whole map and the exam goal as what it applies when asked."""
+    """The bootstrap opens its run with the shared head (:func:`open_synthesis_run`), recording the brief's scope:
+    it reads every scope unit's inventory. Its call is the shard runner (:func:`_run_synthesis`); everything after
+    the answer is the shared tail (:func:`finish_synthesis_run`), under the ``BOOTSTRAP`` mode, with the whole map
+    and the exam goal as what it applies when asked."""
 
-    source_set = next((s for s in vault.source_sets if s.id == source_set_id), None)
-    if source_set is None:
-        raise StudyMapError("source_set_not_found", f"Source set '{source_set_id}' does not exist.")
-    subject_id = source_set.subject_id
-
-    brief = resolve_brief(vault, brief)
-
-    resolved_mode = "bootstrap" if mode in {"auto", "bootstrap"} else mode
-    if resolved_mode != "bootstrap":
-        raise StudyMapError("unsupported_mode", f"mode '{mode}' is not supported by create_study_map (append is ING M7).")
-
-    inputs = _collect_inputs(repository, vault, source_set)
-    budgets = vault.config.ingest.budgets.model_copy(update=dict(budget_overrides or {}))
-
-    token_budget = (
-        {
-            "unlimited": True,
-            # This remains a context-window shard size, not a spend ceiling.
-            "synthesis_shard_input_tokens": budgets.synthesis_shard_input_tokens,
-        }
-        if unlimited_token_budget
-        else {
-            "synthesis_shard_input_tokens": budgets.synthesis_shard_input_tokens,
-            "synthesis_shard_output_tokens": budgets.synthesis_shard_output_tokens,
-            "synthesis_total_input_ceiling": budgets.synthesis_total_input_ceiling,
-            "synthesis_output_tokens": budgets.synthesis_output_tokens,
-        }
+    run = open_synthesis_run(
+        vault, repository, root, source_set_id, BOOTSTRAP,
+        client=client, brief=brief, requested_mode=mode, clock=clock, budget_overrides=budget_overrides,
+        unlimited_token_budget=unlimited_token_budget, embedding_client_factory=embedding_client_factory,
+        facet_identity_client=facet_identity_client, progress=progress,
+        decide_scope=lambda brief, _inputs, _budgets, nominator: RunScope(bootstrap_scope(
+            vault, brief, nominator=nominator, facet_identity_client=facet_identity_client,
+        )),
     )
-
-    # Slice 2 T5: embedding nominations for the structuring pass and the mint
-    # shadow (None when switched off, which is today's behaviour exactly).
-    nominator = GraphNominator.for_ingest(
-        vault, repository, client_factory=embedding_client_factory,
-    )
-    scope = bootstrap_scope(vault, brief, nominator=nominator, facet_identity_client=facet_identity_client)
-    one_facet_per_skill = bool(vault.config.facet_identity.enabled)
-    synthesis_prompt_version = source_set_synthesis_prompt_version(one_facet_per_skill)
-
-    # 2. immutable manifest BEFORE the agent run.
-    provider = getattr(client, "provider_name", None) or getattr(client, "provider_type", None) or "codex"
-    model = getattr(client, "model", None)
-    manifest = build_manifest(
-        vault,
-        source_set_id=source_set.id,
-        **manifest_inputs(inputs),
-        scope=scope,
-        brief=brief,
-        prompt_version=synthesis_prompt_version,
-        provider=provider,
-        model=model,
-        assessment_schema_version=(inputs.exam_profile or {}).get("schema_version") if inputs.exam_profile else None,
-        token_budget=token_budget,
-        clock=clock,
-    )
-    manifest_hash = manifest["manifest_hash"]
-    persist_manifest(repository, manifest)
-    manifest_id = repository.synthesis_manifest_by_hash(manifest_hash)["id"]
-    context_hash = agent_run_input_context_hash(manifest)
-
-    now = utc_now_iso(clock)
-    agent_run_id = repository.insert_agent_run(
-        {
-            "id": new_ulid(),
-            "purpose": SYNTHESIS_AGENT_PURPOSE,
-            "provider": provider,
-            "provider_type": getattr(client, "provider_type", "codex"),
-            "model": model,
-            "prompt_template": "source-set-synthesis",
-            "prompt_version": synthesis_prompt_version,
-            "input_context_hash": context_hash,
-            "output_schema": "SourceSetSynthesis",
-            "started_at": now,
-            "status": "running",
-        }
-    )
-    synthesis_run_id = repository.insert_synthesis_run(
-        manifest_id=manifest_id, mode=resolved_mode, agent_run_id=agent_run_id
-    )
-
+    manifest_hash = run.manifest["manifest_hash"]
     answers = _SavedAnswers()
 
     def ask() -> SynthesisAnswer:
-        with declared_budgets(token_budget):
+        with declared_budgets(run.token_budget):
             merged, span_request_count, resolved_hashes, usage = _run_synthesis(
-                client, repository, inputs, vault, source_set, brief, budgets, clock=clock,
-                client=client, provider=provider, model=model,
+                client, repository, run.inputs, vault, run.source_set, run.brief, run.budgets, clock=clock,
+                client=client, provider=run.provider, model=run.model,
                 manifest_hash=manifest_hash, unlimited_token_budget=unlimited_token_budget,
-                progress=progress, nominator=nominator,
-                one_facet_per_skill=one_facet_per_skill, answers=answers,
+                progress=progress, nominator=run.nominator,
+                one_facet_per_skill=run.one_facet_per_skill, answers=answers,
             )
         return SynthesisAnswer(merged, span_request_count, resolved_hashes, usage)
 
@@ -2314,23 +2245,17 @@ def _create_study_map(
         if not (apply and not outcome.nothing_new and _gate_open(apply_gate)):
             return {}
         goal_id = _apply_map(
-            root, repository, outcome.proposal_id, brief=brief, create_goal=create_goal, clock=clock,
+            root, repository, outcome.proposal_id, brief=run.brief, create_goal=create_goal, clock=clock,
             facet_ids=outcome.normalized.facet_ids, progress=progress,
         )
         return {"applied": True, "goal_id": goal_id}
 
-    run = SynthesisRun(
-        vault=vault, repository=repository, root=root, source_set=source_set, inputs=inputs, brief=brief,
-        now=now, clock=clock, agent_run_id=agent_run_id,
-        synthesis_run_id=synthesis_run_id, client=client, nominator=nominator,
-        facet_identity_client=facet_identity_client, progress=progress,
-    )
     outcome = finish_synthesis_run(
         run, BOOTSTRAP, ask=ask, drop_answers=lambda: answers.discard(repository), apply=apply_map,
     )
     return StudyMapResult(
-        source_set_id=source_set.id, subject_id=subject_id, mode=resolved_mode,
-        manifest_hash=manifest_hash, synthesis_run_id=synthesis_run_id, proposal_id=outcome.proposal_id,
+        source_set_id=run.source_set.id, subject_id=run.source_set.subject_id, mode=BOOTSTRAP.name,
+        manifest_hash=manifest_hash, synthesis_run_id=run.synthesis_run_id, proposal_id=outcome.proposal_id,
         reused=outcome.reused, nothing_new=outcome.nothing_new,
         item_counts=_count_items(outcome.normalized.rows), gate_diagnostics=outcome.gate_diagnostics,
         generation_needs=outcome.generation_needs, span_request_count=outcome.answer.span_request_count,
@@ -2621,14 +2546,15 @@ class SynthesisAnswer:
 
 @dataclass(frozen=True)
 class SynthesisRun:
-    """A synthesis run its head has opened (manifest, agent run and synthesis run rows): what its tail reads."""
+    """A synthesis run its head has opened (:func:`open_synthesis_run`: the manifest, agent run and synthesis run
+    rows): what the mode's call and the run's tail read."""
 
     vault: LoadedVault
     repository: Repository
     root: Path
     source_set: SourceSet
     inputs: _SynthesisInputs
-    #: Resolved (``resolve_brief``): items off and the epigraphs read it.
+    #: Resolved (``resolve_brief``): the request renders it; items off and the epigraphs read it.
     brief: dict[str, Any]
     now: str
     clock: Clock | None
@@ -2637,10 +2563,133 @@ class SynthesisRun:
     client: Any
     nominator: Any
     facet_identity_client: Any
+    #: The persisted manifest; its ``manifest_hash`` names it.
+    manifest: dict[str, Any]
+    #: The ingest budgets with the run's overrides, and the part of them its manifest records.
+    budgets: Any
+    token_budget: dict[str, Any]
+    provider: str
+    model: str | None
+    #: Facet identity is on, so the prompt carries the one-facet-per-skill rule.
+    one_facet_per_skill: bool
     progress: ProgressFn | None = None
-    #: What tops up the epigraph digest when the rows may hold only links: the append's new inventories and
-    #: neighbourhood context. None: the rows alone.
-    digest_extras: tuple[list[dict[str, Any]], dict[str, Any]] | None = None
+    #: What the mode's request reads beyond the source set's inputs: the append's new inventories and the context
+    #: of the neighbourhood around them. They also top up the epigraph digest, since an append's rows may hold only
+    #: links. None: the inputs alone (bootstrap).
+    context: tuple[list[dict[str, Any]], dict[str, Any]] | None = None
+
+
+@dataclass(frozen=True)
+class RunScope:
+    """What a mode decides from the source set's inputs before its manifest is built (``decide_scope`` in
+    :func:`open_synthesis_run`): the manifest's ``scope`` and, for an append, the revisions it names and the context
+    its request reads."""
+
+    scope: Any
+    #: The revisions the manifest names. None: the source set's selected revisions.
+    revision_ids: list[str] | None = None
+    context: tuple[list[dict[str, Any]], dict[str, Any]] | None = None
+
+
+def open_synthesis_run(
+    vault: LoadedVault,
+    repository: Repository,
+    root: Path,
+    source_set_id: str,
+    mode: SynthesisMode,
+    *,
+    client: Any,
+    brief: Mapping[str, Any],
+    decide_scope: Callable[[dict[str, Any], _SynthesisInputs, Any, GraphNominator | None], RunScope],
+    clock: Clock | None,
+    budget_overrides: Mapping[str, int] | None = None,
+    unlimited_token_budget: bool = False,
+    embedding_client_factory: Callable[[], Any] | None = None,
+    facet_identity_client: Any = None,
+    progress: ProgressFn | None = None,
+    requested_mode: str = "auto",
+) -> SynthesisRun:
+    """Open one synthesis run, for both modes: find the source set, resolve the brief, read the inputs, let the mode
+    decide its scope, then persist the manifest that records all of it and open the agent run and the synthesis run.
+
+    ``decide_scope(brief, inputs, budgets, nominator)`` is the mode's own step: bootstrap records the brief's scope;
+    an append selects its new inventories and the neighbourhood around them and records both. Every refusal here (an
+    unknown source set, a mode the caller may not ask for: ``requested_mode`` is create_study_map's ``mode``) comes
+    before anything is read or written. Before the manifest, only the mode's step may write (an append's
+    neighbourhood embeds and stores vectors when nominations are on, since the manifest records what they
+    compared)."""
+
+    source_set = next((s for s in vault.source_sets if s.id == source_set_id), None)
+    if source_set is None:
+        raise StudyMapError("source_set_not_found", f"Source set '{source_set_id}' does not exist.")
+    resolved_brief = resolve_brief(vault, brief)
+    if requested_mode not in ("auto", mode.name):
+        raise StudyMapError(
+            "unsupported_mode", f"mode '{requested_mode}' is not supported by create_study_map (append is ING M7).",
+        )
+
+    inputs = _collect_inputs(repository, vault, source_set)
+    # Per-run overrides layer over the vault's budgets and ride into the manifest's token_budget, so an override is
+    # on the run's record rather than an invisible tweak.
+    budgets = vault.config.ingest.budgets.model_copy(update=dict(budget_overrides or {}))
+    # Slice 2 T5: embedding nominations for the structuring pass, the mint shadow and an append's neighbourhood
+    # (None when switched off).
+    nominator = GraphNominator.for_ingest(vault, repository, client_factory=embedding_client_factory)
+    decided = decide_scope(resolved_brief, inputs, budgets, nominator)
+
+    one_facet_per_skill = bool(vault.config.facet_identity.enabled)
+    prompt_version = mode.prompt_version(one_facet_per_skill)
+    provider = getattr(client, "provider_name", None) or getattr(client, "provider_type", None) or "codex"
+    model = getattr(client, "model", None)
+    recorded = mode.unlimited_recorded_budgets if unlimited_token_budget else mode.recorded_budgets
+    token_budget = {**({"unlimited": True} if unlimited_token_budget else {}),
+                    **{name: getattr(budgets, name) for name in recorded}}
+    source_inputs = manifest_inputs(inputs)
+    if decided.revision_ids is not None:
+        source_inputs["revision_ids"] = decided.revision_ids
+    manifest = build_manifest(
+        vault,
+        source_set_id=source_set.id,
+        **source_inputs,
+        scope=decided.scope,
+        brief=resolved_brief,
+        prompt_version=prompt_version,
+        provider=provider,
+        model=model,
+        assessment_schema_version=(inputs.exam_profile or {}).get("schema_version") if inputs.exam_profile else None,
+        token_budget=token_budget,
+        clock=clock,
+    )
+    # Before the run rows: the synthesis run points at the manifest by id, and the agent run records its hash.
+    persist_manifest(repository, manifest)
+    manifest_id = repository.synthesis_manifest_by_hash(manifest["manifest_hash"])["id"]
+
+    now = utc_now_iso(clock)
+    agent_run_id = repository.insert_agent_run(
+        {
+            "id": new_ulid(),
+            "purpose": mode.agent_purpose,
+            "provider": provider,
+            "provider_type": getattr(client, "provider_type", "codex"),
+            "model": model,
+            "prompt_template": mode.prompt_template,
+            "prompt_version": prompt_version,
+            "input_context_hash": agent_run_input_context_hash(manifest),
+            "output_schema": mode.output_schema,
+            "started_at": now,
+            "status": "running",
+        }
+    )
+    synthesis_run_id = repository.insert_synthesis_run(
+        manifest_id=manifest_id, mode=mode.name, agent_run_id=agent_run_id,
+    )
+    return SynthesisRun(
+        vault=vault, repository=repository, root=root, source_set=source_set, inputs=inputs, brief=resolved_brief,
+        now=now, clock=clock, agent_run_id=agent_run_id, synthesis_run_id=synthesis_run_id, client=client,
+        nominator=nominator, facet_identity_client=facet_identity_client, manifest=manifest, budgets=budgets,
+        token_budget=token_budget, provider=provider, model=model, one_facet_per_skill=one_facet_per_skill,
+        progress=progress, context=decided.context,
+    )
 
 
 @dataclass
@@ -2779,8 +2828,8 @@ def finish_synthesis_run(
     # revalidation reuses that with no client.
     summary = str(getattr(answer.candidate, "summary", "") or "")
     digest = (
-        digest_from_proposal_rows(normalized.rows, summary=summary) if run.digest_extras is None
-        else digest_for_append(normalized.rows, *run.digest_extras, summary=summary)
+        digest_from_proposal_rows(normalized.rows, summary=summary) if run.context is None
+        else digest_for_append(normalized.rows, *run.context, summary=summary)
     )
     generate_vault_epigraphs(
         repository, run.vault, client,

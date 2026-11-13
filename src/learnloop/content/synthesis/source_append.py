@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any
 
 from learnloop.ai.execution import ModelCheckpoint, generation_limit, model_settings
-from learnloop.clock import Clock, utc_now_iso
+from learnloop.clock import Clock
 from learnloop.content.synthesis.ai_contracts import (
     AppendReconciliation,
     AppendReconciliationContext,
@@ -49,11 +49,11 @@ from learnloop.content.synthesis.graph_nomination import GraphNominator, plan_in
 from learnloop.content.proposals.patches import compute_target_hash
 from learnloop.content.facet_identity import authority as facet_meaning
 from learnloop.content.synthesis.source_set_synthesis import (
+    RunScope,
     StudyMapError,
     SynthesisAnswer,
     SynthesisMode,
     SynthesisOutcome,
-    SynthesisRun,
     _Normalized,
     _count_items,
     _collect_inputs,
@@ -65,20 +65,14 @@ from learnloop.content.synthesis.source_set_synthesis import (
     _support_citations,
     _synthesis_pass_key,
     finish_synthesis_run,
-    manifest_inputs,
-    resolve_brief,
+    open_synthesis_run,
 )
 from learnloop.content.synthesis.synthesis_gates import (
     ASSESSMENT_ONLY_ROLES,
     GateItem,
     ProvenanceRef,
 )
-from learnloop.content.synthesis.synthesis_manifests import (
-    agent_run_input_context_hash,
-    build_manifest,
-    content_hash,
-    persist_manifest,
-)
+from learnloop.content.synthesis.synthesis_manifests import content_hash
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
@@ -474,123 +468,57 @@ def _append(
     facet_identity_client: Any = None,
     apply_gate: Callable[[], bool] | None = None,
 ) -> AppendResult:
-    """The append's head opens the run: the new inventories, the bounded neighbourhood around them, the manifest
-    recording both, and the agent and synthesis run rows. Its call asks the append prompt (with a span round when
-    the model asks for one); everything after the answer is the shared tail (:func:`finish_synthesis_run`), under
-    the ``APPEND`` mode, with §10.3's routine items as what it applies."""
+    """The append opens its run with the shared head (:func:`open_synthesis_run`); its scope step selects the new
+    inventories and the bounded neighbourhood around them, which the manifest records and the request reads. Its
+    call asks the append prompt (with a span round when the model asks for one); everything after the answer is the
+    shared tail (:func:`finish_synthesis_run`), under the ``APPEND`` mode, with §10.3's routine items as what it
+    applies."""
 
-    source_set = next((s for s in vault.source_sets if s.id == source_set_id), None)
-    if source_set is None:
-        raise StudyMapError("source_set_not_found", f"Source set '{source_set_id}' does not exist.")
-    subject_id = source_set.subject_id
-    # Resolved before the manifest, as bootstrap resolves it: the record names
-    # the brief the request renders, and an append inherits the learner's level.
-    brief = resolve_brief(vault, brief)
+    def decide_scope(_brief, inputs, budgets, nominator) -> RunScope:
+        revs = set(new_revision_ids or inputs.selected_revision_ids)
+        new_inventories = select_new_inventories(inputs.unit_inventories, revs, new_unit_ids)
+        # Deterministic bounded affected-neighborhood selection (§10.1/§3.2), with
+        # Slice 2 T5 embedding nominations unioned in when they are switched on.
+        neighborhood = select_neighborhood(
+            vault, repository, new_inventories,
+            budget_tokens=budgets.append_neighborhood_input_tokens,
+            source_ids={entry["source_id"] for entry in new_inventories}, revision_ids=revs,
+            nominator=nominator,
+        )
+        return RunScope(
+            append_scope(
+                vault, change_kind=change_kind, revision_ids=revs, neighborhood=neighborhood.as_manifest_record(),
+                new_unit_ids=new_unit_ids, facet_identity_client=facet_identity_client, revision_diff=revision_diff,
+            ),
+            revision_ids=sorted(revs),
+            context=(new_inventories, neighborhood.as_context()),
+        )
 
-    inputs = _collect_inputs(repository, vault, source_set)
-    revs = set(new_revision_ids or inputs.selected_revision_ids)
-    new_inventories = select_new_inventories(inputs.unit_inventories, revs, new_unit_ids)
-    new_source_ids = {entry["source_id"] for entry in new_inventories}
-    # Per-run ceilings layer over the vault defaults (same seam as bootstrap
-    # synthesis) and ride into the manifest's token_budget below, so an override
-    # is part of the run's identity rather than an invisible tweak.
-    budgets = vault.config.ingest.budgets.model_copy(update=dict(budget_overrides or {}))
-
-    # Deterministic bounded affected-neighborhood selection (§10.1/§3.2), with
-    # Slice 2 T5 embedding nominations unioned in when they are switched on.
-    nominator = GraphNominator.for_ingest(
-        vault, repository, client_factory=embedding_client_factory,
+    run = open_synthesis_run(
+        vault, repository, root, source_set_id, APPEND,
+        client=client, brief=brief, decide_scope=decide_scope, clock=clock, budget_overrides=budget_overrides,
+        unlimited_token_budget=unlimited_token_budget, embedding_client_factory=embedding_client_factory,
+        facet_identity_client=facet_identity_client,
     )
-    neighborhood = select_neighborhood(
-        vault, repository, new_inventories,
-        budget_tokens=budgets.append_neighborhood_input_tokens,
-        source_ids=new_source_ids, revision_ids=revs,
-        nominator=nominator,
-    )
-
-    provider = getattr(client, "provider_name", None) or getattr(client, "provider_type", None) or "codex"
-    model = getattr(client, "model", None)
-    # Facet identity (handoff §4): the rule in the prompt only while the switch is on.
-    one_facet_per_skill = bool(vault.config.facet_identity.enabled)
-    append_prompt_version = append_reconciliation_prompt_version(one_facet_per_skill)
-    scope = append_scope(
-        vault, change_kind=change_kind, revision_ids=revs, neighborhood=neighborhood.as_manifest_record(),
-        new_unit_ids=new_unit_ids, facet_identity_client=facet_identity_client, revision_diff=revision_diff,
-    )
-    manifest = build_manifest(
-        vault,
-        source_set_id=source_set.id,
-        **{**manifest_inputs(inputs), "revision_ids": sorted(revs)},
-        scope=scope,
-        brief=brief,
-        prompt_version=append_prompt_version,
-        provider=provider,
-        model=model,
-        assessment_schema_version=(inputs.exam_profile or {}).get("schema_version") if inputs.exam_profile else None,
-        token_budget=(
-            {
-                "unlimited": True,
-                # The neighborhood cap remains a scaling/safety invariant.
-                "append_neighborhood_input_tokens": budgets.append_neighborhood_input_tokens,
-            }
-            if unlimited_token_budget
-            else {
-                "append_neighborhood_input_tokens": budgets.append_neighborhood_input_tokens,
-                "append_output_tokens": budgets.append_output_tokens,
-            }
-        ),
-        clock=clock,
-    )
-    manifest_hash = manifest["manifest_hash"]
-    persist_manifest(repository, manifest)
-    manifest_id = repository.synthesis_manifest_by_hash(manifest_hash)["id"]
-    context_hash = agent_run_input_context_hash(manifest)
-
-    now = utc_now_iso(clock)
-    agent_run_id = repository.insert_agent_run(
-        {
-            "id": new_ulid(),
-            "purpose": APPEND_AGENT_PURPOSE,
-            "provider": provider,
-            "provider_type": getattr(client, "provider_type", "codex"),
-            "model": model,
-            "prompt_template": "append-reconciliation",
-            "prompt_version": append_prompt_version,
-            "input_context_hash": context_hash,
-            "output_schema": "AppendReconciliation",
-            "started_at": now,
-            "status": "running",
-        }
-    )
-    synthesis_run_id = repository.insert_synthesis_run(
-        manifest_id=manifest_id, mode="append", agent_run_id=agent_run_id
-    )
-
+    source_set, budgets = run.source_set, run.budgets
+    new_inventories, neighborhood_context = run.context
     call = _AppendCall(
         client, repository,
         # A bootstrap pass's settings: what shapes the answer, with the run's provider and model.
-        settings={**model_settings(client), "provider": provider, "model": model},
+        settings={**model_settings(client), "provider": run.provider, "model": run.model},
         input_ceiling=None if unlimited_token_budget else budgets.append_input_ceiling,
         output_budget=None if unlimited_token_budget else budgets.append_output_tokens,
     )
 
     def ask() -> SynthesisAnswer:
         reconciliation, span_request_count = _run_reconciliation(
-            call, repository, inputs, new_inventories, neighborhood, source_set,
-            subject_id, change_kind, revision_diff, brief, budgets,
-            one_facet_per_skill=one_facet_per_skill,
+            call, repository, run.inputs, new_inventories, neighborhood_context, source_set,
+            source_set.subject_id, change_kind, revision_diff, run.brief, budgets,
+            one_facet_per_skill=run.one_facet_per_skill,
         )
-        reconciliation, preset_diagnostics = _within_preset(reconciliation, brief)
+        reconciliation, preset_diagnostics = _within_preset(reconciliation, run.brief)
         return SynthesisAnswer(reconciliation, span_request_count, diagnostics=preset_diagnostics)
 
-    run = SynthesisRun(
-        vault=vault, repository=repository, root=root, source_set=source_set, inputs=inputs, brief=brief,
-        now=now, clock=clock, agent_run_id=agent_run_id, synthesis_run_id=synthesis_run_id, client=client,
-        nominator=nominator, facet_identity_client=facet_identity_client,
-        # An append may emit only provenance links, so its epigraph digest is
-        # topped up from the new inventories and the bounded neighborhood.
-        digest_extras=(new_inventories, neighborhood.as_context()),
-    )
     outcome = finish_synthesis_run(
         run, APPEND, ask=ask, drop_answers=call.discard_answers,
         apply=lambda outcome: _apply_routine_items(
@@ -598,11 +526,12 @@ def _append(
         ),
     )
     return AppendResult(
-        source_set_id=source_set.id, subject_id=subject_id, change_kind=change_kind,
-        manifest_hash=manifest_hash, synthesis_run_id=synthesis_run_id, proposal_id=outcome.proposal_id,
-        reused=outcome.reused, nothing_new=outcome.nothing_new,
+        source_set_id=source_set.id, subject_id=source_set.subject_id, change_kind=change_kind,
+        manifest_hash=run.manifest["manifest_hash"], synthesis_run_id=run.synthesis_run_id,
+        proposal_id=outcome.proposal_id, reused=outcome.reused, nothing_new=outcome.nothing_new,
         item_counts=_count_items(outcome.normalized.rows), gate_diagnostics=outcome.gate_diagnostics,
-        neighborhood=neighborhood.as_manifest_record(), span_request_count=outcome.answer.span_request_count,
+        # The neighbourhood as its manifest records it (match reasons and entity hashes, not its context).
+        neighborhood=run.manifest["scope"]["neighborhood"], span_request_count=outcome.answer.span_request_count,
         facet_identity=outcome.facet_identity, **outcome.applied,
     )
 
@@ -656,12 +585,12 @@ def _apply_routine_items(
     return added
 
 def _run_reconciliation(
-    call: _AppendCall, repository, inputs, new_inventories, neighborhood, source_set,
+    call: _AppendCall, repository, inputs, new_inventories, neighborhood_context, source_set,
     subject_id, change_kind, revision_diff, brief, budgets, *, one_facet_per_skill: bool = False,
 ):
     context = AppendReconciliationContext(
         source_set_id=source_set.id, subject_id=subject_id, change_kind=change_kind,
-        brief=brief, new_inventories=new_inventories, neighborhood=neighborhood.as_context(),
+        brief=brief, new_inventories=new_inventories, neighborhood=neighborhood_context,
         exam_profile=inputs.exam_profile or {}, revision_diff=revision_diff, resolved_spans=[],
         one_facet_per_skill=one_facet_per_skill,
     )
@@ -677,7 +606,7 @@ def _run_reconciliation(
         )
         context = AppendReconciliationContext(
             source_set_id=source_set.id, subject_id=subject_id, change_kind=change_kind,
-            brief=brief, new_inventories=new_inventories, neighborhood=neighborhood.as_context(),
+            brief=brief, new_inventories=new_inventories, neighborhood=neighborhood_context,
             exam_profile=inputs.exam_profile or {}, revision_diff=revision_diff, resolved_spans=resolved,
             one_facet_per_skill=one_facet_per_skill,
         )

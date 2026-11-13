@@ -24,7 +24,7 @@ from learnloop.ai.execution import content_key
 from learnloop.ai.spend import SpendCaps
 from learnloop.config.loader import load_config
 from learnloop.config.schema import LearnLoopConfig
-from learnloop.content.synthesis import source_append, source_set_synthesis
+from learnloop.content.synthesis import source_set_synthesis
 from learnloop.content.synthesis.source_append import append_source
 from learnloop.content.synthesis.source_set_synthesis import create_study_map
 from learnloop.field.predictors import create_predictor
@@ -180,12 +180,12 @@ def test_bootstrap_manifest_hashes_the_facet_identity_config_as_before_arc_c(tmp
     assert seen and _sha256(seen[0]["facet_identity"]["config"]) == BASE_FACET_IDENTITY_SHA256[case]
 
 
-def test_append_manifest_hashes_the_facet_identity_config_as_before_arc_c(tmp_path, monkeypatch):
+def test_append_manifest_hashes_the_facet_identity_config_as_before_arc_c(tmp_path):
     root, repo = _bootstrap_and_add(tmp_path)
-    seen = _capture_scope(monkeypatch, source_append)
-    append_source(root, "set_la", client=FakeAppendClient(), new_revision_ids=["rev_alt"], repository=repo,
-                  clock=_CLOCK, auto_apply=False)
-    assert seen and _sha256(seen[0]["facet_identity"]["config"]) == BASE_FACET_IDENTITY_SHA256["default"]
+    result = append_source(root, "set_la", client=FakeAppendClient(), new_revision_ids=["rev_alt"], repository=repo,
+                           clock=_CLOCK, auto_apply=False)
+    scope = repo.synthesis_manifest_by_hash(result.manifest_hash)["scope"]
+    assert _sha256(scope["facet_identity"]["config"]) == BASE_FACET_IDENTITY_SHA256["default"]
 
 
 def test_a_bootstrap_run_completed_before_arc_c_is_reused_for_the_same_request(tmp_path, monkeypatch):
@@ -207,13 +207,14 @@ def test_a_bootstrap_run_completed_before_arc_c_is_reused_for_the_same_request(t
     assert len(client.calls) == calls  # no new agent run
 
 
-def test_an_append_run_completed_before_arc_c_is_reused_for_the_same_request(tmp_path, monkeypatch):
+def test_an_append_run_completed_before_arc_c_is_reused_for_the_same_request(tmp_path):
     root, repo = _bootstrap_and_add(tmp_path)
     client = FakeAppendClient()
-    with monkeypatch.context() as patch:
-        _as_before_arc_c(patch, source_append)
-        before = append_source(root, "set_la", client=client, new_revision_ids=["rev_alt"], repository=repo,
-                               clock=_CLOCK, auto_apply=False)
+    before = append_source(root, "set_la", client=client, new_revision_ids=["rev_alt"], repository=repo,
+                           clock=_CLOCK, auto_apply=False)
+    # The manifest the code at 88607cb3fe wrote for this request: its facet-identity config dump, byte for byte.
+    scope = repo.synthesis_manifest_by_hash(before.manifest_hash)["scope"]
+    assert scope["facet_identity"]["config"] == BASE_FACET_IDENTITY_DUMP
     assert not before.reused
     calls = len(client.calls)
 
