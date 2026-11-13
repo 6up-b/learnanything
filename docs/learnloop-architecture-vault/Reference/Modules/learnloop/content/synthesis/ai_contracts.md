@@ -229,6 +229,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_extended_method_repairs_invalid_json_once`
 - [tests/test_outer_cache_keys.py](../../../../../../../tests/test_outer_cache_keys.py) — direct import
   - `test_a_shard_prompt_edited_under_the_same_label_is_paid_once`
+  - `test_an_inventory_rewritten_under_its_key_returns_and_marks_the_stored_id`
 - [tests/test_required_method_items.py](../../../../../../../tests/test_required_method_items.py) — direct import
   - `test_authoring_prompts_carry_the_rule_and_moved_their_versions`
   - `test_synthesis_publishes_a_required_method_presented_with_the_canonical_sentence`
