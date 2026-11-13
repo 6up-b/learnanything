@@ -121,6 +121,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_legacy_error_types_map_per_spec`
   - `test_mvp07_grader_taxonomy_emits_mechanism_vocabulary`
   - `test_retrieval_boundary_is_mechanism_based_and_domain_neutral`
+- [tests/test_ux_phase2_error_type_proposals.py](../../../../../../tests/test_ux_phase2_error_type_proposals.py) — direct import
+  - `test_a_head_grading_naming_a_mechanism_type_proposes_nothing`
 
 ## Modification guidance
 
