@@ -188,15 +188,17 @@ def test_a_held_grade_resolves_nothing_until_a_contest_regrade_releases_it(tmp_p
     assert bundle["heldForReview"] is False
     assert bundle["contest"] == {"recorded": True, "regraded": True, "reviewRequested": False}
     assert len(_regrade_provenance(repository, held.attempt_id)) == 1
-    # No longer held. This item has no frozen method, so the regrade cites no
-    # contract and the forecast is censored, exactly as a plain regrade's
+    # No longer held. The regrade cites the contract it read (regrade
+    # contracts, mvp-0.26), so the forecast resolves against it, as a plain
+    # regrade's that cites one (test_forecast_receipts::test_a_regrade_re_resolves_the_forecast);
+    # a regrade before that tag cited none and the forecast was censored
     # (test_forecast_receipts::test_a_held_grade_resolves_nothing_until_a_regrade_releases_it).
     resolution = _diagnosis_resolution(vault, diagnosed.attempt_id)
-    assert (resolution["state"], resolution["reason"]) == ("censored", "graded_contract_unknown")
+    assert (resolution["state"], resolution.get("emission")) == ("resolved", "pass")
     # Feedback agrees (round 3 F9): the content the regrade read, in its own
-    # response only, and unrecorded on any later read; never inferred.
-    assert bundle["answeredSource"] == "live"
-    assert feedback_bundle(vault, repository, held.attempt_id)["answeredSource"] == "unrecorded"
+    # response and on any later read, from the contract it cites; never inferred.
+    assert bundle["answeredSource"] == "contract"
+    assert feedback_bundle(vault, repository, held.attempt_id)["answeredSource"] == "contract"
 
 
 def test_a_routine_display_marks_a_later_question_solution_seen_beyond_its_coverage(world):

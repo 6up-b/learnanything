@@ -53,6 +53,7 @@ from tests.reader_recap_review_r2_helpers import (
     _self_graded,
 )
 from tests.regrade_contract_replay_helpers import PointsGrader
+from tests.regrade_contract_successor_helpers import as_regraded_before_contracts
 
 
 def _rebuilt_at_the_head(paths, repository, clock):
@@ -102,7 +103,8 @@ def _held_then_released(tmp_path):
     * minute 5: attempt H, self-graded 0 of 4 on ``COMP_A``;
     * minute 10: attempt O, self-graded 2 of 4 on a second surface;
     * minute 20: H regraded to 4 of 4 by the predecessor's regrade door,
-      which records no contract;
+      which records no contract (built from today's regrade: no vault that
+      opens writes one now);
     * minute 30: the vault moves to the head and a whole-vault rebuild holds H
       (``grade_contract_unrecorded``), as the mvp-0.26 activation did;
     * minute 40: the previous session ends (the cutoff);
@@ -122,6 +124,7 @@ def _held_then_released(tmp_path):
     held = _self_graded_comp(vault, repository, "pi_comp_a", 5, 0)
     other = _self_graded_comp(vault, repository, SECOND_ITEM, 10, 2)
     _regrade(vault, repository, held, 20, 4)
+    as_regraded_before_contracts(repository, held)
     epoch = current_epoch(repository.fetch_grading_evidence(held))
     assert epoch is not None and epoch.contract_version_id is None
     vault = _rebuilt_at_the_head(paths, repository, FrozenClock(NOW + timedelta(minutes=30)))

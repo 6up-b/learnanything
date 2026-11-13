@@ -53,6 +53,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.helpers import NOW
+from tests.regrade_contract_successor_helpers import as_regraded_before_contracts
 from tests.split_live_helpers import ReadyRuntime, append_config, at, drain_jobs, split_vault, submit
 from tests.causal_cold_outcomes_helpers import _attempt, _setup, _to_treatment
 from tests.route_rules_in_grader_helpers import (
@@ -295,15 +296,17 @@ def test_a_held_grade_resolves_nothing_until_a_regrade_releases_it(tmp_path):
     n = report["kinds"][FR.DIAGNOSIS_NEXT_OBSERVATION]["forecasters"]["diagnoser_causal_class"]["n"]
     assert n["resolved"] == 0 and n["held_for_review"] == {"grade_held_for_review": 1}
 
-    # A regrade that validates the route releases it: no longer held. This
-    # item has no frozen method, so its regrade read the item as it was then
-    # and cites no contract: what the grade was read under is not on record,
-    # and the forecast is censored (Codex review F2; a method-explicit
-    # item's regrade cites its contract and resolves:
-    # test_a_regrade_re_resolves_the_forecast).
+    # A regrade that validates the route releases it: no longer held. A
+    # regrade written before regrade contracts (mvp-0.26) read the item as it
+    # was then and cites no contract: what the grade was read under is not on
+    # record, and the forecast is censored (Codex review F2; a regrade that
+    # cites its contract resolves: test_a_regrade_re_resolves_the_forecast).
+    # No vault that opens writes one now, so it is built from today's regrade
+    # (a held grade's regrade superseded tiers 1 and 3).
     regrade_attempt(vault, repository, repository.fetch_practice_attempt(held.attempt_id),
                     runtime=ReadyRuntime(), client=FullCreditGrader(), grading_source="ai",
                     clock=FrozenClock(at(31)))
+    as_regraded_before_contracts(repository, held.attempt_id, supersede_tiers=(1, 3))
     assert _cited_by_the_current_grade(repository, held.attempt_id) == {None}
     resolution = _diagnosis_resolution(vault, diagnosed.attempt_id)
     assert (resolution["state"], resolution["reason"], resolution["attempt_id"]) == (
@@ -638,11 +641,13 @@ def test_f2_a_grade_that_cites_no_contract_is_never_read_against_todays_rubric(t
     _edit_result_points(paths, 2)
     vault = load_vault(paths.root)
 
-    # A regrade of an item without a frozen method reads the item as it is
-    # then and cites no contract: what it was read under is not on record.
+    # A regrade written before regrade contracts (mvp-0.26) read the item as
+    # it was then and cites no contract: what it was read under is not on
+    # record. Built from today's regrade (no vault that opens writes one now).
     regrade_attempt(vault, repository, repository.fetch_practice_attempt(nxt.attempt_id),
                     runtime=ReadyRuntime(), client=ReviewFakeClient(), grading_source="ai",
                     clock=FrozenClock(at(31)))
+    as_regraded_before_contracts(repository, nxt.attempt_id)
     assert _cited_by_the_current_grade(repository, nxt.attempt_id) == {None}
     first = _diagnosis_resolution(vault, diagnosed.attempt_id)
     assert (first["state"], first["reason"]) == ("censored", "graded_contract_unknown")
@@ -676,6 +681,8 @@ def test_f2_editing_todays_rubric_never_rewrites_a_regraded_self_grade(tmp_path)
     regrade_attempt(vault, repository, repository.fetch_practice_attempt(nxt.attempt_id),
                     runtime=ReadyRuntime(), client=ReviewFakeClient(), grading_source="ai",
                     clock=FrozenClock(at(31)))
+    # As a regrade before regrade contracts (mvp-0.26) wrote it: built, since none is written now.
+    as_regraded_before_contracts(repository, nxt.attempt_id)
     with repository.connection() as connection:
         surviving = {row[0] for row in connection.execute(
             "SELECT assessment_contract_version_id FROM grading_evidence "

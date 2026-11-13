@@ -17,7 +17,7 @@ from tests.regrade_contract_replay_helpers import (
     _self_graded_apply,
     _set_result_points,
 )
-from tests.regrade_contract_successor_helpers import _settle, _vault
+from tests.regrade_contract_successor_helpers import _settle, _vault, as_regraded_before_contracts
 
 
 PREDECESSOR = METHOD_EXPLICIT_ALGORITHM_VERSION
@@ -29,8 +29,9 @@ def _legacy_vault(tmp_path, *, config=""):
     ``att_keep`` graded and never regraded (cites its contract), ``att_blind``
     regraded within its original maximum by the blind grader (uncited; the
     blind record kept its maximum, 8) and ``att_self`` self-graded then
-    regraded on a sibling item (uncited); rebuilt to the predecessor's fixed
-    point."""
+    regraded on a sibling item (uncited); rebuilt to a fixed point. No vault
+    that opens writes an uncited regrade now, so the two regrades are built
+    from today's (``as_regraded_before_contracts``)."""
 
     paths, vault, repository = _vault(tmp_path, version=PREDECESSOR, config=config)
     _graded_apply(vault, repository, ITEM, {"setup": 2.0, "result": 2.0}, attempt_id="att_keep", when=T)
@@ -41,6 +42,8 @@ def _legacy_vault(tmp_path, *, config=""):
     _set_result_points(paths, 6)
     vault = load_vault(paths.root)
     _regrade(vault, repository, "att_blind", {"setup": 1.0, "result": 2.0}, when=T + timedelta(days=1))
+    as_regraded_before_contracts(repository, "att_blind")
     _regrade(vault, repository, "att_self", {"setup": 2.0, "result": 2.0}, when=T + timedelta(days=1, hours=1))
+    as_regraded_before_contracts(repository, "att_self")
     _settle(vault, repository)
     return paths, vault, repository

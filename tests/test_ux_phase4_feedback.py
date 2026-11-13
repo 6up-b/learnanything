@@ -42,6 +42,7 @@ from tests.diagnosis_fakes import ReviewFakeClient
 from tests.helpers import RANDOMIZED_CHECKS_OFF, create_basic_vault, seed_due_item
 from tests.split_live_helpers import ReadyRuntime, split_vault
 from tests.held_grade_evidence_helpers import T, _graded_apply, _held_apply
+from tests.regrade_contract_successor_helpers import as_graded_before_contracts, as_regraded_before_contracts
 from tests.route_rules_in_grader_helpers import ITEM as SPLIT_ITEM
 from tests.route_rules_in_grader_helpers import VERSION, FullCreditGrader
 from tests.ux_phase4_feedback_helpers import (
@@ -830,6 +831,8 @@ def test_f5_an_answer_with_no_contract_is_unrecorded(ctx):
     ctx.load(ctx.paths.root)
     vault, repository = ctx.require_vault()
     attempt_id = _self_graded(ctx, answer="U Sigma V^T")
+    # Today's attempt step records the contract on every vault: built as an mvp-0.6 grade wrote it.
+    as_graded_before_contracts(repository, attempt_id)
     bundle = feedback_bundle(vault, repository, attempt_id)
     assert bundle["answeredSource"] == "unrecorded"
     assert bundle["answeredExpectedAnswer"] is None
@@ -1236,6 +1239,8 @@ def test_f9_a_regrade_outside_the_screen_is_the_current_grade_and_unrecorded(ctx
         vault, repository, attempt, runtime=ReadyRuntime(), client=_SixPointGrader(), grading_source="ai",
         clock=FrozenClock(parse_utc(attempt["created_at"]) + after),
     )
+    # A regrade before regrade contracts (mvp-0.26), which no vault that opens writes now: built.
+    as_regraded_before_contracts(repository, attempt_id)
 
     bundle = feedback_bundle(vault, repository, attempt_id)
 
@@ -1445,15 +1450,17 @@ def _regraded_under_the_corrected_item(ctx, monkeypatch, how: str) -> tuple[str,
 @pytest.mark.parametrize("how", ["regrade", "contest"])
 def test_f9f_a_regrade_in_place_returns_the_key_criteria_and_maximum_it_graded_against(ctx, monkeypatch, how):
     """The live reproduction: the regrade's response itself carries what that
-    regrade read (the corrected item), source ``live``, so the screen never
-    keeps the item it loaded with. The regrade history scores each side out of
-    its own grade's maximum."""
+    regrade read (the corrected item), so the screen never keeps the item it
+    loaded with. The regrade cites the contract it read (regrade contracts,
+    mvp-0.26), so the source is ``contract``; a regrade before that tag cited
+    none and its response said ``live``. The regrade history scores each side
+    out of its own grade's maximum."""
 
     _attempt_id, bundle = _regraded_under_the_corrected_item(ctx, monkeypatch, how)
 
     assert bundle["rubricScore"] == 6
     assert bundle["answeredExpectedAnswer"] == CORRECTED_KEY
-    assert bundle["answeredSource"] == "live"
+    assert bundle["answeredSource"] == "contract"
     assert bundle["answeredCriteria"] == [
         {"criterionId": "correctness", "description": "Names all three factors.", "pointsPossible": 8.0}
     ]
@@ -1478,6 +1485,9 @@ def test_f9f_a_question_changed_after_its_regrade_is_labelled_never_scored_out_o
 
         append_config(ctx.paths.root, "[diagnosis]\nsplit_enabled = false")
     attempt_id, _bundle = _regraded_under_the_corrected_item(ctx, monkeypatch, "regrade")
+    # An ordinary regrade before regrade contracts (mvp-0.26), which no vault that opens writes now: built.
+    vault, repository = ctx.require_vault()
+    as_regraded_before_contracts(repository, attempt_id)
     _change_the_item_again(ctx)
 
     bundle = _reopened_later(ctx, attempt_id)
@@ -1501,7 +1511,11 @@ def test_f9f_an_ordinary_regrade_reopened_later_is_unrecorded_even_unchanged(ctx
     attempt_id = _contract_answer(ctx, points={"correctness": 2})
     _ready_grader(monkeypatch, _SixPointGrader())
     live = _call(ctx, "trigger_regrade", {"attemptId": attempt_id})
-    assert live["answeredSource"] == "live"
+    # Today's regrade cites the contract it read (regrade contracts, mvp-0.26).
+    assert live["answeredSource"] == "contract"
+    # An ordinary regrade before that tag cited none: built from this one, since none is written now.
+    vault, repository = ctx.require_vault()
+    as_regraded_before_contracts(repository, attempt_id)
 
     bundle = _reopened_later(ctx, attempt_id)
 
@@ -1526,6 +1540,8 @@ def test_f9f_a_blind_regrade_keeps_the_maximum_recorded_with_it_after_the_questi
         runtime=ReadyRuntime(), client=FullCreditGrader(), grading_source="ai",
         clock=FrozenClock(T + timedelta(days=1)),
     )
+    # A regrade before regrade contracts (mvp-0.26), which no vault that opens writes now: built.
+    as_regraded_before_contracts(repository, "att_g")
     assert feedback_bundle(vault, repository, "att_g")["answeredMaxPoints"] == 4
 
     data = load_vault(paths.root).practice_items[SPLIT_ITEM].model_dump(mode="json")
@@ -1788,7 +1804,11 @@ def test_f9g_the_a_b_a_b_sequence_never_presents_a_version_as_graded_without_a_r
     _ready_grader(monkeypatch, _SixPointGrader())
 
     live = _call(ctx, "trigger_regrade", {"attemptId": attempt_id})
-    assert (live["answeredSource"], live["answeredExpectedAnswer"]) == ("live", key_a)
+    # Today's regrade cites A's snapshot (regrade contracts, mvp-0.26): exact.
+    assert (live["answeredSource"], live["answeredExpectedAnswer"]) == ("contract", key_a)
+    # A regrade before that tag cited none (its response said ``live``): built from this one.
+    vault, repository = ctx.require_vault()
+    as_regraded_before_contracts(repository, attempt_id)
     assert _call(ctx, "get_feedback", {"attemptId": attempt_id})["answeredSource"] == "unrecorded"
 
     _set_item_key(ctx, key_b)
