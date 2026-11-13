@@ -105,6 +105,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/test_k1_mcp_find_sources.py](../../../../../../tests/test_k1_mcp_find_sources.py) — imports consumer [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]]
 - [tests/test_mcp_runtime.py](../../../../../../tests/test_mcp_runtime.py) — imports consumer [[Reference/Modules/learnloop/remote/views|learnloop.remote.views]]
 - [tests/test_mcp_tools.py](../../../../../../tests/test_mcp_tools.py) — imports consumer [[Reference/Modules/learnloop/remote/views|learnloop.remote.views]]
 

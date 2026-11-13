@@ -52,7 +52,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/remote/endpoint_token|learnloop.remote.endpoint_token]] | [[Reference/Modules/learnloop/remote/endpoint_token#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/remote/errors|learnloop.remote.errors]] | [[Reference/Modules/learnloop/remote/errors#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]] | [[Reference/Modules/learnloop/remote/runtime#^module-purpose|purpose]] | `ACTIVE` | 1 | 12 |
-| [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]] | [[Reference/Modules/learnloop/remote/sources#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
+| [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]] | [[Reference/Modules/learnloop/remote/sources#^module-purpose|purpose]] | `ACTIVE` | 0 | 1 |
 | [[Reference/Modules/learnloop/remote/telemetry|learnloop.remote.telemetry]] | [[Reference/Modules/learnloop/remote/telemetry#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/remote/views|learnloop.remote.views]] | [[Reference/Modules/learnloop/remote/views#^module-purpose|purpose]] | `ACTIVE` | 0 | 2 |
 
@@ -60,7 +60,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 9 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 10 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 5 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 5 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 3 static module edges
@@ -98,7 +98,7 @@ flowchart LR
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_content_pipeline["learnloop.content.pipeline"]
     n_learnloop_content_sources["learnloop.content.sources"]
-    center -->|9| n_learnloop
+    center -->|10| n_learnloop
     center -->|5| n_learnloop_db
     center -->|5| n_learnloop_source_retrieval
     n_learnloop_cli -->|3| center

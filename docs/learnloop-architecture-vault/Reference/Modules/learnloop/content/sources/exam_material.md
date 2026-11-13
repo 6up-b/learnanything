@@ -47,92 +47,95 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py) |
-| Source lines | 1588 |
+| Source lines | 1650 |
 | Owning package | [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `is_exam_role(role: str | None) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 159) — Whether a role's material is exam material (assessment-only).
-- `class ExamVerdict` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 166) — Whether one span (or a whole extraction) is exam material, and why.
-  - `as_dict(self) -> dict[str, Any]` (line 181; public)
-- `class Material` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 209) — Withheld material: whole extractions and single spans (with their reasons).
-  - `covers(self, extraction_id: str, span_id: str | None=None) -> bool` (line 217; public) — Whether the span (or, with no span, the whole extraction) is in this material.
-  - `covered(self, keys: Iterable[Sequence[str]]) -> frozenset[SpanKey]` (line 224; public) — The keys among ``keys`` this material covers.
-  - `touched(self) -> frozenset[str]` (line 231; public) — Every extraction this material covers wholly or in part.
-  - `empty(self) -> bool` (line 237; public)
-  - `from_acc(cls, acc: _Acc) -> Material` (line 241; public)
-  - `union(self, other: Material) -> Material` (line 247; public)
-- `class ExamMaterial` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 258) — Exam material vault-wide (rules 1-3), with the held-out part (rule 3) apart.
-  - `extractions(self) -> frozenset[str]` (line 267; public)
-  - `spans(self) -> frozenset[SpanKey]` (line 271; public)
-  - `covers(self, extraction_id: str, span_id: str | None=None) -> bool` (line 274; public) — Whether the span is exam material (held-out included).
-  - `is_held_out(self, extraction_id: str, span_id: str | None=None) -> bool` (line 279; public)
-  - `withheld(self, keys: Iterable[Sequence[str]]) -> frozenset[SpanKey]` (line 282; public) — The keys among ``keys`` that are exam material.
-  - `verdict(self, extraction_id: str, span_id: str | None=None) -> ExamVerdict` (line 287; public) — The span's verdict, with its revision and the pinned revisions behind it.
-- `descendants(units: Sequence[UnitRow], roots: set[str]) -> set[str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 307) — ``roots`` and every unit nested below them (a chapter's sections).
-- `raw_roots(unit_id: str, units: Mapping[str, UnitRow]) -> set[str] | None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 321) — The raw units an effective unit id covers, or None when one is unknown.
-- `scope_reading_of(member: Any, run: tuple[str | None, str | None] | None) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 432) — Whether a member's ``scope_extraction_id`` names a reading its scope can be on: sealed with its entries by the writer (``scope_seal``; an edit made outside the writer breaks it), an extraction of the member's own book, of the revision the member records for it (``scope_revision_…
-- `marks_made_on(extraction_id: str, revision_id: str | None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 558) — The value of :data:`MARKS_MADE_ON_KEY` a writer records with the marks it makes on ``extraction_id`` (``revision_id``: that extraction's revision).
-- `selection_marks_exact(extraction_id: str, metadata: Mapping[str, Any] | None, run: tuple[str | None, str | None] | None) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 565) — Whether a selection's marks name the reading they sit on: its :data:`MARKS_MADE_ON_KEY` names this extraction and its run's revision.
-- `exam_material(vault_or_sets: Any, repository: Any) -> ExamMaterial` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 945) — Exam material vault-wide (rules 1-4): ``vault`` or its ``source_sets``.
-- `role_material(vault_or_sets: Any, repository: Any, withheld_role: Callable[[str | None], bool], *, member_reason: str='role_member', unit_reason: str='role_unit') -> Material` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 967) — Members' material whose role ``withheld_role`` names (rules 1 and 2), for callers that withhold more than exams (``corpus.teaching_exclusions``: problem sets, notes and unknown roles).
-- `scope_only_material(vault_or_sets: Any, repository: Any) -> Material` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 991) — Curriculum C3 (spec §9.1, §9.3; Q2): the material of members and unit overrides whose role only scopes a deliverable (``role_authority.SCOPE_ONLY_ROLES``: a syllabus), resolved as every role without exam protection is (:func:`role_material`).
-- `scope_only_among(vault_or_sets: Any, repository: Any, keys: Iterable[Sequence[str]], whole: Iterable[str]=()) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1002) — Whether any of these blocks (or readings named whole) is scope-only material (:func:`scope_only_material`, Codex review F3), independently of exam protection.
-- `exam_withheld(vault_or_sets: Any, repository: Any, keys: Iterable[Sequence[str]]) -> frozenset[SpanKey]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1019) — The keys among ``keys`` that are exam material.
-- `class SourceMarks` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1032) — One protected book's readings: where protection is marked exactly, the extractions held back until it is marked on them (rule 4), the kinds of mark that name no reading (``ambiguous``: :data:`AMBIGUOUS_SCOPE`, :data:`AMBIGUOUS_SELECTION`, :data:`AMBIGUOUS_SIGNAL`), and the marks…
-- `source_marks(vault_or_sets: Any, repository: Any) -> dict[str, SourceMarks]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1047) — ``{source id: its marks}`` for every protected book (rule 4): what the book's card ("Mark exam material on this reading"), doctor and the marking action read.
-- `reading_held_back(vault_or_sets: Any, repository: Any, extraction_id: str | None) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1061) — Whether a reading is withheld whole until protection is marked on it (rule 4).
-- `protected_spans_by_reading(vault_or_sets: Any, repository: Any, source_id: str) -> dict[str, set[str]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1069) — ``{reading: spans}`` every mark of a book would protect if it were read on that reading by its own unit ids, exact or not: the owner's marking suggestion's sources (never an authority).
-- `held_out_refusal(material: Material, extraction_id: str | None) -> str` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1130) — The plain refusal for a Reader request over ``material``: a reading held back until it is marked says so (rule 4); anything else is held out.
-- `spans_withheld(vault_or_sets: Any, repository: Any, extraction_id: str, span_ids: Iterable[str | None]) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1138) — The refusal when any of ``span_ids`` on ``extraction_id`` (or the whole reading) is exam or held-out material now (:func:`exam_material`'s ``covers`` and ``withheld``), else None.
-- `held_out_material(vault_or_sets: Any, repository: Any) -> Material` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1156) — The held-out partition (:func:`held_out_partition`, every subject): what the Reader's model contexts refuse and a Reader import never turns into practice.
-- `held_out_among(material: Material, extraction_id: str | None, span_ids: Iterable[str | None]) -> list[str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1167) — The span ids among ``span_ids`` (in order, each once) that ``material`` covers.
-- `class HeldOutSpan` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1181) — One held-out span: its identity and block text.
-  - `key(self) -> str` (line 1189; public)
-- `held_out_partition(vault_or_sets: Any, repository: Any, *, subject_ids: Iterable[str] | None=None) -> Material` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1193) — The held-out partition: every held-out unit (rule 3, any role, on the extraction that marks it), every reading held back until protection is marked on it exactly (rule 4, whole), plus the held-out assessment signals on the marked reading their model run read.
-- `held_out_spans(vault_or_sets: Any, repository: Any, *, subject_ids: Iterable[str] | None=None) -> list[HeldOutSpan]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1213) — Every held-out span with its text, in a deterministic order (a span listed once).
-- `class ItemExamStatus` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1251) — Why an item is exam material: reserved for a held-out exam, or made from exam material.
-  - `as_dict(self) -> dict[str, Any]` (line 1259; public)
-- `source_ref_keys(ref: Any) -> tuple[set[SpanKey], set[str]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1271) — One source ref's location, normalized: ``(block keys, extractions it names without a block)``.
-- `reference_keys(value: Any, *, extraction_id: str | None=None) -> tuple[set[SpanKey], set[str]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1303) — Every source location a reference of any shape names, placed through :func:`source_ref_keys` (the AD23 redesign round 4: one key function for every shape): ``(block keys, extractions named without a block)``.
-- `item_source_keys(item: Any) -> tuple[set[SpanKey], set[str]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1368) — The item's own source: ``(block keys, whole extractions)`` its canonical exercise and its provenance source refs name (:func:`source_ref_keys`).
-- `source_ref_protected(material: ExamMaterial, ref: Any, repository: Any) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1385) — Whether a source ref's text (its quote) may be exam or held-out material, so a model context must not carry it (PF's parent quotes; Codex review F4).
-- `held_out_item_ids(items: Iterable[Any], held_out: Material) -> frozenset[str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1418) — The items whose own source (:func:`item_source_keys`: the canonical exercise, block-level provenance refs, an extraction named whole) lies in ``held_out`` material (Codex review F1: an item imported before its unit was marked held out).
-- `held_out_items(vault: Any, repository: Any) -> frozenset[str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1435) — The vault's practice items made from held-out material (:func:`held_out_material`).
-- `held_out_selection_active(vault: Any) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1444) — ``goals.held_out_selection``: the kill switch of the serving rules (Codex review F6).
-- `exposed_items(vault: Any, repository: Any, items: Iterable[Any], *, with_held_out: bool=False) -> dict[str, list[str]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1464) — ``{item id: reasons}`` for the items among ``items`` that are no longer an independent check: the learner has been shown their own material (``db.stores.source_service.shown_items``: ``revealed``, ``source_exposed``, ``seen_in_proposal``) and, with ``with_held_out``, items made…
-- `item_exam_status(item: Any, *, material: ExamMaterial | None=None, reserved: Iterable[str]=()) -> ItemExamStatus | None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1494) — Whether a practice item is exam material, or None.
-- `exam_reserved(repository: Any, item_id: str | None) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1521) — Whether the item is reserved for a goal's held-out exam (an unreleased exam-pool row).
+- `is_exam_role(role: str | None) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 163) — Whether a role's material is exam material (assessment-only).
+- `class ExamVerdict` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 170) — Whether one span (or a whole extraction) is exam material, and why.
+  - `as_dict(self) -> dict[str, Any]` (line 185; public)
+- `class Material` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 213) — Withheld material: whole extractions and single spans (with their reasons).
+  - `covers(self, extraction_id: str, span_id: str | None=None) -> bool` (line 221; public) — Whether the span (or, with no span, the whole extraction) is in this material.
+  - `covered(self, keys: Iterable[Sequence[str]]) -> frozenset[SpanKey]` (line 228; public) — The keys among ``keys`` this material covers.
+  - `touched(self) -> frozenset[str]` (line 235; public) — Every extraction this material covers wholly or in part.
+  - `empty(self) -> bool` (line 241; public)
+  - `from_acc(cls, acc: _Acc) -> Material` (line 245; public)
+  - `union(self, other: Material) -> Material` (line 251; public)
+- `class ExamMaterial` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 262) — Exam material vault-wide (rules 1-3), with the held-out part (rule 3) apart.
+  - `extractions(self) -> frozenset[str]` (line 271; public)
+  - `spans(self) -> frozenset[SpanKey]` (line 275; public)
+  - `covers(self, extraction_id: str, span_id: str | None=None) -> bool` (line 278; public) — Whether the span is exam material (held-out included).
+  - `is_held_out(self, extraction_id: str, span_id: str | None=None) -> bool` (line 283; public)
+  - `withheld(self, keys: Iterable[Sequence[str]]) -> frozenset[SpanKey]` (line 286; public) — The keys among ``keys`` that are exam material.
+  - `verdict(self, extraction_id: str, span_id: str | None=None) -> ExamVerdict` (line 291; public) — The span's verdict, with its revision and the pinned revisions behind it.
+- `descendants(units: Sequence[UnitRow], roots: set[str]) -> set[str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 311) — ``roots`` and every unit nested below them (a chapter's sections).
+- `raw_roots(unit_id: str, units: Mapping[str, UnitRow]) -> set[str] | None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 325) — The raw units an effective unit id covers, or None when one is unknown.
+- `scope_reading_of(member: Any, run: tuple[str | None, str | None] | None) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 436) — Whether a member's ``scope_extraction_id`` names a reading its scope can be on: sealed with its entries by the writer (``scope_seal``; an edit made outside the writer breaks it), an extraction of the member's own book, of the revision the member records for it (``scope_revision_…
+- `marks_made_on(extraction_id: str, revision_id: str | None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 562) — The value of :data:`MARKS_MADE_ON_KEY` a writer records with the marks it makes on ``extraction_id`` (``revision_id``: that extraction's revision).
+- `selection_marks_exact(extraction_id: str, metadata: Mapping[str, Any] | None, run: tuple[str | None, str | None] | None) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 569) — Whether a selection's marks name the reading they sit on: its :data:`MARKS_MADE_ON_KEY` names this extraction and its run's revision.
+- `class SourceSetsUnreadable(RuntimeError)` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 950) — The vault's source sets did not load, so rules 1 and 2 cannot be read.
+- `protection_issues(vault: Any) -> list[str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 954) — Why the vault's protection metadata cannot be trusted, or ``[]``.
+- `exam_material(vault_or_sets: Any, repository: Any) -> ExamMaterial` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1004) — Exam material vault-wide (rules 1-4): ``vault`` or its ``source_sets``.
+- `role_material(vault_or_sets: Any, repository: Any, withheld_role: Callable[[str | None], bool], *, member_reason: str='role_member', unit_reason: str='role_unit') -> Material` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1027) — Members' material whose role ``withheld_role`` names (rules 1 and 2), for callers that withhold more than exams (``corpus.teaching_exclusions``: problem sets, notes and unknown roles).
+- `scope_only_material(vault_or_sets: Any, repository: Any) -> Material` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1052) — Curriculum C3 (spec §9.1, §9.3; Q2): the material of members and unit overrides whose role only scopes a deliverable (``role_authority.SCOPE_ONLY_ROLES``: a syllabus), resolved as every role without exam protection is (:func:`role_material`).
+- `scope_only_among(vault_or_sets: Any, repository: Any, keys: Iterable[Sequence[str]], whole: Iterable[str]=()) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1063) — Whether any of these blocks (or readings named whole) is scope-only material (:func:`scope_only_material`, Codex review F3), independently of exam protection.
+- `exam_withheld(vault_or_sets: Any, repository: Any, keys: Iterable[Sequence[str]]) -> frozenset[SpanKey]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1080) — The keys among ``keys`` that are exam material.
+- `class SourceMarks` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1093) — One protected book's readings: where protection is marked exactly, the extractions held back until it is marked on them (rule 4), the kinds of mark that name no reading (``ambiguous``: :data:`AMBIGUOUS_SCOPE`, :data:`AMBIGUOUS_SELECTION`, :data:`AMBIGUOUS_SIGNAL`), and the marks…
+- `source_marks(vault_or_sets: Any, repository: Any) -> dict[str, SourceMarks]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1108) — ``{source id: its marks}`` for every protected book (rule 4): what the book's card ("Mark exam material on this reading"), doctor and the marking action read.
+- `reading_held_back(vault_or_sets: Any, repository: Any, extraction_id: str | None) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1122) — Whether a reading is withheld whole until protection is marked on it (rule 4).
+- `protected_spans_by_reading(vault_or_sets: Any, repository: Any, source_id: str) -> dict[str, set[str]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1130) — ``{reading: spans}`` every mark of a book would protect if it were read on that reading by its own unit ids, exact or not: the owner's marking suggestion's sources (never an authority).
+- `held_out_refusal(material: Material, extraction_id: str | None) -> str` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1191) — The plain refusal for a Reader request over ``material``: a reading held back until it is marked says so (rule 4); anything else is held out.
+- `spans_withheld(vault_or_sets: Any, repository: Any, extraction_id: str, span_ids: Iterable[str | None]) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1199) — The refusal when any of ``span_ids`` on ``extraction_id`` (or the whole reading) is exam or held-out material now (:func:`exam_material`'s ``covers`` and ``withheld``), else None.
+- `held_out_material(vault_or_sets: Any, repository: Any) -> Material` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1217) — The held-out partition (:func:`held_out_partition`, every subject): what the Reader's model contexts refuse and a Reader import never turns into practice.
+- `held_out_among(material: Material, extraction_id: str | None, span_ids: Iterable[str | None]) -> list[str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1228) — The span ids among ``span_ids`` (in order, each once) that ``material`` covers.
+- `class HeldOutSpan` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1242) — One held-out span: its identity and block text.
+  - `key(self) -> str` (line 1250; public)
+- `held_out_partition(vault_or_sets: Any, repository: Any, *, subject_ids: Iterable[str] | None=None) -> Material` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1254) — The held-out partition: every held-out unit (rule 3, any role, on the extraction that marks it), every reading held back until protection is marked on it exactly (rule 4, whole), plus the held-out assessment signals on the marked reading their model run read.
+- `held_out_spans(vault_or_sets: Any, repository: Any, *, subject_ids: Iterable[str] | None=None) -> list[HeldOutSpan]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1275) — Every held-out span with its text, in a deterministic order (a span listed once).
+- `class ItemExamStatus` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1313) — Why an item is exam material: reserved for a held-out exam, or made from exam material.
+  - `as_dict(self) -> dict[str, Any]` (line 1321; public)
+- `source_ref_keys(ref: Any) -> tuple[set[SpanKey], set[str]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1333) — One source ref's location, normalized: ``(block keys, extractions it names without a block)``.
+- `reference_keys(value: Any, *, extraction_id: str | None=None) -> tuple[set[SpanKey], set[str]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1365) — Every source location a reference of any shape names, placed through :func:`source_ref_keys` (the AD23 redesign round 4: one key function for every shape): ``(block keys, extractions named without a block)``.
+- `item_source_keys(item: Any) -> tuple[set[SpanKey], set[str]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1430) — The item's own source: ``(block keys, whole extractions)`` its canonical exercise and its provenance source refs name (:func:`source_ref_keys`).
+- `source_ref_protected(material: ExamMaterial, ref: Any, repository: Any) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1447) — Whether a source ref's text (its quote) may be exam or held-out material, so a model context must not carry it (PF's parent quotes; Codex review F4).
+- `held_out_item_ids(items: Iterable[Any], held_out: Material) -> frozenset[str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1480) — The items whose own source (:func:`item_source_keys`: the canonical exercise, block-level provenance refs, an extraction named whole) lies in ``held_out`` material (Codex review F1: an item imported before its unit was marked held out).
+- `held_out_items(vault: Any, repository: Any) -> frozenset[str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1497) — The vault's practice items made from held-out material (:func:`held_out_material`).
+- `held_out_selection_active(vault: Any) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1506) — ``goals.held_out_selection``: the kill switch of the serving rules (Codex review F6).
+- `exposed_items(vault: Any, repository: Any, items: Iterable[Any], *, with_held_out: bool=False) -> dict[str, list[str]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1526) — ``{item id: reasons}`` for the items among ``items`` that are no longer an independent check: the learner has been shown their own material (``db.stores.source_service.shown_items``: ``revealed``, ``source_exposed``, ``seen_in_proposal``) and, with ``with_held_out``, items made…
+- `item_exam_status(item: Any, *, material: ExamMaterial | None=None, reserved: Iterable[str]=()) -> ItemExamStatus | None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1556) — Whether a practice item is exam material, or None.
+- `exam_reserved(repository: Any, item_id: str | None) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1583) — Whether the item is reserved for a goal's held-out exam (an unreleased exam-pool row).
 
 ### Module constants
 
-- `HELD_OUT_EVALUATION` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 121)
-- `EXAM_ROLE` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 123)
-- `EXAM_MEMBER` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 126)
-- `EXAM_UNIT` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 127)
-- `HELD_OUT_UNIT` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 128)
-- `HELD_OUT_SIGNAL` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 129)
-- `UNRESOLVED_UNIT` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 130)
-- `UNMARKED_READING` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 132)
-- `AMBIGUOUS_MARK` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 134)
-- `EXAM_RESERVED` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 135)
-- `EXAM_SOURCE` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 136)
-- `PROTECTION_MARK_KEY` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 142)
-- `MARKS_MADE_ON_KEY` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 148)
-- `REVIEWED_UNPLACED` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 154)
-- `_ELSEWHERE_WHOLE` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 457)
-- `_ELSEWHERE_LABEL` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 459)
-- `AMBIGUOUS_SCOPE` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 681)
-- `AMBIGUOUS_SELECTION` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 682)
-- `AMBIGUOUS_SIGNAL` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 683)
-- `SCOPE_ONLY_REFUSAL` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 987)
-- `HELD_OUT_REFUSAL` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1122)
-- `HELD_BACK_REFUSAL` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1126)
-- `_LOCATOR_FIELDS` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1300)
-- `HELD_OUT_MATERIAL` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1461)
-- `HELD_OUT_ITEM_REFUSAL` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1490)
+- `HELD_OUT_EVALUATION` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 125)
+- `EXAM_ROLE` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 127)
+- `EXAM_MEMBER` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 130)
+- `EXAM_UNIT` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 131)
+- `HELD_OUT_UNIT` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 132)
+- `HELD_OUT_SIGNAL` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 133)
+- `UNRESOLVED_UNIT` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 134)
+- `UNMARKED_READING` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 136)
+- `AMBIGUOUS_MARK` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 138)
+- `EXAM_RESERVED` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 139)
+- `EXAM_SOURCE` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 140)
+- `PROTECTION_MARK_KEY` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 146)
+- `MARKS_MADE_ON_KEY` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 152)
+- `REVIEWED_UNPLACED` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 158)
+- `_ELSEWHERE_WHOLE` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 461)
+- `_ELSEWHERE_LABEL` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 463)
+- `AMBIGUOUS_SCOPE` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 685)
+- `AMBIGUOUS_SELECTION` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 686)
+- `AMBIGUOUS_SIGNAL` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 687)
+- `SNAPSHOT_UNSETTLED` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 947)
+- `SCOPE_ONLY_REFUSAL` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1048)
+- `HELD_OUT_REFUSAL` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1183)
+- `HELD_BACK_REFUSAL` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1187)
+- `_LOCATOR_FIELDS` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1362)
+- `HELD_OUT_MATERIAL` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1523)
+- `HELD_OUT_ITEM_REFUSAL` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1552)
 
 ### Explicit exports
 
@@ -199,30 +202,31 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ## Internal implementation anchors
 
-- `class _Acc` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 188) — What a build has found so far, with its reasons and the pinned revisions behind it.
-- `class _Reader` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 337) — One build's database reads, each made once.
-- `_origin_units(reader: _Reader, origin: str, narrowing: set[str]) -> tuple[set[str], set[str]] | None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 409) — The scope resolved by unit id on the reading it names: ``(its spans there, the labels of its raw units)``, or None when a unit id does not resolve there.
-- `_exact_scope_reading(reader: _Reader, member: Any) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 448) — The reading a member's scope names, when it names one it can be on (else None).
-- `_member_units(reader: _Reader, member: Any, narrowing: set[str], acc: _Acc, reason: str, *, elsewhere: str) -> None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 462) — Resolve a member's narrowing units on the reading its scope names (``scope_extraction_id``), by unit id; a unit id that does not resolve there withholds every extraction of the book (fail closed).
-- `_exam_narrowing(member: Any) -> set[str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 507) — The member's scope units overridden to an exam role (rule 2).
-- `_role_material(reader: _Reader, member: Any, withheld_role: Callable[[str | None], bool], acc: _Acc, *, member_reason: str, unit_reason: str) -> None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 513) — A member's material whose role ``withheld_role`` names: the whole source when its default role does (rule 1), else its scope's units on the reading the scope names: exam units with every other extraction whole, the other roles by label.
-- `_outline_exam_sources(connection: Any) -> list[tuple[str | None, str | None, str]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 533) — ``(source id, revision id, extraction id)`` of every unit selection whose outline role pick names ``exam`` (the import-batch path, before any source set).
-- `_json_value(text: Any, default: Any) -> Any` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 550)
-- `_reviewed_unplaced(metadata: Mapping[str, Any] | None) -> frozenset[str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 581) — The unplaced marks the owner's marking reviewed (:data:`REVIEWED_UNPLACED`); none when it records none (a marking made before it was recorded).
-- `_marked_selections(connection: Any) -> list[tuple[str, str | None, str | None, list[str], bool, Mapping[str, Any]]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 590) — ``(extraction id, source id, revision id, held-out unit ids, marked by the owner's action, paper metadata)`` of every unit selection that marks protection: a held-out mark (rule 3) or the owner's "Mark exam material on this reading" (:data:`PROTECTION_MARK_KEY`).
-- `_held_out_signal_spans(inventory: Any) -> list[str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 616)
-- `_cache_signal_ledger(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 624) — The ledger migration 204's backfill would write, read from the inventory cache: for a database read before it is migrated (a dry run never migrates).
-- `_signal_ledger(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 661) — Every row of the held-out signal ledger with its book (migration 204); on a database not yet migrated, what its backfill would write.
-- `_unplaced_scope(unit_id: str) -> str` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 686) — An unplaced legacy exam scope unit, as the owner's marking records it reviewed.
-- `_unplaced_signal(inventory_id: str) -> str` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 692) — A held-out signal of unknown reading (by the inventory that made it), as reviewed.
-- `class _Marks` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 699) — One book's protection marks, each on the reading it names (rules 2-4).
-- `_signal_counts(row: Mapping[str, Any], *, exam_sources: set[str], scoped: set[str], scope_spans: Mapping[str, set[str]]) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 768) — Whether a ledger row's held-out signals are protection: made under an exam role, or on a book that is exam material now (rule 1: an exam member of any set, or an outline exam pick), or on spans an exact exam scope names on the same reading, or (a row whose role was not recorded)…
-- `_protection_marks(reader: _Reader, vault_or_sets: Any) -> dict[tuple[str, str], _Marks]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 787) — Every book's protection marks, each on the reading it names (rules 2-4), read from the vault's source sets and the database, across every revision and extraction of the book whatever its membership: exam scopes (rule 2), held-out marks and the owner's marking action (rule 3, the…
-- `_held_units(reader: _Reader, extraction_id: str, unit_ids: Iterable[str], held: _Acc) -> None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 872) — An extraction's own held-out marks (rule 3), by unit id: a split child withholds its whole raw parent, a merged unit its members; a mark that does not resolve withholds the whole extraction (fail closed).
-- `_add_protection(reader: _Reader, vault_or_sets: Any, held: _Acc, exam: _Acc | None=None) -> None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 891) — Rules 2-4 into ``held`` (and the exam scopes' units into ``exam``): on each reading marked exactly, its own exam scope units, held-out marks and signals; every other extraction of a protected book, whole.
-- `_runs(connection: Any, extraction_ids: Iterable[str]) -> dict[str, tuple[str | None, str | None]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 925)
-- `_source_sets(vault_or_sets: Any) -> list[Any]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 940)
-- `_parse_block_span(locator: str) -> SpanKey | None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1264)
+- `class _Acc` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 192) — What a build has found so far, with its reasons and the pinned revisions behind it.
+- `class _Reader` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 341) — One build's database reads, each made once.
+- `_origin_units(reader: _Reader, origin: str, narrowing: set[str]) -> tuple[set[str], set[str]] | None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 413) — The scope resolved by unit id on the reading it names: ``(its spans there, the labels of its raw units)``, or None when a unit id does not resolve there.
+- `_exact_scope_reading(reader: _Reader, member: Any) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 452) — The reading a member's scope names, when it names one it can be on (else None).
+- `_member_units(reader: _Reader, member: Any, narrowing: set[str], acc: _Acc, reason: str, *, elsewhere: str) -> None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 466) — Resolve a member's narrowing units on the reading its scope names (``scope_extraction_id``), by unit id; a unit id that does not resolve there withholds every extraction of the book (fail closed).
+- `_exam_narrowing(member: Any) -> set[str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 511) — The member's scope units overridden to an exam role (rule 2).
+- `_role_material(reader: _Reader, member: Any, withheld_role: Callable[[str | None], bool], acc: _Acc, *, member_reason: str, unit_reason: str) -> None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 517) — A member's material whose role ``withheld_role`` names: the whole source when its default role does (rule 1), else its scope's units on the reading the scope names: exam units with every other extraction whole, the other roles by label.
+- `_outline_exam_sources(connection: Any) -> list[tuple[str | None, str | None, str]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 537) — ``(source id, revision id, extraction id)`` of every unit selection whose outline role pick names ``exam`` (the import-batch path, before any source set).
+- `_json_value(text: Any, default: Any) -> Any` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 554)
+- `_reviewed_unplaced(metadata: Mapping[str, Any] | None) -> frozenset[str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 585) — The unplaced marks the owner's marking reviewed (:data:`REVIEWED_UNPLACED`); none when it records none (a marking made before it was recorded).
+- `_marked_selections(connection: Any) -> list[tuple[str, str | None, str | None, list[str], bool, Mapping[str, Any]]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 594) — ``(extraction id, source id, revision id, held-out unit ids, marked by the owner's action, paper metadata)`` of every unit selection that marks protection: a held-out mark (rule 3) or the owner's "Mark exam material on this reading" (:data:`PROTECTION_MARK_KEY`).
+- `_held_out_signal_spans(inventory: Any) -> list[str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 620)
+- `_cache_signal_ledger(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 628) — The ledger migration 204's backfill would write, read from the inventory cache: for a database read before it is migrated (a dry run never migrates).
+- `_signal_ledger(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 665) — Every row of the held-out signal ledger with its book (migration 204); on a database not yet migrated, what its backfill would write.
+- `_unplaced_scope(unit_id: str) -> str` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 690) — An unplaced legacy exam scope unit, as the owner's marking records it reviewed.
+- `_unplaced_signal(inventory_id: str) -> str` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 696) — A held-out signal of unknown reading (by the inventory that made it), as reviewed.
+- `class _Marks` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 703) — One book's protection marks, each on the reading it names (rules 2-4).
+- `_signal_counts(row: Mapping[str, Any], *, exam_sources: set[str], scoped: set[str], scope_spans: Mapping[str, set[str]]) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 772) — Whether a ledger row's held-out signals are protection: made under an exam role, or on a book that is exam material now (rule 1: an exam member of any set, or an outline exam pick), or on spans an exact exam scope names on the same reading, or (a row whose role was not recorded)…
+- `_protection_marks(reader: _Reader, vault_or_sets: Any) -> dict[tuple[str, str], _Marks]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 791) — Every book's protection marks, each on the reading it names (rules 2-4), read from the vault's source sets and the database, across every revision and extraction of the book whatever its membership: exam scopes (rule 2), held-out marks and the owner's marking action (rule 3, the…
+- `_held_units(reader: _Reader, extraction_id: str, unit_ids: Iterable[str], held: _Acc) -> None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 876) — An extraction's own held-out marks (rule 3), by unit id: a split child withholds its whole raw parent, a merged unit its members; a mark that does not resolve withholds the whole extraction (fail closed).
+- `_add_protection(reader: _Reader, vault_or_sets: Any, held: _Acc, exam: _Acc | None=None) -> None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 895) — Rules 2-4 into ``held`` (and the exam scopes' units into ``exam``): on each reading marked exactly, its own exam scope units, held-out marks and signals; every other extraction of a protected book, whole.
+- `_runs(connection: Any, extraction_ids: Iterable[str]) -> dict[str, tuple[str | None, str | None]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 929)
+- `_source_sets(vault_or_sets: Any) -> list[Any]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 987)
+- `_require_readable(vault_or_sets: Any) -> None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 992) — Refuse (fail closed) a vault whose source sets did not load: without them rules 1 and 2 vanish and exam material reads as teaching.
+- `_parse_block_span(locator: str) -> SpanKey | None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1326)
 
 ## Who imports or calls it
 
@@ -236,7 +240,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] — imports `SCOPE_ONLY_REFUSAL`, `reference_keys`, `scope_only_among`; statically calls `reference_keys`, `scope_only_among`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `exam_material`; statically calls `exam_material`
 - [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] — imports `HeldOutSpan`, `module`; statically calls `exam_material`, `held_out_spans`
-- [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `SCOPE_ONLY_REFUSAL`, `exam_material`, `reference_keys`, `scope_only_among`; statically calls `exam_material`, `reference_keys`, `scope_only_among`
+- [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `SCOPE_ONLY_REFUSAL`, `SourceSetsUnreadable`, `exam_material`, `reference_keys`, `scope_only_among`; statically calls `exam_material`, `reference_keys`, `scope_only_among`
 - [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]] — imports `module`; statically calls `exam_material`
 - [[Reference/Modules/learnloop/content/pipeline/exam_marking|learnloop.content.pipeline.exam_marking]] — imports `AMBIGUOUS_SCOPE`, `AMBIGUOUS_SELECTION`, `HELD_OUT_EVALUATION`, `MARKS_MADE_ON_KEY`, `PROTECTION_MARK_KEY`, `REVIEWED_UNPLACED`, `SourceMarks`, `marks_made_on`, `protected_spans_by_reading`, `source_marks`; statically calls `marks_made_on`, `protected_spans_by_reading`, `source_marks`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `exam_material`, `held_out_among`, `held_out_material`, `held_out_refusal`, `scope_only_among`; statically calls `exam_material`, `held_out_among`, `held_out_material`, `held_out_refusal`, `scope_only_among`
@@ -259,7 +263,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/instructional/policy|learnloop.instructional.policy]] — imports `exam_reserved`; statically calls `exam_reserved`
 - [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]] — imports `HELD_OUT_ITEM_REFUSAL`, `exam_reserved`, `held_out_item_ids`, `held_out_material`, `held_out_selection_active`; statically calls `exam_reserved`, `held_out_item_ids`, `held_out_material`, `held_out_selection_active`
 - [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]] — imports `module`; statically calls `exam_withheld`
-- [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `module`, `source_ref_protected`; statically calls `exam_material`, `held_out_items`, `item_exam_status`, `source_ref_protected`
+- [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `SNAPSHOT_UNSETTLED`, `module`, `protection_issues`, `source_ref_protected`; statically calls `exam_material`, `held_out_items`, `item_exam_status`, `protection_issues`, `source_ref_protected`
 - [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] — imports `exam_material`, `source_ref_protected`; statically calls `exam_material`, `source_ref_protected`
 - [[Reference/Modules/learnloop/reader/phone_media|learnloop.reader.phone_media]] — imports `HELD_OUT_REFUSAL`, `exam_material`, `held_out_refusal`; statically calls `exam_material`, `held_out_refusal`
 - [[Reference/Modules/learnloop/reader/reader_cues|learnloop.reader.reader_cues]] — imports `exam_material`; statically calls `exam_material`
@@ -288,7 +292,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/workbench/compare_methods|learnloop.workbench.compare_methods]] — imports `exam_material`, `item_exam_status`; statically calls `exam_material`, `item_exam_status`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `exam_reserved`; statically calls `exam_reserved`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `HELD_BACK_REFUSAL`, `HELD_OUT_REFUSAL`, `item_source_keys`, `reading_held_back`, `reference_keys`; statically calls `item_source_keys`, `reading_held_back`, `reference_keys`
-- [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `HELD_OUT_ITEM_REFUSAL`, `held_out_item_ids`, `held_out_material`, `held_out_selection_active`; statically calls `held_out_item_ids`, `held_out_material`, `held_out_selection_active`
+- [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `HELD_OUT_ITEM_REFUSAL`, `exam_reserved`, `held_out_item_ids`, `held_out_material`, `held_out_selection_active`; statically calls `exam_reserved`, `held_out_item_ids`, `held_out_material`, `held_out_selection_active`
 
 ## Dependencies
 
@@ -300,11 +304,12 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/db/stores/source_block_fts|learnloop.db.stores.source_block_fts]] — imports `UnitRow`, `extraction_units`, `source_extraction_ids`; calls `extraction_units`, `source_extraction_ids`
 - [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]] — imports `shown_items`; calls `shown_items`
 - [[Reference/Modules/learnloop/ingest/locators|learnloop.ingest.locators]] — imports `parse_block_span`; calls `parse_block_span`
+- [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
 - [[Reference/Modules/learnloop/vault/scope_seal|learnloop.vault.scope_seal]] — imports `scope_seal`; calls `scope_seal`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `contextlib`, `dataclasses`, `json`, `types`, `typing`
+- Standard library: `__future__`, `collections`, `contextlib`, `dataclasses`, `json`, `pathlib`, `types`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -409,6 +414,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_intent_fix_round6.py](../../../../../../../tests/test_intent_fix_round6.py) — direct import
 - [tests/test_intent_fix_round7.py](../../../../../../../tests/test_intent_fix_round7.py) — direct import
   - `test_f22_a_protected_set_error_names_its_input`
+- [tests/test_k1_source_sets_gate.py](../../../../../../../tests/test_k1_source_sets_gate.py) — direct import
+  - `test_a_valid_file_still_reads_the_exam_member_as_exam_material`
+  - `test_a_vault_double_without_a_root_is_not_gated`
+  - `test_every_shared_reader_refuses_unloaded_source_sets`
+  - `test_the_exercise_import_and_the_facet_resolver_refuse`
+  - `test_the_premise_the_corrupt_file_is_unreadable`
+  - `test_the_readers_that_already_asked_still_refuse_and_ask_once`
+  - `test_the_tutor_figures_and_phone_withhold_when_source_sets_did_not_load`
 - [tests/test_learner_blindness_relax_codex_review.py](../../../../../../../tests/test_learner_blindness_relax_codex_review.py) — direct import
 - [tests/test_library_ask_review.py](../../../../../../../tests/test_library_ask_review.py) — direct import
   - `test_a_held_out_selection_is_refused_before_any_retrieval`

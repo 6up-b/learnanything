@@ -35,7 +35,7 @@ Up: [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] · Root: [[Mo
 
 ## Why this module exists
 
-This module keeps yaml io behavior inside its owning package, [[Reference/Modules/learnloop/vault/_package|learnloop.vault]]. Its public surface centers on `read_yaml`, `read_yaml_data`, `write_yaml`, `yaml_to_string`, `yaml_from_string`, `read_markdown_with_frontmatter`, `read_markdown_frontmatter_data`, `write_markdown_with_frontmatter`.
+This module keeps yaml io behavior inside its owning package, [[Reference/Modules/learnloop/vault/_package|learnloop.vault]]. Its public surface centers on `read_yaml`, `read_yaml_data`, `write_yaml`, `write_yaml_atomic`, `yaml_to_string`, `yaml_from_string`, `read_markdown_with_frontmatter`, `read_markdown_frontmatter_data` and 1 more public symbols.
 
 The authoritative system-level explanation remains in [[State and Persistence]]; this note records where this source module participates rather than restating those concepts.
 
@@ -46,38 +46,39 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py) |
-| Source lines | 267 |
+| Source lines | 291 |
 | Owning package | [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `read_yaml(path: Path) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 27) — Load a YAML mapping for editing.
-- `read_yaml_data(path: Path) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 43) — Load a YAML mapping as plain Python data, for callers that never write it back.
-- `write_yaml(path: Path, data: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 96)
-- `yaml_to_string(data: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 103)
-- `yaml_from_string(text: str) -> Any` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 107) — Parse YAML text for editing (the round-trip loader ``read_yaml`` uses).
-- `read_markdown_with_frontmatter(path: Path) -> tuple[dict[str, Any], str]` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 117)
-- `read_markdown_frontmatter_data(path: Path) -> tuple[dict[str, Any], str]` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 130) — ``read_markdown_with_frontmatter`` for read-only callers; see ``read_yaml_data``.
-- `write_markdown_with_frontmatter(path: Path, metadata: dict[str, Any], body: str) -> None` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 149)
+- `read_yaml(path: Path) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 29) — Load a YAML mapping for editing.
+- `read_yaml_data(path: Path) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 45) — Load a YAML mapping as plain Python data, for callers that never write it back.
+- `write_yaml(path: Path, data: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 98)
+- `write_yaml_atomic(path: Path, data: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 105) — :func:`write_yaml` that never exposes a truncated file: a reader that opens ``path`` mid-write sees the old file or the new one, never an empty one (an empty source sets file reads as no exam material).
+- `yaml_to_string(data: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 127)
+- `yaml_from_string(text: str) -> Any` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 131) — Parse YAML text for editing (the round-trip loader ``read_yaml`` uses).
+- `read_markdown_with_frontmatter(path: Path) -> tuple[dict[str, Any], str]` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 141)
+- `read_markdown_frontmatter_data(path: Path) -> tuple[dict[str, Any], str]` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 154) — ``read_markdown_with_frontmatter`` for read-only callers; see ``read_yaml_data``.
+- `write_markdown_with_frontmatter(path: Path, metadata: dict[str, Any], body: str) -> None` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 173)
 
 ### Module constants
 
-- `WIDE_EMITTER_WIDTH` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 65)
-- `_NEEDS_ROUND_TRIP` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 167)
-- `_TAG_OR_DIRECTIVE` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 172)
-- `_CANONICAL_INT` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 173)
-- `_TAG_PREFIX` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 174)
-- `_MERGE_OR_VALUE_KEY_TAGS` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 175)
+- `WIDE_EMITTER_WIDTH` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 67)
+- `_NEEDS_ROUND_TRIP` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 191)
+- `_TAG_OR_DIRECTIVE` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 196)
+- `_CANONICAL_INT` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 197)
+- `_TAG_PREFIX` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 198)
+- `_MERGE_OR_VALUE_KEY_TAGS` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 199)
 
 ## Internal implementation anchors
 
-- `_yaml() -> YAML` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 19)
-- `_dumped(data: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 68) — The YAML text for ``data``, guaranteed to read back.
-- `class _RoundTripOnly(Exception)` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 178) — The document uses a form only the round-trip loader reproduces exactly.
-- `_fast_load(text: str, loader: type | None=None) -> Any` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 182) — Parse ``text`` on the fast path, or return ``_NEEDS_ROUND_TRIP``.
-- `_build_fast_loader(base: type) -> type` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 194) — Subclass a PyYAML safe loader (C or pure Python) with round-trip scalar rules.
+- `_yaml() -> YAML` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 21)
+- `_dumped(data: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 70) — The YAML text for ``data``, guaranteed to read back.
+- `class _RoundTripOnly(Exception)` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 202) — The document uses a form only the round-trip loader reproduces exactly.
+- `_fast_load(text: str, loader: type | None=None) -> Any` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 206) — Parse ``text`` on the fast path, or return ``_NEEDS_ROUND_TRIP``.
+- `_build_fast_loader(base: type) -> type` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 218) — Subclass a PyYAML safe loader (C or pure Python) with round-trip scalar rules.
 
 ## Who imports or calls it
 
@@ -106,7 +107,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `read_yaml`, `yaml_to_string`; statically calls `read_yaml`, `yaml_to_string`
 - [[Reference/Modules/learnloop/substrate/families|learnloop.substrate.families]] — imports `read_yaml`, `yaml_to_string`; statically calls `read_yaml`, `yaml_to_string`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `read_markdown_frontmatter_data`, `read_markdown_with_frontmatter`, `read_yaml_data`, `write_markdown_with_frontmatter`, `write_yaml`; statically calls `read_markdown_frontmatter_data`, `read_markdown_with_frontmatter`, `write_markdown_with_frontmatter`, `write_yaml`
-- [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `read_yaml`, `write_yaml`; statically calls `read_yaml`, `write_yaml`
+- [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `read_yaml`, `write_yaml`, `write_yaml_atomic`; statically calls `read_yaml`, `write_yaml`, `write_yaml_atomic`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `read_yaml`, `write_yaml`; statically calls `read_yaml`, `write_yaml`
 - [[Reference/Modules/learnloop_sidecar/handlers/router_objective|learnloop_sidecar.handlers.router_objective]] — imports `read_yaml`, `write_yaml`; statically calls `read_yaml`, `write_yaml`
 
@@ -118,7 +119,7 @@ No internal Python dependency was found by static analysis.
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `io`, `pathlib`, `re`, `typing`
+- Standard library: `__future__`, `io`, `os`, `pathlib`, `re`, `typing`, `uuid`
 - Third party: `ruamel`, `yaml`
 
 ## Larger workflow participation
@@ -356,6 +357,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f19_dl1_pair_plans_are_otherwise_unchanged`
 - [tests/test_intent_orchestrator_rulings.py](../../../../../../tests/test_intent_orchestrator_rulings.py) — direct import
 - [tests/test_intent_plan.py](../../../../../../tests/test_intent_plan.py) — direct import
+- [tests/test_k1_source_sets_gate.py](../../../../../../tests/test_k1_source_sets_gate.py) — direct import
+  - `test_the_source_sets_write_never_leaves_a_truncated_file`
+  - `test_write_yaml_atomic_round_trips`
 - [tests/test_km1_doctor.py](../../../../../../tests/test_km1_doctor.py) — direct import
   - `test_blueprint_invalid_capability_rejected`
   - `test_criterion_dependency_cycle_rejected`
