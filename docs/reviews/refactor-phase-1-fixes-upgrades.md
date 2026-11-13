@@ -220,3 +220,24 @@ guard line is not added there: a journal from below the floor is at least `mvp-0
 
 **Not verified.** The route was not run end to end in a `pre-floor` worktree (no checkout of the tag was made; the
 reading above is from `git show`).
+
+## U8: the mvp-0.58 to mvp-0.59 activation derives the successor's state
+
+**Reproduced, with one qualification.** A receipt-only mutant of the table's `whole_vault_rebuild` (its `run` writes
+the scope-`all` receipt under the tag and replays nothing), applied to the tip and reverted: of `tests/test_upgrades.py`
+(the table's 37 cases at the time) and `tests/test_facet_belief_successor.py`, every case passed but one,
+`test_every_opener_that_may_write_completes_an_interrupted_activation_first[sidecar_start]`, which failed only because
+the sidecar's startup projection then changed state the mutant's "clean" baseline lacked: incidental, not a check of
+the activation. The tag, receipt and recovery tests compare against another run of the same upgrader, so they pass on
+the mutant.
+
+**Fix (test only).** `tests/test_facet_belief_successor.py::test_the_upgrade_derives_the_successors_state_from_the_history`
+restores the deleted `test_the_upgrade_rebuilds_under_the_tag_and_completes_once` through `ops.upgrades.upgrade`: on a
+vault at mvp-0.58 with history (two don't-knows, then a success) it first asserts the predecessor's state (no
+`facet_uncertainty` row; the aggregate recall streak not ended by the success), then that the upgrade leaves the tag,
+the whole-vault receipt, a successor-tagged uncertainty row for the LO and a streak of 0, and that a rerun is
+"already". It fails on the receipt-only mutant and passes at the tip.
+
+**Callers and siblings checked.** The other deleted tests of that file (the chain from mvp-0.47, mvp-0.8 refused, born
+at the tag, the CLI by name and default) are covered per row by `tests/test_upgrades.py` over the table, or are below
+the floor (refused by `test_version_floor.py`); not restored.
