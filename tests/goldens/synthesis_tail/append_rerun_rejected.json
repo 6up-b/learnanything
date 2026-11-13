@@ -1,0 +1,337 @@
+{
+ "database": {
+  "agent_runs": {
+   "added": [
+    {
+     "<rowid>": 3,
+     "actual_input_tokens": 100,
+     "actual_output_tokens": 10,
+     "codex_revision": null,
+     "completed_at": "2026-07-13T12:00:00Z",
+     "error_message": null,
+     "est_input_tokens": 0,
+     "est_output_tokens": 0,
+     "id": "01M3250V00TP209AYDNCPVR75R",
+     "input_context_hash": "<manifest:0>",
+     "model": "fake-append-1",
+     "output_schema": "AppendReconciliation",
+     "prompt_template": "append-reconciliation",
+     "prompt_version": "mvp-0.11-append-one-facet-per-testable-skill-no-locks-sibling-criterion-dependencies-criteria-by-fact-v2",
+     "provider": "codex",
+     "provider_revision": null,
+     "provider_type": "codex",
+     "purpose": "append_reconciliation",
+     "sdk_version": null,
+     "started_at": "2026-07-13T12:00:00Z",
+     "status": "completed"
+    }
+   ]
+  },
+  "model_work_checkpoints": {
+   "added": [
+    {
+     "<rowid>": 7,
+     "cache_key": "9e26d4199ffd190958b7e7b5e9712b1d034e54bcdcf57b5ef89bf4f792d570d2",
+     "created_at": "<wall>",
+     "purpose": "append_reconciliation",
+     "result_json": {
+      "<json>": {
+       "blueprints": [],
+       "concepts": [],
+       "conflict_candidates": [],
+       "conflicts": [],
+       "facets": [],
+       "learning_objects": [],
+       "non_conflict_dispositions": [],
+       "notation_mappings": [],
+       "notes": [],
+       "practice_items": [],
+       "provenance_links": [
+        {
+         "client_item_id": "plink_alt",
+         "expected_target_hash": "",
+         "reconciliation_intent": "alternate_explanation",
+         "relation": "alternate",
+         "span": {
+          "extraction_id": "ext_alt",
+          "locator": "",
+          "relation": "support",
+          "revision_id": "",
+          "role": "reference",
+          "source_id": "",
+          "span_id": "s1",
+          "unit_id": "chapter_symmetry_alt"
+         },
+         "target_entity_id": "facet_symmetry_definition",
+         "target_entity_type": "facet"
+        }
+       ],
+       "restructures": [],
+       "span_requests": [],
+       "summary": "append alternate explanation"
+      }
+     },
+     "usage_json": {
+      "<json>": {
+       "input_tokens_estimate": 7560,
+       "output_tokens_estimate": 179
+      }
+     }
+    }
+   ],
+   "removed": [
+    {
+     "<rowid>": 5,
+     "cache_key": "9e26d4199ffd190958b7e7b5e9712b1d034e54bcdcf57b5ef89bf4f792d570d2",
+     "created_at": "<wall>",
+     "purpose": "append_reconciliation",
+     "result_json": {
+      "<json>": {
+       "blueprints": [],
+       "concepts": [],
+       "conflict_candidates": [],
+       "conflicts": [],
+       "facets": [],
+       "learning_objects": [],
+       "non_conflict_dispositions": [],
+       "notation_mappings": [],
+       "notes": [],
+       "practice_items": [],
+       "provenance_links": [
+        {
+         "client_item_id": "plink_alt",
+         "expected_target_hash": "",
+         "reconciliation_intent": "alternate_explanation",
+         "relation": "alternate",
+         "span": {
+          "extraction_id": "ext_alt",
+          "locator": "",
+          "relation": "support",
+          "revision_id": "",
+          "role": "reference",
+          "source_id": "",
+          "span_id": "s1",
+          "unit_id": "chapter_symmetry_alt"
+         },
+         "target_entity_id": "facet_symmetry_definition",
+         "target_entity_type": "facet"
+        }
+       ],
+       "restructures": [],
+       "span_requests": [],
+       "summary": "append alternate explanation"
+      }
+     },
+     "usage_json": {
+      "<json>": {
+       "input_tokens_estimate": 7560,
+       "output_tokens_estimate": 179
+      }
+     }
+    }
+   ]
+  },
+  "proposed_patch_items": {
+   "added": [
+    {
+     "<rowid>": 9,
+     "applied_change_batch_id": null,
+     "audit_json": null,
+     "client_item_id": "plink_alt",
+     "created_at": "2026-07-13T12:00:00Z",
+     "decided_at": null,
+     "decided_by": null,
+     "decision": "pending",
+     "dependency_block_reason_json": null,
+     "dependency_status": "pending",
+     "edited_payload_json": null,
+     "id": "01M3250V00TP209AYDNCPVR75X",
+     "item_type": "provenance_link",
+     "operation": "create",
+     "payload_json": {
+      "<json>": {
+       "expected_target_hash": "sha256:32e772181e597864bccdcc6983c2e99dc4680500a5f16d42b638485a8bb2e9c1",
+       "extraction_id": "ext_alt",
+       "locator": "span:ext_alt/s1",
+       "locator_scheme": "block_span_v1",
+       "reconciliation_intent": "alternate_explanation",
+       "relation": "alternate",
+       "revision_id": "rev_alt",
+       "source_id": "src_alt",
+       "span_hash": null,
+       "subject_id": "linear-algebra",
+       "target_entity_id": "facet_symmetry_definition",
+       "target_entity_type": "facet"
+      }
+     },
+     "proposed_patch_id": "01M3250V00TP209AYDNCPVR75Y",
+     "source_ref_ids_json": {
+      "<json>": []
+     },
+     "target_entity_id": "facet_symmetry_definition",
+     "target_entity_type": "facet",
+     "updated_at": "2026-07-13T12:00:00Z",
+     "validation_errors_json": {
+      "<json>": []
+     },
+     "validation_status": "valid"
+    }
+   ]
+  },
+  "proposed_patches": {
+   "added": [
+    {
+     "<rowid>": 3,
+     "agent_run_id": "01M3250V00TP209AYDNCPVR75R",
+     "created_at": "2026-07-13T12:00:00Z",
+     "id": "01M3250V00TP209AYDNCPVR75Y",
+     "purpose": "sourceset_append",
+     "source_refs_json": {
+      "<json>": []
+     },
+     "status_cache": "pending",
+     "summary": "append alternate explanation",
+     "updated_at": "2026-07-13T12:00:00Z"
+    }
+   ]
+  },
+  "synthesis_runs": {
+   "added": [
+    {
+     "<rowid>": 3,
+     "actual_usage_json": {
+      "<json>": {
+       "facet_identity": {
+        "charged": null,
+        "grouping": {
+         "grouped_facets": 0,
+         "groups": 0,
+         "largest_group": 0,
+         "links": {},
+         "shortlist": "none",
+         "shortlisted_pairs": 0,
+         "split_components": 0
+        },
+        "groups": [],
+        "notes": [],
+        "retirements": {},
+        "route": null,
+        "status": "no_groups",
+        "version": "facet-identity-plan-v1"
+       }
+      }
+     },
+     "agent_run_id": "01M3250V00TP209AYDNCPVR75R",
+     "candidate_output_json": null,
+     "completed_at": "<wall>",
+     "coverage_decisions_json": {
+      "<json>": {
+       "auto_apply_item_ids": [
+        "plink_alt"
+       ],
+       "facet_identity": {
+        "action_ids": [],
+        "attached": 0,
+        "groups": 0,
+        "groups_judged": 0,
+        "in_run_retired": 0,
+        "judge": null,
+        "notes": [],
+        "status": "no_groups"
+       },
+       "gate_diagnostics": []
+      }
+     },
+     "created_at": "<wall>",
+     "id": "01M3250V00TP209AYDNCPVR75S",
+     "manifest_id": "01M3250V00TP209AYDNCPVR75F",
+     "mode": "append",
+     "proposal_id": "01M3250V00TP209AYDNCPVR75Y",
+     "resolved_span_hashes_json": null,
+     "span_request_json": null,
+     "status": "completed"
+    }
+   ]
+  }
+ },
+ "files": {},
+ "model_requests": [
+  [
+   "append_reconciliation",
+   "ed3961921ea36ae4"
+  ],
+  [
+   "vault_epigraphs",
+   "fd5656a4f0c2e1e4"
+  ]
+ ],
+ "result": {
+  "auto_applied_item_ids": [],
+  "change_kind": "source_added",
+  "facet_identity": {
+   "actions": [],
+   "attached": 0,
+   "groups": 0,
+   "groups_judged": 0,
+   "in_run_retired": 0,
+   "judge": null,
+   "notes": [],
+   "run_id": "01M3250V00TP209AYDNCPVR75S",
+   "status": "no_groups"
+  },
+  "gate_diagnostics": [],
+  "item_counts": {
+   "provenance_link": 1
+  },
+  "manifest_hash": "<manifest:0>",
+  "merge_review_proposals": [],
+  "neighborhood": {
+   "budget_tokens": 24000,
+   "capped": false,
+   "entity_hashes": {
+    "concept:concept_symmetric_matrix": "sha256:0873cb5c2052e094",
+    "facet:facet_spectral_applicability": "sha256:c1333b048333f27a",
+    "facet:facet_symmetry_definition": "sha256:88a4bf8edf419037"
+   },
+   "input_token_estimate": 653,
+   "match_reasons": {
+    "concept:concept_symmetric_matrix": [
+     {
+      "detail": "matches concept 'symmetric'",
+      "kind": "concept_name",
+      "score": 1.0
+     }
+    ],
+    "facet:facet_spectral_applicability": [
+     {
+      "detail": "mentions 'symmetric'",
+      "kind": "concept_name",
+      "score": 1.0
+     }
+    ],
+    "facet:facet_symmetry_definition": [
+     {
+      "detail": "mentions 'symmetric'",
+      "kind": "concept_name",
+      "score": 1.0
+     },
+     {
+      "detail": "claim overlap 1.00",
+      "kind": "fingerprint",
+      "score": 1.0
+     }
+    ]
+   },
+   "rounds": 1
+  },
+  "nothing_new": false,
+  "proposal_id": "01M3250V00TP209AYDNCPVR75Y",
+  "reused": false,
+  "review_item_ids": [],
+  "source_set_id": "set_la",
+  "span_request_count": 0,
+  "study_map_diff": {},
+  "subject_id": "linear-algebra",
+  "synthesis_run_id": "01M3250V00TP209AYDNCPVR75S"
+ }
+}

@@ -18,7 +18,6 @@ source_paths:
   - "migrations/183_facet_identity_actions.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
-  - "src/learnloop/content/synthesis/source_append.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/db/stores/facet_identity.py"
   - "src/learnloop/ops/doctor.py"

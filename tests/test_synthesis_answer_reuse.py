@@ -13,13 +13,13 @@ from __future__ import annotations
 import pytest
 
 from learnloop.ai.execution import ModelCheckpoint
-from learnloop.content.synthesis import source_append as append_module
 from learnloop.content.synthesis import source_set_synthesis as synthesis
-from learnloop.content.synthesis.ai_contracts import SourceSetSynthesis, SynthSpanRequest
+from learnloop.content.synthesis.ai_contracts import AppendReconciliation, SourceSetSynthesis, SynthSpanRequest
 from learnloop.content.synthesis.source_append import append_source
 from learnloop.content.synthesis.source_set_synthesis import StudyMapError, create_study_map
 from learnloop.db.repositories import Repository
 
+from tests.facet_reword_paths_helpers import NEW_SPAN, _facet_restructure
 from tests.source_append_helpers import FakeAppendClient, _bootstrap_and_add
 from tests.source_set_synthesis_helpers import (
     FakeSynthesisClient,
@@ -176,20 +176,24 @@ def test_a_bootstrap_rejection_keeps_a_fresh_answer_another_run_saved(tmp_path, 
     assert shard is not None and shard["output"]["result"]["summary"] == fresh.summary
 
 
-def test_an_append_rejection_keeps_a_fresh_answer_another_run_saved(tmp_path, monkeypatch):
-    root, repo = _bootstrap_and_add(tmp_path)
+def test_an_append_rejection_keeps_a_fresh_answer_another_run_saved(tmp_path):
+    root, repo = _bootstrap_and_add(tmp_path, add_role="exam")
     fresh = {"summary": "a fresh answer another run paid for"}
+    rejected = _facet_restructure()
 
-    def another_run_then_reject(*_args, **_kwargs):
+    def builder(context, n):
+        if n == 1:  # saved before the span round is asked
+            return AppendReconciliation(summary="needs a span", span_requests=[SynthSpanRequest(**NEW_SPAN)])
+        # Another run judged the first answer, dropped it, and a retry saved a fresh one under the
+        # same key; then this run's span round answers with an exam-only reword the gates reject.
         for key in _stored(repo, "append_reconciliation"):
             repo.discard_model_checkpoint(key)
             repo.save_model_checkpoint(key, purpose="append_reconciliation", result=fresh)
-        raise StudyMapError("append_gate_failed", "rejected")
+        return rejected(context, n)
 
-    monkeypatch.setattr(append_module, "run_synthesis_gates", another_run_then_reject)
-    with pytest.raises(StudyMapError, match="rejected"):
-        append_source(root, "set_la", client=FakeAppendClient(), new_revision_ids=["rev_alt"], repository=repo,
-                      clock=_CLOCK)
+    with pytest.raises(StudyMapError, match="hard quality gates"):
+        append_source(root, "set_la", client=FakeAppendClient(builder=builder), new_revision_ids=["rev_alt"],
+                      repository=repo, clock=_CLOCK)
 
     stored = _stored(repo, "append_reconciliation")
     assert len(stored) == 1 and "another run paid for" in next(iter(stored.values()))

@@ -299,7 +299,7 @@ def _default_brief(
         if value is not None:
             brief[key] = value
     # Surface the vault's declared learner level in the plan preview; the
-    # synthesis choke point (_create_study_map) merges it again regardless.
+    # synthesis head (resolve_brief, for both modes) merges it again regardless.
     if vault is not None and not brief.get("starting_level"):
         profile = read_learner_profile(VaultPaths(vault.root, vault.config))
         if profile is not None:

@@ -116,8 +116,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `digest_for_append`, `generate_vault_epigraphs`; statically calls `digest_for_append`, `generate_vault_epigraphs`
-- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `digest_from_proposal_rows`, `generate_vault_epigraphs`; statically calls `digest_from_proposal_rows`, `generate_vault_epigraphs`
+- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `digest_for_append`, `digest_from_proposal_rows`, `generate_vault_epigraphs`; statically calls `digest_for_append`, `digest_from_proposal_rows`, `generate_vault_epigraphs`
 
 ## Dependencies
 
@@ -142,7 +141,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]], [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]].
+Static participation evidence comes from [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

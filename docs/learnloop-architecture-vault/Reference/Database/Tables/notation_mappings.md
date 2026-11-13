@@ -117,6 +117,7 @@ Indexes and uniqueness:
 - `tests/test_migrations.py`
 - `tests/test_provenance_service.py`
 - `tests/test_source_append.py`
+- `tests/test_synthesis_tail_golden.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_exam_readiness_and_conflict.py`
 - `tests/test_synthesis_runs_repo.py`

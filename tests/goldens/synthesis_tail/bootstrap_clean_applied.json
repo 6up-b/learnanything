@@ -1,0 +1,2898 @@
+{
+ "database": {
+  "agent_runs": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "actual_input_tokens": 100,
+     "actual_output_tokens": 10,
+     "codex_revision": null,
+     "completed_at": "2026-07-13T12:00:00Z",
+     "error_message": null,
+     "est_input_tokens": 0,
+     "est_output_tokens": 0,
+     "id": "01M3250V00TP209AYDNCPVR73T",
+     "input_context_hash": "<manifest:0>",
+     "model": "fake-synth-1",
+     "output_schema": "SourceSetSynthesis",
+     "prompt_template": "source-set-synthesis",
+     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2",
+     "provider": "codex",
+     "provider_revision": null,
+     "provider_type": "codex",
+     "purpose": "source_set_synthesis",
+     "sdk_version": null,
+     "started_at": "2026-07-13T12:00:00Z",
+     "status": "completed"
+    }
+   ]
+  },
+  "apply_intents": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "applied_at": "2026-07-13T12:00:00Z",
+     "conflict_json": null,
+     "conflicted_at": null,
+     "created_at": "2026-07-13T12:00:00Z",
+     "db_plan_json": {
+      "<json>": [
+       {
+        "change_batch_id": "01M3250V00TP209AYDNCPVR74Q",
+        "content_event_id": "01M3250V00TP209AYDNCPVR74R",
+        "created_at": "2026-07-13T12:00:00Z",
+        "db_side_effect": null,
+        "entity_id": "concept_symmetric_matrix",
+        "entity_type": "concept",
+        "event_type": "created",
+        "item_id": "01M3250V00TP209AYDNCPVR73W",
+        "origin": "codex",
+        "source_links": [],
+        "subject": null,
+        "summary": "create concept concept_symmetric_matrix"
+       },
+       {
+        "change_batch_id": "01M3250V00TP209AYDNCPVR74S",
+        "content_event_id": "01M3250V00TP209AYDNCPVR74T",
+        "created_at": "2026-07-13T12:00:00Z",
+        "db_side_effect": null,
+        "entity_id": "facet_symmetry_definition",
+        "entity_type": "facet",
+        "event_type": "created",
+        "item_id": "01M3250V00TP209AYDNCPVR73X",
+        "origin": "codex",
+        "source_links": [
+         {
+          "asset_hash": null,
+          "entity_id": "facet_symmetry_definition",
+          "entity_type": "facet",
+          "extraction_id": "ext_text",
+          "id": "01M3250V00TP209AYDNCPVR74V",
+          "locator": "span:ext_text/s1",
+          "locator_scheme": "block_span_v1",
+          "patch_id": "01M3250V00TP209AYDNCPVR743",
+          "relation": "primary",
+          "revision_id": "rev_text",
+          "source_id": "src_text",
+          "span_hash": null,
+          "status": "current"
+         }
+        ],
+        "subject": null,
+        "summary": "create facet facet_symmetry_definition"
+       },
+       {
+        "change_batch_id": "01M3250V00TP209AYDNCPVR74W",
+        "content_event_id": "01M3250V00TP209AYDNCPVR74X",
+        "created_at": "2026-07-13T12:00:00Z",
+        "db_side_effect": null,
+        "entity_id": "facet_spectral_applicability",
+        "entity_type": "facet",
+        "event_type": "created",
+        "item_id": "01M3250V00TP209AYDNCPVR73Y",
+        "origin": "codex",
+        "source_links": [
+         {
+          "asset_hash": null,
+          "entity_id": "facet_spectral_applicability",
+          "entity_type": "facet",
+          "extraction_id": "ext_text",
+          "id": "01M3250V00TP209AYDNCPVR74Y",
+          "locator": "span:ext_text/s1",
+          "locator_scheme": "block_span_v1",
+          "patch_id": "01M3250V00TP209AYDNCPVR743",
+          "relation": "primary",
+          "revision_id": "rev_text",
+          "source_id": "src_text",
+          "span_hash": null,
+          "status": "current"
+         }
+        ],
+        "subject": null,
+        "summary": "create facet facet_spectral_applicability"
+       },
+       {
+        "change_batch_id": "01M3250V00TP209AYDNCPVR74Z",
+        "content_event_id": "01M3250V00TP209AYDNCPVR750",
+        "created_at": "2026-07-13T12:00:00Z",
+        "db_side_effect": null,
+        "entity_id": "lo_diagonalize_symmetric",
+        "entity_type": "learning_object",
+        "event_type": "created",
+        "item_id": "01M3250V00TP209AYDNCPVR73Z",
+        "origin": "codex",
+        "source_links": [
+         {
+          "asset_hash": null,
+          "entity_id": "lo_diagonalize_symmetric",
+          "entity_type": "learning_object",
+          "extraction_id": "ext_text",
+          "id": "01M3250V00TP209AYDNCPVR751",
+          "locator": "span:ext_text/s1",
+          "locator_scheme": "block_span_v1",
+          "patch_id": "01M3250V00TP209AYDNCPVR743",
+          "relation": "primary",
+          "revision_id": "rev_text",
+          "source_id": "src_text",
+          "span_hash": null,
+          "status": "current"
+         }
+        ],
+        "subject": "linear-algebra",
+        "summary": "create Learning Object lo_diagonalize_symmetric"
+       },
+       {
+        "change_batch_id": "01M3250V00TP209AYDNCPVR752",
+        "content_event_id": "01M3250V00TP209AYDNCPVR753",
+        "created_at": "2026-07-13T12:00:00Z",
+        "db_side_effect": null,
+        "entity_id": "bp_select_and_apply_spectral",
+        "entity_type": "task_blueprint",
+        "event_type": "created",
+        "item_id": "01M3250V00TP209AYDNCPVR740",
+        "origin": "codex",
+        "source_links": [],
+        "subject": "linear-algebra",
+        "summary": "create task blueprint bp_select_and_apply_spectral on lo_diagonalize_symmetric"
+       },
+       {
+        "change_batch_id": "01M3250V00TP209AYDNCPVR754",
+        "content_event_id": "01M3250V00TP209AYDNCPVR755",
+        "created_at": "2026-07-13T12:00:00Z",
+        "db_side_effect": null,
+        "entity_id": "pi_identify_symmetry",
+        "entity_type": "practice_item",
+        "event_type": "created",
+        "item_id": "01M3250V00TP209AYDNCPVR741",
+        "origin": "codex",
+        "source_links": [
+         {
+          "asset_hash": null,
+          "entity_id": "pi_identify_symmetry",
+          "entity_type": "practice_item",
+          "extraction_id": "ext_text",
+          "id": "01M3250V00TP209AYDNCPVR756",
+          "locator": "span:ext_text/s1",
+          "locator_scheme": "block_span_v1",
+          "patch_id": "01M3250V00TP209AYDNCPVR743",
+          "relation": "primary",
+          "revision_id": "rev_text",
+          "source_id": "src_text",
+          "span_hash": null,
+          "status": "current"
+         }
+        ],
+        "subject": "linear-algebra",
+        "summary": "create Practice Item pi_identify_symmetry"
+       },
+       {
+        "change_batch_id": "01M3250V00TP209AYDNCPVR757",
+        "content_event_id": "01M3250V00TP209AYDNCPVR758",
+        "created_at": "2026-07-13T12:00:00Z",
+        "db_side_effect": null,
+        "entity_id": "pi_select_spectral",
+        "entity_type": "practice_item",
+        "event_type": "created",
+        "item_id": "01M3250V00TP209AYDNCPVR742",
+        "origin": "codex",
+        "source_links": [
+         {
+          "asset_hash": null,
+          "entity_id": "pi_select_spectral",
+          "entity_type": "practice_item",
+          "extraction_id": "ext_text",
+          "id": "01M3250V00TP209AYDNCPVR759",
+          "locator": "span:ext_text/s1",
+          "locator_scheme": "block_span_v1",
+          "patch_id": "01M3250V00TP209AYDNCPVR743",
+          "relation": "primary",
+          "revision_id": "rev_text",
+          "source_id": "src_text",
+          "span_hash": null,
+          "status": "current"
+         }
+        ],
+        "subject": "linear-algebra",
+        "summary": "create Practice Item pi_select_spectral"
+       }
+      ]
+     },
+     "id": "01M3250V00TP209AYDNCPVR75A",
+     "item_ids_json": {
+      "<json>": [
+       "01M3250V00TP209AYDNCPVR73W",
+       "01M3250V00TP209AYDNCPVR73X",
+       "01M3250V00TP209AYDNCPVR73Y",
+       "01M3250V00TP209AYDNCPVR73Z",
+       "01M3250V00TP209AYDNCPVR740",
+       "01M3250V00TP209AYDNCPVR741",
+       "01M3250V00TP209AYDNCPVR742"
+      ]
+     },
+     "proposed_patch_id": "01M3250V00TP209AYDNCPVR743",
+     "rolled_back_at": null,
+     "set_aside_at": null,
+     "status": "applied",
+     "targets_json": {
+      "<json>": [
+       {
+        "post_content": "schema_version: 1\nconcepts:\n  concept_symmetric_matrix:\n    title: Symmetric matrix\n    type: concept\n    aliases: []\n    description: ''\n    tags: []\n    created_at: '2026-07-13T12:00:00Z'\n    updated_at: '2026-07-13T12:00:00Z'\n    id: concept_symmetric_matrix\n",
+        "post_hash": "sha256:d3b678769fcd6825119f06fd457a0525403d2d21eb2323356a8672d0b66a719b",
+        "pre_hash": "sha256:79d8e7d3b6b4a7ab18b58cf926d39a8b509f72a47eff3b00d7ab500dd13378bc",
+        "rel_path": "concepts/concepts.yaml"
+       },
+       {
+        "post_content": "schema_version: 2\nfacets:\n  - id: facet_symmetry_definition\n    title:\n    aliases: []\n    description:\n    tags: []\n    concept_id: concept_symmetric_matrix\n    kind: definition\n    claim: A real square matrix is symmetric exactly when A^T = A.\n    preconditions:\n      - the matrix is real and square\n    postconditions: []\n    applicability: []\n    positive_examples: []\n    negative_examples: []\n    non_goals: []\n    error_signatures:\n      - substitutes A^T A = I for A^T = A\n    instructional_repairs:\n      - contrast symmetric and orthogonal matrices\n    status: reviewed\n    version: 1\n    semantic_fingerprint: sf_1501edce5ea43443\n    provenance:\n      origin: sourceset_synthesis\n      source_refs:\n        - ref_type: canonical_source\n          ref_id: src_text\n          path:\n          locator: span:ext_text/s1\n          quote:\n          quote_hash:\n          source_id: src_text\n          revision_id: rev_text\n          extraction_id: ext_text\n          span_ids: []\n          span_hash:\n          section_id:\n          learning_object_ids: []\n          locator_scheme: block_span_v1\n          relation: primary\n          role: primary_textbook\n  - id: facet_spectral_applicability\n    title:\n    aliases: []\n    description:\n    tags: []\n    concept_id: concept_symmetric_matrix\n    kind: applicability_condition\n    claim: The spectral theorem applies to real symmetric matrices.\n    preconditions:\n      - the matrix is real and symmetric\n    postconditions:\n      - the matrix is orthogonally diagonalizable\n    applicability: []\n    positive_examples: []\n    negative_examples: []\n    non_goals: []\n    error_signatures:\n      - applies spectral theorem to non-symmetric matrices\n    instructional_repairs:\n      - check symmetry before invoking the spectral theorem\n    status: reviewed\n    version: 1\n    semantic_fingerprint: sf_aa5a26d74482cfd3\n    provenance:\n      origin: sourceset_synthesis\n      source_refs:\n        - ref_type: canonical_source\n          ref_id: src_text\n          path:\n          locator: span:ext_text/s1\n          quote:\n          quote_hash:\n          source_id: src_text\n          revision_id: rev_text\n          extraction_id: ext_text\n          span_ids: []\n          span_hash:\n          section_id:\n          learning_object_ids: []\n          locator_scheme: block_span_v1\n          relation: primary\n          role: primary_textbook\n",
+        "post_hash": "sha256:07ba5cab3c8644bb87e50f05b0a63049e9e5658caeef934971930ca45ca6d6b7",
+        "pre_hash": "sha256:d8bb0d8780526fe1725d9f542a39b9594e070674883bac4f45c96f9744ed0fec",
+        "rel_path": "facets.yaml"
+       },
+       {
+        "post_content": "schema_version: 1\nid: lo_diagonalize_symmetric\ntitle: Diagonalize a symmetric matrix\nsubjects:\n  - linear-algebra\nconcept: concept_symmetric_matrix\nknowledge_type: concept\nstatus: active\ncontradicts:\nsummary: Apply the spectral theorem to diagonalize a symmetric matrix.\nprerequisites: []\nconfusables: []\nblueprints:\n  - id: bp_select_and_apply_spectral\n    weight: 0.7\n    recipes:\n      - id: recipe_spectral\n        composition: conjunctive\n        all_of:\n          - facet: facet_symmetry_definition\n            capability: schema_interpretation\n            modality: hard\n          - facet: facet_spectral_applicability\n            capability: method_selection\n            modality: hard\n        any_of: []\n        integration:\ndifficulty_prior:\ndifficulty_source:\ntags: []\nprovenance:\n  origin: codex_proposal\n  source_refs:\n    - ref_type: canonical_source\n      ref_id: src_text\n      path:\n      locator: span:ext_text/s1\n      quote:\n      quote_hash:\n      source_id: src_text\n      revision_id: rev_text\n      extraction_id: ext_text\n      span_ids: []\n      span_hash:\n      section_id:\n      learning_object_ids: []\n      locator_scheme: block_span_v1\n      relation: primary\n      role: primary_textbook\ncreated_at: '2026-07-13T12:00:00Z'\nupdated_at: '2026-07-13T12:00:00Z'\n",
+        "post_hash": "sha256:36218dc42c670fda67905a2f44646ed3f5de76841a98ea492872699257328612",
+        "pre_hash": null,
+        "rel_path": "subjects/linear-algebra/learning-objects/lo_diagonalize_symmetric.yaml"
+       },
+       {
+        "post_content": "schema_version: 1\nid: pi_identify_symmetry\nlearning_object_id: lo_diagonalize_symmetric\nsubjects:\npractice_mode: retrieval\nattempt_types_allowed: []\nevidence_facets:\n  - facet_symmetry_definition\nevidence_weights: {}\ncriterion_facet_weights: {}\ntrace_contract:\nvariant_contract:\nteach_back_source:\nprompt: Is A symmetric? Justify using A^T = A.\nexpected_answer: Yes when A^T = A.\ndifficulty:\ndifficulty_source:\ntags: []\nhints: []\nhint_policy:\n  max_useful_hints: 0\n  fsrs_rating_cap_by_hint: {}\n  mastery_alpha_dampening_by_hint: {}\n  coverage_surface_dampening_by_hint: {}\nretrieval_demand: 0.5\ntransfer_distance: 0.0\nscaffold_level: 0.0\ncapability:\ntask_features:\ntask_feature_schema:\nsurface_family: source_form\nevidence_fingerprint:\n  source_family:\n  shared_stimulus_id:\n  representation:\n  solution_recipe_family:\n  answer_structure:\nmisconception_consistent_answer:\ndiscrimination_profiles: []\ncontrast_of:\ndiffering_component:\nerror_hunt:\nladdered_stem:\nrepair_targets:\n  - facet_symmetry_definition\ngrading_rubric:\n  max_points: 1\n  criteria:\n    - id: identifies_symmetry\n      points: 1.0\n      description: Identifies the symmetry condition A^T = A.\n      tier: core\n      targets:\n        - facet: facet_symmetry_definition\n          capability: schema_interpretation\n          role: primary\n      depends_on: []\n      correlation_group: symmetry_identification\n      recipe_ids: []\n      measurement_status:\n  fatal_errors: []\nstatus: active\nstatus_reason:\nprovenance:\n  origin: codex_proposal\n  source_refs:\n    - ref_type: canonical_source\n      ref_id: src_text\n      path:\n      locator: span:ext_text/s1\n      quote:\n      quote_hash:\n      source_id: src_text\n      revision_id: rev_text\n      extraction_id: ext_text\n      span_ids: []\n      span_hash:\n      section_id:\n      learning_object_ids: []\n      locator_scheme: block_span_v1\n      relation: primary\n      role: primary_textbook\ncreated_at: '2026-07-13T12:00:00Z'\nupdated_at: '2026-07-13T12:00:00Z'\n",
+        "post_hash": "sha256:7f452c5a19613fc48668f7057235d6dd6d662a2e4cf19e711b12cb6a44e942a6",
+        "pre_hash": null,
+        "rel_path": "subjects/linear-algebra/practice-items/pi_identify_symmetry.yaml"
+       },
+       {
+        "post_content": "schema_version: 1\nid: pi_select_spectral\nlearning_object_id: lo_diagonalize_symmetric\nsubjects:\npractice_mode: method_selection\nattempt_types_allowed: []\nevidence_facets:\n  - facet_spectral_applicability\nevidence_weights: {}\ncriterion_facet_weights: {}\ntrace_contract:\nvariant_contract:\nteach_back_source:\nprompt: Which theorem applies to diagonalize A?\nexpected_answer: The spectral theorem.\ndifficulty:\ndifficulty_source:\ntags: []\nhints: []\nhint_policy:\n  max_useful_hints: 0\n  fsrs_rating_cap_by_hint: {}\n  mastery_alpha_dampening_by_hint: {}\n  coverage_surface_dampening_by_hint: {}\nretrieval_demand: 0.5\ntransfer_distance: 0.0\nscaffold_level: 0.0\ncapability:\ntask_features:\ntask_feature_schema:\nsurface_family: source_form\nevidence_fingerprint:\n  source_family:\n  shared_stimulus_id:\n  representation:\n  solution_recipe_family:\n  answer_structure:\nmisconception_consistent_answer:\ndiscrimination_profiles: []\ncontrast_of:\ndiffering_component:\nerror_hunt:\nladdered_stem:\nrepair_targets:\n  - facet_spectral_applicability\ngrading_rubric:\n  max_points: 1\n  criteria:\n    - id: selects_spectral\n      points: 1.0\n      description: Selects the spectral theorem for a symmetric matrix.\n      tier: core\n      targets:\n        - facet: facet_spectral_applicability\n          capability: method_selection\n          role: primary\n      depends_on: []\n      correlation_group: spectral_selection\n      recipe_ids:\n        - recipe_spectral\n      measurement_status:\n  fatal_errors: []\nstatus: active\nstatus_reason:\nprovenance:\n  origin: codex_proposal\n  source_refs:\n    - ref_type: canonical_source\n      ref_id: src_text\n      path:\n      locator: span:ext_text/s1\n      quote:\n      quote_hash:\n      source_id: src_text\n      revision_id: rev_text\n      extraction_id: ext_text\n      span_ids: []\n      span_hash:\n      section_id:\n      learning_object_ids: []\n      locator_scheme: block_span_v1\n      relation: primary\n      role: primary_textbook\ncreated_at: '2026-07-13T12:00:00Z'\nupdated_at: '2026-07-13T12:00:00Z'\n",
+        "post_hash": "sha256:97ad269a92612477dee93e1a118be73142e7344f83eb36e3080264a37b363491",
+        "pre_hash": null,
+        "rel_path": "subjects/linear-algebra/practice-items/pi_select_spectral.yaml"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  "change_batches": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "created_at": "2026-07-13T12:00:00Z",
+     "id": "01M3250V00TP209AYDNCPVR74Q",
+     "origin": "codex",
+     "proposed_patch_item_id": "01M3250V00TP209AYDNCPVR73W",
+     "reason": "proposal_accept",
+     "summary": "create concept concept_symmetric_matrix"
+    },
+    {
+     "<rowid>": 2,
+     "created_at": "2026-07-13T12:00:00Z",
+     "id": "01M3250V00TP209AYDNCPVR74S",
+     "origin": "codex",
+     "proposed_patch_item_id": "01M3250V00TP209AYDNCPVR73X",
+     "reason": "proposal_accept",
+     "summary": "create facet facet_symmetry_definition"
+    },
+    {
+     "<rowid>": 3,
+     "created_at": "2026-07-13T12:00:00Z",
+     "id": "01M3250V00TP209AYDNCPVR74W",
+     "origin": "codex",
+     "proposed_patch_item_id": "01M3250V00TP209AYDNCPVR73Y",
+     "reason": "proposal_accept",
+     "summary": "create facet facet_spectral_applicability"
+    },
+    {
+     "<rowid>": 4,
+     "created_at": "2026-07-13T12:00:00Z",
+     "id": "01M3250V00TP209AYDNCPVR74Z",
+     "origin": "codex",
+     "proposed_patch_item_id": "01M3250V00TP209AYDNCPVR73Z",
+     "reason": "proposal_accept",
+     "summary": "create Learning Object lo_diagonalize_symmetric"
+    },
+    {
+     "<rowid>": 5,
+     "created_at": "2026-07-13T12:00:00Z",
+     "id": "01M3250V00TP209AYDNCPVR752",
+     "origin": "codex",
+     "proposed_patch_item_id": "01M3250V00TP209AYDNCPVR740",
+     "reason": "proposal_accept",
+     "summary": "create task blueprint bp_select_and_apply_spectral on lo_diagonalize_symmetric"
+    },
+    {
+     "<rowid>": 6,
+     "created_at": "2026-07-13T12:00:00Z",
+     "id": "01M3250V00TP209AYDNCPVR754",
+     "origin": "codex",
+     "proposed_patch_item_id": "01M3250V00TP209AYDNCPVR741",
+     "reason": "proposal_accept",
+     "summary": "create Practice Item pi_identify_symmetry"
+    },
+    {
+     "<rowid>": 7,
+     "created_at": "2026-07-13T12:00:00Z",
+     "id": "01M3250V00TP209AYDNCPVR757",
+     "origin": "codex",
+     "proposed_patch_item_id": "01M3250V00TP209AYDNCPVR742",
+     "reason": "proposal_accept",
+     "summary": "create Practice Item pi_select_spectral"
+    }
+   ]
+  },
+  "content_events": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "change_batch_id": "01M3250V00TP209AYDNCPVR74Q",
+     "created_at": "2026-07-13T12:00:00Z",
+     "entity_id": "concept_symmetric_matrix",
+     "entity_type": "concept",
+     "event_type": "created",
+     "id": "01M3250V00TP209AYDNCPVR74R",
+     "origin": "codex",
+     "review_status": "accepted",
+     "subject": null,
+     "summary": "create concept concept_symmetric_matrix"
+    },
+    {
+     "<rowid>": 2,
+     "change_batch_id": "01M3250V00TP209AYDNCPVR74S",
+     "created_at": "2026-07-13T12:00:00Z",
+     "entity_id": "facet_symmetry_definition",
+     "entity_type": "facet",
+     "event_type": "created",
+     "id": "01M3250V00TP209AYDNCPVR74T",
+     "origin": "codex",
+     "review_status": "accepted",
+     "subject": null,
+     "summary": "create facet facet_symmetry_definition"
+    },
+    {
+     "<rowid>": 3,
+     "change_batch_id": "01M3250V00TP209AYDNCPVR74W",
+     "created_at": "2026-07-13T12:00:00Z",
+     "entity_id": "facet_spectral_applicability",
+     "entity_type": "facet",
+     "event_type": "created",
+     "id": "01M3250V00TP209AYDNCPVR74X",
+     "origin": "codex",
+     "review_status": "accepted",
+     "subject": null,
+     "summary": "create facet facet_spectral_applicability"
+    },
+    {
+     "<rowid>": 4,
+     "change_batch_id": "01M3250V00TP209AYDNCPVR74Z",
+     "created_at": "2026-07-13T12:00:00Z",
+     "entity_id": "lo_diagonalize_symmetric",
+     "entity_type": "learning_object",
+     "event_type": "created",
+     "id": "01M3250V00TP209AYDNCPVR750",
+     "origin": "codex",
+     "review_status": "accepted",
+     "subject": "linear-algebra",
+     "summary": "create Learning Object lo_diagonalize_symmetric"
+    },
+    {
+     "<rowid>": 5,
+     "change_batch_id": "01M3250V00TP209AYDNCPVR752",
+     "created_at": "2026-07-13T12:00:00Z",
+     "entity_id": "bp_select_and_apply_spectral",
+     "entity_type": "task_blueprint",
+     "event_type": "created",
+     "id": "01M3250V00TP209AYDNCPVR753",
+     "origin": "codex",
+     "review_status": "accepted",
+     "subject": "linear-algebra",
+     "summary": "create task blueprint bp_select_and_apply_spectral on lo_diagonalize_symmetric"
+    },
+    {
+     "<rowid>": 6,
+     "change_batch_id": "01M3250V00TP209AYDNCPVR754",
+     "created_at": "2026-07-13T12:00:00Z",
+     "entity_id": "pi_identify_symmetry",
+     "entity_type": "practice_item",
+     "event_type": "created",
+     "id": "01M3250V00TP209AYDNCPVR755",
+     "origin": "codex",
+     "review_status": "accepted",
+     "subject": "linear-algebra",
+     "summary": "create Practice Item pi_identify_symmetry"
+    },
+    {
+     "<rowid>": 7,
+     "change_batch_id": "01M3250V00TP209AYDNCPVR757",
+     "created_at": "2026-07-13T12:00:00Z",
+     "entity_id": "pi_select_spectral",
+     "entity_type": "practice_item",
+     "event_type": "created",
+     "id": "01M3250V00TP209AYDNCPVR758",
+     "origin": "codex",
+     "review_status": "accepted",
+     "subject": "linear-algebra",
+     "summary": "create Practice Item pi_select_spectral"
+    }
+   ]
+  },
+  "derived_state_rebuilds": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "algorithm_version": "<head tag>",
+     "canonical_projection_version": "canonical_projection_v8_activity_eligibility",
+     "coverage_denominator_version": "coverage_contract_frontier_v1:be6b1baf147df367",
+     "created_at": "2026-07-13T12:00:00Z",
+     "id": "01M3250V00TP209AYDNCPVR75B",
+     "learning_object_ids_json": {
+      "<json>": [
+       "lo_diagonalize_symmetric"
+      ]
+     },
+     "projection_switches_json": null,
+     "rebuilt_learning_objects": 0,
+     "replayed_attempts": 0,
+     "scope": "learning_object"
+    }
+   ]
+  },
+  "entity_source_links": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "asset_hash": null,
+     "created_at": "2026-07-13T12:00:00Z",
+     "entity_id": "facet_symmetry_definition",
+     "entity_type": "facet",
+     "extraction_id": "ext_text",
+     "id": "01M3250V00TP209AYDNCPVR74V",
+     "locator": "span:ext_text/s1",
+     "locator_scheme": "block_span_v1",
+     "patch_id": "01M3250V00TP209AYDNCPVR743",
+     "relation": "primary",
+     "revision_id": "rev_text",
+     "source_id": "src_text",
+     "span_hash": null,
+     "stale_at": null,
+     "status": "current",
+     "superseded_by_link_id": null
+    },
+    {
+     "<rowid>": 2,
+     "asset_hash": null,
+     "created_at": "2026-07-13T12:00:00Z",
+     "entity_id": "facet_spectral_applicability",
+     "entity_type": "facet",
+     "extraction_id": "ext_text",
+     "id": "01M3250V00TP209AYDNCPVR74Y",
+     "locator": "span:ext_text/s1",
+     "locator_scheme": "block_span_v1",
+     "patch_id": "01M3250V00TP209AYDNCPVR743",
+     "relation": "primary",
+     "revision_id": "rev_text",
+     "source_id": "src_text",
+     "span_hash": null,
+     "stale_at": null,
+     "status": "current",
+     "superseded_by_link_id": null
+    },
+    {
+     "<rowid>": 3,
+     "asset_hash": null,
+     "created_at": "2026-07-13T12:00:00Z",
+     "entity_id": "lo_diagonalize_symmetric",
+     "entity_type": "learning_object",
+     "extraction_id": "ext_text",
+     "id": "01M3250V00TP209AYDNCPVR751",
+     "locator": "span:ext_text/s1",
+     "locator_scheme": "block_span_v1",
+     "patch_id": "01M3250V00TP209AYDNCPVR743",
+     "relation": "primary",
+     "revision_id": "rev_text",
+     "source_id": "src_text",
+     "span_hash": null,
+     "stale_at": null,
+     "status": "current",
+     "superseded_by_link_id": null
+    },
+    {
+     "<rowid>": 4,
+     "asset_hash": null,
+     "created_at": "2026-07-13T12:00:00Z",
+     "entity_id": "pi_identify_symmetry",
+     "entity_type": "practice_item",
+     "extraction_id": "ext_text",
+     "id": "01M3250V00TP209AYDNCPVR756",
+     "locator": "span:ext_text/s1",
+     "locator_scheme": "block_span_v1",
+     "patch_id": "01M3250V00TP209AYDNCPVR743",
+     "relation": "primary",
+     "revision_id": "rev_text",
+     "source_id": "src_text",
+     "span_hash": null,
+     "stale_at": null,
+     "status": "current",
+     "superseded_by_link_id": null
+    },
+    {
+     "<rowid>": 5,
+     "asset_hash": null,
+     "created_at": "2026-07-13T12:00:00Z",
+     "entity_id": "pi_select_spectral",
+     "entity_type": "practice_item",
+     "extraction_id": "ext_text",
+     "id": "01M3250V00TP209AYDNCPVR759",
+     "locator": "span:ext_text/s1",
+     "locator_scheme": "block_span_v1",
+     "patch_id": "01M3250V00TP209AYDNCPVR743",
+     "relation": "primary",
+     "revision_id": "rev_text",
+     "source_id": "src_text",
+     "span_hash": null,
+     "stale_at": null,
+     "status": "current",
+     "superseded_by_link_id": null
+    }
+   ]
+  },
+  "hypothesis_recurrence_state": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "active": 1,
+     "builder_version": "recurrence-groups-v1",
+     "group_count": 0,
+     "input_fingerprint": "54a36ef9228235567d0f028faf1b71734b99d51d48deb69c30373a0796d60ac2",
+     "member_count": 0,
+     "review_count": 0,
+     "scope": "vault"
+    }
+   ]
+  },
+  "learning_object_mastery": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "algorithm_version": "<head tag>",
+     "evidence_count": 0,
+     "last_evidence_at": null,
+     "learning_object_id": "lo_diagonalize_symmetric",
+     "logit_mean": 0.0,
+     "logit_variance": 3.0,
+     "updated_at": "2026-07-13T12:00:00Z"
+    }
+   ]
+  },
+  "model_work_checkpoints": {
+   "added": [
+    {
+     "<rowid>": 3,
+     "cache_key": "3a93dba1b6a4b06666a615bee35da9bcd9e9555a16f1611ef9ef0c295f4c9335",
+     "created_at": "<wall>",
+     "purpose": "synthesis_pass",
+     "result_json": {
+      "<json>": {
+       "blueprints": [
+        {
+         "client_item_id": "bp_diag",
+         "id": "bp_select_and_apply_spectral",
+         "learning_object_client_id": "lo_diag",
+         "learning_object_id": "",
+         "recipes": [
+          {
+           "all_of": [
+            {
+             "capability": "schema_interpretation",
+             "facet": "",
+             "facet_client_id": "f_def",
+             "modality": "hard"
+            },
+            {
+             "capability": "method_selection",
+             "facet": "",
+             "facet_client_id": "f_spectral",
+             "modality": "hard"
+            }
+           ],
+           "any_of": [],
+           "composition": "conjunctive",
+           "id": "recipe_spectral",
+           "integration": null
+          }
+         ],
+         "weight": 0.7
+        }
+       ],
+       "concept_relations": [],
+       "concepts": [
+        {
+         "aliases": [],
+         "client_item_id": "c_sym",
+         "description": "",
+         "id": "concept_symmetric_matrix",
+         "title": "Symmetric matrix",
+         "type": "concept"
+        }
+       ],
+       "conflicts": [],
+       "facets": [
+        {
+         "aliases": [],
+         "applicability": [],
+         "claim": "A real square matrix is symmetric exactly when A^T = A.",
+         "client_item_id": "f_def",
+         "concept_client_id": "c_sym",
+         "concept_id": "",
+         "error_signatures": [
+          "substitutes A^T A = I for A^T = A"
+         ],
+         "id": "facet_symmetry_definition",
+         "instructional_repairs": [
+          "contrast symmetric and orthogonal matrices"
+         ],
+         "kind": "definition",
+         "negative_examples": [],
+         "non_goals": [],
+         "positive_examples": [],
+         "postconditions": [],
+         "preconditions": [
+          "the matrix is real and square"
+         ],
+         "provenance": [
+          {
+           "extraction_id": "ext_text",
+           "locator": "",
+           "relation": "primary",
+           "revision_id": "",
+           "role": "reference",
+           "source_id": "",
+           "span_id": "s1",
+           "unit_id": "chapter_symmetry"
+          }
+         ]
+        },
+        {
+         "aliases": [],
+         "applicability": [],
+         "claim": "The spectral theorem applies to real symmetric matrices.",
+         "client_item_id": "f_spectral",
+         "concept_client_id": "c_sym",
+         "concept_id": "",
+         "error_signatures": [
+          "applies spectral theorem to non-symmetric matrices"
+         ],
+         "id": "facet_spectral_applicability",
+         "instructional_repairs": [
+          "check symmetry before invoking the spectral theorem"
+         ],
+         "kind": "applicability_condition",
+         "negative_examples": [],
+         "non_goals": [],
+         "positive_examples": [],
+         "postconditions": [
+          "the matrix is orthogonally diagonalizable"
+         ],
+         "preconditions": [
+          "the matrix is real and symmetric"
+         ],
+         "provenance": [
+          {
+           "extraction_id": "ext_text",
+           "locator": "",
+           "relation": "primary",
+           "revision_id": "",
+           "role": "reference",
+           "source_id": "",
+           "span_id": "s1",
+           "unit_id": "chapter_symmetry"
+          }
+         ]
+        }
+       ],
+       "learning_objects": [
+        {
+         "client_item_id": "lo_diag",
+         "concept_client_id": "c_sym",
+         "concept_id": "",
+         "confusable_concept_client_ids": [],
+         "confusables": [],
+         "id": "lo_diagonalize_symmetric",
+         "knowledge_type": "",
+         "prerequisite_concept_client_ids": [],
+         "prerequisites": [],
+         "provenance": [
+          {
+           "extraction_id": "ext_text",
+           "locator": "",
+           "relation": "primary",
+           "revision_id": "",
+           "role": "reference",
+           "source_id": "",
+           "span_id": "s1",
+           "unit_id": "chapter_symmetry"
+          }
+         ],
+         "summary": "Apply the spectral theorem to diagonalize a symmetric matrix.",
+         "title": "Diagonalize a symmetric matrix"
+        }
+       ],
+       "non_conflict_dispositions": [],
+       "notes": [],
+       "practice_items": [
+        {
+         "client_item_id": "pi_1",
+         "criteria": [
+          {
+           "correlation_group": "symmetry_identification",
+           "depends_on": [],
+           "description": "Identifies the symmetry condition A^T = A.",
+           "id": "identifies_symmetry",
+           "points": 1.0,
+           "recipe_ids": [],
+           "targets": [
+            {
+             "capability": "schema_interpretation",
+             "facet": "",
+             "facet_client_id": "f_def",
+             "role": "primary"
+            }
+           ],
+           "tier": "core"
+          }
+         ],
+         "depends_on_client_item_ids": [],
+         "evidence_facet_client_ids": [
+          "f_def"
+         ],
+         "evidence_facets": [],
+         "evidence_fingerprint": {
+          "answer_structure": "",
+          "representation": "",
+          "shared_stimulus_id": "",
+          "solution_recipe_family": "",
+          "source_family": ""
+         },
+         "expected_answer": "Yes when A^T = A.",
+         "fatal_error_ids": [],
+         "id": "pi_identify_symmetry",
+         "learning_object_client_id": "lo_diag",
+         "learning_object_id": "",
+         "practice_mode": "retrieval",
+         "prompt": "Is A symmetric? Justify using A^T = A.",
+         "provenance": [
+          {
+           "extraction_id": "ext_text",
+           "locator": "",
+           "relation": "primary",
+           "revision_id": "",
+           "role": "reference",
+           "source_id": "",
+           "span_id": "s1",
+           "unit_id": "chapter_symmetry"
+          }
+         ],
+         "required_method": null,
+         "retrieval_demand": 0.5,
+         "scaffold_level": 0.0,
+         "surface_family": "source_form",
+         "transfer_distance": 0.0
+        },
+        {
+         "client_item_id": "pi_2",
+         "criteria": [
+          {
+           "correlation_group": "spectral_selection",
+           "depends_on": [
+            "identifies_symmetry"
+           ],
+           "description": "Selects the spectral theorem for a symmetric matrix.",
+           "id": "selects_spectral",
+           "points": 1.0,
+           "recipe_ids": [
+            "recipe_spectral"
+           ],
+           "targets": [
+            {
+             "capability": "method_selection",
+             "facet": "",
+             "facet_client_id": "f_spectral",
+             "role": "primary"
+            }
+           ],
+           "tier": "core"
+          }
+         ],
+         "depends_on_client_item_ids": [],
+         "evidence_facet_client_ids": [
+          "f_spectral"
+         ],
+         "evidence_facets": [],
+         "evidence_fingerprint": {
+          "answer_structure": "",
+          "representation": "",
+          "shared_stimulus_id": "",
+          "solution_recipe_family": "",
+          "source_family": ""
+         },
+         "expected_answer": "The spectral theorem.",
+         "fatal_error_ids": [],
+         "id": "pi_select_spectral",
+         "learning_object_client_id": "lo_diag",
+         "learning_object_id": "",
+         "practice_mode": "method_selection",
+         "prompt": "Which theorem applies to diagonalize A?",
+         "provenance": [
+          {
+           "extraction_id": "ext_text",
+           "locator": "",
+           "relation": "primary",
+           "revision_id": "",
+           "role": "reference",
+           "source_id": "",
+           "span_id": "s1",
+           "unit_id": "chapter_symmetry"
+          }
+         ],
+         "required_method": null,
+         "retrieval_demand": 0.5,
+         "scaffold_level": 0.0,
+         "surface_family": "source_form",
+         "transfer_distance": 0.0
+        }
+       ],
+       "span_requests": [],
+       "summary": "bootstrap map for symmetric matrices"
+      }
+     },
+     "usage_json": {
+      "<json>": {
+       "input_tokens_estimate": 7427,
+       "output_tokens_estimate": 1328
+      }
+     }
+    },
+    {
+     "<rowid>": 4,
+     "cache_key": "0c27fb2d653f45c4161220eb65b038988be70e2e02697bb93f6aa0ed68c32af3",
+     "created_at": "<wall>",
+     "purpose": "vault_epigraphs",
+     "result_json": {
+      "<json>": {
+       "epigraphs": [
+        {
+         "kind": "quote",
+         "lines": [
+          "Symmetry is a promise the transpose keeps."
+         ]
+        },
+        {
+         "kind": "haiku",
+         "lines": [
+          "A equals A T",
+          "the spectral theorem waits",
+          "eigenvectors align"
+         ]
+        },
+        {
+         "kind": "quote",
+         "lines": [
+          "Escape will make me diagonal."
+         ]
+        }
+       ]
+      }
+     },
+     "usage_json": {
+      "<json>": {}
+     }
+    }
+   ]
+  },
+  "practice_item_state": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "active": 1,
+     "content_hash": "6bb3eaa95930026d2469410be122a849f03f8cd0967e639c64447ad1bb92788c",
+     "difficulty": null,
+     "due_at": null,
+     "last_attempt_at": null,
+     "practice_item_id": "pi_identify_symmetry",
+     "retrievability": null,
+     "stability": null,
+     "updated_at": "2026-07-13T12:00:00Z"
+    },
+    {
+     "<rowid>": 2,
+     "active": 1,
+     "content_hash": "4e17b84817dfef7c1ca9739ee79305fc86f060ad48269e5e824899906e6d6ac6",
+     "difficulty": null,
+     "due_at": null,
+     "last_attempt_at": null,
+     "practice_item_id": "pi_select_spectral",
+     "retrievability": null,
+     "stability": null,
+     "updated_at": "2026-07-13T12:00:00Z"
+    }
+   ]
+  },
+  "proposed_patch_item_dependencies": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "depends_on_patch_item_id": "01M3250V00TP209AYDNCPVR73W",
+     "proposed_patch_item_id": "01M3250V00TP209AYDNCPVR73X"
+    },
+    {
+     "<rowid>": 2,
+     "depends_on_patch_item_id": "01M3250V00TP209AYDNCPVR73W",
+     "proposed_patch_item_id": "01M3250V00TP209AYDNCPVR73Y"
+    },
+    {
+     "<rowid>": 3,
+     "depends_on_patch_item_id": "01M3250V00TP209AYDNCPVR73W",
+     "proposed_patch_item_id": "01M3250V00TP209AYDNCPVR73Z"
+    },
+    {
+     "<rowid>": 4,
+     "depends_on_patch_item_id": "01M3250V00TP209AYDNCPVR73Z",
+     "proposed_patch_item_id": "01M3250V00TP209AYDNCPVR740"
+    },
+    {
+     "<rowid>": 5,
+     "depends_on_patch_item_id": "01M3250V00TP209AYDNCPVR73X",
+     "proposed_patch_item_id": "01M3250V00TP209AYDNCPVR740"
+    },
+    {
+     "<rowid>": 6,
+     "depends_on_patch_item_id": "01M3250V00TP209AYDNCPVR73Y",
+     "proposed_patch_item_id": "01M3250V00TP209AYDNCPVR740"
+    },
+    {
+     "<rowid>": 7,
+     "depends_on_patch_item_id": "01M3250V00TP209AYDNCPVR73Z",
+     "proposed_patch_item_id": "01M3250V00TP209AYDNCPVR741"
+    },
+    {
+     "<rowid>": 8,
+     "depends_on_patch_item_id": "01M3250V00TP209AYDNCPVR73X",
+     "proposed_patch_item_id": "01M3250V00TP209AYDNCPVR741"
+    },
+    {
+     "<rowid>": 9,
+     "depends_on_patch_item_id": "01M3250V00TP209AYDNCPVR73Z",
+     "proposed_patch_item_id": "01M3250V00TP209AYDNCPVR742"
+    },
+    {
+     "<rowid>": 10,
+     "depends_on_patch_item_id": "01M3250V00TP209AYDNCPVR73Y",
+     "proposed_patch_item_id": "01M3250V00TP209AYDNCPVR742"
+    }
+   ]
+  },
+  "proposed_patch_items": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "applied_change_batch_id": "01M3250V00TP209AYDNCPVR74Q",
+     "audit_json": null,
+     "client_item_id": "shard_1__c_sym",
+     "created_at": "2026-07-13T12:00:00Z",
+     "decided_at": "2026-07-13T12:00:00Z",
+     "decided_by": "learner",
+     "decision": "accepted",
+     "dependency_block_reason_json": null,
+     "dependency_status": "ready",
+     "edited_payload_json": null,
+     "id": "01M3250V00TP209AYDNCPVR73W",
+     "item_type": "concept",
+     "operation": "create",
+     "payload_json": {
+      "<json>": {
+       "aliases": [],
+       "description": "",
+       "id": "concept_symmetric_matrix",
+       "title": "Symmetric matrix",
+       "type": "concept"
+      }
+     },
+     "proposed_patch_id": "01M3250V00TP209AYDNCPVR743",
+     "source_ref_ids_json": {
+      "<json>": []
+     },
+     "target_entity_id": null,
+     "target_entity_type": null,
+     "updated_at": "2026-07-13T12:00:00Z",
+     "validation_errors_json": {
+      "<json>": []
+     },
+     "validation_status": "valid"
+    },
+    {
+     "<rowid>": 2,
+     "applied_change_batch_id": "01M3250V00TP209AYDNCPVR74S",
+     "audit_json": null,
+     "client_item_id": "shard_1__f_def",
+     "created_at": "2026-07-13T12:00:00Z",
+     "decided_at": "2026-07-13T12:00:00Z",
+     "decided_by": "learner",
+     "decision": "accepted",
+     "dependency_block_reason_json": null,
+     "dependency_status": "ready",
+     "edited_payload_json": null,
+     "id": "01M3250V00TP209AYDNCPVR73X",
+     "item_type": "facet",
+     "operation": "create",
+     "payload_json": {
+      "<json>": {
+       "aliases": [],
+       "applicability": [],
+       "claim": "A real square matrix is symmetric exactly when A^T = A.",
+       "concept_id": "concept_symmetric_matrix",
+       "error_signatures": [
+        "substitutes A^T A = I for A^T = A"
+       ],
+       "id": "facet_symmetry_definition",
+       "instructional_repairs": [
+        "contrast symmetric and orthogonal matrices"
+       ],
+       "kind": "definition",
+       "meaning_support": [
+        {
+         "citations": [
+          {
+           "extraction_id": "ext_text",
+           "relation": "primary",
+           "span_id": "s1",
+           "unit_id": "chapter_symmetry"
+          }
+         ],
+         "from": "shard_1__f_def"
+        }
+       ],
+       "negative_examples": [],
+       "non_goals": [],
+       "positive_examples": [],
+       "postconditions": [],
+       "preconditions": [
+        "the matrix is real and square"
+       ],
+       "provenance": {
+        "origin": "sourceset_synthesis",
+        "source_refs": [
+         {
+          "extraction_id": "ext_text",
+          "locator": "span:ext_text/s1",
+          "locator_scheme": "block_span_v1",
+          "ref_id": "src_text",
+          "ref_type": "canonical_source",
+          "relation": "primary",
+          "revision_id": "rev_text",
+          "role": "primary_textbook",
+          "source_id": "src_text",
+          "span_hash": null
+         }
+        ]
+       },
+       "status": "reviewed"
+      }
+     },
+     "proposed_patch_id": "01M3250V00TP209AYDNCPVR743",
+     "source_ref_ids_json": {
+      "<json>": []
+     },
+     "target_entity_id": null,
+     "target_entity_type": null,
+     "updated_at": "2026-07-13T12:00:00Z",
+     "validation_errors_json": {
+      "<json>": []
+     },
+     "validation_status": "valid"
+    },
+    {
+     "<rowid>": 3,
+     "applied_change_batch_id": "01M3250V00TP209AYDNCPVR74W",
+     "audit_json": null,
+     "client_item_id": "shard_1__f_spectral",
+     "created_at": "2026-07-13T12:00:00Z",
+     "decided_at": "2026-07-13T12:00:00Z",
+     "decided_by": "learner",
+     "decision": "accepted",
+     "dependency_block_reason_json": null,
+     "dependency_status": "ready",
+     "edited_payload_json": null,
+     "id": "01M3250V00TP209AYDNCPVR73Y",
+     "item_type": "facet",
+     "operation": "create",
+     "payload_json": {
+      "<json>": {
+       "aliases": [],
+       "applicability": [],
+       "claim": "The spectral theorem applies to real symmetric matrices.",
+       "concept_id": "concept_symmetric_matrix",
+       "error_signatures": [
+        "applies spectral theorem to non-symmetric matrices"
+       ],
+       "id": "facet_spectral_applicability",
+       "instructional_repairs": [
+        "check symmetry before invoking the spectral theorem"
+       ],
+       "kind": "applicability_condition",
+       "meaning_support": [
+        {
+         "citations": [
+          {
+           "extraction_id": "ext_text",
+           "relation": "primary",
+           "span_id": "s1",
+           "unit_id": "chapter_symmetry"
+          }
+         ],
+         "from": "shard_1__f_spectral"
+        }
+       ],
+       "negative_examples": [],
+       "non_goals": [],
+       "positive_examples": [],
+       "postconditions": [
+        "the matrix is orthogonally diagonalizable"
+       ],
+       "preconditions": [
+        "the matrix is real and symmetric"
+       ],
+       "provenance": {
+        "origin": "sourceset_synthesis",
+        "source_refs": [
+         {
+          "extraction_id": "ext_text",
+          "locator": "span:ext_text/s1",
+          "locator_scheme": "block_span_v1",
+          "ref_id": "src_text",
+          "ref_type": "canonical_source",
+          "relation": "primary",
+          "revision_id": "rev_text",
+          "role": "primary_textbook",
+          "source_id": "src_text",
+          "span_hash": null
+         }
+        ]
+       },
+       "status": "reviewed"
+      }
+     },
+     "proposed_patch_id": "01M3250V00TP209AYDNCPVR743",
+     "source_ref_ids_json": {
+      "<json>": []
+     },
+     "target_entity_id": null,
+     "target_entity_type": null,
+     "updated_at": "2026-07-13T12:00:00Z",
+     "validation_errors_json": {
+      "<json>": []
+     },
+     "validation_status": "valid"
+    },
+    {
+     "<rowid>": 4,
+     "applied_change_batch_id": "01M3250V00TP209AYDNCPVR74Z",
+     "audit_json": null,
+     "client_item_id": "shard_1__lo_diag",
+     "created_at": "2026-07-13T12:00:00Z",
+     "decided_at": "2026-07-13T12:00:00Z",
+     "decided_by": "learner",
+     "decision": "accepted",
+     "dependency_block_reason_json": null,
+     "dependency_status": "ready",
+     "edited_payload_json": null,
+     "id": "01M3250V00TP209AYDNCPVR73Z",
+     "item_type": "learning_object",
+     "operation": "create",
+     "payload_json": {
+      "<json>": {
+       "concept_id": "concept_symmetric_matrix",
+       "confusables": [],
+       "id": "lo_diagonalize_symmetric",
+       "knowledge_type": "concept",
+       "prerequisites": [],
+       "provenance": {
+        "origin": "codex_proposal",
+        "source_refs": [
+         {
+          "extraction_id": "ext_text",
+          "locator": "span:ext_text/s1",
+          "locator_scheme": "block_span_v1",
+          "ref_id": "src_text",
+          "ref_type": "canonical_source",
+          "relation": "primary",
+          "revision_id": "rev_text",
+          "role": "primary_textbook",
+          "source_id": "src_text",
+          "span_hash": null
+         }
+        ]
+       },
+       "subjects": [
+        "linear-algebra"
+       ],
+       "summary": "Apply the spectral theorem to diagonalize a symmetric matrix.",
+       "title": "Diagonalize a symmetric matrix"
+      }
+     },
+     "proposed_patch_id": "01M3250V00TP209AYDNCPVR743",
+     "source_ref_ids_json": {
+      "<json>": []
+     },
+     "target_entity_id": null,
+     "target_entity_type": null,
+     "updated_at": "2026-07-13T12:00:00Z",
+     "validation_errors_json": {
+      "<json>": []
+     },
+     "validation_status": "valid"
+    },
+    {
+     "<rowid>": 5,
+     "applied_change_batch_id": "01M3250V00TP209AYDNCPVR752",
+     "audit_json": null,
+     "client_item_id": "shard_1__bp_diag",
+     "created_at": "2026-07-13T12:00:00Z",
+     "decided_at": "2026-07-13T12:00:00Z",
+     "decided_by": "learner",
+     "decision": "accepted",
+     "dependency_block_reason_json": null,
+     "dependency_status": "ready",
+     "edited_payload_json": null,
+     "id": "01M3250V00TP209AYDNCPVR740",
+     "item_type": "task_blueprint",
+     "operation": "create",
+     "payload_json": {
+      "<json>": {
+       "id": "bp_select_and_apply_spectral",
+       "learning_object_id": "lo_diagonalize_symmetric",
+       "recipes": [
+        {
+         "all_of": [
+          {
+           "capability": "schema_interpretation",
+           "facet": "facet_symmetry_definition",
+           "modality": "hard"
+          },
+          {
+           "capability": "method_selection",
+           "facet": "facet_spectral_applicability",
+           "modality": "hard"
+          }
+         ],
+         "any_of": [],
+         "composition": "conjunctive",
+         "id": "recipe_spectral"
+        }
+       ],
+       "weight": 0.7
+      }
+     },
+     "proposed_patch_id": "01M3250V00TP209AYDNCPVR743",
+     "source_ref_ids_json": {
+      "<json>": []
+     },
+     "target_entity_id": "lo_diagonalize_symmetric",
+     "target_entity_type": "learning_object",
+     "updated_at": "2026-07-13T12:00:00Z",
+     "validation_errors_json": {
+      "<json>": []
+     },
+     "validation_status": "valid"
+    },
+    {
+     "<rowid>": 6,
+     "applied_change_batch_id": "01M3250V00TP209AYDNCPVR754",
+     "audit_json": {
+      "<json>": {
+       "persona_gate": {
+        "client_item_id": "shard_1__pi_1",
+        "decision": "untested",
+        "instrument_class": "plain_practice",
+        "persona_realism_run_id": null,
+        "persona_realism_status": "no_run",
+        "persona_realism_validated": false,
+        "practice_item_id": "pi_identify_symmetry",
+        "reason": "insufficient_persona_payload",
+        "target_facets": [
+         "facet_symmetry_definition"
+        ],
+        "tier": "advisory",
+        "verdict": {
+         "personas": [
+          {
+           "belief": "holds every target facet",
+           "kind": "facet_holder",
+           "misconception_id": null,
+           "persona_id": "clean",
+           "source": "expected_answer"
+          }
+         ],
+         "reason": "insufficient_persona_payload",
+         "separates": false,
+         "trials": []
+        },
+        "version": "persona_gate_v2_realism_licensed"
+       }
+      }
+     },
+     "client_item_id": "shard_1__pi_1",
+     "created_at": "2026-07-13T12:00:00Z",
+     "decided_at": "2026-07-13T12:00:00Z",
+     "decided_by": "learner",
+     "decision": "accepted",
+     "dependency_block_reason_json": null,
+     "dependency_status": "ready",
+     "edited_payload_json": null,
+     "id": "01M3250V00TP209AYDNCPVR741",
+     "item_type": "practice_item",
+     "operation": "create",
+     "payload_json": {
+      "<json>": {
+       "evidence_facets": [
+        "facet_symmetry_definition"
+       ],
+       "evidence_fingerprint": {},
+       "expected_answer": "Yes when A^T = A.",
+       "grading_rubric": {
+        "criteria": [
+         {
+          "correlation_group": "symmetry_identification",
+          "depends_on": [],
+          "description": "Identifies the symmetry condition A^T = A.",
+          "id": "identifies_symmetry",
+          "points": 1.0,
+          "recipe_ids": [],
+          "targets": [
+           {
+            "capability": "schema_interpretation",
+            "facet": "facet_symmetry_definition",
+            "role": "primary"
+           }
+          ],
+          "tier": "core"
+         }
+        ],
+        "fatal_errors": [],
+        "max_points": 4
+       },
+       "id": "pi_identify_symmetry",
+       "learning_object_id": "lo_diagonalize_symmetric",
+       "practice_mode": "retrieval",
+       "prompt": "Is A symmetric? Justify using A^T = A.",
+       "provenance": {
+        "origin": "codex_proposal",
+        "source_refs": [
+         {
+          "extraction_id": "ext_text",
+          "locator": "span:ext_text/s1",
+          "locator_scheme": "block_span_v1",
+          "ref_id": "src_text",
+          "ref_type": "canonical_source",
+          "relation": "primary",
+          "revision_id": "rev_text",
+          "role": "primary_textbook",
+          "source_id": "src_text",
+          "span_hash": null
+         }
+        ]
+       },
+       "repair_targets": [
+        "facet_symmetry_definition"
+       ],
+       "retrieval_demand": 0.5,
+       "scaffold_level": 0.0,
+       "surface_family": "source_form",
+       "transfer_distance": 0.0
+      }
+     },
+     "proposed_patch_id": "01M3250V00TP209AYDNCPVR743",
+     "source_ref_ids_json": {
+      "<json>": []
+     },
+     "target_entity_id": null,
+     "target_entity_type": null,
+     "updated_at": "2026-07-13T12:00:00Z",
+     "validation_errors_json": {
+      "<json>": []
+     },
+     "validation_status": "valid"
+    },
+    {
+     "<rowid>": 7,
+     "applied_change_batch_id": "01M3250V00TP209AYDNCPVR757",
+     "audit_json": {
+      "<json>": {
+       "persona_gate": {
+        "client_item_id": "shard_1__pi_2",
+        "decision": "untested",
+        "instrument_class": "plain_practice",
+        "persona_realism_run_id": null,
+        "persona_realism_status": "no_run",
+        "persona_realism_validated": false,
+        "practice_item_id": "pi_select_spectral",
+        "reason": "insufficient_persona_payload",
+        "target_facets": [
+         "facet_spectral_applicability"
+        ],
+        "tier": "advisory",
+        "verdict": {
+         "personas": [
+          {
+           "belief": "holds every target facet",
+           "kind": "facet_holder",
+           "misconception_id": null,
+           "persona_id": "clean",
+           "source": "expected_answer"
+          }
+         ],
+         "reason": "insufficient_persona_payload",
+         "separates": false,
+         "trials": []
+        },
+        "version": "persona_gate_v2_realism_licensed"
+       }
+      }
+     },
+     "client_item_id": "shard_1__pi_2",
+     "created_at": "2026-07-13T12:00:00Z",
+     "decided_at": "2026-07-13T12:00:00Z",
+     "decided_by": "learner",
+     "decision": "accepted",
+     "dependency_block_reason_json": null,
+     "dependency_status": "ready",
+     "edited_payload_json": null,
+     "id": "01M3250V00TP209AYDNCPVR742",
+     "item_type": "practice_item",
+     "operation": "create",
+     "payload_json": {
+      "<json>": {
+       "evidence_facets": [
+        "facet_spectral_applicability"
+       ],
+       "evidence_fingerprint": {},
+       "expected_answer": "The spectral theorem.",
+       "grading_rubric": {
+        "criteria": [
+         {
+          "correlation_group": "spectral_selection",
+          "depends_on": [],
+          "description": "Selects the spectral theorem for a symmetric matrix.",
+          "id": "selects_spectral",
+          "points": 1.0,
+          "recipe_ids": [
+           "recipe_spectral"
+          ],
+          "targets": [
+           {
+            "capability": "method_selection",
+            "facet": "facet_spectral_applicability",
+            "role": "primary"
+           }
+          ],
+          "tier": "core"
+         }
+        ],
+        "fatal_errors": [],
+        "max_points": 4
+       },
+       "id": "pi_select_spectral",
+       "learning_object_id": "lo_diagonalize_symmetric",
+       "practice_mode": "method_selection",
+       "prompt": "Which theorem applies to diagonalize A?",
+       "provenance": {
+        "origin": "codex_proposal",
+        "source_refs": [
+         {
+          "extraction_id": "ext_text",
+          "locator": "span:ext_text/s1",
+          "locator_scheme": "block_span_v1",
+          "ref_id": "src_text",
+          "ref_type": "canonical_source",
+          "relation": "primary",
+          "revision_id": "rev_text",
+          "role": "primary_textbook",
+          "source_id": "src_text",
+          "span_hash": null
+         }
+        ]
+       },
+       "repair_targets": [
+        "facet_spectral_applicability"
+       ],
+       "retrieval_demand": 0.5,
+       "scaffold_level": 0.0,
+       "surface_family": "source_form",
+       "transfer_distance": 0.0
+      }
+     },
+     "proposed_patch_id": "01M3250V00TP209AYDNCPVR743",
+     "source_ref_ids_json": {
+      "<json>": []
+     },
+     "target_entity_id": null,
+     "target_entity_type": null,
+     "updated_at": "2026-07-13T12:00:00Z",
+     "validation_errors_json": {
+      "<json>": []
+     },
+     "validation_status": "valid"
+    }
+   ]
+  },
+  "proposed_patches": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "agent_run_id": "01M3250V00TP209AYDNCPVR73T",
+     "created_at": "2026-07-13T12:00:00Z",
+     "id": "01M3250V00TP209AYDNCPVR743",
+     "purpose": "sourceset_bootstrap",
+     "source_refs_json": {
+      "<json>": []
+     },
+     "status_cache": "accepted",
+     "summary": "bootstrap map for symmetric matrices",
+     "updated_at": "2026-07-13T12:00:00Z"
+    }
+   ]
+  },
+  "synthesis_manifests": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "assessment_schema_version": null,
+     "asset_hashes_json": {
+      "<json>": {
+       "rev_exam": "sha256:abc",
+       "rev_text": "sha256:abc"
+      }
+     },
+     "brief_json": {
+      "<json>": {
+       "depth": "intro",
+       "goal_title": "Final exam",
+       "outcome": "exam preparation",
+       "practice_items": "upfront"
+      }
+     },
+     "created_at": "2026-07-13T12:00:00Z",
+     "curriculum_snapshot_hash": "sha256:e2926642eaaf0cded33d5e0792d0821f7de70538121e9e41187c196bea1ac9d2",
+     "estimated_usage_json": "null",
+     "extraction_ids_json": {
+      "<json>": [
+       "ext_text",
+       "ext_exam"
+      ]
+     },
+     "extractor_versions_json": {
+      "<json>": {
+       "ext_exam": "text@1",
+       "ext_text": "text@1"
+      }
+     },
+     "facet_registry_hash": "sha256:126d335867aba9cbee8383925e949bf74d5122e0be0b21258ae30bb8d221b7fe",
+     "id": "01M3250V00TP209AYDNCPVR73S",
+     "learner_model_contract_version": "<head tag>",
+     "lock_fingerprint": null,
+     "manifest_hash": "<manifest:0>",
+     "membership_json": {
+      "<json>": [
+       {
+        "priority": 1,
+        "revision_id": "rev_text",
+        "role": "primary_textbook",
+        "role_overrides": {},
+        "source_id": "src_text"
+       },
+       {
+        "priority": 1,
+        "revision_id": "rev_exam",
+        "role": "exam",
+        "role_overrides": {},
+        "source_id": "src_exam"
+       }
+      ]
+     },
+     "model": "fake-synth-1",
+     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2",
+     "provider": "codex",
+     "revision_ids_json": {
+      "<json>": [
+       "rev_text",
+       "rev_exam"
+      ]
+     },
+     "schema_version": 1,
+     "scope_json": {
+      "<json>": {
+       "facet_identity": {
+        "config": {
+         "attach_top_k": 4,
+         "enabled": true,
+         "max_calls": 24,
+         "max_cost_usd": 0.5,
+         "max_facets": 400,
+         "max_group_size": 40,
+         "max_pairs": 20000,
+         "max_retries": 2,
+         "max_total_tokens": 600000,
+         "merge_locked_facets": true,
+         "price_per_million_input": null,
+         "price_per_million_output": null,
+         "reword_confirm": true,
+         "shortlist_top_k": 4
+        },
+        "prompt_version": "facet-identity-partition-v1",
+        "route": {
+         "billing": "subscription",
+         "cost_basis": "estimated_only",
+         "judge": "llm",
+         "model": "gpt-6-luna",
+         "output_tokens": 16384,
+         "price": {
+          "input_per_million": null,
+          "output_per_million": null,
+          "source": "unknown"
+         },
+         "problem": null,
+         "profile_type": "chatgpt_plan",
+         "provider": "chatgpt_luna",
+         "route": "facet_identity_judge"
+        }
+       },
+       "scope": null
+      }
+     },
+     "source_set_id": "set_la",
+     "task_graph_hash": "sha256:bb26c2901937c768f36d5650307b6db77ff25fd8f5518fd0c843c6fd7b54101b",
+     "token_budget_json": {
+      "<json>": {
+       "synthesis_output_tokens": 16000,
+       "synthesis_shard_input_tokens": 40000,
+       "synthesis_shard_output_tokens": 10000,
+       "synthesis_total_input_ceiling": 48000
+      }
+     },
+     "unit_inventory_versions_json": {
+      "<json>": {
+       "rev_exam:paper_2024": {
+        "content_hash": "sha256:4528a2a831131993d93aa7e09a3869162aa0e55c4bdaad6f47a3ad72db1c5af2",
+        "extraction_id": "ext_exam",
+        "inventory_id": "inv_01M3250V00TP209AYDNCPVR73R",
+        "version": "1|mvp-0.7-source-unit-inventory-role-aware"
+       },
+       "rev_text:chapter_symmetry": {
+        "content_hash": "sha256:694ed3d3d80109a5daae0db957ee1aa7821d4e276a438acf395e0e3e28384c0e",
+        "extraction_id": "ext_text",
+        "inventory_id": "inv_01M3250V00TP209AYDNCPVR73Q",
+        "version": "1|mvp-0.7-source-unit-inventory-role-aware"
+       }
+      }
+     }
+    }
+   ]
+  },
+  "synthesis_runs": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "actual_usage_json": {
+      "<json>": {
+       "calls": 1,
+       "facet_identity": {
+        "charged": null,
+        "grouping": {
+         "grouped_facets": 2,
+         "groups": 1,
+         "largest_group": 2,
+         "links": {
+          "same_concept": 1
+         },
+         "shortlist": "none",
+         "shortlisted_pairs": 0,
+         "split_components": 0
+        },
+        "groups": [],
+        "notes": [
+         "judge route unavailable: Not signed in with ChatGPT on this machine. Run `learnloop ai signin chatgpt`."
+        ],
+        "retirements": {},
+        "route": {
+         "billing": "subscription",
+         "cost_basis": "estimated_only",
+         "judge": "llm",
+         "model": "gpt-6-luna",
+         "output_tokens": 16384,
+         "price": {
+          "input_per_million": null,
+          "output_per_million": null,
+          "source": "unknown"
+         },
+         "problem": "judge route unavailable: Not signed in with ChatGPT on this machine. Run `learnloop ai signin chatgpt`.",
+         "profile_type": "chatgpt_plan",
+         "provider": "chatgpt_luna",
+         "route": "facet_identity_judge"
+        },
+        "status": "judge_unavailable",
+        "version": "facet-identity-plan-v1"
+       },
+       "input_tokens_estimate": 7427,
+       "output_tokens_charged": 1328,
+       "reused_shards": 0,
+       "shard_count": 1
+      }
+     },
+     "agent_run_id": "01M3250V00TP209AYDNCPVR73T",
+     "candidate_output_json": {
+      "<json>": {
+       "blueprints": [
+        {
+         "client_item_id": "shard_1__bp_diag",
+         "id": "bp_select_and_apply_spectral",
+         "learning_object_client_id": "shard_1__lo_diag",
+         "learning_object_id": "",
+         "recipes": [
+          {
+           "all_of": [
+            {
+             "capability": "schema_interpretation",
+             "facet": "",
+             "facet_client_id": "shard_1__f_def",
+             "modality": "hard"
+            },
+            {
+             "capability": "method_selection",
+             "facet": "",
+             "facet_client_id": "shard_1__f_spectral",
+             "modality": "hard"
+            }
+           ],
+           "any_of": [],
+           "composition": "conjunctive",
+           "id": "recipe_spectral",
+           "integration": null
+          }
+         ],
+         "weight": 0.7
+        }
+       ],
+       "concept_relations": [],
+       "concepts": [
+        {
+         "aliases": [],
+         "client_item_id": "shard_1__c_sym",
+         "description": "",
+         "id": "concept_symmetric_matrix",
+         "title": "Symmetric matrix",
+         "type": "concept"
+        }
+       ],
+       "conflicts": [],
+       "facets": [
+        {
+         "aliases": [],
+         "applicability": [],
+         "claim": "A real square matrix is symmetric exactly when A^T = A.",
+         "client_item_id": "shard_1__f_def",
+         "concept_client_id": "shard_1__c_sym",
+         "concept_id": "",
+         "error_signatures": [
+          "substitutes A^T A = I for A^T = A"
+         ],
+         "id": "facet_symmetry_definition",
+         "instructional_repairs": [
+          "contrast symmetric and orthogonal matrices"
+         ],
+         "kind": "definition",
+         "negative_examples": [],
+         "non_goals": [],
+         "positive_examples": [],
+         "postconditions": [],
+         "preconditions": [
+          "the matrix is real and square"
+         ],
+         "provenance": [
+          {
+           "extraction_id": "ext_text",
+           "locator": "",
+           "relation": "primary",
+           "revision_id": "",
+           "role": "reference",
+           "source_id": "",
+           "span_id": "s1",
+           "unit_id": "chapter_symmetry"
+          }
+         ]
+        },
+        {
+         "aliases": [],
+         "applicability": [],
+         "claim": "The spectral theorem applies to real symmetric matrices.",
+         "client_item_id": "shard_1__f_spectral",
+         "concept_client_id": "shard_1__c_sym",
+         "concept_id": "",
+         "error_signatures": [
+          "applies spectral theorem to non-symmetric matrices"
+         ],
+         "id": "facet_spectral_applicability",
+         "instructional_repairs": [
+          "check symmetry before invoking the spectral theorem"
+         ],
+         "kind": "applicability_condition",
+         "negative_examples": [],
+         "non_goals": [],
+         "positive_examples": [],
+         "postconditions": [
+          "the matrix is orthogonally diagonalizable"
+         ],
+         "preconditions": [
+          "the matrix is real and symmetric"
+         ],
+         "provenance": [
+          {
+           "extraction_id": "ext_text",
+           "locator": "",
+           "relation": "primary",
+           "revision_id": "",
+           "role": "reference",
+           "source_id": "",
+           "span_id": "s1",
+           "unit_id": "chapter_symmetry"
+          }
+         ]
+        }
+       ],
+       "learning_objects": [
+        {
+         "client_item_id": "shard_1__lo_diag",
+         "concept_client_id": "shard_1__c_sym",
+         "concept_id": "",
+         "confusable_concept_client_ids": [],
+         "confusables": [],
+         "id": "lo_diagonalize_symmetric",
+         "knowledge_type": "",
+         "prerequisite_concept_client_ids": [],
+         "prerequisites": [],
+         "provenance": [
+          {
+           "extraction_id": "ext_text",
+           "locator": "",
+           "relation": "primary",
+           "revision_id": "",
+           "role": "reference",
+           "source_id": "",
+           "span_id": "s1",
+           "unit_id": "chapter_symmetry"
+          }
+         ],
+         "summary": "Apply the spectral theorem to diagonalize a symmetric matrix.",
+         "title": "Diagonalize a symmetric matrix"
+        }
+       ],
+       "non_conflict_dispositions": [],
+       "notes": [],
+       "practice_items": [
+        {
+         "client_item_id": "shard_1__pi_1",
+         "criteria": [
+          {
+           "correlation_group": "symmetry_identification",
+           "depends_on": [],
+           "description": "Identifies the symmetry condition A^T = A.",
+           "id": "identifies_symmetry",
+           "points": 1.0,
+           "recipe_ids": [],
+           "targets": [
+            {
+             "capability": "schema_interpretation",
+             "facet": "",
+             "facet_client_id": "shard_1__f_def",
+             "role": "primary"
+            }
+           ],
+           "tier": "core"
+          }
+         ],
+         "depends_on_client_item_ids": [],
+         "evidence_facet_client_ids": [
+          "shard_1__f_def"
+         ],
+         "evidence_facets": [],
+         "evidence_fingerprint": {
+          "answer_structure": "",
+          "representation": "",
+          "shared_stimulus_id": "",
+          "solution_recipe_family": "",
+          "source_family": ""
+         },
+         "expected_answer": "Yes when A^T = A.",
+         "fatal_error_ids": [],
+         "id": "pi_identify_symmetry",
+         "learning_object_client_id": "shard_1__lo_diag",
+         "learning_object_id": "",
+         "practice_mode": "retrieval",
+         "prompt": "Is A symmetric? Justify using A^T = A.",
+         "provenance": [
+          {
+           "extraction_id": "ext_text",
+           "locator": "",
+           "relation": "primary",
+           "revision_id": "",
+           "role": "reference",
+           "source_id": "",
+           "span_id": "s1",
+           "unit_id": "chapter_symmetry"
+          }
+         ],
+         "required_method": null,
+         "retrieval_demand": 0.5,
+         "scaffold_level": 0.0,
+         "surface_family": "source_form",
+         "transfer_distance": 0.0
+        },
+        {
+         "client_item_id": "shard_1__pi_2",
+         "criteria": [
+          {
+           "correlation_group": "spectral_selection",
+           "depends_on": [
+            "identifies_symmetry"
+           ],
+           "description": "Selects the spectral theorem for a symmetric matrix.",
+           "id": "selects_spectral",
+           "points": 1.0,
+           "recipe_ids": [
+            "recipe_spectral"
+           ],
+           "targets": [
+            {
+             "capability": "method_selection",
+             "facet": "",
+             "facet_client_id": "shard_1__f_spectral",
+             "role": "primary"
+            }
+           ],
+           "tier": "core"
+          }
+         ],
+         "depends_on_client_item_ids": [],
+         "evidence_facet_client_ids": [
+          "shard_1__f_spectral"
+         ],
+         "evidence_facets": [],
+         "evidence_fingerprint": {
+          "answer_structure": "",
+          "representation": "",
+          "shared_stimulus_id": "",
+          "solution_recipe_family": "",
+          "source_family": ""
+         },
+         "expected_answer": "The spectral theorem.",
+         "fatal_error_ids": [],
+         "id": "pi_select_spectral",
+         "learning_object_client_id": "shard_1__lo_diag",
+         "learning_object_id": "",
+         "practice_mode": "method_selection",
+         "prompt": "Which theorem applies to diagonalize A?",
+         "provenance": [
+          {
+           "extraction_id": "ext_text",
+           "locator": "",
+           "relation": "primary",
+           "revision_id": "",
+           "role": "reference",
+           "source_id": "",
+           "span_id": "s1",
+           "unit_id": "chapter_symmetry"
+          }
+         ],
+         "required_method": null,
+         "retrieval_demand": 0.5,
+         "scaffold_level": 0.0,
+         "surface_family": "source_form",
+         "transfer_distance": 0.0
+        }
+       ],
+       "span_requests": [],
+       "summary": "bootstrap map for symmetric matrices"
+      }
+     },
+     "completed_at": "<wall>",
+     "coverage_decisions_json": {
+      "<json>": {
+       "facet_identity": {
+        "action_ids": [],
+        "attached": 0,
+        "groups": 0,
+        "groups_judged": 0,
+        "in_run_retired": 0,
+        "judge": "gpt-6-luna",
+        "notes": [
+         "judge route unavailable: Not signed in with ChatGPT on this machine. Run `learnloop ai signin chatgpt`."
+        ],
+        "status": "judge_unavailable"
+       },
+       "gate_diagnostics": [
+        {
+         "entity_refs": [
+          "pi_select_spectral",
+          "identifies_symmetry"
+         ],
+         "gate": "criterion_dependency",
+         "message": "item pi_select_spectral dropped 1 criterion depends_on entry that name no sibling criterion (selects_spectral: identifies_symmetry)",
+         "severity": "review",
+         "suggested_action": "a criterion's depends_on names only sibling criterion ids of the same item; re-author the dependency if a step really gates this one"
+        }
+       ]
+      }
+     },
+     "created_at": "<wall>",
+     "id": "01M3250V00TP209AYDNCPVR73V",
+     "manifest_id": "01M3250V00TP209AYDNCPVR73S",
+     "mode": "bootstrap",
+     "proposal_id": "01M3250V00TP209AYDNCPVR743",
+     "resolved_span_hashes_json": {
+      "<json>": []
+     },
+     "span_request_json": null,
+     "status": "completed"
+    }
+   ]
+  },
+  "synthesis_shard_results": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "created_at": "2026-07-13T12:00:00Z",
+     "manifest_hash": "<manifest:0>",
+     "output_json": {
+      "<json>": {
+       "resolved_span_hashes": [],
+       "result": {
+        "blueprints": [
+         {
+          "client_item_id": "bp_diag",
+          "id": "bp_select_and_apply_spectral",
+          "learning_object_client_id": "lo_diag",
+          "learning_object_id": "",
+          "recipes": [
+           {
+            "all_of": [
+             {
+              "capability": "schema_interpretation",
+              "facet": "",
+              "facet_client_id": "f_def",
+              "modality": "hard"
+             },
+             {
+              "capability": "method_selection",
+              "facet": "",
+              "facet_client_id": "f_spectral",
+              "modality": "hard"
+             }
+            ],
+            "any_of": [],
+            "composition": "conjunctive",
+            "id": "recipe_spectral",
+            "integration": null
+           }
+          ],
+          "weight": 0.7
+         }
+        ],
+        "concept_relations": [],
+        "concepts": [
+         {
+          "aliases": [],
+          "client_item_id": "c_sym",
+          "description": "",
+          "id": "concept_symmetric_matrix",
+          "title": "Symmetric matrix",
+          "type": "concept"
+         }
+        ],
+        "conflicts": [],
+        "facets": [
+         {
+          "aliases": [],
+          "applicability": [],
+          "claim": "A real square matrix is symmetric exactly when A^T = A.",
+          "client_item_id": "f_def",
+          "concept_client_id": "c_sym",
+          "concept_id": "",
+          "error_signatures": [
+           "substitutes A^T A = I for A^T = A"
+          ],
+          "id": "facet_symmetry_definition",
+          "instructional_repairs": [
+           "contrast symmetric and orthogonal matrices"
+          ],
+          "kind": "definition",
+          "negative_examples": [],
+          "non_goals": [],
+          "positive_examples": [],
+          "postconditions": [],
+          "preconditions": [
+           "the matrix is real and square"
+          ],
+          "provenance": [
+           {
+            "extraction_id": "ext_text",
+            "locator": "",
+            "relation": "primary",
+            "revision_id": "",
+            "role": "reference",
+            "source_id": "",
+            "span_id": "s1",
+            "unit_id": "chapter_symmetry"
+           }
+          ]
+         },
+         {
+          "aliases": [],
+          "applicability": [],
+          "claim": "The spectral theorem applies to real symmetric matrices.",
+          "client_item_id": "f_spectral",
+          "concept_client_id": "c_sym",
+          "concept_id": "",
+          "error_signatures": [
+           "applies spectral theorem to non-symmetric matrices"
+          ],
+          "id": "facet_spectral_applicability",
+          "instructional_repairs": [
+           "check symmetry before invoking the spectral theorem"
+          ],
+          "kind": "applicability_condition",
+          "negative_examples": [],
+          "non_goals": [],
+          "positive_examples": [],
+          "postconditions": [
+           "the matrix is orthogonally diagonalizable"
+          ],
+          "preconditions": [
+           "the matrix is real and symmetric"
+          ],
+          "provenance": [
+           {
+            "extraction_id": "ext_text",
+            "locator": "",
+            "relation": "primary",
+            "revision_id": "",
+            "role": "reference",
+            "source_id": "",
+            "span_id": "s1",
+            "unit_id": "chapter_symmetry"
+           }
+          ]
+         }
+        ],
+        "learning_objects": [
+         {
+          "client_item_id": "lo_diag",
+          "concept_client_id": "c_sym",
+          "concept_id": "",
+          "confusable_concept_client_ids": [],
+          "confusables": [],
+          "id": "lo_diagonalize_symmetric",
+          "knowledge_type": "",
+          "prerequisite_concept_client_ids": [],
+          "prerequisites": [],
+          "provenance": [
+           {
+            "extraction_id": "ext_text",
+            "locator": "",
+            "relation": "primary",
+            "revision_id": "",
+            "role": "reference",
+            "source_id": "",
+            "span_id": "s1",
+            "unit_id": "chapter_symmetry"
+           }
+          ],
+          "summary": "Apply the spectral theorem to diagonalize a symmetric matrix.",
+          "title": "Diagonalize a symmetric matrix"
+         }
+        ],
+        "non_conflict_dispositions": [],
+        "notes": [],
+        "practice_items": [
+         {
+          "client_item_id": "pi_1",
+          "criteria": [
+           {
+            "correlation_group": "symmetry_identification",
+            "depends_on": [],
+            "description": "Identifies the symmetry condition A^T = A.",
+            "id": "identifies_symmetry",
+            "points": 1.0,
+            "recipe_ids": [],
+            "targets": [
+             {
+              "capability": "schema_interpretation",
+              "facet": "",
+              "facet_client_id": "f_def",
+              "role": "primary"
+             }
+            ],
+            "tier": "core"
+           }
+          ],
+          "depends_on_client_item_ids": [],
+          "evidence_facet_client_ids": [
+           "f_def"
+          ],
+          "evidence_facets": [],
+          "evidence_fingerprint": {
+           "answer_structure": "",
+           "representation": "",
+           "shared_stimulus_id": "",
+           "solution_recipe_family": "",
+           "source_family": ""
+          },
+          "expected_answer": "Yes when A^T = A.",
+          "fatal_error_ids": [],
+          "id": "pi_identify_symmetry",
+          "learning_object_client_id": "lo_diag",
+          "learning_object_id": "",
+          "practice_mode": "retrieval",
+          "prompt": "Is A symmetric? Justify using A^T = A.",
+          "provenance": [
+           {
+            "extraction_id": "ext_text",
+            "locator": "",
+            "relation": "primary",
+            "revision_id": "",
+            "role": "reference",
+            "source_id": "",
+            "span_id": "s1",
+            "unit_id": "chapter_symmetry"
+           }
+          ],
+          "required_method": null,
+          "retrieval_demand": 0.5,
+          "scaffold_level": 0.0,
+          "surface_family": "source_form",
+          "transfer_distance": 0.0
+         },
+         {
+          "client_item_id": "pi_2",
+          "criteria": [
+           {
+            "correlation_group": "spectral_selection",
+            "depends_on": [
+             "identifies_symmetry"
+            ],
+            "description": "Selects the spectral theorem for a symmetric matrix.",
+            "id": "selects_spectral",
+            "points": 1.0,
+            "recipe_ids": [
+             "recipe_spectral"
+            ],
+            "targets": [
+             {
+              "capability": "method_selection",
+              "facet": "",
+              "facet_client_id": "f_spectral",
+              "role": "primary"
+             }
+            ],
+            "tier": "core"
+           }
+          ],
+          "depends_on_client_item_ids": [],
+          "evidence_facet_client_ids": [
+           "f_spectral"
+          ],
+          "evidence_facets": [],
+          "evidence_fingerprint": {
+           "answer_structure": "",
+           "representation": "",
+           "shared_stimulus_id": "",
+           "solution_recipe_family": "",
+           "source_family": ""
+          },
+          "expected_answer": "The spectral theorem.",
+          "fatal_error_ids": [],
+          "id": "pi_select_spectral",
+          "learning_object_client_id": "lo_diag",
+          "learning_object_id": "",
+          "practice_mode": "method_selection",
+          "prompt": "Which theorem applies to diagonalize A?",
+          "provenance": [
+           {
+            "extraction_id": "ext_text",
+            "locator": "",
+            "relation": "primary",
+            "revision_id": "",
+            "role": "reference",
+            "source_id": "",
+            "span_id": "s1",
+            "unit_id": "chapter_symmetry"
+           }
+          ],
+          "required_method": null,
+          "retrieval_demand": 0.5,
+          "scaffold_level": 0.0,
+          "surface_family": "source_form",
+          "transfer_distance": 0.0
+         }
+        ],
+        "span_requests": [],
+        "summary": "bootstrap map for symmetric matrices"
+       },
+       "span_request_count": 0
+      }
+     },
+     "shard_count": 1,
+     "shard_key": "3a93dba1b6a4b06666a615bee35da9bcd9e9555a16f1611ef9ef0c295f4c9335",
+     "shard_ordinal": 0
+    }
+   ]
+  },
+  "vault_epigraphs": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "created_at": "2026-07-13T12:00:00Z",
+     "id": "vep_01M3250V00TP209AYDNCPVR75C",
+     "kind": "quote",
+     "mode": "bootstrap",
+     "model": "fake-synth-1",
+     "ordinal": 0,
+     "prompt_version": "mvp-0.1-vault-epigraphs",
+     "provider": "codex",
+     "source_set_id": "set_la",
+     "subject_id": "linear-algebra",
+     "synthesis_run_id": "01M3250V00TP209AYDNCPVR73V",
+     "text": "Symmetry is a promise the transpose keeps."
+    },
+    {
+     "<rowid>": 2,
+     "created_at": "2026-07-13T12:00:00Z",
+     "id": "vep_01M3250V00TP209AYDNCPVR75D",
+     "kind": "haiku",
+     "mode": "bootstrap",
+     "model": "fake-synth-1",
+     "ordinal": 1,
+     "prompt_version": "mvp-0.1-vault-epigraphs",
+     "provider": "codex",
+     "source_set_id": "set_la",
+     "subject_id": "linear-algebra",
+     "synthesis_run_id": "01M3250V00TP209AYDNCPVR73V",
+     "text": "A equals A T\nthe spectral theorem waits\neigenvectors align"
+    },
+    {
+     "<rowid>": 3,
+     "created_at": "2026-07-13T12:00:00Z",
+     "id": "vep_01M3250V00TP209AYDNCPVR75E",
+     "kind": "quote",
+     "mode": "bootstrap",
+     "model": "fake-synth-1",
+     "ordinal": 2,
+     "prompt_version": "mvp-0.1-vault-epigraphs",
+     "provider": "codex",
+     "source_set_id": "set_la",
+     "subject_id": "linear-algebra",
+     "synthesis_run_id": "01M3250V00TP209AYDNCPVR73V",
+     "text": "Escape will make me diagonal."
+    }
+   ]
+  }
+ },
+ "files": {
+  "concepts/concepts.yaml": {
+   "<yaml>": {
+    "concepts": {
+     "concept_symmetric_matrix": {
+      "aliases": [],
+      "created_at": "2026-07-13T12:00:00Z",
+      "description": "",
+      "id": "concept_symmetric_matrix",
+      "tags": [],
+      "title": "Symmetric matrix",
+      "type": "concept",
+      "updated_at": "2026-07-13T12:00:00Z"
+     }
+    },
+    "schema_version": 1
+   }
+  },
+  "facets.yaml": {
+   "<yaml>": {
+    "facets": [
+     {
+      "aliases": [],
+      "applicability": [],
+      "claim": "A real square matrix is symmetric exactly when A^T = A.",
+      "concept_id": "concept_symmetric_matrix",
+      "description": null,
+      "error_signatures": [
+       "substitutes A^T A = I for A^T = A"
+      ],
+      "id": "facet_symmetry_definition",
+      "instructional_repairs": [
+       "contrast symmetric and orthogonal matrices"
+      ],
+      "kind": "definition",
+      "negative_examples": [],
+      "non_goals": [],
+      "positive_examples": [],
+      "postconditions": [],
+      "preconditions": [
+       "the matrix is real and square"
+      ],
+      "provenance": {
+       "origin": "sourceset_synthesis",
+       "source_refs": [
+        {
+         "extraction_id": "ext_text",
+         "learning_object_ids": [],
+         "locator": "span:ext_text/s1",
+         "locator_scheme": "block_span_v1",
+         "path": null,
+         "quote": null,
+         "quote_hash": null,
+         "ref_id": "src_text",
+         "ref_type": "canonical_source",
+         "relation": "primary",
+         "revision_id": "rev_text",
+         "role": "primary_textbook",
+         "section_id": null,
+         "source_id": "src_text",
+         "span_hash": null,
+         "span_ids": []
+        }
+       ]
+      },
+      "semantic_fingerprint": "sf_1501edce5ea43443",
+      "status": "reviewed",
+      "tags": [],
+      "title": null,
+      "version": 1
+     },
+     {
+      "aliases": [],
+      "applicability": [],
+      "claim": "The spectral theorem applies to real symmetric matrices.",
+      "concept_id": "concept_symmetric_matrix",
+      "description": null,
+      "error_signatures": [
+       "applies spectral theorem to non-symmetric matrices"
+      ],
+      "id": "facet_spectral_applicability",
+      "instructional_repairs": [
+       "check symmetry before invoking the spectral theorem"
+      ],
+      "kind": "applicability_condition",
+      "negative_examples": [],
+      "non_goals": [],
+      "positive_examples": [],
+      "postconditions": [
+       "the matrix is orthogonally diagonalizable"
+      ],
+      "preconditions": [
+       "the matrix is real and symmetric"
+      ],
+      "provenance": {
+       "origin": "sourceset_synthesis",
+       "source_refs": [
+        {
+         "extraction_id": "ext_text",
+         "learning_object_ids": [],
+         "locator": "span:ext_text/s1",
+         "locator_scheme": "block_span_v1",
+         "path": null,
+         "quote": null,
+         "quote_hash": null,
+         "ref_id": "src_text",
+         "ref_type": "canonical_source",
+         "relation": "primary",
+         "revision_id": "rev_text",
+         "role": "primary_textbook",
+         "section_id": null,
+         "source_id": "src_text",
+         "span_hash": null,
+         "span_ids": []
+        }
+       ]
+      },
+      "semantic_fingerprint": "sf_aa5a26d74482cfd3",
+      "status": "reviewed",
+      "tags": [],
+      "title": null,
+      "version": 1
+     }
+    ],
+    "schema_version": 2
+   }
+  },
+  "profile/goals.yaml": {
+   "<yaml>": {
+    "goals": [
+     {
+      "created_at": "2026-07-13T12:00:00Z",
+      "creation_source": "study_map",
+      "due_at": null,
+      "exam": {
+       "enabled": true,
+       "item_count": 20
+      },
+      "facet_scope": {
+       "concepts": [],
+       "facets": [
+        "facet_symmetry_definition",
+        "facet_spectral_applicability"
+       ]
+      },
+      "id": "goal_final_exam_6d1c3615138b",
+      "intent_sentence": null,
+      "priority": 0.5,
+      "status": "active",
+      "target_recall": 0.8,
+      "title": "Final exam",
+      "updated_at": "2026-07-13T12:00:00Z"
+     }
+    ],
+    "schema_version": 2
+   }
+  },
+  "subjects/linear-algebra/learning-objects/lo_diagonalize_symmetric.yaml": {
+   "<yaml>": {
+    "blueprints": [
+     {
+      "id": "bp_select_and_apply_spectral",
+      "recipes": [
+       {
+        "all_of": [
+         {
+          "capability": "schema_interpretation",
+          "facet": "facet_symmetry_definition",
+          "modality": "hard"
+         },
+         {
+          "capability": "method_selection",
+          "facet": "facet_spectral_applicability",
+          "modality": "hard"
+         }
+        ],
+        "any_of": [],
+        "composition": "conjunctive",
+        "id": "recipe_spectral",
+        "integration": null
+       }
+      ],
+      "weight": 0.7
+     }
+    ],
+    "concept": "concept_symmetric_matrix",
+    "confusables": [],
+    "contradicts": null,
+    "created_at": "2026-07-13T12:00:00Z",
+    "difficulty_prior": null,
+    "difficulty_source": null,
+    "id": "lo_diagonalize_symmetric",
+    "knowledge_type": "concept",
+    "prerequisites": [],
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": [
+      {
+       "extraction_id": "ext_text",
+       "learning_object_ids": [],
+       "locator": "span:ext_text/s1",
+       "locator_scheme": "block_span_v1",
+       "path": null,
+       "quote": null,
+       "quote_hash": null,
+       "ref_id": "src_text",
+       "ref_type": "canonical_source",
+       "relation": "primary",
+       "revision_id": "rev_text",
+       "role": "primary_textbook",
+       "section_id": null,
+       "source_id": "src_text",
+       "span_hash": null,
+       "span_ids": []
+      }
+     ]
+    },
+    "schema_version": 1,
+    "status": "active",
+    "subjects": [
+     "linear-algebra"
+    ],
+    "summary": "Apply the spectral theorem to diagonalize a symmetric matrix.",
+    "tags": [],
+    "title": "Diagonalize a symmetric matrix",
+    "updated_at": "2026-07-13T12:00:00Z"
+   }
+  },
+  "subjects/linear-algebra/practice-items/pi_identify_symmetry.yaml": {
+   "<yaml>": {
+    "attempt_types_allowed": [],
+    "capability": null,
+    "contrast_of": null,
+    "created_at": "2026-07-13T12:00:00Z",
+    "criterion_facet_weights": {},
+    "differing_component": null,
+    "difficulty": null,
+    "difficulty_source": null,
+    "discrimination_profiles": [],
+    "error_hunt": null,
+    "evidence_facets": [
+     "facet_symmetry_definition"
+    ],
+    "evidence_fingerprint": {
+     "answer_structure": null,
+     "representation": null,
+     "shared_stimulus_id": null,
+     "solution_recipe_family": null,
+     "source_family": null
+    },
+    "evidence_weights": {},
+    "expected_answer": "Yes when A^T = A.",
+    "grading_rubric": {
+     "criteria": [
+      {
+       "correlation_group": "symmetry_identification",
+       "depends_on": [],
+       "description": "Identifies the symmetry condition A^T = A.",
+       "id": "identifies_symmetry",
+       "measurement_status": null,
+       "points": 1.0,
+       "recipe_ids": [],
+       "targets": [
+        {
+         "capability": "schema_interpretation",
+         "facet": "facet_symmetry_definition",
+         "role": "primary"
+        }
+       ],
+       "tier": "core"
+      }
+     ],
+     "fatal_errors": [],
+     "max_points": 1
+    },
+    "hint_policy": {
+     "coverage_surface_dampening_by_hint": {},
+     "fsrs_rating_cap_by_hint": {},
+     "mastery_alpha_dampening_by_hint": {},
+     "max_useful_hints": 0
+    },
+    "hints": [],
+    "id": "pi_identify_symmetry",
+    "laddered_stem": null,
+    "learning_object_id": "lo_diagonalize_symmetric",
+    "misconception_consistent_answer": null,
+    "practice_mode": "retrieval",
+    "prompt": "Is A symmetric? Justify using A^T = A.",
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": [
+      {
+       "extraction_id": "ext_text",
+       "learning_object_ids": [],
+       "locator": "span:ext_text/s1",
+       "locator_scheme": "block_span_v1",
+       "path": null,
+       "quote": null,
+       "quote_hash": null,
+       "ref_id": "src_text",
+       "ref_type": "canonical_source",
+       "relation": "primary",
+       "revision_id": "rev_text",
+       "role": "primary_textbook",
+       "section_id": null,
+       "source_id": "src_text",
+       "span_hash": null,
+       "span_ids": []
+      }
+     ]
+    },
+    "repair_targets": [
+     "facet_symmetry_definition"
+    ],
+    "retrieval_demand": 0.5,
+    "scaffold_level": 0.0,
+    "schema_version": 1,
+    "status": "active",
+    "status_reason": null,
+    "subjects": null,
+    "surface_family": "source_form",
+    "tags": [],
+    "task_feature_schema": null,
+    "task_features": null,
+    "teach_back_source": null,
+    "trace_contract": null,
+    "transfer_distance": 0.0,
+    "updated_at": "2026-07-13T12:00:00Z",
+    "variant_contract": null
+   }
+  },
+  "subjects/linear-algebra/practice-items/pi_select_spectral.yaml": {
+   "<yaml>": {
+    "attempt_types_allowed": [],
+    "capability": null,
+    "contrast_of": null,
+    "created_at": "2026-07-13T12:00:00Z",
+    "criterion_facet_weights": {},
+    "differing_component": null,
+    "difficulty": null,
+    "difficulty_source": null,
+    "discrimination_profiles": [],
+    "error_hunt": null,
+    "evidence_facets": [
+     "facet_spectral_applicability"
+    ],
+    "evidence_fingerprint": {
+     "answer_structure": null,
+     "representation": null,
+     "shared_stimulus_id": null,
+     "solution_recipe_family": null,
+     "source_family": null
+    },
+    "evidence_weights": {},
+    "expected_answer": "The spectral theorem.",
+    "grading_rubric": {
+     "criteria": [
+      {
+       "correlation_group": "spectral_selection",
+       "depends_on": [],
+       "description": "Selects the spectral theorem for a symmetric matrix.",
+       "id": "selects_spectral",
+       "measurement_status": null,
+       "points": 1.0,
+       "recipe_ids": [
+        "recipe_spectral"
+       ],
+       "targets": [
+        {
+         "capability": "method_selection",
+         "facet": "facet_spectral_applicability",
+         "role": "primary"
+        }
+       ],
+       "tier": "core"
+      }
+     ],
+     "fatal_errors": [],
+     "max_points": 1
+    },
+    "hint_policy": {
+     "coverage_surface_dampening_by_hint": {},
+     "fsrs_rating_cap_by_hint": {},
+     "mastery_alpha_dampening_by_hint": {},
+     "max_useful_hints": 0
+    },
+    "hints": [],
+    "id": "pi_select_spectral",
+    "laddered_stem": null,
+    "learning_object_id": "lo_diagonalize_symmetric",
+    "misconception_consistent_answer": null,
+    "practice_mode": "method_selection",
+    "prompt": "Which theorem applies to diagonalize A?",
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": [
+      {
+       "extraction_id": "ext_text",
+       "learning_object_ids": [],
+       "locator": "span:ext_text/s1",
+       "locator_scheme": "block_span_v1",
+       "path": null,
+       "quote": null,
+       "quote_hash": null,
+       "ref_id": "src_text",
+       "ref_type": "canonical_source",
+       "relation": "primary",
+       "revision_id": "rev_text",
+       "role": "primary_textbook",
+       "section_id": null,
+       "source_id": "src_text",
+       "span_hash": null,
+       "span_ids": []
+      }
+     ]
+    },
+    "repair_targets": [
+     "facet_spectral_applicability"
+    ],
+    "retrieval_demand": 0.5,
+    "scaffold_level": 0.0,
+    "schema_version": 1,
+    "status": "active",
+    "status_reason": null,
+    "subjects": null,
+    "surface_family": "source_form",
+    "tags": [],
+    "task_feature_schema": null,
+    "task_features": null,
+    "teach_back_source": null,
+    "trace_contract": null,
+    "transfer_distance": 0.0,
+    "updated_at": "2026-07-13T12:00:00Z",
+    "variant_contract": null
+   }
+  }
+ },
+ "model_requests": [
+  [
+   "source_set_synthesis",
+   "13d7d687865bddf9"
+  ],
+  [
+   "vault_epigraphs",
+   "992c36423ffc2e9d"
+  ]
+ ],
+ "result": {
+  "applied": true,
+  "candidate_repairs": [],
+  "facet_identity": {
+   "actions": [],
+   "attached": 0,
+   "groups": 0,
+   "groups_judged": 0,
+   "in_run_retired": 0,
+   "judge": "gpt-6-luna",
+   "notes": [
+    "judge route unavailable: Not signed in with ChatGPT on this machine. Run `learnloop ai signin chatgpt`."
+   ],
+   "run_id": "01M3250V00TP209AYDNCPVR73V",
+   "status": "judge_unavailable"
+  },
+  "gate_diagnostics": [
+   {
+    "entity_refs": [
+     "pi_select_spectral",
+     "identifies_symmetry"
+    ],
+    "gate": "criterion_dependency",
+    "message": "item pi_select_spectral dropped 1 criterion depends_on entry that name no sibling criterion (selects_spectral: identifies_symmetry)",
+    "severity": "review",
+    "suggested_action": "a criterion's depends_on names only sibling criterion ids of the same item; re-author the dependency if a step really gates this one"
+   }
+  ],
+  "generation_needs": [],
+  "goal_id": "goal_final_exam_6d1c3615138b",
+  "item_counts": {
+   "concept": 1,
+   "facet": 2,
+   "learning_object": 1,
+   "practice_item": 2,
+   "task_blueprint": 1
+  },
+  "manifest_hash": "<manifest:0>",
+  "mode": "bootstrap",
+  "nothing_new": false,
+  "proposal_id": "01M3250V00TP209AYDNCPVR743",
+  "resolved_span_hashes": [],
+  "reused": false,
+  "source_set_id": "set_la",
+  "span_request_count": 0,
+  "subject_id": "linear-algebra",
+  "synthesis_run_id": "01M3250V00TP209AYDNCPVR73V"
+ }
+}

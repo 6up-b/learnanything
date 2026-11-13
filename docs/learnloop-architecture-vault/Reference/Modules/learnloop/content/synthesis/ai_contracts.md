@@ -139,8 +139,8 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `SOURCE_SET_SYNTHESIS_PROMPT_VERSION`
-- [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `AppendReconciliation`, `AppendReconciliationContext`, `SourceSetSynthesis`, `append_reconciliation_prompt`, `append_reconciliation_prompt_version`; statically calls `AppendReconciliationContext`, `SourceSetSynthesis`, `append_reconciliation_prompt`, `append_reconciliation_prompt_version`
-- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION`, `ConceptGraphContext`, `ConceptGraphStructuring`, `ConceptGraphStructuringWithRegistry`, `SourceSetSynthesis`, `SourceSetSynthesisContext`, `concept_graph_has_registry_nominations`, `concept_graph_structuring_prompt`, `source_set_synthesis_prompt`, `source_set_synthesis_prompt_version`; statically calls `ConceptGraphContext`, `SourceSetSynthesis`, `SourceSetSynthesisContext`, `concept_graph_has_registry_nominations`, `concept_graph_structuring_prompt`, `source_set_synthesis_prompt`, `source_set_synthesis_prompt_version`
+- [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `AppendReconciliation`, `AppendReconciliationContext`, `SourceSetSynthesis`, `append_reconciliation_prompt`, `append_reconciliation_prompt_version`; statically calls `AppendReconciliationContext`, `SourceSetSynthesis`, `append_reconciliation_prompt`
+- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION`, `ConceptGraphContext`, `ConceptGraphStructuring`, `ConceptGraphStructuringWithRegistry`, `SourceSetSynthesis`, `SourceSetSynthesisContext`, `concept_graph_has_registry_nominations`, `concept_graph_structuring_prompt`, `source_set_synthesis_prompt`, `source_set_synthesis_prompt_version`; statically calls `ConceptGraphContext`, `SourceSetSynthesis`, `SourceSetSynthesisContext`, `concept_graph_has_registry_nominations`, `concept_graph_structuring_prompt`, `source_set_synthesis_prompt`
 - [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `SOURCE_UNIT_INVENTORY_PROMPT_VERSION`, `SourceUnitInventory`, `SourceUnitInventoryContext`, `source_unit_inventory_prompt`; statically calls `SourceUnitInventory`, `SourceUnitInventoryContext`, `source_unit_inventory_prompt`
 - [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs|learnloop.content.synthesis.vault_epigraphs]] — imports `VAULT_EPIGRAPHS_PROMPT_VERSION`, `VaultEpigraph`, `VaultEpigraphBatch`, `VaultEpigraphContext`, `vault_epigraphs_prompt`; statically calls `VaultEpigraphContext`, `vault_epigraphs_prompt`
 
@@ -266,8 +266,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_synthesis_answer_reuse.py](../../../../../../../tests/test_synthesis_answer_reuse.py) — direct import
   - `test_a_bootstrap_rejection_keeps_a_fresh_answer_another_run_saved`
   - `test_a_checkpoint_discard_keeps_an_answer_saved_after_the_one_judged`
+  - `test_an_append_rejection_keeps_a_fresh_answer_another_run_saved`
 - [tests/test_synthesis_criterion_dependencies.py](../../../../../../../tests/test_synthesis_criterion_dependencies.py) — direct import
   - `test_the_prompts_say_criterion_depends_on_names_sibling_criteria_only`
+- [tests/test_synthesis_tail_golden.py](../../../../../../../tests/test_synthesis_tail_golden.py) — direct import
 - [tests/test_ux_phase1_usability_round1.py](../../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
 - [tests/test_vault_epigraphs.py](../../../../../../../tests/test_vault_epigraphs.py) — direct import
   - `test_a_batch_with_nothing_valid_is_not_replayed`

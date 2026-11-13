@@ -81,7 +81,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `agent_run_input_context_hash`, `build_manifest`, `content_hash`, `persist_manifest`; statically calls `agent_run_input_context_hash`, `build_manifest`, `content_hash`, `persist_manifest`
+- [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `content_hash`; statically calls `content_hash`
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `agent_run_input_context_hash`, `build_manifest`, `content_hash`, `persist_manifest`; statically calls `agent_run_input_context_hash`, `build_manifest`, `content_hash`, `persist_manifest`
 
 ## Dependencies
