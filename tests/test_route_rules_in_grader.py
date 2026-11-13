@@ -81,6 +81,10 @@ from tests.helpers import allow_below_floor
 #: the latest by ``created_at``: once the wall clock passed ``CLOCK`` (12:00 UTC on
 #: 2026-11-01) such a regrade sorted before the grade it replaced.
 SUBMITTED = CLOCK.now() - timedelta(hours=1)
+#: The own-route rules alone (``own-route-v1``): the method-explicit rules that
+#: followed them are switched off. No vault that opens is below that
+#: successor's tag, so its kill switch is the only way to grade under v1.
+V1 = "[required_method]\nenabled = false"
 
 
 # -- the version and the switch ---------------------------------------------------------
@@ -98,12 +102,9 @@ def test_the_route_rules_follow_the_route_check_and_value_of_information_stoppin
     assert ROUTE_RULES_VERSIONS == frozenset({VERSION, "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
 
-def test_active_only_at_the_successor_with_the_switch_on(tmp_path):
+def test_active_only_with_the_switch_on(tmp_path):
     _paths, vault, _repository = split_vault(tmp_path / "on", version=VERSION, seed=False)
     assert route_rules_active(vault)
-    for older_version in ("mvp-0.17", "mvp-0.18", "mvp-0.19"):
-        _paths, older, _repository = split_vault(tmp_path / older_version, version=older_version, seed=False)
-        assert not route_rules_active(older), older_version
     _paths, off, _repository = split_vault(
         tmp_path / "off", version=VERSION, config="[proof_check]\nenabled = false", seed=False,
     )
@@ -247,10 +248,10 @@ def _blind_plan(vault, answer=ALTERNATIVE, *, stuck=False):
     return _blind_grading_plan(vault, item, context, stuck=stuck)
 
 
-def test_the_prompt_carries_the_rules_and_names_them_only_at_the_successor(tmp_path):
+def test_the_prompt_carries_the_rules_and_names_them_only_when_on(tmp_path):
     from learnloop.attempts.blind_grading import blind_grading_prompt
 
-    _paths, vault, _repository = split_vault(tmp_path / "on", version=VERSION, seed=False)
+    _paths, vault, _repository = split_vault(tmp_path / "on", version=VERSION, config=V1, seed=False)
     plan = _blind_plan(vault)
     assert plan.context.reference_policy["route_rules"] == "own-route-v1"
     assert ROUTE_RULES in blind_grading_prompt(plan.context)
@@ -258,8 +259,7 @@ def test_the_prompt_carries_the_rules_and_names_them_only_at_the_successor(tmp_p
     assert plan.calibration_prompt_version == f"{REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION}{ROUTE_RULES_SUFFIX}"
     stuck = _blind_plan(vault, stuck=True)
     assert stuck.prompt_version == f"mvp-2.1-blind-reference-policy{ROUTE_RULES_SUFFIX}+stuck-v1"
-    for name, kwargs in (("predecessor", {"version": "mvp-0.19"}), ("route_check", {"version": "mvp-0.17"}),
-                         ("kill_switch", {"version": VERSION, "config": "[proof_check]\nenabled = false"})):
+    for name, kwargs in (("kill_switch", {"version": VERSION, "config": "[proof_check]\nenabled = false"}),):
         _paths, other, _repository = split_vault(tmp_path / name, seed=False, **kwargs)
         plain = _blind_plan(other)
         assert "route_rules" not in plain.context.reference_policy, name
@@ -299,7 +299,7 @@ def test_a_proof_item_is_graded_in_exactly_one_model_call(tmp_path, monkeypatch)
 
 
 def test_live_an_unlocated_mark_down_on_a_divergent_route_is_unassessed(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION, config=V1)
     result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
     attempt = repository.fetch_practice_attempt(result.attempt_id)
     support = _support(repository, result.attempt_id)
@@ -414,20 +414,15 @@ def test_live_a_wrong_final_answer_is_never_unassessed(tmp_path, config):
         assert rule["final_answer_status"] == "differs_from_reference" and rule["applied"] is False
 
 
-@pytest.mark.parametrize("setup", ["kill_switch", "predecessor", "sources_predecessor"])
-def test_the_kill_switch_and_mvp017_grade_exactly_as_mvp016(tmp_path, setup):
-    """Off (or at mvp-0.17, whose separate check is gone, or at the sources
-    successors mvp-0.18/0.19 that followed it) one call and the grade is
-    mvp-0.16's: no rules, no record, the base identity."""
+def test_the_kill_switch_grades_exactly_as_mvp016(tmp_path):
+    """Off, one call and the grade is mvp-0.16's: no rules, no record, the
+    base identity. The baseline is mvp-0.16 served through the same switch: no
+    vault that opens is below the rules' tag."""
 
-    if setup == "kill_switch":
-        _paths, vault, repository = split_vault(tmp_path / "a", version=VERSION,
-                                                config="[proof_check]\nenabled = false")
-    elif setup == "predecessor":
-        _paths, vault, repository = split_vault(tmp_path / "a", version="mvp-0.17")
-    else:
-        _paths, vault, repository = split_vault(tmp_path / "a", version="mvp-0.19")
-    _paths, baseline, baseline_repository = split_vault(tmp_path / "b", version="mvp-0.16")
+    _paths, vault, repository = split_vault(tmp_path / "a", version=VERSION,
+                                            config="[proof_check]\nenabled = false")
+    _paths, baseline, baseline_repository = split_vault(tmp_path / "b", version="mvp-0.16",
+                                                        config="[proof_check]\nenabled = false")
     grader, reference_grader = DivergentGrader(), DivergentGrader()
     result = submit(vault, repository, grader, answer=ALTERNATIVE, when=CLOCK.now())
     reference = submit(baseline, baseline_repository, reference_grader, answer=ALTERNATIVE, when=CLOCK.now())
@@ -455,7 +450,7 @@ def test_a_ruled_grade_is_calibrated_under_the_rules_identity_and_so_is_its_regr
     from learnloop.attempts.attempts import replay_grader_identity
 
     expected = f"{REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION}{ROUTE_RULES_SUFFIX}"
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION, config=V1)
     # The identity names the prompt's rules, never a checker: it is the same
     # whatever the rule did to the grade.
     for grader, answer in ((DivergentGrader(), ALTERNATIVE), (ReviewFakeClient(), ALTERNATIVE + " (2)")):
@@ -509,7 +504,7 @@ def test_cli_dry_run_plans_one_grading_call(tmp_path, monkeypatch):
     import learnloop.cli as cli_module
     from learnloop.cli.app import app
 
-    _paths, vault, _repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, _repository = split_vault(tmp_path, version=VERSION, config=V1)
     grader = DivergentGrader()
     monkeypatch.setattr(cli_module, "_ready_provider_for_task", lambda *_a, **_k: ("fake", ReadyRuntime(), grader))
     result = CliRunner().invoke(app, [
@@ -794,7 +789,7 @@ def _route_judgments(repository, attempt_id):
 
 
 def test_f4_the_graders_route_verdict_reaches_the_judgment_ledger_and_regrades_supersede_it(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION, config=V1)
     result = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE, when=SUBMITTED)
     blind = repository.latest_blind_grade_record(result.attempt_id)
     [first] = _route_judgments(repository, result.attempt_id)
@@ -919,8 +914,8 @@ MVP017_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "mvp017_rout
 def test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict(tmp_path):
     """mvp-0.17's check wrote the attempt's route verdict under task
     ``proof_route_check`` and superseded it on each checked regrade. Nothing
-    writes that task now, so any regrade of such an attempt (at mvp-0.17, or
-    once the vault is at the successor) supersedes it as not checked."""
+    writes that task now, so any regrade of such an attempt supersedes it as
+    not checked, and writes the rules' own verdict beside it."""
     from learnloop.db.copies import copy_tree_with_databases
     from learnloop.ops.upgrades import rewrite_algorithm_version
     from learnloop.vault.repository import open_vault_repository
@@ -939,7 +934,9 @@ def test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict(tmp_path):
     assert legacy_again == legacy and superseding["supersedes_id"] == legacy["id"]
     assert json.loads(superseding["verdict"]) == {"status": "not_checked"}
     assert superseding["input_hash"] == repository.latest_blind_grade_record(held)["context_hash"]
-    assert _route_judgments(repository, held) == []  # mvp-0.17: the rule does not run
+    # The rules run on every vault that opens (the fixture's own tag included).
+    [ruled_held] = _route_judgments(repository, held)
+    assert json.loads(ruled_held["verdict"])["status"] == "checked" and ruled_held["supersedes_id"] is None
     # At the successor the regrade's own verdict is written, and the old one superseded.
     rewrite_algorithm_version(root / "learnloop.toml", "mvp-0.17", "mvp-0.20")
     vault = load_vault(root)

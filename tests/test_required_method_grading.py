@@ -84,11 +84,9 @@ def test_the_method_explicit_successor_is_the_latest_after_the_route_rules():
     assert METHOD_EXPLICIT_VERSIONS == frozenset({VERSION, "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", LATEST_ALGORITHM_VERSION})
 
 
-def test_active_only_at_the_successor_with_both_switches_on(tmp_path):
+def test_active_only_with_both_switches_on(tmp_path):
     _paths, vault, _repository = split_vault(tmp_path / "on", version=VERSION, seed=False)
     assert method_rules_active(vault) and route_rules_active(vault)
-    _paths, older, _repository = split_vault(tmp_path / "older", version=PREDECESSOR, seed=False)
-    assert route_rules_active(older) and not method_rules_active(older)
     _paths, off, _repository = split_vault(tmp_path / "off", version=VERSION, config=KILL_SWITCH, seed=False)
     assert route_rules_active(off) and not method_rules_active(off)
     # The required-method rules extend the own-route rules: off with them.
@@ -242,17 +240,15 @@ def test_the_grader_reads_the_frozen_field_never_the_answered_statement(tmp_path
     assert frozen["required_method"] == {"name": METHOD, "criterion_ids": ["setup"]}
 
 
-@pytest.mark.parametrize("setup", ["kill_switch", "predecessor"])
-def test_off_and_at_the_predecessor_the_prompt_is_the_predecessors_byte_for_byte(tmp_path, setup):
-    """The kill switch (and mvp-0.24 itself) shows the own-route-v1 rules and
-    no required method, even on a method item: the same prompt, context hash
-    and identity as an mvp-0.24 vault (mvp-0.20's rules)."""
+def test_off_the_prompt_is_the_predecessors_byte_for_byte(tmp_path):
+    """The kill switch shows the own-route-v1 rules and no required method,
+    even on a method item: the same prompt, context hash and identity as an
+    mvp-0.24 vault (mvp-0.20's rules). The baseline is mvp-0.24 served through
+    the same switch: no vault that opens is below the successor's tag."""
 
-    if setup == "kill_switch":
-        _paths, vault, _repository = _method_vault(tmp_path / "a", config=KILL_SWITCH, seed=False)
-    else:
-        _paths, vault, _repository = _method_vault(tmp_path / "a", version=PREDECESSOR, seed=False)
-    _paths, baseline, _repository = _method_vault(tmp_path / "b", version=PREDECESSOR, seed=False)
+    _paths, vault, _repository = _method_vault(tmp_path / "a", config=KILL_SWITCH, seed=False)
+    _paths, baseline, _repository = _method_vault(tmp_path / "b", version=PREDECESSOR, config=KILL_SWITCH,
+                                                  seed=False)
     plan, reference = _blind_plan(vault), _blind_plan(baseline)
     assert plan.context.reference_policy["route_rules"] == "own-route-v1"
     assert "required_method" not in plan.context.reference_policy
@@ -307,16 +303,13 @@ def test_live_the_same_mathematics_without_a_required_method_keeps_mvp020s_rule(
     assert unassessed_evidence_row(rows["setup"].attribution_json)
 
 
-@pytest.mark.parametrize("setup", ["kill_switch", "predecessor"])
-def test_the_kill_switch_grades_exactly_as_the_predecessor(tmp_path, setup):
-    """Off (and at mvp-0.24) the method item grades as mvp-0.24 does: the same
-    columns, evidence rows, record, prompt and identity."""
+def test_the_kill_switch_grades_exactly_as_the_predecessor(tmp_path):
+    """Off the method item grades as mvp-0.24 does: the same columns, evidence
+    rows, record, prompt and identity (the baseline is mvp-0.24 served through
+    the same switch)."""
 
-    if setup == "kill_switch":
-        _paths, vault, repository = _method_vault(tmp_path / "a", config=KILL_SWITCH)
-    else:
-        _paths, vault, repository = _method_vault(tmp_path / "a", version=PREDECESSOR)
-    _paths, baseline, baseline_repository = _method_vault(tmp_path / "b", version=PREDECESSOR)
+    _paths, vault, repository = _method_vault(tmp_path / "a", config=KILL_SWITCH)
+    _paths, baseline, baseline_repository = _method_vault(tmp_path / "b", version=PREDECESSOR, config=KILL_SWITCH)
     grader, reference_grader = DivergentGrader(), DivergentGrader()
     result = submit(vault, repository, grader, answer=ALTERNATIVE, when=CLOCK.now())
     reference = submit(baseline, baseline_repository, reference_grader, answer=ALTERNATIVE, when=CLOCK.now())
@@ -372,11 +365,13 @@ def test_replay_reproduces_method_grades_without_a_model(tmp_path, monkeypatch):
 def test_grades_recorded_at_the_predecessor_replay_unchanged_at_the_successor(tmp_path):
     """Existing grades keep their meaning: an mvp-0.24 grade of a method item
     (the method criterion unassessed) replays identically once the vault is at
-    the successor; nothing is regraded or rewritten."""
+    the successor; nothing is regraded or rewritten. The predecessor's grade is
+    written through the kill switch (no vault that opens is below the tag), and
+    the vault then moves to the successor with the switch back on."""
 
     from tests.helpers import set_algorithm_version
 
-    paths, vault, repository = _method_vault(tmp_path, version=PREDECESSOR)
+    paths, vault, repository = _method_vault(tmp_path, version=PREDECESSOR, config=KILL_SWITCH)
     result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
     project_canonical_facet_state(vault, repository)
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
@@ -385,7 +380,12 @@ def test_grades_recorded_at_the_predecessor_replay_unchanged_at_the_successor(tm
         tables = {table: connection.execute(f"SELECT * FROM {table} ORDER BY rowid").fetchall()
                   for table in ("practice_attempts", "grading_evidence", "blind_grade_records", "judgment_ledger")}
     set_algorithm_version(paths, VERSION)
+    config = paths.root / "learnloop.toml"
+    text = config.read_text(encoding="utf-8")
+    assert text.count(KILL_SWITCH) == 1
+    config.write_text(text.replace(KILL_SWITCH, "[required_method]\nenabled = true"), encoding="utf-8")
     vault = load_vault(paths.root)
+    assert method_rules_active(vault)
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     assert _projection(repository) == before
     with connect(repository.sqlite_path, read_only=True) as connection:
@@ -557,8 +557,10 @@ def test_a_regrade_grades_the_statement_and_rubric_its_method_was_frozen_with(tm
 @pytest.mark.parametrize("setup", ["kill_switch", "no_method"])
 def test_every_other_regrade_still_reads_the_item_as_it_is_now(tmp_path, setup):
     """Outside method-explicit items (and with the kill switch off) a regrade
-    is unchanged: it reads the item as it is now (canonical sources §7.3a)
-    and its rows cite no contract."""
+    is unchanged: it reads the item as it is now (canonical sources §7.3a),
+    so its rows cite a snapshot of the edited item, never the contract the
+    answer was graded under (regrade contracts, mvp-0.26: below that tag they
+    cited none)."""
 
     if setup == "kill_switch":
         paths, vault, repository = _method_vault(tmp_path, config=KILL_SWITCH)
@@ -566,6 +568,7 @@ def test_every_other_regrade_still_reads_the_item_as_it_is_now(tmp_path, setup):
         paths, vault, repository = split_vault(tmp_path, version=VERSION)
     result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
     graded = _evidence_ids(repository, result.attempt_id)
+    answered = _contract_versions(repository, result.attempt_id)
     _edit_item(paths, prompt="Write the SVD of A, edited after the answer.")
     vault = load_vault(paths.root)
     grader = DivergentGrader()
@@ -573,4 +576,8 @@ def test_every_other_regrade_still_reads_the_item_as_it_is_now(tmp_path, setup):
                     runtime=ReadyRuntime(), client=grader, grading_source="ai", clock=CLOCK)
     [prompt] = grader.prompts
     assert "edited after the answer" in prompt
-    assert _contract_versions(repository, result.attempt_id, since=graded) == {None}
+    [cited] = _contract_versions(repository, result.attempt_id, since=graded)
+    assert cited is not None and cited not in answered
+    stored = repository.fetch_assessment_contract_version(cited)
+    assert stored["practice_item_id"] == ITEM
+    assert "edited after the answer" in json.dumps(stored["contract"])

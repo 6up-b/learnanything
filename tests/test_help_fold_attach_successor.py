@@ -6,7 +6,7 @@ with a kill switch even when replay is unchanged).
 
 * the tag is ONE constant after mvp-0.41 and the latest;
   ``hints.fold_follows_attach`` is its kill switch;
-* below the tag, or switched off, a keyed submit folds exactly as the
+* switched off, a keyed submit folds exactly as the
   predecessor (the key's rows in the submit's own session only; no keyed
   attach in the attempt's transaction, H0's attach after the commit), so the
   session rollover case records ``hints_used`` 0 and ``primed`` 0 as before;
@@ -62,9 +62,9 @@ def _rolled(tmp_path, *, version: str, config: str = ARGMAX, option: str = "next
 
 
 @pytest.mark.parametrize(("version", "config", "live"), [
-    (TAG, ARGMAX, True), (TAG, OFF, False), (PREDECESSOR, ARGMAX, False)], ids=["tag", "tag-off", "predecessor"])
-def test_the_fold_is_gated_by_the_tag_and_the_switch(tmp_path, monkeypatch, version, config, live):
-    """F1: below the tag or switched off, the predecessor's fold and attach
+    (TAG, ARGMAX, True), (TAG, OFF, False)], ids=["tag", "tag-off"])
+def test_the_fold_is_gated_by_the_switch(tmp_path, monkeypatch, version, config, live):
+    """F1: switched off, the predecessor's fold and attach
     exactly: the rollover hint is not counted, and nothing attaches in the
     attempt's own transaction (H0's attach, disabled here, would take it)."""
 
@@ -81,8 +81,8 @@ def test_the_fold_is_gated_by_the_tag_and_the_switch(tmp_path, monkeypatch, vers
 
 
 @pytest.mark.parametrize(("version", "config", "live"), [
-    (TAG, ARGMAX, True), (TAG, OFF, False), (PREDECESSOR, ARGMAX, False)], ids=["tag", "tag-off", "predecessor"])
-def test_worked_help_primes_only_at_the_tag_with_the_switch_on(tmp_path, version, config, live):
+    (TAG, ARGMAX, True), (TAG, OFF, False)], ids=["tag", "tag-off"])
+def test_worked_help_primes_only_with_the_switch_on(tmp_path, version, config, live):
     paths, ctx, _first, second = _rolled(tmp_path, version=version, config=config, option="worked_chunk@L4")
     result = _submit(ctx, second)
     attempt = _attempt(paths, result["attemptId"])
@@ -111,8 +111,7 @@ def test_the_same_session_fold_is_the_same_below_and_at_the_tag(tmp_path):
     assert counts == [(1, True), (1, True)]
 
 
-@pytest.mark.parametrize(("version", "config"), [(TAG, ARGMAX), (TAG, OFF), (PREDECESSOR, ARGMAX)],
-                         ids=["on", "off", "predecessor"])
+@pytest.mark.parametrize(("version", "config"), [(TAG, ARGMAX), (TAG, OFF)], ids=["on", "off"])
 def test_a_rebuild_changes_no_attempt_and_a_shadow_rebuild_is_zero(tmp_path, version, config):
     """Replay re-applies the stored ``hints_used`` and ``primed`` (it never
     folds), so the successor's counts survive a rebuild and the shadow
@@ -132,11 +131,10 @@ def test_a_rebuild_changes_no_attempt_and_a_shadow_rebuild_is_zero(tmp_path, ver
     if version == TAG and config == ARGMAX:
         assert summary == {"mastery": 0, "facet": 0, "schedule": 0}
     else:
-        # The predecessor's state (below the tag, or switched off): the
-        # unprimed attempt's live due time and its replay differ by under a
-        # second (the hint vault is a relabelled basic vault, not a
-        # rebuild-equivalent one), identically at mvp-0.41 and at the tag
-        # switched off; nothing else moves.
+        # The predecessor's state (switched off): the unprimed attempt's live
+        # due time and its replay differ by under a second (the hint vault is
+        # a relabelled basic vault, not a rebuild-equivalent one); nothing
+        # else moves.
         assert summary["mastery"] == summary["facet"] == 0
         for change in shadow.learner_state_diff["schedule"]["changes"]:
             moved = {key for key in change["before"] if change["before"][key] != change["after"][key]}
