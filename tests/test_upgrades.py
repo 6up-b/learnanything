@@ -16,6 +16,7 @@ import re
 import sqlite3
 import subprocess
 import sys
+import tomllib
 from contextlib import closing
 from datetime import timedelta
 
@@ -257,6 +258,31 @@ def test_the_journal_is_written_before_the_publication_and_the_commit_follows_it
     assert _committed(paths, link) and not _journal(paths).exists()
 
 
+# -- the publication sets the [algorithms] setting, and only it --------------------------------------------------
+
+
+@LINKS
+@pytest.mark.parametrize("decoy", ["comment", "another table"])
+def test_the_publication_changes_the_setting_not_the_same_text_elsewhere(tmp_path, link, decoy):
+    paths = _vault_at(tmp_path, link.predecessor)
+    config = paths.root / "learnloop.toml"
+    line = f'algorithm_version = "{link.predecessor}"'
+    decoy_text = f"# {line}\n" if decoy == "comment" else f"[notes]\n{line}\n\n"
+    text = config.read_text("utf-8")
+    config.write_text(text.replace("[algorithms]\n", decoy_text + "[algorithms]\n", 1), encoding="utf-8")
+
+    assert upgrade(paths.root, to=link.tag).upgraded
+
+    assert _tag(paths) == link.tag and _committed(paths, link) and not _journal(paths).exists()
+    published = config.read_text("utf-8")
+    assert decoy_text + "[algorithms]\n" in published
+    if decoy == "another table":
+        assert tomllib.loads(published)["notes"] == {"algorithm_version": link.predecessor}
+    # Nothing else in the file moved: the one setting's value is the only difference.
+    assert published.replace(f'"{link.tag}"', f'"{link.predecessor}"') == text.replace(
+        "[algorithms]\n", decoy_text + "[algorithms]\n", 1)
+
+
 # -- an old config stays readable when preparation fails ---------------------------------------------------------
 
 
@@ -265,7 +291,7 @@ def _fail(*_args, **_kwargs):
 
 
 @LINKS
-@pytest.mark.parametrize("stage", ["activation", "before the rename", "after the rename"])
+@pytest.mark.parametrize("stage", ["activation", "before the rename", "after the rename", "renamed without the tag"])
 def test_a_failure_before_the_commit_leaves_the_predecessor_readable_and_no_journal(tmp_path, monkeypatch, link,
                                                                                    stage):
     paths = _vault_at(tmp_path, link.predecessor)
@@ -281,11 +307,16 @@ def test_a_failure_before_the_commit_leaves_the_predecessor_readable_and_no_jour
                 return real(config_path, from_version, to_version, renamed=renamed)
             if stage == "before the rename":
                 raise OSError("disk")
+            if stage == "renamed without the tag":
+                # A rename that landed a file still naming the predecessor: only reading it back can tell.
+                if renamed is not None:
+                    renamed()
+                return None
             real(config_path, from_version, to_version, renamed=renamed)
             raise OSError("directory fsync")
 
         monkeypatch.setattr(upgrades, "publish_algorithm_version", publish)
-    with pytest.raises(OSError):
+    with pytest.raises(upgrades.UnpublishedTag if stage == "renamed without the tag" else OSError):
         upgrade(paths.root, to=link.tag, links=links)
     monkeypatch.undo()
     monkeypatch.setattr(activation_journal, "_COMPLETER", upgrades.complete_interrupted_activation)
