@@ -552,7 +552,7 @@ class PaidCalls:
             value = validate(result) if validate is not None else result
         except (KeyError, TypeError, ValidationError, AIInvalidOutput):
             # Write-once checkpoints: an unusable one would block every rerun.
-            self.repository.discard_model_checkpoint(key)
+            self.repository.discard_model_checkpoint(key, result=saved["result"])
             return _MISSING
         self.totals.recovered += 1
         model = saved["result"].get("resolved_model")

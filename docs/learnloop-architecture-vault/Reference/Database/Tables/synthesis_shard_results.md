@@ -96,6 +96,7 @@ Indexes and uniqueness:
 
 - `tests/test_outer_cache_keys.py`
 - `tests/test_source_set_synthesis.py`
+- `tests/test_synthesis_answer_reuse.py`
 - `tests/test_synthesis_runs_repo.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

@@ -278,7 +278,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_exam_answer_dual_writes_assessment_grade`
 - [tests/test_graph_edit_proposals.py](../../../../../../tests/test_graph_edit_proposals.py) — direct import
 - [tests/test_graph_nomination_ingest.py](../../../../../../tests/test_graph_nomination_ingest.py) — direct import
-  - `test_registry_definition_change_is_a_new_bootstrap_and_repeats_reuse`
+  - `test_registry_definition_change_is_paid_again_and_repeats_reuse`
   - `test_revalidation_reuses_paid_vectors_and_makes_no_embedding_call`
 - [tests/test_guided_redo.py](../../../../../../tests/test_guided_redo.py) — direct import
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
@@ -353,6 +353,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f14_the_grader_renders_the_instruction_the_frozen_contract_presented`
 - [tests/test_reread_safety.py](../../../../../../tests/test_reread_safety.py) — direct import
   - `test_redesign_a_refresh_keeps_an_exam_scoped_member_on_its_revision`
+- [tests/test_rerun_proposals.py](../../../../../../tests/test_rerun_proposals.py) — direct import
+  - `test_a_changed_role_override_is_paid_and_recorded`
+  - `test_a_new_concept_edge_is_paid_by_the_structuring_pass_and_recorded`
+  - `test_the_curriculum_snapshot_names_the_concept_edges`
 - [tests/test_router_offer_log.py](../../../../../../tests/test_router_offer_log.py) — direct import
   - `test_teach_back_readiness_is_probed_once_per_offer`
 - [tests/test_router_probe_ties.py](../../../../../../tests/test_router_probe_ties.py) — direct import

@@ -2727,6 +2727,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_z_ai_ok_line_names_pages_and_cost_for_a_404_page_book`
 - [tests/test_reread_safety_landing.py](../../../../../../tests/test_reread_safety_landing.py) — direct import
   - `test_an_unmarked_reading_of_a_protected_book_is_withheld_from_every_model_visible_path`
+- [tests/test_rerun_proposals.py](../../../../../../tests/test_rerun_proposals.py) — direct import
+  - `test_an_append_resolves_its_brief_and_inherits_the_learners_level`
+  - `test_the_curriculum_snapshot_names_the_concept_edges`
 - [tests/test_residual_diagnostics.py](../../../../../../tests/test_residual_diagnostics.py) — direct import
   - `test_positive_residual_dependence_flags_missing_factor`
 - [tests/test_retired_config_keys_load.py](../../../../../../tests/test_retired_config_keys_load.py) — direct import

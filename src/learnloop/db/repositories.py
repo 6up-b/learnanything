@@ -11108,22 +11108,6 @@ class Repository(
             ).fetchone()
         return dict(row) if row is not None else None
 
-    def completed_agent_runs_by_context(self, purpose: str, input_context_hash: str) -> list[dict[str, Any]]:
-        """Every completed run for this context, newest first (the order of
-        :meth:`completed_agent_run_by_context`), for callers that must also
-        check what a candidate run recorded before reusing it."""
-
-        with self.connection() as connection:
-            rows = connection.execute(
-                """
-                SELECT * FROM agent_runs
-                WHERE purpose = ? AND input_context_hash = ? AND status = 'completed'
-                ORDER BY completed_at DESC, started_at DESC
-                """,
-                (purpose, input_context_hash),
-            ).fetchall()
-        return [dict(row) for row in rows]
-
     def agent_run(self, run_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:
             row = connection.execute(
@@ -21301,7 +21285,7 @@ class Repository(
     def insert_synthesis_manifest(self, manifest: Mapping[str, Any]) -> str:
         """Persist an immutable synthesis manifest (§8.4). Idempotent on
         ``manifest_hash`` — an identical manifest returns the existing id and is
-        never re-inserted (the cache seam)."""
+        never re-inserted."""
 
         manifest_hash = str(manifest["manifest_hash"])
         with self.connection() as connection:
@@ -21541,12 +21525,23 @@ class Repository(
         data["output"] = _loads(data.pop("output_json", None), None)
         return data
 
-    def discard_synthesis_shard_result(self, shard_key: str) -> None:
+    def discard_synthesis_shard_result(self, shard_key: str, *, output: Mapping[str, Any] | None = None) -> None:
         """Delete one shard's saved output, so the next synthesis pays for a
-        fresh answer instead of replaying one the quality gates rejected."""
+        fresh answer instead of replaying one the quality gates rejected.
+
+        With ``output`` (the output that was judged), only while the row still
+        holds it: another run may have saved a fresh one under the key since.
+        Compared on the stored text, which :meth:`save_synthesis_shard_result`
+        writes with the same serialization."""
 
         with self.connection() as connection:
-            connection.execute("DELETE FROM synthesis_shard_results WHERE shard_key = ?", (shard_key,))
+            if output is None:
+                connection.execute("DELETE FROM synthesis_shard_results WHERE shard_key = ?", (shard_key,))
+            else:
+                connection.execute(
+                    "DELETE FROM synthesis_shard_results WHERE shard_key = ? AND output_json = ?",
+                    (shard_key, _json(dict(output))),
+                )
             connection.commit()
 
     def finalize_stale_synthesis_runs(

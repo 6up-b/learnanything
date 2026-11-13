@@ -106,6 +106,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_report_superseded.py](../../../../../../tests/test_learner_report_superseded.py) — direct import
   - `test_a_global_claim_made_after_materialization_rebuilds_to_live`
   - `test_a_new_starting_level_keeps_the_old_one_for_an_lo_first_practised_under_it`
+- [tests/test_rerun_proposals.py](../../../../../../tests/test_rerun_proposals.py) — direct import
+  - `test_an_append_resolves_its_brief_and_inherits_the_learners_level`
 
 ## Modification guidance
 

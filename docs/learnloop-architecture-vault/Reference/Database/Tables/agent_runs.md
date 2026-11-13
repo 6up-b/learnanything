@@ -22,8 +22,8 @@ source_paths:
   - "src/learnloop/ai/usage.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/stuck.py"
-  - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/content/synthesis/synthesis_manifests.py"
+  - "src/learnloop/db/repositories.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/attempts/grading.py"
   - "src/learnloop/attempts/regrade.py"
@@ -97,7 +97,6 @@ Indexes and uniqueness:
 - `Repository.agent_run()`
 - `Repository.complete_agent_run()`
 - `Repository.completed_agent_run_by_context()`
-- `Repository.completed_agent_runs_by_context()`
 - `Repository.find_record()`
 - `Repository.insert_agent_run()`
 

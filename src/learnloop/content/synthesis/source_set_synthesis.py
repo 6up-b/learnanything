@@ -7,9 +7,10 @@ This service orchestrates the "Create study map" journey:
    rebuild that rewords an existing facet writes a facet version with an
    undo when its proposal applies; ``auto`` routes a subject that already has
    a study map to append);
-2. immutable manifest persisted BEFORE the agent run (§8.4; the manifest hash is
-   the ``agent_runs.input_context_hash`` cache seam — an identical manifest reuses
-   the completed run);
+2. immutable manifest persisted BEFORE the agent run (§8.4): the record of what
+   the run read. Nothing reuses a run by it: a rebuild runs again, each paid call
+   answering from its checkpoint, and an equal earlier proposal is the result
+   (``proposal_match``);
 3. sharded N-way synthesis over role-specific unit inventories (NOT raw
    documents) + brief + exam assessment-alignment lane (aggregates + cited task
    metadata only; held-out wording NEVER); one bounded span-request round;
@@ -97,9 +98,11 @@ from learnloop.content.synthesis.synthesis_gates import (
     ProvenanceRef,
     run_synthesis_gates,
 )
+from learnloop.content.synthesis.proposal_match import ProposalMatch, RejectedProposalMatch, match_proposal
 from learnloop.content.synthesis.synthesis_manifests import (
     agent_run_input_context_hash,
     build_manifest,
+    content_hash,
     persist_manifest,
 )
 from learnloop.ai.usage import TokenUsage, UsageMeter, consume_client_usage
@@ -192,7 +195,10 @@ class StudyMapResult:
     manifest_hash: str
     synthesis_run_id: str | None = None
     proposal_id: str | None = None
+    # The proposal is an earlier run's equal one (``proposal_match``); nothing new was written.
     reused: bool = False
+    # ... and that proposal had nothing left waiting: the build added nothing.
+    nothing_new: bool = False
     applied: bool = False
     goal_id: str | None = None
     item_counts: dict[str, int] = field(default_factory=dict)
@@ -214,6 +220,7 @@ class StudyMapResult:
             "synthesis_run_id": self.synthesis_run_id,
             "proposal_id": self.proposal_id,
             "reused": self.reused,
+            "nothing_new": self.nothing_new,
             "applied": self.applied,
             "goal_id": self.goal_id,
             "item_counts": dict(self.item_counts),
@@ -245,10 +252,14 @@ class _SynthesisInputs:
     # effective role (Codex verification of F6): the one resolver the
     # facet-meaning chokepoint uses (``facet_identity.authority``).
     resolver: facet_meaning.CitationResolver | None = None
-    # "revision:unit" -> the chosen inventory row's id and extraction. Kept out
-    # of the entries and the manifest: the entries are rendered into the
-    # prompt whole, so a new key there would move every pass checkpoint.
+    # "revision:unit" -> the chosen inventory row's id, extraction and content
+    # hash. Kept out of the entries (they are rendered into the prompt whole,
+    # so a new key there would move every pass checkpoint); the manifest
+    # records it (:func:`manifest_inputs`).
     inventory_rows: dict[str, dict[str, str]] = field(default_factory=dict)
+    # revision -> its asset's hash; extraction -> "extractor@version".
+    asset_hashes: dict[str, str] = field(default_factory=dict)
+    extractor_versions: dict[str, str] = field(default_factory=dict)
 
 
 def _assessment_signal_spans(inventory: dict[str, Any], *, held_out_only: bool) -> set[str]:
@@ -279,6 +290,9 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
     # feeds synthesis as teaching, and its spans join the leakage gate.
     exam = EM.exam_material(vault, repo)
 
+    asset_hashes: dict[str, str] = {}
+    extractor_versions: dict[str, str] = {}
+
     for member in source_set.members:
         extraction_id = resolve_extraction_id(repo, member.revision_id)
         membership.append(
@@ -287,14 +301,22 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
                 "revision_id": member.revision_id,
                 "role": member.default_role,
                 "priority": member.priority,
+                # A unit's override changes the role its inventory is read under.
+                "role_overrides": {s.unit_id: s.role_override for s in member.scope if s.role_override},
             }
         )
         if member.revision_id not in selected_revision_ids:
             selected_revision_ids.append(member.revision_id)
+        revision = repo.get_source_revision(member.revision_id)
+        if revision is not None and revision.get("asset_hash"):
+            asset_hashes[member.revision_id] = str(revision["asset_hash"])
         if extraction_id is None:
             continue
         if extraction_id not in extraction_ids:
             extraction_ids.append(extraction_id)
+        extraction = repo.get_extraction_run(extraction_id)
+        if extraction is not None:
+            extractor_versions[extraction_id] = f"{extraction.get('extractor')}@{extraction.get('extractor_version')}"
         span_origin[extraction_id] = {
             "source_id": member.source_id,
             "revision_id": member.revision_id,
@@ -445,14 +467,40 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
         span_origin=span_origin,
         resolver=facet_meaning.CitationResolver.for_source_set(repo, source_set, exam_source_sets=vault),
         inventory_rows=inventory_rows,
+        asset_hashes=asset_hashes,
+        extractor_versions=extractor_versions,
     )
 
 
 def _chosen_row(row: Mapping[str, Any]) -> dict[str, str]:
     """Which inventory row was read: its own id and extraction, which can be an
-    earlier reading than the one the entry's citations resolve against."""
+    earlier reading than the one the entry's citations resolve against, and a
+    hash of its content (a row updated in place keeps its id)."""
 
-    return {"inventory_id": str(row.get("id") or ""), "extraction_id": str(row.get("extraction_id") or "")}
+    return {
+        "inventory_id": str(row.get("id") or ""),
+        "extraction_id": str(row.get("extraction_id") or ""),
+        "content_hash": content_hash(row.get("inventory")),
+    }
+
+
+def manifest_inputs(inputs: _SynthesisInputs) -> dict[str, Any]:
+    """The source-side fields of a run's manifest: what it read, exactly.
+
+    Each unit's entry names the inventory row it read and that row's content as well as the version labels, so a
+    row re-inventoried in place under an unchanged label still shows in the record."""
+
+    return {
+        "membership": inputs.membership,
+        "revision_ids": inputs.selected_revision_ids,
+        "asset_hashes": dict(sorted(inputs.asset_hashes.items())),
+        "extraction_ids": inputs.extraction_ids,
+        "extractor_versions": dict(sorted(inputs.extractor_versions.items())),
+        "unit_inventory_versions": {
+            key: {"version": version, **inputs.inventory_rows.get(key, {})}
+            for key, version in inputs.unit_inventory_versions.items()
+        },
+    }
 
 
 def _registry_index(vault: LoadedVault) -> dict[str, Any]:
@@ -1983,44 +2031,6 @@ def _row(item_type: str, entity_id: str, payload: dict[str, Any], depends_on: li
     }
 
 
-# --- completed-run cache ----------------------------------------------------
-
-
-def _nominations_shaped(run: dict[str, Any] | None) -> bool:
-    """Whether Slice 2 T5 nominations reached this synthesis run.
-
-    A completed run made with a nominator records ``graph_nomination`` in its
-    coverage; one whose structuring saw registry concepts also records
-    ``registry_*`` usage, which a later revalidation keeps.
-    """
-
-    if run is None:
-        return False
-    usage = run.get("actual_usage") or {}
-    return "graph_nomination" in (run.get("coverage_decisions") or {}) or any(
-        key in usage for key in ("registry_nominated_candidates", "registry_merges")
-    )
-
-
-def _reusable_bootstrap_run(
-    repository: Repository, context_hash: str, *, nominations_on: bool,
-) -> dict[str, Any] | None:
-    """The newest completed bootstrap run this manifest may reuse.
-
-    With nominations on, the manifest carries the nominator's identity, so a
-    match was made under it. With the kill switch off, the manifest is the
-    pre-T5 one, which a nominated run cached by T5 before that identity
-    entered the manifest also has (review F1): such a run is never reused,
-    so its proposal is never applied with nominations off. Pre-T5 runs and
-    lexical-only reruns still are.
-    """
-
-    for run in repository.completed_agent_runs_by_context(SYNTHESIS_AGENT_PURPOSE, context_hash):
-        if nominations_on or not _nominations_shaped(repository.synthesis_run_for_agent_run(run["id"])):
-            return run
-    return None
-
-
 # --- orchestration ----------------------------------------------------------
 
 
@@ -2136,27 +2146,45 @@ def plan_study_map_embedding(root: Path, source_set_id: str) -> dict[str, Any]:
 def bootstrap_scope(
     vault: LoadedVault, brief: Any, *, nominator: GraphNominator | None, facet_identity_client: Any = None,
 ) -> Any:
-    """The ``scope`` a bootstrap synthesis hashes into its manifest, whose hash is the completed-run cache key: a
-    byte that moves here at a fixed input starts a paid run again (``tests/test_identity_pins.py``)."""
+    """The ``scope`` a bootstrap synthesis records in its manifest: the brief's scope and, while they are on, what
+    the nominator and the facet-identity judge run under. A record: nothing reuses a run by it."""
 
     scope: Any = brief.get("scope") if isinstance(brief, dict) else None
     if nominator is not None:
-        # What the nominator can show the structuring model is run identity:
-        # the switch, its configuration, the registry prompt and the
-        # registry's definitions and index state. Off, the scope (and so the
-        # manifest hash) is the pre-T5 one.
+        # What the nominator can show the structuring model: the switch, its
+        # configuration, the registry prompt and the registry's definitions and
+        # index state. Off, the scope is the pre-T5 one.
         scope = {
             "brief_scope": scope,
             "graph_nomination": nominator.identity(prompt_version=CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION),
         }
-    # Facet identity (handoff §4): the judge's identity is run identity, so a
-    # cached run is reused only under the same switch, route and policy. Off,
-    # the scope (and the manifest hash) is the pre-change one.
+    # Facet identity (handoff §4): the judge's switch, route and policy. Off,
+    # the scope is the pre-change one.
     if vault.config.facet_identity.enabled:
         from learnloop.content.facet_identity.judge import manifest_identity
 
         scope = {"scope": scope, "facet_identity": manifest_identity(vault.config, client=facet_identity_client)}
     return scope
+
+
+def resolve_brief(vault: LoadedVault, brief: Mapping[str, Any] | None) -> dict[str, Any]:
+    """The brief a bootstrap or an append reads and records, resolved before its manifest is built.
+
+    Normalized tolerantly (a stale persisted brief must never fail a paid build), with the vault's declared learner
+    level when the brief carries none, and the item-authoring mode stamped in, so the manifest records the decision
+    and a revalidation replays it. Both orchestrators call this: an append that resolved it after hashing recorded a
+    brief it did not read, and never inherited the learner's level."""
+
+    resolved = validate_brief(dict(brief or {}), strict=False)
+    if not resolved.get("starting_level"):
+        profile = read_learner_profile(VaultPaths(vault.root, vault.config))
+        if profile is not None:
+            resolved["starting_level"] = profile["starting_level"]
+            if profile.get("level_note") and not resolved.get("level"):
+                resolved["level"] = profile["level_note"]
+    if resolved.get("practice_items") not in ("upfront", "as_you_read"):
+        resolved["practice_items"] = vault.config.ingest.bootstrap_practice_items
+    return resolved
 
 
 def _create_study_map(
@@ -2183,20 +2211,7 @@ def _create_study_map(
         raise StudyMapError("source_set_not_found", f"Source set '{source_set_id}' does not exist.")
     subject_id = source_set.subject_id
 
-    # Normalize the brief (tolerant: a stale persisted brief must never fail a
-    # paid build) and inherit the vault's declared learner level when the brief
-    # doesn't carry one — the single choke point all synthesis callers share.
-    brief = validate_brief(brief, strict=False)
-    if not brief.get("starting_level"):
-        profile = read_learner_profile(VaultPaths(vault.root, vault.config))
-        if profile is not None:
-            brief["starting_level"] = profile["starting_level"]
-            if profile.get("level_note") and not brief.get("level"):
-                brief["level"] = profile["level_note"]
-    # Resolve the item-authoring mode NOW and stamp it into the brief so the
-    # manifest records the decision and revalidation replays it identically.
-    if brief.get("practice_items") not in ("upfront", "as_you_read"):
-        brief["practice_items"] = vault.config.ingest.bootstrap_practice_items
+    brief = resolve_brief(vault, brief)
     items_off = brief["practice_items"] == "as_you_read"
 
     resolved_mode = "bootstrap" if mode in {"auto", "bootstrap"} else mode
@@ -2236,10 +2251,7 @@ def _create_study_map(
     manifest = build_manifest(
         vault,
         source_set_id=source_set.id,
-        membership=inputs.membership,
-        revision_ids=inputs.selected_revision_ids,
-        extraction_ids=inputs.extraction_ids,
-        unit_inventory_versions=inputs.unit_inventory_versions,
+        **manifest_inputs(inputs),
         scope=scope,
         brief=brief,
         prompt_version=synthesis_prompt_version,
@@ -2253,19 +2265,6 @@ def _create_study_map(
     persist_manifest(repository, manifest)
     manifest_id = repository.synthesis_manifest_by_hash(manifest_hash)["id"]
     context_hash = agent_run_input_context_hash(manifest)
-
-    # cache: identical manifest reuses the completed agent run (with the kill
-    # switch off, only one nominations never shaped).
-    cached = _reusable_bootstrap_run(repository, context_hash, nominations_on=nominator is not None)
-    if cached is not None:
-        batch = repository.proposal_batch_for_agent_run(cached["id"])
-        result = StudyMapResult(
-            source_set_id=source_set.id, subject_id=subject_id, mode=resolved_mode,
-            manifest_hash=manifest_hash, proposal_id=(batch or {}).get("id"), reused=True,
-        )
-        if apply and result.proposal_id and _gate_open(apply_gate):
-            _apply_and_wire_goal(root, repository, result, brief=brief, create_goal=create_goal, clock=clock)
-        return result
 
     now = utc_now_iso(clock)
     agent_run_id = repository.insert_agent_run(
@@ -2296,35 +2295,44 @@ def _create_study_map(
     token_usage = TokenUsage()
     answers = _SavedAnswers()
     try:
-        with declared_budgets(token_budget):
-            merged, span_request_count, resolved_hashes, usage = _run_synthesis(
-                client, repository, inputs, vault, source_set, brief, budgets, clock=clock,
-                client=client, provider=provider, model=model,
-                manifest_hash=manifest_hash, unlimited_token_budget=unlimited_token_budget,
-                progress=progress, nominator=nominator,
-                one_facet_per_skill=one_facet_per_skill, answers=answers,
+        # At most twice: the second time only after the rows equalled a proposal
+        # the learner wholly rejected, whose answers were dropped (proposal_match).
+        for fresh_answers in (False, True):
+            with declared_budgets(token_budget):
+                merged, span_request_count, resolved_hashes, usage = _run_synthesis(
+                    client, repository, inputs, vault, source_set, brief, budgets, clock=clock,
+                    client=client, provider=provider, model=model,
+                    manifest_hash=manifest_hash, unlimited_token_budget=unlimited_token_budget,
+                    progress=progress, nominator=nominator,
+                    one_facet_per_skill=one_facet_per_skill, answers=answers,
+                )
+            token_usage += consume_client_usage(client)
+            facet_identity_plan = _facet_identity_plan(
+                merged, vault, repository, synthesis_run_id, nominator=nominator,
+                client=facet_identity_client, progress=progress,
             )
-        token_usage = consume_client_usage(client)
-        facet_identity_plan = _facet_identity_plan(
-            merged, vault, repository, synthesis_run_id, nominator=nominator,
-            client=facet_identity_client, progress=progress,
-        )
-        if facet_identity_plan is not None:
-            usage = {**(usage or {}), "facet_identity": facet_identity_plan.as_dict()}
-        repository.save_synthesis_candidate(
-            synthesis_run_id,
-            merged.model_dump(mode="json") if hasattr(merged, "model_dump") else dict(merged),
-        )
-        candidate_preserved = True
-        patch_id, diagnostics, generation_needs, normalized = _gate_and_persist(
-            vault, repository, source_set, merged, inputs,
-            subject_id=resolve_subject_id(source_set, vault),
-            agent_run_id=agent_run_id, synthesis_run_id=synthesis_run_id,
-            now=now, usage=usage, resolved_hashes=resolved_hashes,
-            clock=clock, progress=progress, items_off=items_off,
-            token_usage=token_usage, grading_client=client, nominator=nominator,
-            facet_identity_plan=facet_identity_plan,
-        )
+            if facet_identity_plan is not None:
+                usage = {**(usage or {}), "facet_identity": facet_identity_plan.as_dict()}
+            repository.save_synthesis_candidate(
+                synthesis_run_id,
+                merged.model_dump(mode="json") if hasattr(merged, "model_dump") else dict(merged),
+            )
+            candidate_preserved = True
+            try:
+                patch_id, diagnostics, generation_needs, normalized, match = _gate_and_persist(
+                    vault, repository, source_set, merged, inputs,
+                    subject_id=resolve_subject_id(source_set, vault),
+                    agent_run_id=agent_run_id, synthesis_run_id=synthesis_run_id,
+                    now=now, usage=usage, resolved_hashes=resolved_hashes,
+                    clock=clock, progress=progress, items_off=items_off,
+                    token_usage=token_usage, grading_client=client, nominator=nominator,
+                    facet_identity_plan=facet_identity_plan, fresh_answers=fresh_answers,
+                )
+            except RejectedProposalMatch:
+                answers.discard(repository)
+                answers = _SavedAnswers()
+                continue
+            break
     except StudyMapError as exc:
         if candidate_preserved:
             exc.candidate_preserved = True
@@ -2362,6 +2370,7 @@ def _create_study_map(
     result = StudyMapResult(
         source_set_id=source_set.id, subject_id=subject_id, mode=resolved_mode,
         manifest_hash=manifest_hash, synthesis_run_id=synthesis_run_id, proposal_id=patch_id,
+        reused=match is not None, nothing_new=match is not None and match.kind == "settled",
         item_counts=_count_items(normalized.rows), gate_diagnostics=diagnostics,
         generation_needs=generation_needs, span_request_count=span_request_count,
         resolved_span_hashes=resolved_hashes,
@@ -2369,11 +2378,15 @@ def _create_study_map(
 
     # 6. optional acceptance + goal wiring (learnable map requires mvp-0.7; the
     #    compilers enforce the bootstrap evidence refusal on a legacy vault).
-    if apply and _gate_open(apply_gate):
+    if apply and not result.nothing_new and _gate_open(apply_gate):
         _apply_and_wire_goal(
             root, repository, result, brief=brief, create_goal=create_goal, clock=clock,
             facet_ids=normalized.facet_ids, progress=progress,
         )
+    if match is not None:
+        # Nothing new was persisted, so there is nothing new to write epigraphs
+        # about; the earlier proposal's run recorded its facet identity.
+        return result
     result.facet_identity = facet_identity_result(root, repository, facet_identity_plan, synthesis_run_id)
 
     # 7. best-effort Start-screen epigraphs about the freshly synthesized
@@ -2412,8 +2425,14 @@ def _gate_and_persist(
     grading_client: Any = None,
     nominator: Any = None,
     facet_identity_plan: Any = None,
-) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]], _Normalized]:
+    fresh_answers: bool = False,
+) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]], _Normalized, ProposalMatch | None]:
     """Normalize -> §8.7 gates -> persist proposal, over a merged candidate.
+
+    The proposal is persisted under :mod:`proposal_match`'s rule: rows equal to an earlier proposal of the set are
+    that proposal (returned with the match; nothing is written), unless the learner wholly rejected it, which raises
+    :class:`RejectedProposalMatch` so the caller drops the answers and pays for fresh ones. ``fresh_answers``: the
+    candidate came from those fresh answers, so it is persisted even when it equals the rejected proposal again.
 
     Shared by the live synthesis path and candidate revalidation (which re-runs
     exactly this stage over a preserved candidate with zero model calls). On any
@@ -2498,6 +2517,24 @@ def _gate_and_persist(
     instrument_gates(normalized.rows)
     diagnostics.extend(instrument_gates.diagnostics())
 
+    match = match_proposal(
+        repository, source_set_id=source_set.id, purpose=BOOTSTRAP_PROPOSAL_PURPOSE, rows=normalized.rows,
+    )
+    if match is not None and match.kind == "rejected":
+        if not fresh_answers:
+            raise RejectedProposalMatch(match.proposal_id)
+        match = None
+    if match is not None:
+        repository.complete_synthesis_run(
+            synthesis_run_id, status="completed", proposal_id=match.proposal_id,
+            resolved_span_hashes=resolved_hashes,
+            coverage_decisions={"gate_diagnostics": diagnostics,
+                                "matched_proposal": {"proposal_id": match.proposal_id, "kind": match.kind}},
+            actual_usage=usage,
+        )
+        finish_agent_run(repository, agent_run_id, usage=token_usage, clock=clock)
+        return match.proposal_id, diagnostics, [], normalized, match
+
     # persist generate-discriminator / coarsen needs (FIRST, per §11.3).
     generation_needs = _persist_generation_needs(repository, subject_id, source_set.id,
                                                   synthesis_run_id, findings, clock=clock)
@@ -2539,7 +2576,7 @@ def _gate_and_persist(
         actual_usage=usage,
     )
     finish_agent_run(repository, agent_run_id, usage=token_usage, clock=clock)
-    return patch_id, diagnostics, generation_needs, normalized
+    return patch_id, diagnostics, generation_needs, normalized, None
 
 
 _SHARD_PREFIX_RE = re.compile(r"^shard_\d+__")
@@ -2720,7 +2757,7 @@ def revalidate_synthesis_candidate(
     if repair_log:
         usage["candidate_repairs"] = list(usage.get("candidate_repairs") or []) + repair_log
     try:
-        patch_id, diagnostics, generation_needs, normalized = _gate_and_persist(
+        patch_id, diagnostics, generation_needs, normalized, match = _gate_and_persist(
             vault, repository, source_set, merged, inputs,
             subject_id=subject_id,
             agent_run_id=run.get("agent_run_id"),
@@ -2740,16 +2777,30 @@ def revalidate_synthesis_candidate(
         exc.candidate_preserved = True
         exc.synthesis_run_id = synthesis_run_id
         raise
+    except RejectedProposalMatch as rejected:
+        # A repair pays nothing, so it cannot ask for fresh answers; persisting
+        # would put back what the learner rejected. The candidate is not offered
+        # again, so the card's Retry runs a fresh synthesis.
+        repository.complete_synthesis_run(synthesis_run_id, status="failed", actual_usage=usage)
+        finish_agent_run(repository, run.get("agent_run_id"), status="failed",
+                         error_message="matches_rejected_proposal", clock=clock)
+        raise StudyMapError(
+            "matches_rejected_proposal",
+            f"The repaired candidate equals proposal {rejected.proposal_id}, which was rejected; "
+            "retry synthesis for a fresh answer.",
+            synthesis_run_id=synthesis_run_id,
+        ) from rejected
 
     result = StudyMapResult(
         source_set_id=source_set.id, subject_id=subject_id,
         mode=str(run.get("mode") or "bootstrap"),
         manifest_hash=str(manifest.get("manifest_hash") or ""),
         synthesis_run_id=synthesis_run_id, proposal_id=patch_id,
+        reused=match is not None, nothing_new=match is not None and match.kind == "settled",
         item_counts=_count_items(normalized.rows), gate_diagnostics=diagnostics,
         generation_needs=generation_needs, candidate_repairs=repair_log,
     )
-    if apply and _gate_open(apply_gate):
+    if apply and not result.nothing_new and _gate_open(apply_gate):
         _apply_and_wire_goal(
             root, repository, result, brief=dict(manifest.get("brief") or {}), create_goal=create_goal,
             clock=clock, facet_ids=normalized.facet_ids, progress=progress,
@@ -2829,17 +2880,21 @@ class _SavedAnswers:
     Dropped when the gates reject the candidate: kept, they replay it into the
     same rejection at zero cost on every fresh retry, while the card offers
     Retry. A budget failure keeps them (a raised budget reuses what was paid).
-    A reused shard's span round is not recomputed here; its base pass is
-    dropped, so the retry's span requests are the fresh answer's own."""
+    A shard reused from its row made one request, so its base pass is all it
+    stands for; a shard with a span round runs both passes and both join."""
 
-    shard_keys: list[str] = field(default_factory=list)
-    pass_keys: list[str] = field(default_factory=list)
+    #: Each served answer: its key and the stored form it was served from (a
+    #: shard row's output; a pass checkpoint's result). Dropped only while it
+    #: is still the saved one: another run may have dropped it already and
+    #: saved a fresh answer under the same key.
+    shards: list[tuple[str, Any]] = field(default_factory=list)
+    passes: list[tuple[str, Any]] = field(default_factory=list)
 
     def discard(self, repository: Repository) -> None:
-        for key in self.shard_keys:
-            repository.discard_synthesis_shard_result(key)
-        for key in self.pass_keys:
-            repository.discard_model_checkpoint(key)
+        for key, output in self.shards:
+            repository.discard_synthesis_shard_result(key, output=output)
+        for key, stored in self.passes:
+            repository.discard_model_checkpoint(key, result=stored)
 
 
 def _run_synthesis(
@@ -2879,25 +2934,29 @@ def _run_synthesis(
     # A completed shard is filed under its first pass's request key: a key of
     # its own (labels and inputs, as before) kept answering after a prompt or
     # schema edit that every pass request reflects. Budgets stay out of it, so
-    # a retry under revised ceilings still reuses the shard.
+    # a retry under revised ceilings still reuses the shard. The key names the
+    # first request only, so a shard that also had a span round is never
+    # answered here: its second request depends on the span cap and count and
+    # on the spans' text, and a changed one must be sent. Its passes run again,
+    # each answered by its own checkpoint when unchanged.
     shard_states: list[tuple[int, list[dict[str, Any]], str, dict[str, Any] | None]] = []
     base_reserves = {}
     for ordinal, shard in enumerate(shards):
         checkpoint, tokens = pass_request(base_context(ordinal, shard))
         cached = repository.synthesis_shard_result(checkpoint.key)
         cached = cached if cached and cached.get("output") else None
+        if cached is not None and int(cached["output"].get("span_request_count") or 0):
+            cached = None
         shard_states.append((ordinal, shard, checkpoint.key, cached))
-        answers.shard_keys.append(checkpoint.key)
-        answers.pass_keys.append(checkpoint.key)
         base_reserves[ordinal] = 0 if cached or checkpoint.load() is not None else tokens
     spend.check_base_passes(sum(base_reserves.values()))
 
     def run_pass(context, *, future_input_reserve=0):
         checkpoint, tokens = pass_request(context)
-        answers.pass_keys.append(checkpoint.key)
-        saved = checkpoint.load()
-        if saved is not None:
-            return saved
+        fetched = checkpoint.fetch()
+        if fetched is not None:
+            answers.passes.append((checkpoint.key, fetched[1]))
+            return fetched[0]
         spend.check_next_pass_input(tokens, reserve=future_input_reserve)
         output_limit = spend.pass_output_limit()
         meter = UsageMeter(client or transport)
@@ -2907,7 +2966,8 @@ def _run_synthesis(
         spend.charge_pass(estimated_input=tokens, reported_input=meter.reported().input_tokens, output=output_charge)
         # Save before the budget check: the key has no budget in it, so a
         # retry under a larger one reuses this paid answer.
-        checkpoint.save(result, {"input_tokens_estimate": tokens, "output_tokens_estimate": _result_tokens(result)})
+        stored = checkpoint.save(result, {"input_tokens_estimate": tokens, "output_tokens_estimate": _result_tokens(result)})
+        answers.passes.append((checkpoint.key, stored))
         if output_limit is not None and output_charge > output_limit:
             raise StudyMapError("budget_exceeded", "A synthesis pass exceeded its output budget.")
         return result
@@ -2915,6 +2975,9 @@ def _run_synthesis(
     for ordinal, shard, shard_key, cached in shard_states:
         if cached is not None:
             output = cached["output"]
+            # A one-request shard: its row and its base pass hold the same answer.
+            answers.shards.append((shard_key, output))
+            answers.passes.append((shard_key, output.get("result") or {}))
             result = SourceSetSynthesis.model_validate(output.get("result") or {})
             span_request_count += int(output.get("span_request_count") or 0)
             resolved_hashes.extend(str(h) for h in output.get("resolved_span_hashes") or [])
@@ -2960,16 +3023,16 @@ def _run_synthesis(
         resolved_hashes.extend(shard_hashes)
         # Checkpoint AFTER the output-budget check so an oversized shard is
         # regenerated on retry rather than reused into the same failure.
+        shard_output = {
+            "result": result.model_dump(mode="json"),
+            "span_request_count": shard_span_requests,
+            "resolved_span_hashes": shard_hashes,
+        }
         repository.save_synthesis_shard_result(
             shard_key=shard_key, shard_ordinal=ordinal, shard_count=len(shards),
-            manifest_hash=manifest_hash,
-            result={
-                "result": result.model_dump(mode="json"),
-                "span_request_count": shard_span_requests,
-                "resolved_span_hashes": shard_hashes,
-            },
-            clock=clock,
+            manifest_hash=manifest_hash, result=shard_output, clock=clock,
         )
+        answers.shards.append((shard_key, shard_output))
         result = _namespace_synthesis_shard(result, ordinal)
         merged = _merge_synthesis(merged, result) if merged is not None else result
         spend.check_merged_output(merged, "Merged synthesis exceeded its total output budget; completed shards are saved.")
@@ -3253,12 +3316,13 @@ def _model_graph_structuring(
     checkpoint = structuring_checkpoint(
         repository, context, settings if settings is not None else model_settings(client),
     )
-    if answers is not None:
-        answers.pass_keys.append(checkpoint.key)
     calls = 0
     try:
         # A saved answer is free, so the input ceiling below applies only to a call.
-        outcome = checkpoint.load()
+        fetched = checkpoint.fetch()
+        outcome = None if fetched is None else fetched[0]
+        if fetched is not None and answers is not None:
+            answers.passes.append((checkpoint.key, fetched[1]))
         if outcome is None:
             if (
                 total_input_ceiling is not None
@@ -3271,7 +3335,10 @@ def _model_graph_structuring(
             calls = 1
             # Saved before the output check, as a pass is: a retry under a
             # larger budget reuses this paid answer.
-            checkpoint.save(outcome, {"input_tokens_estimate": estimate, "output_tokens_estimate": _result_tokens(outcome)})
+            stored = checkpoint.save(
+                outcome, {"input_tokens_estimate": estimate, "output_tokens_estimate": _result_tokens(outcome)})
+            if answers is not None:
+                answers.passes.append((checkpoint.key, stored))
         if output_budget_tokens is not None and _result_tokens(outcome) > output_budget_tokens:
             return merged, {"graph_structuring_skipped": "output budget exceeded", "calls": calls,
                             "input_tokens_estimate": estimate if calls else 0}

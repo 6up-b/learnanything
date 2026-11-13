@@ -331,6 +331,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f14_a_generated_update_quoting_the_sentence_is_stored_verbatim_and_the_block_rendered`
   - `test_f21_clearing_or_renaming_never_edits_the_statement`
 - [tests/test_required_method_round3_review.py](../../../../../../../tests/test_required_method_round3_review.py) — direct import
+- [tests/test_rerun_proposals.py](../../../../../../../tests/test_rerun_proposals.py) — direct import
+  - `test_a_bootstrap_whose_proposal_was_wholly_rejected_pays_for_a_fresh_one`
+  - `test_a_partly_rejected_proposal_is_returned_with_its_rejections_kept`
+  - `test_a_repaired_candidate_equal_to_a_rejected_proposal_is_refused`
+  - `test_an_append_whose_proposal_was_wholly_rejected_pays_for_a_fresh_one`
 - [tests/test_show.py](../../../../../../../tests/test_show.py) — direct import
   - `test_show_inspects_every_deterministic_id`
 - [tests/test_source_ingestion.py](../../../../../../../tests/test_source_ingestion.py) — direct import

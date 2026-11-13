@@ -209,7 +209,7 @@ class CheckpointStore(Protocol):
     ) -> None:
         ...
 
-    def discard_model_checkpoint(self, cache_key: str) -> None:
+    def discard_model_checkpoint(self, cache_key: str, *, result: Any = None) -> None:
         ...
 
 
@@ -253,22 +253,35 @@ class ModelCheckpoint(Generic[T]):
     purpose: str
     read: Callable[[Any], T]
 
-    def load(self) -> T | None:
+    def fetch(self) -> tuple[T, Any] | None:
+        """The saved answer and the stored result it was read from (what :meth:`discard` names)."""
+
         saved = self.store.model_checkpoint(self.key)
         if saved is None:
             return None
         try:
-            return self.read(saved["result"])
+            return self.read(saved["result"]), saved["result"]
         except (ValueError, KeyError, TypeError):
-            self.discard()
+            self.discard(saved["result"])
             return None
 
-    def save(self, result: Any, usage: dict[str, Any] | None = None) -> None:
+    def load(self) -> T | None:
+        fetched = self.fetch()
+        return None if fetched is None else fetched[0]
+
+    def save(self, result: Any, usage: dict[str, Any] | None = None) -> Any:
+        """Save ``result`` and return the stored form :meth:`discard` names (kept only if
+        nothing was saved under the key first: checkpoints are write-once)."""
+
         payload = result.model_dump(mode="json") if hasattr(result, "model_dump") else dict(result)
         self.store.save_model_checkpoint(self.key, purpose=self.purpose, result=payload, usage=usage)
+        return payload
 
-    def discard(self) -> None:
-        self.store.discard_model_checkpoint(self.key)
+    def discard(self, stored: Any) -> None:
+        """Drop the saved answer ``stored`` (from :meth:`fetch` or :meth:`save`), and only it:
+        dropped by key alone, a rejection could delete a fresh answer another run saved since."""
+
+        self.store.discard_model_checkpoint(self.key, result=stored)
 
     def answer(
         self, call: Callable[[], T], *, usage: Callable[[T], dict[str, Any]] | None = None,
@@ -278,12 +291,19 @@ class ModelCheckpoint(Generic[T]):
         checked; the caller's budget checks come after, so an answer that is
         over budget is still kept for a retry under a larger one."""
 
-        saved = self.load()
-        if saved is not None:
-            return saved, True
+        result, reused, _stored = self.answer_stored(call, usage=usage)
+        return result, reused
+
+    def answer_stored(
+        self, call: Callable[[], T], *, usage: Callable[[T], dict[str, Any]] | None = None,
+    ) -> tuple[T, bool, Any]:
+        """:meth:`answer`, with the stored form of the answer served (what :meth:`discard` names)."""
+
+        fetched = self.fetch()
+        if fetched is not None:
+            return fetched[0], True, fetched[1]
         result = call()
-        self.save(result, usage(result) if usage is not None else None)
-        return result, False
+        return result, False, self.save(result, usage(result) if usage is not None else None)
 
 
 def checkpointed(

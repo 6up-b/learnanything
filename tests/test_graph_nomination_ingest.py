@@ -403,9 +403,9 @@ def test_kill_switch_never_reuses_a_nominated_bootstrap_cached_before_the_fix(tm
     assert len(load_vault(root).concepts) == 2  # no registry merge was applied
 
 
-def test_enabling_nominations_or_completing_the_index_is_a_new_bootstrap(tmp_path):
-    """F1, other direction: a lexical-only result is not reused once nominations
-    could act (switch turned on, then the index completed)."""
+def test_enabling_nominations_or_completing_the_index_is_recorded_and_paid_when_it_acts(tmp_path):
+    """F1, other direction: the switch turned on is recorded, and once the index is
+    complete the nominations reach a paid structuring request."""
 
     root, repo = _setup_two_chapters(tmp_path)
     _registry_concept(root)
@@ -415,9 +415,11 @@ def test_enabling_nominations_or_completing_the_index_is_a_new_bootstrap(tmp_pat
     _set_nominations(root, True)
     incomplete_client = RegistryStructuringClient()
     incomplete = _synthesize(root, repo, incomplete_client, embedding_client_factory=ExplodingFactory())
-    assert incomplete.reused is False and incomplete.manifest_hash != first.manifest_hash
+    assert incomplete.manifest_hash != first.manifest_hash
     # Index incomplete: nothing is nominated, so the structuring request is the
-    # first run's own (no registry details) and its paid answer is read back.
+    # first run's own (no registry details) and its paid answer is read back;
+    # the rows are the first run's, so its waiting proposal is the result.
+    assert incomplete.reused is True and incomplete.proposal_id == first.proposal_id
     assert incomplete_client.structuring_contexts == []
     assert "registry_nominated_candidates" not in repo.synthesis_run(incomplete.synthesis_run_id)["actual_usage"]
 
@@ -425,13 +427,14 @@ def test_enabling_nominations_or_completing_the_index_is_a_new_bootstrap(tmp_pat
     _backfill(root, embedder, ("concept/definition",))
     client = RegistryStructuringClient()
     third = _synthesize(root, repo, client, embedding_client_factory=lambda: embedder)
-    assert third.reused is False
-    assert client.structuring_contexts[0].registry_concept_details  # nominated now
+    assert third.manifest_hash != incomplete.manifest_hash
+    assert client.structuring_contexts[0].registry_concept_details  # nominated now, and paid
 
 
-def test_registry_definition_change_is_a_new_bootstrap_and_repeats_reuse(tmp_path):
-    """F1: identity covers the nominated registry's definitions; an identical
-    repeat still reuses with zero model and embedding calls."""
+def test_registry_definition_change_is_paid_again_and_repeats_reuse(tmp_path):
+    """F1: the nominated registry's definitions reach the structuring request, so a
+    changed definition is paid again; an identical repeat makes zero model and
+    embedding calls."""
 
     root, repo = _setup_two_chapters(tmp_path)
     _registry_concept(root)
@@ -454,7 +457,7 @@ def test_registry_definition_change_is_a_new_bootstrap_and_repeats_reuse(tmp_pat
     _backfill(root, embedder, ("concept/definition",))
     changed_client = RegistryStructuringClient()
     changed = _synthesize(root, repo, changed_client, embedding_client_factory=lambda: embedder)
-    assert changed.reused is False
+    assert changed.manifest_hash != first.manifest_hash
     assert changed_client.structuring_contexts[0].registry_concept_details[0]["description"].startswith(
         "A square matrix whose entries mirror"
     )

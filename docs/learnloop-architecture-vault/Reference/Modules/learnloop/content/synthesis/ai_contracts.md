@@ -234,6 +234,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_synthesis_publishes_a_required_method_presented_with_the_canonical_sentence`
 - [tests/test_required_method_rereview.py](../../../../../../../tests/test_required_method_rereview.py) — direct import
   - `test_f14_the_generation_guidance_leaves_the_sentence_to_the_writer`
+- [tests/test_rerun_proposals.py](../../../../../../../tests/test_rerun_proposals.py) — direct import
+  - `test_an_inventory_re_read_in_place_reaches_synthesis_and_the_record`
 - [tests/test_source_append.py](../../../../../../../tests/test_source_append.py) — direct import
   - `test_a_retry_after_an_append_gate_failure_pays_for_a_fresh_answer`
   - `test_append_vocabulary_auto_apply_rules`
@@ -260,6 +262,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_synthesis_capabilities_use_closed_vocabulary`
   - `test_synthesis_shards_namespace_declarations_and_references`
 - [tests/test_structured_transport_parity.py](../../../../../../../tests/test_structured_transport_parity.py) — direct import
+- [tests/test_synthesis_answer_reuse.py](../../../../../../../tests/test_synthesis_answer_reuse.py) — direct import
+  - `test_a_bootstrap_rejection_keeps_a_fresh_answer_another_run_saved`
+  - `test_a_checkpoint_discard_keeps_an_answer_saved_after_the_one_judged`
 - [tests/test_synthesis_criterion_dependencies.py](../../../../../../../tests/test_synthesis_criterion_dependencies.py) — direct import
   - `test_the_prompts_say_criterion_depends_on_names_sibling_criteria_only`
 - [tests/test_ux_phase1_usability_round1.py](../../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import

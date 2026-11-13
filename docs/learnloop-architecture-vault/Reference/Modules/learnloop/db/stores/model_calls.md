@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/model_calls.py](../../../../../../../src/learnloop/db/stores/model_calls.py) |
-| Source lines | 165 |
+| Source lines | 175 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -57,15 +57,15 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - `finish_receipt(connection: Any, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None` ([source](../../../../../../../src/learnloop/db/stores/model_calls.py), line 20) — Finalize a started receipt on the caller's connection (the caller owns the transaction).
 - `insert_checkpoint(connection: Any, cache_key: str, *, purpose: str, result: dict[str, Any], usage: dict[str, Any] | None=None) -> None` ([source](../../../../../../../src/learnloop/db/stores/model_calls.py), line 29) — Write a checkpoint once on the caller's connection (the caller owns the transaction).
-- `delete_checkpoint(connection: Any, cache_key: str) -> None` ([source](../../../../../../../src/learnloop/db/stores/model_calls.py), line 38) — Delete one checkpoint on the caller's connection (the caller owns the transaction).
-- `class ModelCallStoreMixin` ([source](../../../../../../../src/learnloop/db/stores/model_calls.py), line 44)
-  - `record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None` (line 45; public)
-  - `model_call_roots_since(self, *, owner_kind: str, since: str) -> int` (line 82; public) — Logical model calls (root receipts) of one owner kind started at or after ``since`` -- failed and unfinished calls included, since a receipt is written before its request is sent.
-  - `model_call_spend_rows(self, *, started_since: str | None=None, owner_kind: str | None=None, owner_ids: Any=None) -> list[dict[str, Any]]` (line 95; public) — Usage rows for spend accounting: every receipt (usage lands on the innermost one), optionally since an ISO time and for some owners.
-  - `model_route_receipts(self) -> list[dict[str, Any]]` (line 126; public) — Root receipts, oldest first, for the doctor's route health.
-  - `model_checkpoint(self, cache_key: str) -> dict[str, Any] | None` (line 144; public)
-  - `save_model_checkpoint(self, cache_key: str, *, purpose: str, result: dict[str, Any], usage: dict[str, Any] | None=None) -> None` (line 149; public)
-  - `discard_model_checkpoint(self, cache_key: str) -> None` (line 156; public) — Delete a checkpoint whose stored result no longer validates, or whose answer the quality gates rejected.
+- `delete_checkpoint(connection: Any, cache_key: str, *, result: Any=None) -> None` ([source](../../../../../../../src/learnloop/db/stores/model_calls.py), line 38) — Delete one checkpoint on the caller's connection (the caller owns the transaction).
+- `class ModelCallStoreMixin` ([source](../../../../../../../src/learnloop/db/stores/model_calls.py), line 52)
+  - `record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None` (line 53; public)
+  - `model_call_roots_since(self, *, owner_kind: str, since: str) -> int` (line 90; public) — Logical model calls (root receipts) of one owner kind started at or after ``since`` -- failed and unfinished calls included, since a receipt is written before its request is sent.
+  - `model_call_spend_rows(self, *, started_since: str | None=None, owner_kind: str | None=None, owner_ids: Any=None) -> list[dict[str, Any]]` (line 103; public) — Usage rows for spend accounting: every receipt (usage lands on the innermost one), optionally since an ISO time and for some owners.
+  - `model_route_receipts(self) -> list[dict[str, Any]]` (line 134; public) — Root receipts, oldest first, for the doctor's route health.
+  - `model_checkpoint(self, cache_key: str) -> dict[str, Any] | None` (line 152; public)
+  - `save_model_checkpoint(self, cache_key: str, *, purpose: str, result: dict[str, Any], usage: dict[str, Any] | None=None) -> None` (line 157; public)
+  - `discard_model_checkpoint(self, cache_key: str, *, result: Any=None) -> None` (line 164; public) — Delete a checkpoint whose stored result no longer validates, or whose answer the quality gates rejected.
 
 ### Module constants
 

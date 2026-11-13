@@ -190,6 +190,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_inventory_prompt_edited_under_the_same_label_is_paid_once`
   - `test_an_inventory_row_answers_a_request_recorded_under_another_label`
   - `test_an_inventory_row_from_before_the_request_key_keeps_its_label_match`
+- [tests/test_rerun_proposals.py](../../../../../../../tests/test_rerun_proposals.py) — direct import
+  - `test_an_inventory_re_read_in_place_reaches_synthesis_and_the_record`
 - [tests/test_source_append.py](../../../../../../../tests/test_source_append.py) — direct import
   - `test_n_sources_append_linear_inventory_and_bounded_context`
 - [tests/test_source_inventory.py](../../../../../../../tests/test_source_inventory.py) — direct import

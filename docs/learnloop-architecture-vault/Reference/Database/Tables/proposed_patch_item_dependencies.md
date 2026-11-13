@@ -91,6 +91,7 @@ None found by exact static reference scan.
 - `src/learnloop/content/proposals/method_phrasing.py`
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/content/proposals/required_method_override.py`
+- `src/learnloop/content/synthesis/proposal_match.py`
 - `src/learnloop/content/synthesis/source_append.py`
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/curriculum/graph_edit_proposals.py`
@@ -112,6 +113,7 @@ None found by exact static reference scan.
 - `tests/test_patch_applier.py`
 - `tests/test_proposal_dependencies.py`
 - `tests/test_repositories.py`
+- `tests/test_rerun_proposals.py`
 - `tests/test_sidecar_contract.py`
 - `tests/test_ux_phase1_round2_review.py`
 
