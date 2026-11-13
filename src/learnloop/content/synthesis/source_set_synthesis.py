@@ -2880,8 +2880,8 @@ class _SavedAnswers:
     Dropped when the gates reject the candidate: kept, they replay it into the
     same rejection at zero cost on every fresh retry, while the card offers
     Retry. A budget failure keeps them (a raised budget reuses what was paid).
-    A reused shard's span round is not recomputed here; its base pass is
-    dropped, so the retry's span requests are the fresh answer's own."""
+    A shard reused from its row made one request, so its base pass is all it
+    stands for; a shard with a span round runs both passes and both join."""
 
     shard_keys: list[str] = field(default_factory=list)
     pass_keys: list[str] = field(default_factory=list)

@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import pytest
 
+from learnloop.content.synthesis import source_set_synthesis as synthesis
 from learnloop.content.synthesis.ai_contracts import SourceSetSynthesis, SynthSpanRequest
-from learnloop.content.synthesis.source_set_synthesis import create_study_map
+from learnloop.content.synthesis.source_set_synthesis import StudyMapError, create_study_map
 from learnloop.db.repositories import Repository
 
 from tests.source_set_synthesis_helpers import (
@@ -94,3 +95,33 @@ def test_an_unchanged_two_pass_shard_is_answered_by_its_checkpoints(tmp_path, mo
 
     assert len(client.calls) == 2  # nothing paid again
     assert result.span_request_count == 1
+
+
+# --- I6: a rejection drops a reused shard's span answer too ------------------
+
+
+def test_a_rejected_reused_shard_drops_its_span_round_answer(tmp_path, monkeypatch):
+    root, repo = _setup(tmp_path, with_exam=False)
+    client = FakeSynthesisClient(builder=_with_span_round)
+
+    def fail_before_gates(*_args, **_kwargs):
+        raise RuntimeError("interrupted")
+
+    monkeypatch.setattr(synthesis, "_facet_identity_plan", fail_before_gates)
+    with pytest.raises(RuntimeError, match="interrupted"):
+        _build(root, repo, client)
+    monkeypatch.undo()
+    assert (len(_base_calls(client)), len(_span_calls(client))) == (1, 1)
+
+    def gates_reject(*_args, **_kwargs):
+        raise StudyMapError("synthesis_gate_failed", "rejected")
+
+    monkeypatch.setattr(synthesis, "_gate_and_persist", gates_reject)
+    with pytest.raises(StudyMapError, match="rejected"):
+        _build(root, repo, client)
+    monkeypatch.undo()
+
+    _build(root, repo, client)
+
+    # Both rejected answers were dropped: the third attempt pays for each.
+    assert (len(_base_calls(client)), len(_span_calls(client))) == (2, 2)
