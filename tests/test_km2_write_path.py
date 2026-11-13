@@ -29,7 +29,7 @@ from tests.helpers import (
     NOW,
     NOW_ISO,
 )
-from tests.km2_write_path_helpers import SELECT, SHARED, _attempt, _rubric, build_mvp07_vault
+from tests.km2_write_path_helpers import KM2_OLD_TAG, SELECT, SHARED, _attempt, _rubric, build_mvp07_vault
 
 def _is_open_set_arm(cause: dict) -> bool:
     """The open-set arm, before or after P1 hypothesis materialization."""
@@ -37,13 +37,21 @@ def _is_open_set_arm(cause: dict) -> bool:
     return bool(cause.get("open_set")) or cause.get("hypothesis_id") == "H_OTHER"
 
 
-@pytest.fixture
-def mvp07(tmp_path):
-    paths = build_mvp07_vault(tmp_path / "vault")
+def _synced(paths):
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
     return vault, repository
+
+
+@pytest.fixture
+def mvp07(tmp_path):
+    return _synced(build_mvp07_vault(tmp_path / "vault"))
+
+
+@pytest.fixture
+def old_tag_vault(tmp_path):
+    return _synced(build_mvp07_vault(tmp_path / "vault", version=KM2_OLD_TAG))
 
 
 def test_two_los_share_one_facet_parent(mvp07):
@@ -89,8 +97,8 @@ def test_certification_credit_zero_when_assisted(mvp07):
     assert retrieval.certification_credit == pytest.approx(0.0)
 
 
-def test_near_clones_globally_discounted(mvp07):
-    vault, repository = mvp07
+def test_near_clones_globally_discounted(old_tag_vault):
+    vault, repository = old_tag_vault
     clock = FrozenClock(NOW)
     # Two attempts on items sharing one source-example family (define + clone).
     _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, clock)

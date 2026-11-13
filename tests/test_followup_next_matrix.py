@@ -12,6 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock, SystemClock
 from learnloop.diagnosis.split.jobs import drain
 from learnloop.followup_run import jobs, router
@@ -25,6 +26,7 @@ from tests.followup_serve_helpers import (
     AuthorFake,
     BlindRivalClient,
     author_clients,
+    TAG,
     live_shape_vault,
 )
 
@@ -101,8 +103,8 @@ def _more_items(paths, count):
         write_yaml(path.with_name(f"pi_more_{index}.yaml"), payload)
 
 
-def _desk(tmp_path, monkeypatch, *, config="", arm=None, items=0):
-    paths, vault, repository = live_shape_vault(tmp_path, config=config)
+def _desk(tmp_path, monkeypatch, *, config="", arm=None, items=0, version=TAG):
+    paths, vault, repository = live_shape_vault(tmp_path, config=config, version=version)
     if items:
         from learnloop.substrate.state_sync import sync_vault_state
         from learnloop.vault.loader import load_vault
@@ -203,7 +205,9 @@ def _the_one_thing(desk, attempt_id, *, plan_open):
 @pytest.mark.parametrize("surface, plan, closes, state", CELLS)
 def test_the_matrix(tmp_path, monkeypatch, surface, plan, closes, state):
     clock = _movable_clock(monkeypatch)
-    desk = _desk(tmp_path, monkeypatch, config=PLAN_OFF if surface == "no_plan" else "", arm=ARMS[state])
+    # At the head this one cell's plan is still open after the screen's steps have finished it (waits on D7).
+    version = FOLLOWUP_SERVE_ALGORITHM_VERSION if (surface, plan, closes, state) == ("plan", "complete", "before", "preparing") else TAG
+    desk = _desk(tmp_path, monkeypatch, config=PLAN_OFF if surface == "no_plan" else "", arm=ARMS[state], version=version)
     if plan != "none" or closes == "yesterday":
         desk.call("get_daily_plan", {"sessionId": desk.session})
     attempt_id = _miss(desk, surface)

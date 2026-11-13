@@ -30,7 +30,7 @@ from learnloop.vault.paths import VaultPaths
 
 from tests.followup_serve_helpers import CLOCK
 from tests.helpers import append_config_toml
-from tests.followup_journey_helpers import _call, _generate, journey  # noqa: F401 - the fixture
+from tests.followup_journey_helpers import _call, _generate, journey, journey_old_tag  # noqa: F401 - the fixtures
 from tests.hypothesis_marks_helpers import MARKS_OFF, _mark, _released, _serve_and_answer
 from tests.hypothesis_marks_context_helpers import _report, _versions
 
@@ -58,8 +58,8 @@ def _card(vault, repository, result, *, now=NOW):
 # -- the learner state card --------------------------------------------------------------------------
 
 
-def test_with_no_mark_the_card_is_what_it_was_and_a_mark_comes_attributed(journey):
-    ctx, vault, repository, result, outcome = journey
+def test_with_no_mark_the_card_is_what_it_was_and_a_mark_comes_attributed(journey_old_tag):
+    ctx, vault, repository, result, outcome = journey_old_tag
     marks = _released(ctx, repository, outcome, result)
     plain = _card(vault, repository, result)
     assert MARKS_SECTION not in plain.json["evidence_sections"] and MARKS_CARD_SUFFIX not in plain.card_version

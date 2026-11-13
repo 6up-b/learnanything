@@ -25,7 +25,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
 from tests.helpers import NOW, NOW_ISO, admit_probe_instrument_card
-from tests.km2_write_path_helpers import SELECT, SHARED, build_mvp07_vault
+from tests.km2_write_path_helpers import KM2_OLD_TAG, SELECT, SHARED, build_mvp07_vault
 
 
 CLOCK = FrozenClock(NOW)
@@ -84,15 +84,16 @@ def _extra_item(root, item_id: str, *, source_family: str, prompt: str) -> None:
     )
 
 
-def _acceptance_vault(tmp_path):
-    """A synthetic mvp-0.7 vault with a probe surface and a cold surface.
+def _acceptance_vault(tmp_path, *, version: str = KM2_OLD_TAG):
+    """A synthetic vault (at ``version``; the tag its own tests were written at, which the learner/ gate's tests still
+    read) with a probe surface and a cold surface.
 
     Both extra items live in their OWN source family: a cold verification is
     rejected outright when it shares a surface group with its source, and a
     near-clone probe never certifies (§4.3).
     """
 
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_mvp07_vault(tmp_path / "vault", version=version)
     _extra_item(
         paths.root,
         PROBE_ITEM,

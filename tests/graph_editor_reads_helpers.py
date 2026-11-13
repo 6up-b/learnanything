@@ -13,6 +13,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, write_facets
 from tests.km3_projections_helpers import COMP_A, COMP_B, INTEG, build_blueprint_vault
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 
 
 def _call(ctx, name: str, params: dict):
@@ -22,8 +23,8 @@ def _call(ctx, name: str, params: dict):
     return spec.handler(ctx, spec.params_model.model_validate(params))
 
 
-def _blueprint_ctx(root: Path):
-    """A canonical (mvp-0.7) composite-LO vault with a valid facet registry.
+def _blueprint_ctx(root: Path, *, version: str = LATEST_ALGORITHM_VERSION):
+    """A canonical composite-LO vault at ``version`` (the head by default) with a valid facet registry.
 
     ``build_blueprint_vault`` writes an invalid ``kind: procedure`` facet, so we
     rewrite the registry with the real v2 contract (valid kinds, an alias, all
@@ -33,7 +34,7 @@ def _blueprint_ctx(root: Path):
     import learnloop_sidecar.handlers  # noqa: F401 — registers methods
     from learnloop_sidecar.context import SidecarContext
 
-    paths = build_blueprint_vault(root)
+    paths = build_blueprint_vault(root, version=version)
     write_facets(
         paths,
         [

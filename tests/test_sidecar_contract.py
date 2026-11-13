@@ -2677,9 +2677,9 @@ def test_knowledge_field_is_recipe_topological_and_uses_pooled_ready(tmp_path):
     from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
     from learnloop.substrate.state_sync import sync_vault_state
     from tests.helpers import NOW
-    from tests.km3_projections_helpers import COMP_A, COMP_B, INTEG, build_blueprint_vault
+    from tests.km3_projections_helpers import BLUEPRINT_OLD_TAG, COMP_A, COMP_B, INTEG, build_blueprint_vault
 
-    paths = build_blueprint_vault(tmp_path / "vault")
+    paths = build_blueprint_vault(tmp_path / "vault", version=BLUEPRINT_OLD_TAG)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))

@@ -14,6 +14,7 @@ from learnloop.router import mixture as mx
 from learnloop.router.outcomes import derive_router_outcomes
 
 from tests.daily_plan_fakes import record_attempt
+from tests.helpers import RANDOMIZED_CHECKS_OFF
 from tests.router_mixture_helpers import rows
 from tests.router_model_fakes import fake_runtime
 from tests.followup_router_helpers import ITEM, _decide, _env, _gate, _ready, _row, _workflow
@@ -122,9 +123,9 @@ def test_ask_now_is_what_next_opens(tmp_path):
 
 
 def test_a_wait_keeps_its_room_and_next_continues_the_block(tmp_path):
-    # A pinned draw: an unpinned one leaves a one-item first block about one run in sixty, and
-    # then this advance is the boundary, where the fixture's made-up factor rightly retires the wait.
-    env, first = _env(tmp_path, fake_runtime(seed=lambda _key, _decision_id: "pinned-wait"))
+    # A pinned draw, and no randomized check: either leaves a one-item first block (the check's block is the plan's first),
+    # and then this advance is the boundary, where the fixture's made-up factor rightly retires the wait.
+    env, first = _env(tmp_path, fake_runtime(seed=lambda _key, _decision_id: "pinned-wait"), toml=RANDOMIZED_CHECKS_OFF)
     assert ITEM in env.vault.practice_items
     assert len(first.current_block().items) > 1
     _ready(env, state=wf.WAITING)
