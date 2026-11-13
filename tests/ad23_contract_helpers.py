@@ -59,6 +59,10 @@ OUT_OF_SCOPE: dict[str, str] = {
     "learning_outcome_labels": _INCUMBENT_ANSWER,
     "facet_recall_state": "the incumbent's state sync of every current item, the protected ones included",
     "facet_capability_evidence": "the incumbent's state sync of every current item, the protected ones included",
+    # Written from mvp-0.59 on (the per-LO diagnostic posterior): each attempt's posterior is the next one's
+    # prior, so the answers on protected items carry into it as they do into the recall state. AD cannot read
+    # it: the table is in neither of the guard's registries, and an unclassified table is refused.
+    "facet_uncertainty": _INCUMBENT_ANSWER,
 }
 #: Tables AD reads whose raw rows differ by construction (they hold the protected items' own rows):
 #: compared as AD reads them, through the material view, instead of raw (fix round 12, F42).
