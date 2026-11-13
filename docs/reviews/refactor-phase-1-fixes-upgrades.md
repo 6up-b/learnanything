@@ -262,3 +262,23 @@ d8678ad0bd) over the table.
 **Callers and siblings checked.** `idempotent_projection.committed` reads only `p0_projection_activation` receipts;
 no row of today's table uses it, so the test runs over `whole_vault_rebuild` (the parametrization follows `UPGRADES`).
 `test_each_activation_kind_commits_its_own_receipt_once` covers both kinds' own receipts.
+
+## T5: the mixed-model guard case is rejected with the exact missing cases
+
+**Not reproduced as a regression risk; the assertions restored as the brief directs.** The rejection assertions were
+indeed gone (d8678ad0bd removed them with the `upgrade_to_mvp012` calls; the test's last check was the unfiltered
+`guard_status(repository)`). Three mutants of `diagnosis/recurrence/guard.guard_status`, each applied and reverted, run
+against the file as it was at the tip:
+- the model filter removed (every model's verdicts count): killed by 3 other tests;
+- other models' verdicts counted once the configured model judged anything: killed by
+  `test_a_false_merge_blocks_the_switch_and_a_fixed_judge_reruns_through_the_guard`;
+- a pair the configured model never judged borrows another model's verdict (the review's "borrow the remaining
+  verdicts"): killed by `test_the_judge_producer_is_model_and_effort_so_codex_tiers_never_share_a_guard_pass` and
+  `test_guard_verdicts_from_another_judge_model_do_not_open_the_switch`, whose configured model judged nothing.
+So the zero-verdict tests do catch borrowing; no mutant I tried survived. The restored assertions are the only ones
+that name the configured model's exact missing cases.
+
+**Change (test only).** `tests/test_recurrence_commands.py::test_verdicts_split_across_two_models_do_not_pass_for_the_configured_one`
+now also asserts, for `guard_status(repository, judge_model="deepseek-v4-pro@high")`: `passed` and `switch_ready`
+false, `negatives` the suite's count, `missing` exactly the negatives B did not judge (`negatives[3:]`), and only B
+among the models seen; and model A among the unfiltered status's models. All three mutants fail it.
