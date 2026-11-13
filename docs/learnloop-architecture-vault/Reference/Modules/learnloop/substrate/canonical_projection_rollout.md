@@ -48,33 +48,33 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/canonical_projection_rollout.py](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py) |
-| Source lines | 268 |
+| Source lines | 265 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `refresh_canonical_projection_on_startup(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 62) — Refresh the cache and stamp a changed projection baseline exactly once.
-- `fold_inputs_fingerprint(vault: LoadedVault, repository: Repository) -> str | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 231) — The fingerprint of every input the canonical fold reads (see the module doc): the database's commit version, the vault fields it reads and the code's versions.
-- `forget_fold_memo() -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 263) — Drop the remembered fingerprint and close the watcher (a context closing or switching vault): the next refresh folds.
+- `refresh_canonical_projection_on_startup(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 61) — Refresh the cache and stamp a changed projection baseline exactly once.
+- `fold_inputs_fingerprint(vault: LoadedVault, repository: Repository) -> str | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 228) — The fingerprint of every input the canonical fold reads (see the module doc): the database's commit version, the vault fields it reads and the code's versions.
+- `forget_fold_memo() -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 260) — Drop the remembered fingerprint and close the watcher (a context closing or switching vault): the next refresh folds.
 
 ### Module constants
 
-- `FOLD_VAULT_FIELDS` ([src/learnloop/substrate/canonical_projection_rollout.py](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 142)
-- `_MEMO` ([src/learnloop/substrate/canonical_projection_rollout.py](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 158)
-- `_MEMO_LOCK` ([src/learnloop/substrate/canonical_projection_rollout.py](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 159)
+- `FOLD_VAULT_FIELDS` ([src/learnloop/substrate/canonical_projection_rollout.py](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 139)
+- `_MEMO` ([src/learnloop/substrate/canonical_projection_rollout.py](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 155)
+- `_MEMO_LOCK` ([src/learnloop/substrate/canonical_projection_rollout.py](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 156)
 
 ## Internal implementation anchors
 
-- `class _Memo` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 148) — The database the memo is for, its watcher connection and the fingerprint the last fold that wrote nothing was taken with.
-- `_database(repository: Repository) -> str | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 162)
-- `_identity(database: str) -> tuple[int, int] | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 167)
-- `_close_locked() -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 175)
-- `_commit_version(database: str) -> tuple[tuple[int, int], int, int] | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 184) — The database's commit version as the watcher sees it: (identity, ``data_version``, the watcher's own ``total_changes``), or None when it cannot be watched.
-- `_vault_digest(vault: LoadedVault) -> str` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 214) — One digest over every field of the loaded vault the fold reads (:data:`FOLD_VAULT_FIELDS`), each whole.
-- `_remembered(repository: Repository) -> str | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 252)
-- `_remember(repository: Repository, fingerprint: str) -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 257)
+- `class _Memo` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 145) — The database the memo is for, its watcher connection and the fingerprint the last fold that wrote nothing was taken with.
+- `_database(repository: Repository) -> str | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 159)
+- `_identity(database: str) -> tuple[int, int] | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 164)
+- `_close_locked() -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 172)
+- `_commit_version(database: str) -> tuple[tuple[int, int], int, int] | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 181) — The database's commit version as the watcher sees it: (identity, ``data_version``, the watcher's own ``total_changes``), or None when it cannot be watched.
+- `_vault_digest(vault: LoadedVault) -> str` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 211) — One digest over every field of the loaded vault the fold reads (:data:`FOLD_VAULT_FIELDS`), each whole.
+- `_remembered(repository: Repository) -> str | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 249)
+- `_remember(repository: Repository, fingerprint: str) -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection_rollout.py), line 254)
 
 ## Who imports or calls it
 
@@ -89,7 +89,6 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
-- [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `CANONICAL_STATE_VERSIONS`
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `coverage_denominator_version`; calls `coverage_denominator_version`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `CANONICAL_PROJECTION_VERSION`, `project_canonical_facet_state`; calls `project_canonical_facet_state`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`

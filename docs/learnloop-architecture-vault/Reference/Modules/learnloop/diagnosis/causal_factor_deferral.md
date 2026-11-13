@@ -116,8 +116,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_successful_cold_verification_resolves_factor_and_withdraws_belief`
   - `test_unengaged_recurrences_escalate_and_promote`
 - [tests/test_recurrence_deferral.py](../../../../../../tests/test_recurrence_deferral.py) — direct import
-  - `test_below_the_successor_the_verdict_changes_nothing`
   - `test_reworded_recurrences_escalate_only_once_judged_the_same_cause`
+  - `test_with_the_switch_off_the_verdict_changes_nothing`
 - [tests/test_recurrence_key.py](../../../../../../tests/test_recurrence_key.py) — direct import
   - `test_factor_signature_counts_through_the_seam`
   - `test_the_seam_is_the_exact_statement_key_without_groups`

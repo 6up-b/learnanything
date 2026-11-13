@@ -47,44 +47,44 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/facet_evidence_timeline.py](../../../../../../src/learnloop/learner/facet_evidence_timeline.py) |
-| Source lines | 1276 |
+| Source lines | 1249 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ObservationDerivation` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 76) — Per-observation §5.1 receipt line for one (facet, capability) cell.
-  - `as_dict(self) -> dict[str, object]` (line 90; public)
-- `class ObservationEvent` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 101) — One grading epoch of one attempt, as it bears on a single facet.
-  - `raw_positive(self) -> float` (line 131; public)
-- `class TimelinePoint` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 136)
-  - `as_dict(self) -> dict[str, object]` (line 168; public)
-- `class FacetTimelineSnapshot` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 185) — Bulk-loaded immutable inputs for one evidence-ledger replay.
-- `load_facet_timeline_snapshot(repository: Repository) -> FacetTimelineSnapshot` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 216) — Load the complete timeline ledger with a bounded number of DB reads.
-- `snapshot_as_of(snapshot: FacetTimelineSnapshot, cutoff: str, *, vault: LoadedVault | None=None) -> FacetTimelineSnapshot` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 251) — The grading ledger as it stood at ``cutoff`` (RW6a review round 2 F1).
-- `p0_evidence_mass_by_attempt(vault: LoadedVault, repository: Repository) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 377) — Per-attempt mvp-0.8 evidence mass, byte-matched to the projection.
-- `vault_timeline_snapshot(vault: LoadedVault, repository: Repository) -> FacetTimelineSnapshot` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 435) — The ledger snapshot :func:`facet_evidence_timelines` would load, P0 masses attached, so a caller replaying it several times (as of several moments) loads it once.
-- `fold_demonstrated_timeline(events: list[ObservationEvent], *, repeat_surface_discount: float=DEFAULT_REPEAT_SURFACE_DISCOUNT, max_embedded_credit_share: float=1.0) -> list[TimelinePoint]` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 443) — Fold ordered observation events into the Demonstrated curve (pure).
-- `facet_evidence_timelines(vault: LoadedVault, repository: Repository, facet_ids: Iterable[str], *, snapshot: FacetTimelineSnapshot | None=None, as_of: str | None=None) -> dict[str, list[TimelinePoint]]` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 1048) — Build multiple Demonstrated curves from one bulk ledger replay.
-- `facet_evidence_timeline(vault: LoadedVault, repository: Repository, facet_id: str) -> list[TimelinePoint]` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 1090) — The Demonstrated curve for ``facet_id`` (canonicalized) — the §9.6 phase-1 surface.
-- `class ReadyCapabilitySlice` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 1104) — One capability slice pooled into the facet's shared recall belief.
-  - `as_dict(self) -> dict[str, object]` (line 1113; public)
-- `class ReadyDerivation` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 1124) — The §5.1 Ready-sentence ingredients, template-rendered from ledger state.
-  - `as_dict(self) -> dict[str, object]` (line 1148; public)
-- `facet_ready_derivation(vault: LoadedVault, repository: Repository, facet_id: str, series: list[TimelinePoint], *, clock: Clock | None=None) -> ReadyDerivation | None` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 1165) — §5.1 Ready-derivation ingredients for a canonical facet, or ``None``.
+- `class ObservationDerivation` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 74) — Per-observation §5.1 receipt line for one (facet, capability) cell.
+  - `as_dict(self) -> dict[str, object]` (line 88; public)
+- `class ObservationEvent` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 99) — One grading epoch of one attempt, as it bears on a single facet.
+  - `raw_positive(self) -> float` (line 129; public)
+- `class TimelinePoint` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 134)
+  - `as_dict(self) -> dict[str, object]` (line 166; public)
+- `class FacetTimelineSnapshot` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 183) — Bulk-loaded immutable inputs for one evidence-ledger replay.
+- `load_facet_timeline_snapshot(repository: Repository) -> FacetTimelineSnapshot` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 214) — Load the complete timeline ledger with a bounded number of DB reads.
+- `snapshot_as_of(snapshot: FacetTimelineSnapshot, cutoff: str, *, vault: LoadedVault | None=None) -> FacetTimelineSnapshot` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 249) — The grading ledger as it stood at ``cutoff`` (RW6a review round 2 F1).
+- `p0_evidence_mass_by_attempt(vault: LoadedVault, repository: Repository) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 375) — Per-attempt mvp-0.8 evidence mass, byte-matched to the projection.
+- `vault_timeline_snapshot(vault: LoadedVault, repository: Repository) -> FacetTimelineSnapshot` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 426) — The ledger snapshot :func:`facet_evidence_timelines` would load, P0 masses attached, so a caller replaying it several times (as of several moments) loads it once.
+- `fold_demonstrated_timeline(events: list[ObservationEvent], *, repeat_surface_discount: float=DEFAULT_REPEAT_SURFACE_DISCOUNT, max_embedded_credit_share: float=1.0) -> list[TimelinePoint]` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 434) — Fold ordered observation events into the Demonstrated curve (pure).
+- `facet_evidence_timelines(vault: LoadedVault, repository: Repository, facet_ids: Iterable[str], *, snapshot: FacetTimelineSnapshot | None=None, as_of: str | None=None) -> dict[str, list[TimelinePoint]]` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 1021) — Build multiple Demonstrated curves from one bulk ledger replay.
+- `facet_evidence_timeline(vault: LoadedVault, repository: Repository, facet_id: str) -> list[TimelinePoint]` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 1063) — The Demonstrated curve for ``facet_id`` (canonicalized) — the §9.6 phase-1 surface.
+- `class ReadyCapabilitySlice` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 1077) — One capability slice pooled into the facet's shared recall belief.
+  - `as_dict(self) -> dict[str, object]` (line 1086; public)
+- `class ReadyDerivation` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 1097) — The §5.1 Ready-sentence ingredients, template-rendered from ledger state.
+  - `as_dict(self) -> dict[str, object]` (line 1121; public)
+- `facet_ready_derivation(vault: LoadedVault, repository: Repository, facet_id: str, series: list[TimelinePoint], *, clock: Clock | None=None) -> ReadyDerivation | None` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 1138) — §5.1 Ready-derivation ingredients for a canonical facet, or ``None``.
 
 ## Internal implementation anchors
 
-- `_at_or_before(stamp: str | None, cutoff: str) -> bool` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 242)
-- `_epoch_held_as_of(rows: tuple[GradingEvidenceRecord, ...], vault: LoadedVault | None, item_id: str | None) -> bool` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 307) — Replay's unrecorded-contract hold (mvp-0.26) for an attempt's rows as they stood at a cutoff: ``attempts.current_epoch_reading`` over them.
-- `_contract_unrecorded(repository: Repository) -> frozenset[str]` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 341)
-- `_resolved_exercised_facets(observations: dict[str, list[dict[str, Any]]], merge_map: dict[str, str]) -> dict[str, frozenset[str]]` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 348) — A6 observations with their facet ids merge-resolved (Meas §3.A1 guard 1).
-- `_with_p0_masses(vault: LoadedVault, repository: Repository, snapshot: FacetTimelineSnapshot) -> FacetTimelineSnapshot` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 411) — Attach the P0 mass map to a snapshot when the vault runs the P0 projection.
-- `_epoch_certification_credit(vault: LoadedVault, item, rubric, *, rows_by_criterion: dict[str, dict], attempt_type: str, surface_group: str, assisted: bool, certification_eligible: bool, seen_groups_by_cell: dict[tuple[str, str], set[str]], resolve, exercised_facets: frozenset[str]=frozenset(), evidence_mass_override: float | None=None) -> tuple[dict[tuple[str, str], float], dict[tuple[str, str], set[str]], list, dict[tuple[str, str], str], dict[tuple[str, str], float]]` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 612) — Final capped certification credit for every cell in one grading epoch.
-- `_decoded_attribution(raw: str | None) -> object` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 807) — Decode a persisted failure-attribution payload (None on legacy rows).
-- `_observation_events_by_facet(vault: LoadedVault, snapshot: FacetTimelineSnapshot, canonical_facets: Iterable[str]) -> dict[str, list[ObservationEvent]]` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 818) — Extract events for every requested facet in one grading-ledger walk.
-- `_observation_events(vault: LoadedVault, repository: Repository, canonical_facet: str) -> list[ObservationEvent]` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 1031) — Compatibility wrapper for callers that inspect one facet's events.
+- `_at_or_before(stamp: str | None, cutoff: str) -> bool` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 240)
+- `_epoch_held_as_of(rows: tuple[GradingEvidenceRecord, ...], vault: LoadedVault | None, item_id: str | None) -> bool` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 305) — Replay's unrecorded-contract hold (mvp-0.26) for an attempt's rows as they stood at a cutoff: ``attempts.current_epoch_reading`` over them.
+- `_contract_unrecorded(repository: Repository) -> frozenset[str]` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 339)
+- `_resolved_exercised_facets(observations: dict[str, list[dict[str, Any]]], merge_map: dict[str, str]) -> dict[str, frozenset[str]]` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 346) — A6 observations with their facet ids merge-resolved (Meas §3.A1 guard 1).
+- `_with_p0_masses(vault: LoadedVault, repository: Repository, snapshot: FacetTimelineSnapshot) -> FacetTimelineSnapshot` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 409) — Attach the P0 mass map to a snapshot, unless it already carries one.
+- `_epoch_certification_credit(vault: LoadedVault, item, rubric, *, rows_by_criterion: dict[str, dict], attempt_type: str, surface_group: str, assisted: bool, certification_eligible: bool, seen_groups_by_cell: dict[tuple[str, str], set[str]], resolve, exercised_facets: frozenset[str]=frozenset(), evidence_mass_override: float | None=None) -> tuple[dict[tuple[str, str], float], dict[tuple[str, str], set[str]], list, dict[tuple[str, str], str], dict[tuple[str, str], float]]` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 603) — Final capped certification credit for every cell in one grading epoch.
+- `_decoded_attribution(raw: str | None) -> object` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 798) — Decode a persisted failure-attribution payload (None on legacy rows).
+- `_observation_events_by_facet(vault: LoadedVault, snapshot: FacetTimelineSnapshot, canonical_facets: Iterable[str]) -> dict[str, list[ObservationEvent]]` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 809) — Extract events for every requested facet in one grading-ledger walk.
+- `_observation_events(vault: LoadedVault, repository: Repository, canonical_facet: str) -> list[ObservationEvent]` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 1004) — Compatibility wrapper for callers that inspect one facet's events.
 
 ## Who imports or calls it
 
@@ -102,7 +102,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `REGRADE_CONTRACT_VERSIONS`
 - [[Reference/Modules/learnloop/attempts/effective_observation|learnloop.attempts.effective_observation]] — imports `load_effective_observation_references`; calls `load_effective_observation_references`
 - [[Reference/Modules/learnloop/attempts/evidence|learnloop.attempts.evidence]] — imports `attempt_evidence_mass`; calls `attempt_evidence_mass`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `parse_utc`; calls `SystemClock`, `parse_utc`
@@ -113,7 +112,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/goals/receipt_contributions|learnloop.goals.receipt_contributions]] — imports `itemize_observation_contributions`; calls `itemize_observation_contributions`
 - [[Reference/Modules/learnloop/grading_epochs|learnloop.grading_epochs]] — imports `current_epoch`, `only_grade`, `ordered_epochs`; calls `current_epoch`, `only_grade`, `ordered_epochs`
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `contract_unrecorded_attempts`; calls `contract_unrecorded_attempts`
-- [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `P0_PROJECTION_VERSIONS`, `rubric_from_contract`; calls `rubric_from_contract`
+- [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `rubric_from_contract`; calls `rubric_from_contract`
 - [[Reference/Modules/learnloop/learner/capability_mapping|learnloop.learner.capability_mapping]] — imports `CriterionOutcome`, `allocate_success_mass`, `certification_credit`, `compile_criterion_targets`, `criterion_pseudo_mass`, `localize_criterion_outcomes`; calls `CriterionOutcome`, `allocate_success_mass`, `certification_credit`, `compile_criterion_targets`, `criterion_pseudo_mass`, `localize_criterion_outcomes`
 - [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `facet_belief_corrections_on`, `is_canonical_state_vault`, `resolve_canonical_facet`; calls `facet_belief_corrections_on`, `is_canonical_state_vault`, `resolve_canonical_facet`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `DEFAULT_REPEAT_SURFACE_DISCOUNT`, `FAILURE_THRESHOLD`, `attribution_weights`, `configured_repeat_discount`, `observed_unresolved_failure`, `p0_effective_evidence_mass`, `surface_group_id`, `transfer_tier_mass_scale`, `unassessed_evidence_row`, `unverified_evidence_row`; calls `attribution_weights`, `configured_repeat_discount`, `observed_unresolved_failure`, `p0_effective_evidence_mass`, `surface_group_id`, `transfer_tier_mass_scale`, `unassessed_evidence_row`, `unverified_evidence_row`
@@ -164,6 +163,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_missing_evidence_rows_bank_nothing`
   - `test_p0_timeline_matches_banked_ledger_including_a6_supporting_credit`
   - `test_partially_graded_attempt_credits_only_the_graded_criterion`
+- [tests/test_projection_timeline_agreement.py](../../../../../../tests/test_projection_timeline_agreement.py) — direct import
 - [tests/test_reader_recap_review.py](../../../../../../tests/test_reader_recap_review.py) — direct import
   - `test_f3_the_timeline_carries_each_attempts_effective_credit_and_capability_credit`
 - [tests/test_reader_recap_review_r2.py](../../../../../../tests/test_reader_recap_review_r2.py) — direct import

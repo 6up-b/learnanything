@@ -262,7 +262,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_doctor.py](../../../../../../tests/test_doctor.py) — direct import
   - `test_doctor_does_not_merge_opposite_registered_facet_contracts`
   - `test_doctor_does_not_merge_unrelated_equal_length_facet_ids`
-  - `test_doctor_fix_state_merges_registered_facet_alias_state`
   - `test_doctor_report_is_the_same_with_and_without_the_parse_cache`
   - `test_doctor_reports_reference_issues_and_json_cli`
   - `test_doctor_resolves_legacy_error_event_through_causal_taxonomy`

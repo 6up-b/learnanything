@@ -48,41 +48,41 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/recurrence_groups.py](../../../../../../src/learnloop/substrate/recurrence_groups.py) |
-| Source lines | 731 |
+| Source lines | 726 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `recurrence_active(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 82)
-- `active_group_map(vault: LoadedVault, repository: Repository) -> dict[str, str]` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 90) — The group map in force for this vault's EFFECTIVE config, else empty.
-- `class Episode` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 114)
-- `class EpisodeIndex` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 125) — Statement classes over concrete episodes, by attempt.
-  - `__init__(self, episodes: Sequence[Episode]) -> None` (line 128; internal)
-  - `episode(self, ref: str) -> Episode | None` (line 145; public)
-  - `classes_on(self, attempt_id: str) -> dict[str, list[Episode]]` (line 149; public)
-  - `representative(self, attempt_id: str, statement: str) -> str | None` (line 152; public)
-  - `resolve_on(self, attempt_id: str, *, prefer: str | None, facet: str | None) -> tuple[str | None, str]` (line 156; public)
-- `load_episode_index(connection: Any) -> EpisodeIndex` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 173)
-- `claim_for_citation(proposal: Mapping[str, Any], citation: Mapping[str, Any]) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 194) — The pattern claim a validated citation came from.
-- `class GroupBuild` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 534)
-- `compute_groups(connection: Any) -> GroupBuild` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 545) — The projection's rows from the ledgers (pure read).
-- `input_fingerprint(connection: Any, *, active: bool) -> str` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 616)
-- `refresh_recurrence_groups(vault: LoadedVault, repository: Repository, *, force: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 658) — Recompute the projection when its inputs (or the switch) changed.
-- `prepare_recurrence_groups(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 672) — Build the groups as PREPARED (not in force): the upgrade's pre-switch step.
-- `activate_recurrence_groups(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 681) — Put prepared groups in force once the vault's config switch has landed.
+- `recurrence_active(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 80)
+- `active_group_map(vault: LoadedVault, repository: Repository) -> dict[str, str]` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 85) — The group map in force for this vault's EFFECTIVE config, else empty.
+- `class Episode` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 109)
+- `class EpisodeIndex` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 120) — Statement classes over concrete episodes, by attempt.
+  - `__init__(self, episodes: Sequence[Episode]) -> None` (line 123; internal)
+  - `episode(self, ref: str) -> Episode | None` (line 140; public)
+  - `classes_on(self, attempt_id: str) -> dict[str, list[Episode]]` (line 144; public)
+  - `representative(self, attempt_id: str, statement: str) -> str | None` (line 147; public)
+  - `resolve_on(self, attempt_id: str, *, prefer: str | None, facet: str | None) -> tuple[str | None, str]` (line 151; public)
+- `load_episode_index(connection: Any) -> EpisodeIndex` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 168)
+- `claim_for_citation(proposal: Mapping[str, Any], citation: Mapping[str, Any]) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 189) — The pattern claim a validated citation came from.
+- `class GroupBuild` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 529)
+- `compute_groups(connection: Any) -> GroupBuild` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 540) — The projection's rows from the ledgers (pure read).
+- `input_fingerprint(connection: Any, *, active: bool) -> str` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 611)
+- `refresh_recurrence_groups(vault: LoadedVault, repository: Repository, *, force: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 653) — Recompute the projection when its inputs (or the switch) changed.
+- `prepare_recurrence_groups(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 667) — Build the groups as PREPARED (not in force): the upgrade's pre-switch step.
+- `activate_recurrence_groups(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 676) — Put prepared groups in force once the vault's config switch has landed.
 
 ### Module constants
 
-- `BUILDER_VERSION` ([src/learnloop/substrate/recurrence_groups.py](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 64)
-- `AUTHORITY` ([src/learnloop/substrate/recurrence_groups.py](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 67)
-- `NOMINATED_BY_SHORTLIST` ([src/learnloop/substrate/recurrence_groups.py](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 74)
-- `NOMINATED_BY_CITATION` ([src/learnloop/substrate/recurrence_groups.py](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 75)
-- `NOMINATED_BY_M1_LINK` ([src/learnloop/substrate/recurrence_groups.py](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 76)
-- `NOMINATED_OTHERWISE` ([src/learnloop/substrate/recurrence_groups.py](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 77)
-- `_VERDICTS` ([src/learnloop/substrate/recurrence_groups.py](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 78)
-- `CAUSE_REF_PREFIX` ([src/learnloop/substrate/recurrence_groups.py](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 79)
+- `BUILDER_VERSION` ([src/learnloop/substrate/recurrence_groups.py](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 62)
+- `AUTHORITY` ([src/learnloop/substrate/recurrence_groups.py](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 65)
+- `NOMINATED_BY_SHORTLIST` ([src/learnloop/substrate/recurrence_groups.py](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 72)
+- `NOMINATED_BY_CITATION` ([src/learnloop/substrate/recurrence_groups.py](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 73)
+- `NOMINATED_BY_M1_LINK` ([src/learnloop/substrate/recurrence_groups.py](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 74)
+- `NOMINATED_OTHERWISE` ([src/learnloop/substrate/recurrence_groups.py](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 75)
+- `_VERDICTS` ([src/learnloop/substrate/recurrence_groups.py](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 76)
+- `CAUSE_REF_PREFIX` ([src/learnloop/substrate/recurrence_groups.py](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 77)
 
 ### Explicit exports
 
@@ -108,19 +108,19 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 
 ## Internal implementation anchors
 
-- `_facet_of(target_ref: Any) -> str | None` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 103)
-- `_case_id(*parts: Any) -> str` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 109)
-- `_primary_statement(event: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 226) — The event's highest-weight cause (first on ties), normalized.
-- `_continuing_class(index: 'EpisodeIndex', proposal: Mapping[str, Any], attempt_id: str, episode_key: str) -> str | None` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 243)
-- `_cause_of(proposal: Mapping[str, Any], ref: str) -> tuple[str, str | None] | None` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 258) — (normalized statement, target facet) of ``cause:<event>:<cause>``.
-- `class _Build` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 276)
-- `_source_citations(build: _Build, diagnoses: Sequence[Mapping[str, Any]]) -> None` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 374)
-- `_source_taps(build: _Build, connection: Any) -> None` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 395)
-- `_source_judgments(build: _Build, connection: Any) -> None` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 426)
-- `_source_registry_disagreements(build: _Build, diagnoses: Sequence[Mapping[str, Any]]) -> None` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 498) — §3.5: the diagnoser's registry match vs the top-1 neighbour by embedding.
-- `_write(repository: Repository, *, active: bool, force: bool, prepare: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 621)
-- `_counts(state: Mapping[str, Any]) -> dict[str, int]` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 654)
-- `_has_projection(connection: Any) -> bool` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 707)
+- `_facet_of(target_ref: Any) -> str | None` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 98)
+- `_case_id(*parts: Any) -> str` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 104)
+- `_primary_statement(event: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 221) — The event's highest-weight cause (first on ties), normalized.
+- `_continuing_class(index: 'EpisodeIndex', proposal: Mapping[str, Any], attempt_id: str, episode_key: str) -> str | None` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 238)
+- `_cause_of(proposal: Mapping[str, Any], ref: str) -> tuple[str, str | None] | None` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 253) — (normalized statement, target facet) of ``cause:<event>:<cause>``.
+- `class _Build` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 271)
+- `_source_citations(build: _Build, diagnoses: Sequence[Mapping[str, Any]]) -> None` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 369)
+- `_source_taps(build: _Build, connection: Any) -> None` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 390)
+- `_source_judgments(build: _Build, connection: Any) -> None` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 421)
+- `_source_registry_disagreements(build: _Build, diagnoses: Sequence[Mapping[str, Any]]) -> None` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 493) — §3.5: the diagnoser's registry match vs the top-1 neighbour by embedding.
+- `_write(repository: Repository, *, active: bool, force: bool, prepare: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 616)
+- `_counts(state: Mapping[str, Any]) -> dict[str, int]` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 649)
+- `_has_projection(connection: Any) -> bool` ([source](../../../../../../src/learnloop/substrate/recurrence_groups.py), line 702)
 
 ## Who imports or calls it
 
@@ -143,7 +143,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `DECIDER_TIER1_VERSIONS`, `RECURRENCE_GROUP_VERSIONS`
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `DECIDER_TIER1_VERSIONS`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/recurrence|learnloop.db.stores.recurrence]] — imports `module`; calls `activate_prepared_projection`, `clear_recurrence_projection`, `diagnoses_in_force`, `diagnosis_with_citations`, `hypothesis_episode_rows`, `input_fingerprint_parts`, `not_same_mistake_taps`, `projection_present`, `recurrence_state`, `replace_recurrence_projection`, `same_cause_judgments`
 - [[Reference/Modules/learnloop/matching/union|learnloop.matching.union]] — imports `UnionEdge`, `union_with_refusals`; calls `UnionEdge`, `union_with_refusals`
@@ -187,7 +187,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_planted_subjects_never_touch_vault_groups`
   - `test_registry_disagreements_need_an_informative_ranking`
   - `test_supersession_is_how_a_judges_different_is_replaced`
-  - `test_the_successor_and_its_kill_switch_gate_the_projection`
+  - `test_the_kill_switch_gates_the_projection`
 - [tests/test_recurrence_live.py](../../../../../../tests/test_recurrence_live.py) — direct import
   - `test_a_citation_of_an_existing_hypothesis_resolves_through_prior_hypothesis_id`
   - `test_a_verdict_after_a_promotion_moves_only_the_group_projection_and_rebuild_matches_live`

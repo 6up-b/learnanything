@@ -48,43 +48,41 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/administration_adapters.py](../../../../../../src/learnloop/substrate/administration_adapters.py) |
-| Source lines | 350 |
+| Source lines | 306 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class PurposeMismatch(Exception)` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 50) — An administration was routed to the wrong adapter (§7.5 purpose mismatch).
-- `class OpportunisticDiagnosisRejected(Exception)` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 54) — Invariant 8: only an administration committed to a diagnostic episode and its frozen hypothesis set may update that episode.
-- `class AdministrationEffects` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 61) — The three intentionally-different projections + lifecycle for one purpose (§1, §3.10).
-  - `as_dict(self) -> dict[str, Any]` (line 74; public)
-- `class Adapter` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 87)
-  - `effects(self, *, eligible: bool, failed: bool) -> AdministrationEffects` (line 90; public)
-  - `apply_scheduling(self, repository: Repository, *, card_lineage_id: str, scheduler_algorithm_version: str, review_event: Mapping[str, Any] | None, eligible: bool, prior_reviews: Sequence[Mapping[str, Any]]=(), model_label: str='fsrs', weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS, clock: Clock | None=None) -> dict[str, Any] | None` (line 93; public) — Default: no scheduling projection.
-- `class DiagnosticAdapter(Adapter)` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 111)
-  - `effects(self, *, eligible: bool, failed: bool) -> AdministrationEffects` (line 114; public)
-  - `update_episode(self, *, committed_episode_id: str | None) -> str` (line 126; public) — Invariant 8 / §9.4: an episode update requires a committed diagnostic presentation.
-- `class InstructionalAdapter(Adapter)` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 137)
-  - `effects(self, *, eligible: bool, failed: bool) -> AdministrationEffects` (line 140; public)
-- `class PracticeAdapter(Adapter)` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 155)
-  - `effects(self, *, eligible: bool, failed: bool) -> AdministrationEffects` (line 158; public)
-  - `apply_scheduling(self, repository: Repository, *, card_lineage_id: str, scheduler_algorithm_version: str, review_event: Mapping[str, Any] | None, eligible: bool, prior_reviews: Sequence[Mapping[str, Any]]=(), model_label: str='fsrs', weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS, clock: Clock | None=None) -> dict[str, Any] | None` (line 170; public) — Card-level review, ONLY when the observation is eligible (§3.8, §3.10).
-- `class AssessmentAdapter(Adapter)` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 200)
-  - `effects(self, *, eligible: bool, failed: bool) -> AdministrationEffects` (line 203; public)
-- `resolve_adapter(purpose: str) -> Adapter` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 224) — Select the adapter by immutable family purpose (never attempt_type/route).
-- `resolve_adapter_for_administration(repository: Repository, administration_id: str) -> Adapter` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 233)
-- `class ProjectionResult` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 243)
-  - `as_dict(self) -> dict[str, Any]` (line 249; public)
-- `project_administration(repository: Repository, *, administration_id: str, eligible: bool, failed: bool, card_lineage_id: str | None=None, scheduler_algorithm_version: str | None=None, review_event: Mapping[str, Any] | None=None, prior_reviews: Sequence[Mapping[str, Any]]=(), model_label: str='fsrs', clock: Clock | None=None) -> ProjectionResult` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 258) — Resolve the purpose adapter and project scheduling in one fail-safe unit.
-- `purpose_adapter_path_live(algorithm_version: str | None) -> bool` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 312) — Whether the purpose-adapter path is the LIVE scheduling authority for a vault.
-- `hot_path_applies_practice_review(*, attempt_type: str, eligible: bool=True, algorithm_version: str | None=None) -> bool` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 334) — Whether the attempt hot path applies its FSRS practice review.
+- `class PurposeMismatch(Exception)` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 37) — An administration was routed to the wrong adapter (§7.5 purpose mismatch).
+- `class OpportunisticDiagnosisRejected(Exception)` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 41) — Invariant 8: only an administration committed to a diagnostic episode and its frozen hypothesis set may update that episode.
+- `class AdministrationEffects` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 48) — The three intentionally-different projections + lifecycle for one purpose (§1, §3.10).
+  - `as_dict(self) -> dict[str, Any]` (line 61; public)
+- `class Adapter` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 74)
+  - `effects(self, *, eligible: bool, failed: bool) -> AdministrationEffects` (line 77; public)
+  - `apply_scheduling(self, repository: Repository, *, card_lineage_id: str, scheduler_algorithm_version: str, review_event: Mapping[str, Any] | None, eligible: bool, prior_reviews: Sequence[Mapping[str, Any]]=(), model_label: str='fsrs', weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS, clock: Clock | None=None) -> dict[str, Any] | None` (line 80; public) — Default: no scheduling projection.
+- `class DiagnosticAdapter(Adapter)` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 98)
+  - `effects(self, *, eligible: bool, failed: bool) -> AdministrationEffects` (line 101; public)
+  - `update_episode(self, *, committed_episode_id: str | None) -> str` (line 113; public) — Invariant 8 / §9.4: an episode update requires a committed diagnostic presentation.
+- `class InstructionalAdapter(Adapter)` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 124)
+  - `effects(self, *, eligible: bool, failed: bool) -> AdministrationEffects` (line 127; public)
+- `class PracticeAdapter(Adapter)` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 142)
+  - `effects(self, *, eligible: bool, failed: bool) -> AdministrationEffects` (line 145; public)
+  - `apply_scheduling(self, repository: Repository, *, card_lineage_id: str, scheduler_algorithm_version: str, review_event: Mapping[str, Any] | None, eligible: bool, prior_reviews: Sequence[Mapping[str, Any]]=(), model_label: str='fsrs', weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS, clock: Clock | None=None) -> dict[str, Any] | None` (line 157; public) — Card-level review, ONLY when the observation is eligible (§3.8, §3.10).
+- `class AssessmentAdapter(Adapter)` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 187)
+  - `effects(self, *, eligible: bool, failed: bool) -> AdministrationEffects` (line 190; public)
+- `resolve_adapter(purpose: str) -> Adapter` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 211) — Select the adapter by immutable family purpose (never attempt_type/route).
+- `resolve_adapter_for_administration(repository: Repository, administration_id: str) -> Adapter` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 220)
+- `class ProjectionResult` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 230)
+  - `as_dict(self) -> dict[str, Any]` (line 236; public)
+- `project_administration(repository: Repository, *, administration_id: str, eligible: bool, failed: bool, card_lineage_id: str | None=None, scheduler_algorithm_version: str | None=None, review_event: Mapping[str, Any] | None=None, prior_reviews: Sequence[Mapping[str, Any]]=(), model_label: str='fsrs', clock: Clock | None=None) -> ProjectionResult` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 245) — Resolve the purpose adapter and project scheduling in one fail-safe unit.
+- `hot_path_applies_practice_review(*, attempt_type: str, eligible: bool=True) -> bool` ([source](../../../../../../src/learnloop/substrate/administration_adapters.py), line 299) — Whether the attempt hot path applies its FSRS practice review: the practice adapter's eligibility semantics.
 
 ### Module constants
 
-- `PURPOSES` ([src/learnloop/substrate/administration_adapters.py](../../../../../../src/learnloop/substrate/administration_adapters.py), line 42)
-- `P1_PURPOSE_ADAPTERS_ENABLED` ([src/learnloop/substrate/administration_adapters.py](../../../../../../src/learnloop/substrate/administration_adapters.py), line 47)
-- `_ADAPTERS` ([src/learnloop/substrate/administration_adapters.py](../../../../../../src/learnloop/substrate/administration_adapters.py), line 216)
+- `PURPOSES` ([src/learnloop/substrate/administration_adapters.py](../../../../../../src/learnloop/substrate/administration_adapters.py), line 35)
+- `_ADAPTERS` ([src/learnloop/substrate/administration_adapters.py](../../../../../../src/learnloop/substrate/administration_adapters.py), line 203)
 
 ## Internal implementation anchors
 
@@ -104,7 +102,6 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
-- [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `P0_PROJECTION_VERSIONS`
 - [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `FSRS6_DEFAULT_WEIGHTS`
 - [[Reference/Modules/learnloop/substrate/card_lineage|learnloop.substrate.card_lineage]] — imports `module`; calls `rebuild_card_state`
 
@@ -128,8 +125,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_administration_adapters.py](../../../../../../tests/test_administration_adapters.py) — direct import
   - `test_diagnostic_episode_requires_committed_presentation`
-  - `test_hot_path_gate_default_off_is_unconditional`
-  - `test_hot_path_gate_on_defers_to_practice_eligibility`
+  - `test_hot_path_defers_to_practice_eligibility`
   - `test_ineligible_practice_observation_leaves_card_state_untouched`
   - `test_only_practice_eligible_updates_card_state`
   - `test_practice_effects_never_touch_a_probe_episode`

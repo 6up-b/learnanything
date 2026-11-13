@@ -132,6 +132,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/certain_grade_helpers.py](../../../../../../tests/certain_grade_helpers.py) — direct import
 - [tests/test_effective_observation.py](../../../../../../tests/test_effective_observation.py) — direct import
   - `test_adjudicated_grade_has_higher_certainty_than_heuristic`
   - `test_quarantined_interpretation_contributes_zero`
@@ -155,6 +156,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_adjudication_reverses_projection_and_preserves_history`
   - `test_mvp08_mastery_reliability_sources_certainty_lcb`
   - `test_ruling_a_superseded_rows_inert_nonsuperseded_rows_authoritative`
+- [tests/test_projection_timeline_agreement.py](../../../../../../tests/test_projection_timeline_agreement.py) — direct import
 - [tests/test_reference_gate_imports.py](../../../../../../tests/test_reference_gate_imports.py) — direct import
   - `test_a_key_based_adjudication_is_bound_like_a_regrade`
 - [tests/test_regrade_contract_successor.py](../../../../../../tests/test_regrade_contract_successor.py) — direct import

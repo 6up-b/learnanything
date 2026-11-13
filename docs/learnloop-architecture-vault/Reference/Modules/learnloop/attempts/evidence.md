@@ -120,6 +120,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_unknown_attempt_type_defaults_to_full_evidence`
 - [tests/test_exam_session.py](../../../../../../tests/test_exam_session.py) — direct import
   - `test_finish_lands_exam_attempt_evidence_with_full_mass`
+- [tests/test_projection_timeline_agreement.py](../../../../../../tests/test_projection_timeline_agreement.py) — direct import
+  - `test_the_ledger_holds_each_reading_the_folds_share`
 
 ## Modification guidance
 

@@ -134,6 +134,7 @@ Indexes and uniqueness:
 - `tests/test_reader_dialogue.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_teacher_te2_landing_r1.py`
+- `tests/certain_grade_helpers.py`
 - `tests/test_effective_observation.py`
 - `tests/test_exam_session.py`
 - `tests/test_goal_contracts.py`
@@ -142,6 +143,7 @@ Indexes and uniqueness:
 - `tests/test_grading_cli.py`
 - `tests/test_p0_projection_cutover.py`
 - `tests/test_probe_robust_cutover.py`
+- `tests/test_projection_timeline_agreement.py`
 - `tests/test_unresolved_cause_gate.py`
 - `tests/test_ux_phase4_feedback.py`
 - `tests/test_ux_phase4_landing.py`
