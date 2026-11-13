@@ -224,7 +224,7 @@ def complete_interrupted_activation(
             # Completing it would run a link this code no longer has.
             refuse_journal_below_floor(root, predecessor, target)
             if vault.config.algorithms.algorithm_version != target:
-                # The publication never landed (the transaction rolled back with it), or the vault names another
+                # The publication never took effect (the transaction rolled back with it), or the vault names another
                 # tag since: nothing of that activation is in force.
                 journal_path.unlink(missing_ok=True)
                 return None
