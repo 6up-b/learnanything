@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py) |
-| Source lines | 895 |
+| Source lines | 905 |
 | Owning package | [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -62,11 +62,11 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - `settled_load_vault(root: Path, *, load: Callable[[Path], LoadedVault] | None=None, fingerprint: str | None=None, attempts: int=SETTLE_ATTEMPTS, pause_seconds: float=SETTLE_PAUSE_SECONDS) -> SettledLoad` ([source](../../../../../../src/learnloop/vault/loader.py), line 233) — Load the vault while another process may be writing it (a secondary's read).
 - `refuse_vault_below_floor(vault_root: Path) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 293) — Raise :class:`learnloop.version_floor.BelowOldestSupported` when the vault at ``vault_root`` is below the oldest supported tag, reading only its ``learnloop.toml`` (no environment).
 - `load_vault(root: Path | None=None, *, read_yaml_file: YamlFileReader=read_yaml_data, load_environment: bool=True) -> LoadedVault` ([source](../../../../../../src/learnloop/vault/loader.py), line 311) — Parse every vault file into a ``LoadedVault``; problems become ``issues``.
-- `load_practice_item_file(path: Path, loaded: LoadedVault, *, issues: list[DoctorIssue] | None=None, read_yaml_file: YamlFileReader=read_yaml_data) -> PracticeItem | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 686) — Parse one Practice Item through the canonical full-loader path.
-- `init_vault(root: Path, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 748)
-- `add_subject(root: Path, subject_id: str, title: str, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 798)
-- `add_note(root: Path, subject_id: str, note_id: str, title: str, body: str, *, source_type: str='learner_note', related_los: list[str] | None=None, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 838)
-- `move_note(root: Path, note_id: str, subject_id: str, *, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 874) — Make ``subject_id`` a note's only subject and file it in that subject's folder.
+- `load_practice_item_file(path: Path, loaded: LoadedVault, *, issues: list[DoctorIssue] | None=None, read_yaml_file: YamlFileReader=read_yaml_data) -> PracticeItem | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 696) — Parse one Practice Item through the canonical full-loader path.
+- `init_vault(root: Path, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 758)
+- `add_subject(root: Path, subject_id: str, title: str, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 808)
+- `add_note(root: Path, subject_id: str, note_id: str, title: str, body: str, *, source_type: str='learner_note', related_los: list[str] | None=None, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 848)
+- `move_note(root: Path, note_id: str, subject_id: str, *, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 884) — Make ``subject_id`` a note's only subject and file it in that subject's folder.
 
 ### Module constants
 
@@ -78,22 +78,22 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - `LINK_ENTRY_SUFFIX` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 118)
 - `SETTLE_ATTEMPTS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 207)
 - `SETTLE_PAUSE_SECONDS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 208)
-- `_MODALITY_RANK` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 581)
-- `DEFAULT_ERROR_TYPE_SEEDS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 714)
+- `_MODALITY_RANK` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 591)
+- `DEFAULT_ERROR_TYPE_SEEDS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 724)
 
 ## Internal implementation anchors
 
 - `_load_yaml_model(path: Path, model: type[T], issues: list[DoctorIssue], read_yaml_file: YamlFileReader=read_yaml_data) -> T | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 55)
 - `_load_markdown_model(path: Path, model: type[T], issues: list[DoctorIssue]) -> tuple[T | None, str]` ([source](../../../../../../src/learnloop/vault/loader.py), line 70)
 - `_source_sets_caught_empty(root: Path, vault: LoadedVault, files: dict[str, tuple[int, int]]) -> bool` ([source](../../../../../../src/learnloop/vault/loader.py), line 272) — The source-sets file is empty: a writer truncated it to rewrite it.
-- `_load_subject_dir(subject_dir: Path, loaded: LoadedVault, read_yaml_file: YamlFileReader) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 401)
-- `_load_note(path: Path, root: Path, folder_subject: str, issues: list[DoctorIssue]) -> Note | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 453)
-- `_validate_loaded_vault(loaded: LoadedVault) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 472)
-- `_facet_aliases(facets_file: EvidenceFacetsFile) -> dict[str, str]` ([source](../../../../../../src/learnloop/vault/loader.py), line 515)
-- `_canonicalized_practice_item_facets(loaded: LoadedVault, item: PracticeItem) -> PracticeItem` ([source](../../../../../../src/learnloop/vault/loader.py), line 524)
-- `_collapsed_alias_targets(targets: list[Any], canonical: Any) -> list[Any]` ([source](../../../../../../src/learnloop/vault/loader.py), line 584) — Criterion targets with aliases resolved, one per canonical (facet, capability).
-- `_collapsed_alias_components(values: list[Any], canonical: Any) -> list[Any]` ([source](../../../../../../src/learnloop/vault/loader.py), line 616) — Recipe components with aliases resolved, one per canonical (facet, capability).
-- `_canonicalized_learning_object_facets(loaded: LoadedVault, learning_object: LearningObject) -> LearningObject` ([source](../../../../../../src/learnloop/vault/loader.py), line 645) — Recipe components name canonical facets: an alias resolves at load.
+- `_load_subject_dir(subject_dir: Path, loaded: LoadedVault, read_yaml_file: YamlFileReader) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 411)
+- `_load_note(path: Path, root: Path, folder_subject: str, issues: list[DoctorIssue]) -> Note | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 463)
+- `_validate_loaded_vault(loaded: LoadedVault) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 482)
+- `_facet_aliases(facets_file: EvidenceFacetsFile) -> dict[str, str]` ([source](../../../../../../src/learnloop/vault/loader.py), line 525)
+- `_canonicalized_practice_item_facets(loaded: LoadedVault, item: PracticeItem) -> PracticeItem` ([source](../../../../../../src/learnloop/vault/loader.py), line 534)
+- `_collapsed_alias_targets(targets: list[Any], canonical: Any) -> list[Any]` ([source](../../../../../../src/learnloop/vault/loader.py), line 594) — Criterion targets with aliases resolved, one per canonical (facet, capability).
+- `_collapsed_alias_components(values: list[Any], canonical: Any) -> list[Any]` ([source](../../../../../../src/learnloop/vault/loader.py), line 626) — Recipe components with aliases resolved, one per canonical (facet, capability).
+- `_canonicalized_learning_object_facets(loaded: LoadedVault, learning_object: LearningObject) -> LearningObject` ([source](../../../../../../src/learnloop/vault/loader.py), line 655) — Recipe components name canonical facets: an alias resolves at load.
 
 ## Who imports or calls it
 
@@ -1882,9 +1882,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_item_parameters.py](../../../../../../tests/test_item_parameters.py) — direct import
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
 - [tests/test_k1_mcp_find_sources.py](../../../../../../tests/test_k1_mcp_find_sources.py) — direct import
+  - `test_a_reserved_probe_passage_never_reaches_the_verification_model`
 - [tests/test_k1_remediation_cold_reservation.py](../../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import
 - [tests/test_k1_serve_door_reservation.py](../../../../../../tests/test_k1_serve_door_reservation.py) — direct import
 - [tests/test_k1_source_sets_gate.py](../../../../../../tests/test_k1_source_sets_gate.py) — direct import
+  - `test_a_snapshot_loaded_from_an_empty_file_stays_unreadable_after_the_file_is_restored`
   - `test_a_valid_file_still_reads_the_exam_member_as_exam_material`
   - `test_a_vault_double_without_a_root_is_not_gated`
   - `test_every_shared_reader_refuses_unloaded_source_sets`
@@ -1892,6 +1894,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_premise_the_corrupt_file_is_unreadable`
   - `test_the_readers_that_already_asked_still_refuse_and_ask_once`
   - `test_the_tutor_figures_and_phone_withhold_when_source_sets_did_not_load`
+  - `test_two_source_set_saves_that_read_the_same_file_do_not_lose_one_another`
 - [tests/test_keep_ahead_append_units.py](../../../../../../tests/test_keep_ahead_append_units.py) — direct import
   - `test_an_append_over_its_input_ceiling_fails_once_and_the_card_says_so`
   - `test_the_second_build_appends_only_its_own_chapter`
@@ -2177,6 +2180,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_starting_instruction_closes_measurement_segment_and_reentry_is_fresh`
 - [tests/test_p2_leakage_suite.py](../../../../../../tests/test_p2_leakage_suite.py) — direct import
 - [tests/test_p3_journeys.py](../../../../../../tests/test_p3_journeys.py) — direct import
+- [tests/test_p4_tutor_tool_withhold.py](../../../../../../tests/test_p4_tutor_tool_withhold.py) — direct import
 - [tests/test_patch_applier.py](../../../../../../tests/test_patch_applier.py) — direct import
   - `test_accept_cli_all_flag_applies_every_pending_item`
   - `test_accept_cli_applies_and_show_proposal_includes_items`
