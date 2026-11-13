@@ -12,11 +12,15 @@ from __future__ import annotations
 
 import pytest
 
+from learnloop.ai.execution import ModelCheckpoint
+from learnloop.content.synthesis import source_append as append_module
 from learnloop.content.synthesis import source_set_synthesis as synthesis
 from learnloop.content.synthesis.ai_contracts import SourceSetSynthesis, SynthSpanRequest
+from learnloop.content.synthesis.source_append import append_source
 from learnloop.content.synthesis.source_set_synthesis import StudyMapError, create_study_map
 from learnloop.db.repositories import Repository
 
+from tests.source_append_helpers import FakeAppendClient, _bootstrap_and_add
 from tests.source_set_synthesis_helpers import (
     FakeSynthesisClient,
     _CLOCK,
@@ -125,3 +129,67 @@ def test_a_rejected_reused_shard_drops_its_span_round_answer(tmp_path, monkeypat
 
     # Both rejected answers were dropped: the third attempt pays for each.
     assert (len(_base_calls(client)), len(_span_calls(client))) == (2, 2)
+
+
+# --- I5: a rejection drops the answer it judged, not a newer one -------------
+
+
+def test_a_checkpoint_discard_keeps_an_answer_saved_after_the_one_judged(tmp_path):
+    repo = Repository(tmp_path / "state.sqlite")
+    first = ModelCheckpoint(repo, "k", "synthesis_pass", SourceSetSynthesis.model_validate)
+    second = ModelCheckpoint(repo, "k", "synthesis_pass", SourceSetSynthesis.model_validate)
+    first.save(SourceSetSynthesis(summary="old"))
+    judged_by_first = first.fetch()
+    judged_by_second = second.fetch()
+
+    first.discard(judged_by_first[1])
+    first.save(SourceSetSynthesis(summary="fresh"))
+    second.discard(judged_by_second[1])
+
+    assert first.load().summary == "fresh"
+
+
+def test_a_bootstrap_rejection_keeps_a_fresh_answer_another_run_saved(tmp_path, monkeypatch):
+    root, repo = _setup(tmp_path, with_exam=False)
+    client = FakeSynthesisClient()
+    fresh = SourceSetSynthesis(summary="a fresh answer another run paid for")
+
+    def another_run_then_reject(*_args, **_kwargs):
+        # Another run judged the same answer first, dropped it, and a retry
+        # saved a fresh one under the same key; then this run's gates reject.
+        for key in _stored(repo, "synthesis_pass"):
+            repo.discard_model_checkpoint(key)
+            repo.save_model_checkpoint(key, purpose="synthesis_pass", result=fresh.model_dump(mode="json"))
+            shard = repo.synthesis_shard_result(key)
+            repo.save_synthesis_shard_result(shard_key=key, shard_ordinal=0, shard_count=1,
+                                             result={"result": fresh.model_dump(mode="json")})
+            assert shard is not None
+        raise StudyMapError("synthesis_gate_failed", "rejected")
+
+    monkeypatch.setattr(synthesis, "_gate_and_persist", another_run_then_reject)
+    with pytest.raises(StudyMapError, match="rejected"):
+        _build(root, repo, client)
+
+    stored = _stored(repo, "synthesis_pass")
+    assert len(stored) == 1 and "another run paid for" in next(iter(stored.values()))
+    shard = repo.synthesis_shard_result(next(iter(stored)))
+    assert shard is not None and shard["output"]["result"]["summary"] == fresh.summary
+
+
+def test_an_append_rejection_keeps_a_fresh_answer_another_run_saved(tmp_path, monkeypatch):
+    root, repo = _bootstrap_and_add(tmp_path)
+    fresh = {"summary": "a fresh answer another run paid for"}
+
+    def another_run_then_reject(*_args, **_kwargs):
+        for key in _stored(repo, "append_reconciliation"):
+            repo.discard_model_checkpoint(key)
+            repo.save_model_checkpoint(key, purpose="append_reconciliation", result=fresh)
+        raise StudyMapError("append_gate_failed", "rejected")
+
+    monkeypatch.setattr(append_module, "run_synthesis_gates", another_run_then_reject)
+    with pytest.raises(StudyMapError, match="rejected"):
+        append_source(root, "set_la", client=FakeAppendClient(), new_revision_ids=["rev_alt"], repository=repo,
+                      clock=_CLOCK)
+
+    stored = _stored(repo, "append_reconciliation")
+    assert len(stored) == 1 and "another run paid for" in next(iter(stored.values()))

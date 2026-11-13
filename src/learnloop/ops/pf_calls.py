@@ -425,7 +425,7 @@ class PFCaller:
             try:
                 result = result_model.model_validate(saved["result"])
             except ValueError:
-                self.repository.discard_model_checkpoint(cache_key)
+                self.repository.discard_model_checkpoint(cache_key, result=saved["result"])
             else:
                 self.cached_by_role[role] += 1
                 model = saved["usage"].get("resolved_model") or entry.model or "unknown"

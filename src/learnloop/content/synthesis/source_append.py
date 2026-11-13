@@ -132,8 +132,8 @@ class _AppendCall:
     settings: dict[str, Any]
     input_ceiling: int | None
     output_budget: int | None
-    #: The checkpoint keys this run's answers came from, fresh or reused.
-    keys: list[str] = field(default_factory=list)
+    #: Each answer this run used, fresh or reused: its checkpoint key and the stored form it was served from.
+    answers: list[tuple[str, Any]] = field(default_factory=list)
 
     def __call__(self, context: AppendReconciliationContext) -> AppendReconciliation:
         prompt = append_reconciliation_prompt(context)
@@ -141,7 +141,6 @@ class _AppendCall:
             self.repository, append_checkpoint_key(prompt, self.settings), APPEND_AGENT_PURPOSE,
             AppendReconciliation.model_validate,
         )
-        self.keys.append(checkpoint.key)
         # The same estimate as a bootstrap pass: the prompt and schema sent.
         tokens = max(1, (len(prompt) + len(json.dumps(AppendReconciliation.model_json_schema()))) // 4)
 
@@ -151,9 +150,10 @@ class _AppendCall:
             with generation_limit(self.output_budget):
                 return request_append_reconciliation(self.client, context)
 
-        result, _reused = checkpoint.answer(
+        result, _reused, stored = checkpoint.answer_stored(
             call, usage=lambda answer: {"input_tokens_estimate": tokens, "output_tokens_estimate": _result_tokens(answer)},
         )
+        self.answers.append((checkpoint.key, stored))
         if self.output_budget is not None and _result_tokens(result) > self.output_budget:
             raise StudyMapError("budget_exceeded", "Append reconciliation exceeded its output budget.")
         return result
@@ -163,10 +163,11 @@ class _AppendCall:
         A rejected answer is the model's, not the budget's: kept, it would be
         replayed into the same rejection by every retry at zero cost while the
         card offers Retry. An over-budget answer is not dropped: a raised
-        budget reuses it."""
+        budget reuses it. Each is dropped only while it is still the saved
+        answer, so a fresh one another run saved since is kept."""
 
-        for key in self.keys:
-            self.repository.discard_model_checkpoint(key)
+        for key, stored in self.answers:
+            self.repository.discard_model_checkpoint(key, result=stored)
 
 
 def _over_ceiling(tokens: int, ceiling: int) -> StudyMapError:

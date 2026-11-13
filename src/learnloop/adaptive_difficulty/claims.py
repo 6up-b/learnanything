@@ -188,12 +188,12 @@ class FencedRepository:
         except LeaseLost:
             LOG.info("AD job fenced out: model checkpoint %s dropped", cache_key)
 
-    def discard_model_checkpoint(self, cache_key: str) -> None:
+    def discard_model_checkpoint(self, cache_key: str, *, result: Any = None) -> None:
         from learnloop.db.stores.model_calls import delete_checkpoint
 
         try:
             with _builds._fenced_txn(self._repository, self._claim) as connection:
-                delete_checkpoint(connection, cache_key)
+                delete_checkpoint(connection, cache_key, result=result)
         except LeaseLost:
             LOG.info("AD job fenced out: model checkpoint %s kept", cache_key)
 

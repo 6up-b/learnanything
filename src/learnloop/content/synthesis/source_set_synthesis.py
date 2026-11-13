@@ -2883,14 +2883,18 @@ class _SavedAnswers:
     A shard reused from its row made one request, so its base pass is all it
     stands for; a shard with a span round runs both passes and both join."""
 
-    shard_keys: list[str] = field(default_factory=list)
-    pass_keys: list[str] = field(default_factory=list)
+    #: Each served answer: its key and the stored form it was served from (a
+    #: shard row's output; a pass checkpoint's result). Dropped only while it
+    #: is still the saved one: another run may have dropped it already and
+    #: saved a fresh answer under the same key.
+    shards: list[tuple[str, Any]] = field(default_factory=list)
+    passes: list[tuple[str, Any]] = field(default_factory=list)
 
     def discard(self, repository: Repository) -> None:
-        for key in self.shard_keys:
-            repository.discard_synthesis_shard_result(key)
-        for key in self.pass_keys:
-            repository.discard_model_checkpoint(key)
+        for key, output in self.shards:
+            repository.discard_synthesis_shard_result(key, output=output)
+        for key, stored in self.passes:
+            repository.discard_model_checkpoint(key, result=stored)
 
 
 def _run_synthesis(
@@ -2944,17 +2948,15 @@ def _run_synthesis(
         if cached is not None and int(cached["output"].get("span_request_count") or 0):
             cached = None
         shard_states.append((ordinal, shard, checkpoint.key, cached))
-        answers.shard_keys.append(checkpoint.key)
-        answers.pass_keys.append(checkpoint.key)
         base_reserves[ordinal] = 0 if cached or checkpoint.load() is not None else tokens
     spend.check_base_passes(sum(base_reserves.values()))
 
     def run_pass(context, *, future_input_reserve=0):
         checkpoint, tokens = pass_request(context)
-        answers.pass_keys.append(checkpoint.key)
-        saved = checkpoint.load()
-        if saved is not None:
-            return saved
+        fetched = checkpoint.fetch()
+        if fetched is not None:
+            answers.passes.append((checkpoint.key, fetched[1]))
+            return fetched[0]
         spend.check_next_pass_input(tokens, reserve=future_input_reserve)
         output_limit = spend.pass_output_limit()
         meter = UsageMeter(client or transport)
@@ -2964,7 +2966,8 @@ def _run_synthesis(
         spend.charge_pass(estimated_input=tokens, reported_input=meter.reported().input_tokens, output=output_charge)
         # Save before the budget check: the key has no budget in it, so a
         # retry under a larger one reuses this paid answer.
-        checkpoint.save(result, {"input_tokens_estimate": tokens, "output_tokens_estimate": _result_tokens(result)})
+        stored = checkpoint.save(result, {"input_tokens_estimate": tokens, "output_tokens_estimate": _result_tokens(result)})
+        answers.passes.append((checkpoint.key, stored))
         if output_limit is not None and output_charge > output_limit:
             raise StudyMapError("budget_exceeded", "A synthesis pass exceeded its output budget.")
         return result
@@ -2972,6 +2975,9 @@ def _run_synthesis(
     for ordinal, shard, shard_key, cached in shard_states:
         if cached is not None:
             output = cached["output"]
+            # A one-request shard: its row and its base pass hold the same answer.
+            answers.shards.append((shard_key, output))
+            answers.passes.append((shard_key, output.get("result") or {}))
             result = SourceSetSynthesis.model_validate(output.get("result") or {})
             span_request_count += int(output.get("span_request_count") or 0)
             resolved_hashes.extend(str(h) for h in output.get("resolved_span_hashes") or [])
@@ -3017,16 +3023,16 @@ def _run_synthesis(
         resolved_hashes.extend(shard_hashes)
         # Checkpoint AFTER the output-budget check so an oversized shard is
         # regenerated on retry rather than reused into the same failure.
+        shard_output = {
+            "result": result.model_dump(mode="json"),
+            "span_request_count": shard_span_requests,
+            "resolved_span_hashes": shard_hashes,
+        }
         repository.save_synthesis_shard_result(
             shard_key=shard_key, shard_ordinal=ordinal, shard_count=len(shards),
-            manifest_hash=manifest_hash,
-            result={
-                "result": result.model_dump(mode="json"),
-                "span_request_count": shard_span_requests,
-                "resolved_span_hashes": shard_hashes,
-            },
-            clock=clock,
+            manifest_hash=manifest_hash, result=shard_output, clock=clock,
         )
+        answers.shards.append((shard_key, shard_output))
         result = _namespace_synthesis_shard(result, ordinal)
         merged = _merge_synthesis(merged, result) if merged is not None else result
         spend.check_merged_output(merged, "Merged synthesis exceeded its total output budget; completed shards are saved.")
@@ -3310,12 +3316,13 @@ def _model_graph_structuring(
     checkpoint = structuring_checkpoint(
         repository, context, settings if settings is not None else model_settings(client),
     )
-    if answers is not None:
-        answers.pass_keys.append(checkpoint.key)
     calls = 0
     try:
         # A saved answer is free, so the input ceiling below applies only to a call.
-        outcome = checkpoint.load()
+        fetched = checkpoint.fetch()
+        outcome = None if fetched is None else fetched[0]
+        if fetched is not None and answers is not None:
+            answers.passes.append((checkpoint.key, fetched[1]))
         if outcome is None:
             if (
                 total_input_ceiling is not None
@@ -3328,7 +3335,10 @@ def _model_graph_structuring(
             calls = 1
             # Saved before the output check, as a pass is: a retry under a
             # larger budget reuses this paid answer.
-            checkpoint.save(outcome, {"input_tokens_estimate": estimate, "output_tokens_estimate": _result_tokens(outcome)})
+            stored = checkpoint.save(
+                outcome, {"input_tokens_estimate": estimate, "output_tokens_estimate": _result_tokens(outcome)})
+            if answers is not None:
+                answers.passes.append((checkpoint.key, stored))
         if output_budget_tokens is not None and _result_tokens(outcome) > output_budget_tokens:
             return merged, {"graph_structuring_skipped": "output budget exceeded", "calls": calls,
                             "input_tokens_estimate": estimate if calls else 0}

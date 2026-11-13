@@ -304,7 +304,7 @@ def _generate(
     )
     checkpoint = epigraph_checkpoint(repository, client, context)
     try:
-        batch, _reused = checkpoint.answer(lambda: request_vault_epigraphs(client, context))
+        batch, _reused, stored = checkpoint.answer_stored(lambda: request_vault_epigraphs(client, context))
     finally:
         # The synthesis already drained its own usage before this hook ran;
         # anything left in the accumulator is ours, and must not leak into the
@@ -328,7 +328,7 @@ def _generate(
     if not accepted:
         # A batch the checks rejected whole is dropped: kept, every retry of
         # this request would read it back into the same empty result for free.
-        checkpoint.discard()
+        checkpoint.discard(stored)
         logger.info("vault epigraphs: nothing valid returned for %s (run %s)", subject_id, synthesis_run_id)
         return []
 
