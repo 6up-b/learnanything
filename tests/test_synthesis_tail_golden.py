@@ -58,19 +58,15 @@ from learnloop.content.synthesis.ai_contracts import (
 )
 from learnloop.content.synthesis.source_append import append_source
 from learnloop.content.synthesis.source_set_synthesis import StudyMapError, create_study_map
-from learnloop.content.synthesis.source_unit_inventory import run_unit_inventory
-from learnloop.vault.loader import load_vault
-from learnloop.vault.writer import upsert_source_set
 
 from tests.facet_reword_paths_helpers import _facet_restructure
 from tests.source_append_helpers import (
     FakeAppendClient,
-    SymmetryInventoryClient,
+    _bootstrap_and_add,
     _default_append,
     _first_new_span,
     _neighborhood_facet_id,
 )
-from tests.source_inventory_helpers import _block, _ir, _persist, _register_revision
 from tests.source_set_synthesis_helpers import FakeSynthesisClient, _CLOCK, _default_payload, _setup
 
 GOLDEN_DIR = Path(__file__).parent / "goldens" / "synthesis_tail"
@@ -416,41 +412,6 @@ def test_bootstrap_unlimited_records_only_its_shard_size(tmp_path, seeded_ids):
 
 
 # --- append ------------------------------------------------------------------
-
-
-class _UnaliasedInventoryClient(SymmetryInventoryClient):
-    """The house inventory double without the alias: the neighbourhood scores a name set's members in set order, so
-    with a name and an alias that both match, which one its record names follows the process's hash seed."""
-
-    def run_source_unit_inventory(self, context):
-        inventory = super().run_source_unit_inventory(context)
-        for mention in inventory.concept_mentions:
-            mention.aliases = []
-        return inventory
-
-
-def _bootstrap_and_add(tmp_path, *, add_role="alternate_explanation"):
-    """``tests.source_append_helpers._bootstrap_and_add`` with the unaliased inventory: an applied bootstrap map,
-    then a second member added to the set."""
-
-    root, repo = _setup(tmp_path, with_exam=False)
-    create_study_map(root, "set_la", client=FakeSynthesisClient(), repository=repo, clock=_CLOCK, apply=True,
-                     brief={"depth": "intro"})
-    _register_revision(repo, source_id="src_alt", revision_id="rev_alt")
-    _persist(repo, _ir([("chapter_symmetry_alt", "Symmetric matrices, again",
-                         [_block("s1", "A real square matrix with A^T = A is called symmetric.")],
-                         "sha256:chapter_symmetry_alt", 3)]), revision_id="rev_alt", extraction_id="ext_alt")
-    run_unit_inventory(repo, "ext_alt", "chapter_symmetry_alt", role=add_role, profile="combined",
-                       client=_UnaliasedInventoryClient(), input_budget_tokens=20000, clock=_CLOCK)
-    source_set = next(s for s in load_vault(root).source_sets if s.id == "set_la")
-    members = [{"source_id": m.source_id, "revision_id": m.revision_id, "default_role": m.default_role,
-                "scope": [{"unit_id": s.unit_id} for s in m.scope], "priority": m.priority}
-               for m in source_set.members]
-    members.append({"source_id": "src_alt", "revision_id": "rev_alt", "default_role": add_role,
-                    "scope": [{"unit_id": "chapter_symmetry_alt"}], "priority": 1})
-    upsert_source_set(root, {"id": "set_la", "subject_id": "linear-algebra", "title": "Linear Algebra",
-                             "members": members}, clock=_CLOCK)
-    return root, repo
 
 
 def _append(root, repo, client, **kwargs):

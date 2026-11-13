@@ -143,7 +143,7 @@
    "added": [
     {
      "<rowid>": 5,
-     "cache_key": "b8e61e8ef18efe585f19226c3d67462642dcd25d8d692f77d2cd512a51ce157f",
+     "cache_key": "692079866ebfcae7d1fd5f9f2ca44b666fbb4fb5f88ddf2c141ce87a7c146182",
      "created_at": "<wall>",
      "purpose": "append_reconciliation",
      "result_json": {
@@ -195,14 +195,14 @@
      },
      "usage_json": {
       "<json>": {
-       "input_tokens_estimate": 7423,
+       "input_tokens_estimate": 7659,
        "output_tokens_estimate": 235
       }
      }
     },
     {
      "<rowid>": 6,
-     "cache_key": "393410947c547e32c07f35b02071d8c9883e88759d2cf2b763b7531e57b7a28d",
+     "cache_key": "505e62854001b9672fa5c91f19b1cf1188367e5391a7428815178f85d20f6af9",
      "created_at": "<wall>",
      "purpose": "vault_epigraphs",
      "result_json": {
@@ -412,20 +412,28 @@
         "capped": false,
         "entity_hashes": {
          "concept:concept_symmetric_matrix": "sha256:0873cb5c2052e094",
+         "facet:facet_spectral_applicability": "sha256:c1333b048333f27a",
          "facet:facet_symmetry_definition": "sha256:88a4bf8edf419037"
         },
-        "input_token_estimate": 420,
+        "input_token_estimate": 653,
         "match_reasons": {
          "concept:concept_symmetric_matrix": [
           {
-           "detail": "matches concept 'symmetric matrix'",
+           "detail": "matches concept 'symmetric'",
+           "kind": "concept_name",
+           "score": 1.0
+          }
+         ],
+         "facet:facet_spectral_applicability": [
+          {
+           "detail": "mentions 'symmetric'",
            "kind": "concept_name",
            "score": 1.0
           }
          ],
          "facet:facet_symmetry_definition": [
           {
-           "detail": "mentions 'symmetric matrix'",
+           "detail": "mentions 'symmetric'",
            "kind": "concept_name",
            "score": 1.0
           },
@@ -454,7 +462,7 @@
      "unit_inventory_versions_json": {
       "<json>": {
        "rev_alt:chapter_symmetry_alt": {
-        "content_hash": "sha256:fee1743540cbf0740dcd074445d8c1ee484c2f56716f1f49646c5928b6d4c662",
+        "content_hash": "sha256:4d725f428783128cf9ef5ba565eb1b7d149caabf950da7ec57d115516ae04fd4",
         "extraction_id": "ext_alt",
         "inventory_id": "inv_01M3250V00TP209AYDNCPVR75E",
         "version": "1|mvp-0.7-source-unit-inventory-role-aware"
@@ -590,11 +598,11 @@
  "model_requests": [
   [
    "append_reconciliation",
-   "836b8817197d703a"
+   "9ea177c9f47d18dd"
   ],
   [
    "vault_epigraphs",
-   "defddb29c32cfb2e"
+   "28de51a926e07a8c"
   ]
  ],
  "result": {
@@ -632,20 +640,28 @@
    "capped": false,
    "entity_hashes": {
     "concept:concept_symmetric_matrix": "sha256:0873cb5c2052e094",
+    "facet:facet_spectral_applicability": "sha256:c1333b048333f27a",
     "facet:facet_symmetry_definition": "sha256:88a4bf8edf419037"
    },
-   "input_token_estimate": 420,
+   "input_token_estimate": 653,
    "match_reasons": {
     "concept:concept_symmetric_matrix": [
      {
-      "detail": "matches concept 'symmetric matrix'",
+      "detail": "matches concept 'symmetric'",
+      "kind": "concept_name",
+      "score": 1.0
+     }
+    ],
+    "facet:facet_spectral_applicability": [
+     {
+      "detail": "mentions 'symmetric'",
       "kind": "concept_name",
       "score": 1.0
      }
     ],
     "facet:facet_symmetry_definition": [
      {
-      "detail": "mentions 'symmetric matrix'",
+      "detail": "mentions 'symmetric'",
       "kind": "concept_name",
       "score": 1.0
      },

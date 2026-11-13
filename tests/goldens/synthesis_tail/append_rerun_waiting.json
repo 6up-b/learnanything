@@ -314,20 +314,28 @@
    "capped": false,
    "entity_hashes": {
     "concept:concept_symmetric_matrix": "sha256:0873cb5c2052e094",
+    "facet:facet_spectral_applicability": "sha256:c1333b048333f27a",
     "facet:facet_symmetry_definition": "sha256:88a4bf8edf419037"
    },
-   "input_token_estimate": 420,
+   "input_token_estimate": 653,
    "match_reasons": {
     "concept:concept_symmetric_matrix": [
      {
-      "detail": "matches concept 'symmetric matrix'",
+      "detail": "matches concept 'symmetric'",
+      "kind": "concept_name",
+      "score": 1.0
+     }
+    ],
+    "facet:facet_spectral_applicability": [
+     {
+      "detail": "mentions 'symmetric'",
       "kind": "concept_name",
       "score": 1.0
      }
     ],
     "facet:facet_symmetry_definition": [
      {
-      "detail": "mentions 'symmetric matrix'",
+      "detail": "mentions 'symmetric'",
       "kind": "concept_name",
       "score": 1.0
      },

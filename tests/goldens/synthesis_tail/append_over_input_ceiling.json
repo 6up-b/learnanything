@@ -8,7 +8,7 @@
      "actual_output_tokens": 0,
      "codex_revision": null,
      "completed_at": "2026-07-13T12:00:00Z",
-     "error_message": "append_input_over_ceiling: This update's request comes to about 7,325 input tokens, over its ceiling of 10 ([ingest.budgets] append_input_ceiling), so nothing was sent.",
+     "error_message": "append_input_over_ceiling: This update's request comes to about 7,560 input tokens, over its ceiling of 10 ([ingest.budgets] append_input_ceiling), so nothing was sent.",
      "est_input_tokens": 0,
      "est_output_tokens": 0,
      "id": "01M3250V00TP209AYDNCPVR75G",
@@ -134,20 +134,28 @@
         "capped": false,
         "entity_hashes": {
          "concept:concept_symmetric_matrix": "sha256:0873cb5c2052e094",
+         "facet:facet_spectral_applicability": "sha256:c1333b048333f27a",
          "facet:facet_symmetry_definition": "sha256:88a4bf8edf419037"
         },
-        "input_token_estimate": 420,
+        "input_token_estimate": 653,
         "match_reasons": {
          "concept:concept_symmetric_matrix": [
           {
-           "detail": "matches concept 'symmetric matrix'",
+           "detail": "matches concept 'symmetric'",
+           "kind": "concept_name",
+           "score": 1.0
+          }
+         ],
+         "facet:facet_spectral_applicability": [
+          {
+           "detail": "mentions 'symmetric'",
            "kind": "concept_name",
            "score": 1.0
           }
          ],
          "facet:facet_symmetry_definition": [
           {
-           "detail": "mentions 'symmetric matrix'",
+           "detail": "mentions 'symmetric'",
            "kind": "concept_name",
            "score": 1.0
           },
@@ -176,7 +184,7 @@
      "unit_inventory_versions_json": {
       "<json>": {
        "rev_alt:chapter_symmetry_alt": {
-        "content_hash": "sha256:fee1743540cbf0740dcd074445d8c1ee484c2f56716f1f49646c5928b6d4c662",
+        "content_hash": "sha256:4d725f428783128cf9ef5ba565eb1b7d149caabf950da7ec57d115516ae04fd4",
         "extraction_id": "ext_alt",
         "inventory_id": "inv_01M3250V00TP209AYDNCPVR75E",
         "version": "1|mvp-0.7-source-unit-inventory-role-aware"
@@ -206,7 +214,7 @@
         {
          "entity_refs": [],
          "gate": "append_input_ceiling",
-         "message": "This update's request comes to about 7,325 input tokens, over its ceiling of 10 ([ingest.budgets] append_input_ceiling), so nothing was sent.",
+         "message": "This update's request comes to about 7,560 input tokens, over its ceiling of 10 ([ingest.budgets] append_input_ceiling), so nothing was sent.",
          "severity": "hard_fail",
          "suggested_action": "build fewer new sections at once, or raise [ingest.budgets] append_input_ceiling; splitting a large update into passes is not built yet"
         }
@@ -232,12 +240,12 @@
    {
     "entity_refs": [],
     "gate": "append_input_ceiling",
-    "message": "This update's request comes to about 7,325 input tokens, over its ceiling of 10 ([ingest.budgets] append_input_ceiling), so nothing was sent.",
+    "message": "This update's request comes to about 7,560 input tokens, over its ceiling of 10 ([ingest.budgets] append_input_ceiling), so nothing was sent.",
     "severity": "hard_fail",
     "suggested_action": "build fewer new sections at once, or raise [ingest.budgets] append_input_ceiling; splitting a large update into passes is not built yet"
    }
   ],
-  "message": "This update's request comes to about 7,325 input tokens, over its ceiling of 10 ([ingest.budgets] append_input_ceiling), so nothing was sent.",
+  "message": "This update's request comes to about 7,560 input tokens, over its ceiling of 10 ([ingest.budgets] append_input_ceiling), so nothing was sent.",
   "synthesis_run_id": null
  },
  "files": {},

@@ -31,7 +31,7 @@
    "added": [
     {
      "<rowid>": 7,
-     "cache_key": "4ab400f61355c7b94a68b0af16a2b69cc17c44edee385c1097cc5d66f7f92c58",
+     "cache_key": "9e26d4199ffd190958b7e7b5e9712b1d034e54bcdcf57b5ef89bf4f792d570d2",
      "created_at": "<wall>",
      "purpose": "append_reconciliation",
      "result_json": {
@@ -73,7 +73,7 @@
      },
      "usage_json": {
       "<json>": {
-       "input_tokens_estimate": 7325,
+       "input_tokens_estimate": 7560,
        "output_tokens_estimate": 179
       }
      }
@@ -82,7 +82,7 @@
    "removed": [
     {
      "<rowid>": 5,
-     "cache_key": "4ab400f61355c7b94a68b0af16a2b69cc17c44edee385c1097cc5d66f7f92c58",
+     "cache_key": "9e26d4199ffd190958b7e7b5e9712b1d034e54bcdcf57b5ef89bf4f792d570d2",
      "created_at": "<wall>",
      "purpose": "append_reconciliation",
      "result_json": {
@@ -124,7 +124,7 @@
      },
      "usage_json": {
       "<json>": {
-       "input_tokens_estimate": 7325,
+       "input_tokens_estimate": 7560,
        "output_tokens_estimate": 179
       }
      }
@@ -258,11 +258,11 @@
  "model_requests": [
   [
    "append_reconciliation",
-   "0ef8649c75645385"
+   "ed3961921ea36ae4"
   ],
   [
    "vault_epigraphs",
-   "ad05f1d62f8e2d60"
+   "fd5656a4f0c2e1e4"
   ]
  ],
  "result": {
@@ -290,20 +290,28 @@
    "capped": false,
    "entity_hashes": {
     "concept:concept_symmetric_matrix": "sha256:0873cb5c2052e094",
+    "facet:facet_spectral_applicability": "sha256:c1333b048333f27a",
     "facet:facet_symmetry_definition": "sha256:88a4bf8edf419037"
    },
-   "input_token_estimate": 420,
+   "input_token_estimate": 653,
    "match_reasons": {
     "concept:concept_symmetric_matrix": [
      {
-      "detail": "matches concept 'symmetric matrix'",
+      "detail": "matches concept 'symmetric'",
+      "kind": "concept_name",
+      "score": 1.0
+     }
+    ],
+    "facet:facet_spectral_applicability": [
+     {
+      "detail": "mentions 'symmetric'",
       "kind": "concept_name",
       "score": 1.0
      }
     ],
     "facet:facet_symmetry_definition": [
      {
-      "detail": "mentions 'symmetric matrix'",
+      "detail": "mentions 'symmetric'",
       "kind": "concept_name",
       "score": 1.0
      },
