@@ -88,6 +88,52 @@ One fix round, in groups by file so they don't collide. Each fix: a test that fa
 
 After the round: this record gains each row's outcome (fixed with its commit, or not reproduced with the evidence), and the next phase starts.
 
+## Outcome of the fix round (closed 2026-11-13)
+
+All 38 rows are closed: 36 fixed from a test that failed first (or, for the test rows, from a production mutation that the existing tests missed), 1 restored though it did not reproduce as a gap (T5), 1 duplicate (P8). Each group's record has the failing test, the fix, and the callers and siblings checked: `docs/reviews/refactor-phase-1-fixes-{upgrades,protection,successor,ingest-apply,ingestion-synthesis,tests}.md`.
+
+| Row | Outcome | Commit |
+|---|---|---|
+| U1 | fixed: the setting is written through the TOML writer and the tag is read back before the commit | `5ec258a0b9` |
+| U2 | fixed: a bound sidecar refuses every request and worker until a load succeeds | `07620e5839` |
+| U3 | fixed: one journal reader; a read error refuses and keeps the file | `94ad5dad87` |
+| U4 | fixed | `abb8739ee1` |
+| U5, U6 | fixed: every CLI root resolver meets the floor first (five new doors tested byte-identical) | `a477e94204` |
+| U7 | fixed as a true statement: a vault below mvp-0.12 with `recurrence.require_guard = true` needs that key set false at `pre-floor`; the refusal and ADR-019 say so | `0fc27938a0` |
+| U8 | fixed: the activation's derived state is asserted (kills a receipt-only mutant) | `11f9793801` |
+| S1 | fixed: the uncertainty outcomes come from the attempt's contract rubric | `d7a9ee75d3` |
+| S2 | fixed: one reader honours the switch; a test pins that only it reads the table | `6500874367` |
+| S3 | fixed: labels follow a rekey; the chain continues under an earlier id | `755835d316` |
+| S4 | fixed | `86da3bce2a` |
+| S5 | fixed: each attempt records how it was derived; doctor warns on any mismatch | `4b14ab7e6f`, `abaa90304e` |
+| S6 | fixed: the timeline leaves out what the projection leaves out | `9b4de2ef50` |
+| I1 | fixed: staging is hashed as it is copied; only files the items change are targets | `ac0f886a09` |
+| I2 | fixed: delete refused; edit and refresh refused for an item an intent names; recovery fails loudly | `af63b23d8c` |
+| I3 | fixed: the collection build asks `units_not_yet_sent` | `cb31485d14` |
+| I4 | fixed: a shard that recorded a span round reruns its passes from their checkpoints | `d711ca58c4` |
+| I5 | fixed: a discard names the stored answer it judged (five sibling discards too) | `4c1d4bad96` |
+| I6 | fixed | `844d349340` |
+| I7 | fixed: undo's check and changes under one lock | `7bce316feb` |
+| I8 | fixed | `249ae4e93c` |
+| P1 | fixed: the snapshot carries the load's verdict | `1349efbe92` |
+| P2 | fixed | `962f8f0030` |
+| P3 | fixed: the read-modify-write runs under the vault lock | `32bf64016a` |
+| P4 | fixed, and its sibling: the tutor's `find_sources` and `compare_sources` tools | `6aa0c53be2`, `1b931368a1` |
+| P5 | fixed, then narrowed: the routine queue withholds only while a cold retry is open (two named readers) | `9d4f2dd25a`, `acd879b283` |
+| P6 | fixed: an expired or withdrawn retry releases; the refusal branch releases | `ab1431ee12`, `babee7d002` |
+| P7 | fixed | `b8b584c916` |
+| P8 | duplicate of T7 | |
+| T1 | fixed: wrong-scope receipts no longer pass (kills a mutant) | `452b01ff44` |
+| T2 | fixed: the three stop-and-handoff journeys also run on the objective path | `eaa0cd5e6a` |
+| T3 | fixed: the real refinement job is tested with a gated model and a moved clock | `e284c4d77a` |
+| T4 | fixed, and one more loss found by the audit (`test_followup_reserved_only`) | `5e31592dfb` |
+| T5 | restored; not reproduced as a gap (three borrowing mutants were already caught) | `44e0c69222` |
+| T6 | fixed: three distribution tests marked `real_draws` | `abcb878933` |
+| T7 | fixed: a new pin `C3b.chooser` drives the chooser's own assembly | `557eb3c95b` |
+| T8 | fixed: the visitor reads the guard structurally | `216c1f2910` |
+
+**Left open by the round** (each is a ledger row): the bound runners after a sidecar refusal; the lifetime of an unstarted remediation episode (the owner's); the inventory row's I4 shape; the rest of S1 (three inputs still read today's item); a massless walkthrough and the failure streak; Demonstrated above banked credit on one copy; block order under the objective with every seed fixed (D-28, not seen in T2's journeys with the numeric seed fixed).
+
 ## What the review says about the process
 
 - **A fix named by one site was fixed at that site.** K1-6, D-9, D-10 and K1-1 each repaired the path their ledger row named and left a sibling path open (the routine queue, a concurrent run, deleting a pending item, the snapshot). Fix briefs from here ask for every caller and every sibling of the function changed, listed in the record.
