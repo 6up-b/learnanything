@@ -474,6 +474,11 @@ def _append(
     facet_identity_client: Any = None,
     apply_gate: Callable[[], bool] | None = None,
 ) -> AppendResult:
+    """The append's head opens the run: the new inventories, the bounded neighbourhood around them, the manifest
+    recording both, and the agent and synthesis run rows. Its call asks the append prompt (with a span round when
+    the model asks for one); everything after the answer is the shared tail (:func:`finish_synthesis_run`), under
+    the ``APPEND`` mode, with §10.3's routine items as what it applies."""
+
     source_set = next((s for s in vault.source_sets if s.id == source_set_id), None)
     if source_set is None:
         raise StudyMapError("source_set_not_found", f"Source set '{source_set_id}' does not exist.")
@@ -616,8 +621,8 @@ def _apply_routine_items(
     span/assessment attachments apply under the vault lock; everything else stays a pending review proposal.
     Returns the fields it adds to the :class:`AppendResult`.
 
-    ``apply_gate`` is read immediately before applying (UX Phase 1: an automatic build re-reads its kill switches
-    and Undo state here)."""
+    ``apply_gate`` is read immediately before applying: an automatic build re-reads its kill switches and Undo
+    state there."""
 
     rows, auto_apply_ids = outcome.normalized.rows, outcome.normalized.auto_apply_ids or []
     if outcome.match is None:
@@ -737,7 +742,7 @@ def _normalize_append(reconciliation, inputs, vault, now, *, subject_id,
         gate_refs, yaml_refs, span_ids = _span_refs([obj.get("span") or {}], inputs, default_relation=relation)
         ref = yaml_refs[0] if yaml_refs else {}
         # An exam span (its role resolved from the source set) only ever aligns
-        # assessment (§4.2, Codex verification of F6).
+        # assessment (§4.2).
         if ref.get("role") in ASSESSMENT_ONLY_ROLES:
             relation = "assessment_alignment"
         if relation == "assessment_alignment" and target_type == "facet":
@@ -892,9 +897,9 @@ def _normalize_append(reconciliation, inputs, vault, now, *, subject_id,
         )
 
     # `normalized.edge_diagnostics` carries the bootstrap normalizer's typed review
-    # records — concept-edge drops and, since plan item 5.4, the D2 facet-mint
-    # verdicts. They must ride out to the caller's `gate_diagnostics`: D2's rule is
-    # "failure is typed, not silent", and a record dropped here is silent.
+    # records — concept-edge drops and the D2 facet-mint verdicts. They must ride
+    # out to the caller's `gate_diagnostics`: D2's rule is "failure is typed, not
+    # silent", and a record dropped here is silent.
     return replace(
         normalized,
         rows=rows,

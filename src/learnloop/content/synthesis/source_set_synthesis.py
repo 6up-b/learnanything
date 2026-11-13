@@ -2211,6 +2211,11 @@ def _create_study_map(
     facet_identity_client: Any = None,
     apply_gate: Callable[[], bool] | None = None,
 ) -> StudyMapResult:
+    """The bootstrap's head opens the run: the resolved brief, every scope unit's inventory, the budgets, the
+    manifest recording them, and the agent and synthesis run rows. Its call is the shard runner
+    (:func:`_run_synthesis`); everything after the answer is the shared tail (:func:`finish_synthesis_run`), under
+    the ``BOOTSTRAP`` mode, with the whole map and the exam goal as what it applies when asked."""
+
     source_set = next((s for s in vault.source_sets if s.id == source_set_id), None)
     if source_set is None:
         raise StudyMapError("source_set_not_found", f"Source set '{source_set_id}' does not exist.")
@@ -2304,8 +2309,8 @@ def _create_study_map(
         return SynthesisAnswer(merged, span_request_count, resolved_hashes, usage)
 
     def apply_map(outcome: SynthesisOutcome) -> dict[str, Any]:
-        # 6. optional acceptance + goal wiring (learnable map requires mvp-0.7; the
-        #    compilers enforce the bootstrap evidence refusal on a legacy vault).
+        # Acceptance and goal wiring, when asked (a learnable map requires mvp-0.7;
+        # the compilers enforce the bootstrap evidence refusal on a legacy vault).
         if not (apply and not outcome.nothing_new and _gate_open(apply_gate)):
             return {}
         goal_id = _apply_map(
@@ -2339,8 +2344,8 @@ class SynthesisMode:
     """What a bootstrap and an append decide differently once the model has answered. There are two rows,
     ``BOOTSTRAP`` below and ``APPEND`` in :mod:`source_append`, and each field is one difference between them.
 
-    The fields marked "kept" are differences no spec settles (``docs/reviews/refactor-k2.4a.md``, step 0): each
-    keeps its mode's behaviour exactly until the behaviour track decides, under the ledger row it names."""
+    The fields marked "kept" are differences between the two former copies that no spec settles: each keeps its
+    mode's behaviour exactly until one rule is chosen (``docs/reviews/refactor-bug-ledger.md`` names the field)."""
 
     #: The proposal's purpose. A rerun is compared only with earlier proposals of the same purpose.
     proposal_purpose: str
@@ -2359,16 +2364,16 @@ class SynthesisMode:
     #: The answer is saved on the run, so a run that fails after it can be finished with no model call
     #: (``revalidate_synthesis_candidate``, which only bootstrap has).
     keeps_candidate_for_repair: bool
-    #: Kept (ledger K2-10): an answer whose client ids collide fails typed, before the gates.
+    #: Kept: an answer whose client ids collide fails typed, before the gates (append's fails at persist, untyped).
     checks_client_id_collisions: bool
-    #: Kept (K2-9): identifiability findings reach the gates and are persisted as generation needs.
+    #: Kept: identifiability findings reach the gates and are persisted as generation needs.
     analyzes_identifiability: bool
-    #: Kept (K2-13): the agent run records the model call's usage alone, drained from the client after each answer;
-    #: otherwise whatever the client reports by the run's end.
+    #: Kept: the agent run records the model call's usage alone, drained from the client after each answer;
+    #: otherwise whatever the client reports by the run's end (the instrument gates' calls included).
     meters_the_model_call: bool
-    #: Kept (K2-11): the synthesis run records its usage only when it writes a proposal.
+    #: Kept: the synthesis run records its usage only when it writes a proposal.
     usage_only_with_a_proposal: bool
-    #: Kept (K2-14): the rows of a source set whose ``subject_id`` is empty carry the vault's first subject.
+    #: Kept: the rows of a source set whose ``subject_id`` is empty carry the vault's first subject.
     resolves_an_empty_subject: bool
 
 
@@ -2427,7 +2432,7 @@ def _gate_and_persist(
     typed error propagates.
 
     ``token_usage`` is the provider-reported cost of the model calls that
-    produced ``merged``, already drained by the caller (A7 / migration 131).
+    produced ``merged``, already drained by the caller.
     Revalidation has none (its whole point is finishing without paying again),
     so it passes None and no ``client``, leaving the original run's recorded
     cost alone. A mode that does not meter its model call passes None and its
@@ -2585,7 +2590,7 @@ class SynthesisAnswer:
     #: What facet identity, the normalizer and the summaries read.
     candidate: Any
     span_request_count: int = 0
-    #: The span hashes the call resolved; None: the mode records none (ledger K2-12).
+    #: The span hashes the call resolved; None: the mode's call does not report them, and the run records none.
     resolved_span_hashes: list[str] | None = None
     #: The call's own usage record (bootstrap's shard runner); facet identity's joins it.
     usage: dict[str, Any] | None = None
@@ -2662,7 +2667,7 @@ def finish_synthesis_run(
 
     repository, client = run.repository, run.client
     items_off = run.brief["practice_items"] == "as_you_read"
-    # A7: a metered mode drains its client ONCE per answer, into a local threaded to every arm that finalizes the
+    # A metered mode drains its client ONCE per answer, into a local threaded to every arm that finalizes the
     # run: the gate stage completes the agent run, and a gate failure completes it again out here, where a second
     # drain would return zeros and erase the cost already recorded.
     token_usage = TokenUsage() if mode.meters_the_model_call else None
@@ -2956,7 +2961,7 @@ def revalidate_synthesis_candidate(
             # Zero model calls: stored (content-addressed) vectors only.
             nominator=GraphNominator.for_review(vault),
             # The run's own facet-identity decisions, replayed (no judge call),
-            # only while the switch is on (review F10: off restores today's run).
+            # only while the switch is on (off, the run is as it would be without facet identity).
             facet_identity_plan=stored_plan,
         )
     except StudyMapError as exc:
