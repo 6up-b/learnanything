@@ -5,12 +5,12 @@
 
 
 [ratchet]
-largest_import_component = 189
-modules_in_an_import_cycle = 286
+largest_import_component = 188
+modules_in_an_import_cycle = 285
 first_level_packages = 46
 first_level_root_modules = 35
 first_level_root_modules_not_upgrade = 35
-functions_over_200_lines = 81
+functions_over_200_lines = 80
 comment_lines_naming_a_stage_artifact = 2395
 test_files_named_for_a_stage = 184
 
@@ -195,7 +195,6 @@ import_component = [
     "learnloop.source_retrieval.vault_notes",
     "learnloop.substrate.activities",
     "learnloop.substrate.activity_patterns",
-    "learnloop.substrate.administration_adapters",
     "learnloop.substrate.canonical_projection",
     "learnloop.substrate.replay",
     "learnloop.substrate.state_sync",
@@ -299,7 +298,6 @@ functions_over_200_lines = [
     "src/learnloop/figures/service.py _author_attempts_and_store",
     "src/learnloop/goals/certification_cold_probe.py schedule_certification_cold_probes",
     "src/learnloop/hints/report.py build_hints_report",
-    "src/learnloop/learner/facet_evidence_timeline.py _observation_events_by_facet",
     "src/learnloop/ops/contamination/report.py contamination_report",
     "src/learnloop/ops/embedding_backfill.py backfill_embeddings",
     "src/learnloop/ops/family_proposals.py propose_families",
