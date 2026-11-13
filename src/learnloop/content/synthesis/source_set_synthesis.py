@@ -620,7 +620,8 @@ class _Normalized:
     criterion_targets: list[dict[str, Any]]
     recipe_components: list[dict[str, Any]]
     facet_ids: list[str]
-    # Review diagnostics from concept-edge derivation (dropped/invalid edges).
+    # Typed review records of what normalization dropped or changed (concept edges, items, the D2 mint
+    # verdicts; an append's links and restructures): they reach the gate diagnostics, or the drop is silent.
     edge_diagnostics: list[dict[str, Any]] = field(default_factory=list)
     # Slice 2 T5 shadow beside the D2 mint verdicts (None when nominations are
     # off): embedding neighbours and the repair-equivalence shadow. Never
@@ -629,6 +630,9 @@ class _Normalized:
     # Facet identity (handoff §4): one undoable action per judged set the
     # proposal carries; recorded with the proposal.
     facet_identity_actions: list[dict[str, Any]] = field(default_factory=list)
+    # The client ids §10.3 lets an append apply without review; None where the mode has no such lane, so its run
+    # record names none.
+    auto_apply_ids: list[str] | None = None
 
 
 def _span_refs(

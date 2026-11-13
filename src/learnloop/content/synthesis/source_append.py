@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Collection, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +52,8 @@ from learnloop.content.facet_identity import authority as facet_meaning
 from learnloop.content.synthesis.proposal_match import match_proposal
 from learnloop.content.synthesis.source_set_synthesis import (
     StudyMapError,
+    _Normalized,
+    _count_items,
     _facet_identity_plan,
     _collect_inputs,
     _gate_context,
@@ -611,30 +613,22 @@ def _append(
                 ),
                 vault, repository, synthesis_run_id, nominator=nominator, client=facet_identity_client,
             )
-            (
-                rows,
-                gate_items,
-                conflict_candidates,
-                dispositions,
-                auto_apply_ids,
-                normalizer_diagnostics,
-                graph_nomination,
-                facet_identity_actions,
-            ) = _normalize_append(
-                reconciliation, inputs, vault, neighborhood, now, subject_id=subject_id,
+            normalized = _normalize_append(
+                reconciliation, inputs, vault, now, subject_id=subject_id,
                 items_off=items_off, nominator=nominator, facet_identity_plan=facet_identity_plan,
             )
+            rows, auto_apply_ids = normalized.rows, normalized.auto_apply_ids
 
             gate_ctx = _gate_context(vault, repository, inputs, [], nominator=nominator)
             gate_ctx.append_mode = True
             gate_proposal = GateProposal(
-                items=gate_items,
-                conflict_candidates=conflict_candidates,
-                non_conflict_dispositions=dispositions,
+                items=normalized.gate_items,
+                conflict_candidates=normalized.conflict_candidates,
+                non_conflict_dispositions=normalized.non_conflict_dispositions,
             )
             report = run_synthesis_gates(gate_proposal, gate_ctx)
             diagnostics = [d.to_dict() for d in report.diagnostics]
-            diagnostics.extend(normalizer_diagnostics)
+            diagnostics.extend(normalized.edge_diagnostics)
             diagnostics.extend(preset_diagnostics)
             if report.blocked:
                 raise StudyMapError("append_gate_failed", "Append proposal failed hard quality gates.",
@@ -683,7 +677,7 @@ def _append(
             coverage = {"gate_diagnostics": diagnostics, "auto_apply_item_ids": auto_apply_ids}
             if nominator is not None:
                 coverage["graph_nomination"] = {
-                    **(graph_nomination or {}), "summary": nominator.summary(),
+                    **(normalized.graph_nomination or {}), "summary": nominator.summary(),
                 }
             actual_usage: dict[str, Any] | None = None
             if facet_identity_plan is not None:
@@ -692,7 +686,7 @@ def _append(
                 coverage["facet_identity"] = {
                     **facet_identity_plan.summary(),
                     "action_ids": record_proposed_actions(
-                        repository, facet_identity_actions, origin="append",
+                        repository, normalized.facet_identity_actions, origin="append",
                         run_id=synthesis_run_id, proposal_id=patch_id, clock=clock,
                     ),
                 }
@@ -738,7 +732,7 @@ def _append(
         source_set_id=source_set.id, subject_id=subject_id, change_kind=change_kind,
         manifest_hash=manifest_hash, synthesis_run_id=synthesis_run_id, proposal_id=patch_id,
         reused=match is not None, nothing_new=match is not None and match.kind == "settled",
-        item_counts=_count(rows), gate_diagnostics=diagnostics,
+        item_counts=_count_items(rows), gate_diagnostics=diagnostics,
         neighborhood=neighborhood.as_manifest_record(), span_request_count=span_request_count,
         review_item_ids=review_ids,
     )
@@ -820,12 +814,10 @@ def _run_reconciliation(
 # --- normalization ----------------------------------------------------------
 
 
-def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subject_id,
-                      items_off: bool = False, nominator=None, facet_identity_plan=None):
-    """Map an AppendReconciliation to proposal rows + gate items + auto-apply ids.
-
-    The last element is the T5 mint-gate shadow record (``None`` when
-    nominations are off)."""
+def _normalize_append(reconciliation, inputs, vault, now, *, subject_id,
+                      items_off: bool = False, nominator=None, facet_identity_plan=None) -> _Normalized:
+    """Map an AppendReconciliation to proposal rows and gate items: the bootstrap normalizer over its new
+    coverage, then the append's own item kinds after it, with the client ids §10.3 auto-applies."""
 
     def d(obj):
         return obj if isinstance(obj, dict) else obj.model_dump()
@@ -1034,15 +1026,14 @@ def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subje
     # records — concept-edge drops and, since plan item 5.4, the D2 facet-mint
     # verdicts. They must ride out to the caller's `gate_diagnostics`: D2's rule is
     # "failure is typed, not silent", and a record dropped here is silent.
-    return (
-        rows,
-        gate_items,
-        conflict_candidates,
-        set(getattr(reconciliation, "non_conflict_dispositions", []) or []),
-        auto_apply_ids,
-        [*normalized.edge_diagnostics, *dropped_diagnostics],
-        normalized.graph_nomination,
-        normalized.facet_identity_actions,
+    return replace(
+        normalized,
+        rows=rows,
+        gate_items=gate_items,
+        conflict_candidates=conflict_candidates,
+        non_conflict_dispositions=set(getattr(reconciliation, "non_conflict_dispositions", []) or []),
+        edge_diagnostics=[*normalized.edge_diagnostics, *dropped_diagnostics],
+        auto_apply_ids=auto_apply_ids,
     )
 
 
@@ -1277,13 +1268,6 @@ def _span_yaml(span, inputs) -> dict[str, Any]:
         return {}
     _refs, yaml_refs, _ = _span_refs([span if isinstance(span, dict) else span.model_dump()], inputs, default_relation="support")
     return yaml_refs[0] if yaml_refs else {}
-
-
-def _count(rows) -> dict[str, int]:
-    counts: dict[str, int] = {}
-    for row in rows:
-        counts[row["item_type"]] = counts.get(row["item_type"], 0) + 1
-    return counts
 
 
 # --- study-map diff snapshot ------------------------------------------------
