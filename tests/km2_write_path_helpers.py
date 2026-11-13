@@ -75,7 +75,7 @@ def _lo(lo_id, title, summary):
 
 
 # The tag a few tests still pin: they read what the canonical-state path stamps (the consuming projection version,
-# the near-clone discount's surface groups) and the head's path differs (D6 retires the tag's path).
+# the near-clone discount's surface groups) and the head's path differs.
 KM2_OLD_TAG = "mvp-0.7"
 
 

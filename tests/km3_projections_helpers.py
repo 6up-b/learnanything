@@ -60,7 +60,7 @@ def _item(item_id, *, facet, capability, mode, correlation_group, points=4):
 
 
 # The tag whose capability projection the dual-axis tests still read: the head's projection reports these
-# facets' capabilities differently (D6 retires the tag's path).
+# facets' capabilities differently.
 BLUEPRINT_OLD_TAG = "mvp-0.7"
 
 
