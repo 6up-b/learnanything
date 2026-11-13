@@ -173,7 +173,7 @@ The two files grow by 106 lines together: the tail's records carry a line of doc
 
 ## Gates
 
-- **Targeted tests.** `scripts/affected_tests.py --base 655e7a2d07` chose 318 files; with the rules block's list and the files this step adds or edits, 327, run at `164796fc5d` with `-m "not arc_close"` in 4 chunks of up to 100 at `-n 4` under the 5 GB cap behind the full-suite lock: 6,359 passed, 26 skipped, 0 failed. After the later test-only and docs commits: the goldens, `test_structure_ratchets`, `test_identity_pins`, `test_test_layout`, `test_architecture`, `test_module_catalog_inventory` and the synthesis files again, all passed.
+- **Targeted tests.** `scripts/affected_tests.py --base 655e7a2d07` chose 324 files; with the rules block's list and the files this step adds or edits, 327, run at `164796fc5d` with `-m "not arc_close"` in 4 chunks of up to 100 at `-n 4` under the 5 GB cap behind the full-suite lock: 6,359 passed, 26 skipped, 0 failed. After the later test-only and docs commits: the goldens, `test_structure_ratchets`, `test_identity_pins`, `test_test_layout`, `test_architecture`, `test_module_catalog_inventory` and the synthesis files again, all passed.
 - **Identity pins:** unmoved.
 - **Structure ratchets:** lowered (`bb440f7c1e`): functions over 200 lines 82 to 79 (`_append`, `_create_study_map`, and `remediation.reschedule_assisted_cold_retry`, already under 200 at the base); stage-artifact comment lines 2,398 to 2,395 (two in the moved synthesis code, one in `jobs.py` already gone at the base).
 - **Lint:** `lint-imports --no-cache` 42 kept; `ruff check` clean.
