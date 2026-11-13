@@ -404,7 +404,7 @@ A per-module count of database, clock, filesystem and randomness reads (grep ove
 
 ### 6.1 Comments
 
-The convention (strategy §2.1) is that a comment says what breaks without the line or why the obvious approach is wrong, and names no review round, ruling or stage. Counted over the 30 swept modules plus `prefetch_runtime.py` (lines matching each pattern; script `cnt.sh` in the orchestrator's scratch):
+The convention (strategy §2.1) is that a comment says what breaks without the line or why the obvious approach is wrong, and names no review round, ruling or stage. Counted over the 25 figures modules, `figures/__init__.py`, `figure_admission.py`, `teacher/visuals.py`, the sidecar's `handlers/figures.py` and `prefetch_runtime.py`, 30 files (lines matching each pattern; script `cnt.sh` in the orchestrator's scratch):
 
 | pattern | lines |
 |---|---:|
@@ -417,7 +417,7 @@ The convention (strategy §2.1) is that a comment says what breaks without the l
 | `fix round`, `final round` | 24 |
 | `Codex verify`, `final verify` | 11 |
 
-Every one of the 31 files names a stage. `service.py` alone has 253 such lines, the sidecar handler 77, `prefetch.py` 46, `rich.py` 34. The module docstring of `service.py` (`figures/service.py:1-142`) is six stage sections (RW5a, RW5b, RW5d P1, P2, P2b, RW5c, P5) rather than a description of what the module does. Many comments carry real "why" content wrapped in a round's name (for example `figures/service.py:2204-2210`, "One build per input at a time (Codex review F7) … Reread inside the lock (fix round 2, F7): a build that committed between the reads above left `reused` empty"); the round's name is the noise, the reason is the content. The "byte for byte" comments mark switch-off paths that must reproduce a predecessor's prompt, key or view exactly (for example `figures/service.py:1359`, `figures/routes.py:426`, `teacher/visuals.py:27-29`): they document an invariant, but one the code can't check locally.
+All 30 files name a stage. `service.py` alone has 253 such lines, the sidecar handler 77, `prefetch.py` 46, `rich.py` 34. The module docstring of `service.py` (`figures/service.py:1-142`) is six stage sections (RW5a, RW5b, RW5d P1, P2, P2b, RW5c, P5) rather than a description of what the module does. Many comments carry real "why" content wrapped in a round's name (for example `figures/service.py:2204-2210`, "One build per input at a time (Codex review F7) … Reread inside the lock (fix round 2, F7): a build that committed between the reads above left `reused` empty"); the round's name is the noise, the reason is the content. The "byte for byte" comments mark switch-off paths that must reproduce a predecessor's prompt, key or view exactly (for example `figures/service.py:1359`, `figures/routes.py:426`, `teacher/visuals.py:27-29`): they document an invariant, but one the code can't check locally.
 
 **Good models to keep:** `figure_admission.py:22-27` (why a gate and not checks at named call sites), `:331-343` (why `FiguresChanged` is a `BaseException`), `figures/prefetch_model.py:1-62` (the model as equations, priors and their bases), `figures/sketch_engine.py:1-36` (the sealing and the caps), `figures/records.py:1-22`, `figures/prefetch_model.py:108-114` (why the wait prior's strength is one measurement).
 
@@ -451,7 +451,51 @@ The minimum reading before any of these: `service.py` (to find the branch), `fig
 
 | Id | Severity | Finding | Evidence |
 |---|---|---|---|
-| F10C1 | high | About 670 comment and docstring lines name a stage, a review round or a ruling, and `service.py`'s module docstring is a stage history. A reader can't tell from the code which rules are invariants and which were one round's patch; the reasons are often there, under the names. | §6.1 counts; `figures/service.py:1-142`, `:2204-2210` |
+| F10C1 | high | About 630 comment and docstring line matches (a line can match two patterns) name a stage, a review round or a ruling, and `service.py`'s module docstring is a stage history. A reader can't tell from the code which rules are invariants and which were one round's patch; the reasons are often there, under the names. | §6.1 counts; `figures/service.py:1-142`, `:2204-2210` |
 | F10C2 | medium | The switch-off invariants ("byte for byte", 36 lines) are comments, not tests next to the code: each new switch multiplies the prompt, key and view variants the next change must preserve. | `figures/routes.py:400-437`; `figures/service.py:2169-2179`, `:1348-1373` |
 | F10C3 | medium | Adding a tier touches about 15 places; adding a place that offers Show me needs the handler's 15 checks understood first. | §6.3 |
 | F10C4 | low | `js_animation` is unreachable but present in seven files; legacy `verified` rows keep a presentation path. | §6.2 |
+
+## 7. Change cost, counted
+
+From `git log`/`git show` on non-merge commits (a delegated sweep; the single commits below I re-counted with `git show --stat`, the stage unions are the sweep's and are listed under "Not verified"). Groups: **figures** = the scope's Python files; **other src**; **desktop** (source, tests, corpora); **tests** that assert behaviour; **pins** = goldens, snapshots, fixtures, `tests/cli_surface.json`, `tests/goldens/*`, successor and upgrade tests that only re-point a version or the head fixture, and the head fixture (about 24 files per migration); **generated** = `docs/learnloop-architecture-vault/Reference`.
+
+**Figures' history.** 109 non-merge commits touch `src/learnloop/figures` since 2026-10-01, the package's whole history (the first is `f5f96ec7d9`, 2026-10-20). The files outside `figures/` most often edited with it (re-counted): `learnloop_sidecar/handlers/figures.py` 28, `params/parameter_registry.py` 20, `db/stores/figures.py` 14, `figure_admission.py` 13, `config/schema.py` 13, `apps/learnloop-tauri/src/screens/reader/figures/useFigures.ts` 11.
+
+### 7.1 Single changes
+
+| kind | commit | figures | other src | desktop | tests (behaviour) | pins | generated | total |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| (a) grammar: a bad prediction drops itself, not the figure | `214c206ff1` (2026-11-08) | 6 (`routes`, `service`, `sketch`, `sketch_verify`, `spec`, `verify`) | 0 | 0 | 1 | 1 in a follow-up commit (`1975294a0c`, `tests/fixtures/rw5c_switch_off_golden.json`: "214c206ff1 bumped both prompt versions") | 0 | 7 + 1 |
+| (b) a sketch check: claims checked at every prediction's graded step | `db1d84da96` (2026-10-31) | 1 (`sketch_verify`) | 0 | 3 (two corpora, one test) | 3 (two are corpus helpers) | 0 | 0 | 8 (with its review file) |
+| (b) a book-math reading: `\cdots` in words, certification 6 → 7 | `8974d41869` (2026-11-05) | 2 | 0 | 0 | 3 | 0 | 0 | 5 |
+| (d) the teacher's visuals, first commit | `463f9a3041` (2026-11-02) | 3 (`service`, `teacher/visuals`, sidecar handler) | 4 (`teacher/contracts`, `teacher/service`, the doctrine paragraph, `handlers/lesson`) | 0 | 0 | 0 | 0 | 8 (of 22 for the stage) |
+| (e) a prompt and a contract: the figure author's learner state | `32a29ab775` (2026-11-01) | 4 | 2 (`ai/disclosures`, `params/parameter_registry`) | 0 | 0 | 0 (config 2) | 0 | 8 |
+| a successor: the figure wait estimate (mvp-0.58) | `afd5a257bc` (2026-11-10) | 4 | 9 (the upgrade module, `algorithm_versions`, CLI, registry, sidecar context) | 0 | 2 new | 2 (`cli_surface.json`, `effective_defaults.toml`) + about 32 successor tests that bump `mvp-0.57` → `mvp-0.58` | 0 | 70 |
+
+### 7.2 Whole stages (the sweep's unions)
+
+| kind | stage | figures | other src + config | desktop | tests | pins (head fixture, successor re-points, goldens) | generated |
+|---|---|---:|---:|---:|---:|---:|---:|
+| (a) four advanced panels | RW5b (19 commits) | 6 | 14 | 19 | 11 | 0 | 412 |
+| (c) checked labels, book math | RW5c | 17 | 12 | 21 + 15 engine files | 69 | 24 + 16 + 4 | 560 |
+| (c) the sketch tier | RW5d P2 (29 commits) | 9 | 6 | 29 + 13 engine files | 17 | 0 | 459 |
+| (c) the Manim tier | RW5d P2b (18 commits) | 7 | 13 | 8 + 2 | 15 | 0 | 462 |
+| (d) Show me from the tutor and the Ask rail | RW5d P1 (13 commits) | 5 | 18 + 1 migration | 16 + 2 | 37 | 24 + 15 | 428 |
+| (d) figures on attempt hosts | RW5d P3 (21 commits) | 6 | 23 + 1 migration | 11 + 2 | 43 | 24 + 15 | 467 |
+| (d) the teacher's visuals | RW5d P4b (9 commits) | 3 | 7 | 4 | 2 | 1 | 0 |
+
+### 7.3 What the counts say
+
+- **A change inside one concern is small:** a grammar or verification change edits 2-6 figure files and 1-3 tests (§7.1).
+- **A prompt change pays in pins, not code.** `214c206ff1` changed `routes.py` and needed a separate commit to re-record the switch-off golden; since B4 (`0ed4761bf0`, 2026-11-10) a prompt change also re-records `tests/fixtures/figure_prompts_golden.json` (`FIGURE_PROMPTS_WRITE_GOLDEN=1`). No prompt has changed since that golden was written.
+- **A new tier or place costs 15-60 source and desktop files and 15-70 tests**, and most of the size is plumbing every stage shares: a migration brings the head fixture (24 files) and about 15 successor tests that re-point it; a config key brings `config/schema.py`, `params/parameter_registry.py` and, since Nov 9, the defaults golden and the CLI surface; each regeneration rewrote 400-560 generated notes (before the stamps were removed). These are arc A and D's costs, not figures'.
+- **The figures-specific part of a tier** is the §3.2 list (about 15 places in 7 Python files) plus 8-29 desktop files: the tier is implemented twice, once to author and verify and once to draw.
+
+### Findings
+
+| Id | Severity | Finding | Evidence |
+|---|---|---|---|
+| F10H1 | medium | A new tier costs about 15 places across 7 Python modules and the desktop, because the tier is a branch in the author loop, the reuse key, the presentation chain, the label, the view, the records and the prefetch model rather than one module. | §3.2; §7.2 |
+| F10H2 | medium | The sidecar handler is the most co-edited file (28 of 109 commits): every new place or rule edits it, because it holds policy (§3, F10B2). | §7 history |
+| F10H3 | low | A prompt change edits one file and re-records two goldens (the switch-off golden and, since B4, the prompt golden). | `1975294a0c`; `docs/reviews/refactor-b4.md:53` |
