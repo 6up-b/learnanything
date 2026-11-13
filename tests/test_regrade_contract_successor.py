@@ -262,24 +262,47 @@ def test_a_method_explicit_regrade_cites_its_frozen_contract_under_a_new_revisio
     assert {row.grading_revision for row in live} == {1}
 
 
-def test_below_the_successor_a_regrade_writes_as_before(tmp_path):
-    paths, vault, repository = _vault(tmp_path, version=PREDECESSOR)
-    _graded_apply(vault, repository, ITEM, {"setup": 1.0, "result": 1.0}, attempt_id="att_old", when=T)
-    _regrade(vault, repository, "att_old", {"setup": 1.0, "result": 2.0}, when=T + timedelta(days=1))
-    live = _rows(repository, "att_old")
-    # The original's model rows stay live beside the regrade's, which cite nothing.
-    assert len(live) == 4
-    regrade_rows = [row for row in live if row.grading_revision is None]
-    assert len(regrade_rows) == 2 and {row.assessment_contract_version_id for row in regrade_rows} == {None}
-
-
 # -- replay and the unrecorded hold -------------------------------------------------------------
+
+
+def _as_regraded_before_contracts(repository, attempt_id, *, grade=None):
+    """Rewrite an attempt's latest regrade as the predecessor's ordinary regrade
+    wrote it (test construction only): its rows cite no contract and carry no
+    grading revision, and it superseded only the self tier (tier 1), so the
+    model rows it replaced stay live beside it. ``grade``: the (score,
+    correctness) the predecessor's replay left on the attempt row. No vault
+    that opens is below the tag, so that writer is gone, but a vault at the
+    floor still holds the rows it wrote; replay must read them. The
+    construction was checked against the predecessor's own writer on the code
+    before refactor D4 (``docs/reviews/refactor-d4.md``): the same rows,
+    ids and stamps aside."""
+
+    rows = repository.fetch_grading_evidence(attempt_id, include_superseded=True)
+    latest = max(row.grading_revision for row in rows if row.grading_revision is not None)
+    new_ids = [row.id for row in rows if row.grading_revision == latest]
+    marks = ",".join("?" for _ in new_ids)
+    with repository.connection() as connection:
+        connection.execute(
+            "UPDATE grading_evidence SET superseded_at = NULL, superseded_by_evidence_id = NULL "
+            f"WHERE attempt_id = ? AND superseded_by_evidence_id IN ({marks}) AND grader_tier <> 1",
+            (attempt_id, *new_ids),
+        )
+        connection.execute(
+            "UPDATE grading_evidence SET grading_revision = NULL, assessment_contract_version_id = NULL "
+            f"WHERE id IN ({marks})",
+            new_ids,
+        )
+        if grade is not None:
+            connection.execute(
+                "UPDATE practice_attempts SET rubric_score = ?, correctness = ? WHERE id = ?", (*grade, attempt_id)
+            )
+        connection.commit()
 
 
 def _legacy_regraded(tmp_path, *, config="", self_graded=False):
     """An answer regraded at the predecessor within its original maximum (3
-    of 8 under the raised rubric, uncited), rebuilt there: the §8.4 case-2
-    shape, 0.75 as the predecessor replays it."""
+    of 8 under the raised rubric, uncited): the §8.4 case-2 shape, 0.75 as the
+    predecessor replayed it (all live rows over the first cited contract)."""
 
     paths, vault, repository = _vault(tmp_path, version=PREDECESSOR, config=config)
     apply = _self_graded_apply if self_graded else _graded_apply
@@ -287,16 +310,9 @@ def _legacy_regraded(tmp_path, *, config="", self_graded=False):
     _set_result_points(paths, 6)
     vault = load_vault(paths.root)
     _regrade(vault, repository, "att_l", {"setup": 1.0, "result": 2.0}, when=T + timedelta(days=1))
-    _rebuild(vault, repository)
+    # The self-graded original was superseded, so the predecessor read the regrade alone, over today's 8.
+    _as_regraded_before_contracts(repository, "att_l", grade=(3, 0.375) if self_graded else (3, 0.75))
     return paths, vault, repository
-
-
-def test_below_the_successor_old_rows_replay_exactly_as_before(tmp_path):
-    paths, vault, repository = _legacy_regraded(tmp_path)
-    assert _grade(repository, "att_l") == (3, 0.75)  # the predecessor's reading, kept
-    before = _state(repository)
-    _rebuild(vault, repository)
-    assert _state(repository) == before
 
 
 def test_an_uncited_regrade_epoch_is_held_with_the_maximum_recorded_with_it(tmp_path):
@@ -414,6 +430,7 @@ def test_a_first_grade_made_before_contracts_keeps_its_compatibility_reading(tmp
 
     paths = pin_old_basic_vault(build_diagnosis_vault(tmp_path / "vault"))
     seed_history(paths)
+    _history_graded_before_contracts(Repository(paths.sqlite_path))
     set_algorithm_version(paths, PREDECESSOR)
     vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
     _settle(vault, repository)
@@ -436,6 +453,23 @@ def test_a_first_grade_made_before_contracts_keeps_its_compatibility_reading(tmp
     attempt = repository.fetch_practice_attempt("att_03_svd_pass")
     assert attempt["manual_review_reason"] == GRADE_CONTRACT_UNRECORDED
     assert 0.0 <= attempt["correctness"] <= 1.0
+
+
+def _history_graded_before_contracts(repository):
+    """Rewrite every grade as an mvp-0.6 vault wrote it (test construction
+    only): no grading revision, no assessment contract and no observation id,
+    and no contract snapshot. Today's attempt step stamps all of them on any
+    vault, so a history graded before contracts can only be built this way;
+    checked against the mvp-0.6 attempt step on the code before refactor D4
+    (``docs/reviews/refactor-d4.md``): the same rows, ids and stamps aside."""
+
+    with repository.connection() as connection:
+        connection.execute(
+            "UPDATE grading_evidence SET grading_revision = NULL, assessment_contract_version_id = NULL, "
+            "observation_id = NULL"
+        )
+        connection.execute("DELETE FROM assessment_contract_versions")
+        connection.commit()
 
 
 def _as_graded_before_contracts(repository, attempt_id):
@@ -467,6 +501,7 @@ def test_a_regrade_in_its_pre_contract_grades_second_is_held_not_read_as_its_onl
     _self_graded_apply(vault, repository, ITEM, {"setup": 1.0, "result": 1.0}, attempt_id="att_s2", when=T)
     _as_graded_before_contracts(repository, "att_s2")
     _regrade(vault, repository, "att_s2", {"setup": 1.0, "result": 2.0}, when=T + after)
+    _as_regraded_before_contracts(repository, "att_s2")
     rows = _rows(repository, "att_s2", superseded=True)
     assert {row.grading_revision for row in rows} == {None}
     assert {row.assessment_contract_version_id for row in rows} == {None}
@@ -612,6 +647,9 @@ def test_a_regraded_observation_resolves_its_graded_contract_in_the_forecast_rea
     paths, vault, repository = _vault(tmp_path, version=version)
     _graded_apply(vault, repository, ITEM, {"setup": 1.0, "result": 1.0}, attempt_id="att_fc", when=T)
     _regrade(vault, repository, "att_fc", {"setup": 2.0, "result": 2.0}, when=T + timedelta(days=1))
+    if version == PREDECESSOR:
+        # The reader of a regrade written before the tag (uncited): built from today's regrade.
+        _as_regraded_before_contracts(repository, "att_fc")
     facet = vault.practice_items[ITEM].evidence_facets[0]
 
     with repository.connection() as connection:
@@ -907,12 +945,11 @@ def _channel_max_points(repository, attempt_id):
     return json.loads(raw)["max_points"]
 
 
-@pytest.mark.parametrize("version", [PREDECESSOR, VERSION])
-def test_the_grade_channel_classifies_a_grade_out_of_the_maximum_it_was_computed_against(tmp_path, version):
+def test_the_grade_channel_classifies_a_grade_out_of_the_maximum_it_was_computed_against(tmp_path):
     """The dual-written grade channel reads the same maximum as the attempt
-    row at the successor (the cited contract's), never today's item; below it
-    the channel keeps reading the item."""
+    row (the cited contract's), never today's item."""
 
+    version = VERSION
     paths, vault, repository = _vault(tmp_path, version=version)
     _graded_apply(vault, repository, ITEM, {"setup": 1.0, "result": 1.0}, attempt_id="att_g", when=T)
     _set_result_points(paths, 6)
