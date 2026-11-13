@@ -291,6 +291,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f15_a_generated_update_that_rewrites_a_judged_source_statement_is_refused`
   - `test_f15_an_owner_edit_of_a_pending_update_cannot_rewrite_the_statement_either`
   - `test_f16_a_generated_items_override_is_ledgered_and_the_write_is_idempotent`
+- [tests/test_rerun_proposals.py](../../../../../../../tests/test_rerun_proposals.py) — direct import
+  - `test_a_retry_after_an_apply_failure_applies_the_proposal_it_persisted`
 - [tests/test_sidecar_contract.py](../../../../../../../tests/test_sidecar_contract.py) — direct import
   - `test_sidecar_reject_accepted_concept_reports_reference_blocker`
 - [tests/test_source_append.py](../../../../../../../tests/test_source_append.py) — direct import

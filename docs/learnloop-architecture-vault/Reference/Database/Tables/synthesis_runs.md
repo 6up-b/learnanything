@@ -120,6 +120,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/runner.py`
 - `src/learnloop/content/proposals/apply_protocol.py`
 - `src/learnloop/content/sources/provenance.py`
+- `src/learnloop/content/synthesis/proposal_match.py`
 - `src/learnloop/content/synthesis/source_append.py`
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop_sidecar/handlers/ingest.py`
@@ -135,6 +136,7 @@ Indexes and uniqueness:
 - `tests/test_graph_nomination_ingest.py`
 - `tests/test_migrations.py`
 - `tests/test_model_usage_report.py`
+- `tests/test_rerun_proposals.py`
 - `tests/test_source_append.py`
 - `tests/test_source_set_synthesis.py`
 - `tests/ux_phase1_round2_review_helpers.py`
@@ -148,7 +150,6 @@ Indexes and uniqueness:
 - `tests/test_synthesis_criterion_dependencies.py`
 - `tests/test_synthesis_runs_repo.py`
 - `tests/test_synthesis_sweep_primary_only.py`
-- `tests/test_ux_phase1_round2_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
