@@ -1283,7 +1283,6 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/diagnosis/recurrence/kind|learnloop.diagnosis.recurrence.kind]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/live|learnloop.diagnosis.recurrence.live]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/report|learnloop.diagnosis.recurrence.report]] — imports `Repository`
-- [[Reference/Modules/learnloop/diagnosis/recurrence/upgrade|learnloop.diagnosis.recurrence.upgrade]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/signal_quantiles|learnloop.diagnosis.signal_quantiles]] — imports `Repository`
@@ -1386,7 +1385,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/ops/pf_publish|learnloop.ops.pf_publish]] — imports `Repository`
 - [[Reference/Modules/learnloop/ops/pf_reports|learnloop.ops.pf_reports]] — imports `Repository`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `Repository`
-- [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] — imports `Repository`
+- [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `Repository`
 - [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] — imports `Repository`
 - [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] — imports `Repository`
 - [[Reference/Modules/learnloop/params/sensitivity_certificates|learnloop.params.sensitivity_certificates]] — imports `Repository`
@@ -1580,7 +1579,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 388 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 387 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1804,7 +1803,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ad_reads_history_through_its_own_fallback_and_field_keeps_its_own`
 - [tests/test_ad23_successor.py](../../../../../../tests/test_ad23_successor.py) — direct import
   - `test_below_the_tag_a_rebuild_writes_no_ad_state`
-  - `test_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest`
 - [tests/test_ad23_t1_routes.py](../../../../../../tests/test_ad23_t1_routes.py) — direct import
   - `test_inside_an_ad_operation_no_route_asks_and_no_grant_serves`
 - [tests/test_ad2_model.py](../../../../../../tests/test_ad2_model.py) — direct import
@@ -1923,7 +1921,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_probe_attempt_still_closes_its_single_use_surface`
   - `test_an_attempt_on_an_item_with_no_row_inserts_the_whole_row`
 - [tests/test_attempt_content_state_successor.py](../../../../../../tests/test_attempt_content_state_successor.py) — direct import
-  - `test_landing_ii_without_a_completion_an_attach_refuses_and_the_upgrade_still_completes_it`
 - [tests/test_attempt_write_order.py](../../../../../../tests/test_attempt_write_order.py) — direct import
   - `test_canonical_attempt_write_order_is_receipt_grade_evidence_state_then_post`
 - [tests/test_attempts.py](../../../../../../tests/test_attempts.py) — direct import
@@ -1934,7 +1931,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_authoring_contract.py](../../../../../../tests/test_authoring_contract.py) — direct import
 - [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — direct import
   - `test_iii_a_figure_grant_never_meters_an_ask_and_an_ask_grant_meters_it_under_the_cap`
-  - `test_without_a_completion_every_attach_refuses_with_the_mvp035_upgrade_message`
 - [tests/test_build_study_map_routing.py](../../../../../../tests/test_build_study_map_routing.py) — direct import
 - [tests/test_calibration.py](../../../../../../tests/test_calibration.py) — direct import
 - [tests/test_calibration_sessions.py](../../../../../../tests/test_calibration_sessions.py) — direct import
@@ -2060,7 +2056,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_codex_transport_retired.py](../../../../../../tests/test_codex_transport_retired.py) — direct import
   - `test_an_attempt_graded_by_codex_replays_identically`
 - [tests/test_cold_retry_reschedule.py](../../../../../../tests/test_cold_retry_reschedule.py) — direct import
-  - `test_without_a_completion_an_attach_refuses_and_the_upgrade_still_completes_the_mvp037_journal`
 - [tests/test_cold_start_revision.py](../../../../../../tests/test_cold_start_revision.py) — direct import
   - `test_scheduler_excludes_assessment_side_errors`
 - [tests/test_coldness_receipt.py](../../../../../../tests/test_coldness_receipt.py) — direct import
@@ -2139,10 +2134,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_cross_seam_exposure.py](../../../../../../tests/test_cross_seam_exposure.py) — direct import
   - `test_same_surface_exactly_one_wins_via_shared_ledger`
   - `test_stale_ownership_still_prevents_double_administration`
-- [tests/test_curriculum_c1_landing.py](../../../../../../tests/test_curriculum_c1_landing.py) — direct import
-  - `test_ii_an_interrupted_mvp040_activation_is_refused_without_the_completion_and_upgrade_completes_it`
-- [tests/test_curriculum_c1_plan_follows_path.py](../../../../../../tests/test_curriculum_c1_plan_follows_path.py) — direct import
-  - `test_without_a_completion_an_attach_refuses_and_the_upgrade_still_completes_the_mvp039_journal`
 - [tests/test_curriculum_locks.py](../../../../../../tests/test_curriculum_locks.py) — direct import
   - `test_a_facet_merge_is_legal_with_review`
   - `test_an_active_goal_scope_no_longer_locks_a_facet`
@@ -2329,7 +2320,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_exam_answers_certify_facet_evidence_on_canonical_vault`
 - [tests/test_facet_belief_successor.py](../../../../../../tests/test_facet_belief_successor.py) — direct import
   - `test_the_legacy_recall_bridge_stays_refused_at_the_tag`
-  - `test_the_upgrade_rebuilds_under_the_tag_and_completes_once`
 - [tests/test_facet_candidates.py](../../../../../../tests/test_facet_candidates.py) — direct import
   - `test_harvests_candidates_from_multiple_sources`
   - `test_harvests_candidates_from_unit_inventories`
@@ -2598,9 +2588,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
   - `test_receipts_store_labels_and_unlabelled_calls_work_below_175`
 - [tests/test_kinship_feature.py](../../../../../../tests/test_kinship_feature.py) — direct import
-- [tests/test_km2_activation.py](../../../../../../tests/test_km2_activation.py) — direct import
-  - `test_app_load_repairs_vault_activated_by_old_upgrade`
-  - `test_upgrade_projects_existing_attempts_into_canonical_facet_state`
 - [tests/test_km2_canonical.py](../../../../../../tests/test_km2_canonical.py) — direct import
   - `test_cycle_creating_merge_rejected`
   - `test_merge_chain_canonicalizes_transitively`
@@ -2623,9 +2610,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_read_model_opens_one_connection_per_call`
 - [tests/test_learner_report_superseded.py](../../../../../../tests/test_learner_report_superseded.py) — direct import
   - `test_a_new_starting_level_keeps_the_old_one_for_an_lo_first_practised_under_it`
-  - `test_the_activation_derives_what_the_predecessor_derived`
   - `test_two_writers_on_one_warm_lo_apply_their_reports_in_the_order_replay_reads`
-  - `test_without_a_completion_every_attach_refuses_with_the_mvp036_upgrade_message`
 - [tests/test_learner_review_system_entries.py](../../../../../../tests/test_learner_review_system_entries.py) — direct import
 - [tests/test_learner_text_gaps_composition.py](../../../../../../tests/test_learner_text_gaps_composition.py) — direct import
 - [tests/test_learner_text_gaps_review.py](../../../../../../tests/test_learner_text_gaps_review.py) — direct import
@@ -2635,9 +2620,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_deferred_index_job_is_woken_at_its_retry_time`
   - `test_a_queued_index_job_whose_worker_never_started_is_started_by_the_sweep`
 - [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import
-  - `test_upgrade_from_the_predecessor_replays_claimed_los_and_through_the_chain`
-- [tests/test_lp_claim_fixes_rereview.py](../../../../../../tests/test_lp_claim_fixes_rereview.py) — direct import
-  - `test_f2_attaches_that_never_write_refuse_while_the_journal_stands`
 - [tests/test_lp_claim_fixes_review.py](../../../../../../tests/test_lp_claim_fixes_review.py) — direct import
   - `test_f1_a_gap_promotion_interrupted_before_its_row_applies_its_claim_once_on_retry`
   - `test_f6_get_feedback_attaches_the_line_to_the_resolving_review_only`
@@ -2651,9 +2633,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_graph_identifiability_report_publishes_the_rank`
 - [tests/test_measurement_state_labels.py](../../../../../../tests/test_measurement_state_labels.py) — direct import
   - `test_claimed_label_when_only_a_learner_claim_covers_the_cell`
-- [tests/test_method_explicit_upgrade.py](../../../../../../tests/test_method_explicit_upgrade.py) — direct import
-  - `test_head_fixture_predecessor_to_successor_path`
-  - `test_upgrade_from_mvp024_flips_rebuilds_and_rewrites_nothing`
 - [tests/test_method_phrasing_report.py](../../../../../../tests/test_method_phrasing_report.py) — direct import
   - `test_f3_a_repair_refuses_a_rubric_edited_before_acceptance`
   - `test_f6_the_writers_verdicts_reach_the_ledger_linked_to_the_repair`
@@ -2706,53 +2685,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_model_work_checkpoints.py](../../../../../../tests/test_model_work_checkpoints.py) — direct import
   - `test_ingest_job_and_direct_inventory_key_windows_identically`
   - `test_inventory_window_checkpoint_that_no_longer_validates_is_discarded`
-- [tests/test_mvp010_upgrade.py](../../../../../../tests/test_mvp010_upgrade.py) — direct import
-  - `test_head_fixture_predecessor_to_successor_path`
-  - `test_upgrade_flips_rebuilds_and_preserves_raw_history`
-- [tests/test_mvp011_upgrade.py](../../../../../../tests/test_mvp011_upgrade.py) — direct import
-  - `test_existing_vaults_keep_their_version_until_the_owner_upgrades`
-  - `test_head_fixture_predecessor_to_successor_path`
-  - `test_upgrade_from_mvp010_flips_rebuilds_and_preserves_history_and_open_episodes`
-  - `test_upgrade_from_mvp09_chains_through_the_split`
-- [tests/test_mvp013_upgrade.py](../../../../../../tests/test_mvp013_upgrade.py) — direct import
-  - `test_head_fixture_predecessor_to_successor_path`
-  - `test_upgrade_from_mvp012_flips_rebuilds_and_preserves_raw_history`
-- [tests/test_mvp014_upgrade.py](../../../../../../tests/test_mvp014_upgrade.py) — direct import
-  - `test_head_fixture_predecessor_to_successor_path`
-  - `test_upgrade_from_mvp013_flips_rebuilds_and_rewrites_nothing`
-- [tests/test_mvp015_upgrade.py](../../../../../../tests/test_mvp015_upgrade.py) — direct import
-  - `test_head_fixture_predecessor_to_successor_path`
-  - `test_upgrade_from_mvp014_flips_rebuilds_and_rewrites_nothing`
-- [tests/test_mvp016_upgrade.py](../../../../../../tests/test_mvp016_upgrade.py) — direct import
-  - `test_head_fixture_predecessor_to_successor_path`
-  - `test_upgrade_from_mvp015_flips_rebuilds_and_rewrites_nothing`
-- [tests/test_mvp017_upgrade.py](../../../../../../tests/test_mvp017_upgrade.py) — direct import
-  - `test_head_fixture_predecessor_to_successor_path`
-  - `test_upgrade_from_mvp016_flips_rebuilds_and_rewrites_nothing`
-- [tests/test_mvp018_upgrade.py](../../../../../../tests/test_mvp018_upgrade.py) — direct import
-  - `test_head_fixture_predecessor_to_successor_path`
-  - `test_upgrade_from_mvp017_flips_rebuilds_and_rewrites_nothing`
-- [tests/test_mvp020_upgrade.py](../../../../../../tests/test_mvp020_upgrade.py) — direct import
-  - `test_head_fixture_predecessor_to_successor_path`
-  - `test_upgrade_from_mvp019_flips_rebuilds_and_rewrites_nothing`
-- [tests/test_mvp021_upgrade.py](../../../../../../tests/test_mvp021_upgrade.py) — direct import
-  - `test_head_fixture_predecessor_to_successor_path`
-  - `test_the_successor_rebuild_equals_mvp020s_projection`
-  - `test_upgrade_from_mvp020_flips_rebuilds_and_rewrites_nothing`
-- [tests/test_mvp022_upgrade.py](../../../../../../tests/test_mvp022_upgrade.py) — direct import
-  - `test_head_fixture_predecessor_to_successor_path`
-  - `test_upgrade_from_mvp021_flips_rebuilds_and_rewrites_nothing`
-- [tests/test_mvp023_upgrade.py](../../../../../../tests/test_mvp023_upgrade.py) — direct import
-  - `test_head_fixture_predecessor_to_successor_path`
-  - `test_the_router_serves_only_at_the_successor_with_its_switch_on`
-  - `test_upgrade_from_mvp022_flips_rebuilds_and_rewrites_nothing`
-- [tests/test_mvp024_upgrade.py](../../../../../../tests/test_mvp024_upgrade.py) — direct import
-  - `test_head_fixture_predecessor_to_successor_path`
-  - `test_the_mixture_serves_only_at_the_successor_in_mixture_mode`
-  - `test_the_restraint_has_its_own_switch`
-  - `test_upgrade_from_mvp023_flips_rebuilds_and_rewrites_nothing`
-- [tests/test_mvp09_upgrade.py](../../../../../../tests/test_mvp09_upgrade.py) — direct import
-  - `test_upgrade_to_mvp09_flips_rebuilds_and_preserves_raw_history`
 - [tests/test_notes_linked.py](../../../../../../tests/test_notes_linked.py) — direct import
   - `test_r6_two_concurrent_refreshes_resolve_to_the_newest_read`
 - [tests/test_observation_ledger_bulk.py](../../../../../../tests/test_observation_ledger_bulk.py) — direct import
@@ -2781,8 +2713,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_paid_calls_fail_on_a_second_truncation`
   - `test_paid_calls_retry_a_truncation_once_at_double_the_admitted_budget`
   - `test_the_compare_harness_uses_the_policy_budget_and_retries_a_truncation`
-- [tests/test_p0_cutover_mvp08.py](../../../../../../tests/test_p0_cutover_mvp08.py) — direct import
-  - `test_mvp06_derived_output_is_byte_identical_across_p0_machinery`
 - [tests/test_p0_projection_cutover.py](../../../../../../tests/test_p0_projection_cutover.py) — direct import
   - `test_grading_evidence_write_discipline_is_append_only_with_supersession`
 - [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import
@@ -2966,9 +2896,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_question_signal.py](../../../../../../tests/test_question_signal.py) — direct import
 - [tests/test_quick_add.py](../../../../../../tests/test_quick_add.py) — direct import
 - [tests/test_randomization_layer.py](../../../../../../tests/test_randomization_layer.py) — direct import
-- [tests/test_rbeq_pr2_landing.py](../../../../../../tests/test_rbeq_pr2_landing.py) — direct import
-  - `test_every_opener_that_may_write_completes_an_interrupted_mvp034_activation_first`
-  - `test_without_a_completion_the_opener_and_every_attach_refuse_with_the_upgrade_message`
 - [tests/test_re0_capture.py](../../../../../../tests/test_re0_capture.py) — direct import
   - `test_an_unchanged_retry_accepted_before_re0_is_not_a_conflict`
 - [tests/test_reader_adoption_ownership.py](../../../../../../tests/test_reader_adoption_ownership.py) — direct import
@@ -3009,8 +2936,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_successor_never_sends_while_the_holder_renews_past_its_original_lease`
   - `test_overlapping_narrations_from_two_repositories_pay_once`
 - [tests/test_reader_followups.py](../../../../../../tests/test_reader_followups.py) — direct import
-- [tests/test_reader_followups_successor.py](../../../../../../tests/test_reader_followups_successor.py) — direct import
-  - `test_without_a_completion_an_attach_refuses_and_the_upgrade_still_completes_the_mvp038_journal`
 - [tests/test_reader_guidance.py](../../../../../../tests/test_reader_guidance.py) — direct import
   - `test_joint_guide_plan_is_unchanged_by_the_overlay_read`
   - `test_unresolved_misunderstanding_drives_plain_language_passage_reason`
@@ -3113,8 +3038,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_success_breaks_item_streak_before_a_later_failure`
   - `test_success_resets_repeat_failure_gate_and_coverage_is_not_failed`
   - `test_zero_score_independent_attempt_uses_rubric_coverage_and_confidence_as_reliability`
-- [tests/test_recurrence_commands.py](../../../../../../tests/test_recurrence_commands.py) — direct import
-  - `test_the_head_fixture_predecessor_to_successor_path`
 - [tests/test_recurrence_deferral.py](../../../../../../tests/test_recurrence_deferral.py) — direct import
 - [tests/test_recurrence_groups.py](../../../../../../tests/test_recurrence_groups.py) — direct import
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
@@ -3123,9 +3046,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_regrade_contract_successor.py](../../../../../../tests/test_regrade_contract_successor.py) — direct import
   - `test_a_first_grade_made_before_contracts_keeps_its_compatibility_reading`
   - `test_an_adjudication_allocates_its_revision_inside_its_own_transaction`
-- [tests/test_regrade_contract_upgrade.py](../../../../../../tests/test_regrade_contract_upgrade.py) — direct import
-  - `test_head_fixture_predecessor_to_successor_path`
-  - `test_upgrade_with_nothing_to_reinterpret_replays_nothing`
 - [tests/test_remaining_decision_records.py](../../../../../../tests/test_remaining_decision_records.py) — direct import
   - `test_a_commission_job_that_generated_nothing_says_why`
   - `test_ads_envelope_records_no_refusal_since_its_guard_denies_the_table`
@@ -3188,8 +3108,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_at_the_tag_a_rebuild_moves_every_eligible_due_date_to_the_unstretched_interval`
   - `test_every_whole_vault_rebuild_records_the_factors_switch`
 - [tests/test_ro1_self_report.py](../../../../../../tests/test_ro1_self_report.py) — direct import
-- [tests/test_ro1_successor.py](../../../../../../tests/test_ro1_successor.py) — direct import
-  - `test_the_upgrade_moves_existing_due_dates_to_the_unstretched_interval`
 - [tests/test_ro1_upgrade_report.py](../../../../../../tests/test_ro1_upgrade_report.py) — direct import
 - [tests/test_ro2_ad_document_ir.py](../../../../../../tests/test_ro2_ad_document_ir.py) — direct import
   - `test_the_reading_map_answers_inside_the_operation_what_the_incumbent_answers_outside`
@@ -3537,6 +3455,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_tutor_promotion_w2.py](../../../../../../tests/test_tutor_promotion_w2.py) — direct import
 - [tests/test_tutor_qa.py](../../../../../../tests/test_tutor_qa.py) — direct import
 - [tests/test_unresolved_cause_gate.py](../../../../../../tests/test_unresolved_cause_gate.py) — direct import
+- [tests/test_upgrades.py](../../../../../../tests/test_upgrades.py) — direct import
+  - `test_attaches_that_never_write_refuse_while_the_journal_stands`
+  - `test_each_activation_kind_commits_its_own_receipt_once`
 - [tests/test_ux_phase1_finish.py](../../../../../../tests/test_ux_phase1_finish.py) — direct import
 - [tests/test_ux_phase1_landing.py](../../../../../../tests/test_ux_phase1_landing.py) — direct import
   - `test_a_book_with_the_retired_keep_local_gets_its_passage_check_when_asked`

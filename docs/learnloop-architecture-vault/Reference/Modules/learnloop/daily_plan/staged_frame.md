@@ -147,8 +147,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_support_respects_constraints_reversibility_and_admission`
 - [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
   - `test_the_staged_pick_inside_the_objective_is_the_same_with_preferences_on_record`
-- [tests/test_mvp024_upgrade.py](../../../../../../tests/test_mvp024_upgrade.py) — direct import
-  - `test_the_mixture_serves_only_at_the_successor_in_mixture_mode`
 - [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_the_why_names_the_path_and_stays_plain`
 - [tests/test_router_g1_feasibility.py](../../../../../../tests/test_router_g1_feasibility.py) — direct import

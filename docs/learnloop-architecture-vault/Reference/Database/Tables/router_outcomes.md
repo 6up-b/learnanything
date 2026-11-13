@@ -20,9 +20,9 @@ source_paths:
   - "src/learnloop/cli/router.py"
   - "src/learnloop/daily_plan/learner_action.py"
   - "src/learnloop/daily_plan/router_retrieval.py"
-  - "src/learnloop/data_capture_upgrade.py"
   - "src/learnloop/db/stores/router.py"
   - "src/learnloop/evsi_calibration/live_report.py"
+  - "src/learnloop/router/outcomes.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
 tags:
   - "learnloop/database/table"
@@ -134,7 +134,6 @@ None found by exact static reference scan.
 - `tests/test_data_capture_successor.py`
 - `tests/test_evsi_router_composition.py`
 - `tests/test_held_grade_composition.py`
-- `tests/test_mvp015_upgrade.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_ro5_calibration.py`
 - `tests/test_router_coldness_covariates.py`

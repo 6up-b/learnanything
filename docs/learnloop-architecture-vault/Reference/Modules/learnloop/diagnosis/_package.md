@@ -154,7 +154,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/signal_quantiles|learnloop.diagnosis.signal_quantiles]] | [[Reference/Modules/learnloop/diagnosis/signal_quantiles#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/taxonomy_regrade|learnloop.diagnosis.taxonomy_regrade]] | [[Reference/Modules/learnloop/diagnosis/taxonomy_regrade#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/voi_forecasting|learnloop.diagnosis.voi_forecasting]] | [[Reference/Modules/learnloop/diagnosis/voi_forecasting#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
-| [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] | [[Reference/Modules/learnloop/diagnosis/voi_stopping#^module-purpose|purpose]] | `ACTIVE` | 8 | 8 |
+| [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] | [[Reference/Modules/learnloop/diagnosis/voi_stopping#^module-purpose|purpose]] | `ACTIVE` | 8 | 7 |
 
 ## Child package maps
 

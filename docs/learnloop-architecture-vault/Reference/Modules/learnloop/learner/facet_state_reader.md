@@ -140,7 +140,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_legacy_era_uncertainty_row_is_never_the_successors_prior_or_read`
   - `test_at_the_tag_the_three_fixes_and_the_uncertainty_show`
   - `test_the_gate_reads_off_below_the_tag_and_with_the_switch_off`
-  - `test_the_upgrade_rebuilds_under_the_tag_and_completes_once`
   - `test_uncertainty_is_written_under_the_merged_facets_survivor`
   - `test_with_the_switch_off_the_belief_is_the_predecessors_exactly`
 - [tests/test_km2b_consumer_rekey.py](../../../../../../tests/test_km2b_consumer_rekey.py) — direct import

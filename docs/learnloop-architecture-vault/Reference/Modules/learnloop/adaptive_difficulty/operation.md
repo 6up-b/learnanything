@@ -290,8 +290,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_guard_denial_is_recorded_beside_the_jsonl_log_the_report_still_reads`
 - [tests/test_learner_blindness_relax.py](../../../../../../tests/test_learner_blindness_relax.py) — direct import
   - `test_the_frozen_state_version_follows_the_switch`
-- [tests/test_pr4_superseded_claims_landing.py](../../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
-  - `test_landing_iii_upgrade_to_mvp037_archives_the_denial_log_exactly_once`
 - [tests/test_remaining_decision_records.py](../../../../../../tests/test_remaining_decision_records.py) — direct import
   - `test_a_commission_job_that_generated_nothing_says_why`
 - [tests/test_ro2_ad_document_ir.py](../../../../../../tests/test_ro2_ad_document_ir.py) — direct import

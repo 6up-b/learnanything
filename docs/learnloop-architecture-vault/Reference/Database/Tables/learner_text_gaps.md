@@ -22,8 +22,8 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/ai/disclosures.py"
   - "src/learnloop/algorithm_versions.py"
-  - "src/learnloop/cli/app.py"
   - "src/learnloop/cli/gaps.py"
+  - "src/learnloop/cli/probability_arms.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"

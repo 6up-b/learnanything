@@ -68,51 +68,8 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
 - [[Reference/Modules/learnloop/cli/grading|learnloop.cli.grading]] — imports `record_reinterpretation_if_changed`; statically calls `record_reinterpretation_if_changed`
-- [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/daily_plan_upgrade|learnloop.daily_plan_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/data_capture_upgrade|learnloop.data_capture_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/decider_upgrade|learnloop.decider_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/deliverable_plan_upgrade|learnloop.deliverable_plan_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/diagnosis/recurrence/upgrade|learnloop.diagnosis.recurrence.upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/eligibility_decision_upgrade|learnloop.eligibility_decision_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/failure_share_upgrade|learnloop.failure_share_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/figure_wait_upgrade|learnloop.figure_wait_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/followup_serve_upgrade|learnloop.followup_serve_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/help_fold_attach_upgrade|learnloop.help_fold_attach_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/intent_upgrade|learnloop.intent_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/learner_text_gap_upgrade|learnloop.learner_text_gap_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/lesson_offers_upgrade|learnloop.lesson_offers_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/lesson_opportunity_upgrade|learnloop.lesson_opportunity_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/lesson_suggestions_upgrade|learnloop.lesson_suggestions_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/method_explicit_upgrade|learnloop.method_explicit_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/one_ask_upgrade|learnloop.one_ask_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/phone_probes_upgrade|learnloop.phone_probes_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/probe_tie_upgrade|learnloop.probe_tie_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/proof_check_upgrade|learnloop.proof_check_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/reader_followups_upgrade|learnloop.reader_followups_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/reading_path_plan_upgrade|learnloop.reading_path_plan_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/regrade_contract_upgrade|learnloop.regrade_contract_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/route_rules_upgrade|learnloop.route_rules_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/router_calibration_upgrade|learnloop.router_calibration_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/router_followups_upgrade|learnloop.router_followups_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/router_learned_tail_upgrade|learnloop.router_learned_tail_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/router_mixture_upgrade|learnloop.router_mixture_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/router_objective_upgrade|learnloop.router_objective_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/router_staged_upgrade|learnloop.router_staged_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/slip_gap_upgrade|learnloop.slip_gap_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/sources_upgrade|learnloop.sources_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/stuck_prompt_upgrade|learnloop.stuck_prompt_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/superseded_claims_upgrade|learnloop.superseded_claims_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/teacher_probes_upgrade|learnloop.teacher_probes_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/teacher_upgrade|learnloop.teacher_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/unevidenced_return_upgrade|learnloop.unevidenced_return_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/voi_stopping_upgrade|learnloop.voi_stopping_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
-- [[Reference/Modules/learnloop/workbench_field_signals_upgrade|learnloop.workbench_field_signals_upgrade]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
+- [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `activate_p0_projection`; statically calls `activate_p0_projection`
 
 ## Dependencies
 
@@ -137,7 +94,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/grading|learnloop.cli.grading]], [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]] and 40 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/grading|learnloop.cli.grading]], [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -51,8 +51,8 @@ For system intent, use [[Configuration]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/config/compat|learnloop.config.compat]] | [[Reference/Modules/learnloop/config/compat#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
 | [[Reference/Modules/learnloop/config/loader|learnloop.config.loader]] | [[Reference/Modules/learnloop/config/loader#^module-purpose|purpose]] | `ACTIVE` | 12 | 11 |
 | [[Reference/Modules/learnloop/config/retired|learnloop.config.retired]] | [[Reference/Modules/learnloop/config/retired#^module-purpose|purpose]] | `ACTIVE` | 8 | 3 |
-| [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] | [[Reference/Modules/learnloop/config/schema#^module-purpose|purpose]] | `ACTIVE` | 36 | 120 |
-| [[Reference/Modules/learnloop/config/template|learnloop.config.template]] | [[Reference/Modules/learnloop/config/template#^module-purpose|purpose]] | `ACTIVE` | 2 | 19 |
+| [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] | [[Reference/Modules/learnloop/config/schema#^module-purpose|purpose]] | `ACTIVE` | 36 | 111 |
+| [[Reference/Modules/learnloop/config/template|learnloop.config.template]] | [[Reference/Modules/learnloop/config/template#^module-purpose|purpose]] | `ACTIVE` | 2 | 11 |
 
 ## Cross-package dependencies
 

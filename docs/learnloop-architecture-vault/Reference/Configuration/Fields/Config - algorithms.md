@@ -16,20 +16,20 @@ source_paths:
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
-  - "src/learnloop/ad_successor_upgrade.py"
   - "src/learnloop/adaptive_difficulty/history_forecast.py"
+  - "src/learnloop/adaptive_difficulty/outside.py"
   - "tests/ad23_contract_helpers.py"
   - "tests/ad_guard_offer_receipts_helpers.py"
-  - "tests/batch3_landing_helpers.py"
   - "tests/canonical_facet_helpers.py"
   - "tests/causal_orchestrator_helpers.py"
   - "tests/causal_p2_acceptance_helpers.py"
   - "tests/causal_shadow_selection_helpers.py"
   - "tests/cli_generate_practice_helpers.py"
   - "tests/cold_retry_reschedule_helpers.py"
-  - "tests/curriculum_c1_plan_follows_path_helpers.py"
   - "tests/data_capture_codex_review_helpers.py"
   - "tests/data_capture_successor_helpers.py"
+  - "tests/diagnostic_probe_single_use_helpers.py"
+  - "tests/followups_batch6_verify_fixes_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/algorithms"
@@ -50,7 +50,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `algorithms.algorithm_version` | `"mvp-0.59"` | string | explicit template decision | Pins the replay/defaults namespace so historical evidence is interpreted by the algorithm that produced it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:20`; `src/learnloop/ad_successor_upgrade.py:71`; `src/learnloop/adaptive_difficulty/history_forecast.py:427` |
+| `algorithms.algorithm_version` | `"mvp-0.59"` | string | explicit template decision | Pins the replay/defaults namespace so historical evidence is interpreted by the algorithm that produced it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:20`; `src/learnloop/adaptive_difficulty/history_forecast.py:427`; `src/learnloop/adaptive_difficulty/outside.py:406` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Every effective default is one line of `tests/goldens/effective_defaults.toml`, so a changed default shows up in review, where the `algorithms.algorithm_version` decision is made, instead of every default being dumped into each vault.
@@ -61,16 +61,16 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/ad23_contract_helpers.py`
 - `tests/ad_guard_offer_receipts_helpers.py`
-- `tests/batch3_landing_helpers.py`
 - `tests/canonical_facet_helpers.py`
 - `tests/causal_orchestrator_helpers.py`
 - `tests/causal_p2_acceptance_helpers.py`
 - `tests/causal_shadow_selection_helpers.py`
 - `tests/cli_generate_practice_helpers.py`
 - `tests/cold_retry_reschedule_helpers.py`
-- `tests/curriculum_c1_plan_follows_path_helpers.py`
 - `tests/data_capture_codex_review_helpers.py`
 - `tests/data_capture_successor_helpers.py`
+- `tests/diagnostic_probe_single_use_helpers.py`
+- `tests/followups_batch6_verify_fixes_helpers.py`
 
 ## Extension and modification guidance
 

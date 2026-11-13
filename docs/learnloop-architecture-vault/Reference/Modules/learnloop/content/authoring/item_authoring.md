@@ -143,7 +143,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_second_too_easy_report_keeps_the_first_as_a_replaced_row_that_no_live_reader_reads`
   - `test_below_the_tag_the_seam_still_deletes_the_replaced_claim`
   - `test_random_attempts_and_learner_reports_rebuild_to_live`
-  - `test_the_activation_derives_what_the_predecessor_derived`
   - `test_the_field_priors_read_only_the_claims_in_force`
   - `test_two_retirements_on_an_lo_without_attempts_rebuild_to_the_variance_the_replaced_one_left`
   - `test_two_writers_on_one_warm_lo_apply_their_reports_in_the_order_replay_reads`

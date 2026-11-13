@@ -89,10 +89,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]] — imports `VaultPaths`; statically calls `VaultPaths`
@@ -122,7 +119,6 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/cli/success_head|learnloop.cli.success_head]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/cli/teacher|learnloop.cli.teacher]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] — imports `VaultPaths`, `animation_video_path`; statically calls `VaultPaths`, `animation_video_path`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] — imports `VaultPaths`; statically calls `VaultPaths`
@@ -143,38 +139,19 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/curriculum/golden_path_fixture|learnloop.curriculum.golden_path_fixture]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/curriculum/integration_backfill|learnloop.curriculum.integration_backfill]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/daily_plan_upgrade|learnloop.daily_plan_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/data_capture_upgrade|learnloop.data_capture_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/decider_upgrade|learnloop.decider_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/deliverable_plan_upgrade|learnloop.deliverable_plan_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/diagnosis/grading_hardcases|learnloop.diagnosis.grading_hardcases]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/benchmarks|learnloop.diagnosis.recurrence.benchmarks]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/diagnosis/recurrence/upgrade|learnloop.diagnosis.recurrence.upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/diagnosis/split/embeddings|learnloop.diagnosis.split.embeddings]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/eligibility_decision_upgrade|learnloop.eligibility_decision_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/evsi_calibration/live_report|learnloop.evsi_calibration.live_report]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/records|learnloop.experiments.contextual_embeddings.records]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/facet_belief_upgrade|learnloop.facet_belief_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/failure_share_upgrade|learnloop.failure_share_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/figure_wait_upgrade|learnloop.figure_wait_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/followup_serve_upgrade|learnloop.followup_serve_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/goals/goal_contracts|learnloop.goals.goal_contracts]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/help_fold_attach_upgrade|learnloop.help_fold_attach_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/intent/deadline|learnloop.intent.deadline]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/intent_upgrade|learnloop.intent_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/interval_factor_upgrade|learnloop.interval_factor_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/learner/learner_profile|learnloop.learner.learner_profile]] — imports `VaultPaths`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/learner_text_gap_upgrade|learnloop.learner_text_gap_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/lesson_offers_upgrade|learnloop.lesson_offers_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/lesson_opportunity_upgrade|learnloop.lesson_opportunity_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/lesson_suggestions_upgrade|learnloop.lesson_suggestions_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/method_explicit_upgrade|learnloop.method_explicit_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/one_ask_upgrade|learnloop.one_ask_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/ops/contamination/recipes|learnloop.ops.contamination.recipes]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/ops/contamination/report|learnloop.ops.contamination.report]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/ops/debug_time|learnloop.ops.debug_time]] — imports `VaultPaths`; statically calls `VaultPaths`
@@ -185,49 +162,26 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/ops/graph_nomination_report|learnloop.ops.graph_nomination_report]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/ops/pf_reports|learnloop.ops.pf_reports]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/phone_probes_upgrade|learnloop.phone_probes_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
+- [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/practice_index/dossiers|learnloop.practice_index.dossiers]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/practice_index/evaluation|learnloop.practice_index.evaluation]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `VaultPaths`
-- [[Reference/Modules/learnloop/probe_tie_upgrade|learnloop.probe_tie_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/proof_check_upgrade|learnloop.proof_check_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/reader/phone_media|learnloop.reader.phone_media]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/reader_followups_upgrade|learnloop.reader_followups_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/reading_path_plan_upgrade|learnloop.reading_path_plan_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/regrade_contract_upgrade|learnloop.regrade_contract_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/replay_ledger_upgrade|learnloop.replay_ledger_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/route_rules_upgrade|learnloop.route_rules_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/router_calibration_upgrade|learnloop.router_calibration_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/router_followups_upgrade|learnloop.router_followups_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/router_learned_tail_upgrade|learnloop.router_learned_tail_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/router_mixture_upgrade|learnloop.router_mixture_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/router_objective_upgrade|learnloop.router_objective_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/router_staged_upgrade|learnloop.router_staged_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/slip_gap_upgrade|learnloop.slip_gap_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/source_retrieval/bench|learnloop.source_retrieval.bench]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/source_retrieval/recipes|learnloop.source_retrieval.recipes]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/source_retrieval/source_vectors|learnloop.source_retrieval.source_vectors]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/sources_upgrade|learnloop.sources_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/stuck_prompt_upgrade|learnloop.stuck_prompt_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/substrate/families|learnloop.substrate.families]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/superseded_claims_upgrade|learnloop.superseded_claims_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/teacher_probes_upgrade|learnloop.teacher_probes_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/teacher_upgrade|learnloop.teacher_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/unevidenced_return_upgrade|learnloop.unevidenced_return_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/vault/embedding_recipes|learnloop.vault.embedding_recipes]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `VaultPaths`, `find_vault_root`; statically calls `VaultPaths`, `find_vault_root`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `VaultPaths`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/voi_stopping_upgrade|learnloop.voi_stopping_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
-- [[Reference/Modules/learnloop/workbench_field_signals_upgrade|learnloop.workbench_field_signals_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop_sidecar/handlers/library|learnloop_sidecar.handlers.library]] — imports `VaultPaths`; statically calls `VaultPaths`
@@ -257,7 +211,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 139 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]], [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]] and 93 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -370,8 +324,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_km5_sim_gates.py](../../../../../../tests/test_km5_sim_gates.py) — direct import
   - `test_shadow_intent_logs_practice_integration_at_the_right_moment`
 - [tests/test_learner_read_model_pinning.py](../../../../../../tests/test_learner_read_model_pinning.py) — direct import
-- [tests/test_learner_report_superseded.py](../../../../../../tests/test_learner_report_superseded.py) — direct import
-- [tests/test_lp_claim_fixes_rereview.py](../../../../../../tests/test_lp_claim_fixes_rereview.py) — direct import
 - [tests/test_originals_store.py](../../../../../../tests/test_originals_store.py) — direct import
   - `test_failed_original_write_leaves_no_temporary_file`
   - `test_resolve_prefers_store_then_original_uri`
@@ -384,7 +336,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_practice_information.py](../../../../../../tests/test_practice_information.py) — direct import
 - [tests/test_probe_orchestration_remainder.py](../../../../../../tests/test_probe_orchestration_remainder.py) — direct import
 - [tests/test_quick_add.py](../../../../../../tests/test_quick_add.py) — direct import
-- [tests/test_rbeq_pr2_landing.py](../../../../../../tests/test_rbeq_pr2_landing.py) — direct import
 - [tests/test_re0_capture.py](../../../../../../tests/test_re0_capture.py) — direct import
   - `test_migration_252_adds_one_nullable_checked_column_to_a_ledger_table`
 - [tests/test_reader_dialogue.py](../../../../../../tests/test_reader_dialogue.py) — direct import
@@ -442,6 +393,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_overconfidence_probe_origin_survives_target_selection`
   - `test_overconfidence_probe_records_origin`
   - `test_probe_episode_without_origin_is_null`
+- [tests/test_upgrades.py](../../../../../../tests/test_upgrades.py) — direct import
 - [tests/test_ux_phase1_finish.py](../../../../../../tests/test_ux_phase1_finish.py) — direct import
 - [tests/test_ux_phase1_usability_round1.py](../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
 - [tests/test_version_floor.py](../../../../../../tests/test_version_floor.py) — direct import

@@ -47,28 +47,28 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py) |
-| Source lines | 189 |
+| Source lines | 162 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class InterruptedActivation(RuntimeError)` ([source](../../../../../src/learnloop/activation_journal.py), line 82) — The vault's activation did not commit; it is not served until it completes.
-- `journal_path(sqlite_path: Path) -> Path` ([source](../../../../../src/learnloop/activation_journal.py), line 86) — The activation journal beside ``sqlite_path``.
-- `pending(sqlite_path: Path) -> bool` ([source](../../../../../src/learnloop/activation_journal.py), line 93) — Whether an activation journal stands beside ``sqlite_path``.
-- `completing() -> bool` ([source](../../../../../src/learnloop/activation_journal.py), line 99) — Whether this context is completing (or running) the activation itself.
-- `completing_activation() -> Iterator[None]` ([source](../../../../../src/learnloop/activation_journal.py), line 106) — Mark this context as the activation's own writer, so its opens are not refused.
-- `message(sqlite_path: Path) -> str` ([source](../../../../../src/learnloop/activation_journal.py), line 116) — What to tell the learner: which upgrade did not finish, and the command that completes it.
-- `install_completer(completer: Callable[[Path], object] | None) -> None` ([source](../../../../../src/learnloop/activation_journal.py), line 142) — Install the process's completion (an entry point does, at import); None removes it.
-- `complete(vault_root: Path, sqlite_path: Path) -> None` ([source](../../../../../src/learnloop/activation_journal.py), line 149) — Complete a journalled activation before an opener attaches, or raise :class:`InterruptedActivation`.
-- `refuse_if_interrupted(sqlite_path: Path) -> None` ([source](../../../../../src/learnloop/activation_journal.py), line 171) — Raise :class:`InterruptedActivation` while a journal stands (unless this context completes it).
+- `class InterruptedActivation(RuntimeError)` ([source](../../../../../src/learnloop/activation_journal.py), line 55) — The vault's activation did not commit; it is not served until it completes.
+- `journal_path(sqlite_path: Path) -> Path` ([source](../../../../../src/learnloop/activation_journal.py), line 59) — The activation journal beside ``sqlite_path``.
+- `pending(sqlite_path: Path) -> bool` ([source](../../../../../src/learnloop/activation_journal.py), line 66) — Whether an activation journal stands beside ``sqlite_path``.
+- `completing() -> bool` ([source](../../../../../src/learnloop/activation_journal.py), line 72) — Whether this context is completing (or running) the activation itself.
+- `completing_activation() -> Iterator[None]` ([source](../../../../../src/learnloop/activation_journal.py), line 79) — Mark this context as the activation's own writer, so its opens are not refused.
+- `message(sqlite_path: Path) -> str` ([source](../../../../../src/learnloop/activation_journal.py), line 89) — What to tell the learner: which upgrade did not finish, and the command that completes it.
+- `install_completer(completer: Callable[[Path], object] | None) -> None` ([source](../../../../../src/learnloop/activation_journal.py), line 115) — Install the process's completion (an entry point does, at import); None removes it.
+- `complete(vault_root: Path, sqlite_path: Path) -> None` ([source](../../../../../src/learnloop/activation_journal.py), line 122) — Complete a journalled activation before an opener attaches, or raise :class:`InterruptedActivation`.
+- `refuse_if_interrupted(sqlite_path: Path) -> None` ([source](../../../../../src/learnloop/activation_journal.py), line 144) — Raise :class:`InterruptedActivation` while a journal stands (unless this context completes it).
 
 ### Module constants
 
-- `JOURNAL_SUFFIX` ([src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py), line 73)
-- `_COMPLETING` ([src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py), line 76)
-- `_COMPLETER` ([src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py), line 79)
+- `JOURNAL_SUFFIX` ([src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py), line 46)
+- `_COMPLETING` ([src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py), line 49)
+- `_COMPLETER` ([src/learnloop/activation_journal.py](../../../../../src/learnloop/activation_journal.py), line 52)
 
 ### Explicit exports
 
@@ -87,43 +87,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_link(sqlite_path: Path) -> tuple[str, str] | None` ([source](../../../../../src/learnloop/activation_journal.py), line 132) — The journalled upgrade's ``(predecessor, target)``, or None for a torn journal (its completion decides).
+- `_link(sqlite_path: Path) -> tuple[str, str] | None` ([source](../../../../../src/learnloop/activation_journal.py), line 105) — The journalled upgrade's ``(predecessor, target)``, or None for a torn journal (its completion decides).
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `module`; statically calls `install_completer`
-- [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/data_capture_upgrade|learnloop.data_capture_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `refuse_if_interrupted`; statically calls `refuse_if_interrupted`
-- [[Reference/Modules/learnloop/deliverable_plan_upgrade|learnloop.deliverable_plan_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/facet_belief_upgrade|learnloop.facet_belief_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/failure_share_upgrade|learnloop.failure_share_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/figure_wait_upgrade|learnloop.figure_wait_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/followup_serve_upgrade|learnloop.followup_serve_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/help_fold_attach_upgrade|learnloop.help_fold_attach_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/interval_factor_upgrade|learnloop.interval_factor_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/lesson_offers_upgrade|learnloop.lesson_offers_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/lesson_opportunity_upgrade|learnloop.lesson_opportunity_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/lesson_suggestions_upgrade|learnloop.lesson_suggestions_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/one_ask_upgrade|learnloop.one_ask_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/phone_probes_upgrade|learnloop.phone_probes_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/reader_followups_upgrade|learnloop.reader_followups_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
+- [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `module`; statically calls `completing_activation`, `journal_path`, `message`, `pending`
 - [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]] — imports `module`; statically calls `message`, `pending`
-- [[Reference/Modules/learnloop/replay_ledger_upgrade|learnloop.replay_ledger_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/router_calibration_upgrade|learnloop.router_calibration_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/router_followups_upgrade|learnloop.router_followups_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/router_learned_tail_upgrade|learnloop.router_learned_tail_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/router_objective_upgrade|learnloop.router_objective_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/slip_gap_upgrade|learnloop.slip_gap_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/superseded_claims_upgrade|learnloop.superseded_claims_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/teacher_probes_upgrade|learnloop.teacher_probes_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/teacher_upgrade|learnloop.teacher_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
-- [[Reference/Modules/learnloop/unevidenced_return_upgrade|learnloop.unevidenced_return_upgrade]] — imports `module`; statically calls `completing_activation`, `journal_path`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `module`; statically calls `complete`, `completing`, `pending`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `module`; statically calls `install_completer`
 
@@ -145,43 +119,22 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]], [[Reference/Modules/learnloop/data_capture_upgrade|learnloop.data_capture_upgrade]] and 27 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]], [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]], [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
-- [tests/curriculum_c1_plan_follows_path_helpers.py](../../../../../tests/curriculum_c1_plan_follows_path_helpers.py) — direct import
 - [tests/test_ad_denial_log.py](../../../../../tests/test_ad_denial_log.py) — direct import
-- [tests/test_attempt_content_state_successor.py](../../../../../tests/test_attempt_content_state_successor.py) — direct import
-  - `test_landing_ii_without_a_completion_an_attach_refuses_and_the_upgrade_still_completes_it`
-- [tests/test_batch3_landing.py](../../../../../tests/test_batch3_landing.py) — direct import
-  - `test_without_a_completion_every_attach_refuses_with_the_mvp035_upgrade_message`
-- [tests/test_cold_retry_reschedule.py](../../../../../tests/test_cold_retry_reschedule.py) — direct import
-  - `test_without_a_completion_an_attach_refuses_and_the_upgrade_still_completes_the_mvp037_journal`
-- [tests/test_curriculum_c1_landing.py](../../../../../tests/test_curriculum_c1_landing.py) — direct import
-  - `test_ii_an_interrupted_mvp039_activation_is_handed_down_by_c1s_completion`
-  - `test_ii_an_interrupted_mvp040_activation_is_refused_without_the_completion_and_upgrade_completes_it`
-- [tests/test_curriculum_c1_plan_follows_path.py](../../../../../tests/test_curriculum_c1_plan_follows_path.py) — direct import
-  - `test_without_a_completion_an_attach_refuses_and_the_upgrade_still_completes_the_mvp039_journal`
-- [tests/test_help_fold_attach_successor.py](../../../../../tests/test_help_fold_attach_successor.py) — direct import
-- [tests/test_learner_report_superseded.py](../../../../../tests/test_learner_report_superseded.py) — direct import
-  - `test_without_a_completion_every_attach_refuses_with_the_mvp036_upgrade_message`
-- [tests/test_lp_claim_fixes_rereview.py](../../../../../tests/test_lp_claim_fixes_rereview.py) — direct import
-  - `test_f2_an_activation_that_cannot_complete_stops_the_opener`
-  - `test_f2_an_opener_in_a_process_that_cannot_complete_refuses`
-  - `test_f2_attaches_that_never_write_refuse_while_the_journal_stands`
-- [tests/test_pr4_superseded_claims_landing.py](../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
-- [tests/test_rbeq_pr2_landing.py](../../../../../tests/test_rbeq_pr2_landing.py) — direct import
-  - `test_without_a_completion_the_opener_and_every_attach_refuse_with_the_upgrade_message`
-- [tests/test_reader_followups_successor.py](../../../../../tests/test_reader_followups_successor.py) — direct import
-  - `test_without_a_completion_an_attach_refuses_and_the_upgrade_still_completes_the_mvp038_journal`
-- [tests/test_teacher_te1_successor.py](../../../../../tests/test_teacher_te1_successor.py) — direct import
-  - `test_a_bare_upgrade_goes_through_mvp041_along_the_chain`
+- [tests/test_upgrades.py](../../../../../tests/test_upgrades.py) — direct import
+  - `test_a_failure_before_the_commit_leaves_the_predecessor_readable_and_no_journal`
+  - `test_an_activation_that_cannot_complete_stops_the_opener`
+  - `test_an_opener_in_a_process_that_cannot_complete_refuses`
+  - `test_attaches_that_never_write_refuse_while_the_journal_stands`
 - [tests/test_version_floor.py](../../../../../tests/test_version_floor.py) — direct import
   - `test_a_journal_from_the_floor_is_still_completed_by_an_opener`
   - `test_a_journal_naming_a_link_below_the_floor_is_refused`
-  - `test_the_upgrade_command_completes_a_journal_from_below_the_floor`
+  - `test_the_upgrade_command_refuses_a_journal_from_below_the_floor_with_the_route`
 
 ## Modification guidance
 

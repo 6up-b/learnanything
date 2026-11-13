@@ -20,7 +20,6 @@ source_paths:
   - "src/learnloop/db/stores/field_signal_receipts.py"
   - "src/learnloop/placement/decisions.py"
   - "src/learnloop/placement/field_receipts.py"
-  - "src/learnloop/workbench_field_signals_upgrade.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"

@@ -19,10 +19,10 @@ source_paths:
   - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/daily_plan/lesson_suggestion.py"
   - "src/learnloop/db/stores/router_suggestions.py"
-  - "src/learnloop/lesson_offers_upgrade.py"
-  - "src/learnloop/lesson_suggestions_upgrade.py"
   - "src/learnloop/router/lesson_suggestions.py"
   - "src/learnloop/router/outcomes.py"
+  - "src/learnloop/router_objective/forecast_resolve.py"
+  - "src/learnloop/router_objective/offer_report.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"

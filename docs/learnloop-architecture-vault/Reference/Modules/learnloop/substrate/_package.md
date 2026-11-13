@@ -68,8 +68,8 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 | [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] | [[Reference/Modules/learnloop/substrate/activities#^module-purpose|purpose]] | `ACTIVE` | 52 | 43 |
 | [[Reference/Modules/learnloop/substrate/activity_patterns|learnloop.substrate.activity_patterns]] | [[Reference/Modules/learnloop/substrate/activity_patterns#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
 | [[Reference/Modules/learnloop/substrate/administration_adapters|learnloop.substrate.administration_adapters]] | [[Reference/Modules/learnloop/substrate/administration_adapters#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] | [[Reference/Modules/learnloop/substrate/canonical_projection#^module-purpose|purpose]] | `ACTIVE` | 43 | 40 |
-| [[Reference/Modules/learnloop/substrate/canonical_projection_rollout|learnloop.substrate.canonical_projection_rollout]] | [[Reference/Modules/learnloop/substrate/canonical_projection_rollout#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
+| [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] | [[Reference/Modules/learnloop/substrate/canonical_projection#^module-purpose|purpose]] | `ACTIVE` | 42 | 40 |
+| [[Reference/Modules/learnloop/substrate/canonical_projection_rollout|learnloop.substrate.canonical_projection_rollout]] | [[Reference/Modules/learnloop/substrate/canonical_projection_rollout#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/substrate/card_lineage|learnloop.substrate.card_lineage]] | [[Reference/Modules/learnloop/substrate/card_lineage#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/substrate/data_quality|learnloop.substrate.data_quality]] | [[Reference/Modules/learnloop/substrate/data_quality#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
 | [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] | [[Reference/Modules/learnloop/substrate/dataset#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
@@ -79,12 +79,12 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 | [[Reference/Modules/learnloop/substrate/intervention_outcomes|learnloop.substrate.intervention_outcomes]] | [[Reference/Modules/learnloop/substrate/intervention_outcomes#^module-purpose|purpose]] | `ACTIVE` | 6 | 4 |
 | [[Reference/Modules/learnloop/substrate/item_fingerprints|learnloop.substrate.item_fingerprints]] | [[Reference/Modules/learnloop/substrate/item_fingerprints#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
 | [[Reference/Modules/learnloop/substrate/model_usage|learnloop.substrate.model_usage]] | [[Reference/Modules/learnloop/substrate/model_usage#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
-| [[Reference/Modules/learnloop/substrate/p0_projection|learnloop.substrate.p0_projection]] | [[Reference/Modules/learnloop/substrate/p0_projection#^module-purpose|purpose]] | `ACTIVE` | 45 | 2 |
-| [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] | [[Reference/Modules/learnloop/substrate/rebuild_orchestrator#^module-purpose|purpose]] | `ACTIVE` | 7 | 88 |
-| [[Reference/Modules/learnloop/substrate/recurrence_groups|learnloop.substrate.recurrence_groups]] | [[Reference/Modules/learnloop/substrate/recurrence_groups#^module-purpose|purpose]] | `ACTIVE` | 12 | 17 |
+| [[Reference/Modules/learnloop/substrate/p0_projection|learnloop.substrate.p0_projection]] | [[Reference/Modules/learnloop/substrate/p0_projection#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
+| [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] | [[Reference/Modules/learnloop/substrate/rebuild_orchestrator#^module-purpose|purpose]] | `ACTIVE` | 3 | 74 |
+| [[Reference/Modules/learnloop/substrate/recurrence_groups|learnloop.substrate.recurrence_groups]] | [[Reference/Modules/learnloop/substrate/recurrence_groups#^module-purpose|purpose]] | `ACTIVE` | 11 | 7 |
 | [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] | [[Reference/Modules/learnloop/substrate/replay#^module-purpose|purpose]] | `ACTIVE` | 8 | 40 |
-| [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] | [[Reference/Modules/learnloop/substrate/shadow_rebuild#^module-purpose|purpose]] | `ACTIVE` | 1 | 25 |
-| [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] | [[Reference/Modules/learnloop/substrate/state_sync#^module-purpose|purpose]] | `ACTIVE` | 17 | 174 |
+| [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] | [[Reference/Modules/learnloop/substrate/shadow_rebuild#^module-purpose|purpose]] | `ACTIVE` | 1 | 24 |
+| [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] | [[Reference/Modules/learnloop/substrate/state_sync#^module-purpose|purpose]] | `ACTIVE` | 17 | 162 |
 | [[Reference/Modules/learnloop/substrate/surface_mint|learnloop.substrate.surface_mint]] | [[Reference/Modules/learnloop/substrate/surface_mint#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 
 ## Child package maps
@@ -120,7 +120,6 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 47 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 22 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 17 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 15 static module edges
@@ -130,10 +129,10 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 10 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 9 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 9 static module edges
-- [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 5 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 5 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 5 static module edges
+- [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 3 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 3 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 3 static module edges
@@ -173,7 +172,6 @@ flowchart LR
     n_learnloop_curriculum["learnloop.curriculum"]
     n_learnloop_ops["learnloop.ops"]
     n_learnloop_goals["learnloop.goals"]
-    n_learnloop -->|47| center
     center -->|33| n_learnloop
     n_learnloop_diagnosis -->|22| center
     center -->|5| n_learnloop_diagnosis

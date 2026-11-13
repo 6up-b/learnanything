@@ -132,10 +132,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_diagnosis_input_provenance_landing.py](../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import
 - [tests/test_learner_data_relax_2.py](../../../../../../tests/test_learner_data_relax_2.py) — direct import
   - `test_the_mcp_ledger_row_carries_its_arguments`
-- [tests/test_lp_claim_fixes_rereview.py](../../../../../../tests/test_lp_claim_fixes_rereview.py) — direct import
-  - `test_f2_an_mcp_server_already_attached_stops_serving_when_a_journal_appears`
-  - `test_f2_attaches_that_never_write_refuse_while_the_journal_stands`
-  - `test_f2_the_phone_host_refuses_to_start_while_the_journal_stands`
 - [tests/test_mcp_c1a_narrow.py](../../../../../../tests/test_mcp_c1a_narrow.py) — direct import
   - `test_a_raw_generated_id_cannot_confirm_a_guessed_title`
   - `test_every_text_field_is_authored_an_answer_or_withheld_without_a_record`
@@ -165,6 +161,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_unmarked_reading_of_a_protected_book_is_withheld_from_every_model_visible_path`
 - [tests/test_secondary_attach.py](../../../../../../tests/test_secondary_attach.py) — direct import
   - `test_a_directory_alias_does_not_hide_a_truncated_source_sets_file_from_the_chat_runtime`
+- [tests/test_upgrades.py](../../../../../../tests/test_upgrades.py) — direct import
+  - `test_an_mcp_server_already_attached_stops_serving_when_a_journal_appears`
+  - `test_attaches_that_never_write_refuse_while_the_journal_stands`
+  - `test_the_phone_host_refuses_to_start_while_the_journal_stands`
 - [tests/test_version_floor.py](../../../../../../tests/test_version_floor.py) — direct import
 
 ## Modification guidance

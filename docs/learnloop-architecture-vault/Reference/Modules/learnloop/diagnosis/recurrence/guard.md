@@ -118,7 +118,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/cli/recurrence|learnloop.cli.recurrence]] — imports `run_guard`; statically calls `run_guard`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/backlog|learnloop.diagnosis.recurrence.backlog]] — imports `configured_judge_model`; statically calls `configured_judge_model`
-- [[Reference/Modules/learnloop/diagnosis/recurrence/upgrade|learnloop.diagnosis.recurrence.upgrade]] — imports `configured_judge_model`, `guard_status`; statically calls `configured_judge_model`, `guard_status`
 
 ## Dependencies
 
@@ -155,7 +154,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/recurrence|learnloop.cli.recurrence]], [[Reference/Modules/learnloop/diagnosis/recurrence/backlog|learnloop.diagnosis.recurrence.backlog]], [[Reference/Modules/learnloop/diagnosis/recurrence/upgrade|learnloop.diagnosis.recurrence.upgrade]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/recurrence|learnloop.cli.recurrence]], [[Reference/Modules/learnloop/diagnosis/recurrence/backlog|learnloop.diagnosis.recurrence.backlog]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -166,7 +165,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_citation_that_did_not_validate_merges_nothing_and_is_reported`
   - `test_a_false_merge_blocks_the_switch_and_a_fixed_judge_reruns_through_the_guard`
   - `test_a_registered_case_the_judge_never_saw_blocks_the_switch`
-  - `test_an_advisory_guard_reports_a_recorded_false_merge_and_still_upgrades`
   - `test_an_explicit_rerun_supersedes_the_same_models_false_merge`
   - `test_an_m1_case_from_a_run_is_required_and_its_false_merge_blocks_the_switch`
   - `test_guard_verdicts_from_another_judge_model_do_not_open_the_switch`
@@ -176,7 +174,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_guard_reruns_only_unjudged_pairs`
   - `test_the_guard_stops_at_its_call_cap`
   - `test_the_judge_producer_is_model_and_effort_so_codex_tiers_never_share_a_guard_pass`
-  - `test_the_switch_needs_an_m1_case_checked_in_the_live_history_mode`
   - `test_verdicts_split_across_two_models_do_not_pass_for_the_configured_one`
 
 ## Modification guidance

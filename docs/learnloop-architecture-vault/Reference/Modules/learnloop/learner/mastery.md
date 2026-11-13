@@ -110,7 +110,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/adaptive_difficulty/forecasters|learnloop.adaptive_difficulty.forecasters]] — imports `resolve_item_irt_params`; statically calls `resolve_item_irt_params`
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `MasteryObservation`, `MasteryObservationTrace`, `display_mastery`, `initial_mastery_state_for_learning_object`, `item_irt_params`, `resolve_item_irt_params`, `update_item_difficulty`, `update_mastery_traced`; statically calls `MasteryObservation`, `display_mastery`, `initial_mastery_state_for_learning_object`, `item_irt_params`, `resolve_item_irt_params`, `update_item_difficulty`, `update_mastery_traced`
 - [[Reference/Modules/learnloop/attempts/surprise|learnloop.attempts.surprise]] — imports `MasteryObservation`, `irt_observation`, `logit`, `observation_weight`, `sigmoid`; statically calls `irt_observation`, `logit`, `observation_weight`, `sigmoid`
-- [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]] — imports `initial_mastery_state_for_learning_object`, `learning_objects_with_covering_claims`; statically calls `initial_mastery_state_for_learning_object`, `learning_objects_with_covering_claims`
 - [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] — imports `replace_claim_and_reanchor`; statically calls `replace_claim_and_reanchor`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `covering_learner_claim`, `display_mastery`; statically calls `covering_learner_claim`, `display_mastery`
 - [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] — imports `display_mastery`, `replace_claim_and_reanchor`; statically calls `display_mastery`, `replace_claim_and_reanchor`
@@ -174,7 +173,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/forecasters|learnloop.adaptive_difficulty.forecasters]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/surprise|learnloop.attempts.surprise]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] and 37 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/forecasters|learnloop.adaptive_difficulty.forecasters]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/surprise|learnloop.attempts.surprise]], [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] and 36 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

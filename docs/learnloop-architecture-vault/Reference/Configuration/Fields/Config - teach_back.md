@@ -21,7 +21,6 @@ source_paths:
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/scheduling/scheduler.py"
   - "tests/test_facet_belief_successor.py"
-  - "tests/test_mvp021_upgrade.py"
   - "tests/test_sidecar_teach_back.py"
   - "tests/test_sim_teach_back.py"
   - "tests/test_teach_back.py"
@@ -57,7 +56,6 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/test_facet_belief_successor.py`
-- `tests/test_mvp021_upgrade.py`
 - `tests/test_sidecar_teach_back.py`
 - `tests/test_sim_teach_back.py`
 - `tests/test_teach_back.py`

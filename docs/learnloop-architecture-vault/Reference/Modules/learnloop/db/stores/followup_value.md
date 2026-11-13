@@ -111,7 +111,6 @@ No test imports this module directly. These tests exercise a direct production c
 
 - [tests/test_data_capture_a1_prefilter.py](../../../../../../../tests/test_data_capture_a1_prefilter.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]
 - [tests/test_data_capture_codex_review.py](../../../../../../../tests/test_data_capture_codex_review.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]
-- [tests/test_mvp021_upgrade.py](../../../../../../../tests/test_mvp021_upgrade.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]
 - [tests/test_voi_merge_composition.py](../../../../../../../tests/test_voi_merge_composition.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]
 - [tests/test_voi_stopping.py](../../../../../../../tests/test_voi_stopping.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]
 - [tests/test_voi_v2.py](../../../../../../../tests/test_voi_v2.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]

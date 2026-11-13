@@ -190,8 +190,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_below_the_tag_and_switched_off_the_factor_stretches_the_interval_as_before`
 - [tests/test_ro1_projection.py](../../../../../../tests/test_ro1_projection.py) — direct import
   - `test_at_the_tag_a_rebuild_moves_every_eligible_due_date_to_the_unstretched_interval`
-- [tests/test_ro1_successor.py](../../../../../../tests/test_ro1_successor.py) — direct import
-  - `test_the_upgrade_moves_existing_due_dates_to_the_unstretched_interval`
 - [tests/test_ro4_trace_report.py](../../../../../../tests/test_ro4_trace_report.py) — direct import
   - `test_the_numeric_policy_honours_its_deadline`
 - [tests/test_ro4_value.py](../../../../../../tests/test_ro4_value.py) — direct import

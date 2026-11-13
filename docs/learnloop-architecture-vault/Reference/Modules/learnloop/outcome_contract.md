@@ -177,9 +177,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_regrade_in_its_pre_contract_grades_second_is_held_not_read_as_its_only_grade`
   - `test_a_successor_regrade_releases_an_unrecorded_hold`
   - `test_an_uncited_regrade_epoch_is_held_with_the_maximum_recorded_with_it`
-- [tests/test_regrade_contract_upgrade.py](../../../../../tests/test_regrade_contract_upgrade.py) — direct import
-  - `test_after_the_upgrade_a_rebuild_settles_and_stays`
-  - `test_upgrade_holds_exactly_the_unrecorded_epochs_and_rewrites_no_evidence`
 - [tests/test_ro5_codex_review.py](../../../../../tests/test_ro5_codex_review.py) — direct import
   - `test_f1_a_current_epoch_that_assesses_nothing_is_no_observation`
 - [tests/test_ro6_landing.py](../../../../../tests/test_ro6_landing.py) — direct import

@@ -25,9 +25,9 @@ source_paths:
   - "src/learnloop/placement/predictor.py"
   - "src/learnloop/adaptive_difficulty/forecasters.py"
   - "src/learnloop/attempts/attempts.py"
-  - "src/learnloop/claim_fixes_upgrade.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/practice_generation.py"
+  - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
 tags:
   - "learnloop/database/table"
@@ -103,7 +103,6 @@ Indexes and uniqueness:
 
 - `src/learnloop/adaptive_difficulty/forecasters.py`
 - `src/learnloop/attempts/attempts.py`
-- `src/learnloop/claim_fixes_upgrade.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/authoring/practice_generation.py`
 - `src/learnloop/content/authoring/rung_variants.py`
@@ -121,6 +120,7 @@ Indexes and uniqueness:
 - `src/learnloop/hints/state.py`
 - `src/learnloop/learner/capability_grid.py`
 - `src/learnloop/learner/facet_diagnostics.py`
+- `src/learnloop/learner/mastery.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -129,7 +129,6 @@ Indexes and uniqueness:
 
 - `tests/ad23_contract_helpers.py`
 - `tests/assumed_known_helpers.py`
-- `tests/lp_claim_fixes_review_helpers.py`
 - `tests/test_ad2_model.py`
 - `tests/test_ad3_reading.py`
 - `tests/test_ad3_subject_view.py`
@@ -140,13 +139,14 @@ Indexes and uniqueness:
 - `tests/test_lp_claim_fixes_review.py`
 - `tests/test_migrations.py`
 - `tests/test_mvp017_route_check_replay.py`
-- `tests/test_p0_cutover_mvp08.py`
-- `tests/test_rbeq_pr2_landing.py`
 - `tests/test_reader_rw3b_protection.py`
 - `tests/test_rebuild_equivalence.py`
 - `tests/test_rebuild_equivalence_review.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_ro1_projection.py`
+- `tests/test_shadow_rebuild.py`
+- `tests/test_table_roles.py`
+- `tests/test_te3a_lesson_opportunity.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
