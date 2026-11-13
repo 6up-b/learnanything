@@ -11,6 +11,7 @@ source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
 source_commit_timestamp: "2026-08-17T12:05:21-04:00"
 source_paths:
   - src/learnloop/algorithm_versions.py
+  - src/learnloop/version_floor.py
   - docs/algorithm-change-playbook.md
   - src/learnloop/ops/vault_upgrade.py
   - src/learnloop/substrate/rebuild_orchestrator.py
@@ -61,6 +62,10 @@ The chain is linear: each successor means its predecessor's semantics plus its o
 
 Successor sets are explicit so a new version does not accidentally fall back to a legacy projection through an equality check.
 
+## The oldest supported tag
+
+`algorithm_versions.OLDEST_SUPPORTED` is the oldest tag a vault is opened at (`mvp-0.58`; [[ADR-019 The oldest supported tag]], which also states the rule by which it moves: when every live vault is at or past a tag, one step raises the floor to it). A vault below it, or one whose `learnloop.toml` names no `algorithm_version`, is refused where it is opened (`load_vault`, `learnloop doctor`, the desktop's `initialize`, the MCP server's and phone host's attach) with `version_floor.BelowOldestSupported`, which names the vault's tag, the floor and the commands that bring it there; so is a journal of an unfinished upgrade from below the floor, and a shadow rebuild forced below it. Only `learnloop upgrade` opens a vault below the floor, for the vault it upgrades. A gate on a set that holds every tag at or above the floor therefore has a dead else-branch, and a kill switch whose tag is at or below the floor serves a predecessor no vault can open; those are what the refactor's arc D removes. The `algorithm_version` field's default (`mvp-0.6`) is for configs built in code only: a vault's file must carry the key. A backup below the floor is restored by upgrading it first, with the code at the annotated git tag `pre-floor` once the upgrade chain has left the tip (ADR-019 lists the steps).
+
 ## Effective defaults
 
 A minimal vault writes only the decision-only template, so every other default comes from `config/schema.py`. `tests/goldens/effective_defaults.toml` lists the whole effective config of a new vault, one sorted line per key (an unset key is a `# key = null` comment), and `tests/test_effective_defaults_golden.py` fails when it differs. A changed default therefore shows up as its own line in review, where the version decision is made: a default that changes persisted meaning needs a successor tag. After a deliberate change, regenerate with `uv run python tests/test_effective_defaults_golden.py --write` and commit the file with the change. The same test checks that every tag in `SUCCESSOR_CHAIN` has the latest defaults apart from its `algorithm_version`: a key is inert below its own tag through its gate, never through a per-version default.
@@ -96,5 +101,6 @@ Rebuild equality proves reproducibility, not benefit. Candidate policy needs sim
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_shadow_rebuild.py`
 - `tests/test_effective_defaults_golden.py` (the effective-defaults golden)
+- `tests/test_version_floor.py` (the oldest supported tag at every door)
 - historical fixture migration/replay suites
 

@@ -37,6 +37,10 @@ Keep `learnloop.substrate.compat` green for historical fixtures but do not add f
 
 Compatibility fixtures, replay tests, table roles, architecture status tags, and algorithm playbook. See [[Algorithm Versions and Reproducibility#Compatibility]].
 
+## Amended: the oldest supported tag (refactor D1, 2026-11-12)
+
+[[ADR-019 The oldest supported tag]] narrows "old vaults": a vault below `algorithm_versions.OLDEST_SUPPORTED` is no longer opened, so it no longer needs to stay green; it is upgraded first. Replay still reads rows written at any earlier tag, so the readers that read old rows by their shape stay whatever the floor.
+
 ## What the freeze let go (refactor C1 and C2, 2026-11-10 and 11)
 
 Freezing means nothing new is added, not that nothing goes. `substrate/compat/card_outcome_replay.py` (261 lines) was removed: P1's proof that card psychometrics could later be replayed from the administration and observation ledger with no schema change. No replay, rebuild or upgrade path imported it, it wrote nothing, and the deferred psychometrics model it prepared for was never built. Its tests (`test_event_sufficiency.py`, and part (c) of `test_p2_acceptance`'s replay walk) went with it. The ledger it read is unchanged, so the proof can be rebuilt from git history if the model is built. Record: `docs/reviews/refactor-c1.md`.

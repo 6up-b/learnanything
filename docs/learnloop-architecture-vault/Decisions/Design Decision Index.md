@@ -40,6 +40,7 @@ These notes capture the accepted decision, its context, consequences, and execut
 | [[ADR-016 Learner-blind grading with an asynchronous diagnoser]] | mvp-0.10 grades blind and diagnoses asynchronously; causal fields come from the diagnosis ledger on read |
 | [[ADR-017 One decision record, one trace id, one entry point]] | `decision_records` (a receipt nothing replays), a trace id per learner-visible action carried to model calls and logs, and a read-only `learnloop why` |
 | [[ADR-018 The Codex transport is retired]] | the Codex SDK, HTTP adapter and lockdown are gone; an old config naming Codex loads and every entry refuses it |
+| [[ADR-019 The oldest supported tag]] | a vault below `OLDEST_SUPPORTED` (or naming no tag) is refused at every door, naming the commands that upgrade it; only `learnloop upgrade` opens it |
 
 ## Source of accepted decisions
 
