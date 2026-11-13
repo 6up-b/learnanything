@@ -956,7 +956,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_stuck_prompt_composition.py](../../../../../../tests/test_stuck_prompt_composition.py) — direct import
   - `test_a_stuck_answers_pfc_unverified_criteria_are_unassessed`
 - [tests/test_stuck_prompt_replay.py](../../../../../../tests/test_stuck_prompt_replay.py) — direct import
-  - `test_a_recorded_stuck_answer_replays_as_stuck_under_a_tag_that_does_not_offer_the_prompt`
+  - `test_a_recorded_stuck_answer_replays_as_stuck_under_an_older_tag_with_the_prompt_off`
   - `test_a_stuck_vault_rebuilds_to_a_fixed_point_with_no_model_call`
   - `test_an_attempt_an_older_tag_wrote_replays_with_no_stuck_declaration_at_the_head`
   - `test_historical_dont_know_rows_replay_unchanged_under_the_successor`

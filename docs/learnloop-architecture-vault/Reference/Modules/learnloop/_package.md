@@ -82,7 +82,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/__main__|learnloop.__main__]] | [[Reference/Modules/learnloop/__main__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/activation_journal|learnloop.activation_journal]] | [[Reference/Modules/learnloop/activation_journal#^module-purpose|purpose]] | `ACTIVE` | 7 | 4 |
 | [[Reference/Modules/learnloop/adf_numeric|learnloop.adf_numeric]] | [[Reference/Modules/learnloop/adf_numeric#^module-purpose|purpose]] | `ACTIVE` | 7 | 1 |
-| [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] | [[Reference/Modules/learnloop/algorithm_versions#^module-purpose|purpose]] | `ACTIVE` | 51 | 252 |
+| [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] | [[Reference/Modules/learnloop/algorithm_versions#^module-purpose|purpose]] | `ACTIVE` | 43 | 254 |
 | [[Reference/Modules/learnloop/app_launch|learnloop.app_launch]] | [[Reference/Modules/learnloop/app_launch#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/attempt_types|learnloop.attempt_types]] | [[Reference/Modules/learnloop/attempt_types#^module-purpose|purpose]] | `ACTIVE` | 8 | 2 |
 | [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] | [[Reference/Modules/learnloop/bootstrap#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
@@ -94,7 +94,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/delayed_completion|learnloop.delayed_completion]] | [[Reference/Modules/learnloop/delayed_completion#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
 | [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] | [[Reference/Modules/learnloop/figure_admission#^module-purpose|purpose]] | `ACTIVE` | 18 | 7 |
 | [[Reference/Modules/learnloop/grading_epochs|learnloop.grading_epochs]] | [[Reference/Modules/learnloop/grading_epochs#^module-purpose|purpose]] | `ACTIVE` | 9 | 3 |
-| [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] | [[Reference/Modules/learnloop/held_grades#^module-purpose|purpose]] | `ACTIVE` | 50 | 16 |
+| [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] | [[Reference/Modules/learnloop/held_grades#^module-purpose|purpose]] | `ACTIVE` | 49 | 16 |
 | [[Reference/Modules/learnloop/hint_window|learnloop.hint_window]] | [[Reference/Modules/learnloop/hint_window#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/ids|learnloop.ids]] | [[Reference/Modules/learnloop/ids#^module-purpose|purpose]] | `ACTIVE` | 168 | 59 |
 | [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] | [[Reference/Modules/learnloop/learner_context#^module-purpose|purpose]] | `ACTIVE` | 4 | 10 |
@@ -194,13 +194,13 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 79 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 59 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 51 static module edges
-- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 50 static module edges
+- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 42 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 38 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 37 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 34 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 34 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 33 static module edges
-- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 30 static module edges
+- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 29 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 29 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 27 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 27 static module edges
@@ -262,27 +262,27 @@ flowchart LR
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
-    n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_db_stores["learnloop.db.stores"]
+    n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
-    n_learnloop_learner["learnloop.learner"]
     n_learnloop_substrate["learnloop.substrate"]
+    n_learnloop_learner["learnloop.learner"]
     n_learnloop_diagnosis -->|79| center
     n_learnloop_daily_plan -->|59| center
     center -->|1| n_learnloop_daily_plan
     n_learnloop_sidecar_handlers -->|51| center
-    n_learnloop_attempts -->|50| center
     n_learnloop_db_stores -->|34| center
     center -->|9| n_learnloop_db_stores
+    n_learnloop_attempts -->|42| center
     n_learnloop_scheduling -->|37| center
     center -->|2| n_learnloop_scheduling
     n_learnloop_source_retrieval -->|38| center
     n_learnloop_adaptive_difficulty -->|34| center
-    n_learnloop_learner -->|30| center
-    center -->|3| n_learnloop_learner
     n_learnloop_substrate -->|33| center
+    n_learnloop_learner -->|29| center
+    center -->|3| n_learnloop_learner
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.
