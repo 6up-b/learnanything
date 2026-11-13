@@ -23,3 +23,20 @@ Audit of every other test that counts or compares draws over many seeds:
 - `test_ro5_landing.py` (400 follow-up decisions): sets `runtime.seed` itself (a test's own pin wins). Left.
 - `test_data_capture_a6_delayed_pick.py` (300 `pick_with_receipt`), `test_learner_blindness_relax.py` (400 `PA.assign`), `test_ad3_dose_arm.py` / `test_ad_guard.py` (`S.seed_for` of the AD module): their seed derivations are not among `SEED_SOURCES`, so the pin does not reach them. Left.
 - `test_ro5_codex_rereview.py`, `test_ro5_codex_review.py`, `test_ro5_checks.py` sims at lines 228/259: seeded `random.Random`, no production seed. Left.
+
+## T8: the ratchet's import visitor and `TYPE_CHECKING`
+
+`scripts/refactor_measures.py::_Imports.visit_If` skipped the body of every `if` whose unparsed condition contained the
+text `TYPE_CHECKING`. Fail-first: `test_the_import_visitor_reads_the_body_of_not_type_checking_and_skips_its_else` and
+`test_the_import_visitor_reads_both_branches_of_any_other_condition` (added to `tests/test_refactor_measures.py`, on small
+source strings) fail against the old visitor (`if not TYPE_CHECKING:` and `TYPE_CHECKING or flag` imports vanished);
+`test_the_import_visitor_skips_only_the_positive_type_checking_body` passes before and after (guards the behaviour kept).
+
+Fix: `_type_checking_guard(test)` recognizes the bare `TYPE_CHECKING` and `typing.TYPE_CHECKING` structurally (True), its
+`not` (False), anything else (None). Positive: visit the else only; negated: visit the body only; other: both branches.
+
+Siblings checked: `visit_If` is the only visitor in the script that reads a condition; `grep TYPE_CHECKING src` shows every
+use is the bare positive guard, so no import edge and no measure changed. Rerunning `tests/test_structure_ratchets.py --write`
+with the new and with the old script gives the same file: two comment-line counts one lower than the golden
+(`comment_lines_naming_a_stage_artifact` 2398 -> 2397, `content/pipeline/jobs.py` 33 -> 32), a drift already present at this tip
+and unrelated to imports (the ratchet tolerates a fall). I did not write it: the golden is unchanged by this row.

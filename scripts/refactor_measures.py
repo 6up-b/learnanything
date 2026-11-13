@@ -428,6 +428,19 @@ def module_name(path: Path) -> str:
     return ".".join(parts)
 
 
+def _type_checking_guard(test: ast.expr) -> bool | None:
+    """True for `TYPE_CHECKING` / `typing.TYPE_CHECKING`, False for its `not`, None for anything else."""
+
+    if isinstance(test, ast.Name):
+        return True if test.id == "TYPE_CHECKING" else None
+    if isinstance(test, ast.Attribute):
+        return True if test.attr == "TYPE_CHECKING" and isinstance(test.value, ast.Name) else None
+    if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+        inner = _type_checking_guard(test.operand)
+        return None if inner is None else not inner
+    return None
+
+
 class _Imports(ast.NodeVisitor):
     """Import edges (top level apart from function-local) and wall-clock reads of one module."""
 
@@ -467,12 +480,15 @@ class _Imports(ast.NodeVisitor):
     visit_Import = visit_ImportFrom = _record
 
     def visit_If(self, node: ast.If) -> None:
-        # An import under TYPE_CHECKING never runs, so it is no edge; the else branch does run.
-        if "TYPE_CHECKING" in ast.unparse(node.test):
-            for child in node.orelse:
-                self.visit(child)
-        else:
+        # Only the bare guard (`TYPE_CHECKING`, `typing.TYPE_CHECKING`) or its negation decides a branch: an import
+        # under the guard never runs, so it is no edge, while the else and an `if not TYPE_CHECKING:` body do run.
+        # Any other condition that merely mentions the name (`A or TYPE_CHECKING`) can run either branch.
+        guard = _type_checking_guard(node.test)
+        if guard is None:
             self.generic_visit(node)
+            return
+        for child in node.orelse if guard else node.body:
+            self.visit(child)
 
     def _function(self, node: ast.AST) -> None:
         self.depth += 1

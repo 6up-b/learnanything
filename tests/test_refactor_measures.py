@@ -53,3 +53,29 @@ def test_frozen_sets_and_latest_pins_are_found():
     assert measures._frozen_set_assertions(tree) == 2
     assert measures._latest_pin(tree)
     assert not measures._latest_pin(ast.parse("assert LATEST == SUCCESSOR_CHAIN[-1]\n"))
+
+
+def _edges(source: str) -> set[str]:
+    measures = _measures()
+    visitor = measures._Imports("pkg.here", False, {"pkg", "pkg.here", "pkg.a", "pkg.b", "pkg.c"})
+    visitor.visit(ast.parse(source))
+    return visitor.top
+
+
+def test_the_import_visitor_skips_only_the_positive_type_checking_body():
+    assert _edges("from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    import pkg.a\n") == set()
+    assert _edges("import typing\nif typing.TYPE_CHECKING:\n    import pkg.a\nelse:\n    import pkg.b\n") == {"pkg.b"}
+    assert _edges("if TYPE_CHECKING:\n    import pkg.a\nelif other:\n    import pkg.b\nelse:\n    import pkg.c\n") == {
+        "pkg.b", "pkg.c"}
+
+
+def test_the_import_visitor_reads_the_body_of_not_type_checking_and_skips_its_else():
+    assert _edges("if not TYPE_CHECKING:\n    import pkg.a\nelse:\n    import pkg.b\n") == {"pkg.a"}
+    assert _edges("if not typing.TYPE_CHECKING:\n    import pkg.a\n") == {"pkg.a"}
+
+
+def test_the_import_visitor_reads_both_branches_of_any_other_condition():
+    both = {"pkg.a", "pkg.b"}
+    assert _edges("if TYPE_CHECKING or flag:\n    import pkg.a\nelse:\n    import pkg.b\n") == both
+    assert _edges("if flag and TYPE_CHECKING:\n    import pkg.a\nelse:\n    import pkg.b\n") == both
+    assert _edges("if os.environ.get('TYPE_CHECKING'):\n    import pkg.a\nelse:\n    import pkg.b\n") == both
