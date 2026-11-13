@@ -54,8 +54,10 @@ database's unit selections when it is built:
    extraction, whatever the source sets pin now. Every extraction of a
    protected book with no exact owner's mark on it is withheld whole, as
    held-out material: no Reader Ask, no teaching or tutor context, no
-   generation or retrieval, no leakage-gate pass, no search hit, no margin
-   cue, whatever the settings. A held-out signal marks the reading it was
+   generation or retrieval, no leakage-gate pass, no margin cue, whatever the
+   settings. (The library search is the learner's own and applies no
+   protection filter: a hit's snippet reaches their screen, never a model, and
+   the query is the only text a model reads from it.) A held-out signal marks the reading it was
    made on only when the book carries no owner's mark at all and no signal
    of unknown reading. A legacy mark that names no reading it can be on (a
    scope without ``scope_extraction_id``, a selection without
@@ -97,7 +99,9 @@ What a caller does with the answer is its own: teaching contexts and model
 readers withhold exam material under every policy, the leakage gate
 fingerprints the held-out partition, an import refuses exam material, the
 Reader's model contexts (Ask and its dialogue, preset synthesis, quick and
-passage checks) refuse held-out material (:func:`held_out_material`), and the
+passage checks) refuse held-out material only (:func:`held_out_material`), the
+figures refuse all exam material (:func:`spans_withheld`, so also an exam
+member with no marks or signals, which the Reader's Ask does not), and the
 facet-meaning chokepoint resolves a citation of exam material to the role
 ``exam`` (assessment alignment only) while an explanatory citation beside it
 may still support a facet's meaning (support, not leakage:

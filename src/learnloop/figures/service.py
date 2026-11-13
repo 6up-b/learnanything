@@ -555,7 +555,10 @@ def withheld_message(vault: Any, repository: Repository, extraction_id: str, spa
     """The refusal when any of the spans (or the whole reading) is exam or
     held-out material (``exam_material(...).withheld``), else None: the
     shared :func:`~learnloop.content.sources.exam_material.spans_withheld`,
-    which learner-text gaps ask too (fix round 2, F1)."""
+    which learner-text gaps ask too (fix round 2, F1). The set is all exam
+    material (rules 1-4), wider than the held-out partition the Reader's Ask
+    refuses: a past paper with no marks or signals gets no figure, though Ask
+    explains it."""
 
     from learnloop.content.sources.exam_material import spans_withheld
 
