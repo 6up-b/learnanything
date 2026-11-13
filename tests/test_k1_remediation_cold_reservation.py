@@ -48,3 +48,20 @@ def test_a_finished_episode_reserves_nothing(world, state):
 
 def test_the_cold_task_kinds_are_defined_once():
     assert learner_protection.COLD_TASK_KINDS is serve_eligibility.COLD_FOLLOWUP_TASK_KINDS
+
+
+def test_the_routine_due_queue_does_not_serve_a_reserved_cold_item_before_its_check(world):
+    """An ordinary due item that a treatment episode has chosen as its cold item leaves Today's queue
+    until the episode ends: practising it first would spoil the check."""
+
+    from learnloop.scheduling.scheduler import build_due_queue
+
+    vault, repository = world
+    cold_item = next(iter(vault.practice_items))
+    assert cold_item in [item.practice_item_id for item in build_due_queue(vault, repository)]
+    episode = _episode(repository, cold_item, "treatment")
+    assert repository.open_followup_tasks_of_kind("cold_retry") == []
+    assert cold_item not in [item.practice_item_id for item in build_due_queue(vault, repository)]
+    repository.update_remediation_episode(episode["id"], state="completed")
+    assert cold_item in [item.practice_item_id for item in build_due_queue(vault, repository)]
+
