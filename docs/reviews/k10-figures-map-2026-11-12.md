@@ -399,3 +399,59 @@ A per-module count of database, clock, filesystem and randomness reads (grep ove
 | F10F2 | medium | The author loop can't be tested without the gate, a route and (for step 3) a vault: its retry and salvage rules are interleaved with the calls and the verifiers. | `figures/service.py:2520-2699` |
 | F10F3 | medium | Presenting a figure reads the database several times per figure and can write a judgment; `reader.figures` does it for every chain on every poll (every 5 s while a rich build runs, `useFigures.ts:21`). | `figures/service.py:1325-1407`, `:1140-1173`, `:3197-3242` |
 | F10F4 | low | Six wall-clock reads bypass the injected clock in the service and the handler. | above |
+
+## 6. Comments, dead code, onboarding
+
+### 6.1 Comments
+
+The convention (strategy §2.1) is that a comment says what breaks without the line or why the obvious approach is wrong, and names no review round, ruling or stage. Counted over the 30 swept modules plus `prefetch_runtime.py` (lines matching each pattern; script `cnt.sh` in the orchestrator's scratch):
+
+| pattern | lines |
+|---|---:|
+| a stage name `RW5a`-`RW5d` | 317 |
+| `Codex review` | 181 |
+| `Codex re-review` | 36 |
+| `byte for byte`, `key for key`, `exactly as before`, `predecessor's` | 36 |
+| `follow-ups batch` or `follow-ups Nov` | 33 |
+| `ruling R…`, `Landing ruling`, `orchestrator ruling` | 30 |
+| `fix round`, `final round` | 24 |
+| `Codex verify`, `final verify` | 11 |
+
+Every one of the 31 files names a stage. `service.py` alone has 253 such lines, the sidecar handler 77, `prefetch.py` 46, `rich.py` 34. The module docstring of `service.py` (`figures/service.py:1-142`) is six stage sections (RW5a, RW5b, RW5d P1, P2, P2b, RW5c, P5) rather than a description of what the module does. Many comments carry real "why" content wrapped in a round's name (for example `figures/service.py:2204-2210`, "One build per input at a time (Codex review F7) … Reread inside the lock (fix round 2, F7): a build that committed between the reads above left `reused` empty"); the round's name is the noise, the reason is the content. The "byte for byte" comments mark switch-off paths that must reproduce a predecessor's prompt, key or view exactly (for example `figures/service.py:1359`, `figures/routes.py:426`, `teacher/visuals.py:27-29`): they document an invariant, but one the code can't check locally.
+
+**Good models to keep:** `figure_admission.py:22-27` (why a gate and not checks at named call sites), `:331-343` (why `FiguresChanged` is a `BaseException`), `figures/prefetch_model.py:1-62` (the model as equations, priors and their bases), `figures/sketch_engine.py:1-36` (the sealing and the caps), `figures/records.py:1-22`, `figures/prefetch_model.py:108-114` (why the wait prior's strength is one measurement).
+
+**Approach headers.** `_author_attempts_and_store` (304 lines) has three lines (`figures/service.py:2490-2492`) about the record notes, not the loop's approach; `_build` (124 lines, `:2116`) has none.
+
+### 6.2 Dead, superseded and legacy-only paths
+
+| what | evidence | status |
+|---|---|---|
+| The `js_animation` tier | `JS_ANIMATION_BUILD_FLAG = False` (`figures/rich.py:86`), so it is never on a menu (`:187`); yet it has a tier sentence (`figures/routes.py:323`), a place in the rich-menu test (`:343`, `:363`, `:395`), the records' status set (`figures/records.py:109`), the prefetch model's tier set (`figures/prefetch_model.py:86`), the report's SQL (`reader/reader_report.py:490`) and the config docstring (`config/schema.py:2748`) | a gated future tier: unreachable today, present in seven files; whether it stays is the owner's |
+| Legacy `verified` rows | nothing writes `verified` (`figures/verify.py` has no such outcome); `SHOWN` keeps it (`db/stores/figures.py:40`) and `shown_row` presents a stored one as an illustration (`figures/service.py:1038-1047`) | legacy reader for rows built before 2026-10-21; needs a row count before anyone removes it |
+| The author contracts V1 and V2 and their prompt variants | selected by the switches (`figures/routes.py:450-456`); the prompt version is assembled from five flags (`:430-437`) | live: every switch-off path must reproduce its predecessor's bytes |
+| `prefetch_decision_v1` | kept behind `figures.prefetch.pressed_waits = false` (`config/schema.py:2681`; `figures/prefetch_model.py:78-84`; `figure_wait_upgrade.py:21-22`) | live kill switch (D7's territory) |
+| `figure_wait_upgrade.py` | 226 lines, one successor link (`figure_wait_upgrade.py:1-22`) | live upgrade chain (arc D's territory) |
+| Unused public names | 20 of `service.py`'s 78 have no caller outside the module (§1.2) | not dead (used inside), but public for no caller |
+
+No figures module is unreachable except the harness (read as text, §1.4).
+
+### 6.3 What a new contributor must read to add a thing
+
+| change | must read and probably edit | count |
+|---|---|---:|
+| (a) a figure element or grammar feature | `figures/grammar.py` (if an expression form), `figures/spec.py` (the panel schema and parser), `figures/verify.py` (numeric checks), `figures/routes.py` (`GRAMMAR_TEXT`, `SPEC_TEXT`, `ADVANCED_PANELS_TEXT`, `:111-182`), `figures/elements.py` and `figures/source_check.py` if it can carry a book label, `figures/help.py` (`_readouts`, for the reveal text, `:175-201`); the desktop's `figureSpec.ts`, `figureGrammar.ts`, `FigurePanels.tsx` or `AdvancedPanels.tsx` and a corpus | 6-9 Python and 3-5 desktop files |
+| (b) a verification check | one verifier (`verify.py`, `sketch_verify.py`, `manim_figure.py` or `source_check.py` with its harness and `book_math.py`), its version constant (`VERIFIER_REPORT_VERSION`, `CERTIFICATION_VERSION` `figures/source_check.py:69`) which triggers rechecks on open, the records' problem codes (`figures/records.py:72-105`) if it's a new exit, the desktop's reason copy (`FigureInline.tsx:50-113`) if it has a closed reason; for the sketch, the desktop parity corpus | 2-5 |
+| (c) a new tier or renderer | §3.2's list: the menu, prompt text, contract, author loop, reuse key, row predicate, off-state, `drawable_now`, `_label`, the view, records, prefetch model, report SQL, the desktop's dispatch, badge and DTO | about 15 places in 7 Python files and 3-4 desktop files |
+| (d) a new place that offers Show me | the handler's validation and host rules (`learnloop_sidecar/handlers/figures.py:413-490`, the RPC input's origin literal `:563`), `service.ORIGINS` and the goal-author table (`figures/service.py:198`, `:1851-1852`), the host switch in `key_for` (`:444-463`), the host's tier rule (§3.1), its protection (a caller policy), its delivery (help rows for an attempt host), the desktop entry and its contract flag | 4-6 Python and 2-4 desktop files |
+
+The minimum reading before any of these: `service.py` (to find the branch), `figure_admission.py` (the switches and the gate), `routes.py` (the prompt is assembled by string replacement with asserts, `figures/routes.py:400-427`), and the review files of the stage that last touched the area, because the comments point there.
+
+### Findings
+
+| Id | Severity | Finding | Evidence |
+|---|---|---|---|
+| F10C1 | high | About 670 comment and docstring lines name a stage, a review round or a ruling, and `service.py`'s module docstring is a stage history. A reader can't tell from the code which rules are invariants and which were one round's patch; the reasons are often there, under the names. | §6.1 counts; `figures/service.py:1-142`, `:2204-2210` |
+| F10C2 | medium | The switch-off invariants ("byte for byte", 36 lines) are comments, not tests next to the code: each new switch multiplies the prompt, key and view variants the next change must preserve. | `figures/routes.py:400-437`; `figures/service.py:2169-2179`, `:1348-1373` |
+| F10C3 | medium | Adding a tier touches about 15 places; adding a place that offers Show me needs the handler's 15 checks understood first. | §6.3 |
+| F10C4 | low | `js_animation` is unreachable but present in seven files; legacy `verified` rows keep a presentation path. | §6.2 |
