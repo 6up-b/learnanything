@@ -79,11 +79,15 @@ def test_monitoring_applies_field_rule_as_monitor_never_gate(tmp_path):
     for arm in (A.SUBJECT, A.LO, A.UNIFORM):
         assert {"first_attempt_lo", "first_surface_cell", "all"} == set(report["scores"][arm])
         assert "band_region_error" in report["scores"][arm]["all"]
-    lines = report["honest_lines"]
+    # The lessons line is Teacher TE3a's, reported while lesson opportunities are live (the head); the other four
+    # are this test's subject.
+    all_lines = report["honest_lines"]
+    assert sum(line.startswith("Lessons against no lessons") for line in all_lines) == 1
+    lines = [line for line in all_lines if not line.startswith("Lessons against no lessons")]
     assert len(lines) == 4 and all(any(v in line for v in (MON.HELPING, MON.HURTING, MON.CANT_TELL)) for line in lines)
     assert all("first attempts)" in line for line in lines)
-    # Teacher TE3a's lesson flag is reported only while lesson opportunities are live (this vault is below its tag).
-    assert {flag["flag"] for flag in report["auto_flags"]} == set(MON.FLAG_SWITCHES) - {"lessons_worse_than_no_lessons"}
+    # Teacher TE3a's lesson flag is reported while lesson opportunities are live, as at the head.
+    assert {flag["flag"] for flag in report["auto_flags"]} == set(MON.FLAG_SWITCHES)
     assert all(flag["recommends"] == MON.FLAG_SWITCHES[flag["flag"]] for flag in report["auto_flags"])
     assert report["identifiability"]["statement"] == REP.HONEST_STATEMENT
     assert "hyperparameter_margins" in report["identifiability"]

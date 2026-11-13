@@ -72,7 +72,10 @@ def test_forecast_receipt_written_in_serve_transaction(tmp_path, monkeypatch):
     step = _serve(env)
     presentation = _presentation(paths, step["presentation_id"])
     receipts = ad_receipts(paths.sqlite_path)
-    assert sorted(receipt["forecaster"] for receipt in receipts) == ["lo_general+composite", "mastery_ekf"]
+    # AD1's two in-process forecasters write a receipt each; at the head AD2's threshold forecasters write theirs in
+    # the same transaction too, and nothing else does.
+    forecasters = sorted(receipt["forecaster"] for receipt in receipts)
+    assert [name for name in forecasters if not name.startswith("ad_threshold@")] == ["lo_general+composite", "mastery_ekf"]
     for receipt in receipts:
         assert receipt["plan_presentation_id"] == step["presentation_id"]
         assert (receipt["scope"], receipt["binding_kind"], receipt["decision_kind"]) == (
@@ -87,7 +90,7 @@ def test_forecast_receipt_written_in_serve_transaction(tmp_path, monkeypatch):
     # A reopened step writes nothing new.
     again = _serve(env)
     assert again["presentation_id"] == step["presentation_id"]
-    assert len(ad_receipts(paths.sqlite_path)) == 2
+    assert len(ad_receipts(paths.sqlite_path)) == len(receipts)
 
     # Same transaction: a serve that fails after AD's writes keeps neither.
     from learnloop.adaptive_difficulty import serve as ad_serve
@@ -96,7 +99,7 @@ def test_forecast_receipt_written_in_serve_transaction(tmp_path, monkeypatch):
 
     def record_then_abort(*args, **kwargs):
         written = original(*args, **kwargs)
-        assert written is not None and len(written.receipt_ids) == 2
+        assert written is not None and len(written.receipt_ids) == len(receipts)
         raise _Abort()
 
     second = ad_plan_vault(tmp_path / "b")

@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.adaptive_difficulty import selection as S
 from learnloop.daily_plan.engine import advance, build_plan, day_records, keep_going, load_records
 from learnloop.db.connection import connect
@@ -129,7 +130,7 @@ def test_generation_prompt_has_no_band_language_under_successor(tmp_path):
     (commission,) = selections(paths, kind="commission")
     assert commission["id"] == target.ad_commission_id and commission["chosen_point"]
     # Below the tag, or with the switch off, today's prompt exactly.
-    for name, version, ad in (("below", "mvp-0.29", ""), ("off", "mvp-0.30", "generation_contract = false\n")):
+    for name, version, ad in (("below", "mvp-0.29", ""), ("off", LATEST_ALGORITHM_VERSION, "generation_contract = false\n")):
         other = ad23_vault(tmp_path / name, items=("pi_g1",), version=version, ad=ad)
         plan_b, text_b = _generation_prompt(other)
         assert plan_b.targets[0].ad_commission_id is None
@@ -176,8 +177,8 @@ def test_selection_switch_off_restores_lane_order(tmp_path):
 
     kw = {"commitments": IDENTITY_COMMITMENTS}
     before = _served_sequence(tmp_path, "pred", version="mvp-0.29", ad="", **kw)
-    off = _served_sequence(tmp_path, "off", version="mvp-0.30", ad="selection = false\n", **kw)
-    on = _served_sequence(tmp_path, "on", version="mvp-0.30", ad="", **kw)
+    off = _served_sequence(tmp_path, "off", version=LATEST_ALGORITHM_VERSION, ad="selection = false\n", **kw)
+    on = _served_sequence(tmp_path, "on", version=LATEST_ALGORITHM_VERSION, ad="", **kw)
     assert off[:2] == before[:2] and not off[2] and not before[2]
     assert on[2] and on[0][0]["practice_item_id"] != before[0][0]["practice_item_id"]
     # Intent acts in all three: the paused sibling is never served.

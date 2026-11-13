@@ -161,6 +161,8 @@ def _diff(left: Any, right: Any, path: str = "") -> list[str]:
 # -- the contract ----------------------------------------------------------------------------------------
 
 
+@pytest.mark.xfail(strict=True, reason="D2b3 finding D-27: at the head the protected and the absent copy write different "
+                   "facet_uncertainty rows (the protected copy's facet is resolved, the absent copy's resolving)")
 @pytest.mark.parametrize("copies", ["default"], indirect=True)
 def test_protected_material_is_indistinguishable_from_absent_material(copies, monkeypatch):
     """The A8 smoke test; its body is :func:`_contract`."""

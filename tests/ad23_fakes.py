@@ -1,6 +1,6 @@
 """Builders for adaptive difficulty AD2+AD3's tests (no network, no model call).
 
-``ad23_vault`` is AD1's daily-plan vault at the successor's tag (``mvp-0.30``)
+``ad23_vault`` is AD1's daily-plan vault at the head
 with the outside forecasters and the feature audit off (no background job),
 items carrying task features, and extra LOs when asked. ``answer`` records a
 graded attempt through the real pipeline (a manual self-grade), bound to its
@@ -21,13 +21,15 @@ from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_s
 from learnloop.ai.execution import report_call_usage
 from learnloop.ai.isolation import TOOL_FREE
 from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION, ISOLATED_TURN, STRUCTURED_COMPLETION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.vault.loader import load_vault
 
 from tests.ad_fakes import ITEMS, LO, TASK_FEATURES, rows, stamp_task_features
 from tests.daily_plan_fakes import MovableClock, iso, make_env, scheduled, seed_due
-from tests.helpers import append_config_toml, create_daily_plan_vault
+from tests.helpers import RANDOMIZED_CHECKS_OFF, append_config_toml, create_daily_plan_vault
 
-SUCCESSOR = "mvp-0.30"
+#: The tag the AD tests build at: the head, the path every real vault serves.
+SUCCESSOR = LATEST_ALGORITHM_VERSION
 QUIET = """
 [adaptive_difficulty]
 outside_forecasters = []
@@ -57,7 +59,7 @@ def ad23_vault(tmp_path: Path, *, config: str = "", version: str = SUCCESSOR, it
     for lo, lo_items in los.items():
         for item, _minutes in lo_items:
             stamp_task_features(paths, item, (features or {}).get(item, TASK_FEATURES), difficulty_source="llm_estimate")
-    append_config_toml(paths.root, QUIET + (ad or "") + (config or ""))
+    append_config_toml(paths.root, QUIET + (ad or "") + (config or "") + "\n" + RANDOMIZED_CHECKS_OFF)
     return paths
 
 

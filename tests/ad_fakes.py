@@ -18,13 +18,14 @@ from pathlib import Path
 import sqlite3
 from typing import Any
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.ai.decisions import ChoiceAnswer, DecisionResult, NoulAnswer
 from learnloop.ai.execution import model_call, report_call_usage
 from learnloop.ai.isolation import TOOL_FREE
 from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION, ISOLATED_TURN, STRUCTURED_COMPLETION
 
 from tests.daily_plan_fakes import MovableClock, iso, make_env, scheduled, seed_due
-from tests.helpers import append_config_toml, create_daily_plan_vault
+from tests.helpers import RANDOMIZED_CHECKS_OFF, append_config_toml, create_daily_plan_vault
 
 PAST = datetime(2026, 10, 1, 9, 0, tzinfo=UTC)
 LAST = datetime(2026, 9, 20, 9, 0, tzinfo=UTC)
@@ -65,15 +66,14 @@ def stamp_task_features(paths: Any, item_id: str, features: Mapping[str, Any] = 
     path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
 
 
-def ad_plan_vault(tmp_path: Path, *, config: str = "", version: str = "mvp-0.22", items: tuple[str, ...] = ITEMS,
+def ad_plan_vault(tmp_path: Path, *, config: str = "", version: str = LATEST_ALGORITHM_VERSION, items: tuple[str, ...] = ITEMS,
                   features: bool = True):
     los = {LO: [(item, 2.0) for item in items]}
     paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los, version=version)
     if features:
         for item in items:
             stamp_task_features(paths, item, difficulty_source="llm_estimate")
-    if config:
-        append_config_toml(paths.root, config)
+    append_config_toml(paths.root, (config or "") + "\n" + RANDOMIZED_CHECKS_OFF)
     return paths
 
 
