@@ -215,8 +215,8 @@ the paragraph "What `pre-floor` can and cannot do"; `version_floor`'s docstring 
 
 **Callers and siblings checked.** `BelowOldestSupported` is raised by `refuse_below_floor` (every load and the new CLI
 resolvers; it has the config) and `refuse_journal_below_floor` (a journal's predecessor; no config at hand, so the
-guard line is not added there: a journal from below the floor is at least `mvp-0.57`'s predecessor in practice, past
-`mvp-0.12`).
+guard line is not added there: at `pre-floor` the mvp-0.12 upgrade wrote no activation journal, which only the
+links importing `activation_journal` write, all of them later than mvp-0.12, so a journal's predecessor is past it).
 
 **Not verified.** The route was not run end to end in a `pre-floor` worktree (no checkout of the tag was made; the
 reading above is from `git show`).
@@ -225,7 +225,7 @@ reading above is from `git show`).
 
 **Reproduced, with one qualification.** A receipt-only mutant of the table's `whole_vault_rebuild` (its `run` writes
 the scope-`all` receipt under the tag and replays nothing), applied to the tip and reverted: of `tests/test_upgrades.py`
-(the table's 37 cases at the time) and `tests/test_facet_belief_successor.py`, every case passed but one,
+and `tests/test_facet_belief_successor.py` without the new test (52 cases), every case passed but one,
 `test_every_opener_that_may_write_completes_an_interrupted_activation_first[sidecar_start]`, which failed only because
 the sidecar's startup projection then changed state the mutant's "clean" baseline lacked: incidental, not a check of
 the activation. The tag, receipt and recovery tests compare against another run of the same upgrader, so they pass on
