@@ -140,6 +140,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/ih2_lessons_compete_helpers.py](../../../../../../tests/ih2_lessons_compete_helpers.py) — direct import
+- [tests/router_model_fakes.py](../../../../../../tests/router_model_fakes.py) — direct import
 - [tests/te3b_offers_helpers.py](../../../../../../tests/te3b_offers_helpers.py) — direct import
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_a_lesson_win_after_a_miss_generates_nothing_and_the_offer_page_opens_from_next`

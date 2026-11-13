@@ -92,7 +92,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/router_objective/memory|learnloop.router_objective.memory]] | [[Reference/Modules/learnloop/router_objective/memory#^module-purpose|purpose]] | `ACTIVE` | 3 | 13 |
 | [[Reference/Modules/learnloop/router_objective/miss_cause|learnloop.router_objective.miss_cause]] | [[Reference/Modules/learnloop/router_objective/miss_cause#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
 | [[Reference/Modules/learnloop/router_objective/miss_cause_report|learnloop.router_objective.miss_cause_report]] | [[Reference/Modules/learnloop/router_objective/miss_cause_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/router_objective/mix|learnloop.router_objective.mix]] | [[Reference/Modules/learnloop/router_objective/mix#^module-purpose|purpose]] | `ACTIVE` | 2 | 14 |
+| [[Reference/Modules/learnloop/router_objective/mix|learnloop.router_objective.mix]] | [[Reference/Modules/learnloop/router_objective/mix#^module-purpose|purpose]] | `ACTIVE` | 2 | 15 |
 | [[Reference/Modules/learnloop/router_objective/objective_report|learnloop.router_objective.objective_report]] | [[Reference/Modules/learnloop/router_objective/objective_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/router_objective/offer_report|learnloop.router_objective.offer_report]] | [[Reference/Modules/learnloop/router_objective/offer_report#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/router_objective/picks|learnloop.router_objective.picks]] | [[Reference/Modules/learnloop/router_objective/picks#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
