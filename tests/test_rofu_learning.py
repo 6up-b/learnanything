@@ -15,14 +15,14 @@ import json
 
 import pytest
 
-from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
 from learnloop.db.stores import router_objective as store
 from learnloop.router_objective import objective_report
 
 from tests.router_mixture_helpers import mixture_env, run, served_horizon  # noqa: F401 - a fixture
 from tests.router_model_fakes import block_drawing_seed, fake_runtime
 
-TAG = ROUTER_FOLLOWUPS_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 OLD = ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
 
 

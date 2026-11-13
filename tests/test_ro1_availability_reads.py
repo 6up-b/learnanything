@@ -28,13 +28,13 @@ from typing import Any
 
 import pytest
 
-from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, INTERVAL_FACTOR_ALGORITHM_VERSION
+from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 
 from tests.exam_seeding_helpers import EXAM_DATE
 from tests.ro1_availability_reads_helpers import AFTER, CUTOFF, LO, _seeded
 
-TAG = INTERVAL_FACTOR_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 PREDECESSOR = FOLLOWUP_SERVE_ALGORITHM_VERSION
 OFF = "[router_objective]\navailable_at_reads = false\n"
 GATES = pytest.mark.parametrize("version, toml, sees_exam", [

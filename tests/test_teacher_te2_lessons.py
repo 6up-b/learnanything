@@ -15,7 +15,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION, TEACHER_PROBES_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, ROUTER_FOLLOWUPS_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.teacher import service as S
 from learnloop.teacher import te2 as T2
@@ -24,7 +24,7 @@ from tests.deliverable_fixtures import DeliverableFake
 from tests.teacher_fakes import TeacherFake, build_teacher_vault, check_turn, clients, close_turn, plan_turn
 from tests.teacher_te2_probes_helpers import _Lesson, probe_turn
 
-TAG = TEACHER_PROBES_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 OLD = ROUTER_FOLLOWUPS_ALGORITHM_VERSION
 T0 = datetime(2026, 11, 6, 15, 0, tzinfo=UTC)
 

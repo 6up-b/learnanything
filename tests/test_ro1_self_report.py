@@ -13,7 +13,7 @@ from datetime import timedelta
 
 import pytest
 
-from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, INTERVAL_FACTOR_ALGORITHM_VERSION
+from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, LATEST_ALGORITHM_VERSION
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.split.history import AttemptRef, VaultHistoryStore
 from learnloop.router_objective_switches import validated_resolution_ids
@@ -23,7 +23,7 @@ from learnloop.vault.paths import VaultPaths
 from tests.helpers import NOW, append_config_toml, set_algorithm_version
 from tests.ro1_self_report_helpers import picked  # noqa: F401 - fixtures, used by parameter name
 
-TAG = INTERVAL_FACTOR_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 PREDECESSOR = FOLLOWUP_SERVE_ALGORITHM_VERSION
 OFF = "[router_objective]\nself_report_not_validated = false\n"
 

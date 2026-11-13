@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from learnloop.algorithm_versions import FAILURE_SHARE_ALGORITHM_VERSION, PHONE_PROBES_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, PHONE_PROBES_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock
 from learnloop.config import LearnLoopConfig
@@ -37,7 +37,7 @@ from tests.source_retrieval_fakes import EXAM_QUESTION, seed_source
 from tests.teacher_fakes import TeacherFake, _item, build_teacher_vault, clients, plan_turn
 from tests.ux_phase1_support import set_config
 
-TAG = FAILURE_SHARE_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 OLD = PHONE_PROBES_ALGORITHM_VERSION
 T0 = datetime(2026, 11, 7, 9, 0, tzinfo=UTC)
 LO = "lo_regions"

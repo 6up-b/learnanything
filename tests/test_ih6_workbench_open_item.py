@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from learnloop.algorithm_versions import FAILURE_SHARE_ALGORITHM_VERSION, PHONE_PROBES_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, PHONE_PROBES_ALGORITHM_VERSION
 from learnloop.config import LearnLoopConfig
 from learnloop.config.schema import RouterObjectiveConfig
 from learnloop.daily_plan import engine as E
@@ -45,7 +45,7 @@ from tests.te3b_offers_helpers import OFFER, offerable  # noqa: F401 - the fixtu
 from learnloop.vault.loader import load_vault
 from tests.ih6_workbench_open_item_helpers import _phone_workbench
 
-TAG = FAILURE_SHARE_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 OLD = PHONE_PROBES_ALGORITHM_VERSION
 OFF = "[router_objective]\nstop_coin = 0.0\nworkbench_is_open_item = false\n"
 SESSION = "s1"

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.algorithm_versions import ROUTER_CALIBRATION_ALGORITHM_VERSION, ROUTER_OBJECTIVE_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, ROUTER_OBJECTIVE_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
@@ -23,9 +23,7 @@ from learnloop.vault.loader import load_vault
 from tests.helpers import NOW, append_config_toml, set_algorithm_version
 from tests.km2_write_path_helpers import build_shared_facet_vault
 
-TAG = ROUTER_CALIBRATION_ALGORITHM_VERSION
-
-
+TAG = LATEST_ALGORITHM_VERSION
 def _pick(tmp_path, *, version: str, share: float | None = None, u: float | None = None, monkeypatch=None):
     paths = build_shared_facet_vault(tmp_path / "vault")
     set_algorithm_version(paths, version)
