@@ -230,3 +230,15 @@ def test_two_source_set_saves_that_read_the_same_file_do_not_lose_one_another(va
 
     ids = {source_set.id for source_set in load_vault(paths.root).source_sets}
     assert {"sset_exam_two", "sset_other"} <= ids
+
+
+def test_a_symlinked_source_sets_file_is_written_through_and_the_link_stays(tmp_path):
+    shared = tmp_path / "shared" / "source_sets.yaml"
+    shared.parent.mkdir()
+    shared.write_text("schema_version: 1\nsource_sets: []\n", encoding="utf-8")
+    link = tmp_path / "vault" / "source_sets.yaml"
+    link.parent.mkdir()
+    link.symlink_to(shared)
+    write_yaml_atomic(link, {"schema_version": 1, "source_sets": [{"id": "sset_x"}]})
+    assert link.is_symlink() and link.resolve() == shared.resolve()
+    assert "sset_x" in shared.read_text(encoding="utf-8")
