@@ -140,6 +140,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_cli_append_units.py](../../../../../../tests/test_cli_append_units.py) — direct import
 - [tests/test_cli_generate_practice.py](../../../../../../tests/test_cli_generate_practice.py) — direct import
   - `test_populate_goal_uses_a_15_minute_provider_timeout`
 - [tests/test_cli_ingest.py](../../../../../../tests/test_cli_ingest.py) — direct import

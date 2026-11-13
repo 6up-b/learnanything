@@ -42,13 +42,15 @@ class PatchApplicationError(ValueError):
 
 
 class OutstandingApplyIntentError(PatchApplicationError):
-    """An earlier apply is pending or conflicted, so no accept may build on the vault (K3.5).
+    """An earlier apply is pending or conflicted, so no accept or undo may
+    build on the vault (K3.5; D-10 for undo).
 
     ``intents`` holds ``{id, status, proposed_patch_id, paths}`` per outstanding
     intent (``paths``: the conflicted files, empty for a pending one).
+    ``action`` names what was refused in the message ("accept", "undo").
     """
 
-    def __init__(self, intents: list[dict[str, Any]]) -> None:
+    def __init__(self, intents: list[dict[str, Any]], *, action: str = "accept") -> None:
         self.intents = [
             {
                 "id": intent["id"],
@@ -66,7 +68,15 @@ class OutstandingApplyIntentError(PatchApplicationError):
             )
         else:
             advice = "is still mid-flight; reopen the vault or run `learnloop doctor --fix-state` to finish it"
-        super().__init__(f"Refusing to accept: an earlier apply (intent {first['id']}) {advice}")
+        super().__init__(f"Refusing to {action}: an earlier apply (intent {first['id']}) {advice}")
+
+
+def refuse_while_an_apply_is_outstanding(repository: Repository, *, action: str) -> None:
+    """Raise :class:`OutstandingApplyIntentError` while an intent is pending or conflicted."""
+
+    outstanding = repository.outstanding_apply_intents()
+    if outstanding:
+        raise OutstandingApplyIntentError(outstanding, action=action)
 
 
 @dataclass(frozen=True)
@@ -188,9 +198,7 @@ def _apply_accepted_locked(
     # An earlier apply left pending (mid-flight) or conflicted means the vault
     # may be half-applied: nothing builds on it until that intent is settled
     # (K3.5; the sidecar recovers pending intents at every bind).
-    outstanding = repository.outstanding_apply_intents()
-    if outstanding:
-        raise OutstandingApplyIntentError(outstanding)
+    refuse_while_an_apply_is_outstanding(repository, action="accept")
 
     requested = repository.pending_proposal_items(patch_id, item_ids)
     for item in requested:
@@ -402,8 +410,11 @@ def reject_applied_items(
     ]
     rejected = 0
     # Reverting an applied item mutates the vault, so it takes the same
-    # accept-time critical-section lock as acceptance (§8.2).
+    # accept-time critical-section lock as acceptance (§8.2), and is refused
+    # as an accept is while an earlier apply may have left the vault
+    # half-applied: a revert would write over files that intent still owns.
     with vault_mutation_lock(vault.root, purpose="proposal_reject"):
+        refuse_while_an_apply_is_outstanding(repository, action="undo")
         for item in items:
             event = _apply_reject_side_effect(vault, repository, item, origin=origin, clock=clock)
             if event is None:

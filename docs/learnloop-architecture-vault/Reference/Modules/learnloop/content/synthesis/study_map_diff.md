@@ -98,6 +98,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/facet_identity_ingest_helpers.py](../../../../../../../tests/facet_identity_ingest_helpers.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
 - [tests/identity_pins_helpers.py](../../../../../../../tests/identity_pins_helpers.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
 - [tests/test_build_study_map_routing.py](../../../../../../../tests/test_build_study_map_routing.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
+- [tests/test_cli_append_units.py](../../../../../../../tests/test_cli_append_units.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
 - [tests/test_facet_authority.py](../../../../../../../tests/test_facet_authority.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
 - [tests/test_facet_identity_ingest.py](../../../../../../../tests/test_facet_identity_ingest.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
 - [tests/test_facet_reword_confirm.py](../../../../../../../tests/test_facet_reword_confirm.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
@@ -106,7 +107,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_graph_nomination_ingest.py](../../../../../../../tests/test_graph_nomination_ingest.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
 - [tests/test_ingest_instrument_gates.py](../../../../../../../tests/test_ingest_instrument_gates.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
 - [tests/test_keep_ahead_append_units.py](../../../../../../../tests/test_keep_ahead_append_units.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
-- [tests/test_retired_config_identities.py](../../../../../../../tests/test_retired_config_identities.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
 
 ## Modification guidance
 

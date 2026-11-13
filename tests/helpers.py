@@ -587,14 +587,15 @@ PLACEMENT_LOS = {
 def create_placement_vault(
     root: Path,
     *,
-    version: str = "mvp-0.11",
+    version: str = LATEST_ALGORITHM_VERSION,
     placement_toml: str | None = None,
 ) -> VaultPaths:
     """The basic vault plus three never-practised LOs outside any goal.
 
     ``lo_spectral`` declares ``eigenvalues`` (``lo_eigen_basics``) as its
     prerequisite, so it sits one layer below it. Items carry authored
-    difficulties so the incumbent's predicted success orders them.
+    difficulties so the incumbent's predicted success orders them. The default
+    tag is the head; a successor test names its predecessor's tag.
     """
 
     paths = create_basic_vault(root)
@@ -652,11 +653,19 @@ def create_placement_vault(
     return VaultPaths(vault.root, vault.config)
 
 
+#: RO5's randomized cold check at its declared zero, which serves the predecessor exactly (a ``plan_toml``
+#: fragment). With the arm on, the day's first boundary places a cold check of an unseen item as its own block
+#: before the plan's first decision (seeded on the date): one more block, an unseen item planned whatever the
+#: lanes or admission say, and minutes off the budget. A test whose subject is the plan's lanes, blocks or
+#: decisions takes the arm at zero; a test of the check itself leaves it on.
+RANDOMIZED_CHECKS_OFF = '[router_objective]\ncheck_rate = "off"\n'
+
+
 def create_daily_plan_vault(
     root: Path,
     *,
     learning_objects: dict[str, list[tuple[str, float | None]]] | None = None,
-    version: str = "mvp-0.14",
+    version: str = LATEST_ALGORITHM_VERSION,
     plan_toml: str | None = None,
 ) -> VaultPaths:
     """The placement vault plus extra LOs whose items carry ``expected_minutes``.
@@ -664,7 +673,8 @@ def create_daily_plan_vault(
     ``learning_objects`` maps an LO id to ``[(item_id, expected_minutes)]``. With
     no latency history an item's daily-plan estimate (§6.4) is its expected
     minutes (3.0 when None) plus the default 0.5 minutes of feedback, so tests
-    control block sizes exactly. Daily-loop DL1 plans are live at ``mvp-0.14``.
+    control block sizes exactly. The default tag is the head, the path every real
+    vault serves; a test of a predecessor names its tag or turns its switch off.
     """
 
     paths = create_placement_vault(root, version=version)

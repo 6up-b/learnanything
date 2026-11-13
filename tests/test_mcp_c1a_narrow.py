@@ -265,11 +265,13 @@ GENERATED_LO = "lo_ltg_legacy_key_8841_a_row_swap_negates_the_volume_abcdef12"
 def _plan_vault(tmp_path, monkeypatch):
     from learnloop.daily_plan.engine import build_plan
     from tests.daily_plan_fakes import NOW, MovableClock, make_env, scheduled, seed_due
-    from tests.helpers import create_daily_plan_vault
+    from tests.helpers import RANDOMIZED_CHECKS_OFF, create_daily_plan_vault
 
     no_model_calls(monkeypatch)
+    # RO5's check arm at zero: its block (one never-answered item, one topic) would be today's stored block instead
+    # of the maintain block over both topics.
     paths = create_daily_plan_vault(tmp_path / "plan", learning_objects={
-        "lo_m1": [("pi_m1a", 2.0)], GENERATED_LO: [("pi_g1", 2.0), ("pi_g2", 2.0)]})
+        "lo_m1": [("pi_m1a", 2.0)], GENERATED_LO: [("pi_g1", 2.0), ("pi_g2", 2.0)]}, plan_toml=RANDOMIZED_CHECKS_OFF)
     clock = MovableClock()
     # Both topics are due: today's (stored) block is one maintain block whose
     # computed why names them by the titles it was built with.

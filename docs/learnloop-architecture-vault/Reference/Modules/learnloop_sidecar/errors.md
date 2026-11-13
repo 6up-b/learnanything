@@ -180,6 +180,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/mobile_v3_probes_helpers.py](../../../../../tests/mobile_v3_probes_helpers.py) — direct import
 - [tests/plan_first_transport_offer_grants_helpers.py](../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import
 - [tests/reader_source_identity_guard_helpers.py](../../../../../tests/reader_source_identity_guard_helpers.py) — direct import
+- [tests/test_apply_recovery.py](../../../../../tests/test_apply_recovery.py) — direct import
+  - `test_the_book_cards_undo_is_refused_before_it_changes_anything`
 - [tests/test_build_study_map_routing.py](../../../../../tests/test_build_study_map_routing.py) — direct import
   - `test_out_of_range_or_unknown_ceilings_are_refused`
 - [tests/test_capture_desktop.py](../../../../../tests/test_capture_desktop.py) — direct import

@@ -28,6 +28,8 @@ It restructures about a fifth of the package: the router's top layer (E), histor
 
 **One correction to the request.** Ingestion has been evaluated deeply since you last looked: K2's map and strategy landed Nov 11 (`docs/reviews/k2-ingestion-map-2026-11-11.md`, `k2-ingestion-strategy-2026-11-11.md`), K3.1-K3.4 are on main, and K2.1-K2.12 wait for arc D. I found nothing to add there.
 
+**Corrections since (Nov 12).** The K9 map (`docs/reviews/k9-diagnosis-map-2026-11-12.md` §6.2) found that `diagnosis/failure_triage.py` is imported by string through the parameter registry's module inventory, which this audit's sweep could not see (§4 says so): its functions have no caller, but it is not unimported. M0's own measures (`docs/reviews/refactor-m0.md`) replace this audit's where the method differs: root modules 78 and 34 (it leaves out `__init__.py` and `__main__.py`), stage-artifact comments 2,424 (inline comments counted), stage-named test files 185.
+
 ## 1. Where the refactor stands
 
 The `refactor` session is busy. From git and its worktrees: arcs A, B and C are closed; K0, K1, K2's two documents, K3.1-K3.4, T1 and D2a are on main. In flight: K3.5 and D2b (one landing batch), and three fix branches for the bug ledger (facet-belief successor, diagnosis fixes, ingest fixes). D1 waits on the owner's `vault_report.py` run and the floor.

@@ -76,7 +76,7 @@ An unavailable optional provider can coexist with a structurally clean vault; in
 | unknown TOML key or invalid reference | correct the owning file/config with a backup |
 | pending SQL migration | use the locked `--fix-state` path |
 | incomplete apply intent/state sync (`apply_intents:pending`) | reopen the vault in the app (it recovers at bind) or use `--fix-state`, then re-run plain doctor |
-| `apply_intents:conflicted` error | a proposal apply stopped because a file it would write changed since; the newer file was kept and accepts are refused. Look at the named files, then settle it from Maintain (see [[#Proposal apply recovery]]) |
+| `apply_intents:conflicted` error | a proposal apply stopped because a file it would write changed since; the newer file was kept and accepts and undos are refused. Look at the named files, then settle it from Maintain (see [[#Proposal apply recovery]]) |
 | nonzero deprecated-table row telemetry | stop and escalate; preserve rows |
 | stale/missing derived rebuild marker | shadow compare, then justified live rebuild |
 | AI auth/readiness error | [[Configure AI Providers]] |
@@ -122,7 +122,7 @@ Accepting proposal items writes YAML through a write-ahead intent (`apply_intent
 
 - **Who recovers.** The sidecar finishes pending intents at every primary bind, right after facet-identity recovery and before ingest binds or state syncs, so the app never serves a half-applied vault; `doctor --fix-state` does the same. The phone host attaches as a secondary and leaves recovery to the primary. With nothing pending, recovery is one query and takes no lock.
 - **Never over a newer file.** Recovery writes a target only while the file still holds its pre-image (or no file, for a new one) or already holds the new content. Anything else means the file changed after the intent: nothing of that intent is written, the intent becomes `conflicted` with the files that differ, and the newer files stay.
-- **Accepts wait.** While an intent is `pending` or `conflicted`, every accept is refused (`OutstandingApplyIntentError`; the sidecar's code is `apply_intent_outstanding`), because the vault may be half-applied.
+- **Accepts and undos wait.** While an intent is `pending` or `conflicted`, every accept is refused, and so is every reject or undo (the inbox's reject and delete, the CLI `reject`, a book card's Undo, which is refused before it moves the book's generation or cancels its builds): `OutstandingApplyIntentError`, whose sidecar code is `apply_intent_outstanding`, because the vault may be half-applied and a revert would write over files the intent still owns.
 - **Settling a conflict.** Plain doctor and `--fix-state` report `apply_intents:conflicted` as an error and never write over it. The Maintain screen's feed shows the notice `apply_conflicted` with **Keep the files as they are**, which sets the intent aside (`set_aside`): the files stay as they are, its database effects are never performed and its proposal items stay pending for review. A pending intent's notice (`append_partially_complete`, left only when bind recovery failed) offers **Complete pending apply**. Both buttons call the sidecar's `resolve_apply_intent`; its `complete` resolution also re-checks a conflicted intent, finishing it once every named file is back at its pre-image or new content (no button offers that yet).
 
 ## Derived-state recovery

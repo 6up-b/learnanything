@@ -433,7 +433,7 @@ No change at any fixed input, and no learner reach except where stated. Each rem
 **E9. Names** (S).
 - **Problem:** P6, C3. Two `card` modules, `LegacyLanesSource` (live), `learner_context.py` (not the Ask path's context).
 - **Does:** renames only. Packages stay. No consolidation of `router/` and `router_objective/`, unless the step finds it's a move of under 5 modules.
-- **Root modules (owner, Nov 12; audit §3).** After D3 the package root holds 36 modules. Those owned by one feature move into it: by name `figure_admission`, `reader_learner_state`, `reading_sources`, `held_grades`, `grading_epochs`, `delayed_checks`, `hint_window`; step 0 confirms each by its importers. The root keeps the cross-cutting leaves (`clock`, `ids`, `numeric`, `provenance`, `algorithm_versions`, `vault_lock`, `bootstrap`). A move with its import rewrites and no shim; M0's first-level count falls with it.
+- **Root modules (owner, Nov 12; audit §3).** After D3 the package root holds 34 modules. Those owned by one feature move into it: by name `figure_admission`, `reader_learner_state`, `reading_sources`, `held_grades`, `grading_epochs`, `delayed_checks`, `hint_window`; step 0 confirms each by its importers. The root keeps the cross-cutting leaves (`clock`, `ids`, `numeric`, `provenance`, `algorithm_versions`, `vault_lock`, `bootstrap`). A move with its import rewrites and no shim; M0's first-level count falls with it.
 
 **Stopping point 6.** Objective and policy edits are local.
 
@@ -480,7 +480,7 @@ Nothing here changes a value at a fixed draw count without the playbook. More dr
 
 ### 2.10 Arc G: one decider, one record of each fact, one belief, one protection
 
-Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever moves: prediction bundles written before the answer (`causal_probe_coherence.py:999`, migration 121's `generated_without_observation`), the pin of ids (`causal_orchestrator.py:2186`), the locked set before the answer (`:836`), the posterior at selection in `probe_presentations`, and the discriminating observations as inputs to `scoreboard`, `failure_triage`, `causal_health`, `evsi_calibration/live_report`, `causal_factor_deferral`, `router_objective/picks`, `ops/capture_report`, `hypothesis_marks`. Old rows stay readable. (`instructional/valuation` reads the episode posterior, not these.) `diagnosis/failure_triage.py` has no importer in `src` or `apps` at `e9a7733612`: eight test files and one `Repository` method name it (audit §2.3). L3's list puts it to the owner, and until it's removed it stays on this list.
+Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever moves: prediction bundles written before the answer (`causal_probe_coherence.py:999`, migration 121's `generated_without_observation`), the pin of ids (`causal_orchestrator.py:2186`), the locked set before the answer (`:836`), the posterior at selection in `probe_presentations`, and the discriminating observations as inputs to `scoreboard`, `failure_triage`, `causal_health`, `evsi_calibration/live_report`, `causal_factor_deferral`, `router_objective/picks`, `ops/capture_report`, `hypothesis_marks`. Old rows stay readable. (`instructional/valuation` reads the episode posterior, not these.) `diagnosis/failure_triage.py`'s functions have no caller in `src` or `apps`, but the parameter registry imports the module by string to resolve three constants (`params/parameter_registry.py:127`), at sidecar vault open among other places, and five `Repository` methods carry its name, three of them live (K9 map §6.2, correcting the audit's §2.3). L3's list puts it to the owner; deleting it removes its registry entries in the same commit, and until then it stays on this list.
 
 **G1. Facts, not a second decider** (M) `[IH]`.
 - **Problem:** B6; §4.4. `decide_probe` mixes facts (gain, chance of changing the repair, burden, classes) with a verdict. FG1 calls it with zeros for a log field (`followup_run/router.py:111`), which reads like information and isn't (S14).
@@ -711,7 +711,7 @@ The map's methods were name- and import-based, so whole risk classes were invisi
 
 **From this day the orchestrator delegates each step to an Opus or Sonnet implementer and reads the step's diff itself before the gate** (owner, Nov 12). The per-arc Codex review stays.
 
-**M0. Measures that can't slip back** (S). Now.
+**M0. Measures that can't slip back** (S). **Done** (Nov 12, `docs/reviews/refactor-m0.md`): eight numbers held, the test serial at about 7 s.
 - **Problem:** October grew about 6,000 code lines a day, so a one-time 5-9% is a week or two of growth. §6 had no number for the cycle, first-level names, long functions or history comments.
 - **Files:** `scripts/refactor_measures.py`; new `tests/goldens/structure.toml`, `tests/test_structure_ratchets.py`.
 - **Adds:** §6's structure table. One test: a held number may fall, and may rise only when the golden changes in the same commit, with the reason in the commit message. The golden is lowered at arc closes, not per commit, so parallel branches don't conflict on it. It's A3's pattern, so no new concept.
@@ -736,7 +736,7 @@ The map's methods were name- and import-based, so whole risk classes were invisi
 
 **L3. The serving core is visible** (S). With arc J.
 - **Problem:** 241 modules and 92,381 lines are reachable only from the CLI or TUI, and a reader can't tell which side a module is on.
-- **Does:** one import contract: the sidecar, the phone host, the MCP server and what they reach never import `cli`, `tui`, `experiments`, `evsi_calibration` or `sim`. The generated module notes gain one field, reach (serving, tooling, tests only). The owner gets the CLI-only list per package as part of decision 7, with `diagnosis/failure_triage.py` and `field`'s 11 CLI-only modules on it.
+- **Does:** one import contract: the sidecar, the phone host, the MCP server and what they reach never import `cli`, `tui`, `experiments`, `evsi_calibration` or `sim`. The generated module notes gain one field, reach (serving, tooling, tests only). The owner gets the CLI-only list per package as part of decision 7, with `diagnosis/failure_triage.py` (registry-imported, no caller) and `field`'s 11 CLI-only modules on it.
 - **Doesn't do:** move packages.
 
 **L4. Learned models callable without a database** (M review, then steps only where it pays). The review beside arc D; the steps with arc I.
@@ -997,20 +997,20 @@ Measured at S0 and Z2 with one script and the same commands.
 | Removed list | | every removed feature named in Z2's report |
 | Database size | private file | reported before and after each drop |
 
-**Structure (M0; owner, Nov 12).** Measured by the audit's sweep at `e9a7733612`; M0 moves the sweep into `scripts/refactor_measures.py`, and its own numbers replace these where its method differs. "Held" means `tests/test_structure_ratchets.py` fails when the number rises without the golden changing in the same commit.
+**Structure (M0; owner, Nov 12).** Measured by `scripts/refactor_measures.py` at M0's landing (`docs/reviews/refactor-m0.md` has each definition, and where it differs from the audit's sweep). "Held" means `tests/test_structure_ratchets.py` fails when the number rises without the golden changing in the same commit.
 
 | Measure | Nov 12 | Target | Held |
 |---|---|---|---|
 | Largest import component, function-local imports included | 189 modules | 40 or fewer (L1) | yes |
 | Modules in any import cycle | 286 | down | yes |
-| First-level names in `src/learnloop`: packages; root modules; root modules that aren't upgrades | 46; 80; 36 | 46 or fewer; about 30 (D3, E9) | yes |
+| First-level names in `src/learnloop`: packages; root modules; root modules that aren't upgrades | 46; 78; 34 | 46 or fewer; about 28 (D3, E9) | yes |
 | Functions over 200 lines | 83 | down; each survivor has an approach header (L5) | yes |
-| Comment lines naming a stage artifact | about 2,300 of 32,600 | down | yes |
-| Test files named for a stage or fix round | 196 of 1,403 | down (T2) | yes |
+| Comment lines naming a stage artifact (inline comments counted) | 2,424 of 35,040 | down | yes |
+| Test files named for a stage or fix round (names that carry only a stage id, such as `test_ro4_value.py`, not counted: 266 with them) | 185 | down (T2) | yes |
 | Import edges only inside functions | 2,836 in 564 modules | reported | no |
-| Direct wall-clock reads outside `clock.py` | about 320 in 125 modules | reported | no |
+| Direct wall-clock reads outside `clock.py`; `time.monotonic` reads (deadlines) | 105; 224 | reported | no |
 | Lines reachable only from the CLI or TUI | 92,381 in 241 modules | reported; the owner's list (L3) | no |
-| `enabled` booleans in `config/schema.py`; effective config leaves | 123; 1,181 | down after each floor move (L7) | no |
+| `enabled` booleans in `config/schema.py`; effective config keys | 123; 1,189 | down after each floor move (L7) | no |
 
 **What a change costs.** Files edited, counted on a scratch branch at Z2 with the same changes.
 

@@ -25,7 +25,8 @@ from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.helpers import create_daily_plan_vault
 from tests.mobile_host_helpers import HOSTNAME, Phone, config_for, pair, poll_job, rows
-from tests.daily_plan_reading_helpers import DAY1, _Clock, _seed_as_you_read, _sections
+from tests.daily_plan_reading_helpers import DAY1, _Clock, _planned_minutes_of, _seed_as_you_read, _sections
+from tests.ih2_lessons_compete_helpers import QUIET, draw  # noqa: F401 - ``draw`` is a fixture
 
 READER_APP = ("phone_probes", "phone_reader")
 
@@ -53,9 +54,14 @@ def _job(phone: Phone, method: str, params: dict, key: str) -> Any:
 
 
 @pytest.fixture
-def world(tmp_path, monkeypatch):
+def world(tmp_path, monkeypatch, draw):
     clock = _Clock(monkeypatch, DAY1)
-    paths = create_daily_plan_vault(tmp_path / "vault")
+    # The plan must reach its reading block: each boundary's mix may draw stop_for_today (seeded on fresh decision
+    # ids, so at random), and the stop coin may offer one, before the items ahead of it are skipped, or draw a lesson
+    # offer (held for the desktop, a step with no item to skip). None is these tests' subject: the coin is at zero and
+    # no drawn stop or offer stands, on the phone's plan and the desktop's alike.
+    draw.never_stop, draw.avoid = True, ("lesson_offer:",)
+    paths = create_daily_plan_vault(tmp_path / "vault", plan_toml=QUIET)
     _seed_as_you_read(paths)
     repository = Repository(paths.sqlite_path)
     device = pair(repository)
@@ -128,7 +134,7 @@ def test_the_phone_takes_a_reading_block_and_ends_it_as_the_desktop_does(world, 
 
     # The same day on the desktop, in an identical vault, at the same times.
     world["clock"].moment = DAY1
-    other = create_daily_plan_vault(tmp_path / "desktop")
+    other = create_daily_plan_vault(tmp_path / "desktop", plan_toml=QUIET)
     _seed_as_you_read(other)
     ctx = _desktop(other.root)
     _call(ctx, "set_plan_minutes", {"minutes": 40})
@@ -167,7 +173,7 @@ def test_the_phones_plan_reading_ended_is_the_desktops(world, outcome):
     ended = phone.rpc("plan_reading_ended", {"outcome": outcome, "sessionId": session_id})
     block = next(b for b in ended["plan"]["blocks"] if b["reading"])
     assert block["outcome"] == outcome and block["status"] == "done"
-    assert ended["plan"]["totals"]["plannedMinutes"] == pytest.approx(before["totals"]["plannedMinutes"])
+    assert _planned_minutes_of(ended["plan"], before) == pytest.approx(before["totals"]["plannedMinutes"])
     (ended_event,) = [detail for kind, detail in _block_events(world["sqlite"], _reading_ids(ended))
                       if kind == "block_ended"]
     assert set(ended_event) == {"outcome", "minutes_counted"} and ended_event["outcome"] == outcome

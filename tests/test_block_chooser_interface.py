@@ -27,7 +27,7 @@ from learnloop.daily_plan.types import (
     PlanState,
 )
 from tests.daily_plan_fakes import make_env, scheduled
-from tests.helpers import create_daily_plan_vault
+from tests.helpers import RANDOMIZED_CHECKS_OFF, create_daily_plan_vault
 
 
 def _candidate(candidate_id, lane, minutes, value=0.5):
@@ -157,7 +157,10 @@ def test_lane_quota_prefers_the_largest_unspent_share_then_repair_first():
 
 
 def test_every_decision_is_logged_with_its_candidate_set(tmp_path):
-    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={"lo_x": [("pi_x1", 2.0)]})
+    # RO5's check arm at zero: its block would be the plan's first, placed by the rules, not the chooser's decision.
+    paths = create_daily_plan_vault(
+        tmp_path / "vault", learning_objects={"lo_x": [("pi_x1", 2.0)]}, plan_toml=RANDOMIZED_CHECKS_OFF
+    )
 
     env = make_env(paths.root, [scheduled("pi_x1", "lo_x", new_material=1.0)])
     env.policy = PlanPolicy(source_name="legacy_lanes_v1", chooser=FakeChooser("no_such_block"), make_source=env.policy.make_source)

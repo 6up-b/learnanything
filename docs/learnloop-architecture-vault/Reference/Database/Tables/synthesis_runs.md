@@ -93,6 +93,7 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository.complete_synthesis_run()`
+- `Repository.completed_synthesis_manifests()`
 - `Repository.finalize_stale_synthesis_runs()`
 - `Repository.insert_synthesis_run()`
 - `Repository.save_synthesis_candidate()`

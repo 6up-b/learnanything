@@ -19,7 +19,7 @@ from learnloop.daily_plan.lanes import (
 )
 from learnloop.daily_plan.types import LANES, PlanState
 from tests.daily_plan_fakes import NOW, MovableClock, make_env, scheduled, seed_due
-from tests.helpers import create_daily_plan_vault
+from tests.helpers import RANDOMIZED_CHECKS_OFF, create_daily_plan_vault
 from tests.daily_plan_build_helpers import (
     FUTURE,
     LAST,
@@ -115,10 +115,11 @@ def test_due_project_probes_are_scheduled_checks_under_their_daily_cap():
 
 
 def test_project_probes_stay_outside_the_new_item_cap(tmp_path):
+    # RO5's check arm at zero: it would take an unseen probe as its own block, ahead of the lanes under test.
     paths = create_daily_plan_vault(
         tmp_path / "vault",
         learning_objects={"lo_repo": [(f"pi_probe_{i}", 1.0) for i in range(5)]},
-        plan_toml="[plan]\nmax_new_items_per_day = 1\n",
+        plan_toml="[plan]\nmax_new_items_per_day = 1\n" + RANDOMIZED_CHECKS_OFF,
     )
     probe_ids = {f"pi_probe_{i}" for i in range(5)}
 
@@ -127,7 +128,9 @@ def test_project_probes_stay_outside_the_new_item_cap(tmp_path):
 
     register_scheduled_check_provider(provider)
     try:
-        items = [scheduled(f"pi_probe_{i}", "lo_repo") for i in range(5)] + [
+        # The plan values due project probes by their information (VOI stopping, no count cap): a probe that
+        # carries none is never admitted, so these carry some.
+        items = [scheduled(f"pi_probe_{i}", "lo_repo", probe_eig_total=0.2) for i in range(5)] + [
             scheduled("pi_eig_easy", "lo_eigen_basics", new_material=1.0),
             scheduled("pi_eig_mid", "lo_eigen_basics", new_material=1.0),
         ]
@@ -135,9 +138,12 @@ def test_project_probes_stay_outside_the_new_item_cap(tmp_path):
         record = build_plan(env, kind="normal", budget=40.0, remembered=40, minutes_source="chip")
         admitted = [row["practice_item_id"] for row in record.admission["admitted"]]
         assert admitted == ["pi_eig_easy"]  # the cap of 1 counts new material only
+        # Exactly the probes the plan's value admission let into the maintain lane are planned.
+        valued = {row["practice_item_id"] for row in record.split["pool"] if row["practice_item_id"] in probe_ids}
+        assert valued and all(row["lane"] == "maintain" for row in record.split["pool"] if row["practice_item_id"] in valued)
         record, _ = _run_to_end(env)
         planned = {item.practice_item_id: item for item in record.items()}
-        assert {i for i in planned if i in probe_ids} == {f"pi_probe_{i}" for i in range(4)}
+        assert {i for i in planned if i in probe_ids} == valued
         assert all(planned[i].lane == "maintain" and planned[i].check_kind == "project_probe" for i in planned if i in probe_ids)
         assert not any(planned[i].new_admitted for i in planned if i in probe_ids)
     finally:
@@ -197,7 +203,10 @@ def test_blocks_never_exceed_15_minutes_or_the_lane_or_the_plan():
 
 
 def test_a_3_5_minute_item_is_served_with_4_minutes_left(tmp_path):
-    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={"lo_x": [("pi_x1", 3.0)]})
+    # RO5's check arm at zero: its block would come first and take minutes off the four.
+    paths = create_daily_plan_vault(
+        tmp_path / "vault", learning_objects={"lo_x": [("pi_x1", 3.0)]}, plan_toml=RANDOMIZED_CHECKS_OFF
+    )
     env = make_env(paths.root, [scheduled("pi_x1", "lo_x", forgetting_risk=0.6)])
     seed_due(env.repository, "pi_x1", due=PAST, last=LAST)
     record = build_plan(env, kind="normal", budget=4.0, remembered=4, minutes_source="chip")
@@ -280,7 +289,9 @@ def test_items_that_appear_mid_plan_do_not_join_it(tmp_path):
 
 
 def test_a_learner_pick_is_logged_without_propensity_and_displaces_the_tail(tmp_path):
-    paths = _wide_vault(tmp_path)
+    # RO5's check arm at zero: its block would be the plan's first, so the build plans 3.5 minutes, not the tail
+    # the pick displaces.
+    paths = _wide_vault(tmp_path, plan_toml=RANDOMIZED_CHECKS_OFF)
     clock = MovableClock()
     env = make_env(paths.root, _wide_items(), clock=clock, session_id=None)
     _seed_wide(env.repository)

@@ -826,6 +826,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
   - `test_billing_class_is_subscription`
   - `test_t6_rewrite_runs_on_the_plan_with_receipts`
+- [tests/test_cli_append_units.py](../../../../../../tests/test_cli_append_units.py) — direct import
 - [tests/test_cli_attempt.py](../../../../../../tests/test_cli_attempt.py) — direct import
   - `test_cli_show_attempt_includes_evidence_and_surprise`
 - [tests/test_cli_commands.py](../../../../../../tests/test_cli_commands.py) — direct import
@@ -1076,6 +1077,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_write_time_adoption_is_not_gated_by_the_sweep_switch`
 - [tests/test_daily_plan_composition.py](../../../../../../tests/test_daily_plan_composition.py) — direct import
   - `test_an_empty_stuck_answer_on_a_plan_item_is_done_and_labelled_daily_plan`
+- [tests/test_daily_plan_kill_switch.py](../../../../../../tests/test_daily_plan_kill_switch.py) — direct import
+  - `test_router_off_places_no_randomized_check`
 - [tests/test_daily_plan_replay.py](../../../../../../tests/test_daily_plan_replay.py) — direct import
   - `test_rebuild_ignores_the_plan_and_calls_no_model`
 - [tests/test_daily_plan_review_regressions.py](../../../../../../tests/test_daily_plan_review_regressions.py) — direct import
