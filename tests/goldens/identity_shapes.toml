@@ -386,7 +386,7 @@ fields = [
 ]
 
 ["learnloop.content.synthesis.ai_contracts:SourceUnitInventoryContext"]
-sites = ["A15"]
+sites = ["A15", "K2.2a"]
 fields = [
   "unit_id: str required",
   "semantic_hash: str required",

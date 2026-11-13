@@ -544,6 +544,12 @@ def _inventory_window_key() -> Any:
     return inventory_window_key(context, model_settings(FakeStructuredClient()), schema_version=1)
 
 
+def _inventory_row_key() -> Any:
+    from learnloop.content.synthesis.source_unit_inventory import inventory_row_key
+
+    return inventory_row_key(provider="codex", model="fake-model", schema_version=1)
+
+
 def _legacy_window_key() -> Any:
     from learnloop.content.pipeline.ai_contracts import CanonicalIngestContext
     from learnloop.content.pipeline.source_ingestion import legacy_window_key
@@ -1002,6 +1008,13 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "cached inventory windows miss and are paid again",
         {"window_key": _inventory_window_key}),
     IdentitySite(
+        "K2.2a", "source unit inventory row key (the inventory prompt over an empty context, schema version, "
+                 "provider and model)",
+        ("src/learnloop/content/synthesis/source_unit_inventory.py::inventory_row_key",),
+        "source_unit_inventories.usage_json request_key, matched before a row is reused (reusable_unit_inventories)",
+        "every inventory row stops answering; its windows are read from their checkpoints, or paid where none is kept",
+        {"row_key": _inventory_row_key}),
+    IdentitySite(
         "K2.1a", "legacy ingest window checkpoint key (rendered prompt and schema, provider and model)",
         ("src/learnloop/content/pipeline/source_ingestion.py::legacy_window_key",),
         "legacy ingest window checkpoints (model_checkpoints)",
@@ -1253,7 +1266,7 @@ SHAPE_ROOTS: dict[str, tuple[str, ...]] = {
     "learnloop.content.pipeline.ai_contracts:CanonicalIngestContext": ("A13",),
     "learnloop.content.synthesis.ai_contracts:SourceSetSynthesisContext": ("A14",),
     "learnloop.content.synthesis.ai_contracts:AppendReconciliationContext": ("K3.4",),
-    "learnloop.content.synthesis.ai_contracts:SourceUnitInventoryContext": ("A15",),
+    "learnloop.content.synthesis.ai_contracts:SourceUnitInventoryContext": ("A15", "K2.2a"),
     "learnloop.content.synthesis.ai_contracts:ConceptGraphContext": ("K2.1d",),
     "learnloop.content.synthesis.ai_contracts:VaultEpigraphContext": ("K2.1f",),
 }
