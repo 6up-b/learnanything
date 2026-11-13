@@ -30,7 +30,7 @@ from learnloop.vault.models import (
 )
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.scope_seal import scope_seal
-from learnloop.vault.yaml_io import read_yaml, write_yaml
+from learnloop.vault.yaml_io import read_yaml, write_yaml, write_yaml_atomic
 from learnloop.vault_lock import vault_mutation_lock
 
 
@@ -460,8 +460,7 @@ def upsert_source_set(
         source_sets.append(validated)
     else:
         source_sets[index] = validated
-    paths.source_sets_path.parent.mkdir(parents=True, exist_ok=True)
-    write_yaml(paths.source_sets_path, data)
+    write_yaml_atomic(paths.source_sets_path, data)
     return paths.source_sets_path
 
 

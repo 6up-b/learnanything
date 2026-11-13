@@ -67,7 +67,13 @@ from learnloop.content.authoring.exercise_authoring import (
 )
 from learnloop.content.authoring.pf_sandbox import SandboxLimits
 from learnloop.content.authoring.practice_leakage import build_held_out_inventory, screen_practice_payload
-from learnloop.content.sources.exam_material import SCOPE_ONLY_REFUSAL, exam_material, reference_keys, scope_only_among
+from learnloop.content.sources.exam_material import (
+    SCOPE_ONLY_REFUSAL,
+    SourceSetsUnreadable,
+    exam_material,
+    reference_keys,
+    scope_only_among,
+)
 from learnloop.content.sources.exercise_statements import read_exercise_statement, selection_nodes
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
@@ -1199,7 +1205,11 @@ def _import_source_exercise(
     # rechecked now, by the one predicate, before anything is sent or written.
     # A proposal (or a harvest's or a need's search) may predate the owner's
     # mark: a stale proposal is never trusted.
-    exam = exam_material(vault, repository)
+    try:
+        exam = exam_material(vault, repository)
+    except SourceSetsUnreadable:
+        return fail("rejected", "exam_material: the vault's source sets could not be read, so nothing is made "
+                    "practice until they are fixed (learnloop doctor)")
     region = [(str(extraction_id), str(span)) for span in span_ids]
     flagged = [key for key in region if exam.covers(*key)]
     if flagged:
