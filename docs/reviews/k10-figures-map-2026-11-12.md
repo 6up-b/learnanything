@@ -499,3 +499,54 @@ From `git log`/`git show` on non-merge commits (a delegated sweep; the single co
 | F10H1 | medium | A new tier costs about 15 places across 7 Python modules and the desktop, because the tier is a branch in the author loop, the reuse key, the presentation chain, the label, the view, the records and the prefetch model rather than one module. | §3.2; §7.2 |
 | F10H2 | medium | The sidecar handler is the most co-edited file (28 of 109 commits): every new place or rule edits it, because it holds policy (§3, F10B2). | §7 history |
 | F10H3 | low | A prompt change edits one file and re-records two goldens (the switch-off golden and, since B4, the prompt golden). | `1975294a0c`; `docs/reviews/refactor-b4.md:53` |
+
+## 8. What the learner sees (input to the UX journey audit)
+
+Problems only; nothing here proposes a screen. Desktop paths are under `apps/learnloop-tauri/src/`; the delegated survey's claims used here were spot-checked at the lines cited.
+
+### 8.1 Every state a request can be in, and what each screen shows
+
+| state | backend knows | Reader (`screens/reader/figures/`) | Ask panel on practice, feedback, workbench (`components/askFigures.tsx`) | lesson (`screens/LessonScreen.tsx`) |
+|---|---|---|---|---|
+| not offered | which switch, offline, no route | button absent (`ReaderScreen.tsx:497`; `AskRail.tsx:303-305`) | absent (`askFigures.tsx:50-54`) | no visual in the turn |
+| waiting, quick | the job's state only (an in-memory job has no phase) | "◐ building an interactive version — keep reading" or "…from your words · keep reading" (`FigureInline.tsx:182`; `showMe.ts:16`), a cancel link, polled every 1.5 s with no overall timeout (`useFigures.ts:18`, `:317-321`) | "◐ building an interactive version · keep working" (`askFigures.tsx:33`), polled every 400 ms, no timeout, no cancel (`:47`, `:98-104`) | the turn waits on the figure (§2.3) |
+| waiting, rich | the job's phase from its heartbeat; queued position, plan wait | "◐ writing an animation for this passage" / "◐ checking it" / "◐ rendering the video (manim)" (`RichFigure.tsx:61-65`), re-read every 5 s (`useFigures.ts:21`); "◐ the animation is waiting for the ChatGPT plan" (`RichFigure.tsx:53`) | never (quick only) | never |
+| how long | nothing for a press: the only wait estimate in the code is the pre-builder's W (`figures/prefetch_model.py:358-385`), used to decide, never shown | no estimate anywhere (the survey found no wait or ETA field under `src`; `RichFigure.tsx:60` says "no percentages") | none | none |
+| partial | a quick figure shown, its fuller version pending, waiting, failed or cancelled (`figures/service.py:1619-1669`) | the fuller line: "◌ a fuller animation is being written · keep reading", "◇ a fuller animation is ready", "the fuller animation is waiting for the ChatGPT plan", "the fuller animation couldn't be built" with "why ▸" (`RichFigure.tsx:36-42`) | fuller dropped (`askFigures.tsx:81-83`) | fuller dropped (`LessonScreen.tsx:556`) |
+| failed verification | the reason (≤300 chars), the structural problems, every attempt's codes in `figure_author` records | "couldn't build a reliable version of this" with the reason (`FigureInline.tsx:33`, `:597-611`; server `figures/service.py:1299`), "try again" | "couldn't build an interactive version of this" (`askFigures.tsx:39`, `:260`) | "couldn't build a figure for this step" (`LessonScreen.tsx:520`) |
+| failed build (error) | a `FigureRefused` or `SidecarError` code (`capped`, `unrouted`, `unavailable`, `figures_changed`, `storage_busy`, …) | the error's message, or "couldn't build an interactive version"; the code is stored on the pending line and never rendered (`useFigures.ts:343-345`; `FigureInline.tsx:258-260`) | the message, or the generic line (`askFigures.tsx:260`) | `unavailable` for route refusals, `failed` otherwise (`teacher/visuals.py:262-263`; `LessonScreen.tsx:520-522`) |
+| refused (protection, cold check, not offered, switch) | the refusal code and an English message | the server's message as an error, no distinct state | the message; a cold check first asks for the take step (`askFigures.tsx:149-162`) | `withheld`: "…it would give an answer away, or its passage is held out now" (`LessonScreen.tsx:521`) |
+| refused for spend | `capped` with "Today's figure budget ($x) is used" (`figures/routes.py:519-522`) | the message only; no budget state | the message | `unavailable` |
+| withheld at delivery | `{"figure": null, "withheld": true}` (`learnloop_sidecar/handlers/figures.py:184-185`) | the pending line disappears and nothing is said: `withheld` is never read (`useFigures.ts:323-340`; `api/dto.ts:9709` declares it) | the generic failed line | n/a |
+| cancelled | the job marked cancelled; the build goes on (F10D2) | the line goes; the figure appears on a later read | no cancel | n/a |
+| lost (sidecar restarted) | the in-memory job is gone: "That figure request is no longer kept; ask again." (`learnloop_sidecar/handlers/figures.py:704`) | the error message on the pending line | the message | n/a |
+| stale | the sketch engine or verifier changed; a book check is due or differs; a switch turned off since | "couldn't run under this version · rebuild" (`figures/service.py:253`, `:1210-1212`); "rebuild" when a claim differs (`FigureInline.tsx:600-603`); a recheck runs on expand (`:625`); "can't draw this yet" or "can't show this kind here" for a switched-off kind (`figures/service.py:1298`, `figures/rich.py:103`) | same view | not shown when no longer shown (`teacher/visuals.py:334-341`) |
+| disappeared | a stored spec that no longer parses (`figures/service.py:3538-3540`); a pick withheld now (`:3231-3232`) | gone from the list with no line | | |
+| opt-in | the Manim tier needs the standing opt-in | an inline "allow · not now" line (`RichFigure.tsx:54-57`; `FigureInline.tsx:682`) | never | never |
+| attempt-host help | counted, free, not recorded, disabled (`learnloop_sidecar/handlers/figures.py:1297-1385`) | n/a | "counts as a hint" or "free" from `countsAsHint` (`askFigures.tsx:251`), copy for not recorded and disabled (`:129-135`); the take-step banner (`:162`); the server's `help.line` and `help.message` text is not rendered | n/a |
+
+### 8.2 Where the backend knows a reason the screen can't show
+
+- The error **code** of every failed build (stored, not rendered), so "budget used", "no route", "switched off mid-build" and "vault busy, try again" look alike except for their message text.
+- **Withheld at delivery**: the backend says why nothing came; the Reader shows nothing.
+- **Why a tier wasn't offered** (no `bwrap`, no Manim, not opted in, a lesson or attempt host): computed (`figures/rich.py:139-160`), not sent.
+- **How long**: no estimate exists for a press; the pre-builder's W is the only measured wait and the Reader never sees it.
+- **What the rich job is doing beyond its phase**: attempt 2, a render repair, a claim that failed; only the last reason reaches "why ▸".
+- **That a cancel didn't cancel**.
+
+### 8.3 Where desktop and phone differ
+
+- **The phone has no figures at all**: no Show me, no reopening, no fuller line, no video (§2.6). The phone's Reader shows the book's own printed figures as `<figure>` blocks (`apps/learnloop-mobile/src/read/ReaderScreen.tsx:450-453`). A figure built on the desktop for a passage is invisible when the learner reads that passage on the phone; whether that's by design beyond V4's "stay off" is not recorded.
+- **Within the desktop**, four hosts show the same build four ways (§8.1 columns): different pending copy, poll rates (1.5 s, 400 ms, 5 s), cancel or none, timeout none, and three failure vocabularies.
+
+### Findings
+
+| Id | Severity | Finding | Evidence |
+|---|---|---|---|
+| F10U1 | high | A built figure withheld at delivery disappears from the Reader with no word; the response says `withheld` and nothing reads it. | `learnloop_sidecar/handlers/figures.py:184-185`; `useFigures.ts:323-340`; `api/dto.ts:9709` |
+| F10U2 | high | No wait estimate for any press, and polling has no timeout: a stuck quick build shows "building…" forever on the Reader and the Ask panel, and the Ask panel can't be cancelled. | `useFigures.ts:317-321`; `askFigures.tsx:98-104` |
+| F10U3 | high | Cancel doesn't cancel: the build and its paid calls go on, and the figure appears later. | F10D2 |
+| F10U4 | medium | Failure states are one generic line per host: the code is dropped, spend refusals and protection refusals look like any error, and the rich failure's "why ▸" shows only the last attempt's reason. | `useFigures.ts:343-345`; `FigureInline.tsx:258-260`; `figures/rich.py:985-988` |
+| F10U5 | medium | The same figure is presented by four hosts with different copy, poll rates and cancel rules; the badges are the desktop's own vocabulary, not the server's label. | §8.1; §3.1 |
+| F10U6 | medium | No figure reaches the phone, including figures the learner made for the passage being read there. | §8.3 |
+| F10U7 | low | A figure can vanish from the list (unparseable spec, withheld pick) without a line. | `figures/service.py:3231-3232`, `:3538-3540` |
