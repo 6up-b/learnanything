@@ -205,7 +205,7 @@ def _the_one_thing(desk, attempt_id, *, plan_open):
 @pytest.mark.parametrize("surface, plan, closes, state", CELLS)
 def test_the_matrix(tmp_path, monkeypatch, surface, plan, closes, state):
     clock = _movable_clock(monkeypatch)
-    # At the head this one cell's plan is still open after the screen's steps have finished it (waits on D7).
+    # At the head this one cell's plan is still open after the screen's steps have finished it .
     version = FOLLOWUP_SERVE_ALGORITHM_VERSION if (surface, plan, closes, state) == ("plan", "complete", "before", "preparing") else TAG
     desk = _desk(tmp_path, monkeypatch, config=PLAN_OFF if surface == "no_plan" else "", arm=ARMS[state], version=version)
     if plan != "none" or closes == "yesterday":

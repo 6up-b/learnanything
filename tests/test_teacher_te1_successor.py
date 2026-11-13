@@ -80,7 +80,7 @@ def _state(repository):
 
 @pytest.mark.parametrize("setting", ["teacher_off", "below_tag"])
 def test_with_the_switch_off_or_below_the_tag_practice_is_byte_identical(tmp_path, setting, monkeypatch):
-    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # waits on D6: the lesson at the teacher's first tag
+    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # the first teacher tag's lesson is the subject
     from tests.ux_phase1_support import set_config
 
     on_paths, on_repository = build_teacher_vault(tmp_path / "on")

@@ -551,7 +551,7 @@ def _script(lesson):
 def test_a_lesson_with_no_reserved_text_is_byte_identical_with_the_guard_off(tmp_path, monkeypatch):
     """Nothing in the lesson quotes a reserved question: every row, payload, receipt, view and prompt is the same as
     with the reserved-question guard replaced by one that never fires (main's guards)."""
-    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # waits on D6: the lesson at the teacher's first tag
+    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # the first teacher tag's lesson is the subject
 
     def capture(lesson):
         def norm(text):

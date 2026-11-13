@@ -42,7 +42,7 @@ def _open(tmp_path, turns, *, config=None):
 
 
 def test_each_p_held_is_a_lesson_node_held_forecast_on_its_lo(tmp_path, monkeypatch):
-    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # waits on D6: the lesson at the teacher's first tag
+    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # the first teacher tag's lesson is the subject
     assert LESSON_NODE_HELD in FORECAST_KINDS
     paths, repository, _fake, view = _open(tmp_path, [held_plan])
     rows = _rows(repository, "SELECT receipt_key, forecaster, forecaster_version, scope, binding_kind, event, p, "
@@ -86,7 +86,7 @@ def test_the_forecast_report_resolves_it_on_the_first_cold_outcome(tmp_path):
 
 
 def test_switch_off_has_no_p_held_and_writes_no_forecast(tmp_path, monkeypatch):
-    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # waits on D6: the lesson at the teacher's first tag
+    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # the first teacher tag's lesson is the subject
     assert "p_held" not in json.dumps(TeacherTurnV1.model_json_schema())
     paths, repository, fake, _view = _open(tmp_path, [plan_turn], config={("teacher", "episode_log"): False})
     assert fake.result_models == [TeacherTurnV1]

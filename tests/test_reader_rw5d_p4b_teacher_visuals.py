@@ -45,7 +45,7 @@ def _rows(repository, sql, params=()):
 
 
 def test_a_visual_turn_builds_a_teacher_figure_shown_inline_with_its_predictions_suppressed(tmp_path, monkeypatch):
-    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # waits on D6: the lesson at the teacher's first tag
+    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # the first teacher tag's lesson is the subject
     paths, repository, fake, author, view, _build = _open(tmp_path, [visual_turn])
     lesson_id = view["lesson_id"]
     # The teacher was offered the visual: its paragraph, its prompt version and the schema with ``visual``
@@ -222,7 +222,7 @@ def test_a_visual_the_lesson_cannot_build_is_refused_back_to_the_teacher(tmp_pat
 
 
 def test_switch_off_keeps_te1s_prompt_and_turn_schema_byte_identical(tmp_path, monkeypatch):
-    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # waits on D6: the lesson at the teacher's first tag
+    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # the first teacher tag's lesson is the subject
     from learnloop.ai.transport import render_structured_prompt
     from learnloop.teacher.contracts import PROMPT_VERSION, TeacherTurnV1
     from learnloop.teacher.doctrines import doctrine_hash, doctrine_text
@@ -550,7 +550,7 @@ def test_review_f3_a_visuals_lesson_forecasts_under_its_own_family(tmp_path, mon
     """The visuals paragraph is a new doctrine version for §12.2's pool: a visuals-on lesson's forecasts
     carry their own family (TE1's unchanged off), so each policy's λ posterior is learned apart, and the
     replay reproduces both."""
-    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # waits on D6: the lesson at the teacher's first tag
+    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # the first teacher tag's lesson is the subject
 
     from datetime import UTC, datetime, timedelta
 

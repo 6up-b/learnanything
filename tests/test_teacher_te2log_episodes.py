@@ -223,7 +223,7 @@ def test_the_rows_origin_ids_name_the_days_ro5_assignments(tmp_path):
 
 
 def test_switch_off_keeps_te1s_lesson_byte_identical(tmp_path, monkeypatch):
-    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # waits on D6: the lesson at the teacher's first tag
+    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # the first teacher tag's lesson is the subject
     assert _schema_sha(TeacherTurnV1) == TE1_SCHEMA_SHA256 and doctrine_hash() == TE1_DOCTRINE_SHA256
     lesson = _Lesson(tmp_path, [plan_turn], config={("teacher", "episode_log"): False})
     lesson.act("reply", {"text": "Go."}, turns=[check_turn()])
@@ -259,7 +259,7 @@ def test_switch_off_keeps_te1s_lesson_byte_identical(tmp_path, monkeypatch):
 
 
 def test_switch_on_offers_the_paragraph_the_schema_and_its_own_forecaster(tmp_path, monkeypatch):
-    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # waits on D6: the lesson at the teacher's first tag
+    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # the first teacher tag's lesson is the subject
     lesson = _Lesson(tmp_path, [plan_turn, landed_turn()])
     lesson.act("reply", {"text": "Go."})
     assert set(lesson.fake.result_models) == {TeacherTurnEpisodesV1}
