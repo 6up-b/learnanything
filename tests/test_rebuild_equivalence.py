@@ -294,18 +294,7 @@ def test_random_histories_with_claims_after_attempts_and_too_easy_retirements_re
     assert _mastery(repository) == live
 
 
-_DELETED_CLAIM = pytest.mark.xfail(strict=True, reason=(
-    "landing finding (LP-min (a), pre-existing at mvp-0.33, fixed by mvp-0.36): below the tag a learner "
-    "report (a too_easy/too_hard retirement or a rung-variant request) replaces the LO's earlier learner_report "
-    "claim by deleting it (delete_learner_claims), whose live re-anchor already moved mastery; replay cannot "
-    "apply a deleted claim"
-))
-
-
 @pytest.mark.parametrize("version", [
-    pytest.param("mvp-0.33", marks=_DELETED_CLAIM),
-    pytest.param("mvp-0.34", marks=_DELETED_CLAIM),
-    pytest.param("mvp-0.35", marks=_DELETED_CLAIM),
     # The successor keeps the replaced claim (superseded_by), so replay applies it at its own time
     # (tests/test_learner_report_superseded.py).
     SUPERSEDED_CLAIMS_ALGORITHM_VERSION,

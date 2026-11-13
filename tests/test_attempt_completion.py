@@ -28,7 +28,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests import probe_block_end_helpers as block_setup
-from tests.helpers import create_basic_vault, set_algorithm_version
+from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version
 from tests.diagnostic_augmentation_helpers import (
     _proposal,
     _SequenceDiagnostician,
@@ -41,10 +41,18 @@ READY = AIRuntimeReport(
 )
 
 
-def _vault(tmp_path, algorithm_version: str | None = None):
+#: Joint grading (the split's kill switch off): the diagnostician grades and
+#: diagnoses in one call. No vault that opens is below the split's tag, so the
+#: switch is the only way to grade jointly.
+JOINT = "\n[diagnosis]\nsplit_enabled = false\n"
+
+
+def _vault(tmp_path, algorithm_version: str | None = None, *, joint: bool = False):
     paths = create_basic_vault(tmp_path / "vault")
     if algorithm_version is not None:
         set_algorithm_version(paths, algorithm_version)
+    if joint:
+        append_config_toml(paths.root, JOINT)
     vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
     sync_vault_state(vault, repository)
     return paths, vault, repository
@@ -66,7 +74,7 @@ def _self_graded(vault, repository, *, submission_id: str | None = None, **draft
 
 @pytest.mark.parametrize("with_repairs", [True, False])
 def test_pipeline_keeps_one_hypothesis_version_with_grader_provenance(tmp_path, with_repairs):
-    _paths, vault, repository = _vault(tmp_path, "mvp-0.7")
+    _paths, vault, repository = _vault(tmp_path, "mvp-0.7", joint=True)
 
     def proposal(context):
         graded = _proposal(context.attempt_id)
@@ -98,6 +106,7 @@ def test_block_closing_diagnostic_answer_keeps_grader_provenance(tmp_path, with_
 
     vault, repository = block_setup._setup(tmp_path)
     set_algorithm_version(VaultPaths(vault.root, vault.config), "mvp-0.7")
+    append_config_toml(vault.root, JOINT)
     vault = load_vault(vault.root)
     clock = block_setup.CLOCK
 

@@ -7,10 +7,17 @@ a hold a failed regrade check kept, an adjudicated hold, a not-proof-like
 reading, an unavailable checker and a wrong final answer. Its derived state
 was rebuilt to the fixed point there. Replay reads the blind records and the
 evidence rows, never the check, so a rebuild with today's code must reproduce
-every grade, every hold and every derived row, and leave every ledger as it
-was (playbook item 6). The rebuild-equivalence successor's bounded replay
-moves its derived rows once (``REPLAY_CORRECTED_TABLES``), and the rebuild
-after that changes nothing. No model is called.
+every grade and every hold, and leave every ledger as it was (playbook item
+6), apart from what a successor since reinterprets: the rebuild-equivalence
+successor's bounded replay moves its derived rows once
+(``REPLAY_CORRECTED_TABLES``), and the regrade-contract successor (mvp-0.26)
+holds the one grade whose current epoch cites no contract under its own
+reason. The rebuild after that changes nothing. No model is called.
+
+Those successors' gates are gone (refactor D4: no vault that opens is below
+them), so today's replay is the same at the fixture's own tag and at the floor;
+the replay of mvp-0.17 itself (the derived rows the fixture holds) is no
+longer served at any tag.
 """
 
 from __future__ import annotations
@@ -69,13 +76,24 @@ def _state(repository) -> dict[str, list[tuple]]:
     return state
 
 
-def _assert_grades(repository) -> None:
+#: The grade the regrade-contract successor (mvp-0.26) reinterprets: a failed
+#: regrade check kept its hold, and that regrade's epoch cites no contract, so
+#: replay holds it under the successor's reason (it was held already; its score
+#: and correctness are unchanged).
+UNRECORDED = "held_kept_by_failed_regrade"
+
+
+def _assert_grades(repository, *, replayed: bool = True) -> None:
+    """Every grade as the fixture recorded it; once today's replay has run, the
+    regrade-contract successor's reason on ``UNRECORDED``."""
+
     attempts = EXPECTED["attempts"]
     held = held_attempt_ids(repository, [row["attempt_id"] for row in attempts.values()])
     for label, expected in attempts.items():
         attempt = repository.fetch_practice_attempt(expected["attempt_id"])
+        reason = "grade_contract_unrecorded" if replayed and label == UNRECORDED else expected["manual_review_reason"]
         assert (attempt["rubric_score"], attempt["correctness"], attempt["manual_review_reason"]) == (
-            expected["rubric_score"], expected["correctness"], expected["manual_review_reason"]
+            expected["rubric_score"], expected["correctness"], reason
         ), label
         assert (expected["attempt_id"] in held) is expected["held"], label
         record = repository.latest_blind_grade_record(expected["attempt_id"])["record"]
@@ -99,46 +117,61 @@ def test_the_fixture_holds_every_mvp017_outcome():
         assert connection.execute("PRAGMA journal_mode").fetchone()[0].lower() == "delete"
 
 
-def test_an_mvp017_vault_replays_its_grades_exactly(tmp_path):
-    _root, vault, repository = _copy(tmp_path)
-    assert vault.config.algorithms.algorithm_version == "mvp-0.17"
+def _ledgers_but_the_attempt_rows(state) -> dict[str, list[tuple]]:
+    return {table: state[table] for table in LEDGERS if table != "practice_attempts"}
+
+
+def test_an_mvp017_history_at_the_floor_replays_its_grades_and_then_changes_nothing(tmp_path):
+    """The fixture's rows in a vault at the floor, as the owner's vaults hold
+    such history: every grade and hold as recorded (``UNRECORDED`` under the
+    successor's reason), every other ledger unchanged, and the rebuild after
+    the first changes nothing."""
+
+    from learnloop.algorithm_versions import OLDEST_SUPPORTED
+    from learnloop.ops.upgrades import rewrite_algorithm_version
+
+    root, _vault, repository = _copy(tmp_path)
+    rewrite_algorithm_version(root / "learnloop.toml", "mvp-0.17", OLDEST_SUPPORTED)
+    vault = load_vault(root)
     before = _state(repository)
-    _assert_grades(repository)
+    _assert_grades(repository, replayed=False)
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
-    after = _state(repository)
-    changed = sorted(table for table in before if before[table] != after[table])
-    assert changed == []
+    first = _state(repository)
     _assert_grades(repository)
+    assert _ledgers_but_the_attempt_rows(first) == _ledgers_but_the_attempt_rows(before)
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    assert _state(repository) == first
 
 
 #: Rebuild equivalence (2026-10-25; its Codex review F3 and F4): the fixture's
 #: derived rows were written by a replay that read the attempts recorded after
-#: the one it recomputed. That replay stays the meaning of every version below
-#: the successor (the golden test above); the successor's bounded replay moves
-#: exactly these tables, on the LOs with more than one attempt.
+#: the one it recomputed (the replay of every version below that successor,
+#: served now only with ``replay.ledger_bounded`` off); the successor's bounded
+#: replay moves exactly these tables, on the LOs with more than one attempt.
 REPLAY_CORRECTED_TABLES = ["attempt_surprise", "learning_object_mastery", "practice_item_quality_state"]
 SINGLE_ATTEMPT_LO = "lo_transpose"
 
 
-def test_the_bounded_replay_corrects_the_copy_in_one_rebuild_and_then_changes_nothing(tmp_path, monkeypatch):
+def test_the_bounded_replay_corrects_the_copy_in_one_rebuild_and_then_changes_nothing(tmp_path):
     """F3: the first rebuild completes what it starts. Its learner replay
     appends a causal-hypothesis version (a recurrence input), and the rebuild
     reconciles the recurrence projection itself, so the rebuild right after it
-    changes no derived row, no hypothesis and no ledger row."""
+    changes no derived row, no hypothesis and no ledger row. At the fixture's
+    own tag: the bounded replay and the regrade-contract reading apply at every
+    tag a vault opens at, and the copy keeps every serving gate D5 and D6 have
+    not yet removed at mvp-0.17's branch."""
 
-    import learnloop.attempts.attempts as attempts_module
-
-    # The successor's replay on this mvp-0.17 history (the replay change
-    # alone: relabelling the copy would bring every serving successor between).
-    monkeypatch.setattr(attempts_module, "replay_reads_bounded_ledger", lambda _vault: True)
     _root, vault, repository = _copy(tmp_path)
     before = _audited(repository)
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     first = _audited(repository)
     changed = sorted(table for table in before if before[table] != first[table])
     # The appended hypothesis version restamps the recurrence fingerprint in
-    # the same rebuild (the group map, empty here, is unchanged).
-    assert changed == sorted([*REPLAY_CORRECTED_TABLES, "causal_hypotheses", "hypothesis_recurrence_state"])
+    # the same rebuild (the group map, empty here, is unchanged); the attempt
+    # rows change only by UNRECORDED's reason.
+    assert changed == sorted(
+        [*REPLAY_CORRECTED_TABLES, "causal_hypotheses", "hypothesis_recurrence_state", "practice_attempts"]
+    )
     single = [row for row in before["learning_object_mastery"] if row[0] == SINGLE_ATTEMPT_LO]
     assert single and single == [row for row in first["learning_object_mastery"] if row[0] == SINGLE_ATTEMPT_LO]
     _assert_grades(repository)
@@ -146,7 +179,7 @@ def test_the_bounded_replay_corrects_the_copy_in_one_rebuild_and_then_changes_no
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     second = _audited(repository)
     assert sorted(table for table in first if first[table] != second[table]) == []
-    assert {table: second[table] for table in LEDGERS} == {table: before[table] for table in LEDGERS}
+    assert _ledgers_but_the_attempt_rows(second) == _ledgers_but_the_attempt_rows(before)
     _assert_grades(repository)
 
 
