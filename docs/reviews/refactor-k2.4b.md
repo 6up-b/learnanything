@@ -69,3 +69,108 @@ the preset (the call's, K2.4a row 5). These stay the append's: its scope step is
 - **(ii)** 12 rows: 1, 2, 3, 4, 6, 8, 10, 15, 16, 17, 18, 22 (progress).
 - **(iii)** none. Row 9's omission of `append_input_ceiling` from the append's record was settled by K3.4's record
   ("stays out of the manifest's `token_budget`"); it is listed under open items, not kept as drift.
+
+## What each difference became
+
+| Row | Outcome |
+|---|---|
+| 1 | Left in the public entries (`create_study_map`, `append_source`): each is its mode's API, and the three lines are the same call. |
+| 2, 3, 4, 6, 8, 10 | Once, in `open_synthesis_run`, in the same order: source set, brief, (row 5), inputs, budgets, nominator. |
+| 5 | The head's `requested_mode` (`create_study_map`'s `mode`; the append passes none) is refused unless it is `"auto"` or the mode's `name`, at the same place (after the brief, before the inputs) with the same code and message, so an unknown set with a bad mode still says `source_set_not_found`. |
+| 7, 11, 12, 13 | The mode's scope step, `decide_scope(brief, inputs, budgets, nominator) -> RunScope`: bootstrap's records `bootstrap_scope`; the append's (in `_append`) selects its new inventories and the neighbourhood, records `append_scope`, names its revisions, and returns its context. |
+| 9 | `SynthesisMode.recorded_budgets` and `unlimited_recorded_budgets` (field names, in the order the records had). |
+| 14 | `SynthesisMode.prompt_version` (the two version functions). |
+| 15, 16, 17, 18 | Once, in the head. |
+| 19 | `SynthesisMode.agent_purpose`, `prompt_template`, `output_schema`. |
+| 20 | `SynthesisMode.name`, which replaces K2.4a's `epigraph_mode` (same values): the run's recorded mode, the epigraph service's mode, the mode a caller may ask for. `StudyMapResult.mode` reads it. |
+| 21 | Not moved (K2.4c): each orchestrator builds its call from the head's record (`run.token_budget`, `run.budgets`, `run.provider`, `run.model`, `run.one_facet_per_skill`, `run.manifest`). |
+| 22 | The head builds `SynthesisRun`. K2.4a's `digest_extras` is now `context`: the append's request reads it too (`_run_reconciliation` takes the neighbourhood's context dict, the only part of it it read). |
+| 23 | Each orchestrator builds its own result; the append's `neighborhood` is the record its manifest holds (`run.manifest["scope"]["neighborhood"]`, the same value `as_manifest_record()` gave). |
+
+## The shape
+
+- **`open_synthesis_run(vault, repository, root, source_set_id, mode, *, client, brief, decide_scope, clock, budget_overrides, unlimited_token_budget, embedding_client_factory, facet_identity_client, progress, requested_mode)`** in `content/synthesis/source_set_synthesis.py`, beside the tail, for the same reason (the append module imports from this one). It returns `SynthesisRun`.
+- **`SynthesisRun`** gains what the head opened and the calls read: `manifest`, `budgets`, `token_budget`, `provider`, `model`, `one_facet_per_skill`; `digest_extras` becomes `context`.
+- **`RunScope`** (new, frozen): what the mode's scope step returns: `scope`, `revision_ids` (None: the selected revisions), `context`.
+- **`SynthesisMode`** gains seven fields, each a row above: `name` (replacing `epigraph_mode`), `agent_purpose`, `prompt_template`, `output_schema`, `prompt_version`, `recorded_budgets`, `unlimited_recorded_budgets`. No boolean.
+- **Not added:** no other record, class or registry. The append's new inventories, unit filter and neighbourhood stay in `source_append` (its scope step); its call and the shard runner are untouched.
+
+## Deletion proofs (strategy §2.1)
+
+- **No function is deleted.** What the head replaces was inline code in `_create_study_map` and `_append` (`d6240b7378`); the goldens show the head writes and refuses the same.
+- **Imports `source_append` no longer uses** (`d6240b7378`): `utc_now_iso`, `SynthesisRun`, `manifest_inputs`, `resolve_brief`, `build_manifest`, `persist_manifest`, `agent_run_input_context_hash`. Each is still defined and used where it was (`source_set_synthesis`, `synthesis_manifests`, `clock`); `git grep` finds no other use of them through `source_append`, and the only test that reached one through it (`source_append.build_manifest`) is ported below.
+- **`SynthesisRun.digest_extras` and `SynthesisMode.epigraph_mode`** (renamed): `git grep -nw` over `src`, `tests`, `scripts`, `apps` and the vault notes finds no other reader; both records are private to the two modules (no `importlib`, Typer, registry or frontend path names them).
+
+## Goldens (P-golden)
+
+`tests/test_synthesis_tail_golden.py` gains seven cases (files in `tests/goldens/synthesis_tail/`), committed at the base behaviour (`3cd2299724`) before the extraction and unchanged by it:
+
+| Case | Mode | Covers |
+|---|---|---|
+| `bootstrap_unknown_source_set` | bootstrap | an unknown set with `mode="append"`: `source_set_not_found` (the lookup comes first), nothing written, no request |
+| `bootstrap_unsupported_mode` | bootstrap | `mode="append"`: `unsupported_mode`, nothing written |
+| `bootstrap_over_input_ceiling` | bootstrap | `synthesis_total_input_ceiling = 10`: the manifest and both run rows written, then `budget_exceeded`, both rows failed, no request |
+| `bootstrap_unlimited` | bootstrap | `unlimited_token_budget`: the record keeps only the shard size |
+| `append_unknown_source_set` | append | `source_set_not_found`, nothing written |
+| `append_over_input_ceiling` | append | `append_input_ceiling = 10`: rows written, then `append_input_over_ceiling`, both failed, no request |
+| `append_unit_filter_diff_unlimited` | append | a unit filter, a revision diff, a change kind, a neighbourhood budget override and no limits: the scope's `new_unit_ids` and `revision_diff_hash`, the unlimited record |
+
+The 20 cases passed after every later commit. After K2-16's fix, the golden append vault went back to the house helper with the inventory's alias (`2cf86baa1e`): the nine append files moved (the alias adds a neighbour facet and changes the inventory's content, so checkpoint keys, prompt digests and the neighbourhood record move with it), the bootstrap files did not. Those aliased files also pass with the base's two orchestrator modules checked out over the fix (`git checkout fea17dccae -- source_set_synthesis.py source_append.py`, then back), so the extraction is equal on the aliased vault too. All 20 passed under `PYTHONHASHSEED` 0-7 and under `-n 4`.
+
+**Not covered:** the head with graph nominations on (the nominator's identity in bootstrap's scope, the append's embedding writes before its manifest): `test_graph_nomination_ingest` covers both paths, unchanged and passing.
+
+## K2-16
+
+Read first, every consumer of the neighbourhood's record and the manifest hash: the record is the append scope's `neighborhood` (manifest) and `AppendResult.neighborhood`; the request's context (`as_context`) carries no match reasons, and every name scores the same, so the selection's order and the request never moved. The manifest hash is a record (`synthesis_manifests` is unique on it; `agent_runs.input_context_hash` records it; no run is looked up by it since K2.3, and `completed_agent_run_by_context`'s one caller is the inventory's). `_sent_units` reads the scope's revisions and unit filter, not the neighbourhood. The append checkpoint keys render the request. `proposal_match` compares rows. No identity pin builds a neighbourhood (`_append_scope`'s pin passes a fixed dict). So nothing stored keys on the old order, and the fix went in (`951f60e00f`): names, aliases and prerequisite hints are tried in sorted order. The hints had the same fault.
+
+What a vault sees: an append's manifest scope may name another of two matching names in a reason than an earlier one did, so its manifest hash differs; a rerun of an append written before writes a new manifest row (as a different hash seed already did). Nothing is reused, refused or applied differently.
+
+Fail-first: `tests/test_append_neighborhood_order.py` builds one neighbourhood in fresh interpreters under eight seeds (a facet and a concept that a name, its alias and two hints all match, with a stub vault and repository). Both tests were red on the base: seed 2 named the other name, seed 3 the other hint; the context was equal under every seed.
+
+## Tests changed
+
+- `tests/test_retired_config_identities.py`: the two append tests patched `source_append.build_manifest`, which the append no longer calls (T4). Ported to plain values: `test_append_manifest_hashes_the_facet_identity_config_as_before_arc_c` reads the persisted manifest's scope (`synthesis_manifest_by_hash`) and checks the same digest; `test_an_append_run_completed_before_arc_c_is_reused_for_the_same_request` checks the persisted scope's facet-identity dump equals the dump the code at `88607cb3fe` wrote (byte for byte, the file's recorded `BASE_FACET_IDENTITY_DUMP`), so a run completed then had this manifest, then reruns and asserts the same reuse and hash as before. The bootstrap tests that patch `source_set_synthesis.build_manifest` (here and in `test_graph_nomination_ingest`) keep working: the head calls that name in that module.
+- `tests/test_synthesis_tail_golden.py`: the seven cases above; its private unaliased vault removed for the house helper.
+- No assertion changed.
+
+## Measures
+
+| | base `fea17dccae` | tip |
+|---|---|---|
+| `source_set_synthesis.py` lines | 4,113 | 4,183 |
+| `source_append.py` lines | 1,210 | 1,146 |
+| both | 5,323 | 5,329 |
+| `_create_study_map` | 145 | 70 |
+| `_append` | 151 | 85 |
+| `open_synthesis_run` | none | 99 |
+| functions over 200 lines in the two files | 2 (`_normalize` 1,081, `_normalize_append` 221) | the same 2 |
+
+The two files are 6 lines longer together: the head's docstring and comments, `RunScope`, the seven `SynthesisMode` fields with their documentation and two rows, and the six new `SynthesisRun` fields. The head's stages exist once.
+
+## Judgment calls
+
+1. **The scope step is a per-run callable** (`decide_scope`), as K2.4a's `ask` and `apply` are: the append's selection needs the head's inputs, budgets and nominator, and the manifest needs its result, so it runs in the middle of the head. A mode field could not take the append's per-run arguments (change kind, revisions, unit filter, revision diff) without the head growing append-only parameters.
+2. **`RunScope` is a new frozen record**, returned by the scope step rather than by the head (the head returns the existing `SynthesisRun`). A tuple of three would read worse at both call sites.
+3. **`requested_mode` on the head** keeps bootstrap's `unsupported_mode` at its place in the refusal order. Refusing it in `_create_study_map` before the head would have changed which error a request wrong twice (unknown set and bad mode) gets. The message names `create_study_map`; the append never passes a mode, so it never reaches it.
+4. **`name` replaces `epigraph_mode`**: the run's recorded mode, the epigraph mode and the askable mode are the same two strings; three fields with equal values would invite drift.
+5. **`SynthesisRun.manifest` is the whole manifest**, not its hash: the append's result reads its neighbourhood record from it, which saves the scope step from returning that record twice.
+6. **`digest_extras` became `context`**, read by the append's request as well as the epigraph digest; `_run_reconciliation` takes the neighbourhood's context dict instead of the `Neighborhood`, the one part of it it read. That is the only edit inside an append call (K2.4c's).
+7. **Row 9's `append_input_ceiling`** stays out of the append's record as K3.4 decided; listed below as an open item rather than kept as drift.
+8. **K2-16 went in after the extraction**, so the extraction was proven on the goldens as committed at the base; the aliased goldens were then checked against the base's orchestrators.
+9. **The goldens stay in one file** (`test_synthesis_tail_golden.py`, directory `synthesis_tail/`): the harness is shared and test files may not import each other; the docstring now names the head's cases.
+
+## Ledger
+
+- **K2-16**: fixed here (`951f60e00f`).
+- No new row: the step found no class (iii) difference in the heads.
+
+## Open items
+
+- K2-9 to K2-15 stay open (the tail's).
+- The append's manifest does not record `append_input_ceiling`, while bootstrap's records its total input ceiling. K3.4 kept it out while the manifest was still a reuse key; since K2.3 it is a record, so adding it would only complete the record (a manifest change: behaviour track if wanted).
+- K2.4c: the append through the shard runner; it removes `ask`, `drop_answers`, `_run_reconciliation` and the context's separate path.
+- `_NewSignals.all_name_tokens` in `append_neighborhood.py` has no caller (seen while fixing K2-16; not removed here).
+
+## Process
+
+Most source and test edits went in through short Python scripts that replace one exact block each and assert it occurs exactly once (the append's head and its imports, `_run_reconciliation`'s parameter, the quick-add comment, the ported tests, the goldens' vault helper, the vault note and the ledger row); a few through the Edit tool; one import line through `sed`.
