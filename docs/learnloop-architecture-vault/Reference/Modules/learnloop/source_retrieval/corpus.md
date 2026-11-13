@@ -151,7 +151,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/instructional/needs|learnloop.instructional.needs]] — imports `teaching_scope`; statically calls `teaching_scope`
 - [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `teaching_scope`; statically calls `teaching_scope`
 - [[Reference/Modules/learnloop/instructional/tools|learnloop.instructional.tools]] — imports `MODEL_WITHHELD_ROLES`, `model_reader_withheld`; statically calls `model_reader_withheld`
-- [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]] — imports `MODEL_WITHHELD_ROLES`, `item_exclusions`; statically calls `item_exclusions`
+- [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]] — imports `MODEL_WITHHELD_ROLES`, `item_exclusions`, `model_reader_withheld`; statically calls `item_exclusions`, `model_reader_withheld`
 - [[Reference/Modules/learnloop/source_retrieval/b4|learnloop.source_retrieval.b4]] — imports `current_extractions`; statically calls `current_extractions`
 - [[Reference/Modules/learnloop/source_retrieval/compare|learnloop.source_retrieval.compare]] — imports `Scope`, `exam_withheld`, `item_exclusions`; statically calls `Scope`, `exam_withheld`, `item_exclusions`
 - [[Reference/Modules/learnloop/source_retrieval/dense|learnloop.source_retrieval.dense]] — imports `Scope`
@@ -246,6 +246,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followups_batch6_review_fixes.py](../../../../../../tests/test_followups_batch6_review_fixes.py) — direct import
   - `test_f1_the_pass_also_protects_the_stored_plans_open_items`
 - [tests/test_followups_batch6_verify_fixes.py](../../../../../../tests/test_followups_batch6_verify_fixes.py) — direct import
+- [tests/test_k1_mcp_find_sources.py](../../../../../../tests/test_k1_mcp_find_sources.py) — direct import
+  - `test_a_diagnostic_probe_items_own_passage_is_not_returned`
+- [tests/test_k1_source_sets_gate.py](../../../../../../tests/test_k1_source_sets_gate.py) — direct import
+  - `test_the_tutor_figures_and_phone_withhold_when_source_sets_did_not_load`
 - [tests/test_passage_links.py](../../../../../../tests/test_passage_links.py) — direct import
   - `test_roles_are_kept_with_confidence_judge_and_ledger_and_never_exclude`
 - [tests/test_query_student.py](../../../../../../tests/test_query_student.py) — direct import

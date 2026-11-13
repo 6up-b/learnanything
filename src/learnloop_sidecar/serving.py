@@ -33,10 +33,12 @@ from typing import Any
 
 from learnloop.content.sources.exam_material import (
     HELD_OUT_ITEM_REFUSAL,
+    exam_reserved,
     held_out_item_ids,
     held_out_material,
     held_out_selection_active,
 )
+from learnloop.instructional.practice import EXAM_RESERVED_PICK
 from learnloop.scheduling.device_eligibility import (
     DEVICE_POLICY, DEVICE_POLICY_MEDIA, DEVICE_POLICY_OFF, DeviceFilter, ineligibility_reason,
 )
@@ -53,6 +55,7 @@ from learnloop_sidecar.request_origin import RequestOrigin, device_class, phone_
 DESKTOP_ONLY_ERROR_CODE = "desktop_only"
 INACTIVE_LEARNING_OBJECT_ERROR_CODE = "learning_object_inactive"
 HELD_OUT_MATERIAL_ERROR_CODE = "held_out_material"
+EXAM_RESERVED_ERROR_CODE = "exam_reserved"
 
 
 def _device_rules_on(vault: Any) -> bool:
@@ -254,8 +257,17 @@ def refuse_unservable_item(vault: LoadedVault, item: PracticeItem) -> None:
 
 
 def refuse_held_out_item(vault: LoadedVault, repository: Any, item: PracticeItem) -> None:
-    """A session serve of an item made from held-out material is refused."""
+    """A session serve of an item reserved for a goal's held-out exam, or made
+    from held-out material, is refused. The reservation is refused whatever the
+    kill switch says (as a pick is, ``refuse_protected_pick``): the switch only
+    governs the held-out-material rule."""
 
+    if exam_reserved(repository, item.id):
+        raise SidecarError(
+            EXAM_RESERVED_ERROR_CODE,
+            f"{item.id}: {EXAM_RESERVED_PICK}.",
+            details={"practice_item_id": item.id},
+        )
     if not held_out_selection_active(vault):
         return
     if held_out_item_ids([item], held_out_material(vault, repository)):

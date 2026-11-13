@@ -20,7 +20,6 @@ source_paths:
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/learner_context.py"
-  - "src/learnloop/learner_protection.py"
   - "src/learnloop_sidecar/handlers/remediation.py"
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
@@ -94,6 +93,7 @@ Indexes and uniqueness:
 
 - `Repository.create_remediation_episode()`
 - `Repository.get_or_create_open_remediation_episode()`
+- `Repository.open_remediation_cold_item_ids()`
 - `Repository.open_remediation_episode_for_case()`
 - `Repository.open_remediation_episode_for_primed_item()`
 - `Repository.open_remediation_episodes_for_item()`
@@ -106,7 +106,6 @@ Indexes and uniqueness:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/learner_context.py`
-- `src/learnloop/learner_protection.py`
 
 ### Direct SQL writers
 
@@ -120,6 +119,9 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/guided_redo.py`
 - `src/learnloop/diagnosis/remediation.py`
+- `src/learnloop/instructional/policy.py`
+- `src/learnloop/learner_protection.py`
+- `src/learnloop/scheduling/serving_exclusions.py`
 - `src/learnloop_sidecar/handlers/remediation.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
 
@@ -141,6 +143,7 @@ Indexes and uniqueness:
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_causal_orchestrator.py`
 - `tests/test_guided_redo.py`
+- `tests/test_k1_remediation_cold_reservation.py`
 - `tests/test_prescription_passages.py`
 - `tests/test_reader_ca2_one_ask.py`
 - `tests/test_reader_ca5a_find_section.py`

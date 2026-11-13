@@ -464,6 +464,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_with_intent_off_the_control_answers_off_and_refuses_writes`
 - [tests/test_judge_routes.py](../../../../../tests/test_judge_routes.py) — direct import
   - `test_grading_providers_and_settings_health_ignore_judgment_routes`
+- [tests/test_k1_unreadable_adapters.py](../../../../../tests/test_k1_unreadable_adapters.py) — direct import
+  - `test_a_method_that_reads_no_exam_material_is_unaffected`
+  - `test_the_sidecar_answers_a_typed_error_where_exam_material_is_read`
 - [tests/test_keep_local_retired.py](../../../../../tests/test_keep_local_retired.py) — direct import
 - [tests/test_knowledge_map_text_neighbors.py](../../../../../tests/test_knowledge_map_text_neighbors.py) — direct import
   - `test_render_never_calls_a_model_or_writes`

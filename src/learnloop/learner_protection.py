@@ -68,8 +68,10 @@ import json
 import logging
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Protocol
+
+from learnloop.content.sources.exam_material import SNAPSHOT_UNSETTLED, protection_issues
+from learnloop.serve_eligibility import COLD_FOLLOWUP_TASK_KINDS
 
 _LOG = logging.getLogger(__name__)
 
@@ -94,12 +96,11 @@ PINS_UNREADABLE = ("the question revisions past answers were graded against coul
 #: A loader issue the remote runtime adds when the vault's files changed while
 #: it read them, or a protection-bearing file was caught mid-write (empty):
 #: nothing read from that snapshot can say what is protected.
-SNAPSHOT_UNSETTLED = "vault:snapshot_unsettled"
 PROTECTION_UNKNOWN = "which material is protected could not be read: no question or answer is shown"
 
 EXAM_ATTEMPT_TYPES = frozenset({"exam_attempt", "exam_evidence"})
 PROBE_MODES = frozenset({"diagnostic_probe", "diagnostic_microprobe"})
-COLD_TASK_KINDS = ("cold_retry", "certification_cold_probe")
+COLD_TASK_KINDS = COLD_FOLLOWUP_TASK_KINDS
 #: A submission at or above this correctness closes an item's attempt window
 #: (``instructional.policy.WINDOW_CLOSING_CORRECTNESS``, the rule that unlocks
 #: an item's own solution for the learner; a test pins that they agree).
@@ -156,37 +157,6 @@ class Withheld:
         return frozenset(self.reasons)
 
 
-def protection_issues(vault: Any) -> list[str]:
-    """Why the vault's protection metadata cannot be trusted, or ``[]``.
-
-    The source sets name the exam and held-out material. The loader turns a
-    source-sets file it cannot read into an issue and no source sets, and a
-    file a write has just truncated reads as no source sets at all: either
-    way "no exam material", so it makes protection unreadable. So does a
-    snapshot the remote runtime saw change while it loaded
-    (:data:`SNAPSHOT_UNSETTLED`). A practice item that failed to load is
-    handled per item (``Withheld.known_items``)."""
-
-    from learnloop.vault.paths import VaultPaths
-
-    found: list[str] = []
-    try:
-        source_sets = VaultPaths(Path(vault.root), vault.config).source_sets_path.resolve()
-    except Exception:  # noqa: BLE001 - fail closed
-        return ["the vault's source sets could not be located"]
-    for issue in getattr(vault, "issues", None) or ():
-        if issue.code == SNAPSHOT_UNSETTLED:
-            found.append(str(issue.message))
-        elif issue.path is not None and Path(issue.path).resolve() == source_sets:
-            found.append(f"the source sets could not be read ({issue.code})")
-    try:
-        if source_sets.is_file() and not source_sets.read_bytes().strip():
-            found.append("the source sets file is empty (a write in progress)")
-    except OSError:
-        found.append("the source sets file could not be read")
-    return found
-
-
 def withheld_items(vault: Any, repository: Any) -> Withheld:
     """Every item whose question and answers a model context never shows.
 
@@ -221,17 +191,13 @@ def withheld_items(vault: Any, repository: Any) -> Withheld:
             legacy = row.get("legacy_practice_item_id")
             if legacy:
                 reasons.setdefault(str(legacy), WITHHELD_RESERVED)
-        for kind in COLD_TASK_KINDS:
+        for kind in sorted(COLD_TASK_KINDS):
             for task in repository.open_followup_tasks_of_kind(kind):
                 if task.get("selected_item_id"):
                     reasons.setdefault(str(task["selected_item_id"]), WITHHELD_COLD)
+        for cold_item in sorted(repository.open_remediation_cold_item_ids()):
+            reasons.setdefault(cold_item, WITHHELD_COLD)
         with repository.connection() as connection:
-            if _table(connection, "remediation_episodes"):
-                for row in connection.execute(
-                    "SELECT cold_item_id FROM remediation_episodes WHERE cold_item_id IS NOT NULL "
-                    "AND state NOT IN ('completed', 'abandoned')"
-                ):
-                    reasons.setdefault(str(row[0]), WITHHELD_COLD)
             if _table(connection, "probe_presentations"):
                 for row in connection.execute(
                     "SELECT DISTINCT practice_item_id FROM probe_presentations"

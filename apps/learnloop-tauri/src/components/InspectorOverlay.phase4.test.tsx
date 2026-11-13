@@ -1,7 +1,7 @@
 // UX Phase 4.1 (docs/specs/ux_learnloop_v1.md §7.4, §10 4.1): the inspector
 // never shows the expected answer or the rubric for a question the learner
 // has not answered: one never answered (no attempt but skips), or the one
-// open on the practice screen right now. `[ui] practice_feedback = "classic"`
+// open on the practice screen right now (its hints too, in either mode). `[ui] practice_feedback = "classic"`
 // restores the inspector exactly.
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -19,6 +19,8 @@ vi.mock("./ConceptAnimationSection", () => ({ ConceptAnimationSection: () => nul
 const ANSWER = "Expand along the first row: det(A) = -3.";
 const CRITERION = "Expands along a row with the right signs";
 
+const HINT = "Try expanding along the first row.";
+
 function practiceItem(attempts: Array<{ attemptType: string }>) {
   return {
     kind: "practice_item",
@@ -27,7 +29,7 @@ function practiceItem(attempts: Array<{ attemptType: string }>) {
       id: "pi_det", learningObjectId: "lo_det", learningObjectTitle: "Determinants", subject: null, subjects: [],
       practiceMode: "constructed_response", attemptTypesAllowed: [], difficulty: null,
       presentation: { practiceItemId: "pi_det", blocks: [{ kind: "prompt", markdown: "Compute det(A).", label: null }] },
-      prompt: "Compute det(A).", expectedAnswer: ANSWER, hints: [], hintPolicy: { maxUsefulHints: 0 },
+      prompt: "Compute det(A).", expectedAnswer: ANSWER, hints: [HINT], hintPolicy: { maxUsefulHints: 0 },
       rubric: { maxPoints: 2, criteria: [{ id: "expansion", description: CRITERION, points: 2 }], fatalErrors: [] },
       candidateErrorTypes: [], tags: [], sourceRefs: [], evidenceFacets: [], evidenceWeights: {},
       state: null, scheduler: null, mastery: null,
@@ -90,4 +92,22 @@ it("classic restores the inspector exactly", async () => {
   api.inspectEntity.mockResolvedValue(practiceItem([]));
   open("pi_det");
   expect(await screen.findByText(ANSWER)).toBeTruthy();
+});
+
+it("hides the hints of the question open on the practice screen, in both modes", async () => {
+  api.inspectEntity.mockResolvedValue(practiceItem([{ attemptType: "independent_attempt" }]));
+  open("pi_det");
+  await screen.findByText("Compute det(A).");
+  expect(screen.queryByText(HINT)).toBeNull();
+  cleanup();
+  setAlgoConfig({ ui: { practiceFeedback: "classic" } });
+  open("pi_det");
+  await screen.findByText("Compute det(A).");
+  expect(screen.queryByText(HINT)).toBeNull();
+});
+
+it("shows the hints of a question that is not open", async () => {
+  api.inspectEntity.mockResolvedValue(practiceItem([{ attemptType: "independent_attempt" }]));
+  open();
+  expect(await screen.findByText(HINT)).toBeTruthy();
 });

@@ -37,6 +37,7 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.ids import new_ulid
 from learnloop.learner_context import ContextLimits, learning_context
 from learnloop.remote import views
+from learnloop.content.sources.exam_material import SourceSetsUnreadable
 from learnloop.remote.errors import RemoteRequestError
 from learnloop.remote.runtime import RemoteRuntime, SchemaMismatch
 from learnloop.remote.sources import DEFAULT_CHAR_BUDGET, MAX_CHAR_BUDGET, find_passages, plan_passages
@@ -406,6 +407,9 @@ class ToolCalls:
             error_code, message = exc.code, str(exc)
         except SchemaMismatch as exc:
             error_code, message = "schema_mismatch", str(exc)
+        except SourceSetsUnreadable as exc:
+            _LOG.warning("tool %s: source sets unreadable (%s)", tool, "; ".join(exc.reasons))
+            error_code, message = exc.code, str(exc)
         except Exception:  # noqa: BLE001 - no internal text reaches the host
             _LOG.exception("tool %s failed", tool)
             error_code, message = "failed", "LearnLoop could not answer this request; nothing was changed."

@@ -47,21 +47,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/instructional/policy.py](../../../../../../src/learnloop/instructional/policy.py) |
-| Source lines | 182 |
+| Source lines | 183 |
 | Owning package | [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `cold_administration_open(repository: Repository, item_id: str | None) -> bool` ([source](../../../../../../src/learnloop/instructional/policy.py), line 33) — Whether ``item_id`` is reserved by an open cold follow-up task, or for a goal's held-out exam.
-- `attempt_window_open(repository: Repository, item_id: str | None) -> bool | None` ([source](../../../../../../src/learnloop/instructional/policy.py), line 54) — False once the item's latest attempt was a correct submission; else True.
-- `cold_notes(repository: Repository, item_id: str | None) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/instructional/policy.py), line 78) — Why a cold administration is open, when it is for the exam's sake.
-- `learning_objects_for_event(vault: LoadedVault, event: Mapping[str, Any]) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/instructional/policy.py), line 84) — The LOs a tutor question is about: its item's, its note's or its span's.
-- `caller_for_question_event(vault: LoadedVault, repository: Repository, event_id: str, *, post_attempt: bool=False) -> CallerContext` ([source](../../../../../../src/learnloop/instructional/policy.py), line 105) — The tutor's caller context, rebuilt from the stored question event.
-- `caller_for(repository: Repository, kind: str, ref: str | None=None, *, item_id: str | None=None, attempt_id: str | None=None, learning_object_ids: Sequence[str]=(), post_attempt: bool=False, context: str | None=None) -> CallerContext` ([source](../../../../../../src/learnloop/instructional/policy.py), line 141) — A server-side caller with no question event (plan, Reader UI, need, agent).
-- `policy_for(caller: CallerContext) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/policy.py), line 156)
-- `check_named_ids(caller: CallerContext, *, item_id: str | None=None, attempt_id: str | None=None) -> None` ([source](../../../../../../src/learnloop/instructional/policy.py), line 161) — A request naming an item or attempt it was not called about is refused (G2).
+- `cold_administration_open(repository: Repository, item_id: str | None) -> bool` ([source](../../../../../../src/learnloop/instructional/policy.py), line 33) — Whether ``item_id`` is reserved by an open cold follow-up task, by a live remediation episode that chose it as its cold item (its task does not exist until the primed attempt), or for a goal's held-out exam.
+- `attempt_window_open(repository: Repository, item_id: str | None) -> bool | None` ([source](../../../../../../src/learnloop/instructional/policy.py), line 55) — False once the item's latest attempt was a correct submission; else True.
+- `cold_notes(repository: Repository, item_id: str | None) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/instructional/policy.py), line 79) — Why a cold administration is open, when it is for the exam's sake.
+- `learning_objects_for_event(vault: LoadedVault, event: Mapping[str, Any]) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/instructional/policy.py), line 85) — The LOs a tutor question is about: its item's, its note's or its span's.
+- `caller_for_question_event(vault: LoadedVault, repository: Repository, event_id: str, *, post_attempt: bool=False) -> CallerContext` ([source](../../../../../../src/learnloop/instructional/policy.py), line 106) — The tutor's caller context, rebuilt from the stored question event.
+- `caller_for(repository: Repository, kind: str, ref: str | None=None, *, item_id: str | None=None, attempt_id: str | None=None, learning_object_ids: Sequence[str]=(), post_attempt: bool=False, context: str | None=None) -> CallerContext` ([source](../../../../../../src/learnloop/instructional/policy.py), line 142) — A server-side caller with no question event (plan, Reader UI, need, agent).
+- `policy_for(caller: CallerContext) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/policy.py), line 157)
+- `check_named_ids(caller: CallerContext, *, item_id: str | None=None, attempt_id: str | None=None) -> None` ([source](../../../../../../src/learnloop/instructional/policy.py), line 162) — A request naming an item or attempt it was not called about is refused (G2).
 
 ### Module constants
 
@@ -147,6 +147,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_import_rechecks_a_stale_proposal_before_any_paid_call`
 - [tests/test_exam_protection_review.py](../../../../../../tests/test_exam_protection_review.py) — direct import
   - `test_a_pick_of_an_item_marked_held_out_since_its_proposal_is_refused`
+- [tests/test_k1_remediation_cold_reservation.py](../../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import
+  - `test_a_cold_item_chosen_for_a_treatment_is_reserved_before_its_task_exists`
+  - `test_a_finished_episode_reserves_nothing`
 - [tests/test_library_ask_review.py](../../../../../../tests/test_library_ask_review.py) — direct import
   - `test_the_tutor_refuses_a_bound_ask_while_its_cold_administration_is_open`
 - [tests/test_practice_availability.py](../../../../../../tests/test_practice_availability.py) — direct import

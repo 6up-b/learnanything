@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py) |
-| Source lines | 618 |
+| Source lines | 617 |
 | Owning package | [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -75,22 +75,22 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - `ERROR_TYPE_ORDER` ([src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py), line 141)
 - `FACET_ORDER` ([src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py), line 350)
 - `SOURCE_SET_ORDER` ([src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py), line 417)
-- `_SCOPE_READING_FIELDS` ([src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py), line 495)
+- `_SCOPE_READING_FIELDS` ([src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py), line 494)
 
 ## Internal implementation anchors
 
-- `_record_exam_qualification(sqlite_path: Path, source_ids: set[str], *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/vault/writer.py), line 468) — Before a write ends these books' exam membership in the set, record their held-out signals whose role was not recorded (signals migration 204 backfilled) as exam material, so the change never releases protection they gave (``db.stores.held_out_signals``; Codex review of exam pro…
-- `_scope_key(member: Any) -> tuple[Any, ...] | None` ([source](../../../../../../src/learnloop/vault/writer.py), line 498)
-- `_without_reading(member: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/writer.py), line 509)
-- `_keep_scope_readings(existing: Any, incoming: list[Any]) -> list[Any]` ([source](../../../../../../src/learnloop/vault/writer.py), line 513) — Seal and keep the reading each member's scope names (exam protection by extraction identity).
-- `_vault_paths(root: Path) -> VaultPaths` ([source](../../../../../../src/learnloop/vault/writer.py), line 553) — Paths for a registry edit; the rest of the vault does not need to be parsed.
-- `_payload(value: BaseModel | dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/writer.py), line 560)
-- `_mapping(value: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/writer.py), line 566)
-- `_read_yaml_or(path: Path, default: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/writer.py), line 574)
-- `_merge_entity(existing: dict[str, Any], incoming: dict[str, Any], order: list[str], *, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/writer.py), line 580)
-- `_list_index_by_id(items: list[Any], entity_id: str) -> int | None` ([source](../../../../../../src/learnloop/vault/writer.py), line 601)
-- `_locate_entity_path(root: Path, folder: str, entity_id: str) -> Path | None` ([source](../../../../../../src/learnloop/vault/writer.py), line 608)
-- `_ensure_subject_path(paths: VaultPaths, subject_id: str, target_path: Path) -> None` ([source](../../../../../../src/learnloop/vault/writer.py), line 613)
+- `_record_exam_qualification(sqlite_path: Path, source_ids: set[str], *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/vault/writer.py), line 467) — Before a write ends these books' exam membership in the set, record their held-out signals whose role was not recorded (signals migration 204 backfilled) as exam material, so the change never releases protection they gave (``db.stores.held_out_signals``; Codex review of exam pro…
+- `_scope_key(member: Any) -> tuple[Any, ...] | None` ([source](../../../../../../src/learnloop/vault/writer.py), line 497)
+- `_without_reading(member: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/writer.py), line 508)
+- `_keep_scope_readings(existing: Any, incoming: list[Any]) -> list[Any]` ([source](../../../../../../src/learnloop/vault/writer.py), line 512) — Seal and keep the reading each member's scope names (exam protection by extraction identity).
+- `_vault_paths(root: Path) -> VaultPaths` ([source](../../../../../../src/learnloop/vault/writer.py), line 552) — Paths for a registry edit; the rest of the vault does not need to be parsed.
+- `_payload(value: BaseModel | dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/writer.py), line 559)
+- `_mapping(value: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/writer.py), line 565)
+- `_read_yaml_or(path: Path, default: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/writer.py), line 573)
+- `_merge_entity(existing: dict[str, Any], incoming: dict[str, Any], order: list[str], *, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/writer.py), line 579)
+- `_list_index_by_id(items: list[Any], entity_id: str) -> int | None` ([source](../../../../../../src/learnloop/vault/writer.py), line 600)
+- `_locate_entity_path(root: Path, folder: str, entity_id: str) -> Path | None` ([source](../../../../../../src/learnloop/vault/writer.py), line 607)
+- `_ensure_subject_path(paths: VaultPaths, subject_id: str, target_path: Path) -> None` ([source](../../../../../../src/learnloop/vault/writer.py), line 612)
 
 ## Who imports or calls it
 
@@ -134,7 +134,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `ActivityFamily`, `Concept`, `ConceptEdge`, `ErrorType`, `EvidenceFacet`, `LearningObject`, `LoadedVault`, `PracticeItem`, `SourceSet`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
 - [[Reference/Modules/learnloop/vault/scope_seal|learnloop.vault.scope_seal]] — imports `scope_seal`; calls `scope_seal`
-- [[Reference/Modules/learnloop/vault/yaml_io|learnloop.vault.yaml_io]] — imports `read_yaml`, `write_yaml`; calls `read_yaml`, `write_yaml`
+- [[Reference/Modules/learnloop/vault/yaml_io|learnloop.vault.yaml_io]] — imports `read_yaml`, `write_yaml`, `write_yaml_atomic`; calls `read_yaml`, `write_yaml`, `write_yaml_atomic`
 - [[Reference/Modules/learnloop/vault_lock|learnloop.vault_lock]] — imports `vault_mutation_lock`; calls `vault_mutation_lock`
 
 ### Platform and third-party dependencies
@@ -292,6 +292,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_retire_item_reuses_loaded_vault_and_clears_serving_backdoors`
 - [tests/test_item_fingerprints.py](../../../../../../tests/test_item_fingerprints.py) — direct import
   - `test_a_published_item_later_used_as_the_parent_rebuilds`
+- [tests/test_k1_mcp_find_sources.py](../../../../../../tests/test_k1_mcp_find_sources.py) — direct import
+  - `test_a_problem_set_passage_is_not_returned_to_the_chat_host`
+- [tests/test_k1_source_sets_gate.py](../../../../../../tests/test_k1_source_sets_gate.py) — direct import
+  - `test_the_source_sets_write_never_leaves_a_truncated_file`
 - [tests/test_knowledge_map_text_neighbors.py](../../../../../../tests/test_knowledge_map_text_neighbors.py) — direct import
 - [tests/test_learner_text_gaps.py](../../../../../../tests/test_learner_text_gaps.py) — direct import
   - `test_candidates_are_grounded_in_the_asking_subject`

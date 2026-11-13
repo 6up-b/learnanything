@@ -1878,6 +1878,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rebuild_recomputes_fingerprints_without_any_model_or_generator`
 - [tests/test_item_parameters.py](../../../../../../tests/test_item_parameters.py) — direct import
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
+- [tests/test_k1_mcp_find_sources.py](../../../../../../tests/test_k1_mcp_find_sources.py) — direct import
+- [tests/test_k1_remediation_cold_reservation.py](../../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import
+- [tests/test_k1_serve_door_reservation.py](../../../../../../tests/test_k1_serve_door_reservation.py) — direct import
+- [tests/test_k1_source_sets_gate.py](../../../../../../tests/test_k1_source_sets_gate.py) — direct import
+  - `test_a_valid_file_still_reads_the_exam_member_as_exam_material`
+  - `test_a_vault_double_without_a_root_is_not_gated`
+  - `test_every_shared_reader_refuses_unloaded_source_sets`
+  - `test_the_exercise_import_and_the_facet_resolver_refuse`
+  - `test_the_premise_the_corrupt_file_is_unreadable`
+  - `test_the_readers_that_already_asked_still_refuse_and_ask_once`
+  - `test_the_tutor_figures_and_phone_withhold_when_source_sets_did_not_load`
 - [tests/test_keep_ahead_append_units.py](../../../../../../tests/test_keep_ahead_append_units.py) — direct import
   - `test_an_append_over_its_input_ceiling_fails_once_and_the_card_says_so`
   - `test_the_second_build_appends_only_its_own_chapter`

@@ -367,13 +367,14 @@ class CitationResolver:
 
     @classmethod
     def for_source_sets(cls, repository: Any, source_sets: Iterable[Any], *,
-                        exam_source_sets: Iterable[Any] | None = None) -> CitationResolver:
+                        exam_source_sets: Any = None) -> CitationResolver:
         """Members of ``source_sets``; exam material read over ``exam_source_sets``
         (the vault's every set: a span that is exam material in ANY set is exam),
         else over ``source_sets``."""
 
         source_sets = list(source_sets)
-        exam_sets = list(exam_source_sets) if exam_source_sets is not None else source_sets
+        # A vault (not its list) keeps the metadata gate: unreadable source sets refuse.
+        exam_sets = exam_source_sets if exam_source_sets is not None else source_sets
         members: list[_Member] = []
         for source_set in source_sets:
             for member in source_set.members:
@@ -400,12 +401,12 @@ class CitationResolver:
 
     @classmethod
     def for_source_set(cls, repository: Any, source_set: Any, *,
-                       exam_source_sets: Iterable[Any] | None = None) -> CitationResolver:
+                       exam_source_sets: Any = None) -> CitationResolver:
         return cls.for_source_sets(repository, [source_set], exam_source_sets=exam_source_sets)
 
     @classmethod
     def for_vault(cls, repository: Any, vault: Any) -> CitationResolver:
-        return cls.for_source_sets(repository, vault.source_sets)
+        return cls.for_source_sets(repository, vault.source_sets, exam_source_sets=vault)
 
     def with_span_support(
         self, vault: Any, repository: Any, *, asked: Mapping[str, Mapping[str, Any]] | None = None,
@@ -1308,7 +1309,7 @@ class ProposalAuthority:
 
         def factory() -> CitationResolver:
             source_set = _proposal_source_set(vault, repository, patch_id)
-            resolver = (CitationResolver.for_source_set(repository, source_set, exam_source_sets=vault.source_sets)
+            resolver = (CitationResolver.for_source_set(repository, source_set, exam_source_sets=vault)
                         if source_set is not None else CitationResolver.for_vault(repository, vault))
             # A proposal's facet item is the model-proposed write the
             # span-support check judges (owner, 2026-10-13).

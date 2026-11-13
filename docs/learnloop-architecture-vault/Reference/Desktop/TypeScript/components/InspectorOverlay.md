@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/InspectorOverlay.tsx](../../../../../../apps/learnloop-tauri/src/components/InspectorOverlay.tsx) |
-| Source lines | 1699 |
+| Source lines | 1703 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -81,86 +81,86 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const mastery = detail.mastery` — const, line 376
 - `const answered = detail.attempts.some((attempt)` — const, line 381
 - `const withholdAnswer = simplePracticeFeedback() && (answering || !answered)` — const, line 382
-- `function LearningObjectBody(` — function, line 586
-- `function ConceptBody(` — function, line 694
-- `const presentation = conceptRelationPresentation(relation)` — const, line 747
-- `function conceptRelationPresentation( relation: ConceptInspectorDetail["relations"][number] ):` — function, line 785
-- `function LoCapabilitySection(` — function, line 807
-- `let alive = true` — let, line 814
-- `function ErrorEventBody(` — function, line 843
-- `function P0AttributionInspector(` — function, line 879
-- `const text = (key: string): string | null` — const, line 880
-- `const number = (key: string): number | null` — const, line 882
-- `const object = (key: string): Record<string, unknown> | null` — const, line 884
-- `const list = (key: string): unknown[]` — const, line 888
-- `const target = object("targetRef") as Parameters<typeof formatCausalTarget>[0]` — const, line 889
-- `const divergence = object("firstDivergence") as Parameters<typeof formatDivergenceAnchor>[0]` — const, line 890
-- `const resolution = text("resolutionStatus")` — const, line 891
-- `const causeScope = text("causeScope")` — const, line 892
-- `const operation = text("operation")` — const, line 893
-- `const localization = number("modelReportedLocalizationConfidence")` — const, line 894
-- `const causal = number("modelReportedCausalConfidence")` — const, line 895
-- `const contrast = object("facetContrast")` — const, line 896
-- `const candidates = list("candidateCauses")` — const, line 897
-- `const claims = list("postdictiveClaims")` — const, line 898
-- `const candidate = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> :` — const, line 947
-- `const candidateTarget = candidate.targetRef && typeof candidate.targetRef === "object" && !Array.isArray(candidate.targetRef) ? candidate.targetRef as Parameters<typeof formatCausalTarget>[0] : null` — const, line 951
-- `const claim = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> :` — const, line 979
-- `function NoteBody(` — function, line 998
-- `function AttemptBody(` — function, line 1068
-- `const feedback = detail.feedback ?? null` — const, line 1069
-- `const surprise = feedback?.surprise ?? null` — const, line 1070
-- `const evidence = feedback?.criterionEvidence ?? []` — const, line 1071
-- `const attributions = feedback?.errorAttributions ?? []` — const, line 1072
-- `const repairs = feedback?.repairSuggestions ?? []` — const, line 1073
-- `const assessed = criterionAssessed(row)` — const, line 1143
-- `const earned = row.pointsAwarded > 0` — const, line 1144
-- `const tone = !assessed ? COLOR.textDim : earned ? COLOR.green : COLOR.red` — const, line 1145
-- `function AttemptAttributionRow(` — function, line 1241
-- `const plan = event.repairPlan` — const, line 1248
-- `const resolution = typeof plan?.resolutionStatus === "string" ? plan.resolutionStatus : null` — const, line 1249
-- `const scope = typeof plan?.causeScope === "string" ? plan.causeScope : null` — const, line 1251
-- `const operation = typeof plan?.operation === "string" ? plan.operation : null` — const, line 1252
-- `const abstention = typeof plan?.abstentionReason === "string" ? plan.abstentionReason : null` — const, line 1253
-- `const target = plan?.targetRef && typeof plan.targetRef === "object" && !Array.isArray(plan.targetRef) ? plan.targetRef as Parameters<typeof formatCausalTarget>[0] : null` — const, line 1255
-- `const divergence = plan?.firstDivergence && typeof plan.firstDivergence === "object" && !Array.isArray(plan.firstDivergence) ? plan.firstDivergence as Parameters<typeof formatDivergenceAnchor>[0] : null` — const, line 1259
-- `function NotFoundBody(` — function, line 1306
-- `const WHY_ROWS: Array<` — const, line 1356
-- `function SchedulerWhy(` — function, line 1364
-- `const comps = scheduler.components` — const, line 1365
-- `const normalizedComps =` — const, line 1366
-- `const rows = WHY_ROWS.filter((row)` — const, line 1370
-- `const maxVal = Math.max(0.001, ...rows.map((row)` — const, line 1371
-- `const value = normalizedComps[row.key] ?? 0` — const, line 1385
-- `const pct = (value / maxVal) * 100` — const, line 1386
-- `function MasteryPosteriorBar(` — function, line 1436
-- `const mean = Math.max(0, Math.min(1, mastery.mean))` — const, line 1437
-- `const fallbackSd = Math.sqrt(Math.max(0, mastery.variance))` — const, line 1438
-- `const lower = Math.max(0, Math.min(mean, mastery.plausibleLower ?? mean - fallbackSd))` — const, line 1439
-- `const upper = Math.min(1, Math.max(mean, mastery.plausibleUpper ?? mean + fallbackSd))` — const, line 1440
-- `const mass = mastery.plausibleMass ?? 0.8` — const, line 1441
-- `const tone = masteryColor(mean)` — const, line 1442
-- `const intervalLabel = `$` — const, line 1443
-- `function InspectorRow(` — function, line 1485
-- `function Stat(` — function, line 1496
-- `function LearningObjectRelations(` — function, line 1505
-- `function ConceptReferenceLinks(` — function, line 1559
-- `function fallbackConceptRefs(values: string[]): ConceptReferenceDto[]` — function, line 1586
-- `function IdLink(` — function, line 1590
-- `function attemptTypePillColor(attemptType: string): PillColor` — function, line 1620
-- `function attemptRowStyle(index: number): CSSProperties` — function, line 1635
-- `function rubricRowStyle(index: number): CSSProperties` — function, line 1647
-- `function relTime(iso: string | null | undefined): string` — function, line 1659
-- `const then = Date.parse(iso)` — const, line 1661
-- `const diff = Date.now() - then` — const, line 1663
-- `const abs = Math.abs(diff)` — const, line 1664
-- `const minute = 60_000` — const, line 1665
-- `const hour = 3_600_000` — const, line 1666
-- `const day = 86_400_000` — const, line 1667
-- `const label = abs < hour ? `$` — const, line 1669
-- `function formatUnknown(value: unknown): string` — function, line 1673
-- `const searchInputStyle: CSSProperties =` — const, line 1681
-- `const panelStyle: CSSProperties =` — const, line 1692
+- `function LearningObjectBody(` — function, line 590
+- `function ConceptBody(` — function, line 698
+- `const presentation = conceptRelationPresentation(relation)` — const, line 751
+- `function conceptRelationPresentation( relation: ConceptInspectorDetail["relations"][number] ):` — function, line 789
+- `function LoCapabilitySection(` — function, line 811
+- `let alive = true` — let, line 818
+- `function ErrorEventBody(` — function, line 847
+- `function P0AttributionInspector(` — function, line 883
+- `const text = (key: string): string | null` — const, line 884
+- `const number = (key: string): number | null` — const, line 886
+- `const object = (key: string): Record<string, unknown> | null` — const, line 888
+- `const list = (key: string): unknown[]` — const, line 892
+- `const target = object("targetRef") as Parameters<typeof formatCausalTarget>[0]` — const, line 893
+- `const divergence = object("firstDivergence") as Parameters<typeof formatDivergenceAnchor>[0]` — const, line 894
+- `const resolution = text("resolutionStatus")` — const, line 895
+- `const causeScope = text("causeScope")` — const, line 896
+- `const operation = text("operation")` — const, line 897
+- `const localization = number("modelReportedLocalizationConfidence")` — const, line 898
+- `const causal = number("modelReportedCausalConfidence")` — const, line 899
+- `const contrast = object("facetContrast")` — const, line 900
+- `const candidates = list("candidateCauses")` — const, line 901
+- `const claims = list("postdictiveClaims")` — const, line 902
+- `const candidate = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> :` — const, line 951
+- `const candidateTarget = candidate.targetRef && typeof candidate.targetRef === "object" && !Array.isArray(candidate.targetRef) ? candidate.targetRef as Parameters<typeof formatCausalTarget>[0] : null` — const, line 955
+- `const claim = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> :` — const, line 983
+- `function NoteBody(` — function, line 1002
+- `function AttemptBody(` — function, line 1072
+- `const feedback = detail.feedback ?? null` — const, line 1073
+- `const surprise = feedback?.surprise ?? null` — const, line 1074
+- `const evidence = feedback?.criterionEvidence ?? []` — const, line 1075
+- `const attributions = feedback?.errorAttributions ?? []` — const, line 1076
+- `const repairs = feedback?.repairSuggestions ?? []` — const, line 1077
+- `const assessed = criterionAssessed(row)` — const, line 1147
+- `const earned = row.pointsAwarded > 0` — const, line 1148
+- `const tone = !assessed ? COLOR.textDim : earned ? COLOR.green : COLOR.red` — const, line 1149
+- `function AttemptAttributionRow(` — function, line 1245
+- `const plan = event.repairPlan` — const, line 1252
+- `const resolution = typeof plan?.resolutionStatus === "string" ? plan.resolutionStatus : null` — const, line 1253
+- `const scope = typeof plan?.causeScope === "string" ? plan.causeScope : null` — const, line 1255
+- `const operation = typeof plan?.operation === "string" ? plan.operation : null` — const, line 1256
+- `const abstention = typeof plan?.abstentionReason === "string" ? plan.abstentionReason : null` — const, line 1257
+- `const target = plan?.targetRef && typeof plan.targetRef === "object" && !Array.isArray(plan.targetRef) ? plan.targetRef as Parameters<typeof formatCausalTarget>[0] : null` — const, line 1259
+- `const divergence = plan?.firstDivergence && typeof plan.firstDivergence === "object" && !Array.isArray(plan.firstDivergence) ? plan.firstDivergence as Parameters<typeof formatDivergenceAnchor>[0] : null` — const, line 1263
+- `function NotFoundBody(` — function, line 1310
+- `const WHY_ROWS: Array<` — const, line 1360
+- `function SchedulerWhy(` — function, line 1368
+- `const comps = scheduler.components` — const, line 1369
+- `const normalizedComps =` — const, line 1370
+- `const rows = WHY_ROWS.filter((row)` — const, line 1374
+- `const maxVal = Math.max(0.001, ...rows.map((row)` — const, line 1375
+- `const value = normalizedComps[row.key] ?? 0` — const, line 1389
+- `const pct = (value / maxVal) * 100` — const, line 1390
+- `function MasteryPosteriorBar(` — function, line 1440
+- `const mean = Math.max(0, Math.min(1, mastery.mean))` — const, line 1441
+- `const fallbackSd = Math.sqrt(Math.max(0, mastery.variance))` — const, line 1442
+- `const lower = Math.max(0, Math.min(mean, mastery.plausibleLower ?? mean - fallbackSd))` — const, line 1443
+- `const upper = Math.min(1, Math.max(mean, mastery.plausibleUpper ?? mean + fallbackSd))` — const, line 1444
+- `const mass = mastery.plausibleMass ?? 0.8` — const, line 1445
+- `const tone = masteryColor(mean)` — const, line 1446
+- `const intervalLabel = `$` — const, line 1447
+- `function InspectorRow(` — function, line 1489
+- `function Stat(` — function, line 1500
+- `function LearningObjectRelations(` — function, line 1509
+- `function ConceptReferenceLinks(` — function, line 1563
+- `function fallbackConceptRefs(values: string[]): ConceptReferenceDto[]` — function, line 1590
+- `function IdLink(` — function, line 1594
+- `function attemptTypePillColor(attemptType: string): PillColor` — function, line 1624
+- `function attemptRowStyle(index: number): CSSProperties` — function, line 1639
+- `function rubricRowStyle(index: number): CSSProperties` — function, line 1651
+- `function relTime(iso: string | null | undefined): string` — function, line 1663
+- `const then = Date.parse(iso)` — const, line 1665
+- `const diff = Date.now() - then` — const, line 1667
+- `const abs = Math.abs(diff)` — const, line 1668
+- `const minute = 60_000` — const, line 1669
+- `const hour = 3_600_000` — const, line 1670
+- `const day = 86_400_000` — const, line 1671
+- `const label = abs < hour ? `$` — const, line 1673
+- `function formatUnknown(value: unknown): string` — function, line 1677
+- `const searchInputStyle: CSSProperties =` — const, line 1685
+- `const panelStyle: CSSProperties =` — const, line 1696
 
 ## Who imports or calls it
 

@@ -2952,17 +2952,17 @@ def handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]:
     return {"question_id": row["id"], "deduplicated": False}
 
 
-def _reader_source_sets(vault_root: Path) -> list[Any]:
-    """The vault's source sets, read when a Reader request is sent (the
-    held-out partition reads them; exam protection, Codex review F3). A root
-    with no vault config holds no source sets; a vault that fails to load
-    raises, so the request fails before any model call."""
+def _reader_source_sets(vault_root: Path) -> Any:
+    """The vault, read when a Reader request is sent (the held-out partition
+    reads its source sets; exam protection, Codex review F3). A root with no
+    vault config holds no source sets; a vault that fails to load, or whose
+    source sets do not, raises, so the request fails before any model call."""
 
     from learnloop.vault.loader import load_vault
 
     if not (Path(vault_root) / "learnloop.toml").exists():
         return []
-    return list(load_vault(vault_root).source_sets)
+    return load_vault(vault_root)
 
 
 def _refuse_held_out_reader_material(ctx: JobContext, extraction_id: str, span_ids: Sequence[str]) -> None:

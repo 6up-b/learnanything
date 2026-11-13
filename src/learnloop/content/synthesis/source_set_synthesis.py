@@ -277,7 +277,7 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
     # The one exam predicate over every source set of the vault: a unit held
     # out for evaluation (any role) or exam material of any revision never
     # feeds synthesis as teaching, and its spans join the leakage gate.
-    exam = EM.exam_material(vault.source_sets, repo)
+    exam = EM.exam_material(vault, repo)
 
     for member in source_set.members:
         extraction_id = resolve_extraction_id(repo, member.revision_id)
@@ -443,7 +443,7 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
         membership=membership,
         unit_inventory_versions=unit_inventory_versions,
         span_origin=span_origin,
-        resolver=facet_meaning.CitationResolver.for_source_set(repo, source_set, exam_source_sets=vault.source_sets),
+        resolver=facet_meaning.CitationResolver.for_source_set(repo, source_set, exam_source_sets=vault),
         inventory_rows=inventory_rows,
     )
 

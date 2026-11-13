@@ -56,13 +56,16 @@ Status: **open**, **queued** (a step owns it), **fixed** (commit), **owner** (wa
 
 | Id | Found in | Bug | Fix | Status |
 |---|---|---|---|---|
-| K1-1 | K1 D1 | `exam_material` and its siblings fail open on an unreadable or truncated `source_sets.yaml`; only 4 readers ask `protection_issues`. | Metadata gate inside `exam_material`; atomic write of the file | queued |
+| K1-1 | K1 D1 | `exam_material` and its siblings fail open on an unreadable or truncated `source_sets.yaml`; only 4 readers ask `protection_issues`. | Metadata gate inside `exam_material`; atomic write of the file | fixed (885f875096, refactor-k1-fixes) |
 | K1-2 | K1 D4 | The Reader import passes non-held-out exam material, and the item is then withheld from model contexts as exam material. | Owner's call (recommended: keep §8 Q3's default and stop withholding the learner's own item) | owner |
-| K1-3 | K1 R1 | The session serve door ignores exam reservations (`learnloop_sidecar/serving.py`). | Small fix | queued |
-| K1-4 | K1 R2 | MCP `find_sources` returns a diagnostic probe's own passage and assessment-lane passages (`remote/sources.py`). | Small fix | queued |
-| K1-5 | K1 R9 | The inspector shows every hint of the item being answered, cold checks included, uncounted. | Small fix | queued |
-| K1-6 | K1 D6 | A remediation's cold item isn't reserved until its task exists; the cold-kinds constant is duplicated. | Small fix | queued |
-| K1-7 | K1 D3, D8 | Two docstrings contradict the code (rule 4's "no search hit"; figures' set against the Reader's). | Docstrings | queued |
+| K1-3 | K1 R1 | The session serve door ignores exam reservations (`learnloop_sidecar/serving.py`). | Small fix | fixed (be926eca26, refactor-k1-fixes) |
+| K1-4 | K1 R2 | MCP `find_sources` returns a diagnostic probe's own passage and assessment-lane passages (`remote/sources.py`). | Small fix | fixed (d660d565c2, refactor-k1-fixes) |
+| K1-5 | K1 R9 | The inspector shows every hint of the item being answered, cold checks included, uncounted. | Small fix | fixed (7cd48b12c0, refactor-k1-fixes) |
+| K1-6 | K1 D6 | A remediation's cold item isn't reserved until its task exists; the cold-kinds constant is duplicated. | Small fix | fixed (742308f515, refactor-k1-fixes) |
+| K1-7 | K1 D3, D8 | Two docstrings contradict the code (rule 4's "no search hit"; figures' set against the Reader's). | Docstrings | fixed (8e2dfad2d4, refactor-k1-fixes) |
+| K1-8 | K1-1's fix | A `source_sets.yaml` cut at a member boundary (a hand edit, or a writer that is not ours) parses as a valid file with fewer members, so no gate can tell it from the owner's intent. | Our own writer is now atomic; nothing further is possible at read time | accepted |
+| K1-9 | K1-1's fix | A damaged `source_sets.yaml` reached the learner as a generic `internal` error on the sidecar and phone and `failed` on MCP, with no cause or remedy; doctor was silent on an empty file. | Typed `source_sets_unreadable` refusal in one place per adapter; doctor issue `source_sets:unreadable` | fixed (K1-9 commit, refactor-k1-fixes) |
+| K1-10 | K1-9's survey | A read-only open of an item's details (`get_practice_item` with no session) stops on a damaged file through `explain_practice_item`'s queue build, where exam material protects nothing. | Orchestrator's call | open |
 
 ## Due with K2's sub-steps (strategy §2.17)
 

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import os
 import re
 from io import StringIO
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from ruamel.yaml import YAML
 from ruamel.yaml.constructor import RoundTripConstructor
@@ -98,6 +100,28 @@ def write_yaml(path: Path, data: dict[str, Any]) -> None:
     text = _dumped(data)
     with path.open("w", encoding="utf-8") as handle:
         handle.write(text)
+
+
+def write_yaml_atomic(path: Path, data: dict[str, Any]) -> None:
+    """:func:`write_yaml` that never exposes a truncated file: a reader that
+    opens ``path`` mid-write sees the old file or the new one, never an empty
+    one (an empty source sets file reads as no exam material)."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+    try:
+        with temporary.open("w", encoding="utf-8") as handle:
+            handle.write(_dumped(data))
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        directory = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def yaml_to_string(data: dict[str, Any]) -> str:

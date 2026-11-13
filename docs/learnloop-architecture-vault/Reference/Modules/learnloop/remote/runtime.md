@@ -130,6 +130,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_diagnosis_input_provenance_landing.py](../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import
+- [tests/test_k1_unreadable_adapters.py](../../../../../../tests/test_k1_unreadable_adapters.py) — direct import
+  - `test_the_chat_host_gets_the_same_code_and_message`
 - [tests/test_learner_data_relax_2.py](../../../../../../tests/test_learner_data_relax_2.py) — direct import
   - `test_the_mcp_ledger_row_carries_its_arguments`
 - [tests/test_mcp_c1a_narrow.py](../../../../../../tests/test_mcp_c1a_narrow.py) — direct import

@@ -80,7 +80,7 @@ export function InspectorOverlay({
   /** Teacher TE1: "Teach me this" on a topic (absent while lessons are off). */
   onTeachMe?: (learningObjectId: string, title: string) => void;
   /** UX Phase 4.1: the question open on the practice screen right now; its
-   *  expected answer and rubric stay hidden while it is being answered. */
+   *  expected answer, rubric and hints stay hidden while it is being answered. */
   answeringItemId?: string | null;
 }) {
   const [query, setQuery] = useState(entityId ?? "");
@@ -480,7 +480,11 @@ function PracticeItemBody({
       </div>
 
       <SectionHeader>Hints</SectionHeader>
-      {detail.hints.length ? (
+      {answering ? (
+        // A hint read here is help the attempt never counts, on a cold check too: the
+        // hints of the question open on the practice screen show there, counted.
+        <Faint>The hints show on the practice screen while you answer this question.</Faint>
+      ) : detail.hints.length ? (
         <div style={{ display: "grid", border: `1px solid ${COLOR.border}` }}>
           {detail.hints.map((hint, index) => (
             <div

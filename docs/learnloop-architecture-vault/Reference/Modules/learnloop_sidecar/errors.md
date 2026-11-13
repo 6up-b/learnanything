@@ -359,6 +359,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_intent_rpc.py](../../../../../tests/test_intent_rpc.py) — direct import
   - `test_unknown_scopes_and_choices_are_refused`
   - `test_with_intent_off_the_control_answers_off_and_refuses_writes`
+- [tests/test_k1_serve_door_reservation.py](../../../../../tests/test_k1_serve_door_reservation.py) — direct import
+  - `test_a_reserved_item_is_refused_at_the_session_serve_door`
+  - `test_the_reservation_refusal_does_not_follow_the_held_out_selection_switch`
 - [tests/test_learner_pick_proposal.py](../../../../../tests/test_learner_pick_proposal.py) — direct import
   - `test_a_pick_of_an_item_reserved_for_an_exam_since_its_proposal_is_refused_before_serving`
   - `test_a_proposal_that_did_not_propose_the_item_is_refused`

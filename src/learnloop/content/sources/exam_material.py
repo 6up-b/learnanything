@@ -54,8 +54,10 @@ database's unit selections when it is built:
    extraction, whatever the source sets pin now. Every extraction of a
    protected book with no exact owner's mark on it is withheld whole, as
    held-out material: no Reader Ask, no teaching or tutor context, no
-   generation or retrieval, no leakage-gate pass, no search hit, no margin
-   cue, whatever the settings. A held-out signal marks the reading it was
+   generation or retrieval, no leakage-gate pass, no margin cue, whatever the
+   settings. (The library search is the learner's own and applies no
+   protection filter: a hit's snippet reaches their screen, never a model, and
+   the query is the only text a model reads from it.) A held-out signal marks the reading it was
    made on only when the book carries no owner's mark at all and no signal
    of unknown reading. A legacy mark that names no reading it can be on (a
    scope without ``scope_extraction_id``, a selection without
@@ -97,7 +99,9 @@ What a caller does with the answer is its own: teaching contexts and model
 readers withhold exam material under every policy, the leakage gate
 fingerprints the held-out partition, an import refuses exam material, the
 Reader's model contexts (Ask and its dialogue, preset synthesis, quick and
-passage checks) refuse held-out material (:func:`held_out_material`), and the
+passage checks) refuse held-out material only (:func:`held_out_material`), the
+figures refuse all exam material (:func:`spans_withheld`, so also an exam
+member with no marks or signals, which the Reader's Ask does not), and the
 facet-meaning chokepoint resolves a citation of exam material to the role
 ``exam`` (assessment alignment only) while an explanatory citation beside it
 may still support a facet's meaning (support, not leakage:
@@ -937,14 +941,89 @@ def _runs(connection: Any, extraction_ids: Iterable[str]) -> dict[str, tuple[str
     return found
 
 
+#: The issue code a settled vault carries when the remote runtime saw its
+#: files change while it loaded (``remote/runtime``): protection read from it
+#: is not trustworthy.
+SNAPSHOT_UNSETTLED = "vault:snapshot_unsettled"
+
+
+#: The stable error code every adapter gives :class:`SourceSetsUnreadable`.
+SOURCE_SETS_UNREADABLE_CODE = "source_sets_unreadable"
+#: What the learner is told: where the file is, why work stopped, how to fix it.
+#: It carries no file content and no loader text.
+SOURCE_SETS_UNREADABLE_MESSAGE = (
+    "LearnLoop can't read this vault's source sets (sources/source_sets.yaml), so it can't tell protected exam "
+    "material from teaching material until the file is fixed, and it has stopped what depends on that. Fix or "
+    "restore the file, then run `learnloop doctor` to check it."
+)
+
+
+class SourceSetsUnreadable(RuntimeError):
+    """The vault's source sets did not load, so rules 1 and 2 cannot be read.
+
+    ``str()`` is the learner-facing message (:data:`SOURCE_SETS_UNREADABLE_MESSAGE`); the reasons are for logs."""
+
+    code = SOURCE_SETS_UNREADABLE_CODE
+
+    def __init__(self, reasons: Sequence[str] = ()) -> None:
+        super().__init__(SOURCE_SETS_UNREADABLE_MESSAGE)
+        self.reasons = tuple(reasons)
+
+
+def protection_issues(vault: Any) -> list[str]:
+    """Why the vault's protection metadata cannot be trusted, or ``[]``.
+
+    The source sets name the exam and held-out material. The loader turns a
+    source-sets file it cannot read into an issue and no source sets, and a
+    file a write has just truncated reads as no source sets at all: either
+    way "no exam material", so it makes protection unreadable. So does a
+    snapshot the remote runtime saw change while it loaded
+    (:data:`SNAPSHOT_UNSETTLED`). A practice item that failed to load is
+    handled per item (``learner_protection.Withheld.known_items``)."""
+
+    from pathlib import Path
+
+    from learnloop.vault.paths import VaultPaths
+
+    found: list[str] = []
+    try:
+        source_sets = VaultPaths(Path(vault.root), vault.config).source_sets_path.resolve()
+    except Exception:  # noqa: BLE001 - fail closed
+        return ["the vault's source sets could not be located"]
+    for issue in getattr(vault, "issues", None) or ():
+        if issue.code == SNAPSHOT_UNSETTLED:
+            found.append(str(issue.message))
+        elif issue.path is not None and Path(issue.path).resolve() == source_sets:
+            found.append(f"the source sets could not be read ({issue.code})")
+    try:
+        if source_sets.is_file() and not source_sets.read_bytes().strip():
+            found.append("the source sets file is empty (a write in progress)")
+    except OSError:
+        found.append("the source sets file could not be read")
+    return found
+
+
 def _source_sets(vault_or_sets: Any) -> list[Any]:
     sets = getattr(vault_or_sets, "source_sets", vault_or_sets)
     return list(sets or ())
 
 
+def _require_readable(vault_or_sets: Any) -> None:
+    """Refuse (fail closed) a vault whose source sets did not load: without
+    them rules 1 and 2 vanish and exam material reads as teaching. Bare source
+    sets carry no file to check, so a caller that has the vault passes the vault."""
+
+    if not hasattr(vault_or_sets, "source_sets") or not hasattr(vault_or_sets, "root"):
+        return
+    problems = protection_issues(vault_or_sets)
+    if problems:
+        raise SourceSetsUnreadable(problems)
+
+
 def exam_material(vault_or_sets: Any, repository: Any) -> ExamMaterial:
     """Exam material vault-wide (rules 1-4): ``vault`` or its ``source_sets``."""
 
+    _require_readable(vault_or_sets)
     acc = _Acc()
     held = _Acc()
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
@@ -973,6 +1052,7 @@ def role_material(vault_or_sets: Any, repository: Any, withheld_role: Callable[[
     followed by label, and an exam unit withholds every other extraction
     whole (and a scope that names no reading, every extraction)."""
 
+    _require_readable(vault_or_sets)
     acc = _Acc()
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         reader = _Reader(connection, repository)
@@ -1204,6 +1284,7 @@ def held_out_partition(vault_or_sets: Any, repository: Any, *,
     in now, so every subject's gate counts it (fail closed)."""
 
     del subject_ids  # protection marks are their book's, wherever it sits (see the docstring)
+    _require_readable(vault_or_sets)
     held = _Acc()
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         _add_protection(_Reader(connection, repository), vault_or_sets, held)
