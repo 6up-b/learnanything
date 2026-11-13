@@ -1,20 +1,23 @@
 """Immutable synthesis manifests (source-ingestion §8.4, knowledge-model §12.4).
 
 The manifest is the complete, immutable record of *why the curriculum changed*:
-which revisions/assets/units, under which brief and scope, against which
-curriculum/facet/task snapshot, assessment schema, and learner-model contract,
-with which token budget. It is persisted BEFORE model execution.
+which revisions, assets, extractors and inventory rows (by id and content) a run
+read, under which resolved brief, scope and role overrides, against which
+curriculum (its concept edges included), facet and task snapshot, assessment
+schema and learner-model contract, with which token budget. It is persisted
+BEFORE model execution.
 
-``manifest_hash`` is deterministic over every identity-bearing input, so an
-identical manifest reuses the completed agent run and any changed input mints a
-new manifest/run. This hash IS the cache seam:
+It is a record and nothing else. No run is looked up by it to be reused: a
+rebuild runs the orchestration again, each paid call answering from its
+checkpoint (keyed on the rendered request, ``ai/execution.request_key``), and a
+proposal equal to an earlier one is that one (``proposal_match``). So a field
+here costs nothing when it moves, and an input missing here makes the record
+incomplete, never a reuse wrong.
 
-    agent_runs.input_context_hash = manifest_hash          (§8.4)
-
-Use :func:`agent_run_input_context_hash` when creating the agent run so the seam
-is explicit and never diverges. A lock fingerprint alone is insufficient for
-append (output depends on existing-map content), which is exactly why the
-completeness hashes (§12.4) are part of the manifest identity.
+``manifest_hash`` names the record (``synthesis_manifests`` is unique on it, and
+``agent_runs.input_context_hash`` carries it, :func:`agent_run_input_context_hash`).
+Records written before the manifest stopped being a reuse key keep their bytes
+and are read as they are.
 """
 
 from __future__ import annotations
@@ -59,7 +62,6 @@ _HASHED_FIELDS: tuple[str, ...] = (
     "task_graph_hash",
     "assessment_schema_version",
     "learner_model_contract_version",
-    "lock_fingerprint",
     "token_budget",
 )
 
@@ -67,6 +69,12 @@ _HASHED_FIELDS: tuple[str, ...] = (
 def _sha256(payload: Any) -> str:
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
     return "sha256:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def content_hash(value: Any) -> str:
+    """A stable hash of a JSON-shaped value (an inventory row's content, a revision diff)."""
+
+    return _sha256(value)
 
 
 def compute_manifest_hash(manifest: Mapping[str, Any]) -> str:
@@ -79,8 +87,8 @@ def compute_manifest_hash(manifest: Mapping[str, Any]) -> str:
 def facet_registry_hash(vault: LoadedVault) -> str:
     """Stable hash of the canonical facet registry (§12.4).
 
-    Keyed on id + semantic fingerprint + version + status so any registry change
-    that could alter synthesis meaning invalidates cached synthesis.
+    Keyed on id + semantic fingerprint + version + status, so the record shows any
+    registry change that could alter synthesis meaning.
     """
 
     entries = []
@@ -98,7 +106,8 @@ def facet_registry_hash(vault: LoadedVault) -> str:
 
 
 def curriculum_snapshot_hash(vault: LoadedVault) -> str:
-    """Stable hash of the concept/LO curriculum snapshot (§12.4)."""
+    """Stable hash of the concept/LO curriculum snapshot (§12.4), with the concept
+    edges as the structuring pass shows them to the model (source, target, relation)."""
 
     concepts = sorted(vault.concepts)
     learning_objects = []
@@ -113,12 +122,13 @@ def curriculum_snapshot_hash(vault: LoadedVault) -> str:
                 "facets": sorted(learning_object_facet_union(lo)),
             }
         )
-    return _sha256({"concepts": concepts, "learning_objects": learning_objects})
+    edges = sorted([edge.source, edge.target, edge.relation_type] for edge in vault.edges)
+    return _sha256({"concepts": concepts, "learning_objects": learning_objects, "edges": edges})
 
 
 #: The blueprint fields :func:`task_graph_hash` reads, by model: every field each had when the hash was first
-#: recorded, so a field added later stays out of the manifest (a completed run stays reusable) until it is named
-#: here on purpose, and a named field removed fails loudly instead of moving the hash (``tests/test_identity_pins.py``).
+#: recorded, so a field added later stays out of the record until it is named here on purpose, and a named field
+#: removed fails loudly instead of moving the hash (``tests/test_identity_pins.py``).
 _BLUEPRINT_IDENTITY_FIELDS: dict[type[BaseModel], tuple[str, ...]] = {
     Blueprint: ("id", "weight", "recipes"),
     BlueprintRecipe: ("id", "composition", "all_of", "any_of", "integration"),
@@ -166,7 +176,7 @@ def task_graph_hash(vault: LoadedVault) -> str:
 
 def learner_model_contract_version(vault: LoadedVault) -> str:
     """The learner-model contract version — the vault-global algorithm_version
-    (§12.4). Cached synthesis is never reused across a contract change."""
+    (§12.4)."""
 
     return vault.config.algorithms.algorithm_version
 
@@ -187,7 +197,6 @@ def build_manifest(
     model: str | None = None,
     extractor_versions: Any = None,
     assessment_schema_version: str | None = None,
-    lock_fingerprint: str | None = None,
     token_budget: Any = None,
     estimated_usage: Any = None,
     schema_version: int = MANIFEST_SCHEMA_VERSION,
@@ -220,7 +229,6 @@ def build_manifest(
         "task_graph_hash": task_graph_hash(vault),
         "assessment_schema_version": assessment_schema_version,
         "learner_model_contract_version": learner_model_contract_version(vault),
-        "lock_fingerprint": lock_fingerprint,
         "token_budget": token_budget,
         "estimated_usage": estimated_usage,
         "created_at": utc_now_iso(clock),
@@ -236,10 +244,7 @@ def persist_manifest(repository: Repository, manifest: Mapping[str, Any]) -> str
 
 
 def agent_run_input_context_hash(manifest: Mapping[str, Any]) -> str:
-    """The documented cache seam: ``agent_runs.input_context_hash = manifest_hash``.
-
-    Always set an agent run's ``input_context_hash`` to this value when the run is
-    a synthesis pass, so identical manifests hit the completed-run cache.
-    """
+    """What a synthesis agent run records as its ``input_context_hash``: the hash of
+    the manifest it read. A record; no synthesis looks a run up by it."""
 
     return str(manifest["manifest_hash"])

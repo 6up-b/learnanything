@@ -7,9 +7,9 @@ hero line, or a three-line haiku — and they are appended to ``vault_epigraphs`
 (migration 158) for the desktop Start screen to cycle.
 
 Best-effort by contract: :func:`generate_vault_epigraphs` never raises and never
-changes the outcome of the paid synthesis it follows. A manifest cache hit
-(``reused=True``) and candidate revalidation produce no epigraphs — no new
-material was synthesized. Validation is in code, never trusted from the model:
+changes the outcome of the paid synthesis it follows. A run whose proposal is
+an earlier equal one (``reused=True``, ``proposal_match``) and candidate
+revalidation produce no epigraphs — no new material was persisted. Validation is in code, never trusted from the model:
 kind, line counts, length caps, and a dedupe against the subject's recent rows.
 """
 

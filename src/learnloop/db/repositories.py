@@ -11035,22 +11035,6 @@ class Repository(
             ).fetchone()
         return dict(row) if row is not None else None
 
-    def completed_agent_runs_by_context(self, purpose: str, input_context_hash: str) -> list[dict[str, Any]]:
-        """Every completed run for this context, newest first (the order of
-        :meth:`completed_agent_run_by_context`), for callers that must also
-        check what a candidate run recorded before reusing it."""
-
-        with self.connection() as connection:
-            rows = connection.execute(
-                """
-                SELECT * FROM agent_runs
-                WHERE purpose = ? AND input_context_hash = ? AND status = 'completed'
-                ORDER BY completed_at DESC, started_at DESC
-                """,
-                (purpose, input_context_hash),
-            ).fetchall()
-        return [dict(row) for row in rows]
-
     def agent_run(self, run_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:
             row = connection.execute(
@@ -21228,7 +21212,7 @@ class Repository(
     def insert_synthesis_manifest(self, manifest: Mapping[str, Any]) -> str:
         """Persist an immutable synthesis manifest (§8.4). Idempotent on
         ``manifest_hash`` — an identical manifest returns the existing id and is
-        never re-inserted (the cache seam)."""
+        never re-inserted."""
 
         manifest_hash = str(manifest["manifest_hash"])
         with self.connection() as connection:

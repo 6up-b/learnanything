@@ -1,8 +1,8 @@
 # Compared identities at fixed inputs, one sha256 per pin (tests/identity_pins_helpers.py), sorted.
 # Generated; never edit by hand. Regenerate only with a deliberate bump (docs/algorithm-change-playbook.md when
 # persisted meaning changes; the reason goes in the landing note): uv run python tests/test_identity_pins.py --write
-"A1-A4.manifest_hash.init" = "38408f16bdf4c640420a3943dd64bf266d48331e99f8a73338ace02229637c3c"
-"A1-A4.manifest_hash.legacy" = "cbaf0d5d080ee7d42d00f2cc8d4693b26eecb17218ef4bd1e0cd29b362715d2d"
+"A1-A4.manifest_hash.init" = "2a61d3a798120af38242339cd99181b5c7f950b3fbee1b7bb10c2a01f09e2d2f"
+"A1-A4.manifest_hash.legacy" = "cafe24d6a39f2a971ef010d13f77919ca56b5df428bfc457e81315b49d0cc7e6"
 "A1-A4.scope.init" = "b5cd34e2b496d9ddf20a194be4d57127d6509d5e3ca743d546bbdbfd57be2e0d"
 "A1-A4.scope.legacy" = "d8a2a2b52455e9348e52216a03758786b624224e3a271c52278bbb31ce352e17"
 "A1.init" = "a86a21e99129979f16c1c9a14ba3b040fb78ea18ec3c8ca81356f92ac4eccc91"
