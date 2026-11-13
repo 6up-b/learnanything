@@ -105,7 +105,7 @@ The pins stay (above). D-14's three and D-15 were not rerun without their pins.
 - run 2: 30509 passed, 104 skipped, 12 xfailed, 70 warnings in 838.97s (0:13:58)
 - run 3: 30509 passed, 104 skipped, 12 xfailed, 70 warnings in 844.56s (0:14:04)
 
-**(d) The arc-close lane once** (`-m arc_close -n 8 --dist worksteal`, same scope, with the census plugin): 24 passed, 36 xfailed, 2 warnings in 500.10s. The default applies there as everywhere (conftest does not look at the lane). Three arc-close tests reach a seed source, all three on `numeric`, `objective_mix` and `check`: `test_ro5_calibration::test_the_first_week_on_a_copy_shaped_synthetic_vault`, `test_ro6_tail_data::test_a_few_weeks_on_a_copy_shaped_synthetic_vault` and `test_rofu_weeks::test_two_weeks_after_the_batch` (164 decisions between them). They pass under the default and pass with every test's draws left to production (a scratch plugin marking every test `real_draws`: 3 passed). No other arc-close test (the AD sims, the EVSI multisim, the xfailed pre-registered sims) reaches a wrapped source, so the default changes nothing in them; the AD sims draw on their own seeds, which this step does not wrap.
+**(d) The arc-close lane once** (`-m arc_close -n 8 --dist worksteal`, same scope, with the census plugin): 24 passed, 36 xfailed, 2 warnings in 500.10s. The default applies there as everywhere (conftest does not look at the lane). Three arc-close tests reach a seed source, all three on `numeric`, `objective_mix` and `check`: `test_ro5_calibration::test_the_first_week_on_a_copy_shaped_synthetic_vault`, `test_ro6_tail_data::test_a_few_weeks_on_a_copy_shaped_synthetic_vault` and `test_rofu_weeks::test_two_weeks_after_the_batch` (164 numeric and 164 mix seeds between them). They pass under the default and pass with every test's draws left to production (a scratch plugin marking every test `real_draws`: 3 passed). No other arc-close test (the AD sims, the EVSI multisim, the xfailed pre-registered sims) reaches a wrapped source, so the default changes nothing in them; the AD sims draw on their own seeds, which this step does not wrap.
 
 ## Ledger
 
@@ -114,7 +114,13 @@ The pins stay (above). D-14's three and D-15 were not rerun without their pins.
 
 ## Gates
 
-(Filled in at hand-back.)
+- `scripts/affected_tests.py --base a1a5f220af`: the full suite (`pyproject.toml`, `tests/conftest.py` and `tests/pinned_draws.py` reach every test), which (c) and (d) ran on the final test code; only documents changed after run 2's tree.
+- Before (c), on the final test code: `test_identity_pins`, `test_retired_config_identities`, `test_architecture`, `test_test_layout`, `test_effective_defaults_golden`, `test_cli_help_snapshot`, `test_structure_ratchets`: 280 passed (no pin moved; no ratchet number rose).
+- `ruff check`: all checks passed. `lint-imports --no-cache`: 42 kept, 0 broken.
+- `scripts/check_gate_partition.py`: 30,685 collected, landing 30,625 + arc_close 60.
+- The four vault validators pass after regeneration (`desktop_validate.py` reported `_generated.md` stale before it, since the new test files import router modules); `generate_all.py` run once and committed, and a second run changes nothing.
+
+Scratch plugins (not tracked; in the step's scratch directory): a census of seed calls, a mode switch restoring one family, all families or the draw count to production, a repeat keyed on a test's real node id, a seed-sequence log, an AD-seed pin. The two temporary edits of tests for (b) and D-28 were made by a small script and reverted with `git checkout`.
 
 ## What was not verified
 
