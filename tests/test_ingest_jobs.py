@@ -620,6 +620,7 @@ def test_kick_reader_drain_runs_model_synthesis_foreground(tmp_path):
     requests with the injected client — the loop that previously never ran."""
 
     from learnloop.reader import reader_requests as RR
+    from tests.helpers import create_basic_vault
     from tests.reader_requests_helpers import _FakePresetClient, _ingest
 
     repo = Repository(tmp_path / "state.sqlite")
@@ -629,7 +630,9 @@ def test_kick_reader_drain_runs_model_synthesis_foreground(tmp_path):
 
     client = _FakePresetClient()
     jobs = DurableIngestJobs()
-    jobs.bind(repo, tmp_path, background=False, reader_synth_client_factory=lambda: client)
+    # The drain reads the vault's source sets before any model call: it needs a vault, not a bare directory.
+    jobs.bind(repo, create_basic_vault(tmp_path / "vault").root, background=False,
+              reader_synth_client_factory=lambda: client)
     jobs.kick_reader_drain()
 
     assert len(client.calls) == 1
@@ -647,6 +650,7 @@ def test_background_reader_drain_records_model_call_receipts(tmp_path):
     import time
 
     from learnloop.reader import reader_requests as RR
+    from tests.helpers import create_basic_vault
     from tests.reader_requests_helpers import _FakePresetClient, _ingest
 
     repo = Repository(tmp_path / "state.sqlite")
@@ -655,7 +659,7 @@ def test_background_reader_drain_records_model_call_receipts(tmp_path):
                                 span_id="s1", preset="worked_example")
     client = _FakePresetClient()
     jobs = DurableIngestJobs()
-    jobs.bind(repo, tmp_path, background=True, poll_interval_seconds=0.05,
+    jobs.bind(repo, create_basic_vault(tmp_path / "vault").root, background=True, poll_interval_seconds=0.05,
               reader_synth_client_factory=lambda: client)
     try:
         jobs.kick_reader_drain()

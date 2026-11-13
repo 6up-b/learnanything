@@ -2954,14 +2954,16 @@ def handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]:
 
 def _reader_source_sets(vault_root: Path) -> Any:
     """The vault, read when a Reader request is sent (the held-out partition
-    reads its source sets; exam protection, Codex review F3). A root with no
-    vault config holds no source sets; a vault that fails to load, or whose
-    source sets do not, raises, so the request fails before any model call."""
+    reads its source sets; exam protection, Codex review F3). A vault that
+    fails to load, or whose source sets do not, raises, so the request fails
+    before any model call. A root with no vault config raises too: nothing
+    can say it holds no exam material, and an empty list would skip the gate."""
 
+    from learnloop.content.sources.exam_material import SourceSetsUnreadable
     from learnloop.vault.loader import load_vault
 
     if not (Path(vault_root) / "learnloop.toml").exists():
-        return []
+        raise SourceSetsUnreadable(["the vault's configuration (learnloop.toml) is missing"])
     return load_vault(vault_root)
 
 
