@@ -24,7 +24,6 @@ from tests.assumed_known_helpers import _answer
 from tests.lp_claim_fixes_review_helpers import (
     ITEM,
     LO,
-    PREDECESSOR,
     TAG,
     _gap,
     _gap_claims,
