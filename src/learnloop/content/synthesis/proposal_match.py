@@ -4,7 +4,7 @@ Nothing looks a run up by its manifest: a rebuild re-runs the orchestration, eve
 checkpoint, and the gates and the facet plan run under today's code. That re-run normalizes to the same rows as the
 run it repeats, and writing them again would put a second copy of a proposal in front of the learner. So, after a
 run's rows are normalized and gated and before anything is written, the rows are compared with the proposals earlier
-runs of the same source set persisted under the same purpose, and the first equal one decides (``match_proposal``):
+runs of the same source set persisted under the same purpose, and an equal one decides (``match_proposal``):
 
 * **pending** (an item still waits for review, whatever the others' decisions): that proposal is the run's result.
   Nothing new is written, an apply the caller asked for applies its waiting items, and the epigraph step is skipped
@@ -15,7 +15,9 @@ runs of the same source set persisted under the same purpose, and the first equa
 * **rejected** (every item was rejected): not that proposal again. The run's saved answers are dropped (as a gate
   rejection drops them) and the build pays for fresh ones.
 
-A pending match wins over a settled one, and either over a rejected one.
+A pending match wins over a settled one, and either over a rejected one; of two of one kind, the newer. Once fresh
+answers were paid for after a rejected match, the run persists what they gave, even if it equals the rejected
+proposal again (a second refusal could only loop).
 
 **Equal** means the same items, compared per ``client_item_id`` on everything the run proposed: ``item_type``,
 ``operation``, ``target_entity_type``, ``target_entity_id``, ``payload`` (as proposed, not as the learner edited it),
@@ -128,7 +130,10 @@ def match_proposal(
         if batch is None or batch.get("purpose") != purpose:
             continue
         items = repository.proposal_items(proposal_id)
-        if not items or stored_content(repository, items) != wanted:
+        # Different items cannot be equal: skip the per-item dependency reads.
+        if {str(item["client_item_id"]) for item in items} != set(wanted):
+            continue
+        if stored_content(repository, items) != wanted:
             continue
         kind = _kind(items)
         found.append((_PREFERENCE[kind], order, ProposalMatch(proposal_id=str(proposal_id), kind=kind)))
