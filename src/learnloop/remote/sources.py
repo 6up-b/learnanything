@@ -53,6 +53,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from learnloop.clock import Clock
+from learnloop.learner_protection import WITHHELD_COLD, WITHHELD_EXAM, WITHHELD_PROBE, WITHHELD_RESERVED
 from learnloop.remote.errors import InvalidRequest, NotFound, RemoteRequestError
 
 CHAT_INTENTS = ("explain", "remediate", "alternative", "worked_example")
@@ -60,7 +61,8 @@ DEFAULT_CHAR_BUDGET = 12_000
 MAX_CHAR_BUDGET = 40_000
 MIN_TAIL_CHARS = 200
 
-_PROTECTING = frozenset({"a check waiting in the app", "reserved for an assessment", "exam or held-out material"})
+#: The withheld reasons whose items' own passages a chat host never receives.
+_PROTECTING = frozenset({WITHHELD_COLD, WITHHELD_RESERVED, WITHHELD_EXAM, WITHHELD_PROBE})
 
 
 class SourcesUnavailable(RemoteRequestError):
@@ -215,18 +217,22 @@ def _shown(vault: Any, repository: Any, hits: Any, withheld: Any, *, intent: str
     from learnloop.db.connection import connect
     from learnloop.db.stores.source_block_fts import blocks_by_key
     from learnloop.ingest.locators import format_block_span
-    from learnloop.source_retrieval.corpus import MODEL_WITHHELD_ROLES
+    from learnloop.source_retrieval.corpus import MODEL_WITHHELD_ROLES, model_reader_withheld
 
     protected_spans, protected_whole = _protected_spans(vault, repository, withheld)
     exam = exam_material(vault, repository)
     counts = {"exam_material": int(hits.manifest.get("exam_withheld") or 0), "solutions": 0,
               "held_for_a_check": 0, "over_budget": 0}
     kept: list[Mapping[str, Any]] = []
+    # A model's view of a passage: the library scope drops no assessment-lane
+    # material (problem sets, unknown roles, exercise-linked spans) on its own.
+    lane = model_reader_withheld(vault, repository, [(str(h["extraction_id"]), str(h["span_id"]))
+                                                     for h in hits.hits])
     for hit in hits.hits:
         key = (str(hit["extraction_id"]), str(hit["span_id"]))
-        if exam.covers(*key) or exam.covers(key[0]):
+        if exam.covers(*key) or exam.covers(key[0]) or lane.get(key) == "assessment_lane":
             counts["exam_material"] += 1
-        elif (str(hit.get("role") or "").lower() in MODEL_WITHHELD_ROLES
+        elif (lane.get(key) == "solution" or str(hit.get("role") or "").lower() in MODEL_WITHHELD_ROLES
               or str(hit.get("block_type") or "").lower() in MODEL_WITHHELD_ROLES):
             counts["solutions"] += 1
         elif key in protected_spans or key[0] in protected_whole:
