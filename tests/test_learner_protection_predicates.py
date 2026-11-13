@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop import learner_protection as LP
 from tests.split_live_helpers import split_vault
 
@@ -18,7 +19,7 @@ AT = "2026-05-19T12:00:00Z"
 
 @pytest.fixture
 def world(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path / "vault", version="mvp-0.12", seed=False)
+    _paths, vault, repository = split_vault(tmp_path / "vault", version=LATEST_ALGORITHM_VERSION, seed=False)
     assert vault.practice_items[ITEM].practice_mode not in LP.PROBE_MODES
     before = LP.withheld_items(vault, repository)
     assert before.available and before.reason(ITEM) is None

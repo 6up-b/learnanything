@@ -11,6 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop import learner_protection
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.attempts.post_attempt import run_post_attempt_pipeline
@@ -34,7 +35,6 @@ from learnloop_sidecar.registry import METHOD_REGISTRY
 from tests.followup_serve_helpers import (
     CLOCK,
     OFF,
-    TAG,
     AuthorFake,
     author_clients,
     miss_with_rivals,
@@ -524,7 +524,7 @@ def test_f6_a_crash_right_after_a_probe_answer_has_settled_its_workflow(journey,
 
 
 def test_f6_a_crash_after_the_diagnosis_ended_is_recovered_by_next(tmp_path, monkeypatch):
-    _paths, vault, repository = split_vault(tmp_path, version=TAG)
+    _paths, vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
     client = fake_client()
     result = submit(vault, repository, client, pipeline=False)
     outcome = run_post_attempt_pipeline(vault, repository, result=result, followup_surface="desktop", clock=CLOCK)
@@ -541,7 +541,7 @@ def test_f6_a_crash_after_the_diagnosis_ended_is_recovered_by_next(tmp_path, mon
 
 
 def test_f6_startup_recovery_needs_no_click(tmp_path, monkeypatch):
-    _paths, vault, repository = split_vault(tmp_path, version=TAG)
+    _paths, vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
     client = fake_client()
     result = submit(vault, repository, client, pipeline=False)
     outcome = run_post_attempt_pipeline(vault, repository, result=result, followup_surface="desktop", clock=CLOCK)

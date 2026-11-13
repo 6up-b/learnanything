@@ -28,7 +28,6 @@ from tests.helpers import (
     NOW,
     NOW_ISO,
     create_basic_vault,
-    set_algorithm_version,
     write_facets,
 )
 
@@ -155,7 +154,6 @@ def exhibit(tmp_path):
             "updated_at": NOW_ISO,
         },
     )
-    set_algorithm_version(paths, "mvp-0.7")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))

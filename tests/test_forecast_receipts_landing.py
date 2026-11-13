@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from contextlib import closing
 
-from learnloop.algorithm_versions import METHOD_EXPLICIT_ALGORITHM_VERSION as METHOD_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.attempts.regrade import regrade_attempt
 from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
@@ -137,7 +137,7 @@ def test_the_resolver_reads_the_regraded_events_the_lineage_names_never_a_retire
     # A method-explicit item, so each regrade cites the contract it read and
     # the forecast resolves on it (any other regrade censors the forecast:
     # test_forecast_receipts' F2 tests).
-    _paths, vault, repository, diagnosed = _diagnosed(tmp_path, version=METHOD_VERSION, method=True)
+    _paths, vault, repository, diagnosed = _diagnosed(tmp_path, version=LATEST_ALGORITHM_VERSION, method=True)
     presentation = _present(repository, ITEM, block="blk_lineage", when=at(29))
     nxt = _answer(vault, repository, ReviewFakeClient(), answer=WRONG + " again", when=at(30),
                   presentation_id=presentation)

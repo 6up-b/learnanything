@@ -276,13 +276,10 @@ def test_f13_when_the_graded_revision_cannot_be_rebuilt_it_needs_a_fresh_check(g
 
 @pytest.fixture
 def gated_successor(tmp_path, monkeypatch):
-    from learnloop.algorithm_versions import METHOD_EXPLICIT_ALGORITHM_VERSION
     from learnloop.content.authoring import pf_sandbox
-    from tests.helpers import set_algorithm_version
     from tests.source_service_fakes import build_textbook_vault
 
     paths, repository, spans = build_textbook_vault(tmp_path / "vault")
-    set_algorithm_version(paths, METHOD_EXPLICIT_ALGORITHM_VERSION)
     monkeypatch.setattr(pf_sandbox, "_sandbox_bwrap_path", lambda: None)
     return paths, repository, spans
 

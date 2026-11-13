@@ -10,6 +10,7 @@ import sqlite3
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.db.stores import hypothesis_marks as store
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from learnloop.followup_run import marks as panel
@@ -534,7 +535,7 @@ def _normalized(reply):
 def test_with_no_causes_on_the_attempt_the_bundle_has_no_key(tmp_path):
     from tests.split_live_helpers import split_vault
 
-    paths, _vault, _repository = split_vault(tmp_path, version="mvp-0.44")
+    paths, _vault, _repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
     ctx = SidecarContext()
     ctx.load(paths.root)
     vault, repository = ctx.require_vault()

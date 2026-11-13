@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.diagnosis.recurrence.backlog import run_backlog
 from learnloop.diagnosis.split.jobs import diagnosis_status
@@ -36,7 +37,7 @@ VERIFYING_ANSWER = "A different route.\nFinal answer: U Sigma V^T"
 
 
 def _vault(tmp_path, *, config: str = ""):
-    paths, _vault, repository = split_vault(tmp_path, version="mvp-0.12", seed=False, config=config)
+    paths, _vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION, seed=False, config=config)
     enable_embeddings(paths.root)
     toml = paths.root / "learnloop.toml"
     toml.write_text(toml.read_text(encoding="utf-8").replace("dimensions = 4096", "dimensions = 16"), encoding="utf-8")

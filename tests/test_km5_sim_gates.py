@@ -22,7 +22,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import write_yaml
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version, write_facets
+from tests.helpers import NOW, NOW_ISO, create_basic_vault, write_facets
 from tests.capability_residual_helpers import _build_vault, FACET, _RETRIEVAL_ITEMS, _SELECT_ITEMS
 from tests.km2_write_path_helpers import _attempt, _rubric
 
@@ -87,7 +87,6 @@ def test_shadow_intent_logs_practice_integration_at_the_right_moment(tmp_path):
         paths.practice_item_path("linear-algebra", "pi_integration_001"),
         _integration_item("pi_integration_001"),
     )
-    set_algorithm_version(paths, "mvp-0.7")
 
     loaded = load_vault(paths.root)
     repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)

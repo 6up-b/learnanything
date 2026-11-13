@@ -16,6 +16,7 @@ import json
 from dataclasses import replace
 
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.daily_plan import lesson_offer as LO
 from learnloop.daily_plan import lesson_suggestion as SG
 from learnloop.daily_plan.engine import advance
@@ -35,7 +36,7 @@ def _events(env, block_id: str, kind: str = LO.SHOWN_EVENT) -> list[dict]:
 
 
 def _offer(tmp_path):
-    env = mixture_env(tmp_path, fake_runtime(seed=_policy_arm_seed()), version=TAG)
+    env = mixture_env(tmp_path, fake_runtime(seed=_policy_arm_seed()), version=LATEST_ALGORITHM_VERSION)
     record, step = _first_decision(env)
     assert step["kind"] == "lesson_offer"
     return env, record, step
@@ -140,7 +141,7 @@ def test_no_new_draw_joins_an_open_item(tmp_path, offerable, monkeypatch):
     # A block at the first decision, deterministically (refactor bug ledger D-15): the stop coin's policy arm alone
     # left the mix's draw to the numeric policy's share, whose Monte Carlo is seeded on the plan's fresh id, so its
     # argmax was stop about one run in forty. ``block_drawing_seed`` serves the staged rule's block.
-    env = mixture_env(tmp_path, fake_runtime(seed=block_drawing_seed()), version=TAG)
+    env = mixture_env(tmp_path, fake_runtime(seed=block_drawing_seed()), version=LATEST_ALGORITHM_VERSION)
     _record, step = _first_decision(env)
     assert step["kind"] == "item"
     before = rows(env)

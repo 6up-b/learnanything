@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.stores.observation_ledger import (
     load_authoritative_observation_ledger,
@@ -215,7 +216,7 @@ def test_recorded_near_clone_disqualification_survives_both_replays(tmp_path):
 def test_p0_replays_bulk_load_calibration_references_once(tmp_path, monkeypatch):
     """Three model hashes, including legacy LCB reconstruction, stay O(1)."""
 
-    vault, repository = _vault_and_repository(tmp_path, version="mvp-0.9")
+    vault, repository = _vault_and_repository(tmp_path, version=LATEST_ALGORITHM_VERSION)
     for index in range(3):
         complete_self_graded_attempt(
             vault,

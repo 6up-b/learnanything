@@ -30,7 +30,7 @@ from datetime import timedelta
 
 import pytest
 
-from learnloop.algorithm_versions import INTENT_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.daily_plan.engine import DEFAULT_POLICY, PlanEnv, build_plan
 from learnloop.daily_plan.policy import policy_for
@@ -188,7 +188,7 @@ def _random_vault(root, rng: random.Random):
         los[f"lo_f{lo_index}"] = [
             (f"pi_f{lo_index}_{index}", float(rng.choice([1.0, 2.0, 4.0]))) for index in range(rng.randint(1, 3))
         ]
-    paths = create_daily_plan_vault(root, learning_objects=los, version=INTENT_ALGORITHM_VERSION)
+    paths = create_daily_plan_vault(root, learning_objects=los, version=LATEST_ALGORITHM_VERSION)
     append_config_toml(paths.root, STAGED)
     for item_id, _ in target:
         if rng.random() < 0.3:

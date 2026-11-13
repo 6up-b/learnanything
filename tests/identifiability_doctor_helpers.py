@@ -7,7 +7,7 @@ from pathlib import Path
 
 from learnloop.vault.yaml_io import write_yaml
 
-from tests.helpers import NOW_ISO, create_basic_vault, set_algorithm_version, write_facets
+from tests.helpers import NOW_ISO, create_basic_vault, write_facets
 from tests.km2_write_path_helpers import _item, _rubric
 
 
@@ -75,5 +75,4 @@ def _build_registry_vault(root: Path) -> Path:
             fingerprint={"source_family": "chapter3"},
         ),
     )
-    set_algorithm_version(paths, "mvp-0.7")
     return paths

@@ -16,12 +16,10 @@ from __future__ import annotations
 
 import json
 
-from learnloop.algorithm_versions import TEACHER_ALGORITHM_VERSION
 from learnloop.teacher import brief as B
 from learnloop.teacher import notes as TN
 from learnloop.teacher import service as S
 from learnloop.vault.loader import load_vault
-from tests.helpers import set_algorithm_version
 from tests.notes_fixtures import add_annotation
 from tests.reading_path_fixtures import call
 from tests.section_coverage_fixtures import hold_out
@@ -146,7 +144,6 @@ def _noted(tmp_path):
                                          extraction_id="ext_lay", span_id="s2", source_id="src_lay",
                                          revision_id="rev_lay")
     call(ctx, "notes.path", {"goal_id": goal_id})
-    set_algorithm_version(paths, TEACHER_ALGORITHM_VERSION)
     return paths, repository, key
 
 

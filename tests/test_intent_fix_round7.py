@@ -23,7 +23,7 @@ from datetime import timedelta
 
 import pytest
 
-from learnloop.algorithm_versions import INTENT_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.content.sources import exam_material
 from learnloop.daily_plan.engine import PlanEnv, build_plan
@@ -65,7 +65,7 @@ def _misses(record, commitment):
 
 def _empty_lo_world(tmp_path, name):
     los = {"lo_full": [("pi_full", 2.0)], "lo_empty": []}
-    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los, version=INTENT_ALGORITHM_VERSION)
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los, version=LATEST_ALGORITHM_VERSION)
     append_config_toml(paths.root, POLICY_TOML[name])
     vault = load_vault(paths.root)
     assert "lo_empty" in vault.learning_objects

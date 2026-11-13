@@ -318,13 +318,10 @@ def test_f19_a_changed_inherited_default_leaves_a_historical_regrade_unverified(
 
 @pytest.fixture
 def gated_successor(tmp_path, monkeypatch):
-    from learnloop.algorithm_versions import METHOD_EXPLICIT_ALGORITHM_VERSION
     from learnloop.content.authoring import pf_sandbox
-    from tests.helpers import set_algorithm_version
     from tests.source_service_fakes import build_textbook_vault
 
     paths, repository, spans = build_textbook_vault(tmp_path / "vault")
-    set_algorithm_version(paths, METHOD_EXPLICIT_ALGORITHM_VERSION)
     monkeypatch.setattr(pf_sandbox, "_sandbox_bwrap_path", lambda: None)
     return paths, repository, spans
 

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.attempts.reveal_ledger import record_reveal
 from learnloop.db.stores import lessons as store
 from learnloop.followup_serve import identity
@@ -23,7 +24,7 @@ from learnloop.teacher import service as S
 from learnloop.vault.loader import load_vault
 from tests.deliverable_fixtures import DeliverableFake
 from tests.teacher_fakes import TeacherFake, build_teacher_vault, clients, close_turn
-from tests.teacher_te2_probes_helpers import TAG, _Lesson, _probe, probe_turn
+from tests.teacher_te2_probes_helpers import _Lesson, _probe, probe_turn
 from tests.teacher_te2_review_fixes_helpers import _cells, _identity_model
 
 
@@ -313,7 +314,7 @@ def test_f5_a_metered_typed_goal_resolver_is_sent_nothing(tmp_path):
     from learnloop.teacher import topics as TP
     from tests.ux_phase1_support import set_config
 
-    paths, repository = build_teacher_vault(tmp_path / "vault", version=TAG)
+    paths, repository = build_teacher_vault(tmp_path / "vault", version=LATEST_ALGORITHM_VERSION)
     set_config(paths.root, {("source_retrieval", "llm_price_per_million"): 1.0})
     fake = _MeteredResolver()
     resolved = TP.resolve(load_vault(paths.root), repository, "how do I find eigenvalues", client=fake)

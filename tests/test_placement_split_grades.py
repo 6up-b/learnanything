@@ -26,6 +26,7 @@ Fakes only; no network.
 
 from __future__ import annotations
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.attempts.blind_grading import BlindErrorAttribution
 from learnloop.attempts.regrade import regrade_attempt
 from learnloop.clock import FrozenClock, utc_now_iso
@@ -92,7 +93,7 @@ class _LocatedResultError(ReviewFakeClient):
 
 
 def _assumed(tmp_path):
-    paths, vault, repository = split_vault(tmp_path, version="mvp-0.11", seed=False)
+    paths, vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION, seed=False)
     result = record_self_report(
         vault, repository, learning_object_ids=[LO], report="know_this", clock=FrozenClock(at(0)),
     )

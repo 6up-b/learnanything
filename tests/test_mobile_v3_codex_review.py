@@ -36,13 +36,12 @@ def plan_world(tmp_path, monkeypatch):
     from learnloop.db.repositories import Repository
     from learnloop_mobile.host import create_app
 
-    from tests.helpers import create_daily_plan_vault, set_algorithm_version
+    from tests.helpers import create_daily_plan_vault
     from tests.mobile_host_helpers import HOSTNAME, CountingGrader, Phone, config_for, install_grader, pair
     from tests.mobile_v2_plan_helpers import DAY, ITEMS, _held_prompt
 
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: DAY)
     paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=ITEMS)
-    set_algorithm_version(paths, TAG)
     _held_prompt(paths.root)
     repository = Repository(paths.sqlite_path)
     install_grader(monkeypatch, CountingGrader())

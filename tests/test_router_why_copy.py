@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.algorithm_versions import ROUTER_STAGED_FRAME_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.daily_plan.engine import advance, build_plan
 from learnloop.daily_plan.lanes import (
     ASSUMED_CHECK_REASON,
@@ -91,7 +91,7 @@ def test_reason_codes_follow_the_lane_and_its_items():
 
 
 def test_every_why_the_staged_chooser_writes_on_a_plan_is_plain(tmp_path):
-    paths = _wide_vault(tmp_path, version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
+    paths = _wide_vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
     clock = MovableClock()
     env = make_env(paths.root, _wide_items(), clock=clock, session_id="s1")
     _seed_wide(env.repository)

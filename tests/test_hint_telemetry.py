@@ -212,10 +212,8 @@ def test_dont_know_attaches_the_rows_too(tmp_path):
 
 
 def test_an_empty_stuck_answer_attaches_the_rows_too(tmp_path):
-    from tests.helpers import set_algorithm_version
 
     paths = _vault(tmp_path)
-    set_algorithm_version(paths, "mvp-0.13")
     ctx, session_id = _sidecar(paths.root)
     _reveal(ctx, session_id, 0, key="stuck-1")
     payload = _call(ctx, "submit_attempt", {

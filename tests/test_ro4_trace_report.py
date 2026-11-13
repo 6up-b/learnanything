@@ -8,6 +8,7 @@ import time
 
 from typer.testing import CliRunner
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.algorithm_versions import INTERVAL_FACTOR_ALGORITHM_VERSION, ROUTER_OBJECTIVE_ALGORITHM_VERSION
 from learnloop.db.stores import router_objective as store
 from learnloop.router import card as C
@@ -30,7 +31,7 @@ def _first_trace(env):
 def test_the_cli_prints_a_decisions_trace_and_the_report(tmp_path):
     from learnloop.cli import app
 
-    env = mixture_env(tmp_path, fake_runtime(), version=TAG)
+    env = mixture_env(tmp_path, fake_runtime(), version=LATEST_ALGORITHM_VERSION)
     run(env)
     trace = _first_trace(env)
     assert trace is not None
@@ -54,7 +55,7 @@ def test_the_why_surface_offers_the_trace_in_plain_words(tmp_path):
 
     # RO6's landing ruling R14: a seed pinned to serve a block first (unpinned, a first draw of stop left no decided
     # block: the known flake).
-    env = mixture_env(tmp_path, fake_runtime(seed=block_drawing_seed()), version=TAG)
+    env = mixture_env(tmp_path, fake_runtime(seed=block_drawing_seed()), version=LATEST_ALGORITHM_VERSION)
     run(env)
     trace = _first_trace(env)
     lines = explain(trace)
@@ -111,7 +112,7 @@ def test_the_first_day_report_against_the_predecessor_on_a_synthetic_vault(tmp_p
     length and each policy's share, against the predecessor. Reported, never holding the upgrade."""
 
     old = mixture_env(tmp_path / "old", fake_runtime(), version=OLD)
-    new = mixture_env(tmp_path / "new", fake_runtime(), version=TAG)
+    new = mixture_env(tmp_path / "new", fake_runtime(), version=LATEST_ALGORITHM_VERSION)
     old_record, new_record = run(old, steps=60), run(new, steps=60)
     old_minutes = sum(block.est_minutes() for block in old_record.blocks)
     new_minutes = sum(block.est_minutes() for block in new_record.blocks)

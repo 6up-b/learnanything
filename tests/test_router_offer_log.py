@@ -14,6 +14,7 @@ import json
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.placement.decisions import record_self_report
@@ -258,7 +259,7 @@ def test_a_draft_in_progress_is_logged_as_the_continue_candidate(tmp_path):
 
 
 def test_placement_components_and_exclusions_are_in_the_candidate_set(tmp_path):
-    paths = create_placement_vault(tmp_path / "vault", version="mvp-0.11")
+    paths = create_placement_vault(tmp_path / "vault", version=LATEST_ALGORITHM_VERSION)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
@@ -290,7 +291,7 @@ def _wide_window_vault(tmp_path):
     near-tie, so exploring a non-goal item lets the goal quota pull a goal item
     back to the front."""
 
-    paths = create_placement_vault(tmp_path / "vault", version="mvp-0.11")
+    paths = create_placement_vault(tmp_path / "vault", version=LATEST_ALGORITHM_VERSION)
     repository = seed_due_item(paths)
     add_followup_item(paths.root, SECOND_ITEM)
     repository.upsert_practice_item_state(

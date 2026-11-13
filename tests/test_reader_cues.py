@@ -16,6 +16,7 @@ import tomllib
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.attempts import salience_firewall as SF
 from learnloop.content.synthesis.source_unit_selection import save_unit_selection
 from learnloop.db.repositories import Repository
@@ -178,7 +179,7 @@ def test_a_split_cue_names_the_diagnosers_statement_as_the_rail_does(tmp_path):
     from tests.split_live_helpers import drain_jobs, submit
     from tests.reader_guidance_helpers import _DIAGNOSED, _StatementFake, _cite_extraction, _graded_vault_with_extraction
 
-    _paths, vault, repository = _graded_vault_with_extraction(tmp_path, version="mvp-0.10")
+    _paths, vault, repository = _graded_vault_with_extraction(tmp_path, version=LATEST_ALGORITHM_VERSION)
     client = _StatementFake()
     result = submit(vault, repository, client)
     pending_plan = None

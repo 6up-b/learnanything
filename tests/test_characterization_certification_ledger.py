@@ -29,7 +29,7 @@ from learnloop.attempts.evidence import attempt_evidence_mass
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version
+from tests.helpers import NOW, NOW_ISO, create_basic_vault
 
 ITEM_ID = "pi_svd_define_001"
 FACET = "recall"
@@ -37,7 +37,6 @@ FACET = "recall"
 
 def _mvp07_vault(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.7")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))

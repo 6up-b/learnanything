@@ -26,7 +26,7 @@ from learnloop.attempts.grade_resolution import quarantine_observation
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, create_basic_vault, set_algorithm_version
+from tests.helpers import NOW, create_basic_vault
 
 CLOCK = FrozenClock(NOW)
 ITEM = "pi_svd_define_001"
@@ -35,7 +35,6 @@ runner = CliRunner()
 
 def _p0_vault(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.8")
     vault = load_vault(paths.root)
     repo = Repository(paths.sqlite_path)
     sync_vault_state(vault, repo, clock=CLOCK)

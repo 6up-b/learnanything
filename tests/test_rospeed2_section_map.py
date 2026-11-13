@@ -25,11 +25,11 @@ from typing import Any
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.adaptive_difficulty import operation as O
 from learnloop.adaptive_difficulty import reading as ADR
 from learnloop.adaptive_difficulty import reading_cache
 from learnloop.adaptive_difficulty.material_view import MaterialView
-from learnloop.algorithm_versions import LESSON_OFFERS_ALGORITHM_VERSION
 from learnloop.content.sources import exam_material
 from learnloop.db.repositories import Repository
 
@@ -122,7 +122,7 @@ def _vault(tmp_path):
     from tests.source_inventory_helpers import _persist
 
     paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={lo: [(f"pi_{lo}", 2.0)] for lo in LOS},
-                                    version=LESSON_OFFERS_ALGORITHM_VERSION)
+                                    version=LATEST_ALGORITHM_VERSION)
     repository = Repository(paths.sqlite_path)
     seed_textbook(repository, source_id="src_m", revision_id="rev_m", extraction_id="ext_m1", title="Matrices",
                   units=_units())

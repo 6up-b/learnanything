@@ -31,6 +31,7 @@ import sqlite3
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.ai.execution import output_limit
 from learnloop.ai.output_budget import output_budget
 from learnloop.clock import FrozenClock
@@ -182,7 +183,7 @@ def test_a_held_attempt_queues_no_gap_reading_as_a_failure(tmp_path):
     from learnloop.diagnosis.split.jobs import diagnosis_status, enqueue_diagnosis
 
     _paths, vault, repository = split_vault(
-        tmp_path, version=VERSION, config="[diagnosis]\ncorrect_answer_sample_rate = 1.0",
+        tmp_path, version=LATEST_ALGORITHM_VERSION, config="[diagnosis]\ncorrect_answer_sample_rate = 1.0",
     )
     held = _held_attempt(vault, repository)
     # No live diagnosis (the only diagnosis a gap reading follows): at most a
@@ -212,7 +213,7 @@ def test_a_diagnosis_of_a_held_attempt_is_never_read_as_a_wrong_answer(tmp_path)
     from learnloop.diagnosis.text_gaps.jobs import enqueue_after_diagnosis
     from learnloop.diagnosis.text_gaps.sources import diagnosis_text
 
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
     held = _held_attempt(vault, repository)
     diagnosis_id = repository.insert_attempt_diagnosis(
         attempt_id=held.attempt_id, diagnosis_prompt_version="diagnosis-test", mode="live",
@@ -272,7 +273,7 @@ def test_an_empty_stuck_answer_never_reaches_the_grader(tmp_path):
 
     from tests.split_live_helpers import ReadyRuntime
 
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
     grader = DivergentUnlocatedGrader()
     draft = AttemptDraft(practice_item_id=ITEM, learner_answer_md="", attempt_type="independent_attempt",
                          declared_stuck=True)
@@ -294,7 +295,7 @@ def test_placement_and_the_field_read_a_held_attempt_as_unassessed(tmp_path):
     from learnloop.field.outcomes import load_replay_rows
     from learnloop.placement.state import pfc_unverified_attempt_ids
 
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
     held = _held_attempt(vault, repository)
     with repository.connection() as connection:
         # Placement: an unassessed answer keeps the topic, never a miss.

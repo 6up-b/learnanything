@@ -6,6 +6,7 @@ import json
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.ai.spend import SpendCaps
 from learnloop.clock import FrozenClock
 from learnloop.diagnosis.recurrence.backlog import run_backlog
@@ -124,7 +125,7 @@ def test_b1_fails_closed_on_an_unknown_embedding_price(tmp_path):
 
 
 def test_b3_replays_the_vaults_labelled_pairs(tmp_path):
-    paths, _vault, repository = split_vault(tmp_path, version="mvp-0.12", seed=False,
+    paths, _vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION, seed=False,
                                             config="[recurrence]\njudge_enabled = false")
     enable_embeddings(paths.root)
     toml = paths.root / "learnloop.toml"
@@ -168,7 +169,7 @@ def test_b3_replays_the_vaults_labelled_pairs(tmp_path):
 
 
 def _b3_history(tmp_path):
-    paths, _vault, repository = split_vault(tmp_path, version="mvp-0.12", seed=False,
+    paths, _vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION, seed=False,
                                             config="[recurrence]\njudge_enabled = false")
     enable_embeddings(paths.root)
     toml = paths.root / "learnloop.toml"

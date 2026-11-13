@@ -10,6 +10,7 @@ the canonical projection. Fakes only; no network.
 
 from __future__ import annotations
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.attempts.regrade import regrade_attempt
 from learnloop.field.outcomes import data_check, load_attempt_rows, load_facet_rows
 from learnloop.substrate.canonical_projection import UNVERIFIED_CRITERION_BLOCK
@@ -94,7 +95,7 @@ def test_blind_grades_diagnoses_and_regrades_keep_the_epoch_contract(tmp_path):
     leaves a failure re-queues the diagnosis and the field follows the new
     epoch."""
 
-    _jpaths, joint_vault, joint_repository = split_vault(tmp_path / "joint", version="mvp-0.9")
+    _jpaths, joint_vault, joint_repository = split_vault(tmp_path / "joint", version=LATEST_ALGORITHM_VERSION)
     joint = submit(joint_vault, joint_repository, ReviewFakeClient())
     joint_rows = _rows(joint_repository, joint_vault, joint.attempt_id)
 

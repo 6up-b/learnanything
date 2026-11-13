@@ -19,6 +19,7 @@ from datetime import UTC, datetime, timedelta
 
 import learnloop.clock as clock_module
 import learnloop_sidecar.handlers  # noqa: F401 -- populate METHOD_REGISTRY
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.daily_plan.engine import PlanEnv, advance, get_or_create_today
 from learnloop.daily_plan.headline import classify_learning_objects, today_headline
@@ -52,7 +53,7 @@ def _plan_env(vault, repository, hours: float) -> PlanEnv:
 
 
 def test_a_check_miss_awaiting_its_diagnosis_stays_assumed_and_is_not_rechecked(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, version="mvp-0.14", seed=False)
+    _paths, vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION, seed=False)
     record_self_report(vault, repository, learning_object_ids=[LO], report="know_this", clock=FrozenClock(at(0)))
     # The check is due: it is the plan's maintain lane (a scheduled check).
     due = _plan_env(vault, repository, DUE_HOURS + 0.5)

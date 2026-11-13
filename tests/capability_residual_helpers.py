@@ -11,7 +11,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 
-from tests.helpers import NOW, create_basic_vault, set_algorithm_version, write_facets
+from tests.helpers import NOW, create_basic_vault, write_facets
 from tests.km2_write_path_helpers import _attempt, _item, _rubric
 
 
@@ -67,7 +67,6 @@ def _build_vault(root: Path, *, enable: bool):
                 fingerprint={"source_family": family},
             ),
         )
-    set_algorithm_version(paths, "mvp-0.7")
     if enable:
         _enable_residual(paths)
     return paths

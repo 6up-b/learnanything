@@ -691,7 +691,7 @@ def _canonical_vault(tmp_path):
     from learnloop.substrate.state_sync import sync_vault_state
     from learnloop.vault.yaml_io import write_yaml
 
-    from tests.helpers import set_algorithm_version, write_facets
+    from tests.helpers import write_facets
     from tests.km2_write_path_helpers import _item, _rubric
 
     paths = create_basic_vault(tmp_path / "vault")
@@ -713,7 +713,6 @@ def _canonical_vault(tmp_path):
             ),
         ),
     )
-    set_algorithm_version(paths, "mvp-0.7")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))

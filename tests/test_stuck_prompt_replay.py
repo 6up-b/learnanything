@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.ai import transport as transport_module
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.attempts.stuck import stuck_answers
@@ -23,7 +24,6 @@ from learnloop.field.signals import load_interaction_signals
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import set_algorithm_version
 from tests.split_live_helpers import at, drain_jobs, split_vault
 from tests.stuck_prompt_helpers import StuckFake, _draft, _grade
 
@@ -56,7 +56,7 @@ def _field(vault, repository):
 
 
 def test_a_stuck_vault_rebuilds_to_a_fixed_point_with_no_model_call(tmp_path, monkeypatch):
-    _paths, vault, repository = split_vault(tmp_path, version="mvp-0.13")
+    _paths, vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
     confused = StuckFake(
         reading={"attempts_answer": False, "describes_confusion": True, "confusion_quote": "where Sigma comes from"}
     )
@@ -105,7 +105,7 @@ def test_a_stuck_vault_rebuilds_to_a_fixed_point_with_no_model_call(tmp_path, mo
 
 
 def test_the_kill_switch_never_changes_how_stuck_answers_replay(tmp_path):
-    paths, vault, repository = split_vault(tmp_path, version="mvp-0.13")
+    paths, vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
     _grade(vault, repository, StuckFake(), _draft(""), when=21)
     tables = {*tables_for_role(TableRole.DERIVED), *REWRITTEN}
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
@@ -123,7 +123,7 @@ def test_historical_dont_know_rows_replay_unchanged_under_the_successor(tmp_path
     mvp-0.13 (only the version stamp differs), and the learner field reads the
     dont_know rows at the configured mass under both."""
 
-    paths, vault, repository = split_vault(tmp_path, version="mvp-0.12")
+    paths, vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
     for offset, item in ((20, "pi_svd_compute_001"), (21, "pi_transpose_001")):
         complete_self_graded_attempt(
             vault,
@@ -140,7 +140,6 @@ def test_historical_dont_know_rows_replay_unchanged_under_the_successor(tmp_path
     with connect(repository.sqlite_path, read_only=True) as connection:
         attempts_before = [tuple(row) for row in connection.execute("SELECT * FROM practice_attempts ORDER BY id")]
 
-    set_algorithm_version(paths, "mvp-0.13")
     vault = load_vault(paths.root)
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
@@ -166,7 +165,7 @@ def test_a_joint_stuck_reading_survives_rebuild_with_no_model_call(tmp_path, mon
     judgment_ledger verdict (a raw ledger), so rebuild reads it back as is."""
 
     _paths, vault, repository = split_vault(
-        tmp_path, version="mvp-0.13", config="[diagnosis]\nsplit_enabled = false"
+        tmp_path, version=LATEST_ALGORITHM_VERSION, config="[diagnosis]\nsplit_enabled = false"
     )
     confused = StuckFake(
         reading={"attempts_answer": False, "describes_confusion": True, "confusion_quote": "where Sigma comes from"}

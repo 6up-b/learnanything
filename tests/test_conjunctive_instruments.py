@@ -59,7 +59,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.models import CriterionTarget, PracticeItem, Rubric, RubricCriterion
 from learnloop.vault.yaml_io import write_yaml
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version, write_facets
+from tests.helpers import NOW, NOW_ISO, create_basic_vault, write_facets
 
 CAPSTONE = "pi_conj_capstone"
 SETUP = "f_setup"
@@ -169,7 +169,6 @@ def _vault(tmp_path, *, criteria=None, max_embedded_share: float | None = None, 
     """A canonical (mvp-0.7) vault holding one conjunctive capstone item."""
 
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.7")
     write_facets(paths, FACETS)
     _write_item(
         paths,
@@ -770,7 +769,6 @@ def test_duplicate_observations_collapse_to_one(tmp_path):
 
 def test_more_than_the_per_attempt_cap_is_truncated(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.7")
     many = [
         {"id": f"f_{index}", "kind": "procedure_contract", "claim": f"Claim {index}."}
         for index in range(MAX_EXERCISED_FACETS_PER_ATTEMPT + 3)
@@ -1017,7 +1015,6 @@ def test_elicitation_reward_reads_objects_as_well_as_rows():
 
 def test_item_components_without_authored_targets_is_unchanged(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.7")
     write_facets(paths, FACETS)
     _write_item(
         paths,

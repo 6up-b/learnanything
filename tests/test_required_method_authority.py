@@ -30,6 +30,7 @@ import json
 import pytest
 import yaml
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.attempts.grading_support import reference_policy, required_method_policy
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
@@ -115,13 +116,12 @@ def test_a_live_answer_its_regrade_and_replay_are_graded_under_the_frozen_field(
         CLOCK,
         ITEM,
         METHOD as SVD,
-        VERSION,
         _projection,
         _support,
     )
     from tests.route_rules_in_grader_helpers import ALTERNATIVE, DivergentGrader
 
-    paths, _vault, repository = split_vault(tmp_path, version=VERSION)
+    paths, _vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
     path = paths.practice_item_path("linear-algebra", ITEM)
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     data["prompt"] = "Write A using \\(\\text{singular value decomposition}\\)."
@@ -639,13 +639,10 @@ def test_a_variant_with_no_verdict_or_an_edited_stem_is_not_published(tmp_path):
 
 @pytest.fixture
 def gated_successor(tmp_path, monkeypatch):
-    from learnloop.algorithm_versions import METHOD_EXPLICIT_ALGORITHM_VERSION
     from learnloop.content.authoring import pf_sandbox
-    from tests.helpers import set_algorithm_version
     from tests.source_service_fakes import build_textbook_vault
 
     paths, repository, spans = build_textbook_vault(tmp_path / "vault")
-    set_algorithm_version(paths, METHOD_EXPLICIT_ALGORITHM_VERSION)
     monkeypatch.setattr(pf_sandbox, "_sandbox_bwrap_path", lambda: None)
     return paths, repository, spans
 

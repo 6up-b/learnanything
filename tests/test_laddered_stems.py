@@ -35,7 +35,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.models import EvidenceFingerprint, LadderedStemContract, PracticeItem
 from learnloop.vault.yaml_io import write_yaml
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version, write_facets
+from tests.helpers import NOW, NOW_ISO, create_basic_vault, write_facets
 
 CLOCK = FrozenClock(NOW)
 STEM = "stem_svd_matrix_A"
@@ -286,7 +286,6 @@ def _write_part(paths, item_id: str, *, capability: str, correct: bool) -> None:
 
 def _stem_vault(tmp_path, parts):
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.7")
     write_facets(paths, FACETS)
     for item_id, capability in parts:
         _write_part(paths, item_id, capability=capability, correct=True)

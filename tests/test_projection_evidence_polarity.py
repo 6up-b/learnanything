@@ -282,7 +282,6 @@ def test_p0_timeline_matches_banked_ledger_including_a6_supporting_credit(tmp_pa
             "updated_at": NOW_ISO,
         },
     )
-    set_algorithm_version(paths, "mvp-0.8")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=CLOCK)

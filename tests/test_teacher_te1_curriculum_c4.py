@@ -6,10 +6,8 @@ behind ``teacher.brief.use_deliverable``. The synthetic vault notes (C2b: Reader
 from __future__ import annotations
 
 
-from learnloop.algorithm_versions import TEACHER_ALGORITHM_VERSION
 from learnloop.teacher import service as S
 from learnloop.vault.loader import load_vault
-from tests.helpers import set_algorithm_version
 from tests.reading_path_fixtures import call
 from tests.teacher_fakes import TeacherFake, clients
 from tests.notes_linked_helpers import _deliverable
@@ -19,7 +17,6 @@ from tests.ux_phase1_support import set_config
 def _linked(tmp_path, monkeypatch):
     paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
     call(ctx, "notes.path", {"goal_id": goal_id})
-    set_algorithm_version(paths, TEACHER_ALGORITHM_VERSION)
     return paths, repository
 
 

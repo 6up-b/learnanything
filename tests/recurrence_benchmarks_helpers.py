@@ -7,6 +7,7 @@ import csv
 import json
 import types  # noqa: E402
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.ai.spend import SpendCaps
 from learnloop.diagnosis.recurrence.benchmarks import B1_WRITER_ROLE, register_suites
 from learnloop.vault.loader import load_vault
@@ -45,7 +46,7 @@ def _eedi(directory, *, manifest=True):
 
 
 def _bench_vault(tmp_path):
-    paths, _vault, repository = split_vault(tmp_path, version="mvp-0.10", seed=False)
+    paths, _vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION, seed=False)
     enable_embeddings(paths.root)
     toml = paths.root / "learnloop.toml"
     toml.write_text(toml.read_text(encoding="utf-8").replace("dimensions = 4096", "dimensions = 16"), encoding="utf-8")

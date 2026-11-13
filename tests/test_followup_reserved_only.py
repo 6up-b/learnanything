@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop import learner_protection
 from learnloop.db.stores import write_provenance as wp
 from learnloop.followup_run import authoring, router
@@ -267,7 +268,7 @@ def test_the_mint_and_batch_paths_refuse_a_reserved_question_at_the_tag_only(tmp
     payload = {"prompt": f"Try: {STEM}", "expected_answer": "x", "grading_rubric": {"criteria": []}}
     assert _reproduces_reserved(vault, repository, payload)
     assert not _reproduces_reserved(vault, repository, {**payload, "prompt": "Something else entirely here."})
-    below = live_shape_vault(tmp_path / "below", version="mvp-0.44")[1]
+    below = live_shape_vault(tmp_path / "below", version=LATEST_ALGORITHM_VERSION)[1]
     assert not _reproduces_reserved(below, repository, payload)
 
 

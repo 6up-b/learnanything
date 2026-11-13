@@ -26,6 +26,7 @@ import random
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.router_objective import learned_tail as LT
 from learnloop.router_objective import scores as S
 from learnloop.router_objective import stop_coin as SC
@@ -115,7 +116,6 @@ def test_f3_no_carried_cutoff_leaves_the_rollouts_as_ro4s():
 
 
 def test_f4_a_diagnosis_queued_after_the_decisions_moment_never_enters_its_features(tmp_path, monkeypatch):
-    from learnloop.algorithm_versions import ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
     from learnloop.daily_plan import objective_chooser as OC
     from learnloop.db.stores import router_objective as store
     from learnloop.router_objective import decision_state as DS
@@ -143,7 +143,7 @@ def test_f4_a_diagnosis_queued_after_the_decisions_moment_never_enters_its_featu
     monkeypatch.setattr(DS, "_pending_reports", pending)
     monkeypatch.setattr(OC, "_objective_job", job)
     env = mixture_env(tmp_path, fake_runtime(llm=FakeLLM(answer=policy_answer)),
-                      version=ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
+                      version=LATEST_ALGORITHM_VERSION)
     run(env, steps=4)
     with env.repository.connection() as connection:
         traces = [store.trace(connection, row["decision_id"])["trace"] for row in store.traces(connection)

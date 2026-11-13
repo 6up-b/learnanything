@@ -23,6 +23,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.held_grades import held_for_review_attempts
 from learnloop.router_objective import assignments as A
 from learnloop.router_objective import checks as C
@@ -34,7 +35,7 @@ from learnloop.router_objective import weight as W
 
 from tests.router_mixture_helpers import mixture_env, run
 from tests.router_model_fakes import fake_runtime
-from tests.ro5_checks_helpers import TAG, _env, _row, _trace, grade_checks
+from tests.ro5_checks_helpers import _env, _row, _trace, grade_checks
 from tests.ro5_stop_coin_helpers import ARMS_OFF
 
 
@@ -226,7 +227,7 @@ def test_f5_the_check_arm_off_restores_ro4s_weight_after_scores_accumulated(tmp_
     monkeypatch.setattr(S, "scores", _planted_scores)
     weights = {}
     for name, toml in (("on", "[router_objective]\nstop_coin = 0.0\npick_open_share = 0.0\n"), ("off", ARMS_OFF)):
-        env = mixture_env(tmp_path / name, fake_runtime(), version=TAG, toml=toml)
+        env = mixture_env(tmp_path / name, fake_runtime(), version=LATEST_ALGORITHM_VERSION, toml=toml)
         with env.repository.atomic(), env.repository.connection() as connection:
             A.insert(connection, experiment_id=A.CHECK, unit_id="check-day:2026-01-01", variant="day", propensity=1.0,
                      seed="s", draw=None, candidate_refs=[], detail={}, at="2026-01-01T00:00:00Z")

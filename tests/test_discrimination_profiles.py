@@ -56,7 +56,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version, write_facets
+from tests.helpers import NOW, NOW_ISO, create_basic_vault, write_facets
 
 CLOCK = FrozenClock(NOW)
 ITEM = "pi_profile_001"
@@ -125,7 +125,6 @@ def _row(payload, client_item_id="c_0") -> dict:
 
 def _vault(tmp_path, *, profiles=None):
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.7")
     write_facets(paths, FACETS)
     write_yaml(
         paths.practice_item_path("linear-algebra", ITEM),

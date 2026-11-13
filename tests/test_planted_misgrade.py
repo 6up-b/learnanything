@@ -159,10 +159,9 @@ def test_runner_planted_confusion_no_silent_diagnosis_flip_through_robust_path(t
     from learnloop.sim.profiles import load_profile
     from learnloop.sim.runner import prepare_run_vault, run_simulation
 
-    from tests.helpers import create_basic_vault, set_algorithm_version
+    from tests.helpers import create_basic_vault
 
     paths = create_basic_vault(tmp_path / "v")
-    set_algorithm_version(paths, "mvp-0.8")
     profile = load_profile("intermediate_with_misconception")
 
     clean_root = prepare_run_vault(paths.root, tmp_path / "clean")

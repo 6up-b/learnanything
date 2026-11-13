@@ -14,6 +14,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.ai.decisions import ChoiceQuestion
 from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.config.schema import LearnLoopConfig
@@ -261,7 +262,7 @@ def test_text_gap_kind_authority(tmp_path, mode):
     from tests.text_gap_fakes import GapLLMFake, GapTutor, word_match
 
     toml = "[decider_routes]\nlearner_gap_kind = false\nlearner_gap_judge = false\n" if mode == "disabled" else ""
-    root, repo = _vault(tmp_path, version="mvp-0.22", toml=toml)
+    root, repo = _vault(tmp_path, version=LATEST_ALGORITHM_VERSION, toml=toml)
     answer = _ask(root, repo, GapTutor(EIGEN_GAP))
     llm = GapLLMFake(decide=word_match("eigenvalues"))
     decider = FixedDecider({"learner_gap_kind": "none", "learner_gap_judge": "different"})
@@ -282,7 +283,7 @@ def test_text_gap_kind_is_reused_never_paid_for_twice(tmp_path):
     from tests.learner_text_gaps_helpers import EIGEN_GAP, _ask, _vault
     from tests.text_gap_fakes import GapLLMFake, GapTutor
 
-    root, repo = _vault(tmp_path, version="mvp-0.22")
+    root, repo = _vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
     answer = _ask(root, repo, GapTutor(EIGEN_GAP))
     vault = load_vault(root)
     text = tutor_question_text(vault, repo, answer["event_id"])
@@ -562,7 +563,7 @@ def test_the_learner_text_gaps_decider_switch_still_keeps_learner_text_from_the_
     from tests.learner_text_gaps_helpers import EIGEN_GAP, _ask, _run, _vault
     from tests.text_gap_fakes import GapLLMFake, GapTutor, word_match
 
-    root, repo = _vault(tmp_path, version="mvp-0.22", toml="[learner_text_gaps]\ndecider_enabled = false\n")
+    root, repo = _vault(tmp_path, version=LATEST_ALGORITHM_VERSION, toml="[learner_text_gaps]\ndecider_enabled = false\n")
     answer = _ask(root, repo, GapTutor(EIGEN_GAP))
     decider = FixedDecider({"learner_gap_kind": "none", "learner_gap_judge": "different"})
     row = _run(root, repo, answer["event_id"], llm=GapLLMFake(decide=word_match("eigenvalues")), decider=decider)
@@ -628,11 +629,9 @@ def test_a_review_dry_run_plans_and_prices_the_deciders_link_calls(tmp_path):
     from learnloop.cli import app
     from tests.diagnosis_split_helpers import build_diagnosis_vault, seed_history
 
-    from tests.helpers import set_algorithm_version
 
     paths = build_diagnosis_vault(tmp_path / "vault")
     seed_history(paths)
-    set_algorithm_version(paths, "mvp-0.22")
     result = CliRunner().invoke(app, ["diagnose", "run", "--vault", str(paths.root), "--dry-run", "--json"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
@@ -654,12 +653,10 @@ def test_a_review_resume_refuses_a_changed_decider_profile(tmp_path, monkeypatch
     from tests.diagnosis_split_helpers import build_diagnosis_vault, seed_history
 
     from learnloop.vault.loader import load_vault
-    from tests.helpers import set_algorithm_version
 
     monkeypatch.setattr(tier1, "client_for", lambda *a: FixedDecider({}))
     paths = build_diagnosis_vault(tmp_path / "vault")
     seed_history(paths)
-    set_algorithm_version(paths, "mvp-0.22")
     vault = load_vault(paths.root)
     options = ReviewOptions(sample_size=3, arms=("b",), planted_per_shape=0, generate_planted=False, probes=False,
                             judge=False, sweep=False, joint_repeat=False, repeat_subset=0)

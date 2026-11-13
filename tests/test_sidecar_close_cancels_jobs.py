@@ -19,6 +19,7 @@ import json
 import threading
 from datetime import timedelta
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.ai.execution import model_call
 from learnloop.ai.spend import SpendCancelled
 from learnloop_sidecar.background_jobs import BackgroundJobs
@@ -194,7 +195,7 @@ def _queued_gap_job(tmp_path):
     from tests.helpers import NOW, create_placement_vault
     from tests.text_gap_fakes import GapTutor
 
-    paths = create_placement_vault(tmp_path / "vault", version="mvp-0.16")
+    paths = create_placement_vault(tmp_path / "vault", version=LATEST_ALGORITHM_VERSION)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(load_vault(paths.root), repository, clock=FrozenClock(NOW))
     gap = LearnerGap(prerequisite_name="Eigenvalues", prerequisite_line="Scalars a matrix scales its eigenvectors by.",

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.placement.decisions import record_self_report
 from learnloop.placement.report import placement_report
@@ -48,7 +49,7 @@ CORRECT = "B = U Sigma V^T"
 
 
 def _assumed(tmp_path, *, config="", los=(LO,)):
-    paths, vault, repository = split_vault(tmp_path, version="mvp-0.11", seed=False, config=config)
+    paths, vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION, seed=False, config=config)
     result = record_self_report(
         vault, repository, learning_object_ids=list(los), report="know_this", clock=FrozenClock(at(0)),
     )

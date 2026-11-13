@@ -14,6 +14,7 @@ import math
 import numpy as np
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.adaptive_difficulty import model as ADM
 from learnloop.adaptive_difficulty import priors as ADP
 from learnloop.router_objective import value as V
@@ -81,7 +82,7 @@ def test_ads_entry_point_hands_the_latent_moments_only_when_asked(tmp_path):
     from tests.router_mixture_helpers import mixture_env
     from tests.router_model_fakes import block_drawing_seed, fake_runtime
 
-    env = mixture_env(tmp_path, fake_runtime(seed=block_drawing_seed()), version=V_TAG)
+    env = mixture_env(tmp_path, fake_runtime(seed=block_drawing_seed()), version=LATEST_ALGORITHM_VERSION)
     los = list(env.vault.learning_objects)[:6]
     plain = decision_state_fields(env.vault, env.repository, los)
     asked = decision_state_fields(env.vault, env.repository, los, eta_moments=True)
@@ -100,4 +101,3 @@ def test_ads_entry_point_hands_the_latent_moments_only_when_asked(tmp_path):
         assert integrated == pytest.approx(entry["p_bar_at_top_raw"], abs=tolerance)
 
 
-from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION as V_TAG  # noqa: E402

@@ -199,13 +199,12 @@ def test_a_cold_retry_with_nothing_assessed_neither_confirms_nor_fails_the_repai
     from learnloop.diagnosis.remediation import prescribe_remediation, start_remediation_treatment
     from learnloop.db.repositories import Repository
     from learnloop.vault.loader import load_vault
-    from tests.helpers import NOW, create_basic_vault, set_algorithm_version
+    from tests.helpers import NOW, create_basic_vault
     from tests.causal_orchestrator_helpers import CLOCK as START, _add_probe_item, _seed_factor
 
     # PF-c rows exist only in the split successor (a canonical-state vault).
     paths = create_basic_vault(tmp_path / "vault")
     _add_probe_item(paths.root)
-    set_algorithm_version(paths, "mvp-0.10")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     factor_id, first_id, second_id = _seed_factor(

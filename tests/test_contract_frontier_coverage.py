@@ -23,7 +23,7 @@ from learnloop.learner.facet_diagnostics import (
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version
+from tests.helpers import NOW, NOW_ISO, create_basic_vault
 
 
 def _declare_blueprint(paths, *, cells: list[tuple[str, str]]) -> None:
@@ -162,7 +162,6 @@ def test_capability_axis_distinguishes_the_cells(tmp_path):
 
     paths = create_basic_vault(tmp_path / "vault")
     # The per-cell ledger only exists on canonical (mvp-0.7+) vaults.
-    set_algorithm_version(paths, "mvp-0.7")
     _declare_blueprint(
         paths, cells=[("recall", "retrieval"), ("recall", "transfer")]
     )
@@ -203,7 +202,6 @@ def test_a_canonical_vault_with_no_ledger_rows_credits_no_cell(tmp_path):
     exact error the capability axis exists to stop."""
 
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.7")
     _declare_blueprint(
         paths, cells=[("recall", "retrieval"), ("recall", "transfer")]
     )

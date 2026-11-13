@@ -23,7 +23,7 @@ from learnloop.learner.facet_diagnostics import (
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.helpers import NOW, create_basic_vault, set_algorithm_version
+from tests.helpers import NOW, create_basic_vault
 
 
 def _declare_integration(paths, *, cells, integration=None) -> None:
@@ -51,7 +51,6 @@ def _declare_integration(paths, *, cells, integration=None) -> None:
 
 def _canonical_vault(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.7")
     return paths
 
 

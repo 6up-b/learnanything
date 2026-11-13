@@ -40,7 +40,6 @@ from tests.helpers import (
     NOW_ISO,
     create_basic_vault,
     seed_due_item,
-    set_algorithm_version,
 )
 
 LO_ID = "lo_svd_definition"
@@ -55,7 +54,6 @@ ITEM_ID = "pi_svd_define_001"
 
 def _mvp07_vault(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.7")
     return paths, load_vault(paths.root)
 
 
