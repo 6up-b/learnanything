@@ -17,6 +17,7 @@ from learnloop.attempts.completion_lock import AttemptCompletionBusy
 from learnloop.ids import new_ulid
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import to_camel
+from learnloop.content.sources.exam_material import SourceSetsUnreadable
 from learnloop_sidecar.errors import SidecarError, json_rpc_error, sidecar_error
 from learnloop_sidecar.handlers.practice import submission_key
 from learnloop_sidecar.logging import log_event
@@ -130,6 +131,14 @@ def _handle_request(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
         log_event("rpc.error", method=method_name, id=request_id, code=exc.code,
                   message=exc.message, duration_ms=_elapsed_ms(started))
         return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(exc)}
+    except SourceSetsUnreadable as exc:
+        # Every exam-material reader refuses a vault whose source sets did not load. The refusal is
+        # the answer (never "no exam material"): the learner is told which file and how to fix it.
+        LOG.warning("source sets unreadable (%s)", "; ".join(exc.reasons))
+        refusal = SidecarError(exc.code, str(exc))
+        log_event("rpc.error", method=method_name, id=request_id, code=refusal.code,
+                  duration_ms=_elapsed_ms(started))
+        return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(refusal)}
     except (sqlite3.OperationalError, AttemptCompletionBusy) as exc:
         busy = _busy_error(exc)
         if busy is None:

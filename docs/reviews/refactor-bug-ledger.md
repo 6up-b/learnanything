@@ -63,6 +63,8 @@ Status: **open**, **queued** (a step owns it), **fixed** (commit), **owner** (wa
 | K1-6 | K1 D6 | A remediation's cold item isn't reserved until its task exists; the cold-kinds constant is duplicated. | Small fix | fixed (742308f515, refactor-k1-fixes) |
 | K1-7 | K1 D3, D8 | Two docstrings contradict the code (rule 4's "no search hit"; figures' set against the Reader's). | Docstrings | fixed (8e2dfad2d4, refactor-k1-fixes) |
 | K1-8 | K1-1's fix | A `source_sets.yaml` cut at a member boundary (a hand edit, or a writer that is not ours) parses as a valid file with fewer members, so no gate can tell it from the owner's intent. | Our own writer is now atomic; nothing further is possible at read time | accepted |
+| K1-9 | K1-1's fix | A damaged `source_sets.yaml` reached the learner as a generic `internal` error on the sidecar and phone and `failed` on MCP, with no cause or remedy; doctor was silent on an empty file. | Typed `source_sets_unreadable` refusal in one place per adapter; doctor issue `source_sets:unreadable` | fixed (K1-9 commit, refactor-k1-fixes) |
+| K1-10 | K1-9's survey | A read-only open of an item's details (`get_practice_item` with no session) stops on a damaged file through `explain_practice_item`'s queue build, where exam material protects nothing. | Orchestrator's call | open |
 
 ## Due with K2's sub-steps (strategy §2.17)
 

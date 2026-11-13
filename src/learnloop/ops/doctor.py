@@ -31,6 +31,7 @@ from learnloop.content.pipeline.reread import (
     restore_readable_revision,
     unread_current_revisions,
 )
+from learnloop.content.sources.exam_material import protection_issues
 from learnloop.content.sources.span_aliases import CITATION_MADE_AT_SQL, CitationResolver, CurrentKeys, reading_source
 from learnloop.db.checkpoint import checkpoint_wal
 from learnloop.db.connection import (
@@ -215,6 +216,13 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
         )
 
     issues.extend(_from_loader_issue(issue) for issue in vault.issues)
+    # An empty file loads with no issue of its own; every exam-material reader refuses it all the same.
+    for reason in protection_issues(vault):
+        issues.append(_issue(
+            "error", "source_sets:unreadable",
+            f"sources/source_sets.yaml: {reason}; protected exam material can't be told from teaching material "
+            "until it is fixed, so what depends on that is stopped.",
+            VaultPaths(vault.root, vault.config).source_sets_path))
     _check_references(vault, issues)
 
     _check_source_sets(vault, repository, database_tables, issues)

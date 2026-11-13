@@ -947,8 +947,27 @@ def _runs(connection: Any, extraction_ids: Iterable[str]) -> dict[str, tuple[str
 SNAPSHOT_UNSETTLED = "vault:snapshot_unsettled"
 
 
+#: The stable error code every adapter gives :class:`SourceSetsUnreadable`.
+SOURCE_SETS_UNREADABLE_CODE = "source_sets_unreadable"
+#: What the learner is told: where the file is, why work stopped, how to fix it.
+#: It carries no file content and no loader text.
+SOURCE_SETS_UNREADABLE_MESSAGE = (
+    "LearnLoop can't read this vault's source sets (sources/source_sets.yaml), so it can't tell protected exam "
+    "material from teaching material until the file is fixed, and it has stopped what depends on that. Fix or "
+    "restore the file, then run `learnloop doctor` to check it."
+)
+
+
 class SourceSetsUnreadable(RuntimeError):
-    """The vault's source sets did not load, so rules 1 and 2 cannot be read."""
+    """The vault's source sets did not load, so rules 1 and 2 cannot be read.
+
+    ``str()`` is the learner-facing message (:data:`SOURCE_SETS_UNREADABLE_MESSAGE`); the reasons are for logs."""
+
+    code = SOURCE_SETS_UNREADABLE_CODE
+
+    def __init__(self, reasons: Sequence[str] = ()) -> None:
+        super().__init__(SOURCE_SETS_UNREADABLE_MESSAGE)
+        self.reasons = tuple(reasons)
 
 
 def protection_issues(vault: Any) -> list[str]:
@@ -998,7 +1017,7 @@ def _require_readable(vault_or_sets: Any) -> None:
         return
     problems = protection_issues(vault_or_sets)
     if problems:
-        raise SourceSetsUnreadable("exam material cannot be read: " + "; ".join(problems))
+        raise SourceSetsUnreadable(problems)
 
 
 def exam_material(vault_or_sets: Any, repository: Any) -> ExamMaterial:
