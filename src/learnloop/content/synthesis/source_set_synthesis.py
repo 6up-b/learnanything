@@ -2324,12 +2324,12 @@ def _create_study_map(
             candidate_preserved = True
             try:
                 patch_id, diagnostics, generation_needs, normalized, match = _gate_and_persist(
-                    vault, repository, source_set, merged, inputs,
+                    vault, repository, source_set, merged, inputs, mode=BOOTSTRAP,
                     subject_id=resolve_subject_id(source_set, vault),
                     agent_run_id=agent_run_id, synthesis_run_id=synthesis_run_id,
                     now=now, usage=usage, resolved_hashes=resolved_hashes,
                     clock=clock, progress=progress, items_off=items_off,
-                    token_usage=token_usage, grading_client=client, nominator=nominator,
+                    token_usage=token_usage, client=client, nominator=nominator,
                     facet_identity_plan=facet_identity_plan, fresh_answers=fresh_answers,
                 )
             except RejectedProposalMatch:
@@ -2409,6 +2409,58 @@ def _create_study_map(
     return result
 
 
+@dataclass(frozen=True)
+class SynthesisMode:
+    """What a bootstrap and an append decide differently once the model has answered. There are two rows,
+    ``BOOTSTRAP`` below and ``APPEND`` in :mod:`source_append`, and each field is one difference between them.
+
+    The fields marked "kept" are differences no spec settles (``docs/reviews/refactor-k2.4a.md``, step 0): each
+    keeps its mode's behaviour exactly until the behaviour track decides, under the ledger row it names."""
+
+    #: The proposal's purpose. A rerun is compared only with earlier proposals of the same purpose.
+    proposal_purpose: str
+    #: The proposal's summary when the answer has none; ``{subject}`` is the rows' subject.
+    summary_fallback: str
+    #: The typed error of a candidate the synthesis gates block: its code and message.
+    gate_failure: tuple[str, str]
+    #: Maps the answer to proposal rows: the bootstrap normalizer, or the append's, which adds its own item kinds.
+    normalize: Callable[..., _Normalized]
+    #: The gates judge the append vocabulary: only an explicit restructure may update or deactivate.
+    append_vocabulary: bool
+    #: Where the run's facet-identity actions say they came from.
+    facet_action_origin: str
+    #: The epigraph service's mode.
+    epigraph_mode: str
+    #: The answer is saved on the run, so a run that fails after it can be finished with no model call
+    #: (``revalidate_synthesis_candidate``, which only bootstrap has).
+    keeps_candidate_for_repair: bool
+    #: Kept (ledger K2-10): an answer whose client ids collide fails typed, before the gates.
+    checks_client_id_collisions: bool
+    #: Kept (K2-9): identifiability findings reach the gates and are persisted as generation needs.
+    analyzes_identifiability: bool
+    #: Kept (K2-13): the agent run records the model call's usage alone, drained from the client after each answer;
+    #: otherwise whatever the client reports by the run's end.
+    meters_the_model_call: bool
+    #: Kept (K2-11): the synthesis run records its usage only when it writes a proposal.
+    usage_only_with_a_proposal: bool
+
+
+BOOTSTRAP = SynthesisMode(
+    proposal_purpose=BOOTSTRAP_PROPOSAL_PURPOSE,
+    summary_fallback="bootstrap study map for {subject}",
+    gate_failure=("synthesis_gate_failed", "Synthesis proposal failed hard quality gates."),
+    normalize=_normalize,
+    append_vocabulary=False,
+    facet_action_origin="ingest",
+    epigraph_mode="bootstrap",
+    keeps_candidate_for_repair=True,
+    checks_client_id_collisions=True,
+    analyzes_identifiability=True,
+    meters_the_model_call=True,
+    usage_only_with_a_proposal=False,
+)
+
+
 def _gate_and_persist(
     vault: LoadedVault,
     repository: Repository,
@@ -2416,42 +2468,50 @@ def _gate_and_persist(
     merged: Any,
     inputs: _SynthesisInputs,
     *,
+    mode: SynthesisMode,
     subject_id: str,
     agent_run_id: str | None,
     synthesis_run_id: str,
     now: str,
     usage: dict[str, Any] | None,
-    resolved_hashes: list[str],
+    resolved_hashes: list[str] | None,
     clock: Clock | None,
     progress: ProgressFn | None = None,
     items_off: bool = False,
     token_usage: TokenUsage | None = None,
-    grading_client: Any = None,
+    client: Any = None,
     nominator: Any = None,
     facet_identity_plan: Any = None,
     fresh_answers: bool = False,
+    answer_diagnostics: Sequence[dict[str, Any]] = (),
 ) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]], _Normalized, ProposalMatch | None]:
-    """Normalize -> §8.7 gates -> persist proposal, over a merged candidate.
+    """Normalize -> §8.7 gates -> instrument gates -> persist proposal, over one answer.
 
     The proposal is persisted under :mod:`proposal_match`'s rule: rows equal to an earlier proposal of the set are
     that proposal (returned with the match; nothing is written), unless the learner wholly rejected it, which raises
     :class:`RejectedProposalMatch` so the caller drops the answers and pays for fresh ones. ``fresh_answers``: the
     candidate came from those fresh answers, so it is persisted even when it equals the rejected proposal again.
+    ``answer_diagnostics`` are the mode's own review records about the answer, reported after the normalizer's.
 
-    Shared by the live synthesis path and candidate revalidation (which re-runs
+    Shared by both modes' runs and by candidate revalidation (which re-runs
     exactly this stage over a preserved candidate with zero model calls). On any
     failure the synthesis run and agent run are finalized as failed before the
     typed error propagates.
 
     ``token_usage`` is the provider-reported cost of the model calls that
-    produced ``merged``, already drained by the caller (A7 / migration 131): this
-    frame holds no client, and revalidation legitimately has none — its whole
-    point is finishing without paying again, so it passes None and leaves the
-    original run's recorded cost alone."""
+    produced ``merged``, already drained by the caller (A7 / migration 131).
+    Revalidation has none (its whole point is finishing without paying again),
+    so it passes None and no ``client``, leaving the original run's recorded
+    cost alone. A mode that does not meter its model call passes None and its
+    ``client``, which a completion drains; a failure here does not, because the
+    caller's failure arm completes the run again and a second drain would
+    record zeros."""
+
+    recorded_usage = None if mode.usage_only_with_a_proposal else usage
 
     def _fail(error_message: str, coverage: Any = None) -> None:
         repository.complete_synthesis_run(
-            synthesis_run_id, status="failed", coverage_decisions=coverage, actual_usage=usage
+            synthesis_run_id, status="failed", coverage_decisions=coverage, actual_usage=recorded_usage
         )
         finish_agent_run(
             repository, agent_run_id, usage=token_usage,
@@ -2459,11 +2519,11 @@ def _gate_and_persist(
         )
 
     _notify(progress, "validation", "Validating candidate structure")
-    normalized = _normalize(
+    normalized = mode.normalize(
         merged, inputs, vault, now, subject_id=subject_id, items_off=items_off, nominator=nominator,
         facet_identity_plan=facet_identity_plan,
     )
-    duplicate_diagnostics = _duplicate_client_id_diagnostics(normalized.rows)
+    duplicate_diagnostics = _duplicate_client_id_diagnostics(normalized.rows) if mode.checks_client_id_collisions else []
     if duplicate_diagnostics:
         _fail("duplicate synthesis client item ids", {"gate_diagnostics": duplicate_diagnostics})
         raise StudyMapError(
@@ -2477,13 +2537,17 @@ def _gate_and_persist(
     # identifiability analysis (real §11.3 check) — findings drive both the
     # gate hook and the persisted generate-discriminator needs.
     _notify(progress, "validation", "Running quality gates")
-    view = build_proposal_view(
-        facets=normalized.facet_payloads,
-        criterion_targets=normalized.criterion_targets,
-        recipe_components=normalized.recipe_components,
+    findings = []
+    if mode.analyzes_identifiability:
+        view = build_proposal_view(
+            facets=normalized.facet_payloads,
+            criterion_targets=normalized.criterion_targets,
+            recipe_components=normalized.recipe_components,
+        )
+        findings = analyze_identifiability(view)
+    gate_ctx = _gate_context(
+        vault, repository, inputs, findings, nominator=nominator, append_mode=mode.append_vocabulary,
     )
-    findings = analyze_identifiability(view)
-    gate_ctx = _gate_context(vault, repository, inputs, findings, nominator=nominator)
     gate_proposal = GateProposal(
         items=normalized.gate_items,
         conflict_candidates=normalized.conflict_candidates,
@@ -2492,15 +2556,15 @@ def _gate_and_persist(
     report = run_synthesis_gates(gate_proposal, gate_ctx)
     diagnostics = [diag.to_dict() for diag in report.diagnostics]
     diagnostics.extend(normalized.edge_diagnostics)
+    diagnostics.extend(answer_diagnostics)
 
     if report.blocked:
         _fail("synthesis gates hard-failed", {"gate_diagnostics": diagnostics})
+        code, message = mode.gate_failure
         raise StudyMapError(
-            "synthesis_gate_failed",
-            "Synthesis proposal failed hard quality gates.",
-            diagnostics=diagnostics,
-            synthesis_run_id=synthesis_run_id,
-            candidate_preserved=True,
+            code, message, diagnostics=diagnostics,
+            synthesis_run_id=synthesis_run_id if mode.keeps_candidate_for_repair else None,
+            candidate_preserved=mode.keeps_candidate_for_repair,
         )
 
     # Stage-5.3/6 instrument gates over the practice-item rows, via the one
@@ -2510,33 +2574,37 @@ def _gate_and_persist(
     # persona/selected-response/pair judgement. Row-level verdicts, never batch
     # aborts: a refused item
     # persists as `invalid` (acceptance refuses it) rather than discarding the
-    # paid-for synthesis. `grading_client=None` (revalidation) falls back to the
+    # paid-for synthesis. No ``client`` (revalidation) falls back to the
     # deterministic persona rule; missing persona material stays a typed
     # UNTESTED abstention, so first ingests are not blocked.
     from learnloop.content.authoring.authoring_gates import build_instrument_gates
 
     instrument_gates = build_instrument_gates(
-        vault, repository, grading_client=grading_client
+        vault, repository, grading_client=client
     )
     instrument_gates(normalized.rows)
     diagnostics.extend(instrument_gates.diagnostics())
 
     match = match_proposal(
-        repository, source_set_id=source_set.id, purpose=BOOTSTRAP_PROPOSAL_PURPOSE, rows=normalized.rows,
+        repository, source_set_id=source_set.id, purpose=mode.proposal_purpose, rows=normalized.rows,
     )
     if match is not None and match.kind == "rejected":
         if not fresh_answers:
             raise RejectedProposalMatch(match.proposal_id)
         match = None
+    # A mode with an auto-apply lane records the ids it may apply, on a match too: they apply the match's
+    # waiting items.
+    coverage: dict[str, Any] = {"gate_diagnostics": diagnostics}
+    if normalized.auto_apply_ids is not None:
+        coverage["auto_apply_item_ids"] = normalized.auto_apply_ids
     if match is not None:
         repository.complete_synthesis_run(
             synthesis_run_id, status="completed", proposal_id=match.proposal_id,
             resolved_span_hashes=resolved_hashes,
-            coverage_decisions={"gate_diagnostics": diagnostics,
-                                "matched_proposal": {"proposal_id": match.proposal_id, "kind": match.kind}},
-            actual_usage=usage,
+            coverage_decisions={**coverage, "matched_proposal": {"proposal_id": match.proposal_id, "kind": match.kind}},
+            actual_usage=recorded_usage,
         )
-        finish_agent_run(repository, agent_run_id, usage=token_usage, clock=clock)
+        finish_agent_run(repository, agent_run_id, client, usage=token_usage, clock=clock)
         return match.proposal_id, diagnostics, [], normalized, match
 
     # persist generate-discriminator / coarsen needs (FIRST, per §11.3).
@@ -2550,15 +2618,14 @@ def _gate_and_persist(
         {
             "id": patch_id,
             "agent_run_id": agent_run_id,
-            "purpose": BOOTSTRAP_PROPOSAL_PURPOSE,
+            "purpose": mode.proposal_purpose,
             "source_refs": [],
-            "summary": getattr(merged, "summary", "") or f"bootstrap study map for {subject_id}",
+            "summary": getattr(merged, "summary", "") or mode.summary_fallback.format(subject=subject_id),
             "created_at": now,
             "updated_at": now,
         },
         normalized.rows,
     )
-    coverage: dict[str, Any] = {"gate_diagnostics": diagnostics}
     if nominator is not None:
         coverage["graph_nomination"] = {
             **(normalized.graph_nomination or {}), "summary": nominator.summary(),
@@ -2569,7 +2636,7 @@ def _gate_and_persist(
         coverage["facet_identity"] = {
             **facet_identity_plan.summary(),
             "action_ids": record_proposed_actions(
-                repository, normalized.facet_identity_actions, origin="ingest",
+                repository, normalized.facet_identity_actions, origin=mode.facet_action_origin,
                 run_id=synthesis_run_id, proposal_id=patch_id, clock=clock,
             ),
         }
@@ -2579,7 +2646,7 @@ def _gate_and_persist(
         coverage_decisions=coverage,
         actual_usage=usage,
     )
-    finish_agent_run(repository, agent_run_id, usage=token_usage, clock=clock)
+    finish_agent_run(repository, agent_run_id, client, usage=token_usage, clock=clock)
     return patch_id, diagnostics, generation_needs, normalized, None
 
 
@@ -2762,7 +2829,7 @@ def revalidate_synthesis_candidate(
         usage["candidate_repairs"] = list(usage.get("candidate_repairs") or []) + repair_log
     try:
         patch_id, diagnostics, generation_needs, normalized, match = _gate_and_persist(
-            vault, repository, source_set, merged, inputs,
+            vault, repository, source_set, merged, inputs, mode=BOOTSTRAP,
             subject_id=subject_id,
             agent_run_id=run.get("agent_run_id"),
             synthesis_run_id=synthesis_run_id,
@@ -3738,7 +3805,7 @@ def _duplicate_client_id_diagnostics(rows: list[dict[str, Any]]) -> list[dict[st
     ]
 
 
-def _gate_context(vault, repository, inputs, findings, nominator=None) -> GateContext:
+def _gate_context(vault, repository, inputs, findings, nominator=None, *, append_mode: bool = False) -> GateContext:
     registered_facets = set(vault.evidence_facets.keys())
     from learnloop.learner.capability_mapping import CAPABILITY_VOCABULARY
 
@@ -3758,6 +3825,7 @@ def _gate_context(vault, repository, inputs, findings, nominator=None) -> GateCo
         identifiability_hook=hook,
         # T5: the near-duplicate review diagnostic shows cosine beside Jaccard.
         facet_cosine=nominator.facet_cosine if nominator is not None else None,
+        append_mode=append_mode,
     )
 
 
