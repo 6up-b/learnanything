@@ -58,7 +58,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/placement/report|learnloop.placement.report]] | [[Reference/Modules/learnloop/placement/report#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/placement/rules|learnloop.placement.rules]] | [[Reference/Modules/learnloop/placement/rules#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/placement/signals|learnloop.placement.signals]] | [[Reference/Modules/learnloop/placement/signals#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
-| [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] | [[Reference/Modules/learnloop/placement/state#^module-purpose|purpose]] | `ACTIVE` | 32 | 31 |
+| [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] | [[Reference/Modules/learnloop/placement/state#^module-purpose|purpose]] | `ACTIVE` | 32 | 20 |
 
 ## Cross-package dependencies
 

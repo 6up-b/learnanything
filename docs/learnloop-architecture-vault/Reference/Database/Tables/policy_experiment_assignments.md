@@ -22,7 +22,7 @@ source_paths:
   - "src/learnloop/ops/capture_report.py"
   - "src/learnloop/params/parameter_registry.py"
   - "src/learnloop/recognition/ledger.py"
-  - "src/learnloop/router_calibration_upgrade.py"
+  - "src/learnloop/router_objective/assignments.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"

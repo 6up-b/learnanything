@@ -133,7 +133,6 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/diagnosis/recurrence/benchmarks|learnloop.diagnosis.recurrence.benchmarks]] — imports `AUTHORITY`, `NOMINATED_BY_CITATION`, `NOMINATED_BY_M1_LINK`, `NOMINATED_BY_SHORTLIST`, `compute_groups`; statically calls `compute_groups`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/judging|learnloop.diagnosis.recurrence.judging]] — imports `active_group_map`, `compute_groups`; statically calls `active_group_map`, `compute_groups`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/live|learnloop.diagnosis.recurrence.live]] — imports `active_group_map`, `recurrence_active`, `refresh_recurrence_groups`; statically calls `active_group_map`, `recurrence_active`, `refresh_recurrence_groups`
-- [[Reference/Modules/learnloop/diagnosis/recurrence/upgrade|learnloop.diagnosis.recurrence.upgrade]] — imports `activate_recurrence_groups`, `prepare_recurrence_groups`; statically calls `activate_recurrence_groups`, `prepare_recurrence_groups`
 - [[Reference/Modules/learnloop/diagnosis/split/card|learnloop.diagnosis.split.card]] — imports `refresh_recurrence_groups`; statically calls `refresh_recurrence_groups`
 - [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `claim_for_citation`, `recurrence_active`; statically calls `claim_for_citation`, `recurrence_active`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `active_group_map`, `refresh_recurrence_groups`; statically calls `active_group_map`, `refresh_recurrence_groups`
@@ -163,7 +162,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/error_hunt|learnloop.diagnosis.error_hunt]], [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]], [[Reference/Modules/learnloop/diagnosis/recurrence/backlog|learnloop.diagnosis.recurrence.backlog]], [[Reference/Modules/learnloop/diagnosis/recurrence/benchmarks|learnloop.diagnosis.recurrence.benchmarks]], [[Reference/Modules/learnloop/diagnosis/recurrence/judging|learnloop.diagnosis.recurrence.judging]] and 7 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/error_hunt|learnloop.diagnosis.error_hunt]], [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]], [[Reference/Modules/learnloop/diagnosis/recurrence/backlog|learnloop.diagnosis.recurrence.backlog]], [[Reference/Modules/learnloop/diagnosis/recurrence/benchmarks|learnloop.diagnosis.recurrence.benchmarks]], [[Reference/Modules/learnloop/diagnosis/recurrence/judging|learnloop.diagnosis.recurrence.judging]] and 6 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -171,40 +170,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_decider_landing.py](../../../../../../tests/test_decider_landing.py) — direct import
   - `test_a_link_recorded_at_main_mvp020_or_mvp021_has_no_decider_authority`
-- [tests/test_method_explicit_upgrade.py](../../../../../../tests/test_method_explicit_upgrade.py) — direct import
-  - `test_each_version_activates_exactly_its_features`
-- [tests/test_mvp011_upgrade.py](../../../../../../tests/test_mvp011_upgrade.py) — direct import
-  - `test_new_vaults_start_at_the_latest_version`
-- [tests/test_mvp013_upgrade.py](../../../../../../tests/test_mvp013_upgrade.py) — direct import
-  - `test_an_earlier_vault_goes_through_mvp012s_guard`
-  - `test_kill_switch_keeps_the_version_and_every_predecessor`
-  - `test_only_mvp013_offers_the_stuck_control`
-  - `test_upgrade_from_mvp012_flips_rebuilds_and_preserves_raw_history`
-- [tests/test_mvp014_upgrade.py](../../../../../../tests/test_mvp014_upgrade.py) — direct import
-  - `test_an_earlier_vault_goes_through_mvp012s_guard`
-  - `test_the_plan_serves_only_at_the_successor_with_the_switch_on`
-  - `test_upgrade_from_mvp013_flips_rebuilds_and_rewrites_nothing`
-- [tests/test_mvp015_upgrade.py](../../../../../../tests/test_mvp015_upgrade.py) — direct import
-  - `test_an_earlier_vault_goes_through_mvp012s_guard_when_it_is_required`
-  - `test_each_version_activates_exactly_its_features`
-- [tests/test_mvp016_upgrade.py](../../../../../../tests/test_mvp016_upgrade.py) — direct import
-  - `test_an_earlier_vault_goes_through_mvp012s_guard_when_it_is_required`
-  - `test_each_version_activates_exactly_its_features`
-- [tests/test_mvp017_upgrade.py](../../../../../../tests/test_mvp017_upgrade.py) — direct import
-  - `test_an_earlier_vault_goes_through_mvp012s_guard_when_it_is_required`
-  - `test_each_version_activates_exactly_its_features`
-- [tests/test_mvp018_upgrade.py](../../../../../../tests/test_mvp018_upgrade.py) — direct import
-  - `test_each_version_keeps_its_predecessors_and_grades_as_mvp016`
-- [tests/test_mvp020_upgrade.py](../../../../../../tests/test_mvp020_upgrade.py) — direct import
-  - `test_an_earlier_vault_goes_through_mvp012s_guard_when_it_is_required`
-  - `test_each_version_activates_exactly_its_features`
-- [tests/test_mvp021_upgrade.py](../../../../../../tests/test_mvp021_upgrade.py) — direct import
-  - `test_an_earlier_vault_goes_through_mvp012s_guard_when_it_is_required`
-  - `test_each_version_activates_exactly_its_features`
 - [tests/test_reading_step_switch.py](../../../../../../tests/test_reading_step_switch.py) — direct import
   - `test_the_reading_step_acts_wherever_the_plan_acts_behind_its_switch`
 - [tests/test_recurrence_commands.py](../../../../../../tests/test_recurrence_commands.py) — direct import
-  - `test_a_failure_after_preparation_leaves_no_group_in_force`
   - `test_the_kill_switch_takes_effect_at_vault_open_with_groups_already_populated`
 - [tests/test_recurrence_groups.py](../../../../../../tests/test_recurrence_groups.py) — direct import
   - `test_a_different_verdict_inside_one_exact_class_is_a_review_case_not_a_split`

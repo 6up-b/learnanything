@@ -23,7 +23,7 @@ source_paths:
   - "src/learnloop/daily_plan/estimates.py"
   - "src/learnloop/daily_plan/lesson_offer.py"
   - "src/learnloop/daily_plan/records.py"
-  - "src/learnloop/daily_plan_upgrade.py"
+  - "src/learnloop/db/stores/daily_plans.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"

@@ -212,8 +212,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_commission_queued_before_models_go_off_waits_and_resumes`
   - `test_repeated_reports_fire_the_readiness_flag_through_build`
 - [tests/test_ad23_owner_decisions.py](../../../../../../../tests/test_ad23_owner_decisions.py) — direct import
-- [tests/test_ad23_successor.py](../../../../../../../tests/test_ad23_successor.py) — direct import
-  - `test_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest`
 - [tests/test_ad2_serving.py](../../../../../../../tests/test_ad2_serving.py) — direct import
   - `test_commission_result_appended_never_mutates_selection`
 - [tests/test_ad3_relatedness.py](../../../../../../../tests/test_ad3_relatedness.py) — direct import

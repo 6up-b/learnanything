@@ -15,8 +15,10 @@ floor and the commands that bring the vault there. The doors that check:
 * ``substrate.shadow_rebuild.build_candidate_config``: a shadow rebuild cannot
   be forced below the floor.
 
-Only ``learnloop upgrade`` opens a vault below the floor, for the vault it
-upgrades (:func:`upgrading`). Tests that still build an old vault on purpose
+This code has no upgrade below the floor (``learnloop.ops.upgrades`` starts at
+it), so nothing here opens such a vault, ``learnloop upgrade`` included: the
+code tagged ``pre-floor`` still has the whole chain, and the refusal names that
+route (:func:`upgrade_commands`). Tests that still build an old vault on purpose
 register it through ``tests/helpers.py``'s ``allow_below_floor``, the only
 caller of :func:`allow_below_floor_in_tests` (``tests/test_version_floor.py``
 pins that nothing in ``src/`` or ``scripts/`` calls it).
@@ -28,21 +30,20 @@ from __future__ import annotations
 
 import re
 import shlex
-from collections.abc import Iterator
-from contextlib import contextmanager
-from contextvars import ContextVar
 from pathlib import Path
 
 from learnloop.algorithm_versions import OLDEST_SUPPORTED
 
 _TAG = re.compile(r"^mvp-0\.(\d+)$")
 
-#: A vault below the chain's first tag (mvp-0.9) takes one ``--to`` step per tag before the chained upgrade
-#: accepts it: the chain's links refuse anything older than mvp-0.9.
-_PRE_CHAIN_STEPS: tuple[str, ...] = ("mvp-0.7", "mvp-0.8", "mvp-0.9")
+#: The annotated git tag whose code still has every upgrade below the floor (ADR-019).
+PRE_FLOOR_TAG = "pre-floor"
+#: Where the route checks that code out: beside the LearnLoop checkout its commands run in.
+_PRE_FLOOR_WORKTREE = "../learnloop-pre-floor"
 
-#: The vault ``learnloop upgrade`` is upgrading in this context (thread or task), or None.
-_UPGRADING: ContextVar[Path | None] = ContextVar("learnloop_floor_upgrading", default=None)
+#: On ``pre-floor``'s code, a vault below the chain's first tag (mvp-0.9) takes one ``--to`` step per tag before
+#: the chained upgrade accepts it: the chain's links refuse anything older than mvp-0.9.
+_PRE_CHAIN_STEPS: tuple[str, ...] = ("mvp-0.7", "mvp-0.8", "mvp-0.9")
 
 #: Vault roots a test built below the floor on purpose. Only ``tests/helpers.py`` adds to it. A process-wide set,
 #: not a context variable, because the vault is opened later from worker threads that start with an empty context.
@@ -73,19 +74,21 @@ def is_below_floor(tag: str | None) -> bool:
 
 
 def upgrade_commands(vault_root: Path, tag: str | None) -> tuple[str, ...]:
-    """The commands that bring a vault at ``tag`` to the floor on this code, in order.
+    """The commands that bring a vault at ``tag`` to the floor, in order, run in a LearnLoop checkout.
 
-    When the upgrade chain leaves the code, this is the one place that names the route through the git tag
-    ``pre-floor`` instead."""
+    The one place that names the route. This code upgrades only from the floor up, so the route runs the code
+    tagged ``pre-floor`` in a worktree of its own (``uv run`` builds its environment there); the vault then opens
+    here, at that code's latest tag."""
 
     root = shlex.quote(str(vault_root))
     number = _number(tag) if tag is not None else None
+    upgrade = f"uv run --directory {_PRE_FLOOR_WORKTREE} learnloop upgrade"
     steps = tuple(
-        f"learnloop upgrade --to {step} --vault {root}"
+        f"{upgrade} --to {step} --vault {root}"
         for step in _PRE_CHAIN_STEPS
         if number is None or number < _number(step)  # type: ignore[operator]
     )
-    return (*steps, f"learnloop upgrade --vault {root}")
+    return (f"git worktree add {_PRE_FLOOR_WORKTREE} {PRE_FLOOR_TAG}", *steps, f"{upgrade} --vault {root}")
 
 
 class BelowOldestSupported(RuntimeError):
@@ -101,29 +104,32 @@ class BelowOldestSupported(RuntimeError):
 
     def _message(self) -> str:
         then = ", then ".join(f"`{command}`" for command in self.commands)
+        route = (
+            f"This LearnLoop has no upgrade below {self.floor}; the code tagged {PRE_FLOOR_TAG} has it. In your "
+            f"LearnLoop checkout, run {then}; then open the vault here."
+        )
         if self.journal is not None:
             predecessor, target = self.journal
             return (
                 f"{self.vault_root} has an unfinished upgrade from {predecessor} to {target}, which starts below "
-                f"{self.floor}, the oldest version this LearnLoop opens. Finish it with {then}."
+                f"{self.floor}, the oldest version this LearnLoop opens. {route}"
             )
         if self.tag is None:
             return (
                 f"{self.vault_root}'s learnloop.toml names no algorithm_version, so the vault is older than "
                 f"{self.floor}, the oldest version this LearnLoop opens. Add `algorithm_version = \"mvp-0.6\"` "
-                f"under [algorithms], then upgrade it with {then}."
+                f"under [algorithms] first. {route}"
             )
         return (
             f"{self.vault_root} is at {self.tag}, older than {self.floor}, the oldest version this LearnLoop "
-            f"opens. Upgrade it with {then}."
+            f"opens. {route}"
         )
 
 
 def may_open_below_floor(vault_root: Path) -> bool:
-    """Whether this vault opens below the floor here: ``learnloop upgrade`` is upgrading it, or a test built it."""
+    """Whether this vault opens below the floor here: only a test that built it on purpose (or its copies)."""
 
-    root = Path(vault_root).resolve()
-    return _UPGRADING.get() == root or _TEST_OPEN[0] or root in _TEST_ROOTS
+    return _TEST_OPEN[0] or Path(vault_root).resolve() in _TEST_ROOTS
 
 
 def refuse_below_floor(vault_root: Path, config) -> None:
@@ -144,17 +150,6 @@ def refuse_journal_below_floor(vault_root: Path, predecessor: str, target: str) 
         raise BelowOldestSupported(Path(vault_root).resolve(), target, journal=(predecessor, target))
 
 
-@contextmanager
-def upgrading(vault_root: Path) -> Iterator[None]:
-    """``learnloop upgrade``'s allowance: in this context, ``vault_root`` opens whatever its tag."""
-
-    token = _UPGRADING.set(Path(vault_root).resolve())
-    try:
-        yield
-    finally:
-        _UPGRADING.reset(token)
-
-
 def allow_below_floor_in_tests(vault_root: Path) -> None:
     """Let a test's vault below the floor, and for the rest of that test any vault, open
     (``tests/helpers.py``'s ``allow_below_floor`` only)."""
@@ -170,6 +165,7 @@ def end_test_allowance() -> None:
 
 
 __all__ = [
+    "PRE_FLOOR_TAG",
     "BelowOldestSupported",
     "allow_below_floor_in_tests",
     "end_test_allowance",
@@ -178,5 +174,4 @@ __all__ = [
     "refuse_below_floor",
     "refuse_journal_below_floor",
     "upgrade_commands",
-    "upgrading",
 ]

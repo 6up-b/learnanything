@@ -121,9 +121,9 @@ None found by exact static reference scan.
 - `tests/test_learner_text_gaps_composition.py`
 - `tests/test_learner_text_gaps_rereview.py`
 - `tests/test_learner_text_source_widening.py`
-- `tests/test_mvp016_upgrade.py`
 - `tests/test_notes_as_learner_text.py`
 - `tests/test_reader_active_reading.py`
+- `tests/test_reader_formative_texts.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

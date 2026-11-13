@@ -18,15 +18,14 @@ source_paths:
   - "migrations/009_derived_state_rebuilds.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
-  - "src/learnloop/attempt_content_state_upgrade.py"
-  - "src/learnloop/claim_fixes_upgrade.py"
-  - "src/learnloop/cold_retry_reschedule_upgrade.py"
-  - "src/learnloop/data_capture_upgrade.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/diagnosis/recurrence/report.py"
+  - "src/learnloop/ops/doctor.py"
+  - "src/learnloop/ops/upgrades.py"
+  - "src/learnloop/placement/report.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/curriculum/integration_backfill.py"
-  - "src/learnloop/facet_belief_upgrade.py"
-  - "src/learnloop/interval_factor_upgrade.py"
+  - "src/learnloop/learner/learner_review_feed.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -93,33 +92,10 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/attempt_content_state_upgrade.py`
-- `src/learnloop/claim_fixes_upgrade.py`
-- `src/learnloop/cold_retry_reschedule_upgrade.py`
-- `src/learnloop/data_capture_upgrade.py`
 - `src/learnloop/db/repositories.py`
-- `src/learnloop/deliverable_plan_upgrade.py`
 - `src/learnloop/diagnosis/recurrence/report.py`
-- `src/learnloop/failure_share_upgrade.py`
-- `src/learnloop/figure_wait_upgrade.py`
-- `src/learnloop/followup_serve_upgrade.py`
-- `src/learnloop/help_fold_attach_upgrade.py`
-- `src/learnloop/lesson_offers_upgrade.py`
-- `src/learnloop/lesson_opportunity_upgrade.py`
-- `src/learnloop/lesson_suggestions_upgrade.py`
-- `src/learnloop/one_ask_upgrade.py`
-- `src/learnloop/phone_probes_upgrade.py`
+- `src/learnloop/ops/upgrades.py`
 - `src/learnloop/placement/report.py`
-- `src/learnloop/reader_followups_upgrade.py`
-- `src/learnloop/router_calibration_upgrade.py`
-- `src/learnloop/router_followups_upgrade.py`
-- `src/learnloop/router_learned_tail_upgrade.py`
-- `src/learnloop/router_objective_upgrade.py`
-- `src/learnloop/slip_gap_upgrade.py`
-- `src/learnloop/superseded_claims_upgrade.py`
-- `src/learnloop/teacher_probes_upgrade.py`
-- `src/learnloop/teacher_upgrade.py`
-- `src/learnloop/unevidenced_return_upgrade.py`
 
 ### Direct SQL writers
 
@@ -130,12 +106,9 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/measurement_corrections.py`
 - `src/learnloop/curriculum/integration_backfill.py`
 - `src/learnloop/db/repositories.py`
-- `src/learnloop/facet_belief_upgrade.py`
-- `src/learnloop/interval_factor_upgrade.py`
 - `src/learnloop/learner/learner_review_feed.py`
 - `src/learnloop/ops/doctor.py`
-- `src/learnloop/regrade_contract_upgrade.py`
-- `src/learnloop/replay_ledger_upgrade.py`
+- `src/learnloop/ops/upgrades.py`
 - `src/learnloop/substrate/canonical_projection_rollout.py`
 - `src/learnloop/substrate/p0_projection.py`
 - `src/learnloop/substrate/rebuild_orchestrator.py`
@@ -146,26 +119,26 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
-- `tests/batch3_landing_helpers.py`
-- `tests/curriculum_c1_plan_follows_path_helpers.py`
 - `tests/ro1_availability_helpers.py`
 - `tests/teacher_te1b_migration_helpers.py`
 - `tests/test_ad1_migration.py`
 - `tests/test_apply_recovery.py`
-- `tests/test_attempt_content_state_successor.py`
 - `tests/test_canonical_projection_rollout.py`
 - `tests/test_causal_activity_policy.py`
 - `tests/test_causal_p2_acceptance.py`
-- `tests/test_cold_retry_reschedule.py`
-- `tests/test_help_fold_attach_successor.py`
 - `tests/test_ingest_instrument_gates.py`
-- `tests/test_learner_report_superseded.py`
-- `tests/test_method_explicit_upgrade.py`
 - `tests/test_migrations.py`
-- `tests/test_mvp011_upgrade.py`
-- `tests/test_mvp013_upgrade.py`
-- `tests/test_mvp014_upgrade.py`
-- `tests/test_mvp015_upgrade.py`
+- `tests/test_p0_projection_cutover.py`
+- `tests/test_rebuild_orchestrator.py`
+- `tests/test_shadow_rebuild.py`
+- `tests/test_table_roles.py`
+- `tests/test_upgrades.py`
+- `tests/test_canonical_projection_fold_skip.py`
+- `tests/test_contract_frontier_coverage.py`
+- `tests/test_coverage_denominator_boundary.py`
+- `tests/test_facet_belief_successor.py`
+- `tests/test_learner_review_system_entries.py`
+- `tests/test_measurement_corrections.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

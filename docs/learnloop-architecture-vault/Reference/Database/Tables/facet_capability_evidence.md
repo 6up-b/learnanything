@@ -115,7 +115,6 @@ None found by exact static reference scan.
 - `src/learnloop/learner/capability_grid.py`
 - `src/learnloop/learner/facet_diagnostics.py`
 - `src/learnloop/learner/residual_diagnostics.py`
-- `src/learnloop/ops/vault_upgrade.py`
 - `src/learnloop/substrate/canonical_projection.py`
 - `src/learnloop_sidecar/handlers/facet_detail.py`
 - `src/learnloop_sidecar/handlers/knowledge_map.py`

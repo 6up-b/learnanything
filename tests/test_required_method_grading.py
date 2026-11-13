@@ -369,12 +369,12 @@ def test_replay_reproduces_method_grades_without_a_model(tmp_path, monkeypatch):
     assert first == _projection(repository) == before
 
 
-def test_grades_recorded_at_the_predecessor_replay_unchanged_after_the_upgrade(tmp_path):
+def test_grades_recorded_at_the_predecessor_replay_unchanged_at_the_successor(tmp_path):
     """Existing grades keep their meaning: an mvp-0.24 grade of a method item
-    (the method criterion unassessed) replays identically after the vault is
-    upgraded to the successor; nothing is regraded or rewritten."""
+    (the method criterion unassessed) replays identically once the vault is at
+    the successor; nothing is regraded or rewritten."""
 
-    from learnloop.method_explicit_upgrade import upgrade_to_method_explicit
+    from tests.helpers import set_algorithm_version
 
     paths, vault, repository = _method_vault(tmp_path, version=PREDECESSOR)
     result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
@@ -384,8 +384,7 @@ def test_grades_recorded_at_the_predecessor_replay_unchanged_after_the_upgrade(t
     with connect(repository.sqlite_path, read_only=True) as connection:
         tables = {table: connection.execute(f"SELECT * FROM {table} ORDER BY rowid").fetchall()
                   for table in ("practice_attempts", "grading_evidence", "blind_grade_records", "judgment_ledger")}
-    upgraded = upgrade_to_method_explicit(paths.root, clock=CLOCK)
-    assert upgraded.upgraded, upgraded.problems
+    set_algorithm_version(paths, VERSION)
     vault = load_vault(paths.root)
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     assert _projection(repository) == before

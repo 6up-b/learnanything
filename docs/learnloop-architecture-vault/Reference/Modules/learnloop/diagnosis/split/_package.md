@@ -71,7 +71,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]] | [[Reference/Modules/learnloop/diagnosis/split/history#^module-purpose|purpose]] | `ACTIVE` | 10 | 16 |
 | [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] | [[Reference/Modules/learnloop/diagnosis/split/jobs#^module-purpose|purpose]] | `ACTIVE` | 19 | 29 |
 | [[Reference/Modules/learnloop/diagnosis/split/legacy_view|learnloop.diagnosis.split.legacy_view]] | [[Reference/Modules/learnloop/diagnosis/split/legacy_view#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
-| [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]] | [[Reference/Modules/learnloop/diagnosis/split/live#^module-purpose|purpose]] | `ACTIVE` | 8 | 16 |
+| [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]] | [[Reference/Modules/learnloop/diagnosis/split/live#^module-purpose|purpose]] | `ACTIVE` | 7 | 16 |
 | [[Reference/Modules/learnloop/diagnosis/split/pfc_report|learnloop.diagnosis.split.pfc_report]] | [[Reference/Modules/learnloop/diagnosis/split/pfc_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/split/prior_analysis|learnloop.diagnosis.split.prior_analysis]] | [[Reference/Modules/learnloop/diagnosis/split/prior_analysis#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/split/provenance|learnloop.diagnosis.split.provenance]] | [[Reference/Modules/learnloop/diagnosis/split/provenance#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
@@ -104,7 +104,7 @@ For system intent, use [[Learning System]].
 
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 12 static module edges
 - [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] — 12 static module edges
-- [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 9 static module edges
+- [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 8 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 5 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 3 static module edges
@@ -127,8 +127,8 @@ flowchart LR
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_db_stores["learnloop.db.stores"]
-    n_learnloop_diagnosis_recurrence["learnloop.diagnosis.recurrence"]
     n_learnloop_db["learnloop.db"]
+    n_learnloop_diagnosis_recurrence["learnloop.diagnosis.recurrence"]
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop -->|2| center
@@ -139,9 +139,9 @@ flowchart LR
     center -->|15| n_learnloop_vault
     center -->|14| n_learnloop_attempts
     center -->|14| n_learnloop_db_stores
-    n_learnloop_diagnosis_recurrence -->|9| center
-    center -->|5| n_learnloop_diagnosis_recurrence
     center -->|13| n_learnloop_db
+    n_learnloop_diagnosis_recurrence -->|8| center
+    center -->|5| n_learnloop_diagnosis_recurrence
     n_learnloop_cli -->|12| center
     n_learnloop_diagnosis -->|3| center
     center -->|8| n_learnloop_diagnosis

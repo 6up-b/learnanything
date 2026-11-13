@@ -12,7 +12,7 @@ source_paths:
   - src/learnloop/vault/paths.py
   - src/learnloop/vault/repository.py
   - src/learnloop/ops/doctor.py
-  - src/learnloop/ops/vault_upgrade.py
+  - src/learnloop/ops/upgrades.py
 tags:
   - learnloop/architecture
   - learnloop/vault
@@ -60,7 +60,7 @@ An explicit full rebuild replays true derived families in place and writes a reb
 
 ## Upgrade
 
-Algorithm upgrades are immediate-successor transitions. Candidate projection preparation precedes atomic configuration replacement; failures leave the prior version readable. Schema migration and algorithm upgrade are related but different: a schema can support multiple algorithm versions.
+Algorithm upgrades are immediate-successor transitions, one row each in the upgrade table (`ops/upgrades.py`, from the oldest supported tag up; [[ADR-019 The oldest supported tag]]). Candidate projection preparation precedes atomic configuration replacement; failures leave the prior version readable. A vault below the floor is upgraded with the code tagged `pre-floor`. Schema migration and algorithm upgrade are related but different: a schema can support multiple algorithm versions.
 
 ## Locking and recovery
 
@@ -71,7 +71,7 @@ The vault-root lock coordinates writers even when `state.sqlite` is relocated. I
 - Put filesystem shape in `vault.loader`/`vault.paths`; put creation policy in `bootstrap`.
 - Never make a read-only diagnostic instantiate a migrating repository.
 - New open paths must use the shared repository factory.
-- New algorithm upgrades follow the playbook and have predecessor fixtures.
+- New algorithm upgrades follow the playbook: one constant, one row in the upgrade table, one test row (`tests/test_upgrades.py`).
 - New scaffold files need idempotence and “do not overwrite” tests.
 
 ## Tests
@@ -81,6 +81,6 @@ The vault-root lock coordinates writers even when `state.sqlite` is relocated. I
 - `tests/test_migration_coordinator.py`
 - `tests/test_doctor.py`
 - `tests/test_settings_store.py`
-- `tests/test_mvp09_upgrade.py`
+- `tests/test_upgrades.py`
 - `tests/test_vault_lock.py`
 

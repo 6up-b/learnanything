@@ -74,10 +74,7 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/cli/data|learnloop.cli.data]] — imports `open_vault_repository`; statically calls `open_vault_repository`
@@ -92,7 +89,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/cli/teacher|learnloop.cli.teacher]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] — imports `vault_repository`; statically calls `vault_repository`
@@ -107,66 +103,24 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/curriculum/concepts|learnloop.curriculum.concepts]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/curriculum/golden_path_fixture|learnloop.curriculum.golden_path_fixture]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] — imports `vault_repository`; statically calls `vault_repository`
-- [[Reference/Modules/learnloop/daily_plan_upgrade|learnloop.daily_plan_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/data_capture_upgrade|learnloop.data_capture_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/decider_upgrade|learnloop.decider_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/deliverable_plan_upgrade|learnloop.deliverable_plan_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/diagnosis/grading_hardcases|learnloop.diagnosis.grading_hardcases]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/benchmarks|learnloop.diagnosis.recurrence.benchmarks]] — imports `vault_repository`; statically calls `vault_repository`
-- [[Reference/Modules/learnloop/diagnosis/recurrence/upgrade|learnloop.diagnosis.recurrence.upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/eligibility_decision_upgrade|learnloop.eligibility_decision_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/records|learnloop.experiments.contextual_embeddings.records]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]] — imports `vault_repository`; statically calls `vault_repository`
-- [[Reference/Modules/learnloop/facet_belief_upgrade|learnloop.facet_belief_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/failure_share_upgrade|learnloop.failure_share_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/figure_wait_upgrade|learnloop.figure_wait_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/followup_serve_upgrade|learnloop.followup_serve_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/help_fold_attach_upgrade|learnloop.help_fold_attach_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/intent_upgrade|learnloop.intent_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/interval_factor_upgrade|learnloop.interval_factor_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `vault_repository`; statically calls `vault_repository`
-- [[Reference/Modules/learnloop/learner_text_gap_upgrade|learnloop.learner_text_gap_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/lesson_offers_upgrade|learnloop.lesson_offers_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/lesson_opportunity_upgrade|learnloop.lesson_opportunity_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/lesson_suggestions_upgrade|learnloop.lesson_suggestions_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/method_explicit_upgrade|learnloop.method_explicit_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/one_ask_upgrade|learnloop.one_ask_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/ops/contamination/report|learnloop.ops.contamination.report]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/ops/embedding_backfill|learnloop.ops.embedding_backfill]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/ops/embedding_compare|learnloop.ops.embedding_compare]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/ops/family_proposals|learnloop.ops.family_proposals]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/ops/pf_reports|learnloop.ops.pf_reports]] — imports `vault_repository`; statically calls `vault_repository`
-- [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/phone_probes_upgrade|learnloop.phone_probes_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
+- [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `vault_repository`; statically calls `vault_repository`
-- [[Reference/Modules/learnloop/probe_tie_upgrade|learnloop.probe_tie_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/proof_check_upgrade|learnloop.proof_check_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/reader_followups_upgrade|learnloop.reader_followups_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/reading_path_plan_upgrade|learnloop.reading_path_plan_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/regrade_contract_upgrade|learnloop.regrade_contract_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/replay_ledger_upgrade|learnloop.replay_ledger_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/route_rules_upgrade|learnloop.route_rules_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/router_calibration_upgrade|learnloop.router_calibration_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/router_followups_upgrade|learnloop.router_followups_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/router_learned_tail_upgrade|learnloop.router_learned_tail_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/router_mixture_upgrade|learnloop.router_mixture_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/router_objective_upgrade|learnloop.router_objective_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/router_staged_upgrade|learnloop.router_staged_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `vault_repository`; statically calls `vault_repository`
-- [[Reference/Modules/learnloop/slip_gap_upgrade|learnloop.slip_gap_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/source_retrieval/source_vectors|learnloop.source_retrieval.source_vectors]] — imports `vault_repository`; statically calls `vault_repository`
-- [[Reference/Modules/learnloop/sources_upgrade|learnloop.sources_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/stuck_prompt_upgrade|learnloop.stuck_prompt_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/superseded_claims_upgrade|learnloop.superseded_claims_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/teacher_probes_upgrade|learnloop.teacher_probes_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/teacher_upgrade|learnloop.teacher_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `vault_repository`; statically calls `vault_repository`
-- [[Reference/Modules/learnloop/unevidenced_return_upgrade|learnloop.unevidenced_return_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/voi_stopping_upgrade|learnloop.voi_stopping_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
-- [[Reference/Modules/learnloop/workbench_field_signals_upgrade|learnloop.workbench_field_signals_upgrade]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 
 ### Repository tooling consumers
@@ -197,7 +151,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]] and 89 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]], [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]], [[Reference/Modules/learnloop/cli/data|learnloop.cli.data]], [[Reference/Modules/learnloop/cli/diagnose|learnloop.cli.diagnose]] and 43 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -213,7 +167,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ai_compare.py](../../../../../../tests/test_ai_compare.py) — direct import
   - `test_a_json_repair_carries_the_budget_of_the_request_it_repairs`
   - `test_each_request_carries_the_output_budget_its_estimate_reports`
-- [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — direct import
 - [tests/test_collection_dataset.py](../../../../../../tests/test_collection_dataset.py) — direct import
   - `test_adjudicate_cli_records_through_the_locked_vault_opener`
 - [tests/test_coordinated_migrations.py](../../../../../../tests/test_coordinated_migrations.py) — direct import
@@ -230,10 +183,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_goal_scope_material.py](../../../../../../tests/test_goal_scope_material.py) — direct import
   - `test_fixture_vault_goal_over_unauthored_concepts_resolves`
 - [tests/test_learner_read_model_pinning.py](../../../../../../tests/test_learner_read_model_pinning.py) — direct import
-- [tests/test_learner_report_superseded.py](../../../../../../tests/test_learner_report_superseded.py) — direct import
 - [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import
   - `test_owner_copies_off_is_the_predecessor_and_on_reports_the_mastery_deltas`
-- [tests/test_lp_claim_fixes_rereview.py](../../../../../../tests/test_lp_claim_fixes_rereview.py) — direct import
 - [tests/test_migration_coordinator.py](../../../../../../tests/test_migration_coordinator.py) — direct import
 - [tests/test_migrations.py](../../../../../../tests/test_migrations.py) — direct import
   - `test_opening_the_vault_applies_pending_migrations_a_bare_repository_refuses`
@@ -250,7 +201,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_forced_dossier_path_falls_back_while_dossiers_are_missing`
   - `test_an_alternative_embedding_model_takes_an_explicit_price`
 - [tests/test_practice_index_paid.py](../../../../../../tests/test_practice_index_paid.py) — direct import
-- [tests/test_rbeq_pr2_landing.py](../../../../../../tests/test_rbeq_pr2_landing.py) — direct import
 - [tests/test_receipt_derivation.py](../../../../../../tests/test_receipt_derivation.py) — direct import
   - `test_ready_derivation_none_on_legacy_vault`
 - [tests/test_receipt_exactness.py](../../../../../../tests/test_receipt_exactness.py) — direct import
@@ -261,10 +211,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`
 - [tests/test_t6_followup_review.py](../../../../../../tests/test_t6_followup_review.py) — direct import
 - [tests/test_te3b_population.py](../../../../../../tests/test_te3b_population.py) — direct import
+- [tests/test_upgrades.py](../../../../../../tests/test_upgrades.py) — direct import
+  - `test_a_failure_before_the_commit_leaves_the_predecessor_readable_and_no_journal`
+  - `test_a_journal_left_after_the_commit_is_just_removed`
+  - `test_a_torn_journal_is_removed_and_nothing_activates`
 - [tests/test_version_floor.py](../../../../../../tests/test_version_floor.py) — direct import
   - `test_a_journal_from_the_floor_is_still_completed_by_an_opener`
   - `test_a_journal_naming_a_link_below_the_floor_is_refused`
-  - `test_the_upgrade_command_completes_a_journal_from_below_the_floor`
 
 ## Modification guidance
 

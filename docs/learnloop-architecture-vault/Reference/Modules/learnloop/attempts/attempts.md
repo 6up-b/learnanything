@@ -213,7 +213,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `AttemptDraft`, `SelfGradeInput`, `complete_self_graded_attempt`; statically calls `AttemptDraft`, `SelfGradeInput`, `complete_self_graded_attempt`
 - [[Reference/Modules/learnloop/ops/contamination/detectors|learnloop.ops.contamination.detectors]] — imports `AUTO_PRIME_REVEAL_THRESHOLD`
 - [[Reference/Modules/learnloop/practice_index/admission|learnloop.practice_index.admission]] — imports `COLD_FOLLOWUP_TASK_KINDS`
-- [[Reference/Modules/learnloop/regrade_contract_upgrade|learnloop.regrade_contract_upgrade]] — imports `unrecorded_epoch_attempts`; statically calls `unrecorded_epoch_attempts`
 - [[Reference/Modules/learnloop/scheduling/evaluation|learnloop.scheduling.evaluation]] — imports `fsrs_rating_for_attempt`; statically calls `fsrs_rating_for_attempt`
 - [[Reference/Modules/learnloop/scheduling/review_log|learnloop.scheduling.review_log]] — imports `fsrs_rating_for_attempt`; statically calls `fsrs_rating_for_attempt`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `COLD_FOLLOWUP_TASK_KINDS`
@@ -305,7 +304,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/observations|learnloop.attempts.observations]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] and 32 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/observations|learnloop.attempts.observations]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] and 31 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -559,9 +558,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_replayer_reads_persisted_exposure`
 - [tests/test_irt_end_to_end.py](../../../../../../tests/test_irt_end_to_end.py) — direct import
 - [tests/test_item_parameters.py](../../../../../../tests/test_item_parameters.py) — direct import
-- [tests/test_km2_activation.py](../../../../../../tests/test_km2_activation.py) — direct import
-  - `test_app_load_repairs_vault_activated_by_old_upgrade`
-  - `test_upgrade_projects_existing_attempts_into_canonical_facet_state`
 - [tests/test_km2_write_path.py](../../../../../../tests/test_km2_write_path.py) — direct import
   - `test_explicit_failure_attribution_penalizes_only_selected_target`
 - [tests/test_large_practice_flow.py](../../../../../../tests/test_large_practice_flow.py) — direct import
@@ -593,10 +589,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_pure_diagnostic_is_unassisted_but_cannot_bank_certification`
   - `test_recorded_near_clone_disqualification_survives_both_replays`
 - [tests/test_owner_capture_1025.py](../../../../../../tests/test_owner_capture_1025.py) — direct import
-- [tests/test_p0_cutover_mvp08.py](../../../../../../tests/test_p0_cutover_mvp08.py) — direct import
-  - `test_cutover_delta_is_nonempty_and_inspectable_when_projections_differ`
-  - `test_mvp06_derived_output_is_byte_identical_across_p0_machinery`
-  - `test_upgrade_does_not_rewrite_raw_history`
 - [tests/test_p0_projection_cutover.py](../../../../../../tests/test_p0_projection_cutover.py) — direct import
 - [tests/test_p2_leakage_suite.py](../../../../../../tests/test_p2_leakage_suite.py) — direct import
 - [tests/test_pfc_unassessed_readers.py](../../../../../../tests/test_pfc_unassessed_readers.py) — direct import
@@ -679,8 +671,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_success_resets_repeat_failure_gate_and_coverage_is_not_failed`
   - `test_zero_score_independent_attempt_uses_rubric_coverage_and_confidence_as_reliability`
 - [tests/test_recurrence_deferral.py](../../../../../../tests/test_recurrence_deferral.py) — direct import
-- [tests/test_regrade_contract_upgrade.py](../../../../../../tests/test_regrade_contract_upgrade.py) — direct import
-  - `test_upgrade_holds_exactly_the_unrecorded_epochs_and_rewrites_no_evidence`
 - [tests/test_remediation_cold_retry.py](../../../../../../tests/test_remediation_cold_retry.py) — direct import
   - `test_exam_attempt_does_not_consume_the_cold_retry`
   - `test_served_cold_attempt_is_enforced_unassisted_and_unprimed`
@@ -800,6 +790,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te2log_report.py](../../../../../../tests/test_teacher_te2log_report.py) — direct import
 - [tests/test_tui_feedback.py](../../../../../../tests/test_tui_feedback.py) — direct import
 - [tests/test_unresolved_cause_gate.py](../../../../../../tests/test_unresolved_cause_gate.py) — direct import
+- [tests/test_upgrades.py](../../../../../../tests/test_upgrades.py) — direct import
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
   - `test_f1_a_review_after_the_cold_delay_is_recorded_unprimed_a_retry_before_it_primed`
   - `test_f1g_every_committed_display_row_counts_until_its_coverage_ends`

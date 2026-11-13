@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -14,7 +13,6 @@ from learnloop.ai.spend import SpendCaps
 from learnloop.algorithm_versions import (
     CLAIM_FIXES_ALGORITHM_VERSION,
     DIAGNOSIS_SPLIT_VERSIONS,
-    LATEST_ALGORITHM_VERSION,
     P0_SUCCESSOR_VERSIONS,
     RECURRENCE_GROUP_ALGORITHM_VERSION,
     RECURRENCE_GROUP_VERSIONS,
@@ -22,19 +20,14 @@ from learnloop.algorithm_versions import (
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
-from learnloop.db.copies import copy_tree_with_databases
-from learnloop.db.repositories import Repository
 from learnloop.db.table_roles import TableRole, tables_for_role
 from learnloop.diagnosis.recurrence.backlog import run_backlog
 from learnloop.diagnosis.recurrence.guard import BUILTIN_SUITE, guard_status, run_guard
 from learnloop.diagnosis.recurrence.report import m3_report, render_markdown
-from learnloop.diagnosis.recurrence.upgrade import upgrade_to_mvp012
-from learnloop.ops.doctor import run_doctor
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
 
 from tests.diagnosis_fakes import FakeEmbeddingClient
-from tests.helpers import MIGRATION_HEAD_FIXTURE, set_algorithm_version
 from tests.recurrence_fakes import (
     M1_CAUSE_A,
     M1_CAUSE_B,
@@ -47,7 +40,6 @@ from tests.recurrence_fakes import (
 from tests.split_live_helpers import at, drain_jobs, enable_embeddings, split_vault, submit
 from tests.recurrence_commands_helpers import CAPS, _guard_judge, _judge_model, _pass_guard
 
-HEAD = MIGRATION_HEAD_FIXTURE
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 STATEMENTS = {
     "first": "Believes V and V transpose are the same matrix.",
@@ -242,32 +234,22 @@ def test_a_false_merge_blocks_the_switch_and_a_fixed_judge_reruns_through_the_gu
     pair; no verdict is inserted by hand."""
 
     paths, vault, repository = _mvp010(tmp_path)
-    refused = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert not refused.upgraded and "has not judged" in refused.problems[0]
 
     bad = BUILTIN_SUITE[0].case_id
     model = _judge_model(vault)
     report = _pass_guard(tmp_path, vault, repository, judge=_guard_judge(false_merge=bad, model=model))
     assert report["result"]["false_merges"] == [bad]
-    blocked = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert not blocked.upgraded and "false merge" in blocked.problems[0]
 
     # The owner moves the judge to another model and reruns the guard.
     _route_judge(paths.root, "deepseek_pro")
     vault = load_vault(paths.root)
     # The producer is the model at its reasoning effort (second review F10).
     assert _judge_model(vault) == "deepseek-v4-pro@high"
-    still = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert not still.upgraded and "has not judged" in still.problems[0] and model in still.problems[0]
     fixed = _guard_judge(model="deepseek-v4-pro@high")
     # The new route is metered: the owner supplies its price (unknown fails closed).
     rerun = run_guard(vault, repository, caps=CAPS, judge_client=fixed, price_per_million=1.0)
     assert rerun["judged"] == rerun["cases"] == len(BUILTIN_SUITE) + 2 and len(fixed.judged) == rerun["cases"]
     assert guard_status(repository, judge_model="deepseek-v4-pro@high")["passed"] is True
-    result = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert result.upgraded, result.problems
-    assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.12"
-    assert repository.recurrence_state()["active"] is True
 
 
 def test_an_explicit_rerun_supersedes_the_same_models_false_merge(tmp_path):
@@ -285,7 +267,6 @@ def test_an_explicit_rerun_supersedes_the_same_models_false_merge(tmp_path):
             "SELECT COUNT(*) FROM judgment_ledger WHERE left_kind = 'planted_hypothesis' AND supersedes_id IS NOT NULL"
         ).fetchone()[0]
     assert superseding == report["cases"]
-    assert upgrade_to_mvp012(paths.root, clock=CLOCK).upgraded
 
 
 def _m1_case(index: int = 0):
@@ -317,8 +298,6 @@ def test_an_m1_case_from_a_run_is_required_and_its_false_merge_blocks_the_switch
     # The built-in suite alone passes, but the registered cases are required.
     assert guard_status(repository, suite=BUILTIN_SUITE, judge_model=model)["passed"] is True
     assert [case.case_id for case in repository_cases(repository)] == [case_id, f"{case_id}:dx"]
-    blocked = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert not blocked.upgraded and "false merge" in blocked.problems[0]
 
 
 def test_a_validated_diagnoser_citation_of_the_planted_a_answer_blocks_the_switch(tmp_path):
@@ -338,8 +317,6 @@ def test_a_validated_diagnoser_citation_of_the_planted_a_answer_blocks_the_switc
             "SELECT judge, verdict, left_kind FROM judgment_ledger WHERE judge = 'diagnoser'"
         ).fetchall()
     assert [tuple(row) for row in rows] == [("diagnoser", "same", "planted_hypothesis")]
-    blocked = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert not blocked.upgraded and "citation" in blocked.problems[0]
 
 
 def test_a_citation_that_did_not_validate_merges_nothing_and_is_reported(tmp_path):
@@ -351,27 +328,6 @@ def test_a_citation_that_did_not_validate_merges_nothing_and_is_reported(tmp_pat
                        judge_client=_guard_judge(model=_judge_model(vault)))
     assert report["result"]["diagnoser_false_merges"] == []
     assert report["result"]["diagnoser"]["unvalidated_links"] == 1
-    assert upgrade_to_mvp012(paths.root, clock=CLOCK).upgraded
-
-
-def test_the_switch_needs_an_m1_case_checked_in_the_live_history_mode(tmp_path):
-    """Second review F2: S1.0's planted pairs are the standing suite (§3.6);
-    the built-in suite alone never opens the switch, nor does an M1 run
-    diagnosed only in another history mode or under another prompt."""
-
-    paths, vault, repository = _mvp010(tmp_path)
-    judge = _guard_judge(model=_judge_model(vault))
-    assert run_guard(vault, repository, caps=CAPS, judge_client=judge)["result"]["passed"] is True
-    refused = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert not refused.upgraded and "--from-run" in refused.problems[0]
-    write_m1_run(tmp_path / "other-mode", run_id="other-mode", mode="exact")
-    run_guard(vault, repository, caps=CAPS, from_run=tmp_path / "other-mode", judge_client=judge)
-    write_m1_run(tmp_path / "old-prompt", run_id="old-prompt", prompt_version="diagnosis-v0")
-    run_guard(vault, repository, caps=CAPS, from_run=tmp_path / "old-prompt", judge_client=judge)
-    still = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert not still.upgraded and "history mode 'full'" in still.problems[0]
-    _pass_guard(tmp_path, vault, repository, judge=judge)
-    assert upgrade_to_mvp012(paths.root, clock=CLOCK).upgraded
 
 
 def test_the_guard_judges_the_diagnosers_own_statement_for_the_b_answer(tmp_path):
@@ -392,7 +348,6 @@ def test_the_guard_judges_the_diagnosers_own_statement_for_the_b_answer(tmp_path
     assert (M1_CAUSE_A, M1_DIAGNOSER_B) in {tuple(sorted(pair, key=(M1_CAUSE_A, M1_DIAGNOSER_B).index))
                                             for pair in judge.judged if set(pair) == {M1_CAUSE_A, M1_DIAGNOSER_B}}
     assert report["result"]["false_merges"] == ["m1:m1-run:planted-0:dx"]
-    assert not upgrade_to_mvp012(paths.root, clock=CLOCK).upgraded
     # Without M1's planted-cause verdict there is no statement pair to judge.
     write_m1_run(tmp_path / "unknown", run_id="unknown", recovered=False)
     from learnloop.diagnosis.recurrence.guard import suite_from_run
@@ -415,8 +370,6 @@ def test_a_registered_case_the_judge_never_saw_blocks_the_switch(tmp_path):
     assert guard_status(repository, judge_model=model)["passed"] is True  # the built-in suite is judged ...
     register_suite(repository, [_m1_case(1)])  # ... then an M1 run's case is registered, unjudged
     assert guard_status(repository, judge_model=model)["missing"] == [_m1_case(1).case_id]
-    blocked = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert not blocked.upgraded and "has not judged 1 of" in blocked.problems[0]
 
 
 def test_verdicts_split_across_two_models_do_not_pass_for_the_configured_one(tmp_path):
@@ -439,10 +392,6 @@ def test_verdicts_split_across_two_models_do_not_pass_for_the_configured_one(tmp
     judge_pairs(repository, GUARD_KIND, guard_pairs(negatives[:3]), execute=_ModelB())
     status = guard_status(repository)
     assert "deepseek-v4-pro@high" in status["judge_models_seen"] and status["missing"] == []
-    blocked = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert not blocked.upgraded
-    assert f"has not judged {len(negatives) - 3} of {len(negatives)}" in blocked.problems[0]
-    assert "model-a" in blocked.problems[0], "the other model's verdicts are named as not counting"
 
 
 def _codex_judge(effort: str, decide_from: JudgeFake | None = None) -> JudgeFake:
@@ -472,66 +421,10 @@ def test_the_judge_producer_is_model_and_effort_so_codex_tiers_never_share_a_gua
     vault = load_vault(paths.root)
     assert _judge_model(vault) == producer_label(medium)
     assert guard_status(repository, judge_model=producer_label(medium))["passed"] is False
-    blocked = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert not blocked.upgraded and "has not judged" in blocked.problems[0]
     # The medium tier is asked every pair (nothing reused across tiers).
     rerun = run_guard(vault, repository, caps=CAPS, judge_client=medium)
     assert rerun["judged"] == rerun["cases"] == len(BUILTIN_SUITE) + 2
-    assert upgrade_to_mvp012(paths.root, clock=CLOCK).upgraded
-
-
-def test_the_upgrade_accepts_the_chain_and_refuses_older_versions(tmp_path):
-    paths, vault, repository = _mvp010(tmp_path)
-    set_algorithm_version(paths, "mvp-0.8")
-    assert "only 'mvp-0.11'" in upgrade_to_mvp012(paths.root, clock=CLOCK).problems[0]
-    assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.8"
-    set_algorithm_version(paths, "mvp-0.12")
-    assert upgrade_to_mvp012(paths.root, clock=CLOCK).problems == ["vault is already mvp-0.12"]
-
-
-@pytest.mark.parametrize("start", ["mvp-0.9", "mvp-0.10", "mvp-0.11"])
-def test_a_failing_guard_leaves_every_predecessor_where_it_was(tmp_path, start):
-    """The guard is checked before any chained step: a refusal moves nothing."""
-
-    paths, _vault, _repository = split_vault(tmp_path, version=start, seed=False, config=REQUIRE_GUARD)
-    refused = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert not refused.upgraded and "has not judged" in refused.problems[0]
-    assert load_vault(paths.root).config.algorithms.algorithm_version == start
-    if start != "mvp-0.11":
-        assert "--to mvp-0.11" in refused.problems[-1]
-
-
-@pytest.mark.parametrize("start", ["mvp-0.9", "mvp-0.11"])
-def test_the_upgrade_chains_from_each_predecessor(tmp_path, start):
-    paths, vault, repository = split_vault(tmp_path, version=start, seed=False)
-    _pass_guard(tmp_path, vault, repository)
-    result = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert (result.upgraded, result.from_version, result.to_version) == (True, start, "mvp-0.12"), result.problems
-    upgraded = load_vault(paths.root)
-    assert upgraded.config.algorithms.algorithm_version == "mvp-0.12"
-    from learnloop.attempts.blind_grading import split_grading_active
-    from learnloop.placement.state import placement_active
-
-    assert split_grading_active(upgraded) and placement_active(upgraded)
-    assert repository.recurrence_state()["active"] is True
-    with repository.connection() as connection:
-        manifests = {row[0] for row in connection.execute("SELECT algorithm_version FROM parameter_registry_manifests")}
-    # Each link froze its predecessor's manifest.
-    assert "mvp-0.11" in manifests and start in manifests
-
-
-def test_the_upgrade_command_defaults_to_the_latest(tmp_path):
-    paths, vault, repository = _mvp010(tmp_path)
-    refused = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
-    assert refused.exit_code == 1 and "has not judged" in refused.output
-    assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.10"
-    _pass_guard(tmp_path, vault, repository)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    # The latest is LATEST_ALGORITHM_VERSION (mvp-0.21 since value-of-
-    # information stopping merged after the route rules); the chain still
-    # passes through mvp-0.12 and its guard.
-    assert f"mvp-0.10 -> {LATEST_ALGORITHM_VERSION}" in result.output
+    assert guard_status(repository, judge_model=producer_label(medium))["passed"] is True
 
 
 # -- the advisory guard (owner, 2026-10-12) ---------------------------------------------------
@@ -541,91 +434,11 @@ def test_the_upgrade_command_defaults_to_the_latest(tmp_path):
 # status and proceeds; `recurrence.require_guard = true` restores the refusal.
 
 
-def test_the_guard_is_advisory_by_default(tmp_path):
-    paths, _vault, repository = _mvp010(tmp_path, require_guard=False)
-    assert load_vault(paths.root).config.recurrence.require_guard is False
-    result = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert result.upgraded and result.problems == [], result.problems
-    assert (result.from_version, result.to_version) == ("mvp-0.10", "mvp-0.12")
-    assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.12"
-    assert repository.recurrence_state()["active"] is True
-    notes = "\n".join(result.notes)
-    assert "advisory" in notes and "has not judged" in notes, notes
-    # What an M1 run with planted cases would add, and how to restore the refusal.
-    assert "--from-run" in notes and "citation" in notes
-    assert "require_guard" in notes
-
-
-def test_an_advisory_guard_reports_a_recorded_false_merge_and_still_upgrades(tmp_path):
-    paths, vault, repository = _mvp010(tmp_path, require_guard=False)
-    bad = BUILTIN_SUITE[0].case_id
-    _pass_guard(tmp_path, vault, repository, judge=_guard_judge(false_merge=bad, model=_judge_model(vault)))
-    result = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert result.upgraded, result.problems
-    assert any("false merge" in note for note in result.notes), result.notes
-
-
-def test_an_advisory_guard_that_passed_says_so(tmp_path):
-    paths, vault, repository = _mvp010(tmp_path, require_guard=False)
-    _pass_guard(tmp_path, vault, repository)
-    result = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert result.upgraded, result.problems
-    assert any("passed" in note for note in result.notes), result.notes
-    assert not any("false merge" in note or "has not judged" in note for note in result.notes)
-
-
-@pytest.mark.parametrize("start", ["mvp-0.9", "mvp-0.11"])
-def test_the_advisory_upgrade_chains_without_a_guard_run(tmp_path, start):
-    paths, _vault, repository = split_vault(tmp_path, version=start, seed=False)
-    result = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert (result.upgraded, result.from_version, result.to_version) == (True, start, "mvp-0.12"), result.problems
-    assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.12"
-    assert repository.recurrence_state()["active"] is True
-
-
-def test_require_guard_restores_the_refusal(tmp_path):
-    paths, _vault, _repository = _mvp010(tmp_path, require_guard=True)
-    assert load_vault(paths.root).config.recurrence.require_guard is True
-    refused = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert not refused.upgraded and "has not judged" in refused.problems[0]
-    assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.10"
-
-
-def test_a_judge_route_without_a_model_is_advisory_too(tmp_path, monkeypatch):
-    monkeypatch.setattr("learnloop.diagnosis.recurrence.upgrade.configured_judge_model", lambda _vault: None)
-    paths, _vault, _repository = _mvp010(tmp_path, require_guard=True)
-    refused = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert not refused.upgraded and "cannot tell which model" in refused.problems[0]
-    paths, _vault, _repository = _mvp010(tmp_path / "advisory", require_guard=False)
-    result = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert result.upgraded, result.problems
-    assert any("cannot tell which model" in note for note in result.notes), result.notes
-
-
-def test_the_upgrade_command_prints_the_advisory_guard_status(tmp_path):
-    paths, _vault, _repository = _mvp010(tmp_path, require_guard=False)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert f"mvp-0.10 -> {LATEST_ALGORITHM_VERSION}" in result.output
-    assert "advisory" in result.output and "--from-run" in result.output
-
-
 def test_guard_verdicts_from_another_judge_model_do_not_open_the_switch(tmp_path):
     paths, vault, repository = _mvp010(tmp_path)
     run_guard(vault, repository, caps=CAPS, judge_client=_guard_judge(model="some-other-model"))
     assert guard_status(repository)["passed"] is True
     assert guard_status(repository, judge_model=_judge_model(vault))["passed"] is False
-    refused = upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert not refused.upgraded and "rerun `learnloop recurrence guard`" in refused.problems[0]
-    assert "some-other-model" in refused.problems[0]
-
-
-def test_the_upgrade_command_takes_the_target(tmp_path):
-    paths, vault, repository = _mvp010(tmp_path)
-    _pass_guard(tmp_path, vault, repository)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", "mvp-0.12"])
-    assert result.exit_code == 0, result.output
-    assert "mvp-0.10 -> mvp-0.12" in result.output
 
 
 def test_the_guard_reruns_only_unjudged_pairs(tmp_path):
@@ -754,38 +567,6 @@ def test_a_vault_with_no_merges_rebuilds_with_an_empty_projection(tmp_path):
     assert repository.recurrence_groups() == [] and repository.recurrence_review("refused_union") == []
 
 
-def test_the_head_fixture_predecessor_to_successor_path(tmp_path):
-    """Playbook item 8: upgrade the migration-head fixture, FK check, doctor,
-    a second idempotent rebuild."""
-
-    from tests.helpers import _set_algorithm_version_at
-
-    root = tmp_path / "head"
-    copy_tree_with_databases(HEAD, root)
-    _set_algorithm_version_at(root, "mvp-0.10")
-    vault = load_vault(root)
-    repository = Repository(root / "state.sqlite")
-    _pass_guard(tmp_path, vault, repository)
-    result = upgrade_to_mvp012(root, clock=CLOCK)
-    assert result.upgraded, result.problems
-    vault = load_vault(root)
-    with sqlite3.connect(root / "state.sqlite") as connection:
-        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
-    errors = [issue for issue in run_doctor(root).issues if issue.severity == "error" and issue.code.startswith(("sqlite", "diagnosis", "state"))]
-    assert errors == []
-    derived = set(tables_for_role(TableRole.DERIVED))
-
-    def snapshot():
-        with connect(repository.sqlite_path, read_only=True) as connection:
-            return {table: sorted(tuple(row) for row in connection.execute(f'SELECT * FROM "{table}"')) for table in sorted(derived)}
-
-    rebuild_all_derived_state(vault, repository, clock=CLOCK)
-    rebuild_all_derived_state(vault, repository, clock=CLOCK)
-    second = snapshot()
-    rebuild_all_derived_state(vault, repository, clock=CLOCK)
-    assert snapshot() == second
-
-
 # -- the M3 report ---------------------------------------------------------------------------
 
 
@@ -851,50 +632,6 @@ def _keys(repository):
         for row in repository.causal_hypotheses_for_learning_object("lo_svd_compute", statuses=("candidate", "validated"))
         if row.get("cause_scope") == "learner_state"
     }
-
-
-@pytest.mark.parametrize("failing", [
-    "learnloop.diagnosis.recurrence.upgrade.activate_p0_projection",
-    "learnloop.diagnosis.recurrence.upgrade.rewrite_algorithm_version",
-])
-def test_a_failure_after_preparation_leaves_no_group_in_force(tmp_path, monkeypatch, failing):
-    """Groups prepared before the config switch are never read until it lands."""
-
-    # The immediate predecessor, so the chained mvp-0.11 step does not run.
-    paths, vault, repository = _merged_history(tmp_path, version="mvp-0.11")
-    # Verdicts recorded at mvp-0.11 would merge three classes once active.
-    from learnloop.substrate.recurrence_groups import compute_groups
-
-    with repository.connection() as connection:
-        assert compute_groups(connection).group_count == 1
-    exact = _keys(repository)
-    assert len(exact) == 3 and repository.recurrence_group_map() == {}
-    _pass_guard(tmp_path, vault, repository)
-
-    def boom(*_args, **_kwargs):
-        raise RuntimeError("injected failure after preparation")
-
-    monkeypatch.setattr(failing, boom)
-    with pytest.raises(RuntimeError, match="injected"):
-        upgrade_to_mvp012(paths.root, clock=CLOCK)
-    assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.11"
-    state = repository.recurrence_state()
-    assert state is not None and state["active"] is False and repository.recurrence_groups(), "prepared, not active"
-    assert repository.recurrence_group_map() == {}, "no consumer reads prepared groups"
-    assert _keys(repository) == exact
-    # The next refresh at mvp-0.11 clears the prepared rows.
-    from learnloop.substrate.state_sync import sync_vault_state
-
-    sync_vault_state(load_vault(paths.root), repository)
-    assert repository.recurrence_state() is None and repository.recurrence_groups() == []
-
-
-def test_the_upgrade_activates_its_prepared_groups_after_the_switch(tmp_path):
-    paths, vault, repository = _merged_history(tmp_path, version="mvp-0.10")
-    _pass_guard(tmp_path, vault, repository)
-    assert upgrade_to_mvp012(paths.root, clock=CLOCK).upgraded
-    assert repository.recurrence_state()["active"] is True
-    assert len(_keys(repository)) == 1, "the three reworded classes are one group now"
 
 
 def test_the_kill_switch_takes_effect_at_vault_open_with_groups_already_populated(tmp_path):

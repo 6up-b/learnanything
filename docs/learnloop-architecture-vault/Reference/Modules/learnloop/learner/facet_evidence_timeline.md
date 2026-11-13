@@ -171,7 +171,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_r2_embedded_only_credit_under_the_default_cap_leaves_the_claim_open`
 - [tests/test_reader_recap_review_r3.py](../../../../../../tests/test_reader_recap_review_r3.py) — direct import
   - `test_f1_r3_a_hold_released_after_the_cutoff_still_holds_at_the_cutoff`
-  - `test_f1_r3_the_as_of_hold_agrees_with_the_upgrade_on_every_shape`
+  - `test_f1_r3_the_as_of_hold_agrees_with_replay_on_every_shape`
   - `test_f1_r3_the_as_of_hold_is_the_replay_predicate_on_the_ledger`
   - `test_f2_r3_embedded_credit_banking_beside_standing_direct_credit_answers_the_claim`
   - `test_f2_r3_embedded_credit_whose_direct_credit_was_regraded_away_leaves_the_claim_open`

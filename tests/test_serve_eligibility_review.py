@@ -306,37 +306,6 @@ def test_f4_the_gate_reads_the_version_and_the_switch(tmp_path):
     assert not se.decision_active(None)
 
 
-def test_f4_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest(tmp_path):
-    from typer.testing import CliRunner
-
-    from learnloop.cli.app import app
-    from learnloop.eligibility_decision_upgrade import upgrade_to_mvp027
-    from learnloop.vault.loader import load_vault
-    from tests.helpers import create_placement_vault
-
-    clock = FrozenClock(T0)
-    direct = create_placement_vault(tmp_path / "direct", version="mvp-0.26")
-    result = upgrade_to_mvp027(direct.root, clock=clock)
-    assert result.upgraded and (result.from_version, result.to_version) == ("mvp-0.26", "mvp-0.27")
-    assert load_vault(direct.root).config.algorithms.algorithm_version == "mvp-0.27"
-    again = upgrade_to_mvp027(direct.root, clock=clock)
-    assert not again.upgraded and again.problems == ["vault is already mvp-0.27"]
-
-    chained = create_placement_vault(tmp_path / "chained", version="mvp-0.24")
-    assert upgrade_to_mvp027(chained.root, clock=clock).upgraded
-    assert load_vault(chained.root).config.algorithms.algorithm_version == "mvp-0.27"
-
-    old = create_placement_vault(tmp_path / "old", version="mvp-0.8")
-    refused = upgrade_to_mvp027(old.root, clock=clock)
-    assert not refused.upgraded and "only 'mvp-0.26'" in refused.problems[0]
-    assert load_vault(old.root).config.algorithms.algorithm_version == "mvp-0.8"
-
-    cli = create_placement_vault(tmp_path / "cli", version="mvp-0.26")
-    invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root), "--to", "mvp-0.27"])
-    assert invoked.exit_code == 0, invoked.output
-    assert "mvp-0.26 -> mvp-0.27" in invoked.output
-
-
 def test_f4_new_vaults_start_at_the_successor_with_the_switch_on(tmp_path):
     from learnloop.bootstrap import init_vault
     from learnloop.vault.loader import load_vault

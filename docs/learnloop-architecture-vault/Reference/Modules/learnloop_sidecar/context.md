@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/context.py](../../../../../src/learnloop_sidecar/context.py) |
-| Source lines | 1425 |
+| Source lines | 1414 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -84,15 +84,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `refresh_vault_files(self, relative_paths: list[str], *, expected_root: str | Path | None=None) -> dict[str, Any]` (line 609; public) — Incrementally refresh watcher-reported Practice Item files.
   - `require_vault(self) -> tuple[LoadedVault, Repository]` (line 777; public)
   - `app_snapshot(self) -> dict[str, Any]` (line 782; public)
-- `subjects_practised_first(vault: LoadedVault) -> list[str]` ([source](../../../../../src/learnloop_sidecar/context.py), line 894) — Subject ids, the ones the learner practises most first, then by name.
-- `vault_summary(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 917)
-- `config_dto(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 985)
-- `available_grading_providers(vault: LoadedVault) -> list[str]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1122) — Selectable grading backends: configured AI providers, manual.
-- `runtime_health(vault: LoadedVault, repository: Repository, grading_override: str | None=None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1142)
-- `session_snapshot(repository: Repository, session_id: str) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1275)
-- `checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1306)
-- `teach_back_envelope(current_answer: Any) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1383) — Parse a teach-back conversation envelope from checkpoint current_answer.
-- `mastery_dto(repository: Repository, learning_object_id: str, vault: LoadedVault | None=None) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1407)
+- `subjects_practised_first(vault: LoadedVault) -> list[str]` ([source](../../../../../src/learnloop_sidecar/context.py), line 883) — Subject ids, the ones the learner practises most first, then by name.
+- `vault_summary(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 906)
+- `config_dto(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 974)
+- `available_grading_providers(vault: LoadedVault) -> list[str]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1111) — Selectable grading backends: configured AI providers, manual.
+- `runtime_health(vault: LoadedVault, repository: Repository, grading_override: str | None=None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1131)
+- `session_snapshot(repository: Repository, session_id: str) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1264)
+- `checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1295)
+- `teach_back_envelope(current_answer: Any) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1372) — Parse a teach-back conversation envelope from checkpoint current_answer.
+- `mastery_dto(repository: Repository, learning_object_id: str, vault: LoadedVault | None=None) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1396)
 
 ### Module constants
 
@@ -101,17 +101,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `_forget_reading_choice() -> None` ([source](../../../../../src/learnloop_sidecar/context.py), line 799) — Curriculum C1 (fix round 4): drop the plan's memoized reading choice and close its database watcher when a context loads, attaches, switches or closes, so a database restored at the same path is never watched through the old file.
-- `_complete_interrupted_activation(vault_root: Path) -> None` ([source](../../../../../src/learnloop_sidecar/context.py), line 809) — Complete an activation a dead upgrade left journalled (LP-min (a) re-review F2; mvp-0.34 to mvp-0.42 too).
-- `_recover_facet_identity_actions(vault_root: Path, repository: Repository) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 835) — Finish interrupted facet merges/undos; True when the vault files may have changed.
-- `_recover_apply_intents(vault_root: Path, repository: Repository) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 857) — Finish proposal applies left mid-flight (K3.5); True when the vault files may have changed.
-- `_adopt_reference_questions(vault: LoadedVault, repository: Repository) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 884) — Run the reader's reference-question adoption sweep; never block a load.
-- `_adaptive_difficulty_dto(config: Any) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 943)
-- `_figures_help(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 952)
-- `_cold_help_converts(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 958)
-- `_lessons_active(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 964)
-- `_teacher_dto(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 970) — TE1's ``lessons`` while lessons may open; TE1b's ``suggestions`` while Today may suggest one; TE2's ``te2`` while lessons may open on a typed goal and Today offers "Continue your lesson" (absent otherwise).
-- `_settings_ready(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 1175) — Whether every distinct provider the app routes to is configured/ready.
-- `_ai_health(vault: LoadedVault, grading_override: str | None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1225) — The health.ai dto, honoring the runtime grading override.
+- `_complete_interrupted_activation(vault_root: Path) -> None` ([source](../../../../../src/learnloop_sidecar/context.py), line 809) — Complete an activation a dead upgrade left journalled.
+- `_recover_facet_identity_actions(vault_root: Path, repository: Repository) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 824) — Finish interrupted facet merges/undos; True when the vault files may have changed.
+- `_recover_apply_intents(vault_root: Path, repository: Repository) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 846) — Finish proposal applies left mid-flight (K3.5); True when the vault files may have changed.
+- `_adopt_reference_questions(vault: LoadedVault, repository: Repository) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 873) — Run the reader's reference-question adoption sweep; never block a load.
+- `_adaptive_difficulty_dto(config: Any) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 932)
+- `_figures_help(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 941)
+- `_cold_help_converts(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 947)
+- `_lessons_active(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 953)
+- `_teacher_dto(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 959) — TE1's ``lessons`` while lessons may open; TE1b's ``suggestions`` while Today may suggest one; TE2's ``te2`` while lessons may open on a typed goal and Today offers "Continue your lesson" (absent otherwise).
+- `_settings_ready(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 1164) — Whether every distinct provider the app routes to is configured/ready.
+- `_ai_health(vault: LoadedVault, grading_override: str | None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1214) — The health.ai dto, honoring the runtime grading override.
 
 ## Who imports or calls it
 
@@ -219,7 +219,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `pending_review_instance_ids`; calls `pending_review_instance_ids`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] — imports `enqueue_learner_notes`, `pending_jobs`, `reconcile_hint_feedback`; calls `enqueue_learner_notes`, `pending_jobs`, `reconcile_hint_feedback`
-- [[Reference/Modules/learnloop/facet_belief_upgrade|learnloop.facet_belief_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `help_kind_enabled`; calls `help_kind_enabled`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `recover_pending_workflows`; calls `recover_pending_workflows`
 - [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `pending_jobs`; calls `pending_jobs`
@@ -230,6 +229,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `mastery_diagnostic_view`; calls `mastery_diagnostic_view`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `display_mastery`; calls `display_mastery`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `run_startup_maintenance`; calls `run_startup_maintenance`
+- [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]] — imports `adopt_reference_questions`; calls `adopt_reference_questions`
 - [[Reference/Modules/learnloop/router_objective/goal_lifecycle|learnloop.router_objective.goal_lifecycle]] — imports `module`; calls `sweep`
 - [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `workbench_is_open_item_on`; calls `workbench_is_open_item_on`
@@ -338,7 +338,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_approach_maps.py](../../../../../tests/test_approach_maps.py) — direct import
 - [tests/test_arcb_close_fixes.py](../../../../../tests/test_arcb_close_fixes.py) — direct import
   - `test_a_figure_authors_one_word_unsupported_kind_never_leaves_through_why`
-- [tests/test_batch3_landing.py](../../../../../tests/test_batch3_landing.py) — direct import
 - [tests/test_canonical_projection_fold_skip.py](../../../../../tests/test_canonical_projection_fold_skip.py) — direct import
   - `test_a_sidecar_reload_after_nothing_happened_skips_the_fold`
 - [tests/test_canonical_projection_rollout.py](../../../../../tests/test_canonical_projection_rollout.py) — direct import
@@ -352,8 +351,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sign_in_from_the_desktop_without_a_vault`
 - [tests/test_config_refactor.py](../../../../../tests/test_config_refactor.py) — direct import
   - `test_legacy_codex_is_input_only_and_sidecar_does_not_reexport_it`
-- [tests/test_curriculum_c1_landing.py](../../../../../tests/test_curriculum_c1_landing.py) — direct import
-  - `test_ii_the_desktop_completion_is_c1s`
 - [tests/test_daily_loop_lo_lifecycle_serving.py](../../../../../tests/test_daily_loop_lo_lifecycle_serving.py) — direct import
 - [tests/test_daily_loop_reader_retire.py](../../../../../tests/test_daily_loop_reader_retire.py) — direct import
   - `test_sidecar_retire_takes_the_card_out_of_today`
@@ -381,8 +378,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_todays_offer_links_its_builds_receipt_with_every_gate`
 - [tests/test_data_capture_codex_review.py](../../../../../tests/test_data_capture_codex_review.py) — direct import
   - `test_f8_an_offers_receipt_commits_in_its_decisions_transaction`
-- [tests/test_data_capture_successor.py](../../../../../tests/test_data_capture_successor.py) — direct import
-  - `test_the_openers_install_this_links_completion`
 - [tests/test_decider_landing.py](../../../../../tests/test_decider_landing.py) — direct import
 - [tests/test_device_eligibility.py](../../../../../tests/test_device_eligibility.py) — direct import
   - `test_a_presentation_committed_on_the_phone_resumes_on_the_desktop`
@@ -402,16 +397,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_identity_rereview_f3_the_running_app_records_hand_edited_exam_membership`
 - [tests/test_exam_protection_review.py](../../../../../tests/test_exam_protection_review.py) — direct import
   - `test_the_exam_screen_stops_serving_an_item_exposed_mid_exam_and_refuses_its_answer`
-- [tests/test_facet_belief_successor.py](../../../../../tests/test_facet_belief_successor.py) — direct import
-  - `test_the_openers_install_this_links_completion`
 - [tests/test_facet_identity_actions.py](../../../../../tests/test_facet_identity_actions.py) — direct import
   - `test_the_sidecar_finishes_an_interrupted_merge_when_it_opens_the_vault`
 - [tests/test_facet_rewords.py](../../../../../tests/test_facet_rewords.py) — direct import
   - `test_the_facet_inspector_shows_the_version_history_and_undoes_a_reword`
 - [tests/test_facet_state_write_on_change.py](../../../../../tests/test_facet_state_write_on_change.py) — direct import
   - `test_a_sidecar_reload_after_nothing_happened_writes_nothing_to_the_facet_tables`
-- [tests/test_figure_wait_successor.py](../../../../../tests/test_figure_wait_successor.py) — direct import
-  - `test_the_openers_install_this_links_completion`
 - [tests/test_followup_codex_review.py](../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f7_next_through_the_sidecar_after_the_switch`
 - [tests/test_followup_fg1c_r1_exposure_independence.py](../../../../../tests/test_followup_fg1c_r1_exposure_independence.py) — direct import
@@ -422,8 +413,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followup_next_matrix.py](../../../../../tests/test_followup_next_matrix.py) — direct import
 - [tests/test_followup_rival_factor.py](../../../../../tests/test_followup_rival_factor.py) — direct import
   - `test_an_answered_probe_moves_the_same_measurement_with_or_without_a_mapped_repair`
-- [tests/test_followup_successor.py](../../../../../tests/test_followup_successor.py) — direct import
-  - `test_the_openers_install_this_links_completion`
 - [tests/test_goal_scope_material.py](../../../../../tests/test_goal_scope_material.py) — direct import
 - [tests/test_graph_editor_reads.py](../../../../../tests/test_graph_editor_reads.py) — direct import
 - [tests/test_help_assist_work_md_migration.py](../../../../../tests/test_help_assist_work_md_migration.py) — direct import
@@ -459,8 +448,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_hypothesis_marks.py](../../../../../tests/test_hypothesis_marks.py) — direct import
   - `test_off_means_no_key_no_rows_and_the_same_replies`
   - `test_with_no_causes_on_the_attempt_the_bundle_has_no_key`
-- [tests/test_ih5_successor.py](../../../../../tests/test_ih5_successor.py) — direct import
-  - `test_the_openers_install_this_links_completion`
 - [tests/test_ih6_workbench_open_item.py](../../../../../tests/test_ih6_workbench_open_item.py) — direct import
   - `test_the_desktop_learns_the_switch_from_its_config_only_while_on`
 - [tests/test_ingest_jobs.py](../../../../../tests/test_ingest_jobs.py) — direct import
@@ -478,18 +465,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_judge_routes.py](../../../../../tests/test_judge_routes.py) — direct import
   - `test_grading_providers_and_settings_health_ignore_judgment_routes`
 - [tests/test_keep_local_retired.py](../../../../../tests/test_keep_local_retired.py) — direct import
-- [tests/test_km2_activation.py](../../../../../tests/test_km2_activation.py) — direct import
-  - `test_app_load_repairs_vault_activated_by_old_upgrade`
 - [tests/test_knowledge_map_text_neighbors.py](../../../../../tests/test_knowledge_map_text_neighbors.py) — direct import
   - `test_render_never_calls_a_model_or_writes`
-- [tests/test_learner_report_superseded.py](../../../../../tests/test_learner_report_superseded.py) — direct import
 - [tests/test_learner_text_gaps_flow.py](../../../../../tests/test_learner_text_gaps_flow.py) — direct import
   - `test_the_sidecar_queues_the_reading_and_the_overlay_shows_it_with_undo`
 - [tests/test_learner_text_gaps_review.py](../../../../../tests/test_learner_text_gaps_review.py) — direct import
   - `test_f16_a_removed_edge_reloads_once_and_bumps_nothing`
-- [tests/test_lp_claim_fixes_rereview.py](../../../../../tests/test_lp_claim_fixes_rereview.py) — direct import
 - [tests/test_lp_claim_fixes_review.py](../../../../../tests/test_lp_claim_fixes_review.py) — direct import
-  - `test_f2_a_death_between_publication_and_commit_is_completed_from_the_journal`
   - `test_f6_get_feedback_attaches_the_line_to_the_resolving_review_only`
 - [tests/test_mcp_runtime.py](../../../../../tests/test_mcp_runtime.py) — direct import
   - `test_a_second_process_serves_the_vault_beside_the_desktop_sidecar`
@@ -507,15 +489,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_items_own_hint_revealed_on_the_phone_records_the_phones_surface_and_the_desktops_stays_practice`
 - [tests/test_mobile_v3_probes.py](../../../../../tests/test_mobile_v3_probes.py) — direct import
   - `test_g10_a_phone_admission_is_one_transaction_with_its_cap_count`
-- [tests/test_mobile_v3_successor.py](../../../../../tests/test_mobile_v3_successor.py) — direct import
-  - `test_the_openers_install_this_links_completion`
 - [tests/test_mobile_v4_plan.py](../../../../../tests/test_mobile_v4_plan.py) — direct import
 - [tests/test_owner_capture_1025.py](../../../../../tests/test_owner_capture_1025.py) — direct import
 - [tests/test_placement_opening_probes.py](../../../../../tests/test_placement_opening_probes.py) — direct import
   - `test_an_in_progress_opening_episode_serves_no_probe_and_is_not_parked`
 - [tests/test_placement_sidecar.py](../../../../../tests/test_placement_sidecar.py) — direct import
-- [tests/test_placement_unevidenced_return.py](../../../../../tests/test_placement_unevidenced_return.py) — direct import
-  - `test_the_openers_install_this_links_completion`
 - [tests/test_plan_first_transport.py](../../../../../tests/test_plan_first_transport.py) — direct import
   - `test_a_background_jobs_offer_reaches_the_read_that_finds_it_done`
   - `test_f4_grants_are_per_vault_per_offer_and_the_env_grant_is_the_cli_commands_only`
@@ -538,7 +516,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_rpcs`
 - [tests/test_provenance.py](../../../../../tests/test_provenance.py) — direct import
   - `test_each_sidecar_rpc_runs_under_a_trace_of_its_own`
-- [tests/test_rbeq_pr2_landing.py](../../../../../tests/test_rbeq_pr2_landing.py) — direct import
 - [tests/test_re0_capture.py](../../../../../tests/test_re0_capture.py) — direct import
   - `test_the_sidecar_carries_active_seconds_into_the_attempt_beside_its_latency`
 - [tests/test_reader_ca1_as_printed.py](../../../../../tests/test_reader_ca1_as_printed.py) — direct import
@@ -596,17 +573,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro0_row4_exposure_initiator.py](../../../../../tests/test_ro0_row4_exposure_initiator.py) — direct import
   - `test_the_span_view_handler_records_the_mapped_initiator`
 - [tests/test_ro0_rows7_8_sessions.py](../../../../../tests/test_ro0_rows7_8_sessions.py) — direct import
-- [tests/test_ro1_successor.py](../../../../../tests/test_ro1_successor.py) — direct import
-  - `test_the_openers_install_this_links_completion`
 - [tests/test_ro4_goals.py](../../../../../tests/test_ro4_goals.py) — direct import
-- [tests/test_ro4_successor.py](../../../../../tests/test_ro4_successor.py) — direct import
-  - `test_the_openers_install_this_links_completion`
-- [tests/test_ro5_successor.py](../../../../../tests/test_ro5_successor.py) — direct import
-  - `test_the_openers_install_this_links_completion`
-- [tests/test_ro6_successor.py](../../../../../tests/test_ro6_successor.py) — direct import
-  - `test_the_openers_install_this_links_completion`
-- [tests/test_rofu_successor.py](../../../../../tests/test_rofu_successor.py) — direct import
-  - `test_the_openers_install_this_links_completion`
 - [tests/test_router_outcomes.py](../../../../../tests/test_router_outcomes.py) — direct import
   - `test_the_replayer_rebuilds_router_outcomes_deterministically_with_no_model_call`
 - [tests/test_router_probe_ties.py](../../../../../tests/test_router_probe_ties.py) — direct import
@@ -634,8 +601,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_secondary_refuses_a_schema_it_would_have_to_migrate`
 - [tests/test_serve_eligibility_review.py](../../../../../tests/test_serve_eligibility_review.py) — direct import
 - [tests/test_session_ownership.py](../../../../../tests/test_session_ownership.py) — direct import
-- [tests/test_sg_successor.py](../../../../../tests/test_sg_successor.py) — direct import
-  - `test_the_openers_install_this_links_completion`
 - [tests/test_sidecar_adjudication.py](../../../../../tests/test_sidecar_adjudication.py) — direct import
 - [tests/test_sidecar_contract.py](../../../../../tests/test_sidecar_contract.py) — direct import
   - `test_configured_manual_grading_is_ready`
@@ -660,19 +625,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_incremental_watch_refresh_keeps_an_attempt_committed_after_its_read`
 - [tests/test_stuck_prompt.py](../../../../../tests/test_stuck_prompt.py) — direct import
   - `test_the_draft_checkpoint_keeps_the_stuck_marker_across_a_restart`
-- [tests/test_te3a_successor.py](../../../../../tests/test_te3a_successor.py) — direct import
-  - `test_the_openers_install_this_links_completion`
-- [tests/test_te3b_successor.py](../../../../../tests/test_te3b_successor.py) — direct import
-  - `test_the_openers_install_this_links_completion`
 - [tests/test_teacher_te1b_suggestions.py](../../../../../tests/test_teacher_te1b_suggestions.py) — direct import
-  - `test_re_acceptance_after_a_decline_teaches_the_recovery_rate`
-  - `test_the_openers_install_this_links_completion`
-  - `test_the_seeded_priors_reproduce_one_a_day_and_a_week_long_mute`
   - `test_with_the_switch_off_the_desktop_config_is_byte_identical`
 - [tests/test_teacher_te2_sidecar.py](../../../../../tests/test_teacher_te2_sidecar.py) — direct import
   - `test_below_the_tag_the_goal_rpc_refuses_and_the_config_carries_no_te2_key`
-- [tests/test_teacher_te2_successor.py](../../../../../tests/test_teacher_te2_successor.py) — direct import
-  - `test_the_openers_install_this_links_completion`
+- [tests/test_upgrades.py](../../../../../tests/test_upgrades.py) — direct import
 - [tests/test_ux_phase1_connect_ai.py](../../../../../tests/test_ux_phase1_connect_ai.py) — direct import
 - [tests/test_ux_phase1_finish.py](../../../../../tests/test_ux_phase1_finish.py) — direct import
 - [tests/test_ux_phase1_landing.py](../../../../../tests/test_ux_phase1_landing.py) — direct import

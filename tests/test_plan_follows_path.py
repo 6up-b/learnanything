@@ -80,12 +80,11 @@ def _complete(repository, *sections):
 
 
 def test_the_successor_is_one_constant_after_rw2d():
-    from learnloop.reading_path_plan_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
     # LP-min (a)'s claim fixes (mvp-0.33) and rebuild equivalence (mvp-0.34) and Reader CA2 (mvp-0.35) and the kept replaced claims (mvp-0.36) and mobile PR-4 (mvp-0.37, the latest) landed after it and keep it.
     assert TAG == SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(PREDECESSOR) + 1]
     assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.59"
-    assert UPGRADE_PREDECESSOR == PREDECESSOR == WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION
+    assert PREDECESSOR == WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION
     assert READING_PATH_PLAN_VERSIONS == frozenset({TAG, "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", LATEST_ALGORITHM_VERSION})
 
 
@@ -394,33 +393,3 @@ def test_g47_off_is_the_predecessor_on_working_fixture_copies(tmp_path, monkeypa
 
 
 # -- the upgrade ---------------------------------------------------------------------------------------
-
-
-def test_upgrade_from_the_predecessor_and_through_the_chain(tmp_path):
-    from typer.testing import CliRunner
-
-    from learnloop.cli.app import app
-    from learnloop.reading_path_plan_upgrade import upgrade_to_reading_path_plan
-    from tests.helpers import create_placement_vault
-
-    direct = create_placement_vault(tmp_path / "direct", version=PREDECESSOR)
-    result = upgrade_to_reading_path_plan(direct.root)
-    assert result.upgraded and (result.from_version, result.to_version) == (PREDECESSOR, TAG)
-    assert load_vault(direct.root).config.algorithms.algorithm_version == TAG
-    again = upgrade_to_reading_path_plan(direct.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-    for start in ("mvp-0.29", "mvp-0.30"):  # through RW2d's step (and AD2+AD3's, from mvp-0.29)
-        chained = create_placement_vault(tmp_path / f"chained-{start}", version=start)
-        assert upgrade_to_reading_path_plan(chained.root).upgraded, start
-        assert load_vault(chained.root).config.algorithms.algorithm_version == TAG
-
-    old = create_placement_vault(tmp_path / "old", version="mvp-0.8")
-    refused = upgrade_to_reading_path_plan(old.root)
-    assert not refused.upgraded and load_vault(old.root).config.algorithms.algorithm_version == "mvp-0.8"
-
-    cli = create_placement_vault(tmp_path / "cli", version=PREDECESSOR)
-    # RW7b's own step (the default target is the latest's, LP-min (a)'s, since its landing).
-    invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root), "--to", TAG])
-    assert invoked.exit_code == 0, invoked.output
-    assert f"{PREDECESSOR} -> {TAG}" in invoked.output

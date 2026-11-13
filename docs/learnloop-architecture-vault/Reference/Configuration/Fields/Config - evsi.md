@@ -19,7 +19,6 @@ source_paths:
   - "src/learnloop/ai/plan_fallback.py"
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/diagnosis/voi_stopping.py"
-  - "tests/test_mvp021_upgrade.py"
   - "tests/test_voi_forecasts.py"
   - "tests/test_voi_merge_composition.py"
   - "tests/voi_restore_scenarios.py"
@@ -54,7 +53,6 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
-- `tests/test_mvp021_upgrade.py`
 - `tests/test_voi_forecasts.py`
 - `tests/test_voi_merge_composition.py`
 - `tests/voi_restore_scenarios.py`

@@ -129,14 +129,14 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/ad_denial_log_helpers.py](../../../../../../tests/ad_denial_log_helpers.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 - [tests/rw5c_golden_source.py](../../../../../../tests/rw5c_golden_source.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 - [tests/test_ad1_outside_and_cli.py](../../../../../../tests/test_ad1_outside_and_cli.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_ad23_successor.py](../../../../../../tests/test_ad23_successor.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 - [tests/test_ad3_monitoring.py](../../../../../../tests/test_ad3_monitoring.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 - [tests/test_ad3_relatedness.py](../../../../../../tests/test_ad3_relatedness.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 - [tests/test_ai_compare.py](../../../../../../tests/test_ai_compare.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 - [tests/test_approach_maps.py](../../../../../../tests/test_approach_maps.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 - [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 - [tests/test_attempt_chain_records.py](../../../../../../tests/test_attempt_chain_records.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_attempt_content_state_successor.py](../../../../../../tests/test_attempt_content_state_successor.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_auto_build_spend_report.py](../../../../../../tests/test_auto_build_spend_report.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_capture_desktop.py](../../../../../../tests/test_capture_desktop.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 
 ## Modification guidance
 

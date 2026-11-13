@@ -21,7 +21,6 @@ source_paths:
   - "src/learnloop/diagnosis/voi_stopping.py"
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/scheduling/voi_forecasts.py"
-  - "src/learnloop/voi_stopping_upgrade.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"

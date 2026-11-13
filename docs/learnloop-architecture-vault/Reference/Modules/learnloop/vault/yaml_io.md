@@ -360,8 +360,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_blueprint_invalid_capability_rejected`
   - `test_criterion_dependency_cycle_rejected`
   - `test_valid_blueprint_and_criterion_targets_pass`
-- [tests/test_km2_activation.py](../../../../../../tests/test_km2_activation.py) — direct import
-  - `test_validate_readiness_flags_incomplete_contract`
 - [tests/test_km2_write_path.py](../../../../../../tests/test_km2_write_path.py) — direct import
   - `test_rebuild_uses_presented_contract_after_live_target_change`
 - [tests/test_km5_sim_gates.py](../../../../../../tests/test_km5_sim_gates.py) — direct import

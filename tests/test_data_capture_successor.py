@@ -6,7 +6,6 @@ blocks and the router's rows (receipts stay additive in their own tables).
 
 from __future__ import annotations
 
-import inspect
 
 import pytest
 
@@ -18,11 +17,10 @@ from learnloop.algorithm_versions import (
 )
 from learnloop.config.schema import DataCaptureConfig
 from learnloop.data_capture.gates import receipts_on, serving_on
-from learnloop.data_capture_upgrade import PREDECESSOR, upgrade_to_data_capture
 from learnloop.daily_plan.engine import advance, build_plan
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import create_basic_vault, set_algorithm_version
+from tests.helpers import set_algorithm_version
 from tests.router_mixture_helpers import mixture_env, run
 from tests.router_model_fakes import fake_runtime
 from tests.teacher_fakes import build_teacher_vault
@@ -37,7 +35,6 @@ def test_the_successor_is_one_constant_after_te1b_and_the_latest():
     position = SUCCESSOR_CHAIN.index(TAG)
     assert SUCCESSOR_CHAIN[position - 1:position + 1] == (OLD, TAG) == ("mvp-0.43", "mvp-0.44")
     assert TAG in DATA_CAPTURE_VERSIONS and OLD not in DATA_CAPTURE_VERSIONS
-    assert PREDECESSOR == OLD
 
 
 def test_the_switches_are_on_by_default_and_the_gate_reads_the_tag():
@@ -55,24 +52,6 @@ def test_the_switches_are_on_by_default_and_the_gate_reads_the_tag():
     Config.algorithms.algorithm_version = TAG
     Config.data_capture = DataCaptureConfig(serving=False)
     assert not serving_on(Config)
-
-
-def test_the_upgrade_from_te1b_and_through_the_chain_and_its_refusals(tmp_path):
-    direct, _ = build_teacher_vault(tmp_path / "direct", version=OLD, reserved=False)
-    result = upgrade_to_data_capture(direct.root)
-    assert result.upgraded and (result.from_version, result.to_version) == (OLD, TAG)
-    assert load_vault(direct.root).config.algorithms.algorithm_version == TAG
-    # Twice is no second upgrade.
-    assert not upgrade_to_data_capture(direct.root).upgraded
-
-    chained, _ = build_teacher_vault(tmp_path / "chained", reserved=False)
-    result = upgrade_to_data_capture(chained.root)
-    assert result.upgraded and result.from_version == "mvp-0.41" and result.to_version == TAG
-
-    paths = create_basic_vault(tmp_path / "old")
-    set_algorithm_version(paths, "mvp-0.8")
-    refused = upgrade_to_data_capture(paths.root)
-    assert not refused.upgraded and refused.problems
 
 
 def test_the_outcomes_cache_is_rebuilt_under_the_vaults_version(tmp_path):
@@ -97,20 +76,8 @@ def test_the_outcomes_cache_is_rebuilt_under_the_vaults_version(tmp_path):
             return {row[0] for row in connection.execute("SELECT outcome_version FROM router_outcomes")}
 
     assert versions() == {"router_outcomes_v2"}
-    upgrade_to_data_capture(direct.root)
+    set_algorithm_version(direct, TAG)
     assert versions() == {"router_outcomes_v3"}
-
-
-def test_the_openers_install_this_links_completion():
-    from learnloop import data_capture_upgrade, lesson_suggestions_upgrade
-    from learnloop.cli import runtime
-    from learnloop_sidecar import context
-
-    # The chain's latest completion hands an earlier link's journal on.
-    assert "learnloop.facet_belief_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.facet_belief_upgrade" in inspect.getsource(context._complete_interrupted_activation)
-    assert "learnloop.lesson_suggestions_upgrade import complete_interrupted_activation" in inspect.getsource(data_capture_upgrade)
-    assert callable(lesson_suggestions_upgrade.complete_interrupted_activation)
 
 
 @pytest.mark.parametrize("variant", ["no_model", "stop_offered"])
