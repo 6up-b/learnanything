@@ -4192,6 +4192,18 @@ class Repository(
             ).fetchone()
         return _decode_followup_task(row) if row is not None else None
 
+    def open_remediation_cold_item_ids(self) -> set[str]:
+        """The cold items live remediation episodes chose, before their cold
+        task exists (it is created after the primed attempt): reserved from
+        the moment they are chosen."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT cold_item_id FROM remediation_episodes WHERE cold_item_id IS NOT NULL "
+                "AND state NOT IN ('completed', 'abandoned')"
+            ).fetchall()
+        return {str(row[0]) for row in rows}
+
     def open_followup_tasks_of_kind(
         self, kind: str, *, learning_object_id: str | None = None
     ) -> list[dict[str, Any]]:

@@ -31,8 +31,9 @@ EXAM_RESERVED_NOTE = "exam_reserved"
 
 
 def cold_administration_open(repository: Repository, item_id: str | None) -> bool:
-    """Whether ``item_id`` is reserved by an open cold follow-up task, or for a
-    goal's held-out exam.
+    """Whether ``item_id`` is reserved by an open cold follow-up task, by a live
+    remediation episode that chose it as its cold item (its task does not exist
+    until the primed attempt), or for a goal's held-out exam.
 
     An item reserved for a held-out exam is a cold administration until its
     pool is released (exam protection, 2026-10-13): nothing is retrieved,
@@ -42,7 +43,7 @@ def cold_administration_open(repository: Repository, item_id: str | None) -> boo
 
     if not item_id:
         return False
-    if exam_reserved(repository, item_id):
+    if exam_reserved(repository, item_id) or item_id in repository.open_remediation_cold_item_ids():
         return True
     for kind in sorted(COLD_FOLLOWUP_TASK_KINDS):
         for task in repository.open_followup_tasks_of_kind(kind):

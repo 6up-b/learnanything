@@ -71,6 +71,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from learnloop.content.sources.exam_material import SNAPSHOT_UNSETTLED, protection_issues
+from learnloop.serve_eligibility import COLD_FOLLOWUP_TASK_KINDS
 
 _LOG = logging.getLogger(__name__)
 
@@ -99,7 +100,7 @@ PROTECTION_UNKNOWN = "which material is protected could not be read: no question
 
 EXAM_ATTEMPT_TYPES = frozenset({"exam_attempt", "exam_evidence"})
 PROBE_MODES = frozenset({"diagnostic_probe", "diagnostic_microprobe"})
-COLD_TASK_KINDS = ("cold_retry", "certification_cold_probe")
+COLD_TASK_KINDS = COLD_FOLLOWUP_TASK_KINDS
 #: A submission at or above this correctness closes an item's attempt window
 #: (``instructional.policy.WINDOW_CLOSING_CORRECTNESS``, the rule that unlocks
 #: an item's own solution for the learner; a test pins that they agree).
@@ -190,17 +191,13 @@ def withheld_items(vault: Any, repository: Any) -> Withheld:
             legacy = row.get("legacy_practice_item_id")
             if legacy:
                 reasons.setdefault(str(legacy), WITHHELD_RESERVED)
-        for kind in COLD_TASK_KINDS:
+        for kind in sorted(COLD_TASK_KINDS):
             for task in repository.open_followup_tasks_of_kind(kind):
                 if task.get("selected_item_id"):
                     reasons.setdefault(str(task["selected_item_id"]), WITHHELD_COLD)
+        for cold_item in sorted(repository.open_remediation_cold_item_ids()):
+            reasons.setdefault(cold_item, WITHHELD_COLD)
         with repository.connection() as connection:
-            if _table(connection, "remediation_episodes"):
-                for row in connection.execute(
-                    "SELECT cold_item_id FROM remediation_episodes WHERE cold_item_id IS NOT NULL "
-                    "AND state NOT IN ('completed', 'abandoned')"
-                ):
-                    reasons.setdefault(str(row[0]), WITHHELD_COLD)
             if _table(connection, "probe_presentations"):
                 for row in connection.execute(
                     "SELECT DISTINCT practice_item_id FROM probe_presentations"

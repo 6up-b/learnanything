@@ -328,7 +328,7 @@ def out_of_timing_serving_exclusions(
         for kind in sorted(set(cold_followup_kinds))
         for task in repository.open_followup_tasks_of_kind(kind)
         if task.get("selected_item_id")
-    }
+    } | repository.open_remediation_cold_item_ids()
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         revealed = items_revealed_between(
             connection, since=_iso(now - reveal_window), until=_iso(now),
