@@ -499,7 +499,7 @@ def _run_ingest_windows(
             target_learning_object_ids=target_learning_object_ids,
             instructions=instructions,
         )
-        key = content_key({"purpose": "legacy_ingest_window", "prompt": canonical_ingest_prompt(context), "schema": AuthoringProposal.model_json_schema(), "provider": getattr(client, "provider_name", None), "model": getattr(client, "model", None)})
+        key = legacy_window_key(context, client)
         proposal = _checkpointed_window_proposal(repository, key)
         if proposal is None:
             if usage is not None:
@@ -509,6 +509,13 @@ def _run_ingest_windows(
             repository.save_model_checkpoint(key, purpose="legacy_ingest_window", result=proposal.model_dump(mode="json"))
         proposals.append(proposal)
     return merge_window_proposals(proposals)
+
+
+def legacy_window_key(context: Any, client: Any) -> str:
+    """Checkpoint identity of one legacy ingest window: the rendered prompt and
+    schema, with the provider and model only (older than ``model_settings``)."""
+
+    return content_key({"purpose": "legacy_ingest_window", "prompt": canonical_ingest_prompt(context), "schema": AuthoringProposal.model_json_schema(), "provider": getattr(client, "provider_name", None), "model": getattr(client, "model", None)})
 
 
 def _report_progress(progress: IngestProgress | None, phase: str, **details: Any) -> None:

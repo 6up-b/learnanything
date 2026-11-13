@@ -544,6 +544,44 @@ def _inventory_window_key() -> Any:
     return inventory_window_key(context, model_settings(FakeStructuredClient()), schema_version=1)
 
 
+def _legacy_window_key() -> Any:
+    from learnloop.content.pipeline.ai_contracts import CanonicalIngestContext
+    from learnloop.content.pipeline.source_ingestion import legacy_window_key
+
+    return legacy_window_key(CanonicalIngestContext(
+        vault_root=str(VAULT_ROOT), source_kind="textbook_chapter", canonical_source={"id": "src_pin", "title": "Notes"},
+        chunks=[], target_subject="linear-algebra", target_learning_object_ids=["lo_pin_svd"],
+        concepts=[{"id": "singular_value_decomposition"}], learning_objects=[{"id": "lo_pin_svd"}],
+        instructions="Only definitions."), FakeStructuredClient())
+
+
+def _facet_judge_key(judge: str, reasoning_effort: str | None = None) -> Callable[[], Any]:
+    def compute() -> Any:
+        from learnloop.ai.spend import SpendCaps
+        from learnloop.content.facet_identity.judge import (
+            DeciderGroupJudge,
+            GroupRequest,
+            LLMGroupJudge,
+            Pricing,
+        )
+
+        request = GroupRequest(group_id="grp_pin", mode="consolidate", members=(), prompt="pin judge prompt",
+                               input_hash="input_pin")
+        common = {"caps": SpendCaps(), "pricing": Pricing(None, None, "unknown"), "repository": None,
+                  "owner_id": "owner_pin"}
+        if judge == "decider":
+            return DeciderGroupJudge(client=None, model="decider/pin", **common).checkpoint_key(request)
+        return LLMGroupJudge(client=FakeStructuredClient(), provider="openrouter", model="openai/gpt-pin",
+                             output_tokens=2048, reasoning_effort=reasoning_effort, **common).checkpoint_key(request)
+    return compute
+
+
+def _glm_ocr_window_key() -> Any:
+    from learnloop.ingest.extractors.glm_ocr import GlmOcrDocumentExtractor
+
+    return GlmOcrDocumentExtractor(backend="api")._checkpoint_key("asset_pin", [0, 1, 2])
+
+
 def _family_input(kind: str) -> Callable[[], Any]:
     def compute() -> Any:
         from learnloop.substrate.families import family_item_input_hash
@@ -920,6 +958,26 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "inventory window checkpoints (model_checkpoints)",
         "cached inventory windows miss and are paid again",
         {"window_key": _inventory_window_key}),
+    IdentitySite(
+        "K2.1a", "legacy ingest window checkpoint key (rendered prompt and schema, provider and model)",
+        ("src/learnloop/content/pipeline/source_ingestion.py::legacy_window_key",),
+        "legacy ingest window checkpoints (model_checkpoints)",
+        "cached ingest windows miss and are paid again",
+        {"window_key": _legacy_window_key}),
+    IdentitySite(
+        "K2.1b", "facet identity judge checkpoint keys (the LLM judge's carries its output budget)",
+        ("src/learnloop/content/facet_identity/judge.py::LLMGroupJudge.checkpoint_key",
+         "src/learnloop/content/facet_identity/judge.py::DeciderGroupJudge.checkpoint_key"),
+        "facet identity judge checkpoints (model_checkpoints)",
+        "every facet identity group is judged (paid) again",
+        {"llm": _facet_judge_key("llm"), "llm.reasoning_effort": _facet_judge_key("llm", "high"),
+         "decider": _facet_judge_key("decider")}),
+    IdentitySite(
+        "K2.1c", "GLM-OCR window checkpoint key (file, pages, backend, models)",
+        ("src/learnloop/ingest/extractors/glm_ocr.py::GlmOcrDocumentExtractor._checkpoint_key",),
+        "GLM-OCR window checkpoints (model_checkpoints)",
+        "every hosted OCR window is read (paid) again",
+        {"window_key": _glm_ocr_window_key}),
     IdentitySite(
         "A19", "family item input hash and the family plan dump",
         ("src/learnloop/substrate/families.py::family_item_input",
