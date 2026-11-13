@@ -71,6 +71,19 @@ def facet_belief_fixes_on(config) -> bool:
     return bool(getattr(getattr(config, "facet_diagnostic", None), "canonical_belief_fixes", False))
 
 
+def facet_belief_corrections_on(config) -> bool:
+    """The corrections to the successor's derivation: the uncertainty layer reads the frozen contract's
+    criterion targets, the stored rows are read only through this module and relabelled when rekeyed, a
+    massless success still ends the failure streak, the timeline leaves out what the projection leaves out,
+    and each attempt records the switch it was derived under.
+
+    They were made before any vault was known to hold the successor, so they share its tag and switch. Every
+    correction asks this predicate and nothing else: were a vault already at the successor as first landed,
+    a new tag and switch would gate them here alone."""
+
+    return facet_belief_fixes_on(config)
+
+
 def canonical_facet_uncertainty_on(vault: LoadedVault) -> bool:
     """A canonical vault that writes and reads per-LO facet uncertainty (the facet-belief successor).
 

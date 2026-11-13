@@ -112,6 +112,7 @@ from learnloop.learner.facet_state_reader import (
     canonical_facet_uncertainty_on,
     canonical_uncertainty_rows,
     current_facet_uncertainty,
+    facet_belief_corrections_on,
     is_canonical_state_vault,
     resolve_canonical_facet,
 )
@@ -4567,6 +4568,24 @@ def _compute_resolved_grade_application(
         error_attributions=grade_attributions,
         criterion_facet_weights=pfc_facet_weights,
     )
+    # The per-LO facet uncertainty reads the criterion -> facet map the assessment contract froze, as the
+    # canonical belief does. The item's own map is today's: after an author edits it, a rebuild would move an
+    # old answer's failure to another facet while the belief kept it, and without that map (authored criterion
+    # targets only) the lexical guess would map nothing and smear the grade over every facet.
+    uncertainty_facet_weights: dict[str, dict[str, float]] | None = None
+    uncertainty_facet_outcomes = facet_outcomes
+    if canonical_facet_uncertainty_on(vault) and facet_belief_corrections_on(vault.config):
+        uncertainty_facet_weights = target_criterion_facet_weights(item, rubric, resolve=vault.canonical_facet_id)
+        uncertainty_facet_outcomes = derive_facet_outcomes(
+            item,
+            rubric,
+            criterion_points=criterion_points,
+            covered_facets=coverage.covered_facets,
+            correctness=correctness,
+            attempt_type=draft.attempt_type,
+            error_attributions=grade_attributions,
+            criterion_facet_weights=uncertainty_facet_weights,
+        )
     # Prediction lane, mean-preserving (P1 revision): the mastery EKF keeps the
     # RAW rubric fraction as its observation y and consumes the calibrated grade
     # channel only through Var[s(Z)|emission] added to measurement noise. Using
@@ -4932,7 +4951,8 @@ def _compute_resolved_grade_application(
         rubric=rubric,
         learning_object_id=learning_object.id,
         attempt_id=attempt_id,
-        facet_outcomes=facet_outcomes,
+        facet_outcomes=uncertainty_facet_outcomes,
+        criterion_facet_weights=uncertainty_facet_weights,
         normalized_facet_weights=coverage.normalized_facet_weights,
         evidence_rows=facet_evidence_rows,
         error_attributions=resolved_attributions,
