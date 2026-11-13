@@ -232,15 +232,11 @@ def fold_follows_attach(vault: Any) -> bool:
     its attempt takes them in its own transaction (follow-ups Nov 2; Codex
     review F1: it changes ``hints_used`` and ``primed`` of new attempts, so it
     is the successor ``HELP_FOLD_ATTACH_ALGORITHM_VERSION`` with the kill
-    switch ``hints.fold_follows_attach``). Below the tag, or switched off: the
+    switch ``hints.fold_follows_attach``). Switched off, or no config: the
     predecessor's fold exactly. Replay never reads it (replay never folds)."""
 
-    from learnloop.algorithm_versions import HELP_FOLD_ATTACH_VERSIONS
-
     config = getattr(vault, "config", None)
-    version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
-    switch = getattr(getattr(config, "hints", None), "fold_follows_attach", False)
-    return version in HELP_FOLD_ATTACH_VERSIONS and bool(switch)
+    return bool(getattr(getattr(config, "hints", None), "fold_follows_attach", False))
 
 
 def read_fold(connection: Any, *, practice_item_id: str, session_id: str,

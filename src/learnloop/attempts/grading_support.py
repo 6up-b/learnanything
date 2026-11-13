@@ -112,7 +112,6 @@ from learnloop.attempts.blind_grading import (
 from learnloop.attempts.grading_admission import admit_grading_call
 from learnloop.attempts.stuck import StuckReading
 from learnloop.attempts.answer_check import final_answer_check
-from learnloop.algorithm_versions import METHOD_EXPLICIT_VERSIONS, ROUTE_RULES_VERSIONS
 from learnloop.outcome_contract import GRADE_HELD_FOR_REVIEW
 from learnloop.substrate.canonical_projection import (
     UNASSESSED_INTERPRETATION,
@@ -244,30 +243,24 @@ MATCHES_REFERENCE = "matches_reference"
 def route_rules_active(vault: LoadedVault) -> bool:
     """Does this vault grade NEW blind answers under the own-route rules?
 
-    The algorithm version gates them (``ROUTE_RULES_VERSIONS``);
     ``proof_check.enabled`` is the kill switch (off: new answers grade as
-    mvp-0.19 now does, whose grading is mvp-0.16's). Read only when an answer is graded
+    mvp-0.19 did, whose grading is mvp-0.16's). Read only when an answer is graded
     or regraded: the reference policy then carries ``route_rules`` and the
     blind record carries the rule's outcome, which is what replay reads.
     """
 
-    config = vault.config
-    if config.algorithms.algorithm_version not in ROUTE_RULES_VERSIONS:
-        return False
-    return bool(getattr(getattr(config, "proof_check", None), "enabled", True))
+    return bool(getattr(getattr(vault.config, "proof_check", None), "enabled", True))
 
 
 def method_rules_active(vault: LoadedVault) -> bool:
     """Does this vault grade NEW blind answers under the required-method rules?
 
-    The method-explicit successor (``METHOD_EXPLICIT_VERSIONS``) on top of the
-    own-route rules (:func:`route_rules_active`); ``required_method.enabled``
-    is its kill switch (off: mvp-0.20's grading exactly).
+    The method-explicit rules on top of the own-route rules
+    (:func:`route_rules_active`); ``required_method.enabled`` is their kill
+    switch (off: mvp-0.20's grading exactly).
     """
 
     if not route_rules_active(vault):
-        return False
-    if vault.config.algorithms.algorithm_version not in METHOD_EXPLICIT_VERSIONS:
         return False
     return bool(getattr(getattr(vault.config, "required_method", None), "enabled", True))
 
