@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/source_retrieval/find_sources.py](../../../../../../src/learnloop/source_retrieval/find_sources.py) |
-| Source lines | 938 |
+| Source lines | 952 |
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -71,8 +71,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `verification_candidates(vault: LoadedVault, pool: Sequence[SpanHit]) -> tuple[list[dict[str, Any]], dict[str, SpanKey]]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 546) — The candidates one verification judges (``p1``, ``p2``, ...) and their span keys.
 - `widest_candidates(vault: LoadedVault, count: int=VERIFY_POOL) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 561) — ``count`` candidates at their largest prompt encoding (every field at its limit, the passage at the vault's judged-passage limit, every character :data:`WIDEST_CHAR`): no real pool's prompt is larger.
 - `verification_prompt(intent: str, question: str, candidates: Sequence[Mapping[str, Any]], pick_at_most: int, context: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 570) — The verification's prompt (a dry run renders the same one to estimate it).
-- `find_sources(vault: LoadedVault, repository: Repository, query: str, *, policy: str, intent: str='explain', scope: str='library', learning_object_ids: Sequence[str]=(), facet_ids: Sequence[str]=(), item: PracticeItem | None=None, roles: Sequence[str]=(), expand: Sequence[str]=(), exclude_span_ids: Sequence[Any]=(), exclude_span_keys: Sequence[Any]=(), target_hypotheses: Sequence[Mapping[str, Any]]=(), learner_work_md: str | None=None, personalized: bool=True, verify: bool=False, limit: int=8, cursor: Mapping[str, Any] | None=None, embedder: Any | None=None, rewrite_client: Any | None=None, rerank_client: Any | None=None, deadline: float | None=None, owner_id: str='', clock: Clock | None=None, misconceptions: Sequence[Any]=(), caller: CallerContext | None=None, compare_client: Any | None=None, rewrite: bool | None=None, planned_practice_question: str | None=None) -> SourceHits` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 612) — Verbatim passages for ``intent`` under ``policy`` (the caller's, derived on the server).
-- `find_sources_for_caller(vault: LoadedVault, repository: Repository, query: str, *, caller: CallerContext, policy: str | None=None, item: PracticeItem | None=None, **kwargs: Any) -> SourceHits` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 898) — ``find_sources`` under the caller's derived policy; a differing ``policy`` is refused (G2).
+- `find_sources(vault: LoadedVault, repository: Repository, query: str, *, policy: str, intent: str='explain', scope: str='library', learning_object_ids: Sequence[str]=(), facet_ids: Sequence[str]=(), item: PracticeItem | None=None, roles: Sequence[str]=(), expand: Sequence[str]=(), exclude_span_ids: Sequence[Any]=(), exclude_span_keys: Sequence[Any]=(), target_hypotheses: Sequence[Mapping[str, Any]]=(), learner_work_md: str | None=None, personalized: bool=True, verify: bool=False, limit: int=8, cursor: Mapping[str, Any] | None=None, embedder: Any | None=None, rewrite_client: Any | None=None, rerank_client: Any | None=None, deadline: float | None=None, owner_id: str='', clock: Clock | None=None, misconceptions: Sequence[Any]=(), caller: CallerContext | None=None, compare_client: Any | None=None, rewrite: bool | None=None, planned_practice_question: str | None=None, withhold: Callable[[Sequence[SpanHit]], Mapping[SpanKey, str]] | None=None) -> SourceHits` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 612) — Verbatim passages for ``intent`` under ``policy`` (the caller's, derived on the server).
+- `find_sources_for_caller(vault: LoadedVault, repository: Repository, query: str, *, caller: CallerContext, policy: str | None=None, item: PracticeItem | None=None, **kwargs: Any) -> SourceHits` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 912) — ``find_sources`` under the caller's derived policy; a differing ``policy`` is refused (G2).
 
 ### Module constants
 
@@ -126,9 +126,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_answer_overlap(repository: Repository, item: PracticeItem) -> Callable[[list[SpanKey]], set[SpanKey]]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 488) — The keys whose passage reproduces ``item``'s key: the answer-overlap filter ``find_sources`` applies to an assisted-practice pool, read for its effective eligibility (fix round 3) from the same block text.
 - `_candidate(ref: str, source_title: str, section_path: Sequence[str], passage: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 541)
 - `_verify(vault: LoadedVault, repository: Repository, *, intent: str, question: str, pool: Sequence[SpanHit], pick_at_most: int, context: Mapping[str, Any], client: Any | None, owner_id: str, deadline: float | None, clock: Clock | None) -> tuple[str, dict[SpanKey, Mapping[str, Any]], list[SpanKey], str | None]` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 584)
-- `_caller_for_policy(policy: str, item: PracticeItem | None, lo_ids: Sequence[str]) -> CallerContext` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 840) — A server-side caller whose derived policy is ``policy`` (for a caller-less call).
-- `_delegate_compare(vault: LoadedVault, repository: Repository, query: str, result: SourceHits, *, policy: str, item: PracticeItem | None, lo_ids: Sequence[str], facet_ids: Sequence[str], caller: CallerContext | None, deadline: float | None, embedder: Any | None, rerank_client: Any | None, compare_client: Any | None, clock: Clock | None) -> SourceHits` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 851) — ``intent="compare"``: the comparison's sources as hits, the comparison on the manifest.
-- `_record_post_attempt_reveal(repository: Repository, item: PracticeItem, hits: Sequence[Mapping[str, Any]], *, clock: Clock | None) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 882) — A ``post_attempt`` display of the item's own passages or solutions is a reveal: the family is treated as revealed afterwards (§5.1, §5.4 rule 2).
+- `_caller_for_policy(policy: str, item: PracticeItem | None, lo_ids: Sequence[str]) -> CallerContext` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 854) — A server-side caller whose derived policy is ``policy`` (for a caller-less call).
+- `_delegate_compare(vault: LoadedVault, repository: Repository, query: str, result: SourceHits, *, policy: str, item: PracticeItem | None, lo_ids: Sequence[str], facet_ids: Sequence[str], caller: CallerContext | None, deadline: float | None, embedder: Any | None, rerank_client: Any | None, compare_client: Any | None, clock: Clock | None) -> SourceHits` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 865) — ``intent="compare"``: the comparison's sources as hits, the comparison on the manifest.
+- `_record_post_attempt_reveal(repository: Repository, item: PracticeItem, hits: Sequence[Mapping[str, Any]], *, clock: Clock | None) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/find_sources.py), line 896) — A ``post_attempt`` display of the item's own passages or solutions is a reveal: the family is treated as revealed afterwards (§5.1, §5.4 rule 2).
 
 ## Who imports or calls it
 
@@ -236,6 +236,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_reader_consumer_contract_calls`
   - `test_roles_match_an_rw4e_proposal`
   - `test_the_compare_switch_holds_on_every_entry_point`
+- [tests/test_k1_mcp_find_sources.py](../../../../../../tests/test_k1_mcp_find_sources.py) — direct import
+  - `test_a_reserved_probe_passage_never_reaches_the_verification_model`
 - [tests/test_library_ask_expand.py](../../../../../../tests/test_library_ask_expand.py) — direct import
   - `test_a_similar_passage_never_becomes_an_expansion`
   - `test_concept_edges_and_lo_ids_are_read_too`
@@ -246,6 +248,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mcp_c1a_review.py](../../../../../../tests/test_mcp_c1a_review.py) — direct import
   - `test_no_character_encodes_wider_than_the_dry_runs_filler`
   - `test_the_dry_run_bounds_the_live_verification`
+- [tests/test_p4_tutor_tool_withhold.py](../../../../../../tests/test_p4_tutor_tool_withhold.py) — direct import
+  - `test_the_find_sources_tool_never_sends_an_assessment_lane_passage_to_verification`
 - [tests/test_prescription_passages.py](../../../../../../tests/test_prescription_passages.py) — direct import
   - `test_ranked_and_verified_passages_replace_the_first_linked_span`
 - [tests/test_reader_find_sources_callers.py](../../../../../../tests/test_reader_find_sources_callers.py) — direct import

@@ -73,6 +73,9 @@ def _ctx(root, repo, jobs):
 
 
 def test_new_units_of_a_partly_inventoried_member_are_inventoried_and_appended(tmp_path):
+    """Inventory work and synthesis newness are two questions: u1 has a row but no kept synthesis sent it, so it
+    is not inventoried again and still reaches the append beside the two units that are new."""
+
     root, repo = _with_partly_inventoried_member(tmp_path)
     appended = []
     _repo, real_jobs = _jobs(root, fake_services(on_append=appended.append))
@@ -86,13 +89,48 @@ def test_new_units_of_a_partly_inventoried_member_are_inventoried_and_appended(t
         ("ext_more", ["u2", "u3"]),
     ]
     assert kwargs["new_revision_ids"] == ["rev_more"]
-    assert kwargs["new_unit_ids"] == {"rev_more": ["u2", "u3"]}
-    # The batch ran: both new units were inventoried and reached the append, and nothing else did.
-    assert {"u2", "u3"} <= inventoried_unit_ids(repo.unit_inventories_for_revision("rev_more"))
+    assert kwargs["new_unit_ids"] is None  # no unit of the revision was sent, so no filter
+    assert {"u1", "u2", "u3"} <= inventoried_unit_ids(repo.unit_inventories_for_revision("rev_more"))
     assert len(appended) == 1
     assert sorted((e["revision_id"], e["unit_id"]) for e in appended[0].new_inventories) == [
-        ("rev_more", "u2"), ("rev_more", "u3"),
+        ("rev_more", "u1"), ("rev_more", "u2"), ("rev_more", "u3"),
     ]
+
+
+def test_an_inventoried_unit_a_kept_synthesis_sent_is_not_sent_again(tmp_path):
+    """The other half of the split: inventoried and already sent stays out of the append, as the CLI leaves it."""
+
+    from learnloop.content.synthesis.source_append import append_source, units_not_yet_sent
+
+    from tests.source_append_helpers import FakeAppendClient
+
+    root, repo = _with_partly_inventoried_member(tmp_path)
+    append_source(root, "set_la", client=FakeAppendClient(), new_revision_ids=["rev_more"],
+                  new_unit_ids={"rev_more": ["u1"]}, repository=repo, clock=_CLOCK)
+    assert units_not_yet_sent(root, "set_la") == ([], {})  # it sees only inventoried units; u2 and u3 have no row yet
+    _repo, real_jobs = _jobs(root, fake_services(on_append=lambda _context: None))
+    jobs = _RecordingJobs(real_jobs)
+
+    build_study_map_rpc(_ctx(root, repo, jobs), BuildStudyMapInput(source_set_id="set_la"))
+
+    _kind, kwargs = jobs.calls[0]
+    assert kwargs["new_unit_ids"] == {"rev_more": ["u2", "u3"]}
+
+
+def test_a_fully_inventoried_unsent_member_is_appended_with_no_inventory_work(tmp_path):
+    root, repo = _with_partly_inventoried_member(tmp_path)
+    for unit_id in ("u2", "u3"):
+        run_unit_inventory(repo, "ext_more", unit_id, role="primary_textbook", profile="combined",
+                           client=FakeInventoryClient(), input_budget_tokens=20000, clock=_CLOCK)
+    appended = []
+    _repo, real_jobs = _jobs(root, fake_services(on_append=appended.append))
+    jobs = _RecordingJobs(real_jobs)
+
+    build_study_map_rpc(_ctx(root, repo, jobs), BuildStudyMapInput(source_set_id="set_la"))
+
+    _kind, kwargs = jobs.calls[0]
+    assert kwargs["members"] == [] and kwargs["new_revision_ids"] == ["rev_more"]
+    assert sorted(e["unit_id"] for e in appended[0].new_inventories) == ["u1", "u2", "u3"]
 
 
 def test_a_wholly_new_member_keeps_the_unfiltered_append(tmp_path):

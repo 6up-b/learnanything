@@ -272,6 +272,39 @@ def test_doctor_warns_when_the_switch_moved_after_the_last_whole_vault_rebuild(t
 # -- The upgrade link. ----------------------------------------------------------------------------------------------
 
 
+def _aggregate_streak(repository) -> int:
+    recall, _capability, _rows = _belief(repository)
+    aggregate = next(row for row in recall if row[2] is None)
+    return dict(zip(_RECALL_COLUMNS, aggregate, strict=True))["consecutive_failures"]
+
+
+def test_the_upgrade_derives_the_successors_state_from_the_history(tmp_path):
+    """Through the upgrade table: the activation replays the predecessor's history under the tag, so a receipt
+    without the derived state would fail here (``tests/test_upgrades.py`` checks the table's mechanics)."""
+
+    from learnloop.ops.upgrades import upgrade
+
+    paths = create_basic_vault(tmp_path / "vault")
+    set_algorithm_version(paths, OLD)
+    _old_vault, old_repository = _play(paths)
+    assert _belief(old_repository)[2] == 0  # the predecessor writes no uncertainty
+    assert _aggregate_streak(old_repository) > 0  # nor ends the streak on the success (D-1)
+
+    result = upgrade(paths.root, to=TAG)
+
+    assert result.upgraded and (result.from_version, result.to_version) == (OLD, TAG)
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    assert vault.config.algorithms.algorithm_version == TAG
+    assert repository.has_whole_vault_rebuild(algorithm_version=TAG)
+    # The activation's replay wrote the history's uncertainty and re-projected the belief with the fixes.
+    (state,) = facet_uncertainty_states_for_lo(vault, repository, LO_ID)
+    assert state.algorithm_version == TAG
+    assert _aggregate_streak(repository) == 0
+    again = upgrade(paths.root, to=TAG)
+    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
+
+
 # -- D-3 in the Demonstrated curve: the timeline folds the same transfer scale the belief banks. ------------------
 
 

@@ -129,6 +129,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_exam_protection.py](../../../../../../tests/test_exam_protection.py) — direct import
+  - `test_a_reader_preset_fails_before_any_model_call_when_the_vault_config_disappears`
   - `test_a_reader_preset_on_held_out_material_fails_before_any_model_call`
 - [tests/test_ingest_jobs.py](../../../../../../tests/test_ingest_jobs.py) — direct import
   - `test_background_reader_drain_records_model_call_receipts`

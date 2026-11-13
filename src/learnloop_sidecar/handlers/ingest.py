@@ -1070,7 +1070,7 @@ def build_study_map_rpc(ctx: SidecarContext, params: BuildStudyMapInput) -> dict
     aren't inventoried yet, so the batch inventories first and synthesis gates run
     once."""
 
-    from learnloop.content.synthesis.source_append import subject_has_applied_study_map
+    from learnloop.content.synthesis.source_append import subject_has_applied_study_map, units_not_yet_sent
     from learnloop.content.synthesis.source_unit_inventory import inventoried_unit_ids
     from learnloop.content.sources.source_outline import resolve_extraction_id
 
@@ -1103,6 +1103,15 @@ def build_study_map_rpc(ctx: SidecarContext, params: BuildStudyMapInput) -> dict
     members_payload: list[dict[str, Any]] = []
     new_revision_ids: list[str] = []
     new_unit_ids: dict[str, list[str]] = {}
+    unsent_revisions: set[str] = set()
+    unsent_filter: dict[str, set[str]] = {}
+    if resolved_mode == "append":
+        sent_revisions, sent_filter = units_not_yet_sent(vault.root, params.source_set_id)
+        unsent_revisions = set(sent_revisions)
+        unsent_filter = {
+            revision_id: inventoried_unit_ids([{"unit_id": unit_id} for unit_id in unit_ids])
+            for revision_id, unit_ids in sent_filter.items()
+        }
     for member in source_set.members:
         extraction_id = resolve_extraction_id(repository, member.revision_id)
         if extraction_id is None:
@@ -1133,17 +1142,30 @@ def build_study_map_rpc(ctx: SidecarContext, params: BuildStudyMapInput) -> dict
         if resolved_mode == "bootstrap":
             members_payload.append({"extraction_id": extraction_id, "units": units})
             continue
-        # Newness is per unit: a unit with no inventory row is not yet synthesized,
-        # so it is inventoried and joins the append. Asking whether the revision had
-        # any row let one cached unit hide every unit selected beside it.
+        # Two questions per unit. Inventory: a unit with no row is inventoried
+        # (asking whether the revision had any row let one cached unit hide every
+        # unit selected beside it). Newness: a unit no kept synthesis has sent
+        # joins the append, whether or not it already had a row, and
+        # `units_not_yet_sent` answers it as the CLI does. A unit with no row has
+        # never been sent.
         inventoried = inventoried_unit_ids(repository.unit_inventories_for_revision(member.revision_id))
-        new_units = [unit for unit in units if unit["unit_id"] not in inventoried]
+        to_inventory = [unit for unit in units if unit["unit_id"] not in inventoried]
+        if member.revision_id not in unsent_revisions:
+            unsent_inventoried: set[str] = set()
+        elif member.revision_id in unsent_filter:
+            unsent_inventoried = unsent_filter[member.revision_id]
+        else:
+            unsent_inventoried = inventoried
+        new_units = [
+            unit for unit in units if unit["unit_id"] not in inventoried or unit["unit_id"] in unsent_inventoried
+        ]
         if not new_units:
             continue
-        members_payload.append({"extraction_id": extraction_id, "units": new_units})
+        if to_inventory:
+            members_payload.append({"extraction_id": extraction_id, "units": to_inventory})
         new_revision_ids.append(member.revision_id)
         if len(new_units) < len(units):
-            # Only a partly inventoried revision is filtered; a wholly new one sends
+            # Only a partly sent revision is filtered; a wholly new one sends
             # all of its units, and its append keeps the manifest it always had.
             new_unit_ids[member.revision_id] = [unit["unit_id"] for unit in new_units]
 

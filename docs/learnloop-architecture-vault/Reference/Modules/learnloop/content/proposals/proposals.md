@@ -48,106 +48,106 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/proposals/proposals.py](../../../../../../../src/learnloop/content/proposals/proposals.py) |
-| Source lines | 2488 |
+| Source lines | 2507 |
 | Owning package | [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `request_authoring_proposal(client: AIProviderClient, context: AuthoringContext) -> AuthoringProposal` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 53) — Run the feature-owned authoring operation on a structured provider.
-- `class AuthoringRequestRefused(ValueError)` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 69) — A guarded authoring request was refused before it was sent (adaptive difficulty's A8 revalidation): a refusal, never an ordinary provider or repair failure.
-- `context_sources(context: AuthoringContext) -> list[dict[str, str | None]]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 79) — The source identities an authoring context quotes (fix rounds 11-12, F34/F40): each source ref's extraction and spans (``{"kind": "span", ...}``; the whole extraction when it names no span) and each note it includes (``{"kind": "note", "note_id": ...}``: a canonical note is a so…
-- `dispatch_authoring_request(client: AIProviderClient, context: AuthoringContext, *, request_guard: Callable[..., None] | None=None, commissioned: bool=False) -> AuthoringProposal` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 109) — The one place an authoring request is sent (fix round 10, R5): the first request and every repair.
-- `list_proposals(root: Path) -> list[dict]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 130)
-- `build_authoring_context(vault: LoadedVault, *, subjects: list[str] | None=None, note_ids: list[str] | None=None, source_refs: list[dict] | None=None, instructions: str | None=None, focus_concepts: list[str] | None=None, focus_facets: list[str] | None=None) -> AuthoringContext` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 144) — Assemble a deterministic authoring context from selected vault sources.
-- `authoring_context_stats(context: AuthoringContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 274)
-- `authoring_context_hash(context: AuthoringContext) -> str` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 314)
-- `class DiagnosticTarget` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 333) — Relational review context for a diagnostic-authoring proposal (spec §5.3).
-- `diagnostic_target_from_need(need: dict[str, Any]) -> DiagnosticTarget` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 352) — Build a :class:`DiagnosticTarget` from an intervention need row (spec §5.3).
-- `diagnostic_review_errors(item: AuthoringProposalItem, context: DiagnosticTarget | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 381) — Hard §5.3 validation errors for a diagnostic-authoring item.
-- `diagnostic_review_warnings(item: AuthoringProposalItem, context: DiagnosticTarget | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 411) — Soft §5.3 warnings: footprint exceeds implicated set / hits demonstrated facets.
-- `evaluate_review_policy(item: AuthoringProposalItem, vault: LoadedVault, *, source_refs: list[SourceRef] | None=None, context: DiagnosticTarget | None=None) -> str` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 428) — Resolve an item's effective review route under the auto-apply-low-risk policy.
-- `generate_authoring_proposal(root: Path, codex_client: AIProviderClient, *, subjects: list[str] | None=None, note_ids: list[str] | None=None, source_refs: list[dict[str, Any]] | None=None, instructions: str | None=None, focus_concepts: list[str] | None=None, focus_facets: list[str] | None=None, model: str | None=None, codex_revision: str | None=None, merge_context_source_refs: bool=False, row_transform: Callable[[list[dict[str, Any]]], None] | None=None, prompt_version: str | None=None, clock: Clock | None=None, vault_view: Callable[[LoadedVault, Any], LoadedVault] | None=None, request_guard: Callable[..., None] | None=None) -> str` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 488) — Run authoring generation through a AIProviderClient and persist the result.
-- `build_diagnostic_authoring_context(vault: LoadedVault, repository: Repository, need: dict[str, Any]) -> AuthoringContext` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 603) — Package ⟨belief, learner answer, grader evidence, source item⟩ for authoring (spec §5.1).
-- `generate_diagnostic_proposal(root: Path, client: AIProviderClient, *, need_id: str, model: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 752) — Author a discriminating diagnostic from a pending misconception need (spec §5/§6).
-- `persist_authoring_proposal(root: Path, proposal: AuthoringProposal, *, provider: str='import', model: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 897)
-- `maybe_promote_self_tagged_fatal_error(vault: LoadedVault, repository: Repository, *, item: PracticeItem, error_type: str | None, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 967) — Queue a reviewed proposal to add a repeatedly self-tagged misconception ``E`` to an item's rubric ``fatal_errors`` (spec §12.4 — durable-probe promotion).
-- `reject_items(root: Path, patch_id: str, item_ids: list[str] | None=None) -> int` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1060)
-- `edit_proposal_item(root: Path, patch_id: str, item_id: str, edited_payload: dict[str, Any], *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1219)
-- `refresh_proposal_item_validation(root: Path, patch_id: str, item_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1259)
-- `delete_proposal_item(root: Path, patch_id: str, item_id: str) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1299) — Permanently remove a single proposal item from the inbox.
-- `accept_items(root: Path, patch_id: str, item_ids: list[str] | None=None, *, clock: Clock | None=None) -> PatchApplyResult` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1318)
-- `queue_accepted_diagnostic_followups(repository: Repository, *, patch_id: str | None=None) -> int` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1359) — Backfill queued follow-up actions for accepted diagnostic proposals.
-- `reset_items(root: Path, patch_id: str, item_ids: list[str] | None=None, *, clock: Clock | None=None) -> int` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1436) — Undo a decision: send rejected-but-never-applied items back to ``pending``.
-- `proposal_item_row(item: AuthoringProposalItem, now: str, *, vault: LoadedVault, proposal: AuthoringProposal, provider: str) -> dict` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1455)
-- `auto_apply_rows(root: Path, patch_id: str, rows: list[dict[str, Any]]) -> None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1639)
+- `request_authoring_proposal(client: AIProviderClient, context: AuthoringContext) -> AuthoringProposal` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 60) — Run the feature-owned authoring operation on a structured provider.
+- `class AuthoringRequestRefused(ValueError)` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 76) — A guarded authoring request was refused before it was sent (adaptive difficulty's A8 revalidation): a refusal, never an ordinary provider or repair failure.
+- `context_sources(context: AuthoringContext) -> list[dict[str, str | None]]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 86) — The source identities an authoring context quotes (fix rounds 11-12, F34/F40): each source ref's extraction and spans (``{"kind": "span", ...}``; the whole extraction when it names no span) and each note it includes (``{"kind": "note", "note_id": ...}``: a canonical note is a so…
+- `dispatch_authoring_request(client: AIProviderClient, context: AuthoringContext, *, request_guard: Callable[..., None] | None=None, commissioned: bool=False) -> AuthoringProposal` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 116) — The one place an authoring request is sent (fix round 10, R5): the first request and every repair.
+- `list_proposals(root: Path) -> list[dict]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 137)
+- `build_authoring_context(vault: LoadedVault, *, subjects: list[str] | None=None, note_ids: list[str] | None=None, source_refs: list[dict] | None=None, instructions: str | None=None, focus_concepts: list[str] | None=None, focus_facets: list[str] | None=None) -> AuthoringContext` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 151) — Assemble a deterministic authoring context from selected vault sources.
+- `authoring_context_stats(context: AuthoringContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 281)
+- `authoring_context_hash(context: AuthoringContext) -> str` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 321)
+- `class DiagnosticTarget` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 340) — Relational review context for a diagnostic-authoring proposal (spec §5.3).
+- `diagnostic_target_from_need(need: dict[str, Any]) -> DiagnosticTarget` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 359) — Build a :class:`DiagnosticTarget` from an intervention need row (spec §5.3).
+- `diagnostic_review_errors(item: AuthoringProposalItem, context: DiagnosticTarget | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 388) — Hard §5.3 validation errors for a diagnostic-authoring item.
+- `diagnostic_review_warnings(item: AuthoringProposalItem, context: DiagnosticTarget | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 418) — Soft §5.3 warnings: footprint exceeds implicated set / hits demonstrated facets.
+- `evaluate_review_policy(item: AuthoringProposalItem, vault: LoadedVault, *, source_refs: list[SourceRef] | None=None, context: DiagnosticTarget | None=None) -> str` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 435) — Resolve an item's effective review route under the auto-apply-low-risk policy.
+- `generate_authoring_proposal(root: Path, codex_client: AIProviderClient, *, subjects: list[str] | None=None, note_ids: list[str] | None=None, source_refs: list[dict[str, Any]] | None=None, instructions: str | None=None, focus_concepts: list[str] | None=None, focus_facets: list[str] | None=None, model: str | None=None, codex_revision: str | None=None, merge_context_source_refs: bool=False, row_transform: Callable[[list[dict[str, Any]]], None] | None=None, prompt_version: str | None=None, clock: Clock | None=None, vault_view: Callable[[LoadedVault, Any], LoadedVault] | None=None, request_guard: Callable[..., None] | None=None) -> str` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 495) — Run authoring generation through a AIProviderClient and persist the result.
+- `build_diagnostic_authoring_context(vault: LoadedVault, repository: Repository, need: dict[str, Any]) -> AuthoringContext` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 610) — Package ⟨belief, learner answer, grader evidence, source item⟩ for authoring (spec §5.1).
+- `generate_diagnostic_proposal(root: Path, client: AIProviderClient, *, need_id: str, model: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 759) — Author a discriminating diagnostic from a pending misconception need (spec §5/§6).
+- `persist_authoring_proposal(root: Path, proposal: AuthoringProposal, *, provider: str='import', model: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 904)
+- `maybe_promote_self_tagged_fatal_error(vault: LoadedVault, repository: Repository, *, item: PracticeItem, error_type: str | None, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 974) — Queue a reviewed proposal to add a repeatedly self-tagged misconception ``E`` to an item's rubric ``fatal_errors`` (spec §12.4 — durable-probe promotion).
+- `reject_items(root: Path, patch_id: str, item_ids: list[str] | None=None) -> int` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1067)
+- `edit_proposal_item(root: Path, patch_id: str, item_id: str, edited_payload: dict[str, Any], *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1229)
+- `refresh_proposal_item_validation(root: Path, patch_id: str, item_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1271)
+- `delete_proposal_item(root: Path, patch_id: str, item_id: str) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1313) — Permanently remove a single proposal item from the inbox.
+- `accept_items(root: Path, patch_id: str, item_ids: list[str] | None=None, *, clock: Clock | None=None) -> PatchApplyResult` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1337)
+- `queue_accepted_diagnostic_followups(repository: Repository, *, patch_id: str | None=None) -> int` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1378) — Backfill queued follow-up actions for accepted diagnostic proposals.
+- `reset_items(root: Path, patch_id: str, item_ids: list[str] | None=None, *, clock: Clock | None=None) -> int` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1455) — Undo a decision: send rejected-but-never-applied items back to ``pending``.
+- `proposal_item_row(item: AuthoringProposalItem, now: str, *, vault: LoadedVault, proposal: AuthoringProposal, provider: str) -> dict` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1474)
+- `auto_apply_rows(root: Path, patch_id: str, rows: list[dict[str, Any]]) -> None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1658)
 
 ### Module constants
 
-- `REFUSED_MESSAGE` ([src/learnloop/content/proposals/proposals.py](../../../../../../../src/learnloop/content/proposals/proposals.py), line 76)
-- `_TEACH_BACK_PRACTICE_MODE` ([src/learnloop/content/proposals/proposals.py](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1936)
-- `_RUBRIC_CRITERION_TIERS` ([src/learnloop/content/proposals/proposals.py](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1937)
-- `_CRITERION_TARGET_ROLES` ([src/learnloop/content/proposals/proposals.py](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1941)
+- `REFUSED_MESSAGE` ([src/learnloop/content/proposals/proposals.py](../../../../../../../src/learnloop/content/proposals/proposals.py), line 83)
+- `_TEACH_BACK_PRACTICE_MODE` ([src/learnloop/content/proposals/proposals.py](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1955)
+- `_RUBRIC_CRITERION_TIERS` ([src/learnloop/content/proposals/proposals.py](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1956)
+- `_CRITERION_TARGET_ROLES` ([src/learnloop/content/proposals/proposals.py](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1960)
 
 ## Internal implementation anchors
 
-- `_check_request(request_guard: Callable[..., None], context: AuthoringContext) -> None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 101)
-- `_excerpt(text: str, limit: int=280) -> str` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 139)
-- `_vault_evidence_facet_unions(vault: LoadedVault) -> dict[str, list[str]]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 245) — Per-LO union of canonical evidence facet ids across blueprints and items.
-- `_vault_surface_family_unions(vault: LoadedVault) -> dict[str, list[str]]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 266)
-- `_diagnostic_payload_fatal_misconception_ids(payload: dict[str, Any]) -> set[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 370)
-- `_has_id_collision(item: AuthoringProposalItem, vault: LoadedVault) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 472)
-- `_diagnostic_proposal_item_row(item: AuthoringProposalItem, now: str, *, vault: LoadedVault, proposal: AuthoringProposal, provider: str, context: DiagnosticTarget) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 670) — Persisted row for a diagnostic-authoring item: base validation + §5.3 checks.
-- `_gate_target_record(payload: dict[str, Any], target: DiagnosticTarget, records_by_id: dict[str, MisconceptionRecord]) -> MisconceptionRecord | None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 709) — The registry belief a generated item is gated against (its keyed fatal, else first).
-- `_reopen_need_after_gate_failure(repository: Repository, *, need_id: str, patch_id: str, item_id: str | None, results: list[GateResult], need: dict[str, Any]) -> None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 726) — Reopen the need with the sim estimates attached (spec §6 reopen).
-- `_proposal_with_context_source_refs(proposal: AuthoringProposal, context_source_refs: list[dict[str, Any]]) -> AuthoringProposal` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 875)
-- `_agent_provider_fields(client: AIProviderClient, *, model: str | None, provider_revision: str | None) -> dict[str, str | None]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 947)
-- `_diagnostic_reopen_candidates(repository: Repository, patch_id: str, item_ids: list[str] | None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1071)
-- `_is_diagnostic_probe_item(item: dict[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1086)
-- `_normalize_diagnostic_probe_mode(vault: LoadedVault, repository: Repository, patch_id: str, diagnostic_items: list[dict[str, Any]], *, clock: Clock | None=None) -> None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1103) — Stamp ``practice_mode: diagnostic_probe`` on accepted diagnostic items.
-- `_reopen_diagnostic_needs_for_rejected_items(repository: Repository, patch_id: str, candidate_items: list[dict[str, Any]]) -> None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1154)
-- `_need_ids_for_diagnostic_item(item: dict[str, Any], queued_by_id: dict[str, dict[str, Any]], patch_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1195)
-- `_queue_accepted_diagnostic_followups_for_patch(repository: Repository, patch_id: str, diagnostic_items: list[dict[str, Any]]) -> int` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1389)
-- `_accepted_practice_item_id(item: dict[str, Any]) -> str | None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1410)
-- `_append_intervention_queued_action(repository: Repository, attempt_id: str, practice_item_id: str) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1418)
-- `_hold_required_method_to_rule(payload: dict[str, Any], item: AuthoringProposalItem, vault: LoadedVault) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1499) — Method-explicit items (owner rule 2026-10-13) on a generated practice item.
-- `_repair_invalid_proposal_items(codex_client: AIProviderClient, context: AuthoringContext, proposal: AuthoringProposal, rows: list[dict[str, Any]], *, vault: LoadedVault, provider: str, now: str, request_guard: Callable[..., None] | None=None) -> tuple[AuthoringProposal, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1556) — One-shot self-repair for items that failed deterministic validation.
-- `_source_refs_for_item(source_refs: list[SourceRef], source_ref_ids: list[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1646)
-- `_provenance_for_refs(source_refs: list[dict[str, Any]], provider: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1655)
-- `_backfill_practice_item_facet_weights(item: AuthoringProposalItem, vault: LoadedVault) -> None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1664) — Derive only facet-weight links that are logically unambiguous.
-- `_has_direct_grounding(source_refs: list[SourceRef], source_ref_ids: list[str]) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1709)
-- `_validation_errors(item: AuthoringProposalItem, vault: LoadedVault, source_refs: list[SourceRef], *, proposal: AuthoringProposal | None=None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1715)
-- `_source_statement_edit_errors(vault: LoadedVault, payload: dict[str, Any], entity_id: Any) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1763) — An update that would rewrite a statement whose required method was decided on its wording (review F15; ``rewrites_decided_statement``).
-- `_validation_warnings(item: AuthoringProposalItem, vault: LoadedVault, *, proposal: AuthoringProposal | None=None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1773)
-- `_instrument_gate_errors(payload: dict[str, Any], vault: LoadedVault, repository: Repository | None=None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1790) — Report-only instrument-gate verdicts for the edit/refresh door.
-- `_edited_payload_validation_errors(item: dict[str, Any], edited_payload: dict[str, Any], vault: LoadedVault, *, batch_source_refs: list[dict[str, Any]] | None=None, repository: Repository | None=None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1819)
-- `_payload_source_ref_validation_errors(payload: dict[str, Any], vault: LoadedVault, batch_source_refs: list[dict[str, Any]] | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1859)
-- `_payload_source_ref_dicts(payload: dict[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1882)
-- `_dedupe_preserve_order(values: list[str]) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1892)
-- `_required_create_payload_errors(item_type: str, payload: dict[str, Any], vault: LoadedVault, proposal: AuthoringProposal | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1903)
-- `_missing(value: Any) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1944)
-- `_attempt_type_validation_errors(payload: dict[str, Any]) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1948)
-- `_practice_item_metadata_errors(payload: dict[str, Any], vault: LoadedVault, proposal: AuthoringProposal | None, *, generated: bool) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1955)
-- `_teach_back_rubric_errors(payload: dict[str, Any], evidence_facets: list[str], criterion_facet_weights: dict[str, dict[str, float]]) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2030) — Structural checks for teach_back rubrics beyond the generic rubric rules.
-- `_criterion_target_errors(criterion: dict[str, Any], *, criterion_ids: set[str], single_criterion: bool) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2068) — Structural checks on A1's authored criterion targets (Meas §3.A1).
-- `_practice_item_rubric_errors(payload: dict[str, Any]) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2125)
-- `_practice_item_metadata_warnings(payload: dict[str, Any], vault: LoadedVault, proposal: AuthoringProposal | None, *, generated: bool) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2187)
-- `_generated_practice_reward_metadata_errors(payload: dict[str, Any], evidence_facets: list[str], vault: LoadedVault, proposal: AuthoringProposal | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2238)
-- `_rubric_criterion_ids(payload: dict[str, Any], vault: LoadedVault, proposal: AuthoringProposal | None) -> set[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2273)
-- `_rubric_fatal_error_ids(payload: dict[str, Any], vault: LoadedVault, proposal: AuthoringProposal | None) -> set[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2292)
-- `_string_list(value: Any) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2311)
-- `_float_map(value: Any) -> dict[str, float]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2317)
-- `_nested_float_map(value: Any) -> dict[str, dict[str, float]]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2329)
-- `_generated_practice_audit_error(item: AuthoringProposalItem) -> str | None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2338)
-- `_looks_source_linked_generated(item: AuthoringProposalItem) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2353)
-- `_available_concept_ids(vault: LoadedVault, proposal: AuthoringProposal | None) -> set[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2374)
-- `_available_learning_object_ids(vault: LoadedVault, proposal: AuthoringProposal | None) -> set[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2390)
-- `_concept_edge_validation_errors(payload: dict[str, Any], vault: LoadedVault, proposal: AuthoringProposal | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2402)
-- `_default_edge_id(payload: dict[str, Any]) -> str | None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2430)
-- `_unresolved_source_ref_ids(vault: LoadedVault, source_refs: list[SourceRef], source_ref_ids: list[str]) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2441)
-- `_source_ref_resolves(vault: LoadedVault, source: SourceRef) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2455)
-- `_path_matches(source_path: str | None, note_path: str | None) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2487)
+- `_check_request(request_guard: Callable[..., None], context: AuthoringContext) -> None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 108)
+- `_excerpt(text: str, limit: int=280) -> str` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 146)
+- `_vault_evidence_facet_unions(vault: LoadedVault) -> dict[str, list[str]]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 252) — Per-LO union of canonical evidence facet ids across blueprints and items.
+- `_vault_surface_family_unions(vault: LoadedVault) -> dict[str, list[str]]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 273)
+- `_diagnostic_payload_fatal_misconception_ids(payload: dict[str, Any]) -> set[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 377)
+- `_has_id_collision(item: AuthoringProposalItem, vault: LoadedVault) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 479)
+- `_diagnostic_proposal_item_row(item: AuthoringProposalItem, now: str, *, vault: LoadedVault, proposal: AuthoringProposal, provider: str, context: DiagnosticTarget) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 677) — Persisted row for a diagnostic-authoring item: base validation + §5.3 checks.
+- `_gate_target_record(payload: dict[str, Any], target: DiagnosticTarget, records_by_id: dict[str, MisconceptionRecord]) -> MisconceptionRecord | None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 716) — The registry belief a generated item is gated against (its keyed fatal, else first).
+- `_reopen_need_after_gate_failure(repository: Repository, *, need_id: str, patch_id: str, item_id: str | None, results: list[GateResult], need: dict[str, Any]) -> None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 733) — Reopen the need with the sim estimates attached (spec §6 reopen).
+- `_proposal_with_context_source_refs(proposal: AuthoringProposal, context_source_refs: list[dict[str, Any]]) -> AuthoringProposal` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 882)
+- `_agent_provider_fields(client: AIProviderClient, *, model: str | None, provider_revision: str | None) -> dict[str, str | None]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 954)
+- `_diagnostic_reopen_candidates(repository: Repository, patch_id: str, item_ids: list[str] | None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1081)
+- `_is_diagnostic_probe_item(item: dict[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1096)
+- `_normalize_diagnostic_probe_mode(vault: LoadedVault, repository: Repository, patch_id: str, diagnostic_items: list[dict[str, Any]], *, clock: Clock | None=None) -> None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1113) — Stamp ``practice_mode: diagnostic_probe`` on accepted diagnostic items.
+- `_reopen_diagnostic_needs_for_rejected_items(repository: Repository, patch_id: str, candidate_items: list[dict[str, Any]]) -> None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1164)
+- `_need_ids_for_diagnostic_item(item: dict[str, Any], queued_by_id: dict[str, dict[str, Any]], patch_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1205)
+- `_queue_accepted_diagnostic_followups_for_patch(repository: Repository, patch_id: str, diagnostic_items: list[dict[str, Any]]) -> int` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1408)
+- `_accepted_practice_item_id(item: dict[str, Any]) -> str | None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1429)
+- `_append_intervention_queued_action(repository: Repository, attempt_id: str, practice_item_id: str) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1437)
+- `_hold_required_method_to_rule(payload: dict[str, Any], item: AuthoringProposalItem, vault: LoadedVault) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1518) — Method-explicit items (owner rule 2026-10-13) on a generated practice item.
+- `_repair_invalid_proposal_items(codex_client: AIProviderClient, context: AuthoringContext, proposal: AuthoringProposal, rows: list[dict[str, Any]], *, vault: LoadedVault, provider: str, now: str, request_guard: Callable[..., None] | None=None) -> tuple[AuthoringProposal, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1575) — One-shot self-repair for items that failed deterministic validation.
+- `_source_refs_for_item(source_refs: list[SourceRef], source_ref_ids: list[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1665)
+- `_provenance_for_refs(source_refs: list[dict[str, Any]], provider: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1674)
+- `_backfill_practice_item_facet_weights(item: AuthoringProposalItem, vault: LoadedVault) -> None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1683) — Derive only facet-weight links that are logically unambiguous.
+- `_has_direct_grounding(source_refs: list[SourceRef], source_ref_ids: list[str]) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1728)
+- `_validation_errors(item: AuthoringProposalItem, vault: LoadedVault, source_refs: list[SourceRef], *, proposal: AuthoringProposal | None=None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1734)
+- `_source_statement_edit_errors(vault: LoadedVault, payload: dict[str, Any], entity_id: Any) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1782) — An update that would rewrite a statement whose required method was decided on its wording (review F15; ``rewrites_decided_statement``).
+- `_validation_warnings(item: AuthoringProposalItem, vault: LoadedVault, *, proposal: AuthoringProposal | None=None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1792)
+- `_instrument_gate_errors(payload: dict[str, Any], vault: LoadedVault, repository: Repository | None=None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1809) — Report-only instrument-gate verdicts for the edit/refresh door.
+- `_edited_payload_validation_errors(item: dict[str, Any], edited_payload: dict[str, Any], vault: LoadedVault, *, batch_source_refs: list[dict[str, Any]] | None=None, repository: Repository | None=None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1838)
+- `_payload_source_ref_validation_errors(payload: dict[str, Any], vault: LoadedVault, batch_source_refs: list[dict[str, Any]] | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1878)
+- `_payload_source_ref_dicts(payload: dict[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1901)
+- `_dedupe_preserve_order(values: list[str]) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1911)
+- `_required_create_payload_errors(item_type: str, payload: dict[str, Any], vault: LoadedVault, proposal: AuthoringProposal | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1922)
+- `_missing(value: Any) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1963)
+- `_attempt_type_validation_errors(payload: dict[str, Any]) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1967)
+- `_practice_item_metadata_errors(payload: dict[str, Any], vault: LoadedVault, proposal: AuthoringProposal | None, *, generated: bool) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 1974)
+- `_teach_back_rubric_errors(payload: dict[str, Any], evidence_facets: list[str], criterion_facet_weights: dict[str, dict[str, float]]) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2049) — Structural checks for teach_back rubrics beyond the generic rubric rules.
+- `_criterion_target_errors(criterion: dict[str, Any], *, criterion_ids: set[str], single_criterion: bool) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2087) — Structural checks on A1's authored criterion targets (Meas §3.A1).
+- `_practice_item_rubric_errors(payload: dict[str, Any]) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2144)
+- `_practice_item_metadata_warnings(payload: dict[str, Any], vault: LoadedVault, proposal: AuthoringProposal | None, *, generated: bool) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2206)
+- `_generated_practice_reward_metadata_errors(payload: dict[str, Any], evidence_facets: list[str], vault: LoadedVault, proposal: AuthoringProposal | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2257)
+- `_rubric_criterion_ids(payload: dict[str, Any], vault: LoadedVault, proposal: AuthoringProposal | None) -> set[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2292)
+- `_rubric_fatal_error_ids(payload: dict[str, Any], vault: LoadedVault, proposal: AuthoringProposal | None) -> set[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2311)
+- `_string_list(value: Any) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2330)
+- `_float_map(value: Any) -> dict[str, float]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2336)
+- `_nested_float_map(value: Any) -> dict[str, dict[str, float]]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2348)
+- `_generated_practice_audit_error(item: AuthoringProposalItem) -> str | None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2357)
+- `_looks_source_linked_generated(item: AuthoringProposalItem) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2372)
+- `_available_concept_ids(vault: LoadedVault, proposal: AuthoringProposal | None) -> set[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2393)
+- `_available_learning_object_ids(vault: LoadedVault, proposal: AuthoringProposal | None) -> set[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2409)
+- `_concept_edge_validation_errors(payload: dict[str, Any], vault: LoadedVault, proposal: AuthoringProposal | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2421)
+- `_default_edge_id(payload: dict[str, Any]) -> str | None` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2449)
+- `_unresolved_source_ref_ids(vault: LoadedVault, source_refs: list[SourceRef], source_ref_ids: list[str]) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2460)
+- `_source_ref_resolves(vault: LoadedVault, source: SourceRef) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2474)
+- `_path_matches(source_path: str | None, note_path: str | None) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/proposals.py), line 2506)
 
 ## Who imports or calls it
 
@@ -183,11 +183,12 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/authoring/authoring_gates|learnloop.content.authoring.authoring_gates]] — imports `selected_response_reasons`; calls `selected_response_reasons`
 - [[Reference/Modules/learnloop/content/authoring/persona_gate|learnloop.content.authoring.persona_gate]] — imports `GateDecision`, `PersonaGate`; calls `PersonaGate`
 - [[Reference/Modules/learnloop/content/proposals/ai_contracts|learnloop.content.proposals.ai_contracts]] — imports `AUTHORING_PROMPT_VERSION`, `AuthoringContext`, `AuthoringProposal`, `AuthoringProposalItem`, `DIAGNOSTIC_AUTHORING_PROMPT`, `DIAGNOSTIC_AUTHORING_PROMPT_VERSION`, `SourceRef`, `authoring_prompt`; calls `AuthoringContext`, `authoring_prompt`
-- [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `PatchApplyResult`, `apply_accepted_items`, `reject_applied_items`; calls `apply_accepted_items`, `reject_applied_items`
+- [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `PatchApplyResult`, `apply_accepted_items`, `refuse_while_an_apply_is_outstanding`, `refuse_while_an_apply_names_items`, `reject_applied_items`; calls `apply_accepted_items`, `refuse_while_an_apply_is_outstanding`, `refuse_while_an_apply_names_items`, `reject_applied_items`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `MisconceptionRecord`, `Repository`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_gate|learnloop.diagnosis.diagnostic_gate]] — imports `GateResult`, `run_discrimination_gate`; calls `run_discrimination_gate`
 - [[Reference/Modules/learnloop/diagnosis/missing_vocabulary|learnloop.diagnosis.missing_vocabulary]] — imports `record_authoring_facet_abstention_notes`; calls `record_authoring_facet_abstention_notes`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`, `snake_case`; calls `new_ulid`, `snake_case`
+- [[Reference/Modules/learnloop/ops/vault_lock|learnloop.ops.vault_lock]] — imports `vault_mutation_lock`; calls `vault_mutation_lock`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `CAPABILITY_VOCABULARY`, `LoadedVault`, `PracticeItem`, `learning_object_facet_union`; calls `learning_object_facet_union`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
@@ -220,6 +221,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_persist_authoring_proposal_records_agent_run`
 - [tests/test_apply_recovery.py](../../../../../../../tests/test_apply_recovery.py) — direct import
   - `test_an_undo_with_a_pending_intent_is_refused`
+  - `test_deleting_a_pending_item_is_refused_while_an_apply_is_outstanding`
+  - `test_editing_an_item_an_outstanding_intent_names_is_refused`
+  - `test_rejecting_a_pending_item_is_refused_while_an_apply_is_outstanding`
 - [tests/test_authoring_context.py](../../../../../../../tests/test_authoring_context.py) — direct import
   - `test_authoring_context_carries_focus_concepts_and_facets`
   - `test_authoring_context_filters_by_subject`
@@ -331,6 +335,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f14_a_generated_update_quoting_the_sentence_is_stored_verbatim_and_the_block_rendered`
   - `test_f21_clearing_or_renaming_never_edits_the_statement`
 - [tests/test_required_method_round3_review.py](../../../../../../../tests/test_required_method_round3_review.py) — direct import
+- [tests/test_rerun_proposals.py](../../../../../../../tests/test_rerun_proposals.py) — direct import
+  - `test_a_bootstrap_whose_proposal_was_wholly_rejected_pays_for_a_fresh_one`
+  - `test_a_partly_rejected_proposal_is_returned_with_its_rejections_kept`
+  - `test_a_repaired_candidate_equal_to_a_rejected_proposal_is_refused`
+  - `test_an_append_whose_proposal_was_wholly_rejected_pays_for_a_fresh_one`
 - [tests/test_show.py](../../../../../../../tests/test_show.py) — direct import
   - `test_show_inspects_every_deterministic_id`
 - [tests/test_source_ingestion.py](../../../../../../../tests/test_source_ingestion.py) — direct import

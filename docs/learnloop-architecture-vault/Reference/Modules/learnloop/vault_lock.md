@@ -134,6 +134,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_vault_mutation_lock_is_reentrant_per_thread_only`
 - [tests/test_apply_recovery.py](../../../../../tests/test_apply_recovery.py) — direct import
   - `test_a_bind_with_nothing_pending_takes_no_apply_lock`
+  - `test_the_book_cards_undo_holds_the_vault_lock_from_its_check_to_its_last_change`
 - [tests/test_ingest_ownership.py](../../../../../tests/test_ingest_ownership.py) — direct import
   - `test_a_busy_vault_lock_defers_lease_work_instead_of_failing`
   - `test_stale_worker_cannot_finish_or_publish_after_replacement`

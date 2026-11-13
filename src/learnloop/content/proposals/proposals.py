@@ -31,7 +31,14 @@ from learnloop.ai.runs import finish_agent_run
 from learnloop.diagnosis.diagnostic_gate import GateResult, run_discrimination_gate
 from learnloop.ids import new_ulid
 from learnloop.ai.usage import consume_client_usage
-from learnloop.content.proposals.patches import PatchApplyResult, apply_accepted_items, reject_applied_items
+from learnloop.content.proposals.patches import (
+    PatchApplyResult,
+    apply_accepted_items,
+    refuse_while_an_apply_is_outstanding,
+    refuse_while_an_apply_names_items,
+    reject_applied_items,
+)
+from learnloop.ops.vault_lock import vault_mutation_lock
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import (
     CAPABILITY_VOCABULARY,
@@ -1061,8 +1068,11 @@ def reject_items(root: Path, patch_id: str, item_ids: list[str] | None = None) -
     vault = load_vault(root)
     repository = vault_repository(VaultPaths(vault.root, vault.config))
     diagnostic_reopen_candidates = _diagnostic_reopen_candidates(repository, patch_id, item_ids)
-    applied_count = reject_applied_items(root, patch_id, item_ids)
-    pending_count = repository.set_proposal_item_decision(patch_id, "rejected", item_ids)
+    # One lock over the undo and the pending decision: an apply that commits its
+    # intent between them would find its items rejected under it.
+    with vault_mutation_lock(vault.root, purpose="proposal_reject"):
+        applied_count = reject_applied_items(root, patch_id, item_ids)
+        pending_count = repository.set_proposal_item_decision(patch_id, "rejected", item_ids)
     if applied_count + pending_count:
         _reopen_diagnostic_needs_for_rejected_items(repository, patch_id, diagnostic_reopen_candidates)
     return applied_count + pending_count
@@ -1241,13 +1251,15 @@ def edit_proposal_item(
         repository=repository,
     )
     validation_status = "invalid" if validation_errors else "valid"
-    updated = repository.update_proposal_item_edited_payload(
-        item_id,
-        edited_payload=edited_payload,
-        validation_status=validation_status,
-        validation_errors=validation_errors,
-        clock=clock,
-    )
+    with vault_mutation_lock(vault.root, purpose="proposal_edit"):
+        refuse_while_an_apply_names_items(repository, patch_id, [item_id], action="edit")
+        updated = repository.update_proposal_item_edited_payload(
+            item_id,
+            edited_payload=edited_payload,
+            validation_status=validation_status,
+            validation_errors=validation_errors,
+            clock=clock,
+        )
     if not updated:
         raise ValueError(f"Proposal item {item_id} could not be edited")
     refreshed = repository.proposal_item(item_id)
@@ -1282,12 +1294,14 @@ def refresh_proposal_item_validation(
         repository=repository,
     )
     validation_status = "invalid" if validation_errors else "valid"
-    updated = repository.update_proposal_item_validation(
-        item_id,
-        validation_status=validation_status,
-        validation_errors=validation_errors,
-        clock=clock,
-    )
+    with vault_mutation_lock(vault.root, purpose="proposal_refresh"):
+        refuse_while_an_apply_names_items(repository, patch_id, [item_id], action="refresh")
+        updated = repository.update_proposal_item_validation(
+            item_id,
+            validation_status=validation_status,
+            validation_errors=validation_errors,
+            clock=clock,
+        )
     if not updated:
         raise ValueError(f"Proposal item {item_id} could not be refreshed")
     refreshed = repository.proposal_item(item_id)
@@ -1310,9 +1324,14 @@ def delete_proposal_item(root: Path, patch_id: str, item_id: str) -> bool:
     item = repository.proposal_item(item_id)
     if item is None or item["proposed_patch_id"] != patch_id:
         raise ValueError(f"Proposal item {item_id} was not found in proposal {patch_id}")
-    if item.get("applied_change_batch_id") is not None:
-        reject_applied_items(root, patch_id, [item_id])
-    return repository.delete_proposal_item(item_id)
+    # Refused as an accept and an undo are, under the lock an apply holds: a
+    # deleted pending item an outstanding intent names would be applied by
+    # recovery with no inbox row left to undo it.
+    with vault_mutation_lock(vault.root, purpose="proposal_delete"):
+        refuse_while_an_apply_is_outstanding(repository, action="delete")
+        if item.get("applied_change_batch_id") is not None:
+            reject_applied_items(root, patch_id, [item_id])
+        return repository.delete_proposal_item(item_id)
 
 
 def accept_items(

@@ -170,3 +170,75 @@ def test_write_yaml_atomic_round_trips(tmp_path):
     target = tmp_path / "nested" / "x.yaml"
     write_yaml_atomic(target, {"a": 1})
     assert target.read_text(encoding="utf-8").strip() == "a: 1"
+
+
+def test_a_snapshot_loaded_from_an_empty_file_stays_unreadable_after_the_file_is_restored(vault_with_exam):
+    """The gate judges the sets the reader will use: a snapshot with no source sets because the file was
+    empty when it loaded must not pass once the file is back, the snapshot still has none."""
+
+    paths, repository = vault_with_exam
+    valid = paths.source_sets_path.read_text(encoding="utf-8")
+    _corrupt(paths, "empty")
+    vault = load_vault(paths.root)
+    paths.source_sets_path.write_text(valid, encoding="utf-8")
+    assert vault.source_sets == []
+    with pytest.raises(EM.SourceSetsUnreadable):
+        EM.exam_material(vault, repository)
+    assert not EM.protection_issues(load_vault(paths.root))
+
+
+def test_two_source_set_saves_that_read_the_same_file_do_not_lose_one_another(vault_with_exam, monkeypatch):
+    """The read-modify-write runs under the vault mutation lock: the save that reads second waits for the
+    first to publish, so the exam membership the first adds survives the second."""
+
+    import threading
+
+    from learnloop.vault import writer as writer_module
+
+    paths, _repository = vault_with_exam
+    base = {"subject_id": "linear-algebra", "members": []}
+    exam = {"id": "sset_exam_two", "title": "Exam", **base,
+            "members": [{"source_id": "src_exam", "revision_id": "rev_exam", "default_role": "exam"}]}
+    other = {"id": "sset_other", "title": "Other", **base}
+
+    real_read = writer_module._read_yaml_or
+    first_read = threading.Event()
+    second_started = threading.Event()
+
+    def pausing_read(path, default):
+        data = real_read(path, default)
+        if threading.current_thread().name == "first":
+            first_read.set()
+            second_started.wait(0.5)  # the other save has begun; unlocked, it reads this same file now
+        return data
+
+    monkeypatch.setattr(writer_module, "_read_yaml_or", pausing_read)
+
+    def first():
+        upsert_source_set(paths.root, exam)
+
+    def second():
+        first_read.wait(5)
+        second_started.set()
+        upsert_source_set(paths.root, other)
+
+    threads = [threading.Thread(target=first, name="first"), threading.Thread(target=second, name="second")]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(30)
+
+    ids = {source_set.id for source_set in load_vault(paths.root).source_sets}
+    assert {"sset_exam_two", "sset_other"} <= ids
+
+
+def test_a_symlinked_source_sets_file_is_written_through_and_the_link_stays(tmp_path):
+    shared = tmp_path / "shared" / "source_sets.yaml"
+    shared.parent.mkdir()
+    shared.write_text("schema_version: 1\nsource_sets: []\n", encoding="utf-8")
+    link = tmp_path / "vault" / "source_sets.yaml"
+    link.parent.mkdir()
+    link.symlink_to(shared)
+    write_yaml_atomic(link, {"schema_version": 1, "source_sets": [{"id": "sset_x"}]})
+    assert link.is_symlink() and link.resolve() == shared.resolve()
+    assert "sset_x" in shared.read_text(encoding="utf-8")

@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/proposals/apply_protocol.py](../../../../../../../src/learnloop/content/proposals/apply_protocol.py) |
-| Source lines | 748 |
+| Source lines | 778 |
 | Owning package | [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -58,16 +58,18 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `text_hash(text: str) -> str` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 69) — A target's ``post_hash`` for ``text``, in the form the readers compare.
 - `compute_dependency_closure(repository: Repository, requested: list[dict[str, Any]]) -> tuple[list[str], dict[str, dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 88) — Split the requested items into an applyable ordered closure and a blocked set (source-ingestion §10.2).
 - `stage_target_contents(root: Path, vault: LoadedVault, ordered_items: list[dict[str, Any]], origin: str, patch_id: str, *, clock: Clock | None, facet_authority: Any=None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 175) — Replay the compiled writers against a throwaway staging copy and capture the final target file contents plus the DB side-effect plan.
-- `entity_source_link_rows(entity_type: str, entity_id: str, payload: Any, patch_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 343) — The entity_source_links rows a payload's ``provenance.source_refs`` record (fixed ids).
-- `class ApplyTargetConflict(Exception)` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 359) — Target files hold neither the intent's pre-image nor its post-image (K3.5).
-  - `__init__(self, conflicts: list[dict[str, Any]]) -> None` (line 367; internal)
-- `target_conflicts(root: Path, targets: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 373) — The targets whose file holds neither ``pre_hash`` (absent when ``None``) nor ``post_hash``.
-- `materialize_targets(root: Path, targets: list[dict[str, Any]]) -> None` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 402) — Write each target via a staged fsynced temp file and an atomic rename.
-- `perform_db_effects(repository: Repository, db_plan: list[dict[str, Any]], *, clock: Clock | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 456) — Record proposal decisions, content events, and provenance links.
-- `complete_apply_intent(root: Path, repository: Repository, intent: dict[str, Any], *, clock: Clock | None=None) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 655) — Finish one pending (or re-checked conflicted) intent; False when it is conflicted.
-- `recover_apply_intents(root: Path, repository: Repository, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 683) — Complete any apply intent left mid-flight (sidecar bind and doctor recovery, §10.2).
-- `class ApplyIntentResolutionError(ValueError)` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 709) — An owner's resolution that does not fit the intent's state.
-- `resolve_apply_intent(root: Path, repository: Repository, intent_id: str, resolution: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 713) — The maintenance feed's action on an outstanding intent (K3.5).
+- `entity_source_link_rows(entity_type: str, entity_id: str, payload: Any, patch_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 361) — The entity_source_links rows a payload's ``provenance.source_refs`` record (fixed ids).
+- `class ApplyTargetConflict(Exception)` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 377) — Target files hold neither the intent's pre-image nor its post-image (K3.5).
+  - `__init__(self, conflicts: list[dict[str, Any]]) -> None` (line 385; internal)
+- `target_conflicts(root: Path, targets: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 391) — The targets whose file holds neither ``pre_hash`` (absent when ``None``) nor ``post_hash``.
+- `materialize_targets(root: Path, targets: list[dict[str, Any]]) -> None` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 420) — Write each target via a staged fsynced temp file and an atomic rename.
+- `class ApplyIntentItemMissing(RuntimeError)` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 474) — An apply intent names a proposal item that no longer exists.
+  - `__init__(self, item_id: str) -> None` (line 477; internal)
+- `perform_db_effects(repository: Repository, db_plan: list[dict[str, Any]], *, clock: Clock | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 482) — Record proposal decisions, content events, and provenance links.
+- `complete_apply_intent(root: Path, repository: Repository, intent: dict[str, Any], *, clock: Clock | None=None) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 685) — Finish one pending (or re-checked conflicted) intent; False when it is conflicted.
+- `recover_apply_intents(root: Path, repository: Repository, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 713) — Complete any apply intent left mid-flight (sidecar bind and doctor recovery, §10.2).
+- `class ApplyIntentResolutionError(ValueError)` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 739) — An owner's resolution that does not fit the intent's state.
+- `resolve_apply_intent(root: Path, repository: Repository, intent_id: str, resolution: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 743) — The maintenance feed's action on an outstanding intent (K3.5).
 
 ### Module constants
 
@@ -79,14 +81,15 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `_sha256_bytes(data: bytes) -> str` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 65)
 - `_holds(found: str | None, recorded: str | None) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 75) — Whether a file's hash (``_sha256_bytes``; ``None``: no file) is the one a target recorded.
 - `_topological_order(repository: Repository, requested_by_id: dict[str, dict[str, Any]], applyable: list[str], deps: dict[str, list[str]]) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 140)
-- `_stamp_side_effect(side_effect: dict[str, Any] | None, patch_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 242) — Stamp the accepting patch id onto a specialized additive side effect (§10.2).
-- `_diff_targets(real_root: Path, staging_root: Path) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 252)
-- `_database_name(vault: LoadedVault) -> str` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 280)
-- `_is_ignored(rel: Path) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 284)
-- `_entity_source_link_rows(entity_type: str, entity_id: str, payload: Any, patch_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 291) — Map a created entity's YAML ``provenance.source_refs`` snapshot into entity_source_links rows (source-ingestion §9.1).
-- `_fsync_dir(directory: Path) -> None` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 440)
-- `_perform_side_effect(repository: Repository, side_effect: dict[str, Any] | None, created_at: str, clock: Clock | None) -> None` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 519) — Apply a specialized additive item's DB write (§10.2).
-- `_run_id_for_patch(repository: Repository, patch_id: str | None) -> str` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 639) — The synthesis run that produced a proposal, so its job lists the reword.
+- `_stamp_side_effect(side_effect: dict[str, Any] | None, patch_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 247) — Stamp the accepting patch id onto a specialized additive side effect (§10.2).
+- `_tree_hashes(root: Path) -> dict[str, str]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 257) — ``rel_path -> hash`` of every file the apply may target under ``root``.
+- `_changed_targets(staging_root: Path, baseline: dict[str, str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 271) — The files the replayed writers changed or created, each recording the hash staging first read as its pre-image (``None`` for a new file).
+- `_database_name(vault: LoadedVault) -> str` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 298)
+- `_is_ignored(rel: Path) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 302)
+- `_entity_source_link_rows(entity_type: str, entity_id: str, payload: Any, patch_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 309) — Map a created entity's YAML ``provenance.source_refs`` snapshot into entity_source_links rows (source-ingestion §9.1).
+- `_fsync_dir(directory: Path) -> None` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 458)
+- `_perform_side_effect(repository: Repository, side_effect: dict[str, Any] | None, created_at: str, clock: Clock | None) -> None` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 549) — Apply a specialized additive item's DB write (§10.2).
+- `_run_id_for_patch(repository: Repository, patch_id: str | None) -> str` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 669) — The synthesis run that produced a proposal, so its job lists the reword.
 
 ## Who imports or calls it
 
@@ -142,6 +145,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_complete_finishes_a_pending_intent_and_rechecks_a_conflicted_one`
   - `test_keep_files_sets_the_intent_aside_and_accepts_open_again`
   - `test_materialize_writes_over_the_pre_image_only`
+  - `test_only_the_files_the_items_change_become_targets`
+  - `test_recovery_fails_loudly_when_an_intent_names_an_item_that_is_gone`
   - `test_recovery_keeps_a_file_changed_after_the_intent_and_marks_it_conflicted`
   - `test_recovery_runs_the_content_recalibration`
   - `test_the_apply_recalibrates_before_it_marks_the_intent_applied`

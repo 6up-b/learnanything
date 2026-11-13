@@ -7,9 +7,9 @@ hero line, or a three-line haiku — and they are appended to ``vault_epigraphs`
 (migration 158) for the desktop Start screen to cycle.
 
 Best-effort by contract: :func:`generate_vault_epigraphs` never raises and never
-changes the outcome of the paid synthesis it follows. A manifest cache hit
-(``reused=True``) and candidate revalidation produce no epigraphs — no new
-material was synthesized. Validation is in code, never trusted from the model:
+changes the outcome of the paid synthesis it follows. A run whose proposal is
+an earlier equal one (``reused=True``, ``proposal_match``) and candidate
+revalidation produce no epigraphs — no new material was persisted. Validation is in code, never trusted from the model:
 kind, line counts, length caps, and a dedupe against the subject's recent rows.
 """
 
@@ -304,7 +304,7 @@ def _generate(
     )
     checkpoint = epigraph_checkpoint(repository, client, context)
     try:
-        batch, _reused = checkpoint.answer(lambda: request_vault_epigraphs(client, context))
+        batch, _reused, stored = checkpoint.answer_stored(lambda: request_vault_epigraphs(client, context))
     finally:
         # The synthesis already drained its own usage before this hook ran;
         # anything left in the accumulator is ours, and must not leak into the
@@ -328,7 +328,7 @@ def _generate(
     if not accepted:
         # A batch the checks rejected whole is dropped: kept, every retry of
         # this request would read it back into the same empty result for free.
-        checkpoint.discard()
+        checkpoint.discard(stored)
         logger.info("vault epigraphs: nothing valid returned for %s (run %s)", subject_id, synthesis_run_id)
         return []
 

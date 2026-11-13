@@ -214,6 +214,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_upgrades.py](../../../../../../tests/test_upgrades.py) — direct import
   - `test_a_failure_before_the_commit_leaves_the_predecessor_readable_and_no_journal`
   - `test_a_journal_left_after_the_commit_is_just_removed`
+  - `test_a_journal_that_cannot_be_read_is_kept_and_the_vault_is_not_opened`
   - `test_a_torn_journal_is_removed_and_nothing_activates`
 - [tests/test_version_floor.py](../../../../../../tests/test_version_floor.py) — direct import
   - `test_a_journal_from_the_floor_is_still_completed_by_an_opener`

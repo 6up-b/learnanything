@@ -290,6 +290,24 @@ def _source_sets_caught_empty(root: Path, vault: LoadedVault, files: dict[str, t
     return found[0] == 0
 
 
+def refuse_vault_below_floor(vault_root: Path) -> None:
+    """Raise :class:`learnloop.version_floor.BelowOldestSupported` when the vault at ``vault_root`` is below the
+    oldest supported tag, reading only its ``learnloop.toml`` (no environment).
+
+    For the doors that write or read before they load the vault, or never load it (a config repair, a project
+    store, a token, a source set): :func:`load_vault` refuses too, but only when it runs. A missing or unreadable
+    config is left to the command's own load to report (``doctor`` reports it)."""
+
+    config_path = Path(vault_root) / "learnloop.toml"
+    if not config_path.is_file():
+        return
+    try:
+        config = load_config(config_path, load_environment=False)
+    except Exception:  # noqa: BLE001 - the command's own load reports an unreadable config
+        return
+    refuse_below_floor(Path(vault_root), config)
+
+
 def load_vault(
     root: Path | None = None,
     *,
@@ -330,6 +348,16 @@ def load_vault(
     source_sets_file = _load_yaml_model(paths.source_sets_path, SourceSetsFile, issues, read_yaml_file)
     if source_sets_file:
         loaded.source_sets = source_sets_file.source_sets
+        # An empty file parses as no source sets, with no error. The snapshot must say so for as long as it
+        # lives: a gate that only re-reads the file would pass once the file is restored, and the snapshot
+        # would still hold no exam membership.
+        try:
+            empty = paths.source_sets_path.is_file() and not paths.source_sets_path.read_bytes().strip()
+        except OSError:
+            empty = True
+        if empty:
+            issues.append(DoctorIssue(
+                "yaml:empty", f"{paths.source_sets_path.name} was empty when it loaded", paths.source_sets_path))
 
     error_types_file = _load_yaml_model(paths.error_types_path, ErrorTypesFile, issues, read_yaml_file)
     if error_types_file:

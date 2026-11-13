@@ -134,9 +134,61 @@ def _door_phone_host(root: Path) -> str:
     return str(refused.value)
 
 
+def _cli_refused_unchanged(root: Path, args: list[str], *, exit_code: int | None = None) -> str:
+    """Run a CLI command on the vault: refused, and nothing in the vault written or created."""
+
+    before = {path: path.read_bytes() for path in root.rglob("*") if path.is_file()}
+    result = CliRunner().invoke(app, [*args, "--vault", str(root)])
+    after = {path: path.read_bytes() for path in root.rglob("*") if path.is_file()}
+    assert sorted(after) == sorted(before), sorted(set(after) ^ set(before))
+    assert all(after[path] == before[path] for path in before), [p for p in before if after[p] != before[p]]
+    if exit_code is not None:
+        assert result.exit_code == exit_code, result.output
+        return result.output
+    assert isinstance(result.exception, BelowOldestSupported), result.output
+    return str(result.exception)
+
+
+def _door_doctor_fix(root: Path) -> str:
+    # A setting `doctor --fix` would rewrite (an active provider pinned to Codex).
+    config = root / "learnloop.toml"
+    config.write_text(config.read_text("utf-8").replace('active_provider = "chatgpt"', 'active_provider = "codex"', 1),
+                      encoding="utf-8")
+    return _cli_refused_unchanged(root, ["doctor", "--fix"])
+
+
+def _door_mcp_activity(root: Path) -> str:
+    # Exit 78 as `mcp serve` refuses, so a supervisor does not restart it in a loop.
+    return _cli_refused_unchanged(root, ["mcp", "activity", "--json"], exit_code=78)
+
+
+def _door_mcp_token(root: Path) -> str:
+    return _cli_refused_unchanged(root, ["mcp", "token", "show", "--json"], exit_code=78)
+
+
+def _door_project_enroll(root: Path) -> str:
+    import subprocess
+
+    repo = root.parent / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q",
+                    "--allow-empty", "-m", "first"], check=True)
+    return _cli_refused_unchanged(root, ["project", "enroll", str(repo), "--json"])
+
+
+def _door_source_set_create(root: Path) -> str:
+    return _cli_refused_unchanged(root, ["source-set", "create", "set_new", "--subject", "linear-algebra"])
+
+
 DOORS = {
     "load_vault": _door_load_vault,
     "cli": _door_cli,
+    "doctor_fix": _door_doctor_fix,
+    "mcp_activity": _door_mcp_activity,
+    "mcp_token": _door_mcp_token,
+    "project_enroll": _door_project_enroll,
+    "source_set_create": _door_source_set_create,
     "rebuild": _door_rebuild,
     "shadow_rebuild": _door_shadow_rebuild,
     "doctor": _door_doctor,
@@ -152,6 +204,31 @@ def test_a_vault_below_the_floor_is_refused_at_each_door(tmp_path, door):
     root = _below_floor_vault(tmp_path)
     message = DOORS[door](root)
     _assert_names_the_three_parts(message, root.resolve(), BELOW)
+
+
+GUARD_ROUTE = "set `recurrence.require_guard = false`"
+
+
+@pytest.mark.parametrize(("tag", "require_guard", "named"), [
+    ("mvp-0.11", True, True),     # pre-floor's mvp-0.12 link refuses until the guard passes
+    ("mvp-0.11", False, False),   # the guard is advisory there: nothing to do first
+    (BELOW, True, False),         # already past mvp-0.12: the guard gates nothing on the route
+])
+def test_the_route_names_what_works_at_pre_floor_for_a_required_guard(tmp_path, tag, require_guard, named):
+    # At pre-floor only `learnloop upgrade` opens a vault below the floor, so the `recurrence guard` its mvp-0.12
+    # refusal asks for cannot run there (nor here); the tag's documented key makes the guard advisory.
+    paths = create_basic_vault(tmp_path / "vault")
+    _retag(paths.root, tag)
+    config = paths.root / "learnloop.toml"
+    config.write_text(config.read_text("utf-8") + f"\n[recurrence]\nrequire_guard = {str(require_guard).lower()}\n",
+                      encoding="utf-8")
+    with pytest.raises(BelowOldestSupported) as refused:
+        load_vault(paths.root)
+    message = str(refused.value)
+    _assert_names_the_three_parts(message, paths.root.resolve(), tag)
+    assert (GUARD_ROUTE in message) is named, message
+    if named:
+        assert "`learnloop recurrence guard` cannot run on a vault below" in message
 
 
 @pytest.mark.parametrize("tag", sorted({OLDEST_SUPPORTED, LATEST_ALGORITHM_VERSION}))

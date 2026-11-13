@@ -248,6 +248,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followups_batch6_verify_fixes.py](../../../../../../tests/test_followups_batch6_verify_fixes.py) — direct import
 - [tests/test_k1_mcp_find_sources.py](../../../../../../tests/test_k1_mcp_find_sources.py) — direct import
   - `test_a_diagnostic_probe_items_own_passage_is_not_returned`
+  - `test_a_reserved_probe_passage_never_reaches_the_verification_model`
 - [tests/test_k1_source_sets_gate.py](../../../../../../tests/test_k1_source_sets_gate.py) — direct import
   - `test_the_tutor_figures_and_phone_withhold_when_source_sets_did_not_load`
 - [tests/test_passage_links.py](../../../../../../tests/test_passage_links.py) — direct import

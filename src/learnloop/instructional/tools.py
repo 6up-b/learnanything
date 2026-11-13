@@ -324,6 +324,18 @@ def _model_withheld(vault: LoadedVault, repository: Repository,
     return withheld
 
 
+def _lane_rule(vault: LoadedVault, repository: Repository, withhold: _Withhold) -> Callable[[Sequence[Any]], dict[tuple[str, str], str]]:
+    """The retrieval's ``withhold`` rule for this tool: the spans a model may not read (solutions, assessment
+    lane), so the search's verification and comparison models never read them. Counted on ``withhold`` as the
+    view counts what it drops."""
+
+    def rule(pool: Sequence[Any]) -> dict[tuple[str, str], str]:
+        return _model_withheld(vault, repository, [(str(hit.extraction_id), str(hit.span_id)) for hit in pool],
+                               withhold)
+
+    return rule
+
+
 def _sources_view(vault: LoadedVault, repository: Repository, hits: Any, withhold: _Withhold) -> dict[str, Any]:
     withheld = _model_withheld(vault, repository, [(hit["extraction_id"], hit["span_id"]) for hit in hits.hits],
                                withhold)
@@ -444,7 +456,8 @@ def execute_tool(vault: LoadedVault, repository: Repository, name: str, args: _A
                                learning_object_ids=list(caller.learning_object_ids), facet_ids=args.facet_ids,
                                roles=args.roles, target_hypotheses=[ref.model_dump() for ref in args.target_hypotheses],
                                verify=True, rerank_client=client.get("source_rerank"),
-                               embedder=injected.get("embedder"), clock=clock)
+                               embedder=injected.get("embedder"), clock=clock,
+                               withhold=_lane_rule(vault, repository, withhold))
         view = _sources_view(vault, repository, hits, withhold)
         out.update(result=view,
                    result_ref=hits.manifest.get("manifest_hash") or content_key([hits.manifest])[:32],
@@ -457,7 +470,8 @@ def execute_tool(vault: LoadedVault, repository: Repository, name: str, args: _A
                                         requested_perspectives=args.requested_perspectives,
                                         client=client.get("source_compare"),
                                         verify_client=client.get("source_rerank"),
-                                        embedder=injected.get("embedder"), clock=clock)
+                                        embedder=injected.get("embedder"), clock=clock,
+                                        withhold=_lane_rule(vault, repository, withhold))
         # RW4d's whole-comparison rule before any of it is shown or read by a
         # model: a protected contributor withholds it whole (the run is
         # recorded failed with the refusal's code). The view's per-passage

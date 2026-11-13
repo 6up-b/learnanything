@@ -80,6 +80,27 @@ def test_an_inventory_prompt_edited_under_the_same_label_is_paid_once(tmp_path, 
     # The edited request's answer replaced the row's, under the same label.
     [row] = repo.unit_inventories_for_revision("rev1")
     assert row["id"] == again.inventory_id
+    assert edited.inventory_id == row["id"]  # the id the update returned is the one stored
+
+
+def test_an_inventory_rewritten_under_its_key_returns_and_marks_the_stored_id(tmp_path):
+    from learnloop.content.synthesis.ai_contracts import InventoryAssessmentSignal, SourceUnitInventory
+
+    repo = _one_unit(tmp_path)
+
+    def write(inventory_id: str, spans: list[str]) -> str:
+        inventory = SourceUnitInventory(unit_id="u1", semantic_hash="h1", assessment_signals=[
+            InventoryAssessmentSignal(held_out=True, task_family="proof", span_ids=spans)])
+        return repo.insert_unit_inventory(
+            id=inventory_id, source_revision_id="rev1", extraction_id="ext1", unit_id="u1", unit_semantic_hash="h1",
+            inventory_profile="assessment", inventory_schema_version=1, prompt_version="label-a", provider="fake",
+            model="fake", inventory=inventory.model_dump(), made_as_role="exam", clock=_CLOCK)
+
+    first = write("inv_first", ["s1"])
+    second = write("inv_second", ["s1", "s2"])
+
+    assert first == second == "inv_first"
+    assert {mark["inventory_id"] for mark in repo.held_out_signal_marks()} == {"inv_first"}
 
 
 def test_a_changed_inventory_model_is_paid_and_not_answered_by_the_old_row(tmp_path):

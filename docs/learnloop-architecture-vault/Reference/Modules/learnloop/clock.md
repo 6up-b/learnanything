@@ -1329,6 +1329,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_hard_correct_completes_probe_on_hypothesis_convergence`
 - [tests/test_item_authoring.py](../../../../../tests/test_item_authoring.py) — direct import
 - [tests/test_item_parameters.py](../../../../../tests/test_item_parameters.py) — direct import
+- [tests/test_k1_remediation_cold_reservation.py](../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import
+  - `test_a_cold_retry_that_expires_unanswered_releases_its_reservation`
+  - `test_an_episode_whose_cold_retry_was_never_scheduled_reserves_nothing_after_its_primed_attempt`
 - [tests/test_kinship_feature.py](../../../../../tests/test_kinship_feature.py) — direct import
 - [tests/test_km2_sim_gates.py](../../../../../tests/test_km2_sim_gates.py) — direct import
   - `test_no_capability_inflation_sim`
@@ -1750,6 +1753,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_required_method_round3.py](../../../../../tests/test_required_method_round3.py) — direct import
 - [tests/test_reread_safety.py](../../../../../tests/test_reread_safety.py) — direct import
   - `test_redesign_a_refresh_keeps_an_exam_scoped_member_on_its_revision`
+- [tests/test_rerun_proposals.py](../../../../../tests/test_rerun_proposals.py) — direct import
 - [tests/test_residual_diagnostics.py](../../../../../tests/test_residual_diagnostics.py) — direct import
   - `test_positive_residual_dependence_flags_missing_factor`
 - [tests/test_reveal_ledger.py](../../../../../tests/test_reveal_ledger.py) — direct import

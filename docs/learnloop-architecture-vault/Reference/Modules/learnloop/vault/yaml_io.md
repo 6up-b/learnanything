@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py) |
-| Source lines | 291 |
+| Source lines | 294 |
 | Owning package | [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -57,28 +57,28 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - `read_yaml_data(path: Path) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 45) — Load a YAML mapping as plain Python data, for callers that never write it back.
 - `write_yaml(path: Path, data: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 98)
 - `write_yaml_atomic(path: Path, data: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 105) — :func:`write_yaml` that never exposes a truncated file: a reader that opens ``path`` mid-write sees the old file or the new one, never an empty one (an empty source sets file reads as no exam material).
-- `yaml_to_string(data: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 127)
-- `yaml_from_string(text: str) -> Any` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 131) — Parse YAML text for editing (the round-trip loader ``read_yaml`` uses).
-- `read_markdown_with_frontmatter(path: Path) -> tuple[dict[str, Any], str]` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 141)
-- `read_markdown_frontmatter_data(path: Path) -> tuple[dict[str, Any], str]` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 154) — ``read_markdown_with_frontmatter`` for read-only callers; see ``read_yaml_data``.
-- `write_markdown_with_frontmatter(path: Path, metadata: dict[str, Any], body: str) -> None` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 173)
+- `yaml_to_string(data: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 130)
+- `yaml_from_string(text: str) -> Any` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 134) — Parse YAML text for editing (the round-trip loader ``read_yaml`` uses).
+- `read_markdown_with_frontmatter(path: Path) -> tuple[dict[str, Any], str]` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 144)
+- `read_markdown_frontmatter_data(path: Path) -> tuple[dict[str, Any], str]` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 157) — ``read_markdown_with_frontmatter`` for read-only callers; see ``read_yaml_data``.
+- `write_markdown_with_frontmatter(path: Path, metadata: dict[str, Any], body: str) -> None` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 176)
 
 ### Module constants
 
 - `WIDE_EMITTER_WIDTH` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 67)
-- `_NEEDS_ROUND_TRIP` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 191)
-- `_TAG_OR_DIRECTIVE` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 196)
-- `_CANONICAL_INT` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 197)
-- `_TAG_PREFIX` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 198)
-- `_MERGE_OR_VALUE_KEY_TAGS` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 199)
+- `_NEEDS_ROUND_TRIP` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 194)
+- `_TAG_OR_DIRECTIVE` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 199)
+- `_CANONICAL_INT` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 200)
+- `_TAG_PREFIX` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 201)
+- `_MERGE_OR_VALUE_KEY_TAGS` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 202)
 
 ## Internal implementation anchors
 
 - `_yaml() -> YAML` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 21)
 - `_dumped(data: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 70) — The YAML text for ``data``, guaranteed to read back.
-- `class _RoundTripOnly(Exception)` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 202) — The document uses a form only the round-trip loader reproduces exactly.
-- `_fast_load(text: str, loader: type | None=None) -> Any` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 206) — Parse ``text`` on the fast path, or return ``_NEEDS_ROUND_TRIP``.
-- `_build_fast_loader(base: type) -> type` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 218) — Subclass a PyYAML safe loader (C or pure Python) with round-trip scalar rules.
+- `class _RoundTripOnly(Exception)` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 205) — The document uses a form only the round-trip loader reproduces exactly.
+- `_fast_load(text: str, loader: type | None=None) -> Any` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 209) — Parse ``text`` on the fast path, or return ``_NEEDS_ROUND_TRIP``.
+- `_build_fast_loader(base: type) -> type` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 221) — Subclass a PyYAML safe loader (C or pure Python) with round-trip scalar rules.
 
 ## Who imports or calls it
 
@@ -358,6 +358,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_intent_orchestrator_rulings.py](../../../../../../tests/test_intent_orchestrator_rulings.py) — direct import
 - [tests/test_intent_plan.py](../../../../../../tests/test_intent_plan.py) — direct import
 - [tests/test_k1_source_sets_gate.py](../../../../../../tests/test_k1_source_sets_gate.py) — direct import
+  - `test_a_symlinked_source_sets_file_is_written_through_and_the_link_stays`
   - `test_the_source_sets_write_never_leaves_a_truncated_file`
   - `test_write_yaml_atomic_round_trips`
 - [tests/test_km1_doctor.py](../../../../../../tests/test_km1_doctor.py) — direct import

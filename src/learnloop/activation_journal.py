@@ -39,6 +39,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
+from typing import Literal
 
 from learnloop.version_floor import refuse_journal_below_floor
 
@@ -102,14 +103,29 @@ def message(sqlite_path: Path) -> str:
     )
 
 
-def _link(sqlite_path: Path) -> tuple[str, str] | None:
-    """The journalled upgrade's ``(predecessor, target)``, or None for a torn journal (its completion decides)."""
+def read(sqlite_path: Path) -> tuple[str, str] | Literal["torn"] | None:
+    """The journalled upgrade's ``(predecessor, target)``; ``"torn"`` when the journal was read and is not a whole
+    record (it died before its fsync, which precedes the publication); None when there is none.
 
+    A journal that cannot be read raises :class:`InterruptedActivation` and stays: it may be a whole record written
+    after the publication, and taking it for torn would serve the successor's label over the predecessor's
+    database."""
+
+    path = journal_path(sqlite_path)
     try:
-        payload = json.loads(journal_path(sqlite_path).read_text(encoding="utf-8"))
-        return (str(payload["predecessor"]), str(payload["target"]))
-    except (OSError, ValueError, KeyError, TypeError):
+        data = path.read_bytes()
+    except FileNotFoundError:
         return None
+    except OSError as error:
+        raise InterruptedActivation(
+            f"{path} cannot be read ({error}), so the upgrade it records is neither completed nor discarded: "
+            "make it readable, then open the vault again"
+        ) from error
+    try:
+        payload = json.loads(data.decode("utf-8"))
+        return (str(payload["predecessor"]), str(payload["target"]))
+    except (ValueError, KeyError, TypeError):
+        return "torn"
 
 
 def install_completer(completer: Callable[[Path], object] | None) -> None:
@@ -126,8 +142,8 @@ def complete(vault_root: Path, sqlite_path: Path) -> None:
 
     if completing() or not pending(sqlite_path):
         return
-    link = _link(sqlite_path)
-    if link is not None:
+    link = read(sqlite_path)
+    if isinstance(link, tuple):
         # Completing a journal runs its link's upgrade code, so one starting below the floor waits for
         # ``learnloop upgrade``, like a vault below it.
         refuse_journal_below_floor(Path(vault_root), *link)
@@ -158,5 +174,6 @@ __all__ = [
     "journal_path",
     "message",
     "pending",
+    "read",
     "refuse_if_interrupted",
 ]

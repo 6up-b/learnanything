@@ -47,27 +47,29 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ops/upgrades.py](../../../../../../src/learnloop/ops/upgrades.py) |
-| Source lines | 396 |
+| Source lines | 422 |
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class UpgradeResult` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 51)
-- `class Activation` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 61) — How a link activates: ``run`` derives the tag's state inside the activation's transaction, and ``committed`` reads the receipt that transaction writes, so it is true exactly when an activation committed.
-- `class Link` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 102)
-  - `predecessor(self) -> str` (line 107; public)
-- `targets(links: Sequence[Link] | None=None) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 118) — The tags ``learnloop upgrade --to`` accepts.
-- `upgrade(root: Path, *, to: str=LATEST_ALGORITHM_VERSION, clock: Clock | None=None, links: Sequence[Link] | None=None) -> UpgradeResult` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 124) — Bring the vault at ``root`` to ``to`` through the table, one activation per row from its own tag.
-- `complete_interrupted_activation(root: Path, *, vault: LoadedVault | None=None, clock: Clock | None=None, links: Sequence[Link] | None=None) -> str | None` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 196) — Finish an activation a dead process left journalled; the tag it completed, or None.
-- `write_activation_journal(path: Path, predecessor: str, target: str) -> None` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 315) — Write the journal durably: temporary file, fsync, rename, directory fsync.
-- `publish_algorithm_version(config_path: Path, from_version: str, to_version: str, *, renamed: Callable[[], None] | None=None) -> None` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 331) — The config's durable publication: the rename lands before the caller commits, and after a power loss it is never older than the commit (the temporary file is fsynced before the rename, the directory after it).
-- `rewrite_algorithm_version(config_path: Path, from_version: str, to_version: str, *, durable: bool=False) -> None` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 346) — Atomically replace the config's one ``algorithm_version = "<from_version>"`` line (write-temp + rename).
+- `class UpgradeResult` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 54)
+- `class UnpublishedTag(RuntimeError)` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 63) — The config read back after the publication does not name the successor; the activation does not commit.
+- `class Activation` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 68) — How a link activates: ``run`` derives the tag's state inside the activation's transaction, and ``committed`` reads the receipt that transaction writes, so it is true exactly when an activation committed.
+- `class Link` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 109)
+  - `predecessor(self) -> str` (line 114; public)
+- `targets(links: Sequence[Link] | None=None) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 125) — The tags ``learnloop upgrade --to`` accepts.
+- `upgrade(root: Path, *, to: str=LATEST_ALGORITHM_VERSION, clock: Clock | None=None, links: Sequence[Link] | None=None) -> UpgradeResult` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 131) — Bring the vault at ``root`` to ``to`` through the table, one activation per row from its own tag.
+- `complete_interrupted_activation(root: Path, *, vault: LoadedVault | None=None, clock: Clock | None=None, links: Sequence[Link] | None=None) -> str | None` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 214) — Finish an activation a dead process left journalled; the tag it completed, or None.
+- `write_activation_journal(path: Path, predecessor: str, target: str) -> None` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 330) — Write the journal durably: temporary file, fsync, rename, directory fsync.
+- `publish_algorithm_version(config_path: Path, from_version: str | None, to_version: str, *, renamed: Callable[[], None] | None=None) -> None` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 346) — The config's durable publication: the rename lands before the caller commits, and after a power loss it is never older than the commit (the temporary file is fsynced before the rename, the directory after it).
+- `published_algorithm_version(config_path: Path) -> str | None` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 361) — The tag the config at ``config_path`` names, parsed as every opener parses it; None when it names none.
+- `rewrite_algorithm_version(config_path: Path, from_version: str | None, to_version: str, *, durable: bool=False) -> None` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 368) — Atomically set the config's ``[algorithms] algorithm_version`` to ``to_version`` (write-temp + rename), keeping every comment and the layout.
 
 ### Module constants
 
-- `UPGRADES` ([src/learnloop/ops/upgrades.py](../../../../../../src/learnloop/ops/upgrades.py), line 112)
+- `UPGRADES` ([src/learnloop/ops/upgrades.py](../../../../../../src/learnloop/ops/upgrades.py), line 119)
 
 ### Explicit exports
 
@@ -76,10 +78,12 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `UPGRADES`
 - `Activation`
 - `Link`
+- `UnpublishedTag`
 - `UpgradeResult`
 - `complete_interrupted_activation`
 - `idempotent_projection`
 - `publish_algorithm_version`
+- `published_algorithm_version`
 - `rewrite_algorithm_version`
 - `targets`
 - `upgrade`
@@ -88,18 +92,18 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ## Internal implementation anchors
 
-- `_project(vault: LoadedVault, repository: Repository, predecessor: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 70)
-- `_projection_committed(repository: Repository, tag: str) -> bool` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 74)
-- `_rebuild(vault: LoadedVault, repository: Repository, predecessor: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 84)
-- `_rebuild_committed(repository: Repository, tag: str) -> bool` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 88)
-- `_upgrade(root: Path, *, to: str, clock: Clock | None, links: Sequence[Link]) -> UpgradeResult` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 142)
-- `_walk(links: Sequence[Link], original: str, to: str) -> list[Link] | None` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 177) — The rows from the one whose predecessor is ``original`` through ``to``; None when there is no such path (a jump: ``original`` is no predecessor in the table, or is past ``to``).
-- `_unknown_journal(sqlite_path: Path) -> str` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 189)
-- `_activate(root: Path, link: Link, *, publish: bool, clock: Clock | None) -> bool` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 240) — Activate ``link`` in one transaction; ``publish``: the config still names its predecessor.
-- `_activate_as_writer(root: Path, link: Link, *, publish: bool, clock: Clock | None) -> bool` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 250)
-- `_journal_path(vault: LoadedVault) -> Path` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 301)
-- `_read_journal(path: Path) -> tuple[str, str] | str | None` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 305)
-- `_fsync_directory(directory: Path) -> None` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 375)
+- `_project(vault: LoadedVault, repository: Repository, predecessor: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 77)
+- `_projection_committed(repository: Repository, tag: str) -> bool` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 81)
+- `_rebuild(vault: LoadedVault, repository: Repository, predecessor: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 91)
+- `_rebuild_committed(repository: Repository, tag: str) -> bool` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 95)
+- `_named_or_unknown(root: Path) -> str` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 153)
+- `_upgrade(root: Path, *, to: str, clock: Clock | None, links: Sequence[Link]) -> UpgradeResult` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 160)
+- `_walk(links: Sequence[Link], original: str, to: str) -> list[Link] | None` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 195) — The rows from the one whose predecessor is ``original`` through ``to``; None when there is no such path (a jump: ``original`` is no predecessor in the table, or is past ``to``).
+- `_unknown_journal(sqlite_path: Path) -> str` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 207)
+- `_activate(root: Path, link: Link, *, publish: bool, clock: Clock | None) -> bool` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 259) — Activate ``link`` in one transaction; ``publish``: the config still names its predecessor.
+- `_activate_as_writer(root: Path, link: Link, *, publish: bool, clock: Clock | None) -> bool` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 269)
+- `_journal_path(vault: LoadedVault) -> Path` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 326)
+- `_fsync_directory(directory: Path) -> None` ([source](../../../../../../src/learnloop/ops/upgrades.py), line 399)
 
 ## Who imports or calls it
 
@@ -114,10 +118,12 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/activation_journal|learnloop.activation_journal]] — imports `module`; calls `completing_activation`, `journal_path`, `message`, `pending`
+- [[Reference/Modules/learnloop/activation_journal|learnloop.activation_journal]] — imports `module`; calls `completing_activation`, `journal_path`, `message`, `pending`, `read`
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `FACET_BELIEF_FIX_ALGORITHM_VERSION`, `LATEST_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
+- [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `load_config`; calls `load_config`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/ops/settings_store|learnloop.ops.settings_store]] — imports `updated_config_text`; calls `updated_config_text`
 - [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] — imports `module`; calls `freeze_manifest`, `refresh`
 - [[Reference/Modules/learnloop/substrate/p0_projection|learnloop.substrate.p0_projection]] — imports `activate_p0_projection`; calls `activate_p0_projection`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `rebuild_all_derived_state`; calls `rebuild_all_derived_state`
@@ -153,21 +159,26 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — direct import
   - `test_i_a_figure_goal_from_the_ask_rail_or_the_tutor_never_spends_an_ask_question`
   - `test_iii_a_figure_grant_never_meters_an_ask_and_an_ask_grant_meters_it_under_the_cap`
+- [tests/test_facet_belief_successor.py](../../../../../../tests/test_facet_belief_successor.py) — direct import
+  - `test_the_upgrade_derives_the_successors_state_from_the_history`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict`
 - [tests/test_upgrades.py](../../../../../../tests/test_upgrades.py) — direct import
   - `test_a_failure_before_the_commit_leaves_the_predecessor_readable_and_no_journal`
   - `test_a_journal_left_after_the_commit_is_just_removed`
+  - `test_a_journal_that_cannot_be_read_is_kept_and_the_vault_is_not_opened`
   - `test_a_jump_is_refused_and_nothing_changes`
   - `test_a_link_activates_from_its_predecessor_and_a_rerun_does_nothing`
   - `test_a_real_death_after_the_journal_before_the_publication_leaves_the_predecessor`
   - `test_a_real_death_after_the_publication_is_completed_by_the_next_command`
   - `test_a_vault_born_at_the_tag_completes_its_activation_once`
+  - `test_a_wrong_scope_receipt_under_the_tag_does_not_complete_the_activation`
   - `test_an_activation_that_cannot_complete_stops_the_opener`
   - `test_an_mcp_server_already_attached_stops_serving_when_a_journal_appears`
   - `test_each_activation_kind_commits_its_own_receipt_once`
   - `test_the_floor_reaches_each_tag_through_the_table`
   - `test_the_journal_is_written_before_the_publication_and_the_commit_follows_it`
+  - `test_the_publication_changes_the_setting_not_the_same_text_elsewhere`
   - `test_the_table_is_the_chain_from_the_floor_one_row_per_tag`
   - `test_the_upgrade_command_completes_its_own_interrupted_activation`
 

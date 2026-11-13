@@ -16,6 +16,7 @@ import re
 import sqlite3
 import subprocess
 import sys
+import tomllib
 from contextlib import closing
 from datetime import timedelta
 
@@ -257,6 +258,31 @@ def test_the_journal_is_written_before_the_publication_and_the_commit_follows_it
     assert _committed(paths, link) and not _journal(paths).exists()
 
 
+# -- the publication sets the [algorithms] setting, and only it --------------------------------------------------
+
+
+@LINKS
+@pytest.mark.parametrize("decoy", ["comment", "another table"])
+def test_the_publication_changes_the_setting_not_the_same_text_elsewhere(tmp_path, link, decoy):
+    paths = _vault_at(tmp_path, link.predecessor)
+    config = paths.root / "learnloop.toml"
+    line = f'algorithm_version = "{link.predecessor}"'
+    decoy_text = f"# {line}\n" if decoy == "comment" else f"[notes]\n{line}\n\n"
+    text = config.read_text("utf-8")
+    config.write_text(text.replace("[algorithms]\n", decoy_text + "[algorithms]\n", 1), encoding="utf-8")
+
+    assert upgrade(paths.root, to=link.tag).upgraded
+
+    assert _tag(paths) == link.tag and _committed(paths, link) and not _journal(paths).exists()
+    published = config.read_text("utf-8")
+    assert decoy_text + "[algorithms]\n" in published
+    if decoy == "another table":
+        assert tomllib.loads(published)["notes"] == {"algorithm_version": link.predecessor}
+    # Nothing else in the file moved: the one setting's value is the only difference.
+    assert published.replace(f'"{link.tag}"', f'"{link.predecessor}"') == text.replace(
+        "[algorithms]\n", decoy_text + "[algorithms]\n", 1)
+
+
 # -- an old config stays readable when preparation fails ---------------------------------------------------------
 
 
@@ -265,7 +291,7 @@ def _fail(*_args, **_kwargs):
 
 
 @LINKS
-@pytest.mark.parametrize("stage", ["activation", "before the rename", "after the rename"])
+@pytest.mark.parametrize("stage", ["activation", "before the rename", "after the rename", "renamed without the tag"])
 def test_a_failure_before_the_commit_leaves_the_predecessor_readable_and_no_journal(tmp_path, monkeypatch, link,
                                                                                    stage):
     paths = _vault_at(tmp_path, link.predecessor)
@@ -281,11 +307,16 @@ def test_a_failure_before_the_commit_leaves_the_predecessor_readable_and_no_jour
                 return real(config_path, from_version, to_version, renamed=renamed)
             if stage == "before the rename":
                 raise OSError("disk")
+            if stage == "renamed without the tag":
+                # A rename that landed a file still naming the predecessor: only reading it back can tell.
+                if renamed is not None:
+                    renamed()
+                return None
             real(config_path, from_version, to_version, renamed=renamed)
             raise OSError("directory fsync")
 
         monkeypatch.setattr(upgrades, "publish_algorithm_version", publish)
-    with pytest.raises(OSError):
+    with pytest.raises(upgrades.UnpublishedTag if stage == "renamed without the tag" else OSError):
         upgrade(paths.root, to=link.tag, links=links)
     monkeypatch.undo()
     monkeypatch.setattr(activation_journal, "_COMPLETER", upgrades.complete_interrupted_activation)
@@ -384,12 +415,81 @@ def test_a_torn_journal_is_removed_and_nothing_activates(tmp_path, link):
 
 
 @LINKS
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads a file whatever its mode")
+def test_a_journal_that_cannot_be_read_is_kept_and_the_vault_is_not_opened(tmp_path, link):
+    # A journal that cannot be read may be a complete one after the publication: deleting it as torn would serve
+    # the successor's label over the predecessor's database.
+    paths = _interrupted(tmp_path, link)
+    before = _state(paths)
+    _journal(paths).chmod(0)
+    try:
+        with pytest.raises(InterruptedActivation):
+            open_vault_repository(paths.root, paths.sqlite_path)
+        refused = upgrade(paths.root, to=link.tag)
+        assert not refused.upgraded and refused.problems, refused
+        command = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", link.tag])
+        assert command.exit_code == 1 and _journal(paths).name in command.output, command.output
+        assert _journal(paths).exists() and _tag(paths) == link.tag
+        assert not _committed(paths, link) and _state(paths) == before
+    finally:
+        _journal(paths).chmod(0o600)
+
+    # Once it can be read, the next opener completes it.
+    open_vault_repository(paths.root, paths.sqlite_path)
+    assert not _journal(paths).exists() and _committed(paths, link)
+
+
+@LINKS
 def test_the_upgrade_command_completes_its_own_interrupted_activation(tmp_path, link):
     clean = _state(_clean(tmp_path, link))
     paths = _interrupted(tmp_path, link)
     result = upgrade(paths.root, to=link.tag)
     assert result.upgraded and result.notes == [f"completed the interrupted activation of {link.tag}"]
     assert not _journal(paths).exists() and _state(paths) == clean
+
+
+def _startup_projection_receipt(paths) -> None:
+    """The desktop restarted before the retry: its startup refresh stamps a receipt under the tag without replaying
+    the history."""
+
+    from learnloop.substrate.canonical_projection_rollout import refresh_canonical_projection_on_startup
+
+    assert refresh_canonical_projection_on_startup(load_vault(paths.root), Repository(paths.sqlite_path))
+
+
+def _per_lo_rebuild_receipt(paths) -> None:
+    """An item edit's or a regrade's rebuild under the tag: it replays only its own learning objects."""
+
+    from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+
+    rebuild_all_derived_state(load_vault(paths.root), Repository(paths.sqlite_path),
+                              learning_object_ids=["lo_svd_definition"])
+
+
+WRONG_SCOPE_RECEIPTS = {"startup projection": _startup_projection_receipt, "per-LO rebuild": _per_lo_rebuild_receipt}
+
+
+@LINKS
+@pytest.mark.parametrize("start", ["interrupted", "born at the tag"])
+@pytest.mark.parametrize("receipt", sorted(WRONG_SCOPE_RECEIPTS))
+def test_a_wrong_scope_receipt_under_the_tag_does_not_complete_the_activation(tmp_path, link, start, receipt):
+    """Only the activation's own receipt marks it complete: a receipt of another scope under the tag must not stop
+    the recovery (or the completion of a vault born at the tag) from deriving the tag's state."""
+
+    clean = _state(_clean(tmp_path, link))
+    paths = _interrupted(tmp_path, link) if start == "interrupted" else _vault_at(tmp_path, link.tag, "born")
+    before = _receipts(paths, link.tag)
+    # Written as the activation's own writer, so the standing journal does not refuse it.
+    with activation_journal.completing_activation():
+        WRONG_SCOPE_RECEIPTS[receipt](paths)
+    assert _receipts(paths, link.tag) > before and not _committed(paths, link)
+
+    result = upgrade(paths.root, to=link.tag)
+
+    assert result.upgraded and not _journal(paths).exists() and _committed(paths, link)
+    if start == "interrupted":
+        assert result.notes == [f"completed the interrupted activation of {link.tag}"]
+        assert _state(paths) == clean
 
 
 # -- the openers -------------------------------------------------------------------------------------------------

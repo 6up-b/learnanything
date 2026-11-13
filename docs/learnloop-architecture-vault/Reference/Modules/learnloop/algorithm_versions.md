@@ -224,7 +224,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] — imports `OLDEST_SUPPORTED`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `TEACHER_VERSIONS`
 - [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]] — imports `TEACHER_PROBES_VERSIONS`
-- [[Reference/Modules/learnloop/version_floor|learnloop.version_floor]] — imports `OLDEST_SUPPORTED`
+- [[Reference/Modules/learnloop/version_floor|learnloop.version_floor]] — imports `OLDEST_SUPPORTED`, `RECURRENCE_GROUP_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]] — imports `PHONE_PROBES_VERSIONS`
 
 ### Repository tooling consumers
@@ -402,6 +402,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_successor_is_one_constant_after_its_predecessor`
 - [tests/test_lp_claim_fixes_rereview.py](../../../../../tests/test_lp_claim_fixes_rereview.py) — direct import
   - `test_f9_a_miss_the_diagnosis_timeout_decides_carries_its_line_reopened_after_the_deadline`
+- [tests/test_mcp_runtime.py](../../../../../tests/test_mcp_runtime.py) — direct import
+  - `test_a_reload_refused_below_the_floor_serves_nothing_until_a_load_succeeds`
 - [tests/test_mobile_v3_probes.py](../../../../../tests/test_mobile_v3_probes.py) — direct import
   - `test_without_phone_probes_the_phone_is_v2s`
 - [tests/test_mobile_v3_successor.py](../../../../../tests/test_mobile_v3_successor.py) — direct import
@@ -591,6 +593,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sg_successor.py](../../../../../tests/test_sg_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_the_placement_hole_and_the_latest`
 - [tests/test_sidecar_close_cancels_jobs.py](../../../../../tests/test_sidecar_close_cancels_jobs.py) — direct import
+- [tests/test_sidecar_stops_serving.py](../../../../../tests/test_sidecar_stops_serving.py) — direct import
+  - `test_a_journal_that_appears_while_bound_stops_serving_until_a_load_succeeds`
+  - `test_a_reload_refused_below_the_floor_stops_serving_until_a_load_succeeds`
 - [tests/test_source_first_needs.py](../../../../../tests/test_source_first_needs.py) — direct import
   - `test_below_the_tag_and_with_the_switch_off_nothing_runs`
 - [tests/test_stuck_prompt_replay.py](../../../../../tests/test_stuck_prompt_replay.py) — direct import

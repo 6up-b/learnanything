@@ -1187,7 +1187,28 @@ def reschedule_assisted_cold_retry(
     A certification cold probe is never rescheduled: one probe per
     certificate, ever (``certification_cold_probe``, migration 139's unique
     index); an assisted probe stays practice and its next serve withdraws it.
-    """
+
+    The withdrawn retry's episode keeps its reservation only while a fresh retry stands in for it: with none
+    scheduled (the rule bound, no independent surface left, a refusal) the episode ends and its cold item is
+    released."""
+
+    ended: list[str] = []
+    fresh = _reschedule_assisted_cold_retry(vault, repository, attempt, withdrawn_episode_ids=ended, clock=clock)
+    if fresh is None:
+        for episode_id in ended:
+            repository.release_cold_reservation(episode_id, clock=clock)
+    return fresh
+
+
+def _reschedule_assisted_cold_retry(
+    vault: LoadedVault | None,
+    repository: Repository,
+    attempt: Mapping[str, Any],
+    *,
+    withdrawn_episode_ids: list[str],
+    clock: Clock | None = None,
+) -> dict[str, Any] | None:
+    """The rescheduling itself; ``withdrawn_episode_ids`` collects the episode of a retry it withdrew."""
 
     if vault is None or not reschedule_cold_after_assist_active(vault):
         return None
@@ -1204,10 +1225,12 @@ def reschedule_assisted_cold_retry(
 
     withdrawn = withdraw_cold_measurement(
         vault, repository, str(task["id"]), reason=COLD_CHECK_HELP_TAKEN, stage="submit",
-        decision={"assisted_attempt_id": str(attempt.get("id") or "")}, clock=clock,
+        decision={"assisted_attempt_id": str(attempt.get("id") or "")}, release_reservation=False, clock=clock,
     )
     if withdrawn is None or str(withdrawn.get("status") or "") != "expired":
         return None
+    if task.get("remediation_episode_id"):
+        withdrawn_episode_ids.append(str(task["remediation_episode_id"]))
     context = task.get("context")
     context = dict(context) if isinstance(context, Mapping) else {}
     if context.get(ASSISTED_RESCHEDULE_CONTEXT_KEY):
@@ -1376,6 +1399,7 @@ def withdraw_cold_measurement(
     reveal_event_ids: tuple[str, ...] | list[str] = (),
     decision: Mapping[str, Any] | None = None,
     stage: str = "serve",
+    release_reservation: bool = True,
     clock: Clock | None = None,
 ) -> dict[str, Any] | None:
     """Withdraw an open cold measurement its selected surface can no longer
@@ -1409,7 +1433,10 @@ def withdraw_cold_measurement(
     outcome index would then keep this withdrawal's label on a consumed task
     for good. Under ``BEGIN IMMEDIATE`` a consume either committed first (so
     the task is not open and nothing is written) or waits for this one (and
-    its status guard leaves the expired task alone)."""
+    its status guard leaves the expired task alone).
+
+    A withdrawn repair retry ends its episode (``abandoned``, which frees the reserved cold item) unless
+    ``release_reservation`` is False: the caller that goes on to schedule a replacement keeps it."""
 
     with repository.atomic():
         task = repository.followup_task(task_id)
@@ -1468,6 +1495,8 @@ def withdraw_cold_measurement(
                         "coldness final receipt failed for withdrawn task %s", task_id, exc_info=True,
                     )
         repository.expire_followup_task(str(task["id"]), clock=clock)
+        if release_reservation and str(task.get("kind") or "") == "cold_retry" and task.get("remediation_episode_id"):
+            repository.release_cold_reservation(str(task["remediation_episode_id"]), clock=clock)
     logging.getLogger(__name__).info(
         "cold %s task %s withdrawn: %s (%d reveal(s))", task.get("kind"), task_id, reason, len(reveal_event_ids),
     )

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/remote/sources.py](../../../../../../src/learnloop/remote/sources.py) |
-| Source lines | 434 |
+| Source lines | 463 |
 | Owning package | [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -58,7 +58,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `__init__(self, code: str, message: str) -> None` (line 71; internal)
 - `class PassageResult` ([source](../../../../../../src/learnloop/remote/sources.py), line 80)
 - `find_passages(vault: Any, repository: Any, query: str, *, call_id: str, intent: str='explain', learning_object_ids: Sequence[str]=(), misconception_id: str | None=None, verify: bool=False, limit: int=6, char_budget: int=DEFAULT_CHAR_BUDGET, clock: Clock | None=None, alias_key: bytes | None=None) -> PassageResult` ([source](../../../../../../src/learnloop/remote/sources.py), line 152) — Passages for ``query`` under the server-derived policy, recorded as exposure (in the same transaction as the final protection read) before they are returned.
-- `plan_passages(vault: Any, repository: Any, query: str, *, intent: str='explain', learning_object_ids: Sequence[str]=(), misconception_id: str | None=None, verify: bool=False, limit: int=6, char_budget: int=DEFAULT_CHAR_BUDGET, alias_key: bytes | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/remote/sources.py), line 371) — Dry run of :func:`find_passages`: what it would pay for, at what cost.
+- `plan_passages(vault: Any, repository: Any, query: str, *, intent: str='explain', learning_object_ids: Sequence[str]=(), misconception_id: str | None=None, verify: bool=False, limit: int=6, char_budget: int=DEFAULT_CHAR_BUDGET, alias_key: bytes | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/remote/sources.py), line 400) — Dry run of :func:`find_passages`: what it would pay for, at what cost.
 
 ### Module constants
 
@@ -87,9 +87,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_protected_spans(vault: Any, repository: Any, withheld: Any) -> tuple[frozenset[tuple[str, str]], frozenset[str]]` ([source](../../../../../../src/learnloop/remote/sources.py), line 95) — The own passages of every item a check or reservation holds.
 - `_named_los(vault: Any, repository: Any, learning_object_ids: Sequence[str], alias_key: bytes | None) -> tuple[list[str], list[str]]` ([source](../../../../../../src/learnloop/remote/sources.py), line 120) — The topics a request names, read as ``learning_context`` reads them (spec §4.7): an authored topic's id, or a generated topic's opaque alias.
 - `_scope(vault: Any, repository: Any, intent: str, learning_object_ids: Sequence[str], misconception_id: str | None, alias_key: bytes | None=None) -> tuple[list[str], list[str], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/remote/sources.py), line 138)
-- `_record(vault: Any, repository: Any, result: PassageResult, *, call_id: str, clock: Clock | None) -> list[str]` ([source](../../../../../../src/learnloop/remote/sources.py), line 201)
-- `_shown(vault: Any, repository: Any, hits: Any, withheld: Any, *, intent: str, budget: int, los: list[str], unknown_los: list[str]) -> PassageResult` ([source](../../../../../../src/learnloop/remote/sources.py), line 211) — Filter ``hits`` by the protection just read and build the payload.
-- `_plan_verification(vault: Any, repository: Any, query: str, *, intent: str, policy: str, verify: bool, limit: int, targets: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/remote/sources.py), line 304) — The listwise verification a request would make, at its worst case, or why it would not run.
+- `_record(vault: Any, repository: Any, result: PassageResult, *, call_id: str, clock: Clock | None) -> list[str]` ([source](../../../../../../src/learnloop/remote/sources.py), line 207)
+- `_classifier(vault: Any, repository: Any, withheld: Any) -> Callable[[Sequence[tuple[str, str, str, str]]], dict[tuple[str, str], str]]` ([source](../../../../../../src/learnloop/remote/sources.py), line 217) — ``(extraction, span, role, block type)`` rows to the reason each is withheld from a chat host (``exam_material``, ``solutions`` or ``held_for_a_check``), the rows it keeps absent.
+- `_shown(vault: Any, repository: Any, hits: Any, withheld: Any, *, intent: str, budget: int, los: list[str], unknown_los: list[str]) -> PassageResult` ([source](../../../../../../src/learnloop/remote/sources.py), line 247) — Filter ``hits`` by the protection just read and build the payload.
+- `_plan_verification(vault: Any, repository: Any, query: str, *, intent: str, policy: str, verify: bool, limit: int, targets: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/remote/sources.py), line 333) — The listwise verification a request would make, at its worst case, or why it would not run.
 
 ## Who imports or calls it
 
@@ -143,6 +144,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_k1_mcp_find_sources.py](../../../../../../tests/test_k1_mcp_find_sources.py) — direct import
+  - `test_a_reserved_probe_passage_never_reaches_the_verification_model`
 
 ## Modification guidance
 

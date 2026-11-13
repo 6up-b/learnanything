@@ -47,7 +47,7 @@ For system intent, use [[Configuration]], [[Architecture Overview]].
 
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
-| [[Reference/Modules/learnloop/config/__init__|learnloop.config]] | [[Reference/Modules/learnloop/config/__init__#^module-purpose|purpose]] | `ACTIVE` | 68 | 80 |
+| [[Reference/Modules/learnloop/config/__init__|learnloop.config]] | [[Reference/Modules/learnloop/config/__init__#^module-purpose|purpose]] | `ACTIVE` | 69 | 80 |
 | [[Reference/Modules/learnloop/config/compat|learnloop.config.compat]] | [[Reference/Modules/learnloop/config/compat#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
 | [[Reference/Modules/learnloop/config/loader|learnloop.config.loader]] | [[Reference/Modules/learnloop/config/loader#^module-purpose|purpose]] | `ACTIVE` | 12 | 11 |
 | [[Reference/Modules/learnloop/config/retired|learnloop.config.retired]] | [[Reference/Modules/learnloop/config/retired#^module-purpose|purpose]] | `ACTIVE` | 8 | 3 |
@@ -65,8 +65,8 @@ For system intent, use [[Configuration]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 11 static module edges
 - [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 10 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 10 static module edges
+- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 9 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 8 static module edges
-- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 8 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 7 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 6 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 4 static module edges
@@ -111,8 +111,8 @@ flowchart LR
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_ai_providers["learnloop.ai.providers"]
     n_learnloop_cli["learnloop.cli"]
-    n_learnloop_content_pipeline["learnloop.content.pipeline"]
     n_learnloop_ops["learnloop.ops"]
+    n_learnloop_content_pipeline["learnloop.content.pipeline"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_learner["learnloop.learner"]
@@ -121,8 +121,8 @@ flowchart LR
     n_learnloop_ai -->|11| center
     n_learnloop_ai_providers -->|10| center
     n_learnloop_cli -->|10| center
+    n_learnloop_ops -->|9| center
     n_learnloop_content_pipeline -->|8| center
-    n_learnloop_ops -->|8| center
     n_learnloop_sidecar_handlers -->|7| center
     n_learnloop_diagnosis -->|6| center
     n_learnloop_learner -->|4| center

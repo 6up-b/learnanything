@@ -32,7 +32,8 @@ CONSTRAINT_CODES: frozenset[str] = frozenset({
 #: The plan pool's per-item predicate's reasons (``serving_exclusions.ADMISSION_GATES``, DL2's intent
 #: gate's ``intent_*`` codes, the probe gates); checked against the code by the same test.
 POOL_CODES: frozenset[str] = frozenset({
-    "retired", "inactive_state", "reserved_exam", "held_out_material", "rung_variant_hold", "staged_owned",
+    "retired", "inactive_state", "reserved_exam", "held_out_material", "cold_check_reserved", "rung_variant_hold",
+    "staged_owned",
     "diagnostic_microprobe", "diagnostic_probe_administered", "unservable_stimulus", "no_learning_object",
     "lifecycle_put_away", "diagnostic_freshness_reserve", "placement_assumed_withheld",
     "placement_maintained_withheld", "cold_start_unattempted", "voi_value_below_minutes_cost",

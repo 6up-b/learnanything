@@ -40,8 +40,9 @@ class _Store:
         self.saves.append((cache_key, purpose, result, usage))
         self.rows.setdefault(cache_key, result)
 
-    def discard_model_checkpoint(self, cache_key):
-        self.rows.pop(cache_key, None)
+    def discard_model_checkpoint(self, cache_key, *, result=None):
+        if result is None or self.rows.get(cache_key) == result:
+            self.rows.pop(cache_key, None)
 
 
 class _Answer(BaseModel):

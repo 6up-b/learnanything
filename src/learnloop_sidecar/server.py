@@ -14,8 +14,10 @@ from learnloop import provenance
 from learnloop.ai import plan_fallback
 from learnloop.ai.execution import record_model_calls
 from learnloop.attempts.completion_lock import AttemptCompletionBusy
+from learnloop.activation_journal import InterruptedActivation
 from learnloop.ids import new_ulid
-from learnloop_sidecar.context import SidecarContext
+from learnloop.version_floor import BelowOldestSupported
+from learnloop_sidecar.context import SidecarContext, unservable_error
 from learnloop_sidecar.dto import to_camel
 from learnloop.content.sources.exam_material import SourceSetsUnreadable
 from learnloop_sidecar.errors import SidecarError, json_rpc_error, sidecar_error
@@ -136,6 +138,13 @@ def _handle_request(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
         # the answer (never "no exam material"): the learner is told which file and how to fix it.
         LOG.warning("source sets unreadable (%s)", "; ".join(exc.reasons))
         refusal = SidecarError(exc.code, str(exc))
+        log_event("rpc.error", method=method_name, id=request_id, code=refusal.code,
+                  duration_ms=_elapsed_ms(started))
+        return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(refusal)}
+    except (BelowOldestSupported, InterruptedActivation) as exc:
+        # A load refused (initialize, a reload, a settings save's reload): unmapped, it reaches the desktop as an
+        # internal error with no message, and the message is what names the command to run.
+        refusal = unservable_error(exc)
         log_event("rpc.error", method=method_name, id=request_id, code=refusal.code,
                   duration_ms=_elapsed_ms(started))
         return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(refusal)}
