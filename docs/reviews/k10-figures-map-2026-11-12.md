@@ -478,7 +478,7 @@ From `git log`/`git show` on non-merge commits (a delegated sweep; the single co
 | kind | stage | figures | other src + config | desktop | tests | pins (head fixture, successor re-points, goldens) | generated |
 |---|---|---:|---:|---:|---:|---:|---:|
 | (a) four advanced panels | RW5b (19 commits) | 6 | 14 | 19 | 11 | 0 | 412 |
-| (c) checked labels, book math | RW5c | 17 | 12 | 21 + 15 engine files | 69 | 24 + 16 + 4 | 560 |
+| (c) checked labels, book math | RW5c (47 commits matching "RW5c") | 17 | 12 + 1 migration | 21 + 15 engine files | 69 | 24 + 16 + 4 | 560 |
 | (c) the sketch tier | RW5d P2 (29 commits) | 9 | 6 | 29 + 13 engine files | 17 | 0 | 459 |
 | (c) the Manim tier | RW5d P2b (18 commits) | 7 | 13 | 8 + 2 | 15 | 0 | 462 |
 | (d) Show me from the tutor and the Ask rail | RW5d P1 (13 commits) | 5 | 18 + 1 migration | 16 + 2 | 37 | 24 + 15 | 428 |
