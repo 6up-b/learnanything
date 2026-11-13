@@ -127,4 +127,14 @@ The fail-first runs at `8c13e8f4c3` (before any of these commits), with the whol
 
 ## Gates
 
-The targeted runs for each commit are listed in the hand-back report.
+- **Targeted tests.**
+  - After each commit: `test_synthesis_answer_reuse`, `test_outer_cache_keys`, `test_source_set_synthesis`,
+    `test_model_work_checkpoints`, `test_source_append`, `test_rerun_proposals`, `test_vault_epigraphs`,
+    `test_glm_ocr`, `test_persona_gate` and `test_facet_identity`.
+  - After `331619d1ce`: the store change reaches `Repository`, so every test file ran. That was 1,392 files with
+    `-m "not arc_close"`, in 14 chunks of up to 100 at `-n 4` under the 5 GB cap behind the full-suite lock: 30,478
+    passed, 0 failed.
+- **Lint.** `lint-imports --no-cache`: 42 kept. `ruff check`: clean.
+- **Vault validators.** All four pass.
+- **Gate partition.** `check_gate_partition`: 30,714 collected (landing 30,654 + arc_close 60).
+- **Regeneration.** References were regenerated once (`81b77a099a`); a second run changed nothing.
