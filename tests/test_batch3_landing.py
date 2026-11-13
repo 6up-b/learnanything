@@ -25,210 +25,41 @@ The interactions the landing checks:
 """
 from __future__ import annotations
 
-import multiprocessing
-import os
-
-import pytest
-from typer.testing import CliRunner
 
 from learnloop.algorithm_versions import (
     LATEST_ALGORITHM_VERSION,
+    ONE_ASK_ALGORITHM_VERSION,
     ONE_ASK_VERSIONS,
+    REPLAY_LEDGER_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
 from learnloop.db.repositories import Repository
-from learnloop.ops.vault_upgrade import rewrite_algorithm_version
+from learnloop.ops.upgrades import rewrite_algorithm_version
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 
 from tests.hint_h2b_review_helpers import grader  # noqa: F401 - the blind grader fixture
 from tests.helpers import allow_below_floor
-from tests.batch3_landing_helpers import PREDECESSOR, TAG, _activated, _interrupted, _journal, _vault_at
 
-@pytest.fixture(autouse=True)
-def _cli_process(monkeypatch):
-    """This process as the CLI is: importing it installs the completion."""
-
-    from learnloop import activation_journal
-    from learnloop.cli.runtime import _complete_interrupted_activation
-
-    monkeypatch.setattr(activation_journal, "_COMPLETER", _complete_interrupted_activation)
-
-
-def _version(paths) -> str:
-    return load_vault(paths.root).config.algorithms.algorithm_version
+TAG = ONE_ASK_ALGORITHM_VERSION
+PREDECESSOR = REPLAY_LEDGER_ALGORITHM_VERSION
 
 
 # -- the chain -------------------------------------------------------------------------------------
 
 
 def test_mvp035_is_one_constant_after_mvp034_and_the_latest():
-    from learnloop.one_ask_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
     # The kept replaced claims' mvp-0.36, mobile PR-4's mvp-0.37, the cold-retry reschedule's mvp-0.38, Reader RW6b's mvp-0.39 and
     # curriculum C1's mvp-0.40, teacher TE1's mvp-0.41, follow-ups Nov 2's mvp-0.42 and teacher TE1b's mvp-0.43 (the
     # latest) follow it (and keep it).
     assert SUCCESSOR_CHAIN[-27:] == ("mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59")
     assert TAG == "mvp-0.35" == SUCCESSOR_CHAIN[-25] and LATEST_ALGORITHM_VERSION == "mvp-0.59"
-    assert UPGRADE_PREDECESSOR == PREDECESSOR == "mvp-0.34"
+    assert PREDECESSOR == "mvp-0.34"
     assert ONE_ASK_VERSIONS == frozenset({TAG, "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
 
-@pytest.mark.parametrize("start", ["mvp-0.9", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32",
-                                   "mvp-0.33", "mvp-0.34"])
-def test_upgrade_to_mvp035_works_from_every_supported_version(tmp_path, start):
-    from learnloop.cli import app
-
-    paths = _vault_at(tmp_path, "v", start)
-    result = CliRunner().invoke(app, ["upgrade", "--to", TAG, "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert f"{start} -> {TAG}" in result.output
-    assert _version(paths) == TAG and _activated(paths) and not _journal(paths).exists()
-
-
-def test_a_bare_upgrade_targets_the_latest_through_mvp035(tmp_path):
-    from learnloop.cli import app
-
-    # The latest is mobile PR-4's mvp-0.37, chained through this tag and the kept replaced claims' mvp-0.36.
-    paths = _vault_at(tmp_path, "v", PREDECESSOR)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert f"{PREDECESSOR} -> {LATEST_ALGORITHM_VERSION}" in result.output
-    assert _version(paths) == LATEST_ALGORITHM_VERSION and _activated(paths)
-
-
 # -- the journalled activation ----------------------------------------------------------------------
-
-
-def _die_after_publication(root):
-    import learnloop.one_ask_upgrade as upgrade
-
-    real = upgrade._publish_algorithm_version
-
-    def publish_then_die(*args, **kwargs):
-        real(*args, **kwargs)
-        os._exit(17)  # no handler runs: the transaction never commits
-
-    upgrade._publish_algorithm_version = publish_then_die
-    upgrade.upgrade_to_one_ask(root)
-
-
-def _open_vault_repository(paths):
-    from learnloop.vault.repository import open_vault_repository
-
-    open_vault_repository(paths.root, paths.sqlite_path)
-
-
-def _vault_repository(paths):
-    from learnloop.vault.repository import vault_repository
-
-    vault_repository(VaultPaths(paths.root, load_vault(paths.root).config))
-
-
-def _sidecar_start(paths):
-    from learnloop_sidecar.context import SidecarContext
-
-    SidecarContext().load(paths.root)
-
-
-def _cli_command(paths):
-    from learnloop.cli import app
-
-    result = CliRunner().invoke(app, ["backfill-originals", "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-
-
-OPENERS = {
-    "open_vault_repository": _open_vault_repository,
-    "vault_repository": _vault_repository,
-    "sidecar_start": _sidecar_start,
-    "cli_command": _cli_command,
-}
-
-
-@pytest.mark.filterwarnings("ignore:This process .* is multi-threaded:DeprecationWarning")
-def test_a_real_death_after_the_publication_is_journalled_and_the_next_cli_command_completes_it(tmp_path):
-    from learnloop.one_ask_upgrade import upgrade_to_one_ask
-
-    paths = _vault_at(tmp_path, "crashed", PREDECESSOR)
-    process = multiprocessing.get_context("fork").Process(target=_die_after_publication, args=(paths.root,))
-    process.start()
-    process.join(60)
-    assert process.exitcode == 17
-    assert _version(paths) == TAG and _journal(paths).exists() and not _activated(paths)
-
-    _cli_command(paths)
-
-    assert not _journal(paths).exists() and _activated(paths)
-    again = upgrade_to_one_ask(paths.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-
-@pytest.mark.parametrize("opener", sorted(OPENERS))
-def test_every_opener_that_may_write_completes_an_interrupted_mvp035_activation_first(tmp_path, opener):
-    paths = _interrupted(tmp_path, "interrupted")
-    OPENERS[opener](paths)
-    assert not _journal(paths).exists() and _activated(paths) and _version(paths) == TAG
-
-
-def test_without_a_completion_every_attach_refuses_with_the_mvp035_upgrade_message(tmp_path, monkeypatch):
-    from learnloop import activation_journal
-
-    paths = _interrupted(tmp_path, "interrupted")
-    monkeypatch.setattr(activation_journal, "_COMPLETER", None)
-    with pytest.raises(activation_journal.InterruptedActivation, match=f"learnloop upgrade --to {TAG}"):
-        _open_vault_repository(paths)
-    for attach in (lambda: Repository.attach(paths.sqlite_path, read_only=True), lambda: Repository(paths.sqlite_path)):
-        with pytest.raises(activation_journal.InterruptedActivation, match=f"learnloop upgrade --to {TAG}"):
-            attach()
-    assert _journal(paths).exists() and not _activated(paths)
-
-
-def test_the_upgrade_completes_its_own_journal(tmp_path):
-    from learnloop.one_ask_upgrade import upgrade_to_one_ask
-
-    paths = _interrupted(tmp_path, "interrupted")
-    result = upgrade_to_one_ask(paths.root)
-    assert result.upgraded and result.notes == [f"completed the interrupted activation of {TAG}"]
-    assert not _journal(paths).exists() and _activated(paths)
-
-
-def test_a_failure_after_the_rename_leaves_the_predecessor_and_no_journal(tmp_path, monkeypatch):
-    import learnloop.one_ask_upgrade as upgrade
-
-    paths = _vault_at(tmp_path, "failing", PREDECESSOR)
-    real = upgrade._publish_algorithm_version
-
-    def publish_then_fail(config_path, from_version, to_version, *, renamed=None):
-        real(config_path, from_version, to_version, renamed=renamed)
-        if to_version == TAG:
-            raise OSError("the directory fsync failed")
-
-    monkeypatch.setattr(upgrade, "_publish_algorithm_version", publish_then_fail)
-    with pytest.raises(OSError):
-        upgrade.upgrade_to_one_ask(paths.root)
-    assert _version(paths) == PREDECESSOR and not _journal(paths).exists() and not _activated(paths)
-
-
-def test_an_mvp034_journal_is_handed_to_its_own_upgrade_then_the_tag_activates(tmp_path):
-    from learnloop.one_ask_upgrade import complete_interrupted_activation, upgrade_to_one_ask
-    from tests.rbeq_pr2_landing_helpers import _interrupted as rbeq_interrupted
-
-    paths, _live = rbeq_interrupted(tmp_path, "rbeq")
-    assert _version(paths) == PREDECESSOR and _journal(paths).exists()
-    assert complete_interrupted_activation(paths.root) == PREDECESSOR
-    assert not _journal(paths).exists() and complete_interrupted_activation(paths.root) is None
-    result = upgrade_to_one_ask(paths.root)
-    assert result.upgraded and _version(paths) == TAG and not _journal(paths).exists()
-
-
-def test_a_torn_journal_at_the_predecessor_is_removed_and_nothing_activates(tmp_path):
-    from learnloop.one_ask_upgrade import complete_interrupted_activation
-
-    paths = _vault_at(tmp_path, "torn", PREDECESSOR)
-    _journal(paths).write_text('{"predecessor": "mvp-0.3', encoding="utf-8")
-    assert complete_interrupted_activation(paths.root) is None
-    assert not _journal(paths).exists() and _version(paths) == PREDECESSOR and not _activated(paths)
 
 
 # -- (i) show me is not an Ask question --------------------------------------------------------------

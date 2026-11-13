@@ -67,7 +67,6 @@ SOURCES_TRACK_MODULES = frozenset({
     "learnloop/source_retrieval/policy.py",
     "learnloop/source_retrieval/service_spend.py",
     "learnloop/source_retrieval/tutor.py",
-    "learnloop/sources_upgrade.py",
     "learnloop/substrate/intervention_outcomes.py",
     "learnloop_sidecar/handlers/item_authoring.py",
     "learnloop_sidecar/handlers/source_service.py",

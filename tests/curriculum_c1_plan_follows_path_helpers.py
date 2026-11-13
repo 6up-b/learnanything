@@ -4,11 +4,8 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 from __future__ import annotations
 
 import json
-import sqlite3
-from contextlib import closing
 from dataclasses import dataclass
 
-import pytest
 
 from learnloop.algorithm_versions import DELIVERABLE_PLAN_ALGORITHM_VERSION
 from learnloop.daily_plan import engine as E
@@ -130,29 +127,3 @@ def _at(reading) -> tuple[str, str] | None:
     if isinstance(reading, dict):
         return (reading["extraction_id"], reading["section_id"])
     return (reading.extraction_id, reading.section_id)
-
-
-@pytest.fixture
-def _cli_process(monkeypatch):
-    """This process as the CLI is: importing it installs the completion."""
-
-    from learnloop import activation_journal
-    from learnloop.cli.runtime import _complete_interrupted_activation
-
-    monkeypatch.setattr(activation_journal, "_COMPLETER", _complete_interrupted_activation)
-
-
-def _version(paths) -> str:
-    return load_vault(paths.root).config.algorithms.algorithm_version
-
-
-def _journal(paths):
-    return paths.sqlite_path.with_name(paths.sqlite_path.name + ".claim-fixes-activation")
-
-
-def _activated(paths, version=TAG) -> bool:
-    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
-        return connection.execute(
-            "SELECT 1 FROM derived_state_rebuilds WHERE scope = 'p0_projection_activation' AND algorithm_version = ?",
-            (version,),
-        ).fetchone() is not None

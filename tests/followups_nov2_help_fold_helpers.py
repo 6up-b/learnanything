@@ -16,7 +16,7 @@ def hint_vault(tmp_path, *, version: str | None = None, **kwargs):
     mvp-0.42's, behind ``hints.fold_follows_attach``), or at ``version``."""
 
     from learnloop.algorithm_versions import HELP_FOLD_ATTACH_ALGORITHM_VERSION
-    from learnloop.ops.vault_upgrade import rewrite_algorithm_version
+    from learnloop.ops.upgrades import rewrite_algorithm_version
     from learnloop.vault.loader import load_vault
 
     paths = _hint_vault(tmp_path, **kwargs)

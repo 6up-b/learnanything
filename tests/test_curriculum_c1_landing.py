@@ -15,10 +15,7 @@ Every model is a fake; nothing leaves the machine.
 """
 from __future__ import annotations
 
-import json
 
-import pytest
-from typer.testing import CliRunner
 
 from learnloop.algorithm_versions import (
     COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION,
@@ -27,12 +24,10 @@ from learnloop.algorithm_versions import (
     SUCCESSOR_CHAIN,
 )
 from learnloop.curriculum import commitments as C
-from learnloop.db.repositories import Repository
 from learnloop.instructional import reader_followups as RF
-from learnloop.ops.vault_upgrade import rewrite_algorithm_version
-from tests.helpers import append_config_toml, create_placement_vault
+from tests.helpers import append_config_toml
 from tests.reading_path_fixtures import call, context
-from tests.curriculum_c1_plan_follows_path_helpers import C1_OFF, _activated, _at, _c1, _cli_process, _journal, _split, _version  # noqa: F401  a pytest fixture the tests here request
+from tests.curriculum_c1_plan_follows_path_helpers import C1_OFF, _at, _c1, _split
 
 C1 = DELIVERABLE_PLAN_ALGORITHM_VERSION
 RW6B = READER_FOLLOWUPS_ALGORITHM_VERSION
@@ -106,66 +101,3 @@ def test_i_a_follow_up_rw6bs_gate_holds_leaves_c1s_reading_and_followups_off_cha
 
 
 # -- (ii) the activation chain -----------------------------------------------------------------------------
-
-
-def _interrupted(tmp_path, name, predecessor, target):
-    paths = create_placement_vault(tmp_path / name, version=predecessor)
-    _journal(paths).write_text(json.dumps({"predecessor": predecessor, "target": target}), encoding="utf-8")
-    rewrite_algorithm_version(paths.root / "learnloop.toml", predecessor, target, durable=True)
-    return paths
-
-
-def test_ii_a_bare_upgrade_from_mvp038_activates_mvp039_then_mvp040(tmp_path, _cli_process):
-    from learnloop.cli import app
-
-    paths = create_placement_vault(tmp_path / "v", version=COLD)
-    # Teacher TE1 (mvp-0.41) and follow-ups Nov 2 (mvp-0.42, the bare upgrade's target now) follow;
-    # C1's own link is --to mvp-0.40.
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", C1])
-    assert result.exit_code == 0, result.output
-    assert f"{COLD} -> {C1}" in result.output and _version(paths) == C1
-    assert _activated(paths, RW6B) and _activated(paths, C1) and not _journal(paths).exists()
-
-
-def test_ii_an_interrupted_mvp040_activation_is_completed_by_the_next_cli_command(tmp_path, _cli_process):
-    from learnloop.cli import app
-
-    paths = _interrupted(tmp_path, "cli", RW6B, C1)
-    result = CliRunner().invoke(app, ["backfill-originals", "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert not _journal(paths).exists() and _version(paths) == C1 and _activated(paths, C1)
-
-
-def test_ii_an_interrupted_mvp040_activation_is_refused_without_the_completion_and_upgrade_completes_it(
-        tmp_path, monkeypatch):
-    from learnloop import activation_journal
-    from learnloop.deliverable_plan_upgrade import complete_interrupted_activation, upgrade_to_deliverable_plan
-
-    paths = _interrupted(tmp_path, "refused", RW6B, C1)
-    monkeypatch.setattr(activation_journal, "_COMPLETER", None)
-    with pytest.raises(activation_journal.InterruptedActivation):
-        Repository(paths.sqlite_path)
-    result = upgrade_to_deliverable_plan(paths.root)
-    assert not _journal(paths).exists() and _version(paths) == C1 and _activated(paths, C1)
-    assert complete_interrupted_activation(paths.root) is None
-    assert not result.upgraded or result.to_version == C1
-
-
-def test_ii_an_interrupted_mvp039_activation_is_handed_down_by_c1s_completion(tmp_path, monkeypatch):
-    from learnloop import activation_journal
-    from learnloop.deliverable_plan_upgrade import complete_interrupted_activation, upgrade_to_deliverable_plan
-
-    paths = _interrupted(tmp_path, "rw6b", COLD, RW6B)
-    monkeypatch.setattr(activation_journal, "_COMPLETER", None)
-    assert complete_interrupted_activation(paths.root) == RW6B
-    assert not _journal(paths).exists() and _version(paths) == RW6B and _activated(paths, RW6B)
-    result = upgrade_to_deliverable_plan(paths.root)
-    assert result.upgraded and result.from_version == RW6B and _version(paths) == C1 and _activated(paths, C1)
-
-
-def test_ii_the_desktop_completion_is_c1s(tmp_path):
-    from learnloop_sidecar import context as sidecar_context
-
-    paths = _interrupted(tmp_path, "desktop", RW6B, C1)
-    sidecar_context._complete_interrupted_activation(paths.root)
-    assert not _journal(paths).exists() and _version(paths) == C1 and _activated(paths, C1)

@@ -92,14 +92,13 @@ def _rows(paths, sql, params=()):
 
 def test_the_successor_is_one_constant_after_rebuild_equivalence():
     from learnloop.config.schema import AskConfig
-    from learnloop.one_ask_upgrade import PREDECESSOR
     from learnloop.params.parameter_registry import classify_config_path
 
     # Built after RW7b's mvp-0.32 as mvp-0.34; the batch landing renumbered it after rebuild equivalence's mvp-0.34.
     # The kept replaced claims' mvp-0.36, mobile PR-4's mvp-0.37 and the cold-retry reschedule's mvp-0.38 (the
     # latest) follow it (and keep it).
     assert SUCCESSOR_CHAIN[-25] == TAG == "mvp-0.35" and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
-    assert SUCCESSOR_CHAIN[-26] == PREDECESSOR == REPLAY_LEDGER_ALGORITHM_VERSION == "mvp-0.34"
+    assert SUCCESSOR_CHAIN[-26] == REPLAY_LEDGER_ALGORITHM_VERSION == "mvp-0.34"
     assert ONE_ASK_VERSIONS == frozenset({TAG, "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
     assert AskConfig().panel_enabled is True and AskConfig().cold_help_converts is True
     for key in ("ask.panel_enabled", "ask.cold_help_converts"):
@@ -119,17 +118,6 @@ def test_the_rule_is_live_only_at_the_tag_with_its_switch(tmp_path):
 
 # The immediate predecessor since the batch landing (rebuild equivalence's mvp-0.34; RW7b's mvp-0.32 on the branch).
 PREDECESSOR_TAG = REPLAY_LEDGER_ALGORITHM_VERSION
-
-
-def test_the_upgrade_moves_the_predecessor_and_refuses_twice(tmp_path):
-    from learnloop.one_ask_upgrade import upgrade_to_one_ask
-
-    paths, _vault_, _ = _vault(tmp_path, {("algorithms", "algorithm_version"): PREDECESSOR_TAG})
-    result = upgrade_to_one_ask(paths.root)
-    assert result.upgraded and (result.from_version, result.to_version) == (PREDECESSOR_TAG, TAG)
-    assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
-    again = upgrade_to_one_ask(paths.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
 
 
 # -- Q4: help taken on a cold follow-up converts the attempt ----------------------------------------

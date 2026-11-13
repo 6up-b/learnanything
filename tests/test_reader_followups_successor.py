@@ -16,12 +16,8 @@ Fakes only; no model call.
 
 from __future__ import annotations
 
-import json
-import sqlite3
-from contextlib import closing
 
 import pytest
-from typer.testing import CliRunner
 
 from learnloop.algorithm_versions import (
     COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION,
@@ -30,11 +26,8 @@ from learnloop.algorithm_versions import (
     READER_FOLLOWUPS_VERSIONS,
     SUCCESSOR_CHAIN,
 )
-from learnloop.db.repositories import Repository
 from learnloop.instructional import reader_followups as RF
-from learnloop.ops.vault_upgrade import rewrite_algorithm_version
 from learnloop.vault.loader import load_vault
-from tests.helpers import create_placement_vault
 from tests.recap_fixtures import EXT, at
 from tests.reader_followups_helpers import FakeSearch, _candidate, _now, _plan, _seeded
 
@@ -45,11 +38,10 @@ PREDECESSOR = COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION
 def test_mvp039_is_one_constant_after_mvp038_and_the_latest():
     from learnloop.config.schema import FollowupsConfig
     from learnloop.params.parameter_registry import classify_config_path
-    from learnloop.reader_followups_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
     # Curriculum C1's mvp-0.40 follows it as the latest (and keeps it).
     assert SUCCESSOR_CHAIN[-22:-20] == (PREDECESSOR, TAG) == ("mvp-0.38", "mvp-0.39")
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59" and UPGRADE_PREDECESSOR == PREDECESSOR
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
     assert READER_FOLLOWUPS_VERSIONS == frozenset({TAG, "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
     assert FollowupsConfig().enabled is True
     rule = classify_config_path("followups.enabled")
@@ -105,139 +97,6 @@ def test_switched_off_the_today_queue_is_the_predecessors(tmp_path):
 
 
 # -- the chain and the upgrade -------------------------------------------------------------------------
-
-
-@pytest.fixture
-def _cli_process(monkeypatch):
-    """This process as the CLI is: importing it installs the completion."""
-
-    from learnloop import activation_journal
-    from learnloop.cli.runtime import _complete_interrupted_activation
-
-    monkeypatch.setattr(activation_journal, "_COMPLETER", _complete_interrupted_activation)
-
-
-def _vault_at(tmp_path, name, version):
-    return create_placement_vault(tmp_path / name, version=version)
-
-
-def _version(paths) -> str:
-    return load_vault(paths.root).config.algorithms.algorithm_version
-
-
-def _journal(paths):
-    return paths.sqlite_path.with_name(paths.sqlite_path.name + ".claim-fixes-activation")
-
-
-def _activated(paths, version=TAG) -> bool:
-    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
-        return connection.execute(
-            "SELECT 1 FROM derived_state_rebuilds WHERE scope = 'p0_projection_activation' AND algorithm_version = ?",
-            (version,),
-        ).fetchone() is not None
-
-
-@pytest.mark.parametrize("start", ["mvp-0.9", "mvp-0.30", "mvp-0.37", "mvp-0.38"])
-def test_upgrade_to_mvp039_works_from_supported_versions(tmp_path, _cli_process, start):
-    from learnloop.cli import app
-
-    paths = _vault_at(tmp_path, "v", start)
-    result = CliRunner().invoke(app, ["upgrade", "--to", TAG, "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert f"{start} -> {TAG}" in result.output
-    assert _version(paths) == TAG and _activated(paths) and not _journal(paths).exists()
-    if start != PREDECESSOR:
-        assert _activated(paths, PREDECESSOR)
-
-
-def test_a_bare_upgrade_targets_the_latest_through_mvp039_and_mvp039_refuses_twice(tmp_path, _cli_process):
-    from learnloop.cli import app
-    from learnloop.reader_followups_upgrade import upgrade_to_reader_followups
-
-    paths = _vault_at(tmp_path, "v", PREDECESSOR)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    # The latest is curriculum C1's mvp-0.40, chained through this tag.
-    assert f"{PREDECESSOR} -> {LATEST_ALGORITHM_VERSION}" in result.output
-    assert _version(paths) == LATEST_ALGORITHM_VERSION and _activated(paths)
-    other = _vault_at(tmp_path, "w", PREDECESSOR)
-    assert upgrade_to_reader_followups(other.root).upgraded and _version(other) == TAG
-    again = upgrade_to_reader_followups(other.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-
-def test_the_upgrade_refuses_a_version_before_the_chain(tmp_path):
-    from learnloop.reader_followups_upgrade import upgrade_to_reader_followups
-
-    paths = _vault_at(tmp_path, "old", "mvp-0.9")
-    rewrite_algorithm_version(paths.root / "learnloop.toml", "mvp-0.9", "mvp-0.8", durable=True)
-    result = upgrade_to_reader_followups(paths.root)
-    assert not result.upgraded and _version(paths) == "mvp-0.8"
-    assert "cannot upgrade from 'mvp-0.8'" in result.problems[0]
-
-
-def _interrupted(tmp_path, name, predecessor=PREDECESSOR, target=TAG):
-    paths = _vault_at(tmp_path, name, predecessor)
-    _journal(paths).write_text(json.dumps({"predecessor": predecessor, "target": target}), encoding="utf-8")
-    rewrite_algorithm_version(paths.root / "learnloop.toml", predecessor, target, durable=True)
-    assert not _activated(paths, target)
-    return paths
-
-
-def test_the_next_cli_command_completes_an_interrupted_mvp039_activation(tmp_path, _cli_process):
-    from learnloop.cli import app
-    from learnloop.reader_followups_upgrade import upgrade_to_reader_followups
-
-    paths = _interrupted(tmp_path, "interrupted")
-    result = CliRunner().invoke(app, ["backfill-originals", "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert not _journal(paths).exists() and _activated(paths) and _version(paths) == TAG
-    again = upgrade_to_reader_followups(paths.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-
-def test_a_failure_after_the_rename_leaves_the_predecessor_and_no_journal(tmp_path, monkeypatch):
-    import learnloop.reader_followups_upgrade as upgrade
-
-    paths = _vault_at(tmp_path, "failing", PREDECESSOR)
-    real = upgrade._publish_algorithm_version
-
-    def publish_then_fail(config_path, from_version, to_version, *, renamed=None):
-        real(config_path, from_version, to_version, renamed=renamed)
-        if to_version == TAG:
-            raise OSError("the directory fsync failed")
-
-    monkeypatch.setattr(upgrade, "_publish_algorithm_version", publish_then_fail)
-    with pytest.raises(OSError):
-        upgrade.upgrade_to_reader_followups(paths.root)
-    assert _version(paths) == PREDECESSOR and not _journal(paths).exists() and not _activated(paths)
-
-
-def test_an_interrupted_mvp038_activation_then_upgrade_to_mvp039_completes_it(tmp_path, _cli_process):
-    from learnloop.cli import app
-
-    paths = _interrupted(tmp_path, "interrupted038", "mvp-0.37", PREDECESSOR)
-    result = CliRunner().invoke(app, ["upgrade", "--to", TAG, "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert f"{PREDECESSOR} -> {TAG}" in result.output
-    assert _version(paths) == TAG and not _journal(paths).exists()
-    assert _activated(paths, PREDECESSOR) and _activated(paths)
-
-
-def test_without_a_completion_an_attach_refuses_and_the_upgrade_still_completes_the_mvp038_journal(
-        tmp_path, monkeypatch):
-    from learnloop import activation_journal
-    from learnloop.reader_followups_upgrade import complete_interrupted_activation, upgrade_to_reader_followups
-
-    paths = _interrupted(tmp_path, "refused038", "mvp-0.37", PREDECESSOR)
-    monkeypatch.setattr(activation_journal, "_COMPLETER", None)
-    with pytest.raises(activation_journal.InterruptedActivation, match=f"learnloop upgrade --to {PREDECESSOR}"):
-        Repository(paths.sqlite_path)
-    assert complete_interrupted_activation(paths.root) == PREDECESSOR
-    assert not _journal(paths).exists() and complete_interrupted_activation(paths.root) is None
-    result = upgrade_to_reader_followups(paths.root)
-    assert result.upgraded and result.from_version == PREDECESSOR and _version(paths) == TAG
-    assert not _journal(paths).exists() and _activated(paths, PREDECESSOR) and _activated(paths)
 
 
 def test_replay_plans_nothing_and_a_shadow_rebuild_is_zero(tmp_path):

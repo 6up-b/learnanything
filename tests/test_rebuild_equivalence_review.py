@@ -220,12 +220,11 @@ SWITCH_OFF = "\n[replay]\nledger_bounded = false\n"
 
 
 def test_the_successor_is_one_constant_after_its_predecessor():
-    from learnloop.replay_ledger_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
     # Reader CA2's mvp-0.35 follows it, then the kept replaced claims' mvp-0.36, mobile PR-4's mvp-0.37, the
     # cold-retry reschedule's mvp-0.38, Reader RW6b's mvp-0.39 and curriculum C1's mvp-0.40 as the latest (all keep it).
     assert TAG == "mvp-0.34" == SUCCESSOR_CHAIN[-26] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
-    assert UPGRADE_PREDECESSOR == PREDECESSOR == SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1]
+    assert PREDECESSOR == SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1]
     assert REPLAY_LEDGER_VERSIONS == frozenset({TAG, "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", LATEST_ALGORITHM_VERSION})
 
 
@@ -273,129 +272,4 @@ def test_at_the_tag_replay_reproduces_live_and_the_switch_restores_the_predecess
     assert _rebuilt(off_vault, off) == predecessor != live
 
 
-def test_upgrade_from_the_predecessor_rebuilds_to_live_and_through_the_chain(tmp_path):
-    from typer.testing import CliRunner
-
-    from learnloop.cli.app import app
-    from learnloop.replay_ledger_upgrade import upgrade_to_replay_ledger
-    from tests.rebuild_equivalence_helpers import _mastery
-
-    paths, vault, repository = _two_attempt_history(tmp_path, "direct", version=PREDECESSOR)
-    live = _mastery(repository)
-    old_replay = _rebuilt(vault, repository)
-    assert old_replay != live  # the state a predecessor rebuild left
-    result = upgrade_to_replay_ledger(paths.root)
-    assert result.upgraded and (result.from_version, result.to_version) == (PREDECESSOR, TAG)
-    assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
-    assert _mastery(repository) == live
-    assert repository.latest_derived_state_rebuild()["algorithm_version"] == TAG
-    again = upgrade_to_replay_ledger(paths.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-    chained = create_placement_vault(tmp_path / "chained", version="mvp-0.30")
-    assert upgrade_to_replay_ledger(chained.root).upgraded
-    assert load_vault(chained.root).config.algorithms.algorithm_version == TAG
-
-    old = create_placement_vault(tmp_path / "old", version="mvp-0.8")
-    refused = upgrade_to_replay_ledger(old.root)
-    assert not refused.upgraded and load_vault(old.root).config.algorithms.algorithm_version == "mvp-0.8"
-
-    cli = create_placement_vault(tmp_path / "cli", version=PREDECESSOR)
-    # The bare upgrade targets the latest (mobile PR-4's mvp-0.37, after the kept replaced claims' mvp-0.36), through this tag.
-    invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root)])
-    assert invoked.exit_code == 0, invoked.output
-    assert f"{PREDECESSOR} -> {LATEST_ALGORITHM_VERSION}" in invoked.output
-
-
-def test_a_failed_activation_leaves_the_predecessor_and_a_dead_one_resumes(tmp_path, monkeypatch):
-    import learnloop.replay_ledger_upgrade as upgrade_module
-    from tests.helpers import set_algorithm_version
-    from tests.rebuild_equivalence_helpers import _mastery
-
-    paths, vault, repository = _two_attempt_history(tmp_path, "vault", version=PREDECESSOR)
-    live = _mastery(repository)
-    old_replay = _rebuilt(vault, repository)
-    before = _read(paths)
-
-    def broken(*_args, **_kwargs):
-        raise RuntimeError("injected publication failure")
-
-    monkeypatch.setattr(upgrade_module, "_publish_algorithm_version", broken)
-    with pytest.raises(RuntimeError, match="injected"):
-        upgrade_module.upgrade_to_replay_ledger(paths.root)
-    assert load_vault(paths.root).config.algorithms.algorithm_version == PREDECESSOR
-    assert _read(paths) == before and _mastery(repository) == old_replay
-    monkeypatch.undo()
-
-    # A process that died after publishing the config and before the commit:
-    # the tag over the predecessor's database. The upgrade completes it.
-    set_algorithm_version(paths, TAG)
-    resumed = upgrade_module.upgrade_to_replay_ledger(paths.root)
-    assert resumed.upgraded and resumed.notes == [f"completed the activation of {TAG} (a whole-vault rebuild under it)"]
-    assert _mastery(repository) == live
-
-
 # ── Re-review F5: recovery reads the activation's own completion marker ──────
-
-def _died_after_publication(tmp_path, name):
-    """A vault whose predecessor rebuild left the predecessor's replay, then an
-    activation that published the tag and died before its commit."""
-
-    from tests.helpers import set_algorithm_version
-    from tests.rebuild_equivalence_helpers import _mastery
-
-    paths, vault, repository = _two_attempt_history(tmp_path, name, version=PREDECESSOR)
-    live = _mastery(repository)
-    assert _rebuilt(vault, repository) != live
-    set_algorithm_version(paths, TAG)
-    return paths, repository, live
-
-
-def test_a_startup_receipt_after_a_died_activation_does_not_hide_it(tmp_path):
-    """The desktop restarts before the retry: its canonical-projection startup
-    refresh stamps a receipt under the tag without replaying mastery. The
-    upgrade still completes the activation."""
-
-    from learnloop.replay_ledger_upgrade import upgrade_to_replay_ledger
-    from learnloop.substrate.canonical_projection_rollout import refresh_canonical_projection_on_startup
-    from tests.rebuild_equivalence_helpers import _mastery
-
-    paths, repository, live = _died_after_publication(tmp_path, "startup")
-    assert refresh_canonical_projection_on_startup(load_vault(paths.root), repository) is not None
-    assert repository.latest_derived_state_rebuild()["algorithm_version"] == TAG
-    assert _mastery(repository) != live
-
-    resumed = upgrade_to_replay_ledger(paths.root)
-    assert resumed.upgraded and resumed.notes == [f"completed the activation of {TAG} (a whole-vault rebuild under it)"]
-    assert _mastery(repository) == live
-    again = upgrade_to_replay_ledger(paths.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-
-def test_a_died_activation_with_no_rebuild_receipt_is_completed(tmp_path):
-    from learnloop.replay_ledger_upgrade import upgrade_to_replay_ledger
-    from tests.rebuild_equivalence_helpers import _mastery
-
-    paths, repository, live = _died_after_publication(tmp_path, "none")
-    with repository.connection() as connection:
-        connection.execute("DELETE FROM derived_state_rebuilds")
-    assert repository.latest_derived_state_rebuild() is None
-
-    resumed = upgrade_to_replay_ledger(paths.root)
-    assert resumed.upgraded and _mastery(repository) == live
-
-
-def test_a_partial_rebuild_under_the_tag_does_not_complete_the_activation(tmp_path):
-    """Only a whole-vault rebuild under the tag is the activation's marker: a
-    per-LO rebuild (an item edit's, a regrade's) replays only its own LOs."""
-
-    from learnloop.replay_ledger_upgrade import upgrade_to_replay_ledger
-    from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
-    from tests.rebuild_equivalence_helpers import _mastery
-
-    paths, repository, live = _died_after_publication(tmp_path, "partial")
-    rebuild_all_derived_state(load_vault(paths.root), repository, learning_object_ids=["lo_diag"])
-    assert repository.latest_derived_state_rebuild()["algorithm_version"] == TAG
-
-    resumed = upgrade_to_replay_ledger(paths.root)
-    assert resumed.upgraded and _mastery(repository) == live

@@ -120,12 +120,11 @@ def _state(mean, variance, evidence=3):
 
 
 def test_the_successor_is_one_constant_after_its_predecessor():
-    from learnloop.claim_fixes_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
     # Rebuild equivalence's mvp-0.34, Reader CA2's mvp-0.35, the kept replaced claims' mvp-0.36 and mobile PR-4's mvp-0.37 (the latest) landed after it and keep it.
     assert TAG == SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(PREDECESSOR) + 1]
     assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.59"
-    assert UPGRADE_PREDECESSOR == PREDECESSOR == READING_PATH_PLAN_ALGORITHM_VERSION == "mvp-0.32"
+    assert PREDECESSOR == READING_PATH_PLAN_ALGORITHM_VERSION == "mvp-0.32"
     # Built as mvp-0.32 beside RW7b's successor; RW7b landed first, so the landing renumbered it.
     assert TAG == "mvp-0.33"
     assert CLAIM_FIXES_VERSIONS == frozenset({TAG, "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", LATEST_ALGORITHM_VERSION})
@@ -466,37 +465,3 @@ def test_owner_copies_off_is_the_predecessor_and_on_reports_the_mastery_deltas(t
 
 
 # ── the upgrade ──────────────────────────────────────────────────────────────
-
-
-def test_upgrade_from_the_predecessor_replays_claimed_los_and_through_the_chain(tmp_path):
-    from typer.testing import CliRunner
-
-    from learnloop.claim_fixes_upgrade import upgrade_to_claim_fixes
-    from learnloop.cli.app import app
-
-    direct, vault, repository = _vault(tmp_path, "direct", version=PREDECESSOR)
-    _answer(vault, repository, ITEM, 4.0, minutes=5)
-    _claim(repository, minutes=20, level=0.05, pseudo_count=4.0)  # later than the attempt
-    live = _mastery(repository)
-    result = upgrade_to_claim_fixes(direct.root)
-    assert result.upgraded and (result.from_version, result.to_version) == (PREDECESSOR, TAG)
-    assert any(LO in note for note in result.notes)
-    assert load_vault(direct.root).config.algorithms.algorithm_version == TAG
-    # The replay applied the claim at its own time: the earlier attempt keeps its seed.
-    assert _mastery(Repository(direct.sqlite_path)) == pytest.approx(live, rel=1e-12, abs=1e-12)
-    again = upgrade_to_claim_fixes(direct.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-    chained = create_placement_vault(tmp_path / "chained", version="mvp-0.30")
-    assert upgrade_to_claim_fixes(chained.root).upgraded
-    assert load_vault(chained.root).config.algorithms.algorithm_version == TAG
-
-    old = create_placement_vault(tmp_path / "old", version="mvp-0.8")
-    refused = upgrade_to_claim_fixes(old.root)
-    assert not refused.upgraded and load_vault(old.root).config.algorithms.algorithm_version == "mvp-0.8"
-
-    cli = create_placement_vault(tmp_path / "cli", version=PREDECESSOR)
-    # Its own step (the default target is the latest's, rebuild equivalence's, since its landing).
-    invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root), "--to", TAG])
-    assert invoked.exit_code == 0, invoked.output
-    assert f"{PREDECESSOR} -> {TAG}" in invoked.output

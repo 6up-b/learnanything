@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from datetime import timedelta
-import inspect
 import json
 
 import pytest
@@ -33,7 +32,6 @@ from learnloop.placement.state import unevidenced_return_active
 from learnloop.scheduling.scheduler import build_due_queue, pool_admission
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.substrate.state_sync import sync_vault_state
-from learnloop.unevidenced_return_upgrade import PREDECESSOR, upgrade_to_unevidenced_return
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
@@ -54,7 +52,7 @@ def _at(minutes: float) -> FrozenClock:
 
 
 def test_the_successor_is_one_constant_after_its_predecessor_and_the_latest():
-    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.55"
+    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.55"
     # Slip or gap's successor (mvp-0.57) follows it and keeps it.
     assert TAG == "mvp-0.56" == SUCCESSOR_CHAIN[-4] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
     assert UNEVIDENCED_RETURN_VERSIONS == frozenset({TAG, "mvp-0.57", "mvp-0.58", "mvp-0.59"})
@@ -363,8 +361,9 @@ def test_a_whole_vault_rebuild_writes_the_same_state_at_both_tags(tmp_path):
 
 def test_a_shadow_rebuild_reports_nothing_moved_for_the_shape(tmp_path):
     paths, _vault_at, repository = _with_primed_answer(tmp_path)
+    # The vault at the tag, its derived state rebuilt there (what the tag's activation left).
+    set_algorithm_version(paths, TAG)
     rebuild_all_derived_state(load_vault(paths.root), repository)
-    assert upgrade_to_unevidenced_return(paths.root).upgraded
     invocation = CliRunner().invoke(app, ["rebuild", "--shadow", "--json", "--vault", str(paths.root)])
     assert invocation.exit_code == 0, invocation.output
     report = json.loads(invocation.output)["shadow_rebuild"]
@@ -378,56 +377,3 @@ def test_a_shadow_rebuild_reports_nothing_moved_for_the_shape(tmp_path):
 
 
 # ── the upgrade ──────────────────────────────────────────────────────────────
-
-
-def test_the_openers_install_this_links_completion():
-    from learnloop import slip_gap_upgrade, unevidenced_return_upgrade
-    from learnloop.cli import runtime
-    from learnloop_sidecar import context
-
-    # Slip or gap's link (mvp-0.57) is the chain's latest since; its completion hands this link's journal here.
-    assert "learnloop.facet_belief_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.facet_belief_upgrade" in inspect.getsource(context._complete_interrupted_activation)
-    assert "learnloop.unevidenced_return_upgrade import complete_interrupted_activation" in inspect.getsource(
-        slip_gap_upgrade)
-    assert "learnloop.failure_share_upgrade import complete_interrupted_activation" in inspect.getsource(
-        unevidenced_return_upgrade)
-
-
-def test_the_upgrade_publishes_the_tag_and_completes_once(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, OLD)
-    result = upgrade_to_unevidenced_return(paths.root)
-    assert result.upgraded and (result.from_version, result.to_version) == (OLD, TAG)
-    assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
-    again = upgrade_to_unevidenced_return(paths.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-
-def test_the_upgrade_chains_from_an_older_link(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.47")
-    result = upgrade_to_unevidenced_return(paths.root)
-    assert result.upgraded and (result.from_version, result.to_version) == ("mvp-0.47", TAG)
-    assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
-
-
-def test_the_upgrade_refuses_anything_older_than_the_chain(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.8")
-    result = upgrade_to_unevidenced_return(paths.root)
-    assert not result.upgraded and "cannot upgrade from 'mvp-0.8'" in result.problems[0]
-    assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.8"
-
-
-def test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, OLD)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert f"{OLD} -> {LATEST_ALGORITHM_VERSION}" in result.output
-    named = create_basic_vault(tmp_path / "named")
-    set_algorithm_version(named, OLD)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(named.root), "--to", TAG])
-    assert result.exit_code == 0, result.output
-    assert load_vault(named.root).config.algorithms.algorithm_version == TAG

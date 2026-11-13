@@ -8,7 +8,6 @@ chain's next journalled link (a projection activation; nothing recorded changes,
 
 from __future__ import annotations
 
-import inspect
 import random
 
 import pytest
@@ -22,7 +21,6 @@ from learnloop.algorithm_versions import (
 )
 from learnloop.config.schema import RouterObjectiveConfig
 from learnloop.daily_plan.objective_chooser import _failure_rule_field, objective_settings
-from learnloop.failure_share_upgrade import PREDECESSOR, upgrade_to_failure_share
 from learnloop.params.parameter_registry import classify_config_path
 from learnloop.router import mixture as mx
 from learnloop.router_objective import mix
@@ -48,7 +46,7 @@ IH5_KEYS = {"failure_share_to_other_policy": True, "lessons_compete_with_followu
 
 
 def test_the_successor_is_one_constant_after_phone_v3():
-    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.54"
+    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.54"
     # The placement hole's successor (mvp-0.56) follows it and keeps it, and slip or gap's (mvp-0.57) after that.
     assert TAG == "mvp-0.55" == SUCCESSOR_CHAIN[-5] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
     assert FAILURE_SHARE_VERSIONS == frozenset({TAG, "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
@@ -90,67 +88,6 @@ def test_the_prefetch_key_names_the_switch_at_the_tag_and_keeps_its_bytes_below(
     flipped = objective_settings(load_vault(off.root).config)
     assert flipped["failure_share_to_other_policy"] is False and flipped != on
     assert {k: v for k, v in on.items() if k not in IH5_KEYS} == below
-
-
-def test_the_openers_install_this_links_completion():
-    from learnloop import failure_share_upgrade, slip_gap_upgrade, unevidenced_return_upgrade
-    from learnloop.cli import runtime
-    from learnloop_sidecar import context
-
-    # The placement hole's link (mvp-0.56) and slip or gap's (mvp-0.57) follow; the chain's latest completion hands
-    # this link's journal down to the placement hole's, which hands it here.
-    assert "learnloop.facet_belief_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.facet_belief_upgrade" in inspect.getsource(context._complete_interrupted_activation)
-    assert "learnloop.unevidenced_return_upgrade import complete_interrupted_activation" in inspect.getsource(
-        slip_gap_upgrade)
-    assert "learnloop.failure_share_upgrade import complete_interrupted_activation" in inspect.getsource(
-        unevidenced_return_upgrade)
-    # It hands an earlier link's journal to phone V3's completion, which hands it on in turn.
-    assert "learnloop.phone_probes_upgrade import complete_interrupted_activation" in inspect.getsource(
-        failure_share_upgrade)
-
-
-def test_the_upgrade_publishes_the_tag_and_completes_once(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, OLD)
-    result = upgrade_to_failure_share(paths.root)
-    assert result.upgraded and (result.from_version, result.to_version) == (OLD, TAG)
-    assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
-    again = upgrade_to_failure_share(paths.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-
-def test_the_upgrade_chains_from_an_older_link(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.47")
-    result = upgrade_to_failure_share(paths.root)
-    assert result.upgraded and (result.from_version, result.to_version) == ("mvp-0.47", TAG)
-    assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
-
-
-def test_the_upgrade_refuses_anything_older_than_the_chain(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.8")
-    result = upgrade_to_failure_share(paths.root)
-    assert not result.upgraded and "cannot upgrade from 'mvp-0.8'" in result.problems[0]
-    assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.8"
-
-
-def test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name(tmp_path):
-    from typer.testing import CliRunner
-
-    from learnloop.cli.app import app
-
-    paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, OLD)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert f"{OLD} -> {LATEST_ALGORITHM_VERSION}" in result.output
-    named = create_basic_vault(tmp_path / "named")
-    set_algorithm_version(named, OLD)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(named.root), "--to", TAG])
-    assert result.exit_code == 0, result.output
-    assert load_vault(named.root).config.algorithms.algorithm_version == TAG
 
 
 # -- the mix's failure rule (spec §7a) -----------------------------------------------------------------------

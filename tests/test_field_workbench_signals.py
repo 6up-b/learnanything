@@ -495,13 +495,12 @@ def test_review_f4_a_long_autosaved_history_resolves_in_linear_time():
 
 
 def test_the_successor_vocabulary_is_one_constant_after_its_predecessor():
-    from learnloop.workbench_field_signals_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
     # Reader workbench RW7b's mvp-0.32, LP-min (a)'s mvp-0.33, rebuild equivalence's mvp-0.34 and Reader
     # CA2's mvp-0.35, the kept replaced claims' mvp-0.36 and mobile PR-4's mvp-0.37 (the latest) follow it and keep it.
     assert TAG == SUCCESSOR_CHAIN[21] and LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.59"
     # Landed after adaptive difficulty AD2+AD3: its mvp-0.30 is the predecessor (the landing renumber).
-    assert UPGRADE_PREDECESSOR == PREDECESSOR == ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION == "mvp-0.30"
+    assert PREDECESSOR == ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION == "mvp-0.30"
     assert TAG == "mvp-0.31"
     assert WORKBENCH_FIELD_SIGNALS_VERSIONS == frozenset({TAG, "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
@@ -712,35 +711,6 @@ def test_the_rebuild_never_reads_the_workbench_tables(tmp_path):
 
 
 # ── the upgrade ──────────────────────────────────────────────────────────────
-
-
-def test_upgrade_from_the_predecessor_and_through_the_chain(tmp_path):
-    from typer.testing import CliRunner
-
-    from learnloop.cli.app import app
-    from learnloop.workbench_field_signals_upgrade import upgrade_to_workbench_field_signals
-
-    direct = create_placement_vault(tmp_path / "direct", version=PREDECESSOR)
-    result = upgrade_to_workbench_field_signals(direct.root)
-    assert result.upgraded and (result.from_version, result.to_version) == (PREDECESSOR, TAG)
-    assert load_vault(direct.root).config.algorithms.algorithm_version == TAG
-    again = upgrade_to_workbench_field_signals(direct.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-    for start in ("mvp-0.27", "mvp-0.29"):  # through AD2+AD3's step (and DL2's, from mvp-0.27)
-        chained = create_placement_vault(tmp_path / f"chained-{start}", version=start)
-        assert upgrade_to_workbench_field_signals(chained.root).upgraded, start
-        assert load_vault(chained.root).config.algorithms.algorithm_version == TAG
-
-    old = create_placement_vault(tmp_path / "old", version="mvp-0.8")
-    refused = upgrade_to_workbench_field_signals(old.root)
-    assert not refused.upgraded and load_vault(old.root).config.algorithms.algorithm_version == "mvp-0.8"
-
-    cli = create_placement_vault(tmp_path / "cli", version=PREDECESSOR)
-    # RW2d's own step (the default target is the latest's, rebuild equivalence's, since its landing).
-    invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root), "--to", TAG])
-    assert invoked.exit_code == 0, invoked.output
-    assert f"{PREDECESSOR} -> {TAG}" in invoked.output
 
 
 # ── G41 on fixture copies ────────────────────────────────────────────────────

@@ -28,7 +28,7 @@ from learnloop.tutor.ai_contracts import LearnerGap
 from learnloop.tutor.tutor_qa import ask_question
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, append_config_toml, create_placement_vault, set_algorithm_version
+from tests.helpers import NOW, append_config_toml
 from tests.text_gap_fakes import ChoiceDecider, GapLLMFake, GapTutor, word_match
 from tests.learner_text_gaps_flow_helpers import EIGEN_GAP, _at, _clients, _setup
 
@@ -347,19 +347,3 @@ def test_the_report_counts_per_kind_and_chooser_and_its_dry_run_writes_nothing(t
     write_report(load_vault(root), repository, out)
     text = out.read_text()
     assert "## Decider or LLM" in text and "## Batch review" in text
-
-
-def test_upgrade_to_mvp016_from_its_predecessor(tmp_path):
-    from learnloop.learner_text_gap_upgrade import upgrade_to_mvp016
-
-    root, _repository = _setup(tmp_path, version="mvp-0.15")
-    result = upgrade_to_mvp016(root)
-    assert result.upgraded and (result.from_version, result.to_version) == ("mvp-0.15", "mvp-0.16")
-    assert load_vault(root).config.algorithms.algorithm_version == "mvp-0.16"
-    again = upgrade_to_mvp016(root)
-    assert not again.upgraded and again.problems == ["vault is already mvp-0.16"]
-    old = tmp_path / "old"
-    paths = create_placement_vault(old, version="mvp-0.6")
-    refused = upgrade_to_mvp016(paths.root)
-    assert not refused.upgraded and "cannot upgrade" in refused.problems[0]
-    set_algorithm_version  # noqa: B018 - imported for the parity tests' helpers

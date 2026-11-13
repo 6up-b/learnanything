@@ -40,12 +40,9 @@ def _rows(repository, sql, params=()):
 
 
 def test_the_tag_is_the_chains_last_link_after_curriculum_c1():
-    from learnloop.teacher_upgrade import PREDECESSOR
-
     # Follow-ups Nov 2's mvp-0.42 and teacher TE1b's mvp-0.43 (the latest) follow it (and keep it).
     assert SUCCESSOR_CHAIN[-20:] == (DELIVERABLE_PLAN_ALGORITHM_VERSION, TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", LATEST_ALGORITHM_VERSION) == (
         "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59")
-    assert PREDECESSOR == DELIVERABLE_PLAN_ALGORITHM_VERSION
     assert TEACHER_VERSIONS == frozenset({TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
 
@@ -148,35 +145,6 @@ def test_the_whole_rebuild_owns_the_lesson_weight_tables_and_reproduces_them(tmp
     assert receipts == [(1,)]  # RECEIPT rows are never cleared by replay
 
 
-def test_the_upgrade_from_the_predecessor_and_its_refusals(tmp_path):
-    from learnloop.teacher_upgrade import upgrade_to_teacher
-
-    paths, repository = build_teacher_vault(tmp_path / "vault", version=DELIVERABLE_PLAN_ALGORITHM_VERSION)
-    result = upgrade_to_teacher(paths.root)
-    assert result.upgraded and result.from_version == DELIVERABLE_PLAN_ALGORITHM_VERSION and result.to_version == TAG
-    assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
-    again = upgrade_to_teacher(paths.root)
-    assert not again.upgraded and again.problems
-    old, _repo = build_teacher_vault(tmp_path / "old", version="mvp-0.8")
-    refused = upgrade_to_teacher(old.root)
-    assert not refused.upgraded and "cannot upgrade" in refused.problems[0]
-
-
-def test_the_cli_installs_this_links_completion():
-    import inspect
-
-    from learnloop import help_fold_attach_upgrade, lesson_suggestions_upgrade
-    from learnloop.cli import runtime
-
-    # Teacher TE1b's mvp-0.43 is the chain's latest: the CLI installs its completion, which hands an
-    # earlier journal to follow-ups Nov 2's, which hands this link's journal to this link's completion.
-    assert "learnloop.facet_belief_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.help_fold_attach_upgrade import complete_interrupted_activation" in inspect.getsource(
-        lesson_suggestions_upgrade)
-    assert "learnloop.teacher_upgrade import complete_interrupted_activation" in inspect.getsource(
-        help_fold_attach_upgrade)
-
-
 # --- the desktop RPCs ------------------------------------------------------------------------------
 
 
@@ -230,20 +198,3 @@ def test_a_metered_lesson_turn_needs_its_price_and_cap(tmp_path):
         S.open_lesson(load_vault(paths.root), repository, entry="learning_object", learning_object_ids=["lo_eigen"],
                       clients=clients(Metered([plan_turn])))
     assert raised.value.code == "plan_unavailable"
-
-
-def test_a_bare_upgrade_goes_through_mvp041_along_the_chain(tmp_path, monkeypatch):
-    from typer.testing import CliRunner
-
-    from learnloop import activation_journal
-    from learnloop.cli import app
-    from learnloop.cli.runtime import _complete_interrupted_activation
-    from tests.helpers import create_placement_vault
-
-    monkeypatch.setattr(activation_journal, "_COMPLETER", _complete_interrupted_activation)
-    paths = create_placement_vault(tmp_path / "v", version="mvp-0.39")
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    # Teacher TE1b's mvp-0.43 is the bare upgrade's target now: it goes through this link.
-    assert f"mvp-0.39 -> {LATEST_ALGORITHM_VERSION}" in result.output
-    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION

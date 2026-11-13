@@ -146,7 +146,7 @@ def test_the_table_is_the_chain_from_the_floor_one_row_per_tag():
     chain = SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(OLDEST_SUPPORTED) + 1:]
     assert targets() == chain
     assert UPGRADES[0].predecessor == OLDEST_SUPPORTED
-    assert all(earlier.tag == later.predecessor for earlier, later in zip(UPGRADES, UPGRADES[1:]))
+    assert all(earlier.tag == later.predecessor for earlier, later in zip(UPGRADES, UPGRADES[1:], strict=False))
     assert {link.tag: link.activate for link in UPGRADES} == EXPECTED_ACTIVATIONS
 
 

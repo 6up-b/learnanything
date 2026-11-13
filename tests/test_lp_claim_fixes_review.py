@@ -18,7 +18,6 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.learner.mastery import reanchor_mastery_from_claim
-from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW
 from tests.assumed_known_helpers import _answer
@@ -27,14 +26,10 @@ from tests.lp_claim_fixes_review_helpers import (
     LO,
     PREDECESSOR,
     TAG,
-    _all_mastery,
-    _crash_upgrade,
     _gap,
     _gap_claims,
     _iso,
-    _journal,
     _mastery,
-    _predecessor_vault_with_claims,
     _rebuild,
     _vault,
 )
@@ -113,101 +108,7 @@ def test_f1_off_the_predecessor_writes_a_plain_claim(tmp_path):
 # ── F2: an interrupted activation is completed, never left half-done ────────
 
 
-@pytest.mark.filterwarnings("ignore:This process .* is multi-threaded:DeprecationWarning")
-@pytest.mark.parametrize("completion", ["upgrade_again", "desktop_start"])
-def test_f2_a_death_between_publication_and_commit_is_completed_from_the_journal(tmp_path, completion):
-    from learnloop.claim_fixes_upgrade import upgrade_to_claim_fixes
-    from learnloop_sidecar.context import SidecarContext
-
-    clean = _predecessor_vault_with_claims(tmp_path, "clean")
-    assert upgrade_to_claim_fixes(clean.root).upgraded
-    expected = _all_mastery(clean.sqlite_path)
-
-    crashed = _predecessor_vault_with_claims(tmp_path, "crashed")
-    before = _all_mastery(crashed.sqlite_path)
-    _crash_upgrade(crashed)
-
-    # The state the review describes: the successor's label over the
-    # predecessor's database, and now the journal that says so.
-    assert load_vault(crashed.root).config.algorithms.algorithm_version == TAG
-    assert _all_mastery(crashed.sqlite_path) == before != expected
-    assert _journal(crashed).exists()
-
-    if completion == "upgrade_again":
-        result = upgrade_to_claim_fixes(crashed.root)
-        assert result.upgraded and result.notes[0] == f"completed the interrupted activation of {TAG}"
-    else:
-        # The desktop start's opener completes it (re-review F2: every opener).
-        SidecarContext().load(crashed.root)
-
-    assert _all_mastery(crashed.sqlite_path) == pytest.approx(expected)
-    assert not _journal(crashed).exists()
-    again = upgrade_to_claim_fixes(crashed.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-
-def test_f2_failures_before_or_after_the_rename_leave_the_predecessor_and_no_journal(tmp_path, monkeypatch):
-    import learnloop.claim_fixes_upgrade as upgrade
-
-    before_rename = _predecessor_vault_with_claims(tmp_path, "before")
-    state = _all_mastery(before_rename.sqlite_path)
-    monkeypatch.setattr(upgrade.registry_service, "refresh", lambda *a, **k: (_ for _ in ()).throw(OSError("disk")))
-    with pytest.raises(OSError):
-        upgrade.upgrade_to_claim_fixes(before_rename.root)
-    assert load_vault(before_rename.root).config.algorithms.algorithm_version == PREDECESSOR
-    assert _all_mastery(before_rename.sqlite_path) == state and not _journal(before_rename).exists()
-    monkeypatch.undo()
-
-    after_rename = _predecessor_vault_with_claims(tmp_path, "after")
-    state = _all_mastery(after_rename.sqlite_path)
-    real = upgrade._fsync_directory
-    calls = {"n": 0}
-
-    def fail_second(directory):
-        calls["n"] += 1
-        if calls["n"] == 2:  # the config's directory fsync, after the rename
-            raise OSError("fsync")
-        real(directory)
-
-    monkeypatch.setattr(upgrade, "_fsync_directory", fail_second)
-    with pytest.raises(OSError):
-        upgrade.upgrade_to_claim_fixes(after_rename.root)
-    assert load_vault(after_rename.root).config.algorithms.algorithm_version == PREDECESSOR
-    assert _all_mastery(after_rename.sqlite_path) == state and not _journal(after_rename).exists()
-
-
-def test_f2_a_journal_left_after_the_commit_is_just_removed(tmp_path):
-    from learnloop.claim_fixes_upgrade import complete_interrupted_activation, upgrade_to_claim_fixes
-
-    paths = _predecessor_vault_with_claims(tmp_path, "vault")
-    assert upgrade_to_claim_fixes(paths.root).upgraded
-    state = _all_mastery(paths.sqlite_path)
-    _journal(paths).write_text(f'{{"predecessor": "{PREDECESSOR}", "target": "{TAG}"}}', encoding="utf-8")
-
-    assert complete_interrupted_activation(paths.root) is None
-    assert not _journal(paths).exists() and _all_mastery(paths.sqlite_path) == state
-
-
 # ── F3: activation equals a same-version rebuild ────────────────────────────
-
-
-@pytest.mark.parametrize("with_attempts", [True, False])
-def test_f3_activation_reseeds_claimed_los_without_attempts_as_a_rebuild_does(tmp_path, with_attempts):
-    from learnloop.claim_fixes_upgrade import upgrade_to_claim_fixes
-
-    paths, vault, repository = _vault(tmp_path, version=PREDECESSOR)
-    if with_attempts:
-        _answer(vault, repository, ITEM, 4.0, minutes=5)
-    _gap(paths.root, repository, "ev_cold", item="pi_diag_easy")
-    inert = _mastery(repository, "lo_diag")
-    assert inert[0] == 0.0  # the predecessor's defect: the gap did nothing
-
-    result = upgrade_to_claim_fixes(paths.root)
-
-    assert result.upgraded and any("lo_diag" in note and "without attempts" in note for note in result.notes)
-    upgraded = _all_mastery(paths.sqlite_path)
-    assert upgraded["lo_diag"][0] < 0.0
-    assert _all_mastery(_rebuild(paths).sqlite_path) == pytest.approx(upgraded)
 
 
 # ── F4: a claim never lowers a variance ─────────────────────────────────────
