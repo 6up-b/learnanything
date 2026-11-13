@@ -282,3 +282,28 @@ that name the configured model's exact missing cases.
 now also asserts, for `guard_status(repository, judge_model="deepseek-v4-pro@high")`: `passed` and `switch_ready`
 false, `negatives` the suite's count, `missing` exactly the negatives B did not judge (`negatives[3:]`), and only B
 among the models seen; and model A among the unfiltered status's models. All three mutants fail it.
+
+## Design questions left for the orchestrator
+
+1. **U2: should a refusal also stop the bound background runners?** While a bound vault is refused, handlers, the
+   post-attempt worker and AD admissions stop, but `ingest_jobs`, `exam_grading`, `map_builds` and the request-started
+   `background_jobs` keep the repository they were bound with. Choices: (a) leave them (they write content, not
+   learner state, and stop at the next load); (b) call `close()` when the refusal is first set, which joins threads
+   from a request thread and would block that request up to the runners' bounded waits. Recommendation: (a) now, with
+   (b) as a follow-up if an unfinished upgrade should also stop ingest.
+2. **U7: editing config is the only route for a guard-required vault.** A vault below mvp-0.12 with
+   `recurrence.require_guard = true` and no passing guard cannot be upgraded through `pre-floor` without setting the
+   switch to false; the refusal and ADR-019 now say so. Choices: accept that (recommended: the default has been false
+   since 2026-10-12, and the owner's live vaults are all past mvp-0.12), or give `pre-floor` a successor tag whose
+   `recurrence guard` takes the upgrade's allowance (a change to the fixed tag's code, which the brief rules out).
+3. **U5/U6: `ai compare`** reads a below-floor source vault's `storage.sqlite_path` to copy it (it writes only the
+   copy, which is then refused at load). Left as is; say if it should refuse before copying.
+
+## What was not verified
+
+- The desktop frontend was not run: what it shows on `vault_below_oldest_supported` / `vault_upgrade_unfinished` is
+  read from `errors.ts` / `App.tsx` (the message as a toast or error notice).
+- The `pre-floor` route was read with `git show`, not run in a worktree of the tag.
+- The full suite (the floor module is imported by `tests/conftest.py`, so `affected_tests.py` selects everything); the
+  gate ran the affected files of every other changed module plus the named structural tests.
+- U4 over a live MCP server process; U3 with an I/O error other than a permission error.
