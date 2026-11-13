@@ -65,3 +65,49 @@ traceback. Once the file is readable again the next opener completes the activat
 
 **Not verified.** An I/O error other than a permission error (the test uses `chmod 0`; the code treats every
 `OSError` but `FileNotFoundError` the same). Running as root skips the test.
+
+## U2: a bound sidecar stops serving an unservable vault
+
+**Reproduced.** `tests/test_sidecar_stops_serving.py`, on a context loaded at the head:
+- `test_a_reload_refused_below_the_floor_stops_serving_until_a_load_succeeds`: the file retagged below the floor,
+  then `reload_vault`. At the base the RPC failed as `internal` (no message: `BelowOldestSupported` was mapped only by
+  `initialize`), and a variant asserting on the next call showed `app_snapshot()` still serving the cached vault.
+- `test_a_journal_that_appears_while_bound_stops_serving_until_a_load_succeeds`: another process's journal written
+  beside the bound database; at the base `app_snapshot()` did not raise.
+
+**Fix.** The one place handlers get the vault is `SidecarContext.require_vault`; the post-attempt worker gets it from
+`_worker_target` (its supplier, called per iteration); background AD jobs admit their snapshot through
+`LoadedVaultProvider.admit`. All three now ask `SidecarContext.serving()`: false while `refusal` holds, and a journal
+seen beside the bound database (one `stat`, skipped inside the activation's own completion) sets the refusal. The
+refusal is also set when a load of the bound vault is refused (`load`, `load_secondary`: `BelowOldestSupported` or
+`InterruptedActivation`), and setting it moves the vault generation, so a job holding an older snapshot fails its next
+admission. It holds until a load of a vault succeeds (`refusal = None` beside the publication of the new vault): a
+journal that goes away has changed the database under the cached vault, so its disappearance alone does not serve
+again. `refresh_vault_files` (the watcher's handoff), while refused, tries a full reload first instead of refusing,
+so the upgrade's own publication of `learnloop.toml` (or an owner's fix of it) brings the vault back without a
+restart; the full-reload block it repeated twice is now `_full_refresh`. The server maps both refusals for every
+method (`unservable_error`: `vault_below_oldest_supported` with the floor's details, as `initialize` had, and
+`vault_upgrade_unfinished`); `initialize` drops its own copy of the mapping.
+
+**What the desktop then shows.** Every action reaches `require_vault` and fails with the refusal's own message, which
+`errorMessage` shows as the toast (classic) or error notice (simple shell): below the floor, the message naming the
+`pre-floor` route; with a journal, "The upgrade to … did not finish … open the desktop app or run
+`learnloop upgrade --to …`". No new frontend copy; the frontend was not run.
+
+**Callers and siblings checked.**
+- `require_vault` callers: the handlers (326 calls) and `app_snapshot`; all refused through the one check.
+- Direct `ctx.vault` / `ctx.repository` reads outside it: `handlers/chatgpt_plan.py` and `handlers/vault.py` read the
+  AI config only (plan profiles; the AI settings a new vault inherits); `server._observed_model_calls` wraps a handler
+  that is itself refused before any model call; `learnloop_mobile/runtime.py` reads the config for readiness. None
+  reads learner state; left as they are.
+- `LoadedVaultProvider.snapshot()` / `__call__` still return the cached vault: a job that falls back to it is stopped
+  at its admission (`SendGuard` refuses on a failed admission), which is where a model request or record is admitted.
+- The MCP runtime (U4) and the phone host's per-request reload (`refresh_if_content_changed`, whose window does not
+  advance on a failed reload) are the other attach paths; the phone host's handlers run on a `load_secondary` context
+  and get the same refusal.
+
+**Not verified / open.** The bound background runners (`ingest_jobs`, `exam_grading`, `map_builds`,
+`background_jobs`) keep running while refused: they were bound with the repository at load and do not ask the context
+again. Stopping them is `close()`, which joins threads and would be called from a request thread; whether a refusal
+should do that is a design question (below). Whether the Rust watcher reports a change to `learnloop.toml` itself
+was not checked; `reload_vault` works either way.
