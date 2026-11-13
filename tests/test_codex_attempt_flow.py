@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from tests.structured_ai import StructuredClientFake
 from tests.structured_ai import JointGraderAlsoBlind
 
@@ -166,13 +164,10 @@ def test_codex_graded_attempt_proposes_unknown_error_type(tmp_path):
     assert items[0]["payload"]["is_misconception"] is True
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D2a finding: on the head path a grade naming a KM4 mechanism type (retrieval_failure) files a "
-    "'new error type' proposal; persist_unknown_error_type_proposals' known set is the mvp-0.6 builtins and "
-    "the vault's types, without the nine mechanism types",
-)
 def test_codex_recall_wording_uses_recall_failure_not_new_error_type(tmp_path):
+    """Refactor bug ledger D-2 (D2a finding 2): at the head the KM4 mechanism types are builtins, so a grade
+    naming ``retrieval_failure`` files no "new error type" proposal."""
+
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     vault = load_vault(vault_root)
