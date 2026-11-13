@@ -93,3 +93,24 @@ legacy, "below the tag", "written at", and read the old version argument in the 
 - `test_recurrence_benchmarks` (b3 replays), `test_observation_ledger_bulk` (p0 replays bulk load), `test_projection_evidence_polarity`, `test_required_method_*` (`gated_successor`, replay under the frozen field): the tag was a setup choice (the first tag where a feature exists); each asserts the feature's own behaviour, which the head has. Fine.
 - The `_mvp07_vault`-style helpers (`test_characterization_*`, `test_conjunctive_instruments`, `test_scoreboard`, `test_contract_frontier_coverage`, `test_coverage_denominator_boundary`, `test_discrimination_profiles`, `test_error_hunt_items`, `test_laddered_stems`, `test_contrast_pairs`, `test_km5_sim_gates`, `test_causal_attribution_exhibit`, `capability_residual_helpers`, `identifiability_doctor_helpers`): "legacy" in their text means a vault without blueprints or targets, not an older tag. The helper names `_mvp07_vault`, and docstrings saying "mvp-0.7", are now wrong. I did not rename them (a rename across 13 files is outside this row).
 - `test_ro4_trace_report`, `test_ro5_codex_review`, `test_rofu_ad_latent`, `test_instruct_handoff_ih1`, `test_router_offer_log`, `test_router_why_copy`, `test_sidecar_close_cancels_jobs`, `test_planted_misgrade`, `test_grading_cli`, `test_tier1_decider`, `test_hypothesis_marks`, `test_daily_plan_composition`, `test_learner_protection_predicates`, `test_placement_*`, `test_reader_cues`, `test_intent_fix_round5/7`, `test_teacher_*`, `test_mobile_v3_codex_review`: tag was setup for a chooser or feature; none names a below-the-tag, replay or upgrade subject in its assertions. Read from the diff and test names only; I did not run each against a tag-dependent mutation.
+
+## T3: production's refinement controller
+
+Mutations in `objective_chooser.py` (the `keep_going` the job hands `run_numeric`), each reverted:
+(a) `lambda: False`; (b) the LLM-outstanding clause dropped (`LLM in entry.events and runtime.clock() < entry.deadline`).
+(b) against `test_ro4_codex_review`, `test_rofu_carried`, `test_ih_numeric_seed` (the files that run the threaded job with a gated
+LLM): 29 passed. By construction the default pin replaces `keep_going` for every test not marked `real_draws`, and
+`test_rospeed2_connections` supplies its own.
+
+New `tests/test_objective_refinement.py` (module-wide `real_draws`): the real job on a threaded `RouterRuntime`, `FakeLLM(gate=...)`
+blocking until released, a runtime clock (real monotonic plus an offset the test moves). `V.evaluate` is wrapped to read each
+completed batch from `on_complete` and to hold the job at batch 2 (so the next `keep_going()` call happens at a point the test controls).
+- `test_refinement_runs_another_batch_while_the_llm_is_out_and_stops_when_it_answers`: batches 8 then 16 complete with the LLM
+  gate closed; the gate opens, the job is released, the final evaluation is the 16-draw batch and no third batch follows. Fails
+  under (a) (never reaches batch 2) and (b) (a third batch).
+- `test_refinement_stops_at_the_deadline_with_the_llm_still_out`: the clock moves past the entry's deadline at batch 2; the job stops
+  at 16 draws with the LLM still out. Fails under (a). It passes if only the deadline clause of `keep_going` is removed:
+  `V.evaluate` has its own `clock() > deadline` check on the same line, so that clause is redundant and not observable
+  from outside; the test pins the behaviour (stops at the deadline), not that clause.
+Assertions use bounded waits (60 s) on events and a 0.2 s settle for "no further batch"; 3 consecutive runs passed (4.3 s each).
+No production seam was missing. `advance(env, serve=False)` with `check_rate = "off"` starts the first boundary's job (a check block otherwise precedes it).
