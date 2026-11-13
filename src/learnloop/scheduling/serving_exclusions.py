@@ -80,8 +80,9 @@ class ServingExclusions:
     reserved_exam_item_ids: frozenset[str]
     rung_variant_hold_ids: frozenset[str]
     staged_owned_item_ids: frozenset[str]
-    #: The cold items live remediation episodes chose, reserved from the moment they are chosen (the routine
-    #: sets carry only these); :func:`out_of_timing_serving_exclusions` adds the open cold tasks' items.
+    #: The routine sets carry only the cold items whose check is actually pending (an open cold retry:
+    #: ``pending_remediation_cold_item_ids``); :func:`out_of_timing_serving_exclusions` widens it to the open
+    #: cold tasks' items and every live episode's chosen item (``open_remediation_cold_item_ids``).
     cold_check_reserved_item_ids: frozenset[str] = frozenset()
     revealed_recently_item_ids: frozenset[str] = frozenset()
     #: Items made from held-out material (empty with ``goals.held_out_selection`` off).
@@ -126,7 +127,7 @@ def routine_serving_exclusions(vault: Any, repository: Repository) -> ServingExc
         generated_probe_ids=all_generated_probe_ids(repository),
         staged_owned_item_ids=frozenset(controller_ownership.staged_owned_practice_item_ids(vault, repository)),
         held_out_item_ids=held_out_items(vault, repository) if held_out_selection_active(vault) else frozenset(),
-        cold_check_reserved_item_ids=frozenset(repository.open_remediation_cold_item_ids()),
+        cold_check_reserved_item_ids=frozenset(repository.pending_remediation_cold_item_ids()),
     )
 
 

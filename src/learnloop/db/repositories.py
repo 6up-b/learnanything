@@ -4231,26 +4231,39 @@ class Repository(
             connection.commit()
         return released
 
-    def open_remediation_cold_item_ids(self) -> set[str]:
-        """The cold items of live remediation episodes that still have something to do: reserved from the
-        moment they are chosen, before the cold task exists (it is created after the primed attempt).
+    def _remediation_cold_item_ids(self, *, awaiting_primed: bool) -> set[str]:
+        """Cold items of live remediation episodes: those with a cold retry open, and (``awaiting_primed``)
+        those still waiting for the primed attempt, before any task exists. An episode that took its primed
+        attempt and has no open retry reserves nothing: a retry that was never scheduled has nothing left to
+        protect."""
 
-        An episode that has taken its primed attempt reserves its item only while a cold retry stands open:
-        one whose retry was never scheduled (no independent surface) has nothing left to protect, and
-        reserving would hold the item out of routine practice for good."""
-
+        waiting = "primed_attempt_id IS NULL OR " if awaiting_primed else ""
         with self.connection() as connection:
             rows = connection.execute(
-                """
+                f"""
                 SELECT cold_item_id FROM remediation_episodes AS episode
                 WHERE cold_item_id IS NOT NULL AND state NOT IN ('completed', 'abandoned')
-                  AND (primed_attempt_id IS NULL OR EXISTS (
+                  AND ({waiting}EXISTS (
                     SELECT 1 FROM followup_tasks AS task
                     WHERE task.remediation_episode_id = episode.id AND task.kind = 'cold_retry'
                       AND task.status IN ('pending', 'served')))
                 """
             ).fetchall()
         return {str(row[0]) for row in rows}
+
+    def open_remediation_cold_item_ids(self) -> set[str]:
+        """The wider reservation, for the learner-initiated selectors and the tutor (``find_practice``, the
+        quick check, practice admission, AD's slot check, ``cold_administration_open``, protection): the cold
+        item is held from the moment the episode chooses it, while its primed attempt is still to be taken."""
+
+        return self._remediation_cold_item_ids(awaiting_primed=True)
+
+    def pending_remediation_cold_item_ids(self) -> set[str]:
+        """The narrower reservation Today's routine queue honours: only an open cold retry. An episode whose
+        primed attempt is never taken has no lifetime (nothing ends it), and withholding the item from the
+        queue without one would take it out of practice indefinitely, so the queue waits for a real check."""
+
+        return self._remediation_cold_item_ids(awaiting_primed=False)
 
     def open_followup_tasks_of_kind(
         self, kind: str, *, learning_object_id: str | None = None

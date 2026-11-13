@@ -50,20 +50,57 @@ def test_the_cold_task_kinds_are_defined_once():
     assert learner_protection.COLD_TASK_KINDS is serve_eligibility.COLD_FOLLOWUP_TASK_KINDS
 
 
-def test_the_routine_due_queue_does_not_serve_a_reserved_cold_item_before_its_check(world):
-    """An ordinary due item that a treatment episode has chosen as its cold item leaves Today's queue
-    until the episode ends: practising it first would spoil the check."""
+def test_the_routine_due_queue_withholds_a_cold_item_only_while_its_check_is_pending(world):
+    """Two strengths of one reservation. Today's queue withholds the item once a cold retry is open (practising
+    it first would spoil the check); an episode whose primed attempt is never taken has no lifetime, so it does
+    not take the item out of the queue."""
 
     from learnloop.scheduling.scheduler import build_due_queue
 
     vault, repository = world
     cold_item = next(iter(vault.practice_items))
-    assert cold_item in [item.practice_item_id for item in build_due_queue(vault, repository)]
+
+    def queued() -> bool:
+        return cold_item in [item.practice_item_id for item in build_due_queue(vault, repository)]
+
+    assert queued()
     episode = _episode(repository, cold_item, "treatment")
-    assert repository.open_followup_tasks_of_kind("cold_retry") == []
-    assert cold_item not in [item.practice_item_id for item in build_due_queue(vault, repository)]
+    assert queued()  # primed attempt untaken: the queue still serves it
+    assert cold_item in repository.open_remediation_cold_item_ids()  # the wider reservation holds
+    assert cold_item not in repository.pending_remediation_cold_item_ids()
+    repository.update_remediation_episode(episode["id"], state="cold_scheduled")
+    repository.create_followup_task(
+        kind="cold_retry", case_kind="diagnosis", case_ref="att_1", source_attempt_id=None,
+        remediation_episode_id=episode["id"], not_before="2099-01-02T00:00:00Z", expires_at="2099-01-09T00:00:00Z",
+        selected_item_id=cold_item, context={})
+    assert not queued()
     repository.update_remediation_episode(episode["id"], state="completed")
-    assert cold_item in [item.practice_item_id for item in build_due_queue(vault, repository)]
+    assert queued()
+
+
+def test_the_learner_initiated_selectors_keep_the_wider_reservation(world):
+    """``find_practice`` and the quick check (the out-of-timing exclusions) hold the cold item of a
+    ``treatment`` episode whose primed attempt is untaken, and while a retry is open."""
+
+    vault, repository = world
+    cold_item = next(iter(vault.practice_items))
+    episode = _episode(repository, cold_item, "treatment")
+    kinds = sorted(serve_eligibility.COLD_FOLLOWUP_TASK_KINDS)
+
+    def held() -> bool:
+        return cold_item in out_of_timing_serving_exclusions(
+            vault, repository, cold_followup_kinds=kinds, reveal_window=timedelta(days=1)).out_of_timing_item_ids
+
+    assert held()
+    repository.update_remediation_episode(episode["id"], state="cold_scheduled", primed_attempt_id=None)
+    task = repository.create_followup_task(
+        kind="cold_retry", case_kind="diagnosis", case_ref="att_1", source_attempt_id=None,
+        remediation_episode_id=episode["id"], not_before="2099-01-02T00:00:00Z", expires_at="2099-01-09T00:00:00Z",
+        selected_item_id=cold_item, context={})
+    assert held()
+    repository.expire_followup_task(task["id"])
+    repository.update_remediation_episode(episode["id"], state="completed")
+    assert not held()
 
 
 def _scheduled_retry(repository: Repository, cold_item: str, *, not_before: str, expires_at: str):
@@ -148,7 +185,7 @@ def test_a_reserved_cold_item_is_named_and_counted_by_the_slate_and_why(world):
 
     vault, repository = world
     cold_item = next(iter(vault.practice_items))
-    _episode(repository, cold_item, "treatment")
+    _scheduled_retry(repository, cold_item, not_before="2099-01-02T00:00:00Z", expires_at="2099-01-09T00:00:00Z")
     assert exclusion_now(vault, repository, cold_item) == "cold_check_reserved"
     trace = OfferTrace()
     build_due_queue(vault, repository, persist_explanations=False, offer_trace=trace)
