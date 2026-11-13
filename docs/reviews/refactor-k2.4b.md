@@ -174,3 +174,13 @@ The two files are 6 lines longer together: the head's docstring and comments, `R
 ## Process
 
 Most source and test edits went in through short Python scripts that replace one exact block each and assert it occurs exactly once (the append's head and its imports, `_run_reconciliation`'s parameter, the quick-add comment, the ported tests, the goldens' vault helper, the vault note and the ledger row); a few through the Edit tool; one import line through `sed`.
+
+## Gates
+
+- **Targeted tests.** `scripts/affected_tests.py --base fea17dccae` chose 323 files; with the rules block's list and the files this step adds or edits, 332, run at `62558179d3` (the source tip) with `-m "not arc_close"` in 4 chunks of up to 85 at `-n 4` under the 5 GB cap behind the full-suite lock: 6,404 passed, 26 skipped, 0 failed.
+- **Identity pins:** unmoved. K2-16 moves no pinned identity (no pin builds a neighbourhood).
+- **Structure ratchets:** no number moved (functions over 200 lines in the two files stay `_normalize` and `_normalize_append`).
+- **Lint:** `lint-imports --no-cache` 42 kept; `ruff check` clean.
+- **Vault validators:** all four pass. **Gate partition:** 30,828 collected (landing 30,768 + arc_close 60).
+- **Regeneration:** after the source commits (`62558179d3`); a second run changed nothing.
+- **Not run:** the full suite and the durability lane (the orchestrator's landing gate).
