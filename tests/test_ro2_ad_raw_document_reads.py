@@ -288,6 +288,9 @@ def test_a_guard_denial_in_ads_serve_leaves_the_learners_serve_unchanged(tmp_pat
     denied_step, denied_presented, denied_rows = serve(tmp_path / "denied", deny=True)
 
     def strip(value):
+        # The step's AD note carries the id of the selection row it names, a fresh id in every vault.
+        value = {**value, "adaptive_difficulty": {k: v for k, v in (value.get("adaptive_difficulty") or {}).items()
+                                                   if k != "selection_id"}}
         return json.dumps({k: v for k, v in value.items() if k not in ("presentation_id", "block_id", "plan_id")},
                           sort_keys=True, default=str)
 
