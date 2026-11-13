@@ -111,3 +111,25 @@ method (`unservable_error`: `vault_below_oldest_supported` with the floor's deta
 again. Stopping them is `close()`, which joins threads and would be called from a request thread; whether a refusal
 should do that is a design question (below). Whether the Rust watcher reports a change to `learnloop.toml` itself
 was not checked; `reload_vault` works either way.
+
+## U4: the MCP runtime serves nothing after a failed load
+
+**Reproduced.** `tests/test_mcp_runtime.py::test_a_reload_refused_below_the_floor_serves_nothing_until_a_load_succeeds`,
+with the runtime module's monotonic clock pinned: attach at the head, retag the config below the floor, move past the
+fingerprint window, then call `runtime.vault()` twice at the same moment. At the base the first call raised
+`SchemaMismatch` and the second returned the cached head vault (`DID NOT RAISE`): `_checked_at` had advanced before the
+load.
+
+**Fix.** `RemoteRuntime.vault` advances the window only after a load that settled or a fingerprint that matched. Any
+failed load (not only a floor refusal) drops the cached vault and its fingerprint and resets the window, so the next
+request loads again and nothing older is served meanwhile; a floor refusal is still reported as `SchemaMismatch`.
+
+**Callers and siblings checked.**
+- `RemoteRuntime.vault` callers: `attach` and the four views in `remote/views.py`; each gets either a load that
+  succeeded or the raise.
+- `SidecarContext.refresh_if_content_changed` (the phone host's per-request check) already advances its window only on
+  a match or a successful `load_secondary`; with U2 a floor or journal refusal of the bound vault also stops its
+  handlers. Sound.
+- The journal check (`refuse_interrupted_activation`) runs before the cache on every request; sound.
+
+**Not verified.** The MCP server end to end over stdio after such a refusal (the runtime is what every tool asks).

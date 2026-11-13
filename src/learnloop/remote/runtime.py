@@ -150,14 +150,20 @@ class RemoteRuntime:
             if self._vault is None or now - self._checked_at >= FINGERPRINT_TTL_SECONDS:
                 files = content_files(self.vault_root)
                 fingerprint = _digest(files)
-                self._checked_at = now
                 if self._vault is None or fingerprint != self._fingerprint:
                     try:
                         self._vault, self._fingerprint = self._settled_load(files, fingerprint)
-                    except BelowOldestSupported as exc:  # the tag was moved down under a running process
-                        raise SchemaMismatch(str(exc)) from exc
-                    if self._fingerprint is None:
-                        self._checked_at = float("-inf")  # unsettled: look again on the next request
+                    except BaseException as failure:
+                        # The cached vault is the one the failed load was replacing: keeping it, or advancing the
+                        # window, would serve it to the next requests while the change stands.
+                        self._vault, self._fingerprint, self._checked_at = None, None, float("-inf")
+                        if isinstance(failure, BelowOldestSupported):  # the tag was moved down under the process
+                            raise SchemaMismatch(str(failure)) from failure
+                        raise
+                    # Unsettled (no fingerprint): look again on the next request.
+                    self._checked_at = now if self._fingerprint is not None else float("-inf")
+                else:
+                    self._checked_at = now
             return self._vault
 
     def _settled_load(self, files: dict[str, tuple[int, int]], fingerprint: str) -> tuple[LoadedVault, str | None]:

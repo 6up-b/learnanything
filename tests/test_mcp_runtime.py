@@ -90,6 +90,38 @@ def test_the_loaded_vault_follows_its_files(tmp_path):
     assert runtime.vault().learning_objects["lo_svd_definition"].title == "SVD, renamed on the desktop"
 
 
+def test_a_reload_refused_below_the_floor_serves_nothing_until_a_load_succeeds(tmp_path, monkeypatch):
+    import re
+    from types import SimpleNamespace
+
+    from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, OLDEST_SUPPORTED, SUCCESSOR_CHAIN
+    from learnloop.remote import runtime as runtime_module
+
+    below = SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(OLDEST_SUPPORTED) - 1]
+    clock = [1000.0]
+    monkeypatch.setattr(runtime_module, "time", SimpleNamespace(monotonic=lambda: clock[0]))
+    paths = create_basic_vault(tmp_path / "vault")
+    runtime = RemoteRuntime.attach(paths.root, load_environment=False)
+    config = paths.root / "learnloop.toml"
+
+    def retag(tag: str) -> None:
+        config.write_text(re.sub(r'algorithm_version = "[^"]+"', f'algorithm_version = "{tag}"',
+                                 config.read_text("utf-8"), count=1), encoding="utf-8")
+        stat = config.stat()
+        os.utime(config, ns=(stat.st_atime_ns, stat.st_mtime_ns + 5_000_000_000))
+
+    retag(below)
+    clock[0] += 10  # past the fingerprint window
+    with pytest.raises(SchemaMismatch, match=OLDEST_SUPPORTED):
+        runtime.vault()
+    # The same moment again: no old snapshot is served, and the load is tried again.
+    with pytest.raises(SchemaMismatch, match=OLDEST_SUPPORTED):
+        runtime.vault()
+
+    retag(LATEST_ALGORITHM_VERSION)
+    assert runtime.vault().config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION
+
+
 @pytest.mark.durability
 def test_a_second_process_serves_the_vault_beside_the_desktop_sidecar(tmp_path):
     from learnloop_sidecar.context import SidecarContext
