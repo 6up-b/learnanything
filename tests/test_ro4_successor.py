@@ -7,7 +7,6 @@ recorded changes. Fakes only; no model call.
 
 from __future__ import annotations
 
-import inspect
 
 import pytest
 
@@ -21,7 +20,6 @@ from learnloop.algorithm_versions import (
 from learnloop.config.schema import RouterObjectiveConfig
 from learnloop.params.parameter_registry import classify_config_path
 from learnloop.router_objective_switches import objective_on, objective_scores_on, sensors_in_value_on
-from learnloop.router_objective_upgrade import PREDECESSOR, upgrade_to_router_objective
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version
@@ -39,7 +37,7 @@ RO4_KEYS = {
 
 
 def test_the_successor_is_one_constant_after_ro1_and_the_latest():
-    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.46"
+    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.46"
     # Router objective RO5 (mvp-0.48), RO6 (mvp-0.49), the follow-up batch (mvp-0.50) and teacher TE2 (mvp-0.51)
     # landed after it and keep it.
     assert TAG == "mvp-0.47" == SUCCESSOR_CHAIN[-13] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
@@ -80,35 +78,3 @@ def test_the_gates_read_off_and_below_the_tag(tmp_path):
     append_config_toml(paths2.root, "[router_objective]\nenabled = false\n")
     config = load_vault(paths2.root).config
     assert not objective_on(config) and not objective_scores_on(config) and not sensors_in_value_on(config)
-
-
-def test_the_openers_install_this_links_completion():
-    from learnloop.cli import runtime
-    from learnloop_sidecar import context
-
-    # Teacher TE2's link (mvp-0.51) is the chain's latest; it hands earlier journals to the follow-up batch's,
-    # RO6's and RO5's links, which hand this link's journal to this link's completion.
-    from learnloop import router_calibration_upgrade
-
-    assert "learnloop.facet_belief_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.facet_belief_upgrade" in inspect.getsource(context._complete_interrupted_activation)
-    assert "learnloop.router_objective_upgrade import complete_interrupted_activation" in inspect.getsource(
-        router_calibration_upgrade)
-
-
-def test_the_upgrade_publishes_the_tag_and_completes_once(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, OLD)
-    result = upgrade_to_router_objective(paths.root)
-    assert result.upgraded and (result.from_version, result.to_version) == (OLD, TAG)
-    assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
-    again = upgrade_to_router_objective(paths.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-
-def test_the_upgrade_refuses_anything_older_than_the_chain(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.8")
-    result = upgrade_to_router_objective(paths.root)
-    assert not result.upgraded and "cannot upgrade from 'mvp-0.8'" in result.problems[0]
-    assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.8"

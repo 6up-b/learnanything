@@ -10,8 +10,7 @@ evidence rows, never the check, so a rebuild with today's code must reproduce
 every grade, every hold and every derived row, and leave every ledger as it
 was (playbook item 6). The rebuild-equivalence successor's bounded replay
 moves its derived rows once (``REPLAY_CORRECTED_TABLES``), and the rebuild
-after that changes nothing. Upgrading the copy rewrites nothing either. No
-model is called.
+after that changes nothing. No model is called.
 """
 
 from __future__ import annotations
@@ -163,23 +162,3 @@ def _audited(repository) -> dict[str, list[tuple]]:
             tuple(row) for row in connection.execute(f"SELECT {', '.join(kept)} FROM causal_hypotheses")
         )
     return state
-
-
-def test_upgrading_the_mvp017_copy_to_the_successor_rewrites_no_grade(tmp_path):
-    """The route rules apply to NEW answers only: the upgrade is a tag change
-    plus the idempotent rebuild, so every mvp-0.17 grade, hold and identity
-    stays as written, and the ledgers are untouched."""
-
-    from learnloop.route_rules_upgrade import upgrade_to_mvp020
-
-    root, _vault, repository = _copy(tmp_path)
-    ledgers_before = {table: rows for table, rows in _state(repository).items() if table in LEDGERS}
-    result = upgrade_to_mvp020(root, clock=CLOCK)
-    assert (result.upgraded, result.from_version, result.to_version) == (True, "mvp-0.17", "mvp-0.20")
-    vault = load_vault(root)
-    assert vault.config.algorithms.algorithm_version == "mvp-0.20"
-    _assert_grades(repository)
-    rebuild_all_derived_state(vault, repository, clock=CLOCK)
-    _assert_grades(repository)
-    after = _state(repository)
-    assert {table: after[table] for table in LEDGERS} == ledgers_before

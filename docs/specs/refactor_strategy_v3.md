@@ -794,6 +794,12 @@ Dependencies allow about three code lanes and read-only work beside them. The li
 - **Serial whatever the lanes:** arc E's steps; D6 before D7; every behaviour-track step lands alone; L2 (`repositories.py` by file) runs at arc D's close, before the lanes fan out, with no branch open on that file.
 - **Closing a step:** after its landing, its worktree is removed (clean and merged, no `--force`; the branch is kept), its `fixtures-local` scratch is deleted or archived, its `.pytest_tmp` and the gate's temp directory are gone, and the queue notes say so. A landing isn't closed until that is done.
 
+**An adversarial review after each phase (owner, Nov 13: "after the phase lands, have a codex astra agent conduct an adversarial review + a fix round"; "repeat these adversarial reviews for each phase until completion").** A phase is one row of the table above; an arc's close counts as one too. When a phase's steps have landed:
+- a read-only Codex review on `gpt-6-astra` of the phase's whole diff (from the previous review's tip to the phase's landing tip), briefed to attack it: what a step's proof could not see, behaviour that moved without the playbook, a deleted path something still reaches, records that no longer match their deciders, tests weakened or left on a path nothing serves, identities or goldens moved without a reason;
+- the orchestrator reads each finding against the code, files the real ones on the bug ledger, and runs one fix round (an implementer per finding or group, fail-first tests, the same gate), which lands before the next phase's steps do;
+- the review and the fix round are recorded in `docs/reviews/refactor-phase-<n>-review.md`.
+This replaces §2.1's per-arc review on `gpt-6.1-sol`. The first review covers everything since arc C's close review (`ad194ddc3a`): K0-K3, D1, D2a, D2b, the ledger fixes, the facet-belief successor, M0, and the first row of the table.
+
 **Tests through the arcs (owner, Nov 12).** No separate test-suite pass now: arc D deletes or ports a large share, and arcs E and I change how the central paths are tested. Three additions:
 
 **T3. Seeded draws pinned by default** (M). Now, after D-21's sweep.

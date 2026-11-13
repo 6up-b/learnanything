@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py) |
-| Source lines | 1525 |
+| Source lines | 1537 |
 | Owning package | [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -67,14 +67,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `leaves_this_computer(self) -> bool` (line 305; public) — Whether reading sends the document off this computer: always for z.ai, and for a self-hosted server not on a loopback address.
   - `extract(self, raw_bytes: bytes, context: ExtractionContext) -> DocumentIR` (line 311; public)
   - `_window(self, raw: bytes, mime: str, reader: Any, pages: list[int], *, total_pages: int, context: ExtractionContext, asset: str | None=None) -> list[tuple[dict, list[int]]]` (line 359; internal)
-  - `_answer(self, payload: dict, pages: list[int], context: ExtractionContext) -> dict` (line 408; internal) — One window's answer, read before the next window is paid for: a layout LearnLoop can't read stops the run here, not after the book.
-  - `_checkpoint_key(self, asset: str, pages: list[int]) -> str` (line 416; internal)
-  - `_endpoint(self) -> str` (line 423; internal)
-  - `_request(self, payload: dict, page_count: int, *, interrupt=None) -> dict` (line 434; internal)
-  - `_record_usage(self, receipt: dict, result: dict, page_count: int) -> None` (line 516; internal)
-- `is_glm_document(raw: bytes) -> bool` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 558)
-- `is_image_document(raw: bytes) -> bool` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 566)
-- `responses_to_ir(results: list[tuple[dict, list[int]]], *, sizes: list[tuple[float, float]], outline: list[dict], version: str, text_layer: PageTextLayer | None=None) -> DocumentIR` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1336) — Map GLM-OCR responses (each with the zero-based pages it covers) to the IR.
+  - `_answer(self, payload: dict, pages: list[int], context: ExtractionContext) -> dict` (line 404; internal) — One window's answer, read before the next window is paid for: a layout LearnLoop can't read stops the run here, not after the book.
+  - `_checkpoint_key(self, asset: str, pages: list[int]) -> str` (line 412; internal)
+  - `_endpoint(self) -> str` (line 419; internal)
+  - `_request(self, payload: dict, page_count: int, *, interrupt=None) -> dict` (line 430; internal)
+  - `_record_usage(self, receipt: dict, result: dict, page_count: int) -> None` (line 512; internal)
+- `is_glm_document(raw: bytes) -> bool` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 554)
+- `is_image_document(raw: bytes) -> bool` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 562)
+- `responses_to_ir(results: list[tuple[dict, list[int]]], *, sizes: list[tuple[float, float]], outline: list[dict], version: str, text_layer: PageTextLayer | None=None) -> DocumentIR` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1348) — Map GLM-OCR responses (each with the zero-based pages it covers) to the IR.
 
 ### Module constants
 
@@ -96,35 +96,35 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_MAX_RETRY_AFTER_SECONDS` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 124)
 - `_PROBES` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 160)
 - `_PROBE_TTL_SECONDS` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 161)
-- `_TITLE_LEVELS` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 795)
-- `_BLOCK_TYPES` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 797)
-- `_MARKDOWN_HEADING` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 808)
-- `_MARKDOWN_IMAGE` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 809)
-- `_WRAPPER_TAGS` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 844)
-- `_WRAPPER_OPEN` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 845)
-- `_WRAPPER_CLOSE_END` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 849)
-- `_ENVIRONMENT_WORDS` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 871)
-- `_SPLIT_LABEL` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 878)
-- `_KIND_AFTER` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 882)
-- `_ENUMERATOR` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 884)
-- `_LABEL_STEP` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 887)
-- `_TEXT_COMMANDS` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 951)
-- `_LATEX_COMMAND` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 955)
-- `_SPAN_WORD` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 956)
-- `_MATHS_WORDS` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 957)
-- `_PROSE_SHORT` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 962)
-- `_AMOUNT` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 980)
-- `_MATHS_MARK` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1076)
-- `_CODE_TOKENS` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1077)
-- `_CODE_CALL` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1078)
-- `_PROSE_PAIR` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1079)
-- `_CODE_LINES` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1080)
-- `_TITLE_PREFIX` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1115)
-- `_TITLE_MARKUP` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1120)
-- `_NON_ALNUM` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1121)
-- `_STRAY_LT` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1244)
-- `_LABEL_TYPES` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1332)
-- `_PROSE_TYPES` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1333)
+- `_TITLE_LEVELS` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 807)
+- `_BLOCK_TYPES` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 809)
+- `_MARKDOWN_HEADING` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 820)
+- `_MARKDOWN_IMAGE` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 821)
+- `_WRAPPER_TAGS` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 856)
+- `_WRAPPER_OPEN` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 857)
+- `_WRAPPER_CLOSE_END` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 861)
+- `_ENVIRONMENT_WORDS` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 883)
+- `_SPLIT_LABEL` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 890)
+- `_KIND_AFTER` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 894)
+- `_ENUMERATOR` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 896)
+- `_LABEL_STEP` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 899)
+- `_TEXT_COMMANDS` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 963)
+- `_LATEX_COMMAND` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 967)
+- `_SPAN_WORD` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 968)
+- `_MATHS_WORDS` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 969)
+- `_PROSE_SHORT` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 974)
+- `_AMOUNT` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 992)
+- `_MATHS_MARK` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1088)
+- `_CODE_TOKENS` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1089)
+- `_CODE_CALL` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1090)
+- `_PROSE_PAIR` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1091)
+- `_CODE_LINES` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1092)
+- `_TITLE_PREFIX` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1127)
+- `_TITLE_MARKUP` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1132)
+- `_NON_ALNUM` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1133)
+- `_STRAY_LT` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1256)
+- `_LABEL_TYPES` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1344)
+- `_PROSE_TYPES` ([src/learnloop/ingest/extractors/glm_ocr.py](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1345)
 
 ### Explicit exports
 
@@ -155,38 +155,39 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_open(request: Request, timeout: float)` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 237)
 - `_provider_error(exc: HTTPError, secret: str) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 241) — The provider's own error code/message, short and without the key.
 - `_retry_after(exc: HTTPError, attempt: int) -> float` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 265)
-- `_mime(raw: bytes) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 548)
-- `_data_uri(mime: str, raw: bytes) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 570)
-- `_pdf_pages(raw: bytes) -> tuple[Any, list[tuple[float, float]]]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 574) — The reader and each page's displayed size in PDF points (crop box, width and height swapped for a quarter-turn rotation): the space the Reader's PDF view (pdfium's page size) draws block boxes in.
-- `_image_size(raw: bytes) -> tuple[float, float]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 598)
-- `_pdf_subset(reader: Any, pages: list[int]) -> bytes` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 608)
-- `_render_pages(raw: bytes, pages: list[int]) -> list[str]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 622) — PNG data URIs of the selected pages for the self-hosted server, rendered in a pdfium worker process (pdfium is not thread-safe, and the Reader renders with it in this one).
-- `_layout_value(result: dict) -> Any` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 647)
-- `_is_region(value: Any) -> bool` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 664)
-- `_page_regions(result: dict, count: int, page_ids: list[int] | None=None) -> tuple[list[list[dict]], str]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 668) — Per-page region lists for one request's ``count`` pages, and the name of the response shape seen (kept in extraction health).
-- `_validated(result: dict, pages: list[int]) -> None` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 720) — Raise unless ``result`` holds a readable layout for exactly ``pages``.
-- `_page_dimensions(result: dict) -> list[dict]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 733)
-- `_bbox(region: dict, target: tuple[float, float], page: dict) -> list[float] | None` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 738) — Region box -> PDF points (or image pixels), top-left origin.
-- `_positive(value: Any) -> float | None` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 784)
-- `_labels(region: dict) -> tuple[str, str]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 812)
-- `_block_type_and_heading(region: dict, text: str) -> tuple[str, int | None, str]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 818) — (IR block type, heading level as the answer marks it or None, text) for one region's unwrapped text.
-- `_unwrap_html(text: str) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 852) — The text inside the HTML wrappers the hosted service puts around titles and captions (``<div align="center">...</div>``, on every doc_title and figure_title seen).
-- `_number(text: str) -> tuple[int, ...]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 890)
-- `_join_split_labels(blocks: list[tuple[str, str]]) -> list[str]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 894) — The texts of the Text and SectionHeader blocks, (type, text) in reading order, with each label's number the recognition model split ("1.
-- `_prose_words(span: str) -> int` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 965) — How many ordinary words a would-be inline maths span holds ("1, one worth", "5 and pays", "10 if "): words outside \text{...} and environment names, other than the usual operator names.
-- `_closing_dollars(text: str, start: int, size: int) -> int | None` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 983) — Where the run of ``size`` unescaped dollars closing the maths opened before ``start`` begins, or None.
-- `_is_amount(text: str, end: int, closer: int | None, spaced: bool, paired: bool) -> bool` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1008) — Whether the dollar ending at ``end``, before a number, is an amount rather than maths it would open, closed at ``closer`` (None: nothing closes it).
-- `_escape_currency(text: str) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1029) — Escape the dollars of amounts ("$1000", "$5 and $10", "$ 18,000") so remark-math never pairs them as maths, and keep real maths, padded or not ("$ \infty $", "$10^{100}$", "$1/(j^2 + k)$", "$2^{n}$", "$ 2 \leq j $").
-- `_holds_code(text: str) -> bool` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1089) — Whether an ``algorithm`` region holds code (Blitzstein's R) rather than a boxed definition or result ("1.6 notation: ...").
-- `_title_keys(title: str) -> tuple[str, str]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1124) — A heading's or bookmark's text for matching: letters and digits only, with and without its numbering ("2.1.
-- `_numbering_depth(title: str) -> int | None` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1132) — How deep a heading's own numbering puts it: "2." 1, "2.1." 2, "2.1.1" 3, "1A" 2, "A.1" 2, "Chapter 3" 1; None when unnumbered.
-- `class _Headings` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1149) — Each heading's depth, since the service marks every heading but the document title "##": the PDF's outline when a bookmark names it (within two pages), else its numbering ("2.1." under "2."), else one level under the last heading so placed.
-- `_equation_text(text: str) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1217)
-- `_table_cells(cells: Any) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1226) — The older flat shape's table cells, as HTML for the Markdown converter.
-- `class _TableParser(HTMLParser)` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1251)
-- `_table_markdown(text: str) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1287) — HTML tables -> GFM: the Reader renders GFM tables but never raw HTML.
-- `_region_order(region: dict) -> tuple[int, int]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1324)
-- `_heading_units(headings: list[dict[str, Any]], blocks: list[DocumentBlock]) -> list[DocumentUnit]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1474) — Units at detected headings, split by block (several headings can share a page); the text before the first heading belongs to the first unit.
+- `_mime(raw: bytes) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 544)
+- `_data_uri(mime: str, raw: bytes) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 566)
+- `_pdf_pages(raw: bytes) -> tuple[Any, list[tuple[float, float]]]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 570) — The reader and each page's displayed size in PDF points (crop box, width and height swapped for a quarter-turn rotation): the space the Reader's PDF view (pdfium's page size) draws block boxes in.
+- `_image_size(raw: bytes) -> tuple[float, float]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 594)
+- `_pdf_subset(reader: Any, pages: list[int]) -> bytes` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 604)
+- `_render_pages(raw: bytes, pages: list[int]) -> list[str]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 618) — PNG data URIs of the selected pages for the self-hosted server, rendered in a pdfium worker process (pdfium is not thread-safe, and the Reader renders with it in this one).
+- `_layout_value(result: dict) -> Any` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 643)
+- `_is_region(value: Any) -> bool` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 660)
+- `_page_regions(result: dict, count: int, page_ids: list[int] | None=None) -> tuple[list[list[dict]], str]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 664) — Per-page region lists for one request's ``count`` pages, and the name of the response shape seen (kept in extraction health).
+- `_saved_window_reader(pages: list[int])` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 716) — Read a saved window answer back: one this mapping can no longer read is a stale checkpoint (``ValueError``), discarded and asked for again.
+- `_validated(result: dict, pages: list[int]) -> None` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 732) — Raise unless ``result`` holds a readable layout for exactly ``pages``.
+- `_page_dimensions(result: dict) -> list[dict]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 745)
+- `_bbox(region: dict, target: tuple[float, float], page: dict) -> list[float] | None` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 750) — Region box -> PDF points (or image pixels), top-left origin.
+- `_positive(value: Any) -> float | None` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 796)
+- `_labels(region: dict) -> tuple[str, str]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 824)
+- `_block_type_and_heading(region: dict, text: str) -> tuple[str, int | None, str]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 830) — (IR block type, heading level as the answer marks it or None, text) for one region's unwrapped text.
+- `_unwrap_html(text: str) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 864) — The text inside the HTML wrappers the hosted service puts around titles and captions (``<div align="center">...</div>``, on every doc_title and figure_title seen).
+- `_number(text: str) -> tuple[int, ...]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 902)
+- `_join_split_labels(blocks: list[tuple[str, str]]) -> list[str]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 906) — The texts of the Text and SectionHeader blocks, (type, text) in reading order, with each label's number the recognition model split ("1.
+- `_prose_words(span: str) -> int` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 977) — How many ordinary words a would-be inline maths span holds ("1, one worth", "5 and pays", "10 if "): words outside \text{...} and environment names, other than the usual operator names.
+- `_closing_dollars(text: str, start: int, size: int) -> int | None` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 995) — Where the run of ``size`` unescaped dollars closing the maths opened before ``start`` begins, or None.
+- `_is_amount(text: str, end: int, closer: int | None, spaced: bool, paired: bool) -> bool` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1020) — Whether the dollar ending at ``end``, before a number, is an amount rather than maths it would open, closed at ``closer`` (None: nothing closes it).
+- `_escape_currency(text: str) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1041) — Escape the dollars of amounts ("$1000", "$5 and $10", "$ 18,000") so remark-math never pairs them as maths, and keep real maths, padded or not ("$ \infty $", "$10^{100}$", "$1/(j^2 + k)$", "$2^{n}$", "$ 2 \leq j $").
+- `_holds_code(text: str) -> bool` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1101) — Whether an ``algorithm`` region holds code (Blitzstein's R) rather than a boxed definition or result ("1.6 notation: ...").
+- `_title_keys(title: str) -> tuple[str, str]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1136) — A heading's or bookmark's text for matching: letters and digits only, with and without its numbering ("2.1.
+- `_numbering_depth(title: str) -> int | None` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1144) — How deep a heading's own numbering puts it: "2." 1, "2.1." 2, "2.1.1" 3, "1A" 2, "A.1" 2, "Chapter 3" 1; None when unnumbered.
+- `class _Headings` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1161) — Each heading's depth, since the service marks every heading but the document title "##": the PDF's outline when a bookmark names it (within two pages), else its numbering ("2.1." under "2."), else one level under the last heading so placed.
+- `_equation_text(text: str) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1229)
+- `_table_cells(cells: Any) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1238) — The older flat shape's table cells, as HTML for the Markdown converter.
+- `class _TableParser(HTMLParser)` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1263)
+- `_table_markdown(text: str) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1299) — HTML tables -> GFM: the Reader renders GFM tables but never raw HTML.
+- `_region_order(region: dict) -> tuple[int, int]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1336)
+- `_heading_units(headings: list[dict[str, Any]], blocks: list[DocumentBlock]) -> list[DocumentUnit]` ([source](../../../../../../../src/learnloop/ingest/extractors/glm_ocr.py), line 1486) — Units at detected headings, split by block (several headings can share a page); the text before the first heading belongs to the first unit.
 
 ## Who imports or calls it
 
@@ -206,7 +207,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `model_call`; calls `model_call`
+- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `ModelCheckpoint`, `model_call`; calls `ModelCheckpoint`, `model_call`
 - [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] — imports `SpendBudget`, `SpendCaps`, `SpendEstimate`; calls `SpendBudget`, `SpendCaps`, `SpendEstimate`
 - [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] — imports `GlmOcrConfig`; calls `GlmOcrConfig`
 - [[Reference/Modules/learnloop/ingest/block_roles|learnloop.ingest.block_roles]] — imports `classify_block_role`, `numbered_label`; calls `classify_block_role`, `numbered_label`
@@ -234,6 +235,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/ad_ingest_fakes.py](../../../../../../../tests/ad_ingest_fakes.py) — direct import
+- [tests/identity_pins_helpers.py](../../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_glm_ocr.py](../../../../../../../tests/test_glm_ocr.py) — direct import
   - `test_429_and_5xx_retry_with_their_own_admission_and_receipt`
   - `test_a_whole_short_pdf_goes_as_one_data_uri_with_its_page_range_and_bearer_key`

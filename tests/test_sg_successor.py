@@ -9,7 +9,6 @@ became its predecessor at the landing. Fakes only; no model call.
 
 from __future__ import annotations
 
-import inspect
 
 from learnloop.algorithm_versions import (
     LATEST_ALGORITHM_VERSION,
@@ -27,7 +26,6 @@ from learnloop.router_objective_switches import (
     followup_generator_switches,
     slip_gap_tag,
 )
-from learnloop.slip_gap_upgrade import PREDECESSOR, upgrade_to_slip_gap
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version
@@ -39,7 +37,7 @@ SG_KEYS = {"miss_cause_sensor": True, "miss_cause_in_value": True}
 
 
 def test_the_successor_is_one_constant_after_the_placement_hole_and_the_latest():
-    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.56"
+    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.56"
     # The figure wait estimate's successor (mvp-0.58) follows it and keeps it.
     assert TAG == "mvp-0.57" == SUCCESSOR_CHAIN[-3] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
     assert SLIP_GAP_VERSIONS == frozenset({TAG, "mvp-0.58", "mvp-0.59"})
@@ -89,57 +87,3 @@ def test_sg2_is_in_ro6s_generator_payload_at_the_tag_and_sg1_is_not(tmp_path):
     assert on == {**below, "miss_cause_in_value": True}
     append_config_toml(paths.root, "[router_objective]\nmiss_cause_in_value = false\n")
     assert followup_generator_switches(load_vault(paths.root).config)["miss_cause_in_value"] is False
-
-
-def test_the_openers_install_this_links_completion():
-    from learnloop import slip_gap_upgrade
-    from learnloop.cli import runtime
-    from learnloop_sidecar import context
-
-    assert "learnloop.facet_belief_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.facet_belief_upgrade" in inspect.getsource(context._complete_interrupted_activation)
-    assert "learnloop.unevidenced_return_upgrade import complete_interrupted_activation" in inspect.getsource(
-        slip_gap_upgrade)
-
-
-def test_the_upgrade_publishes_the_tag_and_completes_once(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, OLD)
-    result = upgrade_to_slip_gap(paths.root)
-    assert result.upgraded and (result.from_version, result.to_version) == (OLD, TAG)
-    assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
-    again = upgrade_to_slip_gap(paths.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-
-def test_the_upgrade_chains_from_an_older_link(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.47")
-    result = upgrade_to_slip_gap(paths.root)
-    assert result.upgraded and (result.from_version, result.to_version) == ("mvp-0.47", TAG)
-    assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
-
-
-def test_the_upgrade_refuses_anything_older_than_the_chain(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.8")
-    result = upgrade_to_slip_gap(paths.root)
-    assert not result.upgraded and "cannot upgrade from 'mvp-0.8'" in result.problems[0]
-    assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.8"
-
-
-def test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name(tmp_path):
-    from typer.testing import CliRunner
-
-    from learnloop.cli.app import app
-
-    paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, OLD)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert f"{OLD} -> {LATEST_ALGORITHM_VERSION}" in result.output
-    named = create_basic_vault(tmp_path / "named")
-    set_algorithm_version(named, OLD)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(named.root), "--to", TAG])
-    assert result.exit_code == 0, result.output
-    assert load_vault(named.root).config.algorithms.algorithm_version == TAG

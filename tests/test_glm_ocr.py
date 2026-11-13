@@ -1381,10 +1381,10 @@ def test_r3_f7_a_double_fallback_stores_the_versions_of_what_read_it(monkeypatch
     assert run["model_versions"] == {"fallback_from": "glm_ocr"}
 
 
-def test_r3_f13_a_stored_window_that_no_longer_reads_is_paid_for_once(monkeypatch, tmp_path):
+@pytest.mark.parametrize("stale", [{"layout_details": []}, ["not", "an", "answer"]], ids=["unreadable", "not_an_object"])
+def test_r3_f13_a_stored_window_that_no_longer_reads_is_paid_for_once(monkeypatch, tmp_path, stale):
     import hashlib
 
-    from learnloop.content.pipeline.jobs import _ModelCheckpoints
     from tests.ux_phase1_support import fresh_library, repository
 
     sent = record(monkeypatch)
@@ -1393,9 +1393,9 @@ def test_r3_f13_a_stored_window_that_no_longer_reads_is_paid_for_once(monkeypatc
     raw = pdf(2)
     key = extractor._checkpoint_key(hashlib.sha256(raw).hexdigest(), [0, 1])
     # An answer saved under an earlier mapping that today's can't read.
-    repo.save_model_checkpoint(key, purpose="glm_ocr_window", result={"layout_details": []})
+    repo.save_model_checkpoint(key, purpose="glm_ocr_window", result=stale)
     for _ in range(2):
-        ir = extractor.extract(raw, ok(checkpoints=_ModelCheckpoints(repo)))
+        ir = extractor.extract(raw, ok(checkpoints=repo))
         assert [block.page for block in ir.blocks] == [0, 1]
     assert len(sent) == 1  # asked once, then the new answer is the one kept
 

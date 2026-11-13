@@ -119,8 +119,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_projection_version_change_forces_the_fold`
   - `test_a_sidecar_reload_after_nothing_happened_skips_the_fold`
   - `test_the_fold_reads_no_vault_field_its_fingerprint_leaves_out`
-- [tests/test_rebuild_equivalence_review.py](../../../../../../tests/test_rebuild_equivalence_review.py) — direct import
-  - `test_a_startup_receipt_after_a_died_activation_does_not_hide_it`
 
 ## Modification guidance
 

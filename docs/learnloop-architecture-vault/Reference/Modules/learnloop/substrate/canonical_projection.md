@@ -125,7 +125,6 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/learner/independence_audit|learnloop.learner.independence_audit]] — imports `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/learner/residual_diagnostics|learnloop.learner.residual_diagnostics]] — imports `FAILURE_THRESHOLD`, `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/ops/pf_publish|learnloop.ops.pf_publish]] — imports `surface_group_id`; statically calls `surface_group_id`
-- [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] — imports `project_canonical_facet_state`; statically calls `project_canonical_facet_state`
 - [[Reference/Modules/learnloop/scheduling/evaluation|learnloop.scheduling.evaluation]] — imports `pfc_assessments`; statically calls `pfc_assessments`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/substrate/canonical_projection_rollout|learnloop.substrate.canonical_projection_rollout]] — imports `CANONICAL_PROJECTION_VERSION`, `project_canonical_facet_state`; statically calls `project_canonical_facet_state`
@@ -172,7 +171,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/coldness_receipt|learnloop.attempts.coldness_receipt]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 38 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/coldness_receipt|learnloop.attempts.coldness_receipt]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 37 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -297,7 +296,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_required_method_grading.py](../../../../../../tests/test_required_method_grading.py) — direct import
   - `test_a_regrade_grades_the_statement_and_rubric_its_method_was_frozen_with`
   - `test_a_regrade_never_acquires_a_required_method_added_after_the_answer`
-  - `test_grades_recorded_at_the_predecessor_replay_unchanged_after_the_upgrade`
+  - `test_grades_recorded_at_the_predecessor_replay_unchanged_at_the_successor`
   - `test_live_another_route_fails_the_method_criterion_with_no_quote`
   - `test_live_the_same_mathematics_without_a_required_method_keeps_mvp020s_rule`
   - `test_replay_reproduces_method_grades_without_a_model`

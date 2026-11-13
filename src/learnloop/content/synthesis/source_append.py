@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from learnloop.ai.execution import generation_limit, model_settings
+from learnloop.ai.execution import ModelCheckpoint, generation_limit, model_settings
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.synthesis.ai_contracts import (
     AppendReconciliation,
@@ -51,7 +51,6 @@ from learnloop.content.proposals.patches import compute_target_hash
 from learnloop.content.facet_identity import authority as facet_meaning
 from learnloop.content.synthesis.source_set_synthesis import (
     StudyMapError,
-    _checkpointed_pass,
     _facet_identity_plan,
     _collect_inputs,
     _gate_context,
@@ -134,21 +133,23 @@ class _AppendCall:
 
     def __call__(self, context: AppendReconciliationContext) -> AppendReconciliation:
         prompt = append_reconciliation_prompt(context)
-        key = append_checkpoint_key(prompt, self.settings)
-        self.keys.append(key)
-        result = _checkpointed_pass(self.repository, key, AppendReconciliation)
-        if result is None:
-            # The same estimate as a bootstrap pass: the prompt and schema sent.
-            tokens = max(1, (len(prompt) + len(json.dumps(AppendReconciliation.model_json_schema()))) // 4)
+        checkpoint = ModelCheckpoint(
+            self.repository, append_checkpoint_key(prompt, self.settings), APPEND_AGENT_PURPOSE,
+            AppendReconciliation.model_validate,
+        )
+        self.keys.append(checkpoint.key)
+        # The same estimate as a bootstrap pass: the prompt and schema sent.
+        tokens = max(1, (len(prompt) + len(json.dumps(AppendReconciliation.model_json_schema()))) // 4)
+
+        def call() -> AppendReconciliation:
             if self.input_ceiling is not None and tokens > self.input_ceiling:
                 raise _over_ceiling(tokens, self.input_ceiling)
             with generation_limit(self.output_budget):
-                result = request_append_reconciliation(self.client, context)
-            payload = result.model_dump(mode="json") if hasattr(result, "model_dump") else dict(result)
-            self.repository.save_model_checkpoint(
-                key, purpose=APPEND_AGENT_PURPOSE, result=payload,
-                usage={"input_tokens_estimate": tokens, "output_tokens_estimate": _result_tokens(result)},
-            )
+                return request_append_reconciliation(self.client, context)
+
+        result, _reused = checkpoint.answer(
+            call, usage=lambda answer: {"input_tokens_estimate": tokens, "output_tokens_estimate": _result_tokens(answer)},
+        )
         if self.output_budget is not None and _result_tokens(result) > self.output_budget:
             raise StudyMapError("budget_exceeded", "Append reconciliation exceeded its output budget.")
         return result

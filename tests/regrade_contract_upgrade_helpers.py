@@ -1,5 +1,5 @@
-"""What other test files use from ``tests/test_regrade_contract_upgrade.py``, kept here because a test file never
-imports another (``tests/test_test_layout.py``; refactor step T1)."""
+"""A vault whose history the regrade-contract successor (mvp-0.26) reinterprets, for
+``tests/test_reader_recap_review_r3.py`` (the upgrade's own suite left with the chain, refactor D3)."""
 
 from __future__ import annotations
 

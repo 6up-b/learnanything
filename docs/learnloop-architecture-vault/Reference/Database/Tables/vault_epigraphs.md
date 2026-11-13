@@ -104,6 +104,7 @@ Database triggers:
 
 ## Tests that define behavior
 
+- `tests/identity_pins_helpers.py`
 - `tests/structured_ai.py`
 - `tests/test_architecture.py`
 - `tests/test_provider_resolution_parity.py`

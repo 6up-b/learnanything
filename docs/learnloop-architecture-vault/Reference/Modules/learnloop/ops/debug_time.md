@@ -101,18 +101,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
-- [tests/curriculum_c1_plan_follows_path_helpers.py](../../../../../../tests/curriculum_c1_plan_follows_path_helpers.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
-- [tests/test_ad_denial_log.py](../../../../../../tests/test_ad_denial_log.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
-- [tests/test_attempt_content_state_successor.py](../../../../../../tests/test_attempt_content_state_successor.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
-- [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
-- [tests/test_cold_retry_reschedule.py](../../../../../../tests/test_cold_retry_reschedule.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
-- [tests/test_data_capture_successor.py](../../../../../../tests/test_data_capture_successor.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
-- [tests/test_facet_belief_successor.py](../../../../../../tests/test_facet_belief_successor.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
-- [tests/test_figure_wait_successor.py](../../../../../../tests/test_figure_wait_successor.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
-- [tests/test_followup_successor.py](../../../../../../tests/test_followup_successor.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
-- [tests/test_help_fold_attach_successor.py](../../../../../../tests/test_help_fold_attach_successor.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
-- [tests/test_ih5_successor.py](../../../../../../tests/test_ih5_successor.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
-- [tests/test_learner_report_superseded.py](../../../../../../tests/test_learner_report_superseded.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
+- [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
+- [tests/test_provider_resolution_parity.py](../../../../../../tests/test_provider_resolution_parity.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
 
 ## Modification guidance
 

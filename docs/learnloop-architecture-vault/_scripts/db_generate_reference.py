@@ -1356,7 +1356,7 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "recorded primed flag, never this switch."
     ),
     "practice.attempt_keeps_content_state": (
-        "Kill switch for mobile PR-4's successor (mvp-0.37; learnloop.attempt_content_state_upgrade). On, a "
+        "Kill switch for mobile PR-4's successor (mvp-0.37). On, a "
         "live attempt's write to its item's existing practice_item_state row takes only the scheduling "
         "columns and the last-attempt time: active can only close (a diagnostic probe's single use still "
         "lands) and content_hash is content sync's alone, so an attempt never reopens a row a content sync "
@@ -1373,7 +1373,7 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     ),
     "practice.reschedule_cold_after_assist": (
         "Kill switch for the cold-retry reschedule's successor (mvp-0.38; "
-        "learnloop.cold_retry_reschedule_upgrade; owner decision 2026-10-25, Reader CA2 follow-up Q4). On "
+        "owner decision 2026-10-25, Reader CA2 follow-up Q4). On "
         "(with ask.cold_help_converts on), help taken on a due repair cold_retry withdraws it in the "
         "attempt's own step (unmeasurable_no_held_out_surface, reason cold_check_help_taken) and schedules "
         "one fresh cold retry for the same repair on another independent surface, due the lane's "
@@ -1383,7 +1383,7 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "successor; replay never reads it (replay schedules nothing)."
     ),
     "hints.fold_follows_attach": (
-        "Kill switch for follow-ups Nov 2's successor (mvp-0.42; learnloop.help_fold_attach_upgrade; Codex "
+        "Kill switch for follow-ups Nov 2's successor (mvp-0.42; Codex "
         "review F1 of docs/reviews/followups-nov2.md). On, a keyed submit's fold counts the key's shown "
         "server hint rows in any practice session (H0's attach rule) and the attempt takes the rows it counted "
         "in its own write transaction, so a hint shown before the session rolled over raises hints_used "
@@ -1392,13 +1392,13 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "below the successor; replay never reads it (replay never folds)."
     ),
     "teacher.enabled": (
-        "Kill switch for teacher TE1's successor (mvp-0.41; learnloop.teacher_upgrade; spec_teacher_v1 §18.3). "
+        "Kill switch for teacher TE1's successor (mvp-0.41; spec_teacher_v1 §18.3). "
         "On, a lesson the learner starts may open (lesson.turn); its checks enter mastery at the learned mass "
         "recorded on lesson_checks, its teaching text writes lesson reveal rows and its close commits delayed "
         "checks. Off, or below the tag, no lesson opens and every path is mvp-0.40's byte for byte."
     ),
     "router.lesson_suggestions.enabled": (
-        "Kill switch for teacher TE1b's successor (mvp-0.43; learnloop.lesson_suggestions_upgrade; "
+        "Kill switch for teacher TE1b's successor (mvp-0.43; "
         "spec_teacher_v1 §15.1). On (with router.enabled, router.log_decisions and lessons on), Today's open draws "
         "at most one instruct(lesson) suggestion a day with an exact logged propensity (a lesson_suggestion router "
         "decision, shown or not); Start opens a TE1 lesson whose origin is that decision and every response is a "
@@ -1425,7 +1425,7 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "and the learner's linked notes as headers with read_note. Off: the brief has none of it."
     ),
     "curriculum.plan_uses_path": (
-        "Kill switch for curriculum C1's successor (mvp-0.40; learnloop.deliverable_plan_upgrade; "
+        "Kill switch for curriculum C1's successor (mvp-0.40; "
         "spec_deliverable_curriculum_v1 §7.6). On (with curriculum.enabled and RW7b's reading_paths.enabled "
         "and reading_paths.plan_uses_path), the plan's reading block opens the next unfinished core or "
         "prerequisite section in the nearest active deliverable's fresh path order, in whichever book it is "
@@ -1435,7 +1435,7 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "successor; replay never reads it."
     ),
     "replay.ledger_bounded": (
-        "Kill switch for the rebuild-equivalence successor (mvp-0.34; learnloop.replay_ledger_upgrade). "
+        "Kill switch for the rebuild-equivalence successor (mvp-0.34). "
         "On, replay recomputes each attempt from the ledger as its live write saw it: the recent-attempt "
         "windows (familiarity, event severity, item quality) and the canonical facet cache stop at the "
         "replayed attempt's position, so a rebuild reproduces live mastery, surprise, item quality and "

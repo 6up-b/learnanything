@@ -67,9 +67,10 @@ Status: **open**, **queued** (a step owns it), **fixed** (commit), **owner** (wa
 
 | Id | Found in | Bug | Fix | Status |
 |---|---|---|---|---|
-| K2-1 | K2 map KD5 | The persona gate silently falls back to a string comparison when its provider call fails. | K2.12, or earlier as a small fix | queued |
+| K2-1 | K2 map KD5 | The persona gate silently falls back to a string comparison when its provider call fails (since K2.1, also when its fire judgement's checkpoint cannot be read or written: the same `except` covers the cycle). | K2.12, or earlier as a small fix | queued |
 | K2-2 | K2 map KM5 | Conflict resolution isn't atomic. | K2.10 | queued |
 | K2-3 | K2 map KM6 | Append hashes before resolving the brief and practice timing, and never inherits the learner's level. | K2.3 | queued |
 | K2-4 | K2 map KM1, KM2 | Outer caches bypass the rendered-prompt keys; the manifest omits role overrides and edges. | K2.2, K2.3 | queued |
 | K2-5 | K2 map KB4 | The desktop re-implements backend rules and four disagree (assessment roles, retry eligibility, image source kind, page ranges). | K2.11 | queued |
 | K2-6 | K3 | Keep-ahead appends no longer see an earlier chapter's pending proposal, so they may mint duplicates. | Owner's auto-apply call (KX4), then a fix | owner |
+| K2-7 | K2.1 | A GLM-OCR window answer saved as something other than an object was skipped without being discarded, so every read of that file paid for the window again and the new answer was never kept (checkpoints are insert-once). Fail-first: `test_glm_ocr::test_r3_f13_a_stored_window_that_no_longer_reads_is_paid_for_once[not_an_object]` (2 requests for two reads on the base). | The shared cycle discards any saved answer that no longer reads | fixed (`2370956044`) |

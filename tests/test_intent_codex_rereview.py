@@ -239,45 +239,6 @@ def test_f2_the_gate_reads_the_version_and_the_switch(tmp_path):
         assert not intent_enabled(make_intent_vault(tmp_path / version, version=version).vault.config)
 
 
-def test_f2_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest(tmp_path):
-    from typer.testing import CliRunner
-
-    from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
-    from learnloop.cli.app import app
-    from learnloop.intent_upgrade import upgrade_to_mvp029
-    from learnloop.vault.loader import load_vault
-    from tests.helpers import create_placement_vault
-
-    clock = FrozenClock(NOW)
-    direct = create_placement_vault(tmp_path / "direct", version=PREDECESSOR)
-    result = upgrade_to_mvp029(direct.root, clock=clock)
-    assert result.upgraded and (result.from_version, result.to_version) == (PREDECESSOR, "mvp-0.29")
-    assert load_vault(direct.root).config.algorithms.algorithm_version == "mvp-0.29"
-    again = upgrade_to_mvp029(direct.root, clock=clock)
-    assert not again.upgraded and again.problems == ["vault is already mvp-0.29"]
-
-    chained = create_placement_vault(tmp_path / "chained", version="mvp-0.24")
-    assert upgrade_to_mvp029(chained.root, clock=clock).upgraded
-    assert load_vault(chained.root).config.algorithms.algorithm_version == "mvp-0.29"
-
-    old = create_placement_vault(tmp_path / "old", version="mvp-0.8")
-    refused = upgrade_to_mvp029(old.root, clock=clock)
-    assert not refused.upgraded and f"only {PREDECESSOR!r}" in refused.problems[0]
-    assert load_vault(old.root).config.algorithms.algorithm_version == "mvp-0.8"
-
-    cli = create_placement_vault(tmp_path / "cli", version=PREDECESSOR)
-    # The CLI's default is the latest successor (LP-min (a)'s mvp-0.33, after RW7b's, RW2d's and adaptive
-    # difficulty's mvp-0.30) since the landings; DL2's own step is --to mvp-0.29.
-    invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root), "--to", "mvp-0.29"])
-    assert invoked.exit_code == 0, invoked.output
-    assert f"{PREDECESSOR} -> mvp-0.29" in invoked.output
-    # The default goes on to the latest successor, through this step.
-    default = create_placement_vault(tmp_path / "default", version=PREDECESSOR)
-    invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(default.root)])
-    assert invoked.exit_code == 0, invoked.output
-    assert f"{PREDECESSOR} -> {LATEST_ALGORITHM_VERSION}" in invoked.output
-
-
 def test_f2_new_vaults_start_at_the_successor_with_intent_live(tmp_path):
     from learnloop.bootstrap import init_vault
     from learnloop.vault.loader import load_vault

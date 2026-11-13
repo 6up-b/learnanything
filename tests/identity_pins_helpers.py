@@ -544,6 +544,87 @@ def _inventory_window_key() -> Any:
     return inventory_window_key(context, model_settings(FakeStructuredClient()), schema_version=1)
 
 
+def _legacy_window_key() -> Any:
+    from learnloop.content.pipeline.ai_contracts import CanonicalIngestContext
+    from learnloop.content.pipeline.source_ingestion import legacy_window_key
+
+    return legacy_window_key(CanonicalIngestContext(
+        vault_root=str(VAULT_ROOT), source_kind="textbook_chapter", canonical_source={"id": "src_pin", "title": "Notes"},
+        chunks=[], target_subject="linear-algebra", target_learning_object_ids=["lo_pin_svd"],
+        concepts=[{"id": "singular_value_decomposition"}], learning_objects=[{"id": "lo_pin_svd"}],
+        instructions="Only definitions."), FakeStructuredClient())
+
+
+def _facet_judge_key(judge: str, reasoning_effort: str | None = None) -> Callable[[], Any]:
+    def compute() -> Any:
+        from learnloop.ai.spend import SpendCaps
+        from learnloop.content.facet_identity.judge import (
+            DeciderGroupJudge,
+            GroupRequest,
+            LLMGroupJudge,
+            Pricing,
+        )
+
+        request = GroupRequest(group_id="grp_pin", mode="consolidate", members=(), prompt="pin judge prompt",
+                               input_hash="input_pin")
+        common = {"caps": SpendCaps(), "pricing": Pricing(None, None, "unknown"), "repository": None,
+                  "owner_id": "owner_pin"}
+        if judge == "decider":
+            return DeciderGroupJudge(client=None, model="decider/pin", **common).checkpoint_key(request)
+        return LLMGroupJudge(client=FakeStructuredClient(), provider="openrouter", model="openai/gpt-pin",
+                             output_tokens=2048, reasoning_effort=reasoning_effort, **common).checkpoint_key(request)
+    return compute
+
+
+def _structuring_key(nominated: bool) -> Callable[[], Any]:
+    def compute() -> Any:
+        from learnloop.ai.execution import model_settings
+        from learnloop.content.synthesis.ai_contracts import ConceptGraphContext
+        from learnloop.content.synthesis.source_set_synthesis import structuring_checkpoint
+
+        context = ConceptGraphContext(
+            source_set_id="set_pin", subject_id="linear-algebra",
+            concepts=[{"client_item_id": "c_svd", "title": "SVD", "type": "concept", "aliases": [],
+                       "description": "A = U S V^T"}],
+            source_skeletons=[{"source_id": "src_pin", "units": [{"label": "Chapter 1"}]}],
+            registry_concepts=["singular_value_decomposition"],
+            registry_edges=[{"source": "a", "target": "b", "relation_type": "prerequisite"}],
+            registry_concept_details=(
+                [{"id": "singular_value_decomposition", "title": "SVD", "definition": "A = U S V^T"}] if nominated else []),
+            registry_nominations=(
+                [{"client_item_id": "c_svd", "registry_concept_ids": ["singular_value_decomposition"]}]
+                if nominated else []),
+        )
+        settings = {**model_settings(FakeStructuredClient()), "provider": "codex", "model": "fake-model"}
+        return structuring_checkpoint(None, context, settings).key
+    return compute
+
+
+def _persona_fire_key() -> Any:
+    from learnloop.diagnosis.diagnostic_gate import fire_checkpoint
+
+    context = {"answer": "Q^T x is the coordinate vector", "expected": "Qx is the coordinate vector",
+               "payload": {"id": "pi_pin_svd_001", "prompt": "Which of Qx / Q^T x is the coordinate vector?"}}
+    return fire_checkpoint(None, FakeStructuredClient(), context, trial="belief_declared").key
+
+
+def _epigraph_key() -> Any:
+    from learnloop.content.synthesis.ai_contracts import VaultEpigraphContext
+    from learnloop.content.synthesis.vault_epigraphs import epigraph_checkpoint
+
+    context = VaultEpigraphContext(
+        subject_id="linear-algebra", source_set_id="set_pin", mode="bootstrap", subject_title="Linear Algebra",
+        source_set_title="Notes", brief={"depth": "intro"}, summary="SVD", concepts=["SVD"],
+        claims=["A = U S V^T"], learning_objects=["Compute an SVD"], recent_epigraphs=["Rank is destiny."])
+    return epigraph_checkpoint(None, FakeStructuredClient(), context).key
+
+
+def _glm_ocr_window_key() -> Any:
+    from learnloop.ingest.extractors.glm_ocr import GlmOcrDocumentExtractor
+
+    return GlmOcrDocumentExtractor(backend="api")._checkpoint_key("asset_pin", [0, 1, 2])
+
+
 def _family_input(kind: str) -> Callable[[], Any]:
     def compute() -> Any:
         from learnloop.substrate.families import family_item_input_hash
@@ -921,6 +1002,47 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "cached inventory windows miss and are paid again",
         {"window_key": _inventory_window_key}),
     IdentitySite(
+        "K2.1a", "legacy ingest window checkpoint key (rendered prompt and schema, provider and model)",
+        ("src/learnloop/content/pipeline/source_ingestion.py::legacy_window_key",),
+        "legacy ingest window checkpoints (model_checkpoints)",
+        "cached ingest windows miss and are paid again",
+        {"window_key": _legacy_window_key}),
+    IdentitySite(
+        "K2.1b", "facet identity judge checkpoint keys (the LLM judge's carries its output budget)",
+        ("src/learnloop/content/facet_identity/judge.py::LLMGroupJudge.checkpoint_key",
+         "src/learnloop/content/facet_identity/judge.py::DeciderGroupJudge.checkpoint_key"),
+        "facet identity judge checkpoints (model_checkpoints)",
+        "every facet identity group is judged (paid) again",
+        {"llm": _facet_judge_key("llm"), "llm.reasoning_effort": _facet_judge_key("llm", "high"),
+         "decider": _facet_judge_key("decider")}),
+    IdentitySite(
+        "K2.1c", "GLM-OCR window checkpoint key (file, pages, backend, models)",
+        ("src/learnloop/ingest/extractors/glm_ocr.py::GlmOcrDocumentExtractor._checkpoint_key",),
+        "GLM-OCR window checkpoints (model_checkpoints)",
+        "every hosted OCR window is read (paid) again",
+        {"window_key": _glm_ocr_window_key}),
+    IdentitySite(
+        "K2.1d", "concept graph structuring checkpoint key (asdict of its context in the prompt; a pass key's shape)",
+        ("src/learnloop/content/synthesis/ai_contracts.py::concept_graph_structuring_prompt",
+         "src/learnloop/content/synthesis/source_set_synthesis.py::structuring_checkpoint"),
+        "concept graph structuring checkpoints (model_checkpoints)",
+        "a cached structuring answer misses and is paid again on retry",
+        {"key": _structuring_key(False), "key.nominated": _structuring_key(True)}),
+    IdentitySite(
+        "K2.1e", "persona fire judgement checkpoint key (rendered prompt, schema, grader settings, the trial)",
+        ("src/learnloop/diagnosis/ai_contracts.py::diagnostic_fire_prompt",
+         "src/learnloop/diagnosis/diagnostic_gate.py::fire_checkpoint"),
+        "persona fire judgement checkpoints (model_checkpoints)",
+        "every cached persona judgement misses and is paid again on retry",
+        {"key": _persona_fire_key}),
+    IdentitySite(
+        "K2.1f", "vault epigraph batch checkpoint key (asdict of its context in the prompt)",
+        ("src/learnloop/content/synthesis/ai_contracts.py::vault_epigraphs_prompt",
+         "src/learnloop/content/synthesis/vault_epigraphs.py::epigraph_checkpoint"),
+        "vault epigraph checkpoints (model_checkpoints)",
+        "a cached epigraph batch misses and is paid again on retry",
+        {"key": _epigraph_key}),
+    IdentitySite(
         "A19", "family item input hash and the family plan dump",
         ("src/learnloop/substrate/families.py::family_item_input",
          "src/learnloop/substrate/families.py::family_item_input_hash",
@@ -1132,6 +1254,8 @@ SHAPE_ROOTS: dict[str, tuple[str, ...]] = {
     "learnloop.content.synthesis.ai_contracts:SourceSetSynthesisContext": ("A14",),
     "learnloop.content.synthesis.ai_contracts:AppendReconciliationContext": ("K3.4",),
     "learnloop.content.synthesis.ai_contracts:SourceUnitInventoryContext": ("A15",),
+    "learnloop.content.synthesis.ai_contracts:ConceptGraphContext": ("K2.1d",),
+    "learnloop.content.synthesis.ai_contracts:VaultEpigraphContext": ("K2.1f",),
 }
 
 
@@ -1252,8 +1376,6 @@ PROVENANCE_ONLY: dict[str, str] = {
     "src/learnloop/content/proposals/proposals.py::persist_authoring_proposal":
         "agent_runs.input_context_hash of purpose 'authoring', which nothing looks up (only canonical ingest, "
         "synthesis and append read completed_agent_run*_by_context; sweep §1D)",
-    "src/learnloop/content/synthesis/ai_contracts.py::concept_graph_structuring_prompt": PROMPT_REASON,
-    "src/learnloop/content/synthesis/ai_contracts.py::vault_epigraphs_prompt": PROMPT_REASON,
     "src/learnloop/curriculum/ai_contracts.py::rung_backfill_prompt": PROMPT_REASON,
     "src/learnloop/curriculum/ai_contracts.py::depth_edge_instance_prompt": PROMPT_REASON,
     "src/learnloop/daily_plan/engine.py::_config_hash":

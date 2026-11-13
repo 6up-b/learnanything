@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from typer.testing import CliRunner
 
 from learnloop import clock as clock_module
 from learnloop.adaptive_difficulty import successor as SC
@@ -29,7 +28,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.owner_vaults import owner_vault, working_vault_params
 from tests.ad23_fakes import COUPLED, ad23_vault, commit, selections
-from tests.helpers import append_config_toml, create_placement_vault, set_algorithm_version
+from tests.helpers import append_config_toml, set_algorithm_version
 
 T0 = datetime(2026, 10, 12, 9, 0, tzinfo=UTC)
 # The owner's working vaults: backup-API copies in the owner_vaults lane (S0).
@@ -91,44 +90,6 @@ def test_promoted_predictor_off_makes_coupling_and_reading_moot_for_draws(tmp_pa
                                                          "reading_self_check = false\n")
     assert _scores(base["draws"], "serve") == _scores(moot["draws"], "serve")
     assert base["step"]["practice_item_id"] == moot["step"]["practice_item_id"]
-
-
-def test_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest(tmp_path):
-    from learnloop.ad_successor_upgrade import upgrade_to_mvp030
-    from learnloop.cli.app import app
-    from learnloop.db.repositories import Repository
-    from learnloop.db.stores import ad_serving
-
-    clock = FrozenClock(T0)
-    direct = create_placement_vault(tmp_path / "direct", version="mvp-0.29")
-    result = upgrade_to_mvp030(direct.root, clock=clock)
-    assert result.upgraded and (result.from_version, result.to_version) == ("mvp-0.29", "mvp-0.30")
-    assert load_vault(direct.root).config.algorithms.algorithm_version == "mvp-0.30"
-    with Repository(direct.sqlite_path).connection() as connection:
-        assert ad_serving.read_state(connection), "AD's DERIVED state is prepared before the rename"
-    again = upgrade_to_mvp030(direct.root, clock=clock)
-    assert not again.upgraded and again.problems == ["vault is already mvp-0.30"]
-
-    chained = create_placement_vault(tmp_path / "chained", version="mvp-0.25")
-    assert upgrade_to_mvp030(chained.root, clock=clock).upgraded
-    assert load_vault(chained.root).config.algorithms.algorithm_version == "mvp-0.30"
-
-    old = create_placement_vault(tmp_path / "old", version="mvp-0.8")
-    refused = upgrade_to_mvp030(old.root, clock=clock)
-    assert not refused.upgraded and "only 'mvp-0.29'" in refused.problems[0]
-    assert load_vault(old.root).config.algorithms.algorithm_version == "mvp-0.8"
-
-    cli = create_placement_vault(tmp_path / "cli", version="mvp-0.29")
-    invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root), "--to", "mvp-0.30"])
-    assert invoked.exit_code == 0, invoked.output
-    assert "mvp-0.29 -> mvp-0.30" in invoked.output
-
-    # The owner's chain: --to mvp-0.9, --to mvp-0.27, --to mvp-0.29, then --to mvp-0.30.
-    owner = create_placement_vault(tmp_path / "owner", version="mvp-0.8")
-    for step in ("mvp-0.9", "mvp-0.27", "mvp-0.29", "mvp-0.30"):
-        ran = CliRunner().invoke(app, ["upgrade", "--vault", str(owner.root), "--to", step])
-        assert ran.exit_code == 0, (step, ran.output)
-    assert load_vault(owner.root).config.algorithms.algorithm_version == "mvp-0.30"
 
 
 def test_new_vaults_start_at_the_successor_with_every_switch_on(tmp_path):

@@ -19,10 +19,10 @@ source_paths:
   - "src/learnloop/daily_plan/objective_chooser.py"
   - "src/learnloop/db/stores/router.py"
   - "src/learnloop/db/stores/router_objective.py"
-  - "src/learnloop/lesson_offers_upgrade.py"
   - "src/learnloop/router_objective/calibration_report.py"
   - "src/learnloop/router_objective/combiner_data.py"
   - "src/learnloop/router_objective/forecast_resolve.py"
+  - "src/learnloop/router_objective/goal_read.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"

@@ -207,8 +207,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_need_paths_decision_with_no_lesson_seeds_from_its_identity`
   - `test_the_workflows_arm_with_no_room_to_wait_seeds_from_its_identity`
   - `test_the_workflows_decision_with_no_lesson_keeps_the_predecessors_identity`
-- [tests/test_mvp024_upgrade.py](../../../../../../tests/test_mvp024_upgrade.py) — direct import
-  - `test_the_mixture_serves_only_at_the_successor_in_mixture_mode`
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
   - `test_the_follow_up_gates_decision_names_its_rule_arms_and_components`
 - [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import

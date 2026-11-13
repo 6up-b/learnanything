@@ -92,22 +92,6 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
-- `tests/test_method_explicit_upgrade.py`
-- `tests/test_mvp011_upgrade.py`
-- `tests/test_mvp013_upgrade.py`
-- `tests/test_mvp014_upgrade.py`
-- `tests/test_mvp015_upgrade.py`
-- `tests/test_mvp016_upgrade.py`
-- `tests/test_mvp017_upgrade.py`
-- `tests/test_mvp018_upgrade.py`
-- `tests/test_mvp020_upgrade.py`
-- `tests/test_mvp021_upgrade.py`
-- `tests/test_mvp022_upgrade.py`
-- `tests/test_mvp023_upgrade.py`
-- `tests/test_mvp024_upgrade.py`
-- `tests/test_recurrence_commands.py`
-- `tests/test_regrade_contract_upgrade.py`
-- `tests/test_p0_cutover_mvp08.py`
 - `tests/test_registry_audit.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

@@ -10,9 +10,16 @@ it; existing vault history must remain interpretable and reproducible.
 2. Keep raw ledgers and append-only receipts immutable. Add a correction or
    reinterpretation event when history needs new meaning; do not update the
    original evidence.
-3. Add or update the explicit vault-upgrade function. It must refuse jumps,
-   prepare the candidate projection before the atomic config rename, and leave
-   the prior version readable if preparation fails.
+3. Add the tag's row to the upgrade table, `UPGRADES` in
+   `learnloop.ops.upgrades`: `Link(<tag>, idempotent_projection)` when only new
+   events behave differently, `Link(<tag>, whole_vault_rebuild)` when what is
+   derived from history moves, or an `Activation` of its own when neither fits.
+   The table supplies what every link must do: it refuses jumps, prepares the
+   candidate projection before the atomic config rename (the journal first,
+   the publication last, then the commit), and leaves the prior version
+   readable if preparation fails. Add the row to `EXPECTED_ACTIVATIONS` in
+   `tests/test_upgrades.py`; the table's tests then run over it. A new tag is
+   one constant, one row and one test row.
 4. Regenerate the effective defaults (`uv run python
    tests/test_effective_defaults_golden.py --write`) and commit
    `tests/goldens/effective_defaults.toml` with the change: the new tag shows as
@@ -32,9 +39,15 @@ it; existing vault history must remain interpretable and reproducible.
 7. Run a shadow rebuild against a copied database and inspect mastery, facet,
    and scheduling deltas before applying the version to a live vault. Verify the
    live database hash is unchanged.
-8. Add or regenerate a fixture at the migration head and exercise the complete
-   predecessor-to-successor upgrade path, foreign-key checks, doctor, and a
-   second idempotent rebuild.
+8. Exercise the complete predecessor-to-successor upgrade path, foreign-key
+   checks, doctor, and a second idempotent rebuild: `tests/test_upgrades.py`
+   runs every row of the table on one small vault (activation, recovery after a
+   death at each point, an idempotent re-run), and the shadow rebuild of step 7
+   on copies shows what the activation changes. The upgrade below
+   `OLDEST_SUPPORTED` is not in this code: it is the code tagged `pre-floor`
+   (ADR-019), so a fixture below the floor (`fixtures/migration_head` is at
+   `mvp-0.6`) is opened only through the tests' allowance and never upgraded
+   here.
 
 New vaults start at `LATEST_ALGORITHM_VERSION` (owner decision 2026-10-12,
 Slice 1 M2 open question 1). The successors form one linear chain,

@@ -416,7 +416,10 @@ def test_enabling_nominations_or_completing_the_index_is_a_new_bootstrap(tmp_pat
     incomplete_client = RegistryStructuringClient()
     incomplete = _synthesize(root, repo, incomplete_client, embedding_client_factory=ExplodingFactory())
     assert incomplete.reused is False and incomplete.manifest_hash != first.manifest_hash
-    assert incomplete_client.structuring_contexts[0].registry_concept_details == []  # index incomplete
+    # Index incomplete: nothing is nominated, so the structuring request is the
+    # first run's own (no registry details) and its paid answer is read back.
+    assert incomplete_client.structuring_contexts == []
+    assert "registry_nominated_candidates" not in repo.synthesis_run(incomplete.synthesis_run_id)["actual_usage"]
 
     embedder = BagOfWordsEmbedder()
     _backfill(root, embedder, ("concept/definition",))

@@ -142,6 +142,7 @@ Indexes and uniqueness:
 - `tests/test_facet_identity_composition.py`
 - `tests/test_ingest_ownership.py`
 - `tests/test_mobile_host_coexistence.py`
+- `tests/test_model_work_checkpoints.py`
 - `tests/test_secondary_attach.py`
 - `tests/test_synthesis_criterion_dependencies.py`
 - `tests/test_synthesis_runs_repo.py`

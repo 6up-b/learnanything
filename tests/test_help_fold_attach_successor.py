@@ -21,12 +21,8 @@ Fakes only; no model call.
 
 from __future__ import annotations
 
-import json
-import sqlite3
-from contextlib import closing
 
 import pytest
-from typer.testing import CliRunner
 
 from learnloop.algorithm_versions import (
     HELP_FOLD_ATTACH_ALGORITHM_VERSION,
@@ -35,9 +31,7 @@ from learnloop.algorithm_versions import (
     SUCCESSOR_CHAIN,
     TEACHER_ALGORITHM_VERSION,
 )
-from learnloop.ops.vault_upgrade import rewrite_algorithm_version
 from learnloop.vault.loader import load_vault
-from tests.helpers import create_placement_vault
 from tests.hint_fakes import assists
 from tests.followups_nov2_help_fold_helpers import _rollover, _submit
 from tests.hint_h2a_review_round2_helpers import ARGMAX, _attempt
@@ -49,12 +43,11 @@ OFF = ARGMAX + "fold_follows_attach = false\n"
 
 def test_mvp042_is_one_constant_after_mvp041_and_the_latest():
     from learnloop.config.schema import HintsConfig
-    from learnloop.help_fold_attach_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
     from learnloop.params.parameter_registry import classify_config_path
 
     # Teacher TE1b's mvp-0.43 follows it as the latest (and keeps it).
     assert SUCCESSOR_CHAIN[-19:-17] == (PREDECESSOR, TAG) == ("mvp-0.41", "mvp-0.42")
-    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.59" and UPGRADE_PREDECESSOR == PREDECESSOR
+    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.59"
     assert HELP_FOLD_ATTACH_VERSIONS == frozenset({TAG, "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
     assert HintsConfig().fold_follows_attach is True
     rule = classify_config_path("hints.fold_follows_attach")
@@ -159,99 +152,3 @@ def test_a_rebuild_changes_no_attempt_and_a_shadow_rebuild_is_zero(tmp_path, ver
 
 
 # -- the chain and the upgrade -------------------------------------------------------------------------
-
-
-@pytest.fixture
-def _cli_process(monkeypatch):
-    """This process as the CLI is: importing it installs the completion."""
-
-    from learnloop import activation_journal
-    from learnloop.cli.runtime import _complete_interrupted_activation
-
-    monkeypatch.setattr(activation_journal, "_COMPLETER", _complete_interrupted_activation)
-
-
-def _vault_at(tmp_path, name, version):
-    return create_placement_vault(tmp_path / name, version=version)
-
-
-def _version(paths) -> str:
-    return load_vault(paths.root).config.algorithms.algorithm_version
-
-
-def _journal(paths):
-    return paths.sqlite_path.with_name(paths.sqlite_path.name + ".claim-fixes-activation")
-
-
-def _activated(paths, version=TAG) -> bool:
-    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
-        return connection.execute(
-            "SELECT 1 FROM derived_state_rebuilds WHERE scope = 'p0_projection_activation' AND algorithm_version = ?",
-            (version,),
-        ).fetchone() is not None
-
-
-@pytest.mark.parametrize("start", ["mvp-0.9", "mvp-0.30", "mvp-0.39", "mvp-0.40", "mvp-0.41"])
-def test_upgrade_to_mvp042_works_from_supported_versions(tmp_path, _cli_process, start):
-    from learnloop.cli import app
-
-    paths = _vault_at(tmp_path, "v", start)
-    result = CliRunner().invoke(app, ["upgrade", "--to", TAG, "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert f"{start} -> {TAG}" in result.output
-    assert _version(paths) == TAG and _activated(paths) and not _journal(paths).exists()
-    if start != PREDECESSOR:
-        assert _activated(paths, PREDECESSOR)
-
-
-def test_a_bare_upgrade_targets_mvp042_and_it_refuses_twice(tmp_path, _cli_process):
-    from learnloop.cli import app
-    from learnloop.help_fold_attach_upgrade import upgrade_to_help_fold_attach
-
-    paths = _vault_at(tmp_path, "v", PREDECESSOR)
-    # Teacher TE1b's mvp-0.43 is the bare upgrade's target since its landing: this link is reached by --to.
-    result = CliRunner().invoke(app, ["upgrade", "--to", TAG, "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert f"{PREDECESSOR} -> {TAG}" in result.output
-    assert _version(paths) == TAG and _activated(paths)
-    again = upgrade_to_help_fold_attach(paths.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-
-def test_the_upgrade_refuses_a_version_before_the_chain(tmp_path):
-    from learnloop.help_fold_attach_upgrade import upgrade_to_help_fold_attach
-
-    paths = _vault_at(tmp_path, "old", "mvp-0.9")
-    rewrite_algorithm_version(paths.root / "learnloop.toml", "mvp-0.9", "mvp-0.8", durable=True)
-    result = upgrade_to_help_fold_attach(paths.root)
-    assert not result.upgraded and _version(paths) == "mvp-0.8"
-    assert "cannot upgrade from 'mvp-0.8'" in result.problems[0]
-
-
-def _interrupted(tmp_path, name, predecessor=PREDECESSOR, target=TAG):
-    paths = _vault_at(tmp_path, name, predecessor)
-    _journal(paths).write_text(json.dumps({"predecessor": predecessor, "target": target}), encoding="utf-8")
-    rewrite_algorithm_version(paths.root / "learnloop.toml", predecessor, target, durable=True)
-    assert not _activated(paths, target)
-    return paths
-
-
-def test_the_next_cli_command_completes_an_interrupted_mvp042_activation(tmp_path, _cli_process):
-    from learnloop.cli import app
-    from learnloop.help_fold_attach_upgrade import upgrade_to_help_fold_attach
-
-    paths = _interrupted(tmp_path, "interrupted")
-    result = CliRunner().invoke(app, ["backfill-originals", "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert not _journal(paths).exists() and _activated(paths) and _version(paths) == TAG
-    again = upgrade_to_help_fold_attach(paths.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-
-def test_an_earlier_links_interrupted_activation_is_handed_down_the_chain(tmp_path, _cli_process):
-    from learnloop.cli import app
-
-    paths = _interrupted(tmp_path, "earlier", predecessor="mvp-0.40", target=PREDECESSOR)
-    result = CliRunner().invoke(app, ["backfill-originals", "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert not _journal(paths).exists() and _activated(paths, PREDECESSOR) and _version(paths) == PREDECESSOR

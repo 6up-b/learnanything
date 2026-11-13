@@ -4,9 +4,6 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 from __future__ import annotations
 
 from datetime import timedelta
-import multiprocessing
-import os
-import sqlite3
 
 from learnloop.algorithm_versions import CLAIM_FIXES_ALGORITHM_VERSION, SUCCESSOR_CHAIN
 from learnloop.clock import FrozenClock
@@ -57,14 +54,6 @@ def _mastery(repository, lo=LO) -> tuple[float, float, int]:
     return (state.logit_mean, state.logit_variance, state.evidence_count)
 
 
-def _all_mastery(path) -> dict[str, tuple[float, float, int]]:
-    with sqlite3.connect(path) as connection:
-        rows = connection.execute(
-            "SELECT learning_object_id, logit_mean, logit_variance, evidence_count FROM learning_object_mastery"
-        ).fetchall()
-    return {row[0]: (row[1], row[2], row[3]) for row in rows}
-
-
 def _gap_claims(repository) -> list[dict]:
     return [claim for claim in repository.learner_claims() if claim["source"] == "tutor_gap_declaration"]
 
@@ -89,23 +78,3 @@ def _predecessor_vault_with_claims(tmp_path, name):
 
 def _journal(paths):
     return paths.sqlite_path.with_name(paths.sqlite_path.name + ".claim-fixes-activation")
-
-
-def _die_after_publication(root):
-    import learnloop.claim_fixes_upgrade as upgrade
-
-    real = upgrade._publish_algorithm_version
-
-    def publish_then_die(*args, **kwargs):
-        real(*args, **kwargs)
-        os._exit(17)  # no handler runs: the transaction never commits
-
-    upgrade._publish_algorithm_version = publish_then_die
-    upgrade.upgrade_to_claim_fixes(root)
-
-
-def _crash_upgrade(paths):
-    process = multiprocessing.get_context("fork").Process(target=_die_after_publication, args=(paths.root,))
-    process.start()
-    process.join(60)
-    assert process.exitcode == 17

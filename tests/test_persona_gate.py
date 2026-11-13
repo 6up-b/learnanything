@@ -18,6 +18,7 @@ from pathlib import Path
 from learnloop.content.proposals.ai_contracts import AuthoringProposal
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.diagnostic_augmentation import model_family
+from learnloop.diagnosis.diagnostic_gate import normalize_answer
 from learnloop.content.authoring.persona_gate import (
     CONTRAST_PAIR_TAG_PREFIX,
     GATE_PRECISION_METRIC,
@@ -495,6 +496,36 @@ def test_reason_facet_holder_fails_via_semantic_grader(tmp_path):
 
     assert gate.outcomes[0].reason is PersonaGateReason.FACET_HOLDER_FAILS
     assert gate.outcomes[0].decision is GateDecision.BLOCK
+
+
+class _CountingGrader(StructuredClientFake):
+    """A semantic grader that counts its paid fire judgements."""
+
+    def __init__(self):
+        self.fires: list[str] = []
+
+    def grade_diagnostic_fire(self, *, answer, expected, **_kw):
+        self.fires.append(answer)
+        return normalize_answer(answer) != normalize_answer(expected)
+
+
+def test_a_retry_of_the_persona_gate_reads_its_fire_checkpoints(tmp_path):
+    root = create_basic_vault(tmp_path / "vault").root
+    grader = _CountingGrader()
+    payload = _item_payload(misconception_consistent_answer="Q^T x is the coordinate vector",
+                            grading_rubric=_keyed_rubric())
+    first = _gate(root, grading_client=grader)
+    first([_row(payload)])
+    # One paid judgement per persona on a first run.
+    assert len(grader.fires) == len(first.outcomes[0].verdict.trials) > 0
+    paid = len(grader.fires)
+
+    again = _gate(root, grading_client=grader)
+    again([_row(payload)])
+
+    assert len(grader.fires) == paid
+    assert again.outcomes[0].reason is first.outcomes[0].reason
+    assert again.outcomes[0].verdict.as_dict() == first.outcomes[0].verdict.as_dict()
 
 
 def test_reason_not_an_instrument_abstains(tmp_path):

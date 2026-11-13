@@ -26,9 +26,11 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from learnloop.ai.execution import ModelCheckpoint, checkpointed, model_settings
 from learnloop.diagnosis.ai_contracts import (
     DiagnosticFireJudgment,
     DiagnosticTrials,
@@ -69,18 +71,48 @@ def request_diagnostic_trials(
     )
 
 
+FIRE_PURPOSE = "grade_diagnostic_fire"
+
+
+def fire_checkpoint(
+    store: Any, client: Any, context: Mapping[str, Any], *, trial: str,
+) -> ModelCheckpoint[DiagnosticFireJudgment]:
+    """One fire judgement's checkpoint: the request key of its rendered prompt
+    and schema under the grader's settings, plus the trial it answers. A gate
+    asks one question per persona, and two personas giving the same answer
+    are still two trials: keyed on the prompt alone, the second would read the
+    first's answer, and a run would pay for fewer judgements than it asks."""
+
+    return checkpointed(
+        store, purpose=FIRE_PURPOSE, prompt=diagnostic_fire_prompt(context),
+        schema=DiagnosticFireJudgment.model_json_schema(), settings=model_settings(client),
+        result_model=DiagnosticFireJudgment, identity_extra={"trial": trial},
+    )
+
+
 def request_diagnostic_fire(
     client: StructuredTransport,
+    *,
+    checkpoints: Any = None,
+    trial: str = "",
     **context: Any,
 ) -> bool:
-    """Semantically judge one simulated diagnostic answer in memory."""
+    """Semantically judge one simulated diagnostic answer in memory.
 
-    judgment = execute_structured_operation(
-        client,
-        purpose="grade_diagnostic_fire",
-        prompt=diagnostic_fire_prompt(context),
-        result_model=DiagnosticFireJudgment,
-    )
+    With ``checkpoints`` (a ``CheckpointStore``) a paid judgement is kept under
+    its ``trial``, and a retry of the same trial reads it instead of paying."""
+
+    def judge() -> DiagnosticFireJudgment:
+        return execute_structured_operation(
+            client,
+            purpose=FIRE_PURPOSE,
+            prompt=diagnostic_fire_prompt(context),
+            result_model=DiagnosticFireJudgment,
+        )
+
+    if checkpoints is None:
+        return bool(judge().fires)
+    judgment, _reused = fire_checkpoint(checkpoints, client, context, trial=trial).answer(judge)
     return bool(judgment.fires)
 
 

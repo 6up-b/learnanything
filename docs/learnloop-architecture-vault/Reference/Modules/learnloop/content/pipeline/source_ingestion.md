@@ -37,7 +37,7 @@ Up: [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pi
 
 ## Why this module exists
 
-This module keeps source ingestion behavior inside its owning package, [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]]. Its public surface centers on `request_canonical_ingest`, `SourceIngestionError`, `FetchResult`, `CaptionCue`, `NormalizedSource`, `RegisteredSource`, `IngestWindow`, `IngestResult` and 19 more public symbols.
+This module keeps source ingestion behavior inside its owning package, [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]]. Its public surface centers on `request_canonical_ingest`, `SourceIngestionError`, `FetchResult`, `CaptionCue`, `NormalizedSource`, `RegisteredSource`, `IngestWindow`, `IngestResult` and 20 more public symbols.
 
 The authoritative system-level explanation remains in [[Learning System]], [[AI Architecture]]; this note records where this source module participates rather than restating those concepts.
 
@@ -55,28 +55,29 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ## Public API
 
-- `request_canonical_ingest(client: AIProviderClient, context: CanonicalIngestContext) -> AuthoringProposal` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 47) — Run the feature-owned canonical-ingest operation.
-- `class SourceIngestionError(ValueError)` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 63)
-- `class FetchResult` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 68)
-- `class CaptionCue` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 81)
-- `class NormalizedSource` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 88)
-- `class RegisteredSource` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 102)
-- `class IngestWindow` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 110)
-- `class IngestResult` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 116)
-  - `as_dict(self) -> dict[str, Any]` (line 139; public)
-- `class SourceChangeAnalysis` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 161)
-- `ingest_canonical_source(root: Path, source: str, codex_client: AIProviderClient, *, kind: KindOption='auto', subject_id: str | None=None, learning_object_ids: list[str] | None=None, goal_id: str | None=None, allow_auto_captions: bool | None=None, instructions: str | None=None, model: str | None=None, codex_revision: str | None=None, retry_client: AIProviderClient | None=None, retry_model: str | None=None, retry_provider_revision: str | None=None, purpose: str='canonical_ingest', pdf_engine: str | None=None, pdf_use_llm: bool | None=None, ir_markdown: str | None=None, resume_extraction_id: str | None=None, clock: Clock | None=None, progress: IngestProgress | None=None) -> IngestResult` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 166)
-- `detect_source_kind(source: str, *, kind: KindOption='auto', learning_object_ids: list[str] | None=None) -> SourceKind` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 669)
-- `resolve_canonical_source(source: str, *, kind: KindOption='auto', learning_object_ids: list[str] | None=None) -> tuple[ResolvedSource, SourceKind]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 678)
-- `fetch_source(root: Path, source: str, *, kind: SourceKind, allow_auto_captions: bool, pdf_config: PdfIngestConfig | None=None, clock: Clock | None=None, progress: IngestProgress | None=None, raw_only: bool=False) -> FetchResult` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 713)
-- `normalize_source(fetch_result: FetchResult, kind: SourceKind) -> NormalizedSource` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 762)
-- `source_content_hash(markdown: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 770)
-- `analyze_source_change(vault, source: NormalizedSource, new_chunks: list[SourceChunk], content_hash: str, *, clock: Clock | None=None) -> SourceChangeAnalysis` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 775)
-- `chunk_normalized_source(source: NormalizedSource) -> list[SourceChunk]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 855)
-- `chunk_markdown(markdown: str) -> list[SourceChunk]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 876)
-- `build_ingest_windows(chunks: list[SourceChunk], *, window_char_cap: int) -> list[IngestWindow]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 944)
-- `canonical_ingest_context_hash(canonical_uri: str, content_hash: str, source_kind: SourceKind, target_learning_object_ids: list[str], *, instructions: str | None=None, subject_id: str | None=None, provider_identity: dict[str, Any] | None=None, purpose: str='canonical_ingest') -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 980)
-- `register_canonical_source(root: Path, subject_id: str, source: NormalizedSource, raw_bytes: bytes, content_hash: str, *, clock: Clock | None=None) -> RegisteredSource` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1000)
+- `request_canonical_ingest(client: AIProviderClient, context: CanonicalIngestContext) -> AuthoringProposal` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 45) — Run the feature-owned canonical-ingest operation.
+- `class SourceIngestionError(ValueError)` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 61)
+- `class FetchResult` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 66)
+- `class CaptionCue` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 79)
+- `class NormalizedSource` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 86)
+- `class RegisteredSource` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 100)
+- `class IngestWindow` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 108)
+- `class IngestResult` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 114)
+  - `as_dict(self) -> dict[str, Any]` (line 137; public)
+- `class SourceChangeAnalysis` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 159)
+- `ingest_canonical_source(root: Path, source: str, codex_client: AIProviderClient, *, kind: KindOption='auto', subject_id: str | None=None, learning_object_ids: list[str] | None=None, goal_id: str | None=None, allow_auto_captions: bool | None=None, instructions: str | None=None, model: str | None=None, codex_revision: str | None=None, retry_client: AIProviderClient | None=None, retry_model: str | None=None, retry_provider_revision: str | None=None, purpose: str='canonical_ingest', pdf_engine: str | None=None, pdf_use_llm: bool | None=None, ir_markdown: str | None=None, resume_extraction_id: str | None=None, clock: Clock | None=None, progress: IngestProgress | None=None) -> IngestResult` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 164)
+- `legacy_window_key(context: Any, client: Any) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 515) — Checkpoint identity of one legacy ingest window: the request key of the rendered prompt and schema, with the provider and model in place of the client settings (an older shape, kept for its bytes).
+- `detect_source_kind(source: str, *, kind: KindOption='auto', learning_object_ids: list[str] | None=None) -> SourceKind` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 682)
+- `resolve_canonical_source(source: str, *, kind: KindOption='auto', learning_object_ids: list[str] | None=None) -> tuple[ResolvedSource, SourceKind]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 691)
+- `fetch_source(root: Path, source: str, *, kind: SourceKind, allow_auto_captions: bool, pdf_config: PdfIngestConfig | None=None, clock: Clock | None=None, progress: IngestProgress | None=None, raw_only: bool=False) -> FetchResult` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 726)
+- `normalize_source(fetch_result: FetchResult, kind: SourceKind) -> NormalizedSource` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 775)
+- `source_content_hash(markdown: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 783)
+- `analyze_source_change(vault, source: NormalizedSource, new_chunks: list[SourceChunk], content_hash: str, *, clock: Clock | None=None) -> SourceChangeAnalysis` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 788)
+- `chunk_normalized_source(source: NormalizedSource) -> list[SourceChunk]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 868)
+- `chunk_markdown(markdown: str) -> list[SourceChunk]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 889)
+- `build_ingest_windows(chunks: list[SourceChunk], *, window_char_cap: int) -> list[IngestWindow]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 957)
+- `canonical_ingest_context_hash(canonical_uri: str, content_hash: str, source_kind: SourceKind, target_learning_object_ids: list[str], *, instructions: str | None=None, subject_id: str | None=None, provider_identity: dict[str, Any] | None=None, purpose: str='canonical_ingest') -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 993)
+- `register_canonical_source(root: Path, subject_id: str, source: NormalizedSource, raw_bytes: bytes, content_hash: str, *, clock: Clock | None=None) -> RegisteredSource` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1013)
 - `merge_window_proposals(proposals: list[AuthoringProposal]) -> AuthoringProposal` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1085)
 - `chunks_for_note_body(kind: SourceKind, body: str) -> list[SourceChunk]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1741)
 - `locator_hash_for_ref(chunks: list[SourceChunk], locator: str | None) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1777)
@@ -84,19 +85,22 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `caption_chunks_for_time_range(chunks: list[SourceChunk], locator: str) -> list[SourceChunk]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1802)
 - `source_youtube_video_id(source: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2085)
 
+### Module constants
+
+- `LEGACY_WINDOW_PURPOSE` ([src/learnloop/content/pipeline/source_ingestion.py](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 42)
+
 ## Internal implementation anchors
 
-- `_run_ingest_windows(client: AIProviderClient, vault, registered: RegisteredSource, normalized: NormalizedSource, windows: list[IngestWindow], *, target_learning_object_ids: list[str], instructions: str | None, progress: IngestProgress | None=None, usage: dict[str, int] | None=None) -> AuthoringProposal` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 473)
-- `_report_progress(progress: IngestProgress | None, phase: str, **details: Any) -> None` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 514)
-- `_proposal_with_change_summary(proposal: AuthoringProposal, summary: str) -> AuthoringProposal` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 519)
-- `_agent_provider_fields(client: AIProviderClient, *, model: str | None, provider_revision: str | None) -> dict[str, str | None]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 529)
-- `_reachability_summary(vault, repository, learning_object_ids: list[str]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 549) — Verdict counts for the just-applied LOs' contract cells (Meas §5.8.2).
-- `_apply_instrument_gates(rows: list[dict[str, Any]], vault, repository, grading_client) -> None` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 579) — Stage-5.3/6 instrument gates on the canonical-ingest lane.
-- `_downgrade_unready_auto_apply(rows: list[dict[str, Any]], vault) -> None` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 596) — Keep auto-apply from accepting dependents before their prerequisites exist.
-- `_legacy_pdf_config(base: PdfIngestConfig, *, engine: str | None, use_llm: bool | None) -> PdfIngestConfig` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 631) — The PDF settings for this one-shot pipeline, which only runs local extractors.
-- `_resolved_pdf_config(base: PdfIngestConfig, *, engine: str | None, use_llm: bool | None) -> PdfIngestConfig` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 650)
-- `_register_canonical_source_locked(root: Path, subject_id: str, source: NormalizedSource, raw_bytes: bytes, content_hash: str, *, clock: Clock | None) -> RegisteredSource` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1017)
-- `_checkpointed_window_proposal(repository: Repository, key: str) -> AuthoringProposal | None` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1072) — Return a window's saved proposal, discarding one that no longer validates.
+- `_run_ingest_windows(client: AIProviderClient, vault, registered: RegisteredSource, normalized: NormalizedSource, windows: list[IngestWindow], *, target_learning_object_ids: list[str], instructions: str | None, progress: IngestProgress | None=None, usage: dict[str, int] | None=None) -> AuthoringProposal` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 471)
+- `_report_progress(progress: IngestProgress | None, phase: str, **details: Any) -> None` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 527)
+- `_proposal_with_change_summary(proposal: AuthoringProposal, summary: str) -> AuthoringProposal` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 532)
+- `_agent_provider_fields(client: AIProviderClient, *, model: str | None, provider_revision: str | None) -> dict[str, str | None]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 542)
+- `_reachability_summary(vault, repository, learning_object_ids: list[str]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 562) — Verdict counts for the just-applied LOs' contract cells (Meas §5.8.2).
+- `_apply_instrument_gates(rows: list[dict[str, Any]], vault, repository, grading_client) -> None` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 592) — Stage-5.3/6 instrument gates on the canonical-ingest lane.
+- `_downgrade_unready_auto_apply(rows: list[dict[str, Any]], vault) -> None` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 609) — Keep auto-apply from accepting dependents before their prerequisites exist.
+- `_legacy_pdf_config(base: PdfIngestConfig, *, engine: str | None, use_llm: bool | None) -> PdfIngestConfig` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 644) — The PDF settings for this one-shot pipeline, which only runs local extractors.
+- `_resolved_pdf_config(base: PdfIngestConfig, *, engine: str | None, use_llm: bool | None) -> PdfIngestConfig` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 663)
+- `_register_canonical_source_locked(root: Path, subject_id: str, source: NormalizedSource, raw_bytes: bytes, content_hash: str, *, clock: Clock | None) -> RegisteredSource` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1030)
 - `_validate_explicit_kind(kind: str) -> None` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1116)
 - `_validate_textbook_targets(vault, subject_id: str | None, learning_object_ids: list[str]) -> None` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1121)
 - `_validate_active_goal(vault, goal_id: str) -> None` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1142)
@@ -165,7 +169,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]] — imports `AIProviderClient`
-- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `content_key`; calls `content_key`
+- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `ModelCheckpoint`, `request_key`; calls `ModelCheckpoint`, `request_key`
 - [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] — imports `finish_agent_run`; calls `finish_agent_run`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `execute_structured_operation`; calls `execute_structured_operation`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
@@ -177,7 +181,6 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/proposals/ai_contracts|learnloop.content.proposals.ai_contracts]] — imports `AuthoringProposal`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `auto_apply_rows`, `proposal_item_row`; calls `auto_apply_rows`, `proposal_item_row`
 - [[Reference/Modules/learnloop/content/sources/pdf_extraction|learnloop.content.sources.pdf_extraction]] — imports `PdfExtractionError`, `extract_pdf_markdown`; calls `extract_pdf_markdown`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `kebab_case`, `new_ulid`, `snake_case`; calls `kebab_case`, `new_ulid`, `snake_case`
 - [[Reference/Modules/learnloop/ingest/hashing|learnloop.ingest.hashing]] — imports `asset_hash`; calls `asset_hash`
 - [[Reference/Modules/learnloop/ingest/models|learnloop.ingest.models]] — imports `UnsupportedSourceError`
@@ -193,7 +196,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 ### Platform and third-party dependencies
 
 - Standard library: `__future__`, `dataclasses`, `hashlib`, `html`, `json`, `pathlib`, `re`, `typing`, `urllib`
-- Third party: `bs4`, `pydantic`, `trafilatura`, `youtube_transcript_api`
+- Third party: `bs4`, `trafilatura`, `youtube_transcript_api`
 
 ## Larger workflow participation
 
@@ -208,6 +211,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/source_ingestion_helpers.py](../../../../../../../tests/source_ingestion_helpers.py) — direct import
 - [tests/test_exam_seeding.py](../../../../../../../tests/test_exam_seeding.py) — direct import
   - `test_ingest_exam_instructions_reach_context_and_tags_apply`

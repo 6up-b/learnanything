@@ -106,7 +106,6 @@ None found by exact static reference scan.
 - `tests/router_card_helpers.py`
 - `tests/router_mixture_helpers.py`
 - `tests/test_data_capture_a5_not_ready_floor.py`
-- `tests/test_mvp023_upgrade.py`
 - `tests/test_router_card.py`
 - `tests/test_router_r2a_serving.py`
 - `tests/test_teacher_te1b_migration.py`

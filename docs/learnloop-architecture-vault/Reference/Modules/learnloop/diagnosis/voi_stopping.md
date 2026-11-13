@@ -322,7 +322,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_codex_review.py](../../../../../../tests/test_data_capture_codex_review.py) — direct import
   - `test_f3_a_build_with_no_valued_probe_keeps_no_forecasts`
   - `test_f3_every_evaluated_probe_keeps_its_forecast_in_the_receipt_only`
-- [tests/test_mvp021_upgrade.py](../../../../../../tests/test_mvp021_upgrade.py) — direct import
 - [tests/test_voi_merge_composition.py](../../../../../../tests/test_voi_merge_composition.py) — direct import
   - `test_a_committed_probe_logs_its_value_decision_once_beside_the_selection_forecast`
   - `test_a_follow_up_decided_again_on_its_attempt_is_superseded`

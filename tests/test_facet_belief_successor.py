@@ -10,7 +10,6 @@ Fakes only; no model call.
 
 from __future__ import annotations
 
-import inspect
 from datetime import timedelta
 
 import pytest
@@ -27,7 +26,6 @@ from learnloop.clock import FrozenClock
 from learnloop.config.schema import FacetDiagnosticConfig
 from learnloop.db.repositories import Repository
 from learnloop.db.table_roles import TableRole, role_for_table
-from learnloop.facet_belief_upgrade import PREDECESSOR, upgrade_to_facet_belief
 from learnloop.learner.facet_state_reader import (
     facet_belief_fixes_on,
     facet_uncertainty_states_for_lo,
@@ -53,7 +51,7 @@ ITEM_ID = "pi_svd_define_001"
 
 
 def test_the_successor_is_one_constant_after_the_figure_wait_estimate_and_the_latest():
-    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == PREDECESSOR == "mvp-0.58"
+    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.58"
     assert TAG == "mvp-0.59" == SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION
     assert FACET_BELIEF_FIX_VERSIONS == frozenset({TAG})
 
@@ -92,17 +90,6 @@ def test_a_rebuild_records_the_switch_only_at_the_tag(tmp_path):
     set_algorithm_version(paths, OLD)
     # Below the tag the record is the predecessor's, one key.
     assert projection_switches(load_vault(paths.root).config) == {INTERVAL_FACTOR_SNAPSHOT_KEY: True}
-
-
-def test_the_openers_install_this_links_completion():
-    from learnloop import facet_belief_upgrade
-    from learnloop.cli import runtime
-    from learnloop_sidecar import context
-
-    assert "learnloop.facet_belief_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.facet_belief_upgrade" in inspect.getsource(context._complete_interrupted_activation)
-    assert "learnloop.figure_wait_upgrade import complete_interrupted_activation" in inspect.getsource(
-        facet_belief_upgrade)
 
 
 # -- The scenario both sides of the switch play: two don't-knows, then a success. --------------------------------------
@@ -276,71 +263,6 @@ def test_doctor_warns_when_the_switch_moved_after_the_last_whole_vault_rebuild(t
 
 
 # -- The upgrade link. ----------------------------------------------------------------------------------------------
-
-
-def test_the_upgrade_rebuilds_under_the_tag_and_completes_once(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, OLD)
-    _play(paths)
-    with Repository(paths.sqlite_path).connection() as connection:
-        assert connection.execute("SELECT COUNT(*) FROM facet_uncertainty").fetchone()[0] == 0
-
-    result = upgrade_to_facet_belief(paths.root)
-
-    assert result.upgraded and (result.from_version, result.to_version) == (OLD, TAG)
-    vault = load_vault(paths.root)
-    repository = Repository(paths.sqlite_path)
-    assert vault.config.algorithms.algorithm_version == TAG
-    assert repository.has_whole_vault_rebuild(algorithm_version=TAG)
-    # The activation's replay wrote the history's uncertainty and re-projected the belief with the fixes.
-    (state,) = facet_uncertainty_states_for_lo(vault, repository, LO_ID)
-    assert state.algorithm_version == TAG
-    recall, _capability, _rows = _belief(repository)
-    aggregate = next(row for row in recall if row[2] is None)
-    assert dict(zip(_RECALL_COLUMNS, aggregate, strict=True))["consecutive_failures"] == 0
-    again = upgrade_to_facet_belief(paths.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-
-def test_the_upgrade_chains_from_an_older_link(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.47")
-    result = upgrade_to_facet_belief(paths.root)
-    assert result.upgraded and (result.from_version, result.to_version) == ("mvp-0.47", TAG)
-    assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
-
-
-def test_the_upgrade_refuses_anything_older_than_the_chain(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.8")
-    result = upgrade_to_facet_belief(paths.root)
-    assert not result.upgraded and "cannot upgrade from 'mvp-0.8'" in result.problems[0]
-    assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.8"
-
-
-def test_a_vault_born_at_the_tag_completes_its_activation_once(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    first = upgrade_to_facet_belief(paths.root)
-    assert first.upgraded and first.notes == [f"completed the activation of {TAG} (a whole-vault rebuild under it)"]
-    again = upgrade_to_facet_belief(paths.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-
-def test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name(tmp_path):
-    from typer.testing import CliRunner
-
-    from learnloop.cli.app import app
-
-    paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, OLD)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert f"{OLD} -> {LATEST_ALGORITHM_VERSION}" in result.output
-    named = create_basic_vault(tmp_path / "named")
-    set_algorithm_version(named, OLD)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(named.root), "--to", TAG])
-    assert result.exit_code == 0, result.output
-    assert load_vault(named.root).config.algorithms.algorithm_version == TAG
 
 
 # -- D-3 in the Demonstrated curve: the timeline folds the same transfer scale the belief banks. ------------------

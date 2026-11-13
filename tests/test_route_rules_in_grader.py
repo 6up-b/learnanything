@@ -920,9 +920,9 @@ def test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict(tmp_path):
     """mvp-0.17's check wrote the attempt's route verdict under task
     ``proof_route_check`` and superseded it on each checked regrade. Nothing
     writes that task now, so any regrade of such an attempt (at mvp-0.17, or
-    after the upgrade) supersedes it as not checked."""
+    once the vault is at the successor) supersedes it as not checked."""
     from learnloop.db.copies import copy_tree_with_databases
-    from learnloop.route_rules_upgrade import upgrade_to_mvp020
+    from learnloop.ops.upgrades import rewrite_algorithm_version
     from learnloop.vault.repository import open_vault_repository
 
     expected = json.loads((MVP017_FIXTURE / "expected.json").read_text(encoding="utf-8"))["attempts"]
@@ -941,7 +941,7 @@ def test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict(tmp_path):
     assert superseding["input_hash"] == repository.latest_blind_grade_record(held)["context_hash"]
     assert _route_judgments(repository, held) == []  # mvp-0.17: the rule does not run
     # At the successor the regrade's own verdict is written, and the old one superseded.
-    upgrade_to_mvp020(root, clock=later)
+    rewrite_algorithm_version(root / "learnloop.toml", "mvp-0.17", "mvp-0.20")
     vault = load_vault(root)
     [legacy] = _judgments(repository, restored, "proof_route_check")
     regrade_attempt(vault, repository, repository.fetch_practice_attempt(restored),

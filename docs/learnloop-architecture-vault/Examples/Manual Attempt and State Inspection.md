@@ -41,11 +41,11 @@ VAULT="$DEMO_ROOT/linear-algebra"
 cp -a "${LEARNLOOP_OWNER_VAULTS:?set it to a folder of owner-lane copies}/linear_algebra" "$VAULT"
 
 uv run learnloop init "$VAULT"
-uv run learnloop upgrade --to mvp-0.9 --vault "$VAULT"
+uv run learnloop upgrade --vault "$VAULT"
 uv run learnloop doctor --json --vault "$VAULT"
 ```
 
-`init` completes missing scaffold such as the empty `rubrics/` directory without replacing fixture files. The fixture starts at mvp-0.8; the immediate-successor upgrade is required for this mvp-0.9 documentation run. Because it is historical test data, doctor can still report legacy-config and content-quality warnings; require `error_count: 0` before continuing rather than expecting this fixture to be warning-free.
+`init` completes missing scaffold such as the empty `rubrics/` directory without replacing fixture files. An owner-lane copy is at the oldest supported tag or later; `upgrade` takes it to the latest through the upgrade table (a copy below the floor is refused, naming the `pre-floor` route; [[ADR-019 The oldest supported tag]]). Because it is historical test data, doctor can still report legacy-config and content-quality warnings; require `error_count: 0` before continuing rather than expecting this fixture to be warning-free.
 
 ## 2. Read the live item contract
 

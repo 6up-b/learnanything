@@ -21,48 +21,47 @@ import pytest
 
 from learnloop.adaptive_difficulty import denial_log as D
 from learnloop.adaptive_difficulty import operation as O
-from learnloop.algorithm_versions import (
-    CLAIM_FIXES_ALGORITHM_VERSION,
-    ONE_ASK_ALGORITHM_VERSION,
-    REPLAY_LEDGER_ALGORITHM_VERSION,
-)
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, OLDEST_SUPPORTED
+from learnloop.ops import upgrades
+from learnloop.ops.upgrades import UPGRADES, Activation, Link
 from learnloop.vault.loader import load_vault
 from tests.ad_denial_log_helpers import OLD_LINE, _archives, _upgrade, _write_log
+from tests.helpers import create_basic_vault, set_algorithm_version
 
-TAG = ONE_ASK_ALGORITHM_VERSION
-PREDECESSOR = REPLAY_LEDGER_ALGORITHM_VERSION
-OLDER = CLAIM_FIXES_ALGORITHM_VERSION
+#: Each test of the upgrade's archival runs once per row of the upgrade table.
+LINKS = pytest.mark.parametrize("link", UPGRADES, ids=lambda link: link.tag)
+
 
 @pytest.fixture(autouse=True)
 def _cli_process(monkeypatch):
-    """This process as the CLI is: importing it installs the journal completion."""
+    """This process as the CLI is: the table's journal completion is installed."""
 
     from learnloop import activation_journal
-    from learnloop.cli.runtime import _complete_interrupted_activation
 
-    monkeypatch.setattr(activation_journal, "_COMPLETER", _complete_interrupted_activation)
+    monkeypatch.setattr(activation_journal, "_COMPLETER", upgrades.complete_interrupted_activation)
 
 
 def _vault_at(tmp_path, version):
-    from tests.helpers import create_placement_vault
-
-    return create_placement_vault(tmp_path / "v", version=version)
+    paths = create_basic_vault(tmp_path / "v")
+    set_algorithm_version(paths, version)
+    return paths
 
 
 # -- 1. cleared at upgrade -------------------------------------------------------------------------
 
 
-def test_a_successful_upgrade_archives_the_log_and_the_report_counts_from_zero(tmp_path):
-    paths = _vault_at(tmp_path, PREDECESSOR)
+@LINKS
+def test_a_successful_upgrade_archives_the_log_and_the_report_counts_from_zero(tmp_path, link):
+    paths = _vault_at(tmp_path, link.predecessor)
     log = _write_log(paths, [OLD_LINE, {**OLD_LINE, "table": "mastery_ekf"}])
     before = log.read_text(encoding="utf-8")
-    result = _upgrade(paths, TAG)
+    result = _upgrade(paths, link.tag)
     assert result.exit_code == 0, result.output
-    assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
+    assert load_vault(paths.root).config.algorithms.algorithm_version == link.tag
     assert not log.exists(), "the live log is moved aside"
     [archive] = _archives(paths)
     assert archive.parent == log.parent
-    assert archive.name.startswith(f"ad_guard_denials.archived-{PREDECESSOR}-to-{TAG}-")
+    assert archive.name.startswith(f"ad_guard_denials.archived-{link.predecessor}-to-{link.tag}-")
     assert archive.read_text(encoding="utf-8") == before, "archived, never rewritten or deleted"
     assert O.denial_count(paths.sqlite_path) == 0
     block = D.summary(paths.sqlite_path)
@@ -70,60 +69,66 @@ def test_a_successful_upgrade_archives_the_log_and_the_report_counts_from_zero(t
     assert block["archived"] == [{"file": archive.name, "denials": 2}]
 
 
-def test_a_chained_upgrade_archives_once_after_the_final_step(tmp_path):
-    paths = _vault_at(tmp_path, OLDER)
+@LINKS
+def test_an_upgrade_through_the_table_archives_once_after_the_final_step(tmp_path, link):
+    paths = _vault_at(tmp_path, OLDEST_SUPPORTED)
     _write_log(paths, [OLD_LINE])
-    result = _upgrade(paths, TAG)
+    result = _upgrade(paths, link.tag)
     assert result.exit_code == 0, result.output
     [archive] = _archives(paths)
-    assert archive.name.startswith(f"ad_guard_denials.archived-{OLDER}-to-{TAG}-")
+    assert archive.name.startswith(f"ad_guard_denials.archived-{OLDEST_SUPPORTED}-to-{link.tag}-")
 
 
-def test_a_refused_upgrade_leaves_the_log_in_place(tmp_path):
-    paths = _vault_at(tmp_path, PREDECESSOR)
-    assert _upgrade(paths, TAG).exit_code == 0
+@LINKS
+def test_a_refused_upgrade_leaves_the_log_in_place(tmp_path, link):
+    paths = _vault_at(tmp_path, link.predecessor)
+    assert _upgrade(paths, link.tag).exit_code == 0
     log = _write_log(paths, [OLD_LINE])
-    result = _upgrade(paths, TAG)  # already at the tag: refused
-    assert result.exit_code == 1 and f"vault is already {TAG}" in result.output, result.output
+    result = _upgrade(paths, link.tag)  # already at the tag: refused
+    assert result.exit_code == 1 and f"vault is already {link.tag}" in result.output, result.output
     unknown = _upgrade(paths, "mvp-0.99")  # an unknown target: refused before any step
     assert unknown.exit_code == 2, unknown.output
     assert log.exists() and _archives(paths) == []
     assert O.denial_count(paths.sqlite_path) == 1
 
 
-def test_a_failed_upgrade_leaves_the_log_in_place(tmp_path, monkeypatch):
-    from learnloop import one_ask_upgrade
-
-    paths = _vault_at(tmp_path, PREDECESSOR)
+@LINKS
+def test_a_failed_upgrade_leaves_the_log_in_place(tmp_path, monkeypatch, link):
+    paths = _vault_at(tmp_path, link.predecessor)
     log = _write_log(paths, [OLD_LINE])
 
     def broken(*args, **kwargs):
         raise RuntimeError("activation failed")
 
-    monkeypatch.setattr(one_ask_upgrade, "_activate", broken)
-    result = _upgrade(paths, TAG)
+    monkeypatch.setattr(upgrades, "UPGRADES", (Link(link.tag, Activation("broken", broken, link.activate.committed)),))
+    result = _upgrade(paths, link.tag)
     assert result.exit_code != 0
     assert log.exists() and _archives(paths) == []
 
 
-def test_an_upgrade_without_a_log_archives_nothing(tmp_path):
-    paths = _vault_at(tmp_path, PREDECESSOR)
-    result = _upgrade(paths, TAG)
+@LINKS
+def test_an_upgrade_without_a_log_archives_nothing(tmp_path, link):
+    paths = _vault_at(tmp_path, link.predecessor)
+    result = _upgrade(paths, link.tag)
     assert result.exit_code == 0, result.output
     assert _archives(paths) == [] and not D.denial_log_path(paths.sqlite_path).exists()
 
 
-def test_a_second_upgrade_never_overwrites_the_first_archive(tmp_path, monkeypatch):
+@LINKS
+def test_a_second_upgrade_never_overwrites_the_first_archive(tmp_path, monkeypatch, link):
     monkeypatch.setattr(D, "_stamp", lambda now: "20261027T000000Z")  # both upgrades in one second
-    paths = _vault_at(tmp_path, OLDER)
+    paths = _vault_at(tmp_path, link.predecessor)
     _write_log(paths, [OLD_LINE])
-    assert _upgrade(paths, PREDECESSOR).exit_code == 0
+    assert _upgrade(paths, link.tag).exit_code == 0
+    # The same upgrade again in the same second (the vault relabelled its predecessor; the activation re-runs).
+    set_algorithm_version(paths, link.predecessor)
     _write_log(paths, [{**OLD_LINE, "table": "second"}, {**OLD_LINE, "table": "third"}])
-    assert _upgrade(paths, TAG).exit_code == 0
-    first, second = _archives(paths)
-    assert first.name == f"ad_guard_denials.archived-{OLDER}-to-{PREDECESSOR}-20261027T000000Z.jsonl"
-    assert second.name == f"ad_guard_denials.archived-{PREDECESSOR}-to-{TAG}-20261027T000000Z.jsonl"
-    assert len(first.read_text(encoding="utf-8").splitlines()) == 1
+    assert _upgrade(paths, link.tag).exit_code == 0
+    archives = {archive.name: archive for archive in _archives(paths)}
+    stem = f"ad_guard_denials.archived-{link.predecessor}-to-{link.tag}-20261027T000000Z"
+    assert set(archives) == {f"{stem}.jsonl", f"{stem}-2.jsonl"}
+    assert len(archives[f"{stem}.jsonl"].read_text(encoding="utf-8").splitlines()) == 1
+    assert len(archives[f"{stem}-2.jsonl"].read_text(encoding="utf-8").splitlines()) == 2
 
 
 def test_an_archive_name_already_taken_gets_a_counter(tmp_path):
@@ -183,7 +188,7 @@ def test_old_format_lines_stay_readable_and_are_grouped_as_unrecorded(tmp_path):
     block = D.summary(sqlite_path)
     assert block["denials"] == 4
     assert block["by_entry"] == {entry: 2, D.UNRECORDED: 1, D.UNREADABLE: 1}
-    report = {"generated_at": "now", "algorithm_version": TAG, "records": 0, "auto_flags": [], "honest_lines": [],
+    report = {"generated_at": "now", "algorithm_version": LATEST_ALGORITHM_VERSION, "records": 0, "auto_flags": [], "honest_lines": [],
               "scores": {}, "dose_and_burden": {"lines": []}, "identifiability": {"statement": ""}, "guard": {**block, "archived": [{"file": "a.jsonl", "denials": 3}], "archived_denials": 3}}
     text = render_markdown(report)
     assert "refused 4 read(s) or write(s) since the last upgrade" in text
@@ -196,7 +201,7 @@ def test_the_report_renders_a_guard_block_without_entries(tmp_path):
 
     from learnloop.adaptive_difficulty.report import render_markdown
 
-    report = {"generated_at": "now", "algorithm_version": TAG, "records": 0, "auto_flags": [], "honest_lines": [],
+    report = {"generated_at": "now", "algorithm_version": LATEST_ALGORITHM_VERSION, "records": 0, "auto_flags": [], "honest_lines": [],
               "scores": {}, "dose_and_burden": {"lines": []}, "identifiability": {"statement": ""}, "guard": {"denials": 2}}
     assert "refused 2 read(s) or write(s) so far" in render_markdown(report)
 
@@ -208,24 +213,23 @@ NEW_LINE = {"reader": "learnloop.adaptive_difficulty.replay", "table": "practice
 SIDECAR_ENTRY = "learnloop.adaptive_difficulty.replay.load_events"
 
 
-def test_f1_a_denial_after_the_upgrade_returned_stays_live(tmp_path, monkeypatch):
+@LINKS
+def test_f1_a_denial_after_the_upgrade_returned_stays_live(tmp_path, monkeypatch, link):
     """F1: the upgrade commits and releases its lock; a sidecar operation, under the successor, logs a
     denial before the CLI archives. That denial is after the upgrade: it stays in the live count."""
 
-    from learnloop import one_ask_upgrade
-
-    paths = _vault_at(tmp_path, PREDECESSOR)
+    paths = _vault_at(tmp_path, link.predecessor)
     log = _write_log(paths, [OLD_LINE, {**OLD_LINE, "table": "mastery_ekf"}])
     before = log.read_text(encoding="utf-8")
-    real = one_ask_upgrade.upgrade_to_one_ask
+    real = upgrades.upgrade
 
     def then_a_sidecar_denial(*args, **kwargs):
         result = real(*args, **kwargs)
         D.append_denials(paths.sqlite_path, [NEW_LINE], epoch="e2", entry=SIDECAR_ENTRY)
         return result
 
-    monkeypatch.setattr(one_ask_upgrade, "upgrade_to_one_ask", then_a_sidecar_denial)
-    result = _upgrade(paths, TAG)
+    monkeypatch.setattr(upgrades, "upgrade", then_a_sidecar_denial)
+    result = _upgrade(paths, link.tag)
     assert result.exit_code == 0, result.output
     [archive] = _archives(paths)
     assert archive.read_text(encoding="utf-8") == before, "only the lines from before the upgrade are archived"
@@ -236,13 +240,14 @@ def test_f1_a_denial_after_the_upgrade_returned_stays_live(tmp_path, monkeypatch
     assert (block["denials"], block["archived_denials"]) == (1, 2)
 
 
-def test_f1_an_append_in_flight_never_writes_into_the_archive(tmp_path):
+@LINKS
+def test_f1_an_append_in_flight_never_writes_into_the_archive(tmp_path, link):
     """F1, overlapping variant: an appender is between its two lines when the upgrade archives. Its
     lines land in the live log (not through a handle into the renamed archive)."""
 
     import threading
 
-    paths = _vault_at(tmp_path, PREDECESSOR)
+    paths = _vault_at(tmp_path, link.predecessor)
     log = _write_log(paths, [OLD_LINE])
     before = log.read_text(encoding="utf-8")
     started, go = threading.Event(), threading.Event()
@@ -258,7 +263,7 @@ def test_f1_an_append_in_flight_never_writes_into_the_archive(tmp_path):
     appender.start()
     try:
         assert started.wait(30)
-        result = _upgrade(paths, TAG)
+        result = _upgrade(paths, link.tag)
     finally:
         go.set()
         appender.join(30)
@@ -349,19 +354,18 @@ def test_f2_a_report_never_counts_a_line_live_and_archived(tmp_path, monkeypatch
 # -- 4. Codex verify 2 (2026-10-27): a degraded path never hides a line ------------------------------
 
 
-def test_v2_f1_an_unmarked_upgrade_leaves_the_log_live(tmp_path, monkeypatch):
+@LINKS
+def test_v2_f1_an_unmarked_upgrade_leaves_the_log_live(tmp_path, monkeypatch, link):
     """Verify 2 F1: the mark fails at the command's start. Without a mark the archival cannot tell the
     lines from before the upgrade from a successor's, so it archives nothing and says so on stderr."""
 
-    from learnloop import one_ask_upgrade
-
-    paths = _vault_at(tmp_path, PREDECESSOR)
+    paths = _vault_at(tmp_path, link.predecessor)
     log = _write_log(paths, [OLD_LINE, {**OLD_LINE, "table": "mastery_ekf"}])
 
     def unmarkable(sqlite_path):
         raise OSError("lock directory unavailable")
 
-    real = one_ask_upgrade.upgrade_to_one_ask
+    real = upgrades.upgrade
 
     def then_a_sidecar_denial(*args, **kwargs):
         result = real(*args, **kwargs)
@@ -369,10 +373,10 @@ def test_v2_f1_an_unmarked_upgrade_leaves_the_log_live(tmp_path, monkeypatch):
         return result
 
     monkeypatch.setattr(D, "cutover_mark", unmarkable)
-    monkeypatch.setattr(one_ask_upgrade, "upgrade_to_one_ask", then_a_sidecar_denial)
-    result = _upgrade(paths, TAG)
+    monkeypatch.setattr(upgrades, "upgrade", then_a_sidecar_denial)
+    result = _upgrade(paths, link.tag)
     assert result.exit_code == 0, result.output
-    assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
+    assert load_vault(paths.root).config.algorithms.algorithm_version == link.tag
     assert _archives(paths) == [], "no mark: nothing archived"
     assert O.denial_count(paths.sqlite_path) == 3, "the successor's denial (and the earlier ones) stay live"
     assert json.loads(D._lines(log)[-1])["entry"] == SIDECAR_ENTRY
@@ -498,7 +502,7 @@ def test_v2_f2_a_report_without_the_lock_does_not_count_archives(tmp_path, monke
     assert block["denials"] == 2
     assert block["archived"] is None and block["archived_denials"] is None, block
     assert block["archived_unavailable"]
-    report = {"generated_at": "now", "algorithm_version": TAG, "records": 0, "auto_flags": [], "honest_lines": [],
+    report = {"generated_at": "now", "algorithm_version": LATEST_ALGORITHM_VERSION, "records": 0, "auto_flags": [], "honest_lines": [],
               "scores": {}, "dose_and_burden": {"lines": []}, "identifiability": {"statement": ""}, "guard": block}
     text = render_markdown(report)
     assert "refused 2 read(s) or write(s)" in text and "archive counts unavailable" in text

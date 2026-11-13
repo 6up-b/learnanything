@@ -2,44 +2,11 @@ from __future__ import annotations
 
 from learnloop.ai.plan_fallback import collecting as plan_fallback_offers
 from learnloop.ai.plan_fallback import command_grant as plan_fallback_command_grant
-from learnloop.algorithm_versions import (
-    ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION,
-    CLAIM_FIXES_ALGORITHM_VERSION,
-    COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION,
-    DELIVERABLE_PLAN_ALGORITHM_VERSION,
-    HELP_FOLD_ATTACH_ALGORITHM_VERSION,
-    LATEST_ALGORITHM_VERSION,
-    ONE_ASK_ALGORITHM_VERSION,
-    READER_FOLLOWUPS_ALGORITHM_VERSION,
-    READING_PATH_PLAN_ALGORITHM_VERSION,
-    REPLAY_LEDGER_ALGORITHM_VERSION,
-    SUPERSEDED_CLAIMS_ALGORITHM_VERSION,
-    TEACHER_ALGORITHM_VERSION,
-    LESSON_SUGGESTIONS_ALGORITHM_VERSION,
-    DATA_CAPTURE_ALGORITHM_VERSION,
-    FOLLOWUP_SERVE_ALGORITHM_VERSION,
-    INTERVAL_FACTOR_ALGORITHM_VERSION,
-    ROUTER_CALIBRATION_ALGORITHM_VERSION,
-    ROUTER_FOLLOWUPS_ALGORITHM_VERSION,
-    FAILURE_SHARE_ALGORITHM_VERSION,
-    FACET_BELIEF_FIX_ALGORITHM_VERSION,
-    FIGURE_WAIT_ALGORITHM_VERSION,
-    SLIP_GAP_ALGORITHM_VERSION,
-    ROUTER_LEARNED_TAIL_ALGORITHM_VERSION,
-    ROUTER_OBJECTIVE_ALGORITHM_VERSION,
-    LESSON_OFFERS_ALGORITHM_VERSION,
-    LESSON_OPPORTUNITY_ALGORITHM_VERSION,
-    PHONE_PROBES_ALGORITHM_VERSION,
-    TEACHER_PROBES_ALGORITHM_VERSION,
-    UNEVIDENCED_RETURN_ALGORITHM_VERSION,
-    WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
-)
-import functools
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 
 from learnloop import provenance
 from learnloop.cli.receipts import command_receipts
 from learnloop.cli.runtime import *  # noqa: F403
-from learnloop.version_floor import upgrading as _upgrading_below_floor
 
 
 _runtime_ready_provider_for_task = _ready_provider_for_task
@@ -118,20 +85,7 @@ def init(
     typer.echo(f"Initialized LearnLoop vault at {result.root}")
 
 
-def _opens_the_vault_it_upgrades(command):
-    """Run the upgrade command with its vault exempt from the oldest-supported-tag refusal: every other door
-    refuses a vault below the floor and names this command, so without the exemption nothing could bring it there."""
-
-    @functools.wraps(command)
-    def run(*args, **kwargs):
-        with _upgrading_below_floor(_root(kwargs.get("vault"))):
-            return command(*args, **kwargs)
-
-    return run
-
-
 @app.command("upgrade")
-@_opens_the_vault_it_upgrades
 def upgrade(
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
     to: Annotated[
@@ -139,415 +93,32 @@ def upgrade(
         typer.Option(
             "--to",
             help=(
-                "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, "
-                "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, "
-                "mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, mvp-0.24, mvp-0.25, mvp-0.26, mvp-0.27, mvp-0.29, mvp-0.30, "
-                f"{WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION}, {READING_PATH_PLAN_ALGORITHM_VERSION}, "
-                f"{CLAIM_FIXES_ALGORITHM_VERSION}, {REPLAY_LEDGER_ALGORITHM_VERSION}, "
-                f"{ONE_ASK_ALGORITHM_VERSION}, {SUPERSEDED_CLAIMS_ALGORITHM_VERSION}, "
-                f"{ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}, {COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION}, "
-                f"{READER_FOLLOWUPS_ALGORITHM_VERSION}, {DELIVERABLE_PLAN_ALGORITHM_VERSION}, "
-                f"{TEACHER_ALGORITHM_VERSION}, {HELP_FOLD_ATTACH_ALGORITHM_VERSION}, "
-                f"{LESSON_SUGGESTIONS_ALGORITHM_VERSION}, {DATA_CAPTURE_ALGORITHM_VERSION}, "
-                f"{FOLLOWUP_SERVE_ALGORITHM_VERSION}, {INTERVAL_FACTOR_ALGORITHM_VERSION}, "
-                f"{ROUTER_OBJECTIVE_ALGORITHM_VERSION}, {ROUTER_CALIBRATION_ALGORITHM_VERSION}, "
-                f"{ROUTER_LEARNED_TAIL_ALGORITHM_VERSION}, {ROUTER_FOLLOWUPS_ALGORITHM_VERSION}, "
-                f"{TEACHER_PROBES_ALGORITHM_VERSION}, {LESSON_OPPORTUNITY_ALGORITHM_VERSION}, "
-                f"{LESSON_OFFERS_ALGORITHM_VERSION}, {PHONE_PROBES_ALGORITHM_VERSION}, "
-                f"{FAILURE_SHARE_ALGORITHM_VERSION}, {UNEVIDENCED_RETURN_ALGORITHM_VERSION}, "
-                f"{SLIP_GAP_ALGORITHM_VERSION}, {FIGURE_WAIT_ALGORITHM_VERSION} or "
-                f"{FACET_BELIEF_FIX_ALGORITHM_VERSION}); "
-                "default: the latest."
+                "Target algorithm version, from the oldest supported one up; default: the latest. "
+                "An older target is upgraded by the code tagged pre-floor (ADR-019)."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
 ) -> None:
-    """Atomically activate a knowledge-model version for this vault.
+    """Atomically activate a newer algorithm version for this vault.
 
-    ``--to mvp-0.7`` activates the KM2 canonical model over legacy mvp-0.6 content
-    (KM §15); ``--to mvp-0.8`` activates the P0 authority-propagation
-    projection over an mvp-0.7 vault; ``--to mvp-0.9`` activates
-    cross-channel reveal accounting over an mvp-0.8 vault; ``--to mvp-0.10``
-    activates the Slice 1 split (learner-blind grader + asynchronous diagnoser)
-    over an mvp-0.9 vault (kill switch: ``diagnosis.split_enabled = false``);
-    ``--to mvp-0.11`` adds placement, starting new material without ceremony,
-    over an mvp-0.10 vault, or over an mvp-0.9 vault by activating mvp-0.10
-    first (kill switch ``placement.enabled``); ``--to mvp-0.12`` adds Slice 2
-    T1 recurrence groups over an mvp-0.11 vault (or an mvp-0.9/mvp-0.10 vault
-    through the chain; kill switch: ``recurrence.enabled = false``). Its
-    same-answer/different-cause guard is advisory (owner, 2026-10-12): the
-    upgrade prints the guard's status and proceeds;
-    ``recurrence.require_guard = true`` makes it refuse until the guard
-    passes. ``--to mvp-0.13`` replaces "I don't know" with "I'm stuck"
-    (write what you can) over an mvp-0.12 vault (or an mvp-0.9 to mvp-0.11
-    vault through the chain; kill switch: ``stuck_prompt.enabled = false``);
-    ``--to mvp-0.14`` adds the finite daily plan over an mvp-0.13 vault (or an
-    mvp-0.9 to mvp-0.12 vault through the chain; kill switch:
-    ``plan.enabled = false``); ``--to mvp-0.15`` admits probe near-ties,
-    teach-back items included, to the Today queue's seeded exploration with a
-    logged propensity (router R1), over an
-    mvp-0.14 vault (or an mvp-0.9 to mvp-0.13 vault through the chain; kill
-    switch: ``router.probe_tie_admission = false``). Router decision logging
-    (``router.log_decisions``) is not a serving change and runs at every
-    version. ``--to mvp-0.16`` adds learner-text gaps' sooner checks (a
-    prerequisite gap named in the learner's own text brings an assumed or
-    maintenance LO's next check forward) over an mvp-0.15 vault (or an mvp-0.9
-    to mvp-0.14 vault through the chain; kill switch:
-    ``learner_text_gaps.sooner_check_enabled = false``). ``--to mvp-0.17``
-    tags mvp-0.16's successor whose separate proofs route check was removed
-    (it grades new answers as mvp-0.16), over an mvp-0.16 vault (or an mvp-0.9
-    to mvp-0.15 vault through the chain). ``--to mvp-0.18`` makes certification
-    follow the answer key (an attempt on an imported textbook exercise with an
-    unverified key schedules and teaches but never certifies) over an
-    mvp-0.17 vault (or an mvp-0.9 to mvp-0.16 vault through the chain; no
-    kill switch re-enables certification). ``--to mvp-0.19`` fulfils
-    intervention needs from the learner's sources before generating over an
-    mvp-0.18 vault (or an mvp-0.9 to mvp-0.17 vault through the chain; kill
-    switch: ``source_service.source_first_needs = false``). ``--to mvp-0.20``
-    grades every criterion on the learner's own route, in the grader's one
-    call, and leaves a mark-down on a divergent route that quotes nothing
-    unassessed, over an mvp-0.19 vault (or an mvp-0.9 to mvp-0.18 vault
-    through the chain; kill switch: ``proof_check.enabled = false``).
-    ``--to mvp-0.21`` lifts four count caps onto value of information (probe
-    observations per session, further follow-ups per LO, further
-    teach-backs, project probes per day; kill switch
-    ``voi_stopping.enabled``) and makes the probe hypothesis lane read
-    the diagnoser's verdict (kill switch
-    ``diagnosis.probe_lane_reads_diagnosis``) over an mvp-0.20 vault (or an
-    mvp-0.9 to mvp-0.19 vault through the chain). ``--to mvp-0.22`` lets the
-    Decider decide the small judgments (learner-text gaps, misconception
-    matching, pattern links, question classification, contamination
-    verdicts), the LLM as fallback, over an mvp-0.21 vault (or an mvp-0.9 to
-    mvp-0.20 vault through the chain; one kill switch per judgment under
-    ``[decider_routes]``). ``--to mvp-0.23`` composes Today with the router's
-    staged frame (a block loses the items a named hard constraint refuses;
-    the order is unchanged) and sends P2 run steps through the staged bridge,
-    over an mvp-0.22 vault (or an mvp-0.9 to mvp-0.21 vault through the
-    chain; kill switch: ``router.enabled = false``). ``--to mvp-0.24`` draws
-    Today's next block from the logged model mixture (the staged rule, the
-    Decider and the router LLM, with exact chances) and lets a mid-block
-    follow-up wait for the next block, over an mvp-0.23 vault (or an mvp-0.9
-    to mvp-0.22 vault through the chain; kill switches: ``router.mode =
-    "staged"``, ``router.restraint = false``). ``--to mvp-0.25`` grades a
-    criterion tied to an item's required method on use of that method
-    (another route fails it with no quoted step), over an mvp-0.24 vault (or an
-    mvp-0.9 to mvp-0.23 vault through the chain; kill switch:
-    ``required_method.enabled = false``). ``--to mvp-0.26`` makes every
-    regrade cite the contract it graded against and replay read the current
-    grade's own contract, holding for review a grade whose contract was never
-    recorded, over an mvp-0.25 vault (or an mvp-0.9 to mvp-0.24 vault through
-    the chain; no kill switch). ``--to mvp-0.27`` makes every serve path ask
-    the one eligibility decision submit asks (a cold check its item can no longer take cold is withdrawn and the
-    item served as practice; an item whose answer was shown is never a probe
-    or a quick-check offer) and bounds a historical writer's auto-prime at its
-    own instant, over an mvp-0.26 vault (or an mvp-0.9 to mvp-0.25 vault
-    through the chain; kill switch: ``eligibility.enabled = false``).
-    ``--to mvp-0.29`` serves by the learner's
-    intent (Learn, Master, Keep, Light touch, "Check once", Reference, Pause,
-    Let go, deadlines: an excluded item is never served, requested or rebuilt
-    as a follow-up, and a "Check once" is a cold check on your own), over an
-    mvp-0.27 vault (or an mvp-0.9 to mvp-0.26 vault through the chain; kill
-    switch: ``intent.enabled = false``). ``--to mvp-0.30``
-    serves a planned new-material slot by
-    adaptive difficulty's draw (practice in the 70-80% band, calibration within
-    acceptable difficulty, exact logged chances), asks generation for an item
-    at a feature point with no difficulty band, and reads the subject view
-    (learned relatedness and reading) for live decisions and readiness, over
-    an mvp-0.29 vault (or an mvp-0.9 to mvp-0.27 vault through the chain; kill
-    switches under ``[adaptive_difficulty]``: ``selection``,
-    ``generation_contract``, ``promoted_predictor``, ``learned_coupling``,
-    ``reading_opportunities``, ``reading_self_check``). ``--to mvp-0.31``
-    (the Reader workbench's field signals) keeps an LO you got stuck on, or
-    asked for help on before your first step, in the workbench out of
-    fast-track and teaches it first (never a change to your record), over an
-    mvp-0.30 vault (or an mvp-0.9 to mvp-0.29 vault through the chain; kill
-    switch: ``workbench.field_signals_enabled = false``). ``--to mvp-0.32``
-    (the plan follows the reading path) has today's reading block open the
-    next core or prerequisite section of the path you chose in the Guide,
-    never an enrichment section or one you skipped, over an mvp-0.31 vault
-    (or an mvp-0.9 to mvp-0.30 vault through the chain; kill switch:
-    ``reading_paths.plan_uses_path = false``). ``--to mvp-0.33`` (the claim
-    fixes) lets a gap you declare to the tutor move that topic's level,
-    applies what you said about your level at the time you said it, never
-    lets a claim make a level you have practised look more certain, and
-    believes your most recent claim, over an mvp-0.32 vault (or an mvp-0.9 to
-    mvp-0.31 vault through the chain; kill switch:
-    ``mastery.claim_fixes_enabled = false``). ``--to mvp-0.34`` (rebuild
-    equivalence) makes a rebuild reproduce your live estimates: replay reads
-    your history as each answer saw it, never the answers after it, so the
-    activation's rebuild moves rebuilt mastery and due times toward the live
-    values, over an mvp-0.33 vault (or an mvp-0.9 to mvp-0.32 vault through
-    the chain; kill switch: ``replay.ledger_bounded = false``). ``--to
-    mvp-0.35`` (Reader CA2's one Ask) counts a
-    question on a check on your own as help only when it is about the maths,
-    on the Reader's cold paths too, and makes help taken on a cold follow-up
-    practice with help instead of refusing the submit, over an mvp-0.34 vault
-    (or an mvp-0.9 to mvp-0.33 vault through the chain; kill switch:
-    ``ask.cold_help_converts = false``). ``--to mvp-0.36`` (the
-    latest successor) keeps a learner report or starting level you replace
-    with a newer one, so a rebuild applies each at the time you gave it and
-    reproduces your live estimates, over an mvp-0.35 vault (or an mvp-0.9 to
-    mvp-0.34 vault through the chain; no kill switch: nothing you see
-    changes). ``--to mvp-0.37`` (mobile PR-4)
-    has an answer update only its question's review schedule, so it never
-    reopens a question that was retired, parked or set aside, or brings back
-    its old text, over an mvp-0.36 vault (or an mvp-0.9 to mvp-0.35 vault
-    through the chain; kill switch:
-    ``practice.attempt_keeps_content_state = false``). ``--to mvp-0.38``
-    sets a new check on your own, on another question a day later, when you
-    take help on a repair's check on your own, so the repair can still be
-    measured (once per repair), over an mvp-0.37 vault (or an mvp-0.9 to
-    mvp-0.36 vault through the chain; kill switch:
-    ``practice.reschedule_cold_after_assist = false``). ``--to mvp-0.39``
-    schedules short checks on your own after a reading session, each dated
-    by what it is for and listed under "Coming up" with undo, over an
-    mvp-0.38 vault (or an mvp-0.9 to mvp-0.37 vault through the chain; kill
-    switch: ``followups.enabled = false``). ``--to mvp-0.40`` (curriculum
-    C1) has the day's reading follow your deliverable's path across your
-    books: the next section on it you haven't finished, in its order, in
-    whichever book it is, over an mvp-0.39 vault (or an mvp-0.9 to mvp-0.38
-    vault through the chain; kill switch: ``curriculum.plan_uses_path =
-    false``). ``--to mvp-0.41`` (teacher TE1) lets you start a lesson on a
-    topic ("Teach me this"): its checks count a little toward the topic, by
-    an amount learned from your later checks on your own, and it ends by
-    setting one later check on your own per topic taught, over an mvp-0.40
-    vault (or an mvp-0.9 to mvp-0.39 vault through the chain; kill switch:
-    ``teacher.enabled = false``). ``--to mvp-0.42`` (default, the latest
-    successor) counts a hint you were shown on an answer even when you sent
-    it in a later practice session, so the answer is marked as helped, over
-    an mvp-0.41 vault (or an mvp-0.9 to mvp-0.40 vault through the chain;
-    kill switch: ``hints.fold_follows_attach = false``)."""
+    Walks the upgrade table (``learnloop.ops.upgrades``) from the vault's version to ``--to``, one activation
+    per version, each in one transaction with the config's version published last; on a vault already at
+    ``--to`` whose activation did not finish, it finishes it. A vault older than the oldest supported version
+    is refused, naming the commands that upgrade it with the code tagged ``pre-floor``."""
 
-    from learnloop.ops.vault_upgrade import (
-        upgrade_to_mvp07,
-        upgrade_to_mvp08,
-        upgrade_to_mvp09,
-        upgrade_to_mvp010,
-        upgrade_to_mvp011,
-    )
+    from learnloop.ops.upgrades import targets
+    from learnloop.ops.upgrades import upgrade as upgrade_vault
 
-    # The AD guard's denial log as the command found it: only these lines are archived after a
-    # successful upgrade; a denial logged after this stays counted (Codex review F1, 2026-10-27).
-    denial_mark = _mark_ad_denial_log(_root(vault))
-    if to == "mvp-0.7":
-        result = upgrade_to_mvp07(_root(vault))
-    elif to == "mvp-0.8":
-        result = upgrade_to_mvp08(_root(vault))
-    elif to == "mvp-0.9":
-        result = upgrade_to_mvp09(_root(vault))
-    elif to == "mvp-0.10":
-        result = upgrade_to_mvp010(_root(vault))
-    elif to == "mvp-0.11":
-        result = upgrade_to_mvp011(_root(vault))
-    elif to == "mvp-0.12":
-        from learnloop.diagnosis.recurrence.upgrade import upgrade_to_mvp012
-
-        result = upgrade_to_mvp012(_root(vault))
-    elif to == "mvp-0.13":
-        from learnloop.stuck_prompt_upgrade import upgrade_to_mvp013
-
-        result = upgrade_to_mvp013(_root(vault))
-    elif to == "mvp-0.14":
-        from learnloop.daily_plan_upgrade import upgrade_to_mvp014
-
-        result = upgrade_to_mvp014(_root(vault))
-    elif to == "mvp-0.15":
-        from learnloop.probe_tie_upgrade import upgrade_to_mvp015
-
-        result = upgrade_to_mvp015(_root(vault))
-    elif to == "mvp-0.16":
-        from learnloop.learner_text_gap_upgrade import upgrade_to_mvp016
-
-        result = upgrade_to_mvp016(_root(vault))
-    elif to == "mvp-0.17":
-        from learnloop.proof_check_upgrade import upgrade_to_mvp017
-
-        result = upgrade_to_mvp017(_root(vault))
-    elif to == "mvp-0.18":
-        from learnloop.sources_upgrade import upgrade_to_mvp018
-
-        result = upgrade_to_mvp018(_root(vault))
-    elif to == "mvp-0.19":
-        from learnloop.sources_upgrade import upgrade_to_mvp019
-
-        result = upgrade_to_mvp019(_root(vault))
-    elif to == "mvp-0.20":
-        from learnloop.route_rules_upgrade import upgrade_to_mvp020
-
-        result = upgrade_to_mvp020(_root(vault))
-    elif to == "mvp-0.21":
-        from learnloop.voi_stopping_upgrade import upgrade_to_mvp021
-
-        result = upgrade_to_mvp021(_root(vault))
-    elif to == "mvp-0.22":
-        from learnloop.decider_upgrade import upgrade_to_mvp022
-
-        result = upgrade_to_mvp022(_root(vault))
-    elif to == "mvp-0.23":
-        from learnloop.router_staged_upgrade import upgrade_to_mvp023
-
-        result = upgrade_to_mvp023(_root(vault))
-    elif to == "mvp-0.24":
-        from learnloop.router_mixture_upgrade import upgrade_to_mvp024
-
-        result = upgrade_to_mvp024(_root(vault))
-    elif to == "mvp-0.25":
-        from learnloop.method_explicit_upgrade import upgrade_to_mvp025
-
-        result = upgrade_to_mvp025(_root(vault))
-    elif to == "mvp-0.26":
-        from learnloop.regrade_contract_upgrade import upgrade_to_mvp026
-
-        result = upgrade_to_mvp026(_root(vault))
-    elif to == "mvp-0.27":
-        from learnloop.eligibility_decision_upgrade import upgrade_to_mvp027
-
-        result = upgrade_to_mvp027(_root(vault))
-    elif to == "mvp-0.29":
-        from learnloop.intent_upgrade import upgrade_to_mvp029
-
-        result = upgrade_to_mvp029(_root(vault))
-    elif to == "mvp-0.30":
-        from learnloop.ad_successor_upgrade import upgrade_to_mvp030
-
-        result = upgrade_to_mvp030(_root(vault))
-    elif to == WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION:
-        from learnloop.workbench_field_signals_upgrade import upgrade_to_workbench_field_signals
-
-        result = upgrade_to_workbench_field_signals(_root(vault))
-    elif to == READING_PATH_PLAN_ALGORITHM_VERSION:
-        from learnloop.reading_path_plan_upgrade import upgrade_to_reading_path_plan
-
-        result = upgrade_to_reading_path_plan(_root(vault))
-    elif to == CLAIM_FIXES_ALGORITHM_VERSION:
-        from learnloop.claim_fixes_upgrade import upgrade_to_claim_fixes
-
-        result = upgrade_to_claim_fixes(_root(vault))
-    elif to == REPLAY_LEDGER_ALGORITHM_VERSION:
-        from learnloop.replay_ledger_upgrade import upgrade_to_replay_ledger
-
-        result = upgrade_to_replay_ledger(_root(vault))
-    elif to == ONE_ASK_ALGORITHM_VERSION:
-        from learnloop.one_ask_upgrade import upgrade_to_one_ask
-
-        result = upgrade_to_one_ask(_root(vault))
-    elif to == SUPERSEDED_CLAIMS_ALGORITHM_VERSION:
-        from learnloop.superseded_claims_upgrade import upgrade_to_superseded_claims
-
-        result = upgrade_to_superseded_claims(_root(vault))
-    elif to == ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION:
-        from learnloop.attempt_content_state_upgrade import upgrade_to_attempt_content_state
-
-        result = upgrade_to_attempt_content_state(_root(vault))
-    elif to == COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION:
-        from learnloop.cold_retry_reschedule_upgrade import upgrade_to_cold_retry_reschedule
-
-        result = upgrade_to_cold_retry_reschedule(_root(vault))
-    elif to == READER_FOLLOWUPS_ALGORITHM_VERSION:
-        from learnloop.reader_followups_upgrade import upgrade_to_reader_followups
-
-        result = upgrade_to_reader_followups(_root(vault))
-    elif to == DELIVERABLE_PLAN_ALGORITHM_VERSION:
-        from learnloop.deliverable_plan_upgrade import upgrade_to_deliverable_plan
-
-        result = upgrade_to_deliverable_plan(_root(vault))
-    elif to == TEACHER_ALGORITHM_VERSION:
-        from learnloop.teacher_upgrade import upgrade_to_teacher
-
-        result = upgrade_to_teacher(_root(vault))
-    elif to == HELP_FOLD_ATTACH_ALGORITHM_VERSION:
-        from learnloop.help_fold_attach_upgrade import upgrade_to_help_fold_attach
-
-        result = upgrade_to_help_fold_attach(_root(vault))
-    elif to == LESSON_SUGGESTIONS_ALGORITHM_VERSION:
-        from learnloop.lesson_suggestions_upgrade import upgrade_to_lesson_suggestions
-
-        result = upgrade_to_lesson_suggestions(_root(vault))
-    elif to == DATA_CAPTURE_ALGORITHM_VERSION:
-        from learnloop.data_capture_upgrade import upgrade_to_data_capture
-
-        result = upgrade_to_data_capture(_root(vault))
-    elif to == FOLLOWUP_SERVE_ALGORITHM_VERSION:
-        from learnloop.followup_serve_upgrade import upgrade_to_followup_serve
-
-        result = upgrade_to_followup_serve(_root(vault))
-    elif to == INTERVAL_FACTOR_ALGORITHM_VERSION:
-        from learnloop.interval_factor_upgrade import upgrade_to_interval_factor
-
-        result = upgrade_to_interval_factor(_root(vault))
-    elif to == ROUTER_OBJECTIVE_ALGORITHM_VERSION:
-        from learnloop.router_objective_upgrade import upgrade_to_router_objective
-
-        result = upgrade_to_router_objective(_root(vault))
-    elif to == ROUTER_CALIBRATION_ALGORITHM_VERSION:
-        from learnloop.router_calibration_upgrade import upgrade_to_router_calibration
-
-        result = upgrade_to_router_calibration(_root(vault))
-    elif to == ROUTER_LEARNED_TAIL_ALGORITHM_VERSION:
-        from learnloop.router_learned_tail_upgrade import upgrade_to_router_learned_tail
-
-        result = upgrade_to_router_learned_tail(_root(vault))
-    elif to == ROUTER_FOLLOWUPS_ALGORITHM_VERSION:
-        from learnloop.router_followups_upgrade import upgrade_to_router_followups
-
-        result = upgrade_to_router_followups(_root(vault))
-    elif to == TEACHER_PROBES_ALGORITHM_VERSION:
-        from learnloop.teacher_probes_upgrade import upgrade_to_teacher_probes
-
-        result = upgrade_to_teacher_probes(_root(vault))
-    elif to == LESSON_OPPORTUNITY_ALGORITHM_VERSION:
-        from learnloop.lesson_opportunity_upgrade import upgrade_to_lesson_opportunity
-
-        result = upgrade_to_lesson_opportunity(_root(vault))
-    elif to == LESSON_OFFERS_ALGORITHM_VERSION:
-        from learnloop.lesson_offers_upgrade import upgrade_to_lesson_offers
-
-        result = upgrade_to_lesson_offers(_root(vault))
-    elif to == PHONE_PROBES_ALGORITHM_VERSION:
-        from learnloop.phone_probes_upgrade import upgrade_to_phone_probes
-
-        result = upgrade_to_phone_probes(_root(vault))
-    elif to == FAILURE_SHARE_ALGORITHM_VERSION:
-        from learnloop.failure_share_upgrade import upgrade_to_failure_share
-
-        result = upgrade_to_failure_share(_root(vault))
-    elif to == UNEVIDENCED_RETURN_ALGORITHM_VERSION:
-        from learnloop.unevidenced_return_upgrade import upgrade_to_unevidenced_return
-
-        result = upgrade_to_unevidenced_return(_root(vault))
-    elif to == SLIP_GAP_ALGORITHM_VERSION:
-        from learnloop.slip_gap_upgrade import upgrade_to_slip_gap
-
-        result = upgrade_to_slip_gap(_root(vault))
-    elif to == FIGURE_WAIT_ALGORITHM_VERSION:
-        from learnloop.figure_wait_upgrade import upgrade_to_figure_wait
-
-        result = upgrade_to_figure_wait(_root(vault))
-    elif to == FACET_BELIEF_FIX_ALGORITHM_VERSION:
-        from learnloop.facet_belief_upgrade import upgrade_to_facet_belief
-
-        result = upgrade_to_facet_belief(_root(vault))
-    else:
+    if to not in targets():
         typer.echo(
-            "Unknown target version "
-            f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13, "
-            "mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, "
-            f"mvp-0.24, mvp-0.25, mvp-0.26, mvp-0.27, mvp-0.29, mvp-0.30, {WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION}, "
-            f"{READING_PATH_PLAN_ALGORITHM_VERSION}, {CLAIM_FIXES_ALGORITHM_VERSION}, "
-            f"{REPLAY_LEDGER_ALGORITHM_VERSION}, {ONE_ASK_ALGORITHM_VERSION}, "
-            f"{SUPERSEDED_CLAIMS_ALGORITHM_VERSION}, {ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}, "
-            f"{COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION}, {READER_FOLLOWUPS_ALGORITHM_VERSION}, "
-            f"{DELIVERABLE_PLAN_ALGORITHM_VERSION}, {TEACHER_ALGORITHM_VERSION} or "
-            f"{LESSON_SUGGESTIONS_ALGORITHM_VERSION}, {DATA_CAPTURE_ALGORITHM_VERSION}, "
-            f"{FOLLOWUP_SERVE_ALGORITHM_VERSION}, {INTERVAL_FACTOR_ALGORITHM_VERSION}, "
-            f"{ROUTER_OBJECTIVE_ALGORITHM_VERSION}, {ROUTER_CALIBRATION_ALGORITHM_VERSION}, "
-            f"{ROUTER_LEARNED_TAIL_ALGORITHM_VERSION}, {ROUTER_FOLLOWUPS_ALGORITHM_VERSION}, "
-            f"{TEACHER_PROBES_ALGORITHM_VERSION}, {LESSON_OPPORTUNITY_ALGORITHM_VERSION}, "
-            f"{LESSON_OFFERS_ALGORITHM_VERSION}, {PHONE_PROBES_ALGORITHM_VERSION}, "
-            f"{FAILURE_SHARE_ALGORITHM_VERSION}, {UNEVIDENCED_RETURN_ALGORITHM_VERSION}, "
-            f"{SLIP_GAP_ALGORITHM_VERSION}, {FIGURE_WAIT_ALGORITHM_VERSION} or {FACET_BELIEF_FIX_ALGORITHM_VERSION}."
+            f"Unknown target version {to!r}; this LearnLoop upgrades to {', '.join(targets())}. "
+            "An older version is reached with the code tagged pre-floor (ADR-019)."
         )
         raise typer.Exit(code=2)
+    # The AD guard's denial log as the command found it: only these lines are archived after a
+    # successful upgrade; a denial logged after this stays counted.
+    denial_mark = _mark_ad_denial_log(_root(vault))
+    result = upgrade_vault(_root(vault), to=to)
     if result.upgraded:
         typer.echo(f"Upgraded vault: {result.from_version} -> {result.to_version}")
         for note in result.notes:

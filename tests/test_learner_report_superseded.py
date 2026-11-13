@@ -18,15 +18,12 @@ the chain with its journalled activation.
 """
 from __future__ import annotations
 
-import json
 import multiprocessing
-import os
 import random
 import sqlite3
 from contextlib import closing
 
 import pytest
-from typer.testing import CliRunner
 
 from learnloop.algorithm_versions import (
     LATEST_ALGORITHM_VERSION,
@@ -39,11 +36,9 @@ from learnloop.content.authoring.rung_variants import RungVariantError, request_
 from learnloop.db.repositories import Repository
 from learnloop.learner.learner_profile import seed_global_learner_claim
 from learnloop.learner.mastery import covering_learner_claim, replaced_claims_kept
-from learnloop.ops.vault_upgrade import rewrite_algorithm_version
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
-from learnloop.vault.paths import VaultPaths
 
 from tests.helpers import add_followup_item, create_placement_vault
 from tests.rebuild_equivalence_helpers import (
@@ -75,13 +70,12 @@ def _rows(repository):
 
 
 def test_the_tag_is_one_constant_after_mvp035_and_the_latest():
-    from learnloop.superseded_claims_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
     # Mobile PR-4's mvp-0.37, the cold-retry reschedule's mvp-0.38, Reader RW6b's mvp-0.39 and curriculum C1's mvp-0.40 (the latest)
     # follow it (and keep it).
     assert SUCCESSOR_CHAIN[-25:] == ("mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59")
     assert TAG == "mvp-0.36" == SUCCESSOR_CHAIN[-24] and LATEST_ALGORITHM_VERSION == "mvp-0.59"
-    assert UPGRADE_PREDECESSOR == PREDECESSOR == "mvp-0.35"
+    assert PREDECESSOR == "mvp-0.35"
     assert SUPERSEDED_CLAIMS_VERSIONS == frozenset({TAG, "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
 
@@ -293,229 +287,6 @@ def test_random_attempts_and_learner_reports_rebuild_to_live(tmp_path, seed):
 
 
 # -- the chain and its journalled activation ----------------------------------------------------------
-
-
-@pytest.fixture
-def _cli_process(monkeypatch):
-    from learnloop import activation_journal
-    from learnloop.cli.runtime import _complete_interrupted_activation
-
-    monkeypatch.setattr(activation_journal, "_COMPLETER", _complete_interrupted_activation)
-
-
-def _journal(paths):
-    return paths.sqlite_path.with_name(paths.sqlite_path.name + ".claim-fixes-activation")
-
-
-def _version(paths) -> str:
-    return load_vault(paths.root).config.algorithms.algorithm_version
-
-
-def _activated(paths, version=TAG) -> bool:
-    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
-        return connection.execute(
-            "SELECT 1 FROM derived_state_rebuilds WHERE scope = 'p0_projection_activation' AND algorithm_version = ?",
-            (version,),
-        ).fetchone() is not None
-
-
-@pytest.mark.parametrize("start", ["mvp-0.9", "mvp-0.30", "mvp-0.33", "mvp-0.34", "mvp-0.35"])
-def test_upgrade_to_mvp036_works_from_every_supported_version(tmp_path, start, _cli_process):
-    from learnloop.cli import app
-
-    paths = create_placement_vault(tmp_path / "v", version=start)
-    result = CliRunner().invoke(app, ["upgrade", "--to", TAG, "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert f"{start} -> {TAG}" in result.output
-    assert _version(paths) == TAG and _activated(paths) and not _journal(paths).exists()
-
-
-def test_a_bare_upgrade_targets_the_latest_through_mvp036(tmp_path, _cli_process):
-    from learnloop.cli import app
-
-    # The latest is mobile PR-4's mvp-0.37, chained through this tag.
-    paths = create_placement_vault(tmp_path / "v", version=PREDECESSOR)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert f"{PREDECESSOR} -> {LATEST_ALGORITHM_VERSION}" in result.output
-    assert _version(paths) == LATEST_ALGORITHM_VERSION and _activated(paths)
-
-
-def test_the_upgrade_refuses_an_older_vault_and_one_already_at_the_tag(tmp_path):
-    from learnloop.superseded_claims_upgrade import upgrade_to_superseded_claims
-
-    old = create_placement_vault(tmp_path / "old", version="mvp-0.8")
-    refused = upgrade_to_superseded_claims(old.root)
-    assert not refused.upgraded and _version(old) == "mvp-0.8"
-    current = create_placement_vault(tmp_path / "current", version=TAG)
-    upgrade_to_superseded_claims(current.root)  # a vault created at the tag: completes its projection activation
-    again = upgrade_to_superseded_claims(current.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-
-def test_the_activation_derives_what_the_predecessor_derived(tmp_path):
-    """No row is superseded at activation (the predecessor deleted replaced
-    claims), so the activation's rebuild moves nothing: 0/0/0 and live mastery
-    unchanged on a predecessor history with two reports on one LO."""
-
-    from learnloop.superseded_claims_upgrade import upgrade_to_superseded_claims
-
-    paths, vault, repository = _vault(tmp_path, version=PREDECESSOR)
-    _answer(vault, repository, "pi_diag_easy", minutes=1, points=1.0)
-    retire_item(paths.root, repository, practice_item_id="pi_diag_easy", reason="too_easy", clock=_at(2))
-    rebuild_all_derived_state(load_vault(paths.root), repository)
-    before = _mastery(repository)
-    assert upgrade_to_superseded_claims(paths.root).upgraded
-    assert _mastery(Repository(paths.sqlite_path)) == before
-    # The rows keep the label they were written with; a shadow rebuild re-derives
-    # them under the tag, and the label is all that differs.
-    for change in _shadow_summary(paths)["mastery"]["changes"]:
-        assert change["change"] == "changed"
-        assert {key for key in change["before"] if change["before"][key] != change["after"][key]} == {
-            "algorithm_version"
-        }, change
-
-
-def _interrupted(tmp_path, name):
-    paths = create_placement_vault(tmp_path / name, version=PREDECESSOR)
-    _journal(paths).write_text(json.dumps({"predecessor": PREDECESSOR, "target": TAG}), encoding="utf-8")
-    rewrite_algorithm_version(paths.root / "learnloop.toml", PREDECESSOR, TAG, durable=True)
-    assert not _activated(paths)
-    return paths
-
-
-def _die_after_publication(root):
-    import learnloop.superseded_claims_upgrade as upgrade
-
-    real = upgrade._publish_algorithm_version
-
-    def publish_then_die(*args, **kwargs):
-        real(*args, **kwargs)
-        os._exit(17)  # no handler runs: the transaction never commits
-
-    upgrade._publish_algorithm_version = publish_then_die
-    upgrade.upgrade_to_superseded_claims(root)
-
-
-def _open_vault_repository(paths):
-    from learnloop.vault.repository import open_vault_repository
-
-    open_vault_repository(paths.root, paths.sqlite_path)
-
-
-def _vault_repository(paths):
-    from learnloop.vault.repository import vault_repository
-
-    vault_repository(VaultPaths(paths.root, load_vault(paths.root).config))
-
-
-def _sidecar_start(paths):
-    from learnloop_sidecar.context import SidecarContext
-
-    SidecarContext().load(paths.root)
-
-
-def _cli_command(paths):
-    from learnloop.cli import app
-
-    result = CliRunner().invoke(app, ["backfill-originals", "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-
-
-OPENERS = {
-    "open_vault_repository": _open_vault_repository,
-    "vault_repository": _vault_repository,
-    "sidecar_start": _sidecar_start,
-    "cli_command": _cli_command,
-}
-
-
-@pytest.mark.filterwarnings("ignore:This process .* is multi-threaded:DeprecationWarning")
-def test_a_real_death_after_the_publication_is_journalled_and_the_next_cli_command_completes_it(
-    tmp_path, _cli_process,
-):
-    from learnloop.superseded_claims_upgrade import upgrade_to_superseded_claims
-
-    paths = create_placement_vault(tmp_path / "crashed", version=PREDECESSOR)
-    process = multiprocessing.get_context("fork").Process(target=_die_after_publication, args=(paths.root,))
-    process.start()
-    process.join(60)
-    assert process.exitcode == 17
-    assert _version(paths) == TAG and _journal(paths).exists() and not _activated(paths)
-
-    _cli_command(paths)
-
-    assert not _journal(paths).exists() and _activated(paths)
-    again = upgrade_to_superseded_claims(paths.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-
-@pytest.mark.parametrize("opener", sorted(OPENERS))
-def test_every_opener_that_may_write_completes_an_interrupted_mvp036_activation_first(tmp_path, opener, _cli_process):
-    paths = _interrupted(tmp_path, "interrupted")
-    OPENERS[opener](paths)
-    assert not _journal(paths).exists() and _activated(paths) and _version(paths) == TAG
-
-
-def test_without_a_completion_every_attach_refuses_with_the_mvp036_upgrade_message(tmp_path, monkeypatch):
-    from learnloop import activation_journal
-
-    paths = _interrupted(tmp_path, "interrupted")
-    monkeypatch.setattr(activation_journal, "_COMPLETER", None)
-    with pytest.raises(activation_journal.InterruptedActivation, match=f"learnloop upgrade --to {TAG}"):
-        _open_vault_repository(paths)
-    for attach in (lambda: Repository.attach(paths.sqlite_path, read_only=True), lambda: Repository(paths.sqlite_path)):
-        with pytest.raises(activation_journal.InterruptedActivation, match=f"learnloop upgrade --to {TAG}"):
-            attach()
-    assert _journal(paths).exists() and not _activated(paths)
-
-
-def test_the_upgrade_completes_its_own_journal(tmp_path, _cli_process):
-    from learnloop.superseded_claims_upgrade import upgrade_to_superseded_claims
-
-    paths = _interrupted(tmp_path, "interrupted")
-    result = upgrade_to_superseded_claims(paths.root)
-    assert result.upgraded and result.notes == [f"completed the interrupted activation of {TAG}"]
-    assert not _journal(paths).exists() and _activated(paths)
-
-
-def test_a_failure_after_the_rename_leaves_the_predecessor_and_no_journal(tmp_path, monkeypatch, _cli_process):
-    import learnloop.superseded_claims_upgrade as upgrade
-
-    paths = create_placement_vault(tmp_path / "failing", version=PREDECESSOR)
-    real = upgrade._publish_algorithm_version
-
-    def publish_then_fail(config_path, from_version, to_version, *, renamed=None):
-        real(config_path, from_version, to_version, renamed=renamed)
-        if to_version == TAG:
-            raise OSError("the directory fsync failed")
-
-    monkeypatch.setattr(upgrade, "_publish_algorithm_version", publish_then_fail)
-    with pytest.raises(OSError):
-        upgrade.upgrade_to_superseded_claims(paths.root)
-    assert _version(paths) == PREDECESSOR and not _journal(paths).exists() and not _activated(paths)
-
-
-def test_an_mvp035_journal_is_handed_to_its_own_upgrade_then_the_tag_activates(tmp_path, _cli_process):
-    from learnloop.superseded_claims_upgrade import complete_interrupted_activation, upgrade_to_superseded_claims
-
-    paths = create_placement_vault(tmp_path / "ca2", version="mvp-0.34")
-    _journal(paths).write_text(json.dumps({"predecessor": "mvp-0.34", "target": PREDECESSOR}), encoding="utf-8")
-    rewrite_algorithm_version(paths.root / "learnloop.toml", "mvp-0.34", PREDECESSOR, durable=True)
-    assert complete_interrupted_activation(paths.root) == PREDECESSOR
-    assert not _journal(paths).exists() and _activated(paths, PREDECESSOR)
-    assert complete_interrupted_activation(paths.root) is None
-    result = upgrade_to_superseded_claims(paths.root)
-    assert result.upgraded and _version(paths) == TAG and not _journal(paths).exists()
-
-
-def test_a_torn_journal_at_the_predecessor_is_removed_and_nothing_activates(tmp_path):
-    from learnloop.superseded_claims_upgrade import complete_interrupted_activation
-
-    paths = create_placement_vault(tmp_path / "torn", version=PREDECESSOR)
-    _journal(paths).write_text('{"predecessor": "mvp-0.3', encoding="utf-8")
-    assert complete_interrupted_activation(paths.root) is None
-    assert not _journal(paths).exists() and _version(paths) == PREDECESSOR and not _activated(paths)
 
 
 # -- Codex review (2026-10-27): one transaction per report, supersession order, attempt-free history --

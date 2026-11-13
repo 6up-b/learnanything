@@ -15,7 +15,6 @@ source_paths:
   - "src/learnloop/diagnosis/recurrence/kind.py"
   - "src/learnloop/diagnosis/recurrence/live.py"
   - "src/learnloop/diagnosis/recurrence/report.py"
-  - "src/learnloop/diagnosis/recurrence/upgrade.py"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.diagnosis.recurrence"
@@ -57,39 +56,35 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/recurrence/benchmarks|learnloop.diagnosis.recurrence.benchmarks]] | [[Reference/Modules/learnloop/diagnosis/recurrence/benchmarks#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/recurrence/display|learnloop.diagnosis.recurrence.display]] | [[Reference/Modules/learnloop/diagnosis/recurrence/display#^module-purpose|purpose]] | `ACTIVE` | 5 | 0 |
 | [[Reference/Modules/learnloop/diagnosis/recurrence/escalation|learnloop.diagnosis.recurrence.escalation]] | [[Reference/Modules/learnloop/diagnosis/recurrence/escalation#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/diagnosis/recurrence/guard|learnloop.diagnosis.recurrence.guard]] | [[Reference/Modules/learnloop/diagnosis/recurrence/guard#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
+| [[Reference/Modules/learnloop/diagnosis/recurrence/guard|learnloop.diagnosis.recurrence.guard]] | [[Reference/Modules/learnloop/diagnosis/recurrence/guard#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/recurrence/judging|learnloop.diagnosis.recurrence.judging]] | [[Reference/Modules/learnloop/diagnosis/recurrence/judging#^module-purpose|purpose]] | `ACTIVE` | 9 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/recurrence/kind|learnloop.diagnosis.recurrence.kind]] | [[Reference/Modules/learnloop/diagnosis/recurrence/kind#^module-purpose|purpose]] | `ACTIVE` | 6 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/recurrence/live|learnloop.diagnosis.recurrence.live]] | [[Reference/Modules/learnloop/diagnosis/recurrence/live#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/recurrence/report|learnloop.diagnosis.recurrence.report]] | [[Reference/Modules/learnloop/diagnosis/recurrence/report#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/diagnosis/recurrence/upgrade|learnloop.diagnosis.recurrence.upgrade]] | [[Reference/Modules/learnloop/diagnosis/recurrence/upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 23 static module edges
-- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 13 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 12 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 11 static module edges
 - [[Reference/Modules/learnloop/matching/_package|learnloop.matching]] — 10 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 9 static module edges
-- [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 9 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 9 static module edges
+- [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 8 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 7 static module edges
 - [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] — 7 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 6 static module edges
-- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 6 static module edges
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 4 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 3 static module edges
 - [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 1 static module edge
-- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 1 static module edge
-- [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 1 static module edge
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 5 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 5 static module edges
+- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 2 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 2 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 2 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 1 static module edge
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 1 static module edge
 
 ### Dependency neighborhood
@@ -101,26 +96,26 @@ flowchart LR
     center["learnloop.diagnosis.recurrence"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_diagnosis_split["learnloop.diagnosis.split"]
-    n_learnloop_vault["learnloop.vault"]
     n_learnloop_db["learnloop.db"]
-    n_learnloop["learnloop"]
     n_learnloop_matching["learnloop.matching"]
+    n_learnloop_vault["learnloop.vault"]
+    n_learnloop["learnloop"]
     n_learnloop_diagnosis_offline_review["learnloop.diagnosis.offline_review"]
     n_learnloop_db_stores["learnloop.db.stores"]
-    n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_cli["learnloop.cli"]
+    n_learnloop_diagnosis["learnloop.diagnosis"]
     center -->|23| n_learnloop_ai
     n_learnloop_diagnosis_split -->|5| center
-    center -->|9| n_learnloop_diagnosis_split
-    center -->|13| n_learnloop_vault
-    center -->|12| n_learnloop_db
-    n_learnloop -->|1| center
-    center -->|9| n_learnloop
+    center -->|8| n_learnloop_diagnosis_split
+    center -->|11| n_learnloop_db
     center -->|10| n_learnloop_matching
+    center -->|9| n_learnloop_vault
+    center -->|7| n_learnloop
     center -->|7| n_learnloop_diagnosis_offline_review
     center -->|6| n_learnloop_db_stores
-    center -->|6| n_learnloop_substrate
-    n_learnloop_cli -->|5| center
+    n_learnloop_cli -->|4| center
+    n_learnloop_diagnosis -->|1| center
+    center -->|3| n_learnloop_diagnosis
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

@@ -528,19 +528,24 @@ def _fires(
     expected: str,
     grading_client: Any = None,
     fire_context: Mapping[str, Any] | None = None,
+    checkpoints: Any = None,
+    trial: str = "",
 ) -> bool:
     """Grade one persona answer in memory. No attempt/mastery/error_event write.
 
     Deterministic default: an answer fires iff it is non-empty and categorically
     distinct from the expected answer under the shared normalizer. A provider
     supporting structured completion uses ``diagnostic_gate``'s public
-    operation to replace the string comparison with a semantic judgement.
+    operation to replace the string comparison with a semantic judgement,
+    kept in ``checkpoints`` under ``trial`` so a retry does not pay again.
     """
 
     if grading_client is not None and grading_client.supports(STRUCTURED_COMPLETION):
         try:
             return request_diagnostic_fire(
                 grading_client,
+                checkpoints=checkpoints,
+                trial=trial,
                 answer=answer,
                 expected=expected,
                 **dict(fire_context or {}),
@@ -563,6 +568,7 @@ def separation_verdict(
     has_keyed_detector: bool,
     grading_client: Any = None,
     fire_context: Mapping[str, Any] | None = None,
+    checkpoints: Any = None,
 ) -> SeparationVerdict:
     """§3.0's single question, asked over one item's personas.
 
@@ -591,6 +597,8 @@ def separation_verdict(
                 expected=expected_answer,
                 grading_client=grading_client,
                 fire_context=fire_context,
+                checkpoints=checkpoints,
+                trial=persona.persona_id,
             ),
         )
         for persona in personas
@@ -790,15 +798,18 @@ def error_hunt_verdict(
         # holder would have written, i.e. it looks wrong TO THEM. Invisible is
         # the passing condition, and an invisible plant is one they fail to
         # repair — so `fires` (the item marks them wrong) is `not visible`.
+        trial_id = f"{holder.persona_id}@{plant.get('id') or 'plant'}"
         visible = _fires(
             str(plant.get("error_signature") or ""),
             expected=holder.answer,
             grading_client=grading_client,
             fire_context={"payload": dict(payload), "planted_error": dict(plant)},
+            checkpoints=repository,
+            trial=trial_id,
         )
         trials.append(
             PersonaTrial(
-                persona_id=f"{holder.persona_id}@{plant.get('id') or 'plant'}",
+                persona_id=trial_id,
                 kind=PersonaKind.BELIEF_HOLDER,
                 fires=not visible,
             )
@@ -1310,6 +1321,8 @@ class PersonaGate:
                     expected=_expected_text(row["payload"]),
                     grading_client=self._grading_client,
                     fire_context={"payload": dict(row["payload"]), "contrast_pair": key},
+                    checkpoints=self._repository,
+                    trial=f"{belief.persona_id}@{_ref(row)}",
                 ),
             )
             for row in members
@@ -1409,6 +1422,7 @@ class PersonaGate:
             has_keyed_detector=bool(_keyed_misconception_ids(payload)),
             grading_client=self._grading_client,
             fire_context={"payload": dict(payload)},
+            checkpoints=self._repository,
         )
         return PersonaGateOutcome(
             **base,

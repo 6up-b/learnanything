@@ -31,7 +31,6 @@ import json
 from dataclasses import dataclass
 
 import pytest
-from typer.testing import CliRunner
 
 from learnloop.algorithm_versions import (
     DELIVERABLE_PLAN_VERSIONS,
@@ -39,8 +38,6 @@ from learnloop.algorithm_versions import (
     SUCCESSOR_CHAIN,
 )
 from learnloop.daily_plan import engine as E
-from learnloop.db.repositories import Repository
-from learnloop.ops.vault_upgrade import rewrite_algorithm_version
 from learnloop.source_retrieval import deliverable_path as DP
 from learnloop.source_retrieval import deliverables as DL
 from learnloop.vault.loader import load_vault
@@ -55,19 +52,13 @@ from tests.curriculum_c1_plan_follows_path_helpers import (
     PRIMARIES,
     RW7B_OFF,
     TAG,
-    _activated,
     _at,
     _c1,
     _complete,
     _deliverable,
-    _journal,
     _judge,
     _split,
     _step,
-    _version,
-)
-from tests.curriculum_c1_plan_follows_path_helpers import (  # noqa: F401 - fixtures, used by parameter name
-    _cli_process,
 )
 
 PREDECESSOR = READER_FOLLOWUPS_ALGORITHM_VERSION
@@ -90,12 +81,10 @@ def _spans(repository, extraction_id, section_id) -> list[str]:
 
 
 def test_the_successor_is_one_constant_after_rw6bs_followups():
-    from learnloop.deliverable_plan_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1:SUCCESSOR_CHAIN.index(TAG) + 1] == (PREDECESSOR, TAG) == ("mvp-0.39", "mvp-0.40")
     # Teacher TE1's mvp-0.41, follow-ups Nov 2's mvp-0.42 and teacher TE1b's mvp-0.43 follow it (and keep it).
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) + 1:] == ("mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59")
-    assert UPGRADE_PREDECESSOR == PREDECESSOR
     assert DELIVERABLE_PLAN_VERSIONS == frozenset({TAG, "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
 
@@ -493,112 +482,3 @@ def test_a_shadow_rebuild_is_zero_and_never_reads_a_deliverable_path(tmp_path, m
 
 
 # -- the upgrade -----------------------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("start", ["mvp-0.9", "mvp-0.32", "mvp-0.37", "mvp-0.38", "mvp-0.39"])
-def test_upgrade_to_mvp040_works_from_supported_versions(tmp_path, _cli_process, start):
-    from learnloop.cli import app
-
-    paths = create_placement_vault(tmp_path / "v", version=start)
-    result = CliRunner().invoke(app, ["upgrade", "--to", TAG, "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert f"{start} -> {TAG}" in result.output
-    assert _version(paths) == TAG and _activated(paths) and not _journal(paths).exists()
-    if start != PREDECESSOR:
-        assert _activated(paths, PREDECESSOR)
-
-
-def test_a_bare_upgrade_targets_mvp040_and_refuses_twice(tmp_path, _cli_process):
-    from learnloop.cli import app
-    from learnloop.deliverable_plan_upgrade import upgrade_to_deliverable_plan
-
-    paths = create_placement_vault(tmp_path / "v", version=PREDECESSOR)
-    # Follow-ups Nov 2 (mvp-0.42, after TE1's mvp-0.41) is the bare upgrade's target now; C1's own link is --to mvp-0.40.
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", TAG])
-    assert result.exit_code == 0, result.output
-    assert f"{PREDECESSOR} -> {TAG}" in result.output and _version(paths) == TAG
-    again = upgrade_to_deliverable_plan(paths.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-
-def test_the_upgrade_refuses_a_version_before_the_chain(tmp_path):
-    from learnloop.deliverable_plan_upgrade import upgrade_to_deliverable_plan
-
-    paths = create_placement_vault(tmp_path / "old", version="mvp-0.9")
-    rewrite_algorithm_version(paths.root / "learnloop.toml", "mvp-0.9", "mvp-0.8", durable=True)
-    result = upgrade_to_deliverable_plan(paths.root)
-    assert not result.upgraded and _version(paths) == "mvp-0.8"
-    assert "cannot upgrade from 'mvp-0.8'" in result.problems[0]
-
-
-def _interrupted(tmp_path, name, predecessor=PREDECESSOR, target=TAG):
-    paths = create_placement_vault(tmp_path / name, version=predecessor)
-    _journal(paths).write_text(json.dumps({"predecessor": predecessor, "target": target}), encoding="utf-8")
-    rewrite_algorithm_version(paths.root / "learnloop.toml", predecessor, target, durable=True)
-    assert not _activated(paths, target)
-    return paths
-
-
-def test_the_next_cli_command_completes_an_interrupted_mvp040_activation(tmp_path, _cli_process):
-    from learnloop.cli import app
-    from learnloop.deliverable_plan_upgrade import upgrade_to_deliverable_plan
-
-    paths = _interrupted(tmp_path, "interrupted")
-    result = CliRunner().invoke(app, ["backfill-originals", "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert not _journal(paths).exists() and _activated(paths) and _version(paths) == TAG
-    again = upgrade_to_deliverable_plan(paths.root)
-    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
-
-
-def test_the_upgrade_completes_its_own_journal(tmp_path):
-    from learnloop.deliverable_plan_upgrade import upgrade_to_deliverable_plan
-
-    paths = _interrupted(tmp_path, "interrupted")
-    result = upgrade_to_deliverable_plan(paths.root)
-    assert result.upgraded and result.notes == [f"completed the interrupted activation of {TAG}"]
-    assert not _journal(paths).exists() and _activated(paths)
-
-
-def test_a_failure_after_the_rename_leaves_the_predecessor_and_no_journal(tmp_path, monkeypatch):
-    import learnloop.deliverable_plan_upgrade as upgrade
-
-    paths = create_placement_vault(tmp_path / "failing", version=PREDECESSOR)
-    real = upgrade._publish_algorithm_version
-
-    def publish_then_fail(config_path, from_version, to_version, *, renamed=None):
-        real(config_path, from_version, to_version, renamed=renamed)
-        if to_version == TAG:
-            raise OSError("the directory fsync failed")
-
-    monkeypatch.setattr(upgrade, "_publish_algorithm_version", publish_then_fail)
-    with pytest.raises(OSError):
-        upgrade.upgrade_to_deliverable_plan(paths.root)
-    assert _version(paths) == PREDECESSOR and not _journal(paths).exists() and not _activated(paths)
-
-
-def test_an_interrupted_mvp039_activation_then_upgrade_to_mvp040_completes_it(tmp_path, _cli_process):
-    from learnloop.cli import app
-
-    paths = _interrupted(tmp_path, "interrupted039", "mvp-0.38", PREDECESSOR)
-    result = CliRunner().invoke(app, ["upgrade", "--to", TAG, "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert f"{PREDECESSOR} -> {TAG}" in result.output
-    assert _version(paths) == TAG and not _journal(paths).exists()
-    assert _activated(paths, PREDECESSOR) and _activated(paths)
-
-
-def test_without_a_completion_an_attach_refuses_and_the_upgrade_still_completes_the_mvp039_journal(
-        tmp_path, monkeypatch):
-    from learnloop import activation_journal
-    from learnloop.deliverable_plan_upgrade import complete_interrupted_activation, upgrade_to_deliverable_plan
-
-    paths = _interrupted(tmp_path, "refused039", "mvp-0.38", PREDECESSOR)
-    monkeypatch.setattr(activation_journal, "_COMPLETER", None)
-    with pytest.raises(activation_journal.InterruptedActivation, match=f"learnloop upgrade --to {PREDECESSOR}"):
-        Repository(paths.sqlite_path)
-    assert complete_interrupted_activation(paths.root) == PREDECESSOR
-    assert not _journal(paths).exists() and complete_interrupted_activation(paths.root) is None
-    result = upgrade_to_deliverable_plan(paths.root)
-    assert result.upgraded and result.from_version == PREDECESSOR and _version(paths) == TAG
-    assert not _journal(paths).exists() and _activated(paths, PREDECESSOR) and _activated(paths)

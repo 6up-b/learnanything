@@ -1,35 +1,8 @@
 """An activation that did not commit: its journal, and what may open the vault meanwhile.
 
-LP-min (a) (claim-fixes review F2, re-review): ``learnloop.claim_fixes_upgrade``
-journals its activation across the config file and the database, and so do
-the next links', rebuild equivalence's ``learnloop.replay_ledger_upgrade`` and
-Reader CA2's ``learnloop.one_ask_upgrade`` (mvp-0.35), the kept replaced claims'
-``learnloop.superseded_claims_upgrade`` (mvp-0.36), mobile PR-4's
-``learnloop.attempt_content_state_upgrade`` (mvp-0.37), the cold-retry reschedule's
-``learnloop.cold_retry_reschedule_upgrade`` (mvp-0.38), Reader RW6b's
-``learnloop.reader_followups_upgrade`` (mvp-0.39), curriculum C1's
-``learnloop.deliverable_plan_upgrade`` (mvp-0.40), teacher TE1's
-``learnloop.teacher_upgrade`` (mvp-0.41), follow-ups Nov 2's
-``learnloop.help_fold_attach_upgrade`` (mvp-0.42), teacher TE1b's
-``learnloop.lesson_suggestions_upgrade`` (mvp-0.43), data capture's
-``learnloop.data_capture_upgrade`` (mvp-0.44), FG1's
-``learnloop.followup_serve_upgrade`` (mvp-0.45), router objective RO1's
-``learnloop.interval_factor_upgrade`` (mvp-0.46), RO4's
-``learnloop.router_objective_upgrade`` (mvp-0.47), RO5's
-``learnloop.router_calibration_upgrade`` (mvp-0.48), RO6's
-``learnloop.router_learned_tail_upgrade`` (mvp-0.49), the router objective's follow-up batch's
-``learnloop.router_followups_upgrade`` (mvp-0.50), teacher TE2's
-``learnloop.teacher_probes_upgrade`` (mvp-0.51), teacher TE3a's
-``learnloop.lesson_opportunity_upgrade`` (mvp-0.52), teacher TE3b's
-``learnloop.lesson_offers_upgrade`` (mvp-0.53), phone V3's
-``learnloop.phone_probes_upgrade`` (mvp-0.54), instruct hand-off IH5's
-``learnloop.failure_share_upgrade`` (mvp-0.55), the placement hole's
-``learnloop.unevidenced_return_upgrade`` (mvp-0.56), slip or gap's
-``learnloop.slip_gap_upgrade`` (mvp-0.57), the figure wait estimate's
-``learnloop.figure_wait_upgrade`` (mvp-0.58) and the facet-belief fixes'
-``learnloop.facet_belief_upgrade`` (mvp-0.59), at the same path (the journal names its target; the installed completion is the
-chain's latest upgrade's, which hands an earlier link's journal to that link).
-A process
+Every activation in ``learnloop.ops.upgrades`` journals its link across the
+config file and the database at one path (the journal names its target; the
+installed completion is the table's). A process
 that dies after it publishes the successor's config and before it commits the
 database leaves the successor's label over the predecessor's state, with a
 journal beside the database. Nothing may serve the vault in that state:
@@ -38,7 +11,7 @@ journal beside the database. Nothing may serve the vault in that state:
   command, the desktop sidecar, the TUI, scripts, and the services below
   them) first complete the activation from the journal (:func:`complete`),
   under the vault mutation lock, and raise :class:`InterruptedActivation` if
-  they cannot. The completion is the upgrade module's, which sits far above
+  they cannot. The completion is the upgrade table's, which sits far above
   the vault layer, so the entry points that may complete it (the CLI and the
   desktop sidecar) install it here (:func:`install_completer`); an opener in
   a process that installed none (the TUI, a script) cannot complete it and
@@ -51,8 +24,8 @@ journal beside the database. Nothing may serve the vault in that state:
 
 A journal whose upgrade starts below the oldest supported tag is not completed
 by an opener: :func:`complete` raises
-:class:`learnloop.version_floor.BelowOldestSupported`, and only ``learnloop
-upgrade`` finishes it.
+:class:`learnloop.version_floor.BelowOldestSupported`, naming the code tagged
+``pre-floor``, which finishes it.
 
 The journal's path follows from the database's alone, so the database layer
 can refuse without knowing the vault. This module is a leaf: it imports

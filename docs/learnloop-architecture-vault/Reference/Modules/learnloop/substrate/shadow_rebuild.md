@@ -165,9 +165,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_regraded_grade_is_gated_live_and_on_rebuild`
 - [tests/test_regrade_contract_successor.py](../../../../../../tests/test_regrade_contract_successor.py) — direct import
   - `test_a_held_unrecorded_grade_is_no_evidence`
-- [tests/test_regrade_contract_upgrade.py](../../../../../../tests/test_regrade_contract_upgrade.py) — direct import
-  - `test_an_upgrade_interrupted_after_publication_is_resumed`
-  - `test_the_upgrade_shadow_predicts_the_upgrade_exactly`
 - [tests/test_ro1_upgrade_report.py](../../../../../../tests/test_ro1_upgrade_report.py) — direct import
   - `test_an_observer_failure_is_a_shadow_failure`
   - `test_the_observer_reads_the_live_database_read_only_with_commitments`
