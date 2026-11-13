@@ -143,6 +143,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_latency_stops_a_later_metered_provider_once_the_shared_cap_is_spent`
 - [tests/test_scoreboard.py](../../../../../../tests/test_scoreboard.py) — direct import
   - `test_tokens_metric_reports_the_ratio_over_metered_episodes`
+- [tests/test_synthesis_tail_golden.py](../../../../../../tests/test_synthesis_tail_golden.py) — direct import
 - [tests/test_vault_epigraphs.py](../../../../../../tests/test_vault_epigraphs.py) — direct import
 - [tests/text_gap_fakes.py](../../../../../../tests/text_gap_fakes.py) — direct import
 

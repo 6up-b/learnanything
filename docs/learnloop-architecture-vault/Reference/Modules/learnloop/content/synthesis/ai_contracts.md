@@ -266,8 +266,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_synthesis_answer_reuse.py](../../../../../../../tests/test_synthesis_answer_reuse.py) — direct import
   - `test_a_bootstrap_rejection_keeps_a_fresh_answer_another_run_saved`
   - `test_a_checkpoint_discard_keeps_an_answer_saved_after_the_one_judged`
+  - `test_an_append_rejection_keeps_a_fresh_answer_another_run_saved`
 - [tests/test_synthesis_criterion_dependencies.py](../../../../../../../tests/test_synthesis_criterion_dependencies.py) — direct import
   - `test_the_prompts_say_criterion_depends_on_names_sibling_criteria_only`
+- [tests/test_synthesis_tail_golden.py](../../../../../../../tests/test_synthesis_tail_golden.py) — direct import
 - [tests/test_ux_phase1_usability_round1.py](../../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
 - [tests/test_vault_epigraphs.py](../../../../../../../tests/test_vault_epigraphs.py) — direct import
   - `test_a_batch_with_nothing_valid_is_not_replayed`

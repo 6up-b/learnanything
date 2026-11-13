@@ -401,6 +401,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_state_sync_scheduling_race.py](../../../../../../tests/test_state_sync_scheduling_race.py) — direct import
   - `test_incremental_watch_refresh_keeps_an_attempt_committed_after_its_read`
 - [tests/test_subject_registry.py](../../../../../../tests/test_subject_registry.py) — direct import
+- [tests/test_synthesis_tail_golden.py](../../../../../../tests/test_synthesis_tail_golden.py) — direct import
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
 - [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
 - [tests/test_tui_practice.py](../../../../../../tests/test_tui_practice.py) — direct import
