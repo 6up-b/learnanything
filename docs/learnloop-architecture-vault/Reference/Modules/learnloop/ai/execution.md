@@ -48,51 +48,63 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/execution.py](../../../../../../src/learnloop/ai/execution.py) |
-| Source lines | 437 |
+| Source lines | 546 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `withhold_receipt_input()` ([source](../../../../../../src/learnloop/ai/execution.py), line 46) — Calls started in this context keep no prompt text on their receipts.
-- `call_labels(**labels: str | None)` ([source](../../../../../../src/learnloop/ai/execution.py), line 65) — Label every model call started in this context on its receipt.
-- `single_request()` ([source](../../../../../../src/learnloop/ai/execution.py), line 87) — Disable hidden paid retries/repairs for a caller-budgeted transport call.
-- `single_request_active() -> bool` ([source](../../../../../../src/learnloop/ai/execution.py), line 103)
-- `annotate_calls(**notes: Any)` ([source](../../../../../../src/learnloop/ai/execution.py), line 108) — Add ``notes`` to the ``budget_json`` of every root receipt started here.
-- `requested_reasoning_effort(effort: str | None)` ([source](../../../../../../src/learnloop/ai/execution.py), line 124) — Ask every request started here for ``effort`` (None keeps the profile's).
-- `reasoning_effort_request() -> str | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 139)
-- `truncation_retry_allowed()` ([source](../../../../../../src/learnloop/ai/execution.py), line 144) — Let the transport retry a truncated answer once at double the budget.
-- `truncation_retry_permitted() -> bool` ([source](../../../../../../src/learnloop/ai/execution.py), line 161)
-- `report_call_usage(values: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/ai/execution.py), line 165)
-- `content_key(payload: Any) -> str` ([source](../../../../../../src/learnloop/ai/execution.py), line 175)
-- `model_settings(client: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ai/execution.py), line 179) — The client settings that change what a request produces.
-- `observe_model_calls(observer: Callable[[str, dict[str, Any]], Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 200)
-- `tee_model_calls(observer: Callable[[str, dict[str, Any]], Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 209) — Also observe model calls with ``observer``, keeping the context's own observer.
-- `class RequestGate(Protocol)` ([source](../../../../../../src/learnloop/ai/execution.py), line 234) — Admission for each physical model request made in a context.
-  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any` (line 246; public)
-  - `settle(self, admission: Any, usage: dict[str, Any]) -> None` (line 249; public)
-- `gate_model_requests(gate: RequestGate)` ([source](../../../../../../src/learnloop/ai/execution.py), line 254) — Admit every physical model request started in this context through ``gate``.
-- `active_request_gate() -> RequestGate | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 264) — The request gate installed in this context, if any: a caller adding a check of its own composes with it instead of replacing it.
-- `class ModelEventStore(Protocol)` ([source](../../../../../../src/learnloop/ai/execution.py), line 271)
-  - `record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None` (line 272; public)
-- `record_model_calls(store: ModelEventStore, *, owner_kind: str, owner_id: str)` ([source](../../../../../../src/learnloop/ai/execution.py), line 276) — Observe every model call in this context into ``store`` under one owner.
-- `declared_budgets(budgets: dict[str, Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 289) — Record the token budgets an operation runs under on its root receipts.
-- `generation_limit(output_tokens: int | None)` ([source](../../../../../../src/learnloop/ai/execution.py), line 304)
-- `output_limit() -> int | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 316)
-- `observed_sdk_turn(function)` ([source](../../../../../../src/learnloop/ai/execution.py), line 320)
-- `model_call(client: Any, *, purpose: str, prompt: Any=None, schema: Any=None, budget: int | None=None, wrapper: bool=False)` ([source](../../../../../../src/learnloop/ai/execution.py), line 331) — One model call: a receipt for the observer and, unless ``wrapper`` (an operation around the physical requests a provider makes), admission through the context's request gate before anything is sent.
+- `withhold_receipt_input()` ([source](../../../../../../src/learnloop/ai/execution.py), line 48) — Calls started in this context keep no prompt text on their receipts.
+- `call_labels(**labels: str | None)` ([source](../../../../../../src/learnloop/ai/execution.py), line 67) — Label every model call started in this context on its receipt.
+- `single_request()` ([source](../../../../../../src/learnloop/ai/execution.py), line 89) — Disable hidden paid retries/repairs for a caller-budgeted transport call.
+- `single_request_active() -> bool` ([source](../../../../../../src/learnloop/ai/execution.py), line 105)
+- `annotate_calls(**notes: Any)` ([source](../../../../../../src/learnloop/ai/execution.py), line 110) — Add ``notes`` to the ``budget_json`` of every root receipt started here.
+- `requested_reasoning_effort(effort: str | None)` ([source](../../../../../../src/learnloop/ai/execution.py), line 126) — Ask every request started here for ``effort`` (None keeps the profile's).
+- `reasoning_effort_request() -> str | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 141)
+- `truncation_retry_allowed()` ([source](../../../../../../src/learnloop/ai/execution.py), line 146) — Let the transport retry a truncated answer once at double the budget.
+- `truncation_retry_permitted() -> bool` ([source](../../../../../../src/learnloop/ai/execution.py), line 163)
+- `report_call_usage(values: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/ai/execution.py), line 167)
+- `content_key(payload: Any) -> str` ([source](../../../../../../src/learnloop/ai/execution.py), line 177)
+- `model_settings(client: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ai/execution.py), line 181) — The client settings that change what a request produces.
+- `class CheckpointStore(Protocol)` ([source](../../../../../../src/learnloop/ai/execution.py), line 201) — Where paid answers are kept (``model_work_checkpoints``; a ``Repository``).
+  - `model_checkpoint(self, cache_key: str) -> dict[str, Any] | None` (line 204; public)
+  - `save_model_checkpoint(self, cache_key: str, *, purpose: str, result: dict[str, Any], usage: dict[str, Any] | None=None) -> None` (line 207; public)
+  - `discard_model_checkpoint(self, cache_key: str) -> None` (line 212; public)
+- `request_key(*, purpose: str, prompt: Any, schema: Any=None, settings: dict[str, Any] | None=None, identity_extra: dict[str, Any] | None=None) -> str` ([source](../../../../../../src/learnloop/ai/execution.py), line 216) — Checkpoint identity of one paid structured request: what it sends.
+- `class ModelCheckpoint(Generic[T])` ([source](../../../../../../src/learnloop/ai/execution.py), line 241) — One paid answer's slot: load, validate, discard, save.
+  - `load(self) -> T | None` (line 256; public)
+  - `save(self, result: Any, usage: dict[str, Any] | None=None) -> None` (line 266; public)
+  - `discard(self) -> None` (line 270; public)
+  - `answer(self, call: Callable[[], T], *, usage: Callable[[T], dict[str, Any]] | None=None) -> tuple[T, bool]` (line 273; public) — The saved answer, or ``call()``'s saved before it is returned, and whether it was reused.
+- `checkpointed(store: CheckpointStore, *, purpose: str, prompt: Any, schema: Any, settings: dict[str, Any] | None, result_model: type[T], identity_extra: dict[str, Any] | None=None, validate: Callable[[T], Any] | None=None) -> ModelCheckpoint[T]` ([source](../../../../../../src/learnloop/ai/execution.py), line 289) — The checkpoint of one paid structured call keyed on what it sends (:func:`request_key`), reading its answer back as ``result_model`` and, when given, ``validate`` (which raises on an answer that no longer holds).
+- `observe_model_calls(observer: Callable[[str, dict[str, Any]], Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 309)
+- `tee_model_calls(observer: Callable[[str, dict[str, Any]], Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 318) — Also observe model calls with ``observer``, keeping the context's own observer.
+- `class RequestGate(Protocol)` ([source](../../../../../../src/learnloop/ai/execution.py), line 343) — Admission for each physical model request made in a context.
+  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any` (line 355; public)
+  - `settle(self, admission: Any, usage: dict[str, Any]) -> None` (line 358; public)
+- `gate_model_requests(gate: RequestGate)` ([source](../../../../../../src/learnloop/ai/execution.py), line 363) — Admit every physical model request started in this context through ``gate``.
+- `active_request_gate() -> RequestGate | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 373) — The request gate installed in this context, if any: a caller adding a check of its own composes with it instead of replacing it.
+- `class ModelEventStore(Protocol)` ([source](../../../../../../src/learnloop/ai/execution.py), line 380)
+  - `record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None` (line 381; public)
+- `record_model_calls(store: ModelEventStore, *, owner_kind: str, owner_id: str)` ([source](../../../../../../src/learnloop/ai/execution.py), line 385) — Observe every model call in this context into ``store`` under one owner.
+- `declared_budgets(budgets: dict[str, Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 398) — Record the token budgets an operation runs under on its root receipts.
+- `generation_limit(output_tokens: int | None)` ([source](../../../../../../src/learnloop/ai/execution.py), line 413)
+- `output_limit() -> int | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 425)
+- `observed_sdk_turn(function)` ([source](../../../../../../src/learnloop/ai/execution.py), line 429)
+- `model_call(client: Any, *, purpose: str, prompt: Any=None, schema: Any=None, budget: int | None=None, wrapper: bool=False)` ([source](../../../../../../src/learnloop/ai/execution.py), line 440) — One model call: a receipt for the observer and, unless ``wrapper`` (an operation around the physical requests a provider makes), admission through the context's request gate before anything is sent.
 
 ### Module constants
 
-- `CALL_LABELS` ([src/learnloop/ai/execution.py](../../../../../../src/learnloop/ai/execution.py), line 41)
-- `JUDGE_LABELS` ([src/learnloop/ai/execution.py](../../../../../../src/learnloop/ai/execution.py), line 42)
+- `T` ([src/learnloop/ai/execution.py](../../../../../../src/learnloop/ai/execution.py), line 25)
+- `CALL_LABELS` ([src/learnloop/ai/execution.py](../../../../../../src/learnloop/ai/execution.py), line 43)
+- `JUDGE_LABELS` ([src/learnloop/ai/execution.py](../../../../../../src/learnloop/ai/execution.py), line 44)
 
 ## Internal implementation anchors
 
-- `_observed_call(client: Any, *, purpose: str, prompt: Any, schema: Any, budget: int | None, collect_usage: bool=False)` ([source](../../../../../../src/learnloop/ai/execution.py), line 365)
-- `_failure_status(exc: BaseException) -> str` ([source](../../../../../../src/learnloop/ai/execution.py), line 418)
-- `_record_finish(observer: Callable[[str, dict[str, Any]], Any], call_id: str, metadata: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/ai/execution.py), line 426) — Best-effort: the durable start is the safety guarantee, the finish is telemetry.
+- `_observed_call(client: Any, *, purpose: str, prompt: Any, schema: Any, budget: int | None, collect_usage: bool=False)` ([source](../../../../../../src/learnloop/ai/execution.py), line 474)
+- `_failure_status(exc: BaseException) -> str` ([source](../../../../../../src/learnloop/ai/execution.py), line 527)
+- `_record_finish(observer: Callable[[str, dict[str, Any]], Any], call_id: str, metadata: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/ai/execution.py), line 535) — Best-effort: the durable start is the safety guarantee, the finish is telemetry.
 
 ## Who imports or calls it
 
@@ -120,21 +132,23 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/cli/receipts|learnloop.cli.receipts]] — imports `observe_model_calls`; statically calls `observe_model_calls`
 - [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `content_key`, `generation_limit`, `observe_model_calls`, `record_model_calls`, `requested_reasoning_effort`, `single_request`; statically calls `content_key`, `generation_limit`, `observe_model_calls`, `record_model_calls`, `requested_reasoning_effort`, `single_request`
 - [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `content_key`; statically calls `content_key`
-- [[Reference/Modules/learnloop/content/facet_identity/judge|learnloop.content.facet_identity.judge]] — imports `call_labels`, `content_key`, `generation_limit`, `model_settings`, `observe_model_calls`, `requested_reasoning_effort`, `single_request`; statically calls `call_labels`, `content_key`, `generation_limit`, `model_settings`, `observe_model_calls`, `requested_reasoning_effort`, `single_request`
+- [[Reference/Modules/learnloop/content/facet_identity/judge|learnloop.content.facet_identity.judge]] — imports `ModelCheckpoint`, `call_labels`, `content_key`, `generation_limit`, `model_settings`, `observe_model_calls`, `request_key`, `requested_reasoning_effort`, `single_request`; statically calls `ModelCheckpoint`, `call_labels`, `content_key`, `generation_limit`, `model_settings`, `observe_model_calls`, `request_key`, `requested_reasoning_effort`, `single_request`
 - [[Reference/Modules/learnloop/content/facet_identity/plan|learnloop.content.facet_identity.plan]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/content/facet_identity/span_support|learnloop.content.facet_identity.span_support]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `content_key`, `gate_model_requests`; statically calls `content_key`, `gate_model_requests`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `observe_model_calls`; statically calls `observe_model_calls`
 - [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `record_model_calls`; statically calls `record_model_calls`
-- [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `content_key`; statically calls `content_key`
+- [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `ModelCheckpoint`, `request_key`; statically calls `ModelCheckpoint`, `request_key`
 - [[Reference/Modules/learnloop/content/proposals/method_statement_judge|learnloop.content.proposals.method_statement_judge]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] — imports `observe_model_calls`; statically calls `observe_model_calls`
-- [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `generation_limit`, `model_settings`; statically calls `generation_limit`, `model_settings`
-- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `content_key`, `declared_budgets`, `generation_limit`, `model_settings`; statically calls `content_key`, `declared_budgets`, `generation_limit`, `model_settings`
-- [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `content_key`, `generation_limit`, `model_settings`; statically calls `content_key`, `generation_limit`, `model_settings`
+- [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `ModelCheckpoint`, `generation_limit`, `model_settings`; statically calls `ModelCheckpoint`, `generation_limit`, `model_settings`
+- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `ModelCheckpoint`, `checkpointed`, `content_key`, `declared_budgets`, `generation_limit`, `model_settings`, `request_key`; statically calls `ModelCheckpoint`, `checkpointed`, `content_key`, `declared_budgets`, `generation_limit`, `model_settings`, `request_key`
+- [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `ModelCheckpoint`, `generation_limit`, `model_settings`, `request_key`; statically calls `ModelCheckpoint`, `generation_limit`, `model_settings`, `request_key`
+- [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs|learnloop.content.synthesis.vault_epigraphs]] — imports `ModelCheckpoint`, `checkpointed`, `model_settings`; statically calls `checkpointed`, `model_settings`
 - [[Reference/Modules/learnloop/curriculum/subject_registry|learnloop.curriculum.subject_registry]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `call_labels`, `gate_model_requests`, `generation_limit`, `observe_model_calls`, `requested_reasoning_effort`; statically calls `call_labels`, `gate_model_requests`, `generation_limit`, `observe_model_calls`, `requested_reasoning_effort`
 - [[Reference/Modules/learnloop/decider_judgments|learnloop.decider_judgments]] — imports `call_labels`, `content_key`; statically calls `call_labels`, `content_key`
+- [[Reference/Modules/learnloop/diagnosis/diagnostic_gate|learnloop.diagnosis.diagnostic_gate]] — imports `ModelCheckpoint`, `checkpointed`, `model_settings`; statically calls `checkpointed`, `model_settings`
 - [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] — imports `model_settings`; statically calls `model_settings`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/backlog|learnloop.diagnosis.recurrence.backlog]] — imports `record_model_calls`; statically calls `record_model_calls`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/benchmarks|learnloop.diagnosis.recurrence.benchmarks]] — imports `content_key`, `generation_limit`, `record_model_calls`; statically calls `content_key`, `generation_limit`, `record_model_calls`
@@ -166,7 +180,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/hints/map_seeds|learnloop.hints.map_seeds]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/hints/outcome|learnloop.hints.outcome]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/hints/service|learnloop.hints.service]] — imports `call_labels`, `content_key`; statically calls `call_labels`, `content_key`
-- [[Reference/Modules/learnloop/ingest/extractors/glm_ocr|learnloop.ingest.extractors.glm_ocr]] — imports `model_call`; statically calls `model_call`
+- [[Reference/Modules/learnloop/ingest/extractors/glm_ocr|learnloop.ingest.extractors.glm_ocr]] — imports `ModelCheckpoint`, `model_call`; statically calls `ModelCheckpoint`, `model_call`
 - [[Reference/Modules/learnloop/instructional/exposure|learnloop.instructional.exposure]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]] — imports `content_key`; statically calls `content_key`
@@ -238,7 +252,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `contextlib`, `contextvars`, `datetime`, `functools`, `hashlib`, `json`, `logging`, `typing`, `uuid`
+- Standard library: `__future__`, `contextlib`, `contextvars`, `dataclasses`, `datetime`, `functools`, `hashlib`, `json`, `logging`, `typing`, `uuid`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -248,7 +262,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 124 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 126 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -374,6 +388,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_database_below_the_receipt_schema_lets_the_model_call_run_unrecorded`
 - [tests/test_model_usage_report.py](../../../../../../tests/test_model_usage_report.py) — direct import
   - `test_runs_are_compared_with_the_budgets_recorded_on_their_receipts`
+- [tests/test_model_work_checkpoints.py](../../../../../../tests/test_model_work_checkpoints.py) — direct import
+  - `test_a_checkpoint_under_its_own_key_reads_its_own_shape`
+  - `test_a_failed_call_saves_nothing`
+  - `test_a_fresh_answer_is_saved_with_its_usage_before_it_is_returned`
+  - `test_a_saved_answer_is_read_back_and_nothing_is_paid`
+  - `test_a_saved_answer_that_no_longer_reads_is_discarded_and_paid_once`
+  - `test_the_request_key_is_what_is_sent_and_nothing_left_unset`
 - [tests/test_notes_as_learner_text.py](../../../../../../tests/test_notes_as_learner_text.py) — direct import
 - [tests/test_openai_chat_client.py](../../../../../../tests/test_openai_chat_client.py) — direct import
   - `test_failed_receipt_finish_keeps_the_paid_response`

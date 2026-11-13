@@ -52,7 +52,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/ingest/extractors/__init__|learnloop.ingest.extractors]] | [[Reference/Modules/learnloop/ingest/extractors/__init__#^module-purpose|purpose]] | `ACTIVE` | 4 | 6 |
 | [[Reference/Modules/learnloop/ingest/extractors/base|learnloop.ingest.extractors.base]] | [[Reference/Modules/learnloop/ingest/extractors/base#^module-purpose|purpose]] | `ACTIVE` | 6 | 3 |
 | [[Reference/Modules/learnloop/ingest/extractors/datalab|learnloop.ingest.extractors.datalab]] | [[Reference/Modules/learnloop/ingest/extractors/datalab#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/ingest/extractors/glm_ocr|learnloop.ingest.extractors.glm_ocr]] | [[Reference/Modules/learnloop/ingest/extractors/glm_ocr#^module-purpose|purpose]] | `ACTIVE` | 8 | 6 |
+| [[Reference/Modules/learnloop/ingest/extractors/glm_ocr|learnloop.ingest.extractors.glm_ocr]] | [[Reference/Modules/learnloop/ingest/extractors/glm_ocr#^module-purpose|purpose]] | `ACTIVE` | 8 | 7 |
 | [[Reference/Modules/learnloop/ingest/extractors/glm_text_layer|learnloop.ingest.extractors.glm_text_layer]] | [[Reference/Modules/learnloop/ingest/extractors/glm_text_layer#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/ingest/extractors/marker|learnloop.ingest.extractors.marker]] | [[Reference/Modules/learnloop/ingest/extractors/marker#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop/ingest/extractors/marker_worker|learnloop.ingest.extractors.marker_worker]] | [[Reference/Modules/learnloop/ingest/extractors/marker_worker#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |

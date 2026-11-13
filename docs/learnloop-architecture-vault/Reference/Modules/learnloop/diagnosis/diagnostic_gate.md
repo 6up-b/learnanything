@@ -47,41 +47,43 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/diagnostic_gate.py](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py) |
-| Source lines | 514 |
+| Source lines | 546 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `request_diagnostic_trials(client: StructuredTransport, context: Any) -> DiagnosticTrials` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 58) — Generate planted diagnostic trials through the structured transport.
-- `request_diagnostic_fire(client: StructuredTransport, **context: Any) -> bool` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 72) — Semantically judge one simulated diagnostic answer in memory.
-- `class GateResult` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 104) — Beta posteriors + acceptance verdict from a discrimination gate run (§6).
-  - `sensitivity_lb(self, q: float=0.25) -> float` (line 122; public)
-  - `specificity_lb(self, q: float=0.25) -> float` (line 125; public)
-  - `as_dict(self) -> dict[str, Any]` (line 128; public)
-- `run_discrimination_gate(vault: LoadedVault, repository: Repository, *, item: PracticeItem | dict[str, Any], misconception: MisconceptionRecord, grading_client: Any=None, trials: int | None=None, clock: Clock | None=None) -> GateResult` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 260) — Estimate + persist an item's discrimination against ``misconception`` (§6).
-- `backfill_discrimination_rows(vault: LoadedVault, repository: Repository, *, force: bool=False, clock: Clock | None=None) -> list[GateResult]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 440) — Seed measured discrimination rows for every keyed (item, misconception) pair.
+- `request_diagnostic_trials(client: StructuredTransport, context: Any) -> DiagnosticTrials` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 60) — Generate planted diagnostic trials through the structured transport.
+- `fire_checkpoint(store: Any, client: Any, context: Mapping[str, Any], *, trial: str) -> ModelCheckpoint[DiagnosticFireJudgment]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 77) — One fire judgement's checkpoint: the request key of its rendered prompt and schema under the grader's settings, plus the trial it answers.
+- `request_diagnostic_fire(client: StructuredTransport, *, checkpoints: Any=None, trial: str='', **context: Any) -> bool` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 93) — Semantically judge one simulated diagnostic answer in memory.
+- `class GateResult` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 136) — Beta posteriors + acceptance verdict from a discrimination gate run (§6).
+  - `sensitivity_lb(self, q: float=0.25) -> float` (line 154; public)
+  - `specificity_lb(self, q: float=0.25) -> float` (line 157; public)
+  - `as_dict(self) -> dict[str, Any]` (line 160; public)
+- `run_discrimination_gate(vault: LoadedVault, repository: Repository, *, item: PracticeItem | dict[str, Any], misconception: MisconceptionRecord, grading_client: Any=None, trials: int | None=None, clock: Clock | None=None) -> GateResult` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 292) — Estimate + persist an item's discrimination against ``misconception`` (§6).
+- `backfill_discrimination_rows(vault: LoadedVault, repository: Repository, *, force: bool=False, clock: Clock | None=None) -> list[GateResult]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 472) — Seed measured discrimination rows for every keyed (item, misconception) pair.
 
 ### Module constants
 
-- `_LOGGER` ([src/learnloop/diagnosis/diagnostic_gate.py](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 52)
-- `_PUNCT_RE` ([src/learnloop/diagnosis/diagnostic_gate.py](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 54)
-- `_WS_RE` ([src/learnloop/diagnosis/diagnostic_gate.py](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 55)
-- `BACKFILL_SKIPPED_EXISTING` ([src/learnloop/diagnosis/diagnostic_gate.py](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 411)
-- `BACKFILL_SKIPPED_UNREGISTERED` ([src/learnloop/diagnosis/diagnostic_gate.py](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 412)
+- `_LOGGER` ([src/learnloop/diagnosis/diagnostic_gate.py](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 54)
+- `_PUNCT_RE` ([src/learnloop/diagnosis/diagnostic_gate.py](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 56)
+- `_WS_RE` ([src/learnloop/diagnosis/diagnostic_gate.py](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 57)
+- `FIRE_PURPOSE` ([src/learnloop/diagnosis/diagnostic_gate.py](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 74)
+- `BACKFILL_SKIPPED_EXISTING` ([src/learnloop/diagnosis/diagnostic_gate.py](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 443)
+- `BACKFILL_SKIPPED_UNREGISTERED` ([src/learnloop/diagnosis/diagnostic_gate.py](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 444)
 
 ## Internal implementation anchors
 
-- `_normalize(text: str | None) -> str` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 87)
-- `_payload_field(item: PracticeItem | dict[str, Any], key: str) -> Any` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 142)
-- `_item_id(item: PracticeItem | dict[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 148)
-- `_expected_answer_text(item: PracticeItem | dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 153)
-- `_keyed_fatal_error_ids(item: PracticeItem | dict[str, Any], misconception_id: str) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 161) — Fatal-error ids on the item's rubric keyed to ``misconception_id`` (§5.2.3).
-- `_keyed_fatal_descriptions(item: PracticeItem | dict[str, Any], misconception_id: str) -> list[dict[str, str]]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 185) — ``{id, description}`` for each fatal error keyed to ``misconception_id``.
-- `_diagnostic_trials_context(item: PracticeItem | dict[str, Any], misconception: MisconceptionRecord, *, expected: str, misconception_consistent: str | None, n_trials: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 212) — Token-frugal context for the codex answers-under-belief call (spec §6).
-- `_keyed_fatal_fires(answer: str, *, expected: str, misconception_consistent: str | None, has_keyed_fatal: bool) -> bool` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 233) — Whether the keyed fatal error fires on ``answer`` (deterministic grader).
-- `_existing_row_gate_result(config: Any, row: ItemMisconceptionDiscrimination) -> GateResult` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 415) — A read-only GateResult mirroring an existing discrimination row's verdict.
+- `_normalize(text: str | None) -> str` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 119)
+- `_payload_field(item: PracticeItem | dict[str, Any], key: str) -> Any` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 174)
+- `_item_id(item: PracticeItem | dict[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 180)
+- `_expected_answer_text(item: PracticeItem | dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 185)
+- `_keyed_fatal_error_ids(item: PracticeItem | dict[str, Any], misconception_id: str) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 193) — Fatal-error ids on the item's rubric keyed to ``misconception_id`` (§5.2.3).
+- `_keyed_fatal_descriptions(item: PracticeItem | dict[str, Any], misconception_id: str) -> list[dict[str, str]]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 217) — ``{id, description}`` for each fatal error keyed to ``misconception_id``.
+- `_diagnostic_trials_context(item: PracticeItem | dict[str, Any], misconception: MisconceptionRecord, *, expected: str, misconception_consistent: str | None, n_trials: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 244) — Token-frugal context for the codex answers-under-belief call (spec §6).
+- `_keyed_fatal_fires(answer: str, *, expected: str, misconception_consistent: str | None, has_keyed_fatal: bool) -> bool` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 265) — Whether the keyed fatal error fires on ``answer`` (deterministic grader).
+- `_existing_row_gate_result(config: Any, row: ItemMisconceptionDiscrimination) -> GateResult` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_gate.py), line 447) — A read-only GateResult mirroring an existing discrimination row's verdict.
 
 ## Who imports or calls it
 
@@ -102,6 +104,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `ModelCheckpoint`, `checkpointed`, `model_settings`; calls `checkpointed`, `model_settings`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `STRUCTURED_COMPLETION`, `StructuredTransport`, `execute_structured_operation`; calls `execute_structured_operation`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `ItemMisconceptionDiscrimination`, `MisconceptionRecord`, `Repository`; calls `ItemMisconceptionDiscrimination`
@@ -111,7 +114,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `logging`, `re`, `typing`
+- Standard library: `__future__`, `collections`, `dataclasses`, `logging`, `re`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -127,6 +130,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/structured_ai.py](../../../../../../tests/structured_ai.py) — direct import
 - [tests/test_diagnostic_gate.py](../../../../../../tests/test_diagnostic_gate.py) — direct import
   - `test_backfill_creates_row_for_keyed_pair`
@@ -140,6 +144,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_llm_trials_combine_into_beta_counts`
   - `test_llm_unavailable_falls_back_to_deterministic`
   - `test_paraphrase_rejected_low_sensitivity`
+- [tests/test_persona_gate.py](../../../../../../tests/test_persona_gate.py) — direct import
 - [tests/test_provider_resolution_parity.py](../../../../../../tests/test_provider_resolution_parity.py) — direct import
   - `test_diagnostic_fire_uses_the_structured_completion_path`
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import

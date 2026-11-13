@@ -19,11 +19,11 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/claims.py"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/ai/execution.py"
   - "src/learnloop/ai/spend.py"
   - "src/learnloop/content/facet_identity/judge.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/daily_plan/router_teach_back.py"
-  - "src/learnloop/db/stores/model_calls.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
