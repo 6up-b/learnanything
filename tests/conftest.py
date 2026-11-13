@@ -402,6 +402,14 @@ from tests import background_owners as _background_owners  # noqa: E402
 
 _background_owners.install()
 
+# The router's seeded draws: production seeds them on ids minted at run time and on the local date, and the numeric
+# policy refines while the clock allows, so a test that reaches them unpinned passed most runs and failed some. Every
+# test without ``real_draws`` gets seeds fixed by its node id and one batch of draws (tests/pinned_draws.py); the hooks
+# below begin and end each test's pins.
+from tests import pinned_draws as _pinned_draws  # noqa: E402
+
+_pinned_draws.install()
+
 
 # Set up before close_test_background_owners, so it closes after the test's background work has stopped: a test
 # that built a vault below the oldest supported tag (tests.helpers.allow_below_floor) may open any vault until then,
@@ -568,11 +576,34 @@ def pytest_runtest_protocol(item, nextitem):
 def pytest_runtest_setup(item):
     durable = _session_durable or item.get_closest_marker("durability") is not None
     _set_sqlite_test_mode(durable=durable)
+    # Begun here rather than in a fixture so that fixtures of every scope this test sets up draw pinned too.
+    if item.get_closest_marker("real_draws") is None:
+        _pinned_draws.begin(item.nodeid)
+        os.environ[_pinned_draws.KEY_ENV] = item.nodeid
+    else:
+        _pinned_draws.end()
+        os.environ.pop(_pinned_draws.KEY_ENV, None)
 
 
 @pytest.hookimpl(trylast=True)
 def pytest_runtest_teardown(item, nextitem):
     _set_sqlite_test_mode(durable=_session_durable)
+    _pinned_draws.end()
+    os.environ.pop(_pinned_draws.KEY_ENV, None)
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_fixture_setup(fixturedef, request):
+    """Under ``--dist worksteal`` the test that first builds a module- or class-scoped fixture varies by run, so such a
+    fixture's draws are keyed on the fixture itself while it is set up."""
+    if fixturedef.scope == "function":
+        return (yield)
+    pushed = _pinned_draws.push(f"{fixturedef.baseid}::{fixturedef.argname}[{getattr(request, 'param_index', 0)}]")
+    try:
+        return (yield)
+    finally:
+        if pushed:
+            _pinned_draws.pop()
 
 
 @pytest.fixture

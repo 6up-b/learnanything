@@ -297,6 +297,7 @@ class _OpenCharged:
 
 
 @pytest.mark.slow
+@pytest.mark.real_draws  # its subject is how many draws refinement completes by a deadline
 def test_the_pool_completes_more_draws_by_one_deadline_and_switched_off_is_mains(tmp_path, monkeypatch):
     """Codex review F2. One prefetch job's numeric policy, replayed on its own inputs with the LLM still out (so the
     evaluation refines until the deadline): on a clock charged per sigmoid element and per connection opened, main's
@@ -529,6 +530,7 @@ _MAIN_SWITCHES = ("combiner_trace_outcomes", "merged_sessions", "consistent_revi
                   "ad_predictive_link", "scope_extension", "held_ad_link", "carried_in_prefetch")
 
 
+@pytest.mark.real_draws  # its subject is production's numeric seed
 @pytest.mark.parametrize("switches", ["off", "on"])
 def test_r2_the_numeric_seed_is_mains_whatever_the_speed_switches(tmp_path, monkeypatch, switches):
     """Codex's verify, F2: at the tag with both switches off, the boundary identity differs from main's only by the

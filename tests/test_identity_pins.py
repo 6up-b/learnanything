@@ -77,6 +77,8 @@ def _site_message(pin: str) -> str:
             f"  if it moves: {site.consequence}\n{KEEP_OR_BUMP}")
 
 
+# Some pins are production's seed functions themselves (C3's numeric seed, C6's lesson seed).
+@pytest.mark.real_draws
 @pytest.mark.parametrize("pin", pin_names())
 def test_identity_pin(pin: str) -> None:
     golden = _golden_identities()
