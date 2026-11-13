@@ -170,3 +170,18 @@ def test_write_yaml_atomic_round_trips(tmp_path):
     target = tmp_path / "nested" / "x.yaml"
     write_yaml_atomic(target, {"a": 1})
     assert target.read_text(encoding="utf-8").strip() == "a: 1"
+
+
+def test_a_snapshot_loaded_from_an_empty_file_stays_unreadable_after_the_file_is_restored(vault_with_exam):
+    """The gate judges the sets the reader will use: a snapshot with no source sets because the file was
+    empty when it loaded must not pass once the file is back, the snapshot still has none."""
+
+    paths, repository = vault_with_exam
+    valid = paths.source_sets_path.read_text(encoding="utf-8")
+    _corrupt(paths, "empty")
+    vault = load_vault(paths.root)
+    paths.source_sets_path.write_text(valid, encoding="utf-8")
+    assert vault.source_sets == []
+    with pytest.raises(EM.SourceSetsUnreadable):
+        EM.exam_material(vault, repository)
+    assert not EM.protection_issues(load_vault(paths.root))
