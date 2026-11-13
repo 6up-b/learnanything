@@ -143,6 +143,7 @@ Indexes and uniqueness:
 - `tests/test_ingest_ownership.py`
 - `tests/test_mobile_host_coexistence.py`
 - `tests/test_model_work_checkpoints.py`
+- `tests/test_outer_cache_keys.py`
 - `tests/test_secondary_attach.py`
 - `tests/test_synthesis_criterion_dependencies.py`
 - `tests/test_synthesis_runs_repo.py`

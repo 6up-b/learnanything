@@ -140,7 +140,7 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `SOURCE_SET_SYNTHESIS_PROMPT_VERSION`
 - [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `AppendReconciliation`, `AppendReconciliationContext`, `SourceSetSynthesis`, `append_reconciliation_prompt`, `append_reconciliation_prompt_version`; statically calls `AppendReconciliationContext`, `SourceSetSynthesis`, `append_reconciliation_prompt`, `append_reconciliation_prompt_version`
-- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION`, `ConceptGraphContext`, `ConceptGraphStructuring`, `ConceptGraphStructuringWithRegistry`, `SOURCE_SET_SYNTHESIS_PROMPT_VERSION`, `SourceSetSynthesis`, `SourceSetSynthesisContext`, `concept_graph_has_registry_nominations`, `concept_graph_structuring_prompt`, `source_set_synthesis_prompt`, `source_set_synthesis_prompt_version`; statically calls `ConceptGraphContext`, `SourceSetSynthesis`, `SourceSetSynthesisContext`, `concept_graph_has_registry_nominations`, `concept_graph_structuring_prompt`, `source_set_synthesis_prompt`, `source_set_synthesis_prompt_version`
+- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION`, `ConceptGraphContext`, `ConceptGraphStructuring`, `ConceptGraphStructuringWithRegistry`, `SourceSetSynthesis`, `SourceSetSynthesisContext`, `concept_graph_has_registry_nominations`, `concept_graph_structuring_prompt`, `source_set_synthesis_prompt`, `source_set_synthesis_prompt_version`; statically calls `ConceptGraphContext`, `SourceSetSynthesis`, `SourceSetSynthesisContext`, `concept_graph_has_registry_nominations`, `concept_graph_structuring_prompt`, `source_set_synthesis_prompt`, `source_set_synthesis_prompt_version`
 - [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `SOURCE_UNIT_INVENTORY_PROMPT_VERSION`, `SourceUnitInventory`, `SourceUnitInventoryContext`, `source_unit_inventory_prompt`; statically calls `SourceUnitInventory`, `SourceUnitInventoryContext`, `source_unit_inventory_prompt`
 - [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs|learnloop.content.synthesis.vault_epigraphs]] — imports `VAULT_EPIGRAPHS_PROMPT_VERSION`, `VaultEpigraph`, `VaultEpigraphBatch`, `VaultEpigraphContext`, `vault_epigraphs_prompt`; statically calls `VaultEpigraphContext`, `vault_epigraphs_prompt`
 
@@ -227,6 +227,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_model_work_checkpoints.py](../../../../../../../tests/test_model_work_checkpoints.py) — direct import
 - [tests/test_openai_chat_client.py](../../../../../../../tests/test_openai_chat_client.py) — direct import
   - `test_extended_method_repairs_invalid_json_once`
+- [tests/test_outer_cache_keys.py](../../../../../../../tests/test_outer_cache_keys.py) — direct import
+  - `test_a_shard_prompt_edited_under_the_same_label_is_paid_once`
 - [tests/test_required_method_items.py](../../../../../../../tests/test_required_method_items.py) — direct import
   - `test_authoring_prompts_carry_the_rule_and_moved_their_versions`
   - `test_synthesis_publishes_a_required_method_presented_with_the_canonical_sentence`
