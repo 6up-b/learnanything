@@ -140,16 +140,12 @@ Require `live_database.unchanged: true`, review replay accounting, and only then
 SQL migration makes storage readable by current code. `upgrade` changes the vault-wide knowledge/learning algorithm version and may project content/state under new semantics:
 
 ```bash
-uv run learnloop upgrade --to mvp-0.9 --vault "$VAULT"
+uv run learnloop upgrade --vault "$VAULT"
 ```
 
-Upgrades are atomic and immediate-successor only:
+Upgrades are atomic and immediate-successor only, one row of the upgrade table (`ops/upgrades.py`) per tag from the oldest supported one up; `upgrade` walks them from the vault's tag to the latest (or `--to` a tag the table has). A vault below the oldest supported tag is refused at every door, `upgrade` included, with the commands that upgrade it using the code tagged `pre-floor` ([[ADR-019 The oldest supported tag]]).
 
-```text
-mvp-0.6 → mvp-0.7 → mvp-0.8 → mvp-0.9
-```
-
-Do not edit `algorithm_version` in TOML to skip a projection. Freshly initialized vaults are already mvp-0.9.
+Do not edit `algorithm_version` in TOML to skip a projection. Freshly initialized vaults are already at the latest tag.
 
 ## Incident evidence to retain
 
