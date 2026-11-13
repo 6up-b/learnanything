@@ -1,0 +1,528 @@
+{
+ "database": {
+  "agent_runs": {
+   "added": [
+    {
+     "<rowid>": 2,
+     "actual_input_tokens": 100,
+     "actual_output_tokens": 10,
+     "codex_revision": null,
+     "completed_at": "2026-07-13T12:00:00Z",
+     "error_message": null,
+     "est_input_tokens": 0,
+     "est_output_tokens": 0,
+     "id": "01M3250V00TP209AYDNCPVR75G",
+     "input_context_hash": "<manifest:0>",
+     "model": "fake-append-1",
+     "output_schema": "AppendReconciliation",
+     "prompt_template": "append-reconciliation",
+     "prompt_version": "mvp-0.11-append-one-facet-per-testable-skill-no-locks-sibling-criterion-dependencies-criteria-by-fact-v2",
+     "provider": "codex",
+     "provider_revision": null,
+     "provider_type": "codex",
+     "purpose": "append_reconciliation",
+     "sdk_version": null,
+     "started_at": "2026-07-13T12:00:00Z",
+     "status": "completed"
+    }
+   ]
+  },
+  "model_work_checkpoints": {
+   "added": [
+    {
+     "<rowid>": 5,
+     "cache_key": "a6ef420007fb1df51aa085165858055ac97eb0bf583bb2bc6ed7b5bb9b43375c",
+     "created_at": "<wall>",
+     "purpose": "append_reconciliation",
+     "result_json": {
+      "<json>": {
+       "blueprints": [],
+       "concepts": [],
+       "conflict_candidates": [],
+       "conflicts": [],
+       "facets": [],
+       "learning_objects": [],
+       "non_conflict_dispositions": [],
+       "notation_mappings": [],
+       "notes": [],
+       "practice_items": [
+        {
+         "client_item_id": "pi_appended",
+         "criteria": [],
+         "depends_on_client_item_ids": [],
+         "evidence_facet_client_ids": [],
+         "evidence_facets": [],
+         "evidence_fingerprint": {
+          "answer_structure": "",
+          "representation": "",
+          "shared_stimulus_id": "",
+          "solution_recipe_family": "",
+          "source_family": ""
+         },
+         "expected_answer": "A^T = A.",
+         "fatal_error_ids": [],
+         "id": "",
+         "learning_object_client_id": "",
+         "learning_object_id": "lo_diagonalize_symmetric",
+         "practice_mode": "retrieval",
+         "prompt": "State the definition of a symmetric matrix.",
+         "provenance": [
+          {
+           "extraction_id": "ext_alt",
+           "locator": "",
+           "relation": "exercise",
+           "revision_id": "",
+           "role": "reference",
+           "source_id": "",
+           "span_id": "s1",
+           "unit_id": "chapter_symmetry_alt"
+          }
+         ],
+         "required_method": null,
+         "retrieval_demand": 0.5,
+         "scaffold_level": 0.0,
+         "surface_family": "source_form",
+         "transfer_distance": 0.0
+        }
+       ],
+       "provenance_links": [],
+       "restructures": [],
+       "span_requests": [],
+       "summary": "append with a practice item"
+      }
+     },
+     "usage_json": {
+      "<json>": {
+       "input_tokens_estimate": 7561,
+       "output_tokens_estimate": 291
+      }
+     }
+    },
+    {
+     "<rowid>": 6,
+     "cache_key": "5e38832a968a41b9398c289223b3063ed5cbd59689672fa88a2514ede330dfce",
+     "created_at": "<wall>",
+     "purpose": "vault_epigraphs",
+     "result_json": {
+      "<json>": {
+       "epigraphs": [
+        {
+         "kind": "quote",
+         "lines": [
+          "A second source, the same transpose."
+         ]
+        },
+        {
+         "kind": "haiku",
+         "lines": [
+          "again, symmetric",
+          "another voice says A T",
+          "equals A, still true"
+         ]
+        },
+        {
+         "kind": "quote",
+         "lines": [
+          "Escape will make me corroborated."
+         ]
+        }
+       ]
+      }
+     },
+     "usage_json": {
+      "<json>": {}
+     }
+    }
+   ]
+  },
+  "proposed_patches": {
+   "added": [
+    {
+     "<rowid>": 2,
+     "agent_run_id": "01M3250V00TP209AYDNCPVR75G",
+     "created_at": "2026-07-13T12:00:00Z",
+     "id": "01M3250V00TP209AYDNCPVR75J",
+     "purpose": "sourceset_append",
+     "source_refs_json": {
+      "<json>": []
+     },
+     "status_cache": "pending",
+     "summary": "append with a practice item",
+     "updated_at": "2026-07-13T12:00:00Z"
+    }
+   ]
+  },
+  "synthesis_manifests": {
+   "added": [
+    {
+     "<rowid>": 2,
+     "assessment_schema_version": null,
+     "asset_hashes_json": {
+      "<json>": {
+       "rev_alt": "sha256:abc",
+       "rev_text": "sha256:abc"
+      }
+     },
+     "brief_json": {
+      "<json>": {
+       "practice_items": "as_you_read"
+      }
+     },
+     "created_at": "2026-07-13T12:00:00Z",
+     "curriculum_snapshot_hash": "sha256:14b952398ad9488ab45435a3ad0e4184eab7f535af0d5b0fcc101565e894751b",
+     "estimated_usage_json": "null",
+     "extraction_ids_json": {
+      "<json>": [
+       "ext_text",
+       "ext_alt"
+      ]
+     },
+     "extractor_versions_json": {
+      "<json>": {
+       "ext_alt": "text@1",
+       "ext_text": "text@1"
+      }
+     },
+     "facet_registry_hash": "sha256:2c57d2f3393f11ff9ade08cbc675b54d0647c5787412f0f8a06e738f2fe2bf44",
+     "id": "01M3250V00TP209AYDNCPVR75F",
+     "learner_model_contract_version": "<head tag>",
+     "lock_fingerprint": null,
+     "manifest_hash": "<manifest:0>",
+     "membership_json": {
+      "<json>": [
+       {
+        "priority": 1,
+        "revision_id": "rev_text",
+        "role": "primary_textbook",
+        "role_overrides": {},
+        "source_id": "src_text"
+       },
+       {
+        "priority": 1,
+        "revision_id": "rev_alt",
+        "role": "alternate_explanation",
+        "role_overrides": {},
+        "source_id": "src_alt"
+       }
+      ]
+     },
+     "model": "fake-append-1",
+     "prompt_version": "mvp-0.11-append-one-facet-per-testable-skill-no-locks-sibling-criterion-dependencies-criteria-by-fact-v2",
+     "provider": "codex",
+     "revision_ids_json": {
+      "<json>": [
+       "rev_alt"
+      ]
+     },
+     "schema_version": 1,
+     "scope_json": {
+      "<json>": {
+       "change_kind": "source_added",
+       "facet_identity": {
+        "config": {
+         "attach_top_k": 4,
+         "enabled": true,
+         "max_calls": 24,
+         "max_cost_usd": 0.5,
+         "max_facets": 400,
+         "max_group_size": 40,
+         "max_pairs": 20000,
+         "max_retries": 2,
+         "max_total_tokens": 600000,
+         "merge_locked_facets": true,
+         "price_per_million_input": null,
+         "price_per_million_output": null,
+         "reword_confirm": true,
+         "shortlist_top_k": 4
+        },
+        "prompt_version": "facet-identity-partition-v1",
+        "route": {
+         "billing": "subscription",
+         "cost_basis": "estimated_only",
+         "judge": "llm",
+         "model": "gpt-6-luna",
+         "output_tokens": 16384,
+         "price": {
+          "input_per_million": null,
+          "output_per_million": null,
+          "source": "unknown"
+         },
+         "problem": null,
+         "profile_type": "chatgpt_plan",
+         "provider": "chatgpt_luna",
+         "route": "facet_identity_judge"
+        }
+       },
+       "mode": "append",
+       "neighborhood": {
+        "budget_tokens": 24000,
+        "capped": false,
+        "entity_hashes": {
+         "concept:concept_symmetric_matrix": "sha256:0873cb5c2052e094",
+         "facet:facet_spectral_applicability": "sha256:c1333b048333f27a",
+         "facet:facet_symmetry_definition": "sha256:88a4bf8edf419037"
+        },
+        "input_token_estimate": 653,
+        "match_reasons": {
+         "concept:concept_symmetric_matrix": [
+          {
+           "detail": "matches concept 'symmetric'",
+           "kind": "concept_name",
+           "score": 1.0
+          }
+         ],
+         "facet:facet_spectral_applicability": [
+          {
+           "detail": "mentions 'symmetric'",
+           "kind": "concept_name",
+           "score": 1.0
+          }
+         ],
+         "facet:facet_symmetry_definition": [
+          {
+           "detail": "mentions 'symmetric'",
+           "kind": "concept_name",
+           "score": 1.0
+          },
+          {
+           "detail": "claim overlap 1.00",
+           "kind": "fingerprint",
+           "score": 1.0
+          }
+         ]
+        },
+        "rounds": 1
+       },
+       "new_revision_ids": [
+        "rev_alt"
+       ]
+      }
+     },
+     "source_set_id": "set_la",
+     "task_graph_hash": "sha256:dce2e566a032a659d937e9005f91e177c7072d08a3fc6bc07051b47cc362f0e6",
+     "token_budget_json": {
+      "<json>": {
+       "append_neighborhood_input_tokens": 24000,
+       "append_output_tokens": 10000
+      }
+     },
+     "unit_inventory_versions_json": {
+      "<json>": {
+       "rev_alt:chapter_symmetry_alt": {
+        "content_hash": "sha256:4d725f428783128cf9ef5ba565eb1b7d149caabf950da7ec57d115516ae04fd4",
+        "extraction_id": "ext_alt",
+        "inventory_id": "inv_01M3250V00TP209AYDNCPVR75E",
+        "version": "1|mvp-0.7-source-unit-inventory-role-aware"
+       },
+       "rev_text:chapter_symmetry": {
+        "content_hash": "sha256:694ed3d3d80109a5daae0db957ee1aa7821d4e276a438acf395e0e3e28384c0e",
+        "extraction_id": "ext_text",
+        "inventory_id": "inv_01M3250V00TP209AYDNCPVR73Q",
+        "version": "1|mvp-0.7-source-unit-inventory-role-aware"
+       }
+      }
+     }
+    }
+   ]
+  },
+  "synthesis_runs": {
+   "added": [
+    {
+     "<rowid>": 2,
+     "actual_usage_json": {
+      "<json>": {
+       "facet_identity": {
+        "charged": null,
+        "grouping": {
+         "grouped_facets": 0,
+         "groups": 0,
+         "largest_group": 0,
+         "links": {},
+         "shortlist": "none",
+         "shortlisted_pairs": 0,
+         "split_components": 0
+        },
+        "groups": [],
+        "notes": [],
+        "retirements": {},
+        "route": null,
+        "status": "no_groups",
+        "version": "facet-identity-plan-v1"
+       }
+      }
+     },
+     "agent_run_id": "01M3250V00TP209AYDNCPVR75G",
+     "candidate_output_json": null,
+     "completed_at": "<wall>",
+     "coverage_decisions_json": {
+      "<json>": {
+       "auto_apply_item_ids": [],
+       "facet_identity": {
+        "action_ids": [],
+        "attached": 0,
+        "groups": 0,
+        "groups_judged": 0,
+        "in_run_retired": 0,
+        "judge": null,
+        "notes": [],
+        "status": "no_groups"
+       },
+       "gate_diagnostics": [
+        {
+         "entity_refs": [],
+         "gate": "items_off",
+         "message": "dropped 1 model-emitted practice item(s): this build authors items as-you-read",
+         "severity": "review",
+         "suggested_action": "none — items accrue from reading progress"
+        }
+       ]
+      }
+     },
+     "created_at": "<wall>",
+     "id": "01M3250V00TP209AYDNCPVR75H",
+     "manifest_id": "01M3250V00TP209AYDNCPVR75F",
+     "mode": "append",
+     "proposal_id": "01M3250V00TP209AYDNCPVR75J",
+     "resolved_span_hashes_json": null,
+     "span_request_json": null,
+     "status": "completed"
+    }
+   ]
+  },
+  "vault_epigraphs": {
+   "added": [
+    {
+     "<rowid>": 4,
+     "created_at": "2026-07-13T12:00:00Z",
+     "id": "vep_01M3250V00TP209AYDNCPVR75K",
+     "kind": "quote",
+     "mode": "append",
+     "model": "fake-append-1",
+     "ordinal": 0,
+     "prompt_version": "mvp-0.1-vault-epigraphs",
+     "provider": "codex",
+     "source_set_id": "set_la",
+     "subject_id": "linear-algebra",
+     "synthesis_run_id": "01M3250V00TP209AYDNCPVR75H",
+     "text": "A second source, the same transpose."
+    },
+    {
+     "<rowid>": 5,
+     "created_at": "2026-07-13T12:00:00Z",
+     "id": "vep_01M3250V00TP209AYDNCPVR75M",
+     "kind": "haiku",
+     "mode": "append",
+     "model": "fake-append-1",
+     "ordinal": 1,
+     "prompt_version": "mvp-0.1-vault-epigraphs",
+     "provider": "codex",
+     "source_set_id": "set_la",
+     "subject_id": "linear-algebra",
+     "synthesis_run_id": "01M3250V00TP209AYDNCPVR75H",
+     "text": "again, symmetric\nanother voice says A T\nequals A, still true"
+    },
+    {
+     "<rowid>": 6,
+     "created_at": "2026-07-13T12:00:00Z",
+     "id": "vep_01M3250V00TP209AYDNCPVR75N",
+     "kind": "quote",
+     "mode": "append",
+     "model": "fake-append-1",
+     "ordinal": 2,
+     "prompt_version": "mvp-0.1-vault-epigraphs",
+     "provider": "codex",
+     "source_set_id": "set_la",
+     "subject_id": "linear-algebra",
+     "synthesis_run_id": "01M3250V00TP209AYDNCPVR75H",
+     "text": "Escape will make me corroborated."
+    }
+   ]
+  }
+ },
+ "files": {},
+ "model_requests": [
+  [
+   "append_reconciliation",
+   "31d63b0ce0f773f6"
+  ],
+  [
+   "vault_epigraphs",
+   "5ebb90aa3bfa1f81"
+  ]
+ ],
+ "result": {
+  "auto_applied_item_ids": [],
+  "change_kind": "source_added",
+  "facet_identity": {
+   "actions": [],
+   "attached": 0,
+   "groups": 0,
+   "groups_judged": 0,
+   "in_run_retired": 0,
+   "judge": null,
+   "notes": [],
+   "run_id": "01M3250V00TP209AYDNCPVR75H",
+   "status": "no_groups"
+  },
+  "gate_diagnostics": [
+   {
+    "entity_refs": [],
+    "gate": "items_off",
+    "message": "dropped 1 model-emitted practice item(s): this build authors items as-you-read",
+    "severity": "review",
+    "suggested_action": "none — items accrue from reading progress"
+   }
+  ],
+  "item_counts": {},
+  "manifest_hash": "<manifest:0>",
+  "merge_review_proposals": [],
+  "neighborhood": {
+   "budget_tokens": 24000,
+   "capped": false,
+   "entity_hashes": {
+    "concept:concept_symmetric_matrix": "sha256:0873cb5c2052e094",
+    "facet:facet_spectral_applicability": "sha256:c1333b048333f27a",
+    "facet:facet_symmetry_definition": "sha256:88a4bf8edf419037"
+   },
+   "input_token_estimate": 653,
+   "match_reasons": {
+    "concept:concept_symmetric_matrix": [
+     {
+      "detail": "matches concept 'symmetric'",
+      "kind": "concept_name",
+      "score": 1.0
+     }
+    ],
+    "facet:facet_spectral_applicability": [
+     {
+      "detail": "mentions 'symmetric'",
+      "kind": "concept_name",
+      "score": 1.0
+     }
+    ],
+    "facet:facet_symmetry_definition": [
+     {
+      "detail": "mentions 'symmetric'",
+      "kind": "concept_name",
+      "score": 1.0
+     },
+     {
+      "detail": "claim overlap 1.00",
+      "kind": "fingerprint",
+      "score": 1.0
+     }
+    ]
+   },
+   "rounds": 1
+  },
+  "nothing_new": false,
+  "proposal_id": "01M3250V00TP209AYDNCPVR75J",
+  "reused": false,
+  "review_item_ids": [],
+  "source_set_id": "set_la",
+  "span_request_count": 0,
+  "study_map_diff": {},
+  "subject_id": "linear-algebra",
+  "synthesis_run_id": "01M3250V00TP209AYDNCPVR75H"
+ }
+}

@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from learnloop.algorithm_versions import LESSON_SUGGESTIONS_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.daily_plan import lesson_suggestion as SG
 from learnloop.router import lesson_suggestions as LS
@@ -19,7 +19,7 @@ from tests.helpers import set_algorithm_version
 from tests.teacher_fakes import build_teacher_vault
 
 
-TAG = LESSON_SUGGESTIONS_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 T0 = datetime(2026, 11, 2, 9, 0, tzinfo=UTC)
 
 

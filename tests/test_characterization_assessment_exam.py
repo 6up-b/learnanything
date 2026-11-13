@@ -52,7 +52,7 @@ ITEM_ID = "pi_svd_define_001"
 # ---------------------------------------------------------------------------
 
 
-def _mvp07_vault(tmp_path):
+def _head_vault(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     return paths, load_vault(paths.root)
 
@@ -80,7 +80,7 @@ def test_contract_hash_is_single_monolithic_content_hash(tmp_path):
     # The only public hashing entry point is the single monolithic contract hash.
     assert hash_fns == ["contract_hash"]
 
-    _paths, vault = _mvp07_vault(tmp_path)
+    _paths, vault = _head_vault(tmp_path)
     item = vault.practice_items[ITEM_ID]
     contract = compile_assessment_contract(vault, item)
     # The compiled contract carries no separately-addressed card/surface/
@@ -99,7 +99,7 @@ def test_single_hash_moves_when_any_covered_component_changes(tmp_path):
     component without perturbing the single digest.
     """
 
-    paths, vault = _mvp07_vault(tmp_path)
+    paths, vault = _head_vault(tmp_path)
     baseline = contract_hash(compile_assessment_contract(vault, vault.practice_items[ITEM_ID]))
 
     item_path = paths.practice_item_path("linear-algebra", ITEM_ID)

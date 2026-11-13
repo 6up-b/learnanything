@@ -28,6 +28,7 @@ from learnloop.db.table_roles import TableRole, tables_for_role
 from learnloop.diagnosis.causal_activity_policy import resolve_attempt_activity_policy
 from learnloop.reader import workbench as WB
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+from learnloop.algorithm_versions import ELIGIBILITY_DECISION_ALGORITHM_VERSION
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
 
@@ -624,7 +625,7 @@ def test_a_workbench_submit_asks_the_same_eligibility_decision_as_every_submit(t
 
 
 def test_a_cold_check_with_the_book_open_is_refused_and_the_session_and_steps_stay(tmp_path, grader):
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=ELIGIBILITY_DECISION_ALGORITHM_VERSION)
     _due_cold_check(repository)
     ctx = _context(paths.root)
     attempts = _count(repository, "practice_attempts")

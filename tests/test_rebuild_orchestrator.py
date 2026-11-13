@@ -478,7 +478,7 @@ def test_umbrella_accounts_for_every_raw_attempt_and_records_one_receipt(tmp_pat
 
 @pytest.mark.xfail(
     strict=True,
-    reason="ledger D-34: the canonical facet rows' stamps differ between the direct replay and the umbrella rebuild",
+    reason="ledger D-35: the canonical facet rows' stamps differ between the direct replay and the umbrella rebuild",
 )
 def test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_clear(
     tmp_path,

@@ -124,7 +124,6 @@ Indexes and uniqueness:
 - `src/learnloop/content/proposals/patches.py`
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/content/proposals/required_method_override.py`
-- `src/learnloop/content/synthesis/source_append.py`
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/curriculum/graph_edit_proposals.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
@@ -133,6 +132,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/scoreboard.py`
 - `src/learnloop/diagnosis/split/jobs.py`
 - `src/learnloop/goals/certification_cold_probe.py`
+- `src/learnloop/teacher/checks.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -157,8 +157,8 @@ Indexes and uniqueness:
 - `tests/test_source_ingestion.py`
 - `tests/test_stuck_prompt.py`
 - `tests/test_synthesis_manifests.py`
+- `tests/test_synthesis_tail_golden.py`
 - `tests/test_teach_back.py`
-- `tests/apply_write_ahead_helpers.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

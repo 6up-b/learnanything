@@ -27,6 +27,7 @@ from datetime import timedelta
 
 import pytest
 
+from learnloop.algorithm_versions import READING_PATH_PLAN_ALGORITHM_VERSION
 from learnloop.daily_plan import engine as E
 from learnloop.source_retrieval import reading_paths as RP
 from learnloop.vault.loader import load_vault
@@ -89,7 +90,7 @@ def test_f1_a_finished_core_path_that_planned_no_reading_gets_the_predecessors_b
 
 
 def test_f1_a_staged_unstarted_path_reading_is_ended_unread_and_the_predecessors_is_served(tmp_path, monkeypatch):
-    paths, repository, _ = _vault(tmp_path, monkeypatch, labels=LABELS)
+    paths, repository, _ = _vault(tmp_path, monkeypatch, labels=LABELS, version=READING_PATH_PLAN_ALGORITHM_VERSION)
     ctx = context(paths.root)
     session_id = call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
     staged = _stage_reading(ctx, session_id)
@@ -112,7 +113,7 @@ def test_f1_a_staged_unstarted_path_reading_is_ended_unread_and_the_predecessors
 
 
 def test_f1_a_started_path_reading_is_kept(tmp_path, monkeypatch):
-    paths, repository, _ = _vault(tmp_path, monkeypatch, labels=LABELS)
+    paths, repository, _ = _vault(tmp_path, monkeypatch, labels=LABELS, version=READING_PATH_PLAN_ALGORITHM_VERSION)
     ctx = context(paths.root)
     session_id = call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
     _stage_reading(ctx, session_id)

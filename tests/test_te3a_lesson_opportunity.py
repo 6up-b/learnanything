@@ -35,7 +35,7 @@ from learnloop.adaptive_difficulty import replay as RP
 from learnloop.adaptive_difficulty.readiness import decision_state_fields, lesson_curve_moments
 from learnloop.adaptive_difficulty.reading import sweep
 from learnloop.adaptive_difficulty.state import ItemSpec, View
-from learnloop.algorithm_versions import LESSON_OPPORTUNITY_ALGORITHM_VERSION, TEACHER_PROBES_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, TEACHER_PROBES_ALGORITHM_VERSION
 from learnloop.attempts import salience_firewall as SF
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
@@ -47,7 +47,7 @@ from learnloop.vault.loader import load_vault
 from tests.ad23_fakes import LO, ad23_vault, answer
 from tests.daily_plan_fakes import MovableClock
 
-TAG = LESSON_OPPORTUNITY_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 OLD = TEACHER_PROBES_ALGORITHM_VERSION
 ITEMS = ("pi_l1", "pi_l2", "pi_l3")
 #: The lesson closes the day before the answers (the fakes' clock starts 2026-10-12 09:00).

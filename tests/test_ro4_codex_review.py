@@ -23,6 +23,7 @@ import numpy as np
 import pytest
 
 from learnloop.algorithm_versions import ROUTER_OBJECTIVE_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.daily_plan import objective_chooser as OC
 from learnloop.daily_plan import objective_inputs as OI
 from learnloop.daily_plan.engine import advance, build_plan
@@ -36,7 +37,7 @@ from learnloop.vault.loader import load_vault
 from tests.router_mixture_helpers import mixture_env, rows, run
 from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
 
-TAG = ROUTER_OBJECTIVE_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 #: The frozen-input builder itself (the spy below wraps it).
 BUILD = OI.build
 
@@ -86,7 +87,7 @@ def test_f1_a_slow_llm_leaves_the_numeric_share_in_place(tmp_path):
     gate = threading.Event()
     try:
         runtime = fake_runtime(decider=FakeDecider(), llm=FakeLLM(gate=gate), inline=False)
-        env = mixture_env(tmp_path, runtime, version=TAG,
+        env = mixture_env(tmp_path, runtime, version=ROUTER_OBJECTIVE_ALGORITHM_VERSION,
                           toml="[router]\ntimeout_seconds = 3.0\nprefetch_timeout_seconds = 40.0\n")
         build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
         advance(env, serve=True)
@@ -163,7 +164,7 @@ def test_f8_ad_reports_the_reading_dose_position_only_when_asked(tmp_path):
 
 def test_f8_a_reading_candidate_starts_from_ads_dose_position(tmp_path, monkeypatch):
     calls = _spy_builds(monkeypatch)
-    env = mixture_env(tmp_path, fake_runtime(), version=TAG)
+    env = mixture_env(tmp_path, fake_runtime(), version=ROUTER_OBJECTIVE_ALGORITHM_VERSION)
     run(env, steps=2)
     args, kwargs, (inputs, _actions, _sources) = calls[0]
     lo = inputs.topics[0].lo

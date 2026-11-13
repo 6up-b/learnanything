@@ -13,6 +13,7 @@ import json
 
 import pytest
 
+from learnloop.algorithm_versions import LESSON_SUGGESTIONS_ALGORITHM_VERSION
 from learnloop.daily_plan import lesson_suggestion as SG
 from learnloop.db.stores import router_suggestions as store
 from learnloop.router import lesson_suggestions as LS
@@ -38,7 +39,7 @@ def test_an_overnight_reservation_whose_lo_is_gone_is_set_aside_and_the_day_draw
     reservation nor stays blocked: an ``expired`` row records it (the Start kept), and day 1 draws its own
     card; a month later the reservation is still gone."""
 
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card, lesson = _start(paths, repository)
     gone = lesson["learning_object_ids"]
     day1 = _today(_without(paths, gone), repository, _clock(days=1))
@@ -68,7 +69,7 @@ def test_a_same_day_reservation_whose_lo_is_gone_leaves_the_day_without_a_card(t
     """Today's own decision held the reservation: it is expired, and the day shows no card (one decision a
     day) rather than the unopenable lesson; the next day draws."""
 
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card, lesson = _start(paths, repository)
     assert _today(_without(paths, lesson["learning_object_ids"]), repository, _clock(hours=2)) is None
     assert [row["response"] for row in _all_responses(repository, card["decision_id"])] == ["accepted", "expired"]
@@ -78,7 +79,7 @@ def test_a_same_day_reservation_whose_lo_is_gone_leaves_the_day_without_a_card(t
 
 
 def test_a_reservation_is_set_aside_when_the_exam_material_cannot_be_checked(tmp_path, shown, no_network, monkeypatch):
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card, _lesson = _start(paths, repository)
     monkeypatch.setattr(SG, "_protection_readable", lambda vault, repository: False)
     day1 = _today(load_vault(paths.root), repository, _clock(days=1))
@@ -89,7 +90,7 @@ def test_a_reservation_is_set_aside_when_the_exam_material_cannot_be_checked(tmp
 
 
 def test_a_valid_reservation_is_still_offered(tmp_path, shown, no_network):
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card, lesson = _start(paths, repository)
     again = _today(load_vault(paths.root), repository, _clock(days=1))
     assert again["decision_id"] == card["decision_id"] and again["pending_lesson"]["lesson_id"] == lesson["lesson_id"]
@@ -115,7 +116,7 @@ def test_the_protection_check_matches_the_lessons_opening(tmp_path):
 
 
 def test_not_now_on_a_pending_card_releases_the_reservation(tmp_path, shown, no_network):
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card, lesson = _start(paths, repository)
     pending = _today(load_vault(paths.root), repository, _clock(hours=2))
     assert pending["pending_lesson"]["lesson_id"] == lesson["lesson_id"]
@@ -156,7 +157,7 @@ def test_not_now_on_a_pending_card_releases_the_reservation(tmp_path, shown, no_
 def test_release_needs_a_pending_lesson(tmp_path, shown, no_network):
     """An unanswered card, a declined one, or a Start whose lesson opened has nothing to release."""
 
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card = _today(load_vault(paths.root), repository, _clock())
     with pytest.raises(SG.SuggestionError) as unanswered:
         SG.respond(load_vault(paths.root), repository, decision_id=card["decision_id"], response="released",
@@ -175,7 +176,7 @@ def test_release_needs_a_pending_lesson(tmp_path, shown, no_network):
 
 
 def test_an_expired_reservation_cannot_then_be_released(tmp_path, shown, no_network):
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card, lesson = _start(paths, repository)
     _today(_without(paths, lesson["learning_object_ids"]), repository, _clock(hours=2))
     with pytest.raises(SG.SuggestionError) as refused:
@@ -186,7 +187,7 @@ def test_an_expired_reservation_cannot_then_be_released(tmp_path, shown, no_netw
 
 
 def test_the_store_keeps_one_response_and_one_release_per_decision(tmp_path, shown):
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card, _lesson = _start(paths, repository)
     with repository.atomic():
         connection = repository.connection()

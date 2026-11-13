@@ -7,7 +7,7 @@ import json
 from dataclasses import dataclass
 
 
-from learnloop.algorithm_versions import DELIVERABLE_PLAN_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.daily_plan import engine as E
 from learnloop.db.repositories import Repository
 from learnloop.source_retrieval import deliverable_path as DP
@@ -19,7 +19,7 @@ from tests.helpers import append_config_toml, set_algorithm_version
 from tests.reading_path_fixtures import FixedClock, PathJudgeFake, call, context
 
 
-TAG = DELIVERABLE_PLAN_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 C1_OFF = "[curriculum]\nplan_uses_path = false\n"
 CURRICULUM_OFF = "[curriculum]\nenabled = false\n"
 RW7B_OFF = "[reading_paths]\nplan_uses_path = false\n"

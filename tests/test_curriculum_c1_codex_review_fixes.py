@@ -18,6 +18,7 @@ Every model is a fake; nothing leaves the machine.
 """
 from __future__ import annotations
 
+from learnloop.algorithm_versions import DELIVERABLE_PLAN_ALGORITHM_VERSION
 from learnloop.daily_plan import engine as E
 from learnloop.source_retrieval import deliverable_path as DP
 from learnloop.vault.loader import load_vault
@@ -44,7 +45,7 @@ from tests.curriculum_c1_codex_review_fixes_helpers import NEAR_PRIMARIES, _ende
 
 
 def test_f1_after_a_refresh_withdrew_the_staged_reading_the_switch_still_restores_rw7bs(tmp_path, monkeypatch):
-    c1 = _c1(tmp_path, monkeypatch, due_at="2026-12-20")
+    c1 = _c1(tmp_path, monkeypatch, due_at="2026-12-20", version=DELIVERABLE_PLAN_ALGORITHM_VERSION)
     c1.clock.advance(days=1)  # the path is stale: the plan keeps RW7b's (here the order's) choice
     ctx = context(c1.paths.root)
     session_id = call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
@@ -71,7 +72,7 @@ def test_f1_after_a_refresh_withdrew_the_staged_reading_the_switch_still_restore
 
 
 def test_f1_a_started_replacement_reading_is_still_kept(tmp_path, monkeypatch):
-    c1 = _c1(tmp_path, monkeypatch, due_at="2026-12-20")
+    c1 = _c1(tmp_path, monkeypatch, due_at="2026-12-20", version=DELIVERABLE_PLAN_ALGORITHM_VERSION)
     c1.clock.advance(days=1)
     ctx = context(c1.paths.root)
     session_id = call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]

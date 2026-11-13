@@ -6,11 +6,11 @@ import pytest
 
 from learnloop_sidecar.handlers.knowledge_map import _facet_current_retentions, _facet_field
 from tests.graph_editor_reads_helpers import _blueprint_ctx, _call
-from tests.km3_projections_helpers import COMP_A, INTEG
+from tests.km3_projections_helpers import BLUEPRINT_OLD_TAG, COMP_A, INTEG
 
 
 def test_map_untested_rpc_and_demonstrated_readiness(tmp_path):
-    ctx = _blueprint_ctx(tmp_path / "vault")
+    ctx = _blueprint_ctx(tmp_path / "vault", version=BLUEPRINT_OLD_TAG)
     result = _call(ctx, "get_knowledge_map", {})
     points = {point["id"]: point for point in result["facetField"]["points"]}
     unknown = points[INTEG]
@@ -41,7 +41,7 @@ def test_map_untested_rpc_and_demonstrated_readiness(tmp_path):
 def test_zero_independent_mass_is_not_tested_even_with_prior_or_warm_rows(
     tmp_path, monkeypatch, alpha, beta, raw_mass
 ):
-    ctx = _blueprint_ctx(tmp_path / "vault")
+    ctx = _blueprint_ctx(tmp_path / "vault", version=BLUEPRINT_OLD_TAG)
     baseline = _facet_field(ctx.vault, ctx.repository)
     original = ctx.repository.canonical_facet_recall_states
     monkeypatch.setattr(

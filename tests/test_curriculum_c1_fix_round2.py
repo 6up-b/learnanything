@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 
+from learnloop.algorithm_versions import DELIVERABLE_PLAN_ALGORITHM_VERSION
 from learnloop.daily_plan import engine as E
 from learnloop.source_retrieval import deliverable_path as DP
 from learnloop.vault.loader import load_vault
@@ -181,7 +182,7 @@ def test_m3_a_k1_judgment_committed_between_the_builds_inputs_and_its_lookup_is_
 
 
 def test_m4_a_prefetched_block_read_in_the_reader_is_never_moved_and_its_minutes_count(tmp_path, monkeypatch):
-    c1 = _c1(tmp_path, monkeypatch, due_at="2026-12-20")
+    c1 = _c1(tmp_path, monkeypatch, due_at="2026-12-20", version=DELIVERABLE_PLAN_ALGORITHM_VERSION)
     c1.clock.advance(days=1)
     ctx = context(c1.paths.root)
     _no_refresh(ctx)
@@ -341,7 +342,7 @@ def test_l6_a_memo_hit_returns_exactly_what_the_choice_computed(tmp_path, monkey
 def test_a_move_withdraws_the_staged_block_and_it_counts_no_minutes(tmp_path, monkeypatch):
     """The withdrawn block of a move counts no minutes and is no reading of the day."""
 
-    c1 = _c1(tmp_path, monkeypatch, due_at="2026-12-20")
+    c1 = _c1(tmp_path, monkeypatch, due_at="2026-12-20", version=DELIVERABLE_PLAN_ALGORITHM_VERSION)
     c1.clock.advance(days=1)
     ctx = context(c1.paths.root)
     _no_refresh(ctx)

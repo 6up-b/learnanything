@@ -8,11 +8,11 @@ from datetime import timedelta
 
 import pytest
 
-from learnloop.algorithm_versions import LESSON_OFFERS_ALGORITHM_VERSION, LESSON_OPPORTUNITY_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, LESSON_OPPORTUNITY_ALGORITHM_VERSION
 from learnloop.router_objective import price as P
 
 
-TAG = LESSON_OFFERS_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 OLD = LESSON_OPPORTUNITY_ALGORITHM_VERSION
 from tests.te3b_value_helpers import T0, _lesson, _lesson_db, _stamp
 

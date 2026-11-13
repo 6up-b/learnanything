@@ -352,6 +352,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_youtube_missing_source_ref_without_timecoded_id_stays_invalid`
   - `test_youtube_time_range_source_refs_can_span_caption_cues`
 - [tests/test_structured_transport_parity.py](../../../../../../../tests/test_structured_transport_parity.py) — direct import
+- [tests/test_synthesis_tail_golden.py](../../../../../../../tests/test_synthesis_tail_golden.py) — direct import
+  - `test_append_rerun_after_a_wholly_rejected_proposal`
+  - `test_bootstrap_rerun_after_a_wholly_rejected_proposal`
 - [tests/test_teach_back_generation.py](../../../../../../../tests/test_teach_back_generation.py) — direct import
   - `test_rubric_errors_reject_bad_tier_value`
   - `test_teach_back_item_missing_core_criterion_for_facet_is_invalid`

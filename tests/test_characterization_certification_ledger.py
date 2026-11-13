@@ -35,7 +35,7 @@ ITEM_ID = "pi_svd_define_001"
 FACET = "recall"
 
 
-def _mvp07_vault(tmp_path):
+def _head_vault(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
@@ -89,7 +89,7 @@ def test_evidence_mass_signature_has_no_confidence_channel():
 
 
 def test_evidence_mass_is_pure_function_of_attempt_type(tmp_path):
-    vault, _repository = _mvp07_vault(tmp_path)
+    vault, _repository = _head_vault(tmp_path)
     cfg = vault.config.evidence
     # Same attempt type -> byte-identical mass, every call.
     mass_a = attempt_evidence_mass("independent_attempt", cfg)
@@ -107,11 +107,11 @@ def test_projection_mass_identical_across_grader_confidence(tmp_path):
     see it.
     """
 
-    high_vault, high_repo = _mvp07_vault(tmp_path / "high")
+    high_vault, high_repo = _head_vault(tmp_path / "high")
     _attempt(high_vault, high_repo, points=4, confidence=4)
     project_canonical_facet_state(high_vault, high_repo)
 
-    low_vault, low_repo = _mvp07_vault(tmp_path / "low")
+    low_vault, low_repo = _head_vault(tmp_path / "low")
     _attempt(low_vault, low_repo, points=4, confidence=1)
     project_canonical_facet_state(low_vault, low_repo)
 
@@ -126,7 +126,7 @@ def test_projection_mass_identical_across_grader_confidence(tmp_path):
 
 
 def test_ledger_row_shape_excludes_confidence_and_calibration_lineage(tmp_path):
-    vault, repository = _mvp07_vault(tmp_path)
+    vault, repository = _head_vault(tmp_path)
     _attempt(vault, repository, points=4, confidence=4)
 
     ledger = repository.canonical_observation_ledger()
@@ -192,7 +192,7 @@ def test_regrade_of_grading_evidence_changes_projection(tmp_path):
     grading-evidence cache, not an append-only immutable raw-grade-event history.
     """
 
-    vault, repository = _mvp07_vault(tmp_path)
+    vault, repository = _head_vault(tmp_path)
     result = _attempt(vault, repository, points=4, confidence=4)
     project_canonical_facet_state(vault, repository)
     before = _cells(repository)

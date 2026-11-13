@@ -3,6 +3,7 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 
 from __future__ import annotations
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.vault.loader import load_vault
 
 from tests.split_live_helpers import enable_embeddings, split_vault
@@ -14,7 +15,7 @@ V_THIRD = "Writes V where the transpose of V belongs."
 STATEMENTS = {"first": V_SAME, "second": V_REWORDED, "third": V_THIRD}
 
 
-def _vault(tmp_path, *, version="mvp-0.12", config: str = ""):
+def _vault(tmp_path, *, version=LATEST_ALGORITHM_VERSION, config: str = ""):
     paths, _vault, repository = split_vault(tmp_path, version=version, seed=False, config=config)
     enable_embeddings(paths.root)
     toml = paths.root / "learnloop.toml"

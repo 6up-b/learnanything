@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from learnloop.algorithm_versions import PHONE_PROBES_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.diagnosis.split.jobs import drain
 from learnloop.followup_serve import workflow as wf
 from learnloop_sidecar.context import SidecarContext
@@ -19,7 +19,7 @@ from tests.followup_serve_helpers import LIVE_ITEM, BlindRivalClient, live_shape
 from tests.followup_rival_factor_helpers import _Ready, _generate
 
 
-TAG = PHONE_PROBES_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 PHONE = RequestOrigin(device_id="dev_phone", phone_probes=True)
 
 

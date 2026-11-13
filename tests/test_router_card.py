@@ -18,6 +18,7 @@ import sqlite3
 
 from typer.testing import CliRunner
 
+from learnloop.algorithm_versions import ROUTER_STAGED_FRAME_ALGORITHM_VERSION
 from learnloop.cli import app
 from learnloop.daily_plan.engine import build_plan
 from learnloop.daily_plan.policy import policy_for
@@ -229,7 +230,7 @@ def test_past_work_shows_the_revision_it_answered_never_todays_edit(tmp_path, mo
     question from the attempt's pinned contract, never the current prompt; an
     attempt whose revision cannot be established shows no question."""
 
-    env = _card_world(tmp_path, monkeypatch)
+    env = _card_world(tmp_path, monkeypatch, version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
     _attempt(env, "att_old", "pi_a", "lo_m1", iso(LAST), answer=OWN_ANSWER, correctness=1.0)
     _graded_under(env, "att_old", "pi_a", prompt=OLD_STEM)
     _attempt(env, "att_unpinned", "pi_a", "lo_m1", "2026-09-21T09:00:00Z", answer="second try", correctness=0.0)
@@ -258,7 +259,7 @@ def test_failed_or_assisted_work_is_never_demonstrated(tmp_path, monkeypatch):
 
 
 def test_only_the_authoritative_classification_says_demonstrated(tmp_path, monkeypatch):
-    env = _card_world(tmp_path, monkeypatch)
+    env = _card_world(tmp_path, monkeypatch, version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
     _attempt(env, "att_a", "pi_a", "lo_m1", iso(LAST), answer="right", correctness=1.0)
     import learnloop.daily_plan.headline as headline
 
@@ -276,7 +277,7 @@ def test_a_resolved_promoted_misconception_is_not_an_open_problem(tmp_path, monk
 
     from learnloop.db.stores.daily_plans import open_diagnosed_problem_learning_object_ids
 
-    env = _card_world(tmp_path, monkeypatch)
+    env = _card_world(tmp_path, monkeypatch, version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
     _attempt(env, "att_a", "pi_a", "lo_m1", iso(LAST), answer="right", correctness=1.0)
     _hypothesis(env, "hyp_resolved", status="validated", statement="Confuses rank and nullity",
                 evidence={"promoted_misconception_id": "mc_resolved"})

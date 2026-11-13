@@ -22,7 +22,7 @@ from learnloop.db.repositories import Repository
 from learnloop.goals.certification import DEMONSTRATED_CREDIT
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
-from tests.km3_projections_helpers import LO_ID, NOW, _attempt, build_blueprint_vault
+from tests.km3_projections_helpers import BLUEPRINT_OLD_TAG, LO_ID, NOW, _attempt, build_blueprint_vault
 
 
 def _cell(facet, capability, *, credit=0.0, direct=0.0):
@@ -94,7 +94,7 @@ def test_each_lo_is_in_exactly_one_class(capability_world):
 def test_a_blueprint_lo_with_an_integration_gap_is_learning(tmp_path):
     # The KM3 composite-LO vault (mvp-0.7), whose certification the headline
     # reuses unchanged through lo_certification.
-    paths = build_blueprint_vault(tmp_path / "vault")
+    paths = build_blueprint_vault(tmp_path / "vault", version=BLUEPRINT_OLD_TAG)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))

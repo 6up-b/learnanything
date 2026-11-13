@@ -41,7 +41,7 @@ from learnloop.vault.models import (
 from learnloop_sidecar.handlers.serializers import feedback_bundle
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault
-from tests.km2_write_path_helpers import build_mvp07_vault
+from tests.km2_write_path_helpers import build_shared_facet_vault
 
 
 def test_grading_schema_is_prose_first():
@@ -345,7 +345,7 @@ def test_write_boundary_persists_firewall_telemetry(tmp_path):
 
 
 def test_machine_review_scope_blocks_negative_observation_attribution(tmp_path):
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
@@ -478,7 +478,7 @@ def test_variant_direction_audit_is_symmetric(tmp_path):
 
 
 def test_learner_confirmation_resolves_factor_to_provisional_belief(tmp_path):
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     clock = FrozenClock(NOW)
@@ -516,7 +516,7 @@ def test_learner_confirmation_resolves_factor_to_provisional_belief(tmp_path):
 
 
 def test_nonconfirming_self_report_is_recorded_once_without_reprompt(tmp_path):
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     clock = FrozenClock(NOW)

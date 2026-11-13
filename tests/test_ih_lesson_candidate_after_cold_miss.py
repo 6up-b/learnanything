@@ -20,7 +20,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from learnloop.algorithm_versions import FAILURE_SHARE_ALGORITHM_VERSION, PHONE_PROBES_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, PHONE_PROBES_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock
 from learnloop.config import LearnLoopConfig
@@ -35,7 +35,7 @@ from tests.helpers import append_config_toml
 from tests.teacher_fakes import TeacherFake, clients, plan_turn
 from tests.teacher_te1b_suggestions_helpers import LOS, _vault
 
-TAG = FAILURE_SHARE_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 OLD = PHONE_PROBES_ALGORITHM_VERSION
 OFF = "[router_objective]\nlesson_candidate_after_cold_miss = false\n"
 T0 = datetime(2026, 11, 9, 9, 0, tzinfo=UTC)

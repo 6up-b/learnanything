@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 
-from learnloop.algorithm_versions import ROUTER_STAGED_FRAME_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.daily_plan.engine import build_plan
 from learnloop.daily_plan.policy import policy_for
 from learnloop.router.card import CardInputs
@@ -17,7 +17,7 @@ from tests.helpers import NOW_ISO, create_daily_plan_vault, write_yaml
 
 PAST = datetime(2026, 10, 1, 9, 0, tzinfo=UTC)
 LAST = datetime(2026, 9, 20, 9, 0, tzinfo=UTC)
-A = ROUTER_STAGED_FRAME_ALGORITHM_VERSION
+A = LATEST_ALGORITHM_VERSION
 OWN_ANSWER = "MY_OWN_WORDS_1203"
 
 
@@ -82,10 +82,10 @@ OLD_STEM = "OLD_STEM_THE_LEARNER_SAW_3301"
 NEW_STEM = "NEW_STEM_NEVER_ATTEMPTED_8812"
 
 
-def _card_world(tmp_path, monkeypatch):
+def _card_world(tmp_path, monkeypatch, *, version: str = A):
     """Two candidate topics: lo_m1 (pi_a, answered then edited) and lo_m2 (pi_b)."""
 
-    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={"lo_m1": [], "lo_m2": []}, version=A)
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={"lo_m1": [], "lo_m2": []}, version=version)
     _item(paths, "pi_a", "lo_m1", prompt=NEW_STEM, expected="kept")
     _item(paths, "pi_b", "lo_m2", prompt="Name a basis of R^2.", expected="e1, e2")
     clock = MovableClock()

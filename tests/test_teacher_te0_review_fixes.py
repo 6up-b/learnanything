@@ -22,6 +22,7 @@ from contextlib import closing
 
 import pytest
 
+from learnloop.algorithm_versions import ROUTER_STAGED_FRAME_ALGORITHM_VERSION
 from learnloop import confidence_events as CE
 from learnloop.db.connection import connect
 from learnloop.router.card import CARD_VERSION, PREDECESSOR_CARD_VERSION, build_card
@@ -125,7 +126,7 @@ def test_a_regrade_between_the_reads_never_mixes_revisions_in_the_tutor_and_hint
 def test_a_regrade_between_the_reads_never_mixes_revisions_on_the_card(tmp_path, monkeypatch):
     from tests.router_card_helpers import _card, _card_world
 
-    env = _card_world(tmp_path, monkeypatch)
+    env = _card_world(tmp_path, monkeypatch, version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
     _attempt(env.repository.sqlite_path, "att_rg", at="2026-10-10T09:00:00Z", correctness=0.0, hedge="hedged",
              item_id="pi_a", lo_id="lo_m1")
     _interleave(monkeypatch, env.repository.sqlite_path, "att_rg")
@@ -166,7 +167,7 @@ def test_a_heavy_confidence_week_stays_within_the_card_budget_and_keeps_recent_w
 def test_the_gatherer_bounds_each_topics_events_and_states_the_omission(tmp_path, monkeypatch):
     rows = [dict(attempt_id=f"att_{i:02d}", at=f"2026-10-11T{i % 24:02d}:{i:02d}:00Z", correctness=1.0, tap=4,
                  item_id="pi_a", lo_id="lo_m1") for i in range(CE.CONTEXT_EVENT_LIMIT + 5)]
-    body = _gathered_card(tmp_path, monkeypatch, rows)["json"]
+    body = _gathered_card(tmp_path, monkeypatch, rows, version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)["json"]
     assert len(body["confidence_7d"]["lo_m1"]) == CE.CONTEXT_EVENT_LIMIT
     assert body["confidence_omitted"] == 5
 
@@ -280,11 +281,12 @@ def test_switched_off_the_card_is_the_predecessors_card(tmp_path, monkeypatch):
     import learnloop.confidence_events as module
 
     on = _gathered_card(tmp_path / "on", monkeypatch, [
-        dict(attempt_id="att_1", at="2026-10-10T09:00:00Z", correctness=0.0, tap=5, item_id="pi_a", lo_id="lo_m1")])
+        dict(attempt_id="att_1", at="2026-10-10T09:00:00Z", correctness=0.0, tap=5, item_id="pi_a", lo_id="lo_m1")], version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
     assert on["json"]["card_version"] == CARD_VERSION and "confidence_7d" in on["json"]
     monkeypatch.setattr(module, "enabled", lambda _vault: False)
     off = _gathered_card(tmp_path / "off", monkeypatch, [
-        dict(attempt_id="att_1", at="2026-10-10T09:00:00Z", correctness=0.0, tap=5, item_id="pi_a", lo_id="lo_m1")])
+        dict(attempt_id="att_1", at="2026-10-10T09:00:00Z", correctness=0.0, tap=5, item_id="pi_a", lo_id="lo_m1")],
+        version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
     body = off["json"]
     assert body["card_version"] == PREDECESSOR_CARD_VERSION
     assert "confidence_7d" not in body and "confidence_limit" not in body

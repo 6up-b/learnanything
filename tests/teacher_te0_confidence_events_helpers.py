@@ -57,10 +57,10 @@ def _card_inputs(**extra) -> CardInputs:
     )
 
 
-def _gathered_card(tmp_path, monkeypatch, attempts):
+def _gathered_card(tmp_path, monkeypatch, attempts, *, version=None):
     from tests.router_card_helpers import _card, _card_world
 
-    env = _card_world(tmp_path, monkeypatch)
+    env = _card_world(tmp_path, monkeypatch, **({"version": version} if version else {}))
     for row in attempts:
         _attempt(env.repository.sqlite_path, **row)
     return _card(env)

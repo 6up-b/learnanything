@@ -5,11 +5,13 @@ from __future__ import annotations
 
 import pytest
 
+from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
+from tests.km2_write_path_helpers import KM2_OLD_TAG
 from tests.followup_serve_helpers import (
     CLOCK,
     AuthorFake,
@@ -33,11 +35,23 @@ def _call(ctx, name, params):
 
 @pytest.fixture
 def journey(tmp_path, monkeypatch):
+    return _journey(tmp_path, monkeypatch)
+
+
+@pytest.fixture
+def journey_old_tag(tmp_path, monkeypatch):
+    """The journey at the tag the follow-up served at first, for a test that reads what that tag wrote (it waits
+    on the learner/ gate's tests)."""
+
+    return _journey(tmp_path, monkeypatch, version=FOLLOWUP_SERVE_ALGORITHM_VERSION, built_at=KM2_OLD_TAG)
+
+
+def _journey(tmp_path, monkeypatch, **vault_kwargs):
     monkeypatch.setattr(
         "learnloop_sidecar.handlers.practice.ready_grading_provider",
         lambda *_args, **_kw: ("fake", _Runtime(), object()),
     )
-    vault, repository, paths = rival_causes_vault(tmp_path)
+    vault, repository, paths = rival_causes_vault(tmp_path, **vault_kwargs)
     ctx = SidecarContext()
     ctx.load(paths.root)
     ctx.post_attempt_worker.autostart = False

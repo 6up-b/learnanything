@@ -1,0 +1,370 @@
+{
+ "database": {
+  "agent_runs": {
+   "added": [
+    {
+     "<rowid>": 3,
+     "actual_input_tokens": 0,
+     "actual_output_tokens": 0,
+     "codex_revision": null,
+     "completed_at": "2026-07-13T12:00:00Z",
+     "error_message": null,
+     "est_input_tokens": 0,
+     "est_output_tokens": 0,
+     "id": "01M3250V00TP209AYDNCPVR75R",
+     "input_context_hash": "<manifest:0>",
+     "model": "fake-append-1",
+     "output_schema": "AppendReconciliation",
+     "prompt_template": "append-reconciliation",
+     "prompt_version": "mvp-0.11-append-one-facet-per-testable-skill-no-locks-sibling-criterion-dependencies-criteria-by-fact-v2",
+     "provider": "codex",
+     "provider_revision": null,
+     "provider_type": "codex",
+     "purpose": "append_reconciliation",
+     "sdk_version": null,
+     "started_at": "2026-07-13T12:00:00Z",
+     "status": "completed"
+    }
+   ]
+  },
+  "apply_intents": {
+   "added": [
+    {
+     "<rowid>": 2,
+     "applied_at": "2026-07-13T12:00:00Z",
+     "conflict_json": null,
+     "conflicted_at": null,
+     "created_at": "2026-07-13T12:00:00Z",
+     "db_plan_json": {
+      "<json>": [
+       {
+        "change_batch_id": "01M3250V00TP209AYDNCPVR75X",
+        "content_event_id": "01M3250V00TP209AYDNCPVR75Y",
+        "created_at": "2026-07-13T12:00:00Z",
+        "db_side_effect": {
+         "kind": "provenance_link",
+         "row": {
+          "asset_hash": null,
+          "entity_id": "facet_symmetry_definition",
+          "entity_type": "facet",
+          "extraction_id": "ext_alt",
+          "id": "01M3250V00TP209AYDNCPVR75W",
+          "locator": "span:ext_alt/s1",
+          "locator_scheme": "block_span_v1",
+          "patch_id": "01M3250V00TP209AYDNCPVR75M",
+          "relation": "alternate",
+          "revision_id": "rev_alt",
+          "source_id": "src_alt",
+          "span_hash": null,
+          "status": "current"
+         }
+        },
+        "entity_id": "01M3250V00TP209AYDNCPVR75W",
+        "entity_type": "provenance_link",
+        "event_type": "created",
+        "item_id": "01M3250V00TP209AYDNCPVR75K",
+        "origin": "codex",
+        "source_links": [],
+        "subject": "linear-algebra",
+        "summary": "attach alternate span to facet facet_symmetry_definition"
+       }
+      ]
+     },
+     "id": "01M3250V00TP209AYDNCPVR75Z",
+     "item_ids_json": {
+      "<json>": [
+       "01M3250V00TP209AYDNCPVR75K"
+      ]
+     },
+     "proposed_patch_id": "01M3250V00TP209AYDNCPVR75M",
+     "rolled_back_at": null,
+     "set_aside_at": null,
+     "status": "applied",
+     "targets_json": {
+      "<json>": []
+     }
+    }
+   ]
+  },
+  "change_batches": {
+   "added": [
+    {
+     "<rowid>": 8,
+     "created_at": "2026-07-13T12:00:00Z",
+     "id": "01M3250V00TP209AYDNCPVR75X",
+     "origin": "codex",
+     "proposed_patch_item_id": "01M3250V00TP209AYDNCPVR75K",
+     "reason": "proposal_accept",
+     "summary": "attach alternate span to facet facet_symmetry_definition"
+    }
+   ]
+  },
+  "content_events": {
+   "added": [
+    {
+     "<rowid>": 8,
+     "change_batch_id": "01M3250V00TP209AYDNCPVR75X",
+     "created_at": "2026-07-13T12:00:00Z",
+     "entity_id": "01M3250V00TP209AYDNCPVR75W",
+     "entity_type": "provenance_link",
+     "event_type": "created",
+     "id": "01M3250V00TP209AYDNCPVR75Y",
+     "origin": "codex",
+     "review_status": "accepted",
+     "subject": "linear-algebra",
+     "summary": "attach alternate span to facet facet_symmetry_definition"
+    }
+   ]
+  },
+  "entity_source_links": {
+   "added": [
+    {
+     "<rowid>": 6,
+     "asset_hash": null,
+     "created_at": "2026-07-13T12:00:00Z",
+     "entity_id": "facet_symmetry_definition",
+     "entity_type": "facet",
+     "extraction_id": "ext_alt",
+     "id": "01M3250V00TP209AYDNCPVR75W",
+     "locator": "span:ext_alt/s1",
+     "locator_scheme": "block_span_v1",
+     "patch_id": "01M3250V00TP209AYDNCPVR75M",
+     "relation": "alternate",
+     "revision_id": "rev_alt",
+     "source_id": "src_alt",
+     "span_hash": null,
+     "stale_at": null,
+     "status": "current",
+     "superseded_by_link_id": null
+    }
+   ]
+  },
+  "proposed_patch_items": {
+   "changed": [
+    {
+     "after": {
+      "<rowid>": 8,
+      "applied_change_batch_id": "01M3250V00TP209AYDNCPVR75X",
+      "audit_json": null,
+      "client_item_id": "plink_alt",
+      "created_at": "2026-07-13T12:00:00Z",
+      "decided_at": "2026-07-13T12:00:00Z",
+      "decided_by": "learner",
+      "decision": "accepted",
+      "dependency_block_reason_json": null,
+      "dependency_status": "ready",
+      "edited_payload_json": null,
+      "id": "01M3250V00TP209AYDNCPVR75K",
+      "item_type": "provenance_link",
+      "operation": "create",
+      "payload_json": {
+       "<json>": {
+        "expected_target_hash": "sha256:32e772181e597864bccdcc6983c2e99dc4680500a5f16d42b638485a8bb2e9c1",
+        "extraction_id": "ext_alt",
+        "locator": "span:ext_alt/s1",
+        "locator_scheme": "block_span_v1",
+        "reconciliation_intent": "alternate_explanation",
+        "relation": "alternate",
+        "revision_id": "rev_alt",
+        "source_id": "src_alt",
+        "span_hash": null,
+        "subject_id": "linear-algebra",
+        "target_entity_id": "facet_symmetry_definition",
+        "target_entity_type": "facet"
+       }
+      },
+      "proposed_patch_id": "01M3250V00TP209AYDNCPVR75M",
+      "source_ref_ids_json": {
+       "<json>": []
+      },
+      "target_entity_id": "facet_symmetry_definition",
+      "target_entity_type": "facet",
+      "updated_at": "2026-07-13T12:00:00Z",
+      "validation_errors_json": {
+       "<json>": []
+      },
+      "validation_status": "valid"
+     },
+     "before": {
+      "<rowid>": 8,
+      "applied_change_batch_id": null,
+      "audit_json": null,
+      "client_item_id": "plink_alt",
+      "created_at": "2026-07-13T12:00:00Z",
+      "decided_at": null,
+      "decided_by": null,
+      "decision": "pending",
+      "dependency_block_reason_json": null,
+      "dependency_status": "pending",
+      "edited_payload_json": null,
+      "id": "01M3250V00TP209AYDNCPVR75K",
+      "item_type": "provenance_link",
+      "operation": "create",
+      "payload_json": {
+       "<json>": {
+        "expected_target_hash": "sha256:32e772181e597864bccdcc6983c2e99dc4680500a5f16d42b638485a8bb2e9c1",
+        "extraction_id": "ext_alt",
+        "locator": "span:ext_alt/s1",
+        "locator_scheme": "block_span_v1",
+        "reconciliation_intent": "alternate_explanation",
+        "relation": "alternate",
+        "revision_id": "rev_alt",
+        "source_id": "src_alt",
+        "span_hash": null,
+        "subject_id": "linear-algebra",
+        "target_entity_id": "facet_symmetry_definition",
+        "target_entity_type": "facet"
+       }
+      },
+      "proposed_patch_id": "01M3250V00TP209AYDNCPVR75M",
+      "source_ref_ids_json": {
+       "<json>": []
+      },
+      "target_entity_id": "facet_symmetry_definition",
+      "target_entity_type": "facet",
+      "updated_at": "2026-07-13T12:00:00Z",
+      "validation_errors_json": {
+       "<json>": []
+      },
+      "validation_status": "valid"
+     }
+    }
+   ]
+  },
+  "proposed_patches": {
+   "changed": [
+    {
+     "after": {
+      "<rowid>": 2,
+      "agent_run_id": "01M3250V00TP209AYDNCPVR75G",
+      "created_at": "2026-07-13T12:00:00Z",
+      "id": "01M3250V00TP209AYDNCPVR75M",
+      "purpose": "sourceset_append",
+      "source_refs_json": {
+       "<json>": []
+      },
+      "status_cache": "accepted",
+      "summary": "append alternate explanation",
+      "updated_at": "2026-07-13T12:00:00Z"
+     },
+     "before": {
+      "<rowid>": 2,
+      "agent_run_id": "01M3250V00TP209AYDNCPVR75G",
+      "created_at": "2026-07-13T12:00:00Z",
+      "id": "01M3250V00TP209AYDNCPVR75M",
+      "purpose": "sourceset_append",
+      "source_refs_json": {
+       "<json>": []
+      },
+      "status_cache": "pending",
+      "summary": "append alternate explanation",
+      "updated_at": "2026-07-13T12:00:00Z"
+     }
+    }
+   ]
+  },
+  "synthesis_runs": {
+   "added": [
+    {
+     "<rowid>": 3,
+     "actual_usage_json": null,
+     "agent_run_id": "01M3250V00TP209AYDNCPVR75R",
+     "candidate_output_json": null,
+     "completed_at": "<wall>",
+     "coverage_decisions_json": {
+      "<json>": {
+       "auto_apply_item_ids": [
+        "plink_alt"
+       ],
+       "gate_diagnostics": [],
+       "matched_proposal": {
+        "kind": "pending",
+        "proposal_id": "01M3250V00TP209AYDNCPVR75M"
+       }
+      }
+     },
+     "created_at": "<wall>",
+     "id": "01M3250V00TP209AYDNCPVR75S",
+     "manifest_id": "01M3250V00TP209AYDNCPVR75F",
+     "mode": "append",
+     "proposal_id": "01M3250V00TP209AYDNCPVR75M",
+     "resolved_span_hashes_json": null,
+     "span_request_json": null,
+     "status": "completed"
+    }
+   ]
+  }
+ },
+ "files": {},
+ "model_requests": [],
+ "result": {
+  "auto_applied_item_ids": [
+   "01M3250V00TP209AYDNCPVR75K"
+  ],
+  "change_kind": "source_added",
+  "facet_identity": null,
+  "gate_diagnostics": [],
+  "item_counts": {
+   "provenance_link": 1
+  },
+  "manifest_hash": "<manifest:0>",
+  "merge_review_proposals": [],
+  "neighborhood": {
+   "budget_tokens": 24000,
+   "capped": false,
+   "entity_hashes": {
+    "concept:concept_symmetric_matrix": "sha256:0873cb5c2052e094",
+    "facet:facet_spectral_applicability": "sha256:c1333b048333f27a",
+    "facet:facet_symmetry_definition": "sha256:88a4bf8edf419037"
+   },
+   "input_token_estimate": 653,
+   "match_reasons": {
+    "concept:concept_symmetric_matrix": [
+     {
+      "detail": "matches concept 'symmetric'",
+      "kind": "concept_name",
+      "score": 1.0
+     }
+    ],
+    "facet:facet_spectral_applicability": [
+     {
+      "detail": "mentions 'symmetric'",
+      "kind": "concept_name",
+      "score": 1.0
+     }
+    ],
+    "facet:facet_symmetry_definition": [
+     {
+      "detail": "mentions 'symmetric'",
+      "kind": "concept_name",
+      "score": 1.0
+     },
+     {
+      "detail": "claim overlap 1.00",
+      "kind": "fingerprint",
+      "score": 1.0
+     }
+    ]
+   },
+   "rounds": 1
+  },
+  "nothing_new": false,
+  "proposal_id": "01M3250V00TP209AYDNCPVR75M",
+  "reused": true,
+  "review_item_ids": [],
+  "source_set_id": "set_la",
+  "span_request_count": 0,
+  "study_map_diff": {
+   "blueprint_distribution_shift": [],
+   "has_changes": true,
+   "new_conflicts": 0,
+   "new_facets": [],
+   "new_links": 1,
+   "new_notations": 0,
+   "removed_facets": [],
+   "stale_links_repaired": 0
+  },
+  "subject_id": "linear-algebra",
+  "synthesis_run_id": "01M3250V00TP209AYDNCPVR75S"
+ }
+}

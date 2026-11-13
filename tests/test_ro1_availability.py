@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, INTERVAL_FACTOR_ALGORITHM_VERSION
+from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
@@ -35,7 +35,7 @@ from tests.exam_seeding_helpers import EXAM_DATE, _exam_vault, _outcomes
 from tests.ro1_availability_helpers import NEW_COLUMNS
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
-TAG = INTERVAL_FACTOR_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 PREDECESSOR = FOLLOWUP_SERVE_ALGORITHM_VERSION
 IMPORTED_AT = datetime(2026, 5, 19, 15, 30, 7, tzinfo=UTC)
 

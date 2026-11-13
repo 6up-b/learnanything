@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
@@ -59,8 +60,13 @@ def _item(item_id, *, facet, capability, mode, correlation_group, points=4):
     }
 
 
-def build_blueprint_vault(root: Path):
-    """An mvp-0.7 composite LO with an AND-recipe blueprint + integration facet."""
+# The tag whose capability projection the dual-axis tests still read: the head's projection reports these
+# facets' capabilities differently.
+BLUEPRINT_OLD_TAG = "mvp-0.7"
+
+
+def build_blueprint_vault(root: Path, *, version: str = LATEST_ALGORITHM_VERSION):
+    """A composite LO with an AND-recipe blueprint + integration facet, at ``version`` (the head by default)."""
 
     paths = create_basic_vault(root)
     write_yaml(
@@ -144,17 +150,26 @@ def build_blueprint_vault(root: Path):
     default_item = paths.practice_item_path("linear-algebra", "pi_svd_define_001")
     if default_item.exists():
         default_item.unlink()
-    set_algorithm_version(paths, "mvp-0.7")
+    if version != LATEST_ALGORITHM_VERSION:
+        set_algorithm_version(paths, version)
     return paths
 
 
-@pytest.fixture
-def blueprint_vault(tmp_path):
-    paths = build_blueprint_vault(tmp_path / "vault")
+def _synced(paths):
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
     return vault, repository
+
+
+@pytest.fixture
+def blueprint_vault(tmp_path):
+    return _synced(build_blueprint_vault(tmp_path / "vault"))
+
+
+@pytest.fixture
+def blueprint_vault_old_tag(tmp_path):
+    return _synced(build_blueprint_vault(tmp_path / "vault", version=BLUEPRINT_OLD_TAG))
 
 
 def _attempt(vault, repository, item_id, criterion, *, hints_used=0):

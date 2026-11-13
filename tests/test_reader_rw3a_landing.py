@@ -20,6 +20,7 @@ import sqlite3
 import pytest
 
 import learnloop_sidecar.handlers  # noqa: F401 - registers the RPCs
+from learnloop.algorithm_versions import ROUTER_STAGED_FRAME_ALGORITHM_VERSION
 from learnloop.db.connection import connect
 from learnloop.db.stores.source_service import interventions
 from learnloop.router.outcomes import derive_router_outcomes
@@ -28,7 +29,7 @@ from tests.reader_rw3a_landing_helpers import CASES, _call, _counts, _picked, _w
 
 @pytest.mark.parametrize("case", sorted(CASES))
 def test_check_me_goes_through_the_plan_path_and_is_logged_once(tmp_path, monkeypatch, case):
-    paths, ctx = _world(tmp_path, monkeypatch)
+    paths, ctx = _world(tmp_path, monkeypatch, version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
     _session_id, check, result, before = _picked(ctx, paths, CASES[case])
     step = result["step"]
     assert step["kind"] == "item" and step["practiceItemId"] == check["practiceItemId"]

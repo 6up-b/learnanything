@@ -20,13 +20,13 @@ from tests.helpers import (
     NOW,
 )
 from tests.km3_projections_helpers import COMP_A, COMP_B, INTEG, LO_ID, _attempt, build_blueprint_vault
-from tests.km3_projections_helpers import blueprint_vault  # noqa: F401 - fixtures, used by parameter name
+from tests.km3_projections_helpers import blueprint_vault, blueprint_vault_old_tag  # noqa: F401 - fixtures, used by parameter name
 
 # -- Blueprint readiness (§9.2) ------------------------------------------------
 
 
-def test_blueprint_readiness_wired_into_goal_report(blueprint_vault):
-    vault, repository = blueprint_vault
+def test_blueprint_readiness_wired_into_goal_report(blueprint_vault_old_tag):
+    vault, repository = blueprint_vault_old_tag
     _attempt(vault, repository, "pi_comp_a", 4)
     _attempt(vault, repository, "pi_comp_b", 4)
 
@@ -60,8 +60,8 @@ def _load_lo():
 # -- Goal certification / Demonstrated axis (§9.5, §16) ------------------------
 
 
-def test_retrieval_style_component_demonstrates_only_its_capability(blueprint_vault):
-    vault, repository = blueprint_vault
+def test_retrieval_style_component_demonstrates_only_its_capability(blueprint_vault_old_tag):
+    vault, repository = blueprint_vault_old_tag
     _attempt(vault, repository, "pi_comp_a", 4)
 
     lo = vault.learning_objects[LO_ID]
@@ -73,10 +73,10 @@ def test_retrieval_style_component_demonstrates_only_its_capability(blueprint_va
     assert comp_b.demonstrated is False
 
 
-def test_planted_integration_gap_not_shown_demonstrated(blueprint_vault):
+def test_planted_integration_gap_not_shown_demonstrated(blueprint_vault_old_tag):
     """§16 projection row: strong components + missing integration -> not demonstrated."""
 
-    vault, repository = blueprint_vault
+    vault, repository = blueprint_vault_old_tag
     # Demonstrate BOTH components unassisted, repeatedly, but never the integrated
     # whole-task item.
     for _ in range(3):
@@ -98,8 +98,8 @@ def test_planted_integration_gap_not_shown_demonstrated(blueprint_vault):
     assert cert_after.integration_gaps == ()
 
 
-def test_goal_report_exposes_dual_axis_fields(blueprint_vault):
-    vault, repository = blueprint_vault
+def test_goal_report_exposes_dual_axis_fields(blueprint_vault_old_tag):
+    vault, repository = blueprint_vault_old_tag
     _attempt(vault, repository, "pi_comp_a", 4)
 
     report = goal_report(vault, repository, vault.goals[0], clock=FrozenClock(NOW))

@@ -3,13 +3,13 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 
 from __future__ import annotations
 
-from learnloop.algorithm_versions import ROUTER_CALIBRATION_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.daily_plan.policy import policy_for
 
 from tests.daily_plan_fakes import iso
 
 
-TAG = ROUTER_CALIBRATION_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 
 
 def _new_session(env, runtime, day: int) -> str:

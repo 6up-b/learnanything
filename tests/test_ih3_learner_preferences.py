@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 
-from learnloop.algorithm_versions import FAILURE_SHARE_ALGORITHM_VERSION, PHONE_PROBES_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, PHONE_PROBES_ALGORITHM_VERSION
 from learnloop.daily_plan import engine as E
 from learnloop.daily_plan import learner_action as LA
 from learnloop.daily_plan.engine import advance
@@ -32,7 +32,7 @@ from tests.router_mixture_helpers import mixture_env, rows
 from tests.router_model_fakes import fake_runtime
 from tests.te3b_offers_helpers import OFFER, offerable  # noqa: F401 - the fixture
 
-TAG = FAILURE_SHARE_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 OLD = PHONE_PROBES_ALGORITHM_VERSION
 QUIET = "[router_objective]\nstop_coin = 0.0\n"
 OFF = QUIET + "learner_preferences = false\n"

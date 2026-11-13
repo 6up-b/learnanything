@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from learnloop.algorithm_versions import CLAIM_FIXES_ALGORITHM_VERSION, SUCCESSOR_CHAIN
+from learnloop.algorithm_versions import CLAIM_FIXES_ALGORITHM_VERSION, LATEST_ALGORITHM_VERSION, SUCCESSOR_CHAIN
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
@@ -19,8 +19,8 @@ from tests.assumed_known_helpers import _answer
 from tests.tutor_promotion_service_helpers import _AnalysisClient, _insert_event
 
 
-TAG = CLAIM_FIXES_ALGORITHM_VERSION
-PREDECESSOR = SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1]
+TAG = LATEST_ALGORITHM_VERSION
+PREDECESSOR = SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(CLAIM_FIXES_ALGORITHM_VERSION) - 1]
 LO = "lo_svd_definition"
 ITEM = "pi_svd_define_001"
 

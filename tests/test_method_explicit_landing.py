@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
+from learnloop.algorithm_versions import ROUTER_STAGED_FRAME_ALGORITHM_VERSION
 from learnloop.config.schema import DeciderProviderConfig, LearnLoopConfig
 from learnloop.reader import reader_cues as RCU
 from learnloop.router.card import STEM_LIMIT
@@ -68,7 +69,7 @@ def test_the_card_shows_no_sentence_for_a_contract_that_froze_no_method(tmp_path
     from tests.daily_plan_fakes import iso
     from tests.router_card_helpers import LAST, OLD_STEM, OWN_ANSWER, _attempt, _card, _card_world
 
-    env = _card_world(tmp_path, monkeypatch)
+    env = _card_world(tmp_path, monkeypatch, version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
     _attempt(env, "att_old", "pi_a", "lo_m1", iso(LAST), answer=OWN_ANSWER, correctness=1.0)
     _graded_under_method(env, "att_old", "pi_a", prompt=OLD_STEM, method=None)
     card = _card(env)

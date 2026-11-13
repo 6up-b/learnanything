@@ -119,7 +119,7 @@ def test_the_timeline_ends_at_the_projections_banked_credit(tmp_path):
     _assert_the_timeline_ends_at_the_banked_credit(vault, repository)
 
 
-@pytest.mark.xfail(strict=True, reason="ledger D-33: the timeline keeps an uncited held epoch's earlier credit")
+@pytest.mark.xfail(strict=True, reason="ledger D-34: the timeline keeps an uncited held epoch's earlier credit")
 def test_the_timeline_drops_what_a_held_uncited_regrade_holds(ledger):
     vault, repository, _attempts = ledger
     _assert_the_timeline_ends_at_the_banked_credit(vault, repository)

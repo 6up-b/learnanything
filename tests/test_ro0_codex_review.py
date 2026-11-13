@@ -10,6 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from learnloop.algorithm_versions import LESSON_SUGGESTIONS_ALGORITHM_VERSION
 from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.daily_plan.engine import advance, build_plan
@@ -166,7 +167,7 @@ def test_f3_a_lesson_suggestion_keeps_its_ad_numbers_read_before_its_transaction
     from tests.teacher_te1b_suggestions_helpers import _clock, _decisions, _suggestion, _vault
 
     monkeypatch.setattr(LS, "_uniforms", lambda seed: (0.5, 0.0, 0.0))
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     assert _suggestion(paths, repository, _clock()) is not None
     decision = _decisions(repository)[0]
     receipt = _state(repository, decision["id"])

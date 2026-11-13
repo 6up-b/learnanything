@@ -9,7 +9,7 @@ import time
 from typer.testing import CliRunner
 
 from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
-from learnloop.algorithm_versions import INTERVAL_FACTOR_ALGORITHM_VERSION, ROUTER_OBJECTIVE_ALGORITHM_VERSION
+from learnloop.algorithm_versions import INTERVAL_FACTOR_ALGORITHM_VERSION
 from learnloop.db.stores import router_objective as store
 from learnloop.router import card as C
 from learnloop.router_objective import objective_report
@@ -18,7 +18,7 @@ from learnloop.router_objective.trace import explain
 from tests.router_mixture_helpers import mixture_env, rows, run
 from tests.router_model_fakes import fake_runtime
 
-TAG = ROUTER_OBJECTIVE_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 OLD = INTERVAL_FACTOR_ALGORITHM_VERSION
 
 

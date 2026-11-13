@@ -85,8 +85,8 @@ def _keys(miss):
     return {(row["practice_item_id"], row["constraint_key"]) for row in miss["refused_candidates"]}
 
 
-def _iv(tmp_path, name, extra=""):
-    iv = make_intent_vault(tmp_path / "vault")
+def _iv(tmp_path, name, extra="", **vault_kwargs):
+    iv = make_intent_vault(tmp_path / "vault", **vault_kwargs)
     append_config_toml(iv.root, POLICY_TOML[name] + extra)
     iv.reload()
     return iv
@@ -175,7 +175,7 @@ def test_f19_dl1_pair_plans_are_otherwise_unchanged(tmp_path):
     """Nothing else changes under DL1's pair: the seen probe surface, when no
     check holds it, is planned as DL1 plans it (the frame gates checks only)."""
 
-    iv = _iv(tmp_path, "dl1_pair")
+    iv = _iv(tmp_path, "dl1_pair", version=INTENT_ALGORITHM_VERSION)
     path = next(Path(iv.root).rglob("pi_c2.yaml"))
     payload = read_yaml(path)
     payload["practice_mode"] = "probe"

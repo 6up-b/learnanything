@@ -16,15 +16,14 @@ from typing import Any, Callable
 
 import pytest
 
-from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
+from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
 from learnloop.daily_plan import objective_chooser as OC
 from learnloop.daily_plan.router_runtime import RouterRuntime
 from learnloop.router_objective import tail_data as TD
 from learnloop.router_objective_switches import FOLLOWUP_GENERATOR_SWITCHES
 
-TAG = ROUTER_FOLLOWUPS_ALGORITHM_VERSION
-
-
+TAG = LATEST_ALGORITHM_VERSION
 def _flipped(config, switch: str):
     section = config.router_objective.model_copy(update={switch: not getattr(config.router_objective, switch)})
     return config.model_copy(update={"router_objective": section})
@@ -103,7 +102,7 @@ def test_below_the_tag_the_key_names_no_switch():
     below = config.model_copy(update={"algorithms": config.algorithms.model_copy(
         update={"algorithm_version": ROUTER_LEARNED_TAIL_ALGORITHM_VERSION})})
     assert "followup_switches" not in OC.objective_settings(below)
-    at_tag = config.model_copy(update={"algorithms": config.algorithms.model_copy(update={"algorithm_version": TAG})})
+    at_tag = config.model_copy(update={"algorithms": config.algorithms.model_copy(update={"algorithm_version": ROUTER_FOLLOWUPS_ALGORITHM_VERSION})})
     assert set(OC.objective_settings(at_tag)) == set(OC.objective_settings(below)) | {"followup_switches"}
 
 

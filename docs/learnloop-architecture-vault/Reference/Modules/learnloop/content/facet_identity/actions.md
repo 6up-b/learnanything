@@ -199,7 +199,6 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/facet_identity/dedupe|learnloop.content.facet_identity.dedupe]] — imports `HELD_BACK_NOTE`, `action_by_id`, `describe`, `facet_evidence`, `merge_registered_facets`, `recover_interrupted_actions`; statically calls `action_by_id`, `describe`, `facet_evidence`, `merge_registered_facets`, `recover_interrupted_actions`
 - [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]] — imports `record_reword`, `record_reword_confirm`; statically calls `record_reword`, `record_reword_confirm`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `meaning_changes`; statically calls `meaning_changes`
-- [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `record_proposed_actions`; statically calls `record_proposed_actions`
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `describe`, `list_actions`, `record_proposed_actions`; statically calls `describe`, `list_actions`, `record_proposed_actions`
 - [[Reference/Modules/learnloop/curriculum/subject_registry|learnloop.curriculum.subject_registry]] — imports `HELD_BACK_NOTE`, `action_by_id`, `describe`, `merge_registered_facets`, `pending_reword_confirms`; statically calls `action_by_id`, `describe`, `merge_registered_facets`, `pending_reword_confirms`
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `interrupted_actions`, `interrupted_registry_saves`, `recover_interrupted_actions`; statically calls `interrupted_actions`, `interrupted_registry_saves`, `recover_interrupted_actions`
@@ -244,7 +243,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/facets|learnloop.cli.facets]], [[Reference/Modules/learnloop/content/facet_identity/dedupe|learnloop.content.facet_identity.dedupe]], [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]], [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]], [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] and 8 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/facets|learnloop.cli.facets]], [[Reference/Modules/learnloop/content/facet_identity/dedupe|learnloop.content.facet_identity.dedupe]], [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]], [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]], [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] and 7 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

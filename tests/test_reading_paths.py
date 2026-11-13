@@ -31,6 +31,7 @@ from pathlib import Path
 
 import pytest
 
+from learnloop.algorithm_versions import INTENT_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.stores import placement as placement_store
 from learnloop.intent.control import Scope, apply_choice
@@ -93,6 +94,13 @@ def _without_rw5a(contract: dict) -> dict:
 def path_vault(tmp_path, monkeypatch):
     clock = FixedClock(monkeypatch)
     paths, repository, spans = build_path_vault(tmp_path / "vault")
+    return paths, repository, spans, clock
+
+
+@pytest.fixture
+def path_vault_old_tag(tmp_path, monkeypatch):
+    clock = FixedClock(monkeypatch)
+    paths, repository, spans = build_path_vault(tmp_path / "vault", version=INTENT_ALGORITHM_VERSION)
     return paths, repository, spans, clock
 
 
@@ -160,8 +168,8 @@ def test_on_by_default_classified_and_the_contract_and_palette_gain_only_rw7a_ke
     assert contract == GOLDEN["contract"]
 
 
-def test_switched_off_the_guide_contract_and_palette_are_a76c8358a_and_every_rpc_refuses(path_vault):
-    paths, repository, _spans, _clock = path_vault
+def test_switched_off_the_guide_contract_and_palette_are_a76c8358a_and_every_rpc_refuses(path_vault_old_tag):
+    paths, repository, _spans, _clock = path_vault_old_tag
     append_config_toml(paths.root, "[reading_paths]\nenabled = false\n")
     fake = PathJudgeFake()
     ctx = _ctx(paths, fake)
@@ -183,8 +191,8 @@ def test_switched_off_the_guide_contract_and_palette_are_a76c8358a_and_every_rpc
 # -- display only (G47): plan builds and Today are a76c8358a's ---------------------------------------
 
 
-def test_with_paths_depths_overrides_and_a_skip_stored_plan_today_and_guide_are_a76c8358a(path_vault, monkeypatch):
-    paths, repository, _spans, _clock = path_vault
+def test_with_paths_depths_overrides_and_a_skip_stored_plan_today_and_guide_are_a76c8358a(path_vault_old_tag, monkeypatch):
+    paths, repository, _spans, _clock = path_vault_old_tag
     ctx = _ctx(paths, PathJudgeFake({"sec_history": "enrichment", "sec_spectral": "prerequisite"}))
     assert _depth(ctx)["status"] == "ready"
     _override(ctx, "sec_eigen", "skip")

@@ -21,7 +21,8 @@ from datetime import timedelta
 
 import pytest
 
-from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, INTERVAL_FACTOR_ALGORITHM_VERSION
+from learnloop.algorithm_versions import INTERVAL_FACTOR_ALGORITHM_VERSION
+from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import Repository
@@ -42,7 +43,7 @@ from tests.helpers import NOW, append_config_toml, set_algorithm_version
 from tests.ro1_interval_factor_helpers import HISTORY, _due, _play, _vault
 from tests.ro1_self_report_helpers import picked  # noqa: F401 - the module fixture
 
-TAG = INTERVAL_FACTOR_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 PREDECESSOR = FOLLOWUP_SERVE_ALGORITHM_VERSION
 SWITCH_TOML = {
     "factor": ("scheduler.surprise", "remove_interval_factor"),
@@ -116,10 +117,10 @@ def _issues(paths):
 
 
 def test_every_whole_vault_rebuild_records_the_factors_switch(tmp_path):
-    paths, _played = _played_at(tmp_path / "on", TAG)
+    paths, _played = _played_at(tmp_path / "on", INTERVAL_FACTOR_ALGORITHM_VERSION)
     marker = Repository(paths.sqlite_path).latest_whole_vault_rebuild()
     assert marker["projection_switches"] == {INTERVAL_FACTOR_SNAPSHOT_KEY: True}
-    off, _ = _played_at(tmp_path / "off", TAG, _toml({"factor"}))
+    off, _ = _played_at(tmp_path / "off", INTERVAL_FACTOR_ALGORITHM_VERSION, _toml({"factor"}))
     assert Repository(off.sqlite_path).latest_whole_vault_rebuild()["projection_switches"] == {
         INTERVAL_FACTOR_SNAPSHOT_KEY: False}
     below, _ = _played_at(tmp_path / "below", PREDECESSOR)

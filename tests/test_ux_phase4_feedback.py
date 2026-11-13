@@ -139,9 +139,9 @@ def test_the_bundle_carries_the_question_as_it_was_given(tmp_path):
     from learnloop.db.repositories import Repository
     from learnloop.vault.writer import upsert_practice_item
     from tests.durable_promotion_arms_helpers import _failure
-    from tests.km2_write_path_helpers import build_mvp07_vault
+    from tests.km2_write_path_helpers import build_shared_facet_vault
 
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
 
     def upsert(**fields):
         data = load_vault(paths.root).practice_items[ITEM].model_dump(mode="json")
@@ -880,9 +880,9 @@ def test_f5_a_method_explicit_answer_keeps_its_question_key_and_rubric_together(
     from learnloop.db.repositories import Repository
     from learnloop.vault.writer import upsert_practice_item
     from tests.durable_promotion_arms_helpers import _failure
-    from tests.km2_write_path_helpers import build_mvp07_vault
+    from tests.km2_write_path_helpers import build_shared_facet_vault
 
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
 
     def upsert(**fields):
         data = load_vault(paths.root).practice_items[ITEM].model_dump(mode="json")

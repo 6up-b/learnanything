@@ -34,7 +34,7 @@ from learnloop.vault.yaml_io import write_yaml
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version, write_facets
 from tests.certain_grade_helpers import make_grade_certain
-from tests.km2_write_path_helpers import SELECT, SHARED, _attempt, _item, _rubric, build_mvp07_vault
+from tests.km2_write_path_helpers import SELECT, SHARED, _attempt, _item, _rubric, build_shared_facet_vault
 
 
 def _fake_instrument(
@@ -87,7 +87,7 @@ def test_cause_set_diagnostic_selects_discriminating_instrument(tmp_path):
     # repair class per target ref: one synthetic class per facet-capability
     # makes divergence equivalent to facet difference, which is the fallback
     # this test exists to keep buried.
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
@@ -249,7 +249,7 @@ def test_instrument_ranking_prefers_discrimination_over_facet_coverage():
 
 
 def test_incomplete_mapping_surfaces_as_a_machine_check_never_as_a_probe(tmp_path):
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
@@ -279,7 +279,7 @@ def test_cause_set_state_vocabulary_matches_the_coherence_gate():
 
 
 def test_embedded_evidence_suppresses_redundant_probe(tmp_path):
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))

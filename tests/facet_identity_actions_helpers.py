@@ -13,7 +13,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
 from tests.helpers import NOW, write_facets
-from tests.km2_write_path_helpers import SELECT, SHARED, _attempt, _item, _rubric, build_mvp07_vault
+from tests.km2_write_path_helpers import SELECT, SHARED, _attempt, _item, _rubric, build_shared_facet_vault
 
 
 DUP = "facet_svd_factorization_restated"
@@ -21,7 +21,7 @@ _CLOCK = FrozenClock(datetime(2026, 10, 12, 12, 0, 0, tzinfo=UTC))
 
 
 def _vault_with_duplicate(tmp_path):
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
     write_facets(paths, [
         {"id": SHARED, "kind": "definition", "claim": "SVD factorizes into U, Sigma, V^T.",
          "positive_examples": ["A = U Sigma V^T for a 2x2 matrix"]},

@@ -26,7 +26,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, set_algorithm_version
-from tests.km2_write_path_helpers import build_mvp07_vault
+from tests.km2_write_path_helpers import build_shared_facet_vault
 
 ITEM = "pi_svd_ambiguous_001"  # one criterion, two candidate facets, no attribution
 
@@ -34,7 +34,7 @@ CLOCK = FrozenClock(NOW)
 
 
 def _vault(tmp_path, algorithm_version="mvp-0.8"):
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
     set_algorithm_version(paths, algorithm_version)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
