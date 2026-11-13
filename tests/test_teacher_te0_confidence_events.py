@@ -23,6 +23,7 @@ from pathlib import Path
 
 import pytest
 
+from learnloop.algorithm_versions import ROUTER_STAGED_FRAME_ALGORITHM_VERSION
 from learnloop import confidence_events as CE
 from learnloop.router.card import CARD_VERSION, PREDECESSOR_CARD_VERSION, build_card, canonical_json
 
@@ -108,7 +109,7 @@ def test_the_gathered_card_renders_taps_and_hedge_reads_as_events(tmp_path, monk
         dict(attempt_id="att_self", at="2026-10-11T10:00:00Z", correctness=1.0, hedge="hedged",
              local_grader_id="self", item_id="pi_b", lo_id="lo_m2"),
         dict(attempt_id="att_old", at="2026-09-01T09:00:00Z", correctness=1.0, tap=4, item_id="pi_b", lo_id="lo_m2"),
-    ])
+    ], version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
     body, text = card["json"], card["text"]
     assert body["card_version"] == CARD_VERSION
     work = {entry["attempt_id"]: entry for entry in body["recent_work"]}
@@ -129,7 +130,7 @@ def test_the_gathered_card_renders_taps_and_hedge_reads_as_events(tmp_path, monk
 def test_the_gathered_card_without_confidence_data_has_no_confidence_fields(tmp_path, monkeypatch):
     card = _gathered_card(tmp_path, monkeypatch, [
         dict(attempt_id="att_plain", at="2026-10-10T09:00:00Z", correctness=1.0, item_id="pi_a", lo_id="lo_m1"),
-    ])
+    ], version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
     body = card["json"]
     assert body["card_version"] == CARD_VERSION
     assert "confidence_7d" not in body and "confidence_limit" not in body
@@ -141,7 +142,7 @@ def test_protected_past_work_keeps_its_result_and_its_event_but_no_text(tmp_path
     card = _gathered_card(tmp_path, monkeypatch, [
         dict(attempt_id="att_exam", at="2026-10-10T09:00:00Z", correctness=0.0, tap=5, item_id="pi_a",
              lo_id="lo_m1", attempt_type="exam_attempt", answer="EXAM_ANSWER_TE0"),
-    ])
+    ], version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
     work = {entry["attempt_id"]: entry for entry in card["json"]["recent_work"]}
     assert work["att_exam"]["answer"] is None and work["att_exam"]["withheld"]
     assert work["att_exam"]["confidence"] == "marked 5/5 sure; wrong"

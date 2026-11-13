@@ -15,6 +15,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from tests.teacher_fakes import pin_default_tag
+from learnloop.algorithm_versions import TEACHER_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.teacher import guards as G
 from learnloop.teacher import service as S
@@ -549,6 +551,7 @@ def _script(lesson):
 def test_a_lesson_with_no_reserved_text_is_byte_identical_with_the_guard_off(tmp_path, monkeypatch):
     """Nothing in the lesson quotes a reserved question: every row, payload, receipt, view and prompt is the same as
     with the reserved-question guard replaced by one that never fires (main's guards)."""
+    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # waits on D6: the lesson at the teacher's first tag
 
     def capture(lesson):
         def norm(text):

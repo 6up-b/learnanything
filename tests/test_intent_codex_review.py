@@ -44,6 +44,11 @@ def iv(tmp_path):
     return make_intent_vault(tmp_path / "vault")
 
 
+@pytest.fixture
+def iv_old_tag(tmp_path):
+    return make_intent_vault(tmp_path / "vault", version=INTENT_ALGORITHM_VERSION)
+
+
 def _env(iv, at, *, session_id=None) -> PlanEnv:
     return PlanEnv(vault=iv.vault, repository=iv.repository, clock=MovableClock(at), session_id=session_id)
 
@@ -98,13 +103,13 @@ def test_f1_a_follow_up_never_serves_an_item_a_check_once_still_holds(iv):
     assert "pi_b1" not in iv.queue(NOW + timedelta(days=1))
 
 
-def test_f1_pausing_after_the_plan_was_built_keeps_its_items_unserved(iv):
+def test_f1_pausing_after_the_plan_was_built_keeps_its_items_unserved(iv_old_tag):
     at = NOW + timedelta(minutes=1)
-    env = _env(iv, at, session_id="s_f1")
+    env = _env(iv_old_tag, at, session_id="s_f1")
     record = build_plan(env, kind="normal", budget=40.0, remembered=40, minutes_source="chip")
     planned = {item.practice_item_id for item in record.items()}
     assert {"pi_a1", "pi_a2"} <= planned, "sanity: lo_a is in the plan"
-    iv.choose("learning_object", "lo_a", "pause", at + timedelta(seconds=30))
+    iv_old_tag.choose("learning_object", "lo_a", "pause", at + timedelta(seconds=30))
     served = []
     for _ in range(20):
         record, step = advance(env, serve=True)
@@ -112,19 +117,19 @@ def test_f1_pausing_after_the_plan_was_built_keeps_its_items_unserved(iv):
             break
         served.append(step["practice_item_id"])
         env.clock.advance(2)
-        record_attempt(iv.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now())
+        record_attempt(iv_old_tag.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now())
         env.clock.advance(1)
     assert not {"pi_a1", "pi_a2"} & set(served)
     displaced = {item.practice_item_id: item.displaced_reason for item in record.items() if item.displaced_at}
     assert displaced.get("pi_a1") == "intent_paused" and displaced.get("pi_a2") == "intent_paused"
 
 
-def test_f1_a_check_once_chosen_after_the_plan_holds_its_planned_item(iv):
+def test_f1_a_check_once_chosen_after_the_plan_holds_its_planned_item(iv_old_tag):
     at = NOW + timedelta(minutes=1)
-    env = _env(iv, at, session_id="s_f1c")
+    env = _env(iv_old_tag, at, session_id="s_f1c")
     record = build_plan(env, kind="normal", budget=40.0, remembered=40, minutes_source="chip")
     assert "pi_a1" in {item.practice_item_id for item in record.items()}
-    iv.choose("practice_item", "pi_a1", "check_once", at + timedelta(seconds=30))
+    iv_old_tag.choose("practice_item", "pi_a1", "check_once", at + timedelta(seconds=30))
     record, _step = advance(env, serve=False)
     item = next(item for item in record.items() if item.practice_item_id == "pi_a1")
     assert item.displaced_reason == "intent_check_waiting"

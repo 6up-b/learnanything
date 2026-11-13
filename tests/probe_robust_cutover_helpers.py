@@ -3,6 +3,7 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 
 from __future__ import annotations
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
@@ -24,7 +25,7 @@ ITEM_ID = "pi_svd_define_001"
 CLOCK = FrozenClock(NOW)
 
 
-def _load(tmp_path, *, version: str = "mvp-0.8"):
+def _load(tmp_path, *, version: str = LATEST_ALGORITHM_VERSION):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     set_algorithm_version(paths, version)

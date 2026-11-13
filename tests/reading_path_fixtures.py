@@ -24,6 +24,7 @@ from typing import Any, Mapping
 
 import learnloop.clock as clock_module
 import learnloop_sidecar.handlers  # noqa: F401 -- populate METHOD_REGISTRY
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.ai.execution import report_call_usage
 from learnloop.ai.isolation import TOOL_FREE
 from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION, ISOLATED_TURN, STRUCTURED_COMPLETION
@@ -39,7 +40,7 @@ from tests.structured_ai import StructuredClientFake
 DAY1 = datetime(2026, 10, 12, 9, 0, tzinfo=UTC)
 SOURCE = "src_text"
 EXT = "ext_text"
-VERSION = "mvp-0.29"
+VERSION = LATEST_ALGORITHM_VERSION
 
 #: section id -> (header, [(text, page)]); spans are numbered t1.. in order.
 UNITS: dict[str, tuple[str, list[tuple[str, int]]]] = {

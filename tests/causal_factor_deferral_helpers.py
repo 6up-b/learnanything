@@ -72,13 +72,10 @@ def _write_diag_item(paths, item_id: str, prompt: str) -> None:
 
 def _vault(tmp_path):
     from learnloop.substrate.state_sync import sync_vault_state
-    from tests.helpers import set_algorithm_version
-
     root = tmp_path / "vault"
     paths = create_basic_vault(root)
-    # The promotion-discipline path under test (`_normalize_compositional`)
-    # runs only in canonical-state vaults.
-    set_algorithm_version(paths, "mvp-0.8")
+    # The promotion-discipline path under test (`_normalize_compositional`) runs only in canonical-state vaults, which
+    # the head is.
     _write_diag_item(paths, ITEM_A, "Which SVD factor is transposed?")
     _write_diag_item(paths, ITEM_B, "In U S V^T, which factor carries the T?")
     vault = load_vault(root)

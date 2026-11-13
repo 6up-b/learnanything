@@ -3,6 +3,7 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 
 from __future__ import annotations
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 import pytest
 
 from tests.split_live_helpers import ReadyRuntime, split_vault
@@ -31,10 +32,10 @@ def _context(root):
     return ctx
 
 
-def _vault(tmp_path, *, config: str = ""):
+def _vault(tmp_path, *, config: str = "", version: str = LATEST_ALGORITHM_VERSION):
     from tests.source_retrieval_fakes import seed_source
 
-    paths, _vault, repository = split_vault(tmp_path, version="mvp-0.27", config=config)
+    paths, _vault, repository = split_vault(tmp_path, version=version, config=config)
     # Reader CA6b fix round 5: the problem's reading exists, with the passages
     # the problems name (s5, s6, s9): the sidecar checks a problem's passages
     # against its reading and refuses another reading's (or none).

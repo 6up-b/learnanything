@@ -3,6 +3,7 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 
 from __future__ import annotations
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, complete_attempt_with_ai_required
 from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 from learnloop.clock import FrozenClock
@@ -62,7 +63,7 @@ def _receipts(repository: Repository, kind: str | None = None) -> list[dict]:
         return receipt_store.list_receipts(connection, kind=kind)
 
 
-def _diagnosed(tmp_path, *, version: str = "mvp-0.10", config: str = "", method: bool = False):
+def _diagnosed(tmp_path, *, version: str = LATEST_ALGORITHM_VERSION, config: str = "", method: bool = False):
     """A split vault with one wrong answer diagnosed (its forecast written).
 
     ``method``: the item is method-explicit (at the method-explicit
