@@ -12,7 +12,10 @@ items off, a rerun an equal waiting proposal answers, and a rerun after the lear
 the append also runs its narrow-adjunct preset. The run's head (what is refused before anything is written, and what
 the manifest and run rows record) has its own cases: an unknown source set, bootstrap's unsupported mode, a run
 refused by its input ceiling after its rows were opened, an unlimited run's budget record, and the append's unit
-filter and revision diff. The fake answers are the house fakes'.
+filter and revision diff. The append's model call has its own cases, which also record each request as sent (its
+schema and output limit) and the budgets declared on its receipt: a span round under a per-request input ceiling,
+answers an over-budget run saved and its rerun reuses, a rejected match followed by a gate failure while another run
+saves an answer again, and a call that fails part way. The fake answers are the house fakes'.
 
 Ids are reproducible: the process's ULID stream is seeded and its clock held for the whole case, setup included.
 Stamps written from the wall clock (the run rows' completion) read ``<wall>``; ids from a stream this does not seed
