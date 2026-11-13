@@ -912,13 +912,21 @@ def _normalize_append(reconciliation, inputs, vault, now, *, subject_id,
 
 
 APPEND = SynthesisMode(
+    name="append",
+    agent_purpose=APPEND_AGENT_PURPOSE,
+    prompt_template="append-reconciliation",
+    output_schema="AppendReconciliation",
+    prompt_version=append_reconciliation_prompt_version,
+    # The neighbourhood's cap is a scaling and safety invariant, recorded even unlimited. ``append_input_ceiling``
+    # is a refusal and stays out of the record.
+    recorded_budgets=("append_neighborhood_input_tokens", "append_output_tokens"),
+    unlimited_recorded_budgets=("append_neighborhood_input_tokens",),
     proposal_purpose=APPEND_PROPOSAL_PURPOSE,
     summary_fallback="append reconciliation for {subject}",
     gate_failure=("append_gate_failed", "Append proposal failed hard quality gates."),
     normalize=_normalize_append,
     append_vocabulary=True,
     facet_action_origin="append",
-    epigraph_mode="append",
     keeps_candidate_for_repair=False,
     checks_client_id_collisions=False,
     analyzes_identifiability=False,

@@ -2341,12 +2341,26 @@ def _create_study_map(
 
 @dataclass(frozen=True)
 class SynthesisMode:
-    """What a bootstrap and an append decide differently once the model has answered. There are two rows,
-    ``BOOTSTRAP`` below and ``APPEND`` in :mod:`source_append`, and each field is one difference between them.
+    """What a bootstrap and an append decide differently, opening the run and once the model has answered. There
+    are two rows, ``BOOTSTRAP`` below and ``APPEND`` in :mod:`source_append`, and each field is one difference
+    between them.
 
     The fields marked "kept" are differences between the two former copies that no spec settles: each keeps its
     mode's behaviour exactly until one rule is chosen (``docs/reviews/refactor-bug-ledger.md`` names the field)."""
 
+    #: The mode's name: what the synthesis run records as its mode, what the epigraph service is told, and the one
+    #: mode besides ``"auto"`` a caller may ask for.
+    name: str
+    #: The agent run's purpose, prompt template and output schema.
+    agent_purpose: str
+    prompt_template: str
+    output_schema: str
+    #: The prompt's version, given whether the one-facet-per-skill rule is in it (facet identity on).
+    prompt_version: Callable[[bool], str]
+    #: The ingest budgets the manifest's ``token_budget`` records, and those an unlimited run still records (a
+    #: context-window size, not a spend ceiling).
+    recorded_budgets: tuple[str, ...]
+    unlimited_recorded_budgets: tuple[str, ...]
     #: The proposal's purpose. A rerun is compared only with earlier proposals of the same purpose.
     proposal_purpose: str
     #: The proposal's summary when the answer has none; ``{subject}`` is the rows' subject.
@@ -2359,8 +2373,6 @@ class SynthesisMode:
     append_vocabulary: bool
     #: Where the run's facet-identity actions say they came from.
     facet_action_origin: str
-    #: The epigraph service's mode.
-    epigraph_mode: str
     #: The answer is saved on the run, so a run that fails after it can be finished with no model call
     #: (``revalidate_synthesis_candidate``, which only bootstrap has).
     keeps_candidate_for_repair: bool
@@ -2378,13 +2390,22 @@ class SynthesisMode:
 
 
 BOOTSTRAP = SynthesisMode(
+    name="bootstrap",
+    agent_purpose=SYNTHESIS_AGENT_PURPOSE,
+    prompt_template="source-set-synthesis",
+    output_schema="SourceSetSynthesis",
+    prompt_version=source_set_synthesis_prompt_version,
+    recorded_budgets=(
+        "synthesis_shard_input_tokens", "synthesis_shard_output_tokens", "synthesis_total_input_ceiling",
+        "synthesis_output_tokens",
+    ),
+    unlimited_recorded_budgets=("synthesis_shard_input_tokens",),
     proposal_purpose=BOOTSTRAP_PROPOSAL_PURPOSE,
     summary_fallback="bootstrap study map for {subject}",
     gate_failure=("synthesis_gate_failed", "Synthesis proposal failed hard quality gates."),
     normalize=_normalize,
     append_vocabulary=False,
     facet_action_origin="ingest",
-    epigraph_mode="bootstrap",
     keeps_candidate_for_repair=True,
     checks_client_id_collisions=True,
     analyzes_identifiability=True,
@@ -2764,7 +2785,7 @@ def finish_synthesis_run(
     generate_vault_epigraphs(
         repository, run.vault, client,
         subject_id=run.source_set.subject_id, source_set_id=run.source_set.id,
-        synthesis_run_id=run.synthesis_run_id, mode=mode.epigraph_mode, digest=digest,
+        synthesis_run_id=run.synthesis_run_id, mode=mode.name, digest=digest,
         brief=run.brief, clock=run.clock,
     )
     return outcome
