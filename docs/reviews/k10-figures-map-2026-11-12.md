@@ -4,7 +4,28 @@ Refactor step K10, job 1: the deep map of "Show me" figures and explanation vide
 
 ## Summary for the owner
 
-(Written last; see the end of this section's commit history. Filled in below.)
+"Show me" is about 24,000 lines of Python (the 25-module `figures/` package is 20,732, with `figure_admission`, the sidecar's handler, the teacher's visuals and the prefetch runtime) and a desktop tree that draws each tier again. It builds three tiers (a declarative grammar figure, a sealed sketch program, a Manim video), verifies each by code before it shows, labels nothing a model wrote as checked, builds ahead of need with a learned, logged decision, and rechecks protection whenever a figure goes out. The parts are often careful: the pre-build model is pure and recorded with its seed, the admission gate stops a build on any configuration change, the sketch runs in a sealed wasm engine pinned by digest, the video renders under bubblewrap in a capped scope. What's expensive is that the package grew by six stages, each adding a switch whose off-state must reproduce its predecessor byte for byte, and nothing was restructured between them.
+
+**The five most costly findings:**
+
+1. **"May this figure go out now?" is answered by about twenty functions in six modules (§3.1; F10B1).** One exam predicate, composed with the figure's homes, its learner-state lineage (stored in three places), item protection and cold rules in different combinations by `service`, `rich`, `prefetch`, `learner_state`, `help` and the sidecar. Each was added by a review round to close the next path, so no function states the rule, and a new host or tier has to find them all.
+2. **`service.py` is eight modules in one, and every stage is a switch that multiplies variants (§1.2, §6.1; F10P1, F10C1, F10C2, F10B5).** 3,956 lines, 78 public names (31 unused outside it), a 304-line author loop holding tier choice, verification, retries, salvage and storage. The prompt version is built from five flags, the reuse key is computed six ways per build, and the view and prompt contract change shape with six and seven switches. About 630 comment lines name a stage or review round, and the module docstring is a stage history.
+3. **The questions people actually ask after a failure have no stored answer (§4; F10O1, F10O2).** A Manim build keeps one failure reason, with no per-attempt record (B8's open item); refusals at the request (exam material, a switch, a cold check, not offered) leave no row at all; why a tier wasn't on the menu and which reuse key matched are computed and dropped.
+4. **One build function, four execution models, and cancel doesn't cancel (§2; F10D1, F10D2, F10U3).** A press is an in-memory job (lost on restart), a video a durable queue job, a lesson figure a synchronous call, a prebuild a drain-thread call. Cancelling a press only hides the job: the build and its paid calls go on, and the figure appears on the next read (candidate K10-1).
+5. **Policy lives in the sidecar handler and is re-derived on the desktop (§3; F10B2, F10B3, F10U1).** The attempt-host rules (host resolution with raw SQL, the take step, one hint-equivalent per figure, the reveal rows, the cost line) are in `handlers/figures.py`, where no second frontend can call them. The desktop recomputes "shown" (four literal copies), the badge for all three tiers (ignoring the server's label, whose wording differs), the cold flag and the quick-only rule, and never reads `withheld`, so a figure withheld at delivery just vanishes.
+
+**Also worth your attention:**
+- **The phone has no figures at all** (§2.6, §8.3): no Show me, no reopening, no video; a figure made on the desktop for a passage is invisible when that passage is read on the phone.
+- **No wait estimate is ever shown** for a press, and the Reader's and Ask panel's polling has no timeout (§8; F10U2). The only measured wait is the pre-builder's, used to decide and never shown.
+- **The cycle is small and local:** `service` ↔ `rich` (with `routes`, `prefetch_ledger`), four modules, all through function-local imports; no figures module is in the codebase's 191-module cycle (§1.3).
+- **Python verification loads the desktop's wasm by path** (`apps/learnloop-tauri/...`), deliberately, for parity (F10P3).
+- **No vault note explains the feature** (F10V1).
+
+**Deciders and purity (§4).** Pure today: the pre-build model's `decide` and `wait_estimate`, the grammar verifier, the parsers' prediction salvage, `request_hash`; nearly pure: the sketch verifier (a sealed engine from disk, a budget clock). Everything else reads the database or a machine probe while deciding: the tier menu, reuse, the author loop, the source check, the filters, the queue's caps and the horizons, the gate, the request checks, delivery. Every figure record is built beside its decider from notes taken during the decision.
+
+**Change cost (§7).** A grammar or verification change touched 2-6 figure files and 1-3 tests; a prompt change one file plus two goldens. A new tier or place (RW5b-RW5d) touched 15-60 source and desktop files and 15-70 tests, most of it shared plumbing (the head fixture, successor re-points, 400-560 generated notes); the figures-specific part of a tier is about 15 places in 7 Python modules plus the desktop.
+
+**Limits.** Code-traced, not run; no vault data. Three sweeps were delegated and spot-checked; what wasn't checked is under "Not verified".
 
 ## How to read this
 
