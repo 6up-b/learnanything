@@ -203,6 +203,11 @@ def stage_target_contents(
             database_names={_database_name(vault)},
             ignore=_STAGING_IGNORE,
         )
+        # What staging read, hashed from the copy it works on: a live file edited
+        # while compilation ran is no pre-image, and a file no item changes is no
+        # target (diffing the staged tree against the live one would record the
+        # edit as the pre-image and write the stale copy over it).
+        baseline = _tree_hashes(staging_root)
         staging_vault = load_vault(staging_root)
         for item in ordered_items:
             if item["validation_status"] == "invalid":
@@ -235,7 +240,7 @@ def stage_target_contents(
                     "db_side_effect": _stamp_side_effect(compiled.db_side_effect, patch_id),
                 }
             )
-        targets = _diff_targets(real_root, staging_root)
+        targets = _changed_targets(staging_root, baseline)
     return targets, db_plan
 
 
@@ -249,7 +254,24 @@ def _stamp_side_effect(side_effect: dict[str, Any] | None, patch_id: str) -> dic
     return stamped
 
 
-def _diff_targets(real_root: Path, staging_root: Path) -> list[dict[str, Any]]:
+def _tree_hashes(root: Path) -> dict[str, str]:
+    """``rel_path -> hash`` of every file the apply may target under ``root``."""
+
+    hashes: dict[str, str] = {}
+    for path in sorted(root.rglob("*")):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(root)
+        if _is_ignored(rel):
+            continue
+        hashes[rel.as_posix()] = _sha256_bytes(path.read_bytes())
+    return hashes
+
+
+def _changed_targets(staging_root: Path, baseline: dict[str, str]) -> list[dict[str, Any]]:
+    """The files the replayed writers changed or created, each recording the
+    hash staging first read as its pre-image (``None`` for a new file)."""
+
     targets: list[dict[str, Any]] = []
     for staged_path in sorted(staging_root.rglob("*")):
         if not staged_path.is_file():
@@ -258,20 +280,16 @@ def _diff_targets(real_root: Path, staging_root: Path) -> list[dict[str, Any]]:
         if _is_ignored(rel):
             continue
         staged_bytes = staged_path.read_bytes()
-        real_path = real_root / rel
-        if real_path.exists():
-            real_bytes = real_path.read_bytes()
-            if real_bytes == staged_bytes:
-                continue
-            pre_hash: str | None = _sha256_bytes(real_bytes)
-        else:
-            pre_hash = None
+        post_hash = _sha256_bytes(staged_bytes)
+        pre_hash = baseline.get(rel.as_posix())
+        if pre_hash == post_hash:
+            continue
         targets.append(
             {
                 "rel_path": rel.as_posix(),
                 "pre_hash": pre_hash,
                 "post_content": staged_bytes.decode("utf-8"),
-                "post_hash": _sha256_bytes(staged_bytes),
+                "post_hash": post_hash,
             }
         )
     return targets
@@ -374,7 +392,7 @@ def target_conflicts(root: Path, targets: list[dict[str, Any]]) -> list[dict[str
     """The targets whose file holds neither ``pre_hash`` (absent when ``None``) nor ``post_hash``.
 
     Only a target that carries a ``pre_hash`` key is checked. Every apply intent's
-    targets do (``_diff_targets`` always writes it, ``None`` for a new file); the
+    targets do (``_changed_targets`` always writes it, ``None`` for a new file); the
     other callers of :func:`materialize_targets` use it as a plain atomic write
     under the vault lock (facet registry saves, doctor's content fixes) and pass
     no pre-image, so they write as before.

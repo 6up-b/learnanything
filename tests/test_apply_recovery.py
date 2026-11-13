@@ -443,6 +443,78 @@ def test_an_accept_whose_target_changes_under_it_writes_nothing_and_rolls_back(t
     assert repository.proposal_item("item_lo")["decision"] == "pending"
 
 
+def _edit_live_file_during_staging(monkeypatch, path: Path, text: str) -> None:
+    """A writer that bypassed the vault lock changes ``path`` once, after staging copied the vault and before it diffs."""
+
+    from learnloop.content.proposals import patches
+
+    real_compile = patches.compile_proposal_item
+    done: list[bool] = []
+
+    def compile_then_race(*args, **kwargs):
+        if not done:
+            done.append(True)
+            path.write_text(text, encoding="utf-8")
+        return real_compile(*args, **kwargs)
+
+    monkeypatch.setattr(patches, "compile_proposal_item", compile_then_race)
+
+
+def test_a_file_edited_while_staging_ran_is_not_overwritten_with_the_stale_copy(tmp_path, monkeypatch):
+    """The staged copy of a file no item touches is not a target: an edit made after the staging copy survives
+    the apply instead of being replaced by what staging read."""
+
+    paths = create_vault_registering_application(tmp_path / "vault")
+    repository = _repo(paths)
+    _seed_lo_and_pi_proposal(repository)
+    unrelated = paths.root / "profile" / "goals.md"
+    _edit_live_file_during_staging(monkeypatch, unrelated, "# edited while the apply staged\n")
+
+    apply_accepted_items(paths.root, "patch_wa")
+
+    assert unrelated.read_text(encoding="utf-8") == "# edited while the apply staged\n"
+    assert repository.proposal_item("item_lo")["decision"] == "accepted"
+
+
+def test_a_target_changed_while_staging_ran_is_refused_and_keeps_the_edit(tmp_path, monkeypatch):
+    """A file an item does change, edited after staging read it, is a target whose pre-image is what staging
+    read: the apply writes nothing and rolls back, as when it changes after staging returns."""
+
+    paths = create_vault_registering_application(tmp_path / "vault")
+    repository = _repo(paths)
+    _seed_lo_and_pi_proposal(repository)
+    lo_file = paths.root / "subjects/linear-algebra/learning-objects" / f"{LO_ID}.yaml"
+    assert not lo_file.exists()
+    _edit_live_file_during_staging(monkeypatch, lo_file, "# written by hand while the apply staged\n")
+
+    with pytest.raises(PatchApplicationError, match="nothing was written"):
+        apply_accepted_items(paths.root, "patch_wa")
+
+    assert lo_file.read_text(encoding="utf-8") == "# written by hand while the apply staged\n"
+    assert repository.outstanding_apply_intents() == []
+    assert repository.proposal_item("item_lo")["decision"] == "pending"
+
+
+def test_only_the_files_the_items_change_become_targets(tmp_path, monkeypatch):
+    """A file edited during staging that no item touches is no target at all, so a retry applies cleanly."""
+
+    paths = create_vault_registering_application(tmp_path / "vault")
+    repository = _repo(paths)
+    _seed_lo_and_pi_proposal(repository)
+    unrelated = paths.root / "profile" / "goals.md"
+    _edit_live_file_during_staging(monkeypatch, unrelated, "# edited while the apply staged\n")
+    requested = repository.pending_proposal_items("patch_wa")
+    ordered_ids, _blocked = apply_protocol.compute_dependency_closure(repository, requested)
+    by_id = {item["id"]: item for item in requested}
+
+    targets, _plan = apply_protocol.stage_target_contents(
+        paths.root, load_vault(paths.root), [by_id[item_id] for item_id in ordered_ids], "codex", "patch_wa", clock=None
+    )
+
+    assert "profile/goals.md" not in {target["rel_path"] for target in targets}
+    assert unrelated.read_text(encoding="utf-8") == "# edited while the apply staged\n"
+
+
 # --- the maintenance action's handler and the owner's settlement ------------------------------------------------------
 
 
