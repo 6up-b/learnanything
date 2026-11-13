@@ -491,6 +491,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_g10_a_phone_admission_is_one_transaction_with_its_cap_count`
 - [tests/test_mobile_v4_plan.py](../../../../../tests/test_mobile_v4_plan.py) — direct import
 - [tests/test_owner_capture_1025.py](../../../../../tests/test_owner_capture_1025.py) — direct import
+- [tests/test_pinned_draws.py](../../../../../tests/test_pinned_draws.py) — direct import
 - [tests/test_placement_opening_probes.py](../../../../../tests/test_placement_opening_probes.py) — direct import
   - `test_an_in_progress_opening_episode_serves_no_probe_and_is_not_parked`
 - [tests/test_placement_sidecar.py](../../../../../tests/test_placement_sidecar.py) — direct import

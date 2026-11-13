@@ -240,6 +240,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_workflows_arm_with_no_room_to_wait_seeds_from_its_identity`
 - [tests/test_instruct_handoff_ih0.py](../../../../../../tests/test_instruct_handoff_ih0.py) — direct import
   - `test_a_slow_llm_within_the_wait_is_served_and_does_not_fall_back`
+- [tests/test_pinned_draws.py](../../../../../../tests/test_pinned_draws.py) — direct import
+  - `test_the_numeric_policy_runs_one_batch`
 - [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
   - `test_f1_the_numeric_answer_is_published_before_any_wait_on_the_llm`
   - `test_f5_mid_block_alternatives_are_ordered_sequences_of_their_own_blocks`
