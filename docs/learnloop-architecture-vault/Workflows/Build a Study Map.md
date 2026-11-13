@@ -68,6 +68,17 @@ uv run learnloop proposals --json --vault "$VAULT"
 > [!important] Gate invariant
 > A candidate is applied only after referential, source-grounding, rubric, dependency, and identifiability gates accept it. Model output is a proposal; validators own acceptance.
 
+### One tail, two modes
+
+Bootstrap and append differ in what they read and ask (their heads: the whole scope's inventories in shards, or the new inventories with a bounded neighbourhood) and share everything after the answer: `finish_synthesis_run` in `content/synthesis/source_set_synthesis.py`. It plans facet identity, normalizes, runs the synthesis gates and the instrument gates, compares the rows with the set's earlier proposals (an equal waiting proposal is the result; an equal wholly rejected one is paid for again, once), persists, finalizes the run rows, applies, and writes epigraphs. What the two modes decide differently is one record with a row each, `SynthesisMode` (`BOOTSTRAP`, and `APPEND` in `source_append.py`):
+
+- the append's normalizer adds its own item kinds (provenance links, notation mappings, conflicts, restructures) and the client ids §10.3 auto-applies; the gates judge the append vocabulary;
+- bootstrap keeps its candidate on the run for the zero-call repair below; append has none;
+- what is applied: bootstrap the whole proposal (and the exam goal) when asked; append its routine links, then the study-map diff and the facet doctor;
+- the gate-failure code (`synthesis_gate_failed` or `append_gate_failed`), the proposal's purpose and the epigraph digest.
+
+A few differences are kept as they were until one rule is chosen: an append runs no identifiability analysis (so the invariant above holds for bootstrap only), has no typed client-id collision check, records its run's usage only with a new proposal, records no resolved span hashes, and drains its client's usage at the end of the run. The refactor bug ledger lists them (K2-9 to K2-15).
+
 ## Apply deliberately
 
 For a new run that should apply on success:

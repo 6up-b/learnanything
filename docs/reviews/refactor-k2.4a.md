@@ -65,3 +65,108 @@ What append adds beyond bootstrap, all kept as the append's: the provenance-link
 restructure items with §10.3's auto-apply predicate (row 9), the narrow-adjunct preset (row 5), the neighbourhood (its
 head's; it reaches the tail only through the epigraph digest, row 29), the study-map diff and the facet doctor
 (row 26).
+
+## What each difference became
+
+| Row | Outcome |
+|---|---|
+| 1 | One loop, in `finish_synthesis_run`; the gate stage raises `RejectedProposalMatch` for both modes. |
+| 2 | The mode's `ask`: bootstrap's `_run_synthesis` under `declared_budgets`; append's `_run_reconciliation` and its preset. Both return a `SynthesisAnswer`. |
+| 3 | Kept: the mode's `drop_answers`. Bootstrap's is `_SavedAnswers.discard`, which now forgets what it dropped (the reset after a rejected match did that); append's is `_AppendCall.discard_answers`, unchanged. K2-15. |
+| 4, 24 | Kept: `SynthesisMode.meters_the_model_call`. A metered run drains after each answer and passes its sum; an unmetered one passes `usage=None` and its client, so `finish_agent_run` drains at completion. K2-13. |
+| 5 | `_within_preset`, inside the append's `ask`; its record is `SynthesisAnswer.diagnostics`. |
+| 6 | Unified: facet identity reads the answer itself; progress comes from the run (append has none). |
+| 7 | Kept: `SynthesisMode.usage_only_with_a_proposal` (the matched completion, the gate stage's `_fail` and the failure arm record no usage for append). The usage itself is computed one way for both: the answer's own record (append: none) plus the facet-identity plan. K2-11. |
+| 8 | `SynthesisMode.keeps_candidate_for_repair`; the gate failure's run id and preserved flag follow it. |
+| 9 | `SynthesisMode.normalize`. `_normalize_append` returns `_Normalized` (with the new `auto_apply_ids` field) and drops its unread parameter. |
+| 10 | Kept: `SynthesisMode.checks_client_id_collisions`. K2-10. |
+| 11, 19 | Kept: `SynthesisMode.analyzes_identifiability`; with no findings, `_persist_generation_needs` writes nothing, as before. K2-9. |
+| 12 | `SynthesisMode.append_vocabulary`, passed to `_gate_context(append_mode=...)`. |
+| 13, 14, 16 | Unified in `_gate_and_persist`: the gate proposal from `_Normalized`; diagnostics are the report, the normalizer's records, the answer's records, then the instrument gates'. |
+| 15 | `SynthesisMode.gate_failure`. The gate stage's own `_fail` now also runs for append; the failure arm completes both rows again, so the final rows are those the append wrote before. `_fail` passes no client, so it never drains an unmetered client before the arm does. |
+| 17, 20, 21 | `SynthesisMode.proposal_purpose`, `summary_fallback`, `facet_action_origin`; the coverage records `auto_apply_item_ids` exactly when the normalizer returns them (append), on a match too. |
+| 18, 22 | As rows 4, 7 and 17; the hashes are `SynthesisAnswer.resolved_span_hashes`, `None` for append (K2-12). |
+| 23 | One arm reading the mode (gate-failure code, the kept candidate, the usage rule, metering). |
+| 25 | `_count` deleted (proof below). |
+| 26 | The mode's `apply`: `_apply_map` for bootstrap (the apply and goal wiring `_apply_and_wire_goal` did; that function stays for revalidation and delegates), `_apply_routine_items` for append (the auto/review split, §10.3's lane, the diff and the facet doctor). Each returns the fields it adds to its result. |
+| 27, 28 | In the tail. |
+| 29 | `SynthesisMode.epigraph_mode` and `SynthesisRun.digest_extras` (append: its new inventories and neighbourhood context; bootstrap: none, so the rows' digest). |
+| 30 | Kept: `SynthesisMode.resolves_an_empty_subject`, evaluated where bootstrap evaluated it (inside the failure arms, after the candidate is kept), so even its `missing_subject` failure finalizes the same rows. K2-14. |
+| 31, 32 | Unified: progress on the run; items off read from the resolved brief in the tail. |
+
+## The shape
+
+- **`finish_synthesis_run(run, mode, *, ask, drop_answers, apply)`** in `content/synthesis/source_set_synthesis.py`, beside `_gate_and_persist`, which it calls and which candidate revalidation also calls. That module is where it reads best: it already holds the normalizer, the gate stage, the answers store and `StudyMapError`, and `source_append` imports from it (the reverse import would be a cycle).
+- **`SynthesisMode`**, a frozen record with two rows (`BOOTSTRAP` here, `APPEND` in `source_append`): side by side they are the table of what the modes decide differently. Five fields are kept differences and say so.
+- **`SynthesisRun`**, the frozen input record: what the head opened (vault, repository, source set, inputs, resolved brief, run ids, clients, nominator, progress, the epigraph digest's extras).
+- **`SynthesisAnswer`** (what `ask` returns) and **`SynthesisOutcome`** (what the tail returns): return values.
+- **Three callables, each the mode's own behaviour:** `ask` and `drop_answers` are the mode's model call and the answers it saved (bootstrap's shards and passes; the append's call and span round). K2.4c puts the append through the shard runner, and both become one. `apply` is what each mode applies after persisting and what follows it (bootstrap: the whole proposal and the exam goal, when asked; append: §10.3's routine items, then the diff and the facet doctor). The owner's open auto-apply call (KX4) changes only the append's. The normalizer is a field of the mode row, not a per-run callable.
+- **Not added:** no strategy class, registry or protocol. `_create_study_map` and `_append` keep their heads (K2.4b) and their calls (K2.4c), and build their own result from the outcome.
+
+## Deletion proofs (strategy §2.1)
+
+- **`source_append._count`** (deleted in `36bafabe90`): its one caller was `_append`'s result. `git grep -nw _count` over `src`, `tests`, `scripts` and `apps` finds no other reference to it (one unrelated test helper of the same name in `tests/test_notes_linked.py`, its own). It is private, so no `importlib`, Typer, `METHOD_REGISTRY`, `MODULE_INVENTORY` or `_reg_const` entry names it; no frontend, replay, rebuild or upgrade path reads proposal construction. `_count_items` is the same function.
+- **`_append`'s gates, instrument gates, proposal match, persist block, failure arms, apply block and epigraph call** (`5d8d117dfd`, `67827d0ecd`): inline code, not functions; `_gate_and_persist` and `finish_synthesis_run` run it, as the goldens show.
+- **Nothing else is deleted.** `_apply_and_wire_goal` stays (revalidation and `test_decider_landing` call it) and delegates to `_apply_map`. The append module no longer imports `run_synthesis_gates`, `GateProposal`, `match_proposal`, `_gate_context`, `_facet_identity_plan`, `facet_identity_result`, `finish_agent_run` or the epigraph functions; each is still defined where it was.
+
+## Goldens (P-golden)
+
+`tests/test_synthesis_tail_golden.py`, 13 cases, files under `tests/goldens/synthesis_tail/`, committed at the base (`91afb45416`) and unchanged by every later commit (run after each).
+
+| Case | Mode | Covers |
+|---|---|---|
+| `bootstrap_clean_applied` | bootstrap | a clean run with an exam source, applied, with the exam goal |
+| `bootstrap_gate_fails` | bootstrap | a vacuous recipe the synthesis gates hard-fail (`synthesis_gate_failed`, candidate kept) |
+| `bootstrap_instrument_gate_holds` | bootstrap | a selected-response item the instrument gates mark invalid |
+| `bootstrap_items_off` | bootstrap | `practice_items = as_you_read`, applied |
+| `bootstrap_rerun_waiting` | bootstrap | a rerun equal to the waiting proposal, applied (K2.3's match) |
+| `bootstrap_rerun_rejected` | bootstrap | a rerun after the whole proposal was rejected: answers dropped, paid again, persisted |
+| `append_clean_applied` | append | a link (auto-applied), a notation mapping and a conflict (reviewed); diff and facet doctor |
+| `append_gate_fails` | append | an exam-only facet reword the gates hard-fail (`append_gate_failed`) |
+| `append_instrument_gate_holds` | append | a selected-response practice item, upfront |
+| `append_items_off` | append | a practice item dropped by items off |
+| `append_rerun_waiting` | append | a rerun equal to a waiting append, with auto-apply: its waiting link applies |
+| `append_rerun_rejected` | append | a rerun after the whole append was rejected |
+| `append_narrow_adjunct` | append | the preset drops a model restructure, with its review record |
+
+Each record holds every row the build added, changed or removed, table by table (proposal batch, items with their validation and instrument-gate audit, dependencies, manifest, agent and synthesis runs with recorded tokens, checkpoints, shard results, generation needs, links, change batches, epigraphs, and the rows an apply writes), the vault files it changed, the model requests in order (purpose and prompt digest), and the result or typed error. Ids are reproducible (the process's ULID stream seeded, its clock held); wall-clock stamps read `<wall>`. The fake client reports 100 input and 10 output tokens per request, so the agent runs' recorded tokens show where each mode drains.
+
+**Not covered by the goldens:** K2-13 (no item carries persona material, so no instrument-gate call is made on the client); K2-10 and K2-14 (a duplicate client id, an empty subject); the facet-identity judge answering (it is unavailable in every case, so the plan is `judge_unavailable` and no action rows are written). Those paths are kept by reading the code: each is one mode field.
+
+## Tests changed
+
+- `tests/test_synthesis_answer_reuse.py::test_an_append_rejection_keeps_a_fresh_answer_another_run_saved` patched `source_append.run_synthesis_gates`, which the append no longer calls (T4). Ported to plain values: the fake's first answer asks for a span round; its second (the span round) simulates the other run (drop the first answer's checkpoint and save a fresh one under the key) and answers an exam-only reword the gates reject. Its assertion is unchanged: one stored answer, the fresh one. It still fails when a discard drops by key alone (checked with a throwaway plugin that ignores the stored form).
+- No assertion changed. The bootstrap tests that patch `source_set_synthesis._gate_and_persist` and `_facet_identity_plan` keep working: both names stay in that module, called from the tail by the same names.
+
+## Measures
+
+| | base `655e7a2d07` | tip |
+|---|---|---|
+| `source_set_synthesis.py` lines | 3,897 | 4,108 |
+| `source_append.py` lines | 1,310 | 1,205 |
+| both | 5,207 | 5,313 |
+| `_create_study_map` | 216 | 140 |
+| `_append` | 330 | 146 |
+| `_gate_and_persist` | 172 | 187 |
+| `finish_synthesis_run` | none | 123 |
+| functions over 200 lines in the two files | 4 (`_normalize` 1,081, `_append` 330, `_normalize_append` 224, `_create_study_map` 216) | 2 (`_normalize` 1,081, `_normalize_append` 221) |
+
+The two files grow by 106 lines together: the tail's records carry a line of documentation per field (`SynthesisMode` alone is about 50 lines with its two rows), and `_apply_map` and `_apply_routine_items` are named functions now. The copy is gone: the tail's stages exist once.
+
+## Judgment calls
+
+1. **The loop is in the tail.** Apply and epigraphs belong to the tail and must run outside the failure arms (a failed apply leaves the run completed), so the arms, and with them the loop and the model call they cover, are the tail's. The mode supplies the call as `ask`.
+2. **Three callables** (`ask`, `drop_answers`, `apply`), each justified above; the normalizer is a mode field. A value could not replace any of them: each is behaviour that differs by mode and runs at a point the tail decides.
+3. **`apply` returns the fields it adds to the mode's result,** so each orchestrator builds its result once from the outcome, and the tail knows neither result type.
+4. **Four records, not one.** `SynthesisMode` (static, two rows) and `SynthesisRun` (per run) are the input; `SynthesisAnswer` and `SynthesisOutcome` are return values. Folding the mode into the run would make every run restate the table; tuples for the returns would be harder to read than the two small records.
+5. **Kept differences are mode fields named for what they mean,** not branches on a mode name: five booleans (`checks_client_id_collisions`, `analyzes_identifiability`, `meters_the_model_call`, `usage_only_with_a_proposal`, `resolves_an_empty_subject`), each read in one or two places. The shared function stays shorter than the two copies were, so no stop was needed.
+6. **Row 15:** the append now passes through the gate stage's own `_fail` before its failure arm. The final rows are equal (the arm rewrites status, error, coverage and usage), and `_fail` passes no client so an unmetered client is drained once, by the arm.
+7. **Row 3:** `_SavedAnswers.discard` forgets what it dropped, in place of the orchestrator's reset; equal on every input.
+8. **Row 6:** the append's facet identity reads its answer, not a two-field copy; `build_plan` reads only `concepts`, `concept_relations` and `facets`.
+9. **The goldens' append vault** is the house `_bootstrap_and_add` without the inventory's alias, because the neighbourhood's record otherwise follows the process's hash seed (K2-16, filed). The golden harness seeds the ULID stream through `learnloop.ids`' private clock and randomness, as `tests/hint_telemetry_helpers.py` and `tests/ad23_contract_helpers.py` already do.
+10. **The vault note** describes the shared tail and the kept differences; its other K2.4 lines (`:55`'s example, `:60`'s routing rule) are K2.4b's.
+
+## Ledger
+
+- **K2-9 to K2-15** (new): the seven kept differences, open for the behaviour track, due at arc K's close.
+- **K2-16** (new): the append neighbourhood's set order, found writing the goldens; a small fix, open.
