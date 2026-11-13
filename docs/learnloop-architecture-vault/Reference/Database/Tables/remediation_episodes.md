@@ -91,9 +91,10 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository._release_cold_reservation()`
+- `Repository._remediation_cold_item_ids()`
 - `Repository.create_remediation_episode()`
 - `Repository.get_or_create_open_remediation_episode()`
-- `Repository.open_remediation_cold_item_ids()`
 - `Repository.open_remediation_episode_for_case()`
 - `Repository.open_remediation_episode_for_primed_item()`
 - `Repository.open_remediation_episodes_for_item()`
@@ -119,9 +120,6 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/guided_redo.py`
 - `src/learnloop/diagnosis/remediation.py`
-- `src/learnloop/instructional/policy.py`
-- `src/learnloop/learner_protection.py`
-- `src/learnloop/scheduling/serving_exclusions.py`
 - `src/learnloop_sidecar/handlers/remediation.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
 

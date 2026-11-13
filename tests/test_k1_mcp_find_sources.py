@@ -54,3 +54,30 @@ def test_a_problem_set_passage_is_not_returned_to_the_chat_host(tmp_path):
                                          _hit("ext_book", book, "an ordinary passage")], Withheld())
     assert [(p["citation"]["extraction_id"], p["citation"]["span_id"]) for p in payload["passages"]] == [("ext_book", book)]
     assert payload["withheld"]["exam_material"] == 1
+
+
+def test_a_reserved_probe_passage_never_reaches_the_verification_model(tmp_path, monkeypatch):
+    """The verification model reads the pool's text. A passage the response would withhold (a probe item's
+    own) leaves the pool first, and is still counted."""
+
+    from learnloop.learner_protection import Withheld as _Withheld
+    from learnloop.source_retrieval import find_sources as FS
+
+    paths, repository = build_retrieval_vault(tmp_path / "vault", embeddings=False)
+    reserved = _spans(repository, "ext_book")[2]
+    monkeypatch.setattr("learnloop.source_retrieval.corpus.item_exclusions",
+                        lambda _repository, _item: Exclusions(frozenset(), frozenset({("ext_book", reserved)})))
+    withheld = _Withheld(reasons={"probe_item": WITHHELD_PROBE}, known_items=frozenset({"probe_item"}))
+    monkeypatch.setattr("learnloop.learner_context.withheld_items", lambda _vault, _repository: withheld)
+    judged: list[tuple[str, str]] = []
+
+    def record(_vault, _repository, *, pool, **_kwargs):
+        judged.extend(hit.key for hit in pool)
+        return "verified", {}, [], None
+
+    monkeypatch.setattr(FS, "_verify", record)
+    vault = load_vault(paths.root)
+    result = RS.find_passages(vault, repository, "eigenvalues of a matrix", call_id="call_1", verify=True)
+    assert judged, "the verification was not reached: the fixture proves nothing"
+    assert ("ext_book", reserved) not in judged
+    assert result.payload["withheld"]["held_for_a_check"] >= 1

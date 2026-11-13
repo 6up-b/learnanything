@@ -1320,6 +1320,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_hard_correct_completes_probe_on_hypothesis_convergence`
 - [tests/test_item_authoring.py](../../../../../tests/test_item_authoring.py) — direct import
 - [tests/test_item_parameters.py](../../../../../tests/test_item_parameters.py) — direct import
+- [tests/test_k1_remediation_cold_reservation.py](../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import
+  - `test_a_cold_retry_that_expires_unanswered_releases_its_reservation`
+  - `test_an_episode_whose_cold_retry_was_never_scheduled_reserves_nothing_after_its_primed_attempt`
 - [tests/test_kinship_feature.py](../../../../../tests/test_kinship_feature.py) — direct import
 - [tests/test_km2_sim_gates.py](../../../../../tests/test_km2_sim_gates.py) — direct import
   - `test_no_capability_inflation_sim`

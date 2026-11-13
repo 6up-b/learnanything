@@ -438,30 +438,33 @@ def upsert_source_set(
     records."""
 
     paths = _vault_paths(root)
-    data = _read_yaml_or(paths.source_sets_path, {"schema_version": 1, "source_sets": []})
-    source_sets = data.setdefault("source_sets", [])
-    if not isinstance(source_sets, list):
-        raise VaultWriterError("sources/source_sets.yaml must contain a source_sets list")
-    raw = _payload(payload)
-    set_id = str(raw.get("id") or "")
-    if not set_id:
-        raise VaultWriterError("Source set id is required")
-    index = _list_index_by_id(source_sets, set_id)
-    existing = _mapping(source_sets[index]) if index is not None else {}
-    if isinstance(raw.get("members"), list):
-        raw = {**raw, "members": _keep_scope_readings(existing.get("members"), raw["members"])}
-    merged = _merge_entity(existing, raw, SOURCE_SET_ORDER, clock=clock)
-    validated = SourceSet.model_validate(merged).model_dump(mode="json", exclude_none=False)
-    # A book this write makes exam material in the set, or stops making it.
-    changed = exam_member_sources(existing.get("members")) ^ exam_member_sources(validated.get("members"))
-    if changed:
-        _record_exam_qualification(paths.sqlite_path, changed, clock=clock)
-    if index is None:
-        source_sets.append(validated)
-    else:
-        source_sets[index] = validated
-    write_yaml_atomic(paths.source_sets_path, data)
-    return paths.source_sets_path
+    # Read, merge and publish under the vault mutation lock, from every caller (the CLI too): two saves that
+    # read the same file would otherwise let the later one erase the earlier one's exam membership.
+    with vault_mutation_lock(paths.root, purpose="source_set_write"):
+        data = _read_yaml_or(paths.source_sets_path, {"schema_version": 1, "source_sets": []})
+        source_sets = data.setdefault("source_sets", [])
+        if not isinstance(source_sets, list):
+            raise VaultWriterError("sources/source_sets.yaml must contain a source_sets list")
+        raw = _payload(payload)
+        set_id = str(raw.get("id") or "")
+        if not set_id:
+            raise VaultWriterError("Source set id is required")
+        index = _list_index_by_id(source_sets, set_id)
+        existing = _mapping(source_sets[index]) if index is not None else {}
+        if isinstance(raw.get("members"), list):
+            raw = {**raw, "members": _keep_scope_readings(existing.get("members"), raw["members"])}
+        merged = _merge_entity(existing, raw, SOURCE_SET_ORDER, clock=clock)
+        validated = SourceSet.model_validate(merged).model_dump(mode="json", exclude_none=False)
+        # A book this write makes exam material in the set, or stops making it.
+        changed = exam_member_sources(existing.get("members")) ^ exam_member_sources(validated.get("members"))
+        if changed:
+            _record_exam_qualification(paths.sqlite_path, changed, clock=clock)
+        if index is None:
+            source_sets.append(validated)
+        else:
+            source_sets[index] = validated
+        write_yaml_atomic(paths.source_sets_path, data)
+        return paths.source_sets_path
 
 
 def _record_exam_qualification(sqlite_path: Path, source_ids: set[str], *, clock: Clock | None) -> None:

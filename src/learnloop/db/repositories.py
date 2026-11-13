@@ -4113,6 +4113,16 @@ class Repository(
         now = utc_now_iso(clock)
         with self.connection() as connection:
             if not self._read_only:
+                lapsed_episodes = {
+                    str(row[0]) for row in connection.execute(
+                        """
+                        SELECT remediation_episode_id FROM followup_tasks
+                        WHERE kind = 'cold_retry' AND remediation_episode_id IS NOT NULL
+                          AND status IN ('pending', 'served') AND expires_at IS NOT NULL AND expires_at < ?
+                        """,
+                        (now,),
+                    )
+                }
                 connection.execute(
                     """
                     UPDATE followup_tasks SET status = 'expired', updated_at = ?
@@ -4121,6 +4131,9 @@ class Repository(
                     """,
                     (now, now),
                 )
+                # The retry the episode reserved its cold item for has ended unanswered.
+                for episode_id in sorted(lapsed_episodes):
+                    self._release_cold_reservation(connection, episode_id, now)
             rows = connection.execute(
                 """
                 SELECT * FROM followup_tasks
@@ -4192,17 +4205,65 @@ class Repository(
             ).fetchone()
         return _decode_followup_task(row) if row is not None else None
 
-    def open_remediation_cold_item_ids(self) -> set[str]:
-        """The cold items live remediation episodes chose, before their cold
-        task exists (it is created after the primed attempt): reserved from
-        the moment they are chosen."""
+    @staticmethod
+    def _release_cold_reservation(connection: Any, episode_id: str, now: str) -> bool:
+        """End a ``cold_scheduled`` episode whose cold retry has no open task left, so its cold item
+        stops being reserved. An episode with a live retry (a replacement was scheduled) is untouched."""
+
+        cursor = connection.execute(
+            """
+            UPDATE remediation_episodes SET state = 'abandoned', updated_at = ?
+            WHERE id = ? AND state = 'cold_scheduled'
+              AND NOT EXISTS (
+                SELECT 1 FROM followup_tasks
+                WHERE remediation_episode_id = remediation_episodes.id AND kind = 'cold_retry'
+                  AND status IN ('pending', 'served'))
+            """,
+            (now, episode_id),
+        )
+        return cursor.rowcount > 0
+
+    def release_cold_reservation(self, episode_id: str, *, clock: Clock | None = None) -> bool:
+        """:meth:`_release_cold_reservation` for the caller that ended the retry (a withdrawal)."""
 
         with self.connection() as connection:
+            released = self._release_cold_reservation(connection, episode_id, utc_now_iso(clock))
+            connection.commit()
+        return released
+
+    def _remediation_cold_item_ids(self, *, awaiting_primed: bool) -> set[str]:
+        """Cold items of live remediation episodes: those with a cold retry open, and (``awaiting_primed``)
+        those still waiting for the primed attempt, before any task exists. An episode that took its primed
+        attempt and has no open retry reserves nothing: a retry that was never scheduled has nothing left to
+        protect."""
+
+        waiting = "primed_attempt_id IS NULL OR " if awaiting_primed else ""
+        with self.connection() as connection:
             rows = connection.execute(
-                "SELECT cold_item_id FROM remediation_episodes WHERE cold_item_id IS NOT NULL "
-                "AND state NOT IN ('completed', 'abandoned')"
+                f"""
+                SELECT cold_item_id FROM remediation_episodes AS episode
+                WHERE cold_item_id IS NOT NULL AND state NOT IN ('completed', 'abandoned')
+                  AND ({waiting}EXISTS (
+                    SELECT 1 FROM followup_tasks AS task
+                    WHERE task.remediation_episode_id = episode.id AND task.kind = 'cold_retry'
+                      AND task.status IN ('pending', 'served')))
+                """
             ).fetchall()
         return {str(row[0]) for row in rows}
+
+    def open_remediation_cold_item_ids(self) -> set[str]:
+        """The wider reservation, for the learner-initiated selectors and the tutor (``find_practice``, the
+        quick check, practice admission, AD's slot check, ``cold_administration_open``, protection): the cold
+        item is held from the moment the episode chooses it, while its primed attempt is still to be taken."""
+
+        return self._remediation_cold_item_ids(awaiting_primed=True)
+
+    def pending_remediation_cold_item_ids(self) -> set[str]:
+        """The narrower reservation Today's routine queue honours: only an open cold retry. An episode whose
+        primed attempt is never taken has no lifetime (nothing ends it), and withholding the item from the
+        queue without one would take it out of practice indefinitely, so the queue waits for a real check."""
+
+        return self._remediation_cold_item_ids(awaiting_primed=False)
 
     def open_followup_tasks_of_kind(
         self, kind: str, *, learning_object_id: str | None = None

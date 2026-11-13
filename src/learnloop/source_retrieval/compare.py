@@ -64,10 +64,11 @@ A v2 request is cached under its own identity, never reusing a v1 row.
 """
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
 import time
+from types import SimpleNamespace
 from typing import Any, Literal
 
 from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable
@@ -250,7 +251,12 @@ def compare_sources(
     verify_client: Any | None = None,
     embedder: Any | None = None,
     clock: Clock | None = None,
+    withhold: Callable[[Sequence[Any]], Mapping[tuple[str, str], str]] | None = None,
 ) -> Comparison:
+    """``withhold`` is a caller's own rule from candidate passages (anything with ``extraction_id`` and
+    ``span_id``) to the reason it may not be read: they leave the pins, the anchor and the candidates before
+    any verification or comparison model sees them."""
+
     config = vault.config.source_service
     # The comparison's kill switch, at the boundary every entry point shares
     # (propose_comparison, find_sources(intent="compare"), the RPCs and the
@@ -266,7 +272,7 @@ def compare_sources(
                                 pinned_span_keys=pinned_span_keys, anchor_span_keys=anchor_span_keys,
                                 source_ids=source_ids, by_point=by_point, policy=policy, deadline=deadline,
                                 client=client,
-                                verify_client=verify_client, embedder=embedder, clock=clock)
+                                verify_client=verify_client, embedder=embedder, clock=clock, withhold=withhold)
 
 
 def _compare_sources(
@@ -288,6 +294,7 @@ def _compare_sources(
     verify_client: Any | None,
     embedder: Any | None,
     clock: Clock | None,
+    withhold: Callable[[Sequence[Any]], Mapping[tuple[str, str], str]] | None = None,
 ) -> Comparison:
     config = vault.config.source_service
     derived, reason = derive_policy(caller)
@@ -330,11 +337,14 @@ def _compare_sources(
         # it never reaches the verification or comparison model, whatever the
         # policy.
         exam_keys = exam_withheld(vault, repository, keys)
+        caller_keys = dict(withhold([SimpleNamespace(extraction_id=key[0], span_id=key[1]) for key in sorted(keys)])
+                           ) if withhold is not None and keys else {}
         for key in sorted(keys):
             block = found.get(key)
             # The exam label first: a scope that leaves exam material out (the
             # teaching scope, post_attempt's) would otherwise give a vaguer reason.
             why = NO_SUCH_PASSAGE if block is None else "it is exam material" if key in exam_keys \
+                else "the caller may not read it" if key in caller_keys \
                 else _pin_reason(scope, key, policy=derived, item=item)
             if why is None and derived == "assisted_practice" and item is not None and span_leaks_expected(
                     block.text, item.expected_answer):
@@ -441,6 +451,12 @@ def _compare_sources(
         per_source = {source_id: kept for source_id, hits in per_source.items()
                       if (kept := [hit for hit in hits if hit.key not in exam])}
         result.manifest["exam_withheld"] = len(exam)
+    if withhold is not None and per_source:
+        barred = dict(withhold([hit for hits in per_source.values() for hit in hits]))
+        if barred:
+            per_source = {source_id: kept for source_id, hits in per_source.items()
+                          if (kept := [hit for hit in hits if hit.key not in barred])}
+            result.manifest["withheld_before_verification"] = len(barred)
     # Verify each source's best keys in pages, best-ranked sources first.
     ordered_sources = sorted(per_source, key=lambda sid: min(min(hit.ranks.values() or [999]) for hit in per_source[sid]))
     verified: dict[str, SpanHit] = {}

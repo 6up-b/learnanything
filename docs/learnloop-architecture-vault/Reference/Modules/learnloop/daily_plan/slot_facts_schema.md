@@ -47,30 +47,30 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/slot_facts_schema.py](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py) |
-| Source lines | 257 |
+| Source lines | 258 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class SlotFactsError(ValueError)` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 57) — The wire record does not satisfy the schema (AD is unavailable for the slot).
-- `class SlotInputs` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 62) — What AD's phase 1 hands the plan (AD to the incumbent): the candidates AD's view shows (the slot item and its never-attempted visible siblings at its capability, or the deferred items), their learning objects and AD's estimates, the item states as AD's view reads them and the re…
-- `class SlotFacts` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 77) — The plan's verdicts on one slot (``kind = "slot"``) or on the boundary's AD deferrals (``kind = "deferrals"``, the slot fields None).
-- `code_for(prefix: str, raw: Any) -> str` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 107) — A refusal's code in the closed vocabulary (``constraint:<key>`` or ``pool:<reason>``).
-- `encode(facts: SlotFacts) -> str` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 115) — Canonical JSON (sorted keys).
-- `decode(wire: str, *, visible: Iterable[str], learning_objects: Iterable[str]=()) -> SlotFacts` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 155) — The facts as AD may read them: schema-checked, every item id projected onto ``visible`` (the items AD's own view shows), the slot's LO id onto ``learning_objects`` (those AD's own phase 1 saw), every reason in the closed vocabulary.
-- `exclusion_sets(facts: SlotFacts) -> Any` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 248) — The routine exclusions as AD's check 0 reads them (``ServingExclusions``' attribute names).
+- `class SlotFactsError(ValueError)` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 58) — The wire record does not satisfy the schema (AD is unavailable for the slot).
+- `class SlotInputs` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 63) — What AD's phase 1 hands the plan (AD to the incumbent): the candidates AD's view shows (the slot item and its never-attempted visible siblings at its capability, or the deferred items), their learning objects and AD's estimates, the item states as AD's view reads them and the re…
+- `class SlotFacts` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 78) — The plan's verdicts on one slot (``kind = "slot"``) or on the boundary's AD deferrals (``kind = "deferrals"``, the slot fields None).
+- `code_for(prefix: str, raw: Any) -> str` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 108) — A refusal's code in the closed vocabulary (``constraint:<key>`` or ``pool:<reason>``).
+- `encode(facts: SlotFacts) -> str` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 116) — Canonical JSON (sorted keys).
+- `decode(wire: str, *, visible: Iterable[str], learning_objects: Iterable[str]=()) -> SlotFacts` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 156) — The facts as AD may read them: schema-checked, every item id projected onto ``visible`` (the items AD's own view shows), the slot's LO id onto ``learning_objects`` (those AD's own phase 1 saw), every reason in the closed vocabulary.
+- `exclusion_sets(facts: SlotFacts) -> Any` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 249) — The routine exclusions as AD's check 0 reads them (``ServingExclusions``' attribute names).
 
 ### Module constants
 
 - `VERSION` ([src/learnloop/daily_plan/slot_facts_schema.py](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 23)
 - `CONSTRAINT_CODES` ([src/learnloop/daily_plan/slot_facts_schema.py](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 27)
 - `POOL_CODES` ([src/learnloop/daily_plan/slot_facts_schema.py](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 34)
-- `EXCLUSION_NAMES` ([src/learnloop/daily_plan/slot_facts_schema.py](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 45)
-- `BUDGET_FIELDS` ([src/learnloop/daily_plan/slot_facts_schema.py](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 50)
-- `_ID` ([src/learnloop/daily_plan/slot_facts_schema.py](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 54)
-- `_KEYS` ([src/learnloop/daily_plan/slot_facts_schema.py](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 102)
+- `EXCLUSION_NAMES` ([src/learnloop/daily_plan/slot_facts_schema.py](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 46)
+- `BUDGET_FIELDS` ([src/learnloop/daily_plan/slot_facts_schema.py](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 51)
+- `_ID` ([src/learnloop/daily_plan/slot_facts_schema.py](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 55)
+- `_KEYS` ([src/learnloop/daily_plan/slot_facts_schema.py](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 103)
 
 ### Explicit exports
 
@@ -91,10 +91,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_id(value: Any, what: str) -> str` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 133)
-- `_optional_id(value: Any, what: str) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 139)
-- `_number(value: Any, what: str) -> float` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 143)
-- `_items(value: Any, what: str, visible: frozenset[str]) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 149)
+- `_id(value: Any, what: str) -> str` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 134)
+- `_optional_id(value: Any, what: str) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 140)
+- `_number(value: Any, what: str) -> float` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 144)
+- `_items(value: Any, what: str, visible: frozenset[str]) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/daily_plan/slot_facts_schema.py), line 150)
 
 ## Who imports or calls it
 

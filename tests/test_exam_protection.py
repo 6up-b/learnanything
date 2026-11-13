@@ -632,3 +632,42 @@ def test_a_reader_check_over_held_out_material_is_refused_before_any_model_call(
             jobs.handle_reader_quick_check(ctx)
         assert refused.value.code == "exam_material", payload
     assert built == []
+
+
+def test_a_reader_preset_fails_before_any_model_call_when_the_vault_config_disappears(textbook):
+    """A worker holding a model client drains a queued preset after learnloop.toml is gone: a root with no
+    vault config is not a vault with no exam material, so the request fails with no call."""
+
+    from learnloop.content.pipeline import jobs
+    from learnloop.reader import reader_requests as RR
+
+    from learnloop.vault.writer import upsert_source_set
+
+    paths, repository, spans = textbook
+    # An exam scope in the source sets (not a mark in the database) is what holds this reading out.
+    source_set = loaded(paths).source_sets[0].model_dump(mode="json")
+    for member in source_set["members"]:
+        if member["source_id"] == "src_text":
+            member["scope"] = [{"unit_id": "u1", "role_override": "exam"}]
+    upsert_source_set(paths.root, source_set)
+
+    class _NoCalls:
+        provider_name = "fake"
+        provider_type = "fake"
+        model = "fake"
+        calls: list = []
+
+        def supports(self, capability: str) -> bool:
+            return True
+
+        def complete(self, request):
+            self.calls.append(request.purpose)
+            raise AssertionError("no model call without a vault config")
+
+    client = _NoCalls()
+    queued = RR.enqueue_request(repository, source_id="src_text", revision_id="rev_text", extraction_id="ext_text",
+                                span_id=spans["exercises"][1], preset="alt_explanation")
+    (paths.root / "learnloop.toml").unlink()
+    drained = RR.drain_requests(
+        repository, synthesize=RR.model_synthesis(client, source_sets=lambda: jobs._reader_source_sets(paths.root)))
+    assert drained["failed"] == [queued["request_id"]] and client.calls == []

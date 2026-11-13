@@ -348,6 +348,16 @@ def load_vault(
     source_sets_file = _load_yaml_model(paths.source_sets_path, SourceSetsFile, issues, read_yaml_file)
     if source_sets_file:
         loaded.source_sets = source_sets_file.source_sets
+        # An empty file parses as no source sets, with no error. The snapshot must say so for as long as it
+        # lives: a gate that only re-reads the file would pass once the file is restored, and the snapshot
+        # would still hold no exam membership.
+        try:
+            empty = paths.source_sets_path.is_file() and not paths.source_sets_path.read_bytes().strip()
+        except OSError:
+            empty = True
+        if empty:
+            issues.append(DoctorIssue(
+                "yaml:empty", f"{paths.source_sets_path.name} was empty when it loaded", paths.source_sets_path))
 
     error_types_file = _load_yaml_model(paths.error_types_path, ErrorTypesFile, issues, read_yaml_file)
     if error_types_file:

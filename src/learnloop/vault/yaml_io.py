@@ -105,8 +105,11 @@ def write_yaml(path: Path, data: dict[str, Any]) -> None:
 def write_yaml_atomic(path: Path, data: dict[str, Any]) -> None:
     """:func:`write_yaml` that never exposes a truncated file: a reader that
     opens ``path`` mid-write sees the old file or the new one, never an empty
-    one (an empty source sets file reads as no exam material)."""
+    one (an empty source sets file reads as no exam material). A symlinked
+    ``path`` is written through, as the loader reads it: the temporary sits
+    beside the target and replaces the target, so the link stays."""
 
+    path = Path(os.path.realpath(path))
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
     try:

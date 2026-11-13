@@ -246,7 +246,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `SCOPE_ONLY_REFUSAL`, `SourceSetsUnreadable`, `exam_material`, `reference_keys`, `scope_only_among`; statically calls `exam_material`, `reference_keys`, `scope_only_among`
 - [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]] — imports `module`; statically calls `exam_material`
 - [[Reference/Modules/learnloop/content/pipeline/exam_marking|learnloop.content.pipeline.exam_marking]] — imports `AMBIGUOUS_SCOPE`, `AMBIGUOUS_SELECTION`, `HELD_OUT_EVALUATION`, `MARKS_MADE_ON_KEY`, `PROTECTION_MARK_KEY`, `REVIEWED_UNPLACED`, `SourceMarks`, `marks_made_on`, `protected_spans_by_reading`, `source_marks`; statically calls `marks_made_on`, `protected_spans_by_reading`, `source_marks`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `exam_material`, `held_out_among`, `held_out_material`, `held_out_refusal`, `scope_only_among`; statically calls `exam_material`, `held_out_among`, `held_out_material`, `held_out_refusal`, `scope_only_among`
+- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `SourceSetsUnreadable`, `exam_material`, `held_out_among`, `held_out_material`, `held_out_refusal`, `scope_only_among`; statically calls `SourceSetsUnreadable`, `exam_material`, `held_out_among`, `held_out_material`, `held_out_refusal`, `scope_only_among`
 - [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]] — imports `MARKS_MADE_ON_KEY`, `PROTECTION_MARK_KEY`, `source_marks`; statically calls `source_marks`
 - [[Reference/Modules/learnloop/content/pipeline/revision_refresh|learnloop.content.pipeline.revision_refresh]] — imports `is_exam_role`; statically calls `is_exam_role`
 - [[Reference/Modules/learnloop/content/sources/exercise_statements|learnloop.content.sources.exercise_statements]] — imports `module`; statically calls `exam_withheld`
@@ -420,6 +420,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_intent_fix_round7.py](../../../../../../../tests/test_intent_fix_round7.py) — direct import
   - `test_f22_a_protected_set_error_names_its_input`
 - [tests/test_k1_source_sets_gate.py](../../../../../../../tests/test_k1_source_sets_gate.py) — direct import
+  - `test_a_snapshot_loaded_from_an_empty_file_stays_unreadable_after_the_file_is_restored`
   - `test_a_valid_file_still_reads_the_exam_member_as_exam_material`
   - `test_a_vault_double_without_a_root_is_not_gated`
   - `test_every_shared_reader_refuses_unloaded_source_sets`

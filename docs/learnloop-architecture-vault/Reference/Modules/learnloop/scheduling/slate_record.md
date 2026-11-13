@@ -132,6 +132,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_k1_remediation_cold_reservation.py](../../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import
+  - `test_a_reserved_cold_item_is_named_and_counted_by_the_slate_and_why`
 - [tests/test_provenance.py](../../../../../../tests/test_provenance.py) — direct import
   - `test_a_rebuild_never_calls_the_record_and_keeps_its_rows`
 - [tests/test_slate_record.py](../../../../../../tests/test_slate_record.py) — direct import
