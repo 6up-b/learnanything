@@ -56,7 +56,7 @@ Because it is a record, a field that moves (a budget, the task graph, a config d
 
 ## What a rebuild costs
 
-An identical rebuild makes no model calls, but it re-runs the CPU stages that the old run-level lookup skipped: normalization, the gates, the instrument gates, the facet plan and the proposal comparison. On a small book that is milliseconds. On a large candidate the gate stage has been seen to take minutes of pure Python.
+An identical rebuild makes no model calls, but it re-runs the CPU stages that the old run-level lookup skipped: normalization, the gates, the instrument gates, the facet plan and the proposal comparison. Measured on copies of real study maps of 100-200 items, that took about 0.35-1.2 s, where the lookup took 0.16-0.6 s. The gate stage itself takes milliseconds.
 
 The first identical rebuild of a subject whose earlier run predates per-call checkpoints for structuring and persona fire judgements pays those calls once.
 

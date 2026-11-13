@@ -5,15 +5,15 @@ caches landed). Step K2.3 of arc K (`docs/specs/refactor_strategy_v3.md` §2.17)
 `docs/reviews/k2-ingestion-strategy-2026-11-11.md` §3.2 from the K2 map's KX5, KM2, KM6 and KH4. It is a structure
 track step, with the consequences stated below. It changes no learner scoring, scheduling or projection.
 
-**Cost of an identical rebuild (estimate, not measured on a real book).** An identical rebuild no longer stops at a
-run-level lookup. It re-runs the CPU stages that the lookup used to skip: checkpoint replay, normalization, the gates,
-the instrument gates, the facet plan and the proposal comparison. It still makes zero model calls.
+**Cost of an identical rebuild (measured on real vaults).** An identical rebuild no longer stops at a run-level
+lookup. It re-runs the CPU stages that the lookup used to skip: checkpoint replay, normalization, the gates, the
+instrument gates, the facet plan and the proposal comparison. It still makes zero model calls. Measured on backup-API
+copies of the owner's three vaults (at mvp-0.58), it costs about a second at most, not minutes:
+- the lookup hit took 0.16-0.60 s;
+- the re-run takes about 0.35-1.2 s;
+- no stage reaches a second.
 
-- **Synthetic vault, measured.** That cost grows from about 3 ms to about 8 ms on the two-chapter vault. At 642
-  synthetic rows it grows from 57 ms to 0.32 s.
-- **Large book, estimated.** The gate stage of a large real candidate has been seen to take minutes of pure Python
-  (the July synthesis-repair note). An identical rebuild of a large book may therefore take minutes where it took
-  milliseconds. I could not measure this: the backup copies are below the version floor.
+See "Wall time" below for the table and what was timed.
 
 ## The stop, and the decision
 
@@ -238,14 +238,47 @@ Where the tip's time goes:
 The match grows about linearly in rows: one dependency read per item of a candidate proposal, after a cheap check that
 the client ids agree.
 
-**For a large book (estimate, labelled as one).** The fake's items are trivial, so the gates cost almost nothing here.
-On real candidates the July synthesis-repair note records the gate and persist stage as "minutes of pure Python on a
-large candidate", and an identical rebuild now re-runs normalize, gates and instrument gates. So an identical rebuild
-of a large book may take minutes of CPU where the lookup answered in milliseconds. It still makes zero model calls
-(beyond the one-time cost above).
+**On real vaults (measured).** Backup-API copies (`learnloop.db.copies.copy_tree_with_databases`) of the owner's three
+vaults, already upgraded to mvp-0.58, were made under the gitignored `fixtures-local/k23/` and deleted afterwards.
+Each has one source set with a completed bootstrap run, and the newest such run was timed. No model call was made:
+- **Replay.** `_run_synthesis` ran twice. First under a client that answered each pass with the run's own stored shard
+  answer, to seed the checkpoints under that client's settings; then, timed, with every pass answered from its
+  checkpoint (0 answers needed).
+- **Structuring.** The run predates its checkpoint, so the call was refused (1 refused call per run). That is the
+  one-time structuring call.
+- **Facet plan.** Run with stored vectors only and a judge that refuses. The plan stopped at `judge_unavailable`, so
+  judge-checkpoint replay is **not** timed.
+- **Downstream stages.** Normalization, the gates and the instrument gates ran over the run's stored candidate against
+  the vault as it is now. Instrument gates ran without a grading client, so persona fires are not timed. Then the
+  proposal comparison.
+- **Base (the lookup hit).** `_collect_inputs`, `build_manifest` and the indexed `agent_runs` query, timed on the same
+  copy.
+- **Tip total.** Base's inputs and manifest, plus every stage.
 
-I tried to measure that stage over a stored real candidate on a backup-API copy of the `probability` backup. The copy
-is at mvp-0.54, below the version floor (mvp-0.58), so the vault does not open on this code. The copy was deleted.
+| vault | units | items (stored / normalized now) | replay | normalize | gates (incl. identifiability) | instrument gates | facet plan* | match | base (lookup hit) | tip total |
+|---|---|---|---|---|---|---|---|---|---|---|
+| a | 41 | 176 / 104 | 0.079 s | 0.078 s | 0.003 s | 0.000 s | 0.004 s | 0.016 s | 0.167 s | about 0.35 s |
+| b | 19 | 132 / 93 | 0.092 s | 0.050 s | 0.001 s | 0.066 s | 0.002 s | 0.017 s | 0.161 s | about 0.39 s |
+| c | 38 | 285 / 194 | 0.214 s | 0.219 s | 0.004 s | 0.121 s | 0.006 s | 0.023 s | 0.595 s | about 1.18 s |
+
+\* Up to the judge, which refused. In every row, the comparison found no equal proposal: the vault holds the applied
+map now, so the rows differ.
+
+**What this implies.**
+- An identical rebuild of each of the owner's books costs well under the first second over what the lookup cost: about
+  0.2-0.6 s more, spread over replay, normalization and the instrument gates. The gate stage itself is milliseconds.
+- So the July note's "minutes in the gate stage" does not hold for these runs. Its gate stage was on a larger
+  candidate under older code, and was not re-measured here.
+- No fast path is proposed: none of these stages is worth a run-level shortcut.
+
+**Not timed:**
+- the facet-identity judge's checkpoint replay;
+- persona fire checkpoint replay inside the instrument gates;
+- the structuring checkpoint's replay (after its one-time call);
+- append runs, whose context is a bounded neighbourhood.
+
+The normalized row counts are those of the stored candidate against today's vault (fewer than stored, because the map
+is applied), so normalization and gates ran on about 60-70% of the original rows.
 
 ## Vault
 
@@ -332,9 +365,8 @@ is at mvp-0.54, below the version floor (mvp-0.58), so the vault does not open o
 
 ## Open items
 
-- **The CPU cost of an identical rebuild of a large book** (above), unmeasured on a real vault. If it matters, a cheap
-  pre-check could skip normalization when every paid call was answered from its checkpoint and an equal waiting
-  proposal exists. But that is a run-level shortcut again, and the owner's call.
+- **The rebuild cost** was measured on the owner's vaults (above): about 0.35-1.2 s. The judge and persona replay
+  were not timed.
 - **K2-8** (open since K2.2).
 - **The legacy canonical lane's context-hash reuse** (`source_ingestion.py:280`), untouched.
 - **`tests/conftest.py`, `exam_material.py` and `learner_protection.py` were not touched,** and no change there was
