@@ -111,7 +111,7 @@ head's; it reaches the tail only through the epigraph digest, row 29), the study
 
 ## Goldens (P-golden)
 
-`tests/test_synthesis_tail_golden.py`, 13 cases, files under `tests/goldens/synthesis_tail/`, committed at the base (`91afb45416`) and unchanged by every later commit (run after each).
+`tests/test_synthesis_tail_golden.py`, 13 cases, files under `tests/goldens/synthesis_tail/`, committed at the base (`91afb45416`) and run after every later commit, which left them unchanged. One later commit (`22107d0c95`) changed only the harness: the vault's algorithm tag and the manifest hash that folds it in became placeholders, so a successor tag landing elsewhere does not fail them. The files were regenerated with the base's sources checked out (`git checkout 655e7a2d07 -- src`, then back), the only differences were those placeholders, and they pass unchanged at the tip. They passed under `PYTHONHASHSEED` 0-7 and under `-n 4`.
 
 | Case | Mode | Covers |
 |---|---|---|
@@ -170,3 +170,20 @@ The two files grow by 106 lines together: the tail's records carry a line of doc
 
 - **K2-9 to K2-15** (new): the seven kept differences, open for the behaviour track, due at arc K's close.
 - **K2-16** (new): the append neighbourhood's set order, found writing the goldens; a small fix, open.
+
+## Gates
+
+- **Targeted tests.** `scripts/affected_tests.py --base 655e7a2d07` chose 318 files; with the rules block's list and the files this step adds or edits, 327, run at `164796fc5d` with `-m "not arc_close"` in 4 chunks of up to 100 at `-n 4` under the 5 GB cap behind the full-suite lock: 6,359 passed, 26 skipped, 0 failed. After the later test-only and docs commits: the goldens, `test_structure_ratchets`, `test_identity_pins`, `test_test_layout`, `test_architecture`, `test_module_catalog_inventory` and the synthesis files again, all passed.
+- **Identity pins:** unmoved.
+- **Structure ratchets:** lowered (`bb440f7c1e`): functions over 200 lines 82 to 79 (`_append`, `_create_study_map`, and `remediation.reschedule_assisted_cold_retry`, already under 200 at the base); stage-artifact comment lines 2,398 to 2,395 (two in the moved synthesis code, one in `jobs.py` already gone at the base).
+- **Lint:** `lint-imports --no-cache` 42 kept; `ruff check` clean.
+- **Vault validators:** all four pass. **Gate partition:** 30,848 collected (landing 30,788 + arc_close 60).
+- **Regeneration:** after the source commits (`e74bd3639f`), again after the goldens' harness change touched the test references (`e81be18d6a`); a third run changed nothing.
+- **Not run:** the full suite and the durability lane (the orchestrator's landing gate).
+
+## Open items
+
+- K2-9 to K2-16 (above).
+- The goldens do not exercise K2-10, K2-13, K2-14 or a facet-identity judge that answers (see "Not covered").
+- K2.4b (one head) and K2.4c (the append through the shard runner) follow; K2.4c removes `ask`, `drop_answers` and K2-12, K2-15 with them.
+- The Build a Study Map note's `:55` example and `:60` routing rule are K2.4b's.
