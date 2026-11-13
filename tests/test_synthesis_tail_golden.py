@@ -64,7 +64,7 @@ from learnloop.content.synthesis.ai_contracts import (
 from learnloop.content.synthesis.source_append import append_source
 from learnloop.content.synthesis.source_set_synthesis import StudyMapError, create_study_map
 
-from tests.facet_reword_paths_helpers import NEW_SPAN, _facet_restructure
+from tests.facet_reword_paths_helpers import NEW_SPAN, TEXT_SPAN, _facet_restructure
 from tests.source_append_helpers import (
     FakeAppendClient,
     _bootstrap_and_add,
@@ -444,6 +444,21 @@ def test_bootstrap_unlimited_records_only_its_shard_size(tmp_path, seeded_ids):
     record = _record(root, repo, client, lambda: _build(
         root, repo, client, unlimited_token_budget=True, budget_overrides={"synthesis_output_tokens": 123}))
     _check("bootstrap_unlimited", record)
+
+
+def test_bootstrap_requests_as_sent_with_a_span_round(tmp_path, seeded_ids):
+    """Every request a bootstrap sends, whole: its passes (the span round's under what the first left of the output
+    budget), the graph structuring, and the budgets declared on the run's receipts."""
+
+    def builder(context, n):
+        payload = _default_payload(context)
+        if context.resolved_spans:
+            return payload
+        return payload.model_copy(update={"span_requests": [SynthSpanRequest(**TEXT_SPAN, purpose="check")]})
+
+    root, repo = _setup(tmp_path, with_exam=False)
+    client = _SynthesisClient(builder=builder)
+    _check("bootstrap_sent_span_round", _record_sent(root, repo, client, lambda: _build(root, repo, client)))
 
 
 # --- append ------------------------------------------------------------------
