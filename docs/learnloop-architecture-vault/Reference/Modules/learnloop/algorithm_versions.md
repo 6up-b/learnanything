@@ -402,6 +402,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_model_grade_lane.py](../../../../../tests/test_model_grade_lane.py) — direct import
 - [tests/test_mvp017_route_check_replay.py](../../../../../tests/test_mvp017_route_check_replay.py) — direct import
   - `test_an_mvp017_history_at_the_floor_replays_its_grades_and_then_changes_nothing`
+- [tests/test_objective_refinement.py](../../../../../tests/test_objective_refinement.py) — direct import
 - [tests/test_observation_ledger_bulk.py](../../../../../tests/test_observation_ledger_bulk.py) — direct import
   - `test_p0_replays_bulk_load_calibration_references_once`
 - [tests/test_pfc_unverified_unassessed.py](../../../../../tests/test_pfc_unverified_unassessed.py) — direct import
@@ -592,7 +593,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_stuck_answers_pfc_unverified_criteria_are_unassessed`
 - [tests/test_stuck_prompt_replay.py](../../../../../tests/test_stuck_prompt_replay.py) — direct import
   - `test_a_joint_stuck_reading_survives_rebuild_with_no_model_call`
+  - `test_a_recorded_stuck_answer_replays_as_stuck_under_a_tag_that_does_not_offer_the_prompt`
   - `test_a_stuck_vault_rebuilds_to_a_fixed_point_with_no_model_call`
+  - `test_an_attempt_an_older_tag_wrote_replays_with_no_stuck_declaration_at_the_head`
   - `test_historical_dont_know_rows_replay_unchanged_under_the_successor`
   - `test_the_kill_switch_never_changes_how_stuck_answers_replay`
 - [tests/test_te3a_lesson_opportunity.py](../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
