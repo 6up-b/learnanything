@@ -954,6 +954,7 @@ APPEND = SynthesisMode(
     analyzes_identifiability=False,
     meters_the_model_call=False,
     usage_only_with_a_proposal=True,
+    resolves_an_empty_subject=False,
 )
 
 

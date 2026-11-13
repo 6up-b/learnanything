@@ -108,6 +108,7 @@ from learnloop.content.synthesis.synthesis_manifests import (
 from learnloop.ai.usage import TokenUsage, UsageMeter, consume_client_usage
 from learnloop.content.proposals.patches import compute_target_hash
 from learnloop.content.synthesis.vault_epigraphs import (
+    digest_for_append,
     digest_from_proposal_rows,
     generate_vault_epigraphs,
 )
@@ -2216,7 +2217,6 @@ def _create_study_map(
     subject_id = source_set.subject_id
 
     brief = resolve_brief(vault, brief)
-    items_off = brief["practice_items"] == "as_you_read"
 
     resolved_mode = "bootstrap" if mode in {"auto", "bootstrap"} else mode
     if resolved_mode != "bootstrap":
@@ -2290,123 +2290,48 @@ def _create_study_map(
         manifest_id=manifest_id, mode=resolved_mode, agent_run_id=agent_run_id
     )
 
-    candidate_preserved = False
-    usage: dict[str, Any] | None = None
-    # A7: drained ONCE, into a local threaded down to every arm that finalizes
-    # the run. `_gate_and_persist` completes the agent run from a frame with no
-    # client, and a gate failure there completes it again out here — a second
-    # drain would return zeros and erase the cost already recorded.
-    token_usage = TokenUsage()
     answers = _SavedAnswers()
-    try:
-        # At most twice: the second time only after the rows equalled a proposal
-        # the learner wholly rejected, whose answers were dropped (proposal_match).
-        for fresh_answers in (False, True):
-            with declared_budgets(token_budget):
-                merged, span_request_count, resolved_hashes, usage = _run_synthesis(
-                    client, repository, inputs, vault, source_set, brief, budgets, clock=clock,
-                    client=client, provider=provider, model=model,
-                    manifest_hash=manifest_hash, unlimited_token_budget=unlimited_token_budget,
-                    progress=progress, nominator=nominator,
-                    one_facet_per_skill=one_facet_per_skill, answers=answers,
-                )
-            token_usage += consume_client_usage(client)
-            facet_identity_plan = _facet_identity_plan(
-                merged, vault, repository, synthesis_run_id, nominator=nominator,
-                client=facet_identity_client, progress=progress,
-            )
-            if facet_identity_plan is not None:
-                usage = {**(usage or {}), "facet_identity": facet_identity_plan.as_dict()}
-            repository.save_synthesis_candidate(
-                synthesis_run_id,
-                merged.model_dump(mode="json") if hasattr(merged, "model_dump") else dict(merged),
-            )
-            candidate_preserved = True
-            try:
-                patch_id, diagnostics, generation_needs, normalized, match = _gate_and_persist(
-                    vault, repository, source_set, merged, inputs, mode=BOOTSTRAP,
-                    subject_id=resolve_subject_id(source_set, vault),
-                    agent_run_id=agent_run_id, synthesis_run_id=synthesis_run_id,
-                    now=now, usage=usage, resolved_hashes=resolved_hashes,
-                    clock=clock, progress=progress, items_off=items_off,
-                    token_usage=token_usage, client=client, nominator=nominator,
-                    facet_identity_plan=facet_identity_plan, fresh_answers=fresh_answers,
-                )
-            except RejectedProposalMatch:
-                answers.discard(repository)
-                answers = _SavedAnswers()
-                continue
-            break
-    except StudyMapError as exc:
-        if candidate_preserved:
-            exc.candidate_preserved = True
-            exc.synthesis_run_id = synthesis_run_id
-        if exc.code == "synthesis_gate_failed":
-            # The repair works on the preserved candidate, not on these.
-            answers.discard(repository)
-        repository.complete_synthesis_run(
-            synthesis_run_id,
-            status="failed",
-            coverage_decisions={"gate_diagnostics": exc.diagnostics} if exc.diagnostics else None,
-            actual_usage=usage,
-        )
-        # Zero unless the failure came from _run_synthesis itself (before the
-        # drain above); a sharded run that died mid-flight still spent tokens.
-        token_usage += consume_client_usage(client)
-        finish_agent_run(
-            repository,
-            agent_run_id,
-            usage=token_usage,
-            status="failed",
-            error_message=f"{exc.code}: {exc}",
-            clock=clock,
-        )
-        raise
-    except Exception as exc:  # pragma: no cover - defensive
-        repository.complete_synthesis_run(synthesis_run_id, status="failed")
-        token_usage += consume_client_usage(client)
-        finish_agent_run(
-            repository, agent_run_id, usage=token_usage,
-            status="failed", error_message=str(exc), clock=clock,
-        )
-        raise
 
-    result = StudyMapResult(
+    def ask() -> SynthesisAnswer:
+        with declared_budgets(token_budget):
+            merged, span_request_count, resolved_hashes, usage = _run_synthesis(
+                client, repository, inputs, vault, source_set, brief, budgets, clock=clock,
+                client=client, provider=provider, model=model,
+                manifest_hash=manifest_hash, unlimited_token_budget=unlimited_token_budget,
+                progress=progress, nominator=nominator,
+                one_facet_per_skill=one_facet_per_skill, answers=answers,
+            )
+        return SynthesisAnswer(merged, span_request_count, resolved_hashes, usage)
+
+    def apply_map(outcome: SynthesisOutcome) -> dict[str, Any]:
+        # 6. optional acceptance + goal wiring (learnable map requires mvp-0.7; the
+        #    compilers enforce the bootstrap evidence refusal on a legacy vault).
+        if not (apply and not outcome.nothing_new and _gate_open(apply_gate)):
+            return {}
+        goal_id = _apply_map(
+            root, repository, outcome.proposal_id, brief=brief, create_goal=create_goal, clock=clock,
+            facet_ids=outcome.normalized.facet_ids, progress=progress,
+        )
+        return {"applied": True, "goal_id": goal_id}
+
+    run = SynthesisRun(
+        vault=vault, repository=repository, root=root, source_set=source_set, inputs=inputs, brief=brief,
+        now=now, clock=clock, agent_run_id=agent_run_id,
+        synthesis_run_id=synthesis_run_id, client=client, nominator=nominator,
+        facet_identity_client=facet_identity_client, progress=progress,
+    )
+    outcome = finish_synthesis_run(
+        run, BOOTSTRAP, ask=ask, drop_answers=lambda: answers.discard(repository), apply=apply_map,
+    )
+    return StudyMapResult(
         source_set_id=source_set.id, subject_id=subject_id, mode=resolved_mode,
-        manifest_hash=manifest_hash, synthesis_run_id=synthesis_run_id, proposal_id=patch_id,
-        reused=match is not None, nothing_new=match is not None and match.kind == "settled",
-        item_counts=_count_items(normalized.rows), gate_diagnostics=diagnostics,
-        generation_needs=generation_needs, span_request_count=span_request_count,
-        resolved_span_hashes=resolved_hashes,
+        manifest_hash=manifest_hash, synthesis_run_id=synthesis_run_id, proposal_id=outcome.proposal_id,
+        reused=outcome.reused, nothing_new=outcome.nothing_new,
+        item_counts=_count_items(outcome.normalized.rows), gate_diagnostics=outcome.gate_diagnostics,
+        generation_needs=outcome.generation_needs, span_request_count=outcome.answer.span_request_count,
+        resolved_span_hashes=outcome.answer.resolved_span_hashes, facet_identity=outcome.facet_identity,
+        **outcome.applied,
     )
-
-    # 6. optional acceptance + goal wiring (learnable map requires mvp-0.7; the
-    #    compilers enforce the bootstrap evidence refusal on a legacy vault).
-    if apply and not result.nothing_new and _gate_open(apply_gate):
-        _apply_and_wire_goal(
-            root, repository, result, brief=brief, create_goal=create_goal, clock=clock,
-            facet_ids=normalized.facet_ids, progress=progress,
-        )
-    if match is not None:
-        # Nothing new was persisted, so there is nothing new to write epigraphs
-        # about; the earlier proposal's run recorded its facet identity.
-        return result
-    result.facet_identity = facet_identity_result(root, repository, facet_identity_plan, synthesis_run_id)
-
-    # 7. best-effort Start-screen epigraphs about the freshly synthesized
-    #    material. Never raises; nothing here can change `result`. Sits after
-    #    apply so a failed apply still surfaces first, and outside
-    #    `_gate_and_persist` because revalidation reuses that with no client.
-    generate_vault_epigraphs(
-        repository, vault, client,
-        subject_id=subject_id, source_set_id=source_set.id,
-        synthesis_run_id=synthesis_run_id, mode="bootstrap",
-        digest=digest_from_proposal_rows(
-            normalized.rows, summary=str(getattr(merged, "summary", "") or ""),
-        ),
-        brief=brief, clock=clock,
-    )
-    return result
 
 
 @dataclass(frozen=True)
@@ -2443,6 +2368,8 @@ class SynthesisMode:
     meters_the_model_call: bool
     #: Kept (K2-11): the synthesis run records its usage only when it writes a proposal.
     usage_only_with_a_proposal: bool
+    #: Kept (K2-14): the rows of a source set whose ``subject_id`` is empty carry the vault's first subject.
+    resolves_an_empty_subject: bool
 
 
 BOOTSTRAP = SynthesisMode(
@@ -2458,6 +2385,7 @@ BOOTSTRAP = SynthesisMode(
     analyzes_identifiability=True,
     meters_the_model_call=True,
     usage_only_with_a_proposal=False,
+    resolves_an_empty_subject=True,
 )
 
 
@@ -2648,6 +2576,193 @@ def _gate_and_persist(
     )
     finish_agent_run(repository, agent_run_id, client, usage=token_usage, clock=clock)
     return patch_id, diagnostics, generation_needs, normalized, None
+
+
+@dataclass(frozen=True)
+class SynthesisAnswer:
+    """One answer of a mode's model call, as the run's tail reads it."""
+
+    #: What facet identity, the normalizer and the summaries read.
+    candidate: Any
+    span_request_count: int = 0
+    #: The span hashes the call resolved; None: the mode records none (ledger K2-12).
+    resolved_span_hashes: list[str] | None = None
+    #: The call's own usage record (bootstrap's shard runner); facet identity's joins it.
+    usage: dict[str, Any] | None = None
+    #: The mode's review records about the answer itself, reported after the normalizer's.
+    diagnostics: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class SynthesisRun:
+    """A synthesis run its head has opened (manifest, agent run and synthesis run rows): what its tail reads."""
+
+    vault: LoadedVault
+    repository: Repository
+    root: Path
+    source_set: SourceSet
+    inputs: _SynthesisInputs
+    #: Resolved (``resolve_brief``): items off and the epigraphs read it.
+    brief: dict[str, Any]
+    now: str
+    clock: Clock | None
+    agent_run_id: str
+    synthesis_run_id: str
+    client: Any
+    nominator: Any
+    facet_identity_client: Any
+    progress: ProgressFn | None = None
+    #: What tops up the epigraph digest when the rows may hold only links: the append's new inventories and
+    #: neighbourhood context. None: the rows alone.
+    digest_extras: tuple[list[dict[str, Any]], dict[str, Any]] | None = None
+
+
+@dataclass
+class SynthesisOutcome:
+    """What a run's tail persisted or matched, and what its apply step added."""
+
+    proposal_id: str
+    match: ProposalMatch | None
+    normalized: _Normalized
+    gate_diagnostics: list[dict[str, Any]]
+    generation_needs: list[dict[str, Any]]
+    answer: SynthesisAnswer
+    #: The fields the mode's apply step adds to its result.
+    applied: dict[str, Any] = field(default_factory=dict)
+    facet_identity: dict[str, Any] | None = None
+
+    @property
+    def reused(self) -> bool:
+        return self.match is not None
+
+    @property
+    def nothing_new(self) -> bool:
+        return self.match is not None and self.match.kind == "settled"
+
+
+def finish_synthesis_run(
+    run: SynthesisRun,
+    mode: SynthesisMode,
+    *,
+    ask: Callable[[], SynthesisAnswer],
+    drop_answers: Callable[[], None],
+    apply: Callable[[SynthesisOutcome], dict[str, Any]],
+) -> SynthesisOutcome:
+    """Everything a synthesis run does once its head has opened it, for both modes: ask the model, plan facet
+    identity, gate and persist the proposal (or match an earlier one), finalize the run rows, apply, write epigraphs.
+
+    The model is asked at most twice: the second time only after the rows equalled a proposal the learner wholly
+    rejected, whose answers were dropped (``proposal_match``). Any failure up to the persisted proposal fails both
+    run rows. Apply and epigraphs run after, outside those arms, so a failed apply leaves the run completed and its
+    proposal waiting, which answers the retry. The callables are the mode's own behaviour: ``ask`` and
+    ``drop_answers`` are its model call and the answers that call saved (the two modes' calls differ until both run
+    through the shard runner), and ``apply`` is what it applies once the proposal stands and what follows
+    (bootstrap: the whole map and the exam goal; append: §10.3's routine items, the study-map diff and the facet
+    doctor). ``apply`` returns the fields it adds to the mode's result."""
+
+    repository, client = run.repository, run.client
+    items_off = run.brief["practice_items"] == "as_you_read"
+    # A7: a metered mode drains its client ONCE per answer, into a local threaded to every arm that finalizes the
+    # run: the gate stage completes the agent run, and a gate failure completes it again out here, where a second
+    # drain would return zeros and erase the cost already recorded.
+    token_usage = TokenUsage() if mode.meters_the_model_call else None
+    usage: dict[str, Any] | None = None
+    candidate_preserved = False
+    try:
+        for fresh_answers in (False, True):
+            answer = ask()
+            if token_usage is not None:
+                token_usage += consume_client_usage(client)
+            facet_identity_plan = _facet_identity_plan(
+                answer.candidate, run.vault, repository, run.synthesis_run_id, nominator=run.nominator,
+                client=run.facet_identity_client, progress=run.progress,
+            )
+            usage = answer.usage
+            if facet_identity_plan is not None:
+                usage = {**(usage or {}), "facet_identity": facet_identity_plan.as_dict()}
+            if mode.keeps_candidate_for_repair:
+                candidate = answer.candidate
+                repository.save_synthesis_candidate(
+                    run.synthesis_run_id,
+                    candidate.model_dump(mode="json") if hasattr(candidate, "model_dump") else dict(candidate),
+                )
+                candidate_preserved = True
+            try:
+                proposal_id, diagnostics, generation_needs, normalized, match = _gate_and_persist(
+                    run.vault, repository, run.source_set, answer.candidate, run.inputs, mode=mode,
+                    subject_id=(resolve_subject_id(run.source_set, run.vault) if mode.resolves_an_empty_subject
+                                else run.source_set.subject_id),
+                    agent_run_id=run.agent_run_id, synthesis_run_id=run.synthesis_run_id,
+                    now=run.now, usage=usage, resolved_hashes=answer.resolved_span_hashes,
+                    clock=run.clock, progress=run.progress, items_off=items_off,
+                    token_usage=token_usage, client=client, nominator=run.nominator,
+                    facet_identity_plan=facet_identity_plan, fresh_answers=fresh_answers,
+                    answer_diagnostics=answer.diagnostics,
+                )
+            except RejectedProposalMatch:
+                drop_answers()
+                continue
+            break
+    except StudyMapError as exc:
+        if candidate_preserved:
+            exc.candidate_preserved = True
+            exc.synthesis_run_id = run.synthesis_run_id
+        if exc.code == mode.gate_failure[0]:
+            # A rejected answer is the model's: kept, every retry would replay it into the same rejection at zero
+            # cost. A repair works on the preserved candidate, not on these.
+            drop_answers()
+        repository.complete_synthesis_run(
+            run.synthesis_run_id,
+            status="failed",
+            coverage_decisions={"gate_diagnostics": exc.diagnostics} if exc.diagnostics else None,
+            actual_usage=None if mode.usage_only_with_a_proposal else usage,
+        )
+        # A metered run adds what was spent since its last drain (nothing unless the model call itself failed:
+        # a sharded run that died mid-flight still spent tokens); an unmetered one drains here.
+        if token_usage is not None:
+            token_usage += consume_client_usage(client)
+        finish_agent_run(
+            repository, run.agent_run_id, client, usage=token_usage,
+            status="failed", error_message=f"{exc.code}: {exc}", clock=run.clock,
+        )
+        raise
+    except Exception as exc:  # pragma: no cover - defensive
+        repository.complete_synthesis_run(run.synthesis_run_id, status="failed")
+        if token_usage is not None:
+            token_usage += consume_client_usage(client)
+        finish_agent_run(
+            repository, run.agent_run_id, client, usage=token_usage,
+            status="failed", error_message=str(exc), clock=run.clock,
+        )
+        raise
+
+    outcome = SynthesisOutcome(
+        proposal_id=proposal_id, match=match, normalized=normalized, gate_diagnostics=diagnostics,
+        generation_needs=generation_needs, answer=answer,
+    )
+    outcome.applied = apply(outcome)
+    if match is not None:
+        # Nothing new was persisted, so there is nothing new to write epigraphs
+        # about; the earlier proposal's run recorded its facet identity.
+        return outcome
+    outcome.facet_identity = facet_identity_result(run.root, repository, facet_identity_plan, run.synthesis_run_id)
+
+    # Best-effort Start-screen epigraphs about the freshly synthesized material.
+    # Never raises; nothing here can change the outcome. Sits after apply so a
+    # failed apply still surfaces first, and outside `_gate_and_persist` because
+    # revalidation reuses that with no client.
+    summary = str(getattr(answer.candidate, "summary", "") or "")
+    digest = (
+        digest_from_proposal_rows(normalized.rows, summary=summary) if run.digest_extras is None
+        else digest_for_append(normalized.rows, *run.digest_extras, summary=summary)
+    )
+    generate_vault_epigraphs(
+        repository, run.vault, client,
+        subject_id=run.source_set.subject_id, source_set_id=run.source_set.id,
+        synthesis_run_id=run.synthesis_run_id, mode=mode.epigraph_mode, digest=digest,
+        brief=run.brief, clock=run.clock,
+    )
+    return outcome
 
 
 _SHARD_PREFIX_RE = re.compile(r"^shard_\d+__")
@@ -2962,10 +3077,15 @@ class _SavedAnswers:
     passes: list[tuple[str, Any]] = field(default_factory=list)
 
     def discard(self, repository: Repository) -> None:
+        """Drop every answer served so far, and forget them: a later drop in the same run (a fresh answer the gates
+        reject after a rejected match) names only the answers judged since."""
+
         for key, output in self.shards:
             repository.discard_synthesis_shard_result(key, output=output)
         for key, stored in self.passes:
             repository.discard_model_checkpoint(key, result=stored)
+        self.shards.clear()
+        self.passes.clear()
 
 
 def _run_synthesis(
@@ -3893,27 +4013,46 @@ def _apply_and_wire_goal(
     facet_ids: list[str] | None = None,
     progress: ProgressFn | None = None,
 ) -> None:
-    """Accept the proposal, then create the exam-prep Goal when asked.
+    """Accept the proposal, then create the exam-prep Goal when asked (:func:`_apply_map`), into ``result``."""
 
-    ``facet_ids`` are the freshly normalized facets; a reused run has none in
-    hand, so they are read back from the persisted proposal items.
+    goal_id = _apply_map(
+        root, repository, str(result.proposal_id), brief=brief, create_goal=create_goal, clock=clock,
+        facet_ids=facet_ids, progress=progress,
+    )
+    result.applied = True
+    result.goal_id = goal_id
+
+
+def _apply_map(
+    root: Path,
+    repository: Repository,
+    proposal_id: str,
+    *,
+    brief: dict[str, Any],
+    create_goal: bool,
+    clock: Clock | None,
+    facet_ids: list[str] | None,
+    progress: ProgressFn | None,
+) -> str | None:
+    """Accept the whole proposal, then create the exam-prep Goal when asked; the goal's id, if one was made.
+
+    ``facet_ids`` are the freshly normalized facets; a caller without them in
+    hand passes None, and they are read back from the persisted proposal items.
     """
 
     from learnloop.content.proposals.patches import apply_accepted_items
 
-    proposal_id = str(result.proposal_id)
     _notify(progress, "apply", "Applying the study map")
     apply_accepted_items(root, proposal_id, clock=clock)
-    result.applied = True
     if not (create_goal and _is_exam_prep(brief)):
-        return
+        return None
     if facet_ids is None:
         facet_ids = [
             str((row.get("edited_payload") or row.get("payload") or {}).get("id") or "")
             for row in repository.proposal_items(proposal_id)
             if row["item_type"] == "facet"
         ]
-    result.goal_id = _create_goal_from_brief(root, brief, facet_ids, clock=clock, provenance_key=proposal_id)
+    return _create_goal_from_brief(root, brief, facet_ids, clock=clock, provenance_key=proposal_id)
 
 
 def _create_goal_from_brief(root: Path, brief: dict[str, Any], facet_ids: list[str], *, clock: Clock | None, provenance_key: str | None = None) -> str | None:
