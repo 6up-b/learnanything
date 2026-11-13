@@ -252,6 +252,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_second_same_facet_failure_counts_across_different_items`
   - `test_success_breaks_item_streak_before_a_later_failure`
   - `test_success_resets_repeat_failure_gate_and_coverage_is_not_failed`
+  - `test_with_the_belief_fixes_off_a_success_keeps_the_facet_streak`
 - [tests/test_recurrence_deferral.py](../../../../../../tests/test_recurrence_deferral.py) — direct import
 - [tests/test_source_first_needs.py](../../../../../../tests/test_source_first_needs.py) — direct import
 - [tests/voi_stopping_helpers.py](../../../../../../tests/voi_stopping_helpers.py) — direct import

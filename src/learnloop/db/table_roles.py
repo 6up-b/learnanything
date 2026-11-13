@@ -266,7 +266,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # A Library save's write-ahead intent (lifecycle state; the owner's
     # manual-authority verdicts are judgment_ledger's).
     ("facet_registry_saves", TableRole.WORKFLOW),
-    ("facet_uncertainty", TableRole.COMPAT),
+    # Per-LO facet uncertainty: the legacy path's, and from the facet-belief
+    # successor (mvp-0.59) a canonical vault's too. Learner replay clears and
+    # rewrites it LO by LO (``reset_learning_object_derived_state``).
+    ("facet_uncertainty", TableRole.DERIVED),
     ("failure_triage_events", TableRole.RECEIPT),
     ("failure_triage_routes", TableRole.RAW_LEDGER),
     ("false_remediation_adjudications", TableRole.RAW_LEDGER),

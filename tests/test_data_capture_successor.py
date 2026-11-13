@@ -107,8 +107,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop_sidecar import context
 
     # The chain's latest completion hands an earlier link's journal on.
-    assert "learnloop.figure_wait_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.figure_wait_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.facet_belief_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.facet_belief_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     assert "learnloop.lesson_suggestions_upgrade import complete_interrupted_activation" in inspect.getsource(data_capture_upgrade)
     assert callable(lesson_suggestions_upgrade.complete_interrupted_activation)
 

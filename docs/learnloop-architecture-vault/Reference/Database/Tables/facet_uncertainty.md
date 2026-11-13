@@ -8,8 +8,8 @@ aliases:
   - "state.sqlite facet_uncertainty"
   - "table facet_uncertainty"
 table_name: "facet_uncertainty"
-table_role: "compat"
-functionality_status: "legacy-preserved"
+table_role: "derived"
+functionality_status: "active"
 domain_family: "learner-state"
 introduced_in: "012_facet_diagnostic_state.sql"
 generated: true
@@ -19,36 +19,38 @@ source_paths:
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/followups.py"
+  - "src/learnloop/facet_belief_upgrade.py"
   - "src/learnloop/learner/facet_diagnostics.py"
-  - "src/learnloop/tutor/tutor_qa.py"
+  - "src/learnloop/substrate/rebuild_orchestrator.py"
+  - "src/learnloop/substrate/shadow_rebuild.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/instructional/reader_followups.py"
 tags:
   - "learnloop/database/table"
-  - "learnloop/database/role/compat"
-  - "learnloop/status/legacy-preserved"
+  - "learnloop/database/role/derived"
+  - "learnloop/status/active"
   - "learnloop/domain/learner-state"
 ---
 
 # `facet_uncertainty`
 
-> [!warning] Legacy Preserved
-> Frozen compatibility state remains readable for older vaults and is not a deletion candidate.
+> [!info] Active
+> The table participates in a current persistence, audit, projection, or workflow contract.
 
 ## Why it exists
 
-Gives facet uncertainty a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It keeps an older vault or replay contract readable while new writes use the refactored path. Rows bind `learning_object_id`, `facet_id`, `opened_by_attempt_id`, making the operational relationship explicit. ^table-purpose
+Gives facet uncertainty a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `learning_object_id`, `facet_id`, `opened_by_attempt_id`, making the operational relationship explicit. ^table-purpose
 
-It belongs to the **learner state** navigation family. The family context lives in [[Database Catalog#Learner State]]. Its persistence behavior follows [[Table Roles#Compat]].
+It belongs to the **learner state** navigation family. The family context lives in [[Database Catalog#Learner State]]. Its persistence behavior follows [[Table Roles#Derived]].
 
 ## Persistence and lifecycle contract
 
-- **Role:** `compat` — Frozen compatibility state retained for old vaults or an incomplete replacement seam.
-- **Functionality status:** `legacy-preserved`.
+- **Role:** `derived` — Clearable projection reconstructed by exactly one registered replayer.
+- **Functionality status:** `active`.
 - **Introduced by:** `migrations/012_facet_diagnostic_state.sql`.
 - **Schema touched by:** `012_facet_diagnostic_state.sql`, `037_canonical_facet_state.sql`.
-- **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
+- **Rebuild owner:** `learning_state`
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
 
@@ -118,13 +120,15 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
-- `tests/test_facet_diagnostics_v03.py`
-- `tests/test_goal_frontier.py`
+- `tests/test_facet_belief_successor.py`
 - `tests/test_migrations.py`
+- `tests/test_rebuild_orchestrator.py`
+- `tests/test_shadow_rebuild.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_e2e_codex_mock.py`
+- `tests/test_facet_diagnostics_v03.py`
 - `tests/test_item_parameters.py`
 - `tests/test_km2b_consumer_rekey.py`
 - `tests/test_show.py`
@@ -138,7 +142,7 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 2. Update `src/learnloop/db/table_roles.py` in the same change. A new table without a role fails the migration-head registry test.
 3. Keep SQL access at the repository/store boundary; put policy in the domain callers listed above.
 4. Preserve append-only triggers and historical rows. Do not infer that an empty fixture table is safe to drop.
-5. Compatibility retirement requires production-vault telemetry and an explicit owner decision; code detachment and schema changes are separate gates.
+5. Update the single owner in `DERIVED_STATE_REPLAYERS`, then prove same-version rebuild equivalence and shadow isolation.
 
 ## Live schema DDL
 
@@ -168,7 +172,7 @@ CREATE TABLE facet_uncertainty (
 ## Related notes
 
 - [[Database Catalog#Learner State|Sibling tables in this family]]
-- [[Table Roles#Compat|compat policy]]
+- [[Table Roles#Derived|derived policy]]
 - [[Rebuild Ownership]]
 - [[State and Persistence]]
 - [[Vault Lifecycle]]

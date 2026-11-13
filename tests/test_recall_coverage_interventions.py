@@ -24,15 +24,61 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.helpers import NOW, create_basic_vault, pin_old_basic_vault
+from tests.helpers import NOW, create_basic_vault, pin_old_basic_vault, set_config_switch
 from tests.voi_stopping_helpers import _minutes
+
+
+def _dont_know_on_head(tmp_path, *, belief_fixes: bool):
+    paths = create_basic_vault(tmp_path / "vault")
+    if not belief_fixes:
+        set_config_switch(paths.root, "facet_diagnostic.canonical_belief_fixes", False)
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    sync_vault_state(vault, repository, clock=FrozenClock(NOW))
+    complete_self_graded_attempt(
+        vault,
+        repository,
+        AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="I do not know", attempt_type="dont_know"),
+        SelfGradeInput(criterion_points={"correctness": 4}, confidence=5),
+        clock=FrozenClock(NOW),
+    )
+    return (
+        facet_recall_state_for_lo(vault, repository, "lo_svd_definition", "recall"),
+        facet_recall_state_for_lo(vault, repository, "lo_svd_definition", "recall", "pi_svd_define_001"),
+    )
+
+
+def test_dont_know_books_canonical_coverage_where_its_failure_mass_lands(tmp_path):
+    # D-6 (refactor bug ledger; the facet-belief successor, mvp-0.59): a total failure is an observation of its
+    # facet, so the canonical belief books its coverage (the first surface group's independent mass) beside the
+    # failure mass, as KM2 first did and the legacy row below still does.
+    aggregate, item_local = _dont_know_on_head(tmp_path, belief_fixes=True)
+
+    assert aggregate.recall_beta > 1.0 and aggregate.recall_alpha == pytest.approx(1.0)
+    assert aggregate.independent_evidence_mass > 0.0
+    # One observation in a new surface group: independent and raw mass are the failure's whole mass.
+    assert aggregate.independent_evidence_mass == pytest.approx(aggregate.raw_coverage_mass)
+    assert aggregate.independent_evidence_mass == pytest.approx(aggregate.recall_beta - 1.0)
+    assert item_local.independent_evidence_mass == pytest.approx(aggregate.independent_evidence_mass)
+    assert aggregate.consecutive_failures == 1
+
+
+def test_dont_know_books_no_canonical_coverage_with_the_belief_fixes_off(tmp_path):
+    # The predecessor (mvp-0.58) exactly: the failure moves beta and the streak, and books no coverage.
+    aggregate, _item_local = _dont_know_on_head(tmp_path, belief_fixes=False)
+
+    assert aggregate.recall_beta > 1.0
+    assert aggregate.independent_evidence_mass == 0.0
+    assert aggregate.raw_coverage_mass == 0.0
+    assert aggregate.consecutive_failures == 1
 
 
 def test_dont_know_keeps_full_coverage_and_updates_facet_recall(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
-    # Old path only: the per-LO facet recall row and its evidence masses (written below KM2). From mvp-0.7 (so the
-    # head) belief is the canonical projection, whose failure observations add no evidence mass (D2a finding 7,
-    # the owner's call). Waits on D5 with the legacy per-LO facet path.
+    # Old path only: the per-LO facet recall row and its evidence masses (written below KM2; the debug fields and
+    # the mvp-0.6 error vocabulary asserted below are that path's). The head's canonical counterpart is
+    # test_dont_know_books_canonical_coverage_where_its_failure_mass_lands (D-6). Waits on D5 with the legacy
+    # per-LO facet path.
     paths = pin_old_basic_vault(paths)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
@@ -218,11 +264,47 @@ def test_repeated_failure_triggers_intervention_need_without_surprise(tmp_path):
     assert repository.pending_intervention_needs("lo_svd_definition")[0]["target_facets"] == ["recall"]
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "D2a finding: at the head (canonical facet state, mvp-0.7 on) a full-marks answer never resets the facet's "
-    "consecutive_failures: substrate/canonical_projection.py resets it only inside the failure-mass branch, which "
-    "a success skips (negative_fraction == 0), so repeated_facet_failure stays 2.0 after the success"))
+def _two_dont_knows_then_a_success(tmp_path, *, belief_fixes: bool = True):
+    paths = create_basic_vault(tmp_path / "vault")
+    if not belief_fixes:
+        set_config_switch(paths.root, "facet_diagnostic.canonical_belief_fixes", False)
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    sync_vault_state(vault, repository, clock=FrozenClock(NOW))
+    for offset in (0, 1):
+        complete_self_graded_attempt(
+            vault,
+            repository,
+            AttemptDraft("pi_svd_define_001", "I do not know", attempt_type="dont_know"),
+            SelfGradeInput(criterion_points={}, confidence=5),
+            clock=FrozenClock(NOW + timedelta(minutes=offset)),
+        )
+    success = complete_self_graded_attempt(
+        vault,
+        repository,
+        AttemptDraft("pi_svd_define_001", "SVD factors a matrix as U Sigma V transpose."),
+        SelfGradeInput(criterion_points={"correctness": 4}, confidence=5),
+        clock=FrozenClock(NOW + timedelta(minutes=2)),
+    )
+    return vault, repository, success
+
+
+def test_with_the_belief_fixes_off_a_success_keeps_the_facet_streak(tmp_path):
+    # The predecessor (mvp-0.58) exactly, D2a finding 1: the reset sat in the failure-mass branch a full-marks answer
+    # skips, so the facet's streak survives the success.
+    vault, repository, success = _two_dont_knows_then_a_success(tmp_path, belief_fixes=False)
+
+    decision = evaluate_attempt_intervention_followup(
+        vault, repository, result=success, clock=FrozenClock(NOW + timedelta(minutes=2))
+    )
+
+    assert decision.gate_diagnostics["subscores"]["repeated_item_failure"]["raw_value"] == 0.0
+    assert decision.gate_diagnostics["subscores"]["repeated_facet_failure"]["raw_value"] == 2.0
+    assert facet_recall_state_for_lo(vault, repository, "lo_svd_definition", "recall").consecutive_failures == 2
+
+
 def test_success_resets_repeat_failure_gate_and_coverage_is_not_failed(tmp_path):
+    # D-1 (refactor bug ledger; the facet-belief successor, mvp-0.59): a success ends the facet's failure streak.
     paths = create_basic_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
@@ -370,10 +452,11 @@ def test_diagnostic_generation_stales_resolved_repeat_failure_need(tmp_path):
 
 
 def test_high_unfamiliar_probe_posterior_records_intervention_need(tmp_path):
+    # The unfamiliar posterior is the opening probe episode's (``followups._probe_unfamiliar_probability``), not
+    # facet uncertainty as D2a read it: placement (mvp-0.11) no longer opens that episode, and
+    # ``placement.initial_probes`` keeps it, as D2a's group C ports do.
     paths = create_basic_vault(tmp_path / "vault")
-    # Old path only: the unfamiliar posterior is read from per-LO facet uncertainty, which canonical vaults (mvp-0.7
-    # on, so the head) leave empty (``facet_uncertainty_states_for_lo``, a named KM4 seam).
-    paths = pin_old_basic_vault(paths)
+    set_config_switch(paths.root, "placement.initial_probes", True)
     vault = load_vault(paths.root)
     vault.config.scheduler.followup.tau_followup_nats = 99.0
     vault.config.scheduler.followup.tau_severe_error = 2.0

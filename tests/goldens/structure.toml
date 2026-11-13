@@ -9,7 +9,7 @@ largest_import_component = 189
 modules_in_an_import_cycle = 286
 first_level_packages = 46
 first_level_root_modules = 79
-first_level_root_modules_not_upgrade = 35
+first_level_root_modules_not_upgrade = 34
 functions_over_200_lines = 83
 comment_lines_naming_a_stage_artifact = 2424
 test_files_named_for_a_stage = 185
@@ -228,6 +228,7 @@ root_modules = [
     "delayed_completion",
     "deliverable_plan_upgrade",
     "eligibility_decision_upgrade",
+    "facet_belief_upgrade",
     "failure_share_upgrade",
     "figure_admission",
     "figure_wait_upgrade",
@@ -283,7 +284,6 @@ root_modules = [
     "text_canon",
     "unevidenced_return_upgrade",
     "vault_lock",
-    "version_floor",
     "voi_stopping_upgrade",
     "workbench_field_signals_upgrade",
 ]

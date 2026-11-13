@@ -25,8 +25,8 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/curriculum/integration_backfill.py"
+  - "src/learnloop/facet_belief_upgrade.py"
   - "src/learnloop/interval_factor_upgrade.py"
-  - "src/learnloop/learner/learner_review_feed.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -130,6 +130,7 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/measurement_corrections.py`
 - `src/learnloop/curriculum/integration_backfill.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/facet_belief_upgrade.py`
 - `src/learnloop/interval_factor_upgrade.py`
 - `src/learnloop/learner/learner_review_feed.py`
 - `src/learnloop/ops/doctor.py`

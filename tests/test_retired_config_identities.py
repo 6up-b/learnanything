@@ -111,6 +111,7 @@ BASE_CONFIG_CONTENT_KEY = {
 #: as with any schema change; nothing that pays or scores compares it.
 ADDED_SINCE_BASE: tuple[tuple[str, ...], ...] = (
     ("ingest", "budgets", "append_input_ceiling"),  # refactor K3.4: the append call's input ceiling
+    ("facet_diagnostic", "canonical_belief_fixes"),  # arc D fixes part 1: the facet-belief successor's kill switch
 )
 
 

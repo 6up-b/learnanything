@@ -21,7 +21,8 @@ from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
-from tests.helpers import NOW, NOW_ISO, OLD_BASIC_VAULT_TAG, create_basic_vault, pin_old_basic_vault
+from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, create_basic_vault
+from tests.voi_stopping_helpers import _minutes
 
 
 def _add_item(root, item_id: str, facets: list[str], *, repair_targets: list[str] | None = None) -> None:
@@ -73,11 +74,10 @@ def _wrong_attempt(loaded, repository):
 
 def test_subthreshold_noisy_item_creates_single_facet_generation_need_and_logs_slate(tmp_path):
     root = tmp_path / "vault"
-    # Old path only: the overlap gate under test applies only with per-LO facet uncertainty states
-    # (`gate_applies` in diagnosis/followups.select_followup), which a canonical (head) vault reads as
-    # empty (facet_state_reader's KM4 seam), so on the head the noisy item passes and is served (checked
-    # with the VOI minutes pinned low as well). Waits on D5 with the legacy uncertainty path.
-    paths = pin_old_basic_vault(create_basic_vault(root))
+    # The overlap gate under test applies only with per-LO facet uncertainty states (`gate_applies` in
+    # diagnosis/followups.select_followup), which a canonical vault writes and reads from the facet-belief
+    # successor (mvp-0.59, D-5); below it the read was empty and the noisy item was served.
+    paths = create_basic_vault(root)
     _add_item(root, "pi_noisy_recall", ["recall", "unrelated_a", "unrelated_b"])
     loaded = load_vault(root)
     repository = Repository(paths.sqlite_path)
@@ -113,10 +113,12 @@ def test_subthreshold_noisy_item_creates_single_facet_generation_need_and_logs_s
     assert plan.targets[0].target_facets == ["recall"]
 
 
-def test_single_facet_probe_passes_gate_even_with_multiple_open_facets(tmp_path):
+def test_single_facet_probe_passes_gate_even_with_multiple_open_facets(tmp_path, monkeypatch):
     root = tmp_path / "vault"
-    # Old path only: it reads the legacy per-LO facet_uncertainty table, which a canonical (head) vault never writes.
-    paths = pin_old_basic_vault(create_basic_vault(root))
+    # It reads per-LO facet uncertainty, which a canonical vault writes and reads from the facet-belief successor
+    # (mvp-0.59, D-5). The VOI minutes seam keeps the follow-up served (the head's stop rule), as D2b's ports do.
+    _minutes(monkeypatch, 0.01)
+    paths = create_basic_vault(root)
     _add_item(root, "pi_clean_recall", ["recall"])
     loaded = load_vault(root)
     repository = Repository(paths.sqlite_path)
@@ -132,7 +134,7 @@ def test_single_facet_probe_passes_gate_even_with_multiple_open_facets(tmp_path)
                 "opened_by_attempt_id": result.attempt_id,
                 "opened_reason": "low_facet_outcome",
                 "last_evidence_at": NOW_ISO,
-                "algorithm_version": OLD_BASIC_VAULT_TAG,
+                "algorithm_version": ALGORITHM_VERSION,
                 "created_at": NOW_ISO,
                 "updated_at": NOW_ISO,
             }
@@ -169,8 +171,8 @@ def test_single_facet_probe_passes_gate_even_with_multiple_open_facets(tmp_path)
 
 def test_open_facet_restriction_makes_disjoint_correct_attempt_zero_weight(tmp_path):
     root = tmp_path / "vault"
-    # Old path only: it reads the legacy per-LO facet_uncertainty table, which a canonical (head) vault never writes.
-    paths = pin_old_basic_vault(create_basic_vault(root))
+    # It reads per-LO facet uncertainty, written on a canonical vault from the facet-belief successor (mvp-0.59, D-5).
+    paths = create_basic_vault(root)
     _add_item(root, "pi_other_facet", ["other"])
     loaded = load_vault(root)
     repository = Repository(paths.sqlite_path)
@@ -192,8 +194,8 @@ def test_open_facet_restriction_makes_disjoint_correct_attempt_zero_weight(tmp_p
 
 def test_hedged_learner_confidence_opens_uncertainty_even_with_partial_credit(tmp_path):
     root = tmp_path / "vault"
-    # Old path only: it reads the legacy per-LO facet_uncertainty table, which a canonical (head) vault never writes.
-    paths = pin_old_basic_vault(create_basic_vault(root))
+    # It reads per-LO facet uncertainty, written on a canonical vault from the facet-belief successor (mvp-0.59, D-5).
+    paths = create_basic_vault(root)
     loaded = load_vault(root)
     repository = Repository(paths.sqlite_path)
 
@@ -348,8 +350,8 @@ def test_facet_eig_is_zero_for_unsupported_candidate_and_positive_for_isolating_
 
 def test_facet_uncertainty_rebuilds_from_attempts_and_grading_evidence(tmp_path):
     root = tmp_path / "vault"
-    # Old path only: it reads the legacy per-LO facet_uncertainty table, which a canonical (head) vault never writes.
-    paths = pin_old_basic_vault(create_basic_vault(root))
+    # Per-LO facet uncertainty on a canonical vault (the facet-belief successor, mvp-0.59, D-5): replay rewrites it.
+    paths = create_basic_vault(root)
     loaded = load_vault(root)
     repository = Repository(paths.sqlite_path)
     result = _wrong_attempt(loaded, repository)
@@ -365,8 +367,8 @@ def test_facet_uncertainty_rebuilds_from_attempts_and_grading_evidence(tmp_path)
 
 def test_mastery_diagnostic_view_distinguishes_known_gap_from_unexamined(tmp_path):
     root = tmp_path / "vault"
-    # Old path only: it reads the legacy per-LO facet_uncertainty table, which a canonical (head) vault never writes.
-    paths = pin_old_basic_vault(create_basic_vault(root))
+    # It reads per-LO facet uncertainty, written on a canonical vault from the facet-belief successor (mvp-0.59, D-5).
+    paths = create_basic_vault(root)
     _add_item(root, "pi_other_required", ["other"])
     loaded = load_vault(root)
     repository = Repository(paths.sqlite_path)
@@ -381,7 +383,7 @@ def test_mastery_diagnostic_view_distinguishes_known_gap_from_unexamined(tmp_pat
             "opened_by_attempt_id": result.attempt_id,
             "opened_reason": "low_facet_outcome",
             "last_evidence_at": NOW_ISO,
-            "algorithm_version": OLD_BASIC_VAULT_TAG,
+            "algorithm_version": ALGORITHM_VERSION,
             "created_at": NOW_ISO,
             "updated_at": NOW_ISO,
         }

@@ -154,6 +154,22 @@ _PROJECTION_SPECS: tuple[_ProjectionSpec, ...] = (
             "algorithm_version",
         ),
     ),
+    # Per-LO facet uncertainty: the legacy path's, and a canonical vault's from the
+    # facet-belief successor (mvp-0.59); empty on a canonical vault below it.
+    _ProjectionSpec(
+        "facet",
+        "facet_uncertainty",
+        ("learning_object_id", "facet_id"),
+        (
+            "hypothesis_marginal",
+            "uncertainty",
+            "status",
+            "opened_by_attempt_id",
+            "opened_reason",
+            "last_evidence_at",
+            "algorithm_version",
+        ),
+    ),
     _ProjectionSpec(
         "schedule",
         "practice_item_state",

@@ -43,10 +43,10 @@ def test_the_tag_is_the_chains_last_link_after_curriculum_c1():
     from learnloop.teacher_upgrade import PREDECESSOR
 
     # Follow-ups Nov 2's mvp-0.42 and teacher TE1b's mvp-0.43 (the latest) follow it (and keep it).
-    assert SUCCESSOR_CHAIN[-19:] == (DELIVERABLE_PLAN_ALGORITHM_VERSION, TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", LATEST_ALGORITHM_VERSION) == (
-        "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58")
+    assert SUCCESSOR_CHAIN[-20:] == (DELIVERABLE_PLAN_ALGORITHM_VERSION, TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", LATEST_ALGORITHM_VERSION) == (
+        "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59")
     assert PREDECESSOR == DELIVERABLE_PLAN_ALGORITHM_VERSION
-    assert TEACHER_VERSIONS == frozenset({TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58"})
+    assert TEACHER_VERSIONS == frozenset({TAG, "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
 
 def _practice(paths, repository, at):
@@ -170,7 +170,7 @@ def test_the_cli_installs_this_links_completion():
 
     # Teacher TE1b's mvp-0.43 is the chain's latest: the CLI installs its completion, which hands an
     # earlier journal to follow-ups Nov 2's, which hands this link's journal to this link's completion.
-    assert "learnloop.figure_wait_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.facet_belief_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
     assert "learnloop.help_fold_attach_upgrade import complete_interrupted_activation" in inspect.getsource(
         lesson_suggestions_upgrade)
     assert "learnloop.teacher_upgrade import complete_interrupted_activation" in inspect.getsource(

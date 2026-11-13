@@ -248,6 +248,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/voi_forecasting|learnloop.diagnosis.voi_forecasting]] — imports `Clock`
 - [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/eligibility_decision_upgrade|learnloop.eligibility_decision_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/facet_belief_upgrade|learnloop.facet_belief_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/failure_share_upgrade|learnloop.failure_share_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/field/evaluation|learnloop.field.evaluation]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `parse_utc`; statically calls `parse_utc`
@@ -533,7 +534,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 433 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 434 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -688,6 +689,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_anti_double_count_claim_seeds_prior_but_earns_no_mass`
   - `test_anti_double_count_projection_signal_earns_zero_certification`
   - `test_anti_double_count_replay_reproduces_identical_state`
+- [tests/test_approach_map_replay.py](../../../../../tests/test_approach_map_replay.py) — direct import
+  - `test_rebuild_and_replay_call_no_model_and_never_read_approach_maps`
 - [tests/test_approach_maps.py](../../../../../tests/test_approach_maps.py) — direct import
 - [tests/test_assessment_contracts.py](../../../../../tests/test_assessment_contracts.py) — direct import
   - `test_legacy_attempt_records_no_observation_lineage`
@@ -1083,6 +1086,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_report_has_per_facet_predicted_vs_actual`
   - `test_start_is_idempotent`
   - `test_ungraded_answer_is_durable_and_blocks_finish`
+- [tests/test_facet_belief_successor.py](../../../../../tests/test_facet_belief_successor.py) — direct import
+  - `test_a_legacy_era_uncertainty_row_is_never_the_successors_prior_or_read`
+  - `test_a_whole_vault_rebuild_reproduces_the_belief_and_the_uncertainty`
+  - `test_doctor_warns_when_the_switch_moved_after_the_last_whole_vault_rebuild`
+  - `test_uncertainty_is_written_under_the_merged_facets_survivor`
 - [tests/test_facet_diagnostics_v03.py](../../../../../tests/test_facet_diagnostics_v03.py) — direct import
   - `test_facet_uncertainty_rebuilds_from_attempts_and_grading_evidence`
   - `test_hedged_learner_confidence_opens_uncertainty_even_with_partial_credit`
@@ -1767,6 +1775,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_second_same_facet_failure_counts_across_different_items`
   - `test_success_breaks_item_streak_before_a_later_failure`
   - `test_success_resets_repeat_failure_gate_and_coverage_is_not_failed`
+  - `test_with_the_belief_fixes_off_a_success_keeps_the_facet_streak`
   - `test_zero_score_independent_attempt_uses_rubric_coverage_and_confidence_as_reliability`
 - [tests/test_receipt_derivation.py](../../../../../tests/test_receipt_derivation.py) — direct import
   - `test_ready_derivation_matches_canonical_recall_slices`
@@ -2129,7 +2138,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_source_scoped_teach_back_does_not_reuse_lo_wide_card`
   - `test_state_json_round_trip`
   - `test_teach_back_stays_weakly_schedulable_on_solid_knowledge`
-  - `test_transfer_tier_evidence_mass_is_discounted_symmetrically`
 - [tests/test_teach_back_generation.py](../../../../../tests/test_teach_back_generation.py) — direct import
   - `test_teach_back_item_missing_core_criterion_for_facet_is_invalid`
   - `test_teach_back_item_with_unmapped_criterion_is_invalid`

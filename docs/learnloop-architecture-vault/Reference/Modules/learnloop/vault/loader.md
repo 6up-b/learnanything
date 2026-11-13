@@ -174,6 +174,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/corpus|learnloop.experiments.contextual_embeddings.corpus]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/records|learnloop.experiments.contextual_embeddings.records]] — imports `init_vault`, `load_vault`; statically calls `init_vault`, `load_vault`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/facet_belief_upgrade|learnloop.facet_belief_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/failure_share_upgrade|learnloop.failure_share_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/figure_wait_upgrade|learnloop.figure_wait_upgrade]] — imports `load_vault`; statically calls `load_vault`
@@ -272,7 +273,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 136 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 137 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1342,6 +1343,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_undo_never_mints_a_candidate_whose_recorded_citations_no_longer_resolve`
   - `test_recovery_settles_an_undo_intent_the_authority_rule_refuses`
   - `test_the_writer_never_writes_a_reword_citing_the_unselected_half_of_a_split_unit`
+- [tests/test_facet_belief_successor.py](../../../../../../tests/test_facet_belief_successor.py) — direct import
+  - `test_a_rebuild_records_the_switch_only_at_the_tag`
+  - `test_the_cli_upgrade_reaches_the_tag_by_default_and_by_name`
+  - `test_the_gate_reads_off_below_the_tag_and_with_the_switch_off`
+  - `test_the_upgrade_chains_from_an_older_link`
+  - `test_the_upgrade_rebuilds_under_the_tag_and_completes_once`
+  - `test_the_upgrade_refuses_anything_older_than_the_chain`
 - [tests/test_facet_candidates.py](../../../../../../tests/test_facet_candidates.py) — direct import
   - `test_harvest_is_deterministic`
   - `test_harvests_candidates_from_multiple_sources`

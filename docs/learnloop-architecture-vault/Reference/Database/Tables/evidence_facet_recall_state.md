@@ -122,7 +122,7 @@ Indexes and uniqueness:
 - `tests/test_recall_coverage_interventions.py`
 - `tests/test_shadow_rebuild.py`
 - `tests/test_exam_seeding.py`
-- `tests/test_goal_projection.py`
+- `tests/test_facet_belief_successor.py`
 - `tests/test_item_parameters.py`
 - `tests/test_replay.py`
 

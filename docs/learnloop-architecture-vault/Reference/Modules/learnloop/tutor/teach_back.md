@@ -183,7 +183,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_scheduler_offer_survives_the_checkpointed_state`
   - `test_source_scoped_teach_back_does_not_reuse_lo_wide_card`
   - `test_state_json_round_trip`
-  - `test_transfer_tier_evidence_mass_is_discounted_symmetrically`
 
 ## Modification guidance
 

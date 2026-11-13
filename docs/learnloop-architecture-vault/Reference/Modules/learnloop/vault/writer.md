@@ -256,6 +256,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_already_imported_exercise_is_dropped`
 - [tests/test_facet_authority_review.py](../../../../../../tests/test_facet_authority_review.py) — direct import
   - `test_an_undo_never_mints_a_candidate_whose_recorded_citations_no_longer_resolve`
+- [tests/test_facet_belief_successor.py](../../../../../../tests/test_facet_belief_successor.py) — direct import
 - [tests/test_facet_diagnostics_v03.py](../../../../../../tests/test_facet_diagnostics_v03.py) — direct import
   - `test_tiny_authored_facet_share_does_not_earn_per_facet_coverage`
 - [tests/test_facet_identity_composition.py](../../../../../../tests/test_facet_identity_composition.py) — direct import

@@ -1,7 +1,7 @@
 # Compared identities at fixed inputs, one sha256 per pin (tests/identity_pins_helpers.py), sorted.
 # Generated; never edit by hand. Regenerate only with a deliberate bump (docs/algorithm-change-playbook.md when
 # persisted meaning changes; the reason goes in the landing note): uv run python tests/test_identity_pins.py --write
-"A1-A4.manifest_hash.init" = "62a02700cde0173f5393817acad2783420f6be693b43eaf115c98cdf58f29550"
+"A1-A4.manifest_hash.init" = "38408f16bdf4c640420a3943dd64bf266d48331e99f8a73338ace02229637c3c"
 "A1-A4.manifest_hash.legacy" = "cbaf0d5d080ee7d42d00f2cc8d4693b26eecb17218ef4bd1e0cd29b362715d2d"
 "A1-A4.scope.init" = "b5cd34e2b496d9ddf20a194be4d57127d6509d5e3ca743d546bbdbfd57be2e0d"
 "A1-A4.scope.legacy" = "d8a2a2b52455e9348e52216a03758786b624224e3a271c52278bbb31ce352e17"
@@ -123,7 +123,7 @@
 "C2.success_head.init" = "5e1dc5ccbe83956bfb409ab7e0b191c85b783b7409ff2b10c7ce78b5cc0488ac"
 "C2.success_head.legacy" = "3a14782cec2a0a82581daefede25c019e70468325b97f100ac7f257f87ca2bed"
 "C2p.position" = "90adacc922df29a20957b40303d6bfca7b333ad2d98c26faff335bfdd414a588"
-"C3.boundary.init" = "3f9b58488cdb339a93fabfdc01746f135f82036e114066b6596851b67a4b4fe3"
+"C3.boundary.init" = "73fdfff84da434df7e43ac0573c6db0f0a6304efdfe9dd090f5e5c2cddc316d7"
 "C3.boundary.legacy" = "7ab958e5f56ba8c03c5f9cfc983a56589a049f9ea0c4745d707f78584af5af4d"
 "C3.router_settings.init" = "3327182c27cd3573f7c893ae3f6c5b4a0d17d72e72175be2f4e1f6ce5d8d5703"
 "C3.router_settings.legacy" = "8d74b91eff1514b6edb804c0e770d7bbca5497916e4c10a1c4aa5a74c220c6c8"
@@ -131,9 +131,9 @@
 "C4.objective_settings.legacy" = "7d0031126b5f739971b79efc7318050908350ec823793345934b5ad5d1ebbb7f"
 "C4.switches.init" = "2190fb6ec6d8757982b06c49a457692e87e3985ccc31ab9f18e35059c001196b"
 "C4.switches.legacy" = "76cf2839f6e21b203570a9c292a78bb0012eac181952a107a5e28e37276d9f92"
-"C5.init" = "af39dd68ea6f0e93fbecc91823514be3ffbefafe80ac85d10e2c7da92eeb8ae0"
+"C5.init" = "4b5fa8ba25371d7694df49db28ce7a7b12405ede8e4128878bd96ab4cf7dd3de"
 "C5.legacy" = "939fe197ac5cf177f77c5b5d66d1bdba8095ed3a4ac5f1d15fa514a2ef10041c"
-"C6.init" = "1dfd9c32ff6b8c8f5c76a51574cb4ce14244611957aa32fbf5daaf8f24724353"
+"C6.init" = "ef69102626522ff845589aee7c6729e34839b9a954c3d12c359b7250111a8887"
 "C6.legacy" = "6ec679b44de5449a54da252079a30b281769031bf93ae9ffbe4787c6574eaf88"
 "K3.2.scope.init" = "23a304c0500c3bf1b28dd39f285441936f31f453ccd6e10202f18eaca74f8253"
 "K3.2.scope.legacy" = "9920032e89082a1a325c10c7286627ee20d6e3d5043e0f91b6aa90f43069c5c0"

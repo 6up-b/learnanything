@@ -24,9 +24,9 @@ source_paths:
   - "src/learnloop/curriculum/subject_registry.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/facet_identity.py"
+  - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/learner/facet_evidence_timeline.py"
   - "src/learnloop/learner/facet_state_reader.py"
-  - "src/learnloop/ops/doctor.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -95,6 +95,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/attempts/attempts.py`
 - `src/learnloop/content/facet_identity/actions.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/learner/facet_evidence_timeline.py`
@@ -115,6 +116,7 @@ Indexes and uniqueness:
 - `tests/test_measurement_rank.py`
 - `tests/test_migrations.py`
 - `tests/test_conjunctive_instruments.py`
+- `tests/test_facet_belief_successor.py`
 - `tests/test_km2_canonical.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

@@ -219,8 +219,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `pending_review_instance_ids`; calls `pending_review_instance_ids`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] — imports `enqueue_learner_notes`, `pending_jobs`, `reconcile_hint_feedback`; calls `enqueue_learner_notes`, `pending_jobs`, `reconcile_hint_feedback`
+- [[Reference/Modules/learnloop/facet_belief_upgrade|learnloop.facet_belief_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `help_kind_enabled`; calls `help_kind_enabled`
-- [[Reference/Modules/learnloop/figure_wait_upgrade|learnloop.figure_wait_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `recover_pending_workflows`; calls `recover_pending_workflows`
 - [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `pending_jobs`; calls `pending_jobs`
 - [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `settle_open_when_off`; calls `settle_open_when_off`
@@ -402,6 +402,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_identity_rereview_f3_the_running_app_records_hand_edited_exam_membership`
 - [tests/test_exam_protection_review.py](../../../../../tests/test_exam_protection_review.py) — direct import
   - `test_the_exam_screen_stops_serving_an_item_exposed_mid_exam_and_refuses_its_answer`
+- [tests/test_facet_belief_successor.py](../../../../../tests/test_facet_belief_successor.py) — direct import
+  - `test_the_openers_install_this_links_completion`
 - [tests/test_facet_identity_actions.py](../../../../../tests/test_facet_identity_actions.py) — direct import
   - `test_the_sidecar_finishes_an_interrupted_merge_when_it_opens_the_vault`
 - [tests/test_facet_rewords.py](../../../../../tests/test_facet_rewords.py) — direct import

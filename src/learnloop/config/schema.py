@@ -534,10 +534,24 @@ class MisconceptionsConfig(BaseModel):
 
 
 class FacetDiagnosticConfig(BaseModel):
+    """Facet diagnostic thresholds, and the facet-belief successor's kill switch.
+
+    From mvp-0.59 (the facet-belief fixes): ``canonical_belief_fixes``: the
+    canonical facet belief resets a facet's failure streak on a success,
+    scales a transfer-tier criterion's evidence by
+    ``teach_back.transfer_evidence_multiplier`` and books a total failure's
+    coverage where its failure mass lands; and the per-LO facet uncertainty is
+    written and read on canonical vaults. Off, or below the tag, the belief
+    and the (empty) uncertainty reads are mvp-0.58's exactly; persisted state
+    derived from the belief follows a switch change at the next whole-vault
+    rebuild (``doctor`` warns until then)."""
+
     tau_facet_failed: float = 0.40
     tau_facet_uncertain_variance: float = 0.15
     hedge_uncertainty_floor: float = 0.50
     facet_resolved_threshold: float = 0.10
+    #: From mvp-0.59: the facet-belief fixes (refactor bug ledger D-1, D-3, D-5, D-6).
+    canonical_belief_fixes: bool = True
 
 
 class ExamSeedingConfig(BaseModel):

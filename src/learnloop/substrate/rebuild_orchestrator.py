@@ -139,6 +139,7 @@ DERIVED_STATE_REPLAYERS: tuple[DerivedStateReplayer, ...] = (
             {
                 "ability_transition_events",
                 "attempt_surprise",
+                "facet_uncertainty",
                 "item_parameter_state",
                 "learning_object_mastery",
                 "learning_outcome_labels",

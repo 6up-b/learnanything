@@ -73,9 +73,11 @@ def test_shadow_rebuild_reports_semantic_diff_and_proves_live_db_isolation(tmp_p
     assert diff["summary"]["facet"] > 0
     assert diff["summary"]["schedule"] > 0
     assert diff["mastery"]["changes"]
+    # The facet diff includes the per-LO facet uncertainty (the facet-belief successor's projection spec): moving
+    # this mvp-0.6 vault to mvp-0.7 drops its legacy rows, which only a vault at mvp-0.59 or later rewrites.
     assert {
         change["key"]["projection"] for change in diff["facet"]["changes"]
-    } <= {"evidence_facet_recall_state", "facet_recall_state"}
+    } <= {"evidence_facet_recall_state", "facet_recall_state", "facet_uncertainty"}
 
     # Opening the source for verification is physically read-only, and the
     # candidate receipt/version exists only in the discarded scratch database.
