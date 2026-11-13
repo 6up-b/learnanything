@@ -1,5 +1,5 @@
-"""The oldest supported tag (ADR-019): a vault below it is refused at every door, and ``learnloop upgrade``
-brings it there.
+"""The oldest supported tag (ADR-019): a vault below it is refused at every door, ``learnloop upgrade`` included,
+with the route through the code tagged ``pre-floor``.
 
 A vault is put below the floor here by rewriting its tag directly, never through ``tests.helpers``'
 ``set_algorithm_version``, which registers an old vault with the suite's allowance.
@@ -23,11 +23,11 @@ from learnloop.substrate.shadow_rebuild import ConfigOverrideError, build_candid
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.repository import open_vault_repository
-from learnloop.version_floor import BelowOldestSupported, is_below_floor, upgrade_commands
+from learnloop.version_floor import PRE_FLOOR_TAG, BelowOldestSupported, is_below_floor, upgrade_commands
 from tests.helpers import create_basic_vault
 
 ROOT = Path(__file__).resolve().parents[1]
-#: The tag just below the floor: the oldest link the upgrade command still has to walk.
+#: The tag just below the floor.
 BELOW = SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(OLDEST_SUPPORTED) - 1]
 
 
@@ -50,7 +50,8 @@ def _below_floor_vault(tmp_path: Path, tag: str = BELOW) -> Path:
 def _assert_names_the_three_parts(message: str, root: Path, tag: str) -> None:
     assert tag in message
     assert OLDEST_SUPPORTED in message
-    assert f"learnloop upgrade --vault {root}" in message
+    assert f"git worktree add ../learnloop-pre-floor {PRE_FLOOR_TAG}" in message
+    assert f"uv run --directory ../learnloop-pre-floor learnloop upgrade --vault {root}" in message
 
 
 # -- the doors ---------------------------------------------------------------------------------------------------
@@ -78,6 +79,13 @@ def _door_shadow_rebuild(root: Path) -> str:
     result = CliRunner().invoke(app, ["rebuild", "--shadow", "--json", "--vault", str(root)])
     assert isinstance(result.exception, BelowOldestSupported), result.output
     return str(result.exception)
+
+
+def _door_upgrade(root: Path) -> str:
+    result = CliRunner().invoke(app, ["upgrade", "--vault", str(root)])
+    assert result.exit_code == 1, result.output
+    assert f"Vault not upgraded (currently {BELOW})" in result.output
+    return " ".join(result.output.split())
 
 
 def _door_doctor(root: Path) -> str:
@@ -135,6 +143,7 @@ DOORS = {
     "sidecar": _door_sidecar,
     "mcp": _door_mcp,
     "phone_host": _door_phone_host,
+    "upgrade": _door_upgrade,
 }
 
 
@@ -168,30 +177,6 @@ def test_a_vault_whose_config_names_no_tag_is_refused(tmp_path):
     assert f"learnloop upgrade --to mvp-0.7 --vault {paths.root.resolve()}" in message
 
 
-def test_the_upgrade_command_still_upgrades_a_vault_below_the_floor(tmp_path):
-    root = _below_floor_vault(tmp_path)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(root)])
-    assert result.exit_code == 0, result.output
-    assert f"Upgraded vault: {BELOW} -> {LATEST_ALGORITHM_VERSION}" in result.output
-    # Then every door opens it.
-    assert load_vault(root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION
-    doctor = CliRunner().invoke(app, ["doctor", "--vault", str(root)])
-    assert not isinstance(doctor.exception, BelowOldestSupported), doctor.output
-
-
-def test_the_upgrade_allowance_covers_only_the_vault_it_upgrades(tmp_path):
-    from learnloop.version_floor import upgrading
-
-    upgraded = _below_floor_vault(tmp_path / "a")
-    other = _below_floor_vault(tmp_path / "b")
-    with upgrading(upgraded):
-        load_vault(upgraded)
-        with pytest.raises(BelowOldestSupported):
-            load_vault(other)
-    with pytest.raises(BelowOldestSupported):
-        load_vault(upgraded)
-
-
 def _journal_below_the_floor(tmp_path: Path) -> VaultPaths:
     """A vault published at the floor over its predecessor's database: the journal of an upgrade from below."""
 
@@ -214,12 +199,14 @@ def test_a_journal_naming_a_link_below_the_floor_is_refused(tmp_path):
     assert journal_path(paths.sqlite_path).exists()
 
 
-def test_the_upgrade_command_completes_a_journal_from_below_the_floor(tmp_path):
+def test_the_upgrade_command_refuses_a_journal_from_below_the_floor_with_the_route(tmp_path):
     paths = _journal_below_the_floor(tmp_path)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", OLDEST_SUPPORTED])
-    assert result.exit_code == 0, result.output
-    assert not journal_path(paths.sqlite_path).exists()
-    open_vault_repository(paths.root, paths.sqlite_path)
+    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
+    assert result.exit_code == 1, result.output
+    message = " ".join(result.output.split())
+    assert f"unfinished upgrade from {BELOW} to {OLDEST_SUPPORTED}" in message
+    _assert_names_the_three_parts(message, paths.root.resolve(), BELOW)
+    assert journal_path(paths.sqlite_path).exists()
 
 
 def test_a_journal_from_the_floor_is_still_completed_by_an_opener(tmp_path, monkeypatch):
@@ -275,10 +262,13 @@ def test_the_floor_is_a_tag_of_the_chain_and_the_chain_counts_up():
         (BELOW, []),
     ],
 )
-def test_the_commands_take_a_vault_older_than_the_chain_through_its_steps(tag, steps):
+def test_the_commands_run_the_pre_floor_code_through_its_steps(tag, steps):
     commands = upgrade_commands(Path("/v"), tag)
-    assert list(commands) == [f"learnloop upgrade {step} --vault /v" for step in steps] + [
-        "learnloop upgrade --vault /v"
+    upgrade = "uv run --directory ../learnloop-pre-floor learnloop upgrade"
+    assert list(commands) == [
+        f"git worktree add ../learnloop-pre-floor {PRE_FLOOR_TAG}",
+        *(f"{upgrade} {step} --vault /v" for step in steps),
+        f"{upgrade} --vault /v",
     ]
 
 
