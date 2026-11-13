@@ -93,8 +93,9 @@ def test_overlaid_read_keeps_events_of_other_attempts_and_without_an_attempt(tmp
 
 
 def test_overlaid_read_equals_the_raw_read_on_a_joint_vault(tmp_path):
+    # A joint vault: the split's kill switch (no vault that opens is below the split's tag).
     _paths, vault, repository = split_vault(
-        tmp_path, version="mvp-0.9", config="[diagnosis]\nshadow = true"
+        tmp_path, version="mvp-0.9", config="[diagnosis]\nshadow = true\nsplit_enabled = false"
     )
     client = _StatementFake()
     submit(vault, repository, client)

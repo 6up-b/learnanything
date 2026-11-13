@@ -24,7 +24,7 @@ from learnloop.diagnosis.probe_instance_generation import ensure_instrument_card
 from learnloop.diagnosis.taxonomy_regrade import run_taxonomy_regrade_checks
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault, pin_old_basic_vault, set_algorithm_version
+from tests.helpers import NOW, NOW_ISO, append_config_toml, create_basic_vault, pin_old_basic_vault, set_algorithm_version
 
 LO_ID = "lo_svd_definition"
 ITEM_ID = "pi_svd_define_001"
@@ -218,8 +218,11 @@ class _CannedGrader(StructuredClientFake):
 def test_taxonomy_regrade_check_no_attribution_regressions(tmp_path):
     # A graded attempt attributed the legacy `conceptual_slip`; the bumped grader
     # now emits the mechanism `conceptual_schema_error`. Both resolve to the same
-    # mechanism, so there is NO attribution regression.
+    # mechanism, so there is NO attribution regression. The canned grader is a
+    # joint one: the split's kill switch (no vault that opens is below its tag).
     vault, repository = _mvp06(tmp_path)
+    append_config_toml(vault.root, "[diagnosis]\nsplit_enabled = false")
+    vault = load_vault(vault.root)
     _insert_attempt(repository, attempt_id="att1")
     _insert_mc_event(
         repository,

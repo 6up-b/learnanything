@@ -212,7 +212,8 @@ def test_card_kill_switch_hides_the_card_but_its_repairs_still_debit_once(tmp_pa
 
 
 def test_joint_vault_feedback_carries_no_diagnosis_status(tmp_path, monkeypatch):
-    paths, _vault, _repository = split_vault(tmp_path, version="mvp-0.9")
+    # A joint vault: the split's kill switch (no vault that opens is below the split's tag).
+    paths, _vault, _repository = split_vault(tmp_path, version="mvp-0.9", config="[diagnosis]\nsplit_enabled = false")
     client = CitingFake()
     sidecar = _Sidecar(paths.root, client, monkeypatch)
     session_id = sidecar.result("start_session", {})["sessionId"]
