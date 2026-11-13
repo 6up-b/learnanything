@@ -20530,7 +20530,7 @@ class Repository(
         made_as_role: str | None = None,
         reused_from_inventory_id: str | None = None,
         clock: Clock | None = None,
-    ) -> None:
+    ) -> str:
         """Write one cached inventory (§7) and, for a model run on
         ``extraction_id`` (not a reuse), its held-out signals into the
         append-only ``source_held_out_signal_marks`` ledger, in one
@@ -20542,7 +20542,11 @@ class Repository(
         re-anchored (recorded in ``usage`` as ``rebound_from_inventory_id``,
         as before): a reuse writes no ledger row, so it never marks the
         reading it is bound to, and the origin's ledger row stays.
-        ``made_as_role`` is the role the model run was made under."""
+        ``made_as_role`` is the role the model run was made under.
+
+        Returns the id of the row now holding the key: ``id``, or the existing
+        row's when the key was already there (the update keeps that row's id), so
+        every reference to the inventory names a row that exists."""
 
         now = utc_now_iso(clock)
         usage_row = dict(usage or {})
@@ -20589,6 +20593,16 @@ class Repository(
                     now,
                 ),
             )
+            stored_id = connection.execute(
+                """
+                SELECT id FROM source_unit_inventories
+                WHERE source_revision_id = ? AND unit_id = ? AND unit_semantic_hash = ?
+                  AND inventory_profile = ? AND inventory_schema_version = ?
+                  AND prompt_version = ? AND provider = ? AND model = ?
+                """,
+                (source_revision_id, unit_id, unit_semantic_hash, inventory_profile,
+                 inventory_schema_version, prompt_version, provider, model),
+            ).fetchone()["id"]
             if held_out_spans and not reused:
                 spans_json = _json(held_out_spans)
                 digest = hashlib.sha256(
@@ -20597,9 +20611,10 @@ class Repository(
                 connection.execute(
                     "INSERT OR IGNORE INTO source_held_out_signal_marks(id, revision_id, extraction_id, unit_id, "
                     "inventory_id, made_as_role, span_ids_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    (f"hos_{digest}", source_revision_id, extraction_id, unit_id, id, made_as_role, spans_json, now),
+                    (f"hos_{digest}", source_revision_id, extraction_id, unit_id, stored_id, made_as_role, spans_json, now),
                 )
             connection.commit()
+        return str(stored_id)
 
     def held_out_signal_marks(self) -> list[dict[str, Any]]:
         """Every row of the held-out signal ledger (exam protection by
