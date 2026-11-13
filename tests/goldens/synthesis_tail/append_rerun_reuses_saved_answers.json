@@ -1,0 +1,1154 @@
+{
+ "first": {
+  "database": {
+   "agent_runs": {
+    "added": [
+     {
+      "<rowid>": 2,
+      "actual_input_tokens": 200,
+      "actual_output_tokens": 20,
+      "codex_revision": null,
+      "completed_at": "2026-07-13T12:00:00Z",
+      "error_message": "budget_exceeded: Append reconciliation exceeded its output budget.",
+      "est_input_tokens": 0,
+      "est_output_tokens": 0,
+      "id": "01M3250V00TP209AYDNCPVR75G",
+      "input_context_hash": "<manifest:0>",
+      "model": "fake-append-1",
+      "output_schema": "AppendReconciliation",
+      "prompt_template": "append-reconciliation",
+      "prompt_version": "mvp-0.11-append-one-facet-per-testable-skill-no-locks-sibling-criterion-dependencies-criteria-by-fact-v2",
+      "provider": "codex",
+      "provider_revision": null,
+      "provider_type": "codex",
+      "purpose": "append_reconciliation",
+      "sdk_version": null,
+      "started_at": "2026-07-13T12:00:00Z",
+      "status": "failed"
+     }
+    ]
+   },
+   "model_work_checkpoints": {
+    "added": [
+     {
+      "<rowid>": 5,
+      "cache_key": "7e117dc3af9cd527033810c4932289982f2328e4c8435ef6f763cade8a578353",
+      "created_at": "<wall>",
+      "purpose": "append_reconciliation",
+      "result_json": {
+       "<json>": {
+        "blueprints": [],
+        "concepts": [],
+        "conflict_candidates": [],
+        "conflicts": [],
+        "facets": [],
+        "learning_objects": [],
+        "non_conflict_dispositions": [],
+        "notation_mappings": [],
+        "notes": [],
+        "practice_items": [],
+        "provenance_links": [],
+        "restructures": [],
+        "span_requests": [
+         {
+          "extraction_id": "ext_alt",
+          "purpose": "check the symmetry condition",
+          "span_id": "s1",
+          "unit_id": "chapter_symmetry_alt"
+         }
+        ],
+        "summary": "asks to read a span"
+       }
+      },
+      "usage_json": {
+       "<json>": {
+        "input_tokens_estimate": 7559,
+        "output_tokens_estimate": 107
+       }
+      }
+     },
+     {
+      "<rowid>": 6,
+      "cache_key": "2b94b5a306a3fbd876b2b9a078f40f20a3abe304e84c9e321657da1f198f6d7a",
+      "created_at": "<wall>",
+      "purpose": "append_reconciliation",
+      "result_json": {
+       "<json>": {
+        "blueprints": [],
+        "concepts": [],
+        "conflict_candidates": [],
+        "conflicts": [
+         {
+          "client_item_id": "conflict1",
+          "entity_id": "facet_symmetry_definition",
+          "entity_type": "facet",
+          "left": {
+           "extraction_id": "ext_text",
+           "locator": "",
+           "relation": "support",
+           "revision_id": "",
+           "role": "reference",
+           "source_id": "",
+           "span_id": "s1",
+           "unit_id": "chapter_symmetry"
+          },
+          "right": {
+           "extraction_id": "ext_alt",
+           "locator": "",
+           "relation": "support",
+           "revision_id": "",
+           "role": "reference",
+           "source_id": "",
+           "span_id": "s1",
+           "unit_id": "chapter_symmetry_alt"
+          },
+          "statement": "sources disagree on the symmetry condition"
+         }
+        ],
+        "facets": [],
+        "learning_objects": [],
+        "non_conflict_dispositions": [],
+        "notation_mappings": [
+         {
+          "alternate_notation": "A'",
+          "canonical_notation": "A^T",
+          "client_item_id": "notation",
+          "context": "transpose",
+          "span": {
+           "extraction_id": "ext_alt",
+           "locator": "",
+           "relation": "support",
+           "revision_id": "",
+           "role": "reference",
+           "source_id": "",
+           "span_id": "s1",
+           "unit_id": "chapter_symmetry_alt"
+          },
+          "target_entity_id": "facet_symmetry_definition",
+          "target_entity_type": "facet"
+         }
+        ],
+        "notes": [],
+        "practice_items": [],
+        "provenance_links": [
+         {
+          "client_item_id": "plink",
+          "expected_target_hash": "",
+          "reconciliation_intent": "alternate_explanation",
+          "relation": "alternate",
+          "span": {
+           "extraction_id": "ext_alt",
+           "locator": "",
+           "relation": "support",
+           "revision_id": "",
+           "role": "reference",
+           "source_id": "",
+           "span_id": "s1",
+           "unit_id": "chapter_symmetry_alt"
+          },
+          "target_entity_id": "facet_symmetry_definition",
+          "target_entity_type": "facet"
+         }
+        ],
+        "restructures": [],
+        "span_requests": [],
+        "summary": "mixed append"
+       }
+      },
+      "usage_json": {
+       "<json>": {
+        "input_tokens_estimate": 7616,
+        "output_tokens_estimate": 399
+       }
+      }
+     }
+    ]
+   },
+   "synthesis_manifests": {
+    "added": [
+     {
+      "<rowid>": 2,
+      "assessment_schema_version": null,
+      "asset_hashes_json": {
+       "<json>": {
+        "rev_alt": "sha256:abc",
+        "rev_text": "sha256:abc"
+       }
+      },
+      "brief_json": {
+       "<json>": {
+        "practice_items": "upfront"
+       }
+      },
+      "created_at": "2026-07-13T12:00:00Z",
+      "curriculum_snapshot_hash": "sha256:14b952398ad9488ab45435a3ad0e4184eab7f535af0d5b0fcc101565e894751b",
+      "estimated_usage_json": "null",
+      "extraction_ids_json": {
+       "<json>": [
+        "ext_text",
+        "ext_alt"
+       ]
+      },
+      "extractor_versions_json": {
+       "<json>": {
+        "ext_alt": "text@1",
+        "ext_text": "text@1"
+       }
+      },
+      "facet_registry_hash": "sha256:2c57d2f3393f11ff9ade08cbc675b54d0647c5787412f0f8a06e738f2fe2bf44",
+      "id": "01M3250V00TP209AYDNCPVR75F",
+      "learner_model_contract_version": "<head tag>",
+      "lock_fingerprint": null,
+      "manifest_hash": "<manifest:0>",
+      "membership_json": {
+       "<json>": [
+        {
+         "priority": 1,
+         "revision_id": "rev_text",
+         "role": "primary_textbook",
+         "role_overrides": {},
+         "source_id": "src_text"
+        },
+        {
+         "priority": 1,
+         "revision_id": "rev_alt",
+         "role": "primary_textbook",
+         "role_overrides": {},
+         "source_id": "src_alt"
+        }
+       ]
+      },
+      "model": "fake-append-1",
+      "prompt_version": "mvp-0.11-append-one-facet-per-testable-skill-no-locks-sibling-criterion-dependencies-criteria-by-fact-v2",
+      "provider": "codex",
+      "revision_ids_json": {
+       "<json>": [
+        "rev_alt"
+       ]
+      },
+      "schema_version": 1,
+      "scope_json": {
+       "<json>": {
+        "change_kind": "source_added",
+        "facet_identity": {
+         "config": {
+          "attach_top_k": 4,
+          "enabled": true,
+          "max_calls": 24,
+          "max_cost_usd": 0.5,
+          "max_facets": 400,
+          "max_group_size": 40,
+          "max_pairs": 20000,
+          "max_retries": 2,
+          "max_total_tokens": 600000,
+          "merge_locked_facets": true,
+          "price_per_million_input": null,
+          "price_per_million_output": null,
+          "reword_confirm": true,
+          "shortlist_top_k": 4
+         },
+         "prompt_version": "facet-identity-partition-v1",
+         "route": {
+          "billing": "subscription",
+          "cost_basis": "estimated_only",
+          "judge": "llm",
+          "model": "gpt-6-luna",
+          "output_tokens": 16384,
+          "price": {
+           "input_per_million": null,
+           "output_per_million": null,
+           "source": "unknown"
+          },
+          "problem": null,
+          "profile_type": "chatgpt_plan",
+          "provider": "chatgpt_luna",
+          "route": "facet_identity_judge"
+         }
+        },
+        "mode": "append",
+        "neighborhood": {
+         "budget_tokens": 24000,
+         "capped": false,
+         "entity_hashes": {
+          "concept:concept_symmetric_matrix": "sha256:0873cb5c2052e094",
+          "facet:facet_spectral_applicability": "sha256:c1333b048333f27a",
+          "facet:facet_symmetry_definition": "sha256:88a4bf8edf419037"
+         },
+         "input_token_estimate": 653,
+         "match_reasons": {
+          "concept:concept_symmetric_matrix": [
+           {
+            "detail": "matches concept 'symmetric'",
+            "kind": "concept_name",
+            "score": 1.0
+           }
+          ],
+          "facet:facet_spectral_applicability": [
+           {
+            "detail": "mentions 'symmetric'",
+            "kind": "concept_name",
+            "score": 1.0
+           }
+          ],
+          "facet:facet_symmetry_definition": [
+           {
+            "detail": "mentions 'symmetric'",
+            "kind": "concept_name",
+            "score": 1.0
+           },
+           {
+            "detail": "claim overlap 1.00",
+            "kind": "fingerprint",
+            "score": 1.0
+           }
+          ]
+         },
+         "rounds": 1
+        },
+        "new_revision_ids": [
+         "rev_alt"
+        ]
+       }
+      },
+      "source_set_id": "set_la",
+      "task_graph_hash": "sha256:dce2e566a032a659d937e9005f91e177c7072d08a3fc6bc07051b47cc362f0e6",
+      "token_budget_json": {
+       "<json>": {
+        "append_neighborhood_input_tokens": 24000,
+        "append_output_tokens": 200
+       }
+      },
+      "unit_inventory_versions_json": {
+       "<json>": {
+        "rev_alt:chapter_symmetry_alt": {
+         "content_hash": "sha256:4d725f428783128cf9ef5ba565eb1b7d149caabf950da7ec57d115516ae04fd4",
+         "extraction_id": "ext_alt",
+         "inventory_id": "inv_01M3250V00TP209AYDNCPVR75E",
+         "version": "1|mvp-0.7-source-unit-inventory-role-aware"
+        },
+        "rev_text:chapter_symmetry": {
+         "content_hash": "sha256:694ed3d3d80109a5daae0db957ee1aa7821d4e276a438acf395e0e3e28384c0e",
+         "extraction_id": "ext_text",
+         "inventory_id": "inv_01M3250V00TP209AYDNCPVR73Q",
+         "version": "1|mvp-0.7-source-unit-inventory-role-aware"
+        }
+       }
+      }
+     }
+    ]
+   },
+   "synthesis_runs": {
+    "added": [
+     {
+      "<rowid>": 2,
+      "actual_usage_json": null,
+      "agent_run_id": "01M3250V00TP209AYDNCPVR75G",
+      "candidate_output_json": null,
+      "completed_at": "<wall>",
+      "coverage_decisions_json": null,
+      "created_at": "<wall>",
+      "id": "01M3250V00TP209AYDNCPVR75H",
+      "manifest_id": "01M3250V00TP209AYDNCPVR75F",
+      "mode": "append",
+      "proposal_id": null,
+      "resolved_span_hashes_json": null,
+      "span_request_json": null,
+      "status": "failed"
+     }
+    ]
+   }
+  },
+  "error": {
+   "candidate_preserved": false,
+   "code": "budget_exceeded",
+   "diagnostics": [],
+   "message": "Append reconciliation exceeded its output budget.",
+   "synthesis_run_id": null
+  },
+  "files": {},
+  "model_requests": [
+   [
+    "append_reconciliation",
+    "c37d5f353a1a8974"
+   ],
+   [
+    "append_reconciliation",
+    "6e73790f0d2d5844"
+   ]
+  ],
+  "receipts": [
+   {
+    "budget_json": null,
+    "output_budget_tokens": 200,
+    "purpose": "append_reconciliation",
+    "root": true,
+    "schema_hash": "674d98e471fed80dc2940f8e412bd230b5b4b465913f98c6cac0f5931d26fce6"
+   },
+   {
+    "budget_json": null,
+    "output_budget_tokens": 200,
+    "purpose": "append_reconciliation",
+    "root": true,
+    "schema_hash": "674d98e471fed80dc2940f8e412bd230b5b4b465913f98c6cac0f5931d26fce6"
+   }
+  ],
+  "sent": [
+   {
+    "isolated": false,
+    "output_budget_tokens": 200,
+    "purpose": "append_reconciliation",
+    "reasoning_effort": null,
+    "result_model": "AppendReconciliation",
+    "schema": "9db0abbc4b163707",
+    "timeout_seconds": null
+   },
+   {
+    "isolated": false,
+    "output_budget_tokens": 200,
+    "purpose": "append_reconciliation",
+    "reasoning_effort": null,
+    "result_model": "AppendReconciliation",
+    "schema": "9db0abbc4b163707",
+    "timeout_seconds": null
+   }
+  ]
+ },
+ "rerun": {
+  "database": {
+   "agent_runs": {
+    "added": [
+     {
+      "<rowid>": 3,
+      "actual_input_tokens": 0,
+      "actual_output_tokens": 0,
+      "codex_revision": null,
+      "completed_at": "2026-07-13T12:00:00Z",
+      "error_message": null,
+      "est_input_tokens": 0,
+      "est_output_tokens": 0,
+      "id": "01M3250V00TP209AYDNCPVR75K",
+      "input_context_hash": "<manifest:0>",
+      "model": "fake-append-1",
+      "output_schema": "AppendReconciliation",
+      "prompt_template": "append-reconciliation",
+      "prompt_version": "mvp-0.11-append-one-facet-per-testable-skill-no-locks-sibling-criterion-dependencies-criteria-by-fact-v2",
+      "provider": "codex",
+      "provider_revision": null,
+      "provider_type": "codex",
+      "purpose": "append_reconciliation",
+      "sdk_version": null,
+      "started_at": "2026-07-13T12:00:00Z",
+      "status": "completed"
+     }
+    ]
+   },
+   "apply_intents": {
+    "added": [
+     {
+      "<rowid>": 2,
+      "applied_at": "2026-07-13T12:00:00Z",
+      "conflict_json": null,
+      "conflicted_at": null,
+      "created_at": "2026-07-13T12:00:00Z",
+      "db_plan_json": {
+       "<json>": [
+        {
+         "change_batch_id": "01M3250V00TP209AYDNCPVR75X",
+         "content_event_id": "01M3250V00TP209AYDNCPVR75Y",
+         "created_at": "2026-07-13T12:00:00Z",
+         "db_side_effect": {
+          "kind": "provenance_link",
+          "row": {
+           "asset_hash": null,
+           "entity_id": "facet_symmetry_definition",
+           "entity_type": "facet",
+           "extraction_id": "ext_alt",
+           "id": "01M3250V00TP209AYDNCPVR75W",
+           "locator": "span:ext_alt/s1",
+           "locator_scheme": "block_span_v1",
+           "patch_id": "01M3250V00TP209AYDNCPVR75V",
+           "relation": "alternate",
+           "revision_id": "rev_alt",
+           "source_id": "src_alt",
+           "span_hash": null,
+           "status": "current"
+          }
+         },
+         "entity_id": "01M3250V00TP209AYDNCPVR75W",
+         "entity_type": "provenance_link",
+         "event_type": "created",
+         "item_id": "01M3250V00TP209AYDNCPVR75P",
+         "origin": "codex",
+         "source_links": [],
+         "subject": "linear-algebra",
+         "summary": "attach alternate span to facet facet_symmetry_definition"
+        }
+       ]
+      },
+      "id": "01M3250V00TP209AYDNCPVR75Z",
+      "item_ids_json": {
+       "<json>": [
+        "01M3250V00TP209AYDNCPVR75P"
+       ]
+      },
+      "proposed_patch_id": "01M3250V00TP209AYDNCPVR75V",
+      "rolled_back_at": null,
+      "set_aside_at": null,
+      "status": "applied",
+      "targets_json": {
+       "<json>": []
+      }
+     }
+    ]
+   },
+   "change_batches": {
+    "added": [
+     {
+      "<rowid>": 8,
+      "created_at": "2026-07-13T12:00:00Z",
+      "id": "01M3250V00TP209AYDNCPVR75X",
+      "origin": "codex",
+      "proposed_patch_item_id": "01M3250V00TP209AYDNCPVR75P",
+      "reason": "proposal_accept",
+      "summary": "attach alternate span to facet facet_symmetry_definition"
+     }
+    ]
+   },
+   "content_events": {
+    "added": [
+     {
+      "<rowid>": 8,
+      "change_batch_id": "01M3250V00TP209AYDNCPVR75X",
+      "created_at": "2026-07-13T12:00:00Z",
+      "entity_id": "01M3250V00TP209AYDNCPVR75W",
+      "entity_type": "provenance_link",
+      "event_type": "created",
+      "id": "01M3250V00TP209AYDNCPVR75Y",
+      "origin": "codex",
+      "review_status": "accepted",
+      "subject": "linear-algebra",
+      "summary": "attach alternate span to facet facet_symmetry_definition"
+     }
+    ]
+   },
+   "entity_source_links": {
+    "added": [
+     {
+      "<rowid>": 6,
+      "asset_hash": null,
+      "created_at": "2026-07-13T12:00:00Z",
+      "entity_id": "facet_symmetry_definition",
+      "entity_type": "facet",
+      "extraction_id": "ext_alt",
+      "id": "01M3250V00TP209AYDNCPVR75W",
+      "locator": "span:ext_alt/s1",
+      "locator_scheme": "block_span_v1",
+      "patch_id": "01M3250V00TP209AYDNCPVR75V",
+      "relation": "alternate",
+      "revision_id": "rev_alt",
+      "source_id": "src_alt",
+      "span_hash": null,
+      "stale_at": null,
+      "status": "current",
+      "superseded_by_link_id": null
+     }
+    ]
+   },
+   "model_work_checkpoints": {
+    "added": [
+     {
+      "<rowid>": 7,
+      "cache_key": "e0a5bd25c19475d010c6b3cf62a11875fcd6f94edd71a7f783fe5956a0ee3133",
+      "created_at": "<wall>",
+      "purpose": "vault_epigraphs",
+      "result_json": {
+       "<json>": {
+        "epigraphs": [
+         {
+          "kind": "quote",
+          "lines": [
+           "A second source, the same transpose."
+          ]
+         },
+         {
+          "kind": "haiku",
+          "lines": [
+           "again, symmetric",
+           "another voice says A T",
+           "equals A, still true"
+          ]
+         },
+         {
+          "kind": "quote",
+          "lines": [
+           "Escape will make me corroborated."
+          ]
+         }
+        ]
+       }
+      },
+      "usage_json": {
+       "<json>": {}
+      }
+     }
+    ]
+   },
+   "proposed_patch_items": {
+    "added": [
+     {
+      "<rowid>": 8,
+      "applied_change_batch_id": "01M3250V00TP209AYDNCPVR75X",
+      "audit_json": null,
+      "client_item_id": "plink",
+      "created_at": "2026-07-13T12:00:00Z",
+      "decided_at": "2026-07-13T12:00:00Z",
+      "decided_by": "learner",
+      "decision": "accepted",
+      "dependency_block_reason_json": null,
+      "dependency_status": "ready",
+      "edited_payload_json": null,
+      "id": "01M3250V00TP209AYDNCPVR75P",
+      "item_type": "provenance_link",
+      "operation": "create",
+      "payload_json": {
+       "<json>": {
+        "expected_target_hash": "sha256:32e772181e597864bccdcc6983c2e99dc4680500a5f16d42b638485a8bb2e9c1",
+        "extraction_id": "ext_alt",
+        "locator": "span:ext_alt/s1",
+        "locator_scheme": "block_span_v1",
+        "reconciliation_intent": "alternate_explanation",
+        "relation": "alternate",
+        "revision_id": "rev_alt",
+        "source_id": "src_alt",
+        "span_hash": null,
+        "subject_id": "linear-algebra",
+        "target_entity_id": "facet_symmetry_definition",
+        "target_entity_type": "facet"
+       }
+      },
+      "proposed_patch_id": "01M3250V00TP209AYDNCPVR75V",
+      "source_ref_ids_json": {
+       "<json>": []
+      },
+      "target_entity_id": "facet_symmetry_definition",
+      "target_entity_type": "facet",
+      "updated_at": "2026-07-13T12:00:00Z",
+      "validation_errors_json": {
+       "<json>": []
+      },
+      "validation_status": "valid"
+     },
+     {
+      "<rowid>": 9,
+      "applied_change_batch_id": null,
+      "audit_json": null,
+      "client_item_id": "notation",
+      "created_at": "2026-07-13T12:00:00Z",
+      "decided_at": null,
+      "decided_by": null,
+      "decision": "pending",
+      "dependency_block_reason_json": null,
+      "dependency_status": "pending",
+      "edited_payload_json": null,
+      "id": "01M3250V00TP209AYDNCPVR75R",
+      "item_type": "notation_mapping",
+      "operation": "create",
+      "payload_json": {
+       "<json>": {
+        "alternate_notation": "A'",
+        "canonical_notation": "A^T",
+        "context": "transpose",
+        "locator": "span:ext_alt/s1",
+        "revision_id": "rev_alt",
+        "source_id": "src_alt",
+        "subject_id": "linear-algebra",
+        "target_entity_id": "facet_symmetry_definition",
+        "target_entity_type": "facet"
+       }
+      },
+      "proposed_patch_id": "01M3250V00TP209AYDNCPVR75V",
+      "source_ref_ids_json": {
+       "<json>": []
+      },
+      "target_entity_id": null,
+      "target_entity_type": null,
+      "updated_at": "2026-07-13T12:00:00Z",
+      "validation_errors_json": {
+       "<json>": []
+      },
+      "validation_status": "valid"
+     },
+     {
+      "<rowid>": 10,
+      "applied_change_batch_id": null,
+      "audit_json": null,
+      "client_item_id": "conflict1",
+      "created_at": "2026-07-13T12:00:00Z",
+      "decided_at": null,
+      "decided_by": null,
+      "decision": "pending",
+      "dependency_block_reason_json": null,
+      "dependency_status": "pending",
+      "edited_payload_json": null,
+      "id": "01M3250V00TP209AYDNCPVR75T",
+      "item_type": "source_conflict",
+      "operation": "create",
+      "payload_json": {
+       "<json>": {
+        "candidate_id": "conflict1",
+        "entity_id": "facet_symmetry_definition",
+        "entity_type": "facet",
+        "left": {
+         "extraction_id": "ext_text",
+         "locator": "span:ext_text/s1",
+         "locator_scheme": "block_span_v1",
+         "ref_id": "src_text",
+         "ref_type": "canonical_source",
+         "relation": "support",
+         "revision_id": "rev_text",
+         "role": "primary_textbook",
+         "source_id": "src_text",
+         "span_hash": null
+        },
+        "right": {
+         "extraction_id": "ext_alt",
+         "locator": "span:ext_alt/s1",
+         "locator_scheme": "block_span_v1",
+         "ref_id": "src_alt",
+         "ref_type": "canonical_source",
+         "relation": "support",
+         "revision_id": "rev_alt",
+         "role": "primary_textbook",
+         "source_id": "src_alt",
+         "span_hash": null
+        },
+        "statement": "sources disagree on the symmetry condition",
+        "subject_id": "linear-algebra"
+       }
+      },
+      "proposed_patch_id": "01M3250V00TP209AYDNCPVR75V",
+      "source_ref_ids_json": {
+       "<json>": []
+      },
+      "target_entity_id": null,
+      "target_entity_type": null,
+      "updated_at": "2026-07-13T12:00:00Z",
+      "validation_errors_json": {
+       "<json>": []
+      },
+      "validation_status": "valid"
+     }
+    ]
+   },
+   "proposed_patches": {
+    "added": [
+     {
+      "<rowid>": 2,
+      "agent_run_id": "01M3250V00TP209AYDNCPVR75K",
+      "created_at": "2026-07-13T12:00:00Z",
+      "id": "01M3250V00TP209AYDNCPVR75V",
+      "purpose": "sourceset_append",
+      "source_refs_json": {
+       "<json>": []
+      },
+      "status_cache": "partially_accepted",
+      "summary": "mixed append",
+      "updated_at": "2026-07-13T12:00:00Z"
+     }
+    ]
+   },
+   "synthesis_manifests": {
+    "added": [
+     {
+      "<rowid>": 3,
+      "assessment_schema_version": null,
+      "asset_hashes_json": {
+       "<json>": {
+        "rev_alt": "sha256:abc",
+        "rev_text": "sha256:abc"
+       }
+      },
+      "brief_json": {
+       "<json>": {
+        "practice_items": "upfront"
+       }
+      },
+      "created_at": "2026-07-13T12:00:00Z",
+      "curriculum_snapshot_hash": "sha256:14b952398ad9488ab45435a3ad0e4184eab7f535af0d5b0fcc101565e894751b",
+      "estimated_usage_json": "null",
+      "extraction_ids_json": {
+       "<json>": [
+        "ext_text",
+        "ext_alt"
+       ]
+      },
+      "extractor_versions_json": {
+       "<json>": {
+        "ext_alt": "text@1",
+        "ext_text": "text@1"
+       }
+      },
+      "facet_registry_hash": "sha256:2c57d2f3393f11ff9ade08cbc675b54d0647c5787412f0f8a06e738f2fe2bf44",
+      "id": "01M3250V00TP209AYDNCPVR75J",
+      "learner_model_contract_version": "<head tag>",
+      "lock_fingerprint": null,
+      "manifest_hash": "<manifest:0>",
+      "membership_json": {
+       "<json>": [
+        {
+         "priority": 1,
+         "revision_id": "rev_text",
+         "role": "primary_textbook",
+         "role_overrides": {},
+         "source_id": "src_text"
+        },
+        {
+         "priority": 1,
+         "revision_id": "rev_alt",
+         "role": "primary_textbook",
+         "role_overrides": {},
+         "source_id": "src_alt"
+        }
+       ]
+      },
+      "model": "fake-append-1",
+      "prompt_version": "mvp-0.11-append-one-facet-per-testable-skill-no-locks-sibling-criterion-dependencies-criteria-by-fact-v2",
+      "provider": "codex",
+      "revision_ids_json": {
+       "<json>": [
+        "rev_alt"
+       ]
+      },
+      "schema_version": 1,
+      "scope_json": {
+       "<json>": {
+        "change_kind": "source_added",
+        "facet_identity": {
+         "config": {
+          "attach_top_k": 4,
+          "enabled": true,
+          "max_calls": 24,
+          "max_cost_usd": 0.5,
+          "max_facets": 400,
+          "max_group_size": 40,
+          "max_pairs": 20000,
+          "max_retries": 2,
+          "max_total_tokens": 600000,
+          "merge_locked_facets": true,
+          "price_per_million_input": null,
+          "price_per_million_output": null,
+          "reword_confirm": true,
+          "shortlist_top_k": 4
+         },
+         "prompt_version": "facet-identity-partition-v1",
+         "route": {
+          "billing": "subscription",
+          "cost_basis": "estimated_only",
+          "judge": "llm",
+          "model": "gpt-6-luna",
+          "output_tokens": 16384,
+          "price": {
+           "input_per_million": null,
+           "output_per_million": null,
+           "source": "unknown"
+          },
+          "problem": null,
+          "profile_type": "chatgpt_plan",
+          "provider": "chatgpt_luna",
+          "route": "facet_identity_judge"
+         }
+        },
+        "mode": "append",
+        "neighborhood": {
+         "budget_tokens": 24000,
+         "capped": false,
+         "entity_hashes": {
+          "concept:concept_symmetric_matrix": "sha256:0873cb5c2052e094",
+          "facet:facet_spectral_applicability": "sha256:c1333b048333f27a",
+          "facet:facet_symmetry_definition": "sha256:88a4bf8edf419037"
+         },
+         "input_token_estimate": 653,
+         "match_reasons": {
+          "concept:concept_symmetric_matrix": [
+           {
+            "detail": "matches concept 'symmetric'",
+            "kind": "concept_name",
+            "score": 1.0
+           }
+          ],
+          "facet:facet_spectral_applicability": [
+           {
+            "detail": "mentions 'symmetric'",
+            "kind": "concept_name",
+            "score": 1.0
+           }
+          ],
+          "facet:facet_symmetry_definition": [
+           {
+            "detail": "mentions 'symmetric'",
+            "kind": "concept_name",
+            "score": 1.0
+           },
+           {
+            "detail": "claim overlap 1.00",
+            "kind": "fingerprint",
+            "score": 1.0
+           }
+          ]
+         },
+         "rounds": 1
+        },
+        "new_revision_ids": [
+         "rev_alt"
+        ]
+       }
+      },
+      "source_set_id": "set_la",
+      "task_graph_hash": "sha256:dce2e566a032a659d937e9005f91e177c7072d08a3fc6bc07051b47cc362f0e6",
+      "token_budget_json": {
+       "<json>": {
+        "append_neighborhood_input_tokens": 24000,
+        "append_output_tokens": 10000
+       }
+      },
+      "unit_inventory_versions_json": {
+       "<json>": {
+        "rev_alt:chapter_symmetry_alt": {
+         "content_hash": "sha256:4d725f428783128cf9ef5ba565eb1b7d149caabf950da7ec57d115516ae04fd4",
+         "extraction_id": "ext_alt",
+         "inventory_id": "inv_01M3250V00TP209AYDNCPVR75E",
+         "version": "1|mvp-0.7-source-unit-inventory-role-aware"
+        },
+        "rev_text:chapter_symmetry": {
+         "content_hash": "sha256:694ed3d3d80109a5daae0db957ee1aa7821d4e276a438acf395e0e3e28384c0e",
+         "extraction_id": "ext_text",
+         "inventory_id": "inv_01M3250V00TP209AYDNCPVR73Q",
+         "version": "1|mvp-0.7-source-unit-inventory-role-aware"
+        }
+       }
+      }
+     }
+    ]
+   },
+   "synthesis_runs": {
+    "added": [
+     {
+      "<rowid>": 3,
+      "actual_usage_json": {
+       "<json>": {
+        "facet_identity": {
+         "charged": null,
+         "grouping": {
+          "grouped_facets": 0,
+          "groups": 0,
+          "largest_group": 0,
+          "links": {},
+          "shortlist": "none",
+          "shortlisted_pairs": 0,
+          "split_components": 0
+         },
+         "groups": [],
+         "notes": [],
+         "retirements": {},
+         "route": null,
+         "status": "no_groups",
+         "version": "facet-identity-plan-v1"
+        }
+       }
+      },
+      "agent_run_id": "01M3250V00TP209AYDNCPVR75K",
+      "candidate_output_json": null,
+      "completed_at": "<wall>",
+      "coverage_decisions_json": {
+       "<json>": {
+        "auto_apply_item_ids": [
+         "plink"
+        ],
+        "facet_identity": {
+         "action_ids": [],
+         "attached": 0,
+         "groups": 0,
+         "groups_judged": 0,
+         "in_run_retired": 0,
+         "judge": null,
+         "notes": [],
+         "status": "no_groups"
+        },
+        "gate_diagnostics": []
+       }
+      },
+      "created_at": "<wall>",
+      "id": "01M3250V00TP209AYDNCPVR75M",
+      "manifest_id": "01M3250V00TP209AYDNCPVR75J",
+      "mode": "append",
+      "proposal_id": "01M3250V00TP209AYDNCPVR75V",
+      "resolved_span_hashes_json": null,
+      "span_request_json": null,
+      "status": "completed"
+     }
+    ]
+   },
+   "vault_epigraphs": {
+    "added": [
+     {
+      "<rowid>": 4,
+      "created_at": "2026-07-13T12:00:00Z",
+      "id": "vep_01M3250V00TP209AYDNCPVR760",
+      "kind": "quote",
+      "mode": "append",
+      "model": "fake-append-1",
+      "ordinal": 0,
+      "prompt_version": "mvp-0.1-vault-epigraphs",
+      "provider": "codex",
+      "source_set_id": "set_la",
+      "subject_id": "linear-algebra",
+      "synthesis_run_id": "01M3250V00TP209AYDNCPVR75M",
+      "text": "A second source, the same transpose."
+     },
+     {
+      "<rowid>": 5,
+      "created_at": "2026-07-13T12:00:00Z",
+      "id": "vep_01M3250V00TP209AYDNCPVR761",
+      "kind": "haiku",
+      "mode": "append",
+      "model": "fake-append-1",
+      "ordinal": 1,
+      "prompt_version": "mvp-0.1-vault-epigraphs",
+      "provider": "codex",
+      "source_set_id": "set_la",
+      "subject_id": "linear-algebra",
+      "synthesis_run_id": "01M3250V00TP209AYDNCPVR75M",
+      "text": "again, symmetric\nanother voice says A T\nequals A, still true"
+     },
+     {
+      "<rowid>": 6,
+      "created_at": "2026-07-13T12:00:00Z",
+      "id": "vep_01M3250V00TP209AYDNCPVR762",
+      "kind": "quote",
+      "mode": "append",
+      "model": "fake-append-1",
+      "ordinal": 2,
+      "prompt_version": "mvp-0.1-vault-epigraphs",
+      "provider": "codex",
+      "source_set_id": "set_la",
+      "subject_id": "linear-algebra",
+      "synthesis_run_id": "01M3250V00TP209AYDNCPVR75M",
+      "text": "Escape will make me corroborated."
+     }
+    ]
+   }
+  },
+  "files": {},
+  "model_requests": [
+   [
+    "vault_epigraphs",
+    "bfd2ff2093295fa0"
+   ]
+  ],
+  "receipts": [
+   {
+    "budget_json": null,
+    "output_budget_tokens": null,
+    "purpose": "vault_epigraphs",
+    "root": true,
+    "schema_hash": "4398469694751a49d8750d9552df8a28bffcd1d9d385be633b9c98b16290d494"
+   }
+  ],
+  "result": {
+   "auto_applied_item_ids": [
+    "01M3250V00TP209AYDNCPVR75P"
+   ],
+   "change_kind": "source_added",
+   "facet_identity": {
+    "actions": [],
+    "attached": 0,
+    "groups": 0,
+    "groups_judged": 0,
+    "in_run_retired": 0,
+    "judge": null,
+    "notes": [],
+    "run_id": "01M3250V00TP209AYDNCPVR75M",
+    "status": "no_groups"
+   },
+   "gate_diagnostics": [],
+   "item_counts": {
+    "notation_mapping": 1,
+    "provenance_link": 1,
+    "source_conflict": 1
+   },
+   "manifest_hash": "<manifest:0>",
+   "merge_review_proposals": [],
+   "neighborhood": {
+    "budget_tokens": 24000,
+    "capped": false,
+    "entity_hashes": {
+     "concept:concept_symmetric_matrix": "sha256:0873cb5c2052e094",
+     "facet:facet_spectral_applicability": "sha256:c1333b048333f27a",
+     "facet:facet_symmetry_definition": "sha256:88a4bf8edf419037"
+    },
+    "input_token_estimate": 653,
+    "match_reasons": {
+     "concept:concept_symmetric_matrix": [
+      {
+       "detail": "matches concept 'symmetric'",
+       "kind": "concept_name",
+       "score": 1.0
+      }
+     ],
+     "facet:facet_spectral_applicability": [
+      {
+       "detail": "mentions 'symmetric'",
+       "kind": "concept_name",
+       "score": 1.0
+      }
+     ],
+     "facet:facet_symmetry_definition": [
+      {
+       "detail": "mentions 'symmetric'",
+       "kind": "concept_name",
+       "score": 1.0
+      },
+      {
+       "detail": "claim overlap 1.00",
+       "kind": "fingerprint",
+       "score": 1.0
+      }
+     ]
+    },
+    "rounds": 1
+   },
+   "nothing_new": false,
+   "proposal_id": "01M3250V00TP209AYDNCPVR75V",
+   "reused": false,
+   "review_item_ids": [
+    "01M3250V00TP209AYDNCPVR75R",
+    "01M3250V00TP209AYDNCPVR75T"
+   ],
+   "source_set_id": "set_la",
+   "span_request_count": 1,
+   "study_map_diff": {
+    "blueprint_distribution_shift": [],
+    "has_changes": true,
+    "new_conflicts": 0,
+    "new_facets": [],
+    "new_links": 1,
+    "new_notations": 0,
+    "removed_facets": [],
+    "stale_links_repaired": 0
+   },
+   "subject_id": "linear-algebra",
+   "synthesis_run_id": "01M3250V00TP209AYDNCPVR75M"
+  },
+  "sent": [
+   {
+    "isolated": false,
+    "output_budget_tokens": null,
+    "purpose": "vault_epigraphs",
+    "reasoning_effort": null,
+    "result_model": "VaultEpigraphBatch",
+    "schema": "32cba56c4510444f",
+    "timeout_seconds": null
+   }
+  ]
+ }
+}

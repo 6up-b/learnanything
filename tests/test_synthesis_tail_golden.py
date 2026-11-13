@@ -43,6 +43,7 @@ from typing import Any
 import pytest
 import yaml
 
+from learnloop.ai.execution import observe_model_calls
 from learnloop.ai.usage import TokenUsage
 from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.content.proposals.proposals import reject_items
@@ -55,11 +56,12 @@ from learnloop.content.synthesis.ai_contracts import (
     SynthPracticeItem,
     SynthRecipe,
     SynthSpanRef,
+    SynthSpanRequest,
 )
 from learnloop.content.synthesis.source_append import append_source
 from learnloop.content.synthesis.source_set_synthesis import StudyMapError, create_study_map
 
-from tests.facet_reword_paths_helpers import _facet_restructure
+from tests.facet_reword_paths_helpers import NEW_SPAN, _facet_restructure
 from tests.source_append_helpers import (
     FakeAppendClient,
     _bootstrap_and_add,
@@ -98,6 +100,16 @@ class _Recorder:
         if not hasattr(self, "requests"):
             self.requests, self._pending = [], 0
         self.requests.append([request.purpose, _digest(_normalize_text(request.prompt))])
+        # The rest of what is sent, which the call cases record (see ``_record_sent``).
+        getattr(self, "sent", []).append({
+            "purpose": request.purpose,
+            "result_model": request.result_model.__name__,
+            "schema": _digest(json.dumps(request.result_model.model_json_schema(), sort_keys=True)),
+            "output_budget_tokens": request.output_budget_tokens,
+            "timeout_seconds": request.timeout_seconds,
+            "reasoning_effort": request.reasoning_effort,
+            "isolated": request.isolated,
+        })
         self._pending += 1
 
     def consume_usage(self) -> TokenUsage:
@@ -287,6 +299,26 @@ def _record(root: Path, repo: Any, client: _Recorder, run: Any) -> dict[str, Any
         "database": changes,
         "files": _file_changes(files, _files(root)),
     }, _Ids(named))
+
+
+def _record_sent(root: Path, repo: Any, client: _Recorder, run: Any) -> dict[str, Any]:
+    """:func:`_record`, with every request as sent (its schema and output limit beside its prompt's digest) and the
+    receipt each opened (the budgets declared on it): what moves if the call path sends anything else."""
+
+    receipts: list[dict[str, Any]] = []
+
+    def observe(event: str, payload: dict[str, Any]) -> None:
+        if event == "start":
+            receipts.append({
+                "purpose": payload["purpose"], "root": payload["parent_call_id"] is None,
+                "schema_hash": payload["schema_hash"], "budget_json": payload["budget_json"],
+                "output_budget_tokens": payload["output_budget_tokens"],
+            })
+
+    client.sent = []
+    with observe_model_calls(observe):
+        record = _record(root, repo, client, run)
+    return {**record, "sent": _clean(client.sent, _Ids({})), "receipts": _clean(receipts, _Ids({}))}
 
 
 @pytest.fixture
@@ -533,3 +565,126 @@ def test_append_a_unit_filter_a_revision_diff_and_no_limits(tmp_path, seeded_ids
         revision_diff={"old_revision_id": "rev_text", "new_revision_id": "rev_alt"}, unlimited_token_budget=True,
         budget_overrides={"append_neighborhood_input_tokens": 9000}, auto_apply=False))
     _check("append_unit_filter_diff_unlimited", record)
+
+
+# --- the append's model call -------------------------------------------------
+#
+# What an append sends and saves, request by request: the span round, the answers it saves and reuses, the answers it
+# drops, and a call that fails part way. These record each request whole (``_record_sent``).
+
+
+#: Just over the span round's request (about 7,616 tokens, its first call's about 7,559), under the two together.
+SPAN_ROUND_CEILING = 7_620
+#: Between the first answer's size (about 107 tokens) and the span round's (about 399).
+SPAN_ANSWER_OVER_BUDGET = 200
+
+
+def _asks_for_a_span(then):
+    """The first answer asks for the new inventory's first span; the span round's answer is ``then``'s."""
+
+    def builder(context, n):
+        if context.resolved_spans:
+            return then(context, n)
+        ext, unit, span = _first_new_span(context)
+        return AppendReconciliation(summary="asks to read a span", span_requests=[SynthSpanRequest(
+            extraction_id=ext, unit_id=unit, span_id=span, purpose="check the symmetry condition")])
+
+    return builder
+
+
+def test_append_span_round_under_a_per_request_input_ceiling(tmp_path, seeded_ids):
+    """The span round sends the same request with the resolved span; its ceiling holds each request alone, so a
+    ceiling just over the span round's request lets both through though their sum is over it."""
+
+    root, repo = _bootstrap_and_add(tmp_path, add_role="primary_textbook")
+    client = _AppendClient(builder=_asks_for_a_span(_mixed_append))
+    record = _record_sent(root, repo, client, lambda: _append(
+        root, repo, client, budget_overrides={"append_input_ceiling": SPAN_ROUND_CEILING}))
+    _check("append_span_round", record)
+
+
+def test_append_rerun_reuses_the_answers_an_over_budget_run_saved(tmp_path, seeded_ids):
+    """An answer over the output budget fails the run but stays saved; the rerun under the default budget pays for
+    nothing it already has."""
+
+    root, repo = _bootstrap_and_add(tmp_path, add_role="primary_textbook")
+    client = _AppendClient(builder=_asks_for_a_span(_mixed_append))
+    first = _record_sent(root, repo, client, lambda: _append(
+        root, repo, client, budget_overrides={"append_output_tokens": SPAN_ANSWER_OVER_BUDGET}))
+    rerun = _record_sent(root, repo, client, lambda: _append(root, repo, client))
+    _check("append_rerun_reuses_saved_answers", {"first": first, "rerun": rerun})
+
+
+def _append_checkpoints(repo) -> list[tuple[str, dict[str, Any]]]:
+    with repo.connection() as connection:
+        rows = connection.execute(
+            "SELECT cache_key, result_json FROM model_work_checkpoints WHERE purpose = 'append_reconciliation' "
+            "ORDER BY rowid").fetchall()
+    return [(row[0], json.loads(row[1])) for row in rows]
+
+
+def _aligns_with_the_exam(context, _n):
+    """The exam member's span asked for, then aligned with a learning object (an exam's only routine link)."""
+
+    if not context.resolved_spans:
+        return AppendReconciliation(summary="asks to read the exam's span", span_requests=[
+            SynthSpanRequest(**NEW_SPAN, purpose="check what the exam asks")])
+    return AppendReconciliation(summary="aligns the exam", provenance_links=[AppendProvenanceLink(
+        client_item_id="plink_exam", reconciliation_intent="assessment_alignment",
+        target_entity_type="learning_object", target_entity_id="lo_diagonalize_symmetric",
+        relation="assessment_alignment", span=SynthSpanRef(**NEW_SPAN))])
+
+
+def test_append_rejected_match_then_a_gate_failure_with_another_run_saving(tmp_path, seeded_ids):
+    """A rerun after the whole append was rejected: its saved answers (a call and its span round) reproduce the
+    rejected proposal, so they are dropped and the model asked again; while that fresh call runs, another run saves
+    the span round's answer again, identical; the fresh answer, an exam-only reword, then fails the gates and is
+    dropped. Which saved answers remain is what each drop names."""
+
+    root, repo = _bootstrap_and_add(tmp_path, add_role="exam")
+    rejected = _facet_restructure()
+    saved: list[tuple[str, dict[str, Any]]] = []
+
+    def builder(context, n):
+        if n <= 2:
+            return _aligns_with_the_exam(context, n)
+        # The other run: the first build's span-round answer, saved again under its key.
+        key, result = saved[-1]
+        repo.save_model_checkpoint(key, purpose="append_reconciliation", result=result)
+        return rejected(context, n)
+
+    client = _AppendClient(builder=builder)
+    first = _append(root, repo, client, auto_apply=False)
+    reject_items(root, first.proposal_id)
+    saved.extend(_append_checkpoints(repo))
+    record = _record_sent(root, repo, client, lambda: _append(root, repo, client, auto_apply=False))
+    _check("append_rejected_match_then_gate_failure", record)
+
+
+class _Raised:
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+
+    def as_dict(self) -> dict[str, Any]:
+        # No manifest hash to name: the run's own manifest is in the rows the build added.
+        return {"raised": type(self.error).__name__, "message": str(self.error), "manifest_hash": None}
+
+
+def test_append_a_call_that_fails_part_way(tmp_path, seeded_ids):
+    """The provider fails on the span round: the first answer stays saved, both run rows fail, and the agent run
+    records the usage the client reports by then."""
+
+    root, repo = _bootstrap_and_add(tmp_path, add_role="primary_textbook")
+
+    def fails(_context, _n):
+        raise RuntimeError("the provider went away")
+
+    client = _AppendClient(builder=_asks_for_a_span(fails))
+
+    def run():
+        try:
+            return _append(root, repo, client)
+        except RuntimeError as error:
+            return _Raised(error)
+
+    _check("append_fails_part_way", _record_sent(root, repo, client, run))
