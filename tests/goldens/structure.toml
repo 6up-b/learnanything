@@ -11,7 +11,7 @@ first_level_packages = 46
 first_level_root_modules = 35
 first_level_root_modules_not_upgrade = 35
 functions_over_200_lines = 76
-comment_lines_naming_a_stage_artifact = 2393
+comment_lines_naming_a_stage_artifact = 2392
 test_files_named_for_a_stage = 184
 
 [members]
@@ -305,7 +305,7 @@ functions_over_200_lines = [
     "src/learnloop/router/decisions.py build_today_offer_decision",
     "src/learnloop/router/outcomes.py derive_router_outcomes",
     "src/learnloop/router/plan_log.py build_plan_block_decision",
-    "src/learnloop/scheduling/scheduler.py build_due_queue",
+    "src/learnloop/scheduling/scheduler.py _due_queue",
     "src/learnloop/scheduling/staged_policy.py decide",
     "src/learnloop/source_retrieval/compare.py _compare_sources",
     "src/learnloop/source_retrieval/evaluation.py run",
@@ -866,7 +866,7 @@ stage_test_files = [
 "src/learnloop/scheduling/intent/followup_gate.py" = 3
 "src/learnloop/scheduling/intent/serving.py" = 22
 "src/learnloop/scheduling/review_log.py" = 1
-"src/learnloop/scheduling/scheduler.py" = 24
+"src/learnloop/scheduling/scheduler.py" = 23
 "src/learnloop/scheduling/staged_policy.py" = 1
 "src/learnloop/scheduling/voi_forecasts.py" = 6
 "src/learnloop/section_map.py" = 1
