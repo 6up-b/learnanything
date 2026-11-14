@@ -46,27 +46,27 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/goals/goal_certification.py](../../../../../../src/learnloop/goals/goal_certification.py) |
-| Source lines | 328 |
+| Source lines | 320 |
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class FacetDemonstration` ([source](../../../../../../src/learnloop/goals/goal_certification.py), line 32) — Capability-matched demonstration state for one facet within an LO (§9.5).
-  - `demonstrated(self) -> bool` (line 41; public) — Every required capability has capability-matched direct evidence.
-- `required_capabilities_for_facet(vault: LoadedVault, learning_object: LearningObject, facet_id: str) -> tuple[tuple[str, ...], bool]` ([source](../../../../../../src/learnloop/goals/goal_certification.py), line 54) — Capabilities ``facet_id`` is required at within ``learning_object`` (§9.5).
-- `demonstrated_capabilities_for_facet(vault: LoadedVault, repository: Repository, facet_id: str) -> set[str]` ([source](../../../../../../src/learnloop/goals/goal_certification.py), line 86) — Capabilities with capability-matched direct/embedded certification credit.
-- `facet_demonstration(vault: LoadedVault, repository: Repository, learning_object: LearningObject, facet_id: str) -> FacetDemonstration` ([source](../../../../../../src/learnloop/goals/goal_certification.py), line 105) — The §9.5 demonstration state of one facet within an LO.
-- `class LoCertification` ([source](../../../../../../src/learnloop/goals/goal_certification.py), line 128) — Composite-LO certification: component coverage + integration (§9.2/§9.5).
-- `class RecipeGaps` ([source](../../../../../../src/learnloop/goals/goal_certification.py), line 138) — The unmet requirements of ONE recipe (§9.2 last bullet, §9.5).
-  - `satisfied(self) -> bool` (line 169; public)
-- `recipe_gaps(vault: LoadedVault, repository: Repository, learning_object: LearningObject, *, demonstrated: Callable[[str], set[str]] | None=None) -> tuple[RecipeGaps, ...]` ([source](../../../../../../src/learnloop/goals/goal_certification.py), line 193) — Per-recipe gaps for every declared recipe, in declaration order.
-- `lo_certification(vault: LoadedVault, repository: Repository, learning_object: LearningObject, *, demonstrated: Callable[[str], set[str]] | None=None) -> LoCertification` ([source](../../../../../../src/learnloop/goals/goal_certification.py), line 284) — Whether a composite LO is demonstrated (§9.2 last bullet, §9.5).
+- `class FacetDemonstration` ([source](../../../../../../src/learnloop/goals/goal_certification.py), line 27) — Capability-matched demonstration state for one facet within an LO (§9.5).
+  - `demonstrated(self) -> bool` (line 36; public) — Every required capability has capability-matched direct evidence.
+- `required_capabilities_for_facet(vault: LoadedVault, learning_object: LearningObject, facet_id: str) -> tuple[tuple[str, ...], bool]` ([source](../../../../../../src/learnloop/goals/goal_certification.py), line 49) — Capabilities ``facet_id`` is required at within ``learning_object`` (§9.5).
+- `demonstrated_capabilities_for_facet(vault: LoadedVault, repository: Repository, facet_id: str) -> set[str]` ([source](../../../../../../src/learnloop/goals/goal_certification.py), line 81) — Capabilities with capability-matched direct/embedded certification credit.
+- `facet_demonstration(vault: LoadedVault, repository: Repository, learning_object: LearningObject, facet_id: str) -> FacetDemonstration` ([source](../../../../../../src/learnloop/goals/goal_certification.py), line 100) — The §9.5 demonstration state of one facet within an LO.
+- `class LoCertification` ([source](../../../../../../src/learnloop/goals/goal_certification.py), line 120) — Composite-LO certification: component coverage + integration (§9.2/§9.5).
+- `class RecipeGaps` ([source](../../../../../../src/learnloop/goals/goal_certification.py), line 130) — The unmet requirements of ONE recipe (§9.2 last bullet, §9.5).
+  - `satisfied(self) -> bool` (line 161; public)
+- `recipe_gaps(vault: LoadedVault, repository: Repository, learning_object: LearningObject, *, demonstrated: Callable[[str], set[str]] | None=None) -> tuple[RecipeGaps, ...]` ([source](../../../../../../src/learnloop/goals/goal_certification.py), line 185) — Per-recipe gaps for every declared recipe, in declaration order.
+- `lo_certification(vault: LoadedVault, repository: Repository, learning_object: LearningObject, *, demonstrated: Callable[[str], set[str]] | None=None) -> LoCertification` ([source](../../../../../../src/learnloop/goals/goal_certification.py), line 276) — Whether a composite LO is demonstrated (§9.2 last bullet, §9.5).
 
 ## Internal implementation anchors
 
-- `_demonstrated_resolver(vault: LoadedVault, repository: Repository)` ([source](../../../../../../src/learnloop/goals/goal_certification.py), line 177) — Memoized ``facet -> demonstrated capabilities`` over the ledger.
+- `_demonstrated_resolver(vault: LoadedVault, repository: Repository)` ([source](../../../../../../src/learnloop/goals/goal_certification.py), line 169) — Memoized ``facet -> demonstrated capabilities`` over the ledger.
 
 ## Who imports or calls it
 
@@ -94,7 +94,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/goals/certification|learnloop.goals.certification]] — imports `is_demonstrated_credit`; calls `is_demonstrated_credit`
 - [[Reference/Modules/learnloop/learner/capability_mapping|learnloop.learner.capability_mapping]] — imports `default_capability_for`; calls `default_capability_for`
 - [[Reference/Modules/learnloop/learner/contract_reachability|learnloop.learner.contract_reachability]] — imports `CONTRACT_MODALITIES`
-- [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `is_canonical_state_vault`; calls `is_canonical_state_vault`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LearningObject`, `LoadedVault`, `recipe_components`; calls `recipe_components`
 
 ### Platform and third-party dependencies

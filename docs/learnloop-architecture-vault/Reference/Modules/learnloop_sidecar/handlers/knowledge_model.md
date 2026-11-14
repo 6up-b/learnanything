@@ -50,19 +50,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/knowledge_model.py](../../../../../../src/learnloop_sidecar/handlers/knowledge_model.py) |
-| Source lines | 98 |
+| Source lines | 97 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class AttemptIdInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_model.py), line 26)
-- `class LearningObjectIdInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_model.py), line 30)
-- `class FacetIdInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_model.py), line 34)
-- `get_attempt_trace(ctx: SidecarContext, params: AttemptIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_model.py), line 39) — Criterion-DAG trace for one attempt (§9.6 attempt trace view).
-- `get_capability_grid(ctx: SidecarContext, params: LearningObjectIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_model.py), line 50) — Facet × capability grid + blueprint recipe tree for one LO (§9.6).
-- `get_facet_evidence_timeline(ctx: SidecarContext, params: FacetIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_model.py), line 67) — The Demonstrated curve for a facet + its cross-links (§9.6 phase 1).
+- `class AttemptIdInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_model.py), line 25)
+- `class LearningObjectIdInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_model.py), line 29)
+- `class FacetIdInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_model.py), line 33)
+- `get_attempt_trace(ctx: SidecarContext, params: AttemptIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_model.py), line 38) — Criterion-DAG trace for one attempt (§9.6 attempt trace view).
+- `get_capability_grid(ctx: SidecarContext, params: LearningObjectIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_model.py), line 49) — Facet × capability grid + blueprint recipe tree for one LO (§9.6).
+- `get_facet_evidence_timeline(ctx: SidecarContext, params: FacetIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_model.py), line 66) — The Demonstrated curve for a facet + its cross-links (§9.6 phase 1).
 
 ## Internal implementation anchors
 
@@ -82,7 +82,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]] — imports `build_attempt_trace`; calls `build_attempt_trace`
 - [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]] — imports `capability_grid`, `lo_blueprint_readiness`; calls `capability_grid`, `lo_blueprint_readiness`
 - [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] — imports `facet_evidence_timeline`, `facet_ready_derivation`; calls `facet_evidence_timeline`, `facet_ready_derivation`
-- [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `is_canonical_state_vault`; calls `is_canonical_state_vault`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`

@@ -635,14 +635,6 @@ def test_an_upgrade_counts_every_request_and_reports_the_unprovable_overlap(tmp_
                  json.dumps(budget)))
         connection.commit()
     vault = _vault(1.0)
-    # Read before migrating, the same rule applies (a row no receipt names is legacy).
-    from learnloop.db.stores.source_service import service_spend_accounting
-
-    with connect(sqlite_path, read_only=True) as connection:
-        unmigrated = service_spend_accounting(connection, envelope=SS.DAILY_ENVELOPE, day=day,
-                                              since=day + "T00:00:00", now=SS.utc_now_iso(), price_per_million=PRICE)
-    assert unmigrated["usd"] == pytest.approx(0.85), unmigrated
-    assert unmigrated["legacy"]["uncertain_usd"] == pytest.approx(0.20)
     SS._DAILY.clear()
     repository = _upgraded(sqlite_path)  # the upgrade
     with connect(sqlite_path, read_only=True) as connection:
@@ -708,18 +700,12 @@ def _upgraded(sqlite_path) -> Repository:
     return Repository.attach(sqlite_path)
 
 
-def _unmigrated_and_upgraded(sqlite_path) -> tuple[dict, dict, Repository]:
-    """The day's accounting read before migrating, then after the upgrade."""
+def _upgraded_accounting(sqlite_path) -> tuple[dict, Repository]:
+    """The day's accounting after the upgrade."""
 
-    from learnloop.db.stores.source_service import service_spend_accounting
-
-    day, _midnight = _today()
-    with connect(sqlite_path, read_only=True) as connection:
-        unmigrated = service_spend_accounting(connection, envelope=SS.DAILY_ENVELOPE, day=day,
-                                              since=day + "T00:00:00", now=SS.utc_now_iso(), price_per_million=PRICE)
     SS._DAILY.clear()
     repository = _upgraded(sqlite_path)  # the upgrade
-    return unmigrated, SS.service_spend_today(_vault(1.0), repository), repository
+    return SS.service_spend_today(_vault(1.0), repository), repository
 
 
 def test_a_same_second_pre_ledger_receipt_is_not_a_legacy_requests_own(tmp_path, migration_upgrade_allowed):
@@ -740,8 +726,8 @@ def test_a_same_second_pre_ledger_receipt_is_not_a_legacy_requests_own(tmp_path,
                     ("r_pre", "source_exercise_import", 0.80, _at(midnight, 50.1), 0, {"billing": "metered"}),
                     ("r_own", "source_exercise_import", 0.10, _at(midnight, 50.6), 0, {"billing": "metered"}),
                 ])
-    unmigrated, spent, repository = _unmigrated_and_upgraded(sqlite_path)
-    for accounting in (unmigrated, spent):
+    spent, repository = _upgraded_accounting(sqlite_path)
+    for accounting in (spent,):
         assert accounting["usd"] == pytest.approx(1.00), accounting
         assert accounting["legacy"]["covered_requests"] == 0 and accounting["legacy"]["uncertain_requests"] == 2
         assert accounting["legacy"]["uncertain_usd"] == pytest.approx(0.90)
@@ -772,8 +758,8 @@ def test_overlapping_legacy_requests_cover_no_receipt(tmp_path, migration_upgrad
                     ("r_second", "source_compare", 0.25, _at(midnight, 12.5), 30_000, priced),
                     ("r_other", "source_solution_match", 0.15, _at(midnight, 13.1), 0, {"billing": "metered"}),
                 ])
-    unmigrated, spent, _repository = _unmigrated_and_upgraded(sqlite_path)
-    for accounting in (unmigrated, spent):
+    spent, _repository = _upgraded_accounting(sqlite_path)
+    for accounting in (spent,):
         assert accounting["usd"] == pytest.approx(1.10), accounting
         legacy = accounting["legacy"]
         assert (legacy["correlated"], legacy["covered_requests"], legacy["uncertain_requests"]) == (0, 0, 3)
@@ -793,8 +779,8 @@ def test_an_ambiguous_legacy_request_counts_conservatively_and_says_so(tmp_path,
                     ("r_a", "source_exercise_import", 0.10, _at(midnight, 41), 0, {"billing": "metered"}),
                     ("r_b", "source_compare", 0.10, _at(midnight, 43), 0, {"billing": "metered"}),
                 ])
-    unmigrated, spent, _repository = _unmigrated_and_upgraded(sqlite_path)
-    for accounting in (unmigrated, spent):
+    spent, _repository = _upgraded_accounting(sqlite_path)
+    for accounting in (spent,):
         assert accounting["usd"] == pytest.approx(0.30), accounting
         legacy = accounting["legacy"]
         assert (legacy["correlated"], legacy["uncorrelated"], legacy["covered_requests"]) == (0, 1, 0)
@@ -819,8 +805,8 @@ def test_a_legacy_row_never_suppresses_a_receipt_it_only_matches_by_amount(tmp_p
                     ("r_own", "practice_query_embedding", 0.09, _at(midnight, 60.2), 0, {"billing": "metered"}),
                     ("r_other", "source_compare", 0.10, _at(midnight, 60.7), 0, {"billing": "metered"}),
                 ])
-    unmigrated, spent, repository = _unmigrated_and_upgraded(sqlite_path)
-    for accounting in (unmigrated, spent):
+    spent, repository = _upgraded_accounting(sqlite_path)
+    for accounting in (spent,):
         assert accounting["usd"] == pytest.approx(0.20), accounting
         assert accounting["usd"] >= 0.19
         legacy = accounting["legacy"]

@@ -124,20 +124,14 @@ def test_arithmetic_slip_and_scaffold_failure_mapping_decision():
 
 
 def test_retrieval_boundary_is_mechanism_based_and_domain_neutral():
-    from learnloop.attempts.grading import CANONICAL_ERROR_TYPES
-
     mechanism_card = next(
         card for card in MECHANISM_TAXONOMY_CARD if card["id"] == "retrieval_failure"
     )
-    legacy_card = next(
-        card for card in CANONICAL_ERROR_TYPES if card["id"] == "recall_failure"
-    )
 
-    for card in (mechanism_card, legacy_card):
-        guidance = f"{card['use_when']} {card['avoid_when']}".casefold()
-        assert "previously learned" in guidance
-        assert "uncertainty" in guidance
-        assert "derivation" not in guidance
+    guidance = f"{mechanism_card['use_when']} {mechanism_card['avoid_when']}".casefold()
+    assert "previously learned" in guidance
+    assert "uncertainty" in guidance
+    assert "derivation" not in guidance
 
 
 def test_grader_prompt_version_bumped():
@@ -157,15 +151,14 @@ def test_grader_prompt_version_bumped():
     assert GRADING_PROMPT_VERSION != "mvp-0.9-causal-structural-repair"
 
 
-def test_mvp07_grader_taxonomy_emits_mechanism_vocabulary(tmp_path):
+def test_grader_taxonomy_emits_mechanism_vocabulary(tmp_path):
     from learnloop.attempts.grading import _grading_error_taxonomy
 
-    vault06, _ = _mvp06(tmp_path / "a")
-    vault07, _ = _mvp07(tmp_path / "b")
-    ids06 = {e["id"] for e in _grading_error_taxonomy(vault06)["canonical_error_types"]}
-    ids07 = {e["id"] for e in _grading_error_taxonomy(vault07)["canonical_error_types"]}
-    assert ids07 == set(MECHANISM_TAXONOMY)
-    assert "recall_failure" in ids06 and "recall_failure" not in ids07
+    create_basic_vault(tmp_path / "vault")
+    vault = load_vault(tmp_path / "vault")
+    ids = {e["id"] for e in _grading_error_taxonomy(vault)["canonical_error_types"]}
+    assert ids == set(MECHANISM_TAXONOMY)
+    assert "recall_failure" not in ids
 
 
 def test_config_error_impacts_resolve_through_map(tmp_path):
@@ -406,17 +399,3 @@ def test_promotion_on_independent_surface(tmp_path):
     durable = repository.misconceptions_for_learning_object(LO_ID)
     assert len(durable) == 1
     assert durable[0].promotion_reason == "independent_surface"
-
-
-def test_legacy_vault_still_mints_immediately(tmp_path):
-    # mvp-0.6 promotion discipline is unchanged: one statement mints one row.
-    vault, repository = _mvp06(tmp_path)
-    _insert_attempt(repository, attempt_id="att1")
-    _insert_mc_event(
-        repository, attempt_id="att1", event_id="ev1", statement="believes X", error_type="conceptual_slip"
-    )
-    touched = normalize_attempt_misconceptions(
-        vault, repository, attempt_id="att1", learning_object_id=LO_ID, clock=FrozenClock(NOW)
-    )
-    assert len(touched) == 1
-    assert len(repository.misconceptions_for_learning_object(LO_ID)) == 1

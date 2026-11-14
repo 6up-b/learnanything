@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/brief.py](../../../../../../src/learnloop/teacher/brief.py) |
-| Source lines | 966 |
+| Source lines | 972 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -73,7 +73,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `admitted_recap(vault: Any, repository: Any, lesson_id: str, recap: Any, *, current: Any=_UNREAD, notes_check: NotesCheck | None=None, memo: dict[str, bool] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 605) — ``{"recap": ...}`` when :func:`recap_admissible`, else the recap left out and said so.
 - `c4_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/teacher/brief.py), line 767)
 - `deliverable_for(vault: Any, repository: Any, learning_object_ids: Sequence[str]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/brief.py), line 771) — The nearest active deliverable whose resolution names one of the lesson's LOs, with its sentence, the resolution's phrase per LO and the path's primaries and alternates (C4, §8.2).
-- `build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[str], how: Mapping[str, str], goal_text: str, selection: Mapping[str, Any] | None, driver: str, lesson_id: str | None, constraints: Mapping[str, Any], notes_provider: Any=None, notes_check: NotesCheck | None=None, te2: bool=False, origin: str | None=None, origin_ref: str | None=None, follow_record: dict[str, Any] | None=None, preference_ref: str | None=None, opens_at: str | None=None) -> tuple[dict[str, Any], SourceBook]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 819) — ``(LessonBriefV1, the delivered passages)``.
+- `build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[str], how: Mapping[str, str], goal_text: str, selection: Mapping[str, Any] | None, driver: str, lesson_id: str | None, constraints: Mapping[str, Any], notes_provider: Any=None, notes_check: NotesCheck | None=None, te2: bool=False, origin: str | None=None, origin_ref: str | None=None, follow_record: dict[str, Any] | None=None, preference_ref: str | None=None, opens_at: str | None=None, from_check: Mapping[str, Any] | None=None) -> tuple[dict[str, Any], SourceBook]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 819) — ``(LessonBriefV1, the delivered passages)``.
 
 ### Module constants
 

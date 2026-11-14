@@ -113,7 +113,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 17 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 17 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 16 static module edges
-- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 14 static module edges
+- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 13 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 13 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 9 static module edges
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 4 static module edges
@@ -183,7 +183,7 @@ flowchart LR
     center -->|42| n_learnloop
     n_learnloop_sidecar_handlers -->|30| center
     n_learnloop_learner -->|6| center
-    center -->|14| n_learnloop_learner
+    center -->|13| n_learnloop_learner
     n_learnloop_substrate -->|5| center
     center -->|13| n_learnloop_substrate
     center -->|17| n_learnloop_ai

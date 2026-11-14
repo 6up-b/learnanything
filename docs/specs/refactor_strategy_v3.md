@@ -770,6 +770,25 @@ The map's methods were name- and import-based, so whole risk classes were invisi
 - **Why:** `figures/` is 25 modules and about 20,800 lines that the Nov 8 map read by size. `figures/service.py` (3,956 lines, 76 public names) is one of its five god modules, arc B added records (B4) and nothing restructures it. The Manim tier (`figures/manim_figure.py`, `figures/rich.py`) and `teacher/visuals.py` run model-written code in a sandbox, and `figures/prefetch.py` holds 26 SQL calls beside the pre-build model's arithmetic.
 - **Scope:** `figures/`, `figure_admission.py`, `teacher/visuals.py`, every place that offers Show me, the sidecar's figures handlers, the phone's media side, the desktop's figure and video components, the sandboxes and where media is stored.
 - **Output:** the map (`docs/reviews/k10-figures-map-2026-11-12.md`), then the strategy and steps K10.1... The map's section 8 lists what the learner sees in each state of a figure or video request, as input to the UX journey audit: it names problems and redesigns nothing.
+- **Strategy** (Nov 14): `docs/reviews/k10-figures-strategy-2026-11-14.md`, built on the map re-checked at `f623e525ac` (its §0 lists where the map was stale; §4 has each step's problem, files, deletions, proof and size). The steps, in order (K10.1-K10.3 first and alone; K10.4-K10.10 one chain on `figures/service.py`):
+  - **K10.1 Cancel stops the build** (S, behaviour; K10-1): the press's cancel mark becomes a hold on the build's `FiguresGate`, so nothing more is sent or stored.
+  - **K10.2 The Reader says when a figure is withheld** (S, behaviour; K10-2): `useFigures` keeps a failed line with code `withheld`.
+  - **K10.3 A video's job continues the press's trace** (S, behaviour, records only; K10-3): `job_enqueued` at the rich enqueue, `continue_job_trace` in its handler; not beside K2.7.
+  - **K10.4 Pin the figure identities and golden the build** (M, tests): `request_hash` and its alternates, the request identity, prompt versions and output schemas into K0's pins; a build, rich-job and coverage golden; tests that patch `service`'s public names ported first (T4).
+  - **K10.5 One name per switch** (S): the wrappers go, three switches move into `figure_admission`, the two raw config reads use the predicates.
+  - **K10.6 Protection in one module; the cycle cut** (M): `figures/protection.py` holds every "may this go out now?" function with the rule stated as a table; the `service` ↔ `rich` ↔ `routes` ↔ `prefetch_ledger` cycle goes.
+  - **K10.7 The request and its grounding out of `service.py`** (M): `figures/request.py`, `figures/grounding.py`; moves only.
+  - **K10.8 Presentation, listing and predictions out** (M): `figures/view.py`, `listing.py`, `predictions.py`; what remains is the build, renamed `figures/build.py`; the stage-history docstring goes.
+  - **K10.9 The author loop: reading the answer is a pure core** (M): `_read_answer` returns the verdict and its record code (L6); stops at the storage extraction if it grows a K2.4-style record.
+  - **K10.10 One presentation chain and one shown set** (S): `section_figures`' copy and the literal shown sets go.
+  - **K10.11 Why a request was refused, reused, offered fewer tiers or withheld** (M, records): one `figure_request` record per request, the menu's off-reasons, the gate's subject and `held` sub-code.
+  - **K10.12 Every rich attempt recorded** (M, records): closes ADR-017's open item for the video jobs.
+  - **K10.13 The attempt-host policy under `figures/`** (M): dropped. Owner, Nov 14: the phone and MCP v2 do not get figures, so no second frontend will call it.
+  - **K10.14 The desktop reads `shown` and the label from the server** (M): before the UX overhaul; wording is the audit's (K10-5).
+  - **K10.15 A Figures note; the two stale vault lines** (S; K10-4).
+  - **K10.16 Retire the eight content switches** (M): the owner said yes (Nov 14). The legacy reuse reads stay until the owner's count.
+  - **K10.17 Remove the dormant `js_animation` tier** (S): the owner said yes (Nov 14).
+- **Owner's calls, decided Nov 14** ("Q1 yes, Q2 yes, Q3 no, Q4 no"): the content switches are retired, `js_animation` is removed, the phone and MCP get no figures, a pressed build does not survive a restart. Still owed: a count from the owner's vault of figures per prompt version and legacy `verified` rows.
 
 **T2. Tests named for what they prove** (M; lowest priority). With the documentation stage.
 - **Does:** renames the 196 stage-named test files to behaviour names, one commit per feature, with no assertion changed. `scripts/affected_tests.py` follows imports, so selection doesn't move.

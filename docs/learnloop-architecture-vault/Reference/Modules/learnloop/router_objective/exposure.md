@@ -47,32 +47,32 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py) |
-| Source lines | 137 |
+| Source lines | 129 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `initiator_for(context: str | None, stated: str | None=None) -> str` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 44) — A client's word when it is one of ours, else what the context says, else the learner.
-- `session_at(repository: Any, at: str | None=None) -> str | None` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 56) — The one session in force at ``at``: started by then and not ended before it.
-- `plan_block_at(repository: Any, extraction_id: str | None, at: str) -> str | None` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 74) — The one plan reading block on this reading in force at ``at``: created by then and not ended before it.
-- `fields(config: Any, repository: Any, *, context: str | None, initiator: str | None=None, block_id: str | None=None, session_id: str | None=None, visit_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 93) — The event's RO0 fields, ``{}`` off or below the migration (the writer then writes what it always did).
-- `visit_fields(config: Any, repository: Any, payload: Mapping[str, Any], *, at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 114) — What a Reader visit's event adds: its initiator, and its session and (a plan-sent visit's) block, each as the client captured it at the opening, else as of ``at``, the visit's own time; else the link is unknown.
+- `initiator_for(context: str | None, stated: str | None=None) -> str` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 43) — A client's word when it is one of ours, else what the context says, else the learner.
+- `session_at(repository: Any, at: str | None=None) -> str | None` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 55) — The one session in force at ``at``: started by then and not ended before it.
+- `plan_block_at(repository: Any, extraction_id: str | None, at: str) -> str | None` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 73) — The one plan reading block on this reading in force at ``at``: created by then and not ended before it.
+- `fields(config: Any, repository: Any, *, context: str | None, initiator: str | None=None, block_id: str | None=None, session_id: str | None=None, visit_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 92) — The event's RO0 fields, ``{}`` when the receipts are off (the writer then writes what it always did).
+- `visit_fields(config: Any, repository: Any, payload: Mapping[str, Any], *, at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 106) — What a Reader visit's event adds: its initiator, and its session and (a plan-sent visit's) block, each as the client captured it at the opening, else as of ``at``, the visit's own time; else the link is unknown.
 
 ### Module constants
 
-- `LEARNER` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 24)
-- `PLAN` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 25)
-- `TUTOR_CITATION` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 26)
-- `DOSE_OFFER` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 27)
-- `LESSON` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 28)
-- `INITIATORS` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 29)
-- `_BY_CONTEXT` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 31)
-- `COLUMNS` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 37)
-- `LINK_CLIENT` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 39)
-- `LINK_AS_OF_EVENT` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 40)
-- `LINK_UNKNOWN` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 41)
+- `LEARNER` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 23)
+- `PLAN` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 24)
+- `TUTOR_CITATION` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 25)
+- `DOSE_OFFER` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 26)
+- `LESSON` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 27)
+- `INITIATORS` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 28)
+- `_BY_CONTEXT` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 30)
+- `COLUMNS` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 36)
+- `LINK_CLIENT` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 38)
+- `LINK_AS_OF_EVENT` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 39)
+- `LINK_UNKNOWN` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 40)
 
 ### Explicit exports
 
@@ -96,7 +96,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_only(rows: list[Any]) -> str | None` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 52)
+- `_only(rows: list[Any]) -> str | None` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 51)
 
 ## Who imports or calls it
 
@@ -121,7 +121,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `objective_receipts_on`; calls `objective_receipts_on`
-- [[Reference/Modules/learnloop/db/stores/router_objective|learnloop.db.stores.router_objective]] — imports `module`; calls `column_present`
 
 ### Platform and third-party dependencies
 

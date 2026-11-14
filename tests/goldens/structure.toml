@@ -5,8 +5,8 @@
 
 
 [ratchet]
-largest_import_component = 188
-modules_in_an_import_cycle = 285
+largest_import_component = 186
+modules_in_an_import_cycle = 283
 first_level_packages = 46
 first_level_root_modules = 35
 first_level_root_modules_not_upgrade = 35
@@ -131,7 +131,6 @@ import_component = [
     "learnloop.field.outcomes",
     "learnloop.goals.certification_cold_probe",
     "learnloop.goals.exam_pool",
-    "learnloop.goals.goal_certification",
     "learnloop.goals.goal_contracts",
     "learnloop.goals.goal_lo",
     "learnloop.goals.goal_projection",
@@ -170,7 +169,6 @@ import_component = [
     "learnloop.scheduling.randomization_layer",
     "learnloop.scheduling.review_log",
     "learnloop.scheduling.scheduler",
-    "learnloop.scheduling.selection_rewards",
     "learnloop.scheduling.serving_exclusions",
     "learnloop.scheduling.shadow_components",
     "learnloop.scheduling.staged_policy",

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/PracticeScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/PracticeScreen.tsx) |
-| Source lines | 3151 |
+| Source lines | 3164 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
@@ -54,245 +54,247 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function PracticeScreen(` — function, line 132
-- `export function helpRecordLine(` — function, line 3049
+- `export function PracticeScreen(` — function, line 133
+- `export function helpRecordLine(` — function, line 3062
 
 ## Internal implementation anchors
 
-- `const WORK_IN_STEPS_KEY = "ll.workbench.workInSteps"` — const, line 53
-- `function rememberedWorkInSteps(): boolean` — function, line 54
-- `function rememberWorkInSteps(on: boolean): void` — function, line 61
-- `type CommittedAttemptRecovery =` — type, line 70
-- `type PracticeCheckpointIdentity =` — type, line 76
-- `function committedAttemptRecovery(error: unknown): CommittedAttemptRecovery | null` — function, line 81
-- `const command = getCommandError(error)` — const, line 82
-- `const details = command.details as` — const, line 86
-- `const attemptId = details.attempt_id ?? details.attemptId` — const, line 92
-- `const attemptType = details.attempt_type ?? details.attemptType` — const, line 94
-- `function activeProbeContract(contract: ProbeContractDto): ProbeContractDto | null` — function, line 105
-- `const restrictions = contract.restrictions` — const, line 115
-- `const originalPageOpen = useRef(false)` — const, line 269
-- `const stuckPrompt = algoConfig().stuckPrompt` — const, line 275
-- `const ratingTap = algoConfig().ratingTap` — const, line 293
-- `const firstHint = useFirstHintProgress(` — const, line 300
-- `const firstHintRef = useRef(firstHint.value)` — const, line 302
-- `const hintSeenRef = useRef(hintSeen)` — const, line 309
-- `const seeHint = useCallback(()` — const, line 311
-- `const simple = simplePracticeFeedback()` — const, line 326
-- `const disclosedRef = useRef(disclosed)` — const, line 339
-- `const mountedRef = useRef(true)` — const, line 345
-- `const proposalOriginRef = useRef(proposalOrigin)` — const, line 347
-- `const submissionId = useRef(restoredSubmissionId?.trim() || crypto.randomUUID())` — const, line 349
-- `const latestDraft = useRef(` — const, line 350
-- `const suppressDraftFlush = useRef(false)` — const, line 367
-- `const vaultFrozen = useRef(false)` — const, line 368
-- `const reloadOnResume = useRef(false)` — const, line 372
-- `const draftWrites = useRef<Promise<unknown>>(Promise.resolve())` — const, line 374
-- `const isTeachBack = item?.practiceMode === "teach_back"` — const, line 375
-- `const teachBackRef = useRef(true)` — const, line 380
-- `const teachBackActive = item ? item.practiceMode === "teach_back" : Boolean(restoredTeachBack)` — const, line 385
-- `const openedAtMs = useRef(Date.now())` — const, line 392
-- `const elapsedSeconds = ()` — const, line 398
-- `const activeClock = useAttemptClock()` — const, line 406
-- `const attemptProgressRef = useRef<AttemptProgress>("no_draft")` — const, line 415
-- `const stepsWorkRef = useRef<string | null>(null)` — const, line 419
-- `const onStepsWork = useCallback((workMd: string)` — const, line 420
-- `const askState = ():` — const, line 421
-- `const steps = stepsWorkRef.current` — const, line 422
-- `const askStateRef = useRef(askState)` — const, line 429
-- `const panelOn = algoConfig().ask !== null` — const, line 440
-- `const openAsk = (options?:` — const, line 457
-- `const openAskRef = useRef(openAsk)` — const, line 481
-- `const editorSlotRef = useRef<HTMLDivElement>(null)` — const, line 494
-- `const belowRef = useRef<HTMLDivElement>(null)` — const, line 495
-- `const recomputeEditorMax = useCallback(()` — const, line 498
-- `const slot = editorSlotRef.current` — const, line 499
-- `const top = slot.getBoundingClientRect().top` — const, line 501
-- `const below = belowRef.current?.offsetHeight ?? 0` — const, line 502
-- `const keybar = (document.querySelector(".keybar") as HTMLElement | null)?.offsetHeight ?? 36` — const, line 503
-- `const next = Math.max(140, Math.floor(window.innerHeight - top - below - keybar - 28))` — const, line 504
-- `const sessionMovedRef = useRef(sessionMoved)` — const, line 528
-- `const draftSavingDisabled = ()` — const, line 530
-- `const saveDraft = useCallback(()` — const, line 533
-- `const draft = latestDraft.current` — const, line 534
-- `const write = draftWrites.current.catch(()` — const, line 535
-- `const flushDraft = useCallback(async ()` — const, line 541
-- `const settleDraftForVaultSwitch = useCallback(async ()` — const, line 553
-- `const adaptive = algoConfig().adaptiveHints` — const, line 565
-- `const answerRef = useRef(answer)` — const, line 567
-- `const adaptiveHints = useAdaptiveHints(` — const, line 569
-- `const deliveredHints = adaptiveHints.entries.length` — const, line 589
-- `const frozen = restoredDisclosure ?` — const, line 620
-- `let cancelled = false` — let, line 640
-- `const abandonLoad = ()` — const, line 652
-- `const recoverOrLoad = async ()` — const, line 659
-- `const retryKey = restoredSubmissionId?.trim()` — const, line 660
-- `const recovery = await api.recoverPracticeSubmission(` — const, line 663
-- `const recoveredItem = await api.getPracticeItem(practiceItemId).catch(()` — const, line 673
-- `const routed = await routeAfterAttempt(recovery.result, recoveredItem, abandonLoad)` — const, line 678
-- `const recovery = committedAttemptRecovery(error)` — const, line 691
-- `const timer = setTimeout(()` — const, line 735
-- `const frozen = disclosedRef.current` — const, line 752
-- `const practiceReady = item !== null && probeLoadState === "ready"` — const, line 764
-- `const probeActive = Boolean(probe?.active && probe.presentationId)` — const, line 765
-- `const interactionReady = practiceReady && committedRecovery === null && !vaultChanging && !sessionMoved` — const, line 766
-- `const workbenchAvailable = algoConfig().workbench && practiceReady && committedRecovery === null && !probeActive && !isTeachBack && !redo && !primed` — const, line 772
-- `const workbenchOffered = workbenchAvailable && !vaultChanging` — const, line 773
-- `const wbAutoOpened = useRef(false)` — const, line 782
-- `const wbOrigin = planPresentationId ? "plan" : "practice"` — const, line 783
-- `const wbEntry = wbOrigin === "plan" ? "plan" : "practice_screen"` — const, line 784
-- `const hintsUsedRef = useRef(hintsUsed)` — const, line 788
-- `const carriedRef = useRef(` — const, line 792
-- `const serveRef = useRef(` — const, line 795
-- `const enteringSteps = useRef(false)` — const, line 804
-- `const transition = useRef(` — const, line 809
-- `const stepsShown = useRef(false)` — const, line 810
-- `const beginTransition = useCallback((): number | null` — const, line 811
-- `const endTransition = useCallback((token: number)` — const, line 816
-- `const handOff = useCallback(async (): Promise<number>` — const, line 819
-- `const handOffFailed = useCallback((token: number, heldAt: number | undefined)` — const, line 824
-- `const showSteps = useCallback((next: WorkbenchSessionDto)` — const, line 829
-- `const openWorkbench = useCallback(async ()` — const, line 833
-- `const token = beginTransition()` — const, line 835
-- `let heldAt: number | undefined` — let, line 837
-- `const result = await api.workbenchOpen(` — const, line 840
-- `const resumeWorkbench = useCallback(async (entry: WorkbenchSummaryDto)` — const, line 856
-- `const token = beginTransition()` — const, line 857
-- `let heldAt: number | undefined` — let, line 859
-- `const result = await api.workbenchOpen(` — const, line 864
-- `const backToAnswerBox = useCallback((closing: WorkbenchSessionDto | null)` — const, line 878
-- `const carried = closing?.carriedHints ?? 0` — const, line 881
-- `const earlier = closing?.earlierOpened === true` — const, line 889
-- `const refreshWbItemSessions = useCallback(()` — const, line 900
-- `const itemId = item.id` — const, line 902
-- `const wbItemSessions = item && wbItems.itemId === item.id ? wbItems.sessions : []` — const, line 920
-- `const assistPending = workbenchOffered && item !== null && (wbItems.itemId !== item.id || wbItems.state === "pending")` — const, line 922
-- `const assistLookupFailed = workbenchOffered && item !== null && wbItems.itemId === item.id && wbItems.state === "failed"` — const, line 923
-- `const assistPendingRef = useRef(assistPending)` — const, line 924
-- `const wbOpenEntry = wbItemSessions.find((entry)` — const, line 926
-- `const stepsMode = workbenchAvailable && wbSession !== null` — const, line 927
-- `const bookCarried = bookLeft || wbItemSessions.some((entry)` — const, line 939
-- `const bookCounts = bookCarried || pageSeen` — const, line 943
-- `const earlierCounted = earlierCountedFor !== null && earlierCountedFor === submissionId.current` — const, line 947
-- `const answerHints = hintsUsed + (bookCounts ? 1 : 0)` — const, line 948
-- `const onKey = (event: KeyboardEvent)` — const, line 972
-- `const ctrl = event.ctrlKey || event.metaKey` — const, line 1003
-- `const onResize = ()` — const, line 1049
-- `const observer = new ResizeObserver(()` — const, line 1051
-- `const scorePreview = useMemo(()` — const, line 1059
-- `let score = Math.round(Object.values(selfGrade.criterionPoints).reduce((sum, value)` — let, line 1061
-- `const fatal = item.rubric.fatalErrors.find((candidate)` — const, line 1064
-- `const onYourOwnCheck = item?.activeFollowupKind === "cold_retry" || item?.activeFollowupKind === "certification_cold_probe"` — const, line 1072
-- `const intentCheck = (probeActive ? probe?.intentCheck : undefined) ?? item?.intentCheck ?? null` — const, line 1084
-- `const asPrinted = useAsPrinted(item?.id)` — const, line 1092
-- `const originalPageOffered = !probeActive && !onYourOwnCheck && !isTeachBack && !intentCheck?.locatorsHidden` — const, line 1093
-- `function openOriginalPage(target:` — function, line 1094
-- `const coldTakeStep = onYourOwnCheck && Boolean(intentCheck?.helpHeader)` — const, line 1105
-- `const coldCheck = Boolean(intentCheck?.cold) || onYourOwnCheck` — const, line 1106
-- `function practiceAskTarget(extra?: Partial<AskTarget>): AskTarget` — function, line 1110
-- `function onFigureEvent(event: PanelFigureEvent)` — function, line 1129
-- `function onAskAnswered(answered:` — function, line 1134
-- `const refreshHelpRecord = useCallback(()` — const, line 1142
-- `const key = submissionId.current` — const, line 1144
-- `const shownHintCount = adaptiveHints.entries.length` — const, line 1158
-- `const takeWorkedFromAsk = adaptive && !probeActive && !isTeachBack ? (level: 4 | 5)` — const, line 1165
-- `const askReturnFocus = useRef<HTMLElement | null>(null)` — const, line 1170
-- `function closeDockedAsk()` — function, line 1174
-- `const back = askReturnFocus.current` — const, line 1176
-- `function onEarlierOpened()` — function, line 1181
-- `const key = submissionId.current` — const, line 1183
-- `function revealHint()` — function, line 1192
-- `function revealAuthoredHint()` — function, line 1223
-- `async function revealAuthoredAt(index: number): Promise<string | null>` — function, line 1239
-- `const recorded = await Promise.resolve(api.recordHintReveal?.(` — const, line 1248
-- `async function stopDiagnosing()` — function, line 1258
-- `async function routeAfterAttempt( result: AttemptResultDto, recoveredItem: PracticeItemDetail | null = item, cancelled: ()` — function, line 1271
-- `const learningObjectId = recoveredItem?.learningObjectId ?? result.learningObjectId` — const, line 1277
-- `const learningObjectTitle = recoveredItem?.learningObjectTitle ?? result.learningObjectId` — const, line 1278
-- `const next = await api.getNextProbeItem(learningObjectId)` — const, line 1290
-- `function pressStuck()` — function, line 1311
-- `const editor = editorSlotRef.current?.querySelector<HTMLElement>("[role=textbox]")` — const, line 1314
-- `async function freezeBeforeSelfGrade(itemId: string, key: string): Promise<void>` — function, line 1321
-- `const frozen =` — const, line 1323
-- `async function submit(gradeOverride?: SelfGradeInputDto)` — function, line 1342
-- `const submittedItemId = item.id` — const, line 1344
-- `const submittedKey = submissionId.current` — const, line 1345
-- `const grade = gradeOverride ?? selfGrade` — const, line 1348
-- `const emptyStuck = stuck && !answer.trim() && !whyLine.trim() && !redo` — const, line 1351
-- `const validation = emptyStuck ?` — const, line 1364
-- `const result = await api.submitAttempt(` — const, line 1374
-- `const routed = await routeAfterAttempt(result, item, ()` — const, line 1424
-- `const recovery = committedAttemptRecovery(error)` — const, line 1427
-- `const command = getCommandError(error)` — const, line 1436
-- `async function dontKnow()` — function, line 1455
-- `const submittedItemId = item.id` — const, line 1457
-- `const submittedKey = submissionId.current` — const, line 1458
-- `const result = await api.submitDontKnow(` — const, line 1463
-- `const routed = await routeAfterAttempt(result, item, ()` — const, line 1482
-- `const recovery = committedAttemptRecovery(error)` — const, line 1485
-- `async function skip()` — function, line 1496
-- `const skippedIdentity =` — const, line 1498
-- `async function acknowledgeCheckpoint(practiceItemId: string, expectedSubmissionId: string): Promise<boolean>` — function, line 1512
-- `const result = await api.acknowledgePracticeSubmission(` — const, line 1515
-- `const loadError = itemLoadError ?? probeLoadError` — const, line 1530
-- `const diagnostic = committedRecovery.attemptType === "diagnostic_probe" || probeActive` — const, line 1556
-- `const dockedPanel = dockedAsk && panelOn && !stepsMode ? ( <AskOverlay variant="docked" target=` — const, line 1641
-- `const on = answerConfidence === level` — const, line 2158
-- `const locked = submitting || selfGradeVisible` — const, line 2159
-- `function TeachBackConversation(` — function, line 2461
-- `const startedRef = useRef(false)` — const, line 2490
-- `const transcriptRef = useRef<HTMLDivElement | null>(null)` — const, line 2491
-- `const activeClock = useAttemptClock()` — const, line 2494
-- `const clockKey = `teach_back:$` — const, line 2495
-- `const lastRole = turns.length > 0 ? turns[turns.length - 1].role : null` — const, line 2500
-- `const needsText = turns.length === 0 || lastRole === "ai"` — const, line 2504
-- `const start = useCallback(()` — const, line 2506
-- `const node = transcriptRef.current` — const, line 2536
-- `async function send(finish = false)` — function, line 2540
-- `const text = input.trim()` — const, line 2542
-- `const result = await api.submitTeachBackTurn(` — const, line 2548
-- `const onKey = (event: KeyboardEvent)` — const, line 2576
-- `const submitLabel = turns.length === 0 ? "Start teaching" : lastRole === "learner" ? "Continue" : "Send answer"` — const, line 2587
-- `const questionsAnswered = asked > 0 && lastRole === "learner"` — const, line 2589
-- `function gradeFromParts( item: PracticeItemDetail, base: SelfGradeInputDto, got: (criterionId: string)` — function, line 2706
-- `function PlainSelfGrade(` — function, line 2725
-- `const criteria = item.rubric?.criteria ?? []` — const, line 2762
-- `const fullAnswer = expectedAnswerText(item.expectedAnswer).trim()` — const, line 2763
-- `const exposure = useAnswerExposure(exposureKey, showFullAnswer && Boolean(fullAnswer), recordDisplay)` — const, line 2768
-- `function SelfGradePanel(` — function, line 2824
-- `const awarded = value.criterionPoints[criterion.id] ?? 0` — const, line 2855
-- `const docked = awarded < criterion.points` — const, line 2856
-- `const points = Number(event.target.value)` — const, line 2872
-- `const stillDocked = points < criterion.points` — const, line 2873
-- `function CriterionErrorPicker(` — function, line 2937
-- `const selected = new Set( (value.errorAttributions ?? []).filter((a)` — const, line 2948
-- `const toggle = (errorType: string)` — const, line 2951
-- `const list = value.errorAttributions ?? []` — const, line 2952
-- `const exists = list.some((a)` — const, line 2953
-- `const relevant = candidates.filter((c)` — const, line 2961
-- `const others = candidates.filter((c)` — const, line 2962
-- `const chip = (c: CandidateErrorTypeDto)` — const, line 2963
-- `function prunedAttributions(item: PracticeItemDetail, grade: SelfGradeInputDto): SelfGradeErrorAttributionDto[]` — function, line 3000
-- `const docked = new Set( (item.rubric?.criteria ?? []) .filter((criterion)` — const, line 3001
-- `const NON_RECORDING_ATTEMPT_TYPES: ReadonlySet<AttemptType> = new Set(["guided_walkthrough", "skip"])` — const, line 3012
-- `function defaultAttemptType(allowed: readonly AttemptType[]): AttemptType` — function, line 3014
-- `function composeRedoAnswer(prefix: string, redoText: string): string` — function, line 3027
-- `const suffix = redoText.replace(/^[ \t]+/, "")` — const, line 3028
-- `function recordHintReveal(input: Parameters<typeof api.recordHintReveal>[0]): void` — function, line 3037
-- `const parts: string[] = []` — const, line 3063
-- `const worked = (entries ?? []).filter((entry)` — const, line 3068
-- `const plain = Math.max(0, hints - worked.length)` — const, line 3069
-- `let clientOnly: number` — let, line 3082
-- `let clientWorked: number[] = []` — let, line 3083
-- `const listedIds = new Set(server.items.map((entry)` — const, line 3088
-- `const unlisted = entries.filter((entry)` — const, line 3089
-- `const serverHints = server.items.filter((entry)` — const, line 3093
-- `const listed = new Set<string>()` — const, line 3097
-- `function chooseAttemptType(allowed: readonly AttemptType[], hintsUsed: number): AttemptType` — function, line 3128
-- `const allows = (type: AttemptType)` — const, line 3129
-- `function validateSelfGrade( item: PracticeItemDetail, value: SelfGradeInputDto, required: boolean ): Record<string, string>` — function, line 3134
-- `const errors: Record<string, string> =` — const, line 3140
-- `const points = value.criterionPoints[criterion.id]` — const, line 3142
+- `const WORK_IN_STEPS_KEY = "ll.workbench.workInSteps"` — const, line 54
+- `function rememberedWorkInSteps(): boolean` — function, line 55
+- `function rememberWorkInSteps(on: boolean): void` — function, line 62
+- `type CommittedAttemptRecovery =` — type, line 71
+- `type PracticeCheckpointIdentity =` — type, line 77
+- `function committedAttemptRecovery(error: unknown): CommittedAttemptRecovery | null` — function, line 82
+- `const command = getCommandError(error)` — const, line 83
+- `const details = command.details as` — const, line 87
+- `const attemptId = details.attempt_id ?? details.attemptId` — const, line 93
+- `const attemptType = details.attempt_type ?? details.attemptType` — const, line 95
+- `function activeProbeContract(contract: ProbeContractDto): ProbeContractDto | null` — function, line 106
+- `const restrictions = contract.restrictions` — const, line 116
+- `const originalPageOpen = useRef(false)` — const, line 274
+- `const stuckPrompt = algoConfig().stuckPrompt` — const, line 280
+- `const ratingTap = algoConfig().ratingTap` — const, line 298
+- `const firstHint = useFirstHintProgress(` — const, line 305
+- `const firstHintRef = useRef(firstHint.value)` — const, line 307
+- `const hintSeenRef = useRef(hintSeen)` — const, line 314
+- `const seeHint = useCallback(()` — const, line 316
+- `const simple = simplePracticeFeedback()` — const, line 331
+- `const disclosedRef = useRef(disclosed)` — const, line 344
+- `const mountedRef = useRef(true)` — const, line 350
+- `const proposalOriginRef = useRef(proposalOrigin)` — const, line 352
+- `const submissionId = useRef(restoredSubmissionId?.trim() || crypto.randomUUID())` — const, line 354
+- `const latestDraft = useRef(` — const, line 355
+- `const suppressDraftFlush = useRef(false)` — const, line 372
+- `const vaultFrozen = useRef(false)` — const, line 373
+- `const reloadOnResume = useRef(false)` — const, line 377
+- `const draftWrites = useRef<Promise<unknown>>(Promise.resolve())` — const, line 379
+- `const isTeachBack = item?.practiceMode === "teach_back"` — const, line 380
+- `const teachBackRef = useRef(true)` — const, line 385
+- `const teachBackActive = item ? item.practiceMode === "teach_back" : Boolean(restoredTeachBack)` — const, line 390
+- `const openedAtMs = useRef(Date.now())` — const, line 397
+- `const elapsedSeconds = ()` — const, line 403
+- `const activeClock = useAttemptClock()` — const, line 411
+- `const attemptProgressRef = useRef<AttemptProgress>("no_draft")` — const, line 420
+- `const stepsWorkRef = useRef<string | null>(null)` — const, line 424
+- `const onStepsWork = useCallback((workMd: string)` — const, line 425
+- `const askState = ():` — const, line 426
+- `const steps = stepsWorkRef.current` — const, line 427
+- `const askStateRef = useRef(askState)` — const, line 434
+- `const panelOn = algoConfig().ask !== null` — const, line 445
+- `const openAsk = (options?:` — const, line 462
+- `const openAskRef = useRef(openAsk)` — const, line 486
+- `const editorSlotRef = useRef<HTMLDivElement>(null)` — const, line 499
+- `const belowRef = useRef<HTMLDivElement>(null)` — const, line 500
+- `const recomputeEditorMax = useCallback(()` — const, line 503
+- `const slot = editorSlotRef.current` — const, line 504
+- `const top = slot.getBoundingClientRect().top` — const, line 506
+- `const below = belowRef.current?.offsetHeight ?? 0` — const, line 507
+- `const keybar = (document.querySelector(".keybar") as HTMLElement | null)?.offsetHeight ?? 36` — const, line 508
+- `const next = Math.max(140, Math.floor(window.innerHeight - top - below - keybar - 28))` — const, line 509
+- `const sessionMovedRef = useRef(sessionMoved)` — const, line 533
+- `const draftSavingDisabled = ()` — const, line 535
+- `const saveDraft = useCallback(()` — const, line 538
+- `const draft = latestDraft.current` — const, line 539
+- `const write = draftWrites.current.catch(()` — const, line 540
+- `const flushDraft = useCallback(async ()` — const, line 546
+- `const settleDraftForVaultSwitch = useCallback(async ()` — const, line 558
+- `const adaptive = algoConfig().adaptiveHints` — const, line 570
+- `const answerRef = useRef(answer)` — const, line 572
+- `const adaptiveHints = useAdaptiveHints(` — const, line 574
+- `const deliveredHints = adaptiveHints.entries.length` — const, line 594
+- `const frozen = restoredDisclosure ?` — const, line 625
+- `let cancelled = false` — let, line 645
+- `const abandonLoad = ()` — const, line 657
+- `const recoverOrLoad = async ()` — const, line 664
+- `const retryKey = restoredSubmissionId?.trim()` — const, line 665
+- `const recovery = await api.recoverPracticeSubmission(` — const, line 668
+- `const recoveredItem = await api.getPracticeItem(practiceItemId).catch(()` — const, line 678
+- `const routed = await routeAfterAttempt(recovery.result, recoveredItem, abandonLoad)` — const, line 683
+- `const recovery = committedAttemptRecovery(error)` — const, line 696
+- `const timer = setTimeout(()` — const, line 740
+- `const frozen = disclosedRef.current` — const, line 757
+- `const practiceReady = item !== null && probeLoadState === "ready"` — const, line 769
+- `const probeActive = Boolean(probe?.active && probe.presentationId)` — const, line 770
+- `const interactionReady = practiceReady && committedRecovery === null && !vaultChanging && !sessionMoved` — const, line 771
+- `const workbenchAvailable = algoConfig().workbench && practiceReady && committedRecovery === null && !probeActive && !isTeachBack && !redo && !primed` — const, line 777
+- `const workbenchOffered = workbenchAvailable && !vaultChanging` — const, line 778
+- `const wbAutoOpened = useRef(false)` — const, line 787
+- `const wbOrigin = planPresentationId ? "plan" : "practice"` — const, line 788
+- `const wbEntry = wbOrigin === "plan" ? "plan" : "practice_screen"` — const, line 789
+- `const hintsUsedRef = useRef(hintsUsed)` — const, line 793
+- `const carriedRef = useRef(` — const, line 797
+- `const serveRef = useRef(` — const, line 800
+- `const enteringSteps = useRef(false)` — const, line 809
+- `const transition = useRef(` — const, line 814
+- `const stepsShown = useRef(false)` — const, line 815
+- `const beginTransition = useCallback((): number | null` — const, line 816
+- `const endTransition = useCallback((token: number)` — const, line 821
+- `const handOff = useCallback(async (): Promise<number>` — const, line 824
+- `const handOffFailed = useCallback((token: number, heldAt: number | undefined)` — const, line 829
+- `const showSteps = useCallback((next: WorkbenchSessionDto)` — const, line 834
+- `const openWorkbench = useCallback(async ()` — const, line 838
+- `const token = beginTransition()` — const, line 840
+- `let heldAt: number | undefined` — let, line 842
+- `const result = await api.workbenchOpen(` — const, line 845
+- `const resumeWorkbench = useCallback(async (entry: WorkbenchSummaryDto)` — const, line 861
+- `const token = beginTransition()` — const, line 862
+- `let heldAt: number | undefined` — let, line 864
+- `const result = await api.workbenchOpen(` — const, line 869
+- `const backToAnswerBox = useCallback((closing: WorkbenchSessionDto | null)` — const, line 883
+- `const carried = closing?.carriedHints ?? 0` — const, line 886
+- `const earlier = closing?.earlierOpened === true` — const, line 894
+- `const refreshWbItemSessions = useCallback(()` — const, line 905
+- `const itemId = item.id` — const, line 907
+- `const wbItemSessions = item && wbItems.itemId === item.id ? wbItems.sessions : []` — const, line 925
+- `const assistPending = workbenchOffered && item !== null && (wbItems.itemId !== item.id || wbItems.state === "pending")` — const, line 927
+- `const assistLookupFailed = workbenchOffered && item !== null && wbItems.itemId === item.id && wbItems.state === "failed"` — const, line 928
+- `const assistPendingRef = useRef(assistPending)` — const, line 929
+- `const wbOpenEntry = wbItemSessions.find((entry)` — const, line 931
+- `const stepsMode = workbenchAvailable && wbSession !== null` — const, line 932
+- `const bookCarried = bookLeft || wbItemSessions.some((entry)` — const, line 944
+- `const bookCounts = bookCarried || pageSeen` — const, line 948
+- `const earlierCounted = earlierCountedFor !== null && earlierCountedFor === submissionId.current` — const, line 952
+- `const answerHints = hintsUsed + (bookCounts ? 1 : 0)` — const, line 953
+- `const onKey = (event: KeyboardEvent)` — const, line 977
+- `const ctrl = event.ctrlKey || event.metaKey` — const, line 1008
+- `const onResize = ()` — const, line 1054
+- `const observer = new ResizeObserver(()` — const, line 1056
+- `const scorePreview = useMemo(()` — const, line 1064
+- `let score = Math.round(Object.values(selfGrade.criterionPoints).reduce((sum, value)` — let, line 1066
+- `const fatal = item.rubric.fatalErrors.find((candidate)` — const, line 1069
+- `const onYourOwnCheck = item?.activeFollowupKind === "cold_retry" || item?.activeFollowupKind === "certification_cold_probe"` — const, line 1077
+- `const intentCheck = (probeActive ? probe?.intentCheck : undefined) ?? item?.intentCheck ?? null` — const, line 1089
+- `const asPrinted = useAsPrinted(item?.id)` — const, line 1097
+- `const originalPageOffered = !probeActive && !onYourOwnCheck && !isTeachBack && !intentCheck?.locatorsHidden` — const, line 1098
+- `function openOriginalPage(target:` — function, line 1099
+- `const coldTakeStep = onYourOwnCheck && Boolean(intentCheck?.helpHeader)` — const, line 1110
+- `const coldCheck = Boolean(intentCheck?.cold) || onYourOwnCheck` — const, line 1111
+- `function practiceAskTarget(extra?: Partial<AskTarget>): AskTarget` — function, line 1115
+- `function onFigureEvent(event: PanelFigureEvent)` — function, line 1134
+- `function onAskAnswered(answered:` — function, line 1139
+- `const refreshHelpRecord = useCallback(()` — const, line 1147
+- `const key = submissionId.current` — const, line 1149
+- `const shownHintCount = adaptiveHints.entries.length` — const, line 1163
+- `const takeWorkedFromAsk = adaptive && !probeActive && !isTeachBack ? (level: 4 | 5)` — const, line 1170
+- `const askReturnFocus = useRef<HTMLElement | null>(null)` — const, line 1175
+- `function closeDockedAsk()` — function, line 1179
+- `const back = askReturnFocus.current` — const, line 1181
+- `function onEarlierOpened()` — function, line 1186
+- `const key = submissionId.current` — const, line 1188
+- `function revealHint()` — function, line 1197
+- `function revealAuthoredHint()` — function, line 1228
+- `async function revealAuthoredAt(index: number): Promise<string | null>` — function, line 1244
+- `const recorded = await Promise.resolve(api.recordHintReveal?.(` — const, line 1253
+- `async function stopDiagnosing()` — function, line 1263
+- `const stopped = await api.stopProbeDiagnosing(item.id)` — const, line 1266
+- `const askTutor = ()` — const, line 1270
+- `async function routeAfterAttempt( result: AttemptResultDto, recoveredItem: PracticeItemDetail | null = item, cancelled: ()` — function, line 1283
+- `const learningObjectId = recoveredItem?.learningObjectId ?? result.learningObjectId` — const, line 1289
+- `const learningObjectTitle = recoveredItem?.learningObjectTitle ?? result.learningObjectId` — const, line 1290
+- `const next = await api.getNextProbeItem(learningObjectId)` — const, line 1302
+- `function pressStuck()` — function, line 1323
+- `const editor = editorSlotRef.current?.querySelector<HTMLElement>("[role=textbox]")` — const, line 1326
+- `async function freezeBeforeSelfGrade(itemId: string, key: string): Promise<void>` — function, line 1333
+- `const frozen =` — const, line 1335
+- `async function submit(gradeOverride?: SelfGradeInputDto)` — function, line 1354
+- `const submittedItemId = item.id` — const, line 1356
+- `const submittedKey = submissionId.current` — const, line 1357
+- `const grade = gradeOverride ?? selfGrade` — const, line 1360
+- `const emptyStuck = stuck && !answer.trim() && !whyLine.trim() && !redo` — const, line 1363
+- `const validation = emptyStuck ?` — const, line 1376
+- `const result = await api.submitAttempt(` — const, line 1386
+- `const routed = await routeAfterAttempt(result, item, ()` — const, line 1436
+- `const recovery = committedAttemptRecovery(error)` — const, line 1439
+- `const command = getCommandError(error)` — const, line 1448
+- `async function dontKnow()` — function, line 1467
+- `const submittedItemId = item.id` — const, line 1469
+- `const submittedKey = submissionId.current` — const, line 1470
+- `const result = await api.submitDontKnow(` — const, line 1475
+- `const routed = await routeAfterAttempt(result, item, ()` — const, line 1494
+- `const recovery = committedAttemptRecovery(error)` — const, line 1497
+- `async function skip()` — function, line 1508
+- `const skippedIdentity =` — const, line 1510
+- `async function acknowledgeCheckpoint(practiceItemId: string, expectedSubmissionId: string): Promise<boolean>` — function, line 1524
+- `const result = await api.acknowledgePracticeSubmission(` — const, line 1527
+- `const loadError = itemLoadError ?? probeLoadError` — const, line 1542
+- `const diagnostic = committedRecovery.attemptType === "diagnostic_probe" || probeActive` — const, line 1568
+- `const dockedPanel = dockedAsk && panelOn && !stepsMode ? ( <AskOverlay variant="docked" target=` — const, line 1653
+- `const on = answerConfidence === level` — const, line 2171
+- `const locked = submitting || selfGradeVisible` — const, line 2172
+- `function TeachBackConversation(` — function, line 2474
+- `const startedRef = useRef(false)` — const, line 2503
+- `const transcriptRef = useRef<HTMLDivElement | null>(null)` — const, line 2504
+- `const activeClock = useAttemptClock()` — const, line 2507
+- `const clockKey = `teach_back:$` — const, line 2508
+- `const lastRole = turns.length > 0 ? turns[turns.length - 1].role : null` — const, line 2513
+- `const needsText = turns.length === 0 || lastRole === "ai"` — const, line 2517
+- `const start = useCallback(()` — const, line 2519
+- `const node = transcriptRef.current` — const, line 2549
+- `async function send(finish = false)` — function, line 2553
+- `const text = input.trim()` — const, line 2555
+- `const result = await api.submitTeachBackTurn(` — const, line 2561
+- `const onKey = (event: KeyboardEvent)` — const, line 2589
+- `const submitLabel = turns.length === 0 ? "Start teaching" : lastRole === "learner" ? "Continue" : "Send answer"` — const, line 2600
+- `const questionsAnswered = asked > 0 && lastRole === "learner"` — const, line 2602
+- `function gradeFromParts( item: PracticeItemDetail, base: SelfGradeInputDto, got: (criterionId: string)` — function, line 2719
+- `function PlainSelfGrade(` — function, line 2738
+- `const criteria = item.rubric?.criteria ?? []` — const, line 2775
+- `const fullAnswer = expectedAnswerText(item.expectedAnswer).trim()` — const, line 2776
+- `const exposure = useAnswerExposure(exposureKey, showFullAnswer && Boolean(fullAnswer), recordDisplay)` — const, line 2781
+- `function SelfGradePanel(` — function, line 2837
+- `const awarded = value.criterionPoints[criterion.id] ?? 0` — const, line 2868
+- `const docked = awarded < criterion.points` — const, line 2869
+- `const points = Number(event.target.value)` — const, line 2885
+- `const stillDocked = points < criterion.points` — const, line 2886
+- `function CriterionErrorPicker(` — function, line 2950
+- `const selected = new Set( (value.errorAttributions ?? []).filter((a)` — const, line 2961
+- `const toggle = (errorType: string)` — const, line 2964
+- `const list = value.errorAttributions ?? []` — const, line 2965
+- `const exists = list.some((a)` — const, line 2966
+- `const relevant = candidates.filter((c)` — const, line 2974
+- `const others = candidates.filter((c)` — const, line 2975
+- `const chip = (c: CandidateErrorTypeDto)` — const, line 2976
+- `function prunedAttributions(item: PracticeItemDetail, grade: SelfGradeInputDto): SelfGradeErrorAttributionDto[]` — function, line 3013
+- `const docked = new Set( (item.rubric?.criteria ?? []) .filter((criterion)` — const, line 3014
+- `const NON_RECORDING_ATTEMPT_TYPES: ReadonlySet<AttemptType> = new Set(["guided_walkthrough", "skip"])` — const, line 3025
+- `function defaultAttemptType(allowed: readonly AttemptType[]): AttemptType` — function, line 3027
+- `function composeRedoAnswer(prefix: string, redoText: string): string` — function, line 3040
+- `const suffix = redoText.replace(/^[ \t]+/, "")` — const, line 3041
+- `function recordHintReveal(input: Parameters<typeof api.recordHintReveal>[0]): void` — function, line 3050
+- `const parts: string[] = []` — const, line 3076
+- `const worked = (entries ?? []).filter((entry)` — const, line 3081
+- `const plain = Math.max(0, hints - worked.length)` — const, line 3082
+- `let clientOnly: number` — let, line 3095
+- `let clientWorked: number[] = []` — let, line 3096
+- `const listedIds = new Set(server.items.map((entry)` — const, line 3101
+- `const unlisted = entries.filter((entry)` — const, line 3102
+- `const serverHints = server.items.filter((entry)` — const, line 3106
+- `const listed = new Set<string>()` — const, line 3110
+- `function chooseAttemptType(allowed: readonly AttemptType[], hintsUsed: number): AttemptType` — function, line 3141
+- `const allows = (type: AttemptType)` — const, line 3142
+- `function validateSelfGrade( item: PracticeItemDetail, value: SelfGradeInputDto, required: boolean ): Record<string, string>` — function, line 3147
+- `const errors: Record<string, string> =` — const, line 3153
+- `const points = value.criterionPoints[criterion.id]` — const, line 3155
 
 ## Who imports or calls it
 
@@ -308,6 +310,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `AttemptProgress`, `AttemptResultDto`, `AttemptType`, `CandidateErrorTypeDto`, `DifficultyRating`, `FirstHintProgress`, `GuidedRedoDto`, `HelpRecordDto`, `PracticeItemDetail`, `ProbeBlockEndDto`, `ProbeContractDto`, `RubricCriterionDto`, `SelfGradeDisclosureDto`, `SelfGradeErrorAttributionDto`, `SelfGradeInputDto`, `SessionSnapshot`, `TeachBackStateDto`, `TeachBackTurnDto`, `WorkbenchSessionDto`, `WorkbenchSummaryDto`
 - [[Reference/Desktop/TypeScript/app/algoConfig|src/app/algoConfig.ts]] — import-or-re-export; imports `STUCK_PROMPT_TEXT`, `algoConfig`, `masteryTone`, `setAdaptiveHelpStyle`
+- [[Reference/Desktop/TypeScript/app/checkHandoff|src/app/checkHandoff.ts]] — import-or-re-export; imports `CheckHandoff`, `STOP_AND_TEACH_LABEL`, `handoffOpensLesson`
 - [[Reference/Desktop/TypeScript/app/keyboard|src/app/keyboard.ts]] — import-or-re-export; imports `isTypingTarget`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/app/practiceFeedback|src/app/practiceFeedback.ts]] — import-or-re-export; imports `expectedAnswerText`, `simplePracticeFeedback`

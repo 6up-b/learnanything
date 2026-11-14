@@ -63,3 +63,38 @@ it("keeps Don't know where the vault does not offer I'm stuck", async () => {
   await waitFor(() => expect(api.submitDontKnow).toHaveBeenCalledOnce());
   expect(api.submitAttempt).not.toHaveBeenCalled();
 });
+
+it("\"Stop diagnosing and teach me\" ends the block and hands the topic to a lesson with the check's episode (TH-1)", async () => {
+  api.stopProbeDiagnosing.mockResolvedValue({ version: 1, stopped: true, decision: {}, episodeId: "ep_3", learningObjectId: "lo" });
+  const blockEnd = { episodeId: "ep_3", status: "converted_to_tutoring", releasedFeedback: [], route: "ordinary_practice" };
+  api.endProbeDialogue.mockResolvedValue({ blockEnd });
+  const onDone = vi.fn();
+  const onTeachFromCheck = vi.fn();
+  const onAsk = vi.fn();
+  render(<DialogueProbePanel learningObjectId="lo" sessionId="session" onDone={onDone} onError={vi.fn()}
+                             onTeachFromCheck={onTeachFromCheck} onAsk={onAsk} />);
+  await screen.findByPlaceholderText("Commit to a short answer…");
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Stop diagnosing and teach me" })); });
+  await waitFor(() => expect(onTeachFromCheck).toHaveBeenCalledOnce());
+  expect(api.stopProbeDiagnosing).toHaveBeenCalledWith("pi_probe");
+  expect(api.endProbeDialogue).toHaveBeenCalledOnce();
+  expect(onTeachFromCheck).toHaveBeenCalledWith(expect.objectContaining({ learningObjectId: "lo", probeEpisodeId: "ep_3" }));
+  expect(onDone).toHaveBeenCalledWith(blockEnd);
+  expect(onAsk).not.toHaveBeenCalled();
+  // The fallback is the tutor's proactive opening on the turn's question.
+  onTeachFromCheck.mock.calls[0][0].fallback();
+  expect(onAsk).toHaveBeenCalledWith({ context: "practice", practiceItemId: "pi_probe", sessionId: "session", proactiveOpen: true });
+});
+
+it("a stop that fails teaches nothing and shows the block's results as before", async () => {
+  api.stopProbeDiagnosing.mockRejectedValue({ message: "busy" });
+  const onTeachFromCheck = vi.fn();
+  const onError = vi.fn();
+  render(<DialogueProbePanel learningObjectId="lo" sessionId="session" onDone={vi.fn()} onError={onError}
+                             onTeachFromCheck={onTeachFromCheck} />);
+  await screen.findByPlaceholderText("Commit to a short answer…");
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Stop diagnosing and teach me" })); });
+  await screen.findByText("The dialogue ended without a block result.");
+  expect(onError).toHaveBeenCalledWith("busy");
+  expect(onTeachFromCheck).not.toHaveBeenCalled();
+});

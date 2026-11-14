@@ -40,7 +40,6 @@ from learnloop.daily_plan.reentry import retrievability
 from learnloop.goals.certification import is_demonstrated_credit
 from learnloop.goals.goal_certification import lo_certification, required_capabilities_for_facet
 from learnloop.learner.facet_diagnostics import scope_facets
-from learnloop.learner.facet_state_reader import is_canonical_state_vault
 from learnloop.params.fitted_params import resolve_fsrs_weights
 from learnloop.placement.state import load_placement_state, placement_active
 
@@ -68,12 +67,9 @@ def classify_learning_objects(
         now_iso = None if now is None else now.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         state = load_placement_state(vault, repository, now_iso=now_iso)
         assumed_ids = set(state.open_by_lo)
-    canonical = is_canonical_state_vault(vault)
     cells_by_facet: dict[str, list[Any]] = defaultdict(list)
-    if canonical:
-        for cell in repository.facet_capability_evidence_all():
-            cells_by_facet[vault.canonical_facet_id(cell.facet_id)].append(cell)
-    mastery = repository.mastery_states()
+    for cell in repository.facet_capability_evidence_all():
+        cells_by_facet[vault.canonical_facet_id(cell.facet_id)].append(cell)
     classes: dict[str, str] = {}
     for learning_object in sorted(vault.learning_objects.values(), key=lambda lo: lo.id):
         if learning_object.status != "active" or (wanted is not None and learning_object.id not in wanted):
@@ -83,10 +79,10 @@ def classify_learning_objects(
             classes[lo_id] = "assumed"
             continue
         facets = sorted({vault.canonical_facet_id(str(f)) for f in scope_facets(vault, lo_id, repository)})
-        if _demonstrated(vault, repository, learning_object, facets, cells_by_facet, canonical):
+        if _demonstrated(vault, repository, learning_object, facets, cells_by_facet):
             classes[lo_id] = "demonstrated"
             continue
-        if _has_direct_evidence(facets, cells_by_facet, mastery.get(lo_id), canonical):
+        if _has_direct_evidence(facets, cells_by_facet):
             classes[lo_id] = "learning"
         else:
             classes[lo_id] = "untested"
@@ -99,10 +95,7 @@ def _demonstrated(
     learning_object: Any,
     facets: list[str],
     cells_by_facet: dict[str, list[Any]],
-    canonical: bool,
 ) -> bool:
-    if not canonical:
-        return False
     if learning_object.blueprints:
         return bool(lo_certification(vault, repository, learning_object).demonstrated)
     if not facets:
@@ -121,16 +114,12 @@ def _demonstrated(
     return True
 
 
-def _has_direct_evidence(
-    facets: list[str], cells_by_facet: dict[str, list[Any]], mastery: Any, canonical: bool
-) -> bool:
-    if canonical:
-        for facet_id in facets:
-            for cell in cells_by_facet.get(facet_id, []):
-                if float(cell.direct_positive_mass) + float(cell.direct_negative_mass) > 0.0:
-                    return True
-        return False
-    return mastery is not None and mastery.last_evidence_at is not None
+def _has_direct_evidence(facets: list[str], cells_by_facet: dict[str, list[Any]]) -> bool:
+    for facet_id in facets:
+        for cell in cells_by_facet.get(facet_id, []):
+            if float(cell.direct_positive_mass) + float(cell.direct_negative_mass) > 0.0:
+                return True
+    return False
 
 
 def expected_recall_today(

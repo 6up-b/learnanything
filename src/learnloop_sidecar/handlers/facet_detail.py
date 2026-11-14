@@ -29,7 +29,6 @@ from learnloop.content.facet_identity.actions import facet_history
 from learnloop.learner.facet_state_reader import (
     CanonicalFacetStateReader,
     facet_recall_states_for_lo,
-    is_canonical_state_vault,
     resolve_canonical_facet,
 )
 from learnloop.goals.goal_projection import resolve_goal_scope
@@ -262,11 +261,7 @@ def _facet_readiness(
     if not item_los:
         return None, None
     blend_count = vault.config.recall_coverage.facet_blend_evidence_count
-    reader = (
-        CanonicalFacetStateReader(vault, repository)
-        if is_canonical_state_vault(vault)
-        else None
-    )
+    reader = CanonicalFacetStateReader(vault, repository)
     ready_values: list[float] = []
     ghost_values: list[float] = []
     for lo_id in item_los:

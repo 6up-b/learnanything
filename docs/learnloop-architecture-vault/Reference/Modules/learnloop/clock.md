@@ -1348,9 +1348,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_two_los_share_one_facet_parent`
   - `test_wrong_answer_no_work_creates_unresolved_cause_set`
 - [tests/test_km2b_consumer_rekey.py](../../../../../tests/test_km2b_consumer_rekey.py) — direct import
+  - `test_attempts_write_no_legacy_facet_state`
   - `test_exam_attempt_moves_shared_parent_across_los`
   - `test_goal_projection_reads_canonical_state`
-  - `test_mvp07_vault_refuses_legacy_facet_state_write`
   - `test_replay_identity_after_bridge_removal`
   - `test_two_los_share_one_facet_parent_in_scheduler_view`
 - [tests/test_km3_projections.py](../../../../../tests/test_km3_projections.py) — direct import
@@ -1358,7 +1358,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_goal_report_exposes_dual_axis_fields`
 - [tests/test_km4_taxonomy.py](../../../../../tests/test_km4_taxonomy.py) — direct import
   - `test_compositional_record_parameterizes_contrast_probe`
-  - `test_legacy_vault_still_mints_immediately`
   - `test_probe_cannot_preregister_its_signature_after_seeing_response`
   - `test_promotion_on_independent_surface`
   - `test_promotion_requires_independent_surface_or_probe_reproduction`
@@ -1425,11 +1424,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_clean_discriminating_attempts_resolve`
   - `test_clean_non_discriminating_attempts_do_not_resolve`
   - `test_fired_keyed_fatal_raises_posterior`
-  - `test_llm_match_new_inserts_over_text_match`
   - `test_llm_match_same_merges`
-  - `test_normalization_creates_row_with_provenance`
-  - `test_normalization_dedupes_by_normalized_statement`
-  - `test_normalization_is_idempotent`
   - `test_normalization_reactivates_resolved_row`
   - `test_primed_attempts_do_not_resolve_a_misconception`
   - `test_resolution_reactivates_when_posterior_climbs`
@@ -1682,7 +1677,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_bad_item_suspicion_uses_prior_snapshot_not_current_attempt_update`
   - `test_blank_independent_attempt_is_damped_and_flagged_for_manual_review`
   - `test_diagnostic_generation_stales_resolved_repeat_failure_need`
-  - `test_dont_know_keeps_full_coverage_and_updates_facet_recall`
+  - `test_dont_know_keeps_full_coverage`
   - `test_error_attribution_target_facets_are_canonicalized_before_facet_outcomes`
   - `test_error_attribution_targets_unmapped_facet_before_whole_item_fallback`
   - `test_facet_aliases_are_canonicalized_before_recall_updates`
@@ -2066,6 +2061,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_teach_back_item_without_rubric_is_invalid_despite_default_rubrics`
   - `test_well_formed_teach_back_item_is_valid`
 - [tests/test_teacher_exam_question_guard.py](../../../../../tests/test_teacher_exam_question_guard.py) — direct import
+- [tests/test_teacher_from_check.py](../../../../../tests/test_teacher_from_check.py) — direct import
+  - `test_the_stop_reports_its_episode_and_a_real_decision_reads_as_topic_words`
 - [tests/test_teacher_te1_lesson.py](../../../../../tests/test_teacher_te1_lesson.py) — direct import
   - `test_read_source_find_sources_find_practice_and_read_history_return_safe_results`
 - [tests/test_teacher_te1_review_fixes.py](../../../../../tests/test_teacher_te1_review_fixes.py) — direct import

@@ -36,7 +36,6 @@ from learnloop.diagnosis.ai_contracts import (
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.authoring.practice_leakage import reserved_payload_findings, reserved_questions
 from learnloop.db.repositories import Repository
-from learnloop.learner.facet_state_reader import is_canonical_state_vault
 from learnloop.diagnosis.probe_families import (
     CONTRAST_CONFUSABLE_V1,
     DEFAULT_INSTRUCTIONAL_ACTIONS,
@@ -236,13 +235,9 @@ def compositional_contrast_binding(
     misconception on this LO, if any (knowledge-model §10.2).
 
     KM4 lets contrast/dialogue probe generation bind the two facets directly from
-    a compositional record, rather than only from LO confusable metadata. Only
-    canonical (mvp-0.7) vaults carry compositional records; mvp-0.6 returns None
-    so the legacy confusable-concept binding path is unchanged.
+    a compositional record, rather than only from LO confusable metadata.
     """
 
-    if not is_canonical_state_vault(vault):
-        return None
     for row in repository.misconceptions_for_learning_object(
         learning_object_id, statuses=("active", "resolving")
     ):
@@ -290,28 +285,27 @@ def _target_facet_for(vault: LoadedVault, learning_object: LearningObject) -> st
 def _misconception_error_types(vault: LoadedVault) -> list[str]:
     """Error-type ids whose firing marks a confusable/misconception signature.
 
-    KM4 §10.1: under mvp-0.7 the grader emits the mechanism taxonomy, so the
+    KM4 §10.1: the grader emits the mechanism taxonomy, so the
     confusable-signature fatal set must include the misconception mechanisms
     (e.g. ``conceptual_schema_error``) for the deterministic matcher to keep
     firing that signature. The rubric fatal id / signature-name invariant is
     unaffected: the signature outcome's own fatal id (``confusable_signature``)
     is still declared and is what identifies it; the mechanisms are additional
-    fired ids. mvp-0.6 is unchanged.
+    fired ids.
     """
+
+    from learnloop.diagnosis.error_taxonomy_map import MECHANISM_IS_MISCONCEPTION
 
     ids = {
         error_type_id
         for error_type_id, taxonomy in vault.error_types.items()
         if getattr(taxonomy, "is_misconception", False)
     }
-    if is_canonical_state_vault(vault):
-        from learnloop.diagnosis.error_taxonomy_map import MECHANISM_IS_MISCONCEPTION
-
-        ids.update(
-            mechanism
-            for mechanism, is_misconception in MECHANISM_IS_MISCONCEPTION.items()
-            if is_misconception
-        )
+    ids.update(
+        mechanism
+        for mechanism, is_misconception in MECHANISM_IS_MISCONCEPTION.items()
+        if is_misconception
+    )
     return sorted(ids)
 
 

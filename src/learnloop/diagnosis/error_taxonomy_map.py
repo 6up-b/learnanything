@@ -184,10 +184,8 @@ def project_mechanism(
 
 
 # --- Canonical grader taxonomy card (the mvp-0.7 grading contract) ---------------
-# Mirrors ``learnloop.attempts.grading.CANONICAL_ERROR_TYPES`` (the legacy five)
-# but in the new
-# nine-mechanism vocabulary; _grading_error_taxonomy serves this to mvp-0.7
-# vaults so the grader emits mechanisms directly.
+# The nine-mechanism vocabulary; _grading_error_taxonomy serves this to every
+# vault so the grader emits mechanisms directly.
 
 MECHANISM_TAXONOMY_CARD: tuple[dict[str, object], ...] = (
     {

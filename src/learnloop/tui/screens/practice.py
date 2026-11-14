@@ -233,7 +233,7 @@ class PracticeScreen(Screen):
             # §5.5: authored hints are disabled during a diagnostic block.
             self.notify(
                 "Hints are disabled during a diagnostic check — answer with what you know, "
-                "or press ^t to stop diagnosing and start tutoring.",
+                "or press ^t to stop the check (lessons are in the desktop app).",
                 severity="warning",
             )
             return
@@ -347,7 +347,9 @@ class PracticeScreen(Screen):
         self.reveal_hint()
 
     def action_stop_diagnosing(self) -> None:
-        """`Stop diagnosing and teach me` (§3): end measurement, start tutoring."""
+        """`Stop diagnosing and teach me` (§3): end measurement. The terminal app has no tutor and no lesson, so the
+        notice says where the lesson is (the desktop app's lesson reads the check's finding) and the question goes on
+        as practice."""
 
         if self.probe_presentation_id is None:
             return
@@ -357,7 +359,7 @@ class PracticeScreen(Screen):
         self.probe = False
         if self.is_mounted:
             self.query_one("#probe-panel", TextStatic).update(self._probe_content())
-        self.notify("Diagnostic ended — this item now runs as ordinary tutoring/practice.")
+        self.notify("Check stopped. Lessons are in the desktop app; this question goes on as practice.")
 
     def action_dont_know(self) -> None:
         if self.stuck_prompt:
@@ -434,7 +436,7 @@ class PracticeScreen(Screen):
                 "\n",
                 (
                     "feedback is delayed for measurement integrity · hints and ask-tutor are "
-                    "unavailable · ^t stops diagnosing and starts tutoring",
+                    "unavailable · ^t stops the check",
                     "$text-muted italic",
                 ),
             )

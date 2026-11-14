@@ -234,7 +234,7 @@ def _miss(connection: Any, config: Any, learning_object_ids: Sequence[str], deci
     ids = sorted(set(learning_object_ids))
     if not ids:
         return None
-    known = attempt_time_sql(config, connection)
+    known = attempt_time_sql(config)
     row = connection.execute(
         f"SELECT id, learning_object_id, practice_item_id, created_at FROM practice_attempts "
         f"WHERE learning_object_id IN ({','.join('?' for _ in ids)}) AND created_at <= ? AND {known} <= ? "
@@ -374,7 +374,7 @@ def _asked_miss(connection: Any, repository: Any, config: Any, preference: Mappi
     passed: list[dict[str, str]] = []
     if not ids:
         return None, None, NO_DIAGNOSED_MISS, passed
-    known = attempt_time_sql(config, connection)
+    known = attempt_time_sql(config)
     columns = "a.id, a.learning_object_id, a.practice_item_id, a.created_at"
     order: list[tuple[dict[str, Any], str]] = []
     asked_from = str(preference.get("attempt_id") or "")

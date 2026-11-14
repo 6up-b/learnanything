@@ -56,7 +56,7 @@ from learnloop.daily_plan.engine import PlanEnv, latest_today
 from learnloop.db.stores import router_suggestions as store
 from learnloop.data_capture import prefilter
 from learnloop.router_objective import decision_state
-from learnloop.scheduling.fsrs import forgetting_curve
+from learnloop.scheduling.fsrs import retrievability
 from learnloop.db.stores.router import ROUTER_LOG_VERSION, insert_router_decision
 from learnloop.ids import new_ulid
 from learnloop.learner.lesson_weight import COLD_ATTEMPT_TYPES, predicted_success
@@ -538,7 +538,7 @@ def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
 
     # RO0 rows 9 and 13, adaptive difficulty's included, read before the draw's transaction opens; written with its row.
     decision_receipt = decision_state.prepare(
-        vault, repository, session_id=session_id, clock=clock, forgetting_curve=forgetting_curve,
+        vault, repository, session_id=session_id, clock=clock, retrievability=retrievability,
         candidates=[{"learning_object_ids": list(candidate.learning_object_ids)} for candidate in candidates],
         ad_fields=lambda los: decision_state_fields(vault, repository, list(los)))
     with repository.atomic():

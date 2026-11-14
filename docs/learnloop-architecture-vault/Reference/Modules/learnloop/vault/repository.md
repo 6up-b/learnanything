@@ -202,7 +202,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_alternative_embedding_model_takes_an_explicit_price`
 - [tests/test_practice_index_paid.py](../../../../../../tests/test_practice_index_paid.py) — direct import
 - [tests/test_receipt_derivation.py](../../../../../../tests/test_receipt_derivation.py) — direct import
-  - `test_ready_derivation_none_on_legacy_vault`
 - [tests/test_receipt_exactness.py](../../../../../../tests/test_receipt_exactness.py) — direct import
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict`

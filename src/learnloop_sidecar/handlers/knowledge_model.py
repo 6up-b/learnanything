@@ -16,7 +16,6 @@ from learnloop.learner.facet_evidence_timeline import (
     facet_evidence_timeline,
     facet_ready_derivation,
 )
-from learnloop.learner.facet_state_reader import is_canonical_state_vault
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -89,10 +88,10 @@ def get_facet_evidence_timeline(ctx: SidecarContext, params: FacetIdInput) -> di
         {
             "facet_id": canonical,
             "model_version": vault.config.algorithms.algorithm_version,
-            "supported": is_canonical_state_vault(vault),
+            "supported": True,
             "demonstrated": demonstrated,
             "points": [point.as_dict() for point in series],
             "counted_toward": counted_toward,
-            "ready": ready.as_dict() if ready is not None else None,
+            "ready": ready.as_dict(),
         }
     )

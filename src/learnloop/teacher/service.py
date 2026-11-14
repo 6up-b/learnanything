@@ -651,7 +651,8 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
                 clients: Clients, driver: str = "desktop", clock: Clock | None = None,
                 origin: str = "learner_pick", origin_ref: str | None = None,
                 lesson_id: str | None = None, add_topics: Sequence[str] = (),
-                subject_id: str | None = None, preference_id: str | None = None) -> dict[str, Any]:
+                subject_id: str | None = None, preference_id: str | None = None,
+                probe_episode_id: str | None = None) -> dict[str, Any]:
     """Open a lesson the learner started (TE1: an LO's or a Reader selection's "Teach me this"; TE1b: the
     Start of a router suggestion, ``origin = 'router'`` with the decision id and the lesson id its
     response recorded), build its brief from the ledger and run the teacher's first turn. A failure
@@ -661,7 +662,13 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
     ``preference_id`` (instruct hand-off IH7, the owner's decision 2 of Nov 9): a topic's lesson the learner asked for
     through "Something else would help" ("learn this") names its preference, so the brief may read the latest diagnosed
     miss on its topics (:mod:`learnloop.teacher.diagnosed_sources`, behind IH7's switch). Only for a learner's own start
-    on a topic: a Reader selection, a typed goal or a suggestion's Start ignores it."""
+    on a topic: a Reader selection, a typed goal or a suggestion's Start ignores it.
+
+    ``probe_episode_id``: a lesson the learner opened from a diagnostic check ("Teach me this" at its end, "Stop
+    diagnosing and teach me" during it) names the check's episode, so the brief carries what the check found
+    (:mod:`learnloop.teacher.from_check`) and the open turn names the episode. An episode that doesn't fit is ignored
+    with the reason in the open turn's record, never refused; like ``preference_id``, only a learner's own start on a
+    topic reads it."""
 
     require_active(vault)
     if origin not in ("learner_pick", "router"):
@@ -673,6 +680,7 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
         origin_ref, lesson_id = None, None
     if origin != "learner_pick" or entry != "learning_object" or selection:
         preference_id = None
+        probe_episode_id = None
     # Teacher TE2 (§11.5, §8.1 rev 5): typed goals, and the brief's version without vault probe headers.
     te2 = T2.on(vault)
     typed = None
@@ -716,12 +724,18 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
     before = protection_state(vault, repository)
     # IH7: filled only while its switch is on and the lesson is a suggestion's or an offer's (the open turn keeps it).
     follow_record: dict[str, Any] = {}
+    check_entry, check_record = None, None
+    if probe_episode_id:
+        from learnloop.teacher.from_check import from_check
+
+        check_entry, check_record = from_check(vault, repository, probe_episode_id=str(probe_episode_id),
+                                               learning_object_ids=los)
     brief, book = build_brief(vault, repository, learning_object_ids=los, how=how, goal_text=text,
                               selection=selected, driver=driver, lesson_id=lesson_id, constraints=constraints,
                               notes_provider=your_notes, notes_check=notes_still_deliverable, te2=te2,
                               origin=origin, origin_ref=origin_ref, follow_record=follow_record,
                               preference_ref=preference_id or None,
-                              opens_at=utc_now_iso(clock) if preference_id else None)
+                              opens_at=utc_now_iso(clock) if preference_id else None, from_check=check_entry)
     if typed is not None:
         brief["goal"]["typed"] = typed.goal
     protection = protection_state(vault, repository, brief)
@@ -746,9 +760,11 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
         # Review 3, m3: a "learn this" request opens one lesson; the open turn names the one it consumed.
         consumed = DS.consumed_preference(follow_record) if follow_record else None
         store.append_turn(connection, lesson_id=lesson_id, actor="code", action="open", validation="ok",
-                          refs={"selection": selected, **({"preference": consumed} if consumed else {})},
+                          refs={"selection": selected, **({"preference": consumed} if consumed else {}),
+                                **({"probe_episode": str(probe_episode_id)} if check_entry is not None else {})},
                           payload={"brief": brief, "book": book.as_dict(), "protection": protection,
-                                   **({"sources_follow": follow_record} if follow_record else {})},
+                                   **({"sources_follow": follow_record} if follow_record else {}),
+                                   **({"from_check": check_record} if check_record is not None else {})},
                           created_at=now)
     if typed is not None and typed.created:
         _record_goal_los(vault, repository, lesson_id, typed.created, clock=clock)

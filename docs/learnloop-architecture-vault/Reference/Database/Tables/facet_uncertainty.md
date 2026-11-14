@@ -88,7 +88,6 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
-- `Repository._guard_legacy_facet_write()`
 - `Repository._upsert_facet_uncertainty_state()`
 - `Repository.facet_uncertainty_state()`
 - `Repository.facet_uncertainty_states()`
@@ -129,7 +128,6 @@ Indexes and uniqueness:
 - `tests/test_e2e_codex_mock.py`
 - `tests/test_facet_diagnostics_v03.py`
 - `tests/test_item_parameters.py`
-- `tests/test_km2b_consumer_rekey.py`
 - `tests/test_show.py`
 - `tests/test_source_ingestion.py`
 

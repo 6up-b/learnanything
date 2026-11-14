@@ -41,6 +41,7 @@ import { WhyThisItem } from "./practice/WhyThisItem";
 import { useFirstHintProgress } from "./practice/useFirstHintProgress";
 import type { DifficultyRating, FirstHintProgress, HelpRecordDto } from "../api/dto";
 import { screenLeavesKey } from "../app/keymap";
+import { type CheckHandoff, handoffOpensLesson, STOP_AND_TEACH_LABEL } from "../app/checkHandoff";
 import { useAttemptClock } from "./useAttemptClock";
 import { AS_PRINTED_COPY, AsPrinted, OriginalPageLink, printedPageLabel, useAsPrinted } from "../components/AsPrinted";
 import { OpenInSource } from "../components/OpenInSource";
@@ -157,6 +158,7 @@ export function PracticeScreen({
   onAskAvailabilityChange,
   onInspect,
   onAsk,
+  onTeachFromCheck,
   onAskState,
   onAskOpener,
   onError,
@@ -239,6 +241,9 @@ export function PracticeScreen({
     draftMd?: string;
     workMd?: string;
   }) => void;
+  /** "Stop diagnosing and teach me": App opens a lesson on the check's topic, or runs the fallback (this screen's
+   *  proactive tutor opening). Absent: the tutor opens, as before lessons existed. */
+  onTeachFromCheck?: (handoff: CheckHandoff) => void;
   /** Registers a reader of this screen's ask state (when the item opened, and
    *  whether an answer was started) so App's command-palette ask carries the
    *  same state the in-screen ask does; null when the screen unmounts. */
@@ -1028,7 +1033,7 @@ export function PracticeScreen({
         } else if (probeActive) {
           // §5.5: Ask Tutor is disabled during a diagnostic block; the escape
           // hatch is the explicit stop-and-teach action, which ends measurement.
-          onError("ask-tutor is disabled during a diagnostic check — use “stop diagnosing & teach me” instead.");
+          onError(`ask-tutor is disabled during a diagnostic check — use “${STOP_AND_TEACH_LABEL}” instead.`);
         } else {
           openAsk();
         }
@@ -1258,11 +1263,18 @@ export function PracticeScreen({
   async function stopDiagnosing() {
     if (!item) return;
     try {
-      await api.stopProbeDiagnosing(item.id);
+      const stopped = await api.stopProbeDiagnosing(item.id);
       setProbe(null);
-      // §3: measurement ends and tutoring begins. The typed transition
-      // decision is already persisted, so the tutor opens proactively.
-      openAsk({ proactiveOpen: true });
+      // §3: measurement ends and teaching begins. The typed transition decision is already persisted on the
+      // episode: a lesson reads it through the episode id, and the tutor (the fallback) opens with it proactively.
+      const askTutor = () => openAsk({ proactiveOpen: true });
+      if (onTeachFromCheck) {
+        onTeachFromCheck({ learningObjectId: stopped?.learningObjectId ?? item.learningObjectId,
+                           title: item.learningObjectTitle, probeEpisodeId: stopped?.episodeId ?? null,
+                           fallback: askTutor });
+      } else {
+        askTutor();
+      }
     } catch (error) {
       onError(errorMessage(error, "Could not stop the diagnostic check."));
     }
@@ -1696,7 +1708,7 @@ export function PracticeScreen({
                 why? {checkWhyOpen ? "▾" : "▸"}
               </button>
               <span style={{ flex: 1 }} />
-              <QuietAction onClick={() => void stopDiagnosing()}>Teach me instead</QuietAction>
+              <QuietAction onClick={() => void stopDiagnosing()}>{STOP_AND_TEACH_LABEL}</QuietAction>
               {checkWhyOpen ? (
                 <div style={{ flexBasis: "100%" }}>To see which of two things to help with next. Answer with what you know.</div>
               ) : null}
@@ -1735,9 +1747,10 @@ export function PracticeScreen({
                   className="queue-row"
                   style={{ marginLeft: "auto" }}
                   onClick={() => void stopDiagnosing()}
-                  title="end the diagnostic block and start tutoring"
+                  title={handoffOpensLesson(onTeachFromCheck)
+                    ? "end the check and start a lesson on this topic" : "end the check and open the tutor"}
                 >
-                  stop diagnosing &amp; teach me
+                  {STOP_AND_TEACH_LABEL}
                 </button>
               </div>
             </div>

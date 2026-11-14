@@ -718,12 +718,6 @@ def bind_figure(connection: sqlite3.Connection, assist_id: str, figure_id: str) 
 def figure_rows(connection: sqlite3.Connection) -> list[dict[str, Any]]:
     """Every figure row, oldest first (the help outcomes and the report)."""
 
-    if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
-                          ).fetchone() is None:
-        return []
-    columns = {row[1] for row in connection.execute("PRAGMA table_info(help_assists)")}
-    if "figure_id" not in columns:
-        return []
     rows = connection.execute(
         f"SELECT {', '.join(COLUMNS)} FROM help_assists WHERE assist_kind = 'figure' ORDER BY requested_at, rowid"
     ).fetchall()

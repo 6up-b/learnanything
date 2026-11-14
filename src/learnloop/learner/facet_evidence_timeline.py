@@ -1158,8 +1158,8 @@ def facet_ready_derivation(
     series: list[TimelinePoint],
     *,
     clock: Clock | None = None,
-) -> ReadyDerivation | None:
-    """§5.1 Ready-derivation ingredients for a canonical facet, or ``None``.
+) -> ReadyDerivation:
+    """§5.1 Ready-derivation ingredients for a canonical facet.
 
     Reuses the canonical projection's persisted intermediates (the capability-
     sliced ``facet_recall_state`` rows) rather than recomputing an approximation:
@@ -1167,18 +1167,9 @@ def facet_ready_derivation(
     it equals the capability grid's facet-mean input exactly. Observation counts
     come from the already-folded Demonstrated ``series`` (one point per attempt
     epoch), so no history is re-walked.
-
-    ``None`` on a legacy (mvp-0.6) vault with no capability ledger — the Ready
-    receipt is a canonical-state surface.
     """
 
-    from learnloop.learner.facet_state_reader import (
-        is_canonical_state_vault,
-        resolve_canonical_facet,
-    )
-
-    if not is_canonical_state_vault(vault):
-        return None
+    from learnloop.learner.facet_state_reader import resolve_canonical_facet
 
     merge_map = repository.facet_merge_map()
     canonical = resolve_canonical_facet(vault, merge_map, facet_id)

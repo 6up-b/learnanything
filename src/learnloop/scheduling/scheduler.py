@@ -21,7 +21,7 @@ from learnloop.db.repositories import (
 from learnloop.db.scopes import pinned_repository_call
 from learnloop.params.fitted_params import resolve_fsrs_weights
 from learnloop.substrate.instrument_serving import unservable_reason
-from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS, forgetting_curve
+from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS, retrievability
 from learnloop.substrate.canonical_projection import surface_group_id
 from learnloop.diagnosis.probe_episodes import (
     EligibleInstrument,
@@ -3217,7 +3217,7 @@ def _forgetting_risk(
         return 1.0
     last_attempt_at = parse_utc(state.last_attempt_at) or due_at
     elapsed_days = max(0.0, (now - last_attempt_at).total_seconds() / 86400)
-    return 1 - forgetting_curve(state.stability, elapsed_days, weights)
+    return 1 - retrievability(state.stability, elapsed_days, weights)
 
 
 def _intent_serving(vault: LoadedVault, repository: Repository, now: datetime):

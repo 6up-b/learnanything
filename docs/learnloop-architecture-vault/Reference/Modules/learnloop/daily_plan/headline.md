@@ -47,22 +47,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/headline.py](../../../../../../src/learnloop/daily_plan/headline.py) |
-| Source lines | 224 |
+| Source lines | 213 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `classify_learning_objects(vault: Any, repository: Any, *, now: datetime | None=None, learning_object_ids: Iterable[str] | None=None) -> dict[str, str]` ([source](../../../../../../src/learnloop/daily_plan/headline.py), line 51) — Each active LO in exactly one headline class.
-- `expected_recall_today(vault: Any, repository: Any, *, now: datetime, excluded_item_ids: Iterable[str]=()) -> tuple[float | None, int]` ([source](../../../../../../src/learnloop/daily_plan/headline.py), line 136) — Mean FSRS retrievability now over items with memory state, and their count; ``excluded_item_ids`` (DL2: intent) are left out.
-- `intent_exclusions(vault: Any, repository: Any, *, now: datetime) -> tuple[frozenset[str], frozenset[str]]` ([source](../../../../../../src/learnloop/daily_plan/headline.py), line 160) — ``(excluded LO ids, excluded item ids)`` by resolved intent (F10); both empty when intent changes nothing.
-- `today_headline(vault: Any, repository: Any, *, now: datetime) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/headline.py), line 188)
+- `classify_learning_objects(vault: Any, repository: Any, *, now: datetime | None=None, learning_object_ids: Iterable[str] | None=None) -> dict[str, str]` ([source](../../../../../../src/learnloop/daily_plan/headline.py), line 50) — Each active LO in exactly one headline class.
+- `expected_recall_today(vault: Any, repository: Any, *, now: datetime, excluded_item_ids: Iterable[str]=()) -> tuple[float | None, int]` ([source](../../../../../../src/learnloop/daily_plan/headline.py), line 125) — Mean FSRS retrievability now over items with memory state, and their count; ``excluded_item_ids`` (DL2: intent) are left out.
+- `intent_exclusions(vault: Any, repository: Any, *, now: datetime) -> tuple[frozenset[str], frozenset[str]]` ([source](../../../../../../src/learnloop/daily_plan/headline.py), line 149) — ``(excluded LO ids, excluded item ids)`` by resolved intent (F10); both empty when intent changes nothing.
+- `today_headline(vault: Any, repository: Any, *, now: datetime) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/headline.py), line 177)
 
 ### Module constants
 
-- `HEADLINE_CLASSES` ([src/learnloop/daily_plan/headline.py](../../../../../../src/learnloop/daily_plan/headline.py), line 47)
-- `EXPECTED_RECALL_TOOLTIP` ([src/learnloop/daily_plan/headline.py](../../../../../../src/learnloop/daily_plan/headline.py), line 48)
+- `HEADLINE_CLASSES` ([src/learnloop/daily_plan/headline.py](../../../../../../src/learnloop/daily_plan/headline.py), line 46)
+- `EXPECTED_RECALL_TOOLTIP` ([src/learnloop/daily_plan/headline.py](../../../../../../src/learnloop/daily_plan/headline.py), line 47)
 
 ### Explicit exports
 
@@ -77,8 +77,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_demonstrated(vault: Any, repository: Any, learning_object: Any, facets: list[str], cells_by_facet: dict[str, list[Any]], canonical: bool) -> bool` ([source](../../../../../../src/learnloop/daily_plan/headline.py), line 96)
-- `_has_direct_evidence(facets: list[str], cells_by_facet: dict[str, list[Any]], mastery: Any, canonical: bool) -> bool` ([source](../../../../../../src/learnloop/daily_plan/headline.py), line 124)
+- `_demonstrated(vault: Any, repository: Any, learning_object: Any, facets: list[str], cells_by_facet: dict[str, list[Any]]) -> bool` ([source](../../../../../../src/learnloop/daily_plan/headline.py), line 92)
+- `_has_direct_evidence(facets: list[str], cells_by_facet: dict[str, list[Any]]) -> bool` ([source](../../../../../../src/learnloop/daily_plan/headline.py), line 117)
 
 ## Who imports or calls it
 
@@ -98,7 +98,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/goals/certification|learnloop.goals.certification]] — imports `is_demonstrated_credit`; calls `is_demonstrated_credit`
 - [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]] — imports `lo_certification`, `required_capabilities_for_facet`; calls `lo_certification`, `required_capabilities_for_facet`
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `scope_facets`; calls `scope_facets`
-- [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `is_canonical_state_vault`; calls `is_canonical_state_vault`
 - [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] — imports `resolve_fsrs_weights`; calls `resolve_fsrs_weights`
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `load_placement_state`, `placement_active`; calls `load_placement_state`, `placement_active`
 - [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `intent_serving`; calls `intent_serving`

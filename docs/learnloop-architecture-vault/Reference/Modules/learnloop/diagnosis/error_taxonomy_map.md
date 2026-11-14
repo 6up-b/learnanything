@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/error_taxonomy_map.py](../../../../../../src/learnloop/diagnosis/error_taxonomy_map.py) |
-| Source lines | 266 |
+| Source lines | 264 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -67,8 +67,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `LEGACY_ERROR_TYPE_MAP` ([src/learnloop/diagnosis/error_taxonomy_map.py](../../../../../../src/learnloop/diagnosis/error_taxonomy_map.py), line 99)
 - `MISCONCEPTION_CLASS_MECHANISMS` ([src/learnloop/diagnosis/error_taxonomy_map.py](../../../../../../src/learnloop/diagnosis/error_taxonomy_map.py), line 140)
 - `MECHANISM_PROJECTION_OPEN_SET` ([src/learnloop/diagnosis/error_taxonomy_map.py](../../../../../../src/learnloop/diagnosis/error_taxonomy_map.py), line 151)
-- `MECHANISM_TAXONOMY_CARD` ([src/learnloop/diagnosis/error_taxonomy_map.py](../../../../../../src/learnloop/diagnosis/error_taxonomy_map.py), line 192)
-- `MECHANISM_TAXONOMY_CARD_JSON` ([src/learnloop/diagnosis/error_taxonomy_map.py](../../../../../../src/learnloop/diagnosis/error_taxonomy_map.py), line 259)
+- `MECHANISM_TAXONOMY_CARD` ([src/learnloop/diagnosis/error_taxonomy_map.py](../../../../../../src/learnloop/diagnosis/error_taxonomy_map.py), line 190)
+- `MECHANISM_TAXONOMY_CARD_JSON` ([src/learnloop/diagnosis/error_taxonomy_map.py](../../../../../../src/learnloop/diagnosis/error_taxonomy_map.py), line 257)
 
 ## Internal implementation anchors
 
@@ -118,8 +118,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_doctor_resolves_legacy_error_event_through_causal_taxonomy`
 - [tests/test_km4_taxonomy.py](../../../../../../tests/test_km4_taxonomy.py) — direct import
   - `test_arithmetic_slip_and_scaffold_failure_mapping_decision`
+  - `test_grader_taxonomy_emits_mechanism_vocabulary`
   - `test_legacy_error_types_map_per_spec`
-  - `test_mvp07_grader_taxonomy_emits_mechanism_vocabulary`
   - `test_retrieval_boundary_is_mechanism_based_and_domain_neutral`
 - [tests/test_ux_phase2_error_type_proposals.py](../../../../../../tests/test_ux_phase2_error_type_proposals.py) — direct import
   - `test_a_head_grading_naming_a_mechanism_type_proposes_nothing`

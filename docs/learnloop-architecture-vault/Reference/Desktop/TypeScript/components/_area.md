@@ -57,7 +57,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/ConceptAnimationSection|ConceptAnimationSection.tsx]] | `ACTIVE` | Provides the reusable `ConceptAnimationSection` interaction surface used by one or more desktop workflows. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/components/ConnectAI|ConnectAI.tsx]] | `ACTIVE` | Provides the reusable `ConnectAI` interaction surface used by one or more desktop workflows. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/components/DiagnosisCard|DiagnosisCard.tsx]] | `ACTIVE` | Provides the reusable `DiagnosisCard` interaction surface used by one or more desktop workflows. | 6 | 3 |
-| [[Reference/Desktop/TypeScript/components/DialogueProbe|DialogueProbe.tsx]] | `ACTIVE` | Provides the reusable `DialogueProbe` interaction surface used by one or more desktop workflows. | 9 | 1 |
+| [[Reference/Desktop/TypeScript/components/DialogueProbe|DialogueProbe.tsx]] | `ACTIVE` | Provides the reusable `DialogueProbe` interaction surface used by one or more desktop workflows. | 10 | 1 |
 | [[Reference/Desktop/TypeScript/components/DockedAsk|DockedAsk.tsx]] | `ACTIVE` | Provides the reusable `DockedAsk` interaction surface used by one or more desktop workflows. | 1 | 2 |
 | [[Reference/Desktop/TypeScript/components/FacetIdentityPanel|FacetIdentityPanel.tsx]] | `ACTIVE` | Provides the reusable `FacetIdentityPanel` interaction surface used by one or more desktop workflows. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/components/FacetInspector|FacetInspector.tsx]] | `ACTIVE` | Provides the reusable `FacetInspector` interaction surface used by one or more desktop workflows. | 7 | 1 |

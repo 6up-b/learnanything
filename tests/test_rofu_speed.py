@@ -166,7 +166,7 @@ def test_the_fsrs_update_without_clip_equals_the_schedulers_scalar_formulas():
     practiced = rng.random(200) < 0.7
     good = rng.random(200) < 0.6
     nd, ns = fsrs.review(d, s, practiced, elapsed, good)
-    r = fsrs.retrievability(s, elapsed)
+    r = F.retrievability_array(s, elapsed, fsrs.weights)
     for i in range(200):
         assert r[i] == pytest.approx(F.forgetting_curve(float(s[i]), float(elapsed[i])), abs=1e-12)
         rating = F.Rating.GOOD if good[i] else F.Rating.AGAIN

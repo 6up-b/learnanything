@@ -8,6 +8,7 @@ import { COLOR, KeyBar } from "../components/term";
 import { Card, SectionHeader } from "../components/ui";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { screenLeavesKey } from "../app/keymap";
+import { type CheckHandoff, handoffOpensLesson, TEACH_AFTER_CHECK_LABEL, TUTOR_AFTER_CHECK_LABEL } from "../app/checkHandoff";
 
 // §5.7/§12 unified Diagnostic Check review: replaces the single-attempt
 // FeedbackScreen when an attempt just closed a diagnostic block — releases
@@ -15,15 +16,15 @@ import { screenLeavesKey } from "../app/keymap";
 // the learner on, adaptively continuing the same episode when there's more to
 // measure instead of dropping back to the general queue.
 
+// The route `tutoring` is one step with one name on both screens: a lesson ("Teach me this"), or the tutor when no
+// lesson can open (checkHandoff.ts).
 const CONTINUE_LABEL: Record<string, string> = {
-  tutoring: "Start tutoring session",
   next_block: "Continue diagnostic check",
   ordinary_practice: "Back to practice"
 };
 
 /** UX Phase 4.3: the route's next step in plain words. */
 const PLAIN_CONTINUE_LABEL: Record<string, string> = {
-  tutoring: "Learn it with the tutor",
   next_block: "A few more questions",
   ordinary_practice: "Back to practice"
 };
@@ -35,6 +36,7 @@ export function DiagnosticReviewScreen({
   sessionId,
   onContinueDiagnostic,
   onAsk,
+  onTeachFromCheck,
   onOpenRepair,
   onGuidedRedo,
   onBack,
@@ -52,6 +54,9 @@ export function DiagnosticReviewScreen({
     sessionId: string;
     proactiveOpen?: boolean;
   }) => void;
+  /** The route `tutoring`'s hand-off: App opens a lesson on the check's topic (or runs the fallback, `onAsk`'s
+   *  proactive tutor opening). Absent: the tutor opens, as before lessons existed. */
+  onTeachFromCheck?: (handoff: CheckHandoff) => void;
   /** Repair-journey entrances on released failures — App's openRepair /
    *  openGuidedRedo (both stash-and-resume the session). */
   onOpenRepair?: (misconceptionId: string) => void;
@@ -75,11 +80,17 @@ export function DiagnosticReviewScreen({
   const handleContinue = useCallback(async () => {
     if (continuing) return;
     if (blockEnd.route === "tutoring") {
-      // §12.1: the typed transition decision is already persisted — the
-      // tutor opens with it proactively rather than waiting on a question.
+      // §12.1: the typed transition decision is already persisted on the episode: the lesson reads it through the
+      // episode id, and the tutor (the fallback) opens with it proactively rather than waiting on a question.
       const anchorItemId = blockEnd.releasedFeedback[0]?.practiceItemId ?? undefined;
-      if (anchorItemId) {
-        onAsk({ context: "practice", practiceItemId: anchorItemId, sessionId, proactiveOpen: true });
+      const askTutor = () => {
+        if (anchorItemId) onAsk({ context: "practice", practiceItemId: anchorItemId, sessionId, proactiveOpen: true });
+      };
+      if (onTeachFromCheck) {
+        onTeachFromCheck({ learningObjectId, title: learningObjectTitle, probeEpisodeId: blockEnd.episodeId,
+                           fallback: askTutor });
+      } else {
+        askTutor();
       }
       onBack();
       return;
@@ -100,7 +111,11 @@ export function DiagnosticReviewScreen({
       setContinuing(false);
     }
     onBack();
-  }, [blockEnd, continuing, learningObjectId, onAsk, onBack, onContinueDiagnostic, onError, sessionId]);
+  }, [blockEnd, continuing, learningObjectId, learningObjectTitle, onAsk, onBack, onContinueDiagnostic, onError,
+      onTeachFromCheck, sessionId]);
+  const tutoringLabel = handoffOpensLesson(onTeachFromCheck) ? TEACH_AFTER_CHECK_LABEL : TUTOR_AFTER_CHECK_LABEL;
+  const routeLabel = (labels: Record<string, string>) =>
+    blockEnd.route === "tutoring" ? tutoringLabel : labels[blockEnd.route ?? ""] ?? "Continue";
 
   const runNextStep = useCallback(() => {
     if (sharedFix && onOpenRepair) {
@@ -140,7 +155,7 @@ export function DiagnosticReviewScreen({
   }, [handleContinue, onBack, keysSuspended, runNextStep, simple]);
 
   if (simple) {
-    const stepLabel = sharedFix ? FIX_MIX_UP_LABEL : PLAIN_CONTINUE_LABEL[blockEnd.route ?? ""] ?? "Continue";
+    const stepLabel = sharedFix ? FIX_MIX_UP_LABEL : routeLabel(PLAIN_CONTINUE_LABEL);
     return (
       <div className="screen">
         <div className="screen-scroll">
@@ -224,7 +239,7 @@ export function DiagnosticReviewScreen({
             <button className="queue-row focused" type="button" disabled={continuing} onClick={() => void handleContinue()}>
               <span className="queue-hotkey">esc</span>
               <span className="queue-title">
-                {continuing ? "One moment…" : CONTINUE_LABEL[blockEnd.route ?? ""] ?? "Continue"}
+                {continuing ? "One moment…" : routeLabel(CONTINUE_LABEL)}
               </span>
             </button>
           </div>

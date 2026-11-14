@@ -166,7 +166,7 @@ def latest_misses(connection: Any, config: Any, learning_object_ids: Iterable[st
     if not ids or not _table(connection, "practice_attempts"):
         return {}
     cold, params = _cold_filter_sql()
-    known = attempt_time_sql(config, connection, alias="a")
+    known = attempt_time_sql(config, alias="a")
     rows = connection.execute(
         f"SELECT a.id, a.learning_object_id, a.practice_item_id, a.attempt_type, a.correctness, a.created_at "
         f"FROM practice_attempts a WHERE a.learning_object_id IN ({','.join('?' for _ in ids)}) AND {cold} "
@@ -455,7 +455,7 @@ def surprise_reference(connection: Any, config: Any, now_iso: str) -> list[float
     if not (_table(connection, "attempt_surprise") and _table(connection, "practice_attempts")):
         return []
     cold, params = _cold_filter_sql()
-    known = attempt_time_sql(config, connection, alias="a")
+    known = attempt_time_sql(config, alias="a")
     return [float(row[0]) for row in connection.execute(
         f"SELECT s.bayesian_surprise FROM attempt_surprise s JOIN practice_attempts a ON a.id = s.attempt_id "
         f"WHERE s.bayesian_surprise IS NOT NULL AND {cold} AND a.correctness < ? AND a.created_at <= ? "
@@ -514,7 +514,7 @@ def _between(connection: Any, config: Any, lo: str, after: str, before: str, aft
 
     from learnloop.router_objective_switches import attempt_time_sql
 
-    known = attempt_time_sql(config, connection, alias="a")
+    known = attempt_time_sql(config, alias="a")
     row = connection.execute(
         "SELECT 1 FROM practice_attempts a WHERE a.learning_object_id = ? "
         "AND ((a.created_at > ? OR (a.created_at = ? AND a.id > ?)) "
@@ -543,7 +543,7 @@ def beta_rows(connection: Any, config: Any, now_iso: str) -> tuple[list[dict[str
     if not _table(connection, "practice_attempts"):
         return [], counts
     cold, params = _cold_filter_sql()
-    known = attempt_time_sql(config, connection, alias="a")
+    known = attempt_time_sql(config, alias="a")
     misses = connection.execute(
         f"SELECT a.id, a.learning_object_id, a.created_at FROM practice_attempts a WHERE {cold} AND a.correctness < ? "
         f"AND a.created_at <= ? AND {known} <= ? ORDER BY a.created_at, a.id",
@@ -665,7 +665,7 @@ def _offer_rows(connection: Any, config: Any, now_iso: str) -> list[dict[str, An
 
     if not (_table(connection, "lessons") and _table(connection, "router_decisions")):
         return []
-    known = attempt_time_sql(config, connection, alias="a")
+    known = attempt_time_sql(config, alias="a")
     out: list[dict[str, Any]] = []
     for lesson_id, origin_ref, raw, closed in connection.execute(
             "SELECT id, origin_ref, learning_object_ids_json, closed_at FROM lessons WHERE origin = 'router' "

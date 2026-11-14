@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/tui/screens/practice.py](../../../../../../../src/learnloop/tui/screens/practice.py) |
-| Source lines | 616 |
+| Source lines | 618 |
 | Owning package | [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -71,30 +71,30 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `_draft(self, attempt_type: str | None=None) -> AttemptDraft` (line 317; internal)
   - `async action_submit(self) -> None` (line 339; public)
   - `action_hint(self) -> None` (line 346; public)
-  - `action_stop_diagnosing(self) -> None` (line 349; public) — `Stop diagnosing and teach me` (§3): end measurement, start tutoring.
-  - `action_dont_know(self) -> None` (line 362; public)
-  - `action_skip(self) -> None` (line 368; public)
-  - `action_back(self) -> None` (line 371; public)
-  - `on_text_area_changed(self, event: TextArea.Changed) -> None` (line 375; public)
-  - `on_button_pressed(self, event: Button.Pressed) -> None` (line 378; public)
-  - `_refresh_answer_meta(self, text: str) -> None` (line 383; internal)
-  - `_breadcrumb_content(self) -> Content` (line 390; internal)
-  - `_breadcrumb_meta_content(self) -> Content` (line 399; internal)
-  - `_card_title_content(self) -> Content` (line 406; internal)
-  - `_card_pills_content(self) -> Content` (line 414; internal)
-  - `_probe_content(self) -> Content` (line 422; internal)
-  - `_stuck_content(self) -> Content` (line 451; internal)
-  - `_hints_content(self) -> Content` (line 464; internal)
-  - `_mastery_content(self) -> Content` (line 478; internal)
-  - `_attempt_row_content(self) -> Content` (line 498; internal)
-  - `_why_text_content(self) -> Content` (line 515; internal)
-  - `_why_metrics_content(self) -> Content` (line 525; internal)
-  - `_is_probe(self) -> bool` (line 547; internal)
-  - `_primary_subject(self) -> str` (line 552; internal)
-  - `_difficulty(self) -> float` (line 556; internal)
-  - `_mastery_mean_sd(self) -> tuple[float, float]` (line 566; internal)
-  - `_queue_position(self) -> tuple[int, int]` (line 574; internal)
-  - `_attempt_number(self) -> int` (line 582; internal)
+  - `action_stop_diagnosing(self) -> None` (line 349; public) — `Stop diagnosing and teach me` (§3): end measurement.
+  - `action_dont_know(self) -> None` (line 364; public)
+  - `action_skip(self) -> None` (line 370; public)
+  - `action_back(self) -> None` (line 373; public)
+  - `on_text_area_changed(self, event: TextArea.Changed) -> None` (line 377; public)
+  - `on_button_pressed(self, event: Button.Pressed) -> None` (line 380; public)
+  - `_refresh_answer_meta(self, text: str) -> None` (line 385; internal)
+  - `_breadcrumb_content(self) -> Content` (line 392; internal)
+  - `_breadcrumb_meta_content(self) -> Content` (line 401; internal)
+  - `_card_title_content(self) -> Content` (line 408; internal)
+  - `_card_pills_content(self) -> Content` (line 416; internal)
+  - `_probe_content(self) -> Content` (line 424; internal)
+  - `_stuck_content(self) -> Content` (line 453; internal)
+  - `_hints_content(self) -> Content` (line 466; internal)
+  - `_mastery_content(self) -> Content` (line 480; internal)
+  - `_attempt_row_content(self) -> Content` (line 500; internal)
+  - `_why_text_content(self) -> Content` (line 517; internal)
+  - `_why_metrics_content(self) -> Content` (line 527; internal)
+  - `_is_probe(self) -> bool` (line 549; internal)
+  - `_primary_subject(self) -> str` (line 554; internal)
+  - `_difficulty(self) -> float` (line 558; internal)
+  - `_mastery_mean_sd(self) -> tuple[float, float]` (line 568; internal)
+  - `_queue_position(self) -> tuple[int, int]` (line 576; internal)
+  - `_attempt_number(self) -> int` (line 584; internal)
 
 ### Module constants
 
@@ -103,8 +103,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_join(parts: list[Content], sep: str=' ') -> Content` ([source](../../../../../../../src/learnloop/tui/screens/practice.py), line 589)
-- `_relative(iso: str, now: datetime) -> str` ([source](../../../../../../../src/learnloop/tui/screens/practice.py), line 598)
+- `_join(parts: list[Content], sep: str=' ') -> Content` ([source](../../../../../../../src/learnloop/tui/screens/practice.py), line 591)
+- `_relative(iso: str, now: datetime) -> str` ([source](../../../../../../../src/learnloop/tui/screens/practice.py), line 600)
 
 ## Who imports or calls it
 

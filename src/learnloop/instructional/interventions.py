@@ -439,9 +439,7 @@ def outcomes_report(vault: LoadedVault, repository: Repository) -> dict[str, Any
         proposals = connection.execute(
             "SELECT valuation_json FROM practice_index_proposals WHERE valuation_json IS NOT NULL").fetchall()
         gated = connection.execute(
-            "SELECT COUNT(*) FROM practice_attempts WHERE reference_status='unverified'").fetchone()[0] \
-            if any(row[1] == "reference_status" for row in connection.execute("PRAGMA table_info(practice_attempts)")) \
-            else 0
+            "SELECT COUNT(*) FROM practice_attempts WHERE reference_status='unverified'").fetchone()[0]
         imported = exercise_import_ids(connection, vault.practice_items.values())
         key_labels = Counter(effective_key_status(connection, vault.practice_items[item_id])
                              for item_id in sorted(imported) if item_id in vault.practice_items)

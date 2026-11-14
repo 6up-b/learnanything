@@ -24,7 +24,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.helpers import NOW, create_basic_vault, pin_old_basic_vault, set_config_switch
+from tests.helpers import NOW, create_basic_vault, set_config_switch
 from tests.voi_stopping_helpers import _minutes
 
 
@@ -73,13 +73,10 @@ def test_dont_know_books_no_canonical_coverage_with_the_belief_fixes_off(tmp_pat
     assert aggregate.consecutive_failures == 1
 
 
-def test_dont_know_keeps_full_coverage_and_updates_facet_recall(tmp_path):
+def test_dont_know_keeps_full_coverage(tmp_path):
+    # The facet state this answer books is the canonical projection's:
+    # test_dont_know_books_canonical_coverage_where_its_failure_mass_lands (D-6).
     paths = create_basic_vault(tmp_path / "vault")
-    # Old path only: the per-LO facet recall row and its evidence masses (written below KM2; the debug fields and
-    # the mvp-0.6 error vocabulary asserted below are that path's). The head's canonical counterpart is
-    # test_dont_know_books_canonical_coverage_where_its_failure_mass_lands (D-6). Waits on D5 with the legacy
-    # per-LO facet path.
-    paths = pin_old_basic_vault(paths)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
@@ -117,17 +114,8 @@ def test_dont_know_keeps_full_coverage_and_updates_facet_recall(tmp_path):
     assert transition["applied_to_facet_recall"] is False
 
     event = repository.error_events_for_attempt(result.attempt_id)[0]
-    assert event["error_type"] == "recall_failure"
+    assert event["error_type"] == "retrieval_failure"
     assert event["severity"] >= 0.60
-
-    aggregate = repository.facet_recall_state("lo_svd_definition", "recall")
-    item_local = repository.facet_recall_state("lo_svd_definition", "recall", "pi_svd_define_001")
-    assert aggregate is not None
-    assert item_local is not None
-    assert aggregate.recall_beta > 1.0
-    assert aggregate.raw_coverage_mass == 1.0
-    assert aggregate.independent_evidence_mass == 1.0
-    assert aggregate.consecutive_failures == 1
 
 
 def test_hinted_dont_know_is_scaffold_failure_and_dampens_coverage_only_from_surface_policy(tmp_path):

@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/reader_observations.py](../../../../../../src/learnloop/reader/reader_observations.py) |
-| Source lines | 316 |
+| Source lines | 308 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -59,9 +59,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `named_gaps(repository: Any, question_event_ids: Sequence[str], *, source_kind: str='tutor_question') -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/reader/reader_observations.py), line 133) — Gaps learner-text gaps named from these reader questions, by question (``source_kind = 'reader_formative'``: from RW1b's missed formative answers, by authored question).
 - `still_unclear_observations(vault: Any, repository: Any, *, extraction_id: str, session: ReaderSession, exchanges: Sequence[Mapping[str, Any]] | None=None) -> list[ReaderObservationV1]` ([source](../../../../../../src/learnloop/reader/reader_observations.py), line 168) — RW1a: each reconnect *still unclear* answer in the session, one record.
 - `formative_answers(repository: Any, *, extraction_id: str, session: ReaderSession) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_observations.py), line 217) — RW1b's answered next-step, why-step and assumption questions in the session.
-- `formative_answer_observations(repository: Any, *, extraction_id: str, session: ReaderSession, vault: Any | None=None) -> list[ReaderObservationV1]` ([source](../../../../../../src/learnloop/reader/reader_observations.py), line 237) — RW1b: the missed (``partly`` / ``no``) formative answers, one record each, with the gaps learner-text gaps named from them as hypotheses.
-- `prediction_observations(repository: Any, *, extraction_id: str, session: ReaderSession) -> list[ReaderObservationV1]` ([source](../../../../../../src/learnloop/reader/reader_observations.py), line 266) — RW5a: missed figure predictions.
-- `observations_for_session(vault: Any, repository: Any, *, extraction_id: str, session: ReaderSession, exchanges: Sequence[Mapping[str, Any]] | None=None) -> list[ReaderObservationV1]` ([source](../../../../../../src/learnloop/reader/reader_observations.py), line 290) — Every formative record of one session, in time order (deterministic).
+- `formative_answer_observations(repository: Any, *, extraction_id: str, session: ReaderSession, vault: Any | None=None) -> list[ReaderObservationV1]` ([source](../../../../../../src/learnloop/reader/reader_observations.py), line 232) — RW1b: the missed (``partly`` / ``no``) formative answers, one record each, with the gaps learner-text gaps named from them as hypotheses.
+- `prediction_observations(repository: Any, *, extraction_id: str, session: ReaderSession) -> list[ReaderObservationV1]` ([source](../../../../../../src/learnloop/reader/reader_observations.py), line 261) — RW5a: missed figure predictions.
+- `observations_for_session(vault: Any, repository: Any, *, extraction_id: str, session: ReaderSession, exchanges: Sequence[Mapping[str, Any]] | None=None) -> list[ReaderObservationV1]` ([source](../../../../../../src/learnloop/reader/reader_observations.py), line 282) — Every formative record of one session, in time order (deterministic).
 
 ### Module constants
 

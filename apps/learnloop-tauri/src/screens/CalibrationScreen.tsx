@@ -12,6 +12,7 @@ import { DialogueProbePanel } from "../components/DialogueProbe";
 import { BlockBar, COLOR, FONT_MONO, Faint, KeyBar } from "../components/term";
 import { Card, Pill, SectionHeader } from "../components/ui";
 import { screenLeavesKey } from "../app/keymap";
+import type { CheckHandoff } from "../app/checkHandoff";
 
 // Calibration session progress (probe redesign §5.9): a learner-initiated
 // wrapper that batches diagnostic episode blocks in one sitting. This screen
@@ -45,6 +46,8 @@ export function CalibrationScreen({
   onReviewAnswer,
   onOpenRepair,
   onGuidedRedo,
+  onTeachFromCheck,
+  onAsk,
   onExit,
   onError
 }: {
@@ -56,6 +59,10 @@ export function CalibrationScreen({
    *  (App's openRepair / openGuidedRedo). */
   onOpenRepair?: (misconceptionId: string) => void;
   onGuidedRedo?: (redo: GuidedRedoDto) => void;
+  /** A dialogue block's "Stop diagnosing and teach me": the lesson opens over this screen's progress, which is
+   *  where closing it returns (App's teachFromCheck); `onAsk` is its tutor fallback. */
+  onTeachFromCheck?: (handoff: CheckHandoff) => void;
+  onAsk?: (target: { context: "practice"; practiceItemId: string; sessionId: string; proactiveOpen: true }) => void;
   onExit: () => void;
   onError: (message: string) => void;
 }) {
@@ -164,6 +171,8 @@ export function CalibrationScreen({
               setDialogueLo(null);
               refresh();
             }}
+            onTeachFromCheck={onTeachFromCheck}
+            onAsk={onAsk}
             onOpenRepair={onOpenRepair}
             onGuidedRedo={onGuidedRedo}
             onError={onError}

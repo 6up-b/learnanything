@@ -115,7 +115,7 @@ from learnloop.daily_plan import plan_records
 from learnloop.daily_plan.boundary_records import FAILURE_NOTE, wall_now
 from learnloop.data_capture import prefilter
 from learnloop.router_objective import ask_availability, decision_state
-from learnloop.scheduling.fsrs import forgetting_curve
+from learnloop.scheduling.fsrs import retrievability
 from learnloop.router_objective import sessions as session_receipts
 from learnloop.data_capture.gates import objective_receipts_on, receipts_on, serving_on
 from learnloop.db.stores import daily_plans as store
@@ -3781,7 +3781,7 @@ def _decision_state(env: PlanEnv, estimator: Any, *, candidates: Sequence[Mappin
         return None
     return decision_state.prepare(
         env.vault, env.repository, candidates=candidates, session_id=env.session_id, stop=stop, pick=pick,
-        forgetting_curve=forgetting_curve,
+        retrievability=retrievability,
         item_minutes=minutes,
         block_minutes={str(entry.get("candidate_id") or entry["practice_item_id"]): entry["est_minutes"] for entry in candidates
                        if (entry.get("candidate_id") or entry.get("practice_item_id")) and entry.get("est_minutes") is not None},

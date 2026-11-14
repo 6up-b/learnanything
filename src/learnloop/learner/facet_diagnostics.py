@@ -14,7 +14,6 @@ from learnloop.db.scopes import pinned_repository_call
 from learnloop.learner.facet_state_reader import (
     facet_recall_states_for_lo,
     facet_uncertainty_states_for_lo,
-    is_canonical_state_vault,
 )
 from learnloop.learner.mastery import display_mastery
 from learnloop.diagnosis.probes import apply_facet_observation
@@ -313,9 +312,7 @@ def covered_required_fraction(
         return _covered_frontier_fraction(
             vault,
             repository,
-            learning_object_id=learning_object_id,
             frontier=frontier,
-            aggregate_facet_recall=aggregate_facet_recall,
             inferred_cells=inferred_cells,
         )
     required = required_facets(vault, learning_object_id, repository)
@@ -361,9 +358,7 @@ def _covered_frontier_fraction(
     vault: LoadedVault,
     repository: Repository,
     *,
-    learning_object_id: str,
     frontier: set[tuple[str, str]],
-    aggregate_facet_recall: Mapping[str, FacetRecallState | Mapping[str, Any] | None] | None,
     inferred_cells: Mapping[tuple[str, str], float] | None,
 ) -> tuple[float, dict[str, Any]]:
     """Per-cell coverage over the contract frontier."""
@@ -374,7 +369,7 @@ def _covered_frontier_fraction(
     # Per-cell direct evidence, from the capability ledger. A facet whose only
     # evidence sits at another capability leaves this cell untouched — that
     # distinction is the entire point of the capability axis, and it is invisible
-    # to the facet-level `independent_evidence_mass` the legacy branch reads.
+    # to the facet-level `independent_evidence_mass`.
     cell_mass: dict[tuple[str, str], float] = {}
     for facet in facets:
         for cell in repository.facet_capability_evidence_for_facet(facet):
@@ -382,33 +377,6 @@ def _covered_frontier_fraction(
             cell_mass[key] = max(0.0, float(cell.direct_positive_mass)) + max(
                 0.0, float(cell.direct_negative_mass)
             )
-
-    # A vault that predates the capability ledger cannot answer per-cell, and
-    # answering per-facet while CLAIMING per-cell would be the fabrication this
-    # item exists to remove. Fall back to the facet-level mass, recorded as such.
-    #
-    # The fallback is gated on whether the vault SUPPORTS the ledger, not on
-    # whether these facets happen to have rows in it. Keying on row presence
-    # would silently credit a `transfer` cell from facet-level mass earned at
-    # `retrieval` on any canonical vault that simply has no evidence for this LO
-    # yet — the precise error the capability axis exists to stop.
-    ledger_available = is_canonical_state_vault(vault)
-    facet_mass: dict[str, float] = {}
-    for state in facet_recall_states_for_lo(vault, repository, learning_object_id):
-        if state.practice_item_id is not None:
-            continue
-        facet_mass[vault.canonical_facet_id(state.facet_id)] = float(
-            state.independent_evidence_mass
-        )
-    for facet, state in dict(aggregate_facet_recall or {}).items():
-        if state is None:
-            continue
-        value = (
-            float(state.get("independent_evidence_mass", 0.0))
-            if isinstance(state, Mapping)
-            else float(getattr(state, "independent_evidence_mass", 0.0))
-        )
-        facet_mass[vault.canonical_facet_id(str(facet))] = value
 
     inferred = {
         (str(key[0]), str(key[1])): float(value)
@@ -420,11 +388,7 @@ def _covered_frontier_fraction(
     credit = 0.0
     for facet, capability in sorted(frontier):
         cell = {"facet": facet, "capability": capability}
-        observed = (
-            cell_mass.get((facet, capability), 0.0)
-            if ledger_available
-            else facet_mass.get(facet, 0.0)
-        )
+        observed = cell_mass.get((facet, capability), 0.0)
         if observed > threshold:
             measured.append(cell)
             credit += 1.0
@@ -435,9 +399,7 @@ def _covered_frontier_fraction(
             uncovered.append(cell)
     value = clamp(credit / len(frontier))
     return value, {
-        "denominator_basis": (
-            "contract_frontier" if ledger_available else "contract_frontier_facet_mass"
-        ),
+        "denominator_basis": "contract_frontier",
         "frontier_cells": [
             {"facet": facet, "capability": capability}
             for facet, capability in sorted(frontier)

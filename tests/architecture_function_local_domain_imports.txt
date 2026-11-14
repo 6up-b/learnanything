@@ -24,7 +24,6 @@ learnloop.attempts.grade_resolution -> learnloop.learner.assessment_contracts
 learnloop.attempts.grader_calibration -> learnloop.params.fitted_params
 learnloop.attempts.grading -> learnloop.diagnosis.causal_attribution
 learnloop.attempts.grading -> learnloop.diagnosis.discrimination_profiles
-learnloop.attempts.grading -> learnloop.learner.facet_state_reader
 learnloop.attempts.measurement_corrections -> learnloop.learner.facet_diagnostics
 learnloop.attempts.measurement_corrections -> learnloop.substrate.canonical_projection
 learnloop.attempts.post_attempt -> learnloop.goals.certification_cold_probe
