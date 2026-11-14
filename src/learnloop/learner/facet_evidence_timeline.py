@@ -871,6 +871,13 @@ def _observation_events_by_facet(
             ((epoch.last_written[0], epoch.key), list(epoch.rows)) for epoch in ordered_epochs(rows)
         ]
         unrecorded = str(attempt["id"]) in snapshot.contract_unrecorded
+        # The facets an earlier epoch of this attempt put an event on. A later
+        # epoch replaces the attempt's contribution only in the facets it has an
+        # event in, so it needs one in each of these even when it no longer
+        # names the facet (a held epoch read against today's rubric, whose
+        # criteria may carry no targets; a regrade under a retargeted item):
+        # without it the facet keeps credit the projection no longer banks.
+        reached_facets: set[str] = set()
         # An attempt with no grading evidence marks nothing under projection v6:
         # absent evidence produces no criterion outcomes, so it can neither bank
         # mass nor advance surface-group novelty in either fold. (Pre-v6 this
@@ -946,7 +953,8 @@ def _observation_events_by_facet(
                 for target in criterion.targets
             }
             credited_facets = {facet for facet, _capability in credits}
-            for canonical_facet in requested & (historical_facets | credited_facets):
+            for canonical_facet in requested & (historical_facets | credited_facets | reached_facets):
+                reached_facets.add(canonical_facet)
                 per_capability = {
                     capability: credit
                     for (facet, capability), credit in credits.items()
