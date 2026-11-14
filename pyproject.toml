@@ -1094,10 +1094,11 @@ ignore_imports = [
     # event (adaptive_difficulty.outcomes, over AD's priors and model and delayed_completion), read
     # function-locally; AD never imports the objective's package.
     "learnloop.router_objective.checks -> learnloop.adaptive_difficulty.outcomes",
-    # The memory model's vectorized retrievability is scheduling.fsrs's (one definition of the
-    # forgetting curve, refactor RE2); fsrs imports only numpy and learnloop.numeric, so the
-    # edge cannot form a runtime cycle.
+    # The rollouts' vectorized retrievability is scheduling.fsrs's (one definition of the
+    # forgetting curve, refactor RE2); fsrs imports only numpy and learnloop.numeric, so these
+    # edges cannot form a runtime cycle.
     "learnloop.router_objective.memory -> learnloop.scheduling.fsrs",
+    "learnloop.router_objective.value -> learnloop.scheduling.fsrs",
     # AD2+AD3's pure reads of the firewall's carve-out and the default trajectory.
     "learnloop.adaptive_difficulty.reading -> learnloop.attempts.salience_firewall",
     "learnloop.adaptive_difficulty.replay -> learnloop.attempts.salience_firewall",

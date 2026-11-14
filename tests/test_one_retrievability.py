@@ -20,7 +20,6 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from learnloop.router_objective.memory import Fsrs
 from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS, forgetting_curve, retrievability, retrievability_array
 from tests.ast_cache import python_files, source_ast, source_text
 
@@ -192,7 +191,10 @@ def test_the_array_form_equals_the_scalar_to_one_ulp_element_by_element():
         assert np.all(out[:100] == 1.0) and np.all(scalar[:100] == 1.0)
 
 
-def test_the_memory_models_retrievability_is_the_array_form():
+def test_the_array_form_broadcasts_as_the_rollouts_call_it():
     rng = np.random.default_rng(3)
-    stability, elapsed = rng.uniform(0.5, 40, (64, 22)), rng.uniform(0, 30, (64, 22))
-    assert Fsrs(W).retrievability(stability, elapsed).tobytes() == retrievability_array(stability, elapsed, W).tobytes()
+    stability, elapsed = rng.uniform(0.5, 40, (64, 22)), rng.uniform(0, 30, (64, 1))  # draws by topics, one time a draw
+    out = retrievability_array(stability, elapsed, W)
+    assert out.shape == (64, 22)
+    for i, j in ((0, 0), (5, 21), (63, 7)):
+        assert out[i, j] == retrievability_array(np.array([stability[i, j]]), np.array([elapsed[i, 0]]), W)[0]

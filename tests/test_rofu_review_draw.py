@@ -26,7 +26,7 @@ import pytest
 from learnloop.router_objective import memory as M
 from learnloop.router_objective import price as P
 from learnloop.router_objective import value as V
-from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS
+from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS, retrievability_array
 
 # -- R1's probe ------------------------------------------------------------------------------------------
 
@@ -156,7 +156,7 @@ def test_a_practised_topics_outcome_is_drawn_from_the_memory_models_own_p_perfor
         elapsed = at - state.last[:, lo]
         good, bel, var = model._graded(state.eta[:, lo], state.bel[:, lo], state.bel_var[:, lo], state.s[:, lo],
                                        state.practiced[:, lo], elapsed, model.theta.coef, u)
-        r = model.fsrs.retrievability(state.s[:, lo], elapsed)
+        r = retrievability_array(state.s[:, lo], elapsed, model.fsrs.weights)
         practiced = state.practiced[:, lo]
         expected = M.perform(model.theta.coef, state.eta[:, lo][:, None], r[:, None], practiced[:, None])[:, 0]
         expected = np.where(practiced, expected, M.sigmoid(state.eta[:, lo]))
