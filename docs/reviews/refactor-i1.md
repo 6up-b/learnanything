@@ -130,17 +130,163 @@ facet the attempt never covered fails the attempt. That is a decision for the ow
 nothing the two stages don't: the shell's read sits between two pure functions, as the brief allows. So the step
 continues.
 
-## 4. Extraction (the plan, as executed below)
+## 4. Extraction
 
-- `GradeInputs` (frozen): the attempt id, resolved draft, item, LO, rubric, grade, subject, `observed_at`, `now_iso`,
-  the grade's flags (source, agent run, fallback, grader identity, unassessed ids, hold, unrecorded contract and
-  its correctness), and the loaded values the core reads: `config`, the alias map, the error taxonomy.
-- `grade_scope(inputs)` (stage A) returns what was assessed, the hold and the coverage.
-- `GradeReads` (frozen): the prior snapshot, the interpretation variance, the lesson mass, the LO's coverage reads,
-  the breadth reads, the FSRS weights, the reference status, the error event ids, the evidence rows.
-- `grade_application(inputs, scope, reads)` (stage B) returns the `AttemptApplication`.
-- The shell `_compute_resolved_grade_application` keeps its signature: it gathers, calls A, reads, calls B.
-- `lo_relative_coverage` and `covered_required_fraction` keep their signatures (tests call them) as a read plus a pure
-  function. The callees that took the vault for lookups (`event_local_severity_from_attempts`,
-  `build_facet_uncertainty_updates`, `_error_event_repair_plan`, `_canonicalized_grade_attributions`, the firewall's
-  facet canonicalization, `_ad_logged_fields`) take the mapping or config they read instead.
+The plan above, executed. Commits, in order:
+
+1. `f005473004`: this record's step 0.
+2. `0992f2f0fd`: the golden, recorded at the base (§5).
+3. `4f23c60d48`: `lo_relative_coverage` and `covered_required_fraction` (`learner/facet_diagnostics.py`) keep their
+   signatures, as a read (`read_lo_coverage`, `read_breadth`, returning the frozen `LoCoverageReads` and
+   `BreadthReads`) and a pure function over what was read (`lo_relative_coverage_from`,
+   `covered_required_fraction_from`; `_covered_frontier_fraction` now takes the capability rows). `LoCoverageReads`
+   holds the very `set` the read built, because the coverage sums iterate it and a set rebuilt from the same members
+   can iterate in another order.
+4. `aafc3dd8c1`: the callees that took the vault for lookups take what they look up:
+   `event_local_severity_from_attempts` (`error_types`, `config`), `build_facet_uncertainty_updates` and
+   `_initial_hypothesis_marginal` / `_attribution_targets_facet` (`config`, `error_types`, the LO object),
+   `_error_event_repair_plan` (`error_types`, through a new `_taxonomy_severity` that `_error_severity` now calls),
+   `_canonicalized_grade_attributions` (the alias function), `enforce_passed_target_firewall` (a new
+   `canonical_facet_id` keyword; `vault=` still works and means its alias function), `_ad_logged_fields` (`config`).
+5. `0dc30d131c`: the split. `GradeInputs`, `GradeScope` and `GradeReads` (frozen), `grade_scope` (stage A),
+   `grade_application` (stage B) and `_interpretation_variance` (13's read, with its fail-safe). The shell keeps the
+   old name and signature. The stage bodies are the old text moved by a script (`extract_core.py` in the step's
+   scratch directory), with only these substitutions: `vault.config` to `config`, `vault.canonical_facet_id` to
+   `inputs.canonical_facet_id` (`GradeInputs.canonical_facet_id` is `facet_aliases.get(id, id)`, the body of
+   `LoadedVault.canonical_facet_id`), `vault.error_types` to `inputs.error_types`,
+   `vault.learning_objects.get(learning_object.id)` to `learning_object` (the loader keys that map by id, so it is
+   the same object), `canonical_facet_uncertainty_on(vault)` to the shell's `inputs.facet_uncertainty_on`, and each
+   read to its `reads.` field.
+6. `c822e55d30`: stage B in parts under 200 lines, by a second script (`split_stage_b.py`): `_kept_attributions`,
+   `_event_severities`, `_grade_evidence` (returns `GradeEvidence`), `_belief_update` (`BeliefUpdate`: the EKF, the
+   breadth floor, EB difficulty, surprise), `_fsrs_review` (`ReviewUpdate`), `_attempt_record`, `_error_event_rows`,
+   `_quality_update`, `_debug_payload`, `_causal_attribution_counts`. They run in the old body's order. In
+   `_debug_payload` the moved text reads the bundles' fields (`evidence.lo_coverage` for `lo_coverage`, and so on).
+   One dead store went: a primary error type computed after the firewall and overwritten after the severities, with
+   no read between.
+7. `b3f9aae667`: the comments in the shell and both stages lose their stage, ruling and review names and say why
+   (comments only).
+8. `35ff77c311`: the plain-value tests (§5).
+9. `cb9b6822fc`: Attempt Processing, the predicate's pointers in `held_grades.py` and `outcome_contract.py`, the
+   `AttemptApplication` docstring, the structure ratchet.
+10. `87e6f4b917`: the vault's generated references, regenerated once; a second run changed nothing.
+
+## 5. What pins it
+
+**Before this step.** Replay and rebuild tests check live against rebuilt state (`test_rebuild_equivalence.py`,
+`test_replay.py`, `test_mvp017_route_check_replay.py`, `test_regrade_contract_replay.py`, `test_held_grade_evidence.py`,
+`test_pfc_unverified_unassessed.py`), and feature tests check values with tolerances (`test_surprise.py`,
+`test_recall_coverage_interventions.py`, `test_attempts.py`). None pins every field's bits at a fixed input across
+commits, so every stage was unpinned for this purpose.
+
+**Added: `tests/test_grade_application_golden.py`** (with `tests/grade_application_golden_helpers.py` and
+`tests/goldens/grade_application/history.json`, 2.3 MB). A split vault at the head with its seeded history, then a
+self-graded answer, a model grade with two attributions (one the firewall strips), hinted, primed, "I don't know",
+stuck, a model grade with a criterion unverified, a held grade, a repeat on the same item and one on its sibling,
+an answer through the real blind-grading door with the deterministic fake, a regrade (which replays the LO), and an
+adjudication's evidence revision; then `rebuild_all_derived_state`. The record holds every field of every
+`AttemptApplication` computed (26 live, 18 in the rebuild), floats as `repr` (every bit), and every row each phase
+added or removed in every table. ULIDs and random UUIDs are numbered by first appearance, wall stamps and the head tag
+replaced. A second test fails if the history stops reaching a kind of grade.
+- Fail-first evidence of its resolution: multiplying the observation weight by `1 + 2**-52` (one ulp) fails it.
+- Stable under `PYTHONHASHSEED` 0, 1, 777 and 12345 and at `-n 4`.
+- Unchanged after every commit above.
+
+**Added: `tests/test_grade_application_core.py`**, the point of the step: 15 tests building `GradeInputs`,
+`AttemptPriorState` and `GradeReads` in memory (no vault on disk, database or clock): independent, hinted (a capped
+rating, the hint factors), primed (the `b` offset; a smaller gain), "I don't know" (rating, event and its id),
+stuck, held (no evidence, the schedule kept, `skipped == "held"`), unassessed, the firewall, a replayed regrade (the
+stored evidence rows and the first-written event ids), an adjudicated correction, an unrecorded contract (and its
+refusal), a repeat on the same surface group (familiarity), a drifting event-id count failing loudly, the core
+reaching none of the shell's reads, the clock or the id mint (each patched to raise), and inputs left unchanged.
+
+**T4.** No test patched a name this step moved. `test_pfc_unverified_unassessed` spies on the shell's keyword
+arguments, and the shell keeps its name and signature; `test_attempt_chain_records` patches the public
+`compute_attempt_application`; `test_lp_claim_fixes_rereview` patches `attempts.new_ulid`, which the shell still
+calls. No assertion changed.
+
+## 6. Proof
+
+**Golden:** as in §5.
+
+**P-shadow.** The three copies in `learnanything-ad1/fixtures-local/owner-copies-mvp058` (at `mvp-0.58`), copied twice
+with `copy_tree_with_databases` under `fixtures-local/i1/{base,branch}/`. `base` ran the base's code (a `git archive` of
+`68c61b9f1a`'s `src/` and `migrations/` on `PYTHONPATH`), `branch` this branch's. Counts only; the copies are deleted.
+
+| | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| `learnloop upgrade`, both | `mvp-0.58 -> mvp-0.59` | same | same |
+| shadow facet / mastery / schedule changed, both | 0 / 0 / 0 (80 / 21 / 99 unchanged) | 0 / 0 / 0 (3 / 18 / 77) | 0 / 0 / 0 (7 / 34 / 32) |
+| `schedule_effects` due dates moved, both | 0 | 0 | 0 |
+| live database unchanged by the shadow, both | yes | yes | yes |
+| the two shadow reports, marker id, stamps and hashes aside | equal | equal | equal |
+| every table of the two upgraded copies, row by row | 402 tables, 19,442 rows: none differ (normalized) | 402, 10,426: none | 402, 23,877: none |
+| after a real `rebuild-derived-state` on each (replayed attempts) | 70 attempts; 19,749 rows: none differ | 3; 10,498: none | 3; 23,719: none |
+| `attempt_surprise` byte-equal (raw, no normalization), after the rebuild | 70 rows: yes | 3: yes | 3: yes |
+
+Byte-equal raw after the rebuild as well: `practice_attempts`, `learning_object_mastery`, `practice_item_state`,
+`error_events`, `attempt_debug_payloads`, `ability_transition_events`, `practice_item_quality_state`,
+`facet_uncertainty`. The 10 tables that differ raw (`activity_observations`, `derived_state_rebuilds`,
+`facet_capability_evidence`, `facet_recall_state`, `grade_interpretations`, `measurement_events`,
+`parameter_registry`, `parameter_registry_manifests`, `raw_grade_events`, `subject_identifiability_watermarks`) differ
+only in ids and wall stamps: equal once ULIDs, UUIDs, 64-hex digests and stamps from the last three days are
+replaced by class tokens. After five more rebuilds on each side (the timing runs), linear_algebra's 20,817 rows still
+agree, and `attempt_surprise` is byte-equal.
+
+**The mvp-0.17 fixture.** `fixtures/mvp017_route_check_replay` copied four times, retagged to the floor (`mvp-0.58`)
+and the head (`mvp-0.59`), and rebuilt live twice by each code. After the first and the second rebuild, at both tags,
+every table agrees row by row (1,343 / 1,463 rows at the floor, 1,348 / 1,468 at the head), `attempt_surprise` and
+`practice_attempts` byte-equal. One `attempt_debug_payloads` row (`att_02_svd_fail`) agrees only once the causal
+hypotheses' ULIDs replay mints and the diagnosis receipt id hashed from them (`dr_…`) are normalized too, as D5b
+recorded; the rebuild mints both afresh on either code.
+
+**Timing.** A full `learnloop rebuild-derived-state` of linear_algebra (70 attempts, the largest history), whole
+process, alternated base and branch four times on the same machine (load average about 6 from other lanes):
+base 2.736, 2.779, 2.788, 2.860 s; branch 2.755, 2.795, 2.742, 2.911 s. No difference beyond the noise.
+
+**Identity pins** unmoved: `test_identity_pins`, `test_retired_config_identities`, `test_effective_defaults_golden`
+and `test_cli_help_snapshot` pass at the tip with nothing written.
+
+**Measures.**
+
+| | base | tip |
+|---|---|---|
+| `_compute_resolved_grade_application` | 798 lines | 100 (the shell) |
+| the core | (inside it) | `grade_scope` 106; `grade_application` 145 with `_grade_evidence` 190, `_belief_update` 86, `_debug_payload` 81, `_fsrs_review` 69, `_causal_attribution_counts` 60, `_attempt_record` 44, `_quality_update` 40, `_event_severities` 38, `_kept_attributions` 33, `_error_event_rows` 25 |
+| read helper | | `_interpretation_variance` 33 |
+| frozen types | | `GradeInputs` 34, `GradeScope` 11, `GradeReads` 16, `GradeEvidence` 30, `BeliefUpdate` 9, `ReviewUpdate` 9 |
+| `attempts/attempts.py` | 5,679 | 6,092 |
+| `learner/facet_diagnostics.py` | 819 | 906 |
+| functions over 200 lines (ratchet) | 76 | 75 (lowered with `--write`) |
+| comment lines naming a stage artifact (ratchet) | 2,392 | 2,387 |
+
+The file grows by 413 lines: the docstrings, the six frozen types, and the lines at the top of each part that bind
+its inputs' fields to the names the moved text uses.
+
+## 7. Judgment calls
+
+- **The vault's in-memory content passed as values** (§2): the config, the alias map, the error taxonomy and the LO
+  object go into `GradeInputs`, and the callees take them instead of the vault. These are the same objects the old
+  lookups read, so no lookup moved; I did not count them as reads ahead.
+- **`GradeInputs.facet_uncertainty_on`** is computed by the shell (`canonical_facet_uncertainty_on(vault)`) rather
+  than the core calling the predicate's internals with the config, so the predicate stays the one place that decides
+  it (the parallel gate step may change it).
+- **The id mint between the stages**, with its count from the hold and the attribution count (§2), rather than the
+  core returning id-less rows for the shell to fill: the application the core returns is then complete, and the
+  strict zip guards the count.
+- **Reads between the stages in today's order**, not gathered before stage A: stage A can raise
+  (`AttemptValidationError` for an unrecorded contract's correctness) before any of them, as today.
+- **`vault.subjects_for_item`** is read before stage A (it was after the correctness check); it is an in-memory
+  lookup that cannot fail on a resolved item.
+- **`GradeEvidence` has 24 fields.** They are the evidence's parts the rows and the debug payload read; a narrower
+  type would push the same fields through more signatures.
+- **The golden is 2.3 MB** (under G8's 5 MB). Most of it is the rows other steps of the attempt write (labels,
+  completion work, measurement events); I kept them because the brief asks for every row written.
+- **`_interpretation_variance` lives in the shell**: it reads the grade channel and seeds its tables, so it is a read,
+  though its result only feeds the core.
+
+## 8. Not verified
+
+- P-draw: the step changes no draw (the router is not reached), so the draw-for-draw harness was not run.
+- The owner copies' histories are small (70, 3, 3 attempts), with few model grades; the golden covers the model,
+  held, unassessed, regrade and adjudication paths on synthetic data.
