@@ -461,3 +461,13 @@ What the learner sees that is a structure problem this strategy fixes, and what 
    - **If yes:** about 600 lines go and the readiness panel goes. **If no:** it stays as a report, and each decision keeps paying for it.
 5. **Q5: the parameter registry.**
    - **Recommended:** no diagnosis-only change. If you want a constant registered beside its definition, ask for one cross-package step (all 380 entries, 96 modules), outside K9. Until then, a moved constant takes its registry path with it.
+
+## Added at landing (orchestrator, 2026-11-14): ledger D-39
+
+This strategy was written before D6's first landing reported ledger row D-39, so no step here covers it. D6 removed the point probe path, which no supported vault takes, and moved the checkpoint-3 planted-type simulation (`tests/test_sim_probe_validation.py`, `learnloop.sim.diagnostic_validation`) onto the robust probe path every supported vault takes. There it diagnoses the planted `surface_only` type 2 times in 5, under its 0.6 gate; the test is a strict xfail. It passed before only because it ran at an old tag on the old path.
+
+That is a question about what diagnosis concludes, not about its layout, and it comes before the structure steps that touch the same code:
+
+- **K9.0 (behaviour, investigation first; due at arc D's close with D-39).** Reproduce the simulation at the head with more trials and every planted type, with the seeds recorded, and report per type how often the robust path names it and what it names instead. Then say which it is: the robust path's likelihoods or stopping rule under-separate `surface_only` from its neighbours (a real fault: a fix is a successor under the playbook, with a shadow comparison); the simulation's planted learner is not what the robust path's instruments measure (the simulation is wrong: fix the simulation and say why); or five trials were too few to tell (the gate needs a sample size that can pass or fail). No step K9.6 to K9.11 that moves the posterior or the instruments lands before K9.0 reports, so a move cannot hide or shift the behaviour being measured.
+- It needs no vault data: the simulation is synthetic. Whether the same shows on real histories is unknown and stays unknown until the owner's vaults hold enough probe episodes to look.
+
