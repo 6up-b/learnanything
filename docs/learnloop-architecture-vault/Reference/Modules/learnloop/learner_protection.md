@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py) |
-| Source lines | 713 |
+| Source lines | 711 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -81,14 +81,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `source_reason(self, refs: Iterable[Mapping[str, Any]]) -> str | None` (line 519; public) — Why a text written from these source refs may not leave LearnLoop: a ref that is (or may be) exam or held-out material (``exam_material.source_ref_protected``, conservative where it cannot place the text), or exam material that could not be read.
   - `reading_reason(self, source_kind: Any, source_id: Any) -> str | None` (line 545; public) — Why a learner text written on a reading may not leave LearnLoop (followups-nov1c E: exam-material protection, not privacy): the passage it was written on (a Reader question's, an active-reading answer's, a figure prediction's) is or may be exam or held-out material (:meth:`sourc…
   - `question(self, event_id: Any) -> dict[str, Any] | None` (line 566; public) — A learner question as recorded (``item``, ``attempt``, ``context``, ``contract``: the item contract it was asked about, Q10), or None.
-  - `question_reason(self, event_id: Any, contracts: Iterable[Any]) -> str | None` (line 587; public) — Why a text written from this learner question may not leave LearnLoop: the question is not on record; on an item, the item or the attempt it was asked during is protected, or the question records no contract of that item, or not the one the writer read it under (Q10).
-- `class TextRule(Protocol)` ([source](../../../../../src/learnloop/learner_protection.py), line 621) — How a reader's text leaves LearnLoop once the protection here has passed.
-  - `question(self, attempt_id: str, lo_id: Any) -> tuple[str | None, str | None]` (line 629; public) — The question an unprotected attempt was graded against.
-  - `answer(self, attempt_id: str, text: Any, limit: int) -> tuple[str | None, str | None]` (line 632; public) — The learner's own answer on an unprotected attempt.
-  - `statement(self, kind: str, record_id: Any, text: Any, limit: int, *, answers: Iterable[Any]=(), items: Iterable[Any]=(), los: Iterable[Any]=()) -> tuple[str | None, str | None]` (line 635; public) — A statement (a diagnosis's, a hypothesis's, a learner-text gap's words) whose answers and items are unprotected.
-- `class PastWorkText` ([source](../../../../../src/learnloop/learner_protection.py), line 642) — What one past attempt shows: ``withheld`` (why its question and answer are protected) or its question and answer as the text rule released them.
-- `past_work_text(past: PastWork, rule: TextRule, attempt_id: Any, lo_id: Any, answer: Any, answer_limit: int) -> PastWorkText` ([source](../../../../../src/learnloop/learner_protection.py), line 653) — One past attempt's question and answer: the protection, then the reader's text rule.
-- `statement_text(past: PastWork, rule: TextRule, kind: str, record_id: Any, text: Any, limit: int, *, answers: Iterable[Any]=(), items: Iterable[Any]=(), los: Iterable[Any]=()) -> tuple[str | None, str | None, str | None]` ([source](../../../../../src/learnloop/learner_protection.py), line 665) — A statement written from ``answers`` and ``items``: ``(text, note, withheld)``.
+  - `question_reason(self, event_id: Any, contracts: Iterable[Any]) -> str | None` (line 585; public) — Why a text written from this learner question may not leave LearnLoop: the question is not on record; on an item, the item or the attempt it was asked during is protected, or the question records no contract of that item, or not the one the writer read it under (Q10).
+- `class TextRule(Protocol)` ([source](../../../../../src/learnloop/learner_protection.py), line 619) — How a reader's text leaves LearnLoop once the protection here has passed.
+  - `question(self, attempt_id: str, lo_id: Any) -> tuple[str | None, str | None]` (line 627; public) — The question an unprotected attempt was graded against.
+  - `answer(self, attempt_id: str, text: Any, limit: int) -> tuple[str | None, str | None]` (line 630; public) — The learner's own answer on an unprotected attempt.
+  - `statement(self, kind: str, record_id: Any, text: Any, limit: int, *, answers: Iterable[Any]=(), items: Iterable[Any]=(), los: Iterable[Any]=()) -> tuple[str | None, str | None]` (line 633; public) — A statement (a diagnosis's, a hypothesis's, a learner-text gap's words) whose answers and items are unprotected.
+- `class PastWorkText` ([source](../../../../../src/learnloop/learner_protection.py), line 640) — What one past attempt shows: ``withheld`` (why its question and answer are protected) or its question and answer as the text rule released them.
+- `past_work_text(past: PastWork, rule: TextRule, attempt_id: Any, lo_id: Any, answer: Any, answer_limit: int) -> PastWorkText` ([source](../../../../../src/learnloop/learner_protection.py), line 651) — One past attempt's question and answer: the protection, then the reader's text rule.
+- `statement_text(past: PastWork, rule: TextRule, kind: str, record_id: Any, text: Any, limit: int, *, answers: Iterable[Any]=(), items: Iterable[Any]=(), los: Iterable[Any]=()) -> tuple[str | None, str | None, str | None]` ([source](../../../../../src/learnloop/learner_protection.py), line 663) — A statement written from ``answers`` and ``items``: ``(text, note, withheld)``.
 
 ### Module constants
 

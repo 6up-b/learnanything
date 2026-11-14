@@ -36,7 +36,7 @@ Up: [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] · 
 
 ## Why this module exists
 
-This module keeps fsrs behavior inside its owning package, [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]]. Its public surface centers on `Rating`, `MemoryState`, `forgetting_curve`, `initial_stability`, `initial_difficulty`, `next_difficulty`, `next_forget_stability`, `next_recall_stability` and 3 more public symbols.
+This module keeps fsrs behavior inside its owning package, [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]]. Its public surface centers on `Rating`, `MemoryState`, `forgetting_curve`, `retrievability`, `retrievability_array`, `initial_stability`, `initial_difficulty`, `next_difficulty` and 5 more public symbols.
 
 The authoritative system-level explanation remains in [[Learning System]]; this note records where this source module participates rather than restating those concepts.
 
@@ -47,35 +47,37 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/fsrs.py](../../../../../../src/learnloop/scheduling/fsrs.py) |
-| Source lines | 156 |
+| Source lines | 195 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class Rating(IntEnum)` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 10)
-- `class MemoryState` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 49)
-- `forgetting_curve(stability: float | None, elapsed_days: float, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> float` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 55)
-- `initial_stability(rating: Rating, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> float` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 63)
-- `initial_difficulty(rating: Rating, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> float` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 67)
-- `next_difficulty(difficulty: float, rating: Rating, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> float` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 71)
-- `next_forget_stability(difficulty: float, stability: float, retrievability: float, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> float` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 79)
-- `next_recall_stability(difficulty: float, stability: float, retrievability: float, rating: Rating, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> float` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 94)
-- `apply_review(previous: MemoryState | None, rating: Rating, elapsed_days: float, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> MemoryState` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 117)
-- `interval_for_retention(stability: float, desired_retention: float=0.9, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> float` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 137)
-- `rating_from_score(score: int, max_points: int=4) -> Rating` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 148)
+- `class Rating(IntEnum)` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 13)
+- `class MemoryState` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 52)
+- `forgetting_curve(stability: float | None, elapsed_days: float, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> float` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 67) — The curve at plain FSRS stability, for FSRS itself: :func:`apply_review`, the weight fit (``fsrs_fitting``) and its evaluation (``evaluation``).
+- `retrievability(stability: float | None, elapsed_days: float, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> float` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 77) — The probability of recall ``elapsed_days`` after the last review at ``stability``: the one read every scalar caller makes, so a change to what a read returns (RE8's effective stability) is made here and in :func:`retrievability_array`, and FSRS's own update keeps :func:`forgetti…
+- `retrievability_array(stability: Any, elapsed_days: Any, weights: tuple[float, ...]) -> np.ndarray` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 86) — :func:`retrievability` over float64 arrays (anything else is converted first): 0 where stability is not positive or NaN.
+- `initial_stability(rating: Rating, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> float` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 102)
+- `initial_difficulty(rating: Rating, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> float` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 106)
+- `next_difficulty(difficulty: float, rating: Rating, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> float` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 110)
+- `next_forget_stability(difficulty: float, stability: float, retrievability: float, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> float` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 118)
+- `next_recall_stability(difficulty: float, stability: float, retrievability: float, rating: Rating, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> float` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 133)
+- `apply_review(previous: MemoryState | None, rating: Rating, elapsed_days: float, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> MemoryState` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 156)
+- `interval_for_retention(stability: float, desired_retention: float=0.9, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> float` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 176)
+- `rating_from_score(score: int, max_points: int=4) -> Rating` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 187)
 
 ### Module constants
 
-- `FSRS6_DEFAULT_WEIGHTS` ([src/learnloop/scheduling/fsrs.py](../../../../../../src/learnloop/scheduling/fsrs.py), line 19)
-- `S_MIN` ([src/learnloop/scheduling/fsrs.py](../../../../../../src/learnloop/scheduling/fsrs.py), line 43)
-- `D_MIN` ([src/learnloop/scheduling/fsrs.py](../../../../../../src/learnloop/scheduling/fsrs.py), line 44)
-- `D_MAX` ([src/learnloop/scheduling/fsrs.py](../../../../../../src/learnloop/scheduling/fsrs.py), line 45)
+- `FSRS6_DEFAULT_WEIGHTS` ([src/learnloop/scheduling/fsrs.py](../../../../../../src/learnloop/scheduling/fsrs.py), line 22)
+- `S_MIN` ([src/learnloop/scheduling/fsrs.py](../../../../../../src/learnloop/scheduling/fsrs.py), line 46)
+- `D_MIN` ([src/learnloop/scheduling/fsrs.py](../../../../../../src/learnloop/scheduling/fsrs.py), line 47)
+- `D_MAX` ([src/learnloop/scheduling/fsrs.py](../../../../../../src/learnloop/scheduling/fsrs.py), line 48)
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_curve(stability, elapsed_days, decay)` ([source](../../../../../../src/learnloop/scheduling/fsrs.py), line 58) — FSRS-6's forgetting curve, the one expression of it: Python floats or float64 arrays, ``elapsed_days`` at least 0 and ``stability`` above 0, both already clamped by the caller.
 
 ## Who imports or calls it
 
@@ -84,30 +86,33 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `FSRS6_DEFAULT_WEIGHTS`, `MemoryState`, `Rating`, `apply_review`, `interval_for_retention`, `rating_from_score`; statically calls `MemoryState`, `Rating`, `apply_review`, `interval_for_retention`, `rating_from_score`
 - [[Reference/Modules/learnloop/cli/fit|learnloop.cli.fit]] — imports `FSRS6_DEFAULT_WEIGHTS`
-- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `forgetting_curve`
-- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `forgetting_curve`
-- [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]] — imports `forgetting_curve`; statically calls `forgetting_curve`
-- [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `forgetting_curve`; statically calls `forgetting_curve`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `retrievability`
+- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `retrievability`
+- [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `retrievability_array`; statically calls `retrievability_array`
+- [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]] — imports `module`; statically calls `retrievability`
+- [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `retrievability`; statically calls `retrievability`
 - [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]] — imports `interval_for_retention`; statically calls `interval_for_retention`
 - [[Reference/Modules/learnloop/field/evaluation|learnloop.field.evaluation]] — imports `FSRS6_DEFAULT_WEIGHTS`
 - [[Reference/Modules/learnloop/field/memory|learnloop.field.memory]] — imports `FSRS6_DEFAULT_WEIGHTS`
-- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `forgetting_curve`
-- [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `forgetting_curve`; statically calls `forgetting_curve`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `retrievability`
+- [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `retrievability`; statically calls `retrievability`
 - [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `module`; statically calls `initial_stability`, `interval_for_retention`
 - [[Reference/Modules/learnloop/intent/report|learnloop.intent.report]] — imports `FSRS6_DEFAULT_WEIGHTS`
-- [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `forgetting_curve`; statically calls `forgetting_curve`
+- [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `retrievability`; statically calls `retrievability`
 - [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] — imports `FSRS6_DEFAULT_WEIGHTS`
+- [[Reference/Modules/learnloop/router_objective/memory|learnloop.router_objective.memory]] — imports `retrievability_array`; statically calls `retrievability_array`
+- [[Reference/Modules/learnloop/router_objective/value|learnloop.router_objective.value]] — imports `retrievability_array`; statically calls `retrievability_array`
 - [[Reference/Modules/learnloop/scheduling/evaluation|learnloop.scheduling.evaluation]] — imports `MemoryState`, `apply_review`, `forgetting_curve`; statically calls `apply_review`, `forgetting_curve`
-- [[Reference/Modules/learnloop/scheduling/family_memory_model|learnloop.scheduling.family_memory_model]] — imports `MemoryState`, `Rating`, `apply_review`, `forgetting_curve`; statically calls `MemoryState`, `Rating`, `apply_review`, `forgetting_curve`
+- [[Reference/Modules/learnloop/scheduling/family_memory_model|learnloop.scheduling.family_memory_model]] — imports `MemoryState`, `Rating`, `apply_review`, `retrievability`; statically calls `MemoryState`, `Rating`, `apply_review`, `retrievability`
 - [[Reference/Modules/learnloop/scheduling/fsrs_fitting|learnloop.scheduling.fsrs_fitting]] — imports `FSRS6_DEFAULT_WEIGHTS`, `MemoryState`, `Rating`, `apply_review`, `forgetting_curve`; statically calls `apply_review`, `forgetting_curve`
-- [[Reference/Modules/learnloop/scheduling/review_log|learnloop.scheduling.review_log]] — imports `MemoryState`, `Rating`, `apply_review`, `forgetting_curve`; statically calls `apply_review`, `forgetting_curve`
-- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `FSRS6_DEFAULT_WEIGHTS`, `forgetting_curve`; statically calls `forgetting_curve`
-- [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `forgetting_curve`; statically calls `forgetting_curve`
+- [[Reference/Modules/learnloop/scheduling/review_log|learnloop.scheduling.review_log]] — imports `MemoryState`, `Rating`, `apply_review`, `retrievability`; statically calls `apply_review`, `retrievability`
+- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `FSRS6_DEFAULT_WEIGHTS`, `retrievability`; statically calls `retrievability`
+- [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `retrievability`; statically calls `retrievability`
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `interval_for_retention`; statically calls `interval_for_retention`
 - [[Reference/Modules/learnloop/substrate/administration_adapters|learnloop.substrate.administration_adapters]] — imports `FSRS6_DEFAULT_WEIGHTS`
 - [[Reference/Modules/learnloop/substrate/card_lineage|learnloop.substrate.card_lineage]] — imports `FSRS6_DEFAULT_WEIGHTS`, `MemoryState`, `Rating`, `apply_review`; statically calls `Rating`, `apply_review`
-- [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]] — imports `forgetting_curve`; statically calls `forgetting_curve`
-- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `forgetting_curve`
+- [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]] — imports `retrievability`; statically calls `retrievability`
+- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `retrievability`
 
 ## Dependencies
 
@@ -117,8 +122,8 @@ No private top-level function or class definition is declared in this file.
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `enum`, `math`
-- Third party: none imported directly
+- Standard library: `__future__`, `dataclasses`, `enum`, `math`, `typing`
+- Third party: `numpy`
 
 ## Larger workflow participation
 
@@ -127,7 +132,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/fit|learnloop.cli.fit]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]] and 21 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/fit|learnloop.cli.fit]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] and 24 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -175,6 +180,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f8_the_fsrs_fitter_never_fits_a_review_that_never_happened`
 - [tests/test_intent_recall_targets.py](../../../../../../tests/test_intent_recall_targets.py) — direct import
   - `test_the_ratio_is_the_fsrs_interval_ratio_and_exactly_one_at_090`
+- [tests/test_one_retrievability.py](../../../../../../tests/test_one_retrievability.py) — direct import
+  - `test_edge_inputs`
+  - `test_known_values`
+  - `test_the_array_form_broadcasts_as_the_rollouts_call_it`
+  - `test_the_array_form_equals_the_scalar_to_one_ulp_element_by_element`
+  - `test_the_curve_passes_0_9_when_elapsed_equals_stability`
+  - `test_the_read_is_the_plain_curve_today`
 - [tests/test_reader_followups.py](../../../../../../tests/test_reader_followups.py) — direct import
   - `test_without_fsrs_state_the_date_is_the_schedulers_first_interval`
 - [tests/test_review_log.py](../../../../../../tests/test_review_log.py) — direct import
@@ -202,6 +214,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_probe_before_and_after_r6_is_pinned`
   - `test_the_rollouts_on_the_monotone_prior_never_predict_lower_performance_for_higher_ability`
 - [tests/test_rofu_review_draw.py](../../../../../../tests/test_rofu_review_draw.py) — direct import
+  - `test_a_practised_topics_outcome_is_drawn_from_the_memory_models_own_p_perform`
   - `test_a_review_right_after_a_review_is_almost_never_a_lapse_with_the_switch_on`
 - [tests/test_rofu_speed.py](../../../../../../tests/test_rofu_speed.py) — direct import
   - `test_the_fsrs_update_without_clip_equals_the_schedulers_scalar_formulas`

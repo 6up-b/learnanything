@@ -419,10 +419,6 @@ def build_reader_report(
         }
         # Reader workbench RW3b: the impressions table (absent: as before).
         discovered_cues = _discovered_cues(connection, in_window)
-        has_scopes = any(
-            row[1] == "scope_kind"
-            for row in connection.execute("PRAGMA table_info(reader_authored_questions)")
-        )
         checks = [
             dict(row)
             for row in connection.execute(
@@ -430,7 +426,7 @@ def build_reader_report(
                 "WHERE scope_kind = 'inquiry' ORDER BY created_at, id"
             )
             if in_window(row["created_at"])
-        ] if has_scopes else []
+        ]
         selection_rows = [
             dict(row)
             for row in connection.execute(
@@ -438,7 +434,7 @@ def build_reader_report(
                 "FROM reader_authored_questions WHERE scope_kind = 'selection' ORDER BY created_at, id"
             )
             if in_window(row["created_at"])
-        ] if has_scopes else []
+        ]
         has_gap_jobs = connection.execute(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'learner_text_gap_jobs'"
         ).fetchone() is not None

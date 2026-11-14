@@ -125,7 +125,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 23 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 21 static module edges
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 19 static module edges
-- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 13 static module edges
+- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 14 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 11 static module edges
 - [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 9 static module edges
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 7 static module edges
@@ -181,7 +181,7 @@ flowchart LR
     center -->|21| n_learnloop_adaptive_difficulty
     center -->|19| n_learnloop_router
     n_learnloop_sidecar_handlers -->|17| center
-    center -->|13| n_learnloop_scheduling
+    center -->|14| n_learnloop_scheduling
     center -->|11| n_learnloop_ai
     center -->|9| n_learnloop_scheduling_intent
     n_learnloop_cli -->|7| center

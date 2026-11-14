@@ -778,7 +778,7 @@ def _offer_state(vault: Any, repository: Any, decision: Mapping[str, Any], trace
     from learnloop.adaptive_difficulty.readiness import decision_state_fields
     from learnloop.data_capture.gates import objective_receipts_on
     from learnloop.router_objective import decision_state
-    from learnloop.scheduling.fsrs import forgetting_curve
+    from learnloop.scheduling.fsrs import retrievability
 
     if not objective_receipts_on(vault.config):
         return None
@@ -790,7 +790,7 @@ def _offer_state(vault: Any, repository: Any, decision: Mapping[str, Any], trace
         # docs/reviews/router-ro0-logging.md).
         return decision_state.prepare(
             vault, repository, candidates=[], session_id=decision.get("session_id") or getattr(trace, "session_id", None),
-            forgetting_curve=forgetting_curve, omitted={"candidates": len(candidates), "reason": "offer_not_served"})
+            retrievability=retrievability, omitted={"candidates": len(candidates), "reason": "offer_not_served"})
     items, _los = decision_state.candidate_ids(vault, candidates)
     minutes: dict[str, dict[str, Any]] = {}
     for item_id in items:
@@ -803,7 +803,7 @@ def _offer_state(vault: Any, repository: Any, decision: Mapping[str, Any], trace
     # so the read's cost falls on that configuration (measured: docs/reviews/router-ro0-codex-review.md).
     return decision_state.prepare(
         vault, repository, candidates=candidates, session_id=decision.get("session_id") or getattr(trace, "session_id", None),
-        forgetting_curve=forgetting_curve,
+        retrievability=retrievability,
         ad_fields=lambda los: decision_state_fields(vault, repository, list(los)),
         item_minutes=minutes, voi=[dict(row) for row in getattr(trace, "voi_decisions", ()) or ()],
     )

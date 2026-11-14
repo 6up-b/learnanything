@@ -162,6 +162,35 @@ def test_quick_add_marks_inventory_and_synthesis_unlimited(tmp_path):
     assert synthesis["payload"]["unlimited_token_budget"] is True
 
 
+@pytest.mark.parametrize("enqueue", ["quick_add", "source_set"])
+def test_a_build_asked_for_its_goal_carries_create_goal_to_the_synthesis_job(tmp_path, enqueue):
+    """The synthesis job reads ``create_goal`` off its payload; a build that
+    does not ask keeps the payload it always had, so a retry of a job queued
+    before the flag existed still makes no goal."""
+
+    jobs = DurableIngestJobs()
+    jobs.bind(Repository(tmp_path / "state.sqlite"), tmp_path, background=False)
+    runner = jobs._require_runner()
+
+    def build(**extra):
+        if enqueue == "quick_add":
+            return jobs.enqueue_quick_add_build(
+                extraction_id="ext_x", units=[{"unit_id": "u1", "role": "reference"}], source_set_id="set_x",
+                brief={"outcome": "exam_prep"}, **extra,
+            )
+        return jobs.enqueue_source_set_build(
+            members=[{"extraction_id": "ext_x", "units": [{"unit_id": "u1", "role": "reference"}]}],
+            source_set_id="set_x", brief={"outcome": "exam_prep"}, **extra,
+        )
+
+    asked = runner.repo.ingest_jobs_for_batch(build(create_goal=True))[-1]
+    plain = runner.repo.ingest_jobs_for_batch(build())[-1]
+
+    assert asked["job_type"] == plain["job_type"] == "bootstrap_synthesis"
+    assert asked["payload"]["create_goal"] is True
+    assert "create_goal" not in plain["payload"]
+
+
 def test_durable_ingest_job_completes(tmp_path):
     def run_legacy(*, vault_root, source, subject_id, mode, progress, clock, **_):
         progress("authoring", {"current_window": 2, "total_windows": 3})

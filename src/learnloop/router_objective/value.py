@@ -73,6 +73,7 @@ from typing import Any
 import numpy as np
 
 from learnloop.router_objective.memory import Combiner, Fsrs, logit, perform, sigmoid
+from learnloop.scheduling.fsrs import retrievability_array
 
 OBJECTIVE_VERSION = "router_objective_v1"
 TAIL_VERSION = "flat_load_adaptive_v1"
@@ -762,7 +763,7 @@ class _Model:
         when = np.asarray(at, dtype=np.float64)
         if when.ndim == 1:
             when = when[:, None]
-        r = self.fsrs.retrievability(state.s, when - state.last)
+        r = retrievability_array(state.s, when - state.last, self.fsrs.weights)
         eta = state.bel if belief else state.eta
         if self.link is not None:
             # R9: the combiner's η input is AD's predictive on the logit scale, logit F(η) (``logit p̄`` at the start),
@@ -853,7 +854,7 @@ class _Model:
             var = 1.0 / (1.0 / bel_var + p_bel * (1 - p_bel))
             return good, bel + var * (good.astype(np.float64) - p_bel), var
         a0, a_eta, a_r = coef[:, 0], coef[:, 1], coef[:, 2]
-        lr = logit(self.fsrs.retrievability(stability, elapsed))
+        lr = logit(retrievability_array(stability, elapsed, self.fsrs.weights))
         p_true = np.where(practiced, sigmoid(a0 + a_eta * eta + a_r * (lr - eta)), sigmoid(eta))
         p_bel = np.where(practiced, sigmoid(a0 + a_eta * bel + a_r * (lr - bel)), sigmoid(bel))
         slope = np.where(practiced, a_eta - a_r, 1.0)
@@ -890,7 +891,7 @@ class _Model:
                 e, _de = self.link.logit_and_slope(eta)
         if self.consistent:
             a0, a_eta, a_r = coef[:, 0], coef[:, 1], coef[:, 2]
-            lr = logit(self.fsrs.retrievability(stability, elapsed))
+            lr = logit(retrievability_array(stability, elapsed, self.fsrs.weights))
             p_true = np.where(practiced, sigmoid(a0 + a_eta * e + a_r * (lr - e)), f_true)
             p_bel = np.where(practiced, sigmoid(a0 + a_eta * eb + a_r * (lr - eb)), f_bel)
             slope = np.where(practiced, (a_eta - a_r) * deb, deb)

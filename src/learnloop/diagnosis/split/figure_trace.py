@@ -72,19 +72,11 @@ def figure_trace_for_attempt(vault: Any, repository: Any, attempt: Mapping[str, 
     submission = attempt.get("submission_id")
     item_id = str(attempt.get("practice_item_id") or "")
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        tables = {row[0] for row in connection.execute(
-            "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN "
-            "('help_assists', 'interactive_figures', 'figure_predictions')")}
-        if tables != {"help_assists", "interactive_figures", "figure_predictions"}:
-            return None
-        if "figure_id" not in {row[1] for row in connection.execute("PRAGMA table_info(help_assists)")}:
-            return None
         rows = connection.execute(
             "SELECT id, figure_id, hint_kind, request FROM help_assists WHERE assist_kind = 'figure' AND shown = 1 "
             "AND figure_id IS NOT NULL AND (attempt_id = ? OR (attempt_id IS NULL AND submission_id = ? "
             "AND practice_item_id = ?)) ORDER BY COALESCE(shown_at, requested_at), rowid",
             (attempt_id, str(submission or ""), item_id)).fetchall()
-        linked = "assist_id" in {row[1] for row in connection.execute("PRAGMA table_info(figure_predictions)")}
         figures: list[dict[str, Any]] = []
         seen: set[str] = set()
         for assist_id, first_figure, hint_kind, request in rows:
@@ -94,7 +86,7 @@ def figure_trace_for_attempt(vault: Any, repository: Any, attempt: Mapping[str, 
             made = connection.execute(
                 "SELECT figure_id, prediction_index, learner_answer, observed_json, matched, explanation_text, "
                 "explained_at, created_at FROM figure_predictions WHERE assist_id = ? ORDER BY created_at, "
-                "prediction_index", (assist_id,)).fetchall() if linked else []
+                "prediction_index", (assist_id,)).fetchall()
             made = [entry for entry in made if _by(entry[7], cutoff)]
             # The figure the row opened and each version a linked prediction was made on.
             for figure_id in dict.fromkeys([str(first_figure), *(str(entry[0]) for entry in made)]):

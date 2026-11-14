@@ -153,6 +153,55 @@ def test_quick_add_one_url_one_confirmation_to_study_map(tmp_path):
     assert [m.default_role for m in source_set.members] == ["primary_textbook"]
 
 
+# The exam-prep brief as the desktop's brief wizard sends it (camelCase; the
+# deadline is the chosen day's 23:59:59 local time as an ISO instant).
+_EXAM_BRIEF = {
+    "outcome": "exam_prep",
+    "goalTitle": "Linear algebra midterm",
+    "dueAt": "2026-11-28T04:59:59.000Z",
+    "targetRecall": 0.9,
+    "examItemCount": 12,
+}
+
+
+def _quick_add_build(tmp_path, brief, *, create_goal):
+    root, repo, jobs, source = _setup(tmp_path)
+    plan = plan_quick_add(
+        repo, load_vault(root).config, load_vault(root), source,
+        subject_id="linear-algebra", brief_overrides=brief,
+    )
+    result = enqueue_quick_add(load_vault(root), jobs, plan, create_goal=create_goal)  # drains inline
+    batch = jobs.get_batch(result["batch_id"])
+    synth = next(job for job in batch["jobs"] if job["job_type"] == "bootstrap_synthesis")
+    return root, batch, synth["result"]
+
+
+def test_exam_prep_quick_add_ends_with_an_applied_map_and_its_goal(tmp_path):
+    root, batch, study_map = _quick_add_build(tmp_path, _EXAM_BRIEF, create_goal=True)
+
+    assert batch["status"] == "completed"
+    assert study_map["applied"] is True
+    goals = load_vault(root).goals
+    assert [goal.id for goal in goals] == [study_map["goal_id"]]
+    goal = goals[0]
+    assert goal.title == "Linear algebra midterm"
+    assert goal.due_at is not None and goal.due_at.startswith("2026-11-28T04:59:59")
+    assert goal.target_recall == 0.9
+    assert goal.exam.enabled is True and goal.exam.item_count == 12
+    assert goal.facet_scope.facets
+
+
+def test_quick_add_without_an_exam_brief_makes_no_goal(tmp_path):
+    root, batch, study_map = _quick_add_build(
+        tmp_path, {"outcome": "general_learning"}, create_goal=False,
+    )
+
+    assert batch["status"] == "completed"
+    assert study_map["applied"] is True
+    assert study_map["goal_id"] is None
+    assert load_vault(root).goals == []
+
+
 def test_narrow_adjunct_preset_uses_reference_role_and_small_upfront_brief(tmp_path):
     root, repo, _jobs, source = _setup(tmp_path)
 

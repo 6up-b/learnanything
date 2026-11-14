@@ -47,21 +47,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/ask_availability.py](../../../../../../src/learnloop/router_objective/ask_availability.py) |
-| Source lines | 92 |
+| Source lines | 88 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `at_serve(vault: Any, practice_item_id: str) -> int | None` ([source](../../../../../../src/learnloop/router_objective/ask_availability.py), line 27) — 1 or 0 by the server's rule at the serve; None for an item this vault cannot read.
-- `serve_fields(vault: Any, connection: Any, practice_item_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/ask_availability.py), line 36) — The presentation row's new column, on or off, at or below migration 243.
-- `record_change(vault: Any, repository: Any, *, session_id: str | None, practice_item_id: str, available: bool, reason: str | None=None, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/router_objective/ask_availability.py), line 61) — The screen reports Ask's availability on an item it is showing.
+- `at_serve(vault: Any, practice_item_id: str) -> int | None` ([source](../../../../../../src/learnloop/router_objective/ask_availability.py), line 26) — 1 or 0 by the server's rule at the serve; None for an item this vault cannot read.
+- `serve_fields(vault: Any, connection: Any, practice_item_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/ask_availability.py), line 35) — The presentation row's new column, on or off, at or below migration 243.
+- `record_change(vault: Any, repository: Any, *, session_id: str | None, practice_item_id: str, available: bool, reason: str | None=None, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/router_objective/ask_availability.py), line 59) — The screen reports Ask's availability on an item it is showing.
 
 ### Module constants
 
-- `EVENT_KIND` ([src/learnloop/router_objective/ask_availability.py](../../../../../../src/learnloop/router_objective/ask_availability.py), line 22)
-- `_REFUSED_MODES` ([src/learnloop/router_objective/ask_availability.py](../../../../../../src/learnloop/router_objective/ask_availability.py), line 24)
+- `EVENT_KIND` ([src/learnloop/router_objective/ask_availability.py](../../../../../../src/learnloop/router_objective/ask_availability.py), line 21)
+- `_REFUSED_MODES` ([src/learnloop/router_objective/ask_availability.py](../../../../../../src/learnloop/router_objective/ask_availability.py), line 23)
 
 ### Explicit exports
 
@@ -74,7 +74,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_standing(connection: Any, presentation: dict[str, Any]) -> int | None` ([source](../../../../../../src/learnloop/router_objective/ask_availability.py), line 50)
+- `_standing(connection: Any, presentation: dict[str, Any]) -> int | None` ([source](../../../../../../src/learnloop/router_objective/ask_availability.py), line 48)
 
 ## Who imports or calls it
 
@@ -91,7 +91,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `objective_receipts_on`; calls `objective_receipts_on`
 - [[Reference/Modules/learnloop/db/stores/daily_plans|learnloop.db.stores.daily_plans]] — imports `module`; calls `append_block_event`
-- [[Reference/Modules/learnloop/db/stores/router_objective|learnloop.db.stores.router_objective]] — imports `module`; calls `column_present`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 
 ### Platform and third-party dependencies

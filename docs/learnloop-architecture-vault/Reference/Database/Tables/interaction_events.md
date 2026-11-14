@@ -184,12 +184,12 @@ Indexes and uniqueness:
 - `tests/test_compare_keep_switch_off.py`
 - `tests/test_compare_sources_keep.py`
 - `tests/test_exam_protection.py`
+- `tests/test_f1_schema_facts.py`
 - `tests/test_figures_rpc.py`
 - `tests/test_grading_cli.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_interaction_signals.py`
 - `tests/test_mcp_tools.py`
-- `tests/test_mobile_v4_codex_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

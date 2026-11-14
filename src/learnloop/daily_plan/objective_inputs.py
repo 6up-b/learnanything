@@ -419,14 +419,17 @@ def _combiner_with_traces(vault: Any, repository: Any, now_iso: str, check_rows:
     from learnloop.params.fitted_params import resolve_fsrs_weights
     from learnloop.router_objective import combiner_data as CD
     from learnloop.router_objective_switches import known_at
+    from learnloop.scheduling.fsrs import retrievability_array
 
     joined: list[tuple[float, Any, int]] = []
     counts: dict[str, Any] = {"version": CD.JOIN_VERSION, "status": "not_read"}
     try:
-        fsrs = M.Fsrs(tuple(resolve_fsrs_weights(repository)))
+        weights = tuple(resolve_fsrs_weights(repository))
 
+        # The array form on one value, not the scalar: the two differ in the last bit (ledger RE2-1), so a switch
+        # of form would move the fit's rows.
         def retrievability(stability: float, elapsed: float) -> float:
-            return float(fsrs.retrievability(np.array([stability]), np.array([elapsed]))[0])
+            return float(retrievability_array(np.array([stability]), np.array([elapsed]), weights)[0])
 
         with repository.connection() as connection:
             groups, skipped = CD.groups(connection, now=now_iso)
@@ -524,11 +527,13 @@ def check_sensors(vault: Any, repository: Any, lo: str, now_iso: str) -> dict[st
             import numpy as np
 
             from learnloop.params.fitted_params import resolve_fsrs_weights
+            from learnloop.scheduling.fsrs import retrievability_array
 
             now = parse_utc(now_iso) or datetime.now().astimezone()
             stability = median(row["s"] for row in memory)
             elapsed = median(_days(now, parse_utc(row["last"]) or now) for row in memory)
-            r = M.Fsrs(tuple(resolve_fsrs_weights(repository))).retrievability(np.array([stability]), np.array([elapsed]))
+            # The array form, as the combiner's other reads (ledger RE2-1: the scalar differs in the last bit).
+            r = retrievability_array(np.array([stability]), np.array([elapsed]), tuple(resolve_fsrs_weights(repository)))
             out["retrievability"] = float(r[0])
     except Exception:  # noqa: BLE001 - sensors are context for the combiner, never block the check
         LOG.warning("router objective RO5: the check's sensors for %s were not read", lo, exc_info=True)

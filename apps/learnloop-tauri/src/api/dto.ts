@@ -4029,6 +4029,8 @@ export interface BuildStudyMapInput {
   // Per-run ceilings for this build; omitted keys fall back to [ingest.budgets].
   budgetOverrides?: Partial<IngestBudgetsDto>;
   unlimitedTokenBudget?: boolean;
+  // The brief wizard's exam-prep Goal, made with a new map (an append makes none).
+  createGoal?: boolean;
 }
 
 export interface StudyMapDto {
@@ -4137,6 +4139,8 @@ export interface ConfirmQuickAddInput {
   roleOverride?: string | null;
   inventoryOutputTokens?: number;
   unlimitedTokenBudget?: boolean;
+  // The brief wizard's exam-prep Goal, made with the map.
+  createGoal?: boolean;
 }
 
 export interface ProposeFacetMergeInput {

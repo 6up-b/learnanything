@@ -530,6 +530,8 @@ function CollectionsSection({
   // Per-collection synthesis brief; unset collections use the default brief
   // (which inherits the vault's persisted learner level server-side).
   const [briefs, setBriefs] = useState<Record<string, StudyMapBriefDto>>({});
+  // Per collection: the wizard's exam-prep "creates the Goal in the same flow".
+  const [createGoals, setCreateGoals] = useState<Record<string, boolean>>({});
   const [briefEditorFor, setBriefEditorFor] = useState<string | null>(null);
 
   const titleFor = useCallback(
@@ -584,7 +586,13 @@ function CollectionsSection({
     setError(null);
     setNotice(null);
     try {
-      const batch = await api.buildStudyMap({ sourceSetId: id, brief: briefs[id], inventoryOutputTokens, unlimitedTokenBudget });
+      const batch = await api.buildStudyMap({
+        sourceSetId: id,
+        brief: briefs[id],
+        inventoryOutputTokens,
+        unlimitedTokenBudget,
+        createGoal: Boolean(createGoals[id])
+      });
       setNotice(
         batch.mode === "append"
           ? "appending new material via the bounded neighborhood — the map is not rebuilt"
@@ -758,8 +766,9 @@ function CollectionsSection({
           initialBrief={briefs[briefEditorFor]}
           defaultPracticeItems="upfront"
           submitLabel="Use brief"
-          onSubmit={(brief) => {
+          onSubmit={(brief, createGoal) => {
             setBriefs((prev) => ({ ...prev, [briefEditorFor]: brief }));
+            setCreateGoals((prev) => ({ ...prev, [briefEditorFor]: createGoal }));
             setBriefEditorFor(null);
           }}
           onClose={() => setBriefEditorFor(null)}

@@ -12,7 +12,7 @@ from learnloop.adaptive_difficulty import priors as ADP
 from learnloop.router_objective import memory as M
 from learnloop.router_objective import value as V
 from learnloop.router_objective.memory import logit, perform, sigmoid
-from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS
+from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS, retrievability_array
 
 
 LINK = V.AdLink(lapse=float(ADP.LAPSE), spread=float(ADP.A * ADP.TAU0), nodes=tuple(float(x) for x in ADM.X32),
@@ -65,7 +65,7 @@ def _old_performance(self, state, at, *, belief=False):
     when = np.asarray(at, dtype=np.float64)
     if when.ndim == 1:
         when = when[:, None]
-    r = self.fsrs.retrievability(state.s, when - state.last)
+    r = retrievability_array(state.s, when - state.last, self.fsrs.weights)
     eta = state.bel if belief else state.eta
     if self.link is not None:
         eta = _old_logit_p(self.link, eta)
@@ -81,7 +81,7 @@ def _old_graded(self, eta, bel, bel_var, stability, practiced, elapsed, coef, u,
         var = 1.0 / (1.0 / bel_var + p_bel * (1 - p_bel))
         return good, bel + var * (good.astype(np.float64) - p_bel), var
     a0, a_eta, a_r = coef[:, 0], coef[:, 1], coef[:, 2]
-    lr = logit(self.fsrs.retrievability(stability, elapsed))
+    lr = logit(retrievability_array(stability, elapsed, self.fsrs.weights))
     p_true = np.where(practiced, sigmoid(a0 + a_eta * eta + a_r * (lr - eta)), sigmoid(eta))
     p_bel = np.where(practiced, sigmoid(a0 + a_eta * bel + a_r * (lr - bel)), sigmoid(bel))
     slope = np.where(practiced, a_eta - a_r, 1.0)
@@ -97,7 +97,7 @@ def _old_graded_linked(self, eta, bel, bel_var, stability, practiced, elapsed, c
     if self.consistent:
         e, _de = _old_logit_and_slope(link, eta)
         a0, a_eta, a_r = coef[:, 0], coef[:, 1], coef[:, 2]
-        lr = logit(self.fsrs.retrievability(stability, elapsed))
+        lr = logit(retrievability_array(stability, elapsed, self.fsrs.weights))
         p_true = np.where(practiced, sigmoid(a0 + a_eta * e + a_r * (lr - e)), f_true)
         p_bel = np.where(practiced, sigmoid(a0 + a_eta * eb + a_r * (lr - eb)), f_bel)
         slope = np.where(practiced, (a_eta - a_r) * deb, deb)

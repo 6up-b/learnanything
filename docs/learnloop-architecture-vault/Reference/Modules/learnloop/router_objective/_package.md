@@ -117,10 +117,11 @@ For system intent, use [[Architecture Overview]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 25 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 19 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 17 static module edges
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 6 static module edges
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 5 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 2 static module edges
+- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 2 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 1 static module edge
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 1 static module edge
@@ -161,7 +162,7 @@ flowchart LR
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_daily_plan -->|29| center
     center -->|25| n_learnloop
-    center -->|19| n_learnloop_db_stores
+    center -->|17| n_learnloop_db_stores
     n_learnloop_sidecar_handlers -->|13| center
     n_learnloop_cli -->|6| center
     center -->|6| n_learnloop_data_capture

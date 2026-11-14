@@ -1053,6 +1053,9 @@ class BuildStudyMapInput(ParamsModel):
     # inventory_output_tokens above stays as the pre-existing shorthand.
     budget_overrides: dict[str, int] = {}
     unlimited_token_budget: bool = False
+    # The brief wizard's exam-prep Goal (§5.1). Only a bootstrap reads it: an
+    # append into an existing map makes no goal.
+    create_goal: bool = False
 
 
 @method("build_study_map", BuildStudyMapInput)
@@ -1193,6 +1196,7 @@ def build_study_map_rpc(ctx: SidecarContext, params: BuildStudyMapInput) -> dict
             output_budget_tokens=inventory_output_tokens,
             synthesis_budgets=synthesis_budgets or None,
             unlimited_token_budget=params.unlimited_token_budget,
+            create_goal=params.create_goal,
         )
     batch_view = ctx.ingest_jobs.get_batch(batch_id) or {}
     batch_view["mode"] = resolved_mode
@@ -1418,6 +1422,8 @@ class ConfirmQuickAddInput(ParamsModel):
     # Per-source reader participation chosen in the quick-add compose (None =
     # no opinion; keeps the source's existing/default setting).
     reader_enabled: bool | None = None
+    # The brief wizard's exam-prep Goal (§5.1), made with the map.
+    create_goal: bool = False
 
 
 @method("plan_quick_add", PlanQuickAddInput)
@@ -1507,6 +1513,7 @@ def confirm_quick_add_rpc(ctx: SidecarContext, params: ConfirmQuickAddInput) -> 
             role_override=params.role_override,
             output_budget_tokens=params.inventory_output_tokens,
             unlimited_token_budget=params.unlimited_token_budget,
+            create_goal=params.create_goal,
             **({"batch_id": batch_id} if intent else {}),
         )
         if params.reader_enabled is not None:
