@@ -174,6 +174,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_refuses_below_min_reviews`
   - `test_review_log_loss_skips_short_gaps_and_zero_weight`
   - `test_shrinkage_dominates_at_tiny_n`
+- [tests/test_grade_application_core.py](../../../../../../tests/test_grade_application_core.py) — direct import
 - [tests/test_held_grade_composition.py](../../../../../../tests/test_held_grade_composition.py) — direct import
   - `test_router_never_scores_a_held_attempt_and_its_fold_applies_no_review`
 - [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import

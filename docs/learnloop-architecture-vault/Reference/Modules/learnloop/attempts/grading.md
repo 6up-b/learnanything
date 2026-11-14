@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py) |
-| Source lines | 1929 |
+| Source lines | 1935 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -68,13 +68,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `class ValidatedErrorAttribution` ([source](../../../../../../src/learnloop/attempts/grading.py), line 380)
 - `class ValidatedExercisedFacet` ([source](../../../../../../src/learnloop/attempts/grading.py), line 417) — One accepted A6 trace observation (Meas §3.A6).
 - `class ValidatedCodexGrade` ([source](../../../../../../src/learnloop/attempts/grading.py), line 434)
-- `enforce_passed_target_firewall(item: PracticeItem, rubric: Rubric, *, criterion_points: Mapping[str, float], error_attributions: Iterable[Any], repair_suggestions: Iterable[Mapping[str, Any]]=(), vault: LoadedVault | None=None) -> tuple[list[Any], list[dict[str, Any]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 529) — Strip negative/repair targets protected by raw criterion outcomes.
-- `build_grading_context(vault: LoadedVault, item: PracticeItem, *, attempt_id: str, learner_answer_md: str, rubric: Rubric | None=None, assessment_contract: dict[str, Any] | None=None) -> GradingContext` ([source](../../../../../../src/learnloop/attempts/grading.py), line 691)
-- `evidence_coverage(item: PracticeItem, criterion_points: dict[str, float], *, rubric: Rubric | None=None, attempt_type: str='independent_attempt', hints_used: int=0, learner_answer_md: str='__engaged_answer__', evidence: EvidenceConfig | None=None) -> float` ([source](../../../../../../src/learnloop/attempts/grading.py), line 784) — Compatibility wrapper for score-independent coverage resolution.
-- `grading_context_hash(context: GradingContext) -> str` ([source](../../../../../../src/learnloop/attempts/grading.py), line 812)
-- `validate_codex_grading_proposal(proposal: GradingProposal, *, attempt_id: str, item: PracticeItem, vault: LoadedVault, learner_answer_md: str | None=None, rubric: Rubric | None=None) -> ValidatedCodexGrade` ([source](../../../../../../src/learnloop/attempts/grading.py), line 839)
-- `resolved_rubric(vault: LoadedVault, item: PracticeItem) -> Rubric` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1745)
-- `causal_attribution_audit_report(repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1769) — CLI-facing fill/abstention/firewall telemetry grouped by prompt+model.
+- `enforce_passed_target_firewall(item: PracticeItem, rubric: Rubric, *, criterion_points: Mapping[str, float], error_attributions: Iterable[Any], repair_suggestions: Iterable[Mapping[str, Any]]=(), vault: LoadedVault | None=None, canonical_facet_id: Callable[[str], str] | None=None) -> tuple[list[Any], list[dict[str, Any]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 529) — Strip negative/repair targets protected by raw criterion outcomes.
+- `build_grading_context(vault: LoadedVault, item: PracticeItem, *, attempt_id: str, learner_answer_md: str, rubric: Rubric | None=None, assessment_contract: dict[str, Any] | None=None) -> GradingContext` ([source](../../../../../../src/learnloop/attempts/grading.py), line 697)
+- `evidence_coverage(item: PracticeItem, criterion_points: dict[str, float], *, rubric: Rubric | None=None, attempt_type: str='independent_attempt', hints_used: int=0, learner_answer_md: str='__engaged_answer__', evidence: EvidenceConfig | None=None) -> float` ([source](../../../../../../src/learnloop/attempts/grading.py), line 790) — Compatibility wrapper for score-independent coverage resolution.
+- `grading_context_hash(context: GradingContext) -> str` ([source](../../../../../../src/learnloop/attempts/grading.py), line 818)
+- `validate_codex_grading_proposal(proposal: GradingProposal, *, attempt_id: str, item: PracticeItem, vault: LoadedVault, learner_answer_md: str | None=None, rubric: Rubric | None=None) -> ValidatedCodexGrade` ([source](../../../../../../src/learnloop/attempts/grading.py), line 845)
+- `resolved_rubric(vault: LoadedVault, item: PracticeItem) -> Rubric` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1751)
+- `causal_attribution_audit_report(repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1775) — CLI-facing fill/abstention/firewall telemetry grouped by prompt+model.
 
 ### Module constants
 
@@ -84,10 +84,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_OPTION_LINE` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 303)
 - `FIREWALL_CLEAN_PASS_FRACTION` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 463)
 - `FIREWALL_FRACTION_EPSILON` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 464)
-- `MAX_EXERCISED_FACETS_PER_ATTEMPT` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 1574)
-- `PROVISIONAL_PENDING_CLARIFICATION` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 1647)
-- `CLARIFICATION_CONFIDENCE_CEILING` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 1653)
-- `_RECALL_FAILURE_PATTERN` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 1922)
+- `MAX_EXERCISED_FACETS_PER_ATTEMPT` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 1580)
+- `PROVISIONAL_PENDING_CLARIFICATION` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 1653)
+- `CLARIFICATION_CONFIDENCE_CEILING` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 1659)
+- `_RECALL_FAILURE_PATTERN` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 1928)
 
 ## Internal implementation anchors
 
@@ -96,14 +96,14 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_all_occurrences(haystack: str, needle: str) -> list[int]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 223)
 - `_option_letter(text: str | None) -> str | None` ([source](../../../../../../src/learnloop/attempts/grading.py), line 306)
 - `_criterion_outcome_state(rubric: Rubric, criterion_points: Mapping[str, float]) -> tuple[set[str], set[str]]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 467) — Raw, dependency-localized criterion outcomes used by the P0 firewall.
-- `_direct_criteria_by_facet(item: PracticeItem, rubric: Rubric, *, vault: LoadedVault | None=None) -> dict[str, set[str]]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 493) — Criterion links eligible to protect a facet at the write barrier.
-- `_grading_facet_registry(vault: LoadedVault, item: PracticeItem) -> list[dict[str, str]]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 755) — Facets A6 may report as exercised, with the claim each one names.
-- `_validated_exercised_facets(vault: LoadedVault, item: PracticeItem, rubric: Rubric, proposal: Any) -> list[ValidatedExercisedFacet]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1577) — Accept A6 trace observations that name a registered facet with a citation.
-- `_validated_clarification(proposal: Any, validated_evidence: list[ValidatedCriterionEvidence], validated_errors: list[ValidatedErrorAttribution], rubric: Rubric | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1656) — Accept a clarification request only against a grade that is already unsure.
-- `_resolved_error_severity(vault: LoadedVault, error_type: str, severity: float | None) -> float` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1754)
-- `_canonical_learner_confidence(value: str | None) -> str | None` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1763)
-- `_grading_error_taxonomy(vault: LoadedVault) -> dict[str, object]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1852)
-- `_normalized_recall_error_type(vault: LoadedVault, error_type: str, *, evidence: str, learner_answer_md: str | None, is_misconception: bool) -> str` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1889)
+- `_direct_criteria_by_facet(item: PracticeItem, rubric: Rubric, *, canonical_facet_id: Callable[[str], str] | None=None) -> dict[str, set[str]]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 493) — Criterion links eligible to protect a facet at the write barrier.
+- `_grading_facet_registry(vault: LoadedVault, item: PracticeItem) -> list[dict[str, str]]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 761) — Facets A6 may report as exercised, with the claim each one names.
+- `_validated_exercised_facets(vault: LoadedVault, item: PracticeItem, rubric: Rubric, proposal: Any) -> list[ValidatedExercisedFacet]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1583) — Accept A6 trace observations that name a registered facet with a citation.
+- `_validated_clarification(proposal: Any, validated_evidence: list[ValidatedCriterionEvidence], validated_errors: list[ValidatedErrorAttribution], rubric: Rubric | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1662) — Accept a clarification request only against a grade that is already unsure.
+- `_resolved_error_severity(vault: LoadedVault, error_type: str, severity: float | None) -> float` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1760)
+- `_canonical_learner_confidence(value: str | None) -> str | None` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1769)
+- `_grading_error_taxonomy(vault: LoadedVault) -> dict[str, object]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1858)
+- `_normalized_recall_error_type(vault: LoadedVault, error_type: str, *, evidence: str, learner_answer_md: str | None, is_misconception: bool) -> str` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1895)
 
 ## Who imports or calls it
 
@@ -182,6 +182,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/grade_application_golden_helpers.py](../../../../../../tests/grade_application_golden_helpers.py) — direct import
 - [tests/held_grade_evidence_helpers.py](../../../../../../tests/held_grade_evidence_helpers.py) — direct import
 - [tests/regrade_contract_replay_helpers.py](../../../../../../tests/regrade_contract_replay_helpers.py) — direct import
 - [tests/required_method_rereview_helpers.py](../../../../../../tests/required_method_rereview_helpers.py) — direct import

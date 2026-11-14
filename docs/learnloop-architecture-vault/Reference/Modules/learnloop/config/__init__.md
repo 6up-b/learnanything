@@ -78,6 +78,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ai/providers/voyage_contextual|learnloop.ai.providers.voyage_contextual]] — imports `AIProviderConfig`
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `LearnLoopConfig`
 - [[Reference/Modules/learnloop/ai/runtime|learnloop.ai.runtime]] — imports `AIProviderConfig`, `LearnLoopConfig`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `LearnLoopConfig`
 - [[Reference/Modules/learnloop/attempts/evidence|learnloop.attempts.evidence]] — imports `EvidenceConfig`; statically calls `EvidenceConfig`
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `EvidenceConfig`
 - [[Reference/Modules/learnloop/attempts/surprise|learnloop.attempts.surprise]] — imports `LearnLoopConfig`
@@ -155,7 +156,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/chatgpt_plan/routes|learnloop.ai.chatgpt_plan.routes]], [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]], [[Reference/Modules/learnloop/ai/disclosures|learnloop.ai.disclosures]], [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]], [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] and 64 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/chatgpt_plan/routes|learnloop.ai.chatgpt_plan.routes]], [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]], [[Reference/Modules/learnloop/ai/disclosures|learnloop.ai.disclosures]], [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]], [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] and 65 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -270,6 +271,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r3_f14_the_cards_details_are_plain_words`
   - `test_settings_save_the_key_and_report_it`
   - `test_the_daily_gate_prices_glm_receipts_and_local_runs_cost_nothing`
+- [tests/test_grade_application_core.py](../../../../../../tests/test_grade_application_core.py) — direct import
 - [tests/test_ih6_workbench_open_item.py](../../../../../../tests/test_ih6_workbench_open_item.py) — direct import
   - `test_the_config_loads_the_key_at_every_version`
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import

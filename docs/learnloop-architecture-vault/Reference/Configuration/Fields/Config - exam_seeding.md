@@ -26,10 +26,10 @@ source_paths:
   - "tests/diagnostic_probe_single_use_helpers.py"
   - "tests/durable_promotion_arms_helpers.py"
   - "tests/exam_session_helpers.py"
+  - "tests/grade_application_golden_helpers.py"
   - "tests/grading_hardcases_helpers.py"
   - "tests/guided_redo_helpers.py"
   - "tests/held_grade_evidence_helpers.py"
-  - "tests/migrations_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/exam-seeding"
@@ -68,10 +68,10 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/diagnostic_probe_single_use_helpers.py`
 - `tests/durable_promotion_arms_helpers.py`
 - `tests/exam_session_helpers.py`
+- `tests/grade_application_golden_helpers.py`
 - `tests/grading_hardcases_helpers.py`
 - `tests/guided_redo_helpers.py`
 - `tests/held_grade_evidence_helpers.py`
-- `tests/migrations_helpers.py`
 
 ## Extension and modification guidance
 

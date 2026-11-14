@@ -119,6 +119,7 @@ Indexes and uniqueness:
 - `tests/ad23_contract_helpers.py`
 - `tests/test_facet_belief_successor.py`
 - `tests/test_facet_belief_successor_derivation.py`
+- `tests/test_grade_application_core.py`
 - `tests/test_migrations.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_shadow_rebuild.py`

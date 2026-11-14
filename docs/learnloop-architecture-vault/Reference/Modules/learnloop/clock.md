@@ -528,6 +528,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/followups_helpers.py](../../../../../tests/followups_helpers.py) — direct import
 - [tests/forecast_receipts_helpers.py](../../../../../tests/forecast_receipts_helpers.py) — direct import
 - [tests/goal_decay_projection_helpers.py](../../../../../tests/goal_decay_projection_helpers.py) — direct import
+- [tests/grade_application_golden_helpers.py](../../../../../tests/grade_application_golden_helpers.py) — direct import
 - [tests/graph_editor_reads_helpers.py](../../../../../tests/graph_editor_reads_helpers.py) — direct import
 - [tests/guided_redo_helpers.py](../../../../../tests/guided_redo_helpers.py) — direct import
 - [tests/held_grade_evidence_helpers.py](../../../../../tests/held_grade_evidence_helpers.py) — direct import
@@ -1190,6 +1191,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_golden_path_assessment.py](../../../../../tests/test_golden_path_assessment.py) — direct import
 - [tests/test_golden_path_confirm.py](../../../../../tests/test_golden_path_confirm.py) — direct import
 - [tests/test_golden_path_run.py](../../../../../tests/test_golden_path_run.py) — direct import
+- [tests/test_grade_application_core.py](../../../../../tests/test_grade_application_core.py) — direct import
+  - `test_the_core_reads_no_database_clock_or_id_stream`
 - [tests/test_grade_resolution_pipeline.py](../../../../../tests/test_grade_resolution_pipeline.py) — direct import
 - [tests/test_grader_channel_prior_knobs.py](../../../../../tests/test_grader_channel_prior_knobs.py) — direct import
 - [tests/test_grading_cli.py](../../../../../tests/test_grading_cli.py) — direct import

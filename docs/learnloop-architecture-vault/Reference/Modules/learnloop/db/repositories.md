@@ -2422,6 +2422,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_fixture_bootstrap_confirms_a_certifying_run`
 - [tests/test_golden_path_run.py](../../../../../../tests/test_golden_path_run.py) — direct import
   - `test_kill_resume_rebuilds_state_and_next_action_from_events`
+- [tests/test_grade_application_core.py](../../../../../../tests/test_grade_application_core.py) — direct import
+  - `test_a_held_grade_is_no_evidence_and_leaves_the_schedule_as_it_was`
 - [tests/test_grade_resolution_pipeline.py](../../../../../../tests/test_grade_resolution_pipeline.py) — direct import
 - [tests/test_grader_channel_prior_knobs.py](../../../../../../tests/test_grader_channel_prior_knobs.py) — direct import
 - [tests/test_grading_cli.py](../../../../../../tests/test_grading_cli.py) — direct import
