@@ -148,3 +148,15 @@ That is a finding (ledger RE2-1), not something this step unifies: the two forms
 | decision receipt, arxiv_v2 | 0.0084 / 0.0092 | 0.0080 / 0.0081 |
 
 Alternating whole processes, base then tip with the order swapped each round, 12 rounds of 8 evaluations: base median 0.5988 s (min 0.5860), tip median 0.6003 s (min 0.5900). That is +0.25% median and +0.7% min, with the same digest. The base's own runs spread over about 4%. Expected from the one added frame: about 0.1 µs times 10,815 calls, about 1 ms, or 0.15%. The scalar read adds two frames (`retrievability`, then `forgetting_curve`, then `_curve`), about 0.02 µs. Its callers make at most one call per queue item or per candidate, so a queue build doesn't show it. The first version (a delegating `Fsrs.retrievability` method) measured +0.2% median in-process over 80 alternations and was replaced (§3).
+
+## 6. Tests and gates
+
+- `scripts/affected_tests.py` on the diff without `pyproject.toml` (which alone selects the whole suite) selects 1,399 of the test files: `fsrs.py` is imported almost everywhere. All 1,399 ran under `-m "not arc_close"`, in chunks of 100 at `-n 4` behind the full-suite lock. The first set was every scheduler, router-objective (`ro*`, `rofu*`, `rospeed*`), daily-plan, objective, re-entry, goal-projection, router-card, queue, FSRS and evaluation test, plus the gate's named tests (`test_identity_pins`, `test_retired_config_identities`, `test_architecture`, `test_test_layout`, `test_effective_defaults_golden`, `test_cli_help_snapshot`, `test_structure_ratchets`, `test_one_retrievability`). Result: **30,580 passed, 104 skipped, 10 xfailed (the existing strict ones), 0 failed**.
+- `lint-imports --no-cache`: 42 kept, 0 broken. `ruff check`: clean. The four vault validators pass. `check_gate_partition.py`: 30,855 collected, landing 30,795 plus arc_close 60.
+- Vault references were regenerated once after the source commits (24 generated notes, `Reference/Modules` and the router objective's config fields, whose cited lines moved). A second run changes nothing.
+
+**Assertions changed: none.** Tests edited without touching what they check:
+- `test_ro0_rows9_13_decision_state.py` and `test_ro0_codex_review.py`: the `prepare` keyword `forgetting_curve=` became `retrievability=`.
+- `test_ro4_value.py:164`, `test_rofu_speed.py:169`, `test_rofu_review_draw.py:159` and `rospeed_ad_link_helpers.py` (three lines in its reference copies): `fsrs.retrievability(s, e)` became `retrievability_array(s, e, fsrs.weights)`, with the same values compared at the same tolerances.
+
+Not run: the `arc_close` tests (only the arc-close gate runs them), the durability lane and the full suite (the orchestrator's landing gate).
