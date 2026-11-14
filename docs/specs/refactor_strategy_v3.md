@@ -783,12 +783,12 @@ The map's methods were name- and import-based, so whole risk classes were invisi
   - **K10.10 One presentation chain and one shown set** (S): `section_figures`' copy and the literal shown sets go.
   - **K10.11 Why a request was refused, reused, offered fewer tiers or withheld** (M, records): one `figure_request` record per request, the menu's off-reasons, the gate's subject and `held` sub-code.
   - **K10.12 Every rich attempt recorded** (M, records): closes ADR-017's open item for the video jobs.
-  - **K10.13 The attempt-host policy under `figures/`** (M): parked until a second frontend will call it (owner Q3; K8).
+  - **K10.13 The attempt-host policy under `figures/`** (M): dropped. Owner, Nov 14: the phone and MCP v2 do not get figures, so no second frontend will call it.
   - **K10.14 The desktop reads `shown` and the label from the server** (M): before the UX overhaul; wording is the audit's (K10-5).
   - **K10.15 A Figures note; the two stale vault lines** (S; K10-4).
-  - **K10.16 Retire the eight content switches** (M): only if the owner says yes (Q1).
-  - **K10.17 Remove the dormant `js_animation` tier** (S): only if the owner says yes (Q2).
-- **Owner's calls first:** retire the content switches (recommended), remove `js_animation` (recommended), figures on the phone or MCP (product; decides K10.13), a durable pressed build (recommended no); and a count from the owner's vault of figures per prompt version and legacy `verified` rows.
+  - **K10.16 Retire the eight content switches** (M): the owner said yes (Nov 14). The legacy reuse reads stay until the owner's count.
+  - **K10.17 Remove the dormant `js_animation` tier** (S): the owner said yes (Nov 14).
+- **Owner's calls, decided Nov 14** ("Q1 yes, Q2 yes, Q3 no, Q4 no"): the content switches are retired, `js_animation` is removed, the phone and MCP get no figures, a pressed build does not survive a restart. Still owed: a count from the owner's vault of figures per prompt version and legacy `verified` rows.
 
 **T2. Tests named for what they prove** (M; lowest priority). With the documentation stage.
 - **Does:** renames the 196 stage-named test files to behaviour names, one commit per feature, with no assertion changed. `scripts/affected_tests.py` follows imports, so selection doesn't move.

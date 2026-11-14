@@ -14,7 +14,9 @@ Refactor arc K, step K10, job 2. It stands on the map `docs/reviews/k10-figures-
 3. **Make the author loop's rules testable with plain values** (K10.9). Reading the model's answer becomes a pure function that returns its verdict and its record code. It has a stop rule: if it starts growing a K2.4-style configuration record, only the storage part is extracted.
 4. **Record why** (K10.11, K10.12): a refusal, a reuse, the tiers left off the menu, and every attempt of a video build.
 
-**What you must decide** (§9 has the detail):
+**Owner's decisions, 2026-11-14:** "Q1 yes, Q2 yes, Q3 no, Q4 no". The eight content switches are retired (K10.16) and the `js_animation` tier is removed (K10.17). The phone and MCP v2 do not get figures, so K10.13 is dropped, not parked. A pressed quick build does not survive a restart. The count from the owner's vault (figures per prompt version and tier, legacy `verified` rows) is still owed; until it arrives K10.16 keeps the legacy reuse reads.
+
+**What the owner was asked** (§9 has the detail):
 
 | # | Question | Recommendation | If yes / if no |
 |---|---|---|---|
