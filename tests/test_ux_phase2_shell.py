@@ -46,7 +46,8 @@ def test_the_shell_switch_accepts_only_its_two_shells():
 def test_the_shell_switch_is_display_only():
     """Only the app snapshot reads ``config.ui``: no Python path decides
     anything by the shell (so no successor, and replay never sees it). The
-    parameter registry names the key only to classify it (F9)."""
+    parameter registry names the key only to classify it (F9), and the kill
+    switch table only to list it for the vault report."""
 
     root = pathlib.Path(__file__).resolve().parents[1] / "src"
     readers = sorted(
@@ -54,7 +55,11 @@ def test_the_shell_switch_is_display_only():
         for path in root.rglob("*.py")
         if re.search(r"\bui\.shell\b", path.read_text(encoding="utf-8"))
     )
-    assert readers == ["learnloop/params/parameter_registry.py", "learnloop_sidecar/context.py"]
+    assert readers == [
+        "learnloop/config/kill_switches.py",
+        "learnloop/params/parameter_registry.py",
+        "learnloop_sidecar/context.py",
+    ]
     registry = (root / "learnloop/params/parameter_registry.py").read_text(encoding="utf-8")
     assert re.findall(r"\bui\.shell\b", registry) == ["ui.shell"]
 
