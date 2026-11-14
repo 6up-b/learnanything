@@ -4538,9 +4538,9 @@ def grade_scope(inputs: GradeInputs) -> GradeScope:
     unassessed_criterion_ids = inputs.unassessed_criterion_ids
     grade_held_for_review = inputs.grade_held_for_review
     if grade_contract_unrecorded:
-        # Regrade contracts (mvp-0.26, replay only): the grade's maximum is
-        # not on record, so it is never divided by today's item. It is held
-        # (below) and its correctness is the one replay recorded for it.
+        # Replay only: the grade's maximum is not on record, and dividing by
+        # today's item could put correctness above 1. It is held (below) and
+        # keeps the correctness replay recorded for it.
         if unrecorded_correctness is None or not 0.0 <= float(unrecorded_correctness) <= 1.0:
             raise AttemptValidationError(
                 f"attempt {attempt_id}: a grade whose contract is unrecorded needs a recorded correctness in [0, 1]"
@@ -4548,8 +4548,8 @@ def grade_scope(inputs: GradeInputs) -> GradeScope:
         correctness = float(unrecorded_correctness)
     else:
         correctness = grade.rubric_score / max(rubric.max_points, 1)
-    # PF-c (owner decision 2026-10-12): a criterion the valid-alternative gate
-    # recorded unverified is UNASSESSED - neither credit nor failure. The grade
+    # A criterion the valid-alternative gate recorded unverified is
+    # UNASSESSED - neither credit nor failure. The grade
     # already excludes it (``assessed_rubric_score``); here it leaves the
     # criterion vector, so it certifies no facet mass and has no facet outcome
     # (as an ungraded teach-back criterion). With NO criterion assessed the
@@ -4568,17 +4568,17 @@ def grade_scope(inputs: GradeInputs) -> GradeScope:
     nothing_assessed = bool(unassessed) and not criterion_points
     if grade_contract_unrecorded:
         # No criterion of an unrecorded grade is assessed: its criteria's
-        # maxima are not on record (mvp-0.26).
+        # maxima are not on record.
         unassessed = frozenset(grade.criterion_points) | rubric_ids
         criterion_points = {}
         nothing_assessed = True
-    # mvp-0.17 (re-review F9): nothing assessed AND nothing validated the
-    # answer. The grade is the grader's provisional one, held for review: no
-    # FSRS review and no prediction error until a regrade or an adjudication
-    # assesses a criterion (which ends ``nothing_assessed`` and the hold).
-    # held-grade-evidence: THE predicate, in flight (the ledger evaluates the
-    # same one); nor is it any other evidence: no error event, no item-quality
-    # move, no clean attempt, no probe observation, no certification label.
+    # Nothing assessed AND nothing validated the answer: the grade is the
+    # grader's provisional one, held for review, with no FSRS review and no
+    # prediction error until a regrade or an adjudication assesses a criterion
+    # (which ends ``nothing_assessed`` and the hold). The ledger evaluates the
+    # same predicate, so a held grade is no other evidence either: no error
+    # event, no item-quality move, no clean attempt, no probe observation, no
+    # certification label.
     from learnloop.outcome_contract import grade_is_held
 
     held = grade_is_held(
@@ -4587,7 +4587,7 @@ def grade_scope(inputs: GradeInputs) -> GradeScope:
     # Which facets the unassessed criteria alone account for comes from the
     # rubric's observation contract (the projection's map), never the item's
     # lexical inference: on most items that maps nothing and the attempt's
-    # outcome would reach every facet, the unassessed one included (review F1).
+    # outcome would reach every facet, the unassessed one included.
     pfc_facet_weights = (
         target_criterion_facet_weights(item, rubric, resolve=inputs.canonical_facet_id)
         if unassessed
@@ -4894,7 +4894,7 @@ def _grade_evidence(inputs: GradeInputs, scope: GradeScope, reads: GradeReads) -
             error_attributions=grade_attributions,
             criterion_facet_weights=uncertainty_facet_weights,
         )
-    # Prediction lane, mean-preserving (P1 revision): the mastery EKF keeps the
+    # Mean-preserving: the mastery EKF keeps the
     # RAW rubric fraction as its observation y and consumes the calibrated grade
     # channel only through Var[s(Z)|emission] added to measurement noise. Using
     # the channel mean as y (y = E[s(Z)|emission]) would shrink every
@@ -4907,9 +4907,9 @@ def _grade_evidence(inputs: GradeInputs, scope: GradeScope, reads: GradeReads) -
     # the raw score and confidence with no extra noise.
     grader_confidence_source = grade.grader_confidence
     interpretation_variance = reads.interpretation_variance
-    # Teacher TE1 (spec_teacher_v1 §12.1): a lesson check enters at the mass recorded for it when it
-    # was graded (the learned lesson-check weight, filtered as of the check); live and replay read the
-    # same receipt row, and every other attempt (no row) keeps its type's configured mass.
+    # A lesson check enters at the mass recorded for it when it was graded (the learned lesson-check
+    # weight, filtered as of the check); live and replay read the same receipt row, so a later weight
+    # never rewrites a past check. Every other attempt (no row) keeps its type's configured mass.
     recorded_mass = reads.recorded_mass
     reliability = resolve_reliability(
         item,
@@ -5095,7 +5095,7 @@ def _kept_attributions(
         *write_barrier_events,
     ]
     if held:
-        # held-grade-evidence: a held grade asserts no learner error. Its
+        # A held grade asserts no learner error. Its
         # attributions stay on the blind record (the grader's reading, shown
         # with the grade) but write no error event and no error type: an
         # active error would steer the scheduler, the probes and the
@@ -5116,12 +5116,12 @@ def _belief_update(
     prior_mastery = prior_state.mastery
     mastery_observation, item_a, item_b = evidence.observation, evidence.item_a, evidence.item_b
     breadth_fraction, primary_error_type = evidence.breadth_fraction, evidence.primary_error_type
-    # IRT (a, b) resolved once from static authored/LLM fields and shared by the
-    # mastery EKF and the probability-space surprise (spec §4.3 / §8).
+    # One IRT (a, b), shared by the mastery EKF and the probability-space
+    # surprise: two would let the surprise score an item the update never saw.
     mastery_trace: MasteryObservationTrace | None
     mastery_variance_floor: float | None
     if nothing_assessed:
-        # PF-c: no criterion was assessed, so the learning object's belief
+        # No criterion was assessed, so the learning object's belief
         # takes no evidence from this attempt (the projection and the learner
         # field record none either). Scheduling still reads the grade.
         posterior_mastery, mastery_trace, mastery_variance_floor = prior_mastery, None, None
@@ -5145,7 +5145,7 @@ def _belief_update(
     next_item_parameters: ItemParameterState | None = None
     # Primed outcomes are conditioned on the source being fresh in working
     # memory — they must not move the fitted *cold* difficulty. An attempt
-    # with nothing assessed (PF-c) observed nothing about it either.
+    # with nothing assessed observed nothing about it either.
     if config.mastery.irt.eb_difficulty_enabled and not draft.primed and not nothing_assessed:
         _authored_a, authored_b = item_irt_params(item, learning_object, config.mastery)
         next_item_parameters = update_item_difficulty(
@@ -5170,16 +5170,15 @@ def _belief_update(
         item_b=item_b,
     )
     if held:
-        # A held grade rests on mark-downs nobody located (P1): it is no
+        # A held grade rests on mark-downs nobody located: it is no
         # prediction error, so neither the follow-up gate nor the re-probe
         # trigger reads it as one, and it stretches no interval.
         surprise = replace(surprise, surprise_direction="none", fsrs_interval_factor=1.0)
     from learnloop.router_objective_switches import interval_factor_removed
 
     if interval_factor_removed(config):
-        # Router objective RO1 (mvp-0.46, spec §5.1): FSRS already rewards an
-        # unlikely success through 1 - R, so the second correction from the
-        # label's b is not applied. Its own gate (not the review's): the row
+        # FSRS already rewards an unlikely success through 1 - R, so applying
+        # the label's b correction too would count it twice. The row
         # records what was applied, 1.0, live and in replay alike, and keeps the
         # residual's inputs so the old value stays computable. Direction, the
         # surprises and every other consumer are untouched.
@@ -5205,10 +5204,8 @@ def _fsrs_review(inputs: GradeInputs, scope: GradeScope, reads: GradeReads, surp
     fsrs_weights_fitted = fsrs_weights is not FSRS6_DEFAULT_WEIGHTS
     elapsed_days = _elapsed_days(previous_state, observed_at)
     previous_memory = _memory_state(previous_state)
-    # P1 step 5/9 (§3.10, §7.4): purpose-specific administration adapter seam.
-    #
-    # The REAL evidence eligibility of the practice observation is threaded into the
-    # decision (§3.8): a practice administration is scheduling-eligible unless its
+    # The practice observation's real evidence eligibility decides whether the
+    # review applies: a practice administration is scheduling-eligible unless its
     # evidence is ineligible (feedback revealed before response, quarantined /
     # out-of-band). For an eligible practice attempt -- the common case that reaches
     # apply_attempt -- the review applies; an INELIGIBLE observation leaves card
@@ -5220,16 +5217,16 @@ def _fsrs_review(inputs: GradeInputs, scope: GradeScope, reads: GradeReads, surp
         purpose="practice", feedback_condition=None
     )
     observation_eligible = evidence_eligibility == "practice"
-    # P2 §4.4: the diagnostic/repair FSRS skip is the causal activity policy's
-    # decision, not a local hardcode. See
-    # ``learnloop.diagnosis.causal_activity_policy``.
+    # The diagnostic/repair FSRS skip is the causal activity policy's decision
+    # (``learnloop.diagnosis.causal_activity_policy``): a local rule here would
+    # drift from the one the policy's other readers apply.
     causal_activity = classify_attempt_activity(
         attempt_type=draft.attempt_type,
         primed=draft.primed,
         hints_used=draft.hints_used,
     )
-    # A grade held for review (re-review F9) leaves the item's scheduling
-    # state exactly as it was, as an ineligible observation does (§3.8),
+    # A grade held for review leaves the item's scheduling
+    # state exactly as it was, as an ineligible observation does,
     # until a regrade or an adjudication assesses a criterion.
     if not held and causal_activity.eligible_for_fsrs and hot_path_applies_practice_review(
         attempt_type=draft.attempt_type,
@@ -5243,8 +5240,8 @@ def _fsrs_review(inputs: GradeInputs, scope: GradeScope, reads: GradeReads, surp
         due_at = (observed_at + timedelta(days=interval_days)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         review_skipped = None
     else:
-        # LIVE mvp-0.8 + ineligible observation: scheduling state is left EXACTLY as it
-        # was (§3.8). A first-ever ineligible observation creates NO memory state
+        # Skipped: scheduling state is left EXACTLY as it
+        # was. A first-ever ineligible observation creates NO memory state
         # (never apply_review(None, ...)); a retained prior memory keeps its stored
         # interval / due_at unchanged (never a rewritten due-date).
         next_memory = previous_memory
@@ -5252,7 +5249,7 @@ def _fsrs_review(inputs: GradeInputs, scope: GradeScope, reads: GradeReads, surp
         due_at = previous_state.due_at if previous_state is not None else None
         review_skipped = ("held" if held else "causal_activity" if not causal_activity.eligible_for_fsrs
                           else "ineligible_observation")
-    # The review as of now, for the grade's decision record only (refactor B8): the item's state row is overwritten
+    # The review as of now, for the grade's decision record only: the item's state row is overwritten
     # by the next review and the elapsed time is never stored, so "why is this due then?" had no stored answer.
     fsrs_review = _fsrs_review_summary(
         grade.rubric_score, rubric.max_points, draft.hints_used, rating=fsrs_rating,
@@ -5355,11 +5352,11 @@ def _quality_update(
         1
         for attempt in prior_state.recent_practice_item_attempts
         if attempt.get("id") != attempt_id
-        # held-grade-evidence: a held grade is neither failure nor success.
+        # A held grade is neither failure nor success.
         if not attempt.get(HELD_ROW_KEY)
         if attempt.get("attempt_type") == "dont_know" or float(attempt.get("correctness") or 0.0) <= 0.40
     )
-    # held-grade-evidence (F10): a held grade is no evidence about the item
+    # A held grade is no evidence about the item
     # either; its quality state stays exactly as it was (no row is written).
     quality_state: dict[str, Any] | None = None
     if not held:
@@ -5414,10 +5411,10 @@ def _debug_payload(
         "observation_weight": evidence.error_impact.observation_weight,
         "covered_facets": coverage.covered_facets,
         "facet_outcomes": evidence.facet_outcomes,
-        # PF-c: present only when the grade left criteria unassessed.
+        # Present only when the grade left criteria unassessed.
         **({"unassessed_criteria": sorted(unassessed)} if unassessed else {}),
         "causal_attribution": _causal_attribution_counts(inputs, evidence),
-        # Meas §3.A5: the profile channel's per-attempt tally, in the same debug
+        # The profile channel's per-attempt tally, in the same debug
         # payload `causal_attribution_audit_report` already reads, so the
         # two-tailed fill telemetry covers it without a second traversal of the
         # attempt ledger. Written for EVERY attempt, including the
@@ -5427,8 +5424,8 @@ def _debug_payload(
         "discrimination_profile": _discrimination_profile_telemetry(
             getattr(grade, "discrimination_profile_match", None)
         ),
-        # Meas §3.A3: the resolved plant outcomes. Absent (not empty) on every
-        # item that is not an error hunt, so the A3 population is countable.
+        # The resolved plant outcomes. Absent (not empty) on every item that
+        # is not an error hunt, so the error-hunt population is countable.
         **(
             {"error_hunt": dict(getattr(grade, "error_hunt", None) or {})}
             if getattr(grade, "error_hunt", None)
@@ -5448,7 +5445,7 @@ def _debug_payload(
         "facet_uncertainty_trace": facet_uncertainty_trace,
         "ability_transition": ability_transition,
         "primed": draft.primed,
-        # mvp-0.17 (re-review F9): a grade held for review applied no review.
+        # A grade held for review applied no review.
         **({"grade_held_for_review": True} if held else {}),
         # Non-None only when the ledger forced it: the summed reveal amount on
         # this item since its last attempt. This is the audit trail for "why is
