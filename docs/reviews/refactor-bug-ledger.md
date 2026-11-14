@@ -73,11 +73,13 @@ All 38 findings are closed in `docs/reviews/refactor-phase-1-review.md` ("Outcom
 | K9-2 | K9 map | A sidecar handler in the diagnosis lane reads the wall clock instead of the injected clock. | Small fix | queued |
 | K9-3 | K9 map D9D2 | A held grade that is later released never enters the episode posterior (its observation keeps `updates_belief = 0`), and a regrade changes neither belief. | Behaviour track: with arc G's one belief (G4), or its own successor | queued |
 | K9-4 | K9 map D9C1 | Three docstrings in the causal lane contradict the code ("only support channel", "every threshold is resolved from the fitted store", `failure_triage` as consumer). | Docstrings, with L5 | queued |
-| K10-1 | K10 map F10D2 | Cancelling a Show me press only marks the job: the build and its paid calls continue, and the figure lists on the next read. | Small fix: the build checks the mark between attempts; a cancelled build's figure is not listed | queued |
-| K10-2 | K10 map F10U1 | The Reader never reads a figure's `withheld` flag, so a figure withheld at delivery vanishes with no message. | Small fix | queued |
-| K10-3 | K10 map | The rich (video) job's enqueue writes no `job_enqueued` record, so its trace does not join the press that asked for it. | With K10's record step | queued |
+| K10-1 | K10 map F10D2 | Cancelling a Show me press only marks the job: the build and its paid calls continue, and the figure lists on the next read. | K10.1: the cancel is the build gate's hold, asked before every model request and before the store; fail-first `tests/test_figure_cancel.py` | fixed (`7f96c0a5c7`; docs/reviews/refactor-k10-bugs.md) |
+| K10-2 | K10 map F10U1 | The Reader never reads a figure's `withheld` flag, so a figure withheld at delivery vanishes with no message. | K10.2: a failed line with code `withheld` and the Reader's words; fail-first `readerFigures.test.tsx` | fixed (`ffc1cd94c5`) |
+| K10-3 | K10 map | The rich (video) job's enqueue writes no `job_enqueued` record, so its trace does not join the press that asked for it. | K10.3: the record in the enqueue's transaction, and the handler continues it in a scope of its own; fail-first `test_figure_rich_job::test_the_rich_job_continues_the_press_trace` | fixed (`d327f4b130`) |
 | K10-4 | K10 map | Two stale vault lines (AI Architecture; ADR-017's `prefetch_eu_v1`). | Notes | queued |
 | K10-5 | K10 map | The "not from books" badge is worded differently by the server and the desktop. | UX audit's call | owner |
+| K10-6 | K10.3 (sibling sweep) | No ingest job but the rich figure job writes a `job_enqueued` record, and no ingest handler continues a trace (the drain opens no scope per job), so a press's import, Reader checks, exercise imports, practice expansion, rung variants, promotions, concept animations and builds start traces of their own (or none). `retry_figure_rich`'s requeue writes no `requeued` record. | Each kind: the record at its enqueue and a scope in its handler, as K10.3 did; with K10.12 and arc B | queued |
+| K10-7 | K10.2 (sibling sweep) | The Ask panel (and the practice hint panel) shows its generic "couldn't build an interactive version of this" for a figure withheld at delivery, not why. Not silent. | UX audit's call (the Reader's words, or the panel's own) | owner |
 
 ## Due before G6 (K1's list, strategy §2.17)
 
