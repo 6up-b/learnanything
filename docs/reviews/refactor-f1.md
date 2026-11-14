@@ -88,11 +88,19 @@ Each row was proved with §1's rule. `db/stores/source_service.py`, `router_obje
 
 None of the kept sites is on a job's path (§3), so `db/schema_facts.py` was not added: nothing needs a cached fact.
 
-### Class (c): tests that built a partial schema (1)
+### Class (c): tests that ran current code on a schema below the floor (4 files)
 
-`tests/test_ro1_availability_reads.py::test_the_predicate_is_the_predecessors_column_below_the_tag_or_switched_off`
-built a two-column `practice_attempts` in memory to prove `attempt_time_sql` falls back to `created_at` without
-`received_at`. That branch is gone; the test keeps its other assertions.
+- `tests/test_ro1_availability_reads.py::test_the_predicate_is_the_predecessors_column_below_the_tag_or_switched_off`
+  built a two-column `practice_attempts` in memory to prove `attempt_time_sql` falls back to `created_at` without
+  `received_at`. That branch is gone; the test keeps its other assertions.
+- `tests/test_ro5_codex_review.py::test_f6_a_fractional_delay_is_scored_on_the_goals_own_date`: its hand-built
+  `practice_attempts` gained `received_at` (and the inserts name their columns); assertions unchanged.
+- `tests/test_source_service_spend_accounting.py` (five tests): each read the day's accounting from a migration-194
+  database before migrating, then after the upgrade. The before-read was the absent-column branch; it is removed and
+  every after-upgrade assertion stays.
+- `tests/test_migrations.py::test_head_163_database_upgrades_to_snapshots_and_fk_free_adjudications`: ran the attempt
+  path on a migration-163 database. The attempt is now a row inserted under the 163 schema; the 164 assertions are
+  unchanged.
 
 ## 3. Opens per job
 
@@ -111,7 +119,20 @@ What is left is real: the receipt writes (`INSERT`/`UPDATE` of `model_call_recei
 own rule (R4: anything but a read), which F1 leaves alone. The number is not "back to 5": the strategy's 5 predates
 the receipts' writes inside the job.
 
-## 4. Not done, and why
+## 4. Proof run
+
+Depth-0 and depth-1 `affected_tests` selection (`db/repositories.py` is a module `tests/conftest.py` imports, so the
+tool selects the whole suite for it; the tests that name its three changed methods were added by hand): 1,308 files in
+chunks at `-n 4`, all passing after the four ports above; `tests/test_f1_schema_facts.py` (the `received_at` table
+pin, and a journey pin that no prefetch job runs a `table_info` and a job opens at most 10 connections),
+`test_identity_pins`, `test_retired_config_identities`, `test_architecture`, `test_test_layout`,
+`test_effective_defaults_golden`, `test_cli_help_snapshot`, `test_structure_ratchets` (no golden change),
+`lint-imports`, `ruff check`, the four vault validators and `check_gate_partition` pass; a second vault regeneration
+changes nothing. The durability lane (`--durable-sqlite`) ran on the files whose paths the sites touch, and
+`--fresh-connections` on the two journey files. The due-queue goldens and the pinned-draw router tests are in the
+selection and unchanged.
+
+## 5. Not done, and why
 
 - The `sqlite_master` helpers (`table_exists`, `_has_table`, `has_table`, ...; about 480 lines in 120 files) were not
   touched: they are reads, mark nothing and cost no open. Most guard tables created at or below 254 and are dead by
