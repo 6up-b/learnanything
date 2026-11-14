@@ -45,7 +45,7 @@ Every one of the 32 calls reads **the vault's current tag** (`vault.config.algor
 | `Repository.reset_learning_object_derived_state` | deletes an LO's `evidence_facet_recall_state` and `facet_uncertainty` rows | rebuild clears what it re-derives (unchanged) |
 | `diagnosis/error_taxonomy_map.map_legacy_error_type` (now called unconditionally at the grader's taxonomy filter, `_normalized_recall_error_type`, `_dont_know_error_type`) | an error type stored or emitted under a legacy name | maps legacy names onto mechanisms on read |
 | `diagnosis/error_taxonomy.BUILTIN_ERROR_TYPES` | the legacy grader names | known at every tag so a grade naming one proposes no new error type |
-| `learner/recall_coverage.predicted_correctness(vault=None)` | the per-LO table | not a tag gate (a caller-shape branch): no caller omits the vault, so it reads a table nothing writes; kept, as D4 kept `adjudication`'s vault-less path (§7) |
+| `learner/recall_coverage.predicted_correctness(vault=None)` | the per-LO table | not a tag gate (a caller-shape branch): no caller omits the vault, so it reads a table nothing writes; kept, as D4 kept `adjudication`'s vault-less path (§9) |
 
 ### (c) The grader prompt, first and alone
 
@@ -67,6 +67,9 @@ C5/C6 build `_grading_error_taxonomy`, which goes into `GradingContext.error_tax
 | `7f4eb4eef1` | sidecar handlers | C30-C32: the DTOs send `supported: True`, `ready` always, `canonical_keys: True`, the values every supported vault already sent |
 | `fbe00ee1c9` | the predicate | `is_canonical_state_vault` deleted; the function-local edge `attempts.grading -> learner.facet_state_reader` leaves `tests/architecture_function_local_domain_imports.txt` (it went with the wrapper in `79d990aaaf`; the inventory test fails on a stale edge, so that commit alone fails `test_architecture`) |
 | `898fe50793` | structure golden | largest import component 188 to 186, modules in a cycle 285 to 283 (`goals.goal_certification` and `scheduling.selection_rewards` left the cycle with their import of `facet_state_reader`); no number rose |
+| `bb0e4693dc` | tests | the statement-matching normalization's own tests (found by the sweep, §3) |
+| `42ef065935` | tests, ledger | `test_recall_calibration`'s two harness tests become strict xfails of D-24 (§7) |
+| `a721ef1000`, `6933dec059`, and the last vault commit | vault | references regenerated; Concepts `Algorithm Versions and Reproducibility` and `Reader Tutor and Teach-Back` (`c930e39163`) |
 
 **Deletion proof** (strategy §2.1) for everything beyond the 32 branches: `is_canonical_state_vault` (both), `builtin_error_type_defaults`, `BUILTIN_ERROR_TYPE_DEFAULTS`, `CANONICAL_ERROR_TYPES`, `write_legacy_facet_state`, `facet_recall_states` (the two repository parameters), `_upsert_facet_recall_state`, `_guard_legacy_facet_write`, `_event_facet_ids`, `_event_statement_provenance`, and `_covered_frontier_fraction`'s two parameters were searched over `src/`, `scripts/`, `tests/`, `apps/` and the vault's `_scripts/` as names and strings: no function-local or `importlib` import, no `METHOD_REGISTRY`, Typer, `MODULE_INVENTORY` or `_reg_const` entry, no frontend or phone caller; the test references are edited (§3). No version set in `algorithm_versions.py` was removed: `CANONICAL_STATE_VERSIONS` is still tested directly by `content/proposals/patches.py:648`, `:1111` and the sidecar's `handlers/serializers.py:358`, `handlers/workbench.py:156` (D6's, part 1 §1(c)).
 
@@ -141,25 +144,37 @@ Nothing is dropped or migrated.
 ## 6. Gates run
 
 All under the empty-home wrapper in 5 GB scopes.
-GATES_RESULT
+- **Every test file** (`scripts/affected_tests.py` selects the whole suite: `db/repositories.py` changed), 1,407 files in 15 chunks of 100 at `-n 4 -m "not arc_close"` behind `flock /tmp/learnloop-fullsuite.lock`, on `bb0e4693dc` (every source change and every test change but the last): 30,542 passed, 103 skipped, 10 xfailed, 2 failed. The two failures were `test_recall_calibration`'s harness tests (§7); after `42ef065935` that file gives 1 passed, 2 xfailed. Earlier targeted runs (the old-tag files, each package's depth-0 selection and the files naming its functions) found the misconception and don't-know failures fixed in §3 before the sweep.
+- `test_identity_pins`, `test_retired_config_identities`, `test_architecture`, `test_test_layout`, `test_effective_defaults_golden`, `test_cli_help_snapshot`, `test_structure_ratchets` (golden lowered, `898fe50793`), `test_refactor_measures`, `test_sqlite_file_copies` and every test file edited after the sweep, on the tip: 314 passed, 2 xfailed.
+- `ruff check`: clean. `lint-imports --no-cache`: 42 kept, 0 broken. `scripts/check_gate_partition.py`: 30,777 collected, landing 30,717 + arc_close 60.
+- Vault: references regenerated after the source commits and again after the test commits (each committed); a final `generate_all.py` on the clean tree changed nothing; the four validators pass (`db_validate_reference`, `desktop_validate`, `module_validate`, `validate_vault`).
+- The grader-prompt dump and P-shadow / `mvp-0.17` comparisons as in §1(c) and §4.
+- Not run (the orchestrator's): the durability lane, `--fresh-connections`, vitest, the owner lane, the arc-close lane.
 
-## 7. Judgment calls
+## 7. Bug ledger
+
+No new row. **D-24** (open, due at arc D's close) is updated: `learnloop recall-calibration` builds its scratch vaults at `mvp-0.6` (refused in production by the floor; the tests run it under the allowance) and asserts the legacy model's error names and severity bands from `recall_coverage.severity_examples`. With the predicate gone the harness runs the head's path (`retrieval_failure`, the mechanism severities, no per-LO facet rows), so `test_recall_calibration::test_recall_calibration_harness_is_deterministic_and_in_band` and `::test_recall_calibration_cli_json_and_assert_mode` are strict xfails, D-24's fail-first tests. D-24's port to the floor now has to move the config examples' expectations with it, a config-default change under the identity rules (the examples are dumped where the config is). Nothing served changed: production refuses the harness either way.
+
+## 8. Judgment calls
 
 1. **The grader prompt's proof is a scratch dump, not a pin.** No identity pin covers the grading context and none was added: `grading_context_hash` is provenance (an agent run's `input_context_hash`), not a reuse key, so the identity-pin registry's rule (compared identities) does not ask for one. The byte comparison against the base code (§1(c)) is the proof; `test_grading_context` pins the ids.
 2. **S19 went whole, not only its gate half.** With `_upsert_facet_recall_state` gone, `_guard_legacy_facet_write` guarded only `_upsert_facet_uncertainty_state`: it admitted a row stamped with a successor tag and refused one stamped with any other canonical tag. The only writer that reaches it is the successor's (`write_facet_uncertainty` is `canonical_facet_uncertainty_on`, which requires the successor's tag, and its rows carry that tag: `test_facet_belief_successor` asserts the stamp), so the refusal never fires on a vault that opens; the admitting half only exempted rows from the refusal, so with the refusal gone it does nothing. Part 1 classed that half (c) because it reads the row's stamp; it is the reading of a row being *written*, by a writer that stamps the vault's tag, not of a stored row. The stored-row readers of the same stamp (`current_facet_uncertainty`, the `FACET_BELIEF_FIX_VERSIONS` filters) stay.
 3. **The misconception helpers.** Only the two helpers the statement-matching path alone called went; `_candidate_misconceptions`, `_durable_match` and the matchers stay because `_normalize_compositional` calls `_candidate_misconceptions` and `_durable_match` (and `diagnosis/text_gaps/candidates.py` calls the first).
-4. **`recall_coverage.predicted_correctness(vault=None)`** keeps its per-LO read: it is a caller-shape branch, not a tag gate, and no caller omits the vault; D4 kept `adjudication`'s vault-less path on the same reasoning. Its comment now says the table is not written. Open item (§8).
+4. **`recall_coverage.predicted_correctness(vault=None)`** keeps its per-LO read: it is a caller-shape branch, not a tag gate, and no caller omits the vault; D4 kept `adjudication`'s vault-less path on the same reasoning. Its comment now says the table is not written. Open item (§9).
 5. **DTO fields kept with constant values.** `supported` (grid and timeline) and `canonical_keys` stay in the DTOs with the values supported vaults sent, rather than being removed, so the frontend contract (`apps/learnloop-tauri/src/api/dto.ts`) is unchanged; the grid's `supported` is still False for an LO the vault does not hold.
 6. **`_covered_frontier_fraction`'s trace** keeps `denominator_basis = "contract_frontier"` (the only value a supported vault wrote); `contract_frontier_facet_mass` can no longer be produced.
 7. **The attempts commit fails `test_architecture` alone**: the wrapper's function-local edge left the inventory in the predicate's commit, not the attempts one. Every later commit passes it.
+8. **`test_recall_calibration` as strict xfails rather than ported.** Porting the harness to the head means rewriting the config's `recall_coverage.severity_examples` expectations (names and bands), a config-default change the identity rules treat as a deliberate bump, and it is D-24's queued fix; the tests are kept as its fail-first tests.
+9. **The misconception tests**: of the seven statement-matching tests, the three whose assertions the compositional path also satisfies moved to the head (adding the attempt row as setup); the four that assert a durable row minted from one event were deleted, since the head never does that (§3).
 
-## 8. Open items
+## 9. Open items
 
 - **For D6:** `CANONICAL_STATE_VERSIONS` is still tested directly at `content/proposals/patches.py:648`, `:1111` and the sidecar's `handlers/serializers.py:358`, `handlers/workbench.py:156` (part 1 §1(c)); the set stays until they go.
 - **For J (tables):** §5. `Repository.facet_recall_state` / `facet_recall_states` and `recall_coverage.predicted_correctness`'s vault-less branch read a table nothing writes; `Repository.upsert_facet_uncertainty_state` has only test callers. Both are deletion candidates once arc J decides the tables' fate.
-- **The parallel re-tagging step**: this step edited `test_km4_taxonomy`, `test_recall_coverage_interventions`, `test_ux_phase2_error_type_proposals`, `test_km2b_consumer_rekey`, `test_facet_belief_successor`, `test_causal_attribution_p0`, `test_today_headline`, `test_receipt_derivation`, `test_learner_read_model_pinning` and `diagnosis_input_provenance_helpers`; a merge may conflict there.
+- **D-24** (open, due at arc D's close): `test_recall_calibration`'s two harness tests are its strict xfails now (§7).
+- **The parallel re-tagging step**: this step edited `test_km4_taxonomy`, `test_recall_coverage_interventions`, `test_ux_phase2_error_type_proposals`, `test_km2b_consumer_rekey`, `test_facet_belief_successor`, `test_causal_attribution_p0`, `test_today_headline`, `test_receipt_derivation`, `test_learner_read_model_pinning`, `test_misconception_registry`, `test_recall_calibration` and `diagnosis_input_provenance_helpers`; a merge may conflict there.
 
-## 9. Not verified
+## 10. Not verified
 
 - The durability lane, `--fresh-connections`, vitest, the owner lane (two owner-lane tests were edited: `test_receipt_derivation`, `test_learner_read_model_pinning`; they collect and skip here) and the arc-close lane (the orchestrator's).
 - The desktop's facet screens with the constant DTO values (no GUI); the values are those every supported vault already sent.
