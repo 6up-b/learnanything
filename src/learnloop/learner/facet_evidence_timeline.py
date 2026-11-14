@@ -191,7 +191,8 @@ class FacetTimelineSnapshot:
     # credit, per attempt. The timeline is a SECOND fold over the same ledger the
     # canonical projection banks, and the receipt-exactness invariant
     # (`test_receipt_exactness`) is that the two agree to the float — so any input
-    # the projection reads, this one must read too.
+    # the projection reads, this one must read too. The facet ids are as stored;
+    # the walk resolves them as the projection does (aliases, then merges).
     exercised_by_attempt: dict[str, frozenset[str]] = field(default_factory=dict)
     # The same bulk-resolved causal eligibility facts consumed by canonical
     # projection. Assistance and certification eligibility are intentionally
@@ -240,9 +241,10 @@ def load_facet_timeline_snapshot(
             contract_ids, projection_version=projection_version
         ),
         merge_map=merge_map,
-        exercised_by_attempt=_resolved_exercised_facets(
-            repository.all_trace_exercised_facets(), merge_map
-        ),
+        exercised_by_attempt={
+            attempt_id: frozenset(str(row["facet_id"]) for row in rows)
+            for attempt_id, rows in repository.all_trace_exercised_facets().items()
+        },
         activity_by_attempt=repository.all_causal_activity_classifications(),
         contract_unrecorded=_contract_unrecorded(repository),
     )
@@ -352,35 +354,6 @@ def _contract_unrecorded(repository: Repository) -> frozenset[str]:
 
     with repository.connection() as connection:
         return contract_unrecorded_attempts(connection)
-
-
-def _resolved_exercised_facets(
-    observations: dict[str, list[dict[str, Any]]], merge_map: dict[str, str]
-) -> dict[str, frozenset[str]]:
-    """A6 observations with their facet ids merge-resolved (Meas §3.A1 guard 1).
-
-    The projection resolves these ids through the same transitive merge map
-    before comparing them against a target's facet; reading them RAW here would
-    make the two folds disagree the moment a facet is merged — an observation
-    recorded under a retired id would read as exercised in the projection and
-    unexercised in the timeline, so the guard would confer credit in one fold and
-    withhold it in the other, and `test_receipt_exactness`'s float-exact
-    invariant would break with the learner-facing curve understating the ledger.
-    Sharing the predicate is not enough; the two folds have to share its INPUT.
-    """
-
-    def resolve(facet_id: str) -> str:
-        current = str(facet_id)
-        seen: set[str] = set()
-        while current in merge_map and current not in seen:
-            seen.add(current)
-            current = merge_map[current]
-        return current
-
-    return {
-        attempt_id: frozenset(resolve(str(row["facet_id"])) for row in rows)
-        for attempt_id, rows in observations.items()
-    }
 
 
 def p0_evidence_mass_by_attempt(
@@ -957,8 +930,13 @@ def _observation_events_by_facet(
                 certification_eligible=activity.eligible_for_certification,
                 seen_groups_by_cell=prior_seen,
                 resolve=resolve,
-                exercised_facets=snapshot.exercised_by_attempt.get(
-                    str(attempt["id"]), frozenset()
+                # The stored ids resolved as the projection resolves them: an
+                # observation recorded under a facet since renamed (an alias
+                # now) or merged must license the same supporting target in
+                # both folds, or the curve and the banked credit disagree.
+                exercised_facets=frozenset(
+                    resolve(facet_id)
+                    for facet_id in snapshot.exercised_by_attempt.get(str(attempt["id"]), ())
                 ),
                 evidence_mass_override=evidence_mass_override,
             )

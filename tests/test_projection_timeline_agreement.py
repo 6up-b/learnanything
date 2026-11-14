@@ -29,9 +29,10 @@ from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
+from learnloop.vault.yaml_io import write_yaml
 
 from tests.held_grade_evidence_helpers import T
-from tests.helpers import NOW, add_followup_item, create_basic_vault
+from tests.helpers import NOW, add_followup_item, create_basic_vault, write_facets
 from tests.km2_write_path_helpers import _attempt as km2_attempt, build_shared_facet_vault
 from tests.regrade_contract_replay_helpers import _regrade, _self_graded_apply
 from tests.regrade_contract_successor_helpers import as_graded_before_contracts, as_regraded_before_contracts
@@ -268,3 +269,57 @@ def test_a_measurement_correction_that_reinterprets_history_reaches_the_curve(tm
 
     _assert_the_timeline_ends_at_the_banked_credit(vault, repository)
     _assert_the_itemization_sums_to_the_banked_credit(vault, repository)
+
+
+def test_a_trace_observation_recorded_under_a_facet_alias_licenses_the_supporting_credit_in_both(tmp_path):
+    """A supporting target's facet was observed in the trace under an id that is now an alias of it (the facet
+    was renamed after the observation): the projection resolves the stored id through the aliases before matching
+    it, so the supporting target is exercised and banks embedded credit; the curve has to read it the same way."""
+
+    paths = create_basic_vault(tmp_path / "vault")
+    write_facets(paths, [
+        {"id": "f_solve", "kind": "procedure_contract", "claim": "Compute the factors."},
+        {"id": "f_algebra", "kind": "procedure_contract", "claim": "Manipulate the algebra.",
+         "aliases": ["f_algebra_before_rename"]},
+        {"id": "recall", "kind": "definition", "claim": "SVD recall definition."},
+    ])
+    target = {"capability": "procedure_execution"}
+    write_yaml(paths.practice_item_path("linear-algebra", "pi_conjunctive"), {
+        "schema_version": 1, "id": "pi_conjunctive", "learning_object_id": "lo_svd_definition", "subjects": None,
+        "practice_mode": "constructed_response", "attempt_types_allowed": ["independent_attempt"],
+        "evidence_facets": ["f_solve", "f_algebra"], "evidence_weights": {"f_solve": 1.0, "f_algebra": 1.0},
+        "capability": "procedure_execution", "prompt": "Decompose the matrix.", "expected_answer": "U Sigma V^T.",
+        "difficulty": 0.6, "tags": [],
+        "grading_rubric": {"max_points": 4, "fatal_errors": [], "criteria": [
+            {"id": "c_setup", "points": 2, "description": "Sets it up.",
+             "targets": [{**target, "facet": "f_solve", "role": "primary"}]},
+            {"id": "c_solve", "points": 2, "description": "Computes the factors.", "depends_on": ["c_setup"],
+             "targets": [{**target, "facet": "f_solve", "role": "primary"},
+                         {**target, "facet": "f_algebra", "role": "supporting"}]},
+        ]},
+        "provenance": {"origin": "human", "source_refs": []}, "created_at": "2026-05-19T12:00:00Z",
+        "updated_at": "2026-05-19T12:00:00Z",
+    })
+    with (paths.root / "learnloop.toml").open("a", encoding="utf-8") as config:
+        config.write("\n[evidence.certification]\nmax_embedded_credit_share = 1.0\n")
+    vault = load_vault(paths.root)
+    assert vault.canonical_facet_id("f_algebra_before_rename") == "f_algebra"
+    repository = Repository(paths.sqlite_path)
+    sync_vault_state(vault, repository, clock=FrozenClock(NOW))
+    attempt_id = complete_self_graded_attempt(
+        vault, repository,
+        AttemptDraft(practice_item_id="pi_conjunctive", learner_answer_md="The worked derivation.",
+                     attempt_type="independent_attempt"),
+        SelfGradeInput(criterion_points={"c_setup": 2, "c_solve": 2}, fatal_errors=[], confidence=5),
+        clock=FrozenClock(NOW + timedelta(minutes=1)),
+    ).attempt_id
+    repository.insert_trace_exercised_facets(
+        attempt_id,
+        [{"facet_id": "f_algebra_before_rename", "observation_scope": "opportunistic", "evidence": "used it"}],
+        clock=FrozenClock(NOW + timedelta(minutes=1)),
+    )
+    rebuild_all_derived_state(vault, repository, clock=FrozenClock(NOW + timedelta(days=1)))
+
+    banked = {cell.facet_id: cell.certification_credit for cell in repository.facet_capability_evidence_all()}
+    assert banked.get("f_algebra", 0.0) > 0.0
+    _assert_the_timeline_ends_at_the_banked_credit(vault, repository)
