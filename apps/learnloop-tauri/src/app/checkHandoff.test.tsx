@@ -66,7 +66,7 @@ it("opens a lesson on the check's topic naming its episode, and keeps the tutor 
   // The lesson can't open (the teacher's route is down, lessons were switched off): the tutor opens, with a notice.
   expect(hook.result.current.openFailed).toBeDefined();
   act(() => hook.result.current.openFailed?.("The ChatGPT plan is unavailable for lessons."));
-  expect(opened.at(-1)).toBeNull();
+  expect(opened[opened.length - 1]).toBeNull();
   expect(fallback).toHaveBeenCalledOnce();
   expect(notify).toHaveBeenCalledWith("The ChatGPT plan is unavailable for lessons. The tutor opens instead.");
 });
