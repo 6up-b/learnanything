@@ -516,7 +516,7 @@ def replace_claim_and_reanchor(vault, repository, claim: dict[str, Any], *, cloc
     between the replacement and its re-anchor leaves neither."""
 
     with repository.atomic():
-        claim_id = repository.replace_learner_claim(claim, keep_replaced=True, clock=clock)
+        claim_id = repository.replace_learner_claim(claim, clock=clock)
         reanchor_mastery_from_claim(
             vault,
             repository,

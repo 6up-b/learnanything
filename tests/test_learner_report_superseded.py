@@ -122,11 +122,11 @@ def test_a_new_starting_level_keeps_the_old_one_for_an_lo_first_practised_under_
     paths = create_placement_vault(tmp_path / "vault", version=TAG)
     add_followup_item(paths.root)
     repository = Repository(paths.sqlite_path)
-    seed_global_learner_claim(repository, "comfortable", keep_replaced=True, clock=_at(-10))
+    seed_global_learner_claim(repository, "comfortable", clock=_at(-10))
     vault = load_vault(paths.root)
     sync_vault_state(vault, repository, clock=_at(0))
     _answer(vault, repository, "pi_svd_define_001", minutes=2, points=2.0)
-    seed_global_learner_claim(repository, "new_to_this", keep_replaced=True, clock=_at(3))
+    seed_global_learner_claim(repository, "new_to_this", clock=_at(3))
     wizard = [row for row in _rows(repository) if row["source"] == "init_wizard"]
     assert len(wizard) == 2 and wizard[0]["superseded_by"] == wizard[1]["id"]
     live = _mastery(repository)
