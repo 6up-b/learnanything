@@ -269,3 +269,165 @@ The commit lands before the predicates go, so every commit passes the pins.
 **The sidecar's code.** The desktop maps no vault-refusal code (`vault_below_oldest_supported` is read nowhere in `apps/learnloop-tauri/src`; the message is what it shows), so a distinct code would be a contract change with no consumer: the code stays and the message says "a tag this LearnLoop does not know ... a newer LearnLoop wrote this vault".
 
 **Fail-first:** `test_a_vault_at_a_tag_this_code_does_not_know_is_refused_at_each_door` (14 doors x 3 tags), `test_a_journal_naming_a_link_this_code_does_not_know_is_refused` and `test_a_shadow_rebuild_cannot_be_forced_to_a_tag_this_code_does_not_know` (3 tags): 46 cases, all failing on the previous module, all passing after. Two door helpers read the vault's tag instead of assuming `BELOW`. **Assertions changed:** `test_version_floor::test_a_journal_from_the_floor_is_still_completed_by_an_opener` names a chain link as its journal's target (its `mvp-0.999` is now refused before the completer, which would have left it standing anyway); `test_upgrades::test_a_jump_is_refused_and_nothing_changes` expects the door's refusal for its `mvp-0.9999` vault instead of the table's "cannot upgrade from", and reads the unchanged tag from the file (opening it is refused). Ledger D-31: fixed. ADR-019 gains the rule.
+
+## 13. The gates (part 2's landing)
+
+Each package below is one commit with its tests. Packages run in an order that keeps every commit green. The helper goes first (§14). The phone-probes gate goes before data capture, because `test_data_capture_phone` reads both.
+
+| commit | sites | what |
+|---|---|---|
+| `a54e1accde` | (tests) | `tests/successor_switches.py` and its hook in `set_algorithm_version` (§14). With the tag halves still in place it changes nothing a test reads. |
+| `999a1a68f9` | G49 | `probe_ties_admitted` is `router.probe_tie_admission` |
+| `89cf906dcc` | G48 | `intent_enabled` is `intent.enabled` |
+| `fc3e947cdd` | G35, G36 | `successor_active` is `adaptive_difficulty.enabled`; `lesson_opportunities_on` is the master switch plus its own |
+| `63b540a6e2` | G56 | `phone_probes_on(origin)` is the host's `phone_probes`, and its `config` parameter goes at ten callers |
+| `5687f26052` | G37 | `serving_on` is `data_capture.serving` |
+| `5fc04a2221` | G39 | `generate_and_serve_on` is `followup.generate_and_serve` |
+| `e710455858` | G51-G53 | `lessons_active` is `teacher.enabled`; `require_active` loses its tag refusal; TE2's `on` is `teacher.enabled` and `teacher.probes`. A refused typed goal now names its switch. |
+| `418e7911b3` | G54, G55 | an item served, or opened in the workbench, always snapshots its assessment contract |
+| `64c5c3eb5e` | G40-G47 | `objective_tag`, `calibration_tag`, `learned_tail_tag`, `followups_tag`, `lesson_offers_tag`, `failure_share_tag` and `slip_gap_tag` are deleted, along with every reader. Those readers are: the CLI report (its three sections sit under the status check alone), the objective chooser (the prefetch key always names `followup_switches`, `failure_share_to_other_policy`, `lessons_compete_with_followups` and the two slip-or-gap keys), the inputs (`sources["learning"]` always), the follow-up router's gate class (`ObjectiveFollowupGate` whenever the objective serves), the capture report (open picks always) and `followup_generator_switches` (always a dict, with `miss_cause_in_value`). |
+
+G50 went in part 1 (`5099da442b`). G38 (`FIGURE_WAIT_VERSIONS`, `figures/`) stays, as class (d).
+
+**Test ports**, by D4/D5's method:
+- An older tag reaches its predecessor through §14's switches.
+- A case whose only subject was a tag half with its switch on goes:
+  - `test_rofu_review_draw`, `test_rofu_ad_link`, `test_rofu_monotone` and `test_rofu_speed` lose their below-the-tag-with-the-switch-on parameter;
+  - `test_ro5_landing::test_r5_1` loses its `below_the_tag` case;
+  - `test_rofu_learning`'s below-the-tag test and `test_ro5_calibration`'s `calibration_tag` test go;
+  - `test_rofu_switch_key`'s below-the-tag test becomes "the key names the switches at the floor and at the head".
+- A below-the-tag arm that duplicated the switched-off arm goes:
+  - `test_teacher_te1_lesson::test_switched_off_no_lesson_opens`;
+  - `test_mobile_v3_probes::test_without_phone_probes_the_phone_is_v2s`, where the host's switch is the only way back to V2's phone;
+  - `test_router_probe_ties`' predecessor parametrisation, now one switched-off case;
+  - `test_rofu_scope`'s growth test.
+- Assertions on a predecessor's config keys now expect the switch's value. For example, the prefetch key at the predecessor names the slip-or-gap keys as `False` where it used to leave them out (`test_sg_successor`, `test_ih5_successor`, `test_ih2_lessons_compete`, `test_rofu_generator_switches`, `test_rospeed2_connections`).
+- `test_rospeed2_connections::test_r2_the_numeric_seed_is_mains_whatever_the_speed_switches` takes main's identity without the later successors' seed-neutral keys, which the key now carries at every tag.
+- `test_ro1_upgrade_report`'s shadow rebuild turns the interval factor's switches on with its tag. The upgrade's schedule effects are what it measures, and the vault at the predecessor holds those switches off.
+- `test_te3b_population`'s `old` arm is the predecessor's tag with `in_objective` off.
+- `test_rw2c_switch_off`'s base-code pin clears the session's contract id on both sides. Its pinned vault is `mvp-0.6`, which now snapshots (G55), and RW2c's switches do not touch the id.
+- `test_mvp017_route_check_replay`'s copy is served as its tag through the switches.
+- `test_scheduler`'s probe case names probe ties' switch.
+- `test_ux_phase4_feedback` no longer retags its vault to `mvp-0.10`. With G39 gone, that tag let FG1's background generation race a regrade (`test_f9f`, flaky: 6 of 8 failed). Its contract answers turn FG1 off instead: 8 of 8 clean.
+
+**Ledger D-40** (found and fixed here): `tests/device_eligibility_helpers._call` read `METHOD_REGISTRY` without importing the handlers, so `test_data_capture_phone` failed all seven cases when run alone. Part 1's row is renumbered D-39, as on main.
+
+## 14. `tests/successor_switches.py`: what putting a test vault at a tag now means
+
+`set_algorithm_version` is the one way the suite puts a vault at a tag: `create_placement_vault`, `mixture_env`, the teacher and intent builders and the rest go through it. It now calls `serve_as_at(root, version)` after rewriting the tag.
+
+**(a) What it writes.** At a tag `v` below `mvp-0.57`, it writes every key of `SWITCHES_BY_TAG` whose successor comes after `v` into `learnloop.toml`, set to the predecessor's value:
+
+| successor | switches turned off |
+|---|---|
+| `mvp-0.15` probe ties | `router.probe_tie_admission` |
+| `mvp-0.29` intent | `intent.enabled` |
+| `mvp-0.30` AD | `adaptive_difficulty.enabled` |
+| `mvp-0.41` teacher | `teacher.enabled` |
+| `mvp-0.43` lesson suggestions | `router.lesson_suggestions.enabled` |
+| `mvp-0.44` data capture | `data_capture.serving` |
+| `mvp-0.45` FG1 | `followup.generate_and_serve` |
+| `mvp-0.46` interval factor | `scheduler.surprise.remove_interval_factor`, `router_objective.available_at_reads`, `router_objective.self_report_not_validated` |
+| `mvp-0.47` router objective | `router_objective.enabled` |
+| `mvp-0.48` calibration | `router_objective.stop_coin = 0.0`, `check_rate = "off"`, `pick_open_share = 0.0`, `fitted_models` |
+| `mvp-0.49` learned tail | `router_objective.learned_tail` |
+| `mvp-0.50` follow-up batch | the ten `router_objective` keys of `FOLLOWUP_SWITCHES` |
+| `mvp-0.51` TE2 | `teacher.probes` |
+| `mvp-0.52` lesson opportunities | `adaptive_difficulty.lesson_opportunities` |
+| `mvp-0.53` lesson offers | `router.lesson_suggestions.in_objective` |
+| `mvp-0.55` instruct hand-off | `router_objective.failure_share_to_other_policy`, `lessons_compete_with_followups`, `preferences_inform_router`, `learner_preferences`, `workbench_is_open_item`, `lesson_sources_follow_diagnosis`, `lesson_candidate_after_cold_miss` |
+| `mvp-0.57` slip or gap | `router_objective.miss_cause_sensor`, `miss_cause_in_value` |
+
+Other behaviour:
+- **Tags that can still open.** At the floor, at the head, or at any tag from `mvp-0.57` on, nothing is written.
+- **Unknown tags.** A tag this code does not know writes nothing: `mvp-0.60`, `mvp-1.0` or another shape.
+- **Moving the vault.** When the vault moves to a later tag, the helper removes only the keys it wrote that the later tag no longer needs. At the head, the config is the test's own again.
+- **The test's own keys.** A key the test's config already sets is never written or removed, and a key whose value no longer matches what the helper wrote becomes the test's.
+- **How a test opts out.** To keep a successor on at an older tag, it sets that switch itself. It can do so before `set_algorithm_version`, or after it with `append_config_toml`, which merges into a table only the helper wrote and hands those keys to the test.
+- **Part 1's successors** are not listed, because part 1's tests name their switch where they use it.
+
+**One imperfection.** AD's master switch also turns off the D21 dose arm, which below `mvp-0.30` acted on its own, so a vault put below `mvp-0.30` loses dose offers its predecessor had. No test reads that.
+
+**(b) How many tests depend on it.** I ran the whole landing lane with the hook disabled (behind the lock, 1,412 files in chunks of 100): **447 test cases failed and 1 errored, in 148 files**. The largest groups are data capture (about 80), the plan-determinism and router R2b/G-series journeys (about 60), TE1b (about 30) and RO1/the follow-up batch (about 25). With the hook, the same run passes. Two of these cases are explained differently:
+- `test_data_capture_phone` passes either way once D-40 is fixed.
+- `test_mvp017_route_check_replay` calls `serve_as_at` directly.
+
+**(c) When a later step removes a switch.** D7 removes the kill switches. Every one of these tests then loses its predecessor: a switch it reaches the predecessor through no longer exists, and its entry here goes with it. Such a test moves to the head or goes with the switch, and D7 should read this table to find them. The hook disabled is the way to list them: rerun (b) with only that successor's entry removed.
+
+**(d) The helper's own test.** `tests/test_successor_switches.py` checks five things:
+- a vault at the floor or at the head is untouched, byte for byte except the tag line;
+- a vault at `mvp-0.14` gets exactly every listed switch, and one at `mvp-0.55` gets exactly slip-or-gap's;
+- a vault moved through `mvp-0.14` and `mvp-0.57` and back to the head has every written key removed and the original config;
+- a test's own setting is never overwritten, whether made before or after the move, and a duplicate table the test itself wrote is still refused;
+- an unknown tag writes nothing.
+
+## 15. The For-D6 leftovers
+
+| commit | leftover | desktop |
+|---|---|---|
+| `d05fb9482a` | `keep_replaced` goes from `Repository.replace_learner_claim` and `seed_global_learner_claim`. Every caller but bootstrap's first seed passed `True`, and that first seed has no earlier claim. | none |
+| `bd8462175c` | The sidecar's never-produced `live` grading record goes: `serializers.live_grading_record`, `feedback_bundle`'s `live_record`, `_run_regrade`'s return, and `GRADING_RECORD_SOURCES = ("contract", "unrecorded")`. | `dto.ts` `answeredSource`, `FeedbackScreen.phase4.test.tsx` (one case), and `FeedbackSurface`'s comment. Typecheck passes, and the feedback vitest passes (10 files, 150 tests). |
+| `1aa4fb96ec` | The constant DTO fields go: the timeline's and `ReadyDerivation`'s `supported`, and `get_facet_mastery`'s `canonicalKeys`. | `dto.ts`, and `KnowledgeModel.tsx`'s "legacy vault · no capability ledger" line. Typecheck passes; the inspector, facet and feedback vitest passes (9 files, 124 tests). |
+
+**The adjudication's vault-less path stays.** Seven test calls of `append_adjudication` pass no vault, so removing the path means rewriting tests that are about adjudication rather than about a tag. It is not a gate; it is left for a later step.
+
+## 16. The version sets (`7f3d2e4aee`)
+
+46 sets were deleted, with their comments: the 43 of §2 plus `ROUTER_FOLLOWUPS_`, `SLIP_GAP_` and `LESSON_OFFERS_VERSIONS`, whose last readers were G44, G47 and G45. With the legacy pin arm gone, they had no reader.
+
+Kept:
+- `PLACEMENT_`, `DECIDER_TIER1_` and `FAILURE_SHARE_VERSIONS`, because stored rows' tags are compared against them;
+- `FACET_BELIEF_FIX_VERSIONS`, because it varies at the floor;
+- `FIGURE_WAIT_VERSIONS`, which lives in a parallel lane's module.
+
+`algorithm_versions.py` goes from 1,287 to 1,036 lines and from 51 sets to 5. `learner/assessment_contracts`' three set re-exports go, along with `test_architecture`'s check of them.
+
+Tests:
+- Each successor test's frozen-set assertion goes: 32 files, removed by a script that deletes the statement and nothing else. Ruff then removed the 69 imports this left unused.
+- A membership check now reads the tag: `test_followup_successor`, `test_ro1_interval_factor`, `test_plan_determinism_landing`, `test_data_capture_successor`, `test_regrade_contract_successor` (keeps `PLACEMENT_VERSIONS`), `test_config_refactor` (keeps `PLACEMENT_VERSIONS`).
+- `test_pfc_unverified_unassessed` parametrises over `successors_from(DIAGNOSIS_SPLIT_ALGORITHM_VERSION)`.
+- `test_ro0_gate` switches the objective off at every tag.
+
+Docs:
+- **The playbook** says when a successor's set is needed and which remain.
+- **The vault note** "Algorithm Versions and Reproducibility" replaces its list of 23 sets with the same rule and the five that remain.
+- **The registry** drops `P0_SUCCESSOR_VERSIONS`.
+- **The Developer Map** row says "the frozen sets that remain".
+- **Docstrings** in `config/schema.py`, `learnloop_mobile/config.py`, `canonical_projection.py` and `repositories.py` name the tag instead of the set.
+
+## 17. Proof and gates (part 2)
+
+**P-shadow.** The three owner copies at `mvp-0.58` (the same source as part 1) were upgraded to `mvp-0.59` and shadow-rebuilt by the base and by this branch. The base was part 1's tip `dcad1593e4`, run as a `git archive` on `PYTHONPATH`; the branch was at `7f3d2e4aee`, its last source commit.
+- After the upgrade: 402 tables each; 19,442, 10,426 and 23,877 rows; no table differs (ids and stamps normalized).
+- The shadow reports are equal.
+- After the shadow rebuild: no table differs.
+
+All three upgrades ran `mvp-0.58 -> mvp-0.59`, and stderr was empty. These are counts only; the copies are deleted.
+
+**Old rows at the floor and the head.** `fixtures/mvp017_route_check_replay` was retagged to `mvp-0.58` and `mvp-0.59` and rebuilt live twice by the base and the branch. At both tags and after both rebuilds, every table is equal except one `attempt_debug_payloads` row: replay mints a ULID there and a receipt id is hashed from it, as in part 1. The second rebuild grows the same ledgers on both codes (D-36).
+
+**Census** (part 1's plugin), over the 75 test files part 2 edited, base code and tests against this branch:
+- **650 cases opened a vault below the floor at the base, 627 now (-23)**, in 65 files then and 62 now.
+- 16 cases appear only on the branch. They are renamed tests at their old tags, plus `test_successor_switches`'s own case.
+- The base run had the same one failure as part 1's (`test_f1g`, on base code).
+- The allowance stays.
+
+**Identity pins.** Unmoved after `ae305d5cf7`. They are in every package's run and in the sweep.
+
+**Measures.**
+- `src/`: 37 files changed, +228 / -643.
+- `algorithm_versions.py`: 1,287 to 1,036 lines, 51 sets to 5.
+- Structure golden lowered (`functions_over_200_lines` 76 to 75, since `objective_inputs.build` fell under; `comment_lines_naming_a_stage_artifact` 2,392 to 2,390).
+
+**Gates run on this branch:**
+- **The sweep**: every test file, chunked behind the lock, `not arc_close`. It found three failures, all ported (§13); their files pass.
+- **Arc-close**: 24 passed, 36 xfailed.
+- **The owner lane**: 92 passed, 8 skipped. This covers the cherry-picked part 1 fix under §14's hook; the copies were made with the gate's script and deleted.
+- **Static and generated checks**:
+  - `lint-imports`: 42 kept.
+  - `ruff`: clean.
+  - `check_gate_partition`: 30,816 = 30,756 + 60.
+  - `db_validate_reference`, `module_validate` and `validate_vault`: pass.
+  - `desktop_validate`: fails as at the base (its hard-coded count; part 1 §9).
+  - `generate_all.py`: run once and committed (`5e21c40bf9`); a second run changed nothing.
+- **Desktop**: `tsc --noEmit`, plus vitest for each touched file.
