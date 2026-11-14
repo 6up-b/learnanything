@@ -96,6 +96,8 @@ class LessonTurnInput(ParamsModel):
     suggestion_decision_id: str | None = None
     # IH7 (the owner's decision 2, Nov 9): a topic's lesson the learner asked for with "learn this" names its preference
     preference_id: str | None = Field(default=None, max_length=80)
+    # A lesson opened from a diagnostic check names its episode (learnloop.teacher.from_check)
+    probe_episode_id: str | None = Field(default=None, max_length=80)
     # reply / answers
     text: str | None = None
     answer: str | None = None
@@ -235,7 +237,8 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
                 origin_ref=params.suggestion_decision_id if suggested else None,
                 lesson_id=params.lesson_id if suggested else None,
                 add_topics=params.add_topics, subject_id=params.subject_id,
-                preference_id=None if suggested else params.preference_id)
+                preference_id=None if suggested else params.preference_id,
+                probe_episode_id=None if suggested else params.probe_episode_id)
         else:
             if not params.lesson_id:
                 raise SidecarError("validation_error", "lesson_id is required.")

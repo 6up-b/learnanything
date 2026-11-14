@@ -673,8 +673,12 @@ def stop_probe_diagnosing(ctx: SidecarContext, params: PracticeItemInput) -> dic
     item = vault.practice_items.get(params.practice_item_id)
     if item is None:
         raise SidecarError("not_found", f"Unknown Practice Item {params.practice_item_id}.")
+    # The episode the stop converts, so the lesson the desktop opens next can name it (teacher.from_check).
+    episode = repository.open_probe_episode(item.learning_object_id)
     decision = stop_diagnosing_and_teach(vault, repository, item.learning_object_id)
-    return versioned({"stopped": decision is not None, "decision": decision})
+    return versioned({"stopped": decision is not None, "decision": decision,
+                      "episode_id": episode.id if decision is not None and episode is not None else None,
+                      "learning_object_id": item.learning_object_id})
 
 
 class NextProbeItemInput(ParamsModel):
