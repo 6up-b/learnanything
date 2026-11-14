@@ -7,13 +7,27 @@ Read-only. For each vault directory named on the command line it prints:
   tags it names;
 - which config keys the TOML sets that a removal step drops: C3's keys nothing reads, C4's Codex transport (a
   Codex provider named by a profile, a route or the active/fallback provider, ``ai.agent_harness_opt_in``, the
-  retired routes, the legacy ``[codex]`` table), and D7's kill switches at or below mvp-0.55.
+  retired routes, the legacy ``[codex]`` table);
+- D7's kill switches, from the one table ``learnloop.kill_switches``: every tagged switch the TOML sets, then
+  every untagged one, each with the value it sets, the default and whether they differ. A switch is "set" when its
+  key is present, even at its default: a vault that still carries the key keeps loading after the field goes only
+  because the field is ignored, and ``router.lesson_suggestions.*`` refuses an unknown key.
 
-It prints tags, a migration number, booleans and key names: no values, no ids, no learner text. The database is
-opened read-only (a ``file:...?mode=ro`` URI, with ``immutable=1`` on a WAL-mode database that has no ``-wal``, so
-no companion file appears); nothing is written, migrated or checkpointed, and no journal mode is set. Standalone (it imports nothing from ``learnloop``), so it runs on a vault whatever its version:
+Switch values are printed (a switch is a boolean, a mode or a rate); no other value, id or learner text is. A value
+that is a table or list prints as ``<table>`` or ``<list>``. The database is opened read-only (a ``file:...?mode=ro``
+URI, with ``immutable=1`` on a WAL-mode database that has no ``-wal``, so no companion file appears); nothing is
+written, migrated or checkpointed, and no journal mode is set. It reads a vault of any version (a vault below the
+version floor too): only ``learnloop.toml`` and the migration table are read, and nothing is loaded through the app.
 
-    uv run python scripts/vault_report.py ~/learnloop-vaults/linear_algebra ~/learnloop-retired/law [--json]
+The owner runs it by hand on the live and the retired vaults (agents never open them):
+
+    uv run python scripts/vault_report.py ~/learnloop-vaults/linear_algebra ~/learnloop-vaults/probability \\
+        ~/learnloop-vaults/arxiv_v2 ~/learnloop-retired/law [--json]
+
+and sends back the whole output (or, with ``--json``, the file): per vault, the tag, and the lines under "tagged
+switches set" and "other kill switches set". A vault with no line under either section sets none.
+One tag's switch is outside ``learnloop.toml``: the phone host's ``phone_probes`` in ``mobile.toml``; the report
+ends by naming it, and it is not read.
 
 Exit 0 when every vault was read; 1 when a directory has no readable ``learnloop.toml``.
 """
@@ -29,6 +43,12 @@ import tomllib
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any
+
+try:
+    from learnloop.kill_switches import OUTSIDE_LEARNLOOP_TOML, TAGGED_SWITCHES, UNTAGGED_SWITCHES
+except ModuleNotFoundError:  # run with a bare interpreter from a checkout: the package is under src/
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+    from learnloop.kill_switches import OUTSIDE_LEARNLOOP_TOML, TAGGED_SWITCHES, UNTAGGED_SWITCHES
 
 TAG = re.compile(r"^mvp-\d+\.\d+$")
 JOURNAL_SUFFIX = ".claim-fixes-activation"
@@ -55,44 +75,6 @@ C4_KEYS = (
     "ai.routing.proof_check",
 )
 
-#: D7: kill switches for tags at or below mvp-0.55, with the tag each serves past (the map's 27 named switches,
-#: tagged mvp-0.43 or below, then mvp-0.43 to mvp-0.55 from ``algorithm_versions.py``). Which go is the owner's call.
-D7_SWITCHES: dict[str, str] = {
-    **dict.fromkeys((
-        "placement.enabled", "recurrence.enabled", "stuck_prompt.enabled", "plan.enabled",
-        "router.probe_tie_admission", "learner_text_gaps.sooner_check_enabled", "proof_check.enabled",
-        "source_service.source_first_needs", "voi_stopping.enabled", "diagnosis.probe_lane_reads_diagnosis",
-        "router.enabled", "router.restraint", "required_method.enabled", "eligibility.enabled", "intent.enabled",
-        "workbench.field_signals_enabled", "reading_paths.plan_uses_path", "mastery.claim_fixes_enabled",
-        "replay.ledger_bounded", "ask.cold_help_converts", "practice.attempt_keeps_content_state",
-        "practice.reschedule_cold_after_assist", "followups.enabled", "curriculum.plan_uses_path",
-        "teacher.enabled", "hints.fold_follows_attach", "diagnosis.split_enabled",
-    ), "<= mvp-0.43"),
-    "router.lesson_suggestions.enabled": "mvp-0.43",
-    "data_capture.serving": "mvp-0.44",
-    "followup.generate_and_serve": "mvp-0.45",
-    "scheduler.surprise.remove_interval_factor": "mvp-0.46",
-    "router_objective.available_at_reads": "mvp-0.46",
-    "router_objective.self_report_not_validated": "mvp-0.46",
-    "router_objective.enabled": "mvp-0.47",
-    "router_objective.stop_coin": "mvp-0.48",
-    "router_objective.check_rate": "mvp-0.48",
-    "router_objective.pick_open_share": "mvp-0.48",
-    "router_objective.fitted_models": "mvp-0.48",
-    "router_objective.learned_tail": "mvp-0.49",
-    **dict.fromkeys((
-        "router_objective.combiner_trace_outcomes", "router_objective.merged_sessions",
-        "router_objective.consistent_review_draw", "router_objective.monotone_combiner",
-        "router_objective.ad_predictive_link", "router_objective.carried_in_prefetch",
-        "router_objective.scope_extension",
-    ), "mvp-0.50"),
-    "teacher.probes": "mvp-0.51",
-    "adaptive_difficulty.lesson_opportunities": "mvp-0.52",
-    "router.lesson_suggestions.in_objective": "mvp-0.53",
-    "router_objective.failure_share_to_other_policy": "mvp-0.55",
-}
-
-
 def _paths(table: Mapping[str, Any], prefix: str = "") -> Iterator[str]:
     """Every dotted key path the TOML sets (tables included), never a value."""
 
@@ -101,6 +83,42 @@ def _paths(table: Mapping[str, Any], prefix: str = "") -> Iterator[str]:
         yield path
         if isinstance(value, Mapping):
             yield from _paths(value, f"{path}.")
+
+
+def _lookup(data: Mapping[str, Any], path: str) -> tuple[bool, Any]:
+    """Whether the dotted ``path`` is a key the TOML sets, and what it holds."""
+
+    node: Any = data
+    for part in path.split("."):
+        if not isinstance(node, Mapping) or part not in node:
+            return False, None
+        node = node[part]
+    return True, node
+
+
+def _shown(value: Any) -> bool | int | float | str:
+    """A switch's value as the report prints it: a scalar as is, a container only by its kind."""
+
+    if isinstance(value, (bool, int, float, str)):
+        return value
+    return "<table>" if isinstance(value, Mapping) else "<list>" if isinstance(value, list) else "<other>"
+
+
+def _differs(value: Any, default: Any) -> bool:
+    # ``True == 1`` in Python; a TOML integer where the schema has a boolean is a change, not the default.
+    return value != default or isinstance(value, bool) != isinstance(default, bool)
+
+
+def _switches_set(data: Mapping[str, Any], table: tuple[Any, ...]) -> list[dict[str, Any]]:
+    """Every switch of ``table`` whose key the TOML sets, with the value, the default and whether they differ."""
+
+    found: list[dict[str, Any]] = []
+    for switch in table:
+        present, value = _lookup(data, switch.path)
+        if present:
+            found.append({"path": switch.path, "tag": switch.tag, "value": _shown(value), "default": switch.default,
+                          "differs": _differs(value, switch.default)})
+    return found
 
 
 def _matches(pattern: str, path: str) -> bool:
@@ -204,8 +222,15 @@ def report(root: Path) -> dict[str, Any]:
         "activation_journal": _journal(database),
         "c3_keys": [path for path in paths if any(_matches(pattern, path) for pattern in C3_KEYS)],
         "c4_keys": [path for path in paths if path in C4_KEYS] + _codex_keys(data),
-        "d7_switches": [f"{path} ({D7_SWITCHES[path]})" for path in paths if path in D7_SWITCHES],
+        "tagged_switches": _switches_set(data, TAGGED_SWITCHES),
+        "untagged_switches": _switches_set(data, UNTAGGED_SWITCHES),
     }
+
+
+def _switch_line(switch: Mapping[str, Any]) -> str:
+    tag = f" [{switch['tag']}]" if switch["tag"] else ""
+    state = "DIFFERS from" if switch["differs"] else "equals"
+    return f"    {switch['path']}{tag} = {json.dumps(switch['value'])}  ({state} the default {json.dumps(switch['default'])})"
 
 
 def _text(entry: Mapping[str, Any]) -> str:
@@ -219,8 +244,11 @@ def _text(entry: Mapping[str, Any]) -> str:
         "  activation journal: " + (f"yes ({journal['predecessor']} -> {journal['target']})"
                                     if journal["present"] else "no"),
     ]
-    for label, key in (("C3 keys set", "c3_keys"), ("C4 keys set", "c4_keys"), ("D7 switches set", "d7_switches")):
+    for label, key in (("C3 keys set", "c3_keys"), ("C4 keys set", "c4_keys")):
         lines.append(f"  {label}: " + (", ".join(entry[key]) if entry[key] else "none"))
+    for label, key in (("tagged switches set", "tagged_switches"), ("other kill switches set", "untagged_switches")):
+        lines.append(f"  {label}:" + ("" if entry[key] else " none"))
+        lines.extend(_switch_line(switch) for switch in entry[key])
     return "\n".join(lines)
 
 
@@ -230,7 +258,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="print one JSON object per vault, in a list")
     args = parser.parse_args(argv)
     entries = [report(path.expanduser()) for path in args.vaults]
-    print(json.dumps(entries, indent=2) if args.json else "\n\n".join(_text(entry) for entry in entries))
+    if args.json:
+        print(json.dumps(entries, indent=2))
+    else:
+        print("\n\n".join(_text(entry) for entry in entries))
+        print("\nNot read (outside learnloop.toml): " + "; ".join(OUTSIDE_LEARNLOOP_TOML))
     return 1 if any("error" in entry for entry in entries) else 0
 
 
