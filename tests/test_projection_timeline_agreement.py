@@ -24,6 +24,7 @@ from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.held_grades import contract_unrecorded_attempts
 from learnloop.learner.facet_evidence_timeline import facet_evidence_timeline
+from learnloop.learner.facet_state_reader import facet_belief_corrections_on
 from learnloop.substrate.canonical_projection import p0_effective_evidence_mass
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.substrate.state_sync import sync_vault_state
@@ -32,7 +33,7 @@ from learnloop.vault.writer import upsert_practice_item
 from learnloop.vault.yaml_io import write_yaml
 
 from tests.held_grade_evidence_helpers import T
-from tests.helpers import NOW, add_followup_item, create_basic_vault, write_facets
+from tests.helpers import NOW, add_followup_item, append_config_toml, create_basic_vault, write_facets
 from tests.km2_write_path_helpers import _attempt as km2_attempt, build_shared_facet_vault
 from tests.regrade_contract_replay_helpers import _regrade, _self_graded_apply
 from tests.regrade_contract_successor_helpers import as_graded_before_contracts, as_regraded_before_contracts
@@ -161,6 +162,21 @@ def _as_regraded_unchanged_before_contracts(repository, attempt_id, minutes):
         connection.commit()
 
 
+#: The facet-belief kill switch off: the predecessor's derivation. The timeline agrees with the projection either
+#: way, since the projection holds, reads the current epoch, consumes measurement corrections and resolves aliases
+#: at every tag.
+SWITCH_OFF = "[facet_diagnostic]\ncanonical_belief_fixes = false"
+SWITCH = pytest.mark.parametrize("switch_on", [True, False], ids=["switch_on", "switch_off"])
+
+
+def _with_switch(root, switch_on):
+    if not switch_on:
+        append_config_toml(root, SWITCH_OFF)
+    vault = load_vault(root)
+    assert facet_belief_corrections_on(vault.config) is switch_on
+    return vault
+
+
 def _assert_the_itemization_sums_to_the_banked_credit(vault, repository):
     banked: dict[str, float] = {}
     for cell in repository.facet_capability_evidence_all():
@@ -173,13 +189,14 @@ def _assert_the_itemization_sums_to_the_banked_credit(vault, repository):
         assert sum(latest_by_attempt.values()) == pytest.approx(banked[facet], abs=1e-12), facet
 
 
-def test_a_held_regrade_that_kept_its_marks_takes_its_credit_off_the_curve(tmp_path):
+@SWITCH
+def test_a_held_regrade_that_kept_its_marks_takes_its_credit_off_the_curve(tmp_path, switch_on):
     """The item's criteria name no targets (its contract compiled them), the attempt's first grade cites the
     contract, and a regrade written before regrade contracts kept every mark: replay holds the attempt, so the
     projection banks nothing for it, and the curve has to step down to the same total at the regrade."""
 
     paths = create_basic_vault(tmp_path / "vault")
-    vault = load_vault(paths.root)
+    vault = _with_switch(paths.root, switch_on)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
     assert not any(criterion.targets for criterion in vault.rubric_for_item(vault.practice_items[ITEMS[0]]).criteria)
@@ -199,13 +216,15 @@ def test_a_held_regrade_that_kept_its_marks_takes_its_credit_off_the_curve(tmp_p
     assert held_points[-1].delta == pytest.approx(-held_points[0].delta, abs=1e-12)
 
 
-def test_a_regrade_under_a_retargeted_item_takes_the_old_facets_credit_off_the_curve(tmp_path):
+@SWITCH
+def test_a_regrade_under_a_retargeted_item_takes_the_old_facets_credit_off_the_curve(tmp_path, switch_on):
     """Between an attempt's grade and its regrade the item's one criterion on ``recall`` is retargeted to another
     facet: the regrade's rows cite a snapshot of the item as it is now, so the current epoch no longer names
     ``recall``. The projection reads the current epoch alone, so ``recall`` banks nothing for the attempt; its
     curve has to step down to that."""
 
     paths, vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
+    vault = _with_switch(paths.root, switch_on)
     item = vault.practice_items[ITEM]
     full = {criterion.id: criterion.points for criterion in vault.rubric_for_item(item).criteria}
     _self_graded_apply(vault, repository, ITEM, full, attempt_id="att_retargeted", when=T)
@@ -232,13 +251,14 @@ def test_a_regrade_under_a_retargeted_item_takes_the_old_facets_credit_off_the_c
     assert points[-1].attempt_credit == 0.0
 
 
-def test_a_measurement_correction_that_reinterprets_history_reaches_the_curve(tmp_path):
+@SWITCH
+def test_a_measurement_correction_that_reinterprets_history_reaches_the_curve(tmp_path, switch_on):
     """An attempted item is corrected for this vault's projection version with historical reinterpretation: its
     one criterion stops measuring the shared facet. The projection reads the attempt's evidence under the corrected
     contract and banks nothing on the facet; the curve has to read the same contract."""
 
     paths = build_shared_facet_vault(tmp_path / "vault")
-    vault = load_vault(paths.root)
+    vault = _with_switch(paths.root, switch_on)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
     km2_attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, FrozenClock(NOW))
@@ -271,7 +291,8 @@ def test_a_measurement_correction_that_reinterprets_history_reaches_the_curve(tm
     _assert_the_itemization_sums_to_the_banked_credit(vault, repository)
 
 
-def test_a_trace_observation_recorded_under_a_facet_alias_licenses_the_supporting_credit_in_both(tmp_path):
+@SWITCH
+def test_a_trace_observation_recorded_under_a_facet_alias_licenses_the_supporting_credit_in_both(tmp_path, switch_on):
     """A supporting target's facet was observed in the trace under an id that is now an alias of it (the facet
     was renamed after the observation): the projection resolves the stored id through the aliases before matching
     it, so the supporting target is exercised and banks embedded credit; the curve has to read it the same way."""
@@ -302,7 +323,7 @@ def test_a_trace_observation_recorded_under_a_facet_alias_licenses_the_supportin
     })
     with (paths.root / "learnloop.toml").open("a", encoding="utf-8") as config:
         config.write("\n[evidence.certification]\nmax_embedded_credit_share = 1.0\n")
-    vault = load_vault(paths.root)
+    vault = _with_switch(paths.root, switch_on)
     assert vault.canonical_facet_id("f_algebra_before_rename") == "f_algebra"
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
