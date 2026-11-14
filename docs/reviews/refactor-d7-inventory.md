@@ -258,3 +258,10 @@ Notes:
 
   The real dead code is in `ad_predictive_link` (≈ 30) and `held_ad_link` (≈ 33). Removing all 19 switches frees ≈ 170 lines of off bodies and ≈ 160 lines of predicates in `RS`.
 - **Two switches regroup stored history.** `scope_extension` and `carried_in_prefetch` are read at the learned tail's fit time over all stored traces with the current config. A flip regroups the history. Keeping them `True` as constants changes nothing.
+
+### 1.7 The floor's own switch, and the head's
+
+| config path | default | tag | off-branch does | off code | readers | identity | persisted | tests | VR | class |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `figures.prefetch.pressed_waits` | true | mvp-0.58, the floor tag itself | prefetch decisions use `prefetch_decision_v1`: the wait W and the blocked minutes count every call alike | ≈ 13 in 2 (`figures/prefetch_ledger.py:367-375`, `:287-292`, `figures/prefetch_model.py:81`); v1 is also the default of `waits`, `blocked_basis`, `blocked_minutes` and `Model.version` | `figures/prefetch_ledger.py:72` (`pressed_waits_on`, tag half kept by D6 as G38; 2 callers) | none pinned; the decision row's `posterior_digest` hashes the model version (audit only) | decision rows only | ≈ 5 | **no** | **A**, after G38's tag half (the figures lane). Its golden `tests/fixtures/rw5c_switch_off_golden.json` holds `prefetch_decision_v1` only because its vault is retagged to mvp-0.6 (`tests/rw5c_golden_source.py:50`), so it moves when G38 goes, whatever happens to the switch |
+| `facet_diagnostic.canonical_belief_fixes` | true | **mvp-0.59, above the floor** | mvp-0.58's facet belief and empty uncertainty reads | not counted (kept) | `learner/facet_state_reader.py:58` and two more predicates; the 7 gates that vary at the floor (D6 §1(a)) | recorded by `projection_switches` (`RS:483-487`) and per attempt (`learner/facet_state_reader.py:68`), both compared by doctor (`ops/doctor.py:1603-1677`); in `ADDED_SINCE_BASE` | **yes: replay reads it** (`substrate/canonical_projection.py:660`) | ≈ 20 | **no** | **D** |
