@@ -115,6 +115,9 @@ from learnloop.learner.facet_state_reader import (
 from learnloop.content.proposals.proposals import maybe_promote_self_tagged_fatal_error
 from learnloop.learner.recall_coverage import (
     CoverageResult,
+    ErrorImpactResult,
+    FamiliarityResult,
+    ReliabilityResult,
     build_facet_recall_updates_from_prior,
     build_quality_state_update_from_prior,
     derive_facet_outcomes,
@@ -127,7 +130,7 @@ from learnloop.learner.recall_coverage import (
     scale_coverage_for_graded_criteria,
     target_criterion_facet_weights,
 )
-from learnloop.attempts.surprise import compute_surprise
+from learnloop.attempts.surprise import SurpriseResult, compute_surprise
 from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.models import LearningObject, LoadedVault, PracticeItem, Rubric
 
@@ -4633,46 +4636,219 @@ def grade_scope(inputs: GradeInputs) -> GradeScope:
     )
 
 
+@dataclass(frozen=True)
+class GradeEvidence:
+    """The grade as evidence about the learner (:func:`_grade_evidence`): the attributions it keeps, with their
+    event-local severities, the prediction it is scored against, its facet outcomes, its weight (reliability,
+    familiarity, the learning object's coverage, error sharpening) and the mastery observation they make."""
+
+    grade_attributions: list[GradeAttribution]
+    repair_suggestions: list[dict[str, Any]]
+    attribution_audit_events: list[dict[str, Any]]
+    resolved_attributions: list[GradeAttribution]
+    severity_traces: dict[str, dict[str, object]]
+    primary_error_type: str | None
+    max_event_severity: float
+    item_a: float
+    item_b: float
+    expected_correctness: float
+    prediction_trace: dict[str, Any]
+    facet_outcomes: dict[str, float]
+    uncertainty_facet_weights: dict[str, dict[str, float]] | None
+    uncertainty_facet_outcomes: dict[str, float]
+    reliability: ReliabilityResult
+    familiarity: FamiliarityResult
+    lo_coverage: float
+    lo_coverage_trace: dict[str, Any]
+    prior_bad_item_suspicion: float
+    facet_recall_updates: list[dict[str, Any]]
+    breadth_fraction: float
+    breadth_trace: dict[str, Any]
+    error_impact: ErrorImpactResult
+    observation: MasteryObservation
+
+
+@dataclass(frozen=True)
+class BeliefUpdate:
+    """What the observation does to the learning object's belief (:func:`_belief_update`)."""
+
+    posterior_mastery: MasteryState
+    mastery_trace: MasteryObservationTrace | None
+    mastery_variance_floor: float | None
+    next_item_parameters: ItemParameterState | None
+    surprise: SurpriseResult
+
+
+@dataclass(frozen=True)
+class ReviewUpdate:
+    """The item's FSRS review, applied or skipped (:func:`_fsrs_review`)."""
+
+    rating: Rating
+    next_memory: MemoryState | None
+    due_at: str | None
+    weights_fitted: bool
+    summary: dict[str, Any] | None
+
+
 def grade_application(inputs: GradeInputs, scope: GradeScope, reads: GradeReads) -> AttemptApplication:
     """Stage two of the core: every row the grade writes and the result it returns, from plain values (no
-    repository, clock or vault)."""
+    repository, clock or vault).
+
+    In order: the attributions the grade keeps and the evidence they and the scores make, the belief update and
+    surprise, the FSRS review, then the rows. Each part reads only what the parts before it computed."""
 
     item, learning_object, rubric = inputs.item, inputs.learning_object, inputs.rubric
     draft, grade, attempt_id = inputs.draft, inputs.grade, inputs.attempt_id
-    config, now_iso, observed_at, subject = inputs.config, inputs.now_iso, inputs.observed_at, inputs.subject
-    grading_source, grader_identity = inputs.grading_source, inputs.grader_identity
-    agent_run_id, fallback_reason = inputs.agent_run_id, inputs.fallback_reason
-    grade_contract_unrecorded = inputs.grade_contract_unrecorded
-    correctness, unassessed, criterion_points = scope.correctness, scope.unassessed, scope.criterion_points
-    nothing_assessed, held, coverage = scope.nothing_assessed, scope.held, scope.coverage
+    config, now_iso = inputs.config, inputs.now_iso
+    correctness, unassessed, coverage, held = scope.correctness, scope.unassessed, scope.coverage, scope.held
+    prior_state = reads.prior_state
+    evidence = _grade_evidence(inputs, scope, reads)
+    belief = _belief_update(inputs, scope, prior_state, evidence)
+    review = _fsrs_review(inputs, scope, reads, belief.surprise)
+    attempt_record = _attempt_record(inputs, scope, reads, evidence.primary_error_type)
+    error_event_ids = list(reads.error_event_ids)
+    error_events = _error_event_rows(inputs, evidence, error_event_ids)
+    facet_evidence_rows: Iterable[Any] = grade.evidence_rows
+    if not grade.evidence_rows:
+        facet_evidence_rows = reads.grading_evidence
+    if unassessed:
+        facet_evidence_rows = [
+            row
+            for row in facet_evidence_rows
+            if (row.get("criterion_id") if isinstance(row, Mapping) else getattr(row, "criterion_id", None))
+            not in unassessed
+        ]
+    facet_uncertainty_updates, facet_uncertainty_trace = build_facet_uncertainty_updates(
+        config,
+        error_types=inputs.error_types,
+        learning_object=learning_object,
+        item=item,
+        rubric=rubric,
+        learning_object_id=learning_object.id,
+        attempt_id=attempt_id,
+        facet_outcomes=evidence.uncertainty_facet_outcomes,
+        criterion_facet_weights=evidence.uncertainty_facet_weights,
+        normalized_facet_weights=coverage.normalized_facet_weights,
+        evidence_rows=facet_evidence_rows,
+        error_attributions=evidence.resolved_attributions,
+        prior_uncertainties=prior_state.facet_uncertainty,
+        prior_facet_recall=prior_state.aggregate_facet_recall,
+        observed_error_type=evidence.primary_error_type,
+        algorithm_version=config.algorithms.algorithm_version,
+        now_iso=now_iso,
+    )
+    quality_state = _quality_update(inputs, scope, prior_state, evidence)
+    ability_transition = estimate_ability_transition(
+        item,
+        correctness=correctness,
+        attempt_type=draft.attempt_type,
+        target_facets=list(coverage.covered_facets),
+        error_event_written=bool(error_events),
+    )
+    ability_transition_event = {
+        "attempt_id": attempt_id,
+        "learning_object_id": learning_object.id,
+        "practice_item_id": item.id,
+        "transition_type": ability_transition["transition_type"],
+        "expected_skill_gain": ability_transition["expected_skill_gain"],
+        "target_facets": ability_transition["target_facets"],
+        "reason": ability_transition["reason"],
+        "applied_to_belief_counts": ability_transition["applied_to_belief_counts"],
+        "applied_to_mastery": ability_transition["applied_to_mastery"],
+        "applied_to_facet_recall": ability_transition["applied_to_facet_recall"],
+        "process_noise": None,
+        "algorithm_version": config.algorithms.algorithm_version,
+        "created_at": now_iso,
+    }
+    debug_payload = _debug_payload(
+        inputs, scope, evidence, belief, review,
+        quality_state=quality_state,
+        ability_transition=ability_transition,
+        facet_uncertainty_updates=facet_uncertainty_updates,
+        facet_uncertainty_trace=facet_uncertainty_trace,
+    )
+    next_memory, due_at, surprise = review.next_memory, review.due_at, belief.surprise
+    practice_state = PracticeItemState(
+        practice_item_id=item.id,
+        difficulty=next_memory.difficulty if next_memory is not None else None,
+        stability=next_memory.stability if next_memory is not None else None,
+        retrievability=next_memory.retrievability if next_memory is not None else None,
+        due_at=due_at,
+        # A diagnostic probe is a single-use surface: it exists to carry exactly
+        # one administration, and re-serving it would conflate memorization of
+        # the question with understanding. The FSRS skip above already leaves it
+        # unscheduled (due_at stays as it was); this closes the pool door too.
+        # Living in the shared compute path, the flip replays identically under
+        # `rebuild-derived-state`.
+        active=item.practice_mode != "diagnostic_probe",
+        content_hash=practice_item_hash(item),
+        last_attempt_at=now_iso,
+        updated_at=now_iso,
+    )
+    surprise_record = surprise.as_record(attempt_id, config.algorithms.algorithm_version, now_iso)
+    mastery_display = display_mastery(belief.posterior_mastery)
+    result = AttemptResult(
+        attempt_id=attempt_id,
+        practice_item_id=item.id,
+        learning_object_id=learning_object.id,
+        rubric_score=grade.rubric_score,
+        correctness=correctness,
+        grader_confidence=grade.grader_confidence,
+        manual_review_reason=grade.manual_review_reason,
+        fsrs_rating=review.rating.name.lower(),
+        due_at=due_at,
+        mastery_mean=mastery_display.mastery_mean,
+        mastery_variance=mastery_display.mastery_variance,
+        surprise_direction=surprise.surprise_direction,
+        predictive_surprise=surprise.predictive_surprise,
+        bayesian_surprise=surprise.bayesian_surprise,
+        error_event_ids=error_event_ids,
+        grading_source=inputs.grading_source,
+        fallback_reason=inputs.fallback_reason,
+        agent_run_id=inputs.agent_run_id,
+        feedback_md=grade.feedback_md,
+        repair_suggestions=list(evidence.repair_suggestions),
+        fatal_errors=list(grade.fatal_errors),
+        mastery_trace=belief.mastery_trace,
+        debug_payload=debug_payload,
+        exercised_facets=list(getattr(grade, "exercised_facets", None) or []),
+        clarification=getattr(grade, "clarification", None),
+        discrimination_profile_match=getattr(grade, "discrimination_profile_match", None),
+        error_hunt=getattr(grade, "error_hunt", None),
+    )
+    return AttemptApplication(
+        attempt_record=attempt_record,
+        evidence_rows=grade.evidence_rows,
+        error_events=error_events,
+        surprise_record=surprise_record,
+        practice_item_state=practice_state,
+        mastery_state=belief.posterior_mastery,
+        facet_recall_states=evidence.facet_recall_updates,
+        facet_uncertainty_states=facet_uncertainty_updates,
+        quality_state=quality_state,
+        ability_transition=ability_transition_event,
+        attempt_debug_payload=debug_payload,
+        result=result,
+        item_parameter_state=belief.next_item_parameters,
+        grade_held=held,
+        rubric=rubric,
+        grade_contract_unrecorded=inputs.grade_contract_unrecorded,
+        fsrs_review=review.summary,
+    )
+
+
+def _grade_evidence(inputs: GradeInputs, scope: GradeScope, reads: GradeReads) -> GradeEvidence:
+    """The attributions the grade keeps, scored against the prior's prediction, and the observation they and the
+    scores make, weighted by reliability, familiarity, the learning object's coverage and error sharpening."""
+
+    item, learning_object, rubric = inputs.item, inputs.learning_object, inputs.rubric
+    draft, grade, attempt_id = inputs.draft, inputs.grade, inputs.attempt_id
+    config, now_iso, observed_at = inputs.config, inputs.now_iso, inputs.observed_at
+    correctness, criterion_points, coverage = scope.correctness, scope.criterion_points, scope.coverage
     pfc_facet_weights = scope.pfc_facet_weights
     prior_state = reads.prior_state
     prior_mastery = prior_state.mastery
-    grade_attributions = _canonicalized_grade_attributions(inputs.canonical_facet_id, grade.error_attributions)
-    (
-        grade_attributions,
-        repair_suggestions,
-        write_barrier_events,
-    ) = enforce_passed_target_firewall(
-        item,
-        rubric,
-        criterion_points=criterion_points,
-        error_attributions=grade_attributions,
-        repair_suggestions=grade.repair_suggestions,
-        canonical_facet_id=inputs.canonical_facet_id,
-    )
-    attribution_audit_events = [
-        *grade.attribution_audit_events,
-        *write_barrier_events,
-    ]
-    if held:
-        # held-grade-evidence: a held grade asserts no learner error. Its
-        # attributions stay on the blind record (the grader's reading, shown
-        # with the grade) but write no error event and no error type: an
-        # active error would steer the scheduler, the probes and the
-        # severity of later answers on a grade nothing validated.
-        grade_attributions = []
-    primary_error_type = _primary_error_type(grade_attributions)
+    grade_attributions, repair_suggestions, attribution_audit_events = _kept_attributions(inputs, scope)
     item_a, item_b = resolve_item_irt_params(
         item, learning_object, config.mastery, prior_state.item_parameter_state
     )
@@ -4758,28 +4934,12 @@ def grade_application(inputs: GradeInputs, scope: GradeScope, reads: GradeReads)
     )
     prior_quality = prior_state.practice_item_quality_state
     prior_bad_item_suspicion = prior_quality.bad_item_suspicion if prior_quality is not None else 0.0
-    severity_traces: dict[str, dict[str, object]] = {}
-    resolved_attributions: list[GradeAttribution] = []
-    for attribution in grade_attributions:
-        severity, trace = event_local_severity_from_attempts(
-            prior_state.recent_learning_object_attempts,
-            item,
-            error_types=inputs.error_types,
-            config=config,
-            error_type=attribution.error_type,
-            attempt_type=draft.attempt_type,
-            hints_used=draft.hints_used,
-            correctness=correctness,
-            expected_correctness=expected_correctness,
-            effective_coverage=coverage.effective_coverage,
-            covered_facets=coverage.covered_facets,
-            facet_outcomes=facet_outcomes,
-            prior_bad_item_suspicion=prior_bad_item_suspicion,
-            base_severity=attribution.severity,
-            exclude_attempt_id=attempt_id,
-        )
-        severity_traces[attribution.error_type] = trace
-        resolved_attributions.append(replace(attribution, severity=severity))
+    resolved_attributions, severity_traces = _event_severities(
+        inputs, scope, prior_state, grade_attributions,
+        expected_correctness=expected_correctness,
+        facet_outcomes=facet_outcomes,
+        prior_bad_item_suspicion=prior_bad_item_suspicion,
+    )
     primary_error_type = _primary_error_type(resolved_attributions)
     max_event_severity = max((attribution.severity for attribution in resolved_attributions), default=0.0)
     facet_recall_updates = build_facet_recall_updates_from_prior(
@@ -4841,6 +5001,121 @@ def grade_application(inputs: GradeInputs, scope: GradeScope, reads: GradeReads)
         soft_score_override=None,
         interpretation_variance=interpretation_variance,
     )
+    return GradeEvidence(
+        grade_attributions=grade_attributions,
+        repair_suggestions=repair_suggestions,
+        attribution_audit_events=attribution_audit_events,
+        resolved_attributions=resolved_attributions,
+        severity_traces=severity_traces,
+        primary_error_type=primary_error_type,
+        max_event_severity=max_event_severity,
+        item_a=item_a,
+        item_b=item_b,
+        expected_correctness=expected_correctness,
+        prediction_trace=prediction_trace,
+        facet_outcomes=facet_outcomes,
+        uncertainty_facet_weights=uncertainty_facet_weights,
+        uncertainty_facet_outcomes=uncertainty_facet_outcomes,
+        reliability=reliability,
+        familiarity=familiarity,
+        lo_coverage=lo_coverage,
+        lo_coverage_trace=lo_coverage_trace,
+        prior_bad_item_suspicion=prior_bad_item_suspicion,
+        facet_recall_updates=facet_recall_updates,
+        breadth_fraction=breadth_fraction,
+        breadth_trace=breadth_trace,
+        error_impact=error_impact,
+        observation=mastery_observation,
+    )
+
+
+def _event_severities(
+    inputs: GradeInputs,
+    scope: GradeScope,
+    prior_state: AttemptPriorState,
+    grade_attributions: list[GradeAttribution],
+    *,
+    expected_correctness: float,
+    facet_outcomes: dict[str, float],
+    prior_bad_item_suspicion: float,
+) -> tuple[list[GradeAttribution], dict[str, dict[str, object]]]:
+    """Each kept attribution at its event-local severity (the error's taxonomy default raised by recent repeats,
+    surprise and coverage), with each severity's components by error type."""
+
+    item, draft, attempt_id, config = inputs.item, inputs.draft, inputs.attempt_id, inputs.config
+    correctness, coverage = scope.correctness, scope.coverage
+    severity_traces: dict[str, dict[str, object]] = {}
+    resolved_attributions: list[GradeAttribution] = []
+    for attribution in grade_attributions:
+        severity, trace = event_local_severity_from_attempts(
+            prior_state.recent_learning_object_attempts,
+            item,
+            error_types=inputs.error_types,
+            config=config,
+            error_type=attribution.error_type,
+            attempt_type=draft.attempt_type,
+            hints_used=draft.hints_used,
+            correctness=correctness,
+            expected_correctness=expected_correctness,
+            effective_coverage=coverage.effective_coverage,
+            covered_facets=coverage.covered_facets,
+            facet_outcomes=facet_outcomes,
+            prior_bad_item_suspicion=prior_bad_item_suspicion,
+            base_severity=attribution.severity,
+            exclude_attempt_id=attempt_id,
+        )
+        severity_traces[attribution.error_type] = trace
+        resolved_attributions.append(replace(attribution, severity=severity))
+    return resolved_attributions, severity_traces
+
+
+def _kept_attributions(
+    inputs: GradeInputs, scope: GradeScope
+) -> tuple[list[GradeAttribution], list[dict[str, Any]], list[dict[str, Any]]]:
+    """The grade's attributions on canonical facet ids with passed targets stripped (none for a held grade), its
+    repair suggestions stripped the same way, and the audit events the stripping wrote."""
+
+    item, rubric, grade = inputs.item, inputs.rubric, inputs.grade
+    criterion_points, held = scope.criterion_points, scope.held
+    grade_attributions = _canonicalized_grade_attributions(inputs.canonical_facet_id, grade.error_attributions)
+    (
+        grade_attributions,
+        repair_suggestions,
+        write_barrier_events,
+    ) = enforce_passed_target_firewall(
+        item,
+        rubric,
+        criterion_points=criterion_points,
+        error_attributions=grade_attributions,
+        repair_suggestions=grade.repair_suggestions,
+        canonical_facet_id=inputs.canonical_facet_id,
+    )
+    attribution_audit_events = [
+        *grade.attribution_audit_events,
+        *write_barrier_events,
+    ]
+    if held:
+        # held-grade-evidence: a held grade asserts no learner error. Its
+        # attributions stay on the blind record (the grader's reading, shown
+        # with the grade) but write no error event and no error type: an
+        # active error would steer the scheduler, the probes and the
+        # severity of later answers on a grade nothing validated.
+        grade_attributions = []
+    return grade_attributions, repair_suggestions, attribution_audit_events
+
+
+def _belief_update(
+    inputs: GradeInputs, scope: GradeScope, prior_state: AttemptPriorState, evidence: GradeEvidence
+) -> BeliefUpdate:
+    """The learning object's mastery after the observation (the EKF and the breadth floor), the item's fitted
+    difficulty, and the surprise the grade carries."""
+
+    item, learning_object, draft = inputs.item, inputs.learning_object, inputs.draft
+    config, now_iso = inputs.config, inputs.now_iso
+    nothing_assessed, held = scope.nothing_assessed, scope.held
+    prior_mastery = prior_state.mastery
+    mastery_observation, item_a, item_b = evidence.observation, evidence.item_a, evidence.item_b
+    breadth_fraction, primary_error_type = evidence.breadth_fraction, evidence.primary_error_type
     # IRT (a, b) resolved once from static authored/LLM fields and shared by the
     # mastery EKF and the probability-space surprise (spec §4.3 / §8).
     mastery_trace: MasteryObservationTrace | None
@@ -4909,7 +5184,21 @@ def grade_application(inputs: GradeInputs, scope: GradeScope, reads: GradeReads)
         # residual's inputs so the old value stays computable. Direction, the
         # surprises and every other consumer are untouched.
         surprise = replace(surprise, fsrs_interval_factor=1.0)
+    return BeliefUpdate(
+        posterior_mastery=posterior_mastery,
+        mastery_trace=mastery_trace,
+        mastery_variance_floor=mastery_variance_floor,
+        next_item_parameters=next_item_parameters,
+        surprise=surprise,
+    )
 
+
+def _fsrs_review(inputs: GradeInputs, scope: GradeScope, reads: GradeReads, surprise: SurpriseResult) -> ReviewUpdate:
+    """The item's FSRS review: applied, with the surprise's interval factor, or skipped with the state kept."""
+
+    item, rubric, draft, grade = inputs.item, inputs.rubric, inputs.draft, inputs.grade
+    observed_at, held = inputs.observed_at, scope.held
+    prior_state = reads.prior_state
     previous_state = prior_state.practice_item_state
     fsrs_rating = fsrs_rating_for_attempt(item, grade.rubric_score, rubric.max_points, draft.hints_used)
     fsrs_weights = reads.fsrs_weights
@@ -4971,8 +5260,19 @@ def grade_application(inputs: GradeInputs, scope: GradeScope, reads: GradeReads)
         interval_days=interval_days, interval_factor=surprise.fsrs_interval_factor, due_at=due_at,
         weights_fitted=fsrs_weights_fitted, skipped=review_skipped,
     )
+    return ReviewUpdate(
+        rating=fsrs_rating, next_memory=next_memory, due_at=due_at, weights_fitted=fsrs_weights_fitted,
+        summary=fsrs_review,
+    )
 
-    attempt_record = {
+
+def _attempt_record(inputs: GradeInputs, scope: GradeScope, reads: GradeReads, primary_error_type: str | None) -> dict:
+    """The attempt's ledger row."""
+
+    item, learning_object, draft, grade = inputs.item, inputs.learning_object, inputs.draft, inputs.grade
+    attempt_id, now_iso, config, subject = inputs.attempt_id, inputs.now_iso, inputs.config, inputs.subject
+    correctness = scope.correctness
+    return {
         "id": attempt_id,
         "practice_item_id": item.id,
         "learning_object_id": learning_object.id,
@@ -5010,7 +5310,13 @@ def grade_application(inputs: GradeInputs, scope: GradeScope, reads: GradeReads)
         **_ad_logged_fields(config, draft),
         "received_at": draft.received_at,
     }
-    error_event_ids = list(reads.error_event_ids)
+
+
+def _error_event_rows(inputs: GradeInputs, evidence: GradeEvidence, error_event_ids: list[str]) -> list[dict[str, Any]]:
+    """One active error event per kept attribution, at its event-local severity."""
+
+    attempt_id, learning_object, now_iso = inputs.attempt_id, inputs.learning_object, inputs.now_iso
+    grade_attributions, resolved_attributions = evidence.grade_attributions, evidence.resolved_attributions
     error_events = []
     for event_id, base_attribution, attribution in zip(error_event_ids, grade_attributions, resolved_attributions, strict=True):
         error_events.append(
@@ -5030,35 +5336,19 @@ def grade_application(inputs: GradeInputs, scope: GradeScope, reads: GradeReads)
                 "updated_at": now_iso,
             }
         )
-    facet_evidence_rows: Iterable[Any] = grade.evidence_rows
-    if not grade.evidence_rows:
-        facet_evidence_rows = reads.grading_evidence
-    if unassessed:
-        facet_evidence_rows = [
-            row
-            for row in facet_evidence_rows
-            if (row.get("criterion_id") if isinstance(row, Mapping) else getattr(row, "criterion_id", None))
-            not in unassessed
-        ]
-    facet_uncertainty_updates, facet_uncertainty_trace = build_facet_uncertainty_updates(
-        config,
-        error_types=inputs.error_types,
-        learning_object=learning_object,
-        item=item,
-        rubric=rubric,
-        learning_object_id=learning_object.id,
-        attempt_id=attempt_id,
-        facet_outcomes=uncertainty_facet_outcomes,
-        criterion_facet_weights=uncertainty_facet_weights,
-        normalized_facet_weights=coverage.normalized_facet_weights,
-        evidence_rows=facet_evidence_rows,
-        error_attributions=resolved_attributions,
-        prior_uncertainties=prior_state.facet_uncertainty,
-        prior_facet_recall=prior_state.aggregate_facet_recall,
-        observed_error_type=primary_error_type,
-        algorithm_version=config.algorithms.algorithm_version,
-        now_iso=now_iso,
-    )
+    return error_events
+
+
+def _quality_update(
+    inputs: GradeInputs, scope: GradeScope, prior_state: AttemptPriorState, evidence: GradeEvidence
+) -> dict[str, Any] | None:
+    """The item's quality state after the grade (None for a held grade: no row)."""
+
+    item, grade, attempt_id = inputs.item, inputs.grade, inputs.attempt_id
+    config, now_iso = inputs.config, inputs.now_iso
+    correctness, held = scope.correctness, scope.held
+    prior_mastery = prior_state.mastery
+    resolved_attributions = evidence.resolved_attributions
     from learnloop.outcome_contract import HELD_ROW_KEY
 
     recent_item_failures = sum(
@@ -5088,100 +5378,45 @@ def grade_application(inputs: GradeInputs, scope: GradeScope, reads: GradeReads)
                 for attribution in resolved_attributions
             ),
         )
-    ability_transition = estimate_ability_transition(
-        item,
-        correctness=correctness,
-        attempt_type=draft.attempt_type,
-        target_facets=list(coverage.covered_facets),
-        error_event_written=bool(error_events),
-    )
-    ability_transition_event = {
-        "attempt_id": attempt_id,
-        "learning_object_id": learning_object.id,
-        "practice_item_id": item.id,
-        "transition_type": ability_transition["transition_type"],
-        "expected_skill_gain": ability_transition["expected_skill_gain"],
-        "target_facets": ability_transition["target_facets"],
-        "reason": ability_transition["reason"],
-        "applied_to_belief_counts": ability_transition["applied_to_belief_counts"],
-        "applied_to_mastery": ability_transition["applied_to_mastery"],
-        "applied_to_facet_recall": ability_transition["applied_to_facet_recall"],
-        "process_noise": None,
-        "algorithm_version": config.algorithms.algorithm_version,
-        "created_at": now_iso,
-    }
+    return quality_state
+
+
+def _debug_payload(
+    inputs: GradeInputs,
+    scope: GradeScope,
+    evidence: GradeEvidence,
+    belief: BeliefUpdate,
+    review: ReviewUpdate,
+    *,
+    quality_state: dict[str, Any] | None,
+    ability_transition: dict[str, Any],
+    facet_uncertainty_updates: list[dict[str, Any]],
+    facet_uncertainty_trace: dict[str, Any],
+) -> dict[str, Any]:
+    """The attempt's debug payload: every intermediate the grade's arithmetic produced, as the reports read it."""
+
+    draft, grade, config, now_iso = inputs.draft, inputs.grade, inputs.config, inputs.now_iso
+    coverage, unassessed, held = scope.coverage, scope.unassessed, scope.held
+    prior_bad_item_suspicion = evidence.prior_bad_item_suspicion
+    fsrs_weights_fitted = review.weights_fitted
     debug_payload = {
         "item_coverage": coverage.item_coverage,
         "effective_coverage": coverage.effective_coverage,
-        "lo_relative_coverage": lo_coverage,
-        "lo_relative_coverage_trace": lo_coverage_trace,
-        "covered_required_fraction": breadth_fraction,
-        "covered_required_fraction_trace": breadth_trace,
-        "mastery_variance_floor": mastery_variance_floor,
+        "lo_relative_coverage": evidence.lo_coverage,
+        "lo_relative_coverage_trace": evidence.lo_coverage_trace,
+        "covered_required_fraction": evidence.breadth_fraction,
+        "covered_required_fraction_trace": evidence.breadth_trace,
+        "mastery_variance_floor": belief.mastery_variance_floor,
         "coverage_trace": coverage.trace,
-        "reliability_trace": reliability.trace,
-        "familiarity_trace": familiarity.trace,
-        "error_impact_trace": error_impact.trace,
-        "observation_weight": error_impact.observation_weight,
+        "reliability_trace": evidence.reliability.trace,
+        "familiarity_trace": evidence.familiarity.trace,
+        "error_impact_trace": evidence.error_impact.trace,
+        "observation_weight": evidence.error_impact.observation_weight,
         "covered_facets": coverage.covered_facets,
-        "facet_outcomes": facet_outcomes,
+        "facet_outcomes": evidence.facet_outcomes,
         # PF-c: present only when the grade left criteria unassessed.
         **({"unassessed_criteria": sorted(unassessed)} if unassessed else {}),
-        "causal_attribution": {
-            # A blind grade names its own grader (its calibration identity),
-            # never the joint prompt it did not run.
-            "prompt_version": GRADING_PROMPT_VERSION if grader_identity is None else grader_identity[0],
-            "diagnosis_present": bool((grade.diagnosis_md or "").strip()),
-            "attribution_count": len(grade_attributions),
-            "resolution_counts": {
-                status: sum(
-                    1
-                    for attribution in grade_attributions
-                    if (
-                        attribution.resolution_status
-                        or (
-                            "resolved"
-                            if attribution.target_evidence_families
-                            or attribution.target_criterion_ids
-                            or (
-                                attribution.target_ref is not None
-                                and attribution.target_ref.get("kind") != "none"
-                            )
-                            else "unresolved"
-                        )
-                    )
-                    == status
-                )
-                for status in ("resolved", "unresolved", "abstained")
-            },
-            "facet_target_fill_count": sum(
-                bool(attribution.target_evidence_families)
-                for attribution in grade_attributions
-            ),
-            "criterion_target_fill_count": sum(
-                bool(attribution.target_criterion_ids)
-                for attribution in grade_attributions
-            ),
-            "judgment_fill_counts": {
-                "cause_scope": sum(attribution.cause_scope is not None for attribution in grade_attributions),
-                "operation": sum(attribution.operation is not None for attribution in grade_attributions),
-                "first_divergence": sum(
-                    attribution.first_divergence is not None for attribution in grade_attributions
-                ),
-                "facet_contrast": sum(
-                    attribution.facet_contrast is not None for attribution in grade_attributions
-                ),
-                "localization_confidence": sum(
-                    attribution.model_reported_localization_confidence is not None
-                    for attribution in grade_attributions
-                ),
-                "causal_confidence": sum(
-                    attribution.model_reported_causal_confidence is not None
-                    for attribution in grade_attributions
-                ),
-            },
-            "firewall_events": attribution_audit_events,
-        },
+        "causal_attribution": _causal_attribution_counts(inputs, evidence),
         # Meas §3.A5: the profile channel's per-attempt tally, in the same debug
         # payload `causal_attribution_audit_report` already reads, so the
         # two-tailed fill telemetry covers it without a second traversal of the
@@ -5199,16 +5434,16 @@ def grade_application(inputs: GradeInputs, scope: GradeScope, reads: GradeReads)
             if getattr(grade, "error_hunt", None)
             else {}
         ),
-        "max_error_severity": max_event_severity,
-        "primary_error_type": primary_error_type,
+        "max_error_severity": evidence.max_event_severity,
+        "primary_error_type": evidence.primary_error_type,
         "prior_bad_item_suspicion": prior_bad_item_suspicion,
         "bad_item_suspicion": (
             quality_state["bad_item_suspicion"] if quality_state is not None else prior_bad_item_suspicion
         ),
-        "severity_traces": severity_traces,
-        "predicted_correctness": expected_correctness,
-        "prediction_trace": prediction_trace,
-        "facet_recall_updates": facet_recall_updates,
+        "severity_traces": evidence.severity_traces,
+        "predicted_correctness": evidence.expected_correctness,
+        "prediction_trace": evidence.prediction_trace,
+        "facet_recall_updates": evidence.facet_recall_updates,
         "facet_uncertainty_updates": facet_uncertainty_updates,
         "facet_uncertainty_trace": facet_uncertainty_trace,
         "ability_transition": ability_transition,
@@ -5226,73 +5461,69 @@ def grade_application(inputs: GradeInputs, scope: GradeScope, reads: GradeReads)
         "algorithm_version": config.algorithms.algorithm_version,
         "created_at": now_iso,
     }
-    practice_state = PracticeItemState(
-        practice_item_id=item.id,
-        difficulty=next_memory.difficulty if next_memory is not None else None,
-        stability=next_memory.stability if next_memory is not None else None,
-        retrievability=next_memory.retrievability if next_memory is not None else None,
-        due_at=due_at,
-        # A diagnostic probe is a single-use surface: it exists to carry exactly
-        # one administration, and re-serving it would conflate memorization of
-        # the question with understanding. The FSRS skip above already leaves it
-        # unscheduled (due_at stays as it was); this closes the pool door too.
-        # Living in the shared compute path, the flip replays identically under
-        # `rebuild-derived-state`.
-        active=item.practice_mode != "diagnostic_probe",
-        content_hash=practice_item_hash(item),
-        last_attempt_at=now_iso,
-        updated_at=now_iso,
-    )
-    surprise_record = surprise.as_record(attempt_id, config.algorithms.algorithm_version, now_iso)
-    mastery_display = display_mastery(posterior_mastery)
-    result = AttemptResult(
-        attempt_id=attempt_id,
-        practice_item_id=item.id,
-        learning_object_id=learning_object.id,
-        rubric_score=grade.rubric_score,
-        correctness=correctness,
-        grader_confidence=grade.grader_confidence,
-        manual_review_reason=grade.manual_review_reason,
-        fsrs_rating=fsrs_rating.name.lower(),
-        due_at=due_at,
-        mastery_mean=mastery_display.mastery_mean,
-        mastery_variance=mastery_display.mastery_variance,
-        surprise_direction=surprise.surprise_direction,
-        predictive_surprise=surprise.predictive_surprise,
-        bayesian_surprise=surprise.bayesian_surprise,
-        error_event_ids=error_event_ids,
-        grading_source=grading_source,
-        fallback_reason=fallback_reason,
-        agent_run_id=agent_run_id,
-        feedback_md=grade.feedback_md,
-        repair_suggestions=list(repair_suggestions),
-        fatal_errors=list(grade.fatal_errors),
-        mastery_trace=mastery_trace,
-        debug_payload=debug_payload,
-        exercised_facets=list(getattr(grade, "exercised_facets", None) or []),
-        clarification=getattr(grade, "clarification", None),
-        discrimination_profile_match=getattr(grade, "discrimination_profile_match", None),
-        error_hunt=getattr(grade, "error_hunt", None),
-    )
-    return AttemptApplication(
-        attempt_record=attempt_record,
-        evidence_rows=grade.evidence_rows,
-        error_events=error_events,
-        surprise_record=surprise_record,
-        practice_item_state=practice_state,
-        mastery_state=posterior_mastery,
-        facet_recall_states=facet_recall_updates,
-        facet_uncertainty_states=facet_uncertainty_updates,
-        quality_state=quality_state,
-        ability_transition=ability_transition_event,
-        attempt_debug_payload=debug_payload,
-        result=result,
-        item_parameter_state=next_item_parameters,
-        grade_held=held,
-        rubric=rubric,
-        grade_contract_unrecorded=grade_contract_unrecorded,
-        fsrs_review=fsrs_review,
-    )
+    return debug_payload
+
+
+def _causal_attribution_counts(inputs: GradeInputs, evidence: GradeEvidence) -> dict[str, Any]:
+    """How the kept attributions are filled, for the causal attribution audit."""
+
+    grade, grader_identity = inputs.grade, inputs.grader_identity
+    grade_attributions, attribution_audit_events = evidence.grade_attributions, evidence.attribution_audit_events
+    return {
+        # A blind grade names its own grader (its calibration identity),
+        # never the joint prompt it did not run.
+        "prompt_version": GRADING_PROMPT_VERSION if grader_identity is None else grader_identity[0],
+        "diagnosis_present": bool((grade.diagnosis_md or "").strip()),
+        "attribution_count": len(grade_attributions),
+        "resolution_counts": {
+            status: sum(
+                1
+                for attribution in grade_attributions
+                if (
+                    attribution.resolution_status
+                    or (
+                        "resolved"
+                        if attribution.target_evidence_families
+                        or attribution.target_criterion_ids
+                        or (
+                            attribution.target_ref is not None
+                            and attribution.target_ref.get("kind") != "none"
+                        )
+                        else "unresolved"
+                    )
+                )
+                == status
+            )
+            for status in ("resolved", "unresolved", "abstained")
+        },
+        "facet_target_fill_count": sum(
+            bool(attribution.target_evidence_families)
+            for attribution in grade_attributions
+        ),
+        "criterion_target_fill_count": sum(
+            bool(attribution.target_criterion_ids)
+            for attribution in grade_attributions
+        ),
+        "judgment_fill_counts": {
+            "cause_scope": sum(attribution.cause_scope is not None for attribution in grade_attributions),
+            "operation": sum(attribution.operation is not None for attribution in grade_attributions),
+            "first_divergence": sum(
+                attribution.first_divergence is not None for attribution in grade_attributions
+            ),
+            "facet_contrast": sum(
+                attribution.facet_contrast is not None for attribution in grade_attributions
+            ),
+            "localization_confidence": sum(
+                attribution.model_reported_localization_confidence is not None
+                for attribution in grade_attributions
+            ),
+            "causal_confidence": sum(
+                attribution.model_reported_causal_confidence is not None
+                for attribution in grade_attributions
+            ),
+        },
+        "firewall_events": attribution_audit_events,
+    }
 
 
 def _fsrs_review_summary(rubric_score: Any, max_points: Any, hints_used: int, *, rating: Any,
